@@ -14,7 +14,7 @@
         <header class="app-header">
             <div class="header-left">
                 <h1><i class="fas fa-bolt"></i> STO Tools Keybind Manager</h1>
-                <span class="version">v2025.06.16</span>
+                <span class="version" id="appVersion"></span>
             </div>
             <div class="header-right">
                 <button class="btn btn-secondary" id="openProjectBtn" title="Open Project JSON">
@@ -398,7 +398,7 @@
             <div class="modal-body">
                 <div class="about-content">
                     <div class="app-info">
-                        <h4><i class="fas fa-bolt"></i> STO Tools Keybind Manager v1.0</h4>
+                        <h4><i class="fas fa-bolt"></i> STO Tools Keybind Manager <span id="aboutVersion"></span></h4>
                         <p>A comprehensive tool for creating, editing, and managing Star Trek Online keybind configurations.</p>
                     </div>
                     <div class="features">
@@ -432,6 +432,8 @@
     <input type="file" id="fileInput" accept=".json,.txt" style="display: none;">
 
     <!-- Scripts -->
+    <script src="js/constants.js"></script>
+    <script src="js/version.js"></script>
     <script src="js/data.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/ui.js"></script>
