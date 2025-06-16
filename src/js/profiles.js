@@ -416,7 +416,7 @@ class STOProfileManager {
             recommendations.push({
                 type: 'defensive',
                 title: 'Add Defensive Abilities',
-                description: 'Add power management commands like shield distribution and emergency powers.',
+                description: 'Add shield management commands like shield distribution and shield routing.',
                 priority: 'medium'
             });
         }

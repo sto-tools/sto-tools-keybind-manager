@@ -448,11 +448,16 @@ class STOKeybindManager {
         element.dataset.index = index;
         element.draggable = true;
         
+        // Check if command has a warning
+        const warningInfo = this.getCommandWarning(command);
+        const warningIcon = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : '';
+        
         element.innerHTML = `
             <div class="command-number">${index + 1}</div>
             <div class="command-content">
                 <span class="command-icon">${command.icon}</span>
                 <span class="command-text">${command.text}</span>
+                ${warningIcon}
             </div>
             <span class="command-type ${command.type}">${command.type}</span>
             <div class="command-actions">
@@ -474,6 +479,24 @@ class STOKeybindManager {
         `;
         
         return element;
+    }
+
+    getCommandWarning(command) {
+        // Look up the command in the data structure to find its warning
+        const categories = STO_DATA.commands;
+        
+        for (const [categoryId, category] of Object.entries(categories)) {
+            for (const [cmdId, cmdData] of Object.entries(category.commands)) {
+                // Match by command text or actual command
+                if (cmdData.command === command.command || 
+                    cmdData.name === command.text ||
+                    command.command.includes(cmdData.command)) {
+                    return cmdData.warning || null;
+                }
+            }
+        }
+        
+        return null;
     }
 
     setupCommandLibrary() {

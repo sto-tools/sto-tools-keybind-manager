@@ -549,6 +549,29 @@ body {
   gap: 0.25rem;
 }
 
+.command-warning-icon {
+  color: var(--warning);
+  margin-left: 0.5rem;
+  cursor: help;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.command-warning-icon i {
+  font-size: 0.9rem;
+  animation: warning-pulse 2s infinite;
+}
+
+.command-warning-icon:hover {
+  color: #f59e0b;
+}
+
+@keyframes warning-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .generated-command {
   margin-bottom: 1rem;
 }
@@ -1197,6 +1220,7 @@ body {
 .command-type.tray { background: var(--primary); }
 .command-type.power { background: var(--warning); }
 .command-type.movement { background: var(--accent); }
+.command-type.camera { background: #06b6d4; }
 .command-type.communication { background: #8b5cf6; }
 .command-type.system { background: var(--secondary); }
 .command-type.alias { background: linear-gradient(135deg, var(--accent), #fbbf24); }
@@ -1304,6 +1328,32 @@ body {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
+}
+
+/* Command warning styles */
+.command-warning {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #fef3cd;
+  border: 1px solid #ffd60a;
+  border-radius: var(--radius);
+  color: #856404;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.command-warning i {
+  color: #ffd60a;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .command-warning {
+  background: #332800;
+  border-color: #ffd60a;
+  color: #f9f9f9;
 }
 
 /* Alias card styles */

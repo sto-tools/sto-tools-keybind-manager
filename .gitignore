@@ -3,3 +3,9 @@ mockup/
 samples/
 test/node_modules/
 test/results/
+
+
+# START Ruler Generated Files
+.cursor/rules/ruler_cursor_instructions.md
+.windsurf/rules/ruler_windsurf_instructions.md
+# END Ruler Generated Files

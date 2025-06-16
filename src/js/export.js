@@ -282,7 +282,7 @@ class STOExportManager {
 ;   FirePhasers          - Fire beam weapons only
 ;   FireTorps            - Fire torpedo weapons only
 ; 
-; Power Management:
+; Shield Management:
 ;   +power_exec <ability> - Execute bridge officer ability
 ;   Examples: +power_exec Distribute_Shields 
 ; 

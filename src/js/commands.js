@@ -67,7 +67,7 @@ class STOCommandManager {
             getUI: () => this.createTrayUI()
         });
 
-        // Power management commands
+        // Shield management commands
         this.commandBuilders.set('power', {
             build: (commandId, params = {}) => {
                 const cmd = STO_DATA.commands.power.commands[commandId];
@@ -90,8 +90,19 @@ class STOCommandManager {
                 const cmd = STO_DATA.commands.movement.commands[commandId];
                 if (!cmd) return null;
                 
+                let command = cmd.command;
+                
+                // Handle parameterized movement commands
+                if (cmd.customizable && params) {
+                    if (commandId === 'throttle_adjust' && params.amount !== undefined) {
+                        command = `${cmd.command} ${params.amount}`;
+                    } else if (commandId === 'throttle_set' && params.position !== undefined) {
+                        command = `${cmd.command} ${params.position}`;
+                    }
+                }
+                
                 return {
-                    command: cmd.command,
+                    command: command,
                     type: 'movement',
                     icon: cmd.icon,
                     text: cmd.name,
@@ -99,6 +110,32 @@ class STOCommandManager {
                 };
             },
             getUI: () => this.createMovementUI()
+        });
+
+        // Camera commands
+        this.commandBuilders.set('camera', {
+            build: (commandId, params = {}) => {
+                const cmd = STO_DATA.commands.camera.commands[commandId];
+                if (!cmd) return null;
+                
+                let command = cmd.command;
+                
+                // Handle parameterized camera commands
+                if (cmd.customizable && params) {
+                    if (commandId === 'cam_distance' && params.distance !== undefined) {
+                        command = `${cmd.command} ${params.distance}`;
+                    }
+                }
+                
+                return {
+                    command: command,
+                    type: 'camera',
+                    icon: cmd.icon,
+                    text: cmd.name,
+                    description: cmd.description
+                };
+            },
+            getUI: () => this.createCameraUI()
         });
 
         // Communication commands
@@ -127,8 +164,19 @@ class STOCommandManager {
                 const cmd = STO_DATA.commands.system.commands[commandId];
                 if (!cmd) return null;
                 
+                let command = cmd.command;
+                
+                // Handle parameterized system commands
+                if (cmd.customizable && params) {
+                    if ((commandId === 'bind_save_file' || commandId === 'bind_load_file') && params.filename) {
+                        command = `${cmd.command} ${params.filename}`;
+                    } else if (commandId === 'combat_log' && params.state !== undefined) {
+                        command = `${cmd.command} ${params.state}`;
+                    }
+                }
+                
                 return {
-                    command: cmd.command,
+                    command: command,
                     type: 'system',
                     icon: cmd.icon,
                     text: cmd.name,
@@ -186,6 +234,10 @@ class STOCommandManager {
                         `<option value="${id}">${cmd.name}</option>`
                     ).join('')}
                 </select>
+                <div id="combatCommandWarning" class="command-warning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="combatWarningText"></span>
+                </div>
             </div>
         `;
     }
@@ -223,13 +275,17 @@ class STOCommandManager {
         
         return `
             <div class="command-selector">
-                <label for="powerCommand">Power Command:</label>
+                <label for="powerCommand">Shield Command:</label>
                 <select id="powerCommand">
-                    <option value="">Select power command...</option>
+                    <option value="">Select shield command...</option>
                     ${Object.entries(commands).map(([id, cmd]) => 
                         `<option value="${id}">${cmd.name}</option>`
                     ).join('')}
                 </select>
+                <div id="powerCommandWarning" class="command-warning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="powerWarningText"></span>
+                </div>
             </div>
         `;
     }
@@ -246,6 +302,16 @@ class STOCommandManager {
                         `<option value="${id}">${cmd.name}</option>`
                     ).join('')}
                 </select>
+                <div id="movementParams" style="display: none;">
+                    <div class="form-group">
+                        <label for="movementAmount">Amount (-1 to 1):</label>
+                        <input type="number" id="movementAmount" min="-1" max="1" step="0.05" value="0.25">
+                    </div>
+                    <div class="form-group">
+                        <label for="movementPosition">Position (-1 to 1):</label>
+                        <input type="number" id="movementPosition" min="-1" max="1" step="0.1" value="1">
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -273,6 +339,28 @@ class STOCommandManager {
         `;
     }
 
+    createCameraUI() {
+        const commands = STO_DATA.commands.camera.commands;
+        
+        return `
+            <div class="command-selector">
+                <label for="cameraCommand">Camera Command:</label>
+                <select id="cameraCommand">
+                    <option value="">Select camera command...</option>
+                    ${Object.entries(commands).map(([id, cmd]) => 
+                        `<option value="${id}">${cmd.name}</option>`
+                    ).join('')}
+                </select>
+                <div id="cameraParams" style="display: none;">
+                    <div class="form-group">
+                        <label for="cameraDistance">Distance:</label>
+                        <input type="number" id="cameraDistance" min="1" max="500" value="50">
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     createSystemUI() {
         const commands = STO_DATA.commands.system.commands;
         
@@ -285,6 +373,16 @@ class STOCommandManager {
                         `<option value="${id}">${cmd.name}</option>`
                     ).join('')}
                 </select>
+                <div id="systemParams" style="display: none;">
+                    <div class="form-group">
+                        <label for="systemFilename">Filename:</label>
+                        <input type="text" id="systemFilename" value="my_binds.txt">
+                    </div>
+                    <div class="form-group">
+                        <label for="systemState">State (0/1):</label>
+                        <input type="number" id="systemState" min="0" max="1" value="1">
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -361,7 +459,7 @@ class STOCommandManager {
         document.addEventListener('change', (e) => {
             const commandSelectors = [
                 'targetingCommand', 'combatCommand', 'powerCommand', 
-                'movementCommand', 'systemCommand', 'commCommand'
+                'movementCommand', 'cameraCommand', 'systemCommand', 'commCommand'
             ];
             
             if (commandSelectors.includes(e.target.id)) {
@@ -400,7 +498,63 @@ class STOCommandManager {
     setupTypeSpecificListeners(type) {
         if (type === 'tray') {
             this.updateTrayVisual();
+        } else if (type === 'power') {
+            // Add power command change listener for warnings
+            const powerSelect = document.getElementById('powerCommand');
+            if (powerSelect) {
+                powerSelect.addEventListener('change', () => {
+                    this.showPowerWarning(powerSelect.value);
+                });
+            }
+        } else if (type === 'combat') {
+            // Add combat command change listener for warnings
+            const combatSelect = document.getElementById('combatCommand');
+            if (combatSelect) {
+                combatSelect.addEventListener('change', () => {
+                    this.showCombatWarning(combatSelect.value);
+                });
+            }
         }
+    }
+
+    // Show warning for specific power commands
+    showPowerWarning(commandId) {
+        const warningDiv = document.getElementById('powerCommandWarning');
+        const warningText = document.getElementById('powerWarningText');
+        
+        if (!warningDiv || !warningText) return;
+        
+        if (commandId && STO_DATA.commands.power.commands[commandId]) {
+            const command = STO_DATA.commands.power.commands[commandId];
+            if (command.warning) {
+                warningText.textContent = command.warning;
+                warningDiv.style.display = 'block';
+                return;
+            }
+        }
+        
+        // Hide warning if no warning for this command
+        warningDiv.style.display = 'none';
+    }
+
+    // Show warning for specific combat commands
+    showCombatWarning(commandId) {
+        const warningDiv = document.getElementById('combatCommandWarning');
+        const warningText = document.getElementById('combatWarningText');
+        
+        if (!warningDiv || !warningText) return;
+        
+        if (commandId && STO_DATA.commands.combat.commands[commandId]) {
+            const command = STO_DATA.commands.combat.commands[commandId];
+            if (command.warning) {
+                warningText.textContent = command.warning;
+                warningDiv.style.display = 'block';
+                return;
+            }
+        }
+        
+        // Hide warning if no warning for this command
+        warningDiv.style.display = 'none';
     }
 
     // Update command preview in modal
@@ -453,6 +607,18 @@ class STOCommandManager {
                 
             case 'movement':
                 commandId = document.getElementById('movementCommand')?.value;
+                if (commandId === 'throttle_adjust') {
+                    params.amount = parseFloat(document.getElementById('movementAmount')?.value || 0.25);
+                } else if (commandId === 'throttle_set') {
+                    params.position = parseFloat(document.getElementById('movementPosition')?.value || 1);
+                }
+                break;
+                
+            case 'camera':
+                commandId = document.getElementById('cameraCommand')?.value;
+                if (commandId === 'cam_distance') {
+                    params.distance = parseInt(document.getElementById('cameraDistance')?.value || 50);
+                }
                 break;
                 
             case 'communication':
@@ -464,6 +630,11 @@ class STOCommandManager {
                 
             case 'system':
                 commandId = document.getElementById('systemCommand')?.value;
+                if (commandId === 'bind_save_file' || commandId === 'bind_load_file') {
+                    params.filename = document.getElementById('systemFilename')?.value || 'my_binds.txt';
+                } else if (commandId === 'combat_log') {
+                    params.state = parseInt(document.getElementById('systemState')?.value || 1);
+                }
                 break;
                 
             case 'custom':
@@ -600,14 +771,18 @@ class STOCommandManager {
         if (cmd.startsWith('say ') || cmd.startsWith('team ') || cmd.startsWith('zone ') || 
             cmd.startsWith('tell ') || cmd.includes('"')) return 'communication';
         
-        // Power management commands
+        // Shield management commands
         if (cmd.includes('+power_exec') || cmd.includes('distribute_shields') || 
-            cmd.includes('emergency_power') || cmd.includes('tactical_team') ||
-            cmd.includes('engineering_team') || cmd.includes('science_team')) return 'power';
+            cmd.includes('reroute_shields')) return 'power';
         
         // Movement commands
         if (cmd.includes('+fullimpulse') || cmd.includes('+reverse') || 
-            cmd.includes('evasive_maneuvers')) return 'movement';
+            cmd.includes('throttle') || cmd.includes('+turn') || cmd.includes('+up') || 
+            cmd.includes('+down') || cmd.includes('+left') || cmd.includes('+right') ||
+            cmd.includes('+forward') || cmd.includes('+backward') || cmd.includes('follow')) return 'movement';
+        
+        // Camera commands
+        if (cmd.includes('cam') || cmd.includes('look') || cmd.includes('zoom')) return 'camera';
         
         // Combat commands
         if (cmd.includes('fire') || cmd.includes('attack') || cmd === 'fireall' ||
@@ -633,6 +808,7 @@ class STOCommandManager {
             power: '🔋',
             communication: '💬',
             movement: '🚀',
+            camera: '📹',
             system: '⚙️'
         };
         return iconMap[type] || '⚙️';

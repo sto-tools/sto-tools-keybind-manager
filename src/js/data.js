@@ -83,30 +83,50 @@ const STO_DATA = {
                 fire_all: {
                     name: "Fire All Weapons",
                     command: "FireAll",
-                    description: "Fire all equipped weapons",
+                    description: "Fire all weapons",
                     syntax: "FireAll",
-                    icon: "🔥"
+                    icon: "🔥",
+                    warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
                 fire_phasers: {
                     name: "Fire Energy Weapons",
                     command: "FirePhasers",
-                    description: "Fire energy weapons only",
+                    description: "Fire all Energy Weapons",
                     syntax: "FirePhasers",
-                    icon: "⚡"
+                    icon: "⚡",
+                    warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
                 fire_torps: {
                     name: "Fire Torpedoes",
                     command: "FireTorps", 
-                    description: "Fire torpedo weapons only",
+                    description: "Fire all Torpedos",
                     syntax: "FireTorps",
-                    icon: "🚀"
+                    icon: "🚀",
+                    warning: "Not recommended on spam bars as it interferes with firing cycles"
+                },
+                fire_mines: {
+                    name: "Fire Mines",
+                    command: "FireMines",
+                    description: "Fire all Mines",
+                    syntax: "FireMines",
+                    icon: "💣",
+                    warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
                 fire_phasers_torps: {
                     name: "Fire Phasers & Torpedoes",
                     command: "FirePhasersTorps",
-                    description: "Fire energy weapons and torpedoes",
+                    description: "Fire phasers & torpedos",
                     syntax: "FirePhasersTorps",
-                    icon: "💥"
+                    icon: "💥",
+                    warning: "Not recommended on spam bars as it interferes with firing cycles"
+                },
+                fire_projectiles: {
+                    name: "Fire Projectiles",
+                    command: "FireProjectiles",
+                    description: "Fire torpedos & mines",
+                    syntax: "FireProjectiles",
+                    icon: "🎯",
+                    warning: "Not recommended on spam bars as it interferes with firing cycles"
                 }
             }
         },
@@ -132,65 +152,45 @@ const STO_DATA = {
         },
 
         power: {
-            name: "Power Management", 
-            icon: "fas fa-battery-three-quarters",
-            description: "Ship power and system management",
+            name: "Shield Management", 
+            icon: "fas fa-shield-alt",
+            description: "Shield power and distribution management",
             commands: {
                 distribute_shields: {
                     name: "Distribute Shields",
                     command: "+power_exec Distribute_Shields",
-                    description: "Distribute shield power evenly",
+                    description: "Evenly distributes shields as if clicking in the middle of the ship and shields icon",
                     syntax: "+power_exec Distribute_Shields",
+                    icon: "🛡️",
+                    warning: "Not recommended on spam bars as it interferes with firing cycles"
+                },
+                reroute_shields_rear: {
+                    name: "Reroute Shields Rear",
+                    command: "+power_exec reroute_shields_rear",
+                    description: "Route shield power to rear facing",
+                    syntax: "+power_exec reroute_shields_rear",
                     icon: "🛡️"
                 },
-                emergency_power_shields: {
-                    name: "Emergency to Shields",
-                    command: "+power_exec Emergency_Power_to_Shields",
-                    description: "Emergency power to shield systems",
-                    syntax: "+power_exec Emergency_Power_to_Shields",
-                    icon: "🔋"
+                reroute_shields_left: {
+                    name: "Reroute Shields Left",
+                    command: "+power_exec reroute_shields_left",
+                    description: "Route shield power to left side",
+                    syntax: "+power_exec reroute_shields_left",
+                    icon: "🛡️"
                 },
-                emergency_power_weapons: {
-                    name: "Emergency to Weapons",
-                    command: "+power_exec Emergency_Power_to_Weapons", 
-                    description: "Emergency power to weapon systems",
-                    syntax: "+power_exec Emergency_Power_to_Weapons",
-                    icon: "⚡"
+                reroute_shields_right: {
+                    name: "Reroute Shields Right",
+                    command: "+power_exec reroute_shields_right",
+                    description: "Route shield power to right side",
+                    syntax: "+power_exec reroute_shields_right",
+                    icon: "🛡️"
                 },
-                emergency_power_engines: {
-                    name: "Emergency to Engines",
-                    command: "+power_exec Emergency_Power_to_Engines",
-                    description: "Emergency power to engine systems",
-                    syntax: "+power_exec Emergency_Power_to_Engines", 
-                    icon: "🚀"
-                },
-                emergency_power_aux: {
-                    name: "Emergency to Auxiliary",
-                    command: "+power_exec Emergency_Power_to_Aux",
-                    description: "Emergency power to auxiliary systems",
-                    syntax: "+power_exec Emergency_Power_to_Aux",
-                    icon: "🔧"
-                },
-                tactical_team: {
-                    name: "Tactical Team",
-                    command: "+power_exec Tactical_Team",
-                    description: "Activate tactical team ability",
-                    syntax: "+power_exec Tactical_Team",
-                    icon: "⚔️"
-                },
-                engineering_team: {
-                    name: "Engineering Team", 
-                    command: "+power_exec Engineering_Team",
-                    description: "Activate engineering team ability",
-                    syntax: "+power_exec Engineering_Team",
-                    icon: "🔧"
-                },
-                science_team: {
-                    name: "Science Team",
-                    command: "+power_exec Science_Team", 
-                    description: "Activate science team ability",
-                    syntax: "+power_exec Science_Team",
-                    icon: "🔬"
+                reroute_shields_forward: {
+                    name: "Reroute Shields Forward",
+                    command: "+power_exec reroute_shields_forward",
+                    description: "Route shield power to forward facing",
+                    syntax: "+power_exec reroute_shields_forward",
+                    icon: "🛡️"
                 }
             }
         },
@@ -214,12 +214,207 @@ const STO_DATA = {
                     syntax: "+reverse",
                     icon: "⬅️"
                 },
-                evasive_maneuvers: {
-                    name: "Evasive Maneuvers",
-                    command: "+power_exec Evasive_Maneuvers",
-                    description: "Execute evasive maneuvers",
-                    syntax: "+power_exec Evasive_Maneuvers",
-                    icon: "💨"
+                throttle_adjust: {
+                    name: "Throttle Adjust",
+                    command: "ThrottleAdjust",
+                    description: "Increase or decrease the throttle by amount",
+                    syntax: "ThrottleAdjust <amount>",
+                    icon: "⚡",
+                    customizable: true,
+                    parameters: {
+                        amount: { type: "number", min: -1, max: 1, default: 0.25, step: 0.05 }
+                    }
+                },
+                throttle_set: {
+                    name: "Throttle Set",
+                    command: "ThrottleSet",
+                    description: "Set the throttle to a specific position (negative = reverse, 0 = stop)",
+                    syntax: "ThrottleSet <position>",
+                    icon: "🎛️",
+                    customizable: true,
+                    parameters: {
+                        position: { type: "number", min: -1, max: 1, default: 1, step: 0.1 }
+                    }
+                },
+                throttle_toggle: {
+                    name: "Throttle Toggle",
+                    command: "ThrottleToggle",
+                    description: "Alternates between full throttle and full stop",
+                    syntax: "ThrottleToggle",
+                    icon: "🔄"
+                },
+                turn_left: {
+                    name: "Turn Left",
+                    command: "+turnleft",
+                    description: "Turn ship left (continuous while held)",
+                    syntax: "+turnleft",
+                    icon: "↪️"
+                },
+                turn_right: {
+                    name: "Turn Right",
+                    command: "+turnright",
+                    description: "Turn ship right (continuous while held)",
+                    syntax: "+turnright",
+                    icon: "↩️"
+                },
+                pitch_up: {
+                    name: "Pitch Up",
+                    command: "+up",
+                    description: "Pitch ship nose up (space altitude change)",
+                    syntax: "+up",
+                    icon: "⬆️"
+                },
+                pitch_down: {
+                    name: "Pitch Down", 
+                    command: "+down",
+                    description: "Pitch ship nose down (space altitude change)",
+                    syntax: "+down",
+                    icon: "⬇️"
+                },
+                strafe_left: {
+                    name: "Strafe Left",
+                    command: "+left",
+                    description: "Strafe ship left",
+                    syntax: "+left",
+                    icon: "⬅️"
+                },
+                strafe_right: {
+                    name: "Strafe Right",
+                    command: "+right",
+                    description: "Strafe ship right",
+                    syntax: "+right",
+                    icon: "➡️"
+                },
+                forward: {
+                    name: "Forward",
+                    command: "+forward",
+                    description: "Move forward",
+                    syntax: "+forward",
+                    icon: "⬆️"
+                },
+                backward: {
+                    name: "Backward",
+                    command: "+backward",
+                    description: "Move backward",
+                    syntax: "+backward",
+                    icon: "⬇️"
+                },
+                auto_forward: {
+                    name: "Auto Forward",
+                    command: "autoForward",
+                    description: "Character moves forward until given new movement commands",
+                    syntax: "autoForward",
+                    icon: "🏃"
+                },
+                follow: {
+                    name: "Follow Target",
+                    command: "Follow",
+                    description: "Follow the targeted entity",
+                    syntax: "Follow",
+                    icon: "👥"
+                },
+                follow_cancel: {
+                    name: "Cancel Follow",
+                    command: "Follow_Cancel",
+                    description: "Stop following and forget about the target",
+                    syntax: "Follow_Cancel",
+                    icon: "❌"
+                }
+            }
+        },
+
+        camera: {
+            name: "Camera",
+            icon: "fas fa-video",
+            description: "Camera control and view management",
+            commands: {
+                zoom_in: {
+                    name: "Zoom In",
+                    command: "Camzoomin",
+                    description: "Zoom the camera in",
+                    syntax: "Camzoomin",
+                    icon: "🔍"
+                },
+                zoom_out: {
+                    name: "Zoom Out",
+                    command: "Camzoomout",
+                    description: "Zoom the camera out",
+                    syntax: "Camzoomout",
+                    icon: "🔎"
+                },
+                zoom_in_small: {
+                    name: "Zoom In Small",
+                    command: "Camzoominsmall",
+                    description: "Zoom the camera in slightly",
+                    syntax: "Camzoominsmall",
+                    icon: "🔍"
+                },
+                zoom_out_small: {
+                    name: "Zoom Out Small",
+                    command: "Camzoomoutsmall",
+                    description: "Zoom the camera out slightly",
+                    syntax: "Camzoomoutsmall",
+                    icon: "🔎"
+                },
+                cam_distance: {
+                    name: "Set Camera Distance",
+                    command: "camdist",
+                    description: "Sets the camera distance from the player",
+                    syntax: "camdist <distance>",
+                    icon: "📏",
+                    customizable: true,
+                    parameters: {
+                        distance: { type: "number", min: 1, max: 500, default: 50 }
+                    }
+                },
+                cam_reset: {
+                    name: "Reset Camera",
+                    command: "CamReset",
+                    description: "Reset the camera position to default",
+                    syntax: "CamReset",
+                    icon: "🔄"
+                },
+                cam_target_lock: {
+                    name: "Lock Camera to Target",
+                    command: "Camsetlocktotarget",
+                    description: "Lock or unlock the camera to the target",
+                    syntax: "Camsetlocktotarget",
+                    icon: "🎯"
+                },
+                cam_cycle_distance: {
+                    name: "Cycle Camera Distance",
+                    command: "camCycleDist",
+                    description: "Cycle the camera distance between several preset values",
+                    syntax: "camCycleDist",
+                    icon: "🔄"
+                },
+                cam_mouse_look: {
+                    name: "Mouse Look",
+                    command: "+camMouseLook",
+                    description: "Enable mouse look camera control",
+                    syntax: "+camMouseLook",
+                    icon: "🖱️"
+                },
+                cam_turn_to_face: {
+                    name: "Turn to Face Camera",
+                    command: "+camTurnToFace",
+                    description: "Turn ship to face camera direction",
+                    syntax: "+camTurnToFace",
+                    icon: "↪️"
+                },
+                look_up: {
+                    name: "Look Up",
+                    command: "lookUp",
+                    description: "Change point of view to look straight up",
+                    syntax: "lookUp",
+                    icon: "⬆️"
+                },
+                look_down: {
+                    name: "Look Down",
+                    command: "lookDown",
+                    description: "Change point of view to look straight down",
+                    syntax: "lookDown",
+                    icon: "⬇️"
                 }
             }
         },
@@ -284,12 +479,73 @@ const STO_DATA = {
                     syntax: "screenshot",
                     icon: "📷"
                 },
+                screenshot_jpg: {
+                    name: "Screenshot JPG",
+                    command: "screenshot_jpg",
+                    description: "Save a screenshot as JPG",
+                    syntax: "screenshot_jpg",
+                    icon: "📷"
+                },
                 autofire_toggle: {
                     name: "Toggle Autofire",
                     command: "+GenToggleAutofire",
                     description: "Toggle weapon autofire",
                     syntax: "+GenToggleAutofire",
                     icon: "🔁"
+                },
+                bind_save_file: {
+                    name: "Save Binds to File",
+                    command: "bind_save_file",
+                    description: "Save all your binds to a text file",
+                    syntax: "bind_save_file <filename>",
+                    icon: "💾",
+                    customizable: true,
+                    parameters: {
+                        filename: { type: "text", default: "my_binds.txt" }
+                    }
+                },
+                bind_load_file: {
+                    name: "Load Binds from File",
+                    command: "bind_load_file",
+                    description: "Load a bind file into the client",
+                    syntax: "bind_load_file <filename>",
+                    icon: "📁",
+                    customizable: true,
+                    parameters: {
+                        filename: { type: "text", default: "my_binds.txt" }
+                    }
+                },
+                combat_log: {
+                    name: "Toggle Combat Log",
+                    command: "CombatLog",
+                    description: "Turn combat log recording on/off (1=on, 0=off)",
+                    syntax: "CombatLog <1/0>",
+                    icon: "📊",
+                    customizable: true,
+                    parameters: {
+                        state: { type: "number", min: 0, max: 1, default: 1 }
+                    }
+                },
+                missions: {
+                    name: "Show/Hide Missions",
+                    command: "missions",
+                    description: "Show/hide the mission journal",
+                    syntax: "missions",
+                    icon: "📋"
+                },
+                inventory: {
+                    name: "Show/Hide Inventory",
+                    command: "Inventory",
+                    description: "Show/hide your inventory",
+                    syntax: "Inventory",
+                    icon: "🎒"
+                },
+                map: {
+                    name: "Show/Hide Map",
+                    command: "Map",
+                    description: "Show/hide the map window",
+                    syntax: "Map",
+                    icon: "🗺️"
                 }
             }
         }
