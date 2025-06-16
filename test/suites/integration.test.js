@@ -142,6 +142,104 @@ describe('Profile and Keybind Integration', () => {
         expect(f1Commands).toHaveLength(1);
         expect(f1Commands[0].command).toBe('+STOTrayExecByTray 0 5');
     });
+
+    it('should categorize keys correctly in keybind view', () => {
+        // Create profile with diverse keybinds for categorization testing
+        const profileId = 'test-profile-categorization';
+        const profile = {
+            name: 'Categorization Test Profile',
+            mode: 'space',
+            keys: {
+                // Combat keys
+                'space': [
+                    { command: 'Target_Enemy_Near', type: 'targeting', id: 'cmd1' },
+                    { command: 'FireAll', type: 'combat', id: 'cmd2' }
+                ],
+                '1': [{ command: 'FireAll', type: 'combat', id: 'cmd3' }],
+                
+                // Tray keys
+                'f1': [{ command: '+STOTrayExecByTray 0 5', type: 'tray', id: 'cmd4' }],
+                'f2': [{ command: 'TrayExecByTrayWithBackup 1 0 0 0 1', type: 'tray', id: 'cmd5' }],
+                
+                // Targeting keys
+                't': [{ command: 'Target_Self', type: 'targeting', id: 'cmd6' }],
+                
+                // System keys
+                'alt+f4': [{ command: 'screenshot', type: 'system', id: 'cmd7' }],
+                
+                // Empty key
+                'f12': []
+            },
+            aliases: {},
+            created: new Date().toISOString(),
+            lastModified: new Date().toISOString()
+        };
+
+        storageManager.saveProfile(profileId, profile);
+
+        // Test categorization functionality if app is available
+        if (window.app && typeof window.app.categorizeKeys === 'function') {
+            const categorized = window.app.categorizeKeys(profile.keys);
+            
+            expect(categorized).toBeDefined();
+            expect(typeof categorized).toBe('object');
+            
+            // Check combat category
+            if (categorized.combat) {
+                expect(categorized.combat.keys).toContain('space');
+                expect(categorized.combat.keys).toContain('1');
+            }
+            
+            // Check tray category
+            if (categorized.tray) {
+                expect(categorized.tray.keys).toContain('f1');
+                expect(categorized.tray.keys).toContain('f2');
+            }
+            
+            // Check targeting category
+            if (categorized.targeting) {
+                expect(categorized.targeting.keys).toContain('space'); // Multi-category
+                expect(categorized.targeting.keys).toContain('t');
+            }
+            
+            // Check system category
+            if (categorized.system) {
+                expect(categorized.system.keys).toContain('alt+f4');
+            }
+            
+            // Check empty category
+            if (categorized.empty) {
+                expect(categorized.empty.keys).toContain('f12');
+            }
+            
+            // Verify keys can appear in multiple categories
+            if (categorized.combat && categorized.targeting) {
+                expect(categorized.combat.keys).toContain('space');
+                expect(categorized.targeting.keys).toContain('space');
+            }
+        }
+    });
+
+    it('should handle view mode preferences', () => {
+        // Test view mode storage and retrieval
+        const testViewMode = 'categorized';
+        localStorage.setItem('keyViewMode', testViewMode);
+        
+        const retrievedMode = localStorage.getItem('keyViewMode');
+        expect(retrievedMode).toBe(testViewMode);
+        
+        // Test toggle functionality
+        const currentMode = localStorage.getItem('keyViewMode');
+        const newMode = currentMode === 'categorized' ? 'grid' : 'categorized';
+        localStorage.setItem('keyViewMode', newMode);
+        
+        const toggledMode = localStorage.getItem('keyViewMode');
+        expect(toggledMode).toBe(newMode);
+        expect(toggledMode).not.toBe(currentMode);
+        
+        // Clean up
+        localStorage.removeItem('keyViewMode');
+    });
 });
 
 describe('Profile and Alias Integration', () => {

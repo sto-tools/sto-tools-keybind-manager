@@ -315,12 +315,29 @@ body {
   align-items: center;
 }
 
+.key-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.key-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .key-filter input {
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: 0.8rem;
   width: 120px;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
 }
 
 .key-selector {
@@ -337,6 +354,12 @@ body {
   gap: 0.5rem;
   margin-bottom: 1rem;
   flex: 1;
+}
+
+.key-grid.categorized {
+  display: block;
+  grid-template-columns: unset;
+  gap: unset;
 }
 
 .key-item {
@@ -403,6 +426,54 @@ body {
   gap: 0.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
+}
+
+/* Key category enhancements */
+.category h4 .category-chevron {
+  transition: transform 0.2s ease;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  width: 12px;
+}
+
+.category h4:not(.collapsed) .category-chevron {
+  transform: rotate(90deg);
+}
+
+.category h4.collapsed {
+  margin-bottom: 0;
+}
+
+.category h4 .key-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.category-commands.collapsed {
+  display: none;
+}
+
+/* Key-specific styling for command items */
+.command-item[data-key] .key-label {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.command-item[data-key] .command-count-badge {
+  background: var(--accent);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
 }
 
 /* Command chain */

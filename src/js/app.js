@@ -365,10 +365,223 @@ class STOKeybindManager {
         const allKeys = [...new Set([...keys, ...commonKeys])].sort();
         console.log('renderKeyGrid: All keys to render:', allKeys);
         
+        // Check view preference and key count
+        const useCategorizedView = this.shouldUseCategorizedView(allKeys.length);
+        
+        if (useCategorizedView) {
+            this.renderCategorizedKeyView(grid, profile);
+        } else {
+            this.renderSimpleKeyGrid(grid, allKeys);
+        }
+        
+        // Update toggle button icon
+        this.updateViewToggleButton(useCategorizedView);
+    }
+
+    renderSimpleKeyGrid(grid, allKeys) {
+        // Remove categorized class to use normal grid layout
+        grid.classList.remove('categorized');
+        
         allKeys.forEach(keyName => {
             const keyElement = this.createKeyElement(keyName);
             grid.appendChild(keyElement);
         });
+    }
+
+    renderCategorizedKeyView(grid, profile) {
+        // Add categorized class to override grid layout
+        grid.classList.add('categorized');
+        
+        // Categorize keys based on their commands
+        const categorizedKeys = this.categorizeKeys(profile.keys);
+        
+        // Create category tree structure
+        Object.entries(categorizedKeys).forEach(([categoryId, categoryData]) => {
+            if (categoryData.keys.length === 0) return;
+            
+            const categoryElement = this.createKeyCategoryElement(categoryId, categoryData);
+            grid.appendChild(categoryElement);
+        });
+        
+        // Add uncategorized keys
+        const uncategorizedKeys = this.getUncategorizedKeys(profile.keys, categorizedKeys);
+        if (uncategorizedKeys.length > 0) {
+            const uncategorizedCategory = this.createKeyCategoryElement('uncategorized', {
+                name: 'Other Keys',
+                icon: 'fas fa-keyboard',
+                keys: uncategorizedKeys
+            });
+            grid.appendChild(uncategorizedCategory);
+        }
+    }
+
+    categorizeKeys(keys) {
+        const categories = {};
+        
+        // Initialize categories from command library
+        Object.entries(STO_DATA.commands).forEach(([categoryId, categoryData]) => {
+            categories[categoryId] = {
+                name: categoryData.name,
+                icon: categoryData.icon,
+                keys: new Set()
+            };
+        });
+        
+        // Add special categories
+        categories.empty = {
+            name: 'Unbound Keys',
+            icon: 'fas fa-circle',
+            keys: new Set()
+        };
+        
+        // Categorize each key based on its commands
+        Object.entries(keys).forEach(([keyName, commands]) => {
+            if (!commands || commands.length === 0) {
+                categories.empty.keys.add(keyName);
+                return;
+            }
+            
+            // Get all categories this key belongs to
+            const keyCategories = new Set();
+            commands.forEach(command => {
+                if (command.type && categories[command.type]) {
+                    keyCategories.add(command.type);
+                } else if (window.stoCommands) {
+                    // Use command detection if type is not set
+                    const detectedType = window.stoCommands.detectCommandType(command.command);
+                    if (categories[detectedType]) {
+                        keyCategories.add(detectedType);
+                    }
+                }
+            });
+            
+            // Add key to all relevant categories
+            if (keyCategories.size > 0) {
+                keyCategories.forEach(categoryId => {
+                    categories[categoryId].keys.add(keyName);
+                });
+            } else {
+                // Fallback for unknown command types
+                if (!categories.custom) {
+                    categories.custom = {
+                        name: 'Custom Commands',
+                        icon: 'fas fa-cog',
+                        keys: new Set()
+                    };
+                }
+                categories.custom.keys.add(keyName);
+            }
+        });
+        
+        // Convert sets to arrays and sort
+        Object.values(categories).forEach(category => {
+            category.keys = Array.from(category.keys).sort(this.compareKeys.bind(this));
+        });
+        
+        return categories;
+    }
+
+    createKeyCategoryElement(categoryId, categoryData) {
+        const element = document.createElement('div');
+        element.className = 'category';
+        element.dataset.category = categoryId;
+        
+        const isCollapsed = localStorage.getItem(`keyCategory_${categoryId}_collapsed`) === 'true';
+        
+        element.innerHTML = `
+            <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryId}">
+                <i class="fas fa-chevron-right category-chevron"></i>
+                <i class="${categoryData.icon}"></i> 
+                ${categoryData.name} 
+                <span class="key-count">(${categoryData.keys.length})</span>
+            </h4>
+            <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">
+                ${categoryData.keys.map(keyName => this.createKeyElementHTML(keyName)).join('')}
+            </div>
+        `;
+        
+        // Add click handler for category header
+        const header = element.querySelector('h4');
+        header.addEventListener('click', () => {
+            this.toggleKeyCategory(categoryId, element);
+        });
+        
+        // Add click handlers for key elements
+        const keyElements = element.querySelectorAll('.command-item');
+        keyElements.forEach(keyElement => {
+            keyElement.addEventListener('click', () => {
+                const keyName = keyElement.dataset.key;
+                this.selectKey(keyName);
+            });
+        });
+        
+        return element;
+    }
+
+    createKeyElementHTML(keyName) {
+        const profile = this.getCurrentProfile();
+        const commands = profile.keys[keyName] || [];
+        const isActive = this.selectedKey === keyName;
+        
+        return `
+            <div class="command-item ${isActive ? 'active' : ''}" data-key="${keyName}">
+                <span class="key-label">${keyName}</span>
+                ${commands.length > 0 ? `
+                    <span class="command-count-badge">${commands.length}</span>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    getUncategorizedKeys(keys, categorizedKeys) {
+        const categorizedKeySet = new Set();
+        Object.values(categorizedKeys).forEach(category => {
+            category.keys.forEach(key => categorizedKeySet.add(key));
+        });
+        
+        return Object.keys(keys).filter(key => !categorizedKeySet.has(key));
+    }
+
+    toggleKeyCategory(categoryId, element) {
+        const header = element.querySelector('h4');
+        const commands = element.querySelector('.category-commands');
+        const chevron = header.querySelector('.category-chevron');
+        
+        const isCollapsed = commands.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            commands.classList.remove('collapsed');
+            header.classList.remove('collapsed');
+            chevron.style.transform = 'rotate(90deg)';
+            localStorage.setItem(`keyCategory_${categoryId}_collapsed`, 'false');
+        } else {
+            commands.classList.add('collapsed');
+            header.classList.add('collapsed');
+            chevron.style.transform = 'rotate(0deg)';
+            localStorage.setItem(`keyCategory_${categoryId}_collapsed`, 'true');
+        }
+    }
+
+    compareKeys(a, b) {
+        // Custom key sorting logic
+        const getKeyPriority = (key) => {
+            if (key === 'Space') return 0;
+            if (key.match(/^[0-9]$/)) return 1;
+            if (key.match(/^F[0-9]+$/)) return 2;
+            if (key.includes('Ctrl+')) return 3;
+            if (key.includes('Alt+')) return 4;
+            if (key.includes('Shift+')) return 5;
+            return 6;
+        };
+        
+        const priorityA = getKeyPriority(a);
+        const priorityB = getKeyPriority(b);
+        
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+        
+        return a.localeCompare(b);
     }
 
     createKeyElement(keyName) {
@@ -394,6 +607,37 @@ class STOKeybindManager {
         });
         
         return keyElement;
+    }
+
+    shouldUseCategorizedView(keyCount) {
+        // Check user preference first
+        const userPreference = localStorage.getItem('keyViewMode');
+        if (userPreference === 'categorized') return true;
+        if (userPreference === 'grid') return false;
+        
+        // Auto-decide based on key count if no preference set
+        return keyCount > 15;
+    }
+
+    updateViewToggleButton(useCategorizedView) {
+        const toggleBtn = document.getElementById('toggleKeyViewBtn');
+        if (toggleBtn) {
+            const icon = toggleBtn.querySelector('i');
+            if (useCategorizedView) {
+                icon.className = 'fas fa-th';
+                toggleBtn.title = 'Switch to grid view';
+            } else {
+                icon.className = 'fas fa-list';
+                toggleBtn.title = 'Switch to categorized view';
+            }
+        }
+    }
+
+    toggleKeyView() {
+        const currentMode = localStorage.getItem('keyViewMode');
+        const newMode = currentMode === 'categorized' ? 'grid' : 'categorized';
+        localStorage.setItem('keyViewMode', newMode);
+        this.renderKeyGrid();
     }
 
     renderCommandChain() {
@@ -735,6 +979,11 @@ class STOKeybindManager {
         
         document.getElementById('showAllKeysBtn')?.addEventListener('click', () => {
             this.showAllKeys();
+        });
+        
+        // Key view toggle
+        document.getElementById('toggleKeyViewBtn')?.addEventListener('click', () => {
+            this.toggleKeyView();
         });
         
         // Library toggle

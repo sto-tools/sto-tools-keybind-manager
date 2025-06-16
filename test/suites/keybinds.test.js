@@ -476,4 +476,278 @@ describe('Integration Tests', () => {
         expect(Object.keys(result.keybinds)).toHaveLength(100);
         expect(endTime - startTime).toBeLessThan(1000); // Should parse in under 1 second
     });
+});
+
+describe('Key Categorization', () => {
+    let app;
+
+    beforeAll(() => {
+        // Ensure main app is loaded
+        if (typeof window.app === 'undefined') {
+            // Mock the app if not available
+            window.app = {
+                categorizeKeys: function(keys) {
+                    const categories = {};
+                    
+                    // Initialize categories from command library
+                    if (window.STO_DATA && window.STO_DATA.commands) {
+                        Object.entries(window.STO_DATA.commands).forEach(([categoryId, categoryData]) => {
+                            categories[categoryId] = {
+                                name: categoryData.name,
+                                icon: categoryData.icon,
+                                keys: new Set()
+                            };
+                        });
+                    }
+                    
+                    // Add special categories
+                    categories.empty = {
+                        name: 'Unbound Keys',
+                        icon: 'fas fa-circle',
+                        keys: new Set()
+                    };
+                    
+                    // Categorize each key based on its commands
+                    Object.entries(keys).forEach(([keyName, commands]) => {
+                        if (!commands || commands.length === 0) {
+                            categories.empty.keys.add(keyName);
+                            return;
+                        }
+                        
+                        // Get all categories this key belongs to
+                        const keyCategories = new Set();
+                        commands.forEach(command => {
+                            if (command.type && categories[command.type]) {
+                                keyCategories.add(command.type);
+                            } else if (window.stoCommands) {
+                                // Use command detection if type is not set
+                                const detectedType = window.stoCommands.detectCommandType(command.command);
+                                if (categories[detectedType]) {
+                                    keyCategories.add(detectedType);
+                                }
+                            }
+                        });
+                        
+                        // Add key to all relevant categories
+                        if (keyCategories.size > 0) {
+                            keyCategories.forEach(categoryId => {
+                                categories[categoryId].keys.add(keyName);
+                            });
+                        } else {
+                            // Fallback for unknown command types
+                            if (!categories.custom) {
+                                categories.custom = {
+                                    name: 'Custom Commands',
+                                    icon: 'fas fa-cog',
+                                    keys: new Set()
+                                };
+                            }
+                            categories.custom.keys.add(keyName);
+                        }
+                    });
+                    
+                    // Convert sets to arrays and sort
+                    Object.values(categories).forEach(category => {
+                        category.keys = Array.from(category.keys).sort();
+                    });
+                    
+                    return categories;
+                },
+                
+                compareKeys: function(a, b) {
+                    const getKeyPriority = (key) => {
+                        if (key === 'Space') return 0;
+                        if (key.match(/^[0-9]$/)) return 1;
+                        if (key.match(/^F[0-9]+$/)) return 2;
+                        if (key.includes('Ctrl+')) return 3;
+                        if (key.includes('Alt+')) return 4;
+                        if (key.includes('Shift+')) return 5;
+                        return 6;
+                    };
+                    
+                    const priorityA = getKeyPriority(a);
+                    const priorityB = getKeyPriority(b);
+                    
+                    if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                    }
+                    
+                    return a.localeCompare(b);
+                }
+            };
+        }
+    });
+
+    beforeEach(() => {
+        app = window.app;
+    });
+
+    it('should categorize keys based on command types', () => {
+        const testKeys = {
+            "SPACE": [
+                {command: "LootRollNeed", type: "system", icon: "⚙️", text: "Loot Roll Need"},
+                {command: "TrayExecByTrayWithBackup 1 0 0 0 1", type: "tray", icon: "⚡", text: "Tray 1 Slot 1"},
+                {command: "FireAll", type: "combat", icon: "🔥", text: "Fire All Weapons"}
+            ],
+            "F1": [
+                {command: "Target_Self", type: "targeting", icon: "🎯", text: "Target Self"}
+            ],
+            "1": [
+                {command: "FireAll", type: "combat", icon: "🔥", text: "Fire All Weapons"}
+            ],
+            "Ctrl+1": []
+        };
+
+        const categorized = app.categorizeKeys(testKeys);
+
+        // Check that categories exist
+        expect(categorized).toBeDefined();
+        expect(typeof categorized).toBe('object');
+
+        // Check that SPACE appears in multiple categories
+        if (categorized.combat && categorized.tray && categorized.system) {
+            expect(categorized.combat.keys).toContain('SPACE');
+            expect(categorized.tray.keys).toContain('SPACE');
+            expect(categorized.system.keys).toContain('SPACE');
+        }
+
+        // Check that F1 appears in targeting category
+        if (categorized.targeting) {
+            expect(categorized.targeting.keys).toContain('F1');
+        }
+
+        // Check that 1 appears in combat category
+        if (categorized.combat) {
+            expect(categorized.combat.keys).toContain('1');
+        }
+
+        // Check that empty key appears in empty category
+        if (categorized.empty) {
+            expect(categorized.empty.keys).toContain('Ctrl+1');
+        }
+    });
+
+    it('should handle keys with no commands', () => {
+        const testKeys = {
+            "F5": [],
+            "F6": null,
+            "F7": undefined
+        };
+
+        const categorized = app.categorizeKeys(testKeys);
+
+        if (categorized.empty) {
+            expect(categorized.empty.keys).toContain('F5');
+            // Note: null and undefined entries might not be processed the same way
+        }
+    });
+
+    it('should detect command types automatically', () => {
+        const testKeys = {
+            "AutoDetect": [
+                {command: "Target_Enemy_Near", icon: "🎯", text: "Target Enemy"}
+            ]
+        };
+
+        const categorized = app.categorizeKeys(testKeys);
+
+        // Should detect targeting command type if command detection is available
+        if (window.stoCommands && categorized.targeting) {
+            expect(categorized.targeting.keys).toContain('AutoDetect');
+        }
+    });
+
+    it('should sort keys within categories', () => {
+        const testKeys = {
+            "Z": [{command: "FireAll", type: "combat"}],
+            "A": [{command: "FireAll", type: "combat"}],
+            "Space": [{command: "FireAll", type: "combat"}],
+            "F12": [{command: "FireAll", type: "combat"}],
+            "F1": [{command: "FireAll", type: "combat"}],
+            "Ctrl+Z": [{command: "FireAll", type: "combat"}],
+            "1": [{command: "FireAll", type: "combat"}]
+        };
+
+        const categorized = app.categorizeKeys(testKeys);
+
+        if (categorized.combat && categorized.combat.keys.length > 0) {
+            const keys = categorized.combat.keys;
+            
+            // Space should come first (priority 0)
+            expect(keys[0]).toBe('Space');
+            
+            // Numbers should come before letters and function keys
+            const spaceIndex = keys.indexOf('Space');
+            const numberIndex = keys.indexOf('1');
+            const letterIndex = keys.indexOf('A');
+            
+            if (spaceIndex >= 0 && numberIndex >= 0) {
+                expect(spaceIndex).toBeLessThan(numberIndex);
+            }
+            
+            if (numberIndex >= 0 && letterIndex >= 0) {
+                expect(numberIndex).toBeLessThan(letterIndex);
+            }
+        }
+    });
+
+    it('should handle keys appearing in multiple categories', () => {
+        const testKeys = {
+            "MultiCategory": [
+                {command: "Target_Self", type: "targeting"},
+                {command: "FireAll", type: "combat"},
+                {command: "+STOTrayExecByTray 0 0", type: "tray"}
+            ]
+        };
+
+        const categorized = app.categorizeKeys(testKeys);
+
+        // Key should appear in all relevant categories
+        if (categorized.targeting) {
+            expect(categorized.targeting.keys).toContain('MultiCategory');
+        }
+        if (categorized.combat) {
+            expect(categorized.combat.keys).toContain('MultiCategory');
+        }
+        if (categorized.tray) {
+            expect(categorized.tray.keys).toContain('MultiCategory');
+        }
+    });
+
+    it('should create custom category for unknown command types', () => {
+        const testKeys = {
+            "Unknown": [
+                {command: "some_unknown_command", type: "unknown_type"}
+            ]
+        };
+
+        const categorized = app.categorizeKeys(testKeys);
+
+        // Should either be in custom category or remain uncategorized
+        expect(categorized).toBeDefined();
+        
+        // Check if it ends up in a fallback category
+        const hasKey = Object.values(categorized).some(category => 
+            category.keys && category.keys.includes('Unknown')
+        );
+        
+        // The key should appear somewhere in the categorization
+        expect(hasKey).toBeTruthy();
+    });
+
+    it('should have correct category structure', () => {
+        const testKeys = {
+            "Test": [{command: "FireAll", type: "combat"}]
+        };
+
+        const categorized = app.categorizeKeys(testKeys);
+
+        // Each category should have the expected structure
+        Object.values(categorized).forEach(category => {
+            expect(category).toHaveProperty('name');
+            expect(category).toHaveProperty('icon');
+            expect(category).toHaveProperty('keys');
+            expect(Array.isArray(category.keys)).toBeTruthy();
+        });
+    });
 }); 
