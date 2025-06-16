@@ -125,7 +125,7 @@ class STOExportManager {
             return '';
         }
 
-        let content = `# Command Aliases
+        let content = `; Command Aliases
 ; ================================================================
 ; Aliases allow you to create custom commands that execute
 ; multiple commands in sequence. Use them in keybinds like any
@@ -139,7 +139,7 @@ class STOExportManager {
         
         sortedAliases.forEach(([name, alias]) => {
             if (alias.description) {
-                content += `# ${alias.description}\n`;
+                content += `; ${alias.description}\n`;
             }
             content += `alias ${name} "${alias.commands}"\n\n`;
         });
@@ -149,10 +149,10 @@ class STOExportManager {
 
     generateKeybindSection(keys) {
         if (!keys || Object.keys(keys).length === 0) {
-            return '# No keybinds defined\n\n';
+            return '; No keybinds defined\n\n';
         }
 
-        let content = `# Keybind Commands
+        let content = `; Keybind Commands
 ; ================================================================
 ; Each line binds a key to one or more commands.
 ; Multiple commands are separated by $$
@@ -175,8 +175,8 @@ class STOExportManager {
         Object.entries(keyGroups).forEach(([groupName, groupKeys]) => {
             if (groupKeys.length === 0) return;
             
-            content += `# ${groupName}\n`;
-            content += `# ${'-'.repeat(groupName.length)}\n`;
+            content += `; ${groupName}\n`;
+            content += `; ${'-'.repeat(groupName.length)}\n`;
             
             groupKeys.forEach(key => {
                 const commands = keys[key];
