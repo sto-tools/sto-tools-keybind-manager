@@ -520,8 +520,8 @@ class STOKeybindManager {
             <h4><i class="${category.icon}"></i> ${category.name}</h4>
             <div class="category-commands">
                 ${Object.entries(category.commands).map(([cmdId, cmd]) => `
-                    <div class="command-item" data-command="${cmdId}" title="${cmd.description}">
-                        ${cmd.icon} ${cmd.name}
+                    <div class="command-item ${cmd.customizable ? 'customizable' : ''}" data-command="${cmdId}" title="${cmd.description}${cmd.customizable ? ' (Customizable)' : ''}">
+                        ${cmd.icon} ${cmd.name}${cmd.customizable ? ' <span class="param-indicator">⚙️</span>' : ''}
                     </div>
                 `).join('')}
             </div>
@@ -546,6 +546,12 @@ class STOKeybindManager {
         
         const commandDef = STO_DATA.commands[categoryId].commands[commandId];
         if (!commandDef) return;
+        
+        // Check if command is parameterized
+        if (commandDef.customizable && commandDef.parameters) {
+            this.showParameterModal(categoryId, commandId, commandDef);
+            return;
+        }
         
         const command = {
             command: commandDef.command,
@@ -1002,6 +1008,264 @@ class STOKeybindManager {
         stoUI.hideModal('addCommandModal');
     }
     
+    // Parameter Modal for Customizable Commands
+    showParameterModal(categoryId, commandId, commandDef) {
+        this.currentParameterCommand = { categoryId, commandId, commandDef };
+        
+        // Create modal if it doesn't exist
+        if (!document.getElementById('parameterModal')) {
+            this.createParameterModal();
+        }
+        
+        // Populate modal with parameter inputs
+        this.populateParameterModal(commandDef);
+        
+        // Show modal
+        stoUI.showModal('parameterModal');
+    }
+    
+    createParameterModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'parameterModal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="parameterModalTitle">Configure Command Parameters</h3>
+                    <button class="modal-close" data-modal="parameterModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="parameterInputs">
+                        <!-- Parameter inputs will be populated here -->
+                    </div>
+                    <div class="command-preview-modal">
+                        <label>Generated Command:</label>
+                        <div class="command-preview" id="parameterCommandPreview">
+                            <!-- Command preview will be shown here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="saveParameterCommandBtn">Add Command</button>
+                    <button class="btn btn-secondary" data-modal="parameterModal">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add event listeners
+        document.getElementById('saveParameterCommandBtn').addEventListener('click', () => {
+            this.saveParameterCommand();
+        });
+        
+        // Close modal handlers - handle both X button and Cancel button
+        const closeButtons = modal.querySelectorAll('.modal-close, [data-modal="parameterModal"]');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                this.cancelParameterCommand();
+            });
+        });
+    }
+    
+    cancelParameterCommand() {
+        // Clean up state
+        this.currentParameterCommand = null;
+        
+        // Reset modal button text in case we were editing
+        const saveBtn = document.getElementById('saveParameterCommandBtn');
+        if (saveBtn) {
+            saveBtn.textContent = 'Add Command';
+        }
+        
+        // Hide modal
+        stoUI.hideModal('parameterModal');
+    }
+    
+    populateParameterModal(commandDef) {
+        const container = document.getElementById('parameterInputs');
+        const titleElement = document.getElementById('parameterModalTitle');
+        
+        titleElement.textContent = `Configure: ${commandDef.name}`;
+        container.innerHTML = '';
+        
+        // Create input for each parameter
+        Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'form-group';
+            
+            const label = document.createElement('label');
+            label.textContent = this.formatParameterName(paramName);
+            label.setAttribute('for', `param_${paramName}`);
+            
+            const input = document.createElement('input');
+            input.type = paramDef.type === 'number' ? 'number' : 'text';
+            input.id = `param_${paramName}`;
+            input.name = paramName;
+            input.value = paramDef.default || '';
+            
+            if (paramDef.type === 'number') {
+                if (paramDef.min !== undefined) input.min = paramDef.min;
+                if (paramDef.max !== undefined) input.max = paramDef.max;
+                if (paramDef.step !== undefined) input.step = paramDef.step;
+            }
+            
+            const help = document.createElement('small');
+            help.textContent = this.getParameterHelp(paramName, paramDef);
+            
+            inputGroup.appendChild(label);
+            inputGroup.appendChild(input);
+            inputGroup.appendChild(help);
+            container.appendChild(inputGroup);
+            
+            // Add real-time preview update
+            input.addEventListener('input', () => {
+                this.updateParameterPreview();
+            });
+        });
+        
+        // Initial preview update
+        this.updateParameterPreview();
+    }
+    
+    formatParameterName(paramName) {
+        return paramName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    
+    getParameterHelp(paramName, paramDef) {
+        const helps = {
+            tray: 'Tray number (0-9, where 0 is the first tray)',
+            slot: 'Slot number (0-9, where 0 is the first slot)',
+            amount: 'Throttle adjustment amount (-1 to 1)',
+            position: 'Throttle position (-1 = full reverse, 0 = stop, 1 = full forward)',
+            distance: 'Camera distance from target',
+            filename: 'Name of the keybind file (without extension)',
+            message: 'Text message to send',
+            state: 'Enable (1) or disable (0) combat log'
+        };
+        
+        return helps[paramName] || `${paramDef.type} value ${paramDef.min !== undefined ? `(${paramDef.min} to ${paramDef.max})` : ''}`;
+    }
+    
+    updateParameterPreview() {
+        if (!this.currentParameterCommand) return;
+        
+        const { categoryId, commandId, commandDef } = this.currentParameterCommand;
+        const params = this.getParameterValues();
+        
+        // Generate command using the command builder
+        const command = this.buildParameterizedCommand(categoryId, commandId, commandDef, params);
+        
+        const preview = document.getElementById('parameterCommandPreview');
+        if (preview && command) {
+            preview.textContent = command.command;
+        }
+    }
+    
+    getParameterValues() {
+        const params = {};
+        const inputs = document.querySelectorAll('#parameterInputs input');
+        
+        inputs.forEach(input => {
+            const paramName = input.name;
+            let value = input.value;
+            
+            if (input.type === 'number') {
+                value = parseFloat(value) || 0;
+            }
+            
+            params[paramName] = value;
+        });
+        
+        return params;
+    }
+    
+    buildParameterizedCommand(categoryId, commandId, commandDef, params) {
+        // Use the command builder logic from commands.js
+        const builders = {
+            tray: (params) => ({
+                command: `+STOTrayExecByTray ${params.tray || 0} ${params.slot || 0}`,
+                text: `Execute Tray ${(params.tray || 0) + 1} Slot ${(params.slot || 0) + 1}`
+            }),
+            movement: (params) => {
+                let command = commandDef.command;
+                if (commandId === 'throttle_adjust' && params.amount !== undefined) {
+                    command = `${commandDef.command} ${params.amount}`;
+                } else if (commandId === 'throttle_set' && params.position !== undefined) {
+                    command = `${commandDef.command} ${params.position}`;
+                }
+                return { command, text: commandDef.name };
+            },
+            camera: (params) => {
+                let command = commandDef.command;
+                if (commandId === 'cam_distance' && params.distance !== undefined) {
+                    command = `${commandDef.command} ${params.distance}`;
+                }
+                return { command, text: commandDef.name };
+            },
+            communication: (params) => ({
+                command: `${commandDef.command} "${params.message || 'Message text here'}"`,
+                text: `${commandDef.name}: ${params.message || 'Message text here'}`
+            }),
+            system: (params) => {
+                let command = commandDef.command;
+                if ((commandId === 'bind_save_file' || commandId === 'bind_load_file') && params.filename) {
+                    command = `${commandDef.command} ${params.filename}`;
+                } else if (commandId === 'combat_log' && params.state !== undefined) {
+                    command = `${commandDef.command} ${params.state}`;
+                }
+                return { command, text: commandDef.name };
+            }
+        };
+        
+        const builder = builders[categoryId];
+        if (builder) {
+            const result = builder(params);
+            return {
+                command: result.command,
+                type: categoryId,
+                icon: commandDef.icon,
+                text: result.text,
+                id: this.generateCommandId(),
+                parameters: params
+            };
+        }
+        
+        return null;
+    }
+    
+    saveParameterCommand() {
+        if (!this.selectedKey || !this.currentParameterCommand) return;
+        
+        const { categoryId, commandId, commandDef, editIndex, isEditing } = this.currentParameterCommand;
+        const params = this.getParameterValues();
+        
+        const command = this.buildParameterizedCommand(categoryId, commandId, commandDef, params);
+        
+        if (command) {
+            if (isEditing && editIndex !== undefined) {
+                // Update existing command
+                const profile = this.getCurrentProfile();
+                profile.keys[this.selectedKey][editIndex] = command;
+                stoStorage.saveProfile(this.currentProfile, profile);
+                this.renderCommandChain();
+                this.setModified(true);
+                stoUI.showToast('Command updated successfully', 'success');
+            } else {
+                // Add new command
+                this.addCommand(this.selectedKey, command);
+            }
+            
+            stoUI.hideModal('parameterModal');
+            this.currentParameterCommand = null;
+            
+            // Reset modal button text
+            document.getElementById('saveParameterCommandBtn').textContent = 'Add Command';
+        }
+    }
+    
     editCommand(index) {
         if (!this.selectedKey) return;
         
@@ -1010,9 +1274,107 @@ class STOKeybindManager {
         
         if (!commands || !commands[index]) return;
         
-        // For now, just show the command details
         const command = commands[index];
+        
+        // Check if this is a parameterized command that can be edited
+        if (command.parameters && command.type) {
+            // Find the original command definition
+            const commandDef = this.findCommandDefinition(command);
+            if (commandDef && commandDef.customizable) {
+                this.editParameterizedCommand(index, command, commandDef);
+                return;
+            }
+        }
+        
+        // For non-parameterized commands, show command details
         stoUI.showToast(`Command: ${command.command}\nType: ${command.type}`, 'info', 3000);
+    }
+    
+    findCommandDefinition(command) {
+        const category = STO_DATA.commands[command.type];
+        if (!category) return null;
+        
+        // Try to find the command by matching the base command string
+        for (const [commandId, commandDef] of Object.entries(category.commands)) {
+            if (commandDef.customizable && command.command.startsWith(commandDef.command.split(' ')[0])) {
+                return { commandId, ...commandDef };
+            }
+        }
+        
+        return null;
+    }
+    
+    editParameterizedCommand(index, command, commandDef) {
+        this.currentParameterCommand = { 
+            categoryId: command.type, 
+            commandId: commandDef.commandId, 
+            commandDef,
+            editIndex: index,
+            isEditing: true
+        };
+        
+        // Create modal if it doesn't exist
+        if (!document.getElementById('parameterModal')) {
+            this.createParameterModal();
+        }
+        
+        // Populate modal with existing parameter values
+        this.populateParameterModalForEdit(commandDef, command.parameters);
+        
+        // Change modal title and button text for editing
+        document.getElementById('parameterModalTitle').textContent = `Edit: ${commandDef.name}`;
+        document.getElementById('saveParameterCommandBtn').textContent = 'Update Command';
+        
+        // Show modal
+        stoUI.showModal('parameterModal');
+    }
+    
+    populateParameterModalForEdit(commandDef, existingParams) {
+        const container = document.getElementById('parameterInputs');
+        container.innerHTML = '';
+        
+        // Create input for each parameter with existing values
+        Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'form-group';
+            
+            const label = document.createElement('label');
+            label.textContent = this.formatParameterName(paramName);
+            label.setAttribute('for', `param_${paramName}`);
+            
+            const input = document.createElement('input');
+            input.type = paramDef.type === 'number' ? 'number' : 'text';
+            input.id = `param_${paramName}`;
+            input.name = paramName;
+            
+            // Use existing parameter value or default
+            const existingValue = existingParams && existingParams[paramName] !== undefined 
+                ? existingParams[paramName] 
+                : paramDef.default;
+            input.value = existingValue || '';
+            
+            if (paramDef.type === 'number') {
+                if (paramDef.min !== undefined) input.min = paramDef.min;
+                if (paramDef.max !== undefined) input.max = paramDef.max;
+                if (paramDef.step !== undefined) input.step = paramDef.step;
+            }
+            
+            const help = document.createElement('small');
+            help.textContent = this.getParameterHelp(paramName, paramDef);
+            
+            inputGroup.appendChild(label);
+            inputGroup.appendChild(input);
+            inputGroup.appendChild(help);
+            container.appendChild(inputGroup);
+            
+            // Add real-time preview update
+            input.addEventListener('input', () => {
+                this.updateParameterPreview();
+            });
+        });
+        
+        // Initial preview update
+        this.updateParameterPreview();
     }
 }
 
