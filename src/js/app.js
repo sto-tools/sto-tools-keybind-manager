@@ -365,17 +365,25 @@ class STOKeybindManager {
         const allKeys = [...new Set([...keys, ...commonKeys])].sort();
         console.log('renderKeyGrid: All keys to render:', allKeys);
         
-        // Check view preference and key count
-        const useCategorizedView = this.shouldUseCategorizedView(allKeys.length);
+        // Check view preference
+        const viewMode = localStorage.getItem('keyViewMode') || 'key-types';
         
-        if (useCategorizedView) {
-            this.renderCategorizedKeyView(grid, profile);
+        if (viewMode === 'categorized') {
+            this.renderCategorizedKeyView(grid, profile, allKeys);
+        } else if (viewMode === 'key-types') {
+            this.renderKeyTypeView(grid, profile, allKeys);
         } else {
             this.renderSimpleKeyGrid(grid, allKeys);
         }
         
         // Update toggle button icon
-        this.updateViewToggleButton(useCategorizedView);
+        this.updateViewToggleButton(viewMode);
+        
+        // Reapply any existing filter after rendering the new view
+        const filterInput = document.getElementById('keyFilter');
+        if (filterInput && filterInput.value.trim()) {
+            this.filterKeys(filterInput.value.trim());
+        }
     }
 
     renderSimpleKeyGrid(grid, allKeys) {
@@ -388,56 +396,55 @@ class STOKeybindManager {
         });
     }
 
-    renderCategorizedKeyView(grid, profile) {
+    renderCategorizedKeyView(grid, profile, allKeys) {
         // Add categorized class to override grid layout
         grid.classList.add('categorized');
         
-        // Categorize keys based on their commands
-        const categorizedKeys = this.categorizeKeys(profile.keys);
+        // Categorize keys based on their commands, including all keys
+        const categorizedKeys = this.categorizeKeys(profile.keys, allKeys);
         
-        // Create category tree structure
-        Object.entries(categorizedKeys).forEach(([categoryId, categoryData]) => {
-            if (categoryData.keys.length === 0) return;
-            
+        // Sort categories by priority (Unknown first, then alphabetically)
+        const sortedCategories = Object.entries(categorizedKeys).sort(([aId, aData], [bId, bData]) => {
+            if (aData.priority !== bData.priority) {
+                return aData.priority - bData.priority;
+            }
+            return aData.name.localeCompare(bData.name);
+        });
+        
+        // Create category tree structure - show all categories even if empty
+        sortedCategories.forEach(([categoryId, categoryData]) => {
             const categoryElement = this.createKeyCategoryElement(categoryId, categoryData);
             grid.appendChild(categoryElement);
         });
-        
-        // Add uncategorized keys
-        const uncategorizedKeys = this.getUncategorizedKeys(profile.keys, categorizedKeys);
-        if (uncategorizedKeys.length > 0) {
-            const uncategorizedCategory = this.createKeyCategoryElement('uncategorized', {
-                name: 'Other Keys',
-                icon: 'fas fa-keyboard',
-                keys: uncategorizedKeys
-            });
-            grid.appendChild(uncategorizedCategory);
-        }
     }
 
-    categorizeKeys(keys) {
+    categorizeKeys(keysWithCommands, allKeys) {
         const categories = {};
+        
+        // Add Unknown category first (for empty keys)
+        categories.unknown = {
+            name: 'Unknown',
+            icon: 'fas fa-question-circle',
+            keys: new Set(),
+            priority: 0
+        };
         
         // Initialize categories from command library
         Object.entries(STO_DATA.commands).forEach(([categoryId, categoryData]) => {
             categories[categoryId] = {
                 name: categoryData.name,
                 icon: categoryData.icon,
-                keys: new Set()
+                keys: new Set(),
+                priority: 1
             };
         });
         
-        // Add special categories
-        categories.empty = {
-            name: 'Unbound Keys',
-            icon: 'fas fa-circle',
-            keys: new Set()
-        };
-        
-        // Categorize each key based on its commands
-        Object.entries(keys).forEach(([keyName, commands]) => {
+        // Process all keys, not just ones with commands
+        allKeys.forEach(keyName => {
+            const commands = keysWithCommands[keyName] || [];
+            
             if (!commands || commands.length === 0) {
-                categories.empty.keys.add(keyName);
+                categories.unknown.keys.add(keyName);
                 return;
             }
             
@@ -466,7 +473,8 @@ class STOKeybindManager {
                     categories.custom = {
                         name: 'Custom Commands',
                         icon: 'fas fa-cog',
-                        keys: new Set()
+                        keys: new Set(),
+                        priority: 2
                     };
                 }
                 categories.custom.keys.add(keyName);
@@ -481,15 +489,17 @@ class STOKeybindManager {
         return categories;
     }
 
-    createKeyCategoryElement(categoryId, categoryData) {
+    createKeyCategoryElement(categoryId, categoryData, mode = 'command') {
         const element = document.createElement('div');
         element.className = 'category';
         element.dataset.category = categoryId;
         
-        const isCollapsed = localStorage.getItem(`keyCategory_${categoryId}_collapsed`) === 'true';
+        // Use different storage key for key-type categories
+        const storageKey = mode === 'key-type' ? `keyTypeCategory_${categoryId}_collapsed` : `keyCategory_${categoryId}_collapsed`;
+        const isCollapsed = localStorage.getItem(storageKey) === 'true';
         
         element.innerHTML = `
-            <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryId}">
+            <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryId}" data-mode="${mode}">
                 <i class="fas fa-chevron-right category-chevron"></i>
                 <i class="${categoryData.icon}"></i> 
                 ${categoryData.name} 
@@ -503,7 +513,7 @@ class STOKeybindManager {
         // Add click handler for category header
         const header = element.querySelector('h4');
         header.addEventListener('click', () => {
-            this.toggleKeyCategory(categoryId, element);
+            this.toggleKeyCategory(categoryId, element, mode);
         });
         
         // Add click handlers for key elements
@@ -523,8 +533,19 @@ class STOKeybindManager {
         const commands = profile.keys[keyName] || [];
         const isActive = this.selectedKey === keyName;
         
+                // Simple length-based font sizing for categorized view (no line breaks)
+        const keyLength = keyName.length;
+        let lengthClass;
+        if (keyLength <= 6) {
+            lengthClass = 'short';
+        } else if (keyLength <= 12) {
+            lengthClass = 'medium';
+        } else {
+            lengthClass = 'long';
+        }
+        
         return `
-            <div class="command-item ${isActive ? 'active' : ''}" data-key="${keyName}">
+            <div class="command-item ${isActive ? 'active' : ''}" data-key="${keyName}" data-length="${lengthClass}">
                 <span class="key-label">${keyName}</span>
                 ${commands.length > 0 ? `
                     <span class="command-count-badge">${commands.length}</span>
@@ -533,33 +554,193 @@ class STOKeybindManager {
         `;
     }
 
-    getUncategorizedKeys(keys, categorizedKeys) {
-        const categorizedKeySet = new Set();
-        Object.values(categorizedKeys).forEach(category => {
-            category.keys.forEach(key => categorizedKeySet.add(key));
-        });
-        
-        return Object.keys(keys).filter(key => !categorizedKeySet.has(key));
-    }
 
-    toggleKeyCategory(categoryId, element) {
+
+    toggleKeyCategory(categoryId, element, mode = 'command') {
         const header = element.querySelector('h4');
         const commands = element.querySelector('.category-commands');
         const chevron = header.querySelector('.category-chevron');
         
         const isCollapsed = commands.classList.contains('collapsed');
         
+        // Use different storage key for key-type categories
+        const storageKey = mode === 'key-type' ? `keyTypeCategory_${categoryId}_collapsed` : `keyCategory_${categoryId}_collapsed`;
+        
         if (isCollapsed) {
             commands.classList.remove('collapsed');
             header.classList.remove('collapsed');
             chevron.style.transform = 'rotate(90deg)';
-            localStorage.setItem(`keyCategory_${categoryId}_collapsed`, 'false');
+            localStorage.setItem(storageKey, 'false');
         } else {
             commands.classList.add('collapsed');
             header.classList.add('collapsed');
             chevron.style.transform = 'rotate(0deg)';
-            localStorage.setItem(`keyCategory_${categoryId}_collapsed`, 'true');
+            localStorage.setItem(storageKey, 'true');
         }
+    }
+
+    formatKeyName(keyName) {
+        // Smart formatting for compound keys to use line breaks instead of tiny text
+        if (keyName.includes('+')) {
+            // Always break compound keys for better readability
+            return keyName.replace(/\+/g, '<br>+<br>');
+        }
+        return keyName;
+    }
+
+    detectKeyTypes(keyName) {
+        const types = [];
+        
+        // Check if this is a compound key with modifiers
+        if (keyName.includes('+')) {
+            const parts = keyName.split('+');
+            const hasModifier = parts.some(part => 
+                part.match(/^(Ctrl|Control|Alt|Shift|Win|Cmd|Super)$/i)
+            );
+            
+            if (hasModifier) {
+                types.push('modifiers');
+            }
+        }
+        
+        // Extract the base key from compound keys to check its type too
+        const baseKey = keyName.split('+').pop();
+        
+        // Function Keys
+        if (baseKey.match(/^F\d+$/)) types.push('function');
+        
+        // Mouse inputs - comprehensive list from STO documentation
+        else if (baseKey.match(/^(Lbutton|Rbutton|Mbutton|Leftdrag|Rightdrag|Middledrag|Leftclick|Rightclick|Middleclick|Leftdoubleclick|Rightdoubleclick|Middledoubleclick|Wheelplus|Wheelminus|Mousechord|Mouse|Wheel|LMouse|RMouse|MMouse|XMouse|Drag)/i)) types.push('mouse');
+        
+        // Numberpad
+        else if (baseKey.match(/^(Numpad|Keypad)/i)) types.push('numberpad');
+        
+        // Single Modifiers (for standalone modifier keys)
+        else if (baseKey.match(/^(Ctrl|Control|Alt|Shift|Win|Cmd|Super)$/i)) {
+            if (!types.includes('modifiers')) types.push('modifiers');
+        }
+        
+        // Navigation
+        else if (baseKey.match(/^(Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert|Delete)$/i)) types.push('navigation');
+        
+        // System/Special
+        else if (baseKey.match(/^(Space|Tab|Enter|Return|Escape|Esc|Backspace|CapsLock|ScrollLock|NumLock|PrintScreen|Pause|Break)$/i)) types.push('system');
+        
+        // Numbers
+        else if (baseKey.match(/^[0-9]$/)) types.push('alphanumeric');
+        
+        // Letters
+        else if (baseKey.match(/^[A-Za-z]$/)) types.push('alphanumeric');
+        
+        // Symbols and punctuation
+        else if (baseKey.match(/^[`~!@#$%^&*()_+\-=\[\]{}\\|;':",./<>?]$/) || 
+            baseKey.match(/^(Comma|Period|Semicolon|Quote|Slash|Backslash|Minus|Plus|Equals|Bracket|Grave|Tilde)$/i)) {
+            types.push('symbols');
+        }
+        
+        // Default fallback
+        else {
+            types.push('other');
+        }
+        
+        return types.length > 0 ? types : ['other'];
+    }
+
+    categorizeKeysByType(keysWithCommands, allKeys) {
+        const categories = {
+            function: {
+                name: 'Function Keys',
+                icon: 'fas fa-keyboard',
+                keys: new Set(),
+                priority: 1
+            },
+            alphanumeric: {
+                name: 'Letters & Numbers',
+                icon: 'fas fa-font',
+                keys: new Set(),
+                priority: 2
+            },
+            numberpad: {
+                name: 'Numberpad',
+                icon: 'fas fa-calculator',
+                keys: new Set(),
+                priority: 3
+            },
+            modifiers: {
+                name: 'Modifier Keys',
+                icon: 'fas fa-hand-paper',
+                keys: new Set(),
+                priority: 4
+            },
+            navigation: {
+                name: 'Navigation',
+                icon: 'fas fa-arrows-alt',
+                keys: new Set(),
+                priority: 5
+            },
+            system: {
+                name: 'System Keys',
+                icon: 'fas fa-cogs',
+                keys: new Set(),
+                priority: 6
+            },
+            mouse: {
+                name: 'Mouse & Wheel',
+                icon: 'fas fa-mouse',
+                keys: new Set(),
+                priority: 7
+            },
+            symbols: {
+                name: 'Symbols & Punctuation',
+                icon: 'fas fa-at',
+                keys: new Set(),
+                priority: 8
+            },
+            other: {
+                name: 'Other Keys',
+                icon: 'fas fa-question-circle',
+                keys: new Set(),
+                priority: 9
+            }
+        };
+        
+        // Categorize each key by its types (can be multiple)
+        allKeys.forEach(keyName => {
+            const keyTypes = this.detectKeyTypes(keyName);
+            keyTypes.forEach(keyType => {
+                if (categories[keyType]) {
+                    categories[keyType].keys.add(keyName);
+                } else {
+                    categories.other.keys.add(keyName);
+                }
+            });
+        });
+        
+        // Convert sets to arrays and sort
+        Object.values(categories).forEach(category => {
+            category.keys = Array.from(category.keys).sort(this.compareKeys.bind(this));
+        });
+        
+        return categories;
+    }
+
+    renderKeyTypeView(grid, profile, allKeys) {
+        // Add categorized class to override grid layout
+        grid.classList.add('categorized');
+        
+        // Categorize keys by their input type
+        const categorizedKeys = this.categorizeKeysByType(profile.keys, allKeys);
+        
+        // Sort categories by priority
+        const sortedCategories = Object.entries(categorizedKeys).sort(([aId, aData], [bId, bData]) => {
+            return aData.priority - bData.priority;
+        });
+        
+        // Create category tree structure - show all categories even if empty
+        sortedCategories.forEach(([categoryId, categoryData]) => {
+            const categoryElement = this.createKeyCategoryElement(categoryId, categoryData, 'key-type');
+            grid.appendChild(categoryElement);
+        });
     }
 
     compareKeys(a, b) {
@@ -594,8 +775,41 @@ class STOKeybindManager {
         keyElement.dataset.key = keyName;
         keyElement.title = `${keyName}: ${commands.length} command${commands.length !== 1 ? 's' : ''}`;
         
+        // Smart formatting for compound keys and font sizing
+        const formattedKeyName = this.formatKeyName(keyName);
+        const hasLineBreaks = formattedKeyName.includes('<br>');
+        
+        // Determine length classification
+        let lengthClass;
+        if (hasLineBreaks) {
+            // For compound keys with line breaks, check the longest part
+            const parts = keyName.split('+');
+            const longestPart = Math.max(...parts.map(part => part.length));
+            if (longestPart <= 4) {
+                lengthClass = 'short';
+            } else if (longestPart <= 8) {
+                lengthClass = 'medium';
+            } else {
+                lengthClass = 'long';
+            }
+                 } else {
+             // For single keys, use total length
+             const keyLength = keyName.length;
+             if (keyLength <= 3) {
+                 lengthClass = 'short';
+             } else if (keyLength <= 5) {
+                 lengthClass = 'medium';
+             } else if (keyLength <= 8) {
+                 lengthClass = 'long';
+             } else {
+                 lengthClass = 'extra-long';
+             }
+         }
+         
+         keyElement.dataset.length = lengthClass;
+        
         keyElement.innerHTML = `
-            <div class="key-label">${keyName}</div>
+            <div class="key-label">${formattedKeyName}</div>
             ${commands.length > 0 ? `
                 <div class="activity-bar" style="width: ${Math.min(commands.length * 15, 100)}%"></div>
                 <div class="command-count-badge">${commands.length}</div>
@@ -609,33 +823,38 @@ class STOKeybindManager {
         return keyElement;
     }
 
-    shouldUseCategorizedView(keyCount) {
-        // Check user preference first
-        const userPreference = localStorage.getItem('keyViewMode');
-        if (userPreference === 'categorized') return true;
-        if (userPreference === 'grid') return false;
-        
-        // Auto-decide based on key count if no preference set
-        return keyCount > 15;
-    }
 
-    updateViewToggleButton(useCategorizedView) {
+
+    updateViewToggleButton(viewMode) {
         const toggleBtn = document.getElementById('toggleKeyViewBtn');
         if (toggleBtn) {
             const icon = toggleBtn.querySelector('i');
-            if (useCategorizedView) {
+            if (viewMode === 'categorized') {
+                icon.className = 'fas fa-sitemap';
+                toggleBtn.title = 'Switch to key type view';
+            } else if (viewMode === 'key-types') {
                 icon.className = 'fas fa-th';
                 toggleBtn.title = 'Switch to grid view';
             } else {
                 icon.className = 'fas fa-list';
-                toggleBtn.title = 'Switch to categorized view';
+                toggleBtn.title = 'Switch to command categories';
             }
         }
     }
 
     toggleKeyView() {
-        const currentMode = localStorage.getItem('keyViewMode');
-        const newMode = currentMode === 'categorized' ? 'grid' : 'categorized';
+        const currentMode = localStorage.getItem('keyViewMode') || 'key-types';
+        let newMode;
+        
+        // 3-way toggle: key-types → grid → categorized → key-types
+        if (currentMode === 'key-types') {
+            newMode = 'grid';
+        } else if (currentMode === 'grid') {
+            newMode = 'categorized';
+        } else {
+            newMode = 'key-types';
+        }
+        
         localStorage.setItem('keyViewMode', newMode);
         this.renderKeyGrid();
     }
@@ -1241,13 +1460,30 @@ class STOKeybindManager {
     }
     
     filterKeys(filter) {
-        const keyItems = document.querySelectorAll('.key-item');
         const filterLower = filter.toLowerCase();
         
+        // Filter grid view keys (.key-item)
+        const keyItems = document.querySelectorAll('.key-item');
         keyItems.forEach(item => {
             const keyName = item.dataset.key.toLowerCase();
             const visible = !filter || keyName.includes(filterLower);
             item.style.display = visible ? 'flex' : 'none';
+        });
+        
+        // Filter categorized/key-type view keys (.command-item[data-key])
+        const commandItems = document.querySelectorAll('.command-item[data-key]');
+        commandItems.forEach(item => {
+            const keyName = item.dataset.key.toLowerCase();
+            const visible = !filter || keyName.includes(filterLower);
+            item.style.display = visible ? 'flex' : 'none';
+        });
+        
+        // Hide/show categories based on whether they have visible keys
+        const categories = document.querySelectorAll('.category');
+        categories.forEach(category => {
+            const visibleKeys = category.querySelectorAll('.command-item[data-key]:not([style*="display: none"])');
+            const categoryVisible = !filter || visibleKeys.length > 0;
+            category.style.display = categoryVisible ? 'block' : 'none';
         });
     }
     
@@ -1263,9 +1499,22 @@ class STOKeybindManager {
     }
     
     showAllKeys() {
+        // Show all grid view keys
         const keyItems = document.querySelectorAll('.key-item');
         keyItems.forEach(item => {
             item.style.display = 'flex';
+        });
+        
+        // Show all categorized/key-type view keys
+        const commandItems = document.querySelectorAll('.command-item[data-key]');
+        commandItems.forEach(item => {
+            item.style.display = 'flex';
+        });
+        
+        // Show all categories
+        const categories = document.querySelectorAll('.category');
+        categories.forEach(category => {
+            category.style.display = 'block';
         });
         
         const filterInput = document.getElementById('keyFilter');
