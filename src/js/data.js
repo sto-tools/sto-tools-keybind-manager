@@ -14,7 +14,11 @@ const STO_DATA = {
                     command: "Target",
                     description: "Target entity by name (requires quotes)",
                     syntax: "Target \"EntityName\"",
-                    icon: "🎯"
+                    icon: "🎯",
+                    customizable: true,
+                    parameters: {
+                        entityName: { type: "text", default: "EntityName", placeholder: "Enter entity name" }
+                    }
                 },
                 target_enemy_near: {
                     name: "Target Nearest Enemy",
@@ -146,6 +150,21 @@ const STO_DATA = {
                     parameters: {
                         tray: { type: "number", min: 0, max: 9, default: 0 },
                         slot: { type: "number", min: 0, max: 9, default: 0 }
+                    }
+                },
+                tray_with_backup: {
+                    name: "Tray Execution with Backup",
+                    command: "TrayExecByTrayWithBackup 1 0 0 0 0",
+                    description: "Execute specific tray slot with backup ability",
+                    syntax: "TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>",
+                    icon: "⚡",
+                    customizable: true,
+                    parameters: {
+                        active: { type: "number", min: 0, max: 1, default: 1 },
+                        tray: { type: "number", min: 0, max: 9, default: 0 },
+                        slot: { type: "number", min: 0, max: 9, default: 0 },
+                        backup_tray: { type: "number", min: 0, max: 9, default: 0 },
+                        backup_slot: { type: "number", min: 0, max: 9, default: 0 }
                     }
                 }
             }

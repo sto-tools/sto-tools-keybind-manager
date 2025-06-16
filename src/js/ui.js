@@ -205,7 +205,19 @@ class STOUIManager {
             const confirmModal = this.createConfirmModal(message, title, type);
             document.body.appendChild(confirmModal);
             
+            // Use the global modal overlay
+            const overlay = document.getElementById('modalOverlay');
+            if (overlay) {
+                overlay.classList.add('active');
+            }
+            document.body.classList.add('modal-open');
+            
             const handleConfirm = (result) => {
+                // Clean up modal and overlay
+                if (overlay) {
+                    overlay.classList.remove('active');
+                }
+                document.body.classList.remove('modal-open');
                 document.body.removeChild(confirmModal);
                 resolve(result);
             };
@@ -227,7 +239,7 @@ class STOUIManager {
 
     createConfirmModal(message, title, type) {
         const modal = document.createElement('div');
-        modal.className = 'modal confirm-modal active';
+        modal.className = 'modal confirm-modal';
         
         const iconMap = {
             warning: 'fa-exclamation-triangle',
@@ -236,7 +248,6 @@ class STOUIManager {
         };
         
         modal.innerHTML = `
-            <div class="modal-overlay active"></div>
             <div class="modal-content">
                 <div class="modal-header">
                     <h3>

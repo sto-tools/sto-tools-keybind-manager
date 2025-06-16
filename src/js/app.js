@@ -448,15 +448,69 @@ class STOKeybindManager {
         element.dataset.index = index;
         element.draggable = true;
         
+        // Check if this command matches a library definition
+        const commandDef = this.findCommandDefinition(command);
+        const isParameterized = commandDef && commandDef.customizable;
+        
+        // Use library definition for display if available
+        let displayName = command.text;
+        let displayIcon = command.icon;
+        
+        if (commandDef) {
+            displayName = commandDef.name;
+            displayIcon = commandDef.icon;
+            
+            // For parameterized commands, add parameter details to the name
+            if (isParameterized && command.parameters) {
+                if (commandDef.commandId === 'tray_with_backup') {
+                    const p = command.parameters;
+                    displayName = `${commandDef.name} (${p.active} ${p.tray} ${p.slot} ${p.backup_tray} ${p.backup_slot})`;
+                } else if (commandDef.commandId === 'custom_tray') {
+                    const p = command.parameters;
+                    displayName = `${commandDef.name} (${p.tray} ${p.slot})`;
+                } else if (commandDef.commandId === 'target') {
+                    const p = command.parameters;
+                    displayName = `${commandDef.name}: ${p.entityName}`;
+                }
+            } else if (isParameterized) {
+                // Extract parameters from command string for display
+                if (command.command.includes('TrayExecByTrayWithBackup')) {
+                    const parts = command.command.split(' ');
+                    if (parts.length >= 6) {
+                        displayName = `${commandDef.name} (${parts[1]} ${parts[2]} ${parts[3]} ${parts[4]} ${parts[5]})`;
+                    }
+                } else if (command.command.includes('TrayExec')) {
+                    const parts = command.command.replace('+', '').split(' ');
+                    if (parts.length >= 3) {
+                        displayName = `${commandDef.name} (${parts[1]} ${parts[2]})`;
+                    }
+                } else if (command.command.includes('Target ')) {
+                    const match = command.command.match(/Target "([^"]+)"/);
+                    if (match) {
+                        displayName = `${commandDef.name}: ${match[1]}`;
+                    }
+                }
+            }
+        }
+        
+        // Add parameters data attribute for styling
+        if (isParameterized) {
+            element.dataset.parameters = 'true';
+            element.classList.add('customizable');
+        }
+        
         // Check if command has a warning
         const warningInfo = this.getCommandWarning(command);
         const warningIcon = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : '';
         
+        // Add parameter indicator for tray commands and other parameterized commands
+        const parameterIndicator = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : '';
+        
         element.innerHTML = `
             <div class="command-number">${index + 1}</div>
             <div class="command-content">
-                <span class="command-icon">${command.icon}</span>
-                <span class="command-text">${command.text}</span>
+                <span class="command-icon">${displayIcon}</span>
+                <span class="command-text">${displayName}${parameterIndicator}</span>
                 ${warningIcon}
             </div>
             <span class="command-type ${command.type}">${command.type}</span>
@@ -1106,6 +1160,10 @@ class STOKeybindManager {
             input.name = paramName;
             input.value = paramDef.default || '';
             
+            if (paramDef.placeholder) {
+                input.placeholder = paramDef.placeholder;
+            }
+            
             if (paramDef.type === 'number') {
                 if (paramDef.min !== undefined) input.min = paramDef.min;
                 if (paramDef.max !== undefined) input.max = paramDef.max;
@@ -1136,8 +1194,12 @@ class STOKeybindManager {
     
     getParameterHelp(paramName, paramDef) {
         const helps = {
-            tray: 'Tray number (0-9, where 0 is the first tray)',
-            slot: 'Slot number (0-9, where 0 is the first slot)',
+            entityName: 'Name of the entity to target (e.g., ship name, player name)',
+            active: 'Whether the command is active (1 = active, 0 = inactive)',
+            tray: 'Primary tray number (0-9, where 0 is the first tray)',
+            slot: 'Primary slot number (0-9, where 0 is the first slot)',
+            backup_tray: 'Backup tray number (0-9, where 0 is the first tray)',
+            backup_slot: 'Backup slot number (0-9, where 0 is the first slot)',
             amount: 'Throttle adjustment amount (-1 to 1)',
             position: 'Throttle position (-1 = full reverse, 0 = stop, 1 = full forward)',
             distance: 'Camera distance from target',
@@ -1185,10 +1247,48 @@ class STOKeybindManager {
     buildParameterizedCommand(categoryId, commandId, commandDef, params) {
         // Use the command builder logic from commands.js
         const builders = {
-            tray: (params) => ({
-                command: `+STOTrayExecByTray ${params.tray || 0} ${params.slot || 0}`,
-                text: `Execute Tray ${(params.tray || 0) + 1} Slot ${(params.slot || 0) + 1}`
-            }),
+            targeting: (params) => {
+                if (commandId === 'target' && params.entityName) {
+                    return {
+                        command: `${commandDef.command} "${params.entityName}"`,
+                        text: `Target: ${params.entityName}`
+                    };
+                }
+                return { command: commandDef.command, text: commandDef.name };
+            },
+            tray: (params) => {
+                const tray = params.tray || 0;
+                const slot = params.slot || 0;
+                
+                if (commandId === 'tray_with_backup') {
+                    const active = params.active !== undefined ? params.active : 1;
+                    const backupTray = params.backup_tray || 0;
+                    const backupSlot = params.backup_slot || 0;
+                    
+                    return {
+                        command: `TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`,
+                        text: `Execute Tray ${tray + 1} Slot ${slot + 1} (backup: Tray ${backupTray + 1} Slot ${backupSlot + 1})`
+                    };
+                } else {
+                    // Preserve original command format when editing
+                    const isEditing = this.currentParameterCommand && this.currentParameterCommand.isEditing;
+                    if (isEditing) {
+                        const profile = this.getCurrentProfile();
+                        const existingCommand = profile.keys[this.selectedKey][this.currentParameterCommand.editIndex];
+                        if (existingCommand && existingCommand.command.startsWith('TrayExecByTray') && !existingCommand.command.startsWith('+')) {
+                            return {
+                                command: `TrayExecByTray ${tray} ${slot}`,
+                                text: `Execute Tray ${tray + 1} Slot ${slot + 1}`
+                            };
+                        }
+                    }
+                    
+                    return {
+                        command: `+STOTrayExecByTray ${tray} ${slot}`,
+                        text: `Execute Tray ${tray + 1} Slot ${slot + 1}`
+                    };
+                }
+            },
             movement: (params) => {
                 let command = commandDef.command;
                 if (commandId === 'throttle_adjust' && params.amount !== undefined) {
@@ -1286,11 +1386,40 @@ class STOKeybindManager {
             }
         }
         
+        // Also check if command is detectable as parameterized via findCommandDefinition
+        const commandDef = this.findCommandDefinition(command);
+        if (commandDef && commandDef.customizable) {
+            this.editParameterizedCommand(index, command, commandDef);
+            return;
+        }
+        
         // For non-parameterized commands, show command details
         stoUI.showToast(`Command: ${command.command}\nType: ${command.type}`, 'info', 3000);
     }
     
     findCommandDefinition(command) {
+        // Special handling for tray execution commands - detect by command string
+        if (command.command.includes('TrayExec')) {
+            const trayCategory = STO_DATA.commands.tray;
+            if (trayCategory) {
+                // Check for TrayExecByTrayWithBackup
+                if (command.command.includes('TrayExecByTrayWithBackup')) {
+                    const trayWithBackupDef = trayCategory.commands.tray_with_backup;
+                    if (trayWithBackupDef) {
+                        return { commandId: 'tray_with_backup', ...trayWithBackupDef };
+                    }
+                }
+                // Check for STOTrayExecByTray or TrayExecByTray (both use same dialog)
+                else if (command.command.includes('STOTrayExecByTray') || 
+                         (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))) {
+                    const customTrayDef = trayCategory.commands.custom_tray;
+                    if (customTrayDef) {
+                        return { commandId: 'custom_tray', ...customTrayDef };
+                    }
+                }
+            }
+        }
+        
         const category = STO_DATA.commands[command.type];
         if (!category) return null;
         
@@ -1352,6 +1481,10 @@ class STOKeybindManager {
                 ? existingParams[paramName] 
                 : paramDef.default;
             input.value = existingValue || '';
+            
+            if (paramDef.placeholder) {
+                input.placeholder = paramDef.placeholder;
+            }
             
             if (paramDef.type === 'number') {
                 if (paramDef.min !== undefined) input.min = paramDef.min;

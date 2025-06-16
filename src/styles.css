@@ -1588,12 +1588,14 @@ body {
 }
 
 /* Parameterized Command Styling */
-.command-item.customizable {
+.command-item.customizable,
+.command-item-row.customizable {
   position: relative;
   border-left: 3px solid var(--accent);
 }
 
-.command-item.customizable:hover {
+.command-item.customizable:hover,
+.command-item-row.customizable:hover {
   border-left-color: var(--primary);
 }
 
@@ -1604,7 +1606,8 @@ body {
   opacity: 0.8;
 }
 
-.command-item.customizable .param-indicator {
+.command-item.customizable .param-indicator,
+.command-item-row.customizable .param-indicator {
   opacity: 1;
 }
 
