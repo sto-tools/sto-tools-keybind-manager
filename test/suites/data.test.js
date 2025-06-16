@@ -197,6 +197,230 @@ describe('Data Module', () => {
         });
     });
 
+describe('Camera Commands Category', () => {
+    it('should have camera commands category', () => {
+        if (window.STO_DATA && window.STO_DATA.commands) {
+            expect(window.STO_DATA.commands.camera).toBeDefined();
+            expect(window.STO_DATA.commands.camera.name).toBe('Camera');
+            expect(window.STO_DATA.commands.camera.icon).toBeDefined();
+            expect(window.STO_DATA.commands.camera.description).toBeDefined();
+            expect(window.STO_DATA.commands.camera.commands).toBeDefined();
+        }
+    });
+
+    it('should have essential camera commands', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
+            const cameraCommands = window.STO_DATA.commands.camera.commands;
+            
+            // Check for basic camera commands
+            expect(cameraCommands.zoom_in).toBeDefined();
+            expect(cameraCommands.zoom_out).toBeDefined();
+            expect(cameraCommands.cam_reset).toBeDefined();
+            
+            // Verify command structure
+            if (cameraCommands.zoom_in) {
+                expect(cameraCommands.zoom_in.name).toBeDefined();
+                expect(cameraCommands.zoom_in.command).toBeDefined();
+                expect(cameraCommands.zoom_in.description).toBeDefined();
+                expect(cameraCommands.zoom_in.icon).toBeDefined();
+            }
+        }
+    });
+
+    it('should have parameterized camera commands', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
+            const cameraCommands = window.STO_DATA.commands.camera.commands;
+            
+            // Check for parameterized camera distance command
+            if (cameraCommands.cam_distance) {
+                expect(cameraCommands.cam_distance.customizable).toBeTruthy();
+                expect(cameraCommands.cam_distance.parameters).toBeDefined();
+                expect(cameraCommands.cam_distance.parameters.distance).toBeDefined();
+                
+                // Verify parameter structure
+                const distanceParam = cameraCommands.cam_distance.parameters.distance;
+                expect(distanceParam.type).toBe('number');
+                expect(distanceParam.min).toBeDefined();
+                expect(distanceParam.max).toBeDefined();
+                expect(distanceParam.default).toBeDefined();
+            }
+        }
+    });
+});
+
+describe('Shield Management Category Updates', () => {
+    it('should rename power category to Shield Management', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
+            expect(window.STO_DATA.commands.power.name).toBe('Shield Management');
+            expect(window.STO_DATA.commands.power.icon).toContain('shield');
+        }
+    });
+
+    it('should have shield management commands with warnings', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
+            const powerCommands = window.STO_DATA.commands.power.commands;
+            
+            // Check distribute shields command
+            if (powerCommands.distribute_shields) {
+                expect(powerCommands.distribute_shields.name).toBe('Distribute Shields');
+                expect(powerCommands.distribute_shields.warning).toBeDefined();
+                expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+            }
+            
+            // Check shield rerouting commands
+            expect(powerCommands.reroute_shields_rear).toBeDefined();
+            expect(powerCommands.reroute_shields_left).toBeDefined();
+            expect(powerCommands.reroute_shields_right).toBeDefined();
+        }
+    });
+});
+
+describe('Command Warning System Data', () => {
+    it('should have warnings for combat commands', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.combat) {
+            const combatCommands = window.STO_DATA.commands.combat.commands;
+            
+            // Check that combat commands have appropriate warnings
+            const warningCommands = ['fire_all', 'fire_phasers', 'fire_torps', 'fire_mines', 'fire_phasers_torps', 'fire_projectiles'];
+            
+            warningCommands.forEach(commandKey => {
+                if (combatCommands[commandKey]) {
+                    expect(combatCommands[commandKey].warning).toBeDefined();
+                    expect(combatCommands[commandKey].warning).toContain('Not recommended on spam bars');
+                }
+            });
+        }
+    });
+
+    it('should have warnings for shield management commands', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
+            const powerCommands = window.STO_DATA.commands.power.commands;
+            
+            // Check that distribute shields has warning
+            if (powerCommands.distribute_shields) {
+                expect(powerCommands.distribute_shields.warning).toBeDefined();
+                expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+            }
+        }
+    });
+
+    it('should not have warnings for safe commands', () => {
+        if (window.STO_DATA && window.STO_DATA.commands) {
+            // Targeting commands should generally not have warnings
+            if (window.STO_DATA.commands.targeting) {
+                const targetingCommands = window.STO_DATA.commands.targeting.commands;
+                
+                Object.values(targetingCommands).forEach(command => {
+                    if (command) {
+                        expect(command.warning).toBeUndefined();
+                    }
+                });
+            }
+        }
+    });
+});
+
+describe('Parameterized Command Data Structure', () => {
+    it('should have proper parameterized command definitions', () => {
+        if (window.STO_DATA && window.STO_DATA.commands) {
+            const categories = window.STO_DATA.commands;
+            
+            // Look for parameterized commands across categories
+            Object.entries(categories).forEach(([categoryId, category]) => {
+                if (category.commands) {
+                    Object.entries(category.commands).forEach(([commandId, command]) => {
+                        if (command.customizable) {
+                            expect(command.parameters).toBeDefined();
+                            expect(typeof command.parameters).toBe('object');
+                            
+                            // Verify parameter structure
+                            Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
+                                expect(paramDef.type).toBeDefined();
+                                expect(['string', 'number', 'boolean']).toContain(paramDef.type);
+                                
+                                if (paramDef.type === 'number') {
+                                    expect(paramDef.min).toBeDefined();
+                                    expect(paramDef.max).toBeDefined();
+                                }
+                                
+                                expect(paramDef.default).toBeDefined();
+                            });
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    it('should have movement command parameters', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.movement) {
+            const movementCommands = window.STO_DATA.commands.movement.commands;
+            
+            // Check for throttle adjustment parameters
+            if (movementCommands.throttle_adjust) {
+                expect(movementCommands.throttle_adjust.customizable).toBeTruthy();
+                expect(movementCommands.throttle_adjust.parameters.amount).toBeDefined();
+                
+                const amountParam = movementCommands.throttle_adjust.parameters.amount;
+                expect(amountParam.type).toBe('number');
+                expect(amountParam.min).toBe(-1);
+                expect(amountParam.max).toBe(1);
+            }
+            
+            // Check for throttle set parameters
+            if (movementCommands.throttle_set) {
+                expect(movementCommands.throttle_set.customizable).toBeTruthy();
+                expect(movementCommands.throttle_set.parameters.position).toBeDefined();
+            }
+        }
+    });
+
+    it('should have system command parameters', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.system) {
+            const systemCommands = window.STO_DATA.commands.system.commands;
+            
+            // Check for bind file parameters
+            if (systemCommands.bind_save_file) {
+                expect(systemCommands.bind_save_file.customizable).toBeTruthy();
+                expect(systemCommands.bind_save_file.parameters.filename).toBeDefined();
+            }
+            
+            if (systemCommands.bind_load_file) {
+                expect(systemCommands.bind_load_file.customizable).toBeTruthy();
+                expect(systemCommands.bind_load_file.parameters.filename).toBeDefined();
+            }
+            
+            // Check for combat log parameters
+            if (systemCommands.combat_log) {
+                expect(systemCommands.combat_log.customizable).toBeTruthy();
+                expect(systemCommands.combat_log.parameters.state).toBeDefined();
+                
+                const stateParam = systemCommands.combat_log.parameters.state;
+                expect(stateParam.type).toBe('number');
+                expect(stateParam.min).toBe(0);
+                expect(stateParam.max).toBe(1);
+            }
+        }
+    });
+});
+
+describe('Communication Command Structure', () => {
+    it('should have communication commands with message parameters', () => {
+        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.communication) {
+            const commCommands = window.STO_DATA.commands.communication.commands;
+            
+            // Check for message-based commands
+            Object.values(commCommands).forEach(command => {
+                if (command && command.customizable) {
+                    expect(command.parameters).toBeDefined();
+                    expect(command.parameters.message).toBeDefined();
+                    expect(command.parameters.message.type).toBe('string');
+                }
+            });
+        }
+    });
+});
+
     describe('Tray Configuration', () => {
         it('should have tray configuration defined', () => {
             expect(window.TRAY_CONFIG).toBeDefined();
@@ -251,6 +475,230 @@ describe('Data Module', () => {
                     });
                 });
             });
+        });
+    });
+
+    describe('Camera Commands Category', () => {
+        it('should have camera commands category', () => {
+            if (window.STO_DATA && window.STO_DATA.commands) {
+                expect(window.STO_DATA.commands.camera).toBeDefined();
+                expect(window.STO_DATA.commands.camera.name).toBe('Camera');
+                expect(window.STO_DATA.commands.camera.icon).toBeDefined();
+                expect(window.STO_DATA.commands.camera.description).toBeDefined();
+                expect(window.STO_DATA.commands.camera.commands).toBeDefined();
+            }
+        });
+
+        it('should have essential camera commands', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
+                const cameraCommands = window.STO_DATA.commands.camera.commands;
+                
+                // Check for basic camera commands
+                expect(cameraCommands.zoom_in).toBeDefined();
+                expect(cameraCommands.zoom_out).toBeDefined();
+                expect(cameraCommands.cam_reset).toBeDefined();
+                
+                // Verify command structure
+                if (cameraCommands.zoom_in) {
+                    expect(cameraCommands.zoom_in.name).toBeDefined();
+                    expect(cameraCommands.zoom_in.command).toBeDefined();
+                    expect(cameraCommands.zoom_in.description).toBeDefined();
+                    expect(cameraCommands.zoom_in.icon).toBeDefined();
+                }
+            }
+        });
+
+        it('should have parameterized camera commands', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
+                const cameraCommands = window.STO_DATA.commands.camera.commands;
+                
+                // Check for parameterized camera distance command
+                if (cameraCommands.cam_distance) {
+                    expect(cameraCommands.cam_distance.customizable).toBeTruthy();
+                    expect(cameraCommands.cam_distance.parameters).toBeDefined();
+                    expect(cameraCommands.cam_distance.parameters.distance).toBeDefined();
+                    
+                    // Verify parameter structure
+                    const distanceParam = cameraCommands.cam_distance.parameters.distance;
+                    expect(distanceParam.type).toBe('number');
+                    expect(distanceParam.min).toBeDefined();
+                    expect(distanceParam.max).toBeDefined();
+                    expect(distanceParam.default).toBeDefined();
+                }
+            }
+        });
+    });
+
+    describe('Shield Management Category Updates', () => {
+        it('should rename power category to Shield Management', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
+                expect(window.STO_DATA.commands.power.name).toBe('Shield Management');
+                expect(window.STO_DATA.commands.power.icon).toContain('shield');
+            }
+        });
+
+        it('should have shield management commands with warnings', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
+                const powerCommands = window.STO_DATA.commands.power.commands;
+                
+                // Check distribute shields command
+                if (powerCommands.distribute_shields) {
+                    expect(powerCommands.distribute_shields.name).toBe('Distribute Shields');
+                    expect(powerCommands.distribute_shields.warning).toBeDefined();
+                    expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+                }
+                
+                // Check shield rerouting commands
+                expect(powerCommands.reroute_shields_rear).toBeDefined();
+                expect(powerCommands.reroute_shields_left).toBeDefined();
+                expect(powerCommands.reroute_shields_right).toBeDefined();
+            }
+        });
+    });
+
+    describe('Command Warning System Data', () => {
+        it('should have warnings for combat commands', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.combat) {
+                const combatCommands = window.STO_DATA.commands.combat.commands;
+                
+                // Check that combat commands have appropriate warnings
+                const warningCommands = ['fire_all', 'fire_phasers', 'fire_torps', 'fire_mines', 'fire_phasers_torps', 'fire_projectiles'];
+                
+                warningCommands.forEach(commandKey => {
+                    if (combatCommands[commandKey]) {
+                        expect(combatCommands[commandKey].warning).toBeDefined();
+                        expect(combatCommands[commandKey].warning).toContain('Not recommended on spam bars');
+                    }
+                });
+            }
+        });
+
+        it('should have warnings for shield management commands', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
+                const powerCommands = window.STO_DATA.commands.power.commands;
+                
+                // Check that distribute shields has warning
+                if (powerCommands.distribute_shields) {
+                    expect(powerCommands.distribute_shields.warning).toBeDefined();
+                    expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+                }
+            }
+        });
+
+        it('should not have warnings for safe commands', () => {
+            if (window.STO_DATA && window.STO_DATA.commands) {
+                // Targeting commands should generally not have warnings
+                if (window.STO_DATA.commands.targeting) {
+                    const targetingCommands = window.STO_DATA.commands.targeting.commands;
+                    
+                    Object.values(targetingCommands).forEach(command => {
+                        if (command) {
+                            expect(command.warning).toBeUndefined();
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+    describe('Parameterized Command Data Structure', () => {
+        it('should have proper parameterized command definitions', () => {
+            if (window.STO_DATA && window.STO_DATA.commands) {
+                const categories = window.STO_DATA.commands;
+                
+                // Look for parameterized commands across categories
+                Object.entries(categories).forEach(([categoryId, category]) => {
+                    if (category.commands) {
+                        Object.entries(category.commands).forEach(([commandId, command]) => {
+                            if (command.customizable) {
+                                expect(command.parameters).toBeDefined();
+                                expect(typeof command.parameters).toBe('object');
+                                
+                                // Verify parameter structure
+                                Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
+                                    expect(paramDef.type).toBeDefined();
+                                    expect(['string', 'number', 'boolean']).toContain(paramDef.type);
+                                    
+                                    if (paramDef.type === 'number') {
+                                        expect(paramDef.min).toBeDefined();
+                                        expect(paramDef.max).toBeDefined();
+                                    }
+                                    
+                                    expect(paramDef.default).toBeDefined();
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        it('should have movement command parameters', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.movement) {
+                const movementCommands = window.STO_DATA.commands.movement.commands;
+                
+                // Check for throttle adjustment parameters
+                if (movementCommands.throttle_adjust) {
+                    expect(movementCommands.throttle_adjust.customizable).toBeTruthy();
+                    expect(movementCommands.throttle_adjust.parameters.amount).toBeDefined();
+                    
+                    const amountParam = movementCommands.throttle_adjust.parameters.amount;
+                    expect(amountParam.type).toBe('number');
+                    expect(amountParam.min).toBe(-1);
+                    expect(amountParam.max).toBe(1);
+                }
+                
+                // Check for throttle set parameters
+                if (movementCommands.throttle_set) {
+                    expect(movementCommands.throttle_set.customizable).toBeTruthy();
+                    expect(movementCommands.throttle_set.parameters.position).toBeDefined();
+                }
+            }
+        });
+
+        it('should have system command parameters', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.system) {
+                const systemCommands = window.STO_DATA.commands.system.commands;
+                
+                // Check for bind file parameters
+                if (systemCommands.bind_save_file) {
+                    expect(systemCommands.bind_save_file.customizable).toBeTruthy();
+                    expect(systemCommands.bind_save_file.parameters.filename).toBeDefined();
+                }
+                
+                if (systemCommands.bind_load_file) {
+                    expect(systemCommands.bind_load_file.customizable).toBeTruthy();
+                    expect(systemCommands.bind_load_file.parameters.filename).toBeDefined();
+                }
+                
+                // Check for combat log parameters
+                if (systemCommands.combat_log) {
+                    expect(systemCommands.combat_log.customizable).toBeTruthy();
+                    expect(systemCommands.combat_log.parameters.state).toBeDefined();
+                    
+                    const stateParam = systemCommands.combat_log.parameters.state;
+                    expect(stateParam.type).toBe('number');
+                    expect(stateParam.min).toBe(0);
+                    expect(stateParam.max).toBe(1);
+                }
+            }
+        });
+    });
+
+    describe('Communication Command Structure', () => {
+        it('should have communication commands with message parameters', () => {
+            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.communication) {
+                const commCommands = window.STO_DATA.commands.communication.commands;
+                
+                // Check for message-based commands
+                Object.values(commCommands).forEach(command => {
+                    if (command && command.customizable) {
+                        expect(command.parameters).toBeDefined();
+                        expect(command.parameters.message).toBeDefined();
+                        expect(command.parameters.message.type).toBe('string');
+                    }
+                });
+            }
         });
     });
 }); 

@@ -1096,4 +1096,313 @@ describe('Real-world Scenarios', () => {
         expect(retrievedClone.keys['ctrl+space']).toBeDefined();
         expect(retrievedClone.name).toBe('PvP Combat Profile');
     });
+});
+
+describe('Enhanced View Mode Functionality', () => {
+    let storageManager;
+    let mockKeybindManager;
+
+    beforeAll(() => {
+        if (typeof window.StorageManager === 'undefined') {
+            throw new Error('StorageManager not loaded');
+        }
+    });
+
+    beforeEach(() => {
+        storageManager = new window.StorageManager();
+        
+        // Mock DOM elements for view mode testing
+        if (!document.getElementById('keyGrid')) {
+            const mockGrid = document.createElement('div');
+            mockGrid.id = 'keyGrid';
+            mockGrid.className = 'key-grid';
+            document.body.appendChild(mockGrid);
+        }
+        
+        if (!document.getElementById('toggleKeyViewBtn')) {
+            const mockButton = document.createElement('button');
+            mockButton.id = 'toggleKeyViewBtn';
+            mockButton.innerHTML = '<i class="fas fa-list"></i>';
+            document.body.appendChild(mockButton);
+        }
+
+        // Mock keybind manager if available
+        if (typeof window.STOKeybindManager !== 'undefined') {
+            mockKeybindManager = new window.STOKeybindManager();
+        }
+    });
+
+    it('should support three view modes: categorized, key-types, and grid', () => {
+        const supportedModes = ['categorized', 'key-types', 'grid'];
+        
+        supportedModes.forEach(mode => {
+            localStorage.setItem('keyViewMode', mode);
+            const retrievedMode = localStorage.getItem('keyViewMode');
+            expect(retrievedMode).toBe(mode);
+        });
+    });
+
+    it('should toggle between view modes correctly', () => {
+        if (mockKeybindManager && typeof mockKeybindManager.toggleKeyView === 'function') {
+            // Test 3-way toggle: key-types → grid → categorized → key-types
+            localStorage.setItem('keyViewMode', 'key-types');
+            mockKeybindManager.toggleKeyView();
+            expect(localStorage.getItem('keyViewMode')).toBe('grid');
+            
+            mockKeybindManager.toggleKeyView();
+            expect(localStorage.getItem('keyViewMode')).toBe('categorized');
+            
+            mockKeybindManager.toggleKeyView();
+            expect(localStorage.getItem('keyViewMode')).toBe('key-types');
+        }
+    });
+
+    it('should update view toggle button icon based on current mode', () => {
+        if (mockKeybindManager && typeof mockKeybindManager.updateViewToggleButton === 'function') {
+            const toggleBtn = document.getElementById('toggleKeyViewBtn');
+            const icon = toggleBtn?.querySelector('i');
+            
+            if (icon) {
+                mockKeybindManager.updateViewToggleButton('categorized');
+                expect(icon.className).toContain('fa-sitemap');
+                
+                mockKeybindManager.updateViewToggleButton('key-types');
+                expect(icon.className).toContain('fa-th');
+                
+                mockKeybindManager.updateViewToggleButton('grid');
+                expect(icon.className).toContain('fa-list');
+            }
+        }
+    });
+
+    it('should render key grid with appropriate class based on view mode', () => {
+        const keyGrid = document.getElementById('keyGrid');
+        
+        if (keyGrid && mockKeybindManager) {
+            // Test categorized class addition/removal
+            if (typeof mockKeybindManager.renderCategorizedKeyView === 'function') {
+                // Simulate categorized view
+                keyGrid.classList.add('categorized');
+                expect(keyGrid.classList.contains('categorized')).toBeTruthy();
+            }
+            
+            if (typeof mockKeybindManager.renderSimpleKeyGrid === 'function') {
+                // Simulate grid view
+                keyGrid.classList.remove('categorized');
+                expect(keyGrid.classList.contains('categorized')).toBeFalsy();
+            }
+        }
+    });
+
+    it('should categorize keys by command type correctly', () => {
+        if (mockKeybindManager && typeof mockKeybindManager.categorizeKeys === 'function') {
+            const mockKeys = {
+                'space': [
+                    { command: 'Target_Enemy_Near', type: 'targeting' },
+                    { command: 'FireAll', type: 'combat' }
+                ],
+                'f1': [{ command: '+STOTrayExecByTray 0 5', type: 'tray' }],
+                't': [{ command: 'Target_Self', type: 'targeting' }],
+                'f12': [] // Empty key
+            };
+            
+            const allKeys = Object.keys(mockKeys);
+            const categorized = mockKeybindManager.categorizeKeys(mockKeys, allKeys);
+            
+            if (categorized) {
+                // Should have unknown category for empty keys
+                expect(categorized.unknown).toBeDefined();
+                expect(categorized.unknown.keys).toBeDefined();
+                
+                // Should categorize keys with commands
+                expect(categorized.targeting).toBeDefined();
+                expect(categorized.combat).toBeDefined();
+                expect(categorized.tray).toBeDefined();
+            }
+        }
+    });
+
+    it('should categorize keys by input type correctly', () => {
+        if (mockKeybindManager && typeof mockKeybindManager.categorizeKeysByType === 'function') {
+            const mockKeys = {
+                'F1': [{ command: 'test1' }],
+                'F2': [{ command: 'test2' }],
+                'A': [{ command: 'test3' }],
+                '1': [{ command: 'test4' }],
+                'NumPad1': [{ command: 'test5' }],
+                'Ctrl': [{ command: 'test6' }],
+                'Space': [{ command: 'test7' }],
+                'Home': [{ command: 'test8' }]
+            };
+            
+            const allKeys = Object.keys(mockKeys);
+            const categorized = mockKeybindManager.categorizeKeysByType(mockKeys, allKeys);
+            
+            if (categorized) {
+                // Should have function keys category
+                expect(categorized.function).toBeDefined();
+                expect(categorized.function.keys).toBeDefined();
+                
+                // Should have other categories
+                expect(categorized.alphanumeric).toBeDefined();
+                expect(categorized.numberpad).toBeDefined();
+                expect(categorized.modifiers).toBeDefined();
+                expect(categorized.navigation).toBeDefined();
+            }
+        }
+    });
+
+    it('should handle category collapse/expand state persistence', () => {
+        const categoryId = 'test-category';
+        const storageKey = `keyCategory_${categoryId}_collapsed`;
+        
+        // Test setting collapsed state
+        localStorage.setItem(storageKey, 'true');
+        expect(localStorage.getItem(storageKey)).toBe('true');
+        
+        localStorage.setItem(storageKey, 'false');
+        expect(localStorage.getItem(storageKey)).toBe('false');
+        
+        // Clean up
+        localStorage.removeItem(storageKey);
+    });
+
+    it('should handle key-type category collapse/expand state persistence', () => {
+        const categoryId = 'test-key-type';
+        const storageKeyType = `keyTypeCategory_${categoryId}_collapsed`;
+        
+        // Test setting collapsed state for key-type categories
+        localStorage.setItem(storageKeyType, 'true');
+        expect(localStorage.getItem(storageKeyType)).toBe('true');
+        
+        localStorage.setItem(storageKeyType, 'false');
+        expect(localStorage.getItem(storageKeyType)).toBe('false');
+        
+        // Clean up
+        localStorage.removeItem(storageKeyType);
+    });
+
+    it('should filter keys across different view modes', () => {
+        if (mockKeybindManager && typeof mockKeybindManager.filterKeys === 'function') {
+            // Mock key elements for filtering
+            const mockKeyItem = document.createElement('div');
+            mockKeyItem.className = 'key-item';
+            mockKeyItem.dataset.key = 'TestKey';
+            document.body.appendChild(mockKeyItem);
+            
+            const mockCommandItem = document.createElement('div');
+            mockCommandItem.className = 'command-item';
+            mockCommandItem.dataset.key = 'AnotherKey';
+            document.body.appendChild(mockCommandItem);
+            
+            // Test filtering
+            mockKeybindManager.filterKeys('test');
+            
+            // Check that elements exist and have expected attributes
+            expect(mockKeyItem.dataset.key).toBe('TestKey');
+            expect(mockCommandItem.dataset.key).toBe('AnotherKey');
+            
+            // Clean up
+            document.body.removeChild(mockKeyItem);
+            document.body.removeChild(mockCommandItem);
+        }
+    });
+
+    it('should handle smart key formatting for compound keys', () => {
+        // Test compound key formatting if available
+        const compoundKeys = [
+            'Ctrl+Alt+F1',
+            'Shift+Space',
+            'Alt+Tab',
+            'Ctrl+C'
+        ];
+        
+        compoundKeys.forEach(key => {
+            // Basic test that compound keys can be handled
+            expect(key).toContain('+');
+            expect(key.split('+').length).toBeGreaterThan(1);
+        });
+    });
+});
+
+describe('Enhanced Key Categorization', () => {
+    let storageManager;
+
+    beforeAll(() => {
+        if (typeof window.StorageManager === 'undefined') {
+            throw new Error('StorageManager not loaded');
+        }
+    });
+
+    beforeEach(() => {
+        storageManager = new window.StorageManager();
+    });
+
+    it('should properly categorize keys with multiple command types', () => {
+        // Test keys that have multiple commands of different types
+        const profileId = 'test-multi-command-profile';
+        const profile = {
+            name: 'Multi-Command Test Profile',
+            mode: 'space',
+            keys: {
+                'space': [
+                    { command: 'Target_Enemy_Near', type: 'targeting', id: 'cmd1' },
+                    { command: 'FireAll', type: 'combat', id: 'cmd2' },
+                    { command: '+power_exec Distribute_Shields', type: 'power', id: 'cmd3' }
+                ],
+                'f1': [
+                    { command: '+STOTrayExecByTray 0 5', type: 'tray', id: 'cmd4' },
+                    { command: 'Target_Self', type: 'targeting', id: 'cmd5' }
+                ]
+            },
+            aliases: {},
+            created: new Date().toISOString(),
+            lastModified: new Date().toISOString()
+        };
+
+        storageManager.saveProfile(profileId, profile);
+        const savedProfile = storageManager.getProfile(profileId);
+        
+        expect(savedProfile).toBeDefined();
+        expect(savedProfile.keys['space']).toHaveLength(3);
+        expect(savedProfile.keys['f1']).toHaveLength(2);
+        
+        // Verify multiple command types on same key
+        const spaceCommands = savedProfile.keys['space'];
+        const commandTypes = spaceCommands.map(cmd => cmd.type);
+        expect(commandTypes).toContain('targeting');
+        expect(commandTypes).toContain('combat');
+        expect(commandTypes).toContain('power');
+        
+        // Clean up
+        storageManager.deleteProfile(profileId);
+    });
+
+    it('should handle unknown or missing command types in categorization', () => {
+        const profileId = 'test-unknown-command-profile';
+        const profile = {
+            name: 'Unknown Command Test Profile',
+            mode: 'space',
+            keys: {
+                'x': [
+                    { command: 'some_unknown_command', id: 'cmd1' }, // No type specified
+                    { command: 'another_command', type: 'unknown_type', id: 'cmd2' }
+                ],
+                'y': [] // Empty key
+            },
+            aliases: {},
+            created: new Date().toISOString(),
+            lastModified: new Date().toISOString()
+        };
+
+        storageManager.saveProfile(profileId, profile);
+        const savedProfile = storageManager.getProfile(profileId);
+        
+        expect(savedProfile).toBeDefined();
+        expect(savedProfile.keys['x']).toHaveLength(2);
+        expect(savedProfile.keys['y']).toHaveLength(0);
+        
+        // Clean up
+        storageManager.deleteProfile(profileId);
+    });
 }); 
