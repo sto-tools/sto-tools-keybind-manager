@@ -106,10 +106,10 @@ alias heal_self "Target_Self $$ heal_self"`;
     });
 
     it('should handle comments', () => {
-        const content = `# This is a comment
-# Another comment
+        const content = `; This is a comment
+; Another comment
 a "Target"
-# More comments`;
+; More comments`;
         
         const result = keybindManager.parseKeybindFile(content);
         

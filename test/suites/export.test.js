@@ -73,7 +73,7 @@ describe('STO File Generation', () => {
         const content = exportManager.generateSTOKeybindFile(sampleProfile);
         expect(typeof content).toBe('string');
         expect(content.length).toBeGreaterThan(0);
-        expect(content).toContain('# Test Profile - STO Keybind Configuration');
+        expect(content).toContain('; Test Profile - STO Keybind Configuration');
     });
 
     it('should generate file header', () => {
@@ -140,7 +140,7 @@ describe('Export Comment Syntax', () => {
             aliases: {}
         };
 
-        const exportResult = exportManager.exportToSTO(testProfile);
+        const exportResult = exportManager.generateSTOKeybindFile(testProfile);
         
         if (exportResult && typeof exportResult === 'string') {
             // Check that comments use semicolon syntax instead of hash
@@ -166,7 +166,7 @@ describe('Export Comment Syntax', () => {
             aliases: {}
         };
 
-        const exportResult = exportManager.exportToSTO(testProfile);
+        const exportResult = exportManager.generateSTOKeybindFile(testProfile);
         
         if (exportResult && typeof exportResult === 'string') {
             // Check that the export contains proper bind format
@@ -185,8 +185,8 @@ describe('Export Comment Syntax', () => {
 
     it('should preserve existing export functionality after comment syntax change', () => {
         // Test that basic export methods still exist and work
-        expect(typeof exportManager.exportToSTO).toBe('function');
-        expect(typeof exportManager.exportToJSON).toBe('function');
+        expect(typeof exportManager.generateSTOKeybindFile).toBe('function');
+        expect(typeof exportManager.exportJSONProfile).toBe('function');
         
         if (typeof exportManager.generateBindCommand === 'function') {
             expect(typeof exportManager.generateBindCommand).toBe('function');

@@ -55,6 +55,23 @@ class STOCommandManager {
                 const tray = params.tray || 0;
                 const slot = params.slot || 0;
                 
+                // Handle backup tray commands
+                if (commandId === 'tray_with_backup') {
+                    const backupTray = params.backup_tray || 0;
+                    const backupSlot = params.backup_slot || 0;
+                    const active = params.active || 'on';
+                    
+                    return {
+                        command: `TrayExecByTrayWithBackup ${tray} ${slot} ${backupTray} ${backupSlot} ${active === 'on' ? 1 : 0}`,
+                        type: 'tray',
+                        icon: '⚡',
+                        text: `Execute Tray ${tray + 1} Slot ${slot + 1} (with backup)`,
+                        description: `Execute ability in tray ${tray + 1}, slot ${slot + 1} with backup in tray ${backupTray + 1}, slot ${backupSlot + 1}`,
+                        parameters: { tray, slot, backup_tray: backupTray, backup_slot: backupSlot, active }
+                    };
+                }
+                
+                // Regular tray command
                 return {
                     command: `+STOTrayExecByTray ${tray} ${slot}`,
                     type: 'tray',

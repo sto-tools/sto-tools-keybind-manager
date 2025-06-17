@@ -336,7 +336,7 @@ describe('Parameterized Command Data Structure', () => {
                             // Verify parameter structure
                             Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
                                 expect(paramDef.type).toBeDefined();
-                                expect(['string', 'number', 'boolean']).toContain(paramDef.type);
+                                expect(['text', 'number', 'boolean']).toContain(paramDef.type);
                                 
                                 if (paramDef.type === 'number') {
                                     expect(paramDef.min).toBeDefined();
@@ -617,7 +617,7 @@ describe('Communication Command Structure', () => {
                                 // Verify parameter structure
                                 Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
                                     expect(paramDef.type).toBeDefined();
-                                    expect(['string', 'number', 'boolean']).toContain(paramDef.type);
+                                    expect(['text', 'number', 'boolean']).toContain(paramDef.type);
                                     
                                     if (paramDef.type === 'number') {
                                         expect(paramDef.min).toBeDefined();
@@ -695,7 +695,7 @@ describe('Communication Command Structure', () => {
                     if (command && command.customizable) {
                         expect(command.parameters).toBeDefined();
                         expect(command.parameters.message).toBeDefined();
-                        expect(command.parameters.message.type).toBe('string');
+                        expect(command.parameters.message.type).toBe('text');
                     }
                 });
             }
