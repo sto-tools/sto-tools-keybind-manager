@@ -1921,7 +1921,14 @@ class STOKeybindManager {
         const category = STO_DATA.commands[command.type];
         if (!category) return null;
         
-        // Try to find the command by matching the base command string
+        // First try to find exact command match (for non-customizable commands)
+        for (const [commandId, commandDef] of Object.entries(category.commands)) {
+            if (commandDef.command === command.command) {
+                return { commandId, ...commandDef };
+            }
+        }
+        
+        // Then try to find the command by matching the base command string (for customizable commands)
         for (const [commandId, commandDef] of Object.entries(category.commands)) {
             if (commandDef.customizable && command.command.startsWith(commandDef.command.split(' ')[0])) {
                 return { commandId, ...commandDef };
