@@ -500,17 +500,15 @@ class STOProfileManager {
                     ],
                     'F1': [
                         { command: 'target_self', type: 'targeting', icon: '👤', text: 'Target self' },
-                        { command: '+power_exec Engineering_Team', type: 'power', icon: '🔧', text: 'Engineering team' }
                     ],
                     'F2': [
                         { command: 'target_self', type: 'targeting', icon: '👤', text: 'Target self' },
-                        { command: '+power_exec Science_Team', type: 'power', icon: '🔬', text: 'Science team' }
                     ]
                 },
                 aliases: {
                     'AlphaStrike': {
                         name: 'AlphaStrike',
-                        commands: 'target_nearest_enemy $$ +power_exec Attack_Pattern_Alpha $$ FireAll',
+                        commands: 'target_nearest_enemy $$ +STOTrayExecByTray 0 0 $$ +STOTrayExecByTray 0 1',
                         description: 'Full alpha strike sequence'
                     }
                 }

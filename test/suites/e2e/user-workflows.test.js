@@ -26,7 +26,7 @@ describe('User Workflows', () => {
             const keyNameInput = document.getElementById('newKeyName');
             expect(keyNameInput).toBeTruthy();
             keyNameInput.value = 'F12';
-            keyNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+            keyNameInput.dispatchEvent(new window.Event('input', { bubbles: true }));
 
             // Confirm addition
             const confirmBtn = document.getElementById('confirmAddKeyBtn');
@@ -67,7 +67,7 @@ describe('User Workflows', () => {
             
             const keyNameInput = document.getElementById('newKeyName');
             keyNameInput.value = 'TestKey';
-            keyNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+            keyNameInput.dispatchEvent(new window.Event('input', { bubbles: true }));
             
             const confirmBtn = document.getElementById('confirmAddKeyBtn');
             confirmBtn.click();
@@ -88,7 +88,7 @@ describe('User Workflows', () => {
                 const commandType = document.getElementById('commandType');
                 expect(commandType).toBeTruthy();
                 commandType.value = 'custom';
-                commandType.dispatchEvent(new Event('change', { bubbles: true }));
+                commandType.dispatchEvent(new window.Event('change', { bubbles: true }));
                 
                 // Should show command builder
                 const builder = document.getElementById('commandBuilder');
@@ -131,11 +131,11 @@ describe('User Workflows', () => {
             expect(filterInput).toBeTruthy();
             
             filterInput.value = 'F';
-            filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+            filterInput.dispatchEvent(new window.Event('input', { bubbles: true }));
             
             // Clear filter
             filterInput.value = '';
-            filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+            filterInput.dispatchEvent(new window.Event('input', { bubbles: true }));
         });
 
         it('should search commands', () => {
@@ -143,11 +143,11 @@ describe('User Workflows', () => {
             expect(searchInput).toBeTruthy();
             
             searchInput.value = 'target';
-            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            searchInput.dispatchEvent(new window.Event('input', { bubbles: true }));
             
             // Clear search
             searchInput.value = '';
-            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            searchInput.dispatchEvent(new window.Event('input', { bubbles: true }));
         });
     });
 }); 

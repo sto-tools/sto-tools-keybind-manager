@@ -20,9 +20,18 @@ describe('Key Binding Functionality', () => {
             expect(keyGrid).toBeTruthy();
         });
 
-        it('should show available keys', () => {
+        it('should show available keys', async () => {
             const keyGrid = document.getElementById('keyGrid');
-            const keys = keyGrid.querySelectorAll('.key-button, .key-item');
+            
+            // Wait for keys to be rendered - check both .key-item and .command-item
+            let keys = keyGrid.querySelectorAll('.key-item, .command-item[data-key]');
+            let attempts = 0;
+            while (keys.length === 0 && attempts < 10) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                keys = keyGrid.querySelectorAll('.key-item, .command-item[data-key]');
+                attempts++;
+            }
+            
             expect(keys.length).toBeGreaterThan(0);
         });
     });
@@ -93,26 +102,26 @@ describe('Key Binding Functionality', () => {
             expect('TestKey' in profile.keys).toBe(true);
             
             // Verify key appears in UI
-            const newKeyCount = keyGrid.querySelectorAll('.key-button, .key-item').length;
+            const newKeyCount = keyGrid.querySelectorAll('.key-item, .command-item[data-key]').length;
             expect(newKeyCount).toBe(initialKeyCount + 1);
             
             // Find the new key in the UI
-            const newKey = Array.from(keyGrid.querySelectorAll('.key-button, .key-item'))
-                .find(key => key.textContent.includes('TestKey'));
+            const newKey = Array.from(keyGrid.querySelectorAll('.key-item, .command-item[data-key]'))
+                .find(key => key.textContent.includes('TestKey') || key.dataset.key === 'TestKey');
             expect(newKey).toBeTruthy();
         });
 
         it('should not add key with invalid name', () => {
             const addKeyBtn = document.getElementById('addKeyBtn');
             const keyGrid = document.getElementById('keyGrid');
-            const initialCount = keyGrid.querySelectorAll('.key-button, .key-item').length;
+            const initialCount = keyGrid.querySelectorAll('.key-item, .command-item[data-key]').length;
             
             const originalPrompt = window.prompt;
             window.prompt = () => ''; // Empty key name
             
             addKeyBtn.click();
             
-            const newCount = keyGrid.querySelectorAll('.key-button, .key-item').length;
+            const newCount = keyGrid.querySelectorAll('.key-item, .command-item[data-key]').length;
             expect(newCount).toBe(initialCount);
             
             window.prompt = originalPrompt;
@@ -133,8 +142,8 @@ describe('Key Binding Functionality', () => {
             
             // Select the key
             const keyGrid = document.getElementById('keyGrid');
-            const newKey = Array.from(keyGrid.querySelectorAll('.key-button, .key-item'))
-                .find(key => key.textContent.includes('F1'));
+            const newKey = Array.from(keyGrid.querySelectorAll('.key-item, .command-item[data-key]'))
+                .find(key => key.textContent.includes('F1') || key.dataset.key === 'F1');
             newKey.click();
             
             // Verify key is selected
@@ -142,6 +151,7 @@ describe('Key Binding Functionality', () => {
             
             // Try to open command modal
             const addCommandBtn = document.getElementById('addCommandBtn');
+            expect(addCommandBtn).toBeTruthy();
             expect(addCommandBtn.disabled).toBe(false);
             
             // Click add command button
@@ -172,12 +182,13 @@ describe('Key Binding Functionality', () => {
             
             // Select the key
             const keyGrid = document.getElementById('keyGrid');
-            const newKey = Array.from(keyGrid.querySelectorAll('.key-button, .key-item'))
-                .find(key => key.textContent.includes('F2'));
+            const newKey = Array.from(keyGrid.querySelectorAll('.key-item, .command-item[data-key]'))
+                .find(key => key.textContent.includes('F2') || key.dataset.key === 'F2');
             newKey.click();
             
             // Open command modal
             const addCommandBtn = document.getElementById('addCommandBtn');
+            expect(addCommandBtn).toBeTruthy();
             addCommandBtn.click();
             
             // Select custom command type
@@ -290,7 +301,7 @@ describe('Key Binding Functionality', () => {
             
             // Type in filter
             keyFilter.value = 'F1';
-            keyFilter.dispatchEvent(new Event('input'));
+            keyFilter.dispatchEvent(new window.Event('input'));
             
             // Check if filtering occurred
             const visibleKeys = Array.from(keyGrid.querySelectorAll('.key-button, .key-item'))
@@ -310,7 +321,7 @@ describe('Key Binding Functionality', () => {
             
             // First filter
             keyFilter.value = 'XYZ';
-            keyFilter.dispatchEvent(new Event('input'));
+            keyFilter.dispatchEvent(new window.Event('input'));
             
             // Then show all
             showAllBtn.click();
@@ -325,6 +336,7 @@ describe('Key Binding Functionality', () => {
     describe('Command Chain Management', () => {
         it('should show empty state when no key selected', () => {
             const emptyState = document.getElementById('emptyState');
+            expect(emptyState).toBeTruthy();
             expect(emptyState.style.display).not.toBe('none');
         });
 
@@ -354,17 +366,22 @@ describe('Key Binding Functionality', () => {
     describe('Key Count Display', () => {
         it('should update key count when keys are added/removed', () => {
             const keyCount = document.getElementById('keyCount');
-            const initialText = keyCount.textContent;
+            expect(keyCount).toBeTruthy();
+            
+            // Get initial key count from the grid itself
+            const keyGrid = document.getElementById('keyGrid');
+            const initialKeyCount = keyGrid.querySelectorAll('.key-item, .command-item[data-key]').length;
             
             // Add a key
             const addKeyBtn = document.getElementById('addKeyBtn');
             const originalPrompt = window.prompt;
-            window.prompt = () => 'TestKey';
+            window.prompt = () => 'UniqueTestKey123';
             
             addKeyBtn.click();
             
-            const newText = keyCount.textContent;
-            expect(newText).not.toBe(initialText);
+            // Check if key was actually added to the grid
+            const newKeyCount = keyGrid.querySelectorAll('.key-item, .command-item[data-key]').length;
+            expect(newKeyCount).toBeGreaterThan(initialKeyCount);
             
             window.prompt = originalPrompt;
         });

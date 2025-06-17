@@ -429,7 +429,7 @@ describe('Integration Tests', () => {
             
             # Aliases
             alias attack_sequence "Target_Enemy_Near $$ FireAll"
-            alias heal_self "Target_Self $$ +power_exec Engineering_Team"
+            alias heal_self "Target_Self $$ +STOTrayExecByTray 3 0 $$ +STOTrayExecByTray 3 1"
         `;
 
         // Import the file

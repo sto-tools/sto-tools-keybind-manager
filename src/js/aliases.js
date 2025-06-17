@@ -418,22 +418,17 @@ class STOAliasManager {
                     'AttackRun': {
                         name: 'AttackRun',
                         description: 'Full attack sequence with targeting',
-                        commands: 'target_nearest_enemy $$ +power_exec Attack_Pattern_Alpha $$ FireAll'
+                        commands: 'target_nearest_enemy $$ +STOTrayExecByTray 0 0 $$ +STOTrayExecByTray 0 1'
                     },
                     'DefensiveMode': {
                         name: 'DefensiveMode',
                         description: 'Defensive abilities and shield management',
-                        commands: 'target_self $$ +power_exec Tactical_Team $$ +power_exec Distribute_Shields $$ +power_exec Emergency_Power_to_Shields'
+                        commands: 'target_self $$ +power_exec Distribute_Shields $$ +STOTrayExecByTray 2 0 $$ +STOTrayExecByTray 2 1'
                     },
                     'HealSelf': {
                         name: 'HealSelf',
                         description: 'Self-healing sequence',
-                        commands: 'target_self $$ +power_exec Engineering_Team $$ +power_exec Science_Team'
-                    },
-                    'AlphaStrike': {
-                        name: 'AlphaStrike',
-                        description: 'Maximum damage alpha strike',
-                        commands: 'target_nearest_enemy $$ +power_exec Attack_Pattern_Alpha $$ +power_exec Emergency_Power_to_Weapons $$ +power_exec Tactical_Team $$ FireAll'
+                        commands: 'target_self $$ +STOTrayExecByTray 3 0 $$ +STOTrayExecByTray 3 1'
                     }
                 }
             },

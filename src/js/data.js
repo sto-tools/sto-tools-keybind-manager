@@ -586,7 +586,6 @@ const STO_DATA = {
                 description: "Target self and activate defensive abilities",
                 commands: [
                     "Target_Self",
-                    "+power_exec Tactical_Team",
                     "+power_exec Distribute_Shields"
                 ]
             },
@@ -595,8 +594,6 @@ const STO_DATA = {
                 description: "Full offensive sequence with buffs",
                 commands: [
                     "Target_Enemy_Near",
-                    "+power_exec Attack_Pattern_Alpha",
-                    "+power_exec Emergency_Power_to_Weapons",
                     "FireAll"
                 ]
             },
@@ -605,9 +602,7 @@ const STO_DATA = {
                 description: "Self-healing and damage control",
                 commands: [
                     "Target_Self",
-                    "+power_exec Engineering_Team",
-                    "+power_exec Science_Team", 
-                    "+power_exec Emergency_Power_to_Shields"
+                    "+power_exec Distribute_Shields"
                 ]
             }
         },
@@ -702,10 +697,10 @@ const STO_DATA = {
                         id: "cmd_6"
                     },
                     {
-                        command: "+power_exec Engineering_Team",
-                        type: "power",
-                        icon: "🔧",
-                        text: "Engineering team",
+                        command: "+STOTrayExecByTray 2 0",
+                        type: "tray",
+                        icon: "⚡",
+                        text: "Execute Tray 3 Slot 1",
                         id: "cmd_7"
                     }
                 ]
@@ -872,12 +867,12 @@ window.SAMPLE_ALIASES = {
     },
     defensive_sequence: {
         name: "Defensive Sequence", 
-        commands: ["Target_Self", "+power_exec Tactical_Team", "+power_exec Distribute_Shields"],
+        commands: ["Target_Self", "+power_exec Distribute_Shields"],
         description: "Self-target and activate defensive abilities"
     },
     heal_sequence: {
         name: "Healing Sequence",
-        commands: ["Target_Self", "+power_exec Engineering_Team", "+power_exec Science_Team"],
+        commands: ["Target_Self", "+STOTrayExecByTray 3 0 $$ +STOTrayExecByTray 3 1"],
         description: "Emergency healing and repair sequence"
     }
 };
