@@ -68,6 +68,13 @@ class STOUIManager {
         return toast;
     }
 
+    hideToast(toast) {
+        // Public method to hide a specific toast
+        if (toast && toast.parentNode) {
+            this.removeToast(toast);
+        }
+    }
+
     removeToast(toast) {
         toast.classList.add('removing');
         setTimeout(() => {
