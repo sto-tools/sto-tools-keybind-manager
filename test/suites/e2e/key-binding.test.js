@@ -93,14 +93,12 @@ describe('Key Binding Functionality', () => {
             
             expect(firstKey).toBeTruthy();
             
-            // Try using the app's selectKey method if available
-            if (window.app && typeof window.app.selectKey === 'function') {
-                const keyName = firstKey.dataset.key || firstKey.textContent.trim();
-                window.app.selectKey(keyName);
-            } else {
-                // Fallback to direct click
-                firstKey.click();
-            }
+            // Use the app's selectKey method
+            expect(window.app).toBeDefined();
+            expect(typeof window.app.selectKey).toBe('function');
+            
+            const keyName = firstKey.dataset.key || firstKey.textContent.trim();
+            window.app.selectKey(keyName);
             
             // Check for selection state in multiple ways
             const hasSelectedClass = firstKey.classList.contains('selected');

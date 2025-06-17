@@ -96,32 +96,32 @@ describe('Space/Ground Toggle - E2E', () => {
             const spaceBtn = document.querySelector('[data-mode="space"]');
             const groundBtn = document.querySelector('[data-mode="ground"]');
             
-            if (window.app) {
-                // First, ensure we're in a known state by clicking space
-                const spaceClickEvent = new MouseEvent('click', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window
-                });
-                spaceBtn.dispatchEvent(spaceClickEvent);
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Now we should be in space mode
-                expect(window.app.currentEnvironment).toBe('space');
-                
-                // Now click ground button to test the switch
-                const groundClickEvent = new MouseEvent('click', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window
-                });
-                groundBtn.dispatchEvent(groundClickEvent);
-                
-                // Give time for the change to process
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                expect(window.app.currentEnvironment).toBe('ground');
-            }
+            expect(window.app).toBeDefined();
+            
+            // First, ensure we're in a known state by clicking space
+            const spaceClickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            spaceBtn.dispatchEvent(spaceClickEvent);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Now we should be in space mode
+            expect(window.app.currentEnvironment).toBe('space');
+            
+            // Now click ground button to test the switch
+            const groundClickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            groundBtn.dispatchEvent(groundClickEvent);
+            
+            // Give time for the change to process
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            expect(window.app.currentEnvironment).toBe('ground');
         });
 
         it('should show toast notification when switching modes', async () => {
@@ -177,43 +177,43 @@ describe('Space/Ground Toggle - E2E', () => {
             
             // Ensure we have command library items
             const commandItems = document.querySelectorAll('.command-item[data-command]');
-            if (commandItems.length > 0) {
-                // Switch to space mode
-                const spaceClickEvent = new MouseEvent('click', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window
-                });
-                spaceBtn.dispatchEvent(spaceClickEvent);
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Check if space-specific commands are visible
-                const spaceCommands = Array.from(commandItems).filter(item => {
-                    const commandId = item.dataset.command;
-                    return commandId && (commandId.includes('fire') || commandId.includes('shields'));
-                });
-                
-                spaceCommands.forEach(cmd => {
-                    expect(cmd.style.display).not.toBe('none');
-                });
-                
-                // Switch to ground mode
-                const groundClickEvent = new MouseEvent('click', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window
-                });
-                groundBtn.dispatchEvent(groundClickEvent);
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Check that space-specific commands are hidden
-                spaceCommands.forEach(cmd => {
-                    // Commands with environment restrictions should be filtered
-                    if (cmd.dataset.command === 'fire_all' || cmd.dataset.command.includes('shield')) {
-                        expect(cmd.style.display).toBe('none');
-                    }
-                });
-            }
+            expect(commandItems.length).toBeGreaterThan(0);
+            
+            // Switch to space mode
+            const spaceClickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            spaceBtn.dispatchEvent(spaceClickEvent);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Check if space-specific commands are visible
+            const spaceCommands = Array.from(commandItems).filter(item => {
+                const commandId = item.dataset.command;
+                return commandId && (commandId.includes('fire') || commandId.includes('shields'));
+            });
+            
+            spaceCommands.forEach(cmd => {
+                expect(cmd.style.display).not.toBe('none');
+            });
+            
+            // Switch to ground mode
+            const groundClickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            groundBtn.dispatchEvent(groundClickEvent);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Check that space-specific commands are hidden
+            spaceCommands.forEach(cmd => {
+                // Commands with environment restrictions should be filtered
+                if (cmd.dataset.command === 'fire_all' || cmd.dataset.command.includes('shield')) {
+                    expect(cmd.style.display).toBe('none');
+                }
+            });
         });
 
         it('should show general commands in both modes', async () => {
