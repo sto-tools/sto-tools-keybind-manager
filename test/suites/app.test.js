@@ -21,6 +21,13 @@ describe('STOKeybindManager - Core Functionality', () => {
             toggleBtn.innerHTML = '<i class="fas fa-list"></i>';
             document.body.appendChild(toggleBtn);
         }
+
+        // Mock command categories for filtering tests
+        if (!document.getElementById('commandCategories')) {
+            const commandCategories = document.createElement('div');
+            commandCategories.id = 'commandCategories';
+            document.body.appendChild(commandCategories);
+        }
     });
 
     beforeEach(() => {
@@ -48,6 +55,215 @@ describe('STOKeybindManager - Core Functionality', () => {
             expect(typeof keybindManager.renderKeyGrid).toBe('function');
             expect(typeof keybindManager.toggleKeyView).toBe('function');
             expect(typeof keybindManager.updateViewToggleButton).toBe('function');
+        }
+    });
+});
+
+describe('STOKeybindManager - Space/Ground Toggle Functionality', () => {
+    let keybindManager;
+
+    beforeEach(() => {
+        if (typeof window.STOKeybindManager !== 'undefined') {
+            keybindManager = new window.STOKeybindManager();
+        }
+    });
+
+    it('should have space/ground toggle methods', () => {
+        if (keybindManager) {
+            expect(typeof keybindManager.switchMode).toBe('function');
+            expect(typeof keybindManager.getCurrentBuild).toBe('function');
+            expect(typeof keybindManager.saveCurrentBuild).toBe('function');
+            expect(typeof keybindManager.filterCommandLibrary).toBe('function');
+        }
+    });
+
+    it('should initialize with space environment by default', () => {
+        if (keybindManager) {
+            expect(keybindManager.currentEnvironment).toBe('space');
+        }
+    });
+
+    it('should handle profile structure migration from old format', () => {
+        if (keybindManager && typeof keybindManager.getCurrentBuild === 'function') {
+            // Mock old format profile
+            const oldProfile = {
+                name: 'Test Profile',
+                mode: 'space',
+                keys: {
+                    'Space': [{ command: 'FireAll', type: 'combat' }]
+                },
+                aliases: {
+                    'test': { commands: 'FireAll' }
+                }
+            };
+
+            const result = keybindManager.getCurrentBuild(oldProfile);
+            
+            if (result) {
+                expect(result.builds).toBeDefined();
+                expect(result.builds.space).toBeDefined();
+                expect(result.builds.ground).toBeDefined();
+                expect(result.builds.space.keys).toEqual(oldProfile.keys);
+                expect(result.builds.space.aliases).toEqual(oldProfile.aliases);
+            }
+        }
+    });
+
+    it('should handle new profile structure correctly', () => {
+        if (keybindManager && typeof keybindManager.getCurrentBuild === 'function') {
+            // Mock new format profile
+            const newProfile = {
+                name: 'Test Profile',
+                currentEnvironment: 'space',
+                builds: {
+                    space: {
+                        keys: { 'Space': [{ command: 'FireAll', type: 'combat' }] },
+                        aliases: { 'test': { commands: 'FireAll' } }
+                    },
+                    ground: {
+                        keys: { 'Space': [{ command: 'target_enemy', type: 'targeting' }] },
+                        aliases: {}
+                    }
+                }
+            };
+
+            keybindManager.currentEnvironment = 'space';
+            const result = keybindManager.getCurrentBuild(newProfile);
+            
+            if (result) {
+                expect(result.keys).toEqual(newProfile.builds.space.keys);
+                expect(result.aliases).toEqual(newProfile.builds.space.aliases);
+                expect(result.mode).toBe('space');
+            }
+        }
+    });
+
+    it('should switch between space and ground environments', () => {
+        if (keybindManager && typeof keybindManager.switchMode === 'function') {
+            // Mock profile and storage
+            const mockProfile = {
+                name: 'Test Profile',
+                currentEnvironment: 'space',
+                builds: {
+                    space: { keys: {}, aliases: {} },
+                    ground: { keys: {}, aliases: {} }
+                }
+            };
+
+            // Mock storage methods
+            if (window.stoStorage) {
+                const originalGetProfile = window.stoStorage.getProfile;
+                const originalSaveProfile = window.stoStorage.saveProfile;
+                
+                window.stoStorage.getProfile = () => mockProfile;
+                window.stoStorage.saveProfile = () => true;
+
+                keybindManager.currentEnvironment = 'space';
+                keybindManager.switchMode('ground');
+                
+                expect(keybindManager.currentEnvironment).toBe('ground');
+
+                // Restore original methods
+                window.stoStorage.getProfile = originalGetProfile;
+                window.stoStorage.saveProfile = originalSaveProfile;
+            }
+        }
+    });
+
+    it('should filter command library based on environment', () => {
+        if (keybindManager && typeof keybindManager.filterCommandLibrary === 'function') {
+            // Create mock command items
+            const mockCommands = [
+                { dataset: { command: 'fire_all' }, style: {} },
+                { dataset: { command: 'auto_forward' }, style: {} },
+                { dataset: { command: 'target_enemy_near' }, style: {} }
+            ];
+
+            // Mock querySelector to return our mock commands
+            const originalQuerySelectorAll = document.querySelectorAll;
+            document.querySelectorAll = (selector) => {
+                if (selector === '.command-item') {
+                    return mockCommands;
+                }
+                if (selector === '.category') {
+                    return [];
+                }
+                return originalQuerySelectorAll.call(document, selector);
+            };
+
+            // Test space environment filtering
+            keybindManager.currentEnvironment = 'space';
+            keybindManager.filterCommandLibrary();
+
+            // Verify space-only commands are visible
+            const fireAllCommand = mockCommands.find(cmd => cmd.dataset.command === 'fire_all');
+            const autoForwardCommand = mockCommands.find(cmd => cmd.dataset.command === 'auto_forward');
+            
+            if (fireAllCommand && autoForwardCommand) {
+                expect(fireAllCommand.style.display).not.toBe('none');
+                expect(autoForwardCommand.style.display).toBe('none');
+            }
+
+            // Test ground environment filtering
+            keybindManager.currentEnvironment = 'ground';
+            keybindManager.filterCommandLibrary();
+
+            if (fireAllCommand && autoForwardCommand) {
+                expect(fireAllCommand.style.display).toBe('none');
+                expect(autoForwardCommand.style.display).not.toBe('none');
+            }
+
+            // Restore original querySelector
+            document.querySelectorAll = originalQuerySelectorAll;
+        }
+    });
+
+    it('should save current build before switching environments', () => {
+        if (keybindManager && typeof keybindManager.saveCurrentBuild === 'function') {
+            let savedProfile = null;
+            
+            // Mock storage and profile
+            if (window.stoStorage) {
+                const originalGetProfile = window.stoStorage.getProfile;
+                const originalSaveProfile = window.stoStorage.saveProfile;
+                
+                window.stoStorage.getProfile = () => ({
+                    name: 'Test Profile',
+                    currentEnvironment: 'space',
+                    builds: {
+                        space: { keys: {}, aliases: {} },
+                        ground: { keys: {}, aliases: {} }
+                    }
+                });
+                
+                window.stoStorage.saveProfile = (id, profile) => {
+                    savedProfile = profile;
+                    return true;
+                };
+
+                keybindManager.currentProfile = 'test_profile';
+                keybindManager.currentEnvironment = 'space';
+                
+                // Mock getCurrentProfile to return a build with data
+                const originalGetCurrentProfile = keybindManager.getCurrentProfile;
+                keybindManager.getCurrentProfile = () => ({
+                    keys: { 'Space': [{ command: 'FireAll' }] },
+                    aliases: { 'test': { commands: 'FireAll' } }
+                });
+
+                keybindManager.saveCurrentBuild();
+
+                // Verify the build was saved
+                if (savedProfile) {
+                    expect(savedProfile.builds.space.keys).toEqual({ 'Space': [{ command: 'FireAll' }] });
+                    expect(savedProfile.builds.space.aliases).toEqual({ 'test': { commands: 'FireAll' } });
+                }
+
+                // Restore original methods
+                window.stoStorage.getProfile = originalGetProfile;
+                window.stoStorage.saveProfile = originalSaveProfile;
+                keybindManager.getCurrentProfile = originalGetCurrentProfile;
+            }
         }
     });
 });

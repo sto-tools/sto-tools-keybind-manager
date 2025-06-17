@@ -89,6 +89,7 @@ const STO_DATA = {
                     command: "FireAll",
                     description: "Fire all weapons",
                     syntax: "FireAll",
+                    environment: "space",
                     icon: "🔥",
                     warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
@@ -97,6 +98,7 @@ const STO_DATA = {
                     command: "FirePhasers",
                     description: "Fire all Energy Weapons",
                     syntax: "FirePhasers",
+                    environment: "space",
                     icon: "⚡",
                     warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
@@ -105,6 +107,7 @@ const STO_DATA = {
                     command: "FireTorps", 
                     description: "Fire all Torpedos",
                     syntax: "FireTorps",
+                    environment: "space",
                     icon: "🚀",
                     warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
@@ -113,6 +116,7 @@ const STO_DATA = {
                     command: "FireMines",
                     description: "Fire all Mines",
                     syntax: "FireMines",
+                    environment: "space",
                     icon: "💣",
                     warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
@@ -121,6 +125,7 @@ const STO_DATA = {
                     command: "FirePhasersTorps",
                     description: "Fire phasers & torpedos",
                     syntax: "FirePhasersTorps",
+                    environment: "space",
                     icon: "💥",
                     warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
@@ -129,6 +134,7 @@ const STO_DATA = {
                     command: "FireProjectiles",
                     description: "Fire torpedos & mines",
                     syntax: "FireProjectiles",
+                    environment: "space",
                     icon: "🎯",
                     warning: "Not recommended on spam bars as it interferes with firing cycles"
                 }
@@ -180,6 +186,7 @@ const STO_DATA = {
                     command: "+power_exec Distribute_Shields",
                     description: "Evenly distributes shields as if clicking in the middle of the ship and shields icon",
                     syntax: "+power_exec Distribute_Shields",
+                    environment: "space",
                     icon: "🛡️",
                     warning: "Not recommended on spam bars as it interferes with firing cycles"
                 },
@@ -188,6 +195,7 @@ const STO_DATA = {
                     command: "+power_exec reroute_shields_rear",
                     description: "Route shield power to rear facing",
                     syntax: "+power_exec reroute_shields_rear",
+                    environment: "space",
                     icon: "🛡️"
                 },
                 reroute_shields_left: {
@@ -195,6 +203,7 @@ const STO_DATA = {
                     command: "+power_exec reroute_shields_left",
                     description: "Route shield power to left side",
                     syntax: "+power_exec reroute_shields_left",
+                    environment: "space",
                     icon: "🛡️"
                 },
                 reroute_shields_right: {
@@ -202,6 +211,7 @@ const STO_DATA = {
                     command: "+power_exec reroute_shields_right",
                     description: "Route shield power to right side",
                     syntax: "+power_exec reroute_shields_right",
+                    environment: "space",
                     icon: "🛡️"
                 },
                 reroute_shields_forward: {
@@ -209,6 +219,7 @@ const STO_DATA = {
                     command: "+power_exec reroute_shields_forward",
                     description: "Route shield power to forward facing",
                     syntax: "+power_exec reroute_shields_forward",
+                    environment: "space",
                     icon: "🛡️"
                 }
             }
@@ -224,6 +235,7 @@ const STO_DATA = {
                     command: "+fullimpulse",
                     description: "Engage full impulse drive",
                     syntax: "+fullimpulse",
+                    environment: "space",
                     icon: "🚀"
                 },
                 reverse: {
@@ -323,6 +335,7 @@ const STO_DATA = {
                     command: "autoForward",
                     description: "Character moves forward until given new movement commands",
                     syntax: "autoForward",
+                    environment: "ground",
                     icon: "🏃"
                 },
                 follow: {
@@ -623,89 +636,164 @@ const STO_DATA = {
         default_space: {
             name: "Default Space",
             description: "Basic space combat configuration",
-            mode: "space",
-            keys: {
-                Space: [
-                    {
-                        command: "Target_Enemy_Near",
-                        type: "targeting", 
-                        icon: "🎯",
-                        text: "Target nearest enemy",
-                        id: "cmd_1"
+            currentEnvironment: "space",
+            builds: {
+                space: {
+                    keys: {
+                        Space: [
+                            {
+                                command: "Target_Enemy_Near",
+                                type: "targeting", 
+                                icon: "🎯",
+                                text: "Target nearest enemy",
+                                id: "cmd_1"
+                            },
+                            {
+                                command: "FireAll", 
+                                type: "combat",
+                                icon: "🔥",
+                                text: "Fire all weapons",
+                                id: "cmd_2"
+                            }
+                        ]
                     },
-                    {
-                        command: "FireAll", 
-                        type: "combat",
-                        icon: "🔥",
-                        text: "Fire all weapons",
-                        id: "cmd_2"
-                    }
-                ]
-            },
-            aliases: {}
+                    aliases: {}
+                },
+                ground: {
+                    keys: {
+                        Space: [
+                            {
+                                command: "Target_Enemy_Near",
+                                type: "targeting",
+                                icon: "🎯", 
+                                text: "Target nearest enemy",
+                                id: "cmd_g1"
+                            },
+                            {
+                                command: "+STOTrayExecByTray 0 0",
+                                type: "tray",
+                                icon: "⚡",
+                                text: "Primary attack",
+                                id: "cmd_g2"
+                            }
+                        ]
+                    },
+                    aliases: {}
+                }
+            }
         },
         tactical_space: {
             name: "Tactical Space",
             description: "Aggressive DPS-focused space build",
-            mode: "space", 
-            keys: {
-                Space: [
-                    {
-                        command: "Target_Enemy_Near",
-                        type: "targeting", 
-                        icon: "🎯",
-                        text: "Target nearest enemy",
-                        id: "cmd_1"
+            currentEnvironment: "space",
+            builds: {
+                space: {
+                    keys: {
+                        Space: [
+                            {
+                                command: "Target_Enemy_Near",
+                                type: "targeting", 
+                                icon: "🎯",
+                                text: "Target nearest enemy",
+                                id: "cmd_1"
+                            },
+                            {
+                                command: "+STOTrayExecByTray 0 0",
+                                type: "tray",
+                                icon: "⚡", 
+                                text: "Execute Tray 1 Slot 1",
+                                id: "cmd_2"
+                            },
+                            {
+                                command: "FireAll",
+                                type: "combat",
+                                icon: "🔥",
+                                text: "Fire all weapons", 
+                                id: "cmd_3"
+                            },
+                            {
+                                command: "+power_exec Distribute_Shields",
+                                type: "power",
+                                icon: "🛡️",
+                                text: "Distribute shields",
+                                id: "cmd_4"
+                            }
+                        ],
+                        "1": [
+                            {
+                                command: "+STOTrayExecByTray 1 0",
+                                type: "tray",
+                                icon: "⚡",
+                                text: "Execute Tray 2 Slot 1",
+                                id: "cmd_5"
+                            }
+                        ],
+                        F1: [
+                            {
+                                command: "Target_Self",
+                                type: "targeting",
+                                icon: "👤", 
+                                text: "Target self",
+                                id: "cmd_6"
+                            },
+                            {
+                                command: "+STOTrayExecByTray 2 0",
+                                type: "tray",
+                                icon: "⚡",
+                                text: "Execute Tray 3 Slot 1",
+                                id: "cmd_7"
+                            }
+                        ]
                     },
-                    {
-                        command: "+STOTrayExecByTray 0 0",
-                        type: "tray",
-                        icon: "⚡", 
-                        text: "Execute Tray 1 Slot 1",
-                        id: "cmd_2"
+                    aliases: {}
+                },
+                ground: {
+                    keys: {
+                        Space: [
+                            {
+                                command: "Target_Enemy_Near",
+                                type: "targeting",
+                                icon: "🎯",
+                                text: "Target nearest enemy",
+                                id: "cmd_g1"
+                            },
+                            {
+                                command: "+STOTrayExecByTray 0 0",
+                                type: "tray",
+                                icon: "⚡",
+                                text: "Primary attack",
+                                id: "cmd_g2"
+                            }
+                        ],
+                        "1": [
+                            {
+                                command: "+STOTrayExecByTray 0 1",
+                                type: "tray",
+                                icon: "⚡",
+                                text: "Secondary attack",
+                                id: "cmd_g3"
+                            }
+                        ],
+                        F1: [
+                            {
+                                command: "Target_Self",
+                                type: "targeting",
+                                icon: "👤",
+                                text: "Target self",
+                                id: "cmd_g4"
+                            },
+                            {
+                                command: "+STOTrayExecByTray 1 0",
+                                type: "tray",
+                                icon: "💊",
+                                text: "Heal self",
+                                id: "cmd_g5"
+                            }
+                        ]
                     },
-                    {
-                        command: "FireAll",
-                        type: "combat",
-                        icon: "🔥",
-                        text: "Fire all weapons", 
-                        id: "cmd_3"
-                    },
-                    {
-                        command: "+power_exec Distribute_Shields",
-                        type: "power",
-                        icon: "🛡️",
-                        text: "Distribute shields",
-                        id: "cmd_4"
-                    }
-                ],
-                "1": [
-                    {
-                        command: "+STOTrayExecByTray 1 0",
-                        type: "tray",
-                        icon: "⚡",
-                        text: "Execute Tray 2 Slot 1",
-                        id: "cmd_5"
-                    }
-                ],
-                F1: [
-                    {
-                        command: "Target_Self",
-                        type: "targeting",
-                        icon: "👤", 
-                        text: "Target self",
-                        id: "cmd_6"
-                    },
-                    {
-                        command: "+STOTrayExecByTray 2 0",
-                        type: "tray",
-                        icon: "⚡",
-                        text: "Execute Tray 3 Slot 1",
-                        id: "cmd_7"
-                    }
-                ]
-            },
-            aliases: {}
+                    aliases: {}
+                }
+            }
         }
     },
 
@@ -851,9 +939,15 @@ window.SAMPLE_PROFILES = Object.values(STO_DATA.defaultProfiles).map(profile => 
     id: profile.name.toLowerCase().replace(/\s+/g, '_'),
     name: profile.name,
     description: profile.description,
-    mode: profile.mode,
-    keybinds: profile.keys || {},
-    aliases: profile.aliases || {},
+    currentEnvironment: profile.currentEnvironment || 'space',
+    builds: profile.builds || {
+        space: { keys: {}, aliases: {} },
+        ground: { keys: {}, aliases: {} }
+    },
+    // Maintain backward compatibility
+    mode: profile.currentEnvironment || 'space',
+    keybinds: profile.builds?.space?.keys || {},
+    aliases: profile.builds?.space?.aliases || {},
     created: new Date().toISOString(),
     modified: new Date().toISOString()
 }));

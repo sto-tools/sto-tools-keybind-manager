@@ -4,11 +4,14 @@
 class STOToolsKeybindManager {
     constructor() {
         this.currentProfile = null;
-        this.selectedKey = null;
         this.currentMode = 'space';
+        this.currentEnvironment = 'space'; // New: tracks current environment (space/ground)
+        this.selectedKey = null;
         this.isModified = false;
         this.undoStack = [];
         this.redoStack = [];
+        this.maxUndoSteps = 50;
+        this.commandIdCounter = 0;
         
         this.eventListeners = new Map();
         
@@ -59,7 +62,14 @@ class STOToolsKeybindManager {
     async loadData() {
         const data = stoStorage.getAllData();
         this.currentProfile = data.currentProfile;
-        this.currentMode = data.profiles[this.currentProfile]?.mode || 'space';
+        
+        // Load current environment from profile or default to space
+        const profileData = data.profiles[this.currentProfile];
+        if (profileData) {
+            this.currentEnvironment = profileData.currentEnvironment || 'space';
+        } else {
+            this.currentEnvironment = 'space';
+        }
         
         // Validate current profile exists
         if (!data.profiles[this.currentProfile]) {
@@ -96,7 +106,56 @@ class STOToolsKeybindManager {
 
     // Profile Management
     getCurrentProfile() {
-        return stoStorage.getProfile(this.currentProfile);
+        const profile = stoStorage.getProfile(this.currentProfile);
+        if (!profile) return null;
+        
+        // Return current environment build data
+        return this.getCurrentBuild(profile);
+    }
+
+    getCurrentBuild(profile) {
+        if (!profile) return null;
+        
+        // Convert old profile format to new format if needed
+        if (!profile.builds) {
+            profile.builds = {
+                space: {
+                    keys: profile.keys || {},
+                    aliases: profile.aliases || {}
+                },
+                ground: {
+                    keys: {},
+                    aliases: {}
+                }
+            };
+            profile.currentEnvironment = profile.mode || 'space';
+            delete profile.mode; // Remove old mode property
+            delete profile.keys; // Move to builds
+            delete profile.aliases; // Move to builds
+            
+            // Save the converted profile
+            stoStorage.saveProfile(this.currentProfile, profile);
+        }
+        
+        // Ensure builds exist
+        if (!profile.builds) {
+            profile.builds = {
+                space: { keys: {}, aliases: {} },
+                ground: { keys: {}, aliases: {} }
+            };
+        }
+        
+        if (!profile.builds[this.currentEnvironment]) {
+            profile.builds[this.currentEnvironment] = { keys: {}, aliases: {} };
+        }
+        
+        // Return a profile-like object with current build data
+        return {
+            ...profile,
+            keys: profile.builds[this.currentEnvironment].keys || {},
+            aliases: profile.builds[this.currentEnvironment].aliases || {},
+            mode: this.currentEnvironment // For backward compatibility
+        };
     }
 
     switchProfile(profileId) {
@@ -104,9 +163,9 @@ class STOToolsKeybindManager {
             this.currentProfile = profileId;
             this.selectedKey = null;
             
-            const profile = this.getCurrentProfile();
+            const profile = stoStorage.getProfile(profileId);
             if (profile) {
-                this.currentMode = profile.mode || 'space';
+                this.currentEnvironment = profile.currentEnvironment || 'space';
             }
             
             this.saveCurrentProfile();
@@ -114,7 +173,8 @@ class STOToolsKeybindManager {
             this.renderCommandChain();
             this.updateProfileInfo();
             
-            stoUI.showToast(`Switched to profile: ${profile.name}`, 'success');
+            const currentBuild = this.getCurrentProfile();
+            stoUI.showToast(`Switched to profile: ${currentBuild.name} (${this.currentEnvironment})`, 'success');
         }
     }
 
@@ -342,7 +402,7 @@ class STOToolsKeybindManager {
         // Update mode buttons
         const modeBtns = document.querySelectorAll('.mode-btn');
         modeBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.mode === profile.mode);
+            btn.classList.toggle('active', btn.dataset.mode === this.currentEnvironment);
         });
         
         // Update key count
@@ -560,8 +620,6 @@ class STOToolsKeybindManager {
             </div>
         `;
     }
-
-
 
     toggleKeyCategory(categoryId, element, mode = 'command') {
         const header = element.querySelector('h4');
@@ -830,8 +888,6 @@ class STOToolsKeybindManager {
         return keyElement;
     }
 
-
-
     updateViewToggleButton(viewMode) {
         const toggleBtn = document.getElementById('toggleKeyViewBtn');
         if (toggleBtn) {
@@ -1033,6 +1089,9 @@ class STOToolsKeybindManager {
             const categoryElement = this.createCategoryElement(categoryId, category);
             container.appendChild(categoryElement);
         });
+        
+        // Apply environment filtering after creating elements
+        this.filterCommandLibrary();
     }
 
     createCategoryElement(categoryId, category) {
@@ -1274,15 +1333,63 @@ class STOToolsKeybindManager {
     }
 
     switchMode(mode) {
-        const profile = this.getCurrentProfile();
-        if (profile && profile.mode !== mode) {
-            profile.mode = mode;
-            this.currentMode = mode;
-            stoStorage.saveProfile(this.currentProfile, profile);
+        if (this.currentEnvironment !== mode) {
+            // Save current build before switching
+            this.saveCurrentBuild();
+            
+            this.currentEnvironment = mode;
+            
+            // Update profile's current environment
+            const profile = stoStorage.getProfile(this.currentProfile);
+            if (profile) {
+                profile.currentEnvironment = mode;
+                stoStorage.saveProfile(this.currentProfile, profile);
+            }
+            
+            // Update UI button states
+            this.updateModeButtons();
+            
             this.updateProfileInfo();
+            this.renderKeyGrid();
+            this.renderCommandChain();
+            this.filterCommandLibrary(); // Apply environment filter to command library
             this.setModified(true);
             
             stoUI.showToast(`Switched to ${mode} mode`, 'success');
+        }
+    }
+    
+    updateModeButtons() {
+        // Update the active state of mode buttons
+        const spaceBtn = document.querySelector('[data-mode="space"]');
+        const groundBtn = document.querySelector('[data-mode="ground"]');
+        
+        if (spaceBtn && groundBtn) {
+            spaceBtn.classList.toggle('active', this.currentEnvironment === 'space');
+            groundBtn.classList.toggle('active', this.currentEnvironment === 'ground');
+        }
+    }
+
+    saveCurrentBuild() {
+        const profile = stoStorage.getProfile(this.currentProfile);
+        const currentBuild = this.getCurrentProfile();
+        
+        if (profile && currentBuild) {
+            // Ensure builds structure exists
+            if (!profile.builds) {
+                profile.builds = {
+                    space: { keys: {}, aliases: {} },
+                    ground: { keys: {}, aliases: {} }
+                };
+            }
+            
+            // Save current build data
+            profile.builds[this.currentEnvironment] = {
+                keys: currentBuild.keys || {},
+                aliases: currentBuild.aliases || {}
+            };
+            
+            stoStorage.saveProfile(this.currentProfile, profile);
         }
     }
 
@@ -1363,7 +1470,7 @@ class STOToolsKeybindManager {
         const profile = this.getCurrentProfile();
         if (!profile) return;
         
-        let keybindText = `# ${profile.name} - ${profile.mode} mode\n`;
+        let keybindText = `# ${profile.name} - ${this.currentEnvironment} mode\n`;
         keybindText += `# Generated by STO Tools Keybind Manager\n`;
         keybindText += `# ${new Date().toLocaleString()}\n\n`;
         
@@ -1389,11 +1496,13 @@ class STOToolsKeybindManager {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${profile.name.replace(/[^a-zA-Z0-9]/g, '_')}_keybinds.txt`;
+        // Include environment in filename
+        const safeName = profile.name.replace(/[^a-zA-Z0-9]/g, '_');
+        a.download = `${safeName}_${this.currentEnvironment}_keybinds.txt`;
         a.click();
         URL.revokeObjectURL(url);
         
-        stoUI.showToast('Keybinds exported successfully', 'success');
+        stoUI.showToast(`${this.currentEnvironment} keybinds exported successfully`, 'success');
     }
 
     isFirstTime() {
@@ -2020,6 +2129,53 @@ class STOToolsKeybindManager {
         
         // Initial preview update
         this.updateParameterPreview();
+    }
+
+    filterCommandLibrary() {
+        // Filter commands in the command library based on current environment
+        const commandItems = document.querySelectorAll('.command-item');
+        
+        commandItems.forEach(item => {
+            const commandId = item.dataset.command;
+            if (!commandId) return;
+            
+            // Find the command definition
+            let commandDef = null;
+            let categoryKey = null;
+            
+            // Search through all categories for this command
+            for (const [catKey, category] of Object.entries(STO_DATA.commands)) {
+                if (category.commands[commandId]) {
+                    commandDef = category.commands[commandId];
+                    categoryKey = catKey;
+                    break;
+                }
+            }
+            
+            if (commandDef) {
+                let shouldShow = true;
+                
+                // Check if command has environment restriction
+                if (commandDef.environment) {
+                    // If command has specific environment, only show it in that environment
+                    shouldShow = commandDef.environment === this.currentEnvironment;
+                } else {
+                    // If no environment specified, show in all environments
+                    shouldShow = true;
+                }
+                
+                // Apply visibility
+                item.style.display = shouldShow ? 'flex' : 'none';
+            }
+        });
+        
+        // Hide/show categories based on whether they have visible commands
+        const categories = document.querySelectorAll('.category');
+        categories.forEach(category => {
+            const visibleCommands = category.querySelectorAll('.command-item:not([style*="display: none"])');
+            const categoryVisible = visibleCommands.length > 0;
+            category.style.display = categoryVisible ? 'block' : 'none';
+        });
     }
 }
 

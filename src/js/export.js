@@ -536,7 +536,8 @@ class STOExportManager {
     generateFileName(profile, extension) {
         const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_');
         const timestamp = new Date().toISOString().split('T')[0];
-        return `${safeName}_${timestamp}.${extension}`;
+        const environment = profile.mode || 'space'; // Use mode for environment
+        return `${safeName}_${environment}_${timestamp}.${extension}`;
     }
 
     downloadFile(content, filename, mimeType) {

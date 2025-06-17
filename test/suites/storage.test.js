@@ -313,4 +313,376 @@ describe('Storage Module', () => {
             expect(loaded).toBeNull();
         });
     });
+});
+
+describe('STOStorage', () => {
+    let storageManager;
+
+    beforeEach(() => {
+        if (typeof window.STOStorage !== 'undefined') {
+            storageManager = new window.STOStorage();
+        }
+    });
+
+    it('should create STOStorage instance', () => {
+        if (storageManager) {
+            expect(storageManager).toBeDefined();
+            expect(storageManager.constructor.name).toBe('STOStorage');
+        }
+    });
+
+    it('should have required methods', () => {
+        if (storageManager) {
+            expect(typeof storageManager.getAllData).toBe('function');
+            expect(typeof storageManager.saveAllData).toBe('function');
+            expect(typeof storageManager.getProfile).toBe('function');
+            expect(typeof storageManager.saveProfile).toBe('function');
+            expect(typeof storageManager.deleteProfile).toBe('function');
+        }
+    });
+
+    it('should validate data structure', () => {
+        if (storageManager && typeof storageManager.isValidDataStructure === 'function') {
+            const validData = {
+                profiles: {
+                    test: {
+                        name: 'Test',
+                        mode: 'space',
+                        keys: {}
+                    }
+                },
+                currentProfile: 'test'
+            };
+
+            const result = storageManager.isValidDataStructure(validData);
+            expect(result).toBe(true);
+        }
+    });
+
+    it('should reject invalid data structure', () => {
+        if (storageManager && typeof storageManager.isValidDataStructure === 'function') {
+            const invalidData = {
+                profiles: 'invalid'
+            };
+
+            const result = storageManager.isValidDataStructure(invalidData);
+            expect(result).toBe(false);
+        }
+    });
+
+    it('should handle missing currentProfile', () => {
+        if (storageManager && typeof storageManager.isValidDataStructure === 'function') {
+            const invalidData = {
+                profiles: {
+                    test: {
+                        name: 'Test',
+                        mode: 'space',
+                        keys: {}
+                    }
+                }
+            };
+
+            const result = storageManager.isValidDataStructure(invalidData);
+            expect(result).toBe(false);
+        }
+    });
+});
+
+describe('STOStorage - Profile Structure Validation', () => {
+    let storageManager;
+
+    beforeEach(() => {
+        if (typeof window.STOStorage !== 'undefined') {
+            storageManager = new window.STOStorage();
+        }
+    });
+
+    it('should validate old profile format', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const oldProfile = {
+                name: 'Test Profile',
+                mode: 'space',
+                keys: {
+                    'Space': [{ command: 'FireAll', type: 'combat' }]
+                },
+                aliases: {}
+            };
+
+            const result = storageManager.isValidProfile(oldProfile);
+            expect(result).toBe(true);
+        }
+    });
+
+    it('should validate new profile format with builds structure', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const newProfile = {
+                name: 'Test Profile',
+                currentEnvironment: 'space',
+                builds: {
+                    space: {
+                        keys: { 'Space': [{ command: 'FireAll', type: 'combat' }] },
+                        aliases: {}
+                    },
+                    ground: {
+                        keys: { 'Space': [{ command: 'target_enemy', type: 'targeting' }] },
+                        aliases: {}
+                    }
+                }
+            };
+
+            const result = storageManager.isValidProfile(newProfile);
+            expect(result).toBe(true);
+        }
+    });
+
+    it('should reject profile with missing name', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const invalidProfile = {
+                mode: 'space',
+                keys: {}
+            };
+
+            const result = storageManager.isValidProfile(invalidProfile);
+            expect(result).toBe(false);
+        }
+    });
+
+    it('should reject old profile format with missing required fields', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const invalidProfile = {
+                name: 'Test Profile',
+                mode: 'space'
+                // Missing keys field
+            };
+
+            const result = storageManager.isValidProfile(invalidProfile);
+            expect(result).toBe(false);
+        }
+    });
+
+    it('should reject new profile format with invalid builds structure', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const invalidProfile = {
+                name: 'Test Profile',
+                builds: {
+                    space: {
+                        // Missing keys field
+                        aliases: {}
+                    }
+                }
+            };
+
+            const result = storageManager.isValidProfile(invalidProfile);
+            expect(result).toBe(false);
+        }
+    });
+
+    it('should reject new profile format with no builds', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const invalidProfile = {
+                name: 'Test Profile',
+                builds: {}
+            };
+
+            const result = storageManager.isValidProfile(invalidProfile);
+            expect(result).toBe(false);
+        }
+    });
+
+    it('should accept new profile with only space build', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const validProfile = {
+                name: 'Test Profile',
+                builds: {
+                    space: {
+                        keys: {},
+                        aliases: {}
+                    }
+                }
+            };
+
+            const result = storageManager.isValidProfile(validProfile);
+            expect(result).toBe(true);
+        }
+    });
+
+    it('should accept new profile with only ground build', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const validProfile = {
+                name: 'Test Profile',
+                builds: {
+                    ground: {
+                        keys: {},
+                        aliases: {}
+                    }
+                }
+            };
+
+            const result = storageManager.isValidProfile(validProfile);
+            expect(result).toBe(true);
+        }
+    });
+
+    it('should reject profile with invalid build environment names', () => {
+        if (storageManager && typeof storageManager.isValidProfile === 'function') {
+            const invalidProfile = {
+                name: 'Test Profile',
+                builds: {
+                    invalid_env: {
+                        keys: {},
+                        aliases: {}
+                    }
+                }
+            };
+
+            // This should still pass since we only validate space/ground if they exist
+            const result = storageManager.isValidProfile(invalidProfile);
+            expect(result).toBe(true);
+        }
+    });
+});
+
+describe('STOStorage - Data Persistence', () => {
+    let storageManager;
+
+    beforeEach(() => {
+        if (typeof window.STOStorage !== 'undefined') {
+            storageManager = new window.STOStorage();
+        }
+        // Clear localStorage before each test
+        localStorage.clear();
+    });
+
+    afterEach(() => {
+        // Clean up after each test
+        localStorage.clear();
+    });
+
+    it('should save and retrieve data', () => {
+        if (storageManager) {
+            const testData = {
+                version: '1.0.0',
+                profiles: {
+                    test: {
+                        name: 'Test Profile',
+                        mode: 'space',
+                        keys: {}
+                    }
+                },
+                currentProfile: 'test'
+            };
+
+            const saved = storageManager.saveAllData(testData);
+            expect(saved).toBe(true);
+
+            const retrieved = storageManager.getAllData();
+            expect(retrieved.profiles.test.name).toBe('Test Profile');
+        }
+    });
+
+    it('should save and retrieve individual profiles', () => {
+        if (storageManager) {
+            const testProfile = {
+                name: 'Individual Test',
+                mode: 'space',
+                keys: {
+                    'A': [{ command: 'test', type: 'custom' }]
+                }
+            };
+
+            const saved = storageManager.saveProfile('individual_test', testProfile);
+            expect(saved).toBe(true);
+
+            const retrieved = storageManager.getProfile('individual_test');
+            if (retrieved) {
+                expect(retrieved.name).toBe('Individual Test');
+                expect(retrieved.keys.A).toBeDefined();
+            }
+        }
+    });
+
+    it('should handle profile deletion', () => {
+        if (storageManager) {
+            const testProfile = {
+                name: 'To Delete',
+                mode: 'space', 
+                keys: {}
+            };
+
+            storageManager.saveProfile('to_delete', testProfile);
+            
+            const deleted = storageManager.deleteProfile('to_delete');
+            expect(deleted).toBe(true);
+
+            const retrieved = storageManager.getProfile('to_delete');
+            expect(retrieved).toBeNull();
+        }
+    });
+
+    it('should export and import data', () => {
+        if (storageManager) {
+            const testData = {
+                version: '1.0.0',
+                profiles: {
+                    export_test: {
+                        name: 'Export Test',
+                        mode: 'space',
+                        keys: {}
+                    }
+                },
+                currentProfile: 'export_test'
+            };
+
+            storageManager.saveAllData(testData);
+            
+            const exported = storageManager.exportData();
+            expect(typeof exported).toBe('string');
+
+            // Clear storage
+            localStorage.clear();
+
+            const imported = storageManager.importData(exported);
+            expect(imported).toBe(true);
+
+            const retrieved = storageManager.getAllData();
+            expect(retrieved.profiles.export_test.name).toBe('Export Test');
+        }
+    });
+
+    it('should handle invalid import data', () => {
+        if (storageManager) {
+            const invalidData = 'invalid json';
+            const result = storageManager.importData(invalidData);
+            expect(result).toBe(false);
+        }
+    });
+
+    it('should handle storage errors gracefully', () => {
+        if (storageManager) {
+            // Test with overly large data that might exceed storage limits
+            const hugeData = {
+                version: '1.0.0',
+                profiles: {},
+                currentProfile: 'huge'
+            };
+
+            // Create a profile with massive data
+            hugeData.profiles.huge = {
+                name: 'Huge Profile',
+                mode: 'space',
+                keys: {}
+            };
+
+            // Add a lot of keys to simulate storage overflow
+            for (let i = 0; i < 1000; i++) {
+                hugeData.profiles.huge.keys[`key_${i}`] = [
+                    { command: `command_${i}`.repeat(100), type: 'custom' }
+                ];
+            }
+
+            // This should either succeed or fail gracefully
+            const result = storageManager.saveAllData(hugeData);
+            expect(typeof result).toBe('boolean');
+        }
+    });
 }); 

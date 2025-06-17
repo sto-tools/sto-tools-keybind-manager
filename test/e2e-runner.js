@@ -256,6 +256,30 @@ Examples:
                             }
                         };
                     }
+                    
+                    // Mock MouseEvent constructor for proper event dispatching
+                    if (!window.MouseEvent) {
+                        window.MouseEvent = class MockMouseEvent extends window.Event {
+                            constructor(type, options = {}) {
+                                super(type, options);
+                                this.bubbles = options.bubbles || false;
+                                this.cancelable = options.cancelable || false;
+                                this.view = options.view || window;
+                                this.detail = options.detail || 0;
+                                this.screenX = options.screenX || 0;
+                                this.screenY = options.screenY || 0;
+                                this.clientX = options.clientX || 0;
+                                this.clientY = options.clientY || 0;
+                                this.ctrlKey = options.ctrlKey || false;
+                                this.shiftKey = options.shiftKey || false;
+                                this.altKey = options.altKey || false;
+                                this.metaKey = options.metaKey || false;
+                                this.button = options.button || 0;
+                                this.buttons = options.buttons || 0;
+                                this.relatedTarget = options.relatedTarget || null;
+                            }
+                        };
+                    }
                 }
             });
 
@@ -264,6 +288,11 @@ Examples:
             global.window = this.window;
             global.document = this.document;
             global.localStorage = this.window.localStorage;
+            
+            // Ensure MouseEvent is available globally for tests
+            if (!global.MouseEvent && this.window.MouseEvent) {
+                global.MouseEvent = this.window.MouseEvent;
+            }
 
             if (this.options.verbose) {
                 console.log('✓ JSDOM environment created from server');
@@ -350,7 +379,8 @@ Examples:
             'e2e/alias-management.test.js',
             'e2e/export-import.test.js',
             'e2e/sample-bind-files.test.js',
-            'e2e/user-workflows.test.js'
+            'e2e/user-workflows.test.js',
+            'e2e/space-ground-toggle.test.js'
         ];
 
         for (const file of suiteFiles) {
