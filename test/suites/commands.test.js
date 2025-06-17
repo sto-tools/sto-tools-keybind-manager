@@ -145,7 +145,7 @@ describe('Command Validation', () => {
             null,
             undefined,
             '   ',
-            'invalid$$command',
+            'invalid|command',  // | is not allowed in STO commands
             'command with | pipe'
         ];
 
@@ -154,6 +154,22 @@ describe('Command Validation', () => {
             expect(result).toBeDefined();
             expect(result.valid).toBe(false);
             expect(result.error).toBeDefined();
+        });
+    });
+
+    it('should allow pipe characters inside quoted strings', () => {
+        const validCommandsWithQuotedPipes = [
+            'SAY "Target this ->| BORG CUBE |<-"',
+            'team "Enemy at |coordinates| 123,456"',
+            'tell @player "Use this |item| now"',
+            'say "He said \\"Hello|World\\""',
+            "say 'Single quotes with | pipe'"
+        ];
+
+        validCommandsWithQuotedPipes.forEach(command => {
+            const result = commandManager.validateCommand(command);
+            expect(result).toBeDefined();
+            expect(result.valid).toBe(true);
         });
     });
 

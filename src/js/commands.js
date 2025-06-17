@@ -733,11 +733,45 @@ class STOCommandManager {
         }
         
         // Check for invalid characters that could break STO
-        if (cmd.includes('$$') || cmd.includes('|')) {
-            return { valid: false, error: 'Invalid characters in command ($$, |)' };
+        // Note: $$ is valid as it's the STO command separator for chaining commands
+        // Note: | is invalid UNLESS it's inside quoted strings (for communication commands)
+        if (this.hasUnquotedPipeCharacter(cmd)) {
+            return { valid: false, error: 'Invalid characters in command (|)' };
         }
         
         return { valid: true };
+    }
+
+    // Helper method to check for pipe characters outside of quoted strings
+    hasUnquotedPipeCharacter(cmd) {
+        let inQuotes = false;
+        let quoteChar = null;
+        
+        for (let i = 0; i < cmd.length; i++) {
+            const char = cmd[i];
+            
+            if (!inQuotes && (char === '"' || char === "'")) {
+                // Starting a quoted section
+                inQuotes = true;
+                quoteChar = char;
+            } else if (inQuotes && char === quoteChar) {
+                // Check if this quote is escaped
+                let backslashCount = 0;
+                for (let j = i - 1; j >= 0 && cmd[j] === '\\'; j--) {
+                    backslashCount++;
+                }
+                // If even number of backslashes (including 0), the quote is not escaped
+                if (backslashCount % 2 === 0) {
+                    inQuotes = false;
+                    quoteChar = null;
+                }
+            } else if (!inQuotes && char === '|') {
+                // Found unquoted pipe character
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     // Command templates
@@ -810,7 +844,8 @@ class STOCommandManager {
             cmd === 'target_friend_near' || cmd === 'target_clear') return 'targeting';
         
         // System commands
-        if (cmd.includes('+gentoggle') || cmd === 'screenshot' || cmd.includes('hud')) return 'system';
+        if (cmd.includes('+gentoggle') || cmd === 'screenshot' || cmd.includes('hud') || 
+            cmd === 'interactwindow') return 'system';
         
         // Default to custom for unknown commands
         return 'custom';

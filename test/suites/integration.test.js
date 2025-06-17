@@ -510,7 +510,7 @@ describe('Command Validation Integration', () => {
             '',
             null,
             undefined,
-            'invalid$$command',
+            'invalid|command',  // | is not allowed in STO commands
             'command with | pipe'
         ];
 

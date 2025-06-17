@@ -427,7 +427,7 @@ describe('Command Library', () => {
 
         it('should reject invalid command syntax', () => {
             if (window.stoCommands && window.stoCommands.validateCommand) {
-                const invalidCommand = 'invalid$$command';  // Use a command that should definitely be invalid
+                const invalidCommand = 'invalid|command';  // Use a command that should definitely be invalid (| is not allowed)
                 const result = window.stoCommands.validateCommand(invalidCommand);
                 if (result !== undefined && result !== null) {
                     if (typeof result === 'boolean') {
