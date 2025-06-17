@@ -388,6 +388,11 @@ class STOKeybindFileManager {
 
     // Validation methods
     isValidKey(key) {
+        // Handle null, undefined, or non-string values
+        if (!key || typeof key !== 'string') {
+            return false;
+        }
+        
         // Case-insensitive validation since STO keybinds are case insensitive
         return this.validKeys.some(validKey => validKey.toLowerCase() === key.toLowerCase());
     }

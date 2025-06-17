@@ -179,7 +179,8 @@ describe('Profile and Keybind Integration', () => {
 
         // Test categorization functionality if app is available
         if (window.app && typeof window.app.categorizeKeys === 'function') {
-            const categorized = window.app.categorizeKeys(profile.keys);
+            const allKeys = Object.keys(profile.keys);
+            const categorized = window.app.categorizeKeys(profile.keys, allKeys);
             
             expect(categorized).toBeDefined();
             expect(typeof categorized).toBe('object');
@@ -207,9 +208,9 @@ describe('Profile and Keybind Integration', () => {
                 expect(categorized.system.keys).toContain('alt+f4');
             }
             
-            // Check empty category
-            if (categorized.empty) {
-                expect(categorized.empty.keys).toContain('f12');
+            // Check unknown category (real function uses 'unknown' not 'empty')
+            if (categorized.unknown) {
+                expect(categorized.unknown.keys).toContain('f12');
             }
             
             // Verify keys can appear in multiple categories
@@ -1100,16 +1101,16 @@ describe('Real-world Scenarios', () => {
 
 describe('Enhanced View Mode Functionality', () => {
     let storageManager;
-    let mockKeybindManager;
+    let keybindManager;
 
     beforeAll(() => {
-        if (typeof window.StorageManager === 'undefined') {
+        if (typeof window.stoStorage === 'undefined') {
             throw new Error('StorageManager not loaded');
         }
     });
 
     beforeEach(() => {
-        storageManager = new window.StorageManager();
+        storageManager = window.stoStorage;
         
         // Mock DOM elements for view mode testing
         if (!document.getElementById('keyGrid')) {
@@ -1126,9 +1127,9 @@ describe('Enhanced View Mode Functionality', () => {
             document.body.appendChild(mockButton);
         }
 
-        // Mock keybind manager if available
+        // Create keybind manager instance for testing
         if (typeof window.STOKeybindManager !== 'undefined') {
-            mockKeybindManager = new window.STOKeybindManager();
+            keybindManager = new window.STOKeybindManager();
         }
     });
 
@@ -1143,33 +1144,33 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should toggle between view modes correctly', () => {
-        if (mockKeybindManager && typeof mockKeybindManager.toggleKeyView === 'function') {
+        if (keybindManager && typeof keybindManager.toggleKeyView === 'function') {
             // Test 3-way toggle: key-types → grid → categorized → key-types
             localStorage.setItem('keyViewMode', 'key-types');
-            mockKeybindManager.toggleKeyView();
+            keybindManager.toggleKeyView();
             expect(localStorage.getItem('keyViewMode')).toBe('grid');
             
-            mockKeybindManager.toggleKeyView();
+            keybindManager.toggleKeyView();
             expect(localStorage.getItem('keyViewMode')).toBe('categorized');
             
-            mockKeybindManager.toggleKeyView();
+            keybindManager.toggleKeyView();
             expect(localStorage.getItem('keyViewMode')).toBe('key-types');
         }
     });
 
     it('should update view toggle button icon based on current mode', () => {
-        if (mockKeybindManager && typeof mockKeybindManager.updateViewToggleButton === 'function') {
+        if (keybindManager && typeof keybindManager.updateViewToggleButton === 'function') {
             const toggleBtn = document.getElementById('toggleKeyViewBtn');
             const icon = toggleBtn?.querySelector('i');
             
             if (icon) {
-                mockKeybindManager.updateViewToggleButton('categorized');
+                keybindManager.updateViewToggleButton('categorized');
                 expect(icon.className).toContain('fa-sitemap');
                 
-                mockKeybindManager.updateViewToggleButton('key-types');
+                keybindManager.updateViewToggleButton('key-types');
                 expect(icon.className).toContain('fa-th');
                 
-                mockKeybindManager.updateViewToggleButton('grid');
+                keybindManager.updateViewToggleButton('grid');
                 expect(icon.className).toContain('fa-list');
             }
         }
@@ -1178,15 +1179,15 @@ describe('Enhanced View Mode Functionality', () => {
     it('should render key grid with appropriate class based on view mode', () => {
         const keyGrid = document.getElementById('keyGrid');
         
-        if (keyGrid && mockKeybindManager) {
+        if (keyGrid && keybindManager) {
             // Test categorized class addition/removal
-            if (typeof mockKeybindManager.renderCategorizedKeyView === 'function') {
+            if (typeof keybindManager.renderCategorizedKeyView === 'function') {
                 // Simulate categorized view
                 keyGrid.classList.add('categorized');
                 expect(keyGrid.classList.contains('categorized')).toBeTruthy();
             }
             
-            if (typeof mockKeybindManager.renderSimpleKeyGrid === 'function') {
+            if (typeof keybindManager.renderSimpleKeyGrid === 'function') {
                 // Simulate grid view
                 keyGrid.classList.remove('categorized');
                 expect(keyGrid.classList.contains('categorized')).toBeFalsy();
@@ -1195,8 +1196,8 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should categorize keys by command type correctly', () => {
-        if (mockKeybindManager && typeof mockKeybindManager.categorizeKeys === 'function') {
-            const mockKeys = {
+        if (keybindManager && typeof keybindManager.categorizeKeys === 'function') {
+            const testKeys = {
                 'space': [
                     { command: 'Target_Enemy_Near', type: 'targeting' },
                     { command: 'FireAll', type: 'combat' }
@@ -1206,8 +1207,8 @@ describe('Enhanced View Mode Functionality', () => {
                 'f12': [] // Empty key
             };
             
-            const allKeys = Object.keys(mockKeys);
-            const categorized = mockKeybindManager.categorizeKeys(mockKeys, allKeys);
+            const allKeys = Object.keys(testKeys);
+            const categorized = keybindManager.categorizeKeys(testKeys, allKeys);
             
             if (categorized) {
                 // Should have unknown category for empty keys
@@ -1223,8 +1224,8 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should categorize keys by input type correctly', () => {
-        if (mockKeybindManager && typeof mockKeybindManager.categorizeKeysByType === 'function') {
-            const mockKeys = {
+        if (keybindManager && typeof keybindManager.categorizeKeysByType === 'function') {
+            const testKeys = {
                 'F1': [{ command: 'test1' }],
                 'F2': [{ command: 'test2' }],
                 'A': [{ command: 'test3' }],
@@ -1235,8 +1236,8 @@ describe('Enhanced View Mode Functionality', () => {
                 'Home': [{ command: 'test8' }]
             };
             
-            const allKeys = Object.keys(mockKeys);
-            const categorized = mockKeybindManager.categorizeKeysByType(mockKeys, allKeys);
+            const allKeys = Object.keys(testKeys);
+            const categorized = keybindManager.categorizeKeysByType(testKeys, allKeys);
             
             if (categorized) {
                 // Should have function keys category
@@ -1283,28 +1284,28 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should filter keys across different view modes', () => {
-        if (mockKeybindManager && typeof mockKeybindManager.filterKeys === 'function') {
-            // Mock key elements for filtering
-            const mockKeyItem = document.createElement('div');
-            mockKeyItem.className = 'key-item';
-            mockKeyItem.dataset.key = 'TestKey';
-            document.body.appendChild(mockKeyItem);
+        if (keybindManager && typeof keybindManager.filterKeys === 'function') {
+            // Create test DOM elements for filtering
+            const testKeyItem = document.createElement('div');
+            testKeyItem.className = 'key-item';
+            testKeyItem.dataset.key = 'TestKey';
+            document.body.appendChild(testKeyItem);
             
-            const mockCommandItem = document.createElement('div');
-            mockCommandItem.className = 'command-item';
-            mockCommandItem.dataset.key = 'AnotherKey';
-            document.body.appendChild(mockCommandItem);
+            const testCommandItem = document.createElement('div');
+            testCommandItem.className = 'command-item';
+            testCommandItem.dataset.key = 'AnotherKey';
+            document.body.appendChild(testCommandItem);
             
             // Test filtering
-            mockKeybindManager.filterKeys('test');
+            keybindManager.filterKeys('test');
             
             // Check that elements exist and have expected attributes
-            expect(mockKeyItem.dataset.key).toBe('TestKey');
-            expect(mockCommandItem.dataset.key).toBe('AnotherKey');
+            expect(testKeyItem.dataset.key).toBe('TestKey');
+            expect(testCommandItem.dataset.key).toBe('AnotherKey');
             
             // Clean up
-            document.body.removeChild(mockKeyItem);
-            document.body.removeChild(mockCommandItem);
+            document.body.removeChild(testKeyItem);
+            document.body.removeChild(testCommandItem);
         }
     });
 
@@ -1329,13 +1330,13 @@ describe('Enhanced Key Categorization', () => {
     let storageManager;
 
     beforeAll(() => {
-        if (typeof window.StorageManager === 'undefined') {
+        if (typeof window.stoStorage === 'undefined') {
             throw new Error('StorageManager not loaded');
         }
     });
 
     beforeEach(() => {
-        storageManager = new window.StorageManager();
+        storageManager = window.stoStorage;
     });
 
     it('should properly categorize keys with multiple command types', () => {

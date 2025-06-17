@@ -108,142 +108,127 @@ Examples:
     }
 
     async setupEnvironment() {
-        // Create global window object for browser compatibility
-        global.window = {};
-        
-        // Mock document object for DOM-dependent code
-        global.document = {
-            addEventListener: () => {},
-            getElementById: () => null,
-            querySelector: () => null,
-            querySelectorAll: () => [],
-            createElement: (tag) => ({
-                tagName: tag.toUpperCase(),
-                innerHTML: '',
-                textContent: '',
-                value: '',
-                className: '',
-                style: {},
-                addEventListener: () => {},
-                appendChild: () => {},
-                setAttribute: () => {},
-                getAttribute: () => null,
-                classList: {
-                    add: () => {},
-                    remove: () => {},
-                    contains: () => false
-                }
-            })
-        };
-        
-        // Make document available on window as well
-        global.window.document = global.document;
-        
-        // Mock other browser globals that might be needed
-        global.localStorage = {
-            getItem: () => null,
-            setItem: () => {},
-            removeItem: () => {},
-            clear: () => {},
-            length: 0,
-            key: () => null
-        };
-        global.window.localStorage = global.localStorage;
-
-        // Create DOM environment
-        const dom = new JSDOM(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Test Environment</title></head>
-            <body></body>
-            </html>
-        `, {
-            url: 'http://localhost',
-            pretendToBeVisual: true,
-            resources: 'usable'
-        });
-
-        // Store references
-        this.mockWindow = dom.window;
-        this.mockDocument = dom.window.document;
-        this.mockLocalStorage = this.createMockLocalStorage();
-
-        // Enhance document with better mocks
-        this.mockDocument.getElementById = (id) => ({
-            addEventListener: () => {},
-            removeEventListener: () => {},
-            style: {},
-            innerHTML: '',
-            textContent: '',
-            value: '',
-            checked: false,
-            disabled: false,
-            classList: {
-                add: () => {},
-                remove: () => {},
-                contains: () => false,
-                toggle: () => {}
-            }
-        });
-        
-        this.mockDocument.addEventListener = () => {};
-        this.mockDocument.removeEventListener = () => {};
-        this.mockDocument.createElement = (tag) => ({
-            addEventListener: () => {},
-            removeEventListener: () => {},
-            appendChild: () => {},
-            removeChild: () => {},
-            style: {},
-            innerHTML: '',
-            textContent: '',
-            setAttribute: () => {},
-            getAttribute: () => '',
-            classList: {
-                add: () => {},
-                remove: () => {},
-                contains: () => false,
-                toggle: () => {}
-            }
-        });
-
-        // Set up global environment
-        global.window = this.mockWindow;
-        global.document = this.mockDocument;
-        global.localStorage = this.mockLocalStorage;
-        global.console = console;
-
-        // Load application modules
-        await this.loadApplicationModules();
-        
-        // Create manager aliases for tests
-        this.createManagerAliases();
-        
-        // Load test framework
-        await this.loadTestFramework();
-        
-        // Make test framework functions available globally
-        if (global.window && global.window.testFramework) {
-            global.testFramework = global.window.testFramework;
-            global.describe = global.window.describe;
-            global.it = global.window.it;
-            global.xit = global.window.xit;
-            global.beforeEach = global.window.beforeEach;
-            global.afterEach = global.window.afterEach;
-            global.beforeAll = global.window.beforeAll;
-            global.afterAll = global.window.afterAll;
-            global.expect = global.window.expect;
-            global.Mock = global.window.Mock;
+        if (this.options.verbose) {
+            console.log('Setting up test environment...');
         }
-        
-        // Load test suites
-        await this.loadTestSuites();
+
+        try {
+            // Load the actual HTML file like E2E runner
+            const indexPath = path.join(__dirname, '../src/index.html');
+            let htmlContent = fs.readFileSync(indexPath, 'utf8');
+            
+            // Create DOM environment from actual HTML with E2E-like setup
+            this.dom = new JSDOM(htmlContent, {
+                url: 'file://' + path.resolve(indexPath),
+                pretendToBeVisual: true,
+                resources: 'usable',
+                runScripts: 'dangerously', // Allow scripts to run naturally like E2E
+                beforeParse: (window) => {
+                    // Mock browser APIs similar to E2E runner
+                    window.alert = (msg) => {
+                        if (this.options.verbose) console.log('ALERT:', msg);
+                    };
+                    window.confirm = (msg) => {
+                        if (this.options.verbose) console.log('CONFIRM:', msg);
+                        return true; // Default to yes for tests
+                    };
+                    window.prompt = (msg, defaultValue) => {
+                        if (this.options.verbose) console.log('PROMPT:', msg);
+                        return defaultValue || 'test';
+                    };
+                    
+                    // Mock file APIs
+                    window.URL = window.URL || {};
+                    window.URL.createObjectURL = () => 'blob:mock-url';
+                    window.URL.revokeObjectURL = () => {};
+                    
+                    // Mock Blob constructor
+                    if (!window.Blob) {
+                        window.Blob = class MockBlob {
+                            constructor(parts, options) {
+                                this.parts = parts;
+                                this.options = options;
+                            }
+                        };
+                    }
+                }
+            });
+
+            this.window = this.dom.window;
+            this.document = this.window.document;
+            
+            // Force document to be in complete state (like E2E runner)
+            Object.defineProperty(this.document, 'readyState', {
+                value: 'complete',
+                writable: false,
+                configurable: true
+            });
+            
+            // Set up global environment
+            global.window = this.window;
+            global.document = this.document;
+            
+            // Replace localStorage with enhanced mock BEFORE scripts run
+            const mockLocalStorage = this.createMockLocalStorage();
+            this.window.localStorage = mockLocalStorage;
+            global.localStorage = mockLocalStorage;
+            
+            // Ensure the DOM has it too
+            Object.defineProperty(this.window, 'localStorage', {
+                value: mockLocalStorage,
+                writable: false,
+                configurable: false
+            });
+
+            if (this.options.verbose) {
+                console.log('✓ JSDOM environment created from HTML file');
+            }
+
+            // Wait for scripts to load naturally (like E2E runner)
+            if (this.options.verbose) {
+                console.log('⏳ Waiting for scripts to load naturally...');
+            }
+            await this.sleep(5000); // Wait 5 seconds for scripts like E2E
+            
+            // Wait for application to be ready
+            await this.waitForApplicationReady();
+            
+            // Bridge window context to global context for tests
+            this.bridgeWindowToGlobal();
+
+            // Load test framework
+            await this.loadTestFramework();
+            
+            // Make test framework functions available globally
+            this.exposeTestFramework();
+            
+            // Load test suites
+            await this.loadTestSuites();
+
+            if (this.options.verbose) {
+                console.log('✓ CLI test environment setup complete');
+            }
+
+        } catch (error) {
+            console.error('✗ Failed to setup CLI environment:', error.message);
+            if (this.options.verbose) {
+                console.error(error.stack);
+            }
+            process.exit(1);
+        }
     }
 
     createMockLocalStorage() {
         const storage = {};
         return {
             getItem: (key) => storage[key] || null,
-            setItem: (key, value) => storage[key] = value,
+            setItem: (key, value) => {
+                // Allow tests to override setItem for error simulation
+                if (typeof storage[key] === 'function') {
+                    return storage[key](key, value);
+                }
+                storage[key] = value;
+            },
             removeItem: (key) => delete storage[key],
             clear: () => Object.keys(storage).forEach(key => delete storage[key]),
             get length() { return Object.keys(storage).length; },
@@ -251,152 +236,152 @@ Examples:
         };
     }
 
-    async loadApplicationModules() {
-        // Load modules in dependency order
-        const moduleFiles = [
-            '../src/js/data.js',      // Must be first - defines STO_DATA
-            '../src/js/storage.js',   // Depends on STO_DATA
-            '../src/js/ui.js',
-            '../src/js/commands.js',
-            '../src/js/keybinds.js',
-            '../src/js/profiles.js',
-            '../src/js/aliases.js',
-            '../src/js/export.js',
-            '../src/js/app.js'        // Main application controller
-        ];
 
-        // Create a shared context for all modules
-        const sharedContext = {
-            console,
-            localStorage: global.localStorage,
-            window: global.window,
-            document: global.document,
-            // Don't include global to avoid conflicts
+
+    async waitForApplicationReady() {
+        // Wait for DOM to be ready (similar to E2E runner)
+        await this.waitForDOMReady();
+        
+        // Wait for application modules to initialize
+        const maxAttempts = 50; // 5 seconds max
+        for (let i = 0; i < maxAttempts; i++) {
+            // Check if key application objects are available
+            if (this.window.STO_DATA && 
+                this.window.stoStorage && 
+                this.window.stoUI && 
+                this.window.stoCommands &&
+                this.window.app) {
+                
+                if (this.options.verbose) {
+                    console.log('✓ Application modules loaded and ready');
+                }
+                
+                // Give app a moment to fully initialize
+                await this.sleep(100);
+                return;
+            }
+            
+            await this.sleep(100); // Wait 100ms
+        }
+        
+        // If we get here, log what's available for debugging
+        const available = {
+            STO_DATA: !!this.window.STO_DATA,
+            stoStorage: !!this.window.stoStorage,
+            stoUI: !!this.window.stoUI,
+            stoCommands: !!this.window.stoCommands,
+            app: !!this.window.app
         };
         
-        // Create the VM context
-        const vm = require('vm');
-        vm.createContext(sharedContext);
-
-        for (const file of moduleFiles) {
-            try {
-                const filePath = path.join(__dirname, file);
-                if (fs.existsSync(filePath)) {
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    
-                    // Execute in shared context
-                    vm.runInContext(content, sharedContext);
-                    
-                    if (this.options.verbose) {
-                        console.log(`✓ Loaded ${file}`);
-                    }
-                } else {
-                    console.warn(`⚠ Module not found: ${file}`);
-                }
-            } catch (error) {
-                console.error(`✗ Failed to load ${file}:`, error.message);
-                if (this.options.verbose) {
-                    console.error(error.stack);
-                }
-            }
+        if (this.options.verbose) {
+            console.log('⚠ Application not fully ready, available modules:', available);
         }
+    }
 
-        // Copy all context variables to global, handling read-only properties
-        Object.keys(sharedContext).forEach(key => {
-            if (!['console', 'localStorage', 'window', 'document'].includes(key)) {
-                try {
-                    global[key] = sharedContext[key];
-                } catch (error) {
-                    // Skip read-only properties silently
-                    if (this.options.verbose && !error.message.includes('only a getter')) {
-                        console.warn(`⚠ Could not set global.${key}:`, error.message);
-                    }
+    async waitForDOMReady() {
+        return new Promise((resolve) => {
+            if (this.document.readyState === 'complete') {
+                resolve();
+            } else {
+                this.document.addEventListener('DOMContentLoaded', resolve);
+                // Fallback timeout
+                setTimeout(resolve, 1000);
+            }
+        });
+    }
+
+    exposeTestFramework() {
+        if (this.window && this.window.testFramework) {
+            global.testFramework = this.window.testFramework;
+            global.describe = this.window.describe;
+            global.it = this.window.it;
+            global.xit = this.window.xit;
+            global.beforeEach = this.window.beforeEach;
+            global.afterEach = this.window.afterEach;
+            global.beforeAll = this.window.beforeAll;
+            global.afterAll = this.window.afterAll;
+            global.expect = this.window.expect;
+            global.Mock = this.window.Mock;
+        }
+    }
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    bridgeWindowToGlobal() {
+        // Copy all application modules from window to global context for tests
+        const moduleNames = [
+            'STO_DATA', 'STO_COMMANDS', 'STO_KEY_LAYOUTS', 'STO_DEFAULT_SETTINGS',
+            'STO_SAMPLE_PROFILES', 'STO_SAMPLE_ALIASES', 'STO_TRAY_CONFIG',
+            'COMMAND_CATEGORIES', 'KEY_CATEGORIES', 'DEFAULT_PROFILE_SETTINGS',
+            'stoStorage', 'stoUI', 'stoCommands', 'stoKeybinds', 'stoProfiles',
+            'stoAliases', 'stoExport', 'app', 'getCommandsByCategory'
+        ];
+
+        moduleNames.forEach(name => {
+            if (this.window[name] !== undefined) {
+                global[name] = this.window[name];
+                global.window[name] = this.window[name]; // Also ensure it's on global.window
+                
+                if (this.options.verbose) {
+                    console.log(`✓ Bridged ${name} to global context`);
                 }
+            } else if (this.options.verbose) {
+                console.log(`⚠ ${name} not found in window context`);
             }
         });
 
-        // Ensure data structures and manager instances are properly available on global.window
-        if (sharedContext.window) {
-            Object.keys(sharedContext.window).forEach(key => {
-                // Copy data structures
-                if (key.startsWith('STO_') || key.startsWith('COMMAND_') || 
-                    key.startsWith('KEY_') || key.startsWith('DEFAULT_') || 
-                    key.startsWith('SAMPLE_') || key.startsWith('TRAY_') ||
-                    key === 'getCommandsByCategory') {
-                    try {
-                        let value = sharedContext.window[key];
-                        
-                        // Recreate arrays with global Array constructor to fix instanceof issues
-                        if (Array.isArray(value)) {
-                            value = [...value];
-                        } else if (value && typeof value === 'object') {
-                            // Deep clone objects to ensure they use global constructors
-                            value = JSON.parse(JSON.stringify(value));
-                        }
-                        
-                        global.window[key] = value;
-                        // Also ensure they're available globally for tests
-                        global[key] = value;
-                    } catch (error) {
-                        if (this.options.verbose) {
-                            console.warn(`⚠ Could not copy ${key}:`, error.message);
-                        }
-                    }
-                }
-                
-                // Copy manager instances (these are objects with methods, don't clone them)
-                if (key.startsWith('sto') && typeof sharedContext.window[key] === 'object' && 
-                    sharedContext.window[key] !== null) {
-                    try {
-                        global.window[key] = sharedContext.window[key];
-                        global[key] = sharedContext.window[key];
-                        if (this.options.verbose) {
-                            console.log(`✓ Copied manager ${key}`);
-                        }
-                    } catch (error) {
-                        if (this.options.verbose) {
-                            console.warn(`⚠ Could not copy manager ${key}:`, error.message);
-                        }
-                    }
-                }
-            });
+        // Create compatibility aliases for tests
+        if (this.window.stoStorage) {
+            global.storageManager = this.window.stoStorage;
+            global.window.storageManager = this.window.stoStorage;
+            global.StorageManager = this.window.stoStorage; // Some tests expect this capitalization
+            global.window.StorageManager = this.window.stoStorage;
+        }
+
+        if (this.window.stoCommands) {
+            global.commandManager = this.window.stoCommands;
+            global.window.commandManager = this.window.stoCommands;
+        }
+
+        if (this.window.stoKeybinds) {
+            global.keybindManager = this.window.stoKeybinds;
+            global.window.keybindManager = this.window.stoKeybinds;
+        }
+
+        if (this.window.stoProfiles) {
+            global.profileManager = this.window.stoProfiles;
+            global.window.profileManager = this.window.stoProfiles;
+        }
+
+        if (this.window.stoAliases) {
+            global.aliasManager = this.window.stoAliases;
+            global.window.aliasManager = this.window.stoAliases;
+        }
+
+        if (this.window.stoExport) {
+            global.exportManager = this.window.stoExport;
+            global.window.exportManager = this.window.stoExport;
+        }
+
+        if (this.options.verbose) {
+            console.log('✓ Completed bridging window context to global context');
         }
     }
+
+
 
     async loadTestFramework() {
         try {
             const frameworkPath = path.join(__dirname, 'framework/test-framework.js');
             const content = fs.readFileSync(frameworkPath, 'utf8');
             
-            // Create a context with necessary globals
-            const context = {
-                console,
-                localStorage: global.localStorage,
-                window: global.window,
-                document: global.document,
-                global,
-                // Add any existing globals that might have been defined
-                ...global
-            };
+            // Execute test framework directly in global context
+            eval(content);
             
-            // Execute in context and assign to global
-            const vm = require('vm');
-            vm.createContext(context);
-            vm.runInContext(content, context);
-            
-            // Copy context variables to global (skip read-only properties)
-            Object.keys(context).forEach(key => {
-                if (!['console', 'localStorage', 'window', 'document', 'global', 'navigator'].includes(key)) {
-                    try {
-                        global[key] = context[key];
-                    } catch (error) {
-                        // Skip read-only properties silently
-                        if (this.options.verbose && !error.message.includes('only a getter')) {
-                            console.warn(`⚠ Could not set global.${key}:`, error.message);
-                        }
-                    }
-                }
-            });
+            // Wait for framework to initialize
+            await this.sleep(100);
             
             if (this.options.verbose) {
                 console.log('✓ Loaded test framework');
@@ -413,7 +398,7 @@ Examples:
     async loadTestSuites() {
         const suiteFiles = [
             'data.test.js',
-            'storage.test.js',
+            'storage.test.js', 
             'commands.test.js',
             'keybinds.test.js',
             'profiles.test.js',
@@ -422,34 +407,13 @@ Examples:
             'integration.test.js'
         ];
 
-        // Ensure window is available in global context for tests
-        if (!global.window) {
-            global.window = {};
-        }
-        
-        // Copy all managers to the global window object that tests will access
-        Object.keys(global).forEach(key => {
-            if (key.startsWith('sto') && typeof global[key] === 'object' && global[key] !== null) {
-                global.window[key] = global[key];
-                if (this.options.verbose) {
-                    console.log(`✓ Made ${key} available on global.window for tests`);
-                }
-            }
-        });
-        
-        // Make window available directly as a global variable so tests can access window.stoKeybinds
-        global['window'] = global.window;
-        if (this.options.verbose) {
-            console.log(`✓ Made window available as global variable`);
-        }
-
         for (const file of suiteFiles) {
             try {
                 const filePath = path.join(__dirname, 'suites', file);
                 if (fs.existsSync(filePath)) {
                     const content = fs.readFileSync(filePath, 'utf8');
                     
-                    // Execute test suites directly in global context to avoid VM context issues
+                    // Execute test suites in global context like E2E runner
                     eval(content);
                     
                     if (this.options.verbose) {
@@ -725,34 +689,7 @@ Examples:
         }
     }
 
-    createManagerAliases() {
-        // Create aliases for test compatibility using the actual application managers
-        if (global.window) {
-            // Use the actual STOStorage instance for storage tests
-            global.window.storageManager = global.window.stoStorage;
-            global.storageManager = global.window.storageManager;
-            
-            // Use the actual manager instances
-            global.window.commandManager = global.window.stoCommands;
-            global.commandManager = global.window.commandManager;
-            
-            global.window.keybindManager = global.window.stoKeybinds;
-            global.keybindManager = global.window.keybindManager;
-            
-            global.window.profileManager = global.window.stoProfiles;
-            global.profileManager = global.window.profileManager;
-            
-            global.window.aliasManager = global.window.stoAliases;
-            global.aliasManager = global.window.aliasManager;
-            
-            global.window.exportManager = global.window.stoExport;
-            global.exportManager = global.window.exportManager;
-            
-            if (this.options.verbose) {
-                console.log('✓ Created manager aliases for tests');
-            }
-        }
-    }
+
 }
 
 // Run if called directly

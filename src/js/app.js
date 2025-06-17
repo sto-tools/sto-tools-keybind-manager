@@ -22,6 +22,11 @@ class STOToolsKeybindManager {
 
     async init() {
         try {
+            // Check if required dependencies are available
+            if (typeof stoStorage === 'undefined' || typeof stoUI === 'undefined') {
+                throw new Error('Required dependencies not loaded');
+            }
+            
             // Load data from storage
             await this.loadData();
             
@@ -44,7 +49,9 @@ class STOToolsKeybindManager {
             
         } catch (error) {
             console.error('Failed to initialize application:', error);
-            stoUI.showToast('Failed to load application', 'error');
+            if (typeof stoUI !== 'undefined' && stoUI.showToast) {
+                stoUI.showToast('Failed to load application', 'error');
+            }
         }
     }
 
