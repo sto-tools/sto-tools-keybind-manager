@@ -343,6 +343,8 @@
     </div>
 
     <!-- Load application files -->
+    <script src="../src/js/constants.js"></script>
+    <script src="../src/js/version.js"></script>
     <script src="../src/js/data.js"></script>
     <script src="../src/js/storage.js"></script>
     <script src="../src/js/ui.js"></script>
@@ -351,9 +353,16 @@
     <script src="../src/js/profiles.js"></script>
     <script src="../src/js/aliases.js"></script>
     <script src="../src/js/export.js"></script>
+    <script src="../src/js/app.js"></script>
     
     <!-- Load test framework -->
     <script src="framework/test-framework.js"></script>
+    
+    <!-- Browser-specific test configuration -->
+    <script>
+        // Set browser test environment flag
+        window.BROWSER_TEST_ENV = true;
+    </script>
     
     <!-- Load test suites -->
     <script src="suites/data.test.js"></script>
@@ -363,9 +372,11 @@
     <script src="suites/profiles.test.js"></script>
     <script src="suites/aliases.test.js"></script>
     <script src="suites/export.test.js"></script>
+    <script src="suites/ui.test.js"></script>
+    <script src="suites/app.test.js"></script>
     <script src="suites/integration.test.js"></script>
     
     <!-- Initialize test runner -->
-    <script src="runner.js"></script>
+    <script src="browser-runner.js"></script>
 </body>
 </html>     

@@ -12,30 +12,45 @@ describe('Storage Module', () => {
         originalLocalStorage = window.localStorage;
         mockStorage = {};
         
-        Object.defineProperty(window, 'localStorage', {
-            value: {
-                getItem: (key) => mockStorage[key] || null,
-                setItem: (key, value) => mockStorage[key] = value,
-                removeItem: (key) => delete mockStorage[key],
-                clear: () => mockStorage = {},
-                get length() { return Object.keys(mockStorage).length; },
-                key: (index) => Object.keys(mockStorage)[index] || null
-            },
-            writable: true
-        });
+        // Only redefine localStorage if not in browser test environment
+        if (!window.BROWSER_TEST_ENV) {
+            Object.defineProperty(window, 'localStorage', {
+                value: {
+                    getItem: (key) => mockStorage[key] || null,
+                    setItem: (key, value) => mockStorage[key] = value,
+                    removeItem: (key) => delete mockStorage[key],
+                    clear: () => mockStorage = {},
+                    get length() { return Object.keys(mockStorage).length; },
+                    key: (index) => Object.keys(mockStorage)[index] || null
+                },
+                writable: true
+            });
+        } else {
+            // In browser environment, use actual localStorage but clear it
+            localStorage.clear();
+        }
     });
 
     afterAll(() => {
-        // Restore original localStorage
-        Object.defineProperty(window, 'localStorage', {
-            value: originalLocalStorage,
-            writable: true
-        });
+        // Restore original localStorage only if we replaced it
+        if (!window.BROWSER_TEST_ENV && originalLocalStorage) {
+            Object.defineProperty(window, 'localStorage', {
+                value: originalLocalStorage,
+                writable: true
+            });
+        } else if (window.BROWSER_TEST_ENV) {
+            // In browser environment, just clear localStorage
+            localStorage.clear();
+        }
     });
 
     beforeEach(() => {
-        // Clear mock storage before each test
-        mockStorage = {};
+        // Clear storage before each test
+        if (!window.BROWSER_TEST_ENV) {
+            mockStorage = {};
+        } else {
+            localStorage.clear();
+        }
         
         // Ensure storage module is loaded
         if (typeof window.stoStorage === 'undefined') {
