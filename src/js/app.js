@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Main Application Controller
 // Coordinates all modules and handles global application state
 
-class STOKeybindManager {
+class STOToolsKeybindManager {
     constructor() {
         this.currentProfile = null;
         this.selectedKey = null;
@@ -2017,7 +2017,7 @@ class STOKeybindManager {
 }
 
 // Initialize application
-const app = new STOKeybindManager();
+const app = new STOToolsKeybindManager();
 window.app = app;
 
 // Initialize other modules after app is ready
