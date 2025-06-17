@@ -197,7 +197,7 @@ describe('Export/Import', () => {
             const htmlReport = window.stoExport.generateHTMLReport(profile);
             expect(htmlReport).toBeTruthy();
             expect(typeof htmlReport).toBe('string');
-            expect(htmlReport.toLowerCase()).toContain('<html>');
+            expect(htmlReport).toContain('<html');
             expect(htmlReport).toContain(profile.name);
         });
 

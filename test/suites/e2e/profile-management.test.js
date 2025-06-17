@@ -152,25 +152,57 @@ describe('Profile Management', () => {
             expect(deleteProfileBtn).toBeTruthy();
         });
 
-        it('should confirm before deleting profile', () => {
+        it('should confirm before deleting profile', async () => {
             const deleteProfileBtn = document.getElementById('deleteProfileBtn');
             const profileSelect = document.getElementById('profileSelect');
             
-            // Only test if we have more than one profile
-            if (profileSelect.options.length > 1) {
-                const originalConfirm = window.confirm;
-                let confirmCalled = false;
-                window.confirm = () => {
-                    confirmCalled = true;
-                    return false; // Cancel deletion
-                };
-                
-                deleteProfileBtn.click();
-                
-                expect(confirmCalled).toBe(true);
-                
-                window.confirm = originalConfirm;
+            expect(deleteProfileBtn).toBeTruthy();
+            expect(profileSelect).toBeTruthy();
+            
+            // First, ensure we have multiple profiles so we can actually test deletion
+            const initialProfileCount = profileSelect.options.length;
+            
+            // If we only have one profile, create another one so we can test deletion
+            if (initialProfileCount === 1) {
+                // Create a test profile that we can delete
+                if (window.app && window.app.createProfile) {
+                    const newProfileId = window.app.createProfile('TestProfileToDelete', 'A profile created for deletion testing');
+                    // Wait for the profile to be created and DOM to update
+                    if (newProfileId) {
+                        window.app.renderProfiles();
+                    }
+                }
             }
+            
+            // Now we should have at least 2 profiles
+            const currentProfileCount = profileSelect.options.length;
+            expect(currentProfileCount).toBeGreaterThan(1);
+            
+            // Test the deletion confirmation using stoUI.confirm (async)
+            const originalConfirm = window.stoUI.confirm;
+            let confirmCalled = false;
+            window.stoUI.confirm = async (message, title, type) => {
+                confirmCalled = true;
+                expect(message).toContain('delete'); // Should ask for deletion confirmation
+                expect(title).toBe('Delete Profile');
+                expect(type).toBe('danger');
+                return true; // Confirm deletion
+            };
+            
+            // Click the delete button
+            deleteProfileBtn.click();
+            
+            // Wait for async deletion to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Should have called confirm dialog
+            expect(confirmCalled).toBe(true);
+            
+            // After deletion, we should have one less profile
+            const finalProfileCount = profileSelect.options.length;
+            expect(finalProfileCount).toBe(currentProfileCount - 1);
+            
+            window.stoUI.confirm = originalConfirm;
         });
     });
 
