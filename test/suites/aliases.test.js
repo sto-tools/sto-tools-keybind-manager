@@ -25,15 +25,47 @@ describe('AliasManager Class', () => {
         expect(aliasManager.constructor.name).toBe('STOAliasManager');
     });
 
-    it('should have required methods', () => {
-        expect(typeof aliasManager.showAliasManager).toBe('function');
-        expect(typeof aliasManager.showEditAliasModal).toBe('function');
-        expect(typeof aliasManager.editAlias).toBe('function');
-        expect(typeof aliasManager.deleteAlias).toBe('function');
-        expect(typeof aliasManager.saveAlias).toBe('function');
-        expect(typeof aliasManager.validateAlias).toBe('function');
-        expect(typeof aliasManager.getAliasTemplates).toBe('function');
-        expect(typeof aliasManager.exportAliases).toBe('function');
+    it('should perform all alias management operations correctly', () => {
+        // Test alias templates
+        const templates = aliasManager.getAliasTemplates();
+        expect(templates).toBeDefined();
+        expect(typeof templates).toBe('object');
+        
+        // Test alias validation
+        const validResult = aliasManager.validateAlias('test_alias', 'target $$ fire_all');
+        expect(validResult.valid).toBe(true);
+        
+        const invalidResult = aliasManager.validateAlias('', 'target');
+        expect(invalidResult.valid).toBe(false);
+        expect(invalidResult.error).toBeDefined();
+        
+        // Test alias save and edit operations
+        const testAlias = { name: 'test_alias', commands: 'target $$ fire_all' };
+        const saveResult = aliasManager.saveAlias('test_alias', testAlias);
+        expect(saveResult).toBeDefined();
+        
+        const editResult = aliasManager.editAlias('test_alias', testAlias);
+        expect(editResult).toBeDefined();
+        
+        // Test alias deletion
+        const deleteResult = aliasManager.deleteAlias('test_alias');
+        expect(deleteResult).toBeDefined();
+        
+        // Test alias export
+        const exportResult = aliasManager.exportAliases({ 'test_alias': testAlias });
+        expect(exportResult).toBeDefined();
+        expect(typeof exportResult).toBe('string');
+        
+        // Test UI operations actually show modals/UI
+        aliasManager.showAliasManager();
+        const aliasManagerModal = document.querySelector('#aliasModal, .alias-modal, .modal');
+        expect(aliasManagerModal).not.toBeNull();
+        expect(aliasManagerModal.style.display).not.toBe('none');
+        
+        aliasManager.showEditAliasModal('test_alias');
+        const editAliasModal = document.querySelector('#editAliasModal, .edit-alias-modal, .modal');
+        expect(editAliasModal).not.toBeNull();
+        expect(editAliasModal.style.display).not.toBe('none');
     });
 });
 
@@ -61,12 +93,11 @@ describe('Alias Templates', () => {
         const categories = Object.keys(templates);
         expect(categories.length).toBeGreaterThan(0);
         
-        if (categories.length > 0) {
-            const category = templates[categories[0]];
-            expect(category.name).toBeDefined();
-            expect(category.description).toBeDefined();
-            expect(category.templates).toBeDefined();
-        }
+        const category = templates[categories[0]];
+        expect(category).toBeDefined();
+        expect(category.name).toBeDefined();
+        expect(category.description).toBeDefined();
+        expect(category.templates).toBeDefined();
     });
 });
 

@@ -26,25 +26,56 @@ describe('STOKeybindManager Class', () => {
         expect(keybindManager.constructor.name).toBe('STOKeybindFileManager');
     });
 
-    it('should have required methods', () => {
-        expect(typeof keybindManager.parseKeybindFile).toBe('function');
-        expect(typeof keybindManager.parseCommandString).toBe('function');
-        expect(typeof keybindManager.importKeybindFile).toBe('function');
-        expect(typeof keybindManager.exportProfile).toBe('function');
-        expect(typeof keybindManager.isValidKey).toBe('function');
-        expect(typeof keybindManager.validateKeybind).toBe('function');
+    it('should perform all keybind operations correctly', () => {
+        // Test file parsing
+        const testContent = `# Test file\na "Target"\nb "FireAll"\nalias attack "Target_Enemy_Near $$ FireAll"`;
+        const parseResult = keybindManager.parseKeybindFile(testContent);
+        expect(parseResult.keybinds.a).toBeDefined();
+        expect(parseResult.keybinds.a.commands[0].command).toBe('Target');
+        expect(parseResult.aliases.attack).toBeDefined();
+        
+        // Test command string parsing
+        const commandString = "Target_Enemy_Near $$ FireAll $$ heal_self";
+        const parsedCommands = keybindManager.parseCommandString(commandString);
+        expect(parsedCommands).toHaveLength(3);
+        expect(parsedCommands[0].command).toBe('Target_Enemy_Near');
+        
+        // Test profile export
+        const testProfile = {
+            name: 'Test Profile',
+            keys: { 'a': [{ command: 'Target', type: 'targeting' }] },
+            aliases: { 'attack': { commands: 'Target_Enemy_Near $$ FireAll' } }
+        };
+        const exportResult = keybindManager.exportProfile(testProfile);
+        expect(exportResult).toContain('a "Target"');
+        expect(exportResult).toContain('alias attack');
+        
+        // Test key validation
+        expect(keybindManager.isValidKey('A')).toBe(true);
+        expect(keybindManager.isValidKey('Space')).toBe(true);
+        expect(keybindManager.isValidKey('invalid-key')).toBe(false);
+        
+        // Test keybind validation
+        const validKeybind = { key: 'A', commands: [{ command: 'Target' }] };
+        const validation = keybindManager.validateKeybind(validKeybind);
+        expect(validation.valid).toBe(true);
+        
+        // Test file import
+        const importResult = keybindManager.importKeybindFile(testContent);
+        expect(importResult.success).toBe(true);
+        expect(importResult.profile).toBeDefined();
     });
 
-    it('should have valid key patterns', () => {
+    it('should have working pattern matching', () => {
         expect(keybindManager.keybindPatterns).toBeDefined();
         expect(keybindManager.keybindPatterns.standard).toBeDefined();
         expect(keybindManager.keybindPatterns.alias).toBeDefined();
         expect(keybindManager.keybindPatterns.comment).toBeDefined();
         
-        // Check that they have RegExp-like properties instead of using instanceof
-        expect(typeof keybindManager.keybindPatterns.standard.test).toBe('function');
-        expect(typeof keybindManager.keybindPatterns.alias.test).toBe('function');
-        expect(typeof keybindManager.keybindPatterns.comment.test).toBe('function');
+        // Test pattern functionality
+        expect(keybindManager.keybindPatterns.standard.test('a "Target"')).toBe(true);
+        expect(keybindManager.keybindPatterns.alias.test('alias attack "Target"')).toBe(true);
+        expect(keybindManager.keybindPatterns.comment.test('; This is a comment')).toBe(true);
     });
 });
 

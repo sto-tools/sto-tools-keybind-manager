@@ -26,13 +26,38 @@ describe('STOCommandManager Class', () => {
         expect(commandManager.constructor.name).toBe('STOCommandManager');
     });
 
-    it('should have required methods', () => {
-        expect(typeof commandManager.setupCommandBuilders).toBe('function');
-        expect(typeof commandManager.buildCurrentCommand).toBe('function');
-        expect(typeof commandManager.validateCommand).toBe('function');
-        expect(typeof commandManager.detectCommandType).toBe('function');
-        expect(typeof commandManager.getCommandIcon).toBe('function');
-        expect(typeof commandManager.getCommandText).toBe('function');
+    it('should perform all command operations correctly', () => {
+        // Test command builder setup
+        commandManager.setupCommandBuilders();
+        expect(commandManager.commandBuilders.size).toBeGreaterThan(0);
+        
+        // Test command building
+        const currentCommand = commandManager.buildCurrentCommand('targeting', 'target_enemy_near');
+        expect(currentCommand).toBeDefined();
+        expect(currentCommand.type).toBe('targeting');
+        
+        // Test command validation
+        const validResult = commandManager.validateCommand('target');
+        expect(validResult.valid).toBe(true);
+        
+        const invalidResult = commandManager.validateCommand('invalid|command');
+        expect(invalidResult.valid).toBe(false);
+        
+        // Test command type detection
+        const trayType = commandManager.detectCommandType('+STOTrayExecByTray 0 5');
+        expect(trayType).toBe('tray');
+        
+        const commType = commandManager.detectCommandType('say "Hello"');
+        expect(commType).toBe('communication');
+        
+        // Test command icon and text
+        const icon = commandManager.getCommandIcon('targeting');
+        expect(typeof icon).toBe('string');
+        expect(icon.length).toBeGreaterThan(0);
+        
+        const text = commandManager.getCommandText('target_enemy_near');
+        expect(typeof text).toBe('string');
+        expect(text.length).toBeGreaterThan(0);
     });
 
     it('should have command builders initialized', () => {
@@ -441,9 +466,21 @@ describe('Command Warning System', () => {
     });
 
     it('should handle command warning display in UI', () => {
-        // Test if warning system methods exist
-        expect(typeof commandManager.showPowerWarning).toBe('function');
-        expect(typeof commandManager.showCombatWarning).toBe('function');
+        // Test warning system functionality
+        const testCommand = { command: 'FireAll', type: 'combat' };
+        
+        // Test that power warning actually shows warning UI
+        commandManager.showPowerWarning(testCommand);
+        const powerWarning = document.querySelector('.power-warning, .command-warning, .warning');
+        expect(powerWarning).not.toBeNull();
+        expect(powerWarning.style.display).not.toBe('none');
+        
+        // Test that combat warning actually shows warning UI
+        const warningResult = commandManager.showCombatWarning(testCommand);
+        expect(warningResult).toBeDefined();
+        const combatWarning = document.querySelector('.combat-warning, .command-warning, .warning');
+        expect(combatWarning).not.toBeNull();
+        expect(combatWarning.textContent).toContain('Not recommended on spam bars');
     });
 
     it('should detect command warnings correctly', () => {
@@ -704,46 +741,47 @@ describe('Parameter Modal Functionality', () => {
         }
     });
 
-    it('should have parameter modal creation method', () => {
+    it('should perform all parameter modal operations correctly', () => {
         if (keybindManager) {
-            expect(typeof keybindManager.createParameterModal).toBe('function');
-        }
-    });
-
-    it('should have parameter modal population method', () => {
-        if (keybindManager) {
-            expect(typeof keybindManager.populateParameterModal).toBe('function');
-        }
-    });
-
-    it('should have parameter values retrieval method', () => {
-        if (keybindManager) {
-            expect(typeof keybindManager.getParameterValues).toBe('function');
-        }
-    });
-
-    it('should have parameter preview update method', () => {
-        if (keybindManager) {
-            expect(typeof keybindManager.updateParameterPreview).toBe('function');
-        }
-    });
-
-    it('should have parameter command saving method', () => {
-        if (keybindManager) {
-            expect(typeof keybindManager.saveParameterCommand).toBe('function');
-        }
-    });
-
-    it('should handle parameter modal cancellation', () => {
-        if (keybindManager) {
-            expect(typeof keybindManager.cancelParameterCommand).toBe('function');
-        }
-    });
-
-    it('should support editing parameterized commands', () => {
-        if (keybindManager) {
-            expect(typeof keybindManager.editParameterizedCommand).toBe('function');
-            expect(typeof keybindManager.populateParameterModalForEdit).toBe('function');
+            // Test parameter modal creation
+            const modalElement = keybindManager.createParameterModal('tray_exec', {
+                tray: { type: 'number', min: 0, max: 9 },
+                slot: { type: 'number', min: 0, max: 9 }
+            });
+            expect(modalElement).toBeDefined();
+            
+            // Test parameter modal population
+            const populateResult = keybindManager.populateParameterModal('tray_exec', {
+                tray: { type: 'number', min: 0, max: 9 },
+                slot: { type: 'number', min: 0, max: 9 }
+            });
+            expect(populateResult).toBeDefined();
+            
+            // Test parameter values retrieval
+            const paramValues = keybindManager.getParameterValues();
+            expect(paramValues).toBeDefined();
+            expect(typeof paramValues).toBe('object');
+            
+            // Test parameter preview update
+            const previewResult = keybindManager.updateParameterPreview('tray_exec', { tray: 0, slot: 5 });
+            expect(previewResult).toBeDefined();
+            
+            // Test parameter command saving
+            const saveResult = keybindManager.saveParameterCommand('tray_exec', { tray: 0, slot: 5 });
+            expect(saveResult).toBeDefined();
+            
+            // Test parameter modal cancellation - should actually close the modal
+            keybindManager.cancelParameterCommand();
+            const paramModal = document.getElementById('parameterModal');
+            expect(paramModal.style.display).toBe('none');
+            
+            // Test editing parameterized commands
+            const testCommand = { command: '+STOTrayExecByTray 0 5', parameters: { tray: 0, slot: 5 } };
+            const editResult = keybindManager.editParameterizedCommand(testCommand);
+            expect(editResult).toBeDefined();
+            
+            const populateEditResult = keybindManager.populateParameterModalForEdit(testCommand);
+            expect(populateEditResult).toBeDefined();
         }
     });
 });

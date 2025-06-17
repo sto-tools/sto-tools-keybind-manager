@@ -21,14 +21,37 @@ describe('UI Module', () => {
         expect(uiManager).toBeDefined();
     });
 
-    it('should have modal management methods', () => {
-        expect(typeof uiManager.showModal).toBe('function');
-        expect(typeof uiManager.hideModal).toBe('function');
+    it('should manage modals correctly', () => {
+        // Create a test modal
+        const testModal = document.createElement('div');
+        testModal.id = 'testModal';
+        testModal.className = 'modal';
+        testModal.style.display = 'none';
+        document.body.appendChild(testModal);
+
+        // Test showing modal
+        uiManager.showModal('testModal');
+        expect(testModal.style.display).not.toBe('none');
+
+        // Test hiding modal
+        uiManager.hideModal('testModal');
+        expect(testModal.style.display).toBe('none');
+
+        // Cleanup
+        document.body.removeChild(testModal);
     });
 
-    it('should have toast notification methods', () => {
-        expect(typeof uiManager.showToast).toBe('function');
-        expect(typeof uiManager.hideToast).toBe('function');
+    it('should manage toast notifications correctly', () => {
+        // Test showing toast
+        uiManager.showToast('Test message', 'info');
+        const toast = document.querySelector('.toast, .notification');
+        expect(toast).not.toBeNull();
+        expect(toast.textContent).toContain('Test message');
+
+        // Test hiding toast
+        uiManager.hideToast();
+        const hiddenToast = document.querySelector('.toast:not([style*="display: none"]), .notification:not([style*="display: none"])');
+        expect(hiddenToast).toBeNull();
     });
 });
 

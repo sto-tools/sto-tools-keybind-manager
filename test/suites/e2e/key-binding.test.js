@@ -95,10 +95,10 @@ describe('Key Binding Functionality', () => {
             
             // Use the app's selectKey method
             expect(window.app).toBeDefined();
-            expect(typeof window.app.selectKey).toBe('function');
             
             const keyName = firstKey.dataset.key || firstKey.textContent.trim();
-            window.app.selectKey(keyName);
+            const selectResult = window.app.selectKey(keyName);
+            expect(selectResult).toBeDefined();
             
             // Check for selection state in multiple ways
             const hasSelectedClass = firstKey.classList.contains('selected');

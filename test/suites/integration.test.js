@@ -1169,113 +1169,117 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should toggle between view modes correctly', () => {
-        if (keybindManager && typeof keybindManager.toggleKeyView === 'function') {
-            // Test 3-way toggle: key-types → grid → categorized → key-types
-            localStorage.setItem('keyViewMode', 'key-types');
-            keybindManager.toggleKeyView();
-            expect(localStorage.getItem('keyViewMode')).toBe('grid');
-            
-            keybindManager.toggleKeyView();
-            expect(localStorage.getItem('keyViewMode')).toBe('categorized');
-            
-            keybindManager.toggleKeyView();
-            expect(localStorage.getItem('keyViewMode')).toBe('key-types');
-        }
+        expect(keybindManager).toBeDefined();
+        expect(keybindManager.toggleKeyView).toBeDefined();
+        
+        // Test 3-way toggle: key-types → grid → categorized → key-types
+        localStorage.setItem('keyViewMode', 'key-types');
+        keybindManager.toggleKeyView();
+        expect(localStorage.getItem('keyViewMode')).toBe('grid');
+        
+        keybindManager.toggleKeyView();
+        expect(localStorage.getItem('keyViewMode')).toBe('categorized');
+        
+        keybindManager.toggleKeyView();
+        expect(localStorage.getItem('keyViewMode')).toBe('key-types');
     });
 
     it('should update view toggle button icon based on current mode', () => {
-        if (keybindManager && typeof keybindManager.updateViewToggleButton === 'function') {
-            const toggleBtn = document.getElementById('toggleKeyViewBtn');
-            const icon = toggleBtn?.querySelector('i');
-            
-            if (icon) {
-                keybindManager.updateViewToggleButton('categorized');
-                expect(icon.className).toContain('fa-sitemap');
-                
-                keybindManager.updateViewToggleButton('key-types');
-                expect(icon.className).toContain('fa-th');
-                
-                keybindManager.updateViewToggleButton('grid');
-                expect(icon.className).toContain('fa-list');
-            }
-        }
+        expect(keybindManager).toBeDefined();
+        expect(keybindManager.updateViewToggleButton).toBeDefined();
+        
+        const toggleBtn = document.getElementById('toggleKeyViewBtn');
+        expect(toggleBtn).not.toBeNull();
+        
+        const icon = toggleBtn.querySelector('i');
+        expect(icon).not.toBeNull();
+        
+        keybindManager.updateViewToggleButton('categorized');
+        expect(icon.className).toContain('fa-sitemap');
+        
+        keybindManager.updateViewToggleButton('key-types');
+        expect(icon.className).toContain('fa-th');
+        
+        keybindManager.updateViewToggleButton('grid');
+        expect(icon.className).toContain('fa-list');
     });
 
     it('should render key grid with appropriate class based on view mode', () => {
-        const keyGrid = document.getElementById('keyGrid');
+        expect(keybindManager).toBeDefined();
+        expect(keybindManager.renderCategorizedKeyView).toBeDefined();
+        expect(keybindManager.renderSimpleKeyGrid).toBeDefined();
         
-        if (keyGrid && keybindManager) {
-            // Test categorized class addition/removal
-            if (typeof keybindManager.renderCategorizedKeyView === 'function') {
-                // Simulate categorized view
-                keyGrid.classList.add('categorized');
-                expect(keyGrid.classList.contains('categorized')).toBeTruthy();
-            }
-            
-            if (typeof keybindManager.renderSimpleKeyGrid === 'function') {
-                // Simulate grid view
-                keyGrid.classList.remove('categorized');
-                expect(keyGrid.classList.contains('categorized')).toBeFalsy();
-            }
-        }
+        const keyGrid = document.getElementById('keyGrid');
+        expect(keyGrid).not.toBeNull();
+        
+        // Test actual rendering methods instead of just manipulating classes
+        keybindManager.renderCategorizedKeyView();
+        expect(keyGrid.classList.contains('categorized')).toBe(true);
+        
+        keybindManager.renderSimpleKeyGrid();
+        expect(keyGrid.classList.contains('categorized')).toBe(false);
     });
 
     it('should categorize keys by command type correctly', () => {
-        if (keybindManager && typeof keybindManager.categorizeKeys === 'function') {
-            const testKeys = {
-                'space': [
-                    { command: 'Target_Enemy_Near', type: 'targeting' },
-                    { command: 'FireAll', type: 'combat' }
-                ],
-                'f1': [{ command: '+STOTrayExecByTray 0 5', type: 'tray' }],
-                't': [{ command: 'Target_Self', type: 'targeting' }],
-                'f12': [] // Empty key
-            };
-            
-            const allKeys = Object.keys(testKeys);
-            const categorized = keybindManager.categorizeKeys(testKeys, allKeys);
-            
-            if (categorized) {
-                // Should have unknown category for empty keys
-                expect(categorized.unknown).toBeDefined();
-                expect(categorized.unknown.keys).toBeDefined();
-                
-                // Should categorize keys with commands
-                expect(categorized.targeting).toBeDefined();
-                expect(categorized.combat).toBeDefined();
-                expect(categorized.tray).toBeDefined();
-            }
-        }
+        expect(keybindManager).toBeDefined();
+        expect(keybindManager.categorizeKeys).toBeDefined();
+        
+        const testKeys = {
+            'space': [
+                { command: 'Target_Enemy_Near', type: 'targeting' },
+                { command: 'FireAll', type: 'combat' }
+            ],
+            'f1': [{ command: '+STOTrayExecByTray 0 5', type: 'tray' }],
+            't': [{ command: 'Target_Self', type: 'targeting' }],
+            'f12': [] // Empty key
+        };
+        
+        const allKeys = Object.keys(testKeys);
+        const categorized = keybindManager.categorizeKeys(testKeys, allKeys);
+        
+        expect(categorized).toBeDefined();
+        expect(typeof categorized).toBe('object');
+        
+        // Should have unknown category for empty keys
+        expect(categorized.unknown).toBeDefined();
+        expect(categorized.unknown.keys).toBeDefined();
+        
+        // Should categorize keys with commands
+        expect(categorized.targeting).toBeDefined();
+        expect(categorized.combat).toBeDefined();
+        expect(categorized.tray).toBeDefined();
     });
 
     it('should categorize keys by input type correctly', () => {
-        if (keybindManager && typeof keybindManager.categorizeKeysByType === 'function') {
-            const testKeys = {
-                'F1': [{ command: 'test1' }],
-                'F2': [{ command: 'test2' }],
-                'A': [{ command: 'test3' }],
-                '1': [{ command: 'test4' }],
-                'NumPad1': [{ command: 'test5' }],
-                'Ctrl': [{ command: 'test6' }],
-                'Space': [{ command: 'test7' }],
-                'Home': [{ command: 'test8' }]
-            };
-            
-            const allKeys = Object.keys(testKeys);
-            const categorized = keybindManager.categorizeKeysByType(testKeys, allKeys);
-            
-            if (categorized) {
-                // Should have function keys category
-                expect(categorized.function).toBeDefined();
-                expect(categorized.function.keys).toBeDefined();
-                
-                // Should have other categories
-                expect(categorized.alphanumeric).toBeDefined();
-                expect(categorized.numberpad).toBeDefined();
-                expect(categorized.modifiers).toBeDefined();
-                expect(categorized.navigation).toBeDefined();
-            }
-        }
+        expect(keybindManager).toBeDefined();
+        expect(keybindManager.categorizeKeysByType).toBeDefined();
+        
+        const testKeys = {
+            'F1': [{ command: 'test1' }],
+            'F2': [{ command: 'test2' }],
+            'A': [{ command: 'test3' }],
+            '1': [{ command: 'test4' }],
+            'NumPad1': [{ command: 'test5' }],
+            'Ctrl': [{ command: 'test6' }],
+            'Space': [{ command: 'test7' }],
+            'Home': [{ command: 'test8' }]
+        };
+        
+        const allKeys = Object.keys(testKeys);
+        const categorized = keybindManager.categorizeKeysByType(testKeys, allKeys);
+        
+        expect(categorized).toBeDefined();
+        expect(typeof categorized).toBe('object');
+        
+        // Should have function keys category
+        expect(categorized.function).toBeDefined();
+        expect(categorized.function.keys).toBeDefined();
+        
+        // Should have other categories
+        expect(categorized.alphanumeric).toBeDefined();
+        expect(categorized.numberpad).toBeDefined();
+        expect(categorized.modifiers).toBeDefined();
+        expect(categorized.navigation).toBeDefined();
     });
 
     it('should handle category collapse/expand state persistence', () => {
@@ -1309,29 +1313,41 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should filter keys across different view modes', () => {
-        if (keybindManager && typeof keybindManager.filterKeys === 'function') {
-            // Create test DOM elements for filtering
-            const testKeyItem = document.createElement('div');
-            testKeyItem.className = 'key-item';
-            testKeyItem.dataset.key = 'TestKey';
-            document.body.appendChild(testKeyItem);
-            
-            const testCommandItem = document.createElement('div');
-            testCommandItem.className = 'command-item';
-            testCommandItem.dataset.key = 'AnotherKey';
-            document.body.appendChild(testCommandItem);
-            
-            // Test filtering
-            keybindManager.filterKeys('test');
-            
-            // Check that elements exist and have expected attributes
-            expect(testKeyItem.dataset.key).toBe('TestKey');
-            expect(testCommandItem.dataset.key).toBe('AnotherKey');
-            
-            // Clean up
-            document.body.removeChild(testKeyItem);
-            document.body.removeChild(testCommandItem);
-        }
+        expect(keybindManager).toBeDefined();
+        expect(keybindManager.filterKeys).toBeDefined();
+        
+        // Use the real key grid instead of creating mock elements
+        const keyGrid = document.getElementById('keyGrid');
+        expect(keyGrid).not.toBeNull();
+        
+        // Create real key elements that the filtering should work on
+        const testKeyItem = document.createElement('div');
+        testKeyItem.className = 'key-item';
+        testKeyItem.dataset.key = 'TestKey';
+        testKeyItem.textContent = 'TestKey';
+        keyGrid.appendChild(testKeyItem);
+        
+        const testCommandItem = document.createElement('div');
+        testCommandItem.className = 'command-item';
+        testCommandItem.dataset.key = 'AnotherKey';
+        testCommandItem.textContent = 'AnotherKey';
+        keyGrid.appendChild(testCommandItem);
+        
+        // Test actual filtering behavior - should hide non-matching elements
+        keybindManager.filterKeys('test');
+        
+        // TestKey should be visible (matches 'test'), AnotherKey should be hidden
+        expect(testKeyItem.style.display).not.toBe('none');
+        expect(testCommandItem.style.display).toBe('none');
+        
+        // Test showing all keys again
+        keybindManager.showAllKeys();
+        expect(testKeyItem.style.display).not.toBe('none');
+        expect(testCommandItem.style.display).not.toBe('none');
+        
+        // Clean up
+        keyGrid.removeChild(testKeyItem);
+        keyGrid.removeChild(testCommandItem);
     });
 
     it('should handle smart key formatting for compound keys', () => {

@@ -41,15 +41,29 @@ describe('STOKeybindManager - Core Functionality', () => {
         expect(keybindManager.constructor.name).toBe('STOKeybindManager');
     });
 
-    it('should have command identification methods', () => {
-        expect(typeof keybindManager.findCommandDefinition).toBe('function');
-        expect(typeof keybindManager.getCommandWarning).toBe('function');
+    it('should perform command identification correctly', () => {
+        // Test command definition finding
+        const commandDef = keybindManager.findCommandDefinition('fire_all');
+        expect(commandDef).toBeDefined();
+        
+        // Test command warning retrieval
+        const warning = keybindManager.getCommandWarning('fire_all');
+        expect(warning).toBeDefined();
+        expect(typeof warning).toBe('string');
     });
 
-    it('should have view mode methods', () => {
-        expect(typeof keybindManager.renderKeyGrid).toBe('function');
-        expect(typeof keybindManager.toggleKeyView).toBe('function');
-        expect(typeof keybindManager.updateViewToggleButton).toBe('function');
+    it('should handle view mode operations correctly', () => {
+        // Test key grid rendering
+        const keyGrid = keybindManager.renderKeyGrid();
+        expect(keyGrid).toBeDefined();
+        
+        // Test view toggle functionality
+        const toggleResult = keybindManager.toggleKeyView('categorized');
+        expect(toggleResult).toBeDefined();
+        
+        // Test view toggle button update
+        const buttonUpdate = keybindManager.updateViewToggleButton('categorized');
+        expect(buttonUpdate).toBeDefined();
     });
 });
 
@@ -62,11 +76,30 @@ describe('STOKeybindManager - Space/Ground Toggle Functionality', () => {
         }
     });
 
-    it('should have space/ground toggle methods', () => {
-        expect(typeof keybindManager.switchMode).toBe('function');
-        expect(typeof keybindManager.getCurrentBuild).toBe('function');
-        expect(typeof keybindManager.saveCurrentBuild).toBe('function');
-        expect(typeof keybindManager.filterCommandLibrary).toBe('function');
+    it('should perform space/ground toggle operations correctly', () => {
+        // Test environment switching
+        keybindManager.currentEnvironment = 'space';
+        keybindManager.switchMode('ground');
+        expect(keybindManager.currentEnvironment).toBe('ground');
+        
+        // Test build retrieval
+        const testProfile = {
+            builds: {
+                space: { keys: { 'a': ['target'] }, aliases: {} },
+                ground: { keys: { 'b': ['heal'] }, aliases: {} }
+            }
+        };
+        keybindManager.currentEnvironment = 'space';
+        const currentBuild = keybindManager.getCurrentBuild(testProfile);
+        expect(currentBuild.keys).toEqual(testProfile.builds.space.keys);
+        
+        // Test build saving
+        const saveResult = keybindManager.saveCurrentBuild();
+        expect(saveResult).toBeDefined();
+        
+        // Test command library filtering
+        const filterResult = keybindManager.filterCommandLibrary();
+        expect(filterResult).toBeDefined();
     });
 
     it('should initialize with space environment by default', () => {
@@ -246,25 +279,47 @@ describe('STOKeybindManager - Parameterized Commands', () => {
         }
     });
 
-    it('should support parameterized command building', () => {
-        expect(typeof keybindManager.buildParameterizedCommand).toBe('function');
-    });
-
-    it('should handle parameter value retrieval', () => {
-        expect(typeof keybindManager.getParameterValues).toBe('function');
-    });
-
-    it('should support parameter modal functionality', () => {
-        expect(typeof keybindManager.showParameterModal).toBe('function');
-        expect(typeof keybindManager.createParameterModal).toBe('function');
-        expect(typeof keybindManager.populateParameterModal).toBe('function');
-        expect(typeof keybindManager.saveParameterCommand).toBe('function');
-        expect(typeof keybindManager.cancelParameterCommand).toBe('function');
-    });
-
-    it('should support editing parameterized commands', () => {
-        expect(typeof keybindManager.editParameterizedCommand).toBe('function');
-        expect(typeof keybindManager.populateParameterModalForEdit).toBe('function');
+    it('should perform all parameterized command operations correctly', () => {
+        // Test parameterized command building
+        const paramCommand = keybindManager.buildParameterizedCommand('tray_exec', { tray: 0, slot: 5 });
+        expect(paramCommand).toBeDefined();
+        expect(paramCommand.command).toContain('STOTrayExecByTray');
+        
+        // Test parameter value retrieval
+        const paramValues = keybindManager.getParameterValues();
+        expect(paramValues).toBeDefined();
+        expect(typeof paramValues).toBe('object');
+        
+        // Test parameter modal functionality
+        const modalResult = keybindManager.showParameterModal('tray_exec', { tray: 0, slot: 5 });
+        expect(modalResult).toBeDefined();
+        
+        const modalElement = keybindManager.createParameterModal('tray_exec', {
+            tray: { type: 'number', min: 0, max: 9 },
+            slot: { type: 'number', min: 0, max: 9 }
+        });
+        expect(modalElement).toBeDefined();
+        
+        const populateResult = keybindManager.populateParameterModal('tray_exec', {
+            tray: { type: 'number', min: 0, max: 9 }
+        });
+        expect(populateResult).toBeDefined();
+        
+        const saveResult = keybindManager.saveParameterCommand('tray_exec', { tray: 0, slot: 5 });
+        expect(saveResult).toBeDefined();
+        
+        // Test parameter modal cancellation - should actually close the modal
+        keybindManager.cancelParameterCommand();
+        const paramModal = document.getElementById('parameterModal');
+        expect(paramModal.style.display).toBe('none');
+        
+        // Test editing parameterized commands
+        const testCommand = { command: '+STOTrayExecByTray 0 5', parameters: { tray: 0, slot: 5 } };
+        const editResult = keybindManager.editParameterizedCommand(testCommand);
+        expect(editResult).toBeDefined();
+        
+        const editPopulateResult = keybindManager.populateParameterModalForEdit(testCommand);
+        expect(editPopulateResult).toBeDefined();
     });
 
     it('should format parameter names correctly', () => {
@@ -299,20 +354,31 @@ describe('STOKeybindManager - View Modes', () => {
         }
     });
 
-    it('should support multiple view modes', () => {
-        expect(typeof keybindManager.renderCategorizedKeyView).toBe('function');
-        expect(typeof keybindManager.renderKeyTypeView).toBe('function');
-        expect(typeof keybindManager.renderSimpleKeyGrid).toBe('function');
-    });
-
-    it('should handle key categorization', () => {
-        expect(typeof keybindManager.categorizeKeys).toBe('function');
-        expect(typeof keybindManager.categorizeKeysByType).toBe('function');
-    });
-
-    it('should support category toggle functionality', () => {
-        expect(typeof keybindManager.toggleKeyCategory).toBe('function');
-        expect(typeof keybindManager.createKeyCategoryElement).toBe('function');
+    it('should perform all view mode operations correctly', () => {
+        // Test multiple view mode rendering
+        const categorizedView = keybindManager.renderCategorizedKeyView();
+        expect(categorizedView).toBeDefined();
+        
+        const keyTypeView = keybindManager.renderKeyTypeView();
+        expect(keyTypeView).toBeDefined();
+        
+        const simpleGrid = keybindManager.renderSimpleKeyGrid();
+        expect(simpleGrid).toBeDefined();
+        
+        // Test key categorization
+        const testKeys = { 'F1': [], 'A': [], '1': [] };
+        const categorized = keybindManager.categorizeKeys(testKeys);
+        expect(categorized).toBeDefined();
+        
+        const categorizedByType = keybindManager.categorizeKeysByType(testKeys, Object.keys(testKeys));
+        expect(categorizedByType).toBeDefined();
+        
+        // Test category toggle functionality
+        const toggleResult = keybindManager.toggleKeyCategory('function');
+        expect(toggleResult).toBeDefined();
+        
+        const categoryElement = keybindManager.createKeyCategoryElement('function', ['F1', 'F2']);
+        expect(categoryElement).toBeDefined();
     });
 
     it('should handle view mode persistence', () => {
@@ -369,9 +435,29 @@ describe('STOKeybindManager - Key Filtering', () => {
         }
     });
 
-    it('should support key filtering', () => {
-        expect(typeof keybindManager.filterKeys).toBe('function');
-        expect(typeof keybindManager.showAllKeys).toBe('function');
+    it('should perform key filtering operations correctly', () => {
+        // Create test key elements
+        const testKey1 = document.createElement('div');
+        testKey1.className = 'key-item';
+        testKey1.dataset.key = 'space';
+        document.body.appendChild(testKey1);
+        
+        const testKey2 = document.createElement('div');
+        testKey2.className = 'key-item';
+        testKey2.dataset.key = 'f1';
+        document.body.appendChild(testKey2);
+        
+        // Test key filtering
+        const filterResult = keybindManager.filterKeys('spa');
+        expect(filterResult).toBeDefined();
+        
+        // Test showing all keys
+        const showAllResult = keybindManager.showAllKeys();
+        expect(showAllResult).toBeDefined();
+        
+        // Cleanup
+        document.body.removeChild(testKey1);
+        document.body.removeChild(testKey2);
     });
 
     it('should handle filter input properly', () => {
@@ -408,28 +494,21 @@ describe('STOKeybindManager - Command Management', () => {
         }
     });
 
-    it('should support command identification', () => {
+    it('should perform command identification correctly', () => {
         const testCommand = {
             command: 'FireAll',
             type: 'combat',
             text: 'Fire All Weapons'
         };
         
+        // Test command definition finding
         const commandDef = keybindManager.findCommandDefinition(testCommand);
-        // Test passes if method exists and can be called
-        expect(typeof keybindManager.findCommandDefinition).toBe('function');
-    });
-
-    it('should detect command warnings', () => {
-        const testCommand = {
-            command: 'FireAll',
-            type: 'combat',
-            text: 'Fire All Weapons'
-        };
+        expect(commandDef).toBeDefined();
         
+        // Test command warning detection
         const warning = keybindManager.getCommandWarning(testCommand);
-        // Test passes if method exists and returns a value (or null)
-        expect(typeof keybindManager.getCommandWarning).toBe('function');
+        expect(warning).toBeDefined();
+        expect(typeof warning).toBe('string');
     });
 
     it('should support command element creation with parameters', () => {
@@ -458,23 +537,24 @@ describe('STOKeybindManager - UI Interactions', () => {
         }
     });
 
-    it('should support command addition from library', () => {
-        expect(typeof keybindManager.addCommandFromLibrary).toBe('function');
-    });
-
-    it('should support command editing', () => {
-        expect(typeof keybindManager.editCommand).toBe('function');
-    });
-
-    it('should handle key element creation', () => {
-        const keyElement = keybindManager.createKeyElement('Space');
+    it('should perform all UI interaction operations correctly', () => {
+        // Test command addition from library
+        const testCommand = { command: 'Target', type: 'targeting', text: 'Target' };
+        const addResult = keybindManager.addCommandFromLibrary('Space', testCommand);
+        expect(addResult).toBeDefined();
         
+        // Test command editing
+        const editResult = keybindManager.editCommand(0, testCommand);
+        expect(editResult).toBeDefined();
+        
+        // Test key element creation
+        const keyElement = keybindManager.createKeyElement('Space');
         expect(keyElement).toBeDefined();
         expect(keyElement.tagName).toBe('DIV');
         expect(keyElement.dataset.key).toBe('Space');
-    });
-
-    it('should handle key selection', () => {
-        expect(typeof keybindManager.selectKey).toBe('function');
+        
+        // Test key selection
+        const selectResult = keybindManager.selectKey('Space');
+        expect(selectResult).toBeDefined();
     });
 }); 

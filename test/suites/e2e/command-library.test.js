@@ -56,7 +56,11 @@ describe('Command Library', () => {
             
             const trayBuilder = window.stoCommands.commandBuilders.get('tray');
             expect(trayBuilder).toBeTruthy();
-            expect(typeof trayBuilder.build).toBe('function');
+            
+            // Test tray builder functionality
+            const testCommand = trayBuilder.build('tray_exec', { tray: 0, slot: 5 });
+            expect(testCommand).toBeDefined();
+            expect(testCommand.command).toContain('STOTrayExecByTray');
         });
 
         it('should have power management commands', () => {
@@ -345,11 +349,19 @@ describe('Command Library', () => {
             }
         });
 
-        it('should have command builder methods', () => {
+        it('should perform command builder operations correctly', () => {
             if (window.stoCommands) {
-                expect(typeof window.stoCommands.buildCurrentCommand).toBe('function');
-                expect(typeof window.stoCommands.validateCommand).toBe('function');
-                expect(typeof window.stoCommands.getCurrentCommand).toBe('function');
+                // Test current command building
+                const buildResult = window.stoCommands.buildCurrentCommand('targeting', 'target_enemy_near');
+                expect(buildResult).toBeDefined();
+                
+                // Test command validation
+                const validationResult = window.stoCommands.validateCommand('target');
+                expect(validationResult).toBeDefined();
+                
+                // Test current command retrieval
+                const currentCommand = window.stoCommands.getCurrentCommand();
+                expect(currentCommand).toBeDefined();
             }
         });
 
@@ -374,12 +386,14 @@ describe('Command Library', () => {
                             expect(newSize).toBeGreaterThanOrEqual(0);
                         } else {
                             // If setup doesn't exist, just verify the manager is functional
-                            expect(typeof window.stoCommands.buildCurrentCommand).toBe('function');
+                            const buildResult = window.stoCommands.buildCurrentCommand('targeting', 'target');
+                            expect(buildResult).toBeDefined();
                         }
                     }
                 } else {
                     // If commandBuilders doesn't exist, just check that the manager exists
-                    expect(typeof window.stoCommands.buildCurrentCommand).toBe('function');
+                    const buildResult = window.stoCommands.buildCurrentCommand('targeting', 'target');
+                    expect(buildResult).toBeDefined();
                 }
             } else {
                 // If no command manager, skip this test
@@ -390,9 +404,30 @@ describe('Command Library', () => {
 
     describe('Tray Visual Integration', () => {
         it('should update tray visual when tray commands are built', () => {
-            if (window.stoCommands && window.stoCommands.updateTrayVisual) {
-                expect(typeof window.stoCommands.updateTrayVisual).toBe('function');
-            }
+            expect(window.stoCommands).toBeDefined();
+            expect(window.stoCommands.updateTrayVisual).toBeDefined();
+            
+            // Create a test tray slot element
+            const traySlot = document.createElement('div');
+            traySlot.id = 'tray_0_slot_5';
+            traySlot.className = 'tray-slot';
+            document.body.appendChild(traySlot);
+            
+            // Update tray visual
+            window.stoCommands.updateTrayVisual(0, 5, 'active');
+            
+            // Verify the tray slot was actually updated
+            expect(traySlot.classList.contains('active') || 
+                   traySlot.classList.contains('selected') ||
+                   traySlot.style.backgroundColor !== '').toBe(true);
+            
+            // Test with different state
+            window.stoCommands.updateTrayVisual(0, 5, 'inactive');
+            expect(traySlot.classList.contains('inactive') || 
+                   !traySlot.classList.contains('active')).toBe(true);
+            
+            // Cleanup
+            document.body.removeChild(traySlot);
         });
 
         it('should show tray grid for tray command selection', () => {

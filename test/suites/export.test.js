@@ -25,15 +25,54 @@ describe('ExportManager Class', () => {
         expect(exportManager.constructor.name).toBe('STOExportManager');
     });
 
-    it('should have required methods', () => {
-        expect(typeof exportManager.exportSTOKeybindFile).toBe('function');
-        expect(typeof exportManager.generateSTOKeybindFile).toBe('function');
-        expect(typeof exportManager.exportJSONProfile).toBe('function');
-        expect(typeof exportManager.exportCSVData).toBe('function');
-        expect(typeof exportManager.exportHTMLReport).toBe('function');
-        expect(typeof exportManager.generateFileName).toBe('function');
-        expect(typeof exportManager.sanitizeProfileForExport).toBe('function');
-        expect(typeof exportManager.importJSONFile).toBe('function');
+    it('should perform all export operations correctly', () => {
+        const testProfile = {
+            name: 'Test Profile',
+            keys: { 'a': [{ command: 'Target', type: 'targeting' }] },
+            aliases: { 'attack': { commands: 'Target_Enemy_Near $$ FireAll' } }
+        };
+        
+        // Test STO keybind file generation
+        const stoContent = exportManager.generateSTOKeybindFile(testProfile);
+        expect(typeof stoContent).toBe('string');
+        expect(stoContent).toContain('Test Profile');
+        expect(stoContent).toContain('a "Target"');
+        
+        // Test JSON profile export
+        const jsonProfile = exportManager.exportJSONProfile(testProfile);
+        expect(typeof jsonProfile).toBe('string');
+        const parsed = JSON.parse(jsonProfile);
+        expect(parsed.name).toBe('Test Profile');
+        
+        // Test CSV data export
+        const csvData = exportManager.exportCSVData(testProfile);
+        expect(typeof csvData).toBe('string');
+        expect(csvData).toContain('Key,Command,Type');
+        
+        // Test HTML report generation
+        const htmlReport = exportManager.exportHTMLReport(testProfile);
+        expect(typeof htmlReport).toBe('string');
+        expect(htmlReport).toContain('<html>');
+        expect(htmlReport).toContain('Test Profile');
+        
+        // Test filename generation
+        const filename = exportManager.generateFileName(testProfile, 'txt');
+        expect(typeof filename).toBe('string');
+        expect(filename).toContain('.txt');
+        
+        // Test profile sanitization
+        const sanitized = exportManager.sanitizeProfileForExport(testProfile);
+        expect(sanitized).toBeDefined();
+        expect(sanitized.name).toBe(testProfile.name);
+        
+        // Test JSON import
+        const importResult = exportManager.importJSONFile(jsonProfile);
+        expect(importResult).toBeDefined();
+        expect(importResult.name).toBe(testProfile.name);
+        
+        // Test STO file export (full process)
+        const exportResult = exportManager.exportSTOKeybindFile(testProfile);
+        expect(exportResult).toBeDefined();
     });
 });
 
@@ -184,16 +223,33 @@ describe('Export Comment Syntax', () => {
     });
 
     it('should preserve existing export functionality after comment syntax change', () => {
-        // Test that basic export methods still exist and work
-        expect(typeof exportManager.generateSTOKeybindFile).toBe('function');
-        expect(typeof exportManager.exportJSONProfile).toBe('function');
+        const testProfile = {
+            name: 'Functionality Test',
+            keys: { 'a': [{ command: 'Target', type: 'targeting' }] }
+        };
         
+        // Test that basic export methods work correctly
+        const stoContent = exportManager.generateSTOKeybindFile(testProfile);
+        expect(typeof stoContent).toBe('string');
+        expect(stoContent).toContain('Functionality Test');
+        
+        const jsonContent = exportManager.exportJSONProfile(testProfile);
+        expect(typeof jsonContent).toBe('string');
+        const parsed = JSON.parse(jsonContent);
+        expect(parsed.name).toBe('Functionality Test');
+        
+        // Test helper methods if they exist
         if (typeof exportManager.generateBindCommand === 'function') {
-            expect(typeof exportManager.generateBindCommand).toBe('function');
+            const bindCommand = exportManager.generateBindCommand('a', 'Target');
+            expect(typeof bindCommand).toBe('string');
+            expect(bindCommand).toContain('a');
+            expect(bindCommand).toContain('Target');
         }
         
         if (typeof exportManager.formatComment === 'function') {
-            expect(typeof exportManager.formatComment).toBe('function');
+            const comment = exportManager.formatComment('Test comment');
+            expect(typeof comment).toBe('string');
+            expect(comment).toContain('Test comment');
         }
     });
 }); 

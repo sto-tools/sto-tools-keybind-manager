@@ -25,15 +25,51 @@ describe('ProfileManager Class', () => {
         expect(profileManager.constructor.name).toBe('STOProfileManager');
     });
 
-    it('should have required methods', () => {
-        expect(typeof profileManager.showNewProfileModal).toBe('function');
-        expect(typeof profileManager.showCloneProfileModal).toBe('function');
-        expect(typeof profileManager.showRenameProfileModal).toBe('function');
-        expect(typeof profileManager.handleProfileSave).toBe('function');
-        expect(typeof profileManager.getProfileAnalysis).toBe('function');
-        expect(typeof profileManager.getProfileTemplates).toBe('function');
-        expect(typeof profileManager.exportProfile).toBe('function');
-        expect(typeof profileManager.importProfile).toBe('function');
+    it('should perform all profile management operations correctly', () => {
+        // Test profile templates
+        const templates = profileManager.getProfileTemplates();
+        expect(templates).toBeDefined();
+        expect(typeof templates).toBe('object');
+        expect(Object.keys(templates).length).toBeGreaterThan(0);
+        
+        // Test profile analysis
+        const testProfile = {
+            name: 'Test Profile',
+            keys: { 'a': [{ command: 'target', type: 'targeting' }] }
+        };
+        const analysis = profileManager.getProfileAnalysis(testProfile);
+        expect(analysis).toBeDefined();
+        expect(typeof analysis).toBe('object');
+        
+        // Test profile export
+        const exportResult = profileManager.exportProfile(testProfile);
+        expect(exportResult).toBeDefined();
+        expect(typeof exportResult).toBe('string');
+        
+        // Test profile import
+        const importResult = profileManager.importProfile(exportResult);
+        expect(importResult).toBeDefined();
+        expect(importResult.name).toBe(testProfile.name);
+        
+        // Test profile save handling
+        const saveResult = profileManager.handleProfileSave('test-id', testProfile);
+        expect(saveResult).toBeDefined();
+        
+        // Test modal operations actually show modals
+        profileManager.showNewProfileModal();
+        const newProfileModal = document.querySelector('#newProfileModal, .new-profile-modal, .modal');
+        expect(newProfileModal).not.toBeNull();
+        expect(newProfileModal.style.display).not.toBe('none');
+        
+        profileManager.showCloneProfileModal('test-id');
+        const cloneModal = document.querySelector('#cloneProfileModal, .clone-profile-modal, .modal');
+        expect(cloneModal).not.toBeNull();
+        expect(cloneModal.style.display).not.toBe('none');
+        
+        profileManager.showRenameProfileModal('test-id');
+        const renameModal = document.querySelector('#renameProfileModal, .rename-profile-modal, .modal');
+        expect(renameModal).not.toBeNull();
+        expect(renameModal.style.display).not.toBe('none');
     });
 });
 
@@ -60,13 +96,14 @@ describe('Profile Templates', () => {
     it('should have template structure', () => {
         const templates = profileManager.getProfileTemplates();
         const templateKeys = Object.keys(templates);
-        if (templateKeys.length > 0) {
-            const template = templates[templateKeys[0]];
-            expect(template.name).toBeDefined();
-            expect(template.description).toBeDefined();
-            expect(template.mode).toBeDefined();
-            expect(template.keys).toBeDefined();
-        }
+        expect(templateKeys.length).toBeGreaterThan(0);
+        
+        const template = templates[templateKeys[0]];
+        expect(template).toBeDefined();
+        expect(template.name).toBeDefined();
+        expect(template.description).toBeDefined();
+        expect(template.mode).toBeDefined();
+        expect(template.keys).toBeDefined();
     });
 });
 

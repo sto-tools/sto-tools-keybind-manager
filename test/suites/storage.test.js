@@ -64,21 +64,49 @@ describe('Storage Module', () => {
             expect(window.stoStorage.constructor.name).toBe('STOStorage');
         });
 
-        it('should have required methods', () => {
+        it('should perform all storage operations correctly', () => {
             const storage = window.stoStorage;
             
-            expect(typeof storage.getAllData).toBe('function');
-            expect(typeof storage.saveAllData).toBe('function');
-            expect(typeof storage.getProfile).toBe('function');
-            expect(typeof storage.saveProfile).toBe('function');
-            expect(typeof storage.deleteProfile).toBe('function');
-            expect(typeof storage.getSettings).toBe('function');
-            expect(typeof storage.saveSettings).toBe('function');
-            expect(typeof storage.createBackup).toBe('function');
-            expect(typeof storage.restoreFromBackup).toBe('function');
-            expect(typeof storage.exportData).toBe('function');
-            expect(typeof storage.importData).toBe('function');
-            expect(typeof storage.clearAllData).toBe('function');
+            // Test profile operations
+            const testProfile = { name: 'Test Profile', mode: 'space', keys: { 'a': ['target'] } };
+            storage.saveProfile('test-id', testProfile);
+            const retrievedProfile = storage.getProfile('test-id');
+            expect(retrievedProfile).toEqual(testProfile);
+            
+            // Test profile deletion
+            const deleteResult = storage.deleteProfile('test-id');
+            expect(deleteResult).toBe(true);
+            expect(storage.getProfile('test-id')).toBeNull();
+            
+            // Test settings operations
+            const testSettings = { theme: 'dark', autoSave: true };
+            storage.saveSettings(testSettings);
+            const retrievedSettings = storage.getSettings();
+            expect(retrievedSettings.theme).toBe('dark');
+            expect(retrievedSettings.autoSave).toBe(true);
+            
+            // Test data export/import
+            storage.saveProfile('export-test', testProfile);
+            const exportedData = storage.exportData();
+            expect(typeof exportedData).toBe('string');
+            
+            storage.clearAllData();
+            const importResult = storage.importData(exportedData);
+            expect(importResult).toBe(true);
+            expect(storage.getProfile('export-test')).toEqual(testProfile);
+            
+            // Test backup/restore
+            const backupResult = storage.createBackup();
+            expect(backupResult).toBe(true);
+            
+            storage.clearAllData();
+            const restoreResult = storage.restoreFromBackup();
+            expect(restoreResult).toBe(true);
+            
+            // Test get all data
+            const allData = storage.getAllData();
+            expect(allData).toBeDefined();
+            expect(typeof allData).toBe('object');
         });
     });
 
@@ -173,6 +201,51 @@ describe('Storage Module', () => {
             expect(allData.profiles.profile2).toBeDefined();
             expect(allData.profiles.profile1.name).toBe('Profile 1');
             expect(allData.profiles.profile2.name).toBe('Profile 2');
+        });
+
+        it('should perform all storage operations correctly', () => {
+            const storage = window.stoStorage;
+            
+            // Test profile operations
+            const testProfile = { name: 'Test Profile', mode: 'space', keys: { 'a': ['target'] } };
+            storage.saveProfile('test-id', testProfile);
+            const retrievedProfile = storage.getProfile('test-id');
+            expect(retrievedProfile).toEqual(testProfile);
+            
+            // Test profile deletion
+            const deleteResult = storage.deleteProfile('test-id');
+            expect(deleteResult).toBe(true);
+            expect(storage.getProfile('test-id')).toBeNull();
+            
+            // Test settings operations
+            const testSettings = { theme: 'dark', autoSave: true };
+            storage.saveSettings(testSettings);
+            const retrievedSettings = storage.getSettings();
+            expect(retrievedSettings.theme).toBe('dark');
+            expect(retrievedSettings.autoSave).toBe(true);
+            
+            // Test data export/import
+            storage.saveProfile('export-test', testProfile);
+            const exportedData = storage.exportData();
+            expect(typeof exportedData).toBe('string');
+            
+            storage.clearAllData();
+            const importResult = storage.importData(exportedData);
+            expect(importResult).toBe(true);
+            expect(storage.getProfile('export-test')).toEqual(testProfile);
+            
+            // Test backup/restore
+            const backupResult = storage.createBackup();
+            expect(backupResult).toBe(true);
+            
+            storage.clearAllData();
+            const restoreResult = storage.restoreFromBackup();
+            expect(restoreResult).toBe(true);
+            
+            // Test get all data
+            const allData = storage.getAllData();
+            expect(allData).toBeDefined();
+            expect(typeof allData).toBe('object');
         });
     });
 
@@ -331,13 +404,30 @@ describe('STOStorage', () => {
         }
     });
 
-    it('should have required methods', () => {
+    it('should perform all storage manager operations correctly', () => {
         if (storageManager) {
-            expect(typeof storageManager.getAllData).toBe('function');
-            expect(typeof storageManager.saveAllData).toBe('function');
-            expect(typeof storageManager.getProfile).toBe('function');
-            expect(typeof storageManager.saveProfile).toBe('function');
-            expect(typeof storageManager.deleteProfile).toBe('function');
+            // Test profile save and retrieval
+            const testProfile = { name: 'Manager Test', mode: 'space', keys: { 'b': ['heal'] } };
+            storageManager.saveProfile('manager-test', testProfile);
+            const retrieved = storageManager.getProfile('manager-test');
+            expect(retrieved).toEqual(testProfile);
+            
+            // Test data operations
+            const allData = storageManager.getAllData();
+            expect(allData).toBeDefined();
+            expect(allData.profiles).toBeDefined();
+            expect(allData.profiles['manager-test']).toEqual(testProfile);
+            
+            // Test save all data
+            const newData = { profiles: { 'new-profile': { name: 'New', mode: 'ground', keys: {} } } };
+            storageManager.saveAllData(newData);
+            const savedData = storageManager.getAllData();
+            expect(savedData.profiles['new-profile']).toEqual(newData.profiles['new-profile']);
+            
+            // Test profile deletion
+            const deleteResult = storageManager.deleteProfile('new-profile');
+            expect(deleteResult).toBe(true);
+            expect(storageManager.getProfile('new-profile')).toBeNull();
         }
     });
 

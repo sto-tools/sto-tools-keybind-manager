@@ -168,151 +168,192 @@ describe('Alias Management', () => {
         });
 
         it('should show command preview in alias cards', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile && profile.aliases && Object.keys(profile.aliases).length > 0) {
-                const addAliasBtn = document.getElementById('addAliasBtn');
-                if (addAliasBtn) {
-                    addAliasBtn.click();
-                    
-                    const aliasCards = document.querySelectorAll('.alias-card');
-                    if (aliasCards.length > 0) {
-                        const firstCard = aliasCards[0];
-                        const commandsDiv = firstCard.querySelector('.alias-commands');
-                        if (commandsDiv) {
-                            expect(commandsDiv.querySelector('code')).toBeTruthy();
-                        }
-                    }
-                }
-            }
+            expect(window.app).toBeDefined();
+            expect(window.app.getCurrentProfile).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(profile.aliases).toBeDefined();
+            expect(Object.keys(profile.aliases).length).toBeGreaterThan(0);
+            
+            const addAliasBtn = document.getElementById('addAliasBtn');
+            expect(addAliasBtn).not.toBeNull();
+            addAliasBtn.click();
+            
+            const aliasCards = document.querySelectorAll('.alias-card');
+            expect(aliasCards.length).toBeGreaterThan(0);
+            
+            const firstCard = aliasCards[0];
+            const commandsDiv = firstCard.querySelector('.alias-commands');
+            expect(commandsDiv).not.toBeNull();
+            expect(commandsDiv.querySelector('code')).not.toBeNull();
         });
     });
 
     describe('Alias Editing', () => {
         it('should populate form when editing existing alias', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile && profile.aliases && Object.keys(profile.aliases).length > 0) {
-                const addAliasBtn = document.getElementById('addAliasBtn');
-                if (addAliasBtn) {
-                    addAliasBtn.click();
-                    
-                    const editBtn = document.querySelector('.edit-alias-btn');
-                    if (editBtn) {
-                        editBtn.click();
-                        
-                        const aliasNameInput = document.getElementById('aliasName');
-                        const aliasCommandsInput = document.getElementById('aliasCommands');
-                        
-                        if (aliasNameInput) expect(aliasNameInput.value).toBeTruthy();
-                        if (aliasCommandsInput) expect(aliasCommandsInput.value).toBeTruthy();
-                    }
-                }
-            }
+            expect(window.app).toBeDefined();
+            expect(window.app.getCurrentProfile).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(profile.aliases).toBeDefined();
+            expect(Object.keys(profile.aliases).length).toBeGreaterThan(0);
+            
+            const addAliasBtn = document.getElementById('addAliasBtn');
+            expect(addAliasBtn).not.toBeNull();
+            addAliasBtn.click();
+            
+            const editBtn = document.querySelector('.edit-alias-btn');
+            expect(editBtn).not.toBeNull();
+            editBtn.click();
+            
+            const aliasNameInput = document.getElementById('aliasName');
+            const aliasCommandsInput = document.getElementById('aliasCommands');
+            
+            expect(aliasNameInput).not.toBeNull();
+            expect(aliasNameInput.value).toBeTruthy();
+            expect(aliasCommandsInput).not.toBeNull();
+            expect(aliasCommandsInput.value).toBeTruthy();
         });
 
         it('should disable name input when editing existing alias', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile && profile.aliases && Object.keys(profile.aliases).length > 0) {
-                const addAliasBtn = document.getElementById('addAliasBtn');
-                if (addAliasBtn) {
-                    addAliasBtn.click();
-                    
-                    const editBtn = document.querySelector('.edit-alias-btn');
-                    if (editBtn) {
-                        editBtn.click();
-                        
-                        const aliasNameInput = document.getElementById('aliasName');
-                        if (aliasNameInput) {
-                            expect(aliasNameInput.disabled).toBe(true);
-                        }
-                    }
-                }
-            }
+            expect(window.app).toBeDefined();
+            expect(window.app.getCurrentProfile).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(profile.aliases).toBeDefined();
+            expect(Object.keys(profile.aliases).length).toBeGreaterThan(0);
+            
+            const addAliasBtn = document.getElementById('addAliasBtn');
+            expect(addAliasBtn).not.toBeNull();
+            addAliasBtn.click();
+            
+            const editBtn = document.querySelector('.edit-alias-btn');
+            expect(editBtn).not.toBeNull();
+            editBtn.click();
+            
+            const aliasNameInput = document.getElementById('aliasName');
+            expect(aliasNameInput).not.toBeNull();
+            expect(aliasNameInput.disabled).toBe(true);
         });
     });
 
     describe('Alias Deletion', () => {
         it('should confirm before deleting alias', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile && profile.aliases && Object.keys(profile.aliases).length > 0) {
-                const addAliasBtn = document.getElementById('addAliasBtn');
-                if (addAliasBtn) {
-                    addAliasBtn.click();
-                    
-                    const deleteBtn = document.querySelector('.delete-alias-btn');
-                    if (deleteBtn) {
-                        // Mock the confirm dialog
-                        const originalConfirm = window.confirm;
-                        let confirmCalled = false;
-                        window.confirm = () => {
-                            confirmCalled = true;
-                            return false; // Cancel deletion
-                        };
-                        
-                        deleteBtn.click();
-                        
-                        expect(confirmCalled).toBe(true);
-                        window.confirm = originalConfirm;
-                    }
-                }
-            }
+            expect(window.app).toBeDefined();
+            expect(window.app.getCurrentProfile).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(profile.aliases).toBeDefined();
+            expect(Object.keys(profile.aliases).length).toBeGreaterThan(0);
+            
+            const addAliasBtn = document.getElementById('addAliasBtn');
+            expect(addAliasBtn).not.toBeNull();
+            addAliasBtn.click();
+            
+            const deleteBtn = document.querySelector('.delete-alias-btn');
+            expect(deleteBtn).not.toBeNull();
+            
+            // Mock the confirm dialog
+            const originalConfirm = window.confirm;
+            let confirmCalled = false;
+            window.confirm = () => {
+                confirmCalled = true;
+                return false; // Cancel deletion
+            };
+            
+            deleteBtn.click();
+            
+            expect(confirmCalled).toBe(true);
+            window.confirm = originalConfirm;
         });
     });
 
     describe('Alias Usage', () => {
         it('should allow adding alias to current key', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile && profile.aliases && Object.keys(profile.aliases).length > 0) {
-                // First select a key
-                const keyGrid = document.getElementById('keyGrid');
-                const firstKey = keyGrid?.querySelector('.key-button, .key-item');
-                
-                if (firstKey) {
-                    firstKey.click();
-                    
-                    const addAliasBtn = document.getElementById('addAliasBtn');
-                    if (addAliasBtn) {
-                        addAliasBtn.click();
-                        
-                        const useBtn = document.querySelector('.use-alias-btn');
-                        if (useBtn) {
-                            expect(useBtn).toBeTruthy();
-                            // Test that button is clickable
-                            useBtn.click();
-                        }
-                    }
-                }
-            }
+            expect(window.app).toBeDefined();
+            expect(window.app.getCurrentProfile).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(profile.aliases).toBeDefined();
+            expect(Object.keys(profile.aliases).length).toBeGreaterThan(0);
+            
+            // First select a key
+            const keyGrid = document.getElementById('keyGrid');
+            expect(keyGrid).not.toBeNull();
+            
+            const firstKey = keyGrid.querySelector('.key-button, .key-item');
+            expect(firstKey).not.toBeNull();
+            firstKey.click();
+            
+            const addAliasBtn = document.getElementById('addAliasBtn');
+            expect(addAliasBtn).not.toBeNull();
+            addAliasBtn.click();
+            
+            const useBtn = document.querySelector('.use-alias-btn');
+            expect(useBtn).not.toBeNull();
+            // Test that button is clickable
+            useBtn.click();
         });
     });
 
     describe('Alias Manager API', () => {
         it('should have STOAliasManager available', () => {
-            if (window.stoAliases) {
-                expect(window.stoAliases).toBeTruthy();
-                expect(window.stoAliases.constructor.name).toBe('STOAliasManager');
-            }
+            expect(window.stoAliases).toBeDefined();
+            expect(window.stoAliases.constructor.name).toBe('STOAliasManager');
         });
 
-        it('should have alias management methods', () => {
-            if (window.stoAliases) {
-                expect(typeof window.stoAliases.showAliasManager).toBe('function');
-                expect(typeof window.stoAliases.renderAliasList).toBe('function');
-                expect(typeof window.stoAliases.saveAlias).toBe('function');
-            }
+        it('should perform alias management operations correctly', () => {
+            expect(window.stoAliases).toBeDefined();
+            expect(window.stoAliases.showAliasManager).toBeDefined();
+            expect(window.stoAliases.renderAliasList).toBeDefined();
+            expect(window.stoAliases.saveAlias).toBeDefined();
+            
+            // Test showing alias manager - should actually show the modal/UI
+            window.stoAliases.showAliasManager();
+            const aliasModal = document.querySelector('#aliasModal, .alias-modal, .modal');
+            expect(aliasModal).not.toBeNull();
+            expect(aliasModal.style.display).not.toBe('none');
+            
+            // Test rendering alias list - should actually create DOM elements
+            const testAliases = { 'test': { commands: 'target', description: 'Test alias' } };
+            window.stoAliases.renderAliasList(testAliases);
+            const aliasListContainer = document.querySelector('.alias-list, #aliasList');
+            expect(aliasListContainer).not.toBeNull();
+            expect(aliasListContainer.children.length).toBeGreaterThan(0);
+            
+            // Test saving alias - should actually add to profile data
+            const testAlias = { name: 'test_alias', commands: 'target $$ fire_all' };
+            const initialProfile = window.app.getCurrentProfile();
+            const initialAliasCount = Object.keys(initialProfile.aliases || {}).length;
+            
+            const saveResult = window.stoAliases.saveAlias('test_alias', testAlias);
+            expect(saveResult).toBe(true);
+            
+            // Verify alias was actually saved
+            const updatedProfile = window.app.getCurrentProfile();
+            expect(Object.keys(updatedProfile.aliases).length).toBe(initialAliasCount + 1);
+            expect(updatedProfile.aliases['test_alias']).toBeDefined();
+            expect(updatedProfile.aliases['test_alias'].commands).toBe('target $$ fire_all');
         });
 
         it('should store aliases in profile data structure', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile) {
-                expect(typeof profile.aliases).toBe('object');
-            }
+            expect(window.app).toBeDefined();
+            expect(window.app.getCurrentProfile).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(typeof profile.aliases).toBe('object');
         });
     });
 
     describe('Alias Templates', () => {
         it('should provide alias templates', () => {
             expect(window.stoAliases).toBeTruthy();
-            expect(typeof window.stoAliases.getAliasTemplates).toBe('function');
             
             const templates = window.stoAliases.getAliasTemplates();
             
@@ -349,36 +390,50 @@ describe('Alias Management', () => {
         });
 
         it('should allow creating alias from template', () => {
-            if (window.stoAliases && window.stoAliases.createAliasFromTemplate) {
-                expect(typeof window.stoAliases.createAliasFromTemplate).toBe('function');
-            }
+            expect(window.stoAliases).toBeDefined();
+            expect(window.stoAliases.createAliasFromTemplate).toBeDefined();
+            
+            const templateAlias = { 
+                name: 'test_template', 
+                commands: 'target $$ fire_all',
+                description: 'Test template alias'
+            };
+            
+            // Get current profile to verify alias is added
+            const profile = window.app.getCurrentProfile();
+            const initialAliasCount = Object.keys(profile.aliases || {}).length;
+            
+            // Create alias from template
+            const createResult = window.stoAliases.createAliasFromTemplate(templateAlias);
+            expect(createResult).toBe(true);
+            
+            // Verify alias was actually added to profile
+            const updatedProfile = window.app.getCurrentProfile();
+            expect(Object.keys(updatedProfile.aliases).length).toBe(initialAliasCount + 1);
+            expect(updatedProfile.aliases['test_template']).toBeDefined();
+            expect(updatedProfile.aliases['test_template'].commands).toBe('target $$ fire_all');
         });
     });
 
     describe('Alias Export', () => {
         it('should support exporting aliases', () => {
-            if (window.stoAliases) {
-                if (window.stoAliases.exportAliases) {
-                    const exportData = window.stoAliases.exportAliases();
-                    if (exportData !== undefined) {
-                        expect(typeof exportData).toBe('string');
-                    }
-                } else {
-                    // If exportAliases doesn't exist, just check that alias manager exists
-                    expect(window.stoAliases).toBeTruthy();
-                }
-            } else {
-                // If alias manager doesn't exist, skip this test
-                expect(true).toBe(true);
-            }
+            expect(window.stoAliases).toBeDefined();
+            expect(window.stoAliases.exportAliases).toBeDefined();
+            
+            const exportData = window.stoAliases.exportAliases();
+            expect(typeof exportData).toBe('string');
         });
 
         it('should include aliases in profile export', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile && profile.aliases) {
-                // Aliases should be part of profile structure
-                expect(typeof profile.aliases).toBe('object');
-            }
+            expect(window.app).toBeDefined();
+            expect(window.app.getCurrentProfile).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(profile.aliases).toBeDefined();
+            
+            // Aliases should be part of profile structure
+            expect(typeof profile.aliases).toBe('object');
         });
     });
 }); 
