@@ -582,7 +582,7 @@ describe('Export Integration', () => {
         
         expect(exportContent).toBeDefined();
         expect(typeof exportContent).toBe('string');
-        expect(exportContent).toContain('# Complete Export Test - STO Keybind Configuration');
+        expect(exportContent).toContain('; Complete Export Test - STO Keybind Configuration');
         expect(exportContent).toContain(profile.name);
     });
 
