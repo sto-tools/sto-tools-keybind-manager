@@ -84,29 +84,18 @@ describe('Alias Validation', () => {
     });
 
     it('should validate alias names and commands', () => {
-        try {
-            // Test valid alias
-            const validResult = aliasManager.validateAlias('test_alias', 'target $$ fire_all');
-            expect(validResult.valid).toBeTruthy();
+        // Test valid alias
+        const validResult = aliasManager.validateAlias('test_alias', 'target $$ fire_all');
+        expect(validResult.valid).toBeTruthy();
 
-            // Test invalid alias name
-            const invalidNameResult = aliasManager.validateAlias('', 'target');
-            expect(invalidNameResult.valid).toBeFalsy();
-            expect(invalidNameResult.error).toBeDefined();
+        // Test invalid alias name
+        const invalidNameResult = aliasManager.validateAlias('', 'target');
+        expect(invalidNameResult.valid).toBeFalsy();
+        expect(invalidNameResult.error).toBeDefined();
 
-            // Test invalid commands
-            const invalidCommandResult = aliasManager.validateAlias('test', '');
-            expect(invalidCommandResult.valid).toBeFalsy();
-            expect(invalidCommandResult.error).toBeDefined();
-        } catch (error) {
-            // If there's a context issue (like stoStorage not defined), skip the test
-            // but mark it as passing since the validation logic itself is sound
-            if (error.message.includes('stoStorage is not defined')) {
-                console.warn('Skipping alias validation test due to context issue');
-                expect(true).toBeTruthy(); // Mark as passing
-            } else {
-                throw error; // Re-throw other errors
-            }
-        }
+        // Test invalid commands
+        const invalidCommandResult = aliasManager.validateAlias('test', '');
+        expect(invalidCommandResult.valid).toBeFalsy();
+        expect(invalidCommandResult.error).toBeDefined();
     });
 }); 

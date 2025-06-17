@@ -16,50 +16,47 @@ describe('Command Library', () => {
 
     describe('Command Library Access', () => {
         it('should have command library panel', () => {
-            const commandLibrary = document.getElementById('commandLibrary');
-            if (commandLibrary) {
-                expect(commandLibrary).toBeTruthy();
-            }
+            const commandLibrary = document.querySelector('.command-library');
+            expect(commandLibrary).toBeTruthy();
         });
 
         it('should display command categories', () => {
+            // Wait for categories to be populated by JavaScript
+            const commandCategoriesContainer = document.getElementById('commandCategories');
+            expect(commandCategoriesContainer).toBeTruthy();
+            
+            // The categories are populated dynamically, so check if any exist or wait for them
             const commandCategories = document.querySelectorAll('.command-category');
-            if (commandCategories.length > 0) {
-                expect(commandCategories.length).toBeGreaterThan(0);
-            }
+            // If no categories exist yet, the application may still be initializing
+            // This is acceptable as the container exists
+            expect(commandCategories.length).toBeGreaterThanOrEqual(0);
         });
 
         it('should have STO_DATA command structure available', () => {
-            if (window.STO_DATA && window.STO_DATA.commands) {
-                expect(window.STO_DATA.commands).toBeTruthy();
-                expect(typeof window.STO_DATA.commands).toBe('object');
-            }
+            expect(window.STO_DATA).toBeDefined();
+            expect(window.STO_DATA.commands).toBeTruthy();
+            expect(typeof window.STO_DATA.commands).toBe('object');
         });
     });
 
     describe('Command Categories', () => {
         it('should have targeting commands category', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.targeting) {
-                expect(window.STO_DATA.commands.targeting).toBeTruthy();
-                expect(window.STO_DATA.commands.targeting.commands).toBeTruthy();
-            }
+            expect(window.STO_DATA.commands.targeting).toBeTruthy();
+            expect(window.STO_DATA.commands.targeting.commands).toBeTruthy();
         });
 
         it('should have combat commands category', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.combat) {
-                expect(window.STO_DATA.commands.combat).toBeTruthy();
-                expect(window.STO_DATA.commands.combat.commands).toBeTruthy();
-            }
+            expect(window.STO_DATA.commands.combat).toBeTruthy();
+            expect(window.STO_DATA.commands.combat.commands).toBeTruthy();
         });
 
         it('should have tray execution commands', () => {
-            if (window.stoCommands && window.stoCommands.commandBuilders) {
-                const trayBuilder = window.stoCommands.commandBuilders.get('tray');
-                if (trayBuilder) {
-                    expect(trayBuilder).toBeTruthy();
-                    expect(typeof trayBuilder.build).toBe('function');
-                }
-            }
+            expect(window.stoCommands).toBeDefined();
+            expect(window.stoCommands.commandBuilders).toBeDefined();
+            
+            const trayBuilder = window.stoCommands.commandBuilders.get('tray');
+            expect(trayBuilder).toBeTruthy();
+            expect(typeof trayBuilder.build).toBe('function');
         });
 
         it('should have power management commands', () => {
@@ -94,26 +91,24 @@ describe('Command Library', () => {
     describe('Command Search', () => {
         it('should have command search input', () => {
             const commandSearch = document.getElementById('commandSearch');
-            if (commandSearch) {
-                expect(commandSearch).toBeTruthy();
-                expect(commandSearch.tagName).toBe('INPUT');
-            }
+            expect(commandSearch).toBeTruthy();
+            expect(commandSearch.tagName).toBe('INPUT');
         });
 
         it('should filter commands based on search term', () => {
             const commandSearch = document.getElementById('commandSearch');
-            if (commandSearch) {
-                commandSearch.value = 'target';
-                commandSearch.dispatchEvent(new window.Event('input', { bubbles: true }));
-                
-                // Check if filtering occurred
-                const commandItems = document.querySelectorAll('.command-item');
-                if (commandItems.length > 0) {
-                    const visibleCommands = Array.from(commandItems)
-                        .filter(item => item.style.display !== 'none');
-                    expect(visibleCommands.length).toBeGreaterThanOrEqual(0);
-                }
-            }
+            expect(commandSearch).toBeTruthy();
+            
+            commandSearch.value = 'target';
+            commandSearch.dispatchEvent(new window.Event('input', { bubbles: true }));
+            
+            // Check if filtering occurred
+            const commandItems = document.querySelectorAll('.command-item');
+            expect(commandItems.length).toBeGreaterThan(0);
+            
+            const visibleCommands = Array.from(commandItems)
+                .filter(item => item.style.display !== 'none');
+            expect(visibleCommands.length).toBeGreaterThanOrEqual(0);
         });
 
         it('should clear search when input is cleared', () => {

@@ -76,24 +76,24 @@ describe('User Workflows', () => {
             await new Promise(resolve => setTimeout(resolve, 100));
             
             const keyElement = document.querySelector('[data-key="TestKey"]');
-            if (keyElement) {
-                keyElement.click();
-                
-                // Open command modal
-                const addCommandBtn = document.getElementById('addCommandBtn');
-                expect(addCommandBtn).toBeTruthy();
-                addCommandBtn.click();
-                
-                // Select custom command type
-                const commandType = document.getElementById('commandType');
-                expect(commandType).toBeTruthy();
-                commandType.value = 'custom';
-                commandType.dispatchEvent(new window.Event('change', { bubbles: true }));
-                
-                // Should show command builder
-                const builder = document.getElementById('commandBuilder');
-                expect(builder).toBeTruthy();
-            }
+            expect(keyElement).toBeTruthy();
+            
+            keyElement.click();
+            
+            // Open command modal
+            const addCommandBtn = document.getElementById('addCommandBtn');
+            expect(addCommandBtn).toBeTruthy();
+            addCommandBtn.click();
+            
+            // Select custom command type
+            const commandType = document.getElementById('commandType');
+            expect(commandType).toBeTruthy();
+            commandType.value = 'custom';
+            commandType.dispatchEvent(new window.Event('change', { bubbles: true }));
+            
+            // Should show command builder
+            const builder = document.getElementById('commandBuilder');
+            expect(builder).toBeTruthy();
         });
     });
 

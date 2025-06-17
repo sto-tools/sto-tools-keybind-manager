@@ -115,34 +115,31 @@ describe('Profile Management', () => {
         it('should be able to switch between profiles', () => {
             const profileSelect = document.getElementById('profileSelect');
             expect(profileSelect).toBeTruthy();
-            expect(profileSelect.options.length).toBeGreaterThan(0);
+            expect(profileSelect.options.length).toBeGreaterThan(1);
             
-            // Try to change selection (if multiple profiles exist)
-            if (profileSelect.options.length > 1) {
-                const originalValue = profileSelect.value;
-                profileSelect.selectedIndex = profileSelect.selectedIndex === 0 ? 1 : 0;
-                profileSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
-                
-                // Profile should have changed
-                expect(profileSelect.value).not.toBe(originalValue);
-            }
+            const originalValue = profileSelect.value;
+            profileSelect.selectedIndex = profileSelect.selectedIndex === 0 ? 1 : 0;
+            profileSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+            
+            // Profile should have changed
+            expect(profileSelect.value).not.toBe(originalValue);
         });
 
         it('should update UI when switching profiles', () => {
             const profileSelect = document.getElementById('profileSelect');
             const keyGrid = document.getElementById('keyGrid');
             
-            if (profileSelect.options.length > 1) {
-                const originalKeyCount = keyGrid.querySelectorAll('.key-button, .key-item').length;
-                
-                // Switch profile
-                profileSelect.selectedIndex = profileSelect.selectedIndex === 0 ? 1 : 0;
-                profileSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
-                
-                // UI should update (key count might change)
-                const newKeyCount = keyGrid.querySelectorAll('.key-button, .key-item').length;
-                expect(typeof newKeyCount).toBe('number');
-            }
+            expect(profileSelect.options.length).toBeGreaterThan(1);
+            
+            const originalKeyCount = keyGrid.querySelectorAll('.key-button, .key-item').length;
+            
+            // Switch profile
+            profileSelect.selectedIndex = profileSelect.selectedIndex === 0 ? 1 : 0;
+            profileSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+            
+            // UI should update (key count might change)
+            const newKeyCount = keyGrid.querySelectorAll('.key-button, .key-item').length;
+            expect(typeof newKeyCount).toBe('number');
         });
     });
 

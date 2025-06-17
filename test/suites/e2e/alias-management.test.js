@@ -17,59 +17,53 @@ describe('Alias Management', () => {
     describe('Alias Manager Access', () => {
         it('should have add alias button', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                expect(addAliasBtn).toBeTruthy();
-            }
+            expect(addAliasBtn).toBeTruthy();
         });
 
         it('should open alias manager when button clicked', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                addAliasBtn.click();
-                
-                const aliasModal = document.getElementById('aliasManagerModal');
-                if (aliasModal) {
-                    expect(aliasModal).toBeTruthy();
-                }
-            }
+            expect(addAliasBtn).toBeTruthy();
+            
+            addAliasBtn.click();
+            
+            const aliasModal = document.getElementById('aliasManagerModal');
+            expect(aliasModal).toBeTruthy();
         });
     });
 
     describe('Alias List Display', () => {
         it('should have alias list container', () => {
             const aliasList = document.getElementById('aliasList');
-            if (aliasList) {
-                expect(aliasList).toBeTruthy();
-            }
+            expect(aliasList).toBeTruthy();
         });
 
         it('should show empty state when no aliases exist', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                addAliasBtn.click();
-                
-                const aliasList = document.getElementById('aliasList');
-                if (aliasList) {
-                    const emptyState = aliasList.querySelector('.empty-state');
-                    if (emptyState) {
-                        expect(emptyState.textContent).toContain('No Aliases');
-                    }
-                }
+            expect(addAliasBtn).toBeTruthy();
+            
+            addAliasBtn.click();
+            
+            const aliasList = document.getElementById('aliasList');
+            expect(aliasList).toBeTruthy();
+            
+            const emptyState = aliasList.querySelector('.empty-state');
+            if (emptyState) {
+                expect(emptyState.textContent).toContain('No Aliases');
             }
         });
 
         it('should display existing aliases in grid format', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                addAliasBtn.click();
-                
-                const aliasList = document.getElementById('aliasList');
-                if (aliasList) {
-                    const aliasGrid = aliasList.querySelector('.alias-grid');
-                    if (aliasGrid) {
-                        expect(aliasGrid).toBeTruthy();
-                    }
-                }
+            expect(addAliasBtn).toBeTruthy();
+            
+            addAliasBtn.click();
+            
+            const aliasList = document.getElementById('aliasList');
+            expect(aliasList).toBeTruthy();
+            
+            const aliasGrid = aliasList.querySelector('.alias-grid');
+            if (aliasGrid) {
+                expect(aliasGrid).toBeTruthy();
             }
         });
     });
@@ -77,68 +71,62 @@ describe('Alias Management', () => {
     describe('Alias Creation', () => {
         it('should have new alias button in manager', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                addAliasBtn.click();
-                
-                const newAliasBtn = document.getElementById('newAliasBtn');
-                if (newAliasBtn) {
-                    expect(newAliasBtn).toBeTruthy();
-                }
-            }
+            expect(addAliasBtn).toBeTruthy();
+            
+            addAliasBtn.click();
+            
+            const newAliasBtn = document.getElementById('newAliasBtn');
+            expect(newAliasBtn).toBeTruthy();
         });
 
         it('should open edit alias modal when new alias clicked', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                addAliasBtn.click();
-                
-                const newAliasBtn = document.getElementById('newAliasBtn');
-                if (newAliasBtn) {
-                    newAliasBtn.click();
-                    
-                    const editModal = document.getElementById('editAliasModal');
-                    if (editModal) {
-                        expect(editModal).toBeTruthy();
-                    }
-                }
-            }
+            expect(addAliasBtn).toBeTruthy();
+            
+            addAliasBtn.click();
+            
+            const newAliasBtn = document.getElementById('newAliasBtn');
+            expect(newAliasBtn).toBeTruthy();
+            
+            newAliasBtn.click();
+            
+            const editModal = document.getElementById('editAliasModal');
+            expect(editModal).toBeTruthy();
         });
 
         it('should have alias form fields in edit modal', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                addAliasBtn.click();
-                
-                const newAliasBtn = document.getElementById('newAliasBtn');
-                if (newAliasBtn) {
-                    newAliasBtn.click();
-                    
-                    const aliasNameInput = document.getElementById('aliasName');
-                    const aliasDescInput = document.getElementById('aliasDescription');
-                    const aliasCommandsInput = document.getElementById('aliasCommands');
-                    
-                    if (aliasNameInput) expect(aliasNameInput.tagName).toBe('INPUT');
-                    if (aliasDescInput) expect(['INPUT', 'TEXTAREA'].includes(aliasDescInput.tagName)).toBe(true);
-                    if (aliasCommandsInput) expect(['INPUT', 'TEXTAREA'].includes(aliasCommandsInput.tagName)).toBe(true);
-                }
-            }
+            expect(addAliasBtn).toBeTruthy();
+            
+            addAliasBtn.click();
+            
+            const newAliasBtn = document.getElementById('newAliasBtn');
+            expect(newAliasBtn).toBeTruthy();
+            
+            newAliasBtn.click();
+            
+            const aliasNameInput = document.getElementById('aliasName');
+            const aliasDescInput = document.getElementById('aliasDescription');
+            const aliasCommandsInput = document.getElementById('aliasCommands');
+            
+            if (aliasNameInput) expect(aliasNameInput.tagName).toBe('INPUT');
+            if (aliasDescInput) expect(['INPUT', 'TEXTAREA'].includes(aliasDescInput.tagName)).toBe(true);
+            if (aliasCommandsInput) expect(['INPUT', 'TEXTAREA'].includes(aliasCommandsInput.tagName)).toBe(true);
         });
 
         it('should have save alias button', () => {
             const addAliasBtn = document.getElementById('addAliasBtn');
-            if (addAliasBtn) {
-                addAliasBtn.click();
-                
-                const newAliasBtn = document.getElementById('newAliasBtn');
-                if (newAliasBtn) {
-                    newAliasBtn.click();
-                    
-                    const saveBtn = document.getElementById('saveAliasBtn');
-                    if (saveBtn) {
-                        expect(saveBtn).toBeTruthy();
-                    }
-                }
-            }
+            expect(addAliasBtn).toBeTruthy();
+            
+            addAliasBtn.click();
+            
+            const newAliasBtn = document.getElementById('newAliasBtn');
+            expect(newAliasBtn).toBeTruthy();
+            
+            newAliasBtn.click();
+            
+            const saveBtn = document.getElementById('saveAliasBtn');
+            expect(saveBtn).toBeTruthy();
         });
     });
 

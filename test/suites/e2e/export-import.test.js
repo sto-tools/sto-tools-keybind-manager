@@ -17,9 +17,7 @@ describe('Export/Import', () => {
     describe('Export Button Access', () => {
         it('should have export keybinds button', () => {
             const exportBtn = document.getElementById('exportKeybindsBtn');
-            if (exportBtn) {
-                expect(exportBtn).toBeTruthy();
-            }
+            expect(exportBtn).toBeTruthy();
         });
 
         it('should show export options when button clicked', () => {

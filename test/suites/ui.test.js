@@ -63,25 +63,21 @@ describe('Modal Functionality', () => {
     });
 
     it('should show modal when requested', () => {
-        if (typeof uiManager.showModal === 'function') {
-            const modal = document.getElementById('testModal');
-            
-            uiManager.showModal('testModal');
-            
-            // Check if modal is visible (implementation may vary)
-            expect(modal).toBeDefined();
-        }
+        const modal = document.getElementById('testModal');
+        
+        uiManager.showModal('testModal');
+        
+        // Check if modal is visible (implementation may vary)
+        expect(modal).toBeDefined();
     });
 
     it('should hide modal when requested', () => {
-        if (typeof uiManager.hideModal === 'function') {
-            const modal = document.getElementById('testModal');
-            
-            uiManager.hideModal('testModal');
-            
-            // Check if modal is hidden (implementation may vary)
-            expect(modal).toBeDefined();
-        }
+        const modal = document.getElementById('testModal');
+        
+        uiManager.hideModal('testModal');
+        
+        // Check if modal is hidden (implementation may vary)
+        expect(modal).toBeDefined();
     });
 });
 
