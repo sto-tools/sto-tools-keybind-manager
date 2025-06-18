@@ -212,94 +212,111 @@ class STOKeybindFileManager {
         });
     }
 
-    // Import keybind file into current profile
+    // Import keybind file content
     importKeybindFile(content) {
-        const parsed = this.parseKeybindFile(content);
-        
-        if (parsed.errors.length > 0) {
-            const errorMsg = `Import completed with ${parsed.errors.length} error(s):\n` +
-                parsed.errors.map(err => `Line ${err.line}: ${err.error}`).join('\n');
-            stoUI.showToast(errorMsg, 'warning', 5000);
-        }
-        
-        // Get current profile
-        const profile = app.getCurrentProfile();
+        const profile = app.getCurrentProfile()
         if (!profile) {
-            stoUI.showToast('No active profile to import into', 'error');
-            return false;
+            stoUI.showToast('No profile selected for import', 'warning')
+            return { success: false, error: 'No active profile' }
         }
-        
-        // Import keybinds
-        let importedKeys = 0;
-        Object.entries(parsed.keybinds).forEach(([key, keybind]) => {
-            if (this.isValidKey(key)) {
-                // Store keybinds even if they have empty commands (for STO compatibility)
-                profile.keys[key] = keybind.commands;
-                importedKeys++;
 
-            } else {
-
-                parsed.errors.push({
-                    line: keybind.line,
-                    content: key,
-                    error: 'Invalid key name'
-                });
+        try {
+            const parsed = this.parseKeybindFile(content)
+            
+            // Only import keybinds, ignore aliases (they have separate import)
+            const keyCount = Object.keys(parsed.keybinds).length
+            
+            if (keyCount === 0) {
+                stoUI.showToast('No keybinds found in file', 'warning')
+                return { success: false, error: 'No keybinds found' }
             }
-        });
-        
-        // Import aliases
-        let importedAliases = 0;
-        Object.entries(parsed.aliases).forEach(([name, alias]) => {
-            if (this.isValidAliasName(name)) {
+
+            // Merge keybinds into profile
+            Object.entries(parsed.keybinds).forEach(([key, keybindData]) => {
+                profile.keys[key] = keybindData.commands
+            })
+
+            // Update storage and UI
+            app.saveProfile()
+            app.setModified(true)
+
+            // Refresh key grid
+            app.renderKeyGrid()
+
+            const message = `Import completed: ${keyCount} keybinds`
+            if (Object.keys(parsed.aliases).length > 0) {
+                stoUI.showToast(message + ` (${Object.keys(parsed.aliases).length} aliases ignored - use Import Aliases)`, 'success')
+            } else {
+                stoUI.showToast(message, 'success')
+            }
+
+            return {
+                success: true,
+                imported: {
+                    keys: keyCount
+                },
+                errors: parsed.errors
+            }
+        } catch (error) {
+            stoUI.showToast('Import failed: ' + error.message, 'error')
+            return { success: false, error: error.message }
+        }
+    }
+
+    // Separate Alias Import
+    importAliasFile(content) {
+        const profile = app.getCurrentProfile()
+        if (!profile) {
+            stoUI.showToast('No profile selected for import', 'warning')
+            return { success: false, error: 'No active profile' }
+        }
+
+        try {
+            const parsed = this.parseKeybindFile(content)
+            
+            // Only import aliases, ignore keybinds
+            const aliasCount = Object.keys(parsed.aliases).length
+            
+            if (aliasCount === 0) {
+                stoUI.showToast('No aliases found in file', 'warning')
+                return { success: false, error: 'No aliases found' }
+            }
+
+            // Merge aliases into profile
+            if (!profile.aliases) {
+                profile.aliases = {}
+            }
+
+            Object.entries(parsed.aliases).forEach(([name, aliasData]) => {
                 profile.aliases[name] = {
-                    name: name,
-                    commands: alias.commands,
-                    description: `Imported alias: ${alias.commands.substring(0, 50)}...`
-                };
-                importedAliases++;
-            } else {
-                parsed.errors.push({
-                    line: alias.line,
-                    content: name,
-                    error: 'Invalid alias name'
-                });
-            }
-        });
-        
-        // Debug: Check if keys are actually in the profile BEFORE saving
-        console.log('Before save - Profile keys:', Object.keys(profile.keys));
-        console.log('Before save - Profile keys count:', Object.keys(profile.keys).length);
-        
-        // Save profile directly to storage instead of using app.saveProfile()
-        stoStorage.saveProfile(app.currentProfile, profile);
-        app.setModified(true);
-        
-        // Debug: Check if keys are actually in the profile AFTER saving
-        console.log('After save - Profile keys:', Object.keys(profile.keys));
-        console.log('After save - Profile keys count:', Object.keys(profile.keys).length);
-        
-        // Debug: Check what getCurrentProfile returns
-        const currentProfile = app.getCurrentProfile();
-        console.log('getCurrentProfile - Profile keys:', Object.keys(currentProfile.keys));
-        console.log('getCurrentProfile - Profile keys count:', Object.keys(currentProfile.keys).length);
-        
-        // Force reload data from storage and then update UI
-        app.loadData();
-        
-        // Update UI
-        app.renderKeyGrid();
-        app.renderCommandChain();
-        
-        // Show success message
-        const message = `Import completed: ${importedKeys} keybinds, ${importedAliases} aliases`;
+                    commands: aliasData.commands,
+                    description: aliasData.description || ''
+                }
+            })
 
-        stoUI.showToast(message, 'success');
-        
-        return {
-            success: true,
-            imported: { keys: importedKeys, aliases: importedAliases },
-            errors: parsed.errors
-        };
+            // Update storage and UI
+            app.saveProfile()
+            app.setModified(true)
+
+            // Refresh alias manager if open
+            if (window.stoAliases && typeof window.stoAliases.updateCommandLibrary === 'function') {
+                window.stoAliases.updateCommandLibrary()
+            }
+
+            const message = `Import completed: ${aliasCount} aliases`
+            stoUI.showToast(message, 'success')
+
+            return {
+                success: true,
+                imported: {
+                    aliases: aliasCount
+                },
+                errors: parsed.errors
+            }
+        } catch (error) {
+            stoUI.showToast('Import failed: ' + error.message, 'error')
+            return { success: false, error: error.message }
+        }
     }
 
     // Export profile to keybind file format
@@ -311,16 +328,7 @@ class STOKeybindFileManager {
         output += `# Generated by STO Tools Keybind Manager\n`;
         output += `# ${new Date().toLocaleString()}\n\n`;
         
-        // Export aliases first
-        if (profile.aliases && Object.keys(profile.aliases).length > 0) {
-            output += `# Command Aliases\n`;
-            Object.entries(profile.aliases).forEach(([name, alias]) => {
-                output += `alias ${name} "${alias.commands}"\n`;
-            });
-            output += `\n`;
-        }
-        
-        // Export keybinds
+        // Export keybinds only (aliases exported separately)
         output += `# Keybind Commands\n`;
         const sortedKeys = Object.keys(profile.keys).sort(this.compareKeys.bind(this));
         

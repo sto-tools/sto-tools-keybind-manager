@@ -53,6 +53,14 @@ class STOProfileManager {
             this.importKeybinds();
         });
 
+        document.getElementById('importAliasesBtn')?.addEventListener('click', () => {
+            this.importAliases();
+        });
+
+        document.getElementById('exportAliasesBtn')?.addEventListener('click', () => {
+            this.exportAliases();
+        });
+
         document.getElementById('resetAppBtn')?.addEventListener('click', () => {
             this.confirmResetApp();
         });
@@ -324,6 +332,48 @@ class STOProfileManager {
             input.onchange = null; // Clear any existing handlers
             input.click();
         }
+    }
+
+    importAliases() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.txt';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const content = e.target.result;
+                        stoKeybinds.importAliasFile(content);
+                        
+                        // Refresh alias manager if open
+                        if (window.stoAliases && typeof window.stoAliases.renderAliasList === 'function') {
+                            window.stoAliases.renderAliasList();
+                        }
+                    } catch (error) {
+                        stoUI.showToast('Failed to import aliases: ' + error.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    }
+
+    exportAliases() {
+        const profile = app.getCurrentProfile();
+        if (!profile) {
+            stoUI.showToast('No profile selected to export', 'warning');
+            return;
+        }
+
+        if (!profile.aliases || Object.keys(profile.aliases).length === 0) {
+            stoUI.showToast('No aliases to export', 'warning');
+            return;
+        }
+
+        stoExport.exportAliases(profile);
     }
 
     async confirmResetApp() {

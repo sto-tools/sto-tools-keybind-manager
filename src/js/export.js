@@ -66,12 +66,7 @@ class STOExportManager {
         // Header with metadata
         content += this.generateFileHeader(profile);
         
-        // Export aliases first (they need to be defined before use)
-        if (profile.aliases && Object.keys(profile.aliases).length > 0) {
-            content += this.generateAliasSection(profile.aliases);
-        }
-        
-        // Export keybinds
+        // Export keybinds only (aliases are exported separately)
         content += this.generateKeybindSection(profile.keys);
         
         // Footer with usage instructions
@@ -91,8 +86,7 @@ class STOExportManager {
             // Calculate stats locally
             stats = {
                 totalKeys: Object.keys(profile.keys || {}).length,
-                totalCommands: 0,
-                totalAliases: Object.keys(profile.aliases || {}).length
+                totalCommands: 0
             };
             
             Object.values(profile.keys || {}).forEach(commands => {
@@ -107,11 +101,11 @@ class STOExportManager {
 ; Generated: ${timestamp}
 ; Created by: STO Tools Keybind Manager v${STO_DATA.settings.version}
 ;
-; Profile Statistics:
+; Keybind Statistics:
 ; - Keys bound: ${stats.totalKeys}
 ; - Total commands: ${stats.totalCommands}
-; - Aliases defined: ${stats.totalAliases}
 ;
+; Note: Aliases are exported separately
 ; To use this file in Star Trek Online:
 ; 1. Save this file to your STO Live folder
 ; 2. In game, type: /bind_load_file ${this.generateFileName(profile, 'txt')}
@@ -633,6 +627,71 @@ class STOExportManager {
         } catch (error) {
             throw new Error('Invalid JSON file: ' + error.message);
         }
+    }
+
+    // Separate Alias Export
+    exportAliases(profile) {
+        try {
+            const content = this.generateAliasFile(profile);
+            this.downloadFile(content, this.generateAliasFileName(profile, 'txt'), 'text/plain');
+            
+            stoUI.showToast('Aliases exported successfully', 'success');
+        } catch (error) {
+            stoUI.showToast('Failed to export aliases: ' + error.message, 'error');
+        }
+    }
+
+    generateAliasFile(profile) {
+        let content = '';
+        
+        // Header with metadata
+        const timestamp = new Date().toLocaleString();
+        const stats = {
+            totalAliases: Object.keys(profile.aliases || {}).length
+        };
+        
+        content += `; ================================================================
+; ${profile.name} - STO Alias Configuration
+; ================================================================
+; Mode: ${profile.mode.toUpperCase()}
+; Generated: ${timestamp}
+; Created by: STO Tools Keybind Manager v${STO_DATA.settings.version}
+;
+; Alias Statistics:
+; - Total aliases: ${stats.totalAliases}
+;
+; To use these aliases in Star Trek Online:
+; 1. Save this file as "CommandAliases.txt" (exactly, without quotes)
+; 2. Place it in your STO directory:
+;    [STO Install]\\Star Trek Online\\Live\\localdata\\CommandAliases.txt
+; 3. The aliases will be available when you start the game
+;
+; Alternative: You can append these aliases to an existing CommandAliases.txt
+; file if you already have one with other aliases.
+;
+; Common STO installation paths:
+; - Steam: C:\\Program Files (x86)\\Steam\\steamapps\\common\\Star Trek Online
+; - Epic: C:\\Program Files\\Epic Games\\Star Trek Online  
+; - Arc: C:\\Program Files (x86)\\Perfect World Entertainment\\Arc Games\\Star Trek Online
+; ================================================================
+
+`;
+
+        // Export aliases
+        if (profile.aliases && Object.keys(profile.aliases).length > 0) {
+            content += this.generateAliasSection(profile.aliases);
+        } else {
+            content += '; No aliases defined\n\n';
+        }
+        
+        return content;
+    }
+
+    generateAliasFileName(profile, extension) {
+        const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_');
+        const timestamp = new Date().toISOString().split('T')[0];
+        const environment = profile.mode || 'space';
+        return `${safeName}_aliases_${environment}_${timestamp}.${extension}`;
     }
 }
 

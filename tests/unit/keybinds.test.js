@@ -213,16 +213,17 @@ describe('STOKeybindFileManager', () => {
         name: 'Test Profile',
         mode: 'Space'
       })
+      global.app.saveProfile = vi.fn()
+      global.app.renderKeyGrid = vi.fn()
     })
 
     it('should import valid keybind file content', () => {
-      const saveProfileSpy = vi.spyOn(stoStorage, 'saveProfile')
       const content = 'F2 "say hello" ""'
       const result = keybindManager.importKeybindFile(content)
       
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
-      expect(saveProfileSpy).toHaveBeenCalled()
+      expect(app.saveProfile).toHaveBeenCalled()
     })
 
     it('should merge with existing profile data', () => {
@@ -285,9 +286,44 @@ describe('STOKeybindFileManager', () => {
       keybindManager.importKeybindFile(content)
       
       expect(stoUI.showToast).toHaveBeenCalledWith(
-        'Import completed: 1 keybinds, 1 aliases',
+        'Import completed: 1 keybinds (1 aliases ignored - use Import Aliases)',
         'success'
       )
+    })
+
+    it('should import keybinds separately from aliases', () => {
+      const profile = {
+        name: 'Test',
+        mode: 'Space',
+        keys: {},
+        aliases: {}
+      }
+      
+      const content = 'F1 "say hello"\nalias TestAlias "say test"'
+      const result = keybindManager.importKeybindFile(content)
+      
+      // Should only import keybinds, not aliases
+      expect(result.success).toBe(true)
+      expect(result.imported.keys).toBe(1)
+      expect(result.imported).not.toHaveProperty('aliases')
+    })
+
+    it('should import aliases separately', () => {
+      const profile = {
+        name: 'Test',
+        mode: 'Space',
+        keys: {},
+        aliases: {}
+      }
+      global.app.getCurrentProfile.mockReturnValue(profile)
+      
+      const content = 'F1 "say hello"\nalias TestAlias "say test"'
+      const result = keybindManager.importAliasFile(content)
+      
+      // Should only import aliases, not keybinds
+      expect(result.success).toBe(true)
+      expect(result.imported.aliases).toBe(1)
+      expect(result.imported).not.toHaveProperty('keys')
     })
   })
 
@@ -376,7 +412,7 @@ describe('STOKeybindFileManager', () => {
       expect(output).toMatch(/# \d{1,2}\/\d{1,2}\/\d{4}/)
     })
 
-    it('should export aliases before keybinds', () => {
+    it('should export keybinds without aliases', () => {
       const profile = {
         name: 'Test',
         mode: 'Space',
@@ -385,10 +421,8 @@ describe('STOKeybindFileManager', () => {
       }
       
       const output = keybindManager.exportProfile(profile)
-      const aliasIndex = output.indexOf('alias TestAlias')
-      const keybindIndex = output.indexOf('F1 "say hello"')
-      
-      expect(aliasIndex).toBeLessThan(keybindIndex)
+      expect(output).toContain('F1 "say hello"')
+      expect(output).not.toContain('alias TestAlias')
     })
   })
 
@@ -666,6 +700,87 @@ describe('STOKeybindFileManager', () => {
       
       expect(readAsTextSpy).toHaveBeenCalledWith(mockFile)
       expect(mockEvent.target.value).toBe('')
+    })
+  })
+
+  describe('alias import functionality', () => {
+    beforeEach(() => {
+      global.app.getCurrentProfile.mockReturnValue({
+        keys: {},
+        aliases: {},
+        name: 'Test Profile',
+        mode: 'Space'
+      })
+      global.app.saveProfile = vi.fn()
+      global.app.setModified = vi.fn()
+    })
+
+    it('should import alias file content successfully', () => {
+      const content = 'alias TestAlias "say hello $$ emote wave"'
+      const result = keybindManager.importAliasFile(content)
+      
+      expect(result.success).toBe(true)
+      expect(result.imported.aliases).toBe(1)
+    })
+
+    it('should handle alias files with multiple aliases', () => {
+      const content = `alias Attack "target_nearest_enemy $$ FireAll"
+alias Heal "target_self $$ +power_exec Distribute_Shields"`
+      const result = keybindManager.importAliasFile(content)
+      
+      expect(result.success).toBe(true)
+      expect(result.imported.aliases).toBe(2)
+    })
+
+    it('should ignore keybinds in alias import', () => {
+      const content = `F1 "say hello"
+alias TestAlias "say test"
+F2 "say world"`
+      const result = keybindManager.importAliasFile(content)
+      
+      expect(result.success).toBe(true)
+      expect(result.imported.aliases).toBe(1)
+      expect(result.imported).not.toHaveProperty('keys')
+    })
+
+    it('should warn when no aliases found', () => {
+      const content = 'F1 "say hello"\nF2 "say world"'
+      const result = keybindManager.importAliasFile(content)
+      
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('No aliases found')
+    })
+
+    it('should handle empty alias files', () => {
+      const content = ''
+      const result = keybindManager.importAliasFile(content)
+      
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('No aliases found')
+    })
+
+    it('should merge aliases with existing ones', () => {
+      const profile = {
+        keys: {},
+        aliases: { ExistingAlias: { commands: 'existing command' } },
+        name: 'Test Profile',
+        mode: 'Space'
+      }
+      global.app.getCurrentProfile.mockReturnValue(profile)
+      
+      const content = 'alias NewAlias "new command"'
+      keybindManager.importAliasFile(content)
+      
+      expect(profile.aliases).toHaveProperty('ExistingAlias')
+      expect(profile.aliases).toHaveProperty('NewAlias')
+    })
+
+    it('should update profile modification status', () => {
+      const content = 'alias TestAlias "say test"'
+      keybindManager.importAliasFile(content)
+      
+      expect(app.saveProfile).toHaveBeenCalled()
+      expect(app.setModified).toHaveBeenCalledWith(true)
     })
   })
 }) 

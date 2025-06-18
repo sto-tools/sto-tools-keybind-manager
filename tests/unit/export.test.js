@@ -153,7 +153,7 @@ describe('STOExportManager', () => {
       
       expect(header).toContain('Keys bound: 3')
       expect(header).toContain('Total commands: 4')
-      expect(header).toContain('Aliases defined: 2')
+      expect(header).toContain('Note: Aliases are exported separately')
     })
 
     it('should include usage instructions in header', () => {
@@ -165,16 +165,35 @@ describe('STOExportManager', () => {
       expect(header).toContain('/bind_load_file')
     })
 
-    it('should generate aliases section before keybinds', () => {
+    it('should generate keybind file without aliases', () => {
       const profile = app.getCurrentProfile()
       const content = exportManager.generateSTOKeybindFile(profile)
       
-      const aliasIndex = content.indexOf('Command Aliases')
-      const keybindIndex = content.indexOf('Keybind Commands')
+      // Should not contain alias sections since they're exported separately
+      expect(content).not.toContain('Command Aliases')
+      expect(content).not.toContain('alias TestAlias')
+      expect(content).toContain('Keybind Commands')
+      expect(content).toContain('Note: Aliases are exported separately')
+    })
+
+    it('should export aliases separately', () => {
+      const profile = app.getCurrentProfile()
+      const content = exportManager.generateAliasFile(profile)
       
-      expect(aliasIndex).toBeGreaterThan(-1)
-      expect(keybindIndex).toBeGreaterThan(-1)
-      expect(aliasIndex).toBeLessThan(keybindIndex)
+      expect(content).toContain('STO Alias Configuration')
+      expect(content).toContain('alias TestAlias')
+      expect(content).toContain('alias AttackRun')
+      expect(content).not.toContain('Keybind Commands')
+    })
+
+    it('should generate alias file with proper header', () => {
+      const profile = app.getCurrentProfile()
+      const content = exportManager.generateAliasFile(profile)
+      
+      expect(content).toContain(profile.name + ' - STO Alias Configuration')
+      expect(content).toContain('Total aliases:')
+      expect(content).toContain('Save this file as "CommandAliases.txt"')
+      expect(content).toContain('localdata\\CommandAliases.txt')
     })
 
     it('should sort aliases alphabetically', () => {
@@ -860,6 +879,70 @@ describe('STOExportManager', () => {
       expect(() => exportManager.exportJSONProfile(profile)).not.toThrow()
       expect(() => exportManager.exportCSVData(profile)).not.toThrow()
       expect(() => exportManager.exportHTMLReport(profile)).not.toThrow()
+    })
+  })
+
+  describe('alias export functionality', () => {
+    it('should export aliases to file', () => {
+      const mockAnchor = { 
+        click: vi.fn(), 
+        download: '',
+        href: ''
+      }
+      vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor)
+      vi.spyOn(document.body, 'appendChild').mockImplementation(() => {})
+      vi.spyOn(document.body, 'removeChild').mockImplementation(() => {})
+      
+      const profile = app.getCurrentProfile()
+      exportManager.exportAliases(profile)
+      
+      expect(mockAnchor.click).toHaveBeenCalled()
+      expect(mockAnchor.download).toContain('aliases')
+      expect(mockAnchor.download).toContain('.txt')
+      expect(stoUI.showToast).toHaveBeenCalledWith('Aliases exported successfully', 'success')
+    })
+
+    it('should generate alias filename with proper format', () => {
+      const profile = {
+        name: 'Test Profile',
+        mode: 'space'
+      }
+      
+      const filename = exportManager.generateAliasFileName(profile, 'txt')
+      
+      expect(filename).toContain('Test_Profile')
+      expect(filename).toContain('aliases')
+      expect(filename).toContain('space')
+      expect(filename).toContain('.txt')
+    })
+
+    it('should handle profiles with no aliases', () => {
+      const profile = {
+        name: 'Empty Profile',
+        mode: 'space',
+        aliases: {}
+      }
+      
+      const content = exportManager.generateAliasFile(profile)
+      
+      expect(content).toContain('No aliases defined')
+      expect(content).toContain('Total aliases: 0')
+    })
+  })
+
+  describe('UI elements', () => {
+    it('should have export aliases button', () => {
+      const exportBtn = document.getElementById('exportAliasesBtn')
+      
+      expect(exportBtn).toBeTruthy()
+      expect(exportBtn.id).toBe('exportAliasesBtn')
+    })
+
+    it('should have import aliases button', () => {
+      const importBtn = document.getElementById('importAliasesBtn')
+      
+      expect(importBtn).toBeTruthy()
+      expect(importBtn.id).toBe('importAliasesBtn')
     })
   })
 }) 
