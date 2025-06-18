@@ -436,9 +436,8 @@ describe('STOKeybindManager - Key Filtering', () => {
     let keybindManager;
 
     beforeEach(() => {
-        if (typeof window.STOKeybindManager !== 'undefined') {
-            keybindManager = new window.STOKeybindManager();
-        }
+        expect(window.STOKeybindManager).toBeDefined();
+        keybindManager = new window.STOKeybindManager();
     });
 
     it('should perform key filtering operations correctly', () => {
@@ -495,9 +494,8 @@ describe('STOKeybindManager - Command Management', () => {
     let keybindManager;
 
     beforeEach(() => {
-        if (typeof window.STOKeybindManager !== 'undefined') {
-            keybindManager = new window.STOKeybindManager();
-        }
+        expect(window.STOKeybindManager).toBeDefined();
+        keybindManager = new window.STOKeybindManager();
     });
 
     it('should perform command identification correctly', () => {
@@ -538,9 +536,8 @@ describe('STOKeybindManager - UI Interactions', () => {
     let keybindManager;
 
     beforeEach(() => {
-        if (typeof window.STOKeybindManager !== 'undefined') {
-            keybindManager = new window.STOKeybindManager();
-        }
+        expect(window.STOKeybindManager).toBeDefined();
+        keybindManager = new window.STOKeybindManager();
     });
 
     it('should perform all UI interaction operations correctly', () => {

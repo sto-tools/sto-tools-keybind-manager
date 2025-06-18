@@ -779,9 +779,8 @@ describe('Parameter Modal Functionality', () => {
     });
 
     beforeEach(() => {
-        if (typeof window.STOKeybindManager !== 'undefined') {
-            keybindManager = new window.STOKeybindManager();
-        }
+        expect(window.STOKeybindManager).toBeDefined();
+        keybindManager = new window.STOKeybindManager();
     });
 
     it('should perform all parameter modal operations correctly', () => {
