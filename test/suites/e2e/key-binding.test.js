@@ -100,13 +100,19 @@ describe('Key Binding Functionality', () => {
             const selectResult = window.app.selectKey(keyName);
             expect(selectResult).toBeDefined();
             
-            // Check for selection state in multiple ways
+                        // Check for selection state - key should be properly selected
             const hasSelectedClass = firstKey.classList.contains('selected');
             const hasActiveClass = firstKey.classList.contains('active');
             const isCurrentlySelected = window.app && window.app.selectedKey === (firstKey.dataset.key || firstKey.textContent.trim());
-            
-            // At least one of these should be true to indicate selection
-            expect(hasSelectedClass || hasActiveClass || isCurrentlySelected).toBe(true);
+
+            // Key should have proper selection indication
+            if (hasSelectedClass) {
+                expect(hasSelectedClass).toBe(true);
+            } else if (hasActiveClass) {
+                expect(hasActiveClass).toBe(true);
+            } else {
+                expect(isCurrentlySelected).toBe(true);
+            }
         });
 
         it('should update chain title when key selected', () => {

@@ -29,7 +29,11 @@ describe('Data Module', () => {
 
         it('should have valid category structures', () => {
             Object.entries(window.COMMAND_CATEGORIES).forEach(([key, category]) => {
-                expect(category).toBeInstanceOf(Object);
+                expect(category).toEqual(expect.objectContaining({
+                    name: expect.any(String),
+                    icon: expect.any(String),
+                    description: expect.any(String)
+                }));
                 expect(typeof category.name).toBe('string');
                 expect(category.name.length).toBeGreaterThan(0);
                 expect(typeof category.icon).toBe('string');
@@ -186,263 +190,263 @@ describe('Data Module', () => {
     });
 
 describe('Camera Commands Category', () => {
+    beforeEach(() => {
+        expect(window.STO_DATA).toBeDefined();
+        expect(window.STO_DATA.commands).toBeDefined();
+    });
+
     it('should have camera commands category', () => {
-        if (window.STO_DATA && window.STO_DATA.commands) {
-            expect(window.STO_DATA.commands.camera).toEqual(expect.objectContaining({
-                name: 'Camera',
-                icon: expect.any(String),
-                description: expect.any(String),
-                commands: expect.any(Object)
-            }));
-        }
+        expect(window.STO_DATA.commands.camera).toEqual(expect.objectContaining({
+            name: 'Camera',
+            icon: expect.any(String),
+            description: expect.any(String),
+            commands: expect.any(Object)
+        }));
     });
 
     it('should have essential camera commands', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
-            const cameraCommands = window.STO_DATA.commands.camera.commands;
-            
-            // Check for basic camera commands
-            expect(cameraCommands).toEqual(expect.objectContaining({
-                zoom_in: expect.any(Object),
-                zoom_out: expect.any(Object),
-                cam_reset: expect.any(Object)
+        const cameraCommands = window.STO_DATA.commands.camera.commands;
+        
+        // Check for basic camera commands
+        expect(cameraCommands).toEqual(expect.objectContaining({
+            zoom_in: expect.any(Object),
+            zoom_out: expect.any(Object),
+            cam_reset: expect.any(Object)
+        }));
+        
+        // Verify command structure
+        if (cameraCommands.zoom_in) {
+            expect(cameraCommands.zoom_in).toEqual(expect.objectContaining({
+                name: expect.any(String),
+                command: expect.any(String),
+                description: expect.any(String),
+                icon: expect.any(String)
             }));
-            
-            // Verify command structure
-            if (cameraCommands.zoom_in) {
-                expect(cameraCommands.zoom_in).toEqual(expect.objectContaining({
-                    name: expect.any(String),
-                    command: expect.any(String),
-                    description: expect.any(String),
-                    icon: expect.any(String)
-                }));
-            }
         }
     });
 
     it('should have parameterized camera commands', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
-            const cameraCommands = window.STO_DATA.commands.camera.commands;
-            
-            // Check for parameterized camera distance command
-            if (cameraCommands.cam_distance) {
-                expect(cameraCommands.cam_distance).toEqual(expect.objectContaining({
-                    customizable: true,
-                    parameters: expect.objectContaining({
-                        distance: expect.objectContaining({
-                            type: 'number',
-                            min: expect.any(Number),
-                            max: expect.any(Number),
-                            default: expect.any(Number)
-                        })
+        const cameraCommands = window.STO_DATA.commands.camera.commands;
+        
+        // Check for parameterized camera distance command
+        if (cameraCommands.cam_distance) {
+            expect(cameraCommands.cam_distance).toEqual(expect.objectContaining({
+                customizable: true,
+                parameters: expect.objectContaining({
+                    distance: expect.objectContaining({
+                        type: 'number',
+                        min: expect.any(Number),
+                        max: expect.any(Number),
+                        default: expect.any(Number)
                     })
-                }));
-            }
+                })
+            }));
         }
     });
 });
 
 describe('Shield Management Category Updates', () => {
+    beforeEach(() => {
+        expect(window.STO_DATA).toBeDefined();
+        expect(window.STO_DATA.commands).toBeDefined();
+    });
+
     it('should rename power category to Shield Management', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
-            expect(window.STO_DATA.commands.power.name).toBe('Shield Management');
-            expect(window.STO_DATA.commands.power.icon).toContain('shield');
-        }
+        expect(window.STO_DATA.commands.power.name).toBe('Shield Management');
+        expect(window.STO_DATA.commands.power.icon).toContain('shield');
     });
 
     it('should have shield management commands with warnings', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
-            const powerCommands = window.STO_DATA.commands.power.commands;
-            
-            // Check distribute shields command
-            if (powerCommands.distribute_shields) {
-                expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
-                    name: 'Distribute Shields',
-                    warning: expect.stringContaining('Not recommended on spam bars')
-                }));
-            }
-            
-            // Check shield rerouting commands
-            expect(powerCommands).toEqual(expect.objectContaining({
-                reroute_shields_rear: expect.any(Object),
-                reroute_shields_left: expect.any(Object),
-                reroute_shields_right: expect.any(Object)
+        const powerCommands = window.STO_DATA.commands.power.commands;
+        
+        // Check distribute shields command
+        if (powerCommands.distribute_shields) {
+            expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
+                name: 'Distribute Shields',
+                warning: expect.stringContaining('Not recommended on spam bars')
             }));
         }
+        
+        // Check shield rerouting commands
+        expect(powerCommands).toEqual(expect.objectContaining({
+            reroute_shields_rear: expect.any(Object),
+            reroute_shields_left: expect.any(Object),
+            reroute_shields_right: expect.any(Object)
+        }));
     });
 });
 
 describe('Command Warning System Data', () => {
-    it('should have warnings for combat commands', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.combat) {
-            const combatCommands = window.STO_DATA.commands.combat.commands;
-            
-            // Check that combat commands have appropriate warnings
-            const warningCommands = ['fire_all', 'fire_phasers', 'fire_torps', 'fire_mines', 'fire_phasers_torps', 'fire_projectiles'];
-            
-            warningCommands.forEach(commandKey => {
-                if (combatCommands[commandKey]) {
-                    expect(combatCommands[commandKey]).toEqual(expect.objectContaining({
-                        warning: expect.stringContaining('Not recommended on spam bars')
-                    }));
-                }
-            });
-        }
+    beforeEach(() => {
+        expect(window.STO_DATA).toBeDefined();
+        expect(window.STO_DATA.commands).toBeDefined();
     });
 
-    it('should have warnings for shield management commands', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
-            const powerCommands = window.STO_DATA.commands.power.commands;
-            
-            // Check that distribute shields has warning
-            if (powerCommands.distribute_shields) {
-                expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
+    it('should have warnings for combat commands', () => {
+        const combatCommands = window.STO_DATA.commands.combat.commands;
+        
+        // Check that combat commands have appropriate warnings
+        const warningCommands = ['fire_all', 'fire_phasers', 'fire_torps', 'fire_mines', 'fire_phasers_torps', 'fire_projectiles'];
+        
+        warningCommands.forEach(commandKey => {
+            if (combatCommands[commandKey]) {
+                expect(combatCommands[commandKey]).toEqual(expect.objectContaining({
                     warning: expect.stringContaining('Not recommended on spam bars')
                 }));
             }
+        });
+    });
+
+    it('should have warnings for shield management commands', () => {
+        const powerCommands = window.STO_DATA.commands.power.commands;
+        
+        // Check that distribute shields has warning
+        if (powerCommands.distribute_shields) {
+            expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
+                warning: expect.stringContaining('Not recommended on spam bars')
+            }));
         }
     });
 
     it('should not have warnings for safe commands', () => {
-        if (window.STO_DATA && window.STO_DATA.commands) {
-            // Targeting commands should generally not have warnings
-            if (window.STO_DATA.commands.targeting) {
-                const targetingCommands = window.STO_DATA.commands.targeting.commands;
-                
-                Object.values(targetingCommands).forEach(command => {
-                    if (command) {
-                        expect(command.warning).toBeUndefined();
-                    }
-                });
+        // Targeting commands should generally not have warnings
+        expect(window.STO_DATA.commands.targeting).toBeDefined();
+        const targetingCommands = window.STO_DATA.commands.targeting.commands;
+        
+        Object.values(targetingCommands).forEach(command => {
+            if (command) {
+                expect(command.warning).toBeUndefined();
             }
-        }
+        });
     });
 });
 
 describe('Parameterized Command Data Structure', () => {
+    beforeEach(() => {
+        expect(window.STO_DATA).toBeDefined();
+        expect(window.STO_DATA.commands).toBeDefined();
+    });
+
     it('should have proper parameterized command definitions', () => {
-        if (window.STO_DATA && window.STO_DATA.commands) {
-            const categories = window.STO_DATA.commands;
-            
-            // Look for parameterized commands across categories
-            Object.entries(categories).forEach(([categoryId, category]) => {
-                if (category.commands) {
-                    Object.entries(category.commands).forEach(([commandId, command]) => {
-                        if (command.customizable) {
-                            expect(command).toEqual(expect.objectContaining({
-                                parameters: expect.any(Object)
+        const categories = window.STO_DATA.commands;
+        
+        // Look for parameterized commands across categories
+        Object.entries(categories).forEach(([categoryId, category]) => {
+            if (category.commands) {
+                Object.entries(category.commands).forEach(([commandId, command]) => {
+                    if (command.customizable) {
+                        expect(command).toEqual(expect.objectContaining({
+                            parameters: expect.any(Object)
+                        }));
+                        
+                        // Verify parameter structure
+                        Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
+                            expect(paramDef).toEqual(expect.objectContaining({
+                                type: expect.stringMatching(/^(text|number|boolean)$/),
+                                default: expect.anything()
                             }));
                             
-                            // Verify parameter structure
-                            Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
+                            if (paramDef.type === 'number') {
                                 expect(paramDef).toEqual(expect.objectContaining({
-                                    type: expect.stringMatching(/^(text|number|boolean)$/),
-                                    default: expect.anything()
+                                    min: expect.any(Number),
+                                    max: expect.any(Number)
                                 }));
-                                
-                                if (paramDef.type === 'number') {
-                                    expect(paramDef).toEqual(expect.objectContaining({
-                                        min: expect.any(Number),
-                                        max: expect.any(Number)
-                                    }));
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        }
+                            }
+                        });
+                    }
+                });
+            }
+        });
     });
 
     it('should have movement command parameters', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.movement) {
-            const movementCommands = window.STO_DATA.commands.movement.commands;
-            
-            // Check for throttle adjustment parameters
-            if (movementCommands.throttle_adjust) {
-                expect(movementCommands.throttle_adjust).toEqual(expect.objectContaining({
-                    customizable: true,
-                    parameters: expect.objectContaining({
-                        amount: expect.objectContaining({
-                            type: 'number',
-                            min: -1,
-                            max: 1
-                        })
+        const movementCommands = window.STO_DATA.commands.movement.commands;
+        
+        // Check for throttle adjustment parameters
+        if (movementCommands.throttle_adjust) {
+            expect(movementCommands.throttle_adjust).toEqual(expect.objectContaining({
+                customizable: true,
+                parameters: expect.objectContaining({
+                    amount: expect.objectContaining({
+                        type: 'number',
+                        min: -1,
+                        max: 1
                     })
-                }));
-            }
-            
-            // Check for throttle set parameters
-            if (movementCommands.throttle_set) {
-                expect(movementCommands.throttle_set).toEqual(expect.objectContaining({
-                    customizable: true,
-                    parameters: expect.objectContaining({
-                        position: expect.any(Object)
-                    })
-                }));
-            }
+                })
+            }));
+        }
+        
+        // Check for throttle set parameters
+        if (movementCommands.throttle_set) {
+            expect(movementCommands.throttle_set).toEqual(expect.objectContaining({
+                customizable: true,
+                parameters: expect.objectContaining({
+                    position: expect.any(Object)
+                })
+            }));
         }
     });
 
     it('should have system command parameters', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.system) {
-            const systemCommands = window.STO_DATA.commands.system.commands;
+        const systemCommands = window.STO_DATA.commands.system.commands;
+        
+        // Check for bind file parameters
+        if (systemCommands.bind_save_file) {
+            expect(systemCommands.bind_save_file).toEqual(expect.objectContaining({
+                customizable: true,
+                parameters: expect.objectContaining({
+                    filename: expect.any(Object)
+                })
+            }));
+        }
+        
+        if (systemCommands.bind_load_file) {
+            expect(systemCommands.bind_load_file).toEqual(expect.objectContaining({
+                customizable: true,
+                parameters: expect.objectContaining({
+                    filename: expect.any(Object)
+                })
+            }));
+        }
+        
+        // Check for combat log parameters
+        if (systemCommands.combat_log) {
+            expect(systemCommands.combat_log).toEqual(expect.objectContaining({
+                customizable: true,
+                parameters: expect.objectContaining({
+                    state: expect.any(Object)
+                })
+            }));
             
-            // Check for bind file parameters
-            if (systemCommands.bind_save_file) {
-                expect(systemCommands.bind_save_file).toEqual(expect.objectContaining({
-                    customizable: true,
-                    parameters: expect.objectContaining({
-                        filename: expect.any(Object)
-                    })
-                }));
-            }
-            
-            if (systemCommands.bind_load_file) {
-                expect(systemCommands.bind_load_file).toEqual(expect.objectContaining({
-                    customizable: true,
-                    parameters: expect.objectContaining({
-                        filename: expect.any(Object)
-                    })
-                }));
-            }
-            
-            // Check for combat log parameters
-            if (systemCommands.combat_log) {
-                expect(systemCommands.combat_log).toEqual(expect.objectContaining({
-                    customizable: true,
-                    parameters: expect.objectContaining({
-                        state: expect.any(Object)
-                    })
-                }));
-                
-                const stateParam = systemCommands.combat_log.parameters.state;
-                expect(stateParam.type).toBe('number');
-                expect(stateParam.min).toBe(0);
-                expect(stateParam.max).toBe(1);
-            }
+            const stateParam = systemCommands.combat_log.parameters.state;
+            expect(stateParam.type).toBe('number');
+            expect(stateParam.min).toBe(0);
+            expect(stateParam.max).toBe(1);
         }
     });
 });
 
 describe('Communication Command Structure', () => {
+    beforeEach(() => {
+        expect(window.STO_DATA).toBeDefined();
+        expect(window.STO_DATA.commands).toBeDefined();
+    });
+
     it('should have communication commands with message parameters', () => {
-        if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.communication) {
-            const commCommands = window.STO_DATA.commands.communication.commands;
-            
-            // Check for message-based commands
-            Object.values(commCommands).forEach(command => {
-                if (command && command.customizable) {
-                    expect(command).toEqual(expect.objectContaining({
-                        parameters: expect.objectContaining({
-                            message: expect.objectContaining({
-                                type: 'string'
-                            })
+        const commCommands = window.STO_DATA.commands.communication.commands;
+        
+        // Check for message-based commands
+        Object.values(commCommands).forEach(command => {
+            if (command && command.customizable) {
+                expect(command).toEqual(expect.objectContaining({
+                    parameters: expect.objectContaining({
+                        message: expect.objectContaining({
+                            type: 'string'
                         })
-                    }));
-                }
-            });
-        }
+                    })
+                }));
+            }
+        });
     });
 });
 
@@ -500,264 +504,4 @@ describe('Communication Command Structure', () => {
             });
         });
     });
-
-    describe('Camera Commands Category', () => {
-        it('should have camera commands category', () => {
-            if (window.STO_DATA && window.STO_DATA.commands) {
-                expect(window.STO_DATA.commands.camera).toEqual(expect.objectContaining({
-                    name: 'Camera',
-                    icon: expect.any(String),
-                    description: expect.any(String),
-                    commands: expect.any(Object)
-                }));
-            }
-        });
-
-        it('should have essential camera commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
-                const cameraCommands = window.STO_DATA.commands.camera.commands;
-                
-                // Check for basic camera commands
-                expect(cameraCommands).toEqual(expect.objectContaining({
-                    zoom_in: expect.any(Object),
-                    zoom_out: expect.any(Object),
-                    cam_reset: expect.any(Object)
-                }));
-                
-                // Verify command structure
-                if (cameraCommands.zoom_in) {
-                    expect(cameraCommands.zoom_in).toEqual(expect.objectContaining({
-                        name: expect.any(String),
-                        command: expect.any(String),
-                        description: expect.any(String),
-                        icon: expect.any(String)
-                    }));
-                }
-            }
-        });
-
-        it('should have parameterized camera commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.camera) {
-                const cameraCommands = window.STO_DATA.commands.camera.commands;
-                
-                // Check for parameterized camera distance command
-                if (cameraCommands.cam_distance) {
-                    expect(cameraCommands.cam_distance).toEqual(expect.objectContaining({
-                        customizable: true,
-                        parameters: expect.objectContaining({
-                            distance: expect.objectContaining({
-                                type: 'number',
-                                min: expect.any(Number),
-                                max: expect.any(Number),
-                                default: expect.any(Number)
-                            })
-                        })
-                    }));
-                }
-            }
-        });
-    });
-
-    describe('Shield Management Category Updates', () => {
-        it('should rename power category to Shield Management', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
-                expect(window.STO_DATA.commands.power.name).toBe('Shield Management');
-                expect(window.STO_DATA.commands.power.icon).toContain('shield');
-            }
-        });
-
-        it('should have shield management commands with warnings', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
-                const powerCommands = window.STO_DATA.commands.power.commands;
-                
-                // Check distribute shields command
-                if (powerCommands.distribute_shields) {
-                    expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
-                        name: 'Distribute Shields',
-                        warning: expect.stringContaining('Not recommended on spam bars')
-                    }));
-                }
-                
-                // Check shield rerouting commands
-                expect(powerCommands).toEqual(expect.objectContaining({
-                    reroute_shields_rear: expect.any(Object),
-                    reroute_shields_left: expect.any(Object),
-                    reroute_shields_right: expect.any(Object)
-                }));
-            }
-        });
-    });
-
-    describe('Command Warning System Data', () => {
-        it('should have warnings for combat commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.combat) {
-                const combatCommands = window.STO_DATA.commands.combat.commands;
-                
-                // Check that combat commands have appropriate warnings
-                const warningCommands = ['fire_all', 'fire_phasers', 'fire_torps', 'fire_mines', 'fire_phasers_torps', 'fire_projectiles'];
-                
-                warningCommands.forEach(commandKey => {
-                    if (combatCommands[commandKey]) {
-                        expect(combatCommands[commandKey]).toEqual(expect.objectContaining({
-                            warning: expect.stringContaining('Not recommended on spam bars')
-                        }));
-                    }
-                });
-            }
-        });
-
-        it('should have warnings for shield management commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
-                const powerCommands = window.STO_DATA.commands.power.commands;
-                
-                // Check that distribute shields has warning
-                if (powerCommands.distribute_shields) {
-                    expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
-                        warning: expect.stringContaining('Not recommended on spam bars')
-                    }));
-                }
-            }
-        });
-
-        it('should not have warnings for safe commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands) {
-                // Targeting commands should generally not have warnings
-                if (window.STO_DATA.commands.targeting) {
-                    const targetingCommands = window.STO_DATA.commands.targeting.commands;
-                    
-                    Object.values(targetingCommands).forEach(command => {
-                        if (command) {
-                            expect(command.warning).toBeUndefined();
-                        }
-                    });
-                }
-            }
-        });
-    });
-
-    describe('Parameterized Command Data Structure', () => {
-        it('should have proper parameterized command definitions', () => {
-            if (window.STO_DATA && window.STO_DATA.commands) {
-                const categories = window.STO_DATA.commands;
-                
-                // Look for parameterized commands across categories
-                Object.entries(categories).forEach(([categoryId, category]) => {
-                    if (category.commands) {
-                                            Object.entries(category.commands).forEach(([commandId, command]) => {
-                        if (command.customizable) {
-                            expect(command).toEqual(expect.objectContaining({
-                                parameters: expect.any(Object)
-                            }));
-                            
-                            // Verify parameter structure
-                            Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
-                                expect(paramDef).toEqual(expect.objectContaining({
-                                    type: expect.stringMatching(/^(text|number|boolean)$/),
-                                    default: expect.anything()
-                                }));
-                                
-                                if (paramDef.type === 'number') {
-                                    expect(paramDef).toEqual(expect.objectContaining({
-                                        min: expect.any(Number),
-                                        max: expect.any(Number)
-                                    }));
-                                }
-                            });
-                        }
-                    });
-                    }
-                });
-            }
-        });
-
-        it('should have movement command parameters', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.movement) {
-                const movementCommands = window.STO_DATA.commands.movement.commands;
-                
-                // Check for throttle adjustment parameters
-                if (movementCommands.throttle_adjust) {
-                    expect(movementCommands.throttle_adjust).toEqual(expect.objectContaining({
-                        customizable: true,
-                        parameters: expect.objectContaining({
-                            amount: expect.objectContaining({
-                                type: 'number',
-                                min: -1,
-                                max: 1
-                            })
-                        })
-                    }));
-                }
-                
-                // Check for throttle set parameters
-                if (movementCommands.throttle_set) {
-                    expect(movementCommands.throttle_set).toEqual(expect.objectContaining({
-                        customizable: true,
-                        parameters: expect.objectContaining({
-                            position: expect.any(Object)
-                        })
-                    }));
-                }
-            }
-        });
-
-        it('should have system command parameters', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.system) {
-                const systemCommands = window.STO_DATA.commands.system.commands;
-                
-                // Check for bind file parameters
-                if (systemCommands.bind_save_file) {
-                    expect(systemCommands.bind_save_file).toEqual(expect.objectContaining({
-                        customizable: true,
-                        parameters: expect.objectContaining({
-                            filename: expect.any(Object)
-                        })
-                    }));
-                }
-                
-                if (systemCommands.bind_load_file) {
-                    expect(systemCommands.bind_load_file).toEqual(expect.objectContaining({
-                        customizable: true,
-                        parameters: expect.objectContaining({
-                            filename: expect.any(Object)
-                        })
-                    }));
-                }
-                
-                // Check for combat log parameters
-                if (systemCommands.combat_log) {
-                    expect(systemCommands.combat_log).toEqual(expect.objectContaining({
-                        customizable: true,
-                        parameters: expect.objectContaining({
-                            state: expect.objectContaining({
-                                type: 'number',
-                                min: 0,
-                                max: 1
-                            })
-                        })
-                    }));
-                }
-            }
-        });
-    });
-
-    describe('Communication Command Structure', () => {
-        it('should have communication commands with message parameters', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.communication) {
-                const commCommands = window.STO_DATA.commands.communication.commands;
-                
-                // Check for message-based commands
-                Object.values(commCommands).forEach(command => {
-                    if (command && command.customizable) {
-                        expect(command).toEqual(expect.objectContaining({
-                            parameters: expect.objectContaining({
-                                message: expect.objectContaining({
-                                    type: 'text'
-                                })
-                            })
-                        }));
-                    }
-                });
-            }
-        });
-    });
-}); 
+});

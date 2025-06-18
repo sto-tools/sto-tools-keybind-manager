@@ -402,13 +402,11 @@ describe('STOStorage', () => {
     let storageManager;
 
     beforeEach(() => {
-        if (typeof window.STOStorage !== 'undefined') {
-            storageManager = new window.STOStorage();
-        }
+        expect(window.STOStorage).toBeDefined();
+        storageManager = new window.STOStorage();
     });
 
     it('should create STOStorage instance', () => {
-        expect(window.STOStorage).toBeDefined();
         expect(storageManager).toBeInstanceOf(window.STOStorage);
         expect(storageManager.constructor.name).toBe('STOStorage');
     });
@@ -443,7 +441,6 @@ describe('STOStorage', () => {
 
     it('should validate data structure', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidDataStructure).toBe('function');
         
         const validData = {
             profiles: {
@@ -458,11 +455,15 @@ describe('STOStorage', () => {
 
         const result = storageManager.isValidDataStructure(validData);
         expect(result).toBe(true);
+        
+        // Test actual validation behavior
+        expect(storageManager.isValidDataStructure(null)).toBe(false);
+        expect(storageManager.isValidDataStructure(undefined)).toBe(false);
+        expect(storageManager.isValidDataStructure({})).toBe(false);
     });
 
     it('should reject invalid data structure', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidDataStructure).toBe('function');
         
         const invalidData = {
             profiles: 'invalid'
@@ -470,11 +471,14 @@ describe('STOStorage', () => {
 
         const result = storageManager.isValidDataStructure(invalidData);
         expect(result).toBe(false);
+        
+        // Test additional invalid cases
+        expect(storageManager.isValidDataStructure({ profiles: null })).toBe(false);
+        expect(storageManager.isValidDataStructure({ profiles: [] })).toBe(false);
     });
 
     it('should handle missing currentProfile', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidDataStructure).toBe('function');
         
         const invalidData = {
             profiles: {
@@ -488,6 +492,10 @@ describe('STOStorage', () => {
 
         const result = storageManager.isValidDataStructure(invalidData);
         expect(result).toBe(false);
+        
+        // Test that currentProfile is required
+        const validWithCurrentProfile = { ...invalidData, currentProfile: 'test' };
+        expect(storageManager.isValidDataStructure(validWithCurrentProfile)).toBe(true);
     });
 });
 
@@ -495,14 +503,12 @@ describe('STOStorage - Profile Structure Validation', () => {
     let storageManager;
 
     beforeEach(() => {
-        if (typeof window.STOStorage !== 'undefined') {
-            storageManager = new window.STOStorage();
-        }
+        expect(window.STOStorage).toBeDefined();
+        storageManager = new window.STOStorage();
     });
 
     it('should validate old profile format', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const oldProfile = {
             name: 'Test Profile',
@@ -515,11 +521,15 @@ describe('STOStorage - Profile Structure Validation', () => {
 
         const result = storageManager.isValidProfile(oldProfile);
         expect(result).toBe(true);
+        
+        // Test that all required fields are validated
+        const profileWithoutName = { ...oldProfile };
+        delete profileWithoutName.name;
+        expect(storageManager.isValidProfile(profileWithoutName)).toBe(false);
     });
 
     it('should validate new profile format with builds structure', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const newProfile = {
             name: 'Test Profile',
@@ -538,11 +548,15 @@ describe('STOStorage - Profile Structure Validation', () => {
 
         const result = storageManager.isValidProfile(newProfile);
         expect(result).toBe(true);
+        
+        // Test that build structure is properly validated
+        const profileWithInvalidBuild = { ...newProfile };
+        profileWithInvalidBuild.builds.space = { aliases: {} }; // Missing keys
+        expect(storageManager.isValidProfile(profileWithInvalidBuild)).toBe(false);
     });
 
     it('should reject profile with missing name', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const invalidProfile = {
             mode: 'space',
@@ -555,7 +569,6 @@ describe('STOStorage - Profile Structure Validation', () => {
 
     it('should reject old profile format with missing required fields', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const invalidProfile = {
             name: 'Test Profile',
@@ -569,7 +582,6 @@ describe('STOStorage - Profile Structure Validation', () => {
 
     it('should reject new profile format with invalid builds structure', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const invalidProfile = {
             name: 'Test Profile',
@@ -587,7 +599,6 @@ describe('STOStorage - Profile Structure Validation', () => {
 
     it('should reject new profile format with no builds', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const invalidProfile = {
             name: 'Test Profile',
@@ -600,7 +611,6 @@ describe('STOStorage - Profile Structure Validation', () => {
 
     it('should accept new profile with only space build', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const validProfile = {
             name: 'Test Profile',
@@ -618,7 +628,6 @@ describe('STOStorage - Profile Structure Validation', () => {
 
     it('should accept new profile with only ground build', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const validProfile = {
             name: 'Test Profile',
@@ -636,7 +645,6 @@ describe('STOStorage - Profile Structure Validation', () => {
 
     it('should reject profile with invalid build environment names', () => {
         expect(storageManager).toBeInstanceOf(window.STOStorage);
-        expect(typeof storageManager.isValidProfile).toBe('function');
         
         const invalidProfile = {
             name: 'Test Profile',
@@ -658,9 +666,8 @@ describe('STOStorage - Data Persistence', () => {
     let storageManager;
 
     beforeEach(() => {
-        if (typeof window.STOStorage !== 'undefined') {
-            storageManager = new window.STOStorage();
-        }
+        expect(window.STOStorage).toBeDefined();
+        storageManager = new window.STOStorage();
         // Clear localStorage before each test
         localStorage.clear();
     });

@@ -63,32 +63,29 @@ describe('Command Library', () => {
             expect(testCommand.command).toContain('STOTrayExecByTray');
         });
 
+        beforeEach(() => {
+            expect(window.STO_DATA).toBeDefined();
+            expect(window.STO_DATA.commands).toBeDefined();
+        });
+
         it('should have power management commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.power) {
-                expect(window.STO_DATA.commands.power).toBeTruthy();
-                expect(window.STO_DATA.commands.power.commands).toBeTruthy();
-            }
+            expect(window.STO_DATA.commands.power).toBeTruthy();
+            expect(window.STO_DATA.commands.power.commands).toBeTruthy();
         });
 
         it('should have movement commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.movement) {
-                expect(window.STO_DATA.commands.movement).toBeTruthy();
-                expect(window.STO_DATA.commands.movement.commands).toBeTruthy();
-            }
+            expect(window.STO_DATA.commands.movement).toBeTruthy();
+            expect(window.STO_DATA.commands.movement.commands).toBeTruthy();
         });
 
         it('should have communication commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.communication) {
-                expect(window.STO_DATA.commands.communication).toBeTruthy();
-                expect(window.STO_DATA.commands.communication.commands).toBeTruthy();
-            }
+            expect(window.STO_DATA.commands.communication).toBeTruthy();
+            expect(window.STO_DATA.commands.communication.commands).toBeTruthy();
         });
 
         it('should have system commands', () => {
-            if (window.STO_DATA && window.STO_DATA.commands && window.STO_DATA.commands.system) {
-                expect(window.STO_DATA.commands.system).toBeTruthy();
-                expect(window.STO_DATA.commands.system.commands).toBeTruthy();
-            }
+            expect(window.STO_DATA.commands.system).toBeTruthy();
+            expect(window.STO_DATA.commands.system.commands).toBeTruthy();
         });
     });
 
@@ -445,14 +442,13 @@ describe('Command Library', () => {
     });
 
     describe('Command Validation', () => {
-        it('should validate command syntax', () => {
-            expect(window.stoCommands).toBeDefined();
-            expect(typeof window.stoCommands.validateCommand).toBe('function');
-            
+                it('should validate command syntax', () => {
+            expect(window.stoCommands).toBeInstanceOf(Object);
+
             const validCommand = '+STOTrayExecByTray 0 0';
             const result = window.stoCommands.validateCommand(validCommand);
-            
-            expect(result).toBeDefined();
+
+            expect(result).not.toBeNull();
             if (typeof result === 'boolean') {
                 expect(result).toBe(true);
             } else if (typeof result === 'object') {

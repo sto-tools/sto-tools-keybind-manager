@@ -433,7 +433,7 @@ describe('Alias Management', () => {
             expect(profile.aliases).toBeDefined();
             
             // Aliases should be part of profile structure
-            expect(typeof profile.aliases).toBe('object');
+            expect(profile.aliases).toEqual(expect.any(Object));
         });
     });
 }); 

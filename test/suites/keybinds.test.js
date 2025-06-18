@@ -585,7 +585,7 @@ describe('Key Categorization', () => {
         const categorized = app.categorizeKeys(testKeys, allKeys);
 
         // Check that categories exist
-        expect(typeof categorized).toBe('object');
+        expect(categorized).toEqual(expect.any(Object));
         expect(categorized).not.toBeNull();
 
         // Check that SPACE appears in multiple categories
@@ -708,7 +708,7 @@ describe('Key Categorization', () => {
         const categorized = app.categorizeKeys(testKeys, allKeys);
 
         // Should either be in custom category or remain uncategorized
-        expect(typeof categorized).toBe('object');
+        expect(categorized).toEqual(expect.any(Object));
         expect(categorized).not.toBeNull();
         
         // Check if it ends up in a fallback category

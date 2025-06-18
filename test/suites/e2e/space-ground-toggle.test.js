@@ -348,17 +348,17 @@ describe('Space/Ground Toggle - E2E', () => {
             spaceBtn.dispatchEvent(spaceClickEvent);
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            const spaceProfile = window.app.getCurrentProfile();
-            expect(spaceProfile.keys.Space).toBeDefined();
+                        const spaceProfile = window.app.getCurrentProfile();
+            expect(spaceProfile.keys.Space).toEqual(expect.any(Array));
             expect(spaceProfile.keys.Space.some(cmd => cmd.command === 'FireAll')).toBe(true);
             expect(spaceProfile.keys.Space.some(cmd => cmd.command === 'Target_Enemy_Near')).toBe(false);
-            
+
             // Switch to ground and check
             groundBtn.dispatchEvent(groundClickEvent);
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             const groundProfile = window.app.getCurrentProfile();
-            expect(groundProfile.keys.Space).toBeDefined();
+            expect(groundProfile.keys.Space).toEqual(expect.any(Array));
             expect(groundProfile.keys.Space.some(cmd => cmd.command === 'Target_Enemy_Near')).toBe(true);
             expect(groundProfile.keys.Space.some(cmd => cmd.command === 'FireAll')).toBe(false);
             
@@ -643,23 +643,28 @@ describe('Space/Ground Toggle - E2E', () => {
             const retrievedProfile = window.stoStorage.getProfile(testProfileId);
             const currentBuild = window.app.getCurrentBuild(retrievedProfile);
             
-            // Verify migration occurred in the returned build
-            expect(currentBuild).toBeDefined();
-            expect(currentBuild.keys).toBeDefined();
-            expect(currentBuild.mode).toBeDefined();
-            
+                        // Verify migration occurred in the returned build
+            expect(currentBuild).not.toBeNull();
+            expect(currentBuild).toEqual(expect.objectContaining({
+                keys: expect.any(Object),
+                mode: expect.any(String)
+            }));
+
             // Verify that the old profile keys were migrated correctly
-            expect(currentBuild.keys.Space).toBeDefined();
+            expect(currentBuild.keys.Space).toEqual(expect.any(Array));
             expect(currentBuild.keys.Space).toEqual(oldProfile.keys.Space);
-            
+
             // The current environment should be set correctly
             expect(currentBuild.mode).toBe('space');
-            
+
             // Verify that the profile in storage was actually migrated
             const migratedProfile = window.stoStorage.getProfile(testProfileId);
-            expect(migratedProfile.builds).toBeDefined();
-            expect(migratedProfile.builds.space).toBeDefined();
-            expect(migratedProfile.builds.ground).toBeDefined();
+            expect(migratedProfile).toEqual(expect.objectContaining({
+                builds: expect.objectContaining({
+                    space: expect.any(Object),
+                    ground: expect.any(Object)
+                })
+            }));
             expect(migratedProfile.builds.space.keys.Space).toEqual(oldProfile.keys.Space);
             
             // Restore original state and clean up
