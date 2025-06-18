@@ -364,9 +364,4 @@ class STOStorage {
 }
 
 // Global storage instance
-window.stoStorage = new STOStorage();
-
-// Export for other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = STOStorage;
-} 
+window.stoStorage = new STOStorage(); 

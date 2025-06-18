@@ -515,4 +515,4 @@ class STOKeybindFileManager {
 }
 
 // Global keybind manager instance
-window.stoKeybinds = new STOKeybindFileManager(); 
+window.stoKeybinds = new STOKeybindFileManager();

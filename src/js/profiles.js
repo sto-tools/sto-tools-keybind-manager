@@ -297,16 +297,22 @@ class STOProfileManager {
 
     // Settings Menu Management
     toggleSettingsMenu() {
-        const dropdown = document.getElementById('settingsBtn').closest('.dropdown');
-        if (dropdown) {
-            dropdown.classList.toggle('active');
+        const settingsBtn = document.getElementById('settingsBtn');
+        if (settingsBtn) {
+            const dropdown = settingsBtn.closest('.dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('active');
+            }
         }
     }
 
     closeSettingsMenu() {
-        const dropdown = document.getElementById('settingsBtn')?.closest('.dropdown');
-        if (dropdown) {
-            dropdown.classList.remove('active');
+        const settingsBtn = document.getElementById('settingsBtn');
+        if (settingsBtn) {
+            const dropdown = settingsBtn.closest('.dropdown');
+            if (dropdown) {
+                dropdown.classList.remove('active');
+            }
         }
     }
 
