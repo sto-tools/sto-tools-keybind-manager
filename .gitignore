@@ -9,3 +9,44 @@ test/results/
 .cursor/rules/ruler_cursor_instructions.md
 .windsurf/rules/ruler_windsurf_instructions.md
 # END Ruler Generated Files
+
+# Testing
+node_modules/
+coverage/
+*.log
+*.tgz
+*.tar.gz
+
+# Vitest Browser Mode
+test-results/
+playwright-report/
+
+# Vitest
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
