@@ -48,21 +48,41 @@ class STOProfileManager {
             this.toggleSettingsMenu();
         });
 
-        // Settings menu items
+        // Keybinds dropdown
+        document.getElementById('keybindsBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleKeybindsMenu();
+        });
+
+        // Aliases dropdown  
+        document.getElementById('aliasesBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleAliasesMenu();
+        });
+
         document.getElementById('importKeybindsBtn')?.addEventListener('click', () => {
             this.importKeybinds();
+            this.closeKeybindsMenu();
+        });
+
+        document.getElementById('exportKeybindsBtn')?.addEventListener('click', () => {
+            this.exportKeybinds();
+            this.closeKeybindsMenu();
         });
 
         document.getElementById('importAliasesBtn')?.addEventListener('click', () => {
             this.importAliases();
+            this.closeAliasesMenu();
         });
 
         document.getElementById('exportAliasesBtn')?.addEventListener('click', () => {
             this.exportAliases();
+            this.closeAliasesMenu();
         });
 
         document.getElementById('resetAppBtn')?.addEventListener('click', () => {
             this.confirmResetApp();
+            this.closeSettingsMenu();
         });
 
         document.getElementById('aboutBtn')?.addEventListener('click', () => {
@@ -72,6 +92,8 @@ class STOProfileManager {
         // Close settings menu when clicking outside
         document.addEventListener('click', () => {
             this.closeSettingsMenu();
+            this.closeKeybindsMenu();
+            this.closeAliasesMenu();
         });
     }
 
@@ -324,6 +346,56 @@ class STOProfileManager {
         }
     }
 
+    // Keybinds Menu Management
+    toggleKeybindsMenu() {
+        // Close other dropdowns first
+        this.closeSettingsMenu();
+        this.closeAliasesMenu();
+        
+        const keybindsBtn = document.getElementById('keybindsBtn');
+        if (keybindsBtn) {
+            const dropdown = keybindsBtn.closest('.dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('active');
+            }
+        }
+    }
+
+    closeKeybindsMenu() {
+        const keybindsBtn = document.getElementById('keybindsBtn');
+        if (keybindsBtn) {
+            const dropdown = keybindsBtn.closest('.dropdown');
+            if (dropdown) {
+                dropdown.classList.remove('active');
+            }
+        }
+    }
+
+    // Aliases Menu Management
+    toggleAliasesMenu() {
+        // Close other dropdowns first
+        this.closeSettingsMenu();
+        this.closeKeybindsMenu();
+        
+        const aliasesBtn = document.getElementById('aliasesBtn');
+        if (aliasesBtn) {
+            const dropdown = aliasesBtn.closest('.dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('active');
+            }
+        }
+    }
+
+    closeAliasesMenu() {
+        const aliasesBtn = document.getElementById('aliasesBtn');
+        if (aliasesBtn) {
+            const dropdown = aliasesBtn.closest('.dropdown');
+            if (dropdown) {
+                dropdown.classList.remove('active');
+            }
+        }
+    }
+
     // Import/Export Operations
     importKeybinds() {
         const input = document.getElementById('fileInput');
@@ -332,6 +404,21 @@ class STOProfileManager {
             input.onchange = null; // Clear any existing handlers
             input.click();
         }
+    }
+
+    exportKeybinds() {
+        const profile = app.getCurrentProfile();
+        if (!profile) {
+            stoUI.showToast('No profile selected to export', 'warning');
+            return;
+        }
+
+        if (!profile.keys || Object.keys(profile.keys).length === 0) {
+            stoUI.showToast('No keybinds to export', 'warning');
+            return;
+        }
+
+        stoExport.exportSTOKeybindFile(profile);
     }
 
     importAliases() {

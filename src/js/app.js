@@ -1183,10 +1183,10 @@ class STOToolsKeybindManager {
         const hasSelectedKey = !!this.selectedKey;
         
         // Enable/disable buttons based on selection
+        // Note: addAliasBtn is not included because aliases are independent of key selection
         const buttonsToToggle = [
             'addCommandBtn',
             'addFromTemplateBtn', 
-            'addAliasBtn',
             'importFromKeyBtn',
             'deleteKeyBtn',
             'duplicateKeyBtn'

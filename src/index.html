@@ -23,23 +23,37 @@
                 <button class="btn btn-secondary" id="saveProjectBtn" title="Save Project JSON">
                     <i class="fas fa-save"></i> Save
                 </button>
-                <button class="btn btn-primary" id="exportKeybindsBtn" title="Export STO Keybind File">
-                    <i class="fas fa-download"></i> Export
-                </button>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" id="keybindsBtn" title="Keybind Operations">
+                        <i class="fas fa-keyboard"></i> Keybinds
+                    </button>
+                    <div class="dropdown-menu" id="keybindsMenu">
+                        <button class="dropdown-item" id="importKeybindsBtn">
+                            <i class="fas fa-file-import"></i> Import Keybinds
+                        </button>
+                        <button class="dropdown-item" id="exportKeybindsBtn">
+                            <i class="fas fa-download"></i> Export Keybinds
+                        </button>
+                    </div>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" id="aliasesBtn" title="Alias Operations">
+                        <i class="fas fa-mask"></i> Aliases
+                    </button>
+                    <div class="dropdown-menu" id="aliasesMenu">
+                        <button class="dropdown-item" id="importAliasesBtn">
+                            <i class="fas fa-mask"></i> Import Aliases
+                        </button>
+                        <button class="dropdown-item" id="exportAliasesBtn">
+                            <i class="fas fa-mask"></i> Export Aliases
+                        </button>
+                    </div>
+                </div>
                 <div class="dropdown">
                     <button class="btn btn-icon dropdown-toggle" id="settingsBtn" title="Settings">
                         <i class="fas fa-cog"></i>
                     </button>
                     <div class="dropdown-menu" id="settingsMenu">
-                        <button class="dropdown-item" id="importKeybindsBtn">
-                            <i class="fas fa-file-import"></i> Import STO Keybinds
-                        </button>
-                        <button class="dropdown-item" id="importAliasesBtn">
-                            <i class="fas fa-mask"></i> Import Aliases
-                        </button>
-                        <button class="dropdown-item" id="exportAliasesBtn">
-                            <i class="fas fa-download"></i> Export Aliases
-                        </button>
                         <button class="dropdown-item" id="resetAppBtn">
                             <i class="fas fa-refresh"></i> Reset Application
                         </button>
@@ -183,7 +197,7 @@
                     <button class="btn btn-secondary" id="addFromTemplateBtn" disabled>
                         <i class="fas fa-list"></i> From Template
                     </button>
-                    <button class="btn btn-secondary" id="addAliasBtn" disabled>
+                    <button class="btn btn-secondary" id="addAliasBtn">
                         <i class="fas fa-mask"></i> Add Alias
                     </button>
                     <button class="btn btn-secondary" id="importFromKeyBtn" disabled>
