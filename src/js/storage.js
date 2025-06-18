@@ -364,4 +364,4 @@ class STOStorage {
 }
 
 // Global storage instance
-window.stoStorage = new STOStorage(); 
+window.stoStorage = new STOStorage();

@@ -436,13 +436,13 @@ class STOToolsKeybindManager {
         
         // Get all keys for this profile
         const keys = Object.keys(profile.keys);
-        console.log('renderKeyGrid: Profile keys:', keys);
-        console.log('renderKeyGrid: Profile keys count:', keys.length);
+        // console.log('renderKeyGrid: Profile keys:', keys);
+        // console.log('renderKeyGrid: Profile keys count:', keys.length);
         
         // Add common keys that might not have commands yet
         const commonKeys = ['Space', '1', '2', '3', '4', '5', 'F1', 'F2', 'F3', 'F4'];
         const allKeys = [...new Set([...keys, ...commonKeys])].sort();
-        console.log('renderKeyGrid: All keys to render:', allKeys);
+        // console.log('renderKeyGrid: All keys to render:', allKeys);
         
         // Check view preference
         const viewMode = localStorage.getItem('keyViewMode') || 'key-types';

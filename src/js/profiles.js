@@ -300,8 +300,8 @@ class STOProfileManager {
         const settingsBtn = document.getElementById('settingsBtn');
         if (settingsBtn) {
             const dropdown = settingsBtn.closest('.dropdown');
-            if (dropdown) {
-                dropdown.classList.toggle('active');
+        if (dropdown) {
+            dropdown.classList.toggle('active');
             }
         }
     }
@@ -310,8 +310,8 @@ class STOProfileManager {
         const settingsBtn = document.getElementById('settingsBtn');
         if (settingsBtn) {
             const dropdown = settingsBtn.closest('.dropdown');
-            if (dropdown) {
-                dropdown.classList.remove('active');
+        if (dropdown) {
+            dropdown.classList.remove('active');
             }
         }
     }
