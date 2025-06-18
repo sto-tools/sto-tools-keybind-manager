@@ -22,7 +22,7 @@ describe('STOKeybindManager Class', () => {
     });
 
     it('should create STOKeybindManager instance', () => {
-        expect(keybindManager).toBeDefined();
+        expect(keybindManager).toBeInstanceOf(Object);
         expect(keybindManager.constructor.name).toBe('STOKeybindFileManager');
     });
 
@@ -30,9 +30,14 @@ describe('STOKeybindManager Class', () => {
         // Test file parsing
         const testContent = `# Test file\na "Target"\nb "FireAll"\nalias attack "Target_Enemy_Near $$ FireAll"`;
         const parseResult = keybindManager.parseKeybindFile(testContent);
-        expect(parseResult.keybinds.a).toBeDefined();
-        expect(parseResult.keybinds.a.commands[0].command).toBe('Target');
-        expect(parseResult.aliases.attack).toBeDefined();
+        expect(parseResult.keybinds.a).toEqual(expect.objectContaining({
+            commands: expect.arrayContaining([
+                expect.objectContaining({ command: 'Target' })
+            ])
+        }));
+        expect(parseResult.aliases.attack).toEqual(expect.objectContaining({
+            commands: expect.any(String)
+        }));
         
         // Test command string parsing
         const commandString = "Target_Enemy_Near $$ FireAll $$ heal_self";
@@ -63,14 +68,16 @@ describe('STOKeybindManager Class', () => {
         // Test file import
         const importResult = keybindManager.importKeybindFile(testContent);
         expect(importResult.success).toBe(true);
-        expect(importResult.profile).toBeDefined();
+        expect(importResult.profile).toEqual(expect.objectContaining({
+            name: expect.any(String)
+        }));
     });
 
     it('should have working pattern matching', () => {
-        expect(keybindManager.keybindPatterns).toBeDefined();
-        expect(keybindManager.keybindPatterns.standard).toBeDefined();
-        expect(keybindManager.keybindPatterns.alias).toBeDefined();
-        expect(keybindManager.keybindPatterns.comment).toBeDefined();
+        expect(typeof keybindManager.keybindPatterns).toBe('object');
+        expect(keybindManager.keybindPatterns.standard instanceof RegExp).toBe(true);
+        expect(keybindManager.keybindPatterns.alias instanceof RegExp).toBe(true);
+        expect(keybindManager.keybindPatterns.comment instanceof RegExp).toBe(true);
         
         // Test pattern functionality
         expect(keybindManager.keybindPatterns.standard.test('a "Target"')).toBe(true);
@@ -100,15 +107,23 @@ space "Target_Enemy_Near"`;
 
         const result = keybindManager.parseKeybindFile(content);
         
-        expect(result.keybinds.a).toBeDefined();
-        expect(result.keybinds.a.commands).toHaveLength(1);
-        expect(result.keybinds.a.commands[0].command).toBe('Target');
+        expect(result.keybinds.a).toEqual(expect.objectContaining({
+            commands: expect.arrayContaining([
+                expect.objectContaining({ command: 'Target' })
+            ])
+        }));
         
-        expect(result.keybinds.b).toBeDefined();
-        expect(result.keybinds.b.commands[0].command).toBe('FireAll');
+        expect(result.keybinds.b).toEqual(expect.objectContaining({
+            commands: expect.arrayContaining([
+                expect.objectContaining({ command: 'FireAll' })
+            ])
+        }));
         
-        expect(result.keybinds.space).toBeDefined();
-        expect(result.keybinds.space.commands[0].command).toBe('Target_Enemy_Near');
+        expect(result.keybinds.space).toEqual(expect.objectContaining({
+            commands: expect.arrayContaining([
+                expect.objectContaining({ command: 'Target_Enemy_Near' })
+            ])
+        }));
     });
 
     it('should parse command chains', () => {
@@ -116,11 +131,13 @@ space "Target_Enemy_Near"`;
         
         const result = keybindManager.parseKeybindFile(content);
         
-        expect(result.keybinds.f1).toBeDefined();
-        expect(result.keybinds.f1.commands).toHaveLength(3);
-        expect(result.keybinds.f1.commands[0].command).toBe('Target_Enemy_Near');
-        expect(result.keybinds.f1.commands[1].command).toBe('FireAll');
-        expect(result.keybinds.f1.commands[2].command).toBe('+STOTrayExecByTray 0 5');
+        expect(result.keybinds.f1).toEqual(expect.objectContaining({
+            commands: [
+                expect.objectContaining({ command: 'Target_Enemy_Near' }),
+                expect.objectContaining({ command: 'FireAll' }),
+                expect.objectContaining({ command: '+STOTrayExecByTray 0 5' })
+            ]
+        }));
     });
 
     it('should parse aliases', () => {
@@ -129,11 +146,13 @@ alias heal_self "Target_Self $$ heal_self"`;
         
         const result = keybindManager.parseKeybindFile(content);
         
-        expect(result.aliases.attack_sequence).toBeDefined();
-        expect(result.aliases.attack_sequence.commands).toBe('Target_Enemy_Near $$ FireAll');
+        expect(result.aliases.attack_sequence).toEqual(expect.objectContaining({
+            commands: 'Target_Enemy_Near $$ FireAll'
+        }));
         
-        expect(result.aliases.heal_self).toBeDefined();
-        expect(result.aliases.heal_self.commands).toBe('Target_Self $$ heal_self');
+        expect(result.aliases.heal_self).toEqual(expect.objectContaining({
+            commands: 'Target_Self $$ heal_self'
+        }));
     });
 
     it('should handle comments', () => {
@@ -145,7 +164,9 @@ a "Target"
         const result = keybindManager.parseKeybindFile(content);
         
         expect(result.comments).toHaveLength(3);
-        expect(result.keybinds.a).toBeDefined();
+        expect(result.keybinds.a).toEqual(expect.objectContaining({
+            commands: expect.any(Array)
+        }));
     });
 
     it('should handle malformed lines', () => {
@@ -156,8 +177,12 @@ another invalid line`;
         
         const result = keybindManager.parseKeybindFile(content);
         
-        expect(result.keybinds.a).toBeDefined();
-        expect(result.keybinds.b).toBeDefined();
+        expect(result.keybinds.a).toEqual(expect.objectContaining({
+            commands: expect.any(Array)
+        }));
+        expect(result.keybinds.b).toEqual(expect.objectContaining({
+            commands: expect.any(Array)
+        }));
         expect(result.errors).toHaveLength(2);
     });
 
@@ -188,8 +213,10 @@ another invalid line`;
         const id1 = keybindManager.generateKeybindId();
         const id2 = keybindManager.generateKeybindId();
         
-        expect(id1).toBeDefined();
-        expect(id2).toBeDefined();
+        expect(typeof id1).toBe('string');
+        expect(typeof id2).toBe('string');
+        expect(id1.length).toBeGreaterThan(0);
+        expect(id2.length).toBeGreaterThan(0);
         expect(id1).not.toBe(id2);
     });
 });
@@ -304,8 +331,7 @@ describe('Utility Functions', () => {
     });
 
     it('should generate valid keys list', () => {
-        expect(keybindManager.validKeys).toBeDefined();
-        expect(Array.isArray(keybindManager.validKeys)).toBeTruthy();
+        expect(Array.isArray(keybindManager.validKeys)).toBe(true);
         expect(keybindManager.validKeys.length).toBeGreaterThan(0);
         expect(keybindManager.validKeys).toContain('A');
         expect(keybindManager.validKeys).toContain('Space');
@@ -378,11 +404,12 @@ describe('File Import/Export', () => {
 
         const result = keybindManager.parseKeybindFile(fileContent);
 
-        expect(result.keybinds).toBeDefined();
-        expect(result.keybinds['a']).toBeDefined();
-        expect(result.keybinds['b']).toBeDefined();
-        expect(result.keybinds['space']).toBeDefined();
-        expect(result.keybinds['f1']).toBeDefined();
+        expect(result.keybinds).toEqual(expect.objectContaining({
+            'a': expect.any(Object),
+            'b': expect.any(Object),
+            'space': expect.any(Object),
+            'f1': expect.any(Object)
+        }));
         expect(result.keybinds['space'].commands).toHaveLength(2);
     });
 
@@ -395,10 +422,15 @@ describe('File Import/Export', () => {
 
         const result = keybindManager.parseKeybindFile(bindContent);
 
-        expect(result.keybinds['a']).toBeDefined();
-        expect(result.keybinds['b']).toBeDefined();
-        expect(result.keybinds['space']).toBeDefined();
-        expect(result.keybinds['a'].commands[0].command).toBe('Target_Enemy_Near');
+        expect(result.keybinds).toEqual(expect.objectContaining({
+            'a': expect.objectContaining({
+                commands: expect.arrayContaining([
+                    expect.objectContaining({ command: 'Target_Enemy_Near' })
+                ])
+            }),
+            'b': expect.any(Object),
+            'space': expect.any(Object)
+        }));
     });
 
     it('should handle mixed formats', () => {
@@ -411,10 +443,12 @@ describe('File Import/Export', () => {
 
         const result = keybindManager.parseKeybindFile(mixedContent);
 
-        expect(result.keybinds['a']).toBeDefined();
-        expect(result.keybinds['b']).toBeDefined();
-        expect(result.keybinds['space']).toBeDefined();
-        expect(result.keybinds['f1']).toBeDefined();
+        expect(result.keybinds).toEqual(expect.objectContaining({
+            'a': expect.any(Object),
+            'b': expect.any(Object),
+            'space': expect.any(Object),
+            'f1': expect.any(Object)
+        }));
     });
 
     it('should handle malformed import gracefully', () => {
@@ -429,8 +463,11 @@ describe('File Import/Export', () => {
 
         expect(result.errors.length).toBeGreaterThan(0);
         // Should still parse valid lines
-        expect(result.keybinds['c']).toBeDefined();
-        expect(result.keybinds['c'].commands[0].command).toBe('Target_Self');
+        expect(result.keybinds.c).toEqual(expect.objectContaining({
+            commands: expect.arrayContaining([
+                expect.objectContaining({ command: 'Target_Self' })
+            ])
+        }));
     });
 });
 
@@ -503,7 +540,8 @@ describe('Integration Tests', () => {
         const result = keybindManager.parseKeybindFile(largeContent);
         const endTime = Date.now();
 
-        expect(result.keybinds).toBeDefined();
+        expect(typeof result.keybinds).toBe('object');
+        expect(result.keybinds).not.toBeNull();
         expect(Object.keys(result.keybinds)).toHaveLength(100);
         expect(endTime - startTime).toBeLessThan(1000); // Should parse in under 1 second
     });
@@ -547,8 +585,8 @@ describe('Key Categorization', () => {
         const categorized = app.categorizeKeys(testKeys, allKeys);
 
         // Check that categories exist
-        expect(categorized).toBeDefined();
         expect(typeof categorized).toBe('object');
+        expect(categorized).not.toBeNull();
 
         // Check that SPACE appears in multiple categories
         if (categorized && categorized.combat && categorized.tray && categorized.system) {
@@ -670,7 +708,8 @@ describe('Key Categorization', () => {
         const categorized = app.categorizeKeys(testKeys, allKeys);
 
         // Should either be in custom category or remain uncategorized
-        expect(categorized).toBeDefined();
+        expect(typeof categorized).toBe('object');
+        expect(categorized).not.toBeNull();
         
         // Check if it ends up in a fallback category
         const hasKey = Object.values(categorized).some(category => 
@@ -691,10 +730,11 @@ describe('Key Categorization', () => {
 
         // Each category should have the expected structure
         Object.values(categorized).forEach(category => {
-            expect(category.name).toBeDefined();
-            expect(category.icon).toBeDefined();
-            expect(category.keys).toBeDefined();
-            expect(Array.isArray(category.keys)).toBeTruthy();
+            expect(category).toEqual(expect.objectContaining({
+                name: expect.any(String),
+                icon: expect.any(String),
+                keys: expect.any(Array)
+            }));
         });
     });
 }); 

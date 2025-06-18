@@ -18,7 +18,8 @@ describe('UI Module', () => {
     });
 
     it('should have UI manager instance', () => {
-        expect(uiManager).toBeDefined();
+        expect(uiManager).toBeInstanceOf(Object);
+        expect(uiManager.constructor.name).toBe('STOUIManager');
     });
 
     it('should manage modals correctly', () => {
@@ -91,7 +92,8 @@ describe('Modal Functionality', () => {
         uiManager.showModal('testModal');
         
         // Check if modal is visible (implementation may vary)
-        expect(modal).toBeDefined();
+        expect(modal).toBeInstanceOf(HTMLElement);
+        expect(modal.style.display).not.toBe('none');
     });
 
     it('should hide modal when requested', () => {
@@ -100,7 +102,8 @@ describe('Modal Functionality', () => {
         uiManager.hideModal('testModal');
         
         // Check if modal is hidden (implementation may vary)
-        expect(modal).toBeDefined();
+        expect(modal).toBeInstanceOf(HTMLElement);
+        expect(modal.style.display).toBe('none');
     });
 });
 
@@ -131,11 +134,11 @@ describe('Parameter Modal UI', () => {
     });
 
     it('should have parameter modal elements', () => {
-        expect(document.getElementById('parameterModal')).toBeDefined();
-        expect(document.getElementById('parameterModalTitle')).toBeDefined();
-        expect(document.getElementById('parameterInputs')).toBeDefined();
-        expect(document.getElementById('parameterCommandPreview')).toBeDefined();
-        expect(document.getElementById('saveParameterCommandBtn')).toBeDefined();
+        expect(document.getElementById('parameterModal')).toBeInstanceOf(HTMLElement);
+        expect(document.getElementById('parameterModalTitle')).toBeInstanceOf(HTMLElement);
+        expect(document.getElementById('parameterInputs')).toBeInstanceOf(HTMLElement);
+        expect(document.getElementById('parameterCommandPreview')).toBeInstanceOf(HTMLElement);
+        expect(document.getElementById('saveParameterCommandBtn')).toBeInstanceOf(HTMLElement);
     });
 
     it('should support parameter input creation', () => {
@@ -237,8 +240,8 @@ describe('View Toggle UI', () => {
         const toggleBtn = document.getElementById('viewToggleTest');
         const icon = toggleBtn?.querySelector('i');
         
-        expect(toggleBtn).toBeDefined();
-        expect(icon).toBeDefined();
+        expect(toggleBtn).toBeInstanceOf(HTMLElement);
+        expect(icon).toBeInstanceOf(HTMLElement);
         expect(toggleBtn.title).toContain('Toggle');
     });
 
@@ -275,7 +278,7 @@ describe('Key Filter UI', () => {
     it('should have key filter input', () => {
         const filterInput = document.getElementById('keyFilterTest');
         
-        expect(filterInput).toBeDefined();
+        expect(filterInput).toBeInstanceOf(HTMLInputElement);
         expect(filterInput.type).toBe('text');
         expect(filterInput.placeholder).toContain('Filter');
     });

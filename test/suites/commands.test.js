@@ -22,7 +22,7 @@ describe('STOCommandManager Class', () => {
     });
 
     it('should create STOCommandManager instance', () => {
-        expect(commandManager).toBeDefined();
+        expect(commandManager).toBeInstanceOf(Object);
         expect(commandManager.constructor.name).toBe('STOCommandManager');
     });
 
@@ -33,8 +33,9 @@ describe('STOCommandManager Class', () => {
         
         // Test command building
         const currentCommand = commandManager.buildCurrentCommand('targeting', 'target_enemy_near');
-        expect(currentCommand).toBeDefined();
-        expect(currentCommand.type).toBe('targeting');
+        expect(currentCommand).toEqual(expect.objectContaining({
+            type: 'targeting'
+        }));
         
         // Test command validation
         const validResult = commandManager.validateCommand('target');
@@ -61,7 +62,7 @@ describe('STOCommandManager Class', () => {
     });
 
     it('should have command builders initialized', () => {
-        expect(commandManager.commandBuilders).toBeDefined();
+        expect(commandManager.commandBuilders).toBeInstanceOf(Map);
         expect(commandManager.commandBuilders.size).toBeGreaterThan(0);
         expect(commandManager.commandBuilders.has('targeting')).toBeTruthy();
         expect(commandManager.commandBuilders.has('combat')).toBeTruthy();
@@ -84,37 +85,43 @@ describe('Command Building', () => {
 
     it('should build targeting commands', () => {
         const builder = commandManager.commandBuilders.get('targeting');
-        expect(builder).toBeDefined();
+        expect(typeof builder).toBe('object');
+        expect(builder).not.toBeNull();
         
         const command = builder.build('target_enemy_near');
-        expect(command).toBeDefined();
-        expect(command.type).toBe('targeting');
-        expect(command.command).toBeDefined();
+        expect(command).toEqual(expect.objectContaining({
+            type: 'targeting',
+            command: expect.any(String)
+        }));
     });
 
     it('should build tray execution commands', () => {
         const builder = commandManager.commandBuilders.get('tray');
-        expect(builder).toBeDefined();
+        expect(typeof builder).toBe('object');
+        expect(builder).not.toBeNull();
         
         const command = builder.build('tray_exec', { tray: 0, slot: 5 });
-        expect(command).toBeDefined();
-        expect(command.type).toBe('tray');
-        expect(command.command).toBe('+STOTrayExecByTray 0 5');
-        expect(command.parameters).toEqual({ tray: 0, slot: 5 });
+        expect(command).toEqual(expect.objectContaining({
+            type: 'tray',
+            command: '+STOTrayExecByTray 0 5',
+            parameters: { tray: 0, slot: 5 }
+        }));
     });
 
     it('should build custom commands', () => {
         const builder = commandManager.commandBuilders.get('custom');
-        expect(builder).toBeDefined();
+        expect(typeof builder).toBe('object');
+        expect(builder).not.toBeNull();
         
         const command = builder.build('custom', { 
             command: 'my_custom_command', 
             text: 'My Custom Command' 
         });
-        expect(command).toBeDefined();
-        expect(command.type).toBe('custom');
-        expect(command.command).toBe('my_custom_command');
-        expect(command.text).toBe('My Custom Command');
+        expect(command).toEqual(expect.objectContaining({
+            type: 'custom',
+            command: 'my_custom_command',
+            text: 'My Custom Command'
+        }));
     });
 
     it('should handle missing command IDs gracefully', () => {
@@ -125,13 +132,17 @@ describe('Command Building', () => {
 
     it('should build communication commands with parameters', () => {
         const builder = commandManager.commandBuilders.get('communication');
-        expect(builder).toBeDefined();
+        expect(typeof builder).toBe('object');
+        expect(builder).not.toBeNull();
         
         const command = builder.build('local_message', { message: 'Hello World' });
-        expect(command).toBeDefined();
-        expect(command.type).toBe('communication');
-        expect(command.command).toContain('Hello World');
-        expect(command.parameters.message).toBe('Hello World');
+        expect(command).toEqual(expect.objectContaining({
+            type: 'communication',
+            command: expect.stringContaining('Hello World'),
+            parameters: expect.objectContaining({
+                message: 'Hello World'
+            })
+        }));
     });
 });
 
@@ -159,8 +170,9 @@ describe('Command Validation', () => {
 
         validCommands.forEach(command => {
             const result = commandManager.validateCommand(command);
-            expect(result).toBeDefined();
-            expect(result.valid).toBe(true);
+            expect(result).toEqual(expect.objectContaining({
+                valid: true
+            }));
         });
     });
 
@@ -176,9 +188,10 @@ describe('Command Validation', () => {
 
         invalidCommands.forEach(command => {
             const result = commandManager.validateCommand(command);
-            expect(result).toBeDefined();
-            expect(result.valid).toBe(false);
-            expect(result.error).toBeDefined();
+            expect(result).toEqual(expect.objectContaining({
+                valid: false,
+                error: expect.any(String)
+            }));
         });
     });
 
@@ -193,8 +206,9 @@ describe('Command Validation', () => {
 
         validCommandsWithQuotedPipes.forEach(command => {
             const result = commandManager.validateCommand(command);
-            expect(result).toBeDefined();
-            expect(result.valid).toBe(true);
+            expect(result).toEqual(expect.objectContaining({
+                valid: true
+            }));
         });
     });
 
@@ -207,8 +221,9 @@ describe('Command Validation', () => {
 
         validTrayCommands.forEach(command => {
             const result = commandManager.validateCommand(command);
-            expect(result).toBeDefined();
-            expect(result.valid).toBe(true);
+            expect(result).toEqual(expect.objectContaining({
+                valid: true
+            }));
         });
     });
 });
@@ -742,46 +757,47 @@ describe('Parameter Modal Functionality', () => {
     });
 
     it('should perform all parameter modal operations correctly', () => {
-        if (keybindManager) {
-            // Test parameter modal creation
-            const modalElement = keybindManager.createParameterModal('tray_exec', {
-                tray: { type: 'number', min: 0, max: 9 },
-                slot: { type: 'number', min: 0, max: 9 }
-            });
-            expect(modalElement).toBeDefined();
-            
-            // Test parameter modal population
-            const populateResult = keybindManager.populateParameterModal('tray_exec', {
-                tray: { type: 'number', min: 0, max: 9 },
-                slot: { type: 'number', min: 0, max: 9 }
-            });
-            expect(populateResult).toBeDefined();
-            
-            // Test parameter values retrieval
-            const paramValues = keybindManager.getParameterValues();
-            expect(paramValues).toBeDefined();
-            expect(typeof paramValues).toBe('object');
-            
-            // Test parameter preview update
-            const previewResult = keybindManager.updateParameterPreview('tray_exec', { tray: 0, slot: 5 });
-            expect(previewResult).toBeDefined();
-            
-            // Test parameter command saving
-            const saveResult = keybindManager.saveParameterCommand('tray_exec', { tray: 0, slot: 5 });
-            expect(saveResult).toBeDefined();
-            
-            // Test parameter modal cancellation - should actually close the modal
-            keybindManager.cancelParameterCommand();
-            const paramModal = document.getElementById('parameterModal');
-            expect(paramModal.style.display).toBe('none');
-            
-            // Test editing parameterized commands
-            const testCommand = { command: '+STOTrayExecByTray 0 5', parameters: { tray: 0, slot: 5 } };
-            const editResult = keybindManager.editParameterizedCommand(testCommand);
-            expect(editResult).toBeDefined();
-            
-            const populateEditResult = keybindManager.populateParameterModalForEdit(testCommand);
-            expect(populateEditResult).toBeDefined();
-        }
+        expect(window.STOKeybindManager).toBeDefined();
+        expect(keybindManager).toBeInstanceOf(window.STOKeybindManager);
+        
+        // Test parameter modal creation
+        const modalElement = keybindManager.createParameterModal('tray_exec', {
+            tray: { type: 'number', min: 0, max: 9 },
+            slot: { type: 'number', min: 0, max: 9 }
+        });
+        expect(modalElement).toBeDefined();
+        
+        // Test parameter modal population
+        const populateResult = keybindManager.populateParameterModal('tray_exec', {
+            tray: { type: 'number', min: 0, max: 9 },
+            slot: { type: 'number', min: 0, max: 9 }
+        });
+        expect(populateResult).toBeDefined();
+        
+        // Test parameter values retrieval
+        const paramValues = keybindManager.getParameterValues();
+        expect(paramValues).toBeDefined();
+        expect(typeof paramValues).toBe('object');
+        
+        // Test parameter preview update
+        const previewResult = keybindManager.updateParameterPreview('tray_exec', { tray: 0, slot: 5 });
+        expect(previewResult).toBeDefined();
+        
+        // Test parameter command saving
+        const saveResult = keybindManager.saveParameterCommand('tray_exec', { tray: 0, slot: 5 });
+        expect(saveResult).toBeDefined();
+        
+        // Test parameter modal cancellation - should actually close the modal
+        keybindManager.cancelParameterCommand();
+        const paramModal = document.getElementById('parameterModal');
+        expect(paramModal.style.display).toBe('none');
+        
+        // Test editing parameterized commands
+        const testCommand = { command: '+STOTrayExecByTray 0 5', parameters: { tray: 0, slot: 5 } };
+        const editResult = keybindManager.editParameterizedCommand(testCommand);
+        expect(editResult).toBeDefined();
+        
+        const populateEditResult = keybindManager.populateParameterModalForEdit(testCommand);
+        expect(populateEditResult).toBeDefined();
     });
 });

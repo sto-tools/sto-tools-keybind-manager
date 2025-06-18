@@ -70,8 +70,13 @@ describe('Profile and Keybind Integration', () => {
 
         // Verify persistence
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved).toBeDefined();
-        expect(retrieved.name).toBe(profile.name);
+        expect(retrieved).toEqual(expect.objectContaining({
+            name: profile.name,
+            keys: expect.objectContaining({
+                a: expect.arrayContaining([expect.any(Object)]),
+                space: expect.arrayContaining([expect.any(Object), expect.any(Object)])
+            })
+        }));
         expect(retrieved.keys.a).toHaveLength(1);
         expect(retrieved.keys.space).toHaveLength(2);
     });
@@ -134,8 +139,13 @@ describe('Profile and Keybind Integration', () => {
 
         // Verify keybind manager can access the profile data
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved).toBeDefined();
-        expect(keybindManager).toBeDefined();
+        expect(retrieved).toEqual(expect.objectContaining({
+            keys: expect.objectContaining({
+                f1: expect.any(Array),
+                f2: expect.any(Array)
+            })
+        }));
+        expect(keybindManager).toBeInstanceOf(Object);
         
         // Test that keybind manager can validate the commands
         const f1Commands = retrieved.keys.f1;
@@ -182,8 +192,8 @@ describe('Profile and Keybind Integration', () => {
             const allKeys = Object.keys(profile.keys);
             const categorized = window.app.categorizeKeys(profile.keys, allKeys);
             
-            expect(categorized).toBeDefined();
-            expect(typeof categorized).toBe('object');
+            expect(categorized).toBeInstanceOf(Object);
+            expect(categorized).not.toBeNull();
             
             // Check combat category
             if (categorized.combat) {
@@ -307,9 +317,17 @@ describe('Profile and Alias Integration', () => {
 
         // Verify alias relationships
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved.aliases.attack_sequence).toBeDefined();
-        expect(retrieved.aliases.heal_sequence).toBeDefined();
-        expect(retrieved.keys.a[0].command).toBe('attack_sequence');
+        expect(retrieved).toEqual(expect.objectContaining({
+            aliases: expect.objectContaining({
+                attack_sequence: expect.any(Object),
+                heal_sequence: expect.any(Object)
+            }),
+            keys: expect.objectContaining({
+                a: expect.arrayContaining([
+                    expect.objectContaining({ command: 'attack_sequence' })
+                ])
+            })
+        }));
     });
 
     it('should handle alias dependencies in profiles', () => {
@@ -347,10 +365,16 @@ describe('Profile and Alias Integration', () => {
 
         // Verify dependency chain
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved.aliases.full_combat.commands).toContain('attack');
+        expect(retrieved).toEqual(expect.objectContaining({
+            aliases: expect.objectContaining({
+                full_combat: expect.objectContaining({
+                    commands: expect.stringContaining('attack')
+                }),
+                attack: expect.any(Object),
+                heal: expect.any(Object)
+            })
+        }));
         expect(retrieved.aliases.full_combat.commands).toContain('heal');
-        expect(retrieved.aliases.attack).toBeDefined();
-        expect(retrieved.aliases.heal).toBeDefined();
     });
 });
 
@@ -417,10 +441,20 @@ describe('Keybind and Alias Integration', () => {
 
         // Verify alias usage in keybinds
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved.keys.q[0].command).toBe('quick_attack');
-        expect(retrieved.keys.e[0].command).toBe('emergency_heal');
-        expect(retrieved.aliases.quick_attack).toBeDefined();
-        expect(retrieved.aliases.emergency_heal).toBeDefined();
+        expect(retrieved).toEqual(expect.objectContaining({
+            keys: expect.objectContaining({
+                q: expect.arrayContaining([
+                    expect.objectContaining({ command: 'quick_attack' })
+                ]),
+                e: expect.arrayContaining([
+                    expect.objectContaining({ command: 'emergency_heal' })
+                ])
+            }),
+            aliases: expect.objectContaining({
+                quick_attack: expect.any(Object),
+                emergency_heal: expect.any(Object)
+            })
+        }));
     });
 
     it('should expand aliases in keybind export', () => {
@@ -447,13 +481,16 @@ describe('Keybind and Alias Integration', () => {
 
         // Test export functionality
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved).toBeDefined();
-        expect(exportManager).toBeDefined();
+        expect(retrieved).toBeInstanceOf(Object);
+        expect(exportManager).toBeInstanceOf(Object);
         
         // Verify export manager can handle the profile
         const sanitized = exportManager.sanitizeProfileForExport(retrieved);
-        expect(sanitized).toBeDefined();
-        expect(sanitized.aliases.combat_macro).toBeDefined();
+        expect(sanitized).toEqual(expect.objectContaining({
+            aliases: expect.objectContaining({
+                combat_macro: expect.any(Object)
+            })
+        }));
     });
 });
 
@@ -516,9 +553,10 @@ describe('Command Validation Integration', () => {
 
         invalidCommands.forEach(command => {
             const result = commandManager.validateCommand(command);
-            expect(result).toBeDefined();
-            expect(result.valid).toBe(false);
-            expect(result.error).toBeDefined();
+            expect(result).toEqual(expect.objectContaining({
+                valid: false,
+                error: expect.any(String)
+            }));
         });
     });
 });
@@ -581,10 +619,8 @@ describe('Export Integration', () => {
         const retrieved = storageManager.getProfile(profileId);
         const exportContent = exportManager.generateSTOKeybindFile(retrieved);
         
-        expect(exportContent).toBeDefined();
-        expect(typeof exportContent).toBe('string');
-        expect(exportContent).toContain('; Complete Export Test - STO Keybind Configuration');
-        expect(exportContent).toContain(profile.name);
+        expect(exportContent).toEqual(expect.stringContaining('; Complete Export Test - STO Keybind Configuration'));
+        expect(exportContent).toEqual(expect.stringContaining(profile.name));
     });
 
     it('should handle export of complex nested structures', () => {
@@ -616,9 +652,8 @@ describe('Export Integration', () => {
         const retrieved = storageManager.getProfile(profileId);
         const filename = exportManager.generateFileName(retrieved, 'txt');
         
-        expect(filename).toBeDefined();
-        expect(filename).toContain('.txt');
-        expect(filename).toContain('Complex_Export_Test');
+        expect(filename).toEqual(expect.stringContaining('.txt'));
+        expect(filename).toEqual(expect.stringContaining('Complex_Export_Test'));
     });
 
     it('should maintain data integrity during export/import cycle', () => {
@@ -650,10 +685,16 @@ describe('Export Integration', () => {
         const sanitized = exportManager.sanitizeProfileForExport(retrieved);
         
         // Verify data integrity
-        expect(sanitized.name).toBe(originalProfile.name);
-        expect(sanitized.keys.a).toBeDefined();
-        expect(sanitized.keys.b).toBeDefined();
-        expect(sanitized.aliases.test_alias).toBeDefined();
+        expect(sanitized).toEqual(expect.objectContaining({
+            name: originalProfile.name,
+            keys: expect.objectContaining({
+                a: expect.any(Array),
+                b: expect.any(Array)
+            }),
+            aliases: expect.objectContaining({
+                test_alias: expect.any(Object)
+            })
+        }));
     });
 });
 
@@ -721,10 +762,20 @@ describe('Storage Integration', () => {
 
         // Retrieve and verify using actual storage API
         const retrieved = storage.getProfile(profileId);
-        expect(retrieved).toBeDefined();
-        expect(retrieved.name).toBe(complexProfile.name);
+        expect(retrieved).toEqual(expect.objectContaining({
+            name: complexProfile.name,
+            keys: expect.objectContaining({
+                space: expect.arrayContaining([
+                    expect.any(String), expect.any(String), expect.any(String)
+                ])
+            }),
+            aliases: expect.objectContaining({
+                combo: expect.objectContaining({
+                    commands: expect.arrayContaining([expect.stringContaining('attack')])
+                })
+            })
+        }));
         expect(retrieved.keys.space).toHaveLength(3);
-        expect(retrieved.aliases.combo.commands).toContain('attack');
     });
 
     it('should handle profile backup and restore', () => {
@@ -855,7 +906,7 @@ describe('Error Handling Integration', () => {
 
         // Verify profile state based on localStorage availability
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved).toBeDefined();
+        expect(retrieved).toBeInstanceOf(Object);
         if (hasRealLocalStorage) {
             // With real localStorage, the update should have succeeded
             expect(retrieved.name).toBe('Updated');
@@ -891,9 +942,10 @@ describe('Error Handling Integration', () => {
 
         // Retrieve and validate
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved).toBeDefined();
+        expect(retrieved).toEqual(expect.objectContaining({
+            name: 'Inconsistent Profile'
+        }));
         expect(retrieved).not.toBeNull();
-        expect(retrieved.name).toBe('Inconsistent Profile');
 
         // Check keybind references non-existent alias
         const keybindCommands = retrieved.keys.a;
@@ -980,7 +1032,10 @@ describe('Performance Integration', () => {
         
         // Verify profile was saved correctly
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved).toBeDefined();
+        expect(retrieved).toEqual(expect.objectContaining({
+            keys: expect.any(Object),
+            aliases: expect.any(Object)
+        }));
         expect(Object.keys(retrieved.keys)).toHaveLength(500);
         expect(Object.keys(retrieved.aliases)).toHaveLength(100);
     });
@@ -1057,9 +1112,16 @@ describe('Real-world Scenarios', () => {
 
         // Verify complete workflow
         const retrieved = storageManager.getProfile(profileId);
-        expect(retrieved.keys.space).toEqual([{ command: 'attack_pattern', type: 'alias', id: 'cmd1' }]);
-        expect(retrieved.aliases.attack_pattern).toBeDefined();
-        expect(retrieved.aliases.attack_pattern.commands).toContain('target_enemy_near');
+        expect(retrieved).toEqual(expect.objectContaining({
+            keys: expect.objectContaining({
+                space: [{ command: 'attack_pattern', type: 'alias', id: 'cmd1' }]
+            }),
+            aliases: expect.objectContaining({
+                attack_pattern: expect.objectContaining({
+                    commands: expect.stringContaining('target_enemy_near')
+                })
+            })
+        }));
         expect(exportedData).toContain('My Gaming Profile');
     });
 
@@ -1119,8 +1181,12 @@ describe('Real-world Scenarios', () => {
 
         expect(retrievedBase.keys).not.toEqual(retrievedClone.keys);
         expect(retrievedBase.keys['ctrl+space']).toBeUndefined();
-        expect(retrievedClone.keys['ctrl+space']).toBeDefined();
-        expect(retrievedClone.name).toBe('PvP Combat Profile');
+        expect(retrievedClone).toEqual(expect.objectContaining({
+            keys: expect.objectContaining({
+                'ctrl+space': expect.any(Array)
+            }),
+            name: 'PvP Combat Profile'
+        }));
     });
 });
 
@@ -1169,8 +1235,10 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should toggle between view modes correctly', () => {
-        expect(keybindManager).toBeDefined();
-        expect(keybindManager.toggleKeyView).toBeDefined();
+        expect(keybindManager).toBeInstanceOf(Object);
+        expect(keybindManager).toEqual(expect.objectContaining({
+            toggleKeyView: expect.any(Function)
+        }));
         
         // Test 3-way toggle: key-types → grid → categorized → key-types
         localStorage.setItem('keyViewMode', 'key-types');
@@ -1185,8 +1253,9 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should update view toggle button icon based on current mode', () => {
-        expect(keybindManager).toBeDefined();
-        expect(keybindManager.updateViewToggleButton).toBeDefined();
+        expect(keybindManager).toEqual(expect.objectContaining({
+            updateViewToggleButton: expect.any(Function)
+        }));
         
         const toggleBtn = document.getElementById('toggleKeyViewBtn');
         expect(toggleBtn).not.toBeNull();
@@ -1205,9 +1274,10 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should render key grid with appropriate class based on view mode', () => {
-        expect(keybindManager).toBeDefined();
-        expect(keybindManager.renderCategorizedKeyView).toBeDefined();
-        expect(keybindManager.renderSimpleKeyGrid).toBeDefined();
+        expect(keybindManager).toEqual(expect.objectContaining({
+            renderCategorizedKeyView: expect.any(Function),
+            renderSimpleKeyGrid: expect.any(Function)
+        }));
         
         const keyGrid = document.getElementById('keyGrid');
         expect(keyGrid).not.toBeNull();
@@ -1221,8 +1291,9 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should categorize keys by command type correctly', () => {
-        expect(keybindManager).toBeDefined();
-        expect(keybindManager.categorizeKeys).toBeDefined();
+        expect(keybindManager).toEqual(expect.objectContaining({
+            categorizeKeys: expect.any(Function)
+        }));
         
         const testKeys = {
             'space': [
@@ -1237,22 +1308,20 @@ describe('Enhanced View Mode Functionality', () => {
         const allKeys = Object.keys(testKeys);
         const categorized = keybindManager.categorizeKeys(testKeys, allKeys);
         
-        expect(categorized).toBeDefined();
-        expect(typeof categorized).toBe('object');
-        
-        // Should have unknown category for empty keys
-        expect(categorized.unknown).toBeDefined();
-        expect(categorized.unknown.keys).toBeDefined();
-        
-        // Should categorize keys with commands
-        expect(categorized.targeting).toBeDefined();
-        expect(categorized.combat).toBeDefined();
-        expect(categorized.tray).toBeDefined();
+        expect(categorized).toEqual(expect.objectContaining({
+            unknown: expect.objectContaining({
+                keys: expect.any(Array)
+            }),
+            targeting: expect.any(Object),
+            combat: expect.any(Object),
+            tray: expect.any(Object)
+        }));
     });
 
     it('should categorize keys by input type correctly', () => {
-        expect(keybindManager).toBeDefined();
-        expect(keybindManager.categorizeKeysByType).toBeDefined();
+        expect(keybindManager).toEqual(expect.objectContaining({
+            categorizeKeysByType: expect.any(Function)
+        }));
         
         const testKeys = {
             'F1': [{ command: 'test1' }],
@@ -1268,18 +1337,15 @@ describe('Enhanced View Mode Functionality', () => {
         const allKeys = Object.keys(testKeys);
         const categorized = keybindManager.categorizeKeysByType(testKeys, allKeys);
         
-        expect(categorized).toBeDefined();
-        expect(typeof categorized).toBe('object');
-        
-        // Should have function keys category
-        expect(categorized.function).toBeDefined();
-        expect(categorized.function.keys).toBeDefined();
-        
-        // Should have other categories
-        expect(categorized.alphanumeric).toBeDefined();
-        expect(categorized.numberpad).toBeDefined();
-        expect(categorized.modifiers).toBeDefined();
-        expect(categorized.navigation).toBeDefined();
+        expect(categorized).toEqual(expect.objectContaining({
+            function: expect.objectContaining({
+                keys: expect.any(Array)
+            }),
+            alphanumeric: expect.any(Object),
+            numberpad: expect.any(Object),
+            modifiers: expect.any(Object),
+            navigation: expect.any(Object)
+        }));
     });
 
     it('should handle category collapse/expand state persistence', () => {
@@ -1313,8 +1379,9 @@ describe('Enhanced View Mode Functionality', () => {
     });
 
     it('should filter keys across different view modes', () => {
-        expect(keybindManager).toBeDefined();
-        expect(keybindManager.filterKeys).toBeDefined();
+        expect(keybindManager).toEqual(expect.objectContaining({
+            filterKeys: expect.any(Function)
+        }));
         
         // Use the real key grid instead of creating mock elements
         const keyGrid = document.getElementById('keyGrid');
@@ -1405,7 +1472,16 @@ describe('Enhanced Key Categorization', () => {
         storageManager.saveProfile(profileId, profile);
         const savedProfile = storageManager.getProfile(profileId);
         
-        expect(savedProfile).toBeDefined();
+        expect(savedProfile).toEqual(expect.objectContaining({
+            keys: expect.objectContaining({
+                'space': expect.arrayContaining([
+                    expect.any(Object), expect.any(Object), expect.any(Object)
+                ]),
+                'f1': expect.arrayContaining([
+                    expect.any(Object), expect.any(Object)
+                ])
+            })
+        }));
         expect(savedProfile.keys['space']).toHaveLength(3);
         expect(savedProfile.keys['f1']).toHaveLength(2);
         
@@ -1440,7 +1516,12 @@ describe('Enhanced Key Categorization', () => {
         storageManager.saveProfile(profileId, profile);
         const savedProfile = storageManager.getProfile(profileId);
         
-        expect(savedProfile).toBeDefined();
+        expect(savedProfile).toEqual(expect.objectContaining({
+            keys: expect.objectContaining({
+                'x': expect.arrayContaining([expect.any(Object), expect.any(Object)]),
+                'y': expect.arrayContaining([])
+            })
+        }));
         expect(savedProfile.keys['x']).toHaveLength(2);
         expect(savedProfile.keys['y']).toHaveLength(0);
         

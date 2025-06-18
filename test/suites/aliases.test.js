@@ -21,15 +21,15 @@ describe('AliasManager Class', () => {
     });
 
     it('should create AliasManager instance', () => {
-        expect(aliasManager).toBeDefined();
+        expect(aliasManager).toBeInstanceOf(Object);
         expect(aliasManager.constructor.name).toBe('STOAliasManager');
     });
 
     it('should perform all alias management operations correctly', () => {
         // Test alias templates
         const templates = aliasManager.getAliasTemplates();
-        expect(templates).toBeDefined();
         expect(typeof templates).toBe('object');
+        expect(Object.keys(templates).length).toBeGreaterThan(0);
         
         // Test alias validation
         const validResult = aliasManager.validateAlias('test_alias', 'target $$ fire_all');
@@ -37,24 +37,25 @@ describe('AliasManager Class', () => {
         
         const invalidResult = aliasManager.validateAlias('', 'target');
         expect(invalidResult.valid).toBe(false);
-        expect(invalidResult.error).toBeDefined();
+        expect(typeof invalidResult.error).toBe('string');
+        expect(invalidResult.error.length).toBeGreaterThan(0);
         
         // Test alias save and edit operations
         const testAlias = { name: 'test_alias', commands: 'target $$ fire_all' };
         const saveResult = aliasManager.saveAlias('test_alias', testAlias);
-        expect(saveResult).toBeDefined();
+        expect(saveResult).toBeTruthy();
         
         const editResult = aliasManager.editAlias('test_alias', testAlias);
-        expect(editResult).toBeDefined();
+        expect(editResult).toBeTruthy();
         
         // Test alias deletion
         const deleteResult = aliasManager.deleteAlias('test_alias');
-        expect(deleteResult).toBeDefined();
+        expect(deleteResult).toBeTruthy();
         
         // Test alias export
         const exportResult = aliasManager.exportAliases({ 'test_alias': testAlias });
-        expect(exportResult).toBeDefined();
         expect(typeof exportResult).toBe('string');
+        expect(exportResult.length).toBeGreaterThan(0);
         
         // Test UI operations actually show modals/UI
         aliasManager.showAliasManager();
@@ -84,8 +85,8 @@ describe('Alias Templates', () => {
 
     it('should provide alias templates', () => {
         const templates = aliasManager.getAliasTemplates();
-        expect(templates).toBeDefined();
         expect(typeof templates).toBe('object');
+        expect(Object.keys(templates).length).toBeGreaterThan(0);
     });
 
     it('should have template categories', () => {
@@ -94,10 +95,11 @@ describe('Alias Templates', () => {
         expect(categories.length).toBeGreaterThan(0);
         
         const category = templates[categories[0]];
-        expect(category).toBeDefined();
-        expect(category.name).toBeDefined();
-        expect(category.description).toBeDefined();
-        expect(category.templates).toBeDefined();
+        expect(category).toEqual(expect.objectContaining({
+            name: expect.any(String),
+            description: expect.any(String),
+            templates: expect.any(Object)
+        }));
     });
 });
 
@@ -122,11 +124,13 @@ describe('Alias Validation', () => {
         // Test invalid alias name
         const invalidNameResult = aliasManager.validateAlias('', 'target');
         expect(invalidNameResult.valid).toBeFalsy();
-        expect(invalidNameResult.error).toBeDefined();
+        expect(typeof invalidNameResult.error).toBe('string');
+        expect(invalidNameResult.error.length).toBeGreaterThan(0);
 
         // Test invalid commands
         const invalidCommandResult = aliasManager.validateAlias('test', '');
         expect(invalidCommandResult.valid).toBeFalsy();
-        expect(invalidCommandResult.error).toBeDefined();
+        expect(typeof invalidCommandResult.error).toBe('string');
+        expect(invalidCommandResult.error.length).toBeGreaterThan(0);
     });
 }); 

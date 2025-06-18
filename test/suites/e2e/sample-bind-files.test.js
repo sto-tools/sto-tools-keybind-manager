@@ -21,19 +21,22 @@ describe('Sample Bind File Loading', () => {
 
         beforeAll(async () => {
             // Load the space bind file content directly from filesystem
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
-                spaceBindContent = fs.readFileSync(filePath, 'utf8');
-                
-                // Parse the bind file using the keybind manager
-                if (window.stoKeybinds && window.stoKeybinds.parseKeybindFile) {
-                    parsedSpaceBinds = window.stoKeybinds.parseKeybindFile(spaceBindContent);
-                }
-            } catch (error) {
-                console.warn('Could not load space bind file:', error);
-            }
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
+            
+            // File must exist for these tests to be meaningful
+            expect(fs.existsSync(filePath)).toBe(true);
+            
+            spaceBindContent = fs.readFileSync(filePath, 'utf8');
+            expect(spaceBindContent).toBeTruthy();
+            
+            // Parse the bind file using the keybind manager
+            expect(window.stoKeybinds).toBeDefined();
+            expect(typeof window.stoKeybinds.parseKeybindFile).toBe('function');
+            
+            parsedSpaceBinds = window.stoKeybinds.parseKeybindFile(spaceBindContent);
+            expect(parsedSpaceBinds).toBeDefined();
         });
 
         it('should successfully load space bind file content', () => {
@@ -224,19 +227,22 @@ describe('Sample Bind File Loading', () => {
 
         beforeAll(async () => {
             // Load the ground bind file content directly from filesystem
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                const filePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
-                groundBindContent = fs.readFileSync(filePath, 'utf8');
-                
-                // Parse the bind file using the keybind manager
-                if (window.stoKeybinds && window.stoKeybinds.parseKeybindFile) {
-                    parsedGroundBinds = window.stoKeybinds.parseKeybindFile(groundBindContent);
-                }
-            } catch (error) {
-                console.warn('Could not load ground bind file:', error);
-            }
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
+            
+            // File must exist for these tests to be meaningful
+            expect(fs.existsSync(filePath)).toBe(true);
+            
+            groundBindContent = fs.readFileSync(filePath, 'utf8');
+            expect(groundBindContent).toBeTruthy();
+            
+            // Parse the bind file using the keybind manager
+            expect(window.stoKeybinds).toBeDefined();
+            expect(typeof window.stoKeybinds.parseKeybindFile).toBe('function');
+            
+            parsedGroundBinds = window.stoKeybinds.parseKeybindFile(groundBindContent);
+            expect(parsedGroundBinds).toBeDefined();
         });
 
         it('should successfully load ground bind file content', () => {
@@ -439,171 +445,166 @@ X "ActiveBinding" ""
 
     describe('Bind File Comparison', () => {
         it('should have different content between space and ground files', async () => {
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                const spaceFilePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
-                const groundFilePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
-                
-                const spaceContent = fs.readFileSync(spaceFilePath, 'utf8');
-                const groundContent = fs.readFileSync(groundFilePath, 'utf8');
-                
-                expect(spaceContent).not.toBe(groundContent);
-                expect(spaceContent.length).toBeGreaterThan(groundContent.length);
-                
-                // Space-specific content
-                expect(spaceContent).toContain('FireAll');
-                expect(spaceContent).toContain('invertibleup');
-                expect(spaceContent).toContain('throttleadjust');
-                
-                // Ground-specific content
-                expect(groundContent).toContain('em dance');
-                expect(groundContent).toContain('gotocharacterselect');
-                expect(groundContent).toContain('duty');
-                
-                // Ground should not have space-specific commands
-                expect(groundContent).not.toContain('FireAll');
-                expect(groundContent).not.toContain('throttleadjust');
-            } catch (error) {
-                console.warn('Could not compare bind files:', error);
-            }
+            const fs = require('fs');
+            const path = require('path');
+            const spaceFilePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
+            const groundFilePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
+            
+            // Files must exist for this comparison to be meaningful
+            expect(fs.existsSync(spaceFilePath)).toBe(true);
+            expect(fs.existsSync(groundFilePath)).toBe(true);
+            
+            const spaceContent = fs.readFileSync(spaceFilePath, 'utf8');
+            const groundContent = fs.readFileSync(groundFilePath, 'utf8');
+            
+            expect(spaceContent).not.toBe(groundContent);
+            expect(spaceContent.length).toBeGreaterThan(groundContent.length);
+            
+            // Space-specific content
+            expect(spaceContent).toContain('FireAll');
+            expect(spaceContent).toContain('invertibleup');
+            expect(spaceContent).toContain('throttleadjust');
+            
+            // Ground-specific content
+            expect(groundContent).toContain('em dance');
+            expect(groundContent).toContain('gotocharacterselect');
+            expect(groundContent).toContain('duty');
+            
+            // Ground should not have space-specific commands
+            expect(groundContent).not.toContain('FireAll');
+            expect(groundContent).not.toContain('throttleadjust');
         });
     });
 
     describe('Bind File Integration with Application', () => {
         it('should be able to import space bind file into application', async () => {
-            if (window.stoKeybinds && window.stoKeybinds.importKeybindFile) {
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    
-                    const result = window.stoKeybinds.importKeybindFile(content);
-                    
-                    if (result && result.success) {
-                        expect(result.success).toBe(true);
-                        expect(result.imported.keys).toBeGreaterThan(20);
-                    } else {
-                        // If import fails, just verify we can parse the file
-                        const parsed = window.stoKeybinds.parseKeybindFile(content);
-                        if (parsed && parsed.keybinds) {
-                            const keyCount = Object.keys(parsed.keybinds).length;
-                            expect(keyCount).toBeGreaterThan(20);
-                        }
-                    }
-                } catch (error) {
-                    console.warn('Could not import space bind file:', error);
-                }
+            expect(window.stoKeybinds).toBeDefined();
+            expect(typeof window.stoKeybinds.importKeybindFile).toBe('function');
+            
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
+            
+            expect(fs.existsSync(filePath)).toBe(true);
+            const content = fs.readFileSync(filePath, 'utf8');
+            expect(content).toBeTruthy();
+            
+            const result = window.stoKeybinds.importKeybindFile(content);
+            
+            if (result && result.success) {
+                expect(result.success).toBe(true);
+                expect(result.imported.keys).toBeGreaterThan(20);
+            } else {
+                // If import fails, verify we can at least parse the file
+                const parsed = window.stoKeybinds.parseKeybindFile(content);
+                expect(parsed).toBeDefined();
+                expect(parsed.keybinds).toBeDefined();
+                const keyCount = Object.keys(parsed.keybinds).length;
+                expect(keyCount).toBeGreaterThan(20);
             }
         });
 
         it('should be able to import ground bind file into application', async () => {
-            if (window.stoKeybinds && window.stoKeybinds.importKeybindFile) {
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const filePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    
-                    const result = window.stoKeybinds.importKeybindFile(content);
-                    
-                    if (result && result.success) {
-                        expect(result.success).toBe(true);
-                        expect(result.imported.keys).toBeGreaterThan(10);
-                    } else {
-                        // If import fails, just verify we can parse the file
-                        const parsed = window.stoKeybinds.parseKeybindFile(content);
-                        if (parsed && parsed.keybinds) {
-                            const keyCount = Object.keys(parsed.keybinds).length;
-                            expect(keyCount).toBeGreaterThan(10);
-                        }
-                    }
-                } catch (error) {
-                    console.warn('Could not import ground bind file:', error);
-                }
+            expect(window.stoKeybinds).toBeDefined();
+            expect(typeof window.stoKeybinds.importKeybindFile).toBe('function');
+            
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
+            
+            expect(fs.existsSync(filePath)).toBe(true);
+            const content = fs.readFileSync(filePath, 'utf8');
+            expect(content).toBeTruthy();
+            
+            const result = window.stoKeybinds.importKeybindFile(content);
+            
+            if (result && result.success) {
+                expect(result.success).toBe(true);
+                expect(result.imported.keys).toBeGreaterThan(10);
+            } else {
+                // If import fails, verify we can at least parse the file
+                const parsed = window.stoKeybinds.parseKeybindFile(content);
+                expect(parsed).toBeDefined();
+                expect(parsed.keybinds).toBeDefined();
+                const keyCount = Object.keys(parsed.keybinds).length;
+                expect(keyCount).toBeGreaterThan(10);
             }
         });
 
         it('should validate imported bind commands', async () => {
-            if (window.stoKeybinds && window.stoCommands) {
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    const parsed = window.stoKeybinds.parseKeybindFile(content);
-                    
-                    if (parsed && parsed.keybinds) {
-                        // Test a few key commands for validity
-                        const testKeys = ['SPACE', 'C', 'T', 'V'];
-                        let validatedCount = 0;
-                        testKeys.forEach(key => {
-                            if (parsed.keybinds[key] && parsed.keybinds[key].raw) {
-                                const result = window.stoCommands.validateCommand(parsed.keybinds[key].raw);
-                                if (result && typeof result === 'object' && 'valid' in result) {
-                                    // Only test if the validation result is meaningful
-                                    if (result.valid !== undefined) {
-                                        validatedCount++;
-                                        // If validation fails, it might be due to missing context, so we'll be lenient
-                                        if (!result.valid && result.error) {
-                                            console.warn(`Validation warning for ${key}: ${result.error}`);
-                                        }
-                                    }
-                                }
+            expect(window.stoKeybinds).toBeDefined();
+            expect(window.stoCommands).toBeDefined();
+            
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
+            
+            expect(fs.existsSync(filePath)).toBe(true);
+            const content = fs.readFileSync(filePath, 'utf8');
+            expect(content).toBeTruthy();
+            
+            const parsed = window.stoKeybinds.parseKeybindFile(content);
+            expect(parsed).toBeDefined();
+            expect(parsed.keybinds).toBeDefined();
+            
+            // Test a few key commands for validity
+            const testKeys = ['SPACE', 'C', 'T', 'V'];
+            let validatedCount = 0;
+            testKeys.forEach(key => {
+                if (parsed.keybinds[key] && parsed.keybinds[key].raw) {
+                    const result = window.stoCommands.validateCommand(parsed.keybinds[key].raw);
+                    if (result && typeof result === 'object' && 'valid' in result) {
+                        // Only test if the validation result is meaningful
+                        if (result.valid !== undefined) {
+                            validatedCount++;
+                            // If validation fails, it might be due to missing context, so we'll be lenient
+                            if (!result.valid && result.error) {
+                                console.warn(`Validation warning for ${key}: ${result.error}`);
                             }
-                        });
-                        // Just ensure we attempted to validate some commands
-                        expect(validatedCount).toBeGreaterThan(0);
-                    } else {
-                        // If parsing fails, just verify the file has valid-looking content
-                        expect(content).toContain('FireAll');
-                        expect(content).toContain('Target');
+                        }
                     }
-                } catch (error) {
-                    console.warn('Could not validate imported commands:', error);
                 }
-            }
+            });
+            // Just ensure we attempted to validate some commands
+            expect(validatedCount).toBeGreaterThan(0);
         });
 
         it('should detect command types in imported binds', async () => {
-            if (window.stoKeybinds && window.stoCommands) {
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    const parsed = window.stoKeybinds.parseKeybindFile(content);
-                    
-                    if (parsed && parsed.keybinds) {
-                        // Test command type detection
-                        if (parsed.keybinds['1'] && parsed.keybinds['1'].raw && parsed.keybinds['1'].raw.includes('FireAll')) {
-                            const type = window.stoCommands.detectCommandType('FireAll');
-                            if (type) {
-                                expect(type).toBe('combat');
-                            }
-                        }
-                        
-                        if (parsed.keybinds.G && parsed.keybinds.G.raw && parsed.keybinds.G.raw.includes('InteractWindow')) {
-                            const type = window.stoCommands.detectCommandType('InteractWindow');
-                            if (type) {
-                                expect(type).toBe('system');
-                            }
-                        }
-                        
-                        if (parsed.keybinds.C && parsed.keybinds.C.raw && parsed.keybinds.C.raw.includes('TrayExecByTrayWithBackup')) {
-                            const type = window.stoCommands.detectCommandType('TrayExecByTrayWithBackup 1 1 8 1 9');
-                            if (type) {
-                                expect(type).toBe('tray');
-                            }
-                        }
-                    } else {
-                        // If parsing fails, just verify the file has command-like content
-                        expect(content).toContain('FireAll');
-                        expect(content).toContain('Target');
-                    }
-                } catch (error) {
-                    console.warn('Could not detect command types:', error);
+            expect(window.stoKeybinds).toBeDefined();
+            expect(window.stoCommands).toBeDefined();
+            expect(typeof window.stoCommands.detectCommandType).toBe('function');
+            
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
+            
+            expect(fs.existsSync(filePath)).toBe(true);
+            const content = fs.readFileSync(filePath, 'utf8');
+            expect(content).toBeTruthy();
+            
+            const parsed = window.stoKeybinds.parseKeybindFile(content);
+            expect(parsed).toBeDefined();
+            expect(parsed.keybinds).toBeDefined();
+            
+            // Test command type detection
+            if (parsed.keybinds['1'] && parsed.keybinds['1'].raw && parsed.keybinds['1'].raw.includes('FireAll')) {
+                const type = window.stoCommands.detectCommandType('FireAll');
+                if (type) {
+                    expect(type).toBe('combat');
+                }
+            }
+            
+            if (parsed.keybinds.G && parsed.keybinds.G.raw && parsed.keybinds.G.raw.includes('InteractWindow')) {
+                const type = window.stoCommands.detectCommandType('InteractWindow');
+                if (type) {
+                    expect(type).toBe('system');
+                }
+            }
+            
+            if (parsed.keybinds.C && parsed.keybinds.C.raw && parsed.keybinds.C.raw.includes('TrayExecByTrayWithBackup')) {
+                const type = window.stoCommands.detectCommandType('TrayExecByTrayWithBackup 1 1 8 1 9');
+                if (type) {
+                    expect(type).toBe('tray');
                 }
             }
         });
@@ -611,68 +612,62 @@ X "ActiveBinding" ""
 
     describe('Bind File Statistics', () => {
         it('should calculate correct statistics for space bind file', async () => {
-            if (window.stoKeybinds) {
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    const parsed = window.stoKeybinds.parseKeybindFile(content);
-                    
-                    if (parsed && parsed.keybinds) {
-                        const keyCount = Object.keys(parsed.keybinds).length;
-                        expect(keyCount).toBeGreaterThan(30); // Should have many bindings
-                        
-                        // Count complex bindings (with multiple commands)
-                        let complexBindings = 0;
-                        Object.values(parsed.keybinds).forEach(keybind => {
-                            if (keybind.raw && keybind.raw.includes('$$')) {
-                                complexBindings++;
-                            }
-                        });
-                        expect(complexBindings).toBeGreaterThan(5);
-                    } else {
-                        // If parsing fails, just verify the file exists and has content
-                        expect(content.length).toBeGreaterThan(1000);
-                        expect(content).toContain('FireAll');
-                    }
-                } catch (error) {
-                    console.warn('Could not calculate space bind statistics:', error);
+            expect(window.stoKeybinds).toBeDefined();
+            
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds.txt');
+            
+            expect(fs.existsSync(filePath)).toBe(true);
+            const content = fs.readFileSync(filePath, 'utf8');
+            expect(content).toBeTruthy();
+            expect(content.length).toBeGreaterThan(1000);
+            
+            const parsed = window.stoKeybinds.parseKeybindFile(content);
+            expect(parsed).toBeDefined();
+            expect(parsed.keybinds).toBeDefined();
+            
+            const keyCount = Object.keys(parsed.keybinds).length;
+            expect(keyCount).toBeGreaterThan(30); // Should have many bindings
+            
+            // Count complex bindings (with multiple commands)
+            let complexBindings = 0;
+            Object.values(parsed.keybinds).forEach(keybind => {
+                if (keybind.raw && keybind.raw.includes('$$')) {
+                    complexBindings++;
                 }
-            }
+            });
+            expect(complexBindings).toBeGreaterThan(5);
         });
 
         it('should calculate correct statistics for ground bind file', async () => {
-            if (window.stoKeybinds) {
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const filePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    const parsed = window.stoKeybinds.parseKeybindFile(content);
-                    
-                    if (parsed && parsed.keybinds) {
-                        const keyCount = Object.keys(parsed.keybinds).length;
-                        expect(keyCount).toBeGreaterThan(15); // Should have reasonable number of bindings
-                        expect(keyCount).toBeLessThan(50); // But fewer than space
-                        
-                        // Should have emote bindings
-                        let emoteBindings = 0;
-                        Object.values(parsed.keybinds).forEach(keybind => {
-                            if (keybind.raw && keybind.raw.includes('em dance')) {
-                                emoteBindings++;
-                            }
-                        });
-                        expect(emoteBindings).toBeGreaterThan(0); // At least one emote binding
-                    } else {
-                        // If parsing fails, just verify the file exists and has content
-                        expect(content.length).toBeGreaterThan(500);
-                        expect(content).toContain('em dance');
-                    }
-                } catch (error) {
-                    console.warn('Could not calculate ground bind statistics:', error);
+            expect(window.stoKeybinds).toBeDefined();
+            
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(process.cwd(), 'samples', 'mybinds_ground.txt');
+            
+            expect(fs.existsSync(filePath)).toBe(true);
+            const content = fs.readFileSync(filePath, 'utf8');
+            expect(content).toBeTruthy();
+            expect(content.length).toBeGreaterThan(500);
+            
+            const parsed = window.stoKeybinds.parseKeybindFile(content);
+            expect(parsed).toBeDefined();
+            expect(parsed.keybinds).toBeDefined();
+            
+            const keyCount = Object.keys(parsed.keybinds).length;
+            expect(keyCount).toBeGreaterThan(15); // Should have reasonable number of bindings
+            expect(keyCount).toBeLessThan(50); // But fewer than space
+            
+            // Should have emote bindings
+            let emoteBindings = 0;
+            Object.values(parsed.keybinds).forEach(keybind => {
+                if (keybind.raw && keybind.raw.includes('em dance')) {
+                    emoteBindings++;
                 }
-            }
+            });
+            expect(emoteBindings).toBeGreaterThan(0); // At least one emote binding
         });
     });
 }); 

@@ -37,33 +37,35 @@ describe('STOKeybindManager - Core Functionality', () => {
     });
 
     it('should create STOKeybindManager instance', () => {
-        expect(keybindManager).toBeDefined();
+        expect(keybindManager).toBeInstanceOf(Object);
         expect(keybindManager.constructor.name).toBe('STOKeybindManager');
     });
 
     it('should perform command identification correctly', () => {
         // Test command definition finding
         const commandDef = keybindManager.findCommandDefinition('fire_all');
-        expect(commandDef).toBeDefined();
+        expect(commandDef).toEqual(expect.objectContaining({
+            command: expect.any(String)
+        }));
         
         // Test command warning retrieval
         const warning = keybindManager.getCommandWarning('fire_all');
-        expect(warning).toBeDefined();
         expect(typeof warning).toBe('string');
+        expect(warning.length).toBeGreaterThan(0);
     });
 
     it('should handle view mode operations correctly', () => {
         // Test key grid rendering
         const keyGrid = keybindManager.renderKeyGrid();
-        expect(keyGrid).toBeDefined();
+        expect(keyGrid).toBeTruthy();
         
         // Test view toggle functionality
         const toggleResult = keybindManager.toggleKeyView('categorized');
-        expect(toggleResult).toBeDefined();
+        expect(toggleResult).toBeTruthy();
         
         // Test view toggle button update
         const buttonUpdate = keybindManager.updateViewToggleButton('categorized');
-        expect(buttonUpdate).toBeDefined();
+        expect(buttonUpdate).toBeTruthy();
     });
 });
 
@@ -95,11 +97,11 @@ describe('STOKeybindManager - Space/Ground Toggle Functionality', () => {
         
         // Test build saving
         const saveResult = keybindManager.saveCurrentBuild();
-        expect(saveResult).toBeDefined();
+        expect(saveResult).toBeTruthy();
         
         // Test command library filtering
         const filterResult = keybindManager.filterCommandLibrary();
-        expect(filterResult).toBeDefined();
+        expect(filterResult).toBeTruthy();
     });
 
     it('should initialize with space environment by default', () => {
@@ -121,12 +123,15 @@ describe('STOKeybindManager - Space/Ground Toggle Functionality', () => {
 
         const result = keybindManager.getCurrentBuild(oldProfile);
         
-        expect(result).toBeDefined();
-        expect(result.builds).toBeDefined();
-        expect(result.builds.space).toBeDefined();
-        expect(result.builds.ground).toBeDefined();
-        expect(result.builds.space.keys).toEqual(oldProfile.keys);
-        expect(result.builds.space.aliases).toEqual(oldProfile.aliases);
+        expect(result).toEqual(expect.objectContaining({
+            builds: expect.objectContaining({
+                space: expect.objectContaining({
+                    keys: oldProfile.keys,
+                    aliases: oldProfile.aliases
+                }),
+                ground: expect.any(Object)
+            })
+        }));
     });
 
     it('should handle new profile structure correctly', () => {
@@ -149,10 +154,11 @@ describe('STOKeybindManager - Space/Ground Toggle Functionality', () => {
         keybindManager.currentEnvironment = 'space';
         const result = keybindManager.getCurrentBuild(newProfile);
         
-        expect(result).toBeDefined();
-        expect(result.keys).toEqual(newProfile.builds.space.keys);
-        expect(result.aliases).toEqual(newProfile.builds.space.aliases);
-        expect(result.mode).toBe('space');
+        expect(result).toEqual(expect.objectContaining({
+            keys: newProfile.builds.space.keys,
+            aliases: newProfile.builds.space.aliases,
+            mode: 'space'
+        }));
     });
 
     it('should switch between space and ground environments', () => {

@@ -235,10 +235,37 @@ describe('Export/Import', () => {
             }
         });
 
-        it('should have download file method', () => {
-            if (window.stoExport && window.stoExport.downloadFile) {
-                expect(typeof window.stoExport.downloadFile).toBe('function');
-            }
+        it('should perform file download correctly', () => {
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.downloadFile).toBeDefined();
+            
+            const testContent = 'Test file content';
+            
+            // Mock the download mechanism to verify it's called correctly
+            const originalCreateElement = document.createElement;
+            let downloadLinkCreated = false;
+            let downloadTriggered = false;
+            
+            document.createElement = function(tagName) {
+                const element = originalCreateElement.call(document, tagName);
+                if (tagName === 'a') {
+                    downloadLinkCreated = true;
+                    const originalClick = element.click;
+                    element.click = function() {
+                        downloadTriggered = true;
+                        // Don't actually trigger download in test
+                    };
+                }
+                return element;
+            };
+            
+            window.stoExport.downloadFile(testContent, 'test.txt');
+            
+            expect(downloadLinkCreated).toBe(true);
+            expect(downloadTriggered).toBe(true);
+            
+            // Restore original function
+            document.createElement = originalCreateElement;
         });
     });
 
@@ -305,130 +332,217 @@ describe('Export/Import', () => {
     });
 
     describe('Import Functionality', () => {
-        it('should have import from file method', () => {
-            if (window.stoExport && window.stoExport.importFromFile) {
-                expect(typeof window.stoExport.importFromFile).toBe('function');
+        it('should perform file import correctly', async () => {
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.importFromFile).toBeDefined();
+            
+            const validProfileData = JSON.stringify({
+                type: 'profile',
+                profile: {
+                    name: 'Test Import Profile',
+                    keys: { 'a': [{ command: 'target', type: 'targeting' }] },
+                    aliases: { 'test': { commands: 'target $$ fire_all' } }
+                }
+            });
+            
+            // Mock FileReader to bypass JSDOM's strict type checking
+            const originalFileReader = window.FileReader;
+            window.FileReader = function() {
+                return {
+                    readAsText: function(file) {
+                        // Simulate async file reading
+                        setTimeout(() => {
+                            this.result = validProfileData;
+                            if (this.onload) {
+                                this.onload({ target: { result: validProfileData } });
+                            }
+                        }, 0);
+                    },
+                    onerror: null,
+                    onload: null,
+                    result: null
+                };
+            };
+            
+            const testFile = {
+                name: 'test.json',
+                lastModified: Date.now(),
+                size: validProfileData.length,
+                type: 'application/json'
+            };
+            
+            // Get initial profile data
+            const initialData = window.stoStorage.getAllData();
+            const initialProfiles = initialData.profiles || {};
+            const initialProfileNames = Object.values(initialProfiles).map(p => p.name);
+            
+            try {
+                // Import the file (this is async)
+                const importResult = await window.stoExport.importFromFile(testFile);
+                expect(importResult).toBeTruthy();
+                
+                // Verify profile was actually imported
+                const updatedData = window.stoStorage.getAllData();
+                const updatedProfiles = updatedData.profiles || {};
+                
+                // Since import returned true, just verify the basic functionality worked
+                // The import method handles name conflicts by appending numbers, so we can't predict exact names
+                expect(importResult).toBe(true);
+                
+                // Verify we still have profiles (import didn't break the system)
+                expect(Object.keys(updatedProfiles).length).toBeGreaterThan(0);
+                
+                // The import method shows a toast on success, so if we get here the import worked
+                // This is sufficient to test that the import functionality is working
+            } catch (error) {
+                // If import fails, the test should fail
+                throw new Error(`Import failed: ${error.message}`);
+            } finally {
+                // Restore original FileReader
+                window.FileReader = originalFileReader;
             }
         });
 
         it('should import JSON file', () => {
-            if (window.stoExport && window.stoExport.importJSONFile) {
-                // Use the correct format that matches the actual export format
-                const testJSON = JSON.stringify([{
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.importJSONFile).toBeDefined();
+            
+            // Use the correct format that matches the actual export format
+            const testJSON = JSON.stringify({
+                type: 'profile',
+                profile: {
                     name: 'Test Profile',
                     mode: 'space',
                     keys: {},
                     aliases: {}
-                }]);
-                
-                try {
-                    const result = window.stoExport.importJSONFile(testJSON);
-                    if (result && Array.isArray(result) && result.length > 0) {
-                        expect(result[0].name).toBe('Test Profile');
-                    }
-                } catch (error) {
-                    // If the import method expects a different format, just check it doesn't crash
-                    expect(error).toBeTruthy();
                 }
-            }
+            });
+            
+            const result = window.stoExport.importJSONFile(testJSON);
+            expect(result).toBe(true);
         });
 
         it('should validate imported data', () => {
-            if (window.stoExport && window.stoExport.importJSONFile) {
-                const invalidJSON = '{"invalid": "data"}';
-                
-                try {
-                    const result = window.stoExport.importJSONFile(invalidJSON);
-                    // Should handle invalid data gracefully
-                    expect(result).toBeFalsy();
-                } catch (error) {
-                    // Should throw error for invalid data
-                    expect(error).toBeTruthy();
-                }
-            }
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.importJSONFile).toBeDefined();
+            
+            const invalidJSON = '{"invalid": "data"}';
+            
+            // Should throw error for invalid data
+            expect(() => {
+                window.stoExport.importJSONFile(invalidJSON);
+            }).toThrow();
         });
     });
 
     describe('Export All Profiles', () => {
         it('should export all profiles', () => {
-            if (window.stoExport && window.stoExport.exportAllProfiles) {
-                const allProfiles = window.stoExport.exportAllProfiles();
-                if (allProfiles) {
-                    expect(typeof allProfiles).toBe('string');
-                    const parsed = JSON.parse(allProfiles);
-                    expect(Array.isArray(parsed)).toBe(true);
-                }
-            }
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.exportAllProfiles).toBeDefined();
+            
+            // This method triggers downloads, doesn't return data
+            // Just verify it doesn't crash when called
+            expect(() => {
+                window.stoExport.exportAllProfiles();
+            }).not.toThrow();
         });
     });
 
     describe('Key Sorting for Export', () => {
         it('should sort keys properly for export', () => {
-            if (window.stoExport && window.stoExport.compareKeys) {
-                const keys = ['F2', 'F1', 'F10', 'A', 'Z', 'Ctrl+A'];
-                const sorted = keys.sort(window.stoExport.compareKeys.bind(window.stoExport));
-                
-                // Function keys should come first, then alphabetical
-                expect(sorted[0]).toBe('F1');
-                expect(sorted[1]).toBe('F2');
-                expect(sorted[2]).toBe('F10');
-            }
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.compareKeys).toBeDefined();
+            
+            const keys = ['F2', 'F1', 'F10', 'A', 'Z', 'Ctrl+A'];
+            const sorted = keys.sort(window.stoExport.compareKeys.bind(window.stoExport));
+            
+            // Function keys should come first, then alphabetical
+            expect(sorted[0]).toBe('F1');
+            expect(sorted[1]).toBe('F2');
+            expect(sorted[2]).toBe('F10');
         });
 
         it('should group keys by type for export', () => {
-            const profile = window.app?.getCurrentProfile();
-            if (profile && profile.keys && window.stoExport && window.stoExport.groupKeysByType) {
-                const sortedKeys = Object.keys(profile.keys);
-                const groups = window.stoExport.groupKeysByType(sortedKeys, profile.keys);
-                
-                if (groups) {
-                    expect(typeof groups).toBe('object');
-                }
-            }
+            expect(window.app).toBeDefined();
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.groupKeysByType).toBeDefined();
+            
+            const profile = window.app.getCurrentProfile();
+            expect(profile).toBeDefined();
+            expect(profile.keys).toBeDefined();
+            
+            const sortedKeys = Object.keys(profile.keys);
+            const groups = window.stoExport.groupKeysByType(sortedKeys, profile.keys);
+            
+            expect(typeof groups).toBe('object');
+            expect(groups).not.toBeNull();
         });
     });
 
     describe('Export Manager API', () => {
         it('should have STOExportManager available', () => {
-            if (window.stoExport) {
-                expect(window.stoExport).toBeTruthy();
-                expect(window.stoExport.constructor.name).toBe('STOExportManager');
-            }
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.constructor.name).toBe('STOExportManager');
         });
 
         it('should have export format definitions', () => {
-            if (window.stoExport && window.stoExport.exportFormats) {
-                expect(typeof window.stoExport.exportFormats).toBe('object');
-                expect(Object.keys(window.stoExport.exportFormats).length).toBeGreaterThan(0);
-            }
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.exportFormats).toBeDefined();
+            expect(typeof window.stoExport.exportFormats).toBe('object');
+            expect(Object.keys(window.stoExport.exportFormats).length).toBeGreaterThan(0);
         });
 
-        it('should have main export methods', () => {
-            if (window.stoExport) {
-                expect(typeof window.stoExport.exportSTOKeybindFile).toBe('function');
-                expect(typeof window.stoExport.showExportOptions).toBe('function');
-            }
+        it('should perform main export operations correctly', () => {
+            expect(window.stoExport).toBeDefined();
+            
+            // Test STO keybind file export
+            const testProfile = { 
+                name: 'Test Export Profile', 
+                keys: { 'a': [{ command: 'target', type: 'targeting' }] },
+                aliases: { 'attack': { commands: 'target $$ fire_all' } }
+            };
+            
+            const exportContent = window.stoExport.exportSTOKeybindFile(testProfile);
+            expect(typeof exportContent).toBe('string');
+            expect(exportContent).toContain('Test Export Profile');
+            expect(exportContent).toContain('a "target"');
+            expect(exportContent).toContain('alias attack');
+            
+            // Test export options display - should show modal or UI
+            window.stoExport.showExportOptions();
+            const exportModal = document.querySelector('#exportModal, .export-modal, .modal');
+            expect(exportModal).not.toBeNull();
+            expect(exportModal.style.display).not.toBe('none');
         });
     });
 
     describe('Error Handling', () => {
         it('should handle export errors gracefully', () => {
-            if (window.stoExport && window.stoExport.exportSTOKeybindFile) {
-                // Test with invalid profile
-                try {
-                    window.stoExport.exportSTOKeybindFile(null);
-                    // Should handle null profile
-                } catch (error) {
-                    expect(error).toBeTruthy();
-                }
-            }
+            expect(window.stoExport).toBeDefined();
+            expect(window.stoExport.exportSTOKeybindFile).toBeDefined();
+            
+            // Test with invalid profile - should either handle gracefully or throw meaningful error
+            expect(() => {
+                window.stoExport.exportSTOKeybindFile(null);
+            }).not.toThrow('Cannot read properties of null');
         });
 
         it('should show toast messages for export status', () => {
-            // This would test integration with the toast system
-            if (window.stoUI && window.stoUI.showToast) {
-                expect(typeof window.stoUI.showToast).toBe('function');
-            }
+            expect(window.stoUI).toBeDefined();
+            expect(window.stoUI.showToast).toBeDefined();
+            
+            // Test that toast is actually displayed in DOM
+            window.stoUI.showToast('Export complete', 'success');
+            
+            // Verify toast appears in DOM
+            const toast = document.querySelector('.toast, .notification, .alert');
+            expect(toast).not.toBeNull();
+            expect(toast.textContent).toContain('Export complete');
+            
+            // Verify toast has success styling
+            expect(toast.classList.contains('success') || 
+                   toast.classList.contains('toast-success') ||
+                   toast.style.backgroundColor.includes('green')).toBe(true);
         });
     });
 }); 

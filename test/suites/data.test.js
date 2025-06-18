@@ -13,7 +13,8 @@ describe('Data Module', () => {
 
     describe('Command Categories', () => {
         it('should have all required command categories', () => {
-            expect(window.COMMAND_CATEGORIES).toBeDefined();
+            expect(Array.isArray(window.COMMAND_CATEGORIES)).toBe(true);
+        expect(window.COMMAND_CATEGORIES.length).toBeGreaterThan(0);
             expect(window.COMMAND_CATEGORIES).toBeInstanceOf(Object);
             
             const expectedCategories = [
@@ -29,34 +30,32 @@ describe('Data Module', () => {
         it('should have valid category structures', () => {
             Object.entries(window.COMMAND_CATEGORIES).forEach(([key, category]) => {
                 expect(category).toBeInstanceOf(Object);
-                expect(category.name).toBeDefined();
                 expect(typeof category.name).toBe('string');
-                expect(category.icon).toBeDefined();
+                expect(category.name.length).toBeGreaterThan(0);
                 expect(typeof category.icon).toBe('string');
-                expect(category.description).toBeDefined();
+                expect(typeof category.icon).toBe('string');
                 expect(typeof category.description).toBe('string');
+                expect(category.description.length).toBeGreaterThan(0);
             });
         });
     });
 
     describe('Commands', () => {
         it('should have commands defined', () => {
-            expect(window.COMMANDS).toBeDefined();
-            expect(window.COMMANDS).toBeInstanceOf(Object);
-            expect(Object.keys(window.COMMANDS).length).toBeGreaterThan(0);
+                    expect(window.COMMANDS).toBeInstanceOf(Object);
+        expect(Object.keys(window.COMMANDS).length).toBeGreaterThan(0);
         });
 
         it('should have valid command structures', () => {
             Object.entries(window.COMMANDS).forEach(([key, command]) => {
                 expect(command).toBeInstanceOf(Object);
-                expect(command.name).toBeDefined();
-                expect(typeof command.name).toBe('string');
-                expect(command.category).toBeDefined();
-                expect(window.COMMAND_CATEGORIES[command.category]).toBeDefined();
-                expect(command.description).toBeDefined();
-                expect(typeof command.description).toBe('string');
-                expect(command.syntax).toBeDefined();
-                expect(typeof command.syntax).toBe('string');
+                expect(command).toEqual(expect.objectContaining({
+                    name: expect.any(String),
+                    category: expect.any(String),
+                    description: expect.any(String),
+                    syntax: expect.any(String)
+                }));
+                expect(window.COMMAND_CATEGORIES[command.category]).not.toBeUndefined();
             });
         });
 
@@ -98,33 +97,32 @@ describe('Data Module', () => {
 
     describe('Key Layouts', () => {
         it('should have key layouts defined', () => {
-            expect(window.KEY_LAYOUTS).toBeDefined();
-            expect(window.KEY_LAYOUTS).toBeInstanceOf(Object);
-            expect(Object.keys(window.KEY_LAYOUTS).length).toBeGreaterThan(0);
+                    expect(window.KEY_LAYOUTS).toBeInstanceOf(Object);
+        expect(Object.keys(window.KEY_LAYOUTS).length).toBeGreaterThan(0);
         });
 
         it('should have standard QWERTY layout', () => {
-            expect(window.KEY_LAYOUTS.qwerty).toBeDefined();
-            expect(window.KEY_LAYOUTS.qwerty.name).toBe('QWERTY');
-            expect(window.KEY_LAYOUTS.qwerty.rows).toBeInstanceOf(Array);
-            expect(window.KEY_LAYOUTS.qwerty.rows.length).toBeGreaterThan(0);
+                    expect(window.KEY_LAYOUTS.qwerty).toEqual(expect.objectContaining({
+            name: 'QWERTY',
+            rows: expect.any(Array)
+        }));
+        expect(window.KEY_LAYOUTS.qwerty.rows.length).toBeGreaterThan(0);
         });
 
         it('should have valid key layout structures', () => {
             Object.entries(window.KEY_LAYOUTS).forEach(([key, layout]) => {
                 expect(layout).toBeInstanceOf(Object);
-                expect(layout.name).toBeDefined();
                 expect(typeof layout.name).toBe('string');
+                expect(layout.name.length).toBeGreaterThan(0);
                 expect(layout.rows).toBeInstanceOf(Array);
                 
                 layout.rows.forEach(row => {
                     expect(row).toBeInstanceOf(Array);
                     row.forEach(keyData => {
-                        expect(keyData).toBeInstanceOf(Object);
-                        expect(keyData.key).toBeDefined();
-                        expect(typeof keyData.key).toBe('string');
-                        expect(keyData.display).toBeDefined();
-                        expect(typeof keyData.display).toBe('string');
+                        expect(keyData).toEqual(expect.objectContaining({
+                            key: expect.any(String),
+                            display: expect.any(String)
+                        }));
                     });
                 });
             });
@@ -133,66 +131,56 @@ describe('Data Module', () => {
 
     describe('Default Settings', () => {
         it('should have default settings defined', () => {
-            expect(window.DEFAULT_SETTINGS).toBeDefined();
-            expect(window.DEFAULT_SETTINGS).toBeInstanceOf(Object);
+                    expect(window.DEFAULT_SETTINGS).toBeInstanceOf(Object);
+        expect(window.DEFAULT_SETTINGS).not.toBeNull();
         });
 
         it('should have valid default settings structure', () => {
             const settings = window.DEFAULT_SETTINGS;
             
-            expect(settings.keyLayout).toBeDefined();
-            expect(typeof settings.keyLayout).toBe('string');
-            expect(window.KEY_LAYOUTS[settings.keyLayout]).toBeDefined();
-            
-            expect(settings.autoSave).toBeDefined();
-            expect(typeof settings.autoSave).toBe('boolean');
-            
-            expect(settings.showTooltips).toBeDefined();
-            expect(typeof settings.showTooltips).toBe('boolean');
-            
-            expect(settings.exportFormat).toBeDefined();
-            expect(typeof settings.exportFormat).toBe('string');
+            expect(settings).toEqual(expect.objectContaining({
+                keyLayout: expect.any(String),
+                autoSave: expect.any(Boolean),
+                showTooltips: expect.any(Boolean),
+                exportFormat: expect.any(String)
+            }));
+            expect(window.KEY_LAYOUTS[settings.keyLayout]).not.toBeUndefined();
         });
     });
 
     describe('Sample Data', () => {
         it('should have sample profiles defined', () => {
-            expect(window.SAMPLE_PROFILES).toBeDefined();
-            expect(window.SAMPLE_PROFILES).toBeInstanceOf(Array);
-            expect(window.SAMPLE_PROFILES.length).toBeGreaterThan(0);
+                    expect(Array.isArray(window.SAMPLE_PROFILES)).toBe(true);
+        expect(window.SAMPLE_PROFILES.length).toBeGreaterThan(0);
         });
 
         it('should have valid sample profile structures', () => {
             window.SAMPLE_PROFILES.forEach(profile => {
-                expect(profile).toBeInstanceOf(Object);
-                expect(profile.id).toBeDefined();
-                expect(typeof profile.id).toBe('string');
-                expect(profile.name).toBeDefined();
-                expect(typeof profile.name).toBe('string');
-                expect(profile.description).toBeDefined();
-                expect(typeof profile.description).toBe('string');
-                expect(profile.keybinds).toBeInstanceOf(Object);
-                expect(profile.aliases).toBeInstanceOf(Object);
-                expect(profile.created).toBeDefined();
-                expect(profile.modified).toBeDefined();
+                expect(profile).toEqual(expect.objectContaining({
+                    id: expect.any(String),
+                    name: expect.any(String),
+                    description: expect.any(String),
+                    keybinds: expect.any(Object),
+                    aliases: expect.any(Object),
+                    created: expect.anything(),
+                    modified: expect.anything()
+                }));
             });
         });
 
         it('should have sample aliases defined', () => {
-            expect(window.SAMPLE_ALIASES).toBeDefined();
-            expect(window.SAMPLE_ALIASES).toBeInstanceOf(Object);
-            expect(Object.keys(window.SAMPLE_ALIASES).length).toBeGreaterThan(0);
+                    expect(window.SAMPLE_ALIASES).toBeInstanceOf(Object);
+        expect(Object.keys(window.SAMPLE_ALIASES).length).toBeGreaterThan(0);
         });
 
         it('should have valid sample alias structures', () => {
             Object.entries(window.SAMPLE_ALIASES).forEach(([key, alias]) => {
-                expect(alias).toBeInstanceOf(Object);
-                expect(alias.name).toBeDefined();
-                expect(typeof alias.name).toBe('string');
-                expect(alias.commands).toBeInstanceOf(Array);
+                expect(alias).toEqual(expect.objectContaining({
+                    name: expect.any(String),
+                    commands: expect.any(Array),
+                    description: expect.any(String)
+                }));
                 expect(alias.commands.length).toBeGreaterThan(0);
-                expect(alias.description).toBeDefined();
-                expect(typeof alias.description).toBe('string');
             });
         });
     });
@@ -200,11 +188,12 @@ describe('Data Module', () => {
 describe('Camera Commands Category', () => {
     it('should have camera commands category', () => {
         if (window.STO_DATA && window.STO_DATA.commands) {
-            expect(window.STO_DATA.commands.camera).toBeDefined();
-            expect(window.STO_DATA.commands.camera.name).toBe('Camera');
-            expect(window.STO_DATA.commands.camera.icon).toBeDefined();
-            expect(window.STO_DATA.commands.camera.description).toBeDefined();
-            expect(window.STO_DATA.commands.camera.commands).toBeDefined();
+            expect(window.STO_DATA.commands.camera).toEqual(expect.objectContaining({
+                name: 'Camera',
+                icon: expect.any(String),
+                description: expect.any(String),
+                commands: expect.any(Object)
+            }));
         }
     });
 
@@ -213,16 +202,20 @@ describe('Camera Commands Category', () => {
             const cameraCommands = window.STO_DATA.commands.camera.commands;
             
             // Check for basic camera commands
-            expect(cameraCommands.zoom_in).toBeDefined();
-            expect(cameraCommands.zoom_out).toBeDefined();
-            expect(cameraCommands.cam_reset).toBeDefined();
+            expect(cameraCommands).toEqual(expect.objectContaining({
+                zoom_in: expect.any(Object),
+                zoom_out: expect.any(Object),
+                cam_reset: expect.any(Object)
+            }));
             
             // Verify command structure
             if (cameraCommands.zoom_in) {
-                expect(cameraCommands.zoom_in.name).toBeDefined();
-                expect(cameraCommands.zoom_in.command).toBeDefined();
-                expect(cameraCommands.zoom_in.description).toBeDefined();
-                expect(cameraCommands.zoom_in.icon).toBeDefined();
+                expect(cameraCommands.zoom_in).toEqual(expect.objectContaining({
+                    name: expect.any(String),
+                    command: expect.any(String),
+                    description: expect.any(String),
+                    icon: expect.any(String)
+                }));
             }
         }
     });
@@ -233,16 +226,17 @@ describe('Camera Commands Category', () => {
             
             // Check for parameterized camera distance command
             if (cameraCommands.cam_distance) {
-                expect(cameraCommands.cam_distance.customizable).toBeTruthy();
-                expect(cameraCommands.cam_distance.parameters).toBeDefined();
-                expect(cameraCommands.cam_distance.parameters.distance).toBeDefined();
-                
-                // Verify parameter structure
-                const distanceParam = cameraCommands.cam_distance.parameters.distance;
-                expect(distanceParam.type).toBe('number');
-                expect(distanceParam.min).toBeDefined();
-                expect(distanceParam.max).toBeDefined();
-                expect(distanceParam.default).toBeDefined();
+                expect(cameraCommands.cam_distance).toEqual(expect.objectContaining({
+                    customizable: true,
+                    parameters: expect.objectContaining({
+                        distance: expect.objectContaining({
+                            type: 'number',
+                            min: expect.any(Number),
+                            max: expect.any(Number),
+                            default: expect.any(Number)
+                        })
+                    })
+                }));
             }
         }
     });
@@ -262,15 +256,18 @@ describe('Shield Management Category Updates', () => {
             
             // Check distribute shields command
             if (powerCommands.distribute_shields) {
-                expect(powerCommands.distribute_shields.name).toBe('Distribute Shields');
-                expect(powerCommands.distribute_shields.warning).toBeDefined();
-                expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+                expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
+                    name: 'Distribute Shields',
+                    warning: expect.stringContaining('Not recommended on spam bars')
+                }));
             }
             
             // Check shield rerouting commands
-            expect(powerCommands.reroute_shields_rear).toBeDefined();
-            expect(powerCommands.reroute_shields_left).toBeDefined();
-            expect(powerCommands.reroute_shields_right).toBeDefined();
+            expect(powerCommands).toEqual(expect.objectContaining({
+                reroute_shields_rear: expect.any(Object),
+                reroute_shields_left: expect.any(Object),
+                reroute_shields_right: expect.any(Object)
+            }));
         }
     });
 });
@@ -285,8 +282,9 @@ describe('Command Warning System Data', () => {
             
             warningCommands.forEach(commandKey => {
                 if (combatCommands[commandKey]) {
-                    expect(combatCommands[commandKey].warning).toBeDefined();
-                    expect(combatCommands[commandKey].warning).toContain('Not recommended on spam bars');
+                    expect(combatCommands[commandKey]).toEqual(expect.objectContaining({
+                        warning: expect.stringContaining('Not recommended on spam bars')
+                    }));
                 }
             });
         }
@@ -298,8 +296,9 @@ describe('Command Warning System Data', () => {
             
             // Check that distribute shields has warning
             if (powerCommands.distribute_shields) {
-                expect(powerCommands.distribute_shields.warning).toBeDefined();
-                expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+                expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
+                    warning: expect.stringContaining('Not recommended on spam bars')
+                }));
             }
         }
     });
@@ -330,20 +329,23 @@ describe('Parameterized Command Data Structure', () => {
                 if (category.commands) {
                     Object.entries(category.commands).forEach(([commandId, command]) => {
                         if (command.customizable) {
-                            expect(command.parameters).toBeDefined();
-                            expect(typeof command.parameters).toBe('object');
+                            expect(command).toEqual(expect.objectContaining({
+                                parameters: expect.any(Object)
+                            }));
                             
                             // Verify parameter structure
                             Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
-                                expect(paramDef.type).toBeDefined();
-                                expect(['text', 'number', 'boolean']).toContain(paramDef.type);
+                                expect(paramDef).toEqual(expect.objectContaining({
+                                    type: expect.stringMatching(/^(text|number|boolean)$/),
+                                    default: expect.anything()
+                                }));
                                 
                                 if (paramDef.type === 'number') {
-                                    expect(paramDef.min).toBeDefined();
-                                    expect(paramDef.max).toBeDefined();
+                                    expect(paramDef).toEqual(expect.objectContaining({
+                                        min: expect.any(Number),
+                                        max: expect.any(Number)
+                                    }));
                                 }
-                                
-                                expect(paramDef.default).toBeDefined();
                             });
                         }
                     });
@@ -358,19 +360,26 @@ describe('Parameterized Command Data Structure', () => {
             
             // Check for throttle adjustment parameters
             if (movementCommands.throttle_adjust) {
-                expect(movementCommands.throttle_adjust.customizable).toBeTruthy();
-                expect(movementCommands.throttle_adjust.parameters.amount).toBeDefined();
-                
-                const amountParam = movementCommands.throttle_adjust.parameters.amount;
-                expect(amountParam.type).toBe('number');
-                expect(amountParam.min).toBe(-1);
-                expect(amountParam.max).toBe(1);
+                expect(movementCommands.throttle_adjust).toEqual(expect.objectContaining({
+                    customizable: true,
+                    parameters: expect.objectContaining({
+                        amount: expect.objectContaining({
+                            type: 'number',
+                            min: -1,
+                            max: 1
+                        })
+                    })
+                }));
             }
             
             // Check for throttle set parameters
             if (movementCommands.throttle_set) {
-                expect(movementCommands.throttle_set.customizable).toBeTruthy();
-                expect(movementCommands.throttle_set.parameters.position).toBeDefined();
+                expect(movementCommands.throttle_set).toEqual(expect.objectContaining({
+                    customizable: true,
+                    parameters: expect.objectContaining({
+                        position: expect.any(Object)
+                    })
+                }));
             }
         }
     });
@@ -381,19 +390,31 @@ describe('Parameterized Command Data Structure', () => {
             
             // Check for bind file parameters
             if (systemCommands.bind_save_file) {
-                expect(systemCommands.bind_save_file.customizable).toBeTruthy();
-                expect(systemCommands.bind_save_file.parameters.filename).toBeDefined();
+                expect(systemCommands.bind_save_file).toEqual(expect.objectContaining({
+                    customizable: true,
+                    parameters: expect.objectContaining({
+                        filename: expect.any(Object)
+                    })
+                }));
             }
             
             if (systemCommands.bind_load_file) {
-                expect(systemCommands.bind_load_file.customizable).toBeTruthy();
-                expect(systemCommands.bind_load_file.parameters.filename).toBeDefined();
+                expect(systemCommands.bind_load_file).toEqual(expect.objectContaining({
+                    customizable: true,
+                    parameters: expect.objectContaining({
+                        filename: expect.any(Object)
+                    })
+                }));
             }
             
             // Check for combat log parameters
             if (systemCommands.combat_log) {
-                expect(systemCommands.combat_log.customizable).toBeTruthy();
-                expect(systemCommands.combat_log.parameters.state).toBeDefined();
+                expect(systemCommands.combat_log).toEqual(expect.objectContaining({
+                    customizable: true,
+                    parameters: expect.objectContaining({
+                        state: expect.any(Object)
+                    })
+                }));
                 
                 const stateParam = systemCommands.combat_log.parameters.state;
                 expect(stateParam.type).toBe('number');
@@ -412,9 +433,13 @@ describe('Communication Command Structure', () => {
             // Check for message-based commands
             Object.values(commCommands).forEach(command => {
                 if (command && command.customizable) {
-                    expect(command.parameters).toBeDefined();
-                    expect(command.parameters.message).toBeDefined();
-                    expect(command.parameters.message.type).toBe('string');
+                    expect(command).toEqual(expect.objectContaining({
+                        parameters: expect.objectContaining({
+                            message: expect.objectContaining({
+                                type: 'string'
+                            })
+                        })
+                    }));
                 }
             });
         }
@@ -423,23 +448,21 @@ describe('Communication Command Structure', () => {
 
     describe('Tray Configuration', () => {
         it('should have tray configuration defined', () => {
-            expect(window.TRAY_CONFIG).toBeDefined();
-            expect(window.TRAY_CONFIG).toBeInstanceOf(Object);
+                    expect(window.TRAY_CONFIG).toBeInstanceOf(Object);
+        expect(window.TRAY_CONFIG).not.toBeNull();
         });
 
         it('should have valid tray configuration structure', () => {
             const config = window.TRAY_CONFIG;
             
-            expect(config.maxTrays).toBeDefined();
-            expect(typeof config.maxTrays).toBe('number');
+            expect(config).toEqual(expect.objectContaining({
+                maxTrays: expect.any(Number),
+                slotsPerTray: expect.any(Number),
+                defaultTray: expect.any(Number)
+            }));
+            
             expect(config.maxTrays).toBeGreaterThan(0);
-            
-            expect(config.slotsPerTray).toBeDefined();
-            expect(typeof config.slotsPerTray).toBe('number');
             expect(config.slotsPerTray).toBeGreaterThan(0);
-            
-            expect(config.defaultTray).toBeDefined();
-            expect(typeof config.defaultTray).toBe('number');
             expect(config.defaultTray).toBeGreaterThanOrEqual(0);
             expect(config.defaultTray).toBeLessThan(config.maxTrays);
         });
@@ -481,11 +504,12 @@ describe('Communication Command Structure', () => {
     describe('Camera Commands Category', () => {
         it('should have camera commands category', () => {
             if (window.STO_DATA && window.STO_DATA.commands) {
-                expect(window.STO_DATA.commands.camera).toBeDefined();
-                expect(window.STO_DATA.commands.camera.name).toBe('Camera');
-                expect(window.STO_DATA.commands.camera.icon).toBeDefined();
-                expect(window.STO_DATA.commands.camera.description).toBeDefined();
-                expect(window.STO_DATA.commands.camera.commands).toBeDefined();
+                expect(window.STO_DATA.commands.camera).toEqual(expect.objectContaining({
+                    name: 'Camera',
+                    icon: expect.any(String),
+                    description: expect.any(String),
+                    commands: expect.any(Object)
+                }));
             }
         });
 
@@ -494,16 +518,20 @@ describe('Communication Command Structure', () => {
                 const cameraCommands = window.STO_DATA.commands.camera.commands;
                 
                 // Check for basic camera commands
-                expect(cameraCommands.zoom_in).toBeDefined();
-                expect(cameraCommands.zoom_out).toBeDefined();
-                expect(cameraCommands.cam_reset).toBeDefined();
+                expect(cameraCommands).toEqual(expect.objectContaining({
+                    zoom_in: expect.any(Object),
+                    zoom_out: expect.any(Object),
+                    cam_reset: expect.any(Object)
+                }));
                 
                 // Verify command structure
                 if (cameraCommands.zoom_in) {
-                    expect(cameraCommands.zoom_in.name).toBeDefined();
-                    expect(cameraCommands.zoom_in.command).toBeDefined();
-                    expect(cameraCommands.zoom_in.description).toBeDefined();
-                    expect(cameraCommands.zoom_in.icon).toBeDefined();
+                    expect(cameraCommands.zoom_in).toEqual(expect.objectContaining({
+                        name: expect.any(String),
+                        command: expect.any(String),
+                        description: expect.any(String),
+                        icon: expect.any(String)
+                    }));
                 }
             }
         });
@@ -514,16 +542,17 @@ describe('Communication Command Structure', () => {
                 
                 // Check for parameterized camera distance command
                 if (cameraCommands.cam_distance) {
-                    expect(cameraCommands.cam_distance.customizable).toBeTruthy();
-                    expect(cameraCommands.cam_distance.parameters).toBeDefined();
-                    expect(cameraCommands.cam_distance.parameters.distance).toBeDefined();
-                    
-                    // Verify parameter structure
-                    const distanceParam = cameraCommands.cam_distance.parameters.distance;
-                    expect(distanceParam.type).toBe('number');
-                    expect(distanceParam.min).toBeDefined();
-                    expect(distanceParam.max).toBeDefined();
-                    expect(distanceParam.default).toBeDefined();
+                    expect(cameraCommands.cam_distance).toEqual(expect.objectContaining({
+                        customizable: true,
+                        parameters: expect.objectContaining({
+                            distance: expect.objectContaining({
+                                type: 'number',
+                                min: expect.any(Number),
+                                max: expect.any(Number),
+                                default: expect.any(Number)
+                            })
+                        })
+                    }));
                 }
             }
         });
@@ -543,15 +572,18 @@ describe('Communication Command Structure', () => {
                 
                 // Check distribute shields command
                 if (powerCommands.distribute_shields) {
-                    expect(powerCommands.distribute_shields.name).toBe('Distribute Shields');
-                    expect(powerCommands.distribute_shields.warning).toBeDefined();
-                    expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+                    expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
+                        name: 'Distribute Shields',
+                        warning: expect.stringContaining('Not recommended on spam bars')
+                    }));
                 }
                 
                 // Check shield rerouting commands
-                expect(powerCommands.reroute_shields_rear).toBeDefined();
-                expect(powerCommands.reroute_shields_left).toBeDefined();
-                expect(powerCommands.reroute_shields_right).toBeDefined();
+                expect(powerCommands).toEqual(expect.objectContaining({
+                    reroute_shields_rear: expect.any(Object),
+                    reroute_shields_left: expect.any(Object),
+                    reroute_shields_right: expect.any(Object)
+                }));
             }
         });
     });
@@ -566,8 +598,9 @@ describe('Communication Command Structure', () => {
                 
                 warningCommands.forEach(commandKey => {
                     if (combatCommands[commandKey]) {
-                        expect(combatCommands[commandKey].warning).toBeDefined();
-                        expect(combatCommands[commandKey].warning).toContain('Not recommended on spam bars');
+                        expect(combatCommands[commandKey]).toEqual(expect.objectContaining({
+                            warning: expect.stringContaining('Not recommended on spam bars')
+                        }));
                     }
                 });
             }
@@ -579,8 +612,9 @@ describe('Communication Command Structure', () => {
                 
                 // Check that distribute shields has warning
                 if (powerCommands.distribute_shields) {
-                    expect(powerCommands.distribute_shields.warning).toBeDefined();
-                    expect(powerCommands.distribute_shields.warning).toContain('Not recommended on spam bars');
+                    expect(powerCommands.distribute_shields).toEqual(expect.objectContaining({
+                        warning: expect.stringContaining('Not recommended on spam bars')
+                    }));
                 }
             }
         });
@@ -609,25 +643,28 @@ describe('Communication Command Structure', () => {
                 // Look for parameterized commands across categories
                 Object.entries(categories).forEach(([categoryId, category]) => {
                     if (category.commands) {
-                        Object.entries(category.commands).forEach(([commandId, command]) => {
-                            if (command.customizable) {
-                                expect(command.parameters).toBeDefined();
-                                expect(typeof command.parameters).toBe('object');
+                                            Object.entries(category.commands).forEach(([commandId, command]) => {
+                        if (command.customizable) {
+                            expect(command).toEqual(expect.objectContaining({
+                                parameters: expect.any(Object)
+                            }));
+                            
+                            // Verify parameter structure
+                            Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
+                                expect(paramDef).toEqual(expect.objectContaining({
+                                    type: expect.stringMatching(/^(text|number|boolean)$/),
+                                    default: expect.anything()
+                                }));
                                 
-                                // Verify parameter structure
-                                Object.entries(command.parameters).forEach(([paramName, paramDef]) => {
-                                    expect(paramDef.type).toBeDefined();
-                                    expect(['text', 'number', 'boolean']).toContain(paramDef.type);
-                                    
-                                    if (paramDef.type === 'number') {
-                                        expect(paramDef.min).toBeDefined();
-                                        expect(paramDef.max).toBeDefined();
-                                    }
-                                    
-                                    expect(paramDef.default).toBeDefined();
-                                });
-                            }
-                        });
+                                if (paramDef.type === 'number') {
+                                    expect(paramDef).toEqual(expect.objectContaining({
+                                        min: expect.any(Number),
+                                        max: expect.any(Number)
+                                    }));
+                                }
+                            });
+                        }
+                    });
                     }
                 });
             }
@@ -639,19 +676,26 @@ describe('Communication Command Structure', () => {
                 
                 // Check for throttle adjustment parameters
                 if (movementCommands.throttle_adjust) {
-                    expect(movementCommands.throttle_adjust.customizable).toBeTruthy();
-                    expect(movementCommands.throttle_adjust.parameters.amount).toBeDefined();
-                    
-                    const amountParam = movementCommands.throttle_adjust.parameters.amount;
-                    expect(amountParam.type).toBe('number');
-                    expect(amountParam.min).toBe(-1);
-                    expect(amountParam.max).toBe(1);
+                    expect(movementCommands.throttle_adjust).toEqual(expect.objectContaining({
+                        customizable: true,
+                        parameters: expect.objectContaining({
+                            amount: expect.objectContaining({
+                                type: 'number',
+                                min: -1,
+                                max: 1
+                            })
+                        })
+                    }));
                 }
                 
                 // Check for throttle set parameters
                 if (movementCommands.throttle_set) {
-                    expect(movementCommands.throttle_set.customizable).toBeTruthy();
-                    expect(movementCommands.throttle_set.parameters.position).toBeDefined();
+                    expect(movementCommands.throttle_set).toEqual(expect.objectContaining({
+                        customizable: true,
+                        parameters: expect.objectContaining({
+                            position: expect.any(Object)
+                        })
+                    }));
                 }
             }
         });
@@ -662,24 +706,35 @@ describe('Communication Command Structure', () => {
                 
                 // Check for bind file parameters
                 if (systemCommands.bind_save_file) {
-                    expect(systemCommands.bind_save_file.customizable).toBeTruthy();
-                    expect(systemCommands.bind_save_file.parameters.filename).toBeDefined();
+                    expect(systemCommands.bind_save_file).toEqual(expect.objectContaining({
+                        customizable: true,
+                        parameters: expect.objectContaining({
+                            filename: expect.any(Object)
+                        })
+                    }));
                 }
                 
                 if (systemCommands.bind_load_file) {
-                    expect(systemCommands.bind_load_file.customizable).toBeTruthy();
-                    expect(systemCommands.bind_load_file.parameters.filename).toBeDefined();
+                    expect(systemCommands.bind_load_file).toEqual(expect.objectContaining({
+                        customizable: true,
+                        parameters: expect.objectContaining({
+                            filename: expect.any(Object)
+                        })
+                    }));
                 }
                 
                 // Check for combat log parameters
                 if (systemCommands.combat_log) {
-                    expect(systemCommands.combat_log.customizable).toBeTruthy();
-                    expect(systemCommands.combat_log.parameters.state).toBeDefined();
-                    
-                    const stateParam = systemCommands.combat_log.parameters.state;
-                    expect(stateParam.type).toBe('number');
-                    expect(stateParam.min).toBe(0);
-                    expect(stateParam.max).toBe(1);
+                    expect(systemCommands.combat_log).toEqual(expect.objectContaining({
+                        customizable: true,
+                        parameters: expect.objectContaining({
+                            state: expect.objectContaining({
+                                type: 'number',
+                                min: 0,
+                                max: 1
+                            })
+                        })
+                    }));
                 }
             }
         });
@@ -693,9 +748,13 @@ describe('Communication Command Structure', () => {
                 // Check for message-based commands
                 Object.values(commCommands).forEach(command => {
                     if (command && command.customizable) {
-                        expect(command.parameters).toBeDefined();
-                        expect(command.parameters.message).toBeDefined();
-                        expect(command.parameters.message.type).toBe('text');
+                        expect(command).toEqual(expect.objectContaining({
+                            parameters: expect.objectContaining({
+                                message: expect.objectContaining({
+                                    type: 'text'
+                                })
+                            })
+                        }));
                     }
                 });
             }

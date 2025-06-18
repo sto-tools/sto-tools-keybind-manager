@@ -21,7 +21,7 @@ describe('ExportManager Class', () => {
     });
 
     it('should create ExportManager instance', () => {
-        expect(exportManager).toBeDefined();
+        expect(exportManager).toBeInstanceOf(Object);
         expect(exportManager.constructor.name).toBe('STOExportManager');
     });
 

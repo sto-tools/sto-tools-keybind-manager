@@ -323,12 +323,26 @@ class Expect {
     }
 
     toEqual(expected) {
-        const passed = this.isNot ? 
-            !this.deepEqual(this.actual, expected) : 
-            this.deepEqual(this.actual, expected);
+        let passed;
+        
+        // Handle asymmetric matchers
+        if (expected && typeof expected.asymmetricMatch === 'function') {
+            passed = expected.asymmetricMatch(this.actual);
+        } else {
+            passed = this.deepEqualWithMatchers(this.actual, expected);
+        }
+        
+        passed = this.isNot ? !passed : passed;
         
         if (!passed) {
-            throw new Error(`Expected ${JSON.stringify(this.actual)} ${this.isNot ? 'not ' : ''}to equal ${JSON.stringify(expected)}`);
+            // Better error message for asymmetric matchers
+            let expectedStr;
+            if (expected && typeof expected.asymmetricMatch === 'function') {
+                expectedStr = expected.toString();
+            } else {
+                expectedStr = JSON.stringify(expected);
+            }
+            throw new Error(`Expected ${JSON.stringify(this.actual)} ${this.isNot ? 'not ' : ''}to equal ${expectedStr}`);
         }
         return this;
     }
@@ -471,6 +485,14 @@ class Expect {
         } else if (expectedClass === Object || expectedClass.name === 'Object') {
             // Special handling for Object - exclude null and arrays
             isInstance = this.actual !== null && typeof this.actual === 'object' && !Array.isArray(this.actual);
+        } else if (expectedClass === Map || expectedClass.name === 'Map') {
+            // Special handling for Map to work across VM contexts
+            isInstance = this.actual instanceof Map || 
+                        (this.actual && 
+                         typeof this.actual.get === 'function' && 
+                         typeof this.actual.set === 'function' && 
+                         typeof this.actual.has === 'function' &&
+                         typeof this.actual.size === 'number');
         } else {
             // Standard instanceof check
             isInstance = this.actual instanceof expectedClass;
@@ -507,6 +529,281 @@ class Expect {
         
         return false;
     }
+    
+    deepEqualWithMatchers(a, b) {
+        if (a === b) return true;
+        if (a == null || b == null) return false;
+        
+        // Handle asymmetric matchers
+        if (b && typeof b.asymmetricMatch === 'function') {
+            return b.asymmetricMatch(a);
+        }
+        
+        if (typeof a !== typeof b) return false;
+        
+        if (typeof a === 'object') {
+            if (Array.isArray(a) !== Array.isArray(b)) return false;
+            
+            if (Array.isArray(a)) {
+                if (a.length !== b.length) return false;
+                for (let i = 0; i < a.length; i++) {
+                    if (!this.deepEqualWithMatchers(a[i], b[i])) return false;
+                }
+                return true;
+            } else {
+                const keysA = Object.keys(a);
+                const keysB = Object.keys(b);
+                
+                if (keysA.length !== keysB.length) return false;
+                
+                for (const key of keysA) {
+                    if (!keysB.includes(key)) return false;
+                    if (!this.deepEqualWithMatchers(a[key], b[key])) return false;
+                }
+                
+                return true;
+            }
+        }
+        
+        return false;
+    }
+}
+
+/**
+ * Matcher classes for expect utilities
+ */
+class AnyMatcher {
+    constructor(type) {
+        this.type = type;
+        this.asymmetricMatch = this.asymmetricMatch.bind(this);
+    }
+    
+    asymmetricMatch(other) {
+        if (this.type === String) {
+            return typeof other === 'string';
+        } else if (this.type === Number) {
+            return typeof other === 'number' && !isNaN(other);
+        } else if (this.type === Boolean) {
+            return typeof other === 'boolean';
+        } else if (this.type === Object) {
+            return other !== null && typeof other === 'object' && !Array.isArray(other);
+        } else if (this.type === Array) {
+            return Array.isArray(other);
+        } else if (this.type === Function) {
+            return typeof other === 'function';
+        } else {
+            return other instanceof this.type;
+        }
+    }
+    
+    toString() {
+        return `Any<${this.type.name}>`;
+    }
+}
+
+class AnythingMatcher {
+    constructor() {
+        this.asymmetricMatch = this.asymmetricMatch.bind(this);
+    }
+    
+    asymmetricMatch(other) {
+        return other !== null && other !== undefined;
+    }
+    
+    toString() {
+        return 'Anything';
+    }
+}
+
+class ObjectContainingMatcher {
+    constructor(expected) {
+        this.expected = expected;
+        this.asymmetricMatch = this.asymmetricMatch.bind(this);
+    }
+    
+    asymmetricMatch(other) {
+        if (other === null || typeof other !== 'object') {
+            return false;
+        }
+        
+        return this.containsObject(this.expected, other);
+    }
+    
+    containsObject(expected, actual) {
+        for (const key in expected) {
+            if (!(key in actual)) {
+                return false;
+            }
+            
+            const expectedValue = expected[key];
+            const actualValue = actual[key];
+            
+            if (expectedValue && typeof expectedValue.asymmetricMatch === 'function') {
+                if (!expectedValue.asymmetricMatch(actualValue)) {
+                    return false;
+                }
+            } else if (expectedValue && typeof expectedValue === 'object' && !Array.isArray(expectedValue)) {
+                if (!this.containsObject(expectedValue, actualValue)) {
+                    return false;
+                }
+            } else if (Array.isArray(expectedValue)) {
+                // Handle array comparison with asymmetric matchers
+                if (!Array.isArray(actualValue) || !this.arrayContainsMatchers(expectedValue, actualValue)) {
+                    return false;
+                }
+            } else if (expectedValue !== actualValue) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    arrayContainsMatchers(expectedArray, actualArray) {
+        if (expectedArray.length !== actualArray.length) {
+            return false;
+        }
+        
+        for (let i = 0; i < expectedArray.length; i++) {
+            const expectedItem = expectedArray[i];
+            const actualItem = actualArray[i];
+            
+            if (expectedItem && typeof expectedItem.asymmetricMatch === 'function') {
+                if (!expectedItem.asymmetricMatch(actualItem)) {
+                    return false;
+                }
+            } else if (!this.deepEqual(expectedItem, actualItem)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    deepEqual(a, b) {
+        if (a === b) return true;
+        if (a == null || b == null) return false;
+        if (typeof a !== typeof b) return false;
+        
+        if (typeof a === 'object') {
+            if (Array.isArray(a) !== Array.isArray(b)) return false;
+            
+            if (Array.isArray(a)) {
+                if (a.length !== b.length) return false;
+                for (let i = 0; i < a.length; i++) {
+                    if (!this.deepEqual(a[i], b[i])) return false;
+                }
+                return true;
+            } else {
+                const keysA = Object.keys(a);
+                const keysB = Object.keys(b);
+                
+                if (keysA.length !== keysB.length) return false;
+                
+                for (const key of keysA) {
+                    if (!keysB.includes(key)) return false;
+                    if (!this.deepEqual(a[key], b[key])) return false;
+                }
+                
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    toString() {
+        return `ObjectContaining(${JSON.stringify(this.expected)})`;
+    }
+}
+
+class ArrayContainingMatcher {
+    constructor(expected) {
+        this.expected = expected;
+        this.asymmetricMatch = this.asymmetricMatch.bind(this);
+    }
+    
+    asymmetricMatch(other) {
+        if (!Array.isArray(other)) {
+            return false;
+        }
+        
+        return this.expected.every(expectedItem => {
+            return other.some(actualItem => {
+                if (expectedItem && typeof expectedItem.asymmetricMatch === 'function') {
+                    return expectedItem.asymmetricMatch(actualItem);
+                }
+                return this.deepEqual(expectedItem, actualItem);
+            });
+        });
+    }
+    
+    deepEqual(a, b) {
+        if (a === b) return true;
+        if (a == null || b == null) return false;
+        if (typeof a !== typeof b) return false;
+        
+        if (typeof a === 'object') {
+            if (Array.isArray(a) !== Array.isArray(b)) return false;
+            
+            const keysA = Object.keys(a);
+            const keysB = Object.keys(b);
+            
+            if (keysA.length !== keysB.length) return false;
+            
+            for (const key of keysA) {
+                if (!keysB.includes(key)) return false;
+                if (!this.deepEqual(a[key], b[key])) return false;
+            }
+            
+            return true;
+        }
+        
+        return false;
+    }
+    
+    toString() {
+        return `ArrayContaining([${this.expected.join(', ')}])`;
+    }
+}
+
+class StringContainingMatcher {
+    constructor(expected) {
+        this.expected = expected;
+        this.asymmetricMatch = this.asymmetricMatch.bind(this);
+    }
+    
+    asymmetricMatch(other) {
+        if (typeof other !== 'string') {
+            return false;
+        }
+        
+        return other.includes(this.expected);
+    }
+    
+    toString() {
+        return `StringContaining("${this.expected}")`;
+    }
+}
+
+class StringMatchingMatcher {
+    constructor(expected) {
+        this.expected = expected;
+        this.regex = typeof expected === 'string' ? new RegExp(expected) : expected;
+        this.asymmetricMatch = this.asymmetricMatch.bind(this);
+    }
+    
+    asymmetricMatch(other) {
+        if (typeof other !== 'string') {
+            return false;
+        }
+        
+        return this.regex.test(other);
+    }
+    
+    toString() {
+        return `StringMatching(${this.expected})`;
+    }
 }
 
 /**
@@ -515,6 +812,14 @@ class Expect {
 function expect(actual) {
     return new Expect(actual);
 }
+
+// Add static methods to expect
+expect.any = (type) => new AnyMatcher(type);
+expect.anything = () => new AnythingMatcher();
+expect.objectContaining = (expected) => new ObjectContainingMatcher(expected);
+expect.arrayContaining = (expected) => new ArrayContainingMatcher(expected);
+expect.stringContaining = (expected) => new StringContainingMatcher(expected);
+expect.stringMatching = (expected) => new StringMatchingMatcher(expected);
 
 // Create global test framework instance
 const testFramework = new TestFramework();
@@ -578,17 +883,32 @@ const Mock = {
     }
 };
 
-// Export for use in tests
-window.testFramework = testFramework;
-window.expect = expect;
-window.describe = describe;
-window.it = it;
-window.xit = xit;
-window.beforeEach = beforeEach;
-window.afterEach = afterEach;
-window.beforeAll = beforeAll;
-window.afterAll = afterAll;
-window.Mock = Mock;
+// Export for use in tests - handle both browser and Node.js environments
+if (typeof window !== 'undefined') {
+    // Browser environment
+    window.testFramework = testFramework;
+    window.expect = expect;
+    window.describe = describe;
+    window.it = it;
+    window.xit = xit;
+    window.beforeEach = beforeEach;
+    window.afterEach = afterEach;
+    window.beforeAll = beforeAll;
+    window.afterAll = afterAll;
+    window.Mock = Mock;
+} else if (typeof global !== 'undefined') {
+    // Node.js environment
+    global.testFramework = testFramework;
+    global.expect = expect;
+    global.describe = describe;
+    global.it = it;
+    global.xit = xit;
+    global.beforeEach = beforeEach;
+    global.afterEach = afterEach;
+    global.beforeAll = beforeAll;
+    global.afterAll = afterAll;
+    global.Mock = Mock;
+}
 
 // Add skip functionality to it
 it.skip = xit; 

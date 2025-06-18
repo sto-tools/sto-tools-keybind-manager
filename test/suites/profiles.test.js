@@ -21,14 +21,13 @@ describe('ProfileManager Class', () => {
     });
 
     it('should create ProfileManager instance', () => {
-        expect(profileManager).toBeDefined();
+        expect(profileManager).toBeInstanceOf(Object);
         expect(profileManager.constructor.name).toBe('STOProfileManager');
     });
 
     it('should perform all profile management operations correctly', () => {
         // Test profile templates
         const templates = profileManager.getProfileTemplates();
-        expect(templates).toBeDefined();
         expect(typeof templates).toBe('object');
         expect(Object.keys(templates).length).toBeGreaterThan(0);
         
@@ -38,22 +37,23 @@ describe('ProfileManager Class', () => {
             keys: { 'a': [{ command: 'target', type: 'targeting' }] }
         };
         const analysis = profileManager.getProfileAnalysis(testProfile);
-        expect(analysis).toBeDefined();
         expect(typeof analysis).toBe('object');
+        expect(analysis).not.toBeNull();
         
         // Test profile export
         const exportResult = profileManager.exportProfile(testProfile);
-        expect(exportResult).toBeDefined();
         expect(typeof exportResult).toBe('string');
+        expect(exportResult.length).toBeGreaterThan(0);
         
         // Test profile import
         const importResult = profileManager.importProfile(exportResult);
-        expect(importResult).toBeDefined();
-        expect(importResult.name).toBe(testProfile.name);
+        expect(importResult).toEqual(expect.objectContaining({
+            name: testProfile.name
+        }));
         
         // Test profile save handling
         const saveResult = profileManager.handleProfileSave('test-id', testProfile);
-        expect(saveResult).toBeDefined();
+        expect(saveResult).toBeTruthy();
         
         // Test modal operations actually show modals
         profileManager.showNewProfileModal();
@@ -88,7 +88,6 @@ describe('Profile Templates', () => {
 
     it('should provide profile templates', () => {
         const templates = profileManager.getProfileTemplates();
-        expect(templates).toBeDefined();
         expect(typeof templates).toBe('object');
         expect(Object.keys(templates).length).toBeGreaterThan(0);
     });
@@ -99,11 +98,12 @@ describe('Profile Templates', () => {
         expect(templateKeys.length).toBeGreaterThan(0);
         
         const template = templates[templateKeys[0]];
-        expect(template).toBeDefined();
-        expect(template.name).toBeDefined();
-        expect(template.description).toBeDefined();
-        expect(template.mode).toBeDefined();
-        expect(template.keys).toBeDefined();
+        expect(template).toEqual(expect.objectContaining({
+            name: expect.any(String),
+            description: expect.any(String),
+            mode: expect.any(String),
+            keys: expect.any(Object)
+        }));
     });
 });
 
@@ -130,8 +130,8 @@ describe('Profile Analysis', () => {
         };
 
         const analysis = profileManager.getProfileAnalysis(sampleProfile);
-        expect(analysis).toBeDefined();
         expect(typeof analysis).toBe('object');
+        expect(analysis).not.toBeNull();
     });
 
     it('should handle empty profile analysis', () => {
@@ -141,7 +141,7 @@ describe('Profile Analysis', () => {
         };
 
         const analysis = profileManager.getProfileAnalysis(emptyProfile);
-        expect(analysis).toBeDefined();
         expect(typeof analysis).toBe('object');
+        expect(analysis).not.toBeNull();
     });
 }); 

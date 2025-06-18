@@ -446,12 +446,17 @@ describe('Command Library', () => {
 
     describe('Command Validation', () => {
         it('should validate command syntax', () => {
-            if (window.stoCommands && window.stoCommands.validateCommand) {
-                const validCommand = '+STOTrayExecByTray 0 0';
-                const result = window.stoCommands.validateCommand(validCommand);
-                if (result) {
-                    expect(result.valid).toBe(true);
-                }
+            expect(window.stoCommands).toBeDefined();
+            expect(typeof window.stoCommands.validateCommand).toBe('function');
+            
+            const validCommand = '+STOTrayExecByTray 0 0';
+            const result = window.stoCommands.validateCommand(validCommand);
+            
+            expect(result).toBeDefined();
+            if (typeof result === 'boolean') {
+                expect(result).toBe(true);
+            } else if (typeof result === 'object') {
+                expect(result.valid).toBe(true);
             }
         });
 
