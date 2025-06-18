@@ -443,6 +443,8 @@ class STOToolsKeybindManager {
         if (!grid) return;
         
         const profile = this.getCurrentProfile();
+        if (!profile) return;
+        
         grid.innerHTML = '';
         
         if (!profile) {

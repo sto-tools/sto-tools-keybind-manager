@@ -305,13 +305,13 @@ class STOKeybindFileManager {
 
             const message = `Import completed: ${aliasCount} aliases`
             stoUI.showToast(message, 'success')
-
-            return {
-                success: true,
+        
+        return {
+            success: true,
                 imported: {
                     aliases: aliasCount
                 },
-                errors: parsed.errors
+            errors: parsed.errors
             }
         } catch (error) {
             stoUI.showToast('Import failed: ' + error.message, 'error')

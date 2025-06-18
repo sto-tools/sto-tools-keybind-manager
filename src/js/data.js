@@ -1011,6 +1011,17 @@ const STO_DATA = {
         autoSave: true,
         maxUndoSteps: 50,
         defaultMode: "space"
+    },
+
+    // STO Variables that can be used in commands
+    variables: {
+        target: {
+            variable: "$Target",
+            description: "Replaced with the name of your current target",
+            example: 'team "Target [$Target]"',
+            usableIn: ["communication", "custom", "aliases"],
+            notes: "If your target's name is 'froggyMonster', this will output 'Target [froggyMonster]'"
+        }
     }
 };
 
@@ -1186,8 +1197,3 @@ window.getCommandsByCategory = function(category) {
     }
     return Object.values(STO_DATA.commands[category].commands);
 };
-
-// Export for other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = STO_DATA;
-} 

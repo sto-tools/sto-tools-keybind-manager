@@ -7,130 +7,27 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 describe('STOCommandManager', () => {
   let commandManager
-  let mockStoData
 
   beforeEach(async () => {
     // Reset localStorage
     localStorage.clear()
     
-    // Import real modules
-    const { STO_DATA } = await import('../../src/js/data.js')
-    
-    // Setup mock STO_DATA for testing
-    mockStoData = {
-      commands: {
-        targeting: {
-          commands: {
-            target_enemy_near: {
-              command: 'target_enemy_near',
-              name: 'Target Nearest Enemy',
-              icon: '🎯',
-              description: 'Target the nearest enemy'
-            },
-            target_self: {
-              command: 'target_self',
-              name: 'Target Self',
-              icon: '👤',
-              description: 'Target yourself'
-            }
-          }
-        },
-        combat: {
-          commands: {
-            fireall: {
-              command: 'FireAll',
-              name: 'Fire All Weapons',
-              icon: '🔥',
-              description: 'Fire all weapons'
-            }
-          }
-        },
-        power: {
-          commands: {
-            distribute_shields: {
-              command: '+power_exec Distribute_Shields',
-              name: 'Distribute Shields',
-              icon: '🛡️',
-              description: 'Distribute shields evenly'
-            }
-          }
-        },
-        movement: {
-          commands: {
-            fullimpulse: {
-              command: '+fullimpulse',
-              name: 'Full Impulse',
-              icon: '🚀',
-              description: 'Engage full impulse'
-            },
-            throttle_adjust: {
-              command: 'throttle_adjust',
-              name: 'Throttle Adjust',
-              icon: '⚡',
-              description: 'Adjust throttle by amount',
-              customizable: true
-            }
-          }
-        },
-        camera: {
-          commands: {
-            cam_distance: {
-              command: 'cam_distance',
-              name: 'Camera Distance',
-              icon: '📹',
-              description: 'Set camera distance',
-              customizable: true
-            }
-          }
-        },
-        communication: {
-          commands: {
-            say: {
-              command: 'say',
-              name: 'Say',
-              icon: '💬',
-              description: 'Send message to local chat'
-            },
-            team: {
-              command: 'team',
-              name: 'Team',
-              icon: '👥',
-              description: 'Send message to team chat'
-            }
-          }
-        },
-        system: {
-          commands: {
-            bind_save_file: {
-              command: 'bind_save_file',
-              name: 'Save Binds',
-              icon: '💾',
-              description: 'Save key bindings to file',
-              customizable: true
-            },
-            combat_log: {
-              command: 'combat_log',
-              name: 'Combat Log',
-              icon: '📊',
-              description: 'Toggle combat log',
-              customizable: true
-            }
-          }
-        }
-      },
-      templates: {
-        combat: {
-          basic_combat: {
-            name: 'Basic Combat',
-            description: 'Basic combat commands',
-            commands: ['FireAll', 'target_enemy_near']
-          }
-        }
-      }
+    // Setup window object for browser environment simulation
+    if (!global.window) {
+      global.window = global
     }
     
-    // Setup global STO_DATA
-    global.STO_DATA = mockStoData
+    // Load data.js by executing it as a script (since it's not an ES6 module)
+    const fs = require('fs')
+    const path = require('path')
+    const dataPath = path.resolve(__dirname, '../../src/js/data.js')
+    const dataContent = fs.readFileSync(dataPath, 'utf8')
+    
+    // Execute the data.js content in the global context
+    eval(dataContent)
+    
+    // Now STO_DATA should be available on window
+    global.STO_DATA = global.window.STO_DATA
     
     // Setup DOM elements needed for tests
     document.body.innerHTML = `
@@ -190,20 +87,19 @@ describe('STOCommandManager', () => {
       it('should build targeting command with default parameters', () => {
         const builder = commandManager.commandBuilders.get('targeting')
         const result = builder.build('target_enemy_near')
-        
+
         expect(result).toEqual({
-          command: 'target_enemy_near',
+          command: 'Target_Enemy_Near',
           type: 'targeting',
           icon: '🎯',
           text: 'Target Nearest Enemy',
-          description: 'Target the nearest enemy'
+          description: 'Target the nearest enemy in view'
         })
       })
 
       it('should handle invalid targeting command ID', () => {
         const builder = commandManager.commandBuilders.get('targeting')
-        const result = builder.build('nonexistent_command')
-        
+        const result = builder.build('invalid_command')
         expect(result).toBeNull()
       })
     })
@@ -211,8 +107,8 @@ describe('STOCommandManager', () => {
     describe('combat commands', () => {
       it('should build combat command correctly', () => {
         const builder = commandManager.commandBuilders.get('combat')
-        const result = builder.build('fireall')
-        
+        const result = builder.build('fire_all')
+
         expect(result).toEqual({
           command: 'FireAll',
           type: 'combat',
@@ -271,13 +167,13 @@ describe('STOCommandManager', () => {
       it('should build shield distribution commands', () => {
         const builder = commandManager.commandBuilders.get('power')
         const result = builder.build('distribute_shields')
-        
+
         expect(result).toEqual({
           command: '+power_exec Distribute_Shields',
           type: 'power',
           icon: '🛡️',
           text: 'Distribute Shields',
-          description: 'Distribute shields evenly'
+          description: 'Evenly distributes shields as if clicking in the middle of the ship and shields icon'
         })
       })
     })
@@ -285,22 +181,22 @@ describe('STOCommandManager', () => {
     describe('movement commands', () => {
       it('should build basic movement commands', () => {
         const builder = commandManager.commandBuilders.get('movement')
-        const result = builder.build('fullimpulse')
-        
+        const result = builder.build('full_impulse')
+
         expect(result).toEqual({
           command: '+fullimpulse',
           type: 'movement',
           icon: '🚀',
           text: 'Full Impulse',
-          description: 'Engage full impulse'
+          description: 'Engage full impulse drive'
         })
       })
 
       it('should handle throttle adjustment parameters', () => {
         const builder = commandManager.commandBuilders.get('movement')
         const result = builder.build('throttle_adjust', { amount: 25 })
-        
-        expect(result.command).toBe('throttle_adjust 25')
+
+        expect(result.command).toBe('ThrottleAdjust 25')
       })
     })
 
@@ -308,34 +204,36 @@ describe('STOCommandManager', () => {
       it('should build camera commands with distance parameters', () => {
         const builder = commandManager.commandBuilders.get('camera')
         const result = builder.build('cam_distance', { distance: 10 })
-        
-        expect(result.command).toBe('cam_distance 10')
+
+        expect(result.command).toBe('camdist 10')
         expect(result.type).toBe('camera')
-        expect(result.icon).toBe('📹')
+                  expect(result.icon).toBe('📏')
       })
     })
 
     describe('communication commands', () => {
       it('should build communication commands with message parameters', () => {
         const builder = commandManager.commandBuilders.get('communication')
-        const result = builder.build('say', { message: 'Hello world' })
-        
+        const result = builder.build('local_message', { message: 'Hello world' })
+
         expect(result).toEqual({
           command: 'say "Hello world"',
           type: 'communication',
-          icon: '💬',
-          text: 'Say: Hello world',
-          description: 'Send message to local chat',
-          parameters: { message: 'Hello world' }
+          icon: '📢',
+          text: 'Local Message: Hello world',
+          description: 'Send message to local area',
+          parameters: {
+            message: 'Hello world'
+          }
         })
       })
 
       it('should use default message when none provided', () => {
         const builder = commandManager.commandBuilders.get('communication')
-        const result = builder.build('team')
-        
+        const result = builder.build('team_message')
+
         expect(result.command).toBe('team "Message text here"')
-        expect(result.text).toBe('Team: Message text here')
+        expect(result.text).toBe('Team Message: Message text here')
       })
     })
 
@@ -350,8 +248,8 @@ describe('STOCommandManager', () => {
       it('should handle state-based system commands', () => {
         const builder = commandManager.commandBuilders.get('system')
         const result = builder.build('combat_log', { state: 1 })
-        
-        expect(result.command).toBe('combat_log 1')
+
+        expect(result.command).toBe('CombatLog 1')
       })
     })
   })
@@ -582,7 +480,7 @@ describe('STOCommandManager', () => {
     })
 
     it('should find friendly names for known commands', () => {
-      expect(commandManager.getCommandText('target_enemy_near')).toBe('Target Nearest Enemy')
+      expect(commandManager.getCommandText('Target_Enemy_Near')).toBe('Target Nearest Enemy')
       expect(commandManager.getCommandText('FireAll')).toBe('Fire All Weapons')
     })
 
@@ -692,6 +590,15 @@ describe('STOCommandManager', () => {
       types.forEach(type => {
         expect(() => commandManager.setupTypeSpecificListeners(type)).not.toThrow()
       })
+    })
+  })
+
+  describe('$Target variable support', () => {
+    it('should include $Target variable information in data', () => {
+      expect(STO_DATA.variables).toBeDefined()
+      expect(STO_DATA.variables.target).toBeDefined()
+      expect(STO_DATA.variables.target.variable).toBe('$Target')
+      expect(STO_DATA.variables.target.description).toContain('current target')
     })
   })
 }) 

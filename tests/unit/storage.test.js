@@ -30,10 +30,17 @@ describe('STOStorage', () => {
     // Set up global environment for module dependencies
     global.window = global.window || {}
     
-    // Import STO_DATA first (storage depends on it)
-    const dataModule = await import('../../src/js/data.js')
-    STO_DATA = dataModule.default || dataModule
-    global.window.STO_DATA = STO_DATA
+    // Load data.js by executing it as a script (since it's not an ES6 module)
+    const fs = require('fs')
+    const path = require('path')
+    const dataPath = path.resolve(__dirname, '../../src/js/data.js')
+    const dataContent = fs.readFileSync(dataPath, 'utf8')
+    
+    // Execute the data.js content in the global context
+    eval(dataContent)
+    
+    // Now STO_DATA should be available on window
+    STO_DATA = global.window.STO_DATA
     
     // Load the storage module (it creates a global instance)
     await import('../../src/js/storage.js')

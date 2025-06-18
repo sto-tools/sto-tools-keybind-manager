@@ -1836,7 +1836,7 @@ body {
   .command-chain-container {
     break-inside: avoid;
   }
-}
+} 
 
 /* Key Selection Modal Styles */
 .key-selection-content {
