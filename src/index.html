@@ -409,6 +409,49 @@
         </div>
     </div>
 
+    <!-- Key Selection Modal -->
+    <div class="modal large-modal" id="keySelectionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select Key</h3>
+                <button class="modal-close" data-modal="keySelectionModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="key-selection-content">
+                    <!-- Common Keys Section -->
+                    <div class="common-keys-section">
+                        <h4>Common Keys</h4>
+                        <div class="common-keys-grid" id="commonKeysGrid">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <!-- Find Other Keys Button -->
+                    <div class="find-keys-section">
+                        <button class="btn btn-outline" id="findOtherKeysBtn">
+                            <i class="fas fa-search"></i> Find other keys...
+                        </button>
+                    </div>
+                    
+                    <!-- Full Key List (initially hidden) -->
+                    <div class="full-keys-section" id="fullKeysSection" style="display: none;">
+                        <div class="key-search">
+                            <input type="text" id="keySearchInput" placeholder="Search keys..." autocomplete="off">
+                        </div>
+                        <div class="key-categories" id="keyCategories">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-modal="keySelectionModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- About Modal -->
     <div class="modal" id="aboutModal">
         <div class="modal-content">

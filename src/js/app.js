@@ -1254,7 +1254,7 @@ class STOToolsKeybindManager {
         
         // Key management
         document.getElementById('addKeyBtn')?.addEventListener('click', () => {
-            stoUI.showModal('addKeyModal');
+            this.showKeySelectionModal();
         });
         
         document.getElementById('deleteKeyBtn')?.addEventListener('click', () => {
@@ -2211,6 +2211,178 @@ class STOToolsKeybindManager {
             const categoryVisible = visibleCommands.length > 0;
             category.style.display = categoryVisible ? 'block' : 'none';
         });
+    }
+
+    showKeySelectionModal() {
+        this.setupKeySelectionModal();
+        stoUI.showModal('keySelectionModal');
+    }
+
+    setupKeySelectionModal() {
+        // Populate common keys
+        this.populateCommonKeys();
+        
+        // Setup "Find other keys" button
+        const findKeysBtn = document.getElementById('findOtherKeysBtn');
+        if (findKeysBtn) {
+            findKeysBtn.onclick = () => this.showFullKeyList();
+        }
+        
+        // Setup search functionality
+        const searchInput = document.getElementById('keySearchInput');
+        if (searchInput) {
+            searchInput.oninput = (e) => this.filterKeyList(e.target.value);
+        }
+    }
+
+    populateCommonKeys() {
+        const commonKeysGrid = document.getElementById('commonKeysGrid');
+        if (!commonKeysGrid) return;
+
+        const commonKeys = STO_DATA.keys.common.keys;
+        commonKeysGrid.innerHTML = '';
+
+        commonKeys.forEach(keyData => {
+            const keyButton = document.createElement('div');
+            keyButton.className = 'key-button';
+            keyButton.onclick = () => this.selectKeyFromModal(keyData.key);
+            
+            keyButton.innerHTML = `
+                <div class="key-name">${keyData.key}</div>
+                <div class="key-desc">${keyData.description}</div>
+            `;
+            
+            commonKeysGrid.appendChild(keyButton);
+        });
+    }
+
+    showFullKeyList() {
+        const fullKeysSection = document.getElementById('fullKeysSection');
+        const findKeysBtn = document.getElementById('findOtherKeysBtn');
+        
+        if (fullKeysSection && findKeysBtn) {
+            fullKeysSection.style.display = 'block';
+            findKeysBtn.style.display = 'none';
+            
+            // Populate categories if not already done
+            this.populateKeyCategories();
+        }
+    }
+
+    populateKeyCategories() {
+        const keyCategories = document.getElementById('keyCategories');
+        if (!keyCategories) return;
+
+        keyCategories.innerHTML = '';
+
+        // Skip common keys since they're already shown above
+        Object.entries(STO_DATA.keys).forEach(([categoryId, categoryData]) => {
+            if (categoryId === 'common') return;
+
+            const categoryElement = document.createElement('div');
+            categoryElement.className = 'key-category';
+            
+            const headerElement = document.createElement('div');
+            headerElement.className = 'key-category-header';
+            headerElement.onclick = () => this.toggleKeyCategory(categoryId);
+            
+            headerElement.innerHTML = `
+                <div>
+                    <h5>${categoryData.name}</h5>
+                    <div class="category-desc">${categoryData.description}</div>
+                </div>
+                <i class="fas fa-chevron-right category-chevron"></i>
+            `;
+            
+            const contentElement = document.createElement('div');
+            contentElement.className = 'key-category-content collapsed';
+            contentElement.id = `key-category-${categoryId}`;
+            
+            // Populate keys for this category
+            categoryData.keys.forEach(keyData => {
+                const keyButton = document.createElement('div');
+                keyButton.className = 'key-button';
+                keyButton.onclick = () => this.selectKeyFromModal(keyData.key);
+                
+                keyButton.innerHTML = `
+                    <div class="key-name">${keyData.key}</div>
+                    <div class="key-desc">${keyData.description}</div>
+                `;
+                
+                contentElement.appendChild(keyButton);
+            });
+            
+            categoryElement.appendChild(headerElement);
+            categoryElement.appendChild(contentElement);
+            keyCategories.appendChild(categoryElement);
+        });
+    }
+
+    toggleKeyCategory(categoryId) {
+        const header = document.querySelector(`#key-category-${categoryId}`).previousElementSibling;
+        const content = document.getElementById(`key-category-${categoryId}`);
+        
+        if (content && header) {
+            const isCollapsed = content.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                content.classList.remove('collapsed');
+                header.classList.remove('collapsed');
+            } else {
+                content.classList.add('collapsed');
+                header.classList.add('collapsed');
+            }
+        }
+    }
+
+    filterKeyList(searchTerm) {
+        const term = searchTerm.toLowerCase().trim();
+        
+        // Filter through all key buttons in categories
+        const keyButtons = document.querySelectorAll('#keyCategories .key-button');
+        
+        keyButtons.forEach(button => {
+            const keyName = button.querySelector('.key-name').textContent.toLowerCase();
+            const keyDesc = button.querySelector('.key-desc').textContent.toLowerCase();
+            
+            const matches = keyName.includes(term) || keyDesc.includes(term);
+            button.style.display = matches ? 'flex' : 'none';
+        });
+        
+        // Show/hide categories based on visible keys
+        const categories = document.querySelectorAll('.key-category');
+        categories.forEach(category => {
+            const visibleKeys = category.querySelectorAll('.key-button:not([style*="display: none"])');
+            const hasVisibleKeys = visibleKeys.length > 0;
+            
+            if (term === '') {
+                // If no search term, show all categories but keep them collapsed
+                category.style.display = 'block';
+            } else {
+                // If searching, show categories with matches and expand them
+                category.style.display = hasVisibleKeys ? 'block' : 'none';
+                
+                if (hasVisibleKeys) {
+                    const content = category.querySelector('.key-category-content');
+                    const header = category.querySelector('.key-category-header');
+                    if (content && header) {
+                        content.classList.remove('collapsed');
+                        header.classList.remove('collapsed');
+                    }
+                }
+            }
+        });
+    }
+
+    selectKeyFromModal(keyName) {
+        // Add the key to the current profile
+        this.addKey(keyName);
+        
+        // Close the modal
+        stoUI.hideModal('keySelectionModal');
+        
+        // Select the newly added key
+        this.selectKey(keyName);
     }
 }
 
