@@ -613,4 +613,244 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       expect(types4).toContain('modifiers') // Actual return value (plural)
     })
   })
+
+  describe('$Target variable support in parameter modal', () => {
+    beforeEach(() => {
+      // Set up DOM for parameter modal
+      document.body.innerHTML = `
+        <div class="modal" id="parameterModal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 id="parameterModalTitle">Configure: Team Message</h3>
+            </div>
+            <div class="modal-body">
+              <div id="parameterInputs">
+                <!-- This will be populated by populateParameterModal -->
+              </div>
+              <div class="command-preview-modal">
+                <div class="command-preview" id="parameterCommandPreview">team "Message text here"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    it('should create $Target insert button for message parameters', () => {
+      const commandDef = {
+        name: 'Team Message',
+        command: 'team',
+        icon: '💬',
+        parameters: {
+          message: {
+            type: 'text',
+            default: '',
+            placeholder: 'Enter your message'
+          }
+        }
+      };
+
+      app.populateParameterModal(commandDef);
+
+      const insertButton = document.querySelector('.insert-target-btn');
+      expect(insertButton).toBeTruthy();
+      expect(insertButton.title).toBe('Insert $Target variable');
+      expect(insertButton.innerHTML).toContain('$Target');
+    });
+
+    it('should create input-with-button container for message parameters', () => {
+      const commandDef = {
+        name: 'Team Message',
+        command: 'team',
+        icon: '💬',
+        parameters: {
+          message: {
+            type: 'text',
+            default: '',
+            placeholder: 'Enter your message'
+          }
+        }
+      };
+
+      app.populateParameterModal(commandDef);
+
+      const inputContainer = document.querySelector('.input-with-button');
+      expect(inputContainer).toBeTruthy();
+      
+      const input = inputContainer.querySelector('input');
+      const button = inputContainer.querySelector('.insert-target-btn');
+      
+      expect(input).toBeTruthy();
+      expect(button).toBeTruthy();
+      expect(input.id).toBe('param_message');
+    });
+
+    it('should include variable help section for message parameters', () => {
+      const commandDef = {
+        name: 'Team Message',
+        command: 'team',
+        icon: '💬',
+        parameters: {
+          message: {
+            type: 'text',
+            default: '',
+            placeholder: 'Enter your message'
+          }
+        }
+      };
+
+      app.populateParameterModal(commandDef);
+
+      const variableHelp = document.querySelector('.variable-help');
+      expect(variableHelp).toBeTruthy();
+      expect(variableHelp.innerHTML).toContain('$Target');
+      expect(variableHelp.innerHTML).toContain('current target');
+    });
+
+    it('should not create $Target button for non-message parameters', () => {
+      const commandDef = {
+        name: 'Execute Tray',
+        command: '+STOTrayExecByTray',
+        icon: '⚡',
+        parameters: {
+          tray: {
+            type: 'number',
+            default: 0,
+            min: 0,
+            max: 9
+          },
+          slot: {
+            type: 'number',
+            default: 0,
+            min: 0,
+            max: 9
+          }
+        }
+      };
+
+      app.populateParameterModal(commandDef);
+
+      const insertButton = document.querySelector('.insert-target-btn');
+      expect(insertButton).toBeFalsy();
+      
+      const inputContainer = document.querySelector('.input-with-button');
+      expect(inputContainer).toBeFalsy();
+    });
+
+    it('should insert $Target variable correctly in parameter input', () => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'Attacking ';
+      input.setSelectionRange(10, 10);
+      document.body.appendChild(input);
+
+      app.insertTargetVariable(input);
+
+      expect(input.value).toBe('Attacking $Target');
+      expect(input.selectionStart).toBe(17);
+      expect(input.selectionEnd).toBe(17);
+      expect(document.activeElement).toBe(input);
+    });
+
+    it('should trigger input event after $Target insertion', () => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'Focus fire on ';
+      input.setSelectionRange(14, 14);
+      document.body.appendChild(input);
+
+      const inputEventSpy = vi.fn();
+      input.addEventListener('input', inputEventSpy);
+
+      app.insertTargetVariable(input);
+
+      expect(inputEventSpy).toHaveBeenCalled();
+      expect(input.value).toBe('Focus fire on $Target');
+    });
+
+    it('should handle multiple parameter types correctly', () => {
+      const commandDef = {
+        name: 'Complex Command',
+        command: 'complex',
+        icon: '⚙️',
+        parameters: {
+          message: {
+            type: 'text',
+            default: '',
+            placeholder: 'Enter message'
+          },
+          timeout: {
+            type: 'number',
+            default: 5,
+            min: 1,
+            max: 60
+          },
+          enabled: {
+            type: 'text',
+            default: 'true'
+          }
+        }
+      };
+
+      app.populateParameterModal(commandDef);
+
+      // Should have one $Target button (only for message parameter)
+      const insertButtons = document.querySelectorAll('.insert-target-btn');
+      expect(insertButtons.length).toBe(1);
+
+      // Should have three inputs total
+      const inputs = document.querySelectorAll('#parameterInputs input');
+      expect(inputs.length).toBe(3);
+
+      // Only message input should be in input-with-button container
+      const inputContainers = document.querySelectorAll('.input-with-button');
+      expect(inputContainers.length).toBe(1);
+
+      const messageInput = document.getElementById('param_message');
+      const timeoutInput = document.getElementById('param_timeout');
+      const enabledInput = document.getElementById('param_enabled');
+
+      expect(messageInput).toBeTruthy();
+      expect(timeoutInput).toBeTruthy();
+      expect(enabledInput).toBeTruthy();
+
+      expect(messageInput.closest('.input-with-button')).toBeTruthy();
+      expect(timeoutInput.closest('.input-with-button')).toBeFalsy();
+      expect(enabledInput.closest('.input-with-button')).toBeFalsy();
+    });
+
+    it('should update parameter preview when $Target is inserted', () => {
+      const commandDef = {
+        name: 'Team Message',
+        command: 'team',
+        icon: '💬',
+        parameters: {
+          message: {
+            type: 'text',
+            default: '',
+            placeholder: 'Enter your message'
+          }
+        }
+      };
+
+      // Mock the current parameter command
+      app.currentParameterCommand = {
+        categoryId: 'communication',
+        commandId: 'team',
+        commandDef: commandDef
+      };
+
+      app.populateParameterModal(commandDef);
+
+      const messageInput = document.getElementById('param_message');
+      messageInput.value = 'Attacking ';
+      messageInput.setSelectionRange(10, 10);
+
+      app.insertTargetVariable(messageInput);
+
+      // The input event should trigger updateParameterPreview
+      // which should update the preview with the new command
+      expect(messageInput.value).toBe('Attacking $Target');
+    });
+  })
 }) 

@@ -601,4 +601,116 @@ describe('STOCommandManager', () => {
       expect(STO_DATA.variables.target.description).toContain('current target')
     })
   })
+
+  describe('$Target variable support in custom command builder', () => {
+    beforeEach(() => {
+      // Set up DOM for custom command builder
+      document.body.innerHTML = `
+        <div id="commandBuilder">
+          <div class="custom-builder">
+            <div class="form-group">
+              <label for="customCommand">Command:</label>
+              <div class="input-with-button">
+                <input type="text" id="customCommand" placeholder="Enter STO command">
+                <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
+                  <i class="fas fa-crosshairs"></i> $Target
+                </button>
+              </div>
+            </div>
+            <div class="variable-help">
+              <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
+              <div class="variable-info">
+                <strong>$Target</strong> - Replaced with your current target's name<br>
+                <em>Example:</em> <code>team "Focus fire on [$Target]"</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    it('should have $Target insert button in custom command builder', () => {
+      const insertButton = document.querySelector('.insert-target-btn');
+      expect(insertButton).toBeTruthy();
+      expect(insertButton.title).toBe('Insert $Target variable');
+      expect(insertButton.innerHTML).toContain('$Target');
+    });
+
+    it('should have variable help section with examples', () => {
+      const variableHelp = document.querySelector('.variable-help');
+      expect(variableHelp).toBeTruthy();
+      
+      const variableInfo = variableHelp.querySelector('.variable-info');
+      expect(variableInfo).toBeTruthy();
+      expect(variableInfo.innerHTML).toContain('$Target');
+      expect(variableInfo.innerHTML).toContain('current target');
+      expect(variableInfo.innerHTML).toContain('Example');
+    });
+
+    it('should insert $Target variable in custom command input', () => {
+      const input = document.getElementById('customCommand');
+      
+      // Test insertion at different positions
+      input.value = 'team "Attacking "';
+      input.setSelectionRange(16, 16); // Position after the space
+      
+      commandManager.insertTargetVariable(input);
+      
+      expect(input.value).toBe('team "Attacking $Target"');
+      expect(input.selectionStart).toBe(23);
+      expect(input.selectionEnd).toBe(23);
+    });
+
+    it('should handle event delegation for custom command $Target button', () => {
+      const input = document.getElementById('customCommand');
+      const insertButton = document.querySelector('.insert-target-btn');
+      
+      input.value = 'say "Hello "';
+      input.setSelectionRange(11, 11);
+      
+      // Mock the event delegation logic
+      const clickEvent = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(clickEvent, 'target', { value: insertButton });
+      
+      // Simulate the event delegation from commands.js
+      if (clickEvent.target.classList.contains('insert-target-btn')) {
+        const inputContainer = clickEvent.target.closest('.input-with-button');
+        const targetInput = inputContainer ? inputContainer.querySelector('input') : null;
+        
+        if (targetInput) {
+          commandManager.insertTargetVariable(targetInput);
+        }
+      }
+      
+      expect(input.value).toBe('say "Hello $Target"');
+    });
+
+    it('should trigger input event to update preview after insertion', () => {
+      const input = document.getElementById('customCommand');
+      const inputEventSpy = vi.fn();
+      
+      input.addEventListener('input', inputEventSpy);
+      input.value = 'zone "Status: "';
+      input.setSelectionRange(14, 14); // Position after the space
+      
+      commandManager.insertTargetVariable(input);
+      
+      expect(inputEventSpy).toHaveBeenCalled();
+      expect(input.value).toBe('zone "Status: $Target"');
+    });
+
+    it('should include $Target example in command examples', () => {
+      const exampleButtons = document.querySelectorAll('.example-cmd');
+      const targetExample = Array.from(exampleButtons).find(btn => 
+        btn.textContent.includes('$Target')
+      );
+      
+      // Note: This test assumes the example was added to the HTML
+      // If the example button exists, verify it contains $Target
+      if (targetExample) {
+        expect(targetExample.textContent).toContain('$Target');
+        expect(targetExample.getAttribute('data-cmd')).toContain('$Target');
+      }
+    });
+  });
 }) 

@@ -657,7 +657,20 @@ const STO_DATA = {
                             }
                         ]
                     },
-                    aliases: {}
+                    aliases: {
+                        AttackCall: {
+                            description: "Call out attack target to team",
+                            commands: 'team "Attacking [$Target] - focus fire!"'
+                        },
+                        TargetReport: {
+                            description: "Report current target to team",
+                            commands: 'team "Current target: [$Target]"'
+                        },
+                        HealCall: {
+                            description: "Request healing for target",
+                            commands: 'team "Need healing on [$Target]!"'
+                        }
+                    }
                 },
                 ground: {
                     keys: {

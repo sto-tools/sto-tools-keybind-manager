@@ -349,8 +349,20 @@ class STOCommandManager {
                 </div>
                 <div class="form-group">
                     <label for="commMessage">Message:</label>
-                    <input type="text" id="commMessage" placeholder="Enter your message" maxlength="100">
+                    <div class="input-with-button">
+                        <input type="text" id="commMessage" placeholder="Enter your message" maxlength="100">
+                        <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
+                            <i class="fas fa-crosshairs"></i> $Target
+                        </button>
+                    </div>
                     <small>Maximum 100 characters</small>
+                </div>
+                <div class="variable-help">
+                    <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
+                    <div class="variable-info">
+                        <strong>$Target</strong> - Replaced with your current target's name<br>
+                        <em>Example:</em> <code>team "Attacking [$Target]"</code> → <code>team "Attacking [Borg Cube]"</code>
+                    </div>
                 </div>
             </div>
         `;
@@ -409,7 +421,12 @@ class STOCommandManager {
             <div class="custom-builder">
                 <div class="form-group">
                     <label for="customCommand">Command:</label>
-                    <input type="text" id="customCommand" placeholder="Enter STO command" autocomplete="off">
+                    <div class="input-with-button">
+                        <input type="text" id="customCommand" placeholder="Enter STO command" autocomplete="off">
+                        <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
+                            <i class="fas fa-crosshairs"></i> $Target
+                        </button>
+                    </div>
                     <small>Enter the exact STO command syntax</small>
                 </div>
                 <div class="form-group">
@@ -423,6 +440,14 @@ class STOCommandManager {
                         <button type="button" class="example-cmd" data-cmd="FireAll">FireAll</button>
                         <button type="button" class="example-cmd" data-cmd="+power_exec Distribute_Shields">+power_exec Distribute_Shields</button>
                         <button type="button" class="example-cmd" data-cmd="+STOTrayExecByTray 0 0">+STOTrayExecByTray 0 0</button>
+                        <button type="button" class="example-cmd" data-cmd='team "Attacking [$Target]"'>team "Attacking [$Target]"</button>
+                    </div>
+                </div>
+                <div class="variable-help">
+                    <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
+                    <div class="variable-info">
+                        <strong>$Target</strong> - Replaced with your current target's name<br>
+                        <em>Example:</em> <code>team "Focus fire on [$Target]"</code>
                     </div>
                 </div>
             </div>
@@ -468,6 +493,20 @@ class STOCommandManager {
                 if (input) {
                     input.value = cmd;
                     this.updateCommandPreview();
+                }
+            }
+        });
+
+        // Insert $Target variable buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('insert-target-btn') || e.target.closest('.insert-target-btn')) {
+                e.preventDefault();
+                const button = e.target.classList.contains('insert-target-btn') ? e.target : e.target.closest('.insert-target-btn');
+                const inputContainer = button.closest('.input-with-button');
+                const input = inputContainer ? inputContainer.querySelector('input') : null;
+                
+                if (input) {
+                    this.insertTargetVariable(input);
                 }
             }
         });
@@ -888,6 +927,19 @@ class STOCommandManager {
         
         // Generate a friendly name from the command
         return command.replace(/[_+]/g, ' ').replace(/([A-Z])/g, ' $1').trim();
+    }
+
+    insertTargetVariable(input) {
+        const targetVar = '$Target';
+        const cursorPosition = input.selectionStart;
+        const value = input.value;
+        const newValue = value.slice(0, cursorPosition) + targetVar + value.slice(cursorPosition);
+        input.value = newValue;
+        input.setSelectionRange(cursorPosition + targetVar.length, cursorPosition + targetVar.length);
+        input.focus();
+        
+        // Trigger input event to update preview
+        input.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 

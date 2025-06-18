@@ -392,8 +392,16 @@
                 </div>
                 <div class="form-group">
                     <label for="aliasCommands">Commands:</label>
-                    <textarea id="aliasCommands" placeholder="Enter command sequence (use $$ to separate commands)" rows="4"></textarea>
-                    <small>Example: target_self $$ +power_exec Science_Team $$ +power_exec Transfer_Shield_Strength</small>
+                    <div class="textarea-with-button">
+                        <textarea id="aliasCommands" placeholder="Enter command sequence (use $$ to separate commands)" rows="4"></textarea>
+                        <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
+                            <i class="fas fa-crosshairs"></i> $Target
+                        </button>
+                    </div>
+                    <small>Example: target_self $$ +power_exec Science_Team $$ team "Healing [$Target]"</small>
+                    <div class="variable-help">
+                        <strong>$Target</strong> - Use in communication commands to include target name
+                    </div>
                 </div>
                 <div class="alias-preview">
                     <label>Preview:</label>

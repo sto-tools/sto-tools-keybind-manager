@@ -33,6 +33,20 @@ class STOAliasManager {
                 this.updateAliasPreview();
             }
         });
+
+        // Insert $Target variable button in alias editor
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('insert-target-btn') || e.target.closest('.insert-target-btn')) {
+                e.preventDefault();
+                const button = e.target.classList.contains('insert-target-btn') ? e.target : e.target.closest('.insert-target-btn');
+                const textareaContainer = button.closest('.textarea-with-button');
+                const textarea = textareaContainer ? textareaContainer.querySelector('textarea') : null;
+                
+                if (textarea) {
+                    this.insertTargetVariable(textarea);
+                }
+            }
+        });
     }
 
     // Alias Manager Modal
@@ -570,6 +584,19 @@ class STOAliasManager {
         });
 
         return usage;
+    }
+
+    insertTargetVariable(textarea) {
+        const targetVar = '$Target';
+        const cursorPosition = textarea.selectionStart;
+        const value = textarea.value;
+        const newValue = value.slice(0, cursorPosition) + targetVar + value.slice(cursorPosition);
+        textarea.value = newValue;
+        textarea.setSelectionRange(cursorPosition + targetVar.length, cursorPosition + targetVar.length);
+        textarea.focus();
+        
+        // Trigger input event to update preview
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 

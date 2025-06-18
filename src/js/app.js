@@ -1805,28 +1805,70 @@ class STOToolsKeybindManager {
             label.textContent = this.formatParameterName(paramName);
             label.setAttribute('for', `param_${paramName}`);
             
-            const input = document.createElement('input');
-            input.type = paramDef.type === 'number' ? 'number' : 'text';
-            input.id = `param_${paramName}`;
-            input.name = paramName;
-            input.value = paramDef.default || '';
+            let input; // Declare input variable outside the if/else blocks
             
-            if (paramDef.placeholder) {
-                input.placeholder = paramDef.placeholder;
+            // For message parameters, create input with $Target button
+            if (paramName === 'message') {
+                const inputContainer = document.createElement('div');
+                inputContainer.className = 'input-with-button';
+                
+                input = document.createElement('input');
+                input.type = 'text';
+                input.id = `param_${paramName}`;
+                input.name = paramName;
+                input.value = paramDef.default || '';
+                
+                if (paramDef.placeholder) {
+                    input.placeholder = paramDef.placeholder;
+                }
+                
+                const targetButton = document.createElement('button');
+                targetButton.type = 'button';
+                targetButton.className = 'btn btn-small insert-target-btn';
+                targetButton.title = 'Insert $Target variable';
+                targetButton.innerHTML = '<i class="fas fa-crosshairs"></i> $Target';
+                
+                inputContainer.appendChild(input);
+                inputContainer.appendChild(targetButton);
+                
+                const help = document.createElement('small');
+                help.textContent = this.getParameterHelp(paramName, paramDef);
+                
+                const variableHelp = document.createElement('div');
+                variableHelp.className = 'variable-help';
+                variableHelp.innerHTML = '<strong>$Target</strong> - Use to include your current target\'s name in the message';
+                
+                inputGroup.appendChild(label);
+                inputGroup.appendChild(inputContainer);
+                inputGroup.appendChild(help);
+                inputGroup.appendChild(variableHelp);
+                
+                // Note: Event handling is done by global event delegation in commands.js
+            } else {
+                // Regular input for non-message parameters
+                input = document.createElement('input');
+                input.type = paramDef.type === 'number' ? 'number' : 'text';
+                input.id = `param_${paramName}`;
+                input.name = paramName;
+                input.value = paramDef.default || '';
+                
+                if (paramDef.placeholder) {
+                    input.placeholder = paramDef.placeholder;
+                }
+                
+                if (paramDef.type === 'number') {
+                    if (paramDef.min !== undefined) input.min = paramDef.min;
+                    if (paramDef.max !== undefined) input.max = paramDef.max;
+                    if (paramDef.step !== undefined) input.step = paramDef.step;
+                }
+                
+                const help = document.createElement('small');
+                help.textContent = this.getParameterHelp(paramName, paramDef);
+                
+                inputGroup.appendChild(label);
+                inputGroup.appendChild(input);
+                inputGroup.appendChild(help);
             }
-            
-            if (paramDef.type === 'number') {
-                if (paramDef.min !== undefined) input.min = paramDef.min;
-                if (paramDef.max !== undefined) input.max = paramDef.max;
-                if (paramDef.step !== undefined) input.step = paramDef.step;
-            }
-            
-            const help = document.createElement('small');
-            help.textContent = this.getParameterHelp(paramName, paramDef);
-            
-            inputGroup.appendChild(label);
-            inputGroup.appendChild(input);
-            inputGroup.appendChild(help);
             container.appendChild(inputGroup);
             
             // Add real-time preview update
@@ -2377,14 +2419,21 @@ class STOToolsKeybindManager {
     }
 
     selectKeyFromModal(keyName) {
-        // Add the key to the current profile
-        this.addKey(keyName);
-        
-        // Close the modal
         stoUI.hideModal('keySelectionModal');
-        
-        // Select the newly added key
         this.selectKey(keyName);
+    }
+
+    insertTargetVariable(input) {
+        const targetVar = '$Target';
+        const cursorPosition = input.selectionStart;
+        const value = input.value;
+        const newValue = value.slice(0, cursorPosition) + targetVar + value.slice(cursorPosition);
+        input.value = newValue;
+        input.setSelectionRange(cursorPosition + targetVar.length, cursorPosition + targetVar.length);
+        input.focus();
+        
+        // Trigger input event to update preview
+        input.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 

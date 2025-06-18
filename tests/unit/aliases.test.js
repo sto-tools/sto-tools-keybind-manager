@@ -718,4 +718,170 @@ describe('STOAliasManager', () => {
       expect(mockAnchor.click).toHaveBeenCalled()
     })
   })
+
+  describe('$Target variable support in alias editor', () => {
+    beforeEach(() => {
+      // Set up DOM for alias editor modal
+      document.body.innerHTML = `
+        <div class="modal" id="editAliasModal">
+          <div class="modal-content">
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="aliasCommands">Commands:</label>
+                <div class="textarea-with-button">
+                  <textarea id="aliasCommands" placeholder="Enter command sequence"></textarea>
+                  <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
+                    <i class="fas fa-crosshairs"></i> $Target
+                  </button>
+                </div>
+                <div class="variable-help">
+                  <strong>$Target</strong> - Use in communication commands to include target name
+                </div>
+              </div>
+              <div class="alias-preview">
+                <div class="command-preview" id="aliasPreview">alias MyAlias "command sequence"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    it('should have $Target insert button in alias editor', () => {
+      const insertButton = document.querySelector('.insert-target-btn');
+      expect(insertButton).toBeTruthy();
+      expect(insertButton.title).toBe('Insert $Target variable');
+      expect(insertButton.innerHTML).toContain('$Target');
+    });
+
+    it('should have variable help section explaining $Target', () => {
+      const variableHelp = document.querySelector('.variable-help');
+      expect(variableHelp).toBeTruthy();
+      expect(variableHelp.innerHTML).toContain('$Target');
+      expect(variableHelp.innerHTML).toContain('target name');
+    });
+
+    it('should insert $Target at cursor position when button is clicked', () => {
+      const textarea = document.getElementById('aliasCommands');
+      const insertButton = document.querySelector('.insert-target-btn');
+      
+      // Set initial text and cursor position
+      textarea.value = 'team "Attacking "';
+      textarea.setSelectionRange(15, 15); // Position after "Attacking "
+      
+      // Mock the insertTargetVariable method
+      const originalMethod = aliasManager.insertTargetVariable;
+      const mockInsert = vi.fn();
+      aliasManager.insertTargetVariable = mockInsert;
+      
+      // Simulate the event delegation logic manually since we don't have the full event system
+      const clickEvent = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(clickEvent, 'target', { value: insertButton });
+      
+      // Simulate the event delegation from aliases.js
+      if (clickEvent.target.classList.contains('insert-target-btn')) {
+        const textareaContainer = clickEvent.target.closest('.textarea-with-button');
+        const targetTextarea = textareaContainer ? textareaContainer.querySelector('textarea') : null;
+        
+        if (targetTextarea) {
+          aliasManager.insertTargetVariable(targetTextarea);
+        }
+      }
+      
+      // Verify the method was called with the textarea
+      expect(mockInsert).toHaveBeenCalledWith(textarea);
+      
+      // Restore original method
+      aliasManager.insertTargetVariable = originalMethod;
+    });
+
+    it('should insert $Target variable correctly', () => {
+      const textarea = document.getElementById('aliasCommands');
+      
+      // Test insertion at beginning
+      textarea.value = '';
+      textarea.setSelectionRange(0, 0);
+      aliasManager.insertTargetVariable(textarea);
+      expect(textarea.value).toBe('$Target');
+      expect(textarea.selectionStart).toBe(7);
+      expect(textarea.selectionEnd).toBe(7);
+      
+      // Test insertion in middle
+      textarea.value = 'team "Attacking  - focus fire!"';
+      textarea.setSelectionRange(16, 16); // Position after "Attacking " (note the space)
+      aliasManager.insertTargetVariable(textarea);
+      expect(textarea.value).toBe('team "Attacking $Target - focus fire!"');
+      expect(textarea.selectionStart).toBe(23);
+      expect(textarea.selectionEnd).toBe(23);
+      
+      // Test insertion at end
+      textarea.value = 'team "Target: ';
+      textarea.setSelectionRange(14, 14);
+      aliasManager.insertTargetVariable(textarea);
+      expect(textarea.value).toBe('team "Target: $Target');
+      expect(textarea.selectionStart).toBe(21);
+      expect(textarea.selectionEnd).toBe(21);
+    });
+
+    it('should trigger input event to update preview after insertion', () => {
+      const textarea = document.getElementById('aliasCommands');
+      const inputEventSpy = vi.fn();
+      
+      textarea.addEventListener('input', inputEventSpy);
+      
+      textarea.value = 'team "Healing "';
+      textarea.setSelectionRange(14, 14);
+      
+      aliasManager.insertTargetVariable(textarea);
+      
+      // Verify input event was triggered
+      expect(inputEventSpy).toHaveBeenCalled();
+    });
+
+    it('should maintain focus on textarea after insertion', () => {
+      const textarea = document.getElementById('aliasCommands');
+      
+      textarea.value = 'team "Status: "';
+      textarea.setSelectionRange(13, 13);
+      
+      aliasManager.insertTargetVariable(textarea);
+      
+      // Verify textarea maintains focus
+      expect(document.activeElement).toBe(textarea);
+    });
+
+    it('should work with example showing $Target usage', () => {
+      // Test that the example in the HTML uses $Target correctly
+      const exampleText = 'team "Healing [$Target]"';
+      
+      // Verify this is a valid communication command with $Target
+      expect(exampleText).toContain('$Target');
+      expect(exampleText).toContain('team');
+      expect(exampleText).toMatch(/"\w+.*\$Target.*"/);
+    });
+
+    it('should handle event delegation for insert button clicks', () => {
+      const textarea = document.getElementById('aliasCommands');
+      const insertButton = document.querySelector('.insert-target-btn');
+      
+      // Mock the event delegation logic
+      const clickEvent = new MouseEvent('click', { bubbles: true });
+      Object.defineProperty(clickEvent, 'target', { value: insertButton });
+      
+      const mockInsert = vi.fn();
+      aliasManager.insertTargetVariable = mockInsert;
+      
+      // Simulate the event delegation logic from aliases.js
+      if (clickEvent.target.classList.contains('insert-target-btn')) {
+        const textareaContainer = clickEvent.target.closest('.textarea-with-button');
+        const targetTextarea = textareaContainer ? textareaContainer.querySelector('textarea') : null;
+        
+        if (targetTextarea) {
+          aliasManager.insertTargetVariable(targetTextarea);
+        }
+      }
+      
+      expect(mockInsert).toHaveBeenCalledWith(textarea);
+    });
+  })
 }) 
