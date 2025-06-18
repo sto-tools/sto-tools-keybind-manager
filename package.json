@@ -1,0 +1,39 @@
+{
+  "name": "sto-keybind-manager",
+  "version": "1.0.0",
+  "description": "Star Trek Online Keybind Manager - Testing Setup",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run serve",
+    "serve": "npx http-server src -p 3000 -c-1",
+    "test": "vitest run --workspace=vitest.workspace.js",
+    "test:ui": "vitest --ui --workspace=vitest.workspace.js",
+    "test:watch": "vitest --watch --workspace=vitest.workspace.js",
+    "test:coverage": "npm run test:coverage:unit && npm run test:coverage:browser",
+    "test:coverage:unit": "vitest run --coverage --project=unit --workspace=vitest.workspace.js",
+    "test:coverage:browser": "vitest run --coverage --project=browser --workspace=vitest.workspace.js",
+    "test:html": "vitest run --reporter=html --workspace=vitest.workspace.js",
+    "test:html:serve": "npm run test:html && npx vite preview --outDir html",
+    "test:unit": "vitest run --project=unit --workspace=vitest.workspace.js",
+    "test:browser": "vitest run --project=browser --workspace=vitest.workspace.js",
+    "test:browser:ui": "vitest --ui --project=browser --workspace=vitest.workspace.js",
+    "test:all": "vitest run --workspace=vitest.workspace.js"
+  },
+  "devDependencies": {
+    "@vitest/browser": "^1.0.4",
+    "@vitest/coverage-istanbul": "^1.6.1",
+    "@vitest/coverage-v8": "^1.0.4",
+    "@vitest/ui": "^1.0.4",
+    "happy-dom": "^18.0.1",
+    "http-server": "^14.1.1",
+    "jsdom": "^23.0.1",
+    "playwright": "^1.40.1",
+    "vitest": "^1.0.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "vitest-localstorage-mock": "^0.1.2"
+  }
+}
