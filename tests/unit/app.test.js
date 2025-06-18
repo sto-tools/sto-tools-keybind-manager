@@ -627,9 +627,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
               <div id="parameterInputs">
                 <!-- This will be populated by populateParameterModal -->
               </div>
-              <div class="command-preview-modal">
-                <div class="command-preview" id="parameterCommandPreview">team "Message text here"</div>
-              </div>
+                               <div class="command-preview-modal">
+                   <div class="command-preview" id="parameterCommandPreview">team Message text here</div>
+                 </div>
             </div>
           </div>
         </div>

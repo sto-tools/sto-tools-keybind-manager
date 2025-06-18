@@ -469,17 +469,17 @@ class STOAliasManager {
                     'TeamReady': {
                         name: 'TeamReady',
                         description: 'Announce ready status to team',
-                        commands: 'team "Ready!"'
+                        commands: 'team Ready!'
                     },
                     'NeedHealing': {
                         name: 'NeedHealing',
                         description: 'Request healing from team',
-                        commands: 'team "Need healing!"'
+                        commands: 'team Need healing!'
                     },
                     'Incoming': {
                         name: 'Incoming',
                         description: 'Warn team of incoming enemies',
-                        commands: 'team "Incoming enemies!"'
+                        commands: 'team Incoming enemies!'
                     }
                 }
             }

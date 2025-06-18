@@ -460,7 +460,7 @@ const STO_DATA = {
                     name: "Team Message",
                     command: "team",
                     description: "Send message to team",
-                    syntax: "team \"message\"",
+                    syntax: "team message",
                     icon: "💬",
                     customizable: true,
                     parameters: {
@@ -471,7 +471,7 @@ const STO_DATA = {
                     name: "Local Message",
                     command: "say",
                     description: "Send message to local area",
-                    syntax: "say \"message\"",
+                    syntax: "say message",
                     icon: "📢",
                     customizable: true,
                     parameters: {
@@ -482,7 +482,7 @@ const STO_DATA = {
                     name: "Zone Message", 
                     command: "zone",
                     description: "Send message to zone",
-                    syntax: "zone \"message\"",
+                    syntax: "zone message",
                     icon: "📡",
                     customizable: true,
                     parameters: {
@@ -660,15 +660,15 @@ const STO_DATA = {
                     aliases: {
                         AttackCall: {
                             description: "Call out attack target to team",
-                            commands: 'team "Attacking [$Target] - focus fire!"'
+                            commands: 'team Attacking [$Target] - focus fire!'
                         },
                         TargetReport: {
                             description: "Report current target to team",
-                            commands: 'team "Current target: [$Target]"'
+                            commands: 'team Current target: [$Target]'
                         },
                         HealCall: {
                             description: "Request healing for target",
-                            commands: 'team "Need healing on [$Target]!"'
+                            commands: 'team Need healing on [$Target]!'
                         }
                     }
                 },
@@ -1031,7 +1031,7 @@ const STO_DATA = {
         target: {
             variable: "$Target",
             description: "Replaced with the name of your current target",
-            example: 'team "Target [$Target]"',
+                                    example: 'team Target [$Target]',
             usableIn: ["communication", "custom", "aliases"],
             notes: "If your target's name is 'froggyMonster', this will output 'Target [froggyMonster]'"
         }

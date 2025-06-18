@@ -217,7 +217,7 @@ describe('STOCommandManager', () => {
         const result = builder.build('local_message', { message: 'Hello world' })
 
         expect(result).toEqual({
-          command: 'say "Hello world"',
+          command: 'say Hello world',
           type: 'communication',
           icon: '📢',
           text: 'Local Message: Hello world',
@@ -232,7 +232,7 @@ describe('STOCommandManager', () => {
         const builder = commandManager.commandBuilders.get('communication')
         const result = builder.build('team_message')
 
-        expect(result.command).toBe('team "Message text here"')
+        expect(result.command).toBe('team Message text here')
         expect(result.text).toBe('Team Message: Message text here')
       })
     })
@@ -621,7 +621,7 @@ describe('STOCommandManager', () => {
               <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
               <div class="variable-info">
                 <strong>$Target</strong> - Replaced with your current target's name<br>
-                <em>Example:</em> <code>team "Focus fire on [$Target]"</code>
+                                        <em>Example:</em> <code>team Focus fire on [$Target]</code>
               </div>
             </div>
           </div>
@@ -651,22 +651,22 @@ describe('STOCommandManager', () => {
       const input = document.getElementById('customCommand');
       
       // Test insertion at different positions
-      input.value = 'team "Attacking "';
-      input.setSelectionRange(16, 16); // Position after the space
+      input.value = 'team Attacking ';
+      input.setSelectionRange(15, 15); // Position after the space
       
       commandManager.insertTargetVariable(input);
       
-      expect(input.value).toBe('team "Attacking $Target"');
-      expect(input.selectionStart).toBe(23);
-      expect(input.selectionEnd).toBe(23);
+      expect(input.value).toBe('team Attacking $Target');
+      expect(input.selectionStart).toBe(22);
+      expect(input.selectionEnd).toBe(22);
     });
 
     it('should handle event delegation for custom command $Target button', () => {
       const input = document.getElementById('customCommand');
       const insertButton = document.querySelector('.insert-target-btn');
       
-      input.value = 'say "Hello "';
-      input.setSelectionRange(11, 11);
+      input.value = 'say Hello ';
+      input.setSelectionRange(10, 10);
       
       // Mock the event delegation logic
       const clickEvent = new MouseEvent('click', { bubbles: true });
@@ -682,7 +682,7 @@ describe('STOCommandManager', () => {
         }
       }
       
-      expect(input.value).toBe('say "Hello $Target"');
+      expect(input.value).toBe('say Hello $Target');
     });
 
     it('should trigger input event to update preview after insertion', () => {
@@ -690,13 +690,13 @@ describe('STOCommandManager', () => {
       const inputEventSpy = vi.fn();
       
       input.addEventListener('input', inputEventSpy);
-      input.value = 'zone "Status: "';
-      input.setSelectionRange(14, 14); // Position after the space
+      input.value = 'zone Status: ';
+      input.setSelectionRange(13, 13); // Position after the space
       
       commandManager.insertTargetVariable(input);
       
       expect(inputEventSpy).toHaveBeenCalled();
-      expect(input.value).toBe('zone "Status: $Target"');
+      expect(input.value).toBe('zone Status: $Target');
     });
 
     it('should include $Target example in command examples', () => {

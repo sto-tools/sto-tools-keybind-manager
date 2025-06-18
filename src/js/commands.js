@@ -164,7 +164,7 @@ class STOCommandManager {
                 const message = params.message || 'Message text here';
                 
                 return {
-                    command: `${cmd.command} "${message}"`,
+                    command: `${cmd.command} ${message}`,
                     type: 'communication',
                     icon: cmd.icon,
                     text: `${cmd.name}: ${message}`,
@@ -361,7 +361,7 @@ class STOCommandManager {
                     <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
                     <div class="variable-info">
                         <strong>$Target</strong> - Replaced with your current target's name<br>
-                        <em>Example:</em> <code>team "Attacking [$Target]"</code> → <code>team "Attacking [Borg Cube]"</code>
+                        <em>Example:</em> <code>team Attacking [$Target]</code> → <code>team Attacking [Borg Cube]</code>
                     </div>
                 </div>
             </div>
@@ -440,14 +440,14 @@ class STOCommandManager {
                         <button type="button" class="example-cmd" data-cmd="FireAll">FireAll</button>
                         <button type="button" class="example-cmd" data-cmd="+power_exec Distribute_Shields">+power_exec Distribute_Shields</button>
                         <button type="button" class="example-cmd" data-cmd="+STOTrayExecByTray 0 0">+STOTrayExecByTray 0 0</button>
-                        <button type="button" class="example-cmd" data-cmd='team "Attacking [$Target]"'>team "Attacking [$Target]"</button>
+                        <button type="button" class="example-cmd" data-cmd='team Attacking [$Target]'>team Attacking [$Target]</button>
                     </div>
                 </div>
                 <div class="variable-help">
                     <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
                     <div class="variable-info">
                         <strong>$Target</strong> - Replaced with your current target's name<br>
-                        <em>Example:</em> <code>team "Focus fire on [$Target]"</code>
+                        <em>Example:</em> <code>team Focus fire on [$Target]</code>
                     </div>
                 </div>
             </div>

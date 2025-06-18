@@ -553,7 +553,7 @@ describe('STOAliasManager', () => {
       expect(communication).toHaveProperty('TeamReady')
       expect(communication).toHaveProperty('NeedHealing')
       expect(communication).toHaveProperty('Incoming')
-      expect(communication.TeamReady.commands).toContain('team "Ready!"')
+              expect(communication.TeamReady.commands).toContain('team Ready!')
     })
 
     it('should create alias from template', () => {
@@ -766,8 +766,8 @@ describe('STOAliasManager', () => {
       const insertButton = document.querySelector('.insert-target-btn');
       
       // Set initial text and cursor position
-      textarea.value = 'team "Attacking "';
-      textarea.setSelectionRange(15, 15); // Position after "Attacking "
+      textarea.value = 'team Attacking ';
+      textarea.setSelectionRange(14, 14); // Position after "Attacking "
       
       // Mock the insertTargetVariable method
       const originalMethod = aliasManager.insertTargetVariable;
@@ -807,20 +807,20 @@ describe('STOAliasManager', () => {
       expect(textarea.selectionEnd).toBe(7);
       
       // Test insertion in middle
-      textarea.value = 'team "Attacking  - focus fire!"';
-      textarea.setSelectionRange(16, 16); // Position after "Attacking " (note the space)
+      textarea.value = 'team Attacking  - focus fire!';
+      textarea.setSelectionRange(15, 15); // Position after "Attacking " (note the space)
       aliasManager.insertTargetVariable(textarea);
-      expect(textarea.value).toBe('team "Attacking $Target - focus fire!"');
-      expect(textarea.selectionStart).toBe(23);
-      expect(textarea.selectionEnd).toBe(23);
+      expect(textarea.value).toBe('team Attacking $Target - focus fire!');
+      expect(textarea.selectionStart).toBe(22);
+      expect(textarea.selectionEnd).toBe(22);
       
       // Test insertion at end
-      textarea.value = 'team "Target: ';
-      textarea.setSelectionRange(14, 14);
+      textarea.value = 'team Target: ';
+      textarea.setSelectionRange(13, 13);
       aliasManager.insertTargetVariable(textarea);
-      expect(textarea.value).toBe('team "Target: $Target');
-      expect(textarea.selectionStart).toBe(21);
-      expect(textarea.selectionEnd).toBe(21);
+      expect(textarea.value).toBe('team Target: $Target');
+      expect(textarea.selectionStart).toBe(20);
+      expect(textarea.selectionEnd).toBe(20);
     });
 
     it('should trigger input event to update preview after insertion', () => {
@@ -829,8 +829,8 @@ describe('STOAliasManager', () => {
       
       textarea.addEventListener('input', inputEventSpy);
       
-      textarea.value = 'team "Healing "';
-      textarea.setSelectionRange(14, 14);
+      textarea.value = 'team Healing ';
+      textarea.setSelectionRange(13, 13);
       
       aliasManager.insertTargetVariable(textarea);
       
@@ -841,8 +841,8 @@ describe('STOAliasManager', () => {
     it('should maintain focus on textarea after insertion', () => {
       const textarea = document.getElementById('aliasCommands');
       
-      textarea.value = 'team "Status: "';
-      textarea.setSelectionRange(13, 13);
+      textarea.value = 'team Status: ';
+      textarea.setSelectionRange(12, 12);
       
       aliasManager.insertTargetVariable(textarea);
       
@@ -852,12 +852,12 @@ describe('STOAliasManager', () => {
 
     it('should work with example showing $Target usage', () => {
       // Test that the example in the HTML uses $Target correctly
-      const exampleText = 'team "Healing [$Target]"';
+      const exampleText = 'team Healing [$Target]';
       
       // Verify this is a valid communication command with $Target
       expect(exampleText).toContain('$Target');
       expect(exampleText).toContain('team');
-      expect(exampleText).toMatch(/"\w+.*\$Target.*"/);
+      expect(exampleText).toMatch(/\w+.*\$Target.*/);
     });
 
     it('should handle event delegation for insert button clicks', () => {

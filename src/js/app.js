@@ -1999,7 +1999,7 @@ class STOToolsKeybindManager {
                 return { command, text: commandDef.name };
             },
             communication: (params) => ({
-                command: `${commandDef.command} "${params.message || 'Message text here'}"`,
+                command: `${commandDef.command} ${params.message || 'Message text here'}`,
                 text: `${commandDef.name}: ${params.message || 'Message text here'}`
             }),
             system: (params) => {
