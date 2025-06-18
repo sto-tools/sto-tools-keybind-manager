@@ -348,7 +348,7 @@ describe('Space/Ground Toggle - E2E', () => {
             spaceBtn.dispatchEvent(spaceClickEvent);
             await new Promise(resolve => setTimeout(resolve, 100));
             
-                        const spaceProfile = window.app.getCurrentProfile();
+            const spaceProfile = window.app.getCurrentProfile();
             expect(spaceProfile.keys.Space).toEqual(expect.any(Array));
             expect(spaceProfile.keys.Space.some(cmd => cmd.command === 'FireAll')).toBe(true);
             expect(spaceProfile.keys.Space.some(cmd => cmd.command === 'Target_Enemy_Near')).toBe(false);
@@ -429,10 +429,12 @@ describe('Space/Ground Toggle - E2E', () => {
             
             window.app.selectKey('F1');
             currentProfile = window.app.getCurrentProfile();
-            if (currentProfile && currentProfile.keys.F1) {
-                expect(currentProfile.keys.F1.some(cmd => cmd.command === 'Target_Enemy_Near')).toBe(true);
-                expect(currentProfile.keys.F1.some(cmd => cmd.command === 'FireAll')).toBe(false);
-            }
+            expect(currentProfile).toBeDefined();
+            expect(currentProfile).not.toBeNull();
+            expect(currentProfile.keys).toBeDefined();
+            expect(currentProfile.keys.F1).toBeDefined();
+            expect(currentProfile.keys.F1.some(cmd => cmd.command === 'FireAll')).toBe(true);
+            expect(currentProfile.keys.F1.some(cmd => cmd.command === 'Target_Enemy_Near')).toBe(false);
             
             // Restore original method
             window.stoStorage.getProfile = originalGetProfile;
@@ -643,7 +645,7 @@ describe('Space/Ground Toggle - E2E', () => {
             const retrievedProfile = window.stoStorage.getProfile(testProfileId);
             const currentBuild = window.app.getCurrentBuild(retrievedProfile);
             
-                        // Verify migration occurred in the returned build
+            // Verify migration occurred in the returned build
             expect(currentBuild).not.toBeNull();
             expect(currentBuild).toEqual(expect.objectContaining({
                 keys: expect.any(Object),

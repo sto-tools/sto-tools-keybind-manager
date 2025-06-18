@@ -202,23 +202,25 @@ describe('Sample Bind File Loading', () => {
         });
 
         it('should parse active bindings vs commented alternatives correctly', () => {
-            if (parsedSpaceBinds) {
-                // Button4 should be active (FullImpulseToggle), not commented (throttletoggle)
-                if (parsedSpaceBinds.Button4) {
-                    expect(parsedSpaceBinds.Button4).toContain('FullImpulseToggle');
-                    expect(parsedSpaceBinds.Button4).not.toContain('throttletoggle');
-                }
-                
-                // Middleclick should be active (throttletoggle), not commented (FullImpulseToggle)
-                if (parsedSpaceBinds.Middleclick) {
-                    expect(parsedSpaceBinds.Middleclick).toContain('throttletoggle');
-                    expect(parsedSpaceBinds.Middleclick).not.toContain('FullImpulseToggle');
-                }
-                
-                // Rightdrag should be empty/unbound since it's commented out
-                if (parsedSpaceBinds.Rightdrag !== undefined) {
-                    expect(parsedSpaceBinds.Rightdrag).toBe('');
-                }
+            // Ensure parsing succeeded
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            expect(parsedSpaceBinds).toBeInstanceOf(Object);
+            
+            // Button4 should be active (FullImpulseToggle), not commented (throttletoggle)
+            expect(parsedSpaceBinds.Button4).toBeDefined();
+            expect(parsedSpaceBinds.Button4).toContain('FullImpulseToggle');
+            expect(parsedSpaceBinds.Button4).not.toContain('throttletoggle');
+            
+            // Middleclick should be active (throttletoggle), not commented (FullImpulseToggle)
+            expect(parsedSpaceBinds.Middleclick).toBeDefined();
+            expect(parsedSpaceBinds.Middleclick).toContain('throttletoggle');
+            expect(parsedSpaceBinds.Middleclick).not.toContain('FullImpulseToggle');
+            
+            // Rightdrag should be empty/unbound since it's commented out
+            // It may be undefined or an empty string
+            if (parsedSpaceBinds.Rightdrag !== undefined) {
+                expect(parsedSpaceBinds.Rightdrag).toBe('');
             }
         });
     });
@@ -257,110 +259,122 @@ describe('Sample Bind File Loading', () => {
         });
 
         it('should parse ground bind file without errors', () => {
-            if (parsedGroundBinds) {
-                expect(parsedGroundBinds).toBeTruthy();
-                expect(typeof parsedGroundBinds).toBe('object');
-            }
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            expect(parsedGroundBinds).toBeTruthy();
+            expect(typeof parsedGroundBinds).toBe('object');
         });
 
         it('should correctly parse ground-specific bindings', () => {
-            if (parsedGroundBinds) {
-                // Ground interaction
-                if (parsedGroundBinds.G) {
-                    expect(parsedGroundBinds.G).toContain('InteractWindow');
-                }
-                
-                // Load ground binds
-                if (parsedGroundBinds.L) {
-                    expect(parsedGroundBinds.L).toContain('load_my_ground_binds');
-                }
-            }
+            // Ensure parsing succeeded
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            expect(parsedGroundBinds).toBeInstanceOf(Object);
+            
+            // Ground interaction - G key should exist in ground binds
+            expect(parsedGroundBinds.G).toBeDefined();
+            expect(parsedGroundBinds.G).toContain('InteractWindow');
+            
+            // Load ground binds - L key should exist
+            expect(parsedGroundBinds.L).toBeDefined();
+            expect(parsedGroundBinds.L).toContain('load_my_ground_binds');
         });
 
         it('should correctly parse ground team buff bindings', () => {
-            if (parsedGroundBinds) {
-                if (parsedGroundBinds.Q) {
-                    expect(parsedGroundBinds.Q).toContain('TrayExecByTrayWithBackup');
-                    expect(parsedGroundBinds.Q).toContain('Team buffs');
-                }
-                
-                if (parsedGroundBinds.E) {
-                    expect(parsedGroundBinds.E).toContain('TrayExecByTrayWithBackup');
-                    expect(parsedGroundBinds.E).toContain('Calling a friend');
-                }
-            }
+            // Ensure parsing succeeded
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            
+            // Team buff keys should exist in ground binds
+            expect(parsedGroundBinds.Q).toBeDefined();
+            expect(parsedGroundBinds.Q).toContain('TrayExecByTrayWithBackup');
+            expect(parsedGroundBinds.Q).toContain('Team buffs');
+            
+            expect(parsedGroundBinds.E).toBeDefined();
+            expect(parsedGroundBinds.E).toContain('TrayExecByTrayWithBackup');
+            expect(parsedGroundBinds.E).toContain('Calling a friend');
         });
 
         it('should correctly parse ground mouse bindings', () => {
-            if (parsedGroundBinds) {
-                if (parsedGroundBinds.Button5) {
-                    expect(parsedGroundBinds.Button5).toContain('Healing Nanite');
-                    expect(parsedGroundBinds.Button5).toContain('TrayExecByTrayWithBackup');
-                }
-                
-                if (parsedGroundBinds.Button4) {
-                    expect(parsedGroundBinds.Button4).toContain('TrayExecByTrayWithBackup');
-                }
-            }
+            // Ensure parsing succeeded
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            
+            // Mouse button bindings should exist
+            expect(parsedGroundBinds.Button5).toBeDefined();
+            expect(parsedGroundBinds.Button5).toContain('Healing Nanite');
+            expect(parsedGroundBinds.Button5).toContain('TrayExecByTrayWithBackup');
+            
+            expect(parsedGroundBinds.Button4).toBeDefined();
+            expect(parsedGroundBinds.Button4).toContain('TrayExecByTrayWithBackup');
         });
 
         it('should correctly parse ground emote bindings', () => {
-            if (parsedGroundBinds) {
-                const emoteKeys = ['numpad1', 'numpad2', 'numpad3', 'numpad4', 'numpad5', 'numpad6', 'numpad7', 'numpad8'];
-                emoteKeys.forEach(key => {
-                    if (parsedGroundBinds[key]) {
-                        expect(parsedGroundBinds[key]).toContain('em dance');
-                    }
-                });
-            }
+            // Ensure parsing succeeded
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            
+            // Test at least some emote keys exist
+            const emoteKeys = ['numpad1', 'numpad2', 'numpad3', 'numpad4', 'numpad5', 'numpad6', 'numpad7', 'numpad8'];
+            const existingEmoteKeys = emoteKeys.filter(key => parsedGroundBinds[key]);
+            
+            // Should have at least one emote binding
+            expect(existingEmoteKeys.length).toBeGreaterThan(0);
+            
+            // Each existing emote key should contain emote command
+            existingEmoteKeys.forEach(key => {
+                expect(parsedGroundBinds[key]).toContain('em dance');
+            });
         });
 
         it('should correctly parse ground utility bindings', () => {
-            if (parsedGroundBinds) {
-                if (parsedGroundBinds.numpad9) {
-                    expect(parsedGroundBinds.numpad9).toContain('GenSendMessage');
-                }
-                
-                if (parsedGroundBinds.divide) {
-                    expect(parsedGroundBinds.divide).toContain('gotocharacterselect');
-                }
-                
-                if (parsedGroundBinds.multiply) {
-                    expect(parsedGroundBinds.multiply).toContain('duty');
-                }
-            }
+            // Ensure parsing succeeded
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            
+            // Test utility bindings exist
+            expect(parsedGroundBinds.numpad9).toBeDefined();
+            expect(parsedGroundBinds.numpad9).toContain('GenSendMessage');
+            
+            expect(parsedGroundBinds.divide).toBeDefined();
+            expect(parsedGroundBinds.divide).toContain('gotocharacterselect');
+            
+            expect(parsedGroundBinds.multiply).toBeDefined();
+            expect(parsedGroundBinds.multiply).toContain('duty');
         });
 
         it('should correctly parse ground VFX control bindings', () => {
-            if (parsedGroundBinds) {
-                if (parsedGroundBinds.F8) {
-                    expect(parsedGroundBinds.F8).toContain('dynFxExcludeFX');
-                    expect(parsedGroundBinds.F8).toContain('PlayerSay VFXS8');
-                }
-                
-                if (parsedGroundBinds.F9) {
-                    expect(parsedGroundBinds.F9).toContain('dynFxExcludeFX');
-                    expect(parsedGroundBinds.F9).toContain('PlayerSay VFXS9');
-                }
-                
-                if (parsedGroundBinds.F10) {
-                    expect(parsedGroundBinds.F10).toContain('dynFxExcludeFX');
-                    expect(parsedGroundBinds.F10).toContain('PlayerSay VFXS10');
-                }
-            }
+            // Ensure parsing succeeded
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            
+            // Test VFX control bindings
+            expect(parsedGroundBinds.F8).toBeDefined();
+            expect(parsedGroundBinds.F8).toContain('dynFxExcludeFX');
+            expect(parsedGroundBinds.F8).toContain('PlayerSay VFXS8');
+            
+            expect(parsedGroundBinds.F9).toBeDefined();
+            expect(parsedGroundBinds.F9).toContain('dynFxExcludeFX');
+            expect(parsedGroundBinds.F9).toContain('PlayerSay VFXS9');
+            
+            expect(parsedGroundBinds.F10).toBeDefined();
+            expect(parsedGroundBinds.F10).toContain('dynFxExcludeFX');
+            expect(parsedGroundBinds.F10).toContain('PlayerSay VFXS10');
         });
 
         it('should correctly handle commented lines in ground binds', () => {
             expect(groundBindContent).toBeTruthy();
             
+            // Ensure parsing succeeded
+            expect(parsedGroundBinds).toBeDefined();
+            expect(parsedGroundBinds).not.toBeNull();
+            
             // Ground file doesn't have as many comments, but should handle them properly
             // The parser should ignore any lines starting with semicolon
-            if (parsedGroundBinds) {
-                // Any commented keys should not appear in parsed results
-                Object.keys(parsedGroundBinds).forEach(key => {
-                    expect(key.startsWith(';')).toBe(false);
-                });
-            }
+            // Any commented keys should not appear in parsed results
+            Object.keys(parsedGroundBinds).forEach(key => {
+                expect(key.startsWith(';')).toBe(false);
+            });
         });
     });
 
@@ -521,18 +535,23 @@ X "ActiveBinding" ""
 
             const result = window.stoKeybinds.importKeybindFile(content);
             
-            // Import should either succeed or fail explicitly - no silent failures
+            // Import should return a result object
+            expect(result).toBeDefined();
             expect(result).not.toBeNull();
-            expect(result).toEqual(expect.objectContaining({
-                success: expect.any(Boolean)
-            }));
+            expect(result).toHaveProperty('success');
             
             if (result.success) {
-                expect(result.imported.keys).toBeGreaterThan(10);
+                expect(result.success).toBe(true);
+                expect(result.imported).toBeDefined();
+                expect(result.imported.keys).toBeGreaterThan(20);
             } else {
-                // If import fails, there should be an error message
+                // If import fails, verify we can at least parse the file
                 expect(result.error).toBeDefined();
-                expect(typeof result.error).toBe('string');
+                const parsed = window.stoKeybinds.parseKeybindFile(content);
+                expect(parsed).toBeDefined();
+                expect(parsed.keybinds).toBeDefined();
+                const keyCount = Object.keys(parsed.keybinds).length;
+                expect(keyCount).toBeGreaterThan(20);
             }
         });
 
@@ -598,23 +617,20 @@ X "ActiveBinding" ""
             // Test command type detection
             if (parsed.keybinds['1'] && parsed.keybinds['1'].raw && parsed.keybinds['1'].raw.includes('FireAll')) {
                 const type = window.stoCommands.detectCommandType('FireAll');
-                if (type) {
-                    expect(type).toBe('combat');
-                }
+                expect(type).toBeDefined();
+                expect(type).toBe('combat');
             }
             
             if (parsed.keybinds.G && parsed.keybinds.G.raw && parsed.keybinds.G.raw.includes('InteractWindow')) {
                 const type = window.stoCommands.detectCommandType('InteractWindow');
-                if (type) {
-                    expect(type).toBe('system');
-                }
+                expect(type).toBeDefined();
+                expect(type).toBe('system');
             }
             
             if (parsed.keybinds.C && parsed.keybinds.C.raw && parsed.keybinds.C.raw.includes('TrayExecByTrayWithBackup')) {
                 const type = window.stoCommands.detectCommandType('TrayExecByTrayWithBackup 1 1 8 1 9');
-                if (type) {
-                    expect(type).toBe('tray');
-                }
+                expect(type).toBeDefined();
+                expect(type).toBe('tray');
             }
         });
     });
