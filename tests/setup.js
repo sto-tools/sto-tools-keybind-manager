@@ -1,0 +1,76 @@
+// Vitest global setup file
+import { beforeEach, afterEach, vi } from 'vitest'
+
+// Mock browser APIs that aren't available in jsdom
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+})
+
+// Mock File and FileReader APIs
+global.File = class File {
+  constructor(chunks, filename, options = {}) {
+    this.chunks = chunks
+    this.name = filename
+    this.size = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+    this.type = options.type || ''
+    this.lastModified = options.lastModified || Date.now()
+  }
+}
+
+global.FileReader = class FileReader {
+  constructor() {
+    this.readyState = 0
+    this.result = null
+    this.error = null
+    this.onload = null
+    this.onerror = null
+    this.onabort = null
+  }
+  
+  readAsText(file) {
+    setTimeout(() => {
+      this.readyState = 2
+      this.result = file.chunks.join('')
+      if (this.onload) this.onload({ target: this })
+    }, 0)
+  }
+  
+  abort() {
+    this.readyState = 2
+    if (this.onabort) this.onabort({ target: this })
+  }
+}
+
+// Mock URL.createObjectURL and revokeObjectURL
+global.URL.createObjectURL = vi.fn(() => 'mock-object-url')
+global.URL.revokeObjectURL = vi.fn()
+
+// Mock Blob
+global.Blob = class Blob {
+  constructor(chunks = [], options = {}) {
+    this.size = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+    this.type = options.type || ''
+  }
+}
+
+// Clean up after each test
+beforeEach(() => {
+  // Clear all mocks
+  vi.clearAllMocks()
+})
+
+afterEach(() => {
+  // Clean up DOM after each test
+  document.body.innerHTML = ''
+  document.head.innerHTML = ''
+}) 

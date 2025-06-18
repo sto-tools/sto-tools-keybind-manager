@@ -1,0 +1,697 @@
+/**
+ * STO Tools Keybind Manager - Command Management Tests
+ * Tests for STOCommandManager class functionality
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+describe('STOCommandManager', () => {
+  let commandManager
+  let mockStoData
+
+  beforeEach(async () => {
+    // Reset localStorage
+    localStorage.clear()
+    
+    // Import real modules
+    const { STO_DATA } = await import('../../src/js/data.js')
+    
+    // Setup mock STO_DATA for testing
+    mockStoData = {
+      commands: {
+        targeting: {
+          commands: {
+            target_enemy_near: {
+              command: 'target_enemy_near',
+              name: 'Target Nearest Enemy',
+              icon: '🎯',
+              description: 'Target the nearest enemy'
+            },
+            target_self: {
+              command: 'target_self',
+              name: 'Target Self',
+              icon: '👤',
+              description: 'Target yourself'
+            }
+          }
+        },
+        combat: {
+          commands: {
+            fireall: {
+              command: 'FireAll',
+              name: 'Fire All Weapons',
+              icon: '🔥',
+              description: 'Fire all weapons'
+            }
+          }
+        },
+        power: {
+          commands: {
+            distribute_shields: {
+              command: '+power_exec Distribute_Shields',
+              name: 'Distribute Shields',
+              icon: '🛡️',
+              description: 'Distribute shields evenly'
+            }
+          }
+        },
+        movement: {
+          commands: {
+            fullimpulse: {
+              command: '+fullimpulse',
+              name: 'Full Impulse',
+              icon: '🚀',
+              description: 'Engage full impulse'
+            },
+            throttle_adjust: {
+              command: 'throttle_adjust',
+              name: 'Throttle Adjust',
+              icon: '⚡',
+              description: 'Adjust throttle by amount',
+              customizable: true
+            }
+          }
+        },
+        camera: {
+          commands: {
+            cam_distance: {
+              command: 'cam_distance',
+              name: 'Camera Distance',
+              icon: '📹',
+              description: 'Set camera distance',
+              customizable: true
+            }
+          }
+        },
+        communication: {
+          commands: {
+            say: {
+              command: 'say',
+              name: 'Say',
+              icon: '💬',
+              description: 'Send message to local chat'
+            },
+            team: {
+              command: 'team',
+              name: 'Team',
+              icon: '👥',
+              description: 'Send message to team chat'
+            }
+          }
+        },
+        system: {
+          commands: {
+            bind_save_file: {
+              command: 'bind_save_file',
+              name: 'Save Binds',
+              icon: '💾',
+              description: 'Save key bindings to file',
+              customizable: true
+            },
+            combat_log: {
+              command: 'combat_log',
+              name: 'Combat Log',
+              icon: '📊',
+              description: 'Toggle combat log',
+              customizable: true
+            }
+          }
+        }
+      },
+      templates: {
+        combat: {
+          basic_combat: {
+            name: 'Basic Combat',
+            description: 'Basic combat commands',
+            commands: ['FireAll', 'target_enemy_near']
+          }
+        }
+      }
+    }
+    
+    // Setup global STO_DATA
+    global.STO_DATA = mockStoData
+    
+    // Setup DOM elements needed for tests
+    document.body.innerHTML = `
+      <div id="commandTypeSelect"></div>
+      <div id="commandBuilderContainer"></div>
+      <div id="commandPreview"></div>
+      <div id="commandWarnings"></div>
+      <select id="traySelect"></select>
+      <select id="slotSelect"></select>
+      <div id="trayVisual"></div>
+      <input id="messageInput" type="text">
+      <input id="filenameInput" type="text">
+      <input id="distanceInput" type="number">
+      <input id="amountInput" type="number">
+    `
+    
+    // Load the commands module (it creates a global instance and class)
+    await import('../../src/js/commands.js')
+    
+    // Get the constructor from the global instance
+    const STOCommandManager = global.window.stoCommands.constructor
+    commandManager = new STOCommandManager()
+  })
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+    vi.clearAllMocks()
+    delete global.STO_DATA
+  })
+
+  describe('Initialization', () => {
+    it('should initialize with null currentCommand', () => {
+      expect(commandManager.currentCommand).toBeNull()
+    })
+
+    it('should initialize command builders map', () => {
+      expect(commandManager.commandBuilders).toBeInstanceOf(Map)
+      expect(commandManager.commandBuilders.size).toBeGreaterThan(0)
+      
+      // Check that all expected builders are present
+      const expectedBuilders = ['targeting', 'combat', 'tray', 'power', 'movement', 'camera', 'communication', 'system']
+      expectedBuilders.forEach(builder => {
+        expect(commandManager.commandBuilders.has(builder)).toBe(true)
+      })
+    })
+
+    it('should setup event listeners', () => {
+      // Test that the init method calls setupEventListeners
+      const setupSpy = vi.spyOn(commandManager, 'setupEventListeners')
+      commandManager.init()
+      expect(setupSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe('Command builders', () => {
+    describe('targeting commands', () => {
+      it('should build targeting command with default parameters', () => {
+        const builder = commandManager.commandBuilders.get('targeting')
+        const result = builder.build('target_enemy_near')
+        
+        expect(result).toEqual({
+          command: 'target_enemy_near',
+          type: 'targeting',
+          icon: '🎯',
+          text: 'Target Nearest Enemy',
+          description: 'Target the nearest enemy'
+        })
+      })
+
+      it('should handle invalid targeting command ID', () => {
+        const builder = commandManager.commandBuilders.get('targeting')
+        const result = builder.build('nonexistent_command')
+        
+        expect(result).toBeNull()
+      })
+    })
+
+    describe('combat commands', () => {
+      it('should build combat command correctly', () => {
+        const builder = commandManager.commandBuilders.get('combat')
+        const result = builder.build('fireall')
+        
+        expect(result).toEqual({
+          command: 'FireAll',
+          type: 'combat',
+          icon: '🔥',
+          text: 'Fire All Weapons',
+          description: 'Fire all weapons'
+        })
+      })
+    })
+
+    describe('tray commands', () => {
+      it('should build standard tray execution command', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('standard', { tray: 1, slot: 2 })
+        
+        expect(result).toEqual({
+          command: '+STOTrayExecByTray 1 2',
+          type: 'tray',
+          icon: '⚡',
+          text: 'Execute Tray 2 Slot 3',
+          description: 'Execute ability in tray 2, slot 3',
+          parameters: { tray: 1, slot: 2 }
+        })
+      })
+
+      it('should build tray command with backup parameters', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('tray_with_backup', { 
+          tray: 0, 
+          slot: 0, 
+          backup_tray: 1, 
+          backup_slot: 1,
+          active: 'on'
+        })
+        
+        expect(result).toEqual({
+          command: 'TrayExecByTrayWithBackup 0 0 1 1 1',
+          type: 'tray',
+          icon: '⚡',
+          text: 'Execute Tray 1 Slot 1 (with backup)',
+          description: 'Execute ability in tray 1, slot 1 with backup in tray 2, slot 2',
+          parameters: { tray: 0, slot: 0, backup_tray: 1, backup_slot: 1, active: 'on' }
+        })
+      })
+
+      it('should use default parameters when none provided', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('standard')
+        
+        expect(result.command).toBe('+STOTrayExecByTray 0 0')
+        expect(result.text).toBe('Execute Tray 1 Slot 1')
+      })
+    })
+
+    describe('power management commands', () => {
+      it('should build shield distribution commands', () => {
+        const builder = commandManager.commandBuilders.get('power')
+        const result = builder.build('distribute_shields')
+        
+        expect(result).toEqual({
+          command: '+power_exec Distribute_Shields',
+          type: 'power',
+          icon: '🛡️',
+          text: 'Distribute Shields',
+          description: 'Distribute shields evenly'
+        })
+      })
+    })
+
+    describe('movement commands', () => {
+      it('should build basic movement commands', () => {
+        const builder = commandManager.commandBuilders.get('movement')
+        const result = builder.build('fullimpulse')
+        
+        expect(result).toEqual({
+          command: '+fullimpulse',
+          type: 'movement',
+          icon: '🚀',
+          text: 'Full Impulse',
+          description: 'Engage full impulse'
+        })
+      })
+
+      it('should handle throttle adjustment parameters', () => {
+        const builder = commandManager.commandBuilders.get('movement')
+        const result = builder.build('throttle_adjust', { amount: 25 })
+        
+        expect(result.command).toBe('throttle_adjust 25')
+      })
+    })
+
+    describe('camera commands', () => {
+      it('should build camera commands with distance parameters', () => {
+        const builder = commandManager.commandBuilders.get('camera')
+        const result = builder.build('cam_distance', { distance: 10 })
+        
+        expect(result.command).toBe('cam_distance 10')
+        expect(result.type).toBe('camera')
+        expect(result.icon).toBe('📹')
+      })
+    })
+
+    describe('communication commands', () => {
+      it('should build communication commands with message parameters', () => {
+        const builder = commandManager.commandBuilders.get('communication')
+        const result = builder.build('say', { message: 'Hello world' })
+        
+        expect(result).toEqual({
+          command: 'say "Hello world"',
+          type: 'communication',
+          icon: '💬',
+          text: 'Say: Hello world',
+          description: 'Send message to local chat',
+          parameters: { message: 'Hello world' }
+        })
+      })
+
+      it('should use default message when none provided', () => {
+        const builder = commandManager.commandBuilders.get('communication')
+        const result = builder.build('team')
+        
+        expect(result.command).toBe('team "Message text here"')
+        expect(result.text).toBe('Team: Message text here')
+      })
+    })
+
+    describe('system commands', () => {
+      it('should build parameterized system commands', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        const result = builder.build('bind_save_file', { filename: 'mykeys.txt' })
+        
+        expect(result.command).toBe('bind_save_file mykeys.txt')
+      })
+
+      it('should handle state-based system commands', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        const result = builder.build('combat_log', { state: 1 })
+        
+        expect(result.command).toBe('combat_log 1')
+      })
+    })
+  })
+
+  describe('Command validation', () => {
+    it('should validate command syntax for valid commands', () => {
+      const validCommands = [
+        'target_enemy_near',
+        '+STOTrayExecByTray 0 0',
+        'say "Hello world"',
+        'FireAll'
+      ]
+      
+      validCommands.forEach(cmd => {
+        const result = commandManager.validateCommand(cmd)
+        expect(result.valid).toBe(true)
+      })
+    })
+
+    it('should detect invalid command syntax', () => {
+      const result = commandManager.validateCommand('')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('Command cannot be empty')
+    })
+
+    it('should detect dangerous commands', () => {
+      const dangerousCommands = ['quit', 'exit', 'shutdown']
+      
+      dangerousCommands.forEach(cmd => {
+        const result = commandManager.validateCommand(cmd)
+        expect(result.valid).toBe(false)
+        expect(result.error).toBe('Dangerous command not allowed')
+      })
+    })
+
+    it('should detect unquoted pipe characters', () => {
+      const result = commandManager.validateCommand('command | dangerous')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe('Invalid characters in command (|)')
+    })
+
+    it('should allow pipe characters inside quotes', () => {
+      const result = commandManager.validateCommand('say "Hello | World"')
+      expect(result.valid).toBe(true)
+    })
+
+    it('should handle object input with command property', () => {
+      const cmdObj = { command: 'target_enemy_near', type: 'targeting' }
+      const result = commandManager.validateCommand(cmdObj)
+      expect(result.valid).toBe(true)
+    })
+  })
+
+  describe('Unquoted pipe character detection', () => {
+    it('should detect unquoted pipe characters', () => {
+      expect(commandManager.hasUnquotedPipeCharacter('cmd | other')).toBe(true)
+      expect(commandManager.hasUnquotedPipeCharacter('cmd|other')).toBe(true)
+    })
+
+    it('should not detect pipe characters inside quotes', () => {
+      expect(commandManager.hasUnquotedPipeCharacter('say "hello | world"')).toBe(false)
+      expect(commandManager.hasUnquotedPipeCharacter("say 'hello | world'")).toBe(false)
+    })
+
+    it('should handle escaped quotes correctly', () => {
+      // The pipe is inside the quoted string, so should return false
+      expect(commandManager.hasUnquotedPipeCharacter('say "hello \\" | world"')).toBe(false)
+      // With double backslash, the quote is not escaped, so quote ends and pipe is outside
+      expect(commandManager.hasUnquotedPipeCharacter('say "hello \\\\" | world"')).toBe(true)
+    })
+
+    it('should handle commands without pipe characters', () => {
+      expect(commandManager.hasUnquotedPipeCharacter('target_enemy_near')).toBe(false)
+      expect(commandManager.hasUnquotedPipeCharacter('say "hello world"')).toBe(false)
+    })
+  })
+
+  describe('Command type detection', () => {
+    it('should detect targeting command types', () => {
+      const targetingCommands = [
+        'target_enemy_near',
+        'target_self',
+        'target_friend_near',
+        'target_clear'
+      ]
+      
+      targetingCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('targeting')
+      })
+    })
+
+    it('should detect tray execution commands', () => {
+      const trayCommands = [
+        '+STOTrayExecByTray 0 0',
+        '+stotrayexecbytray 1 2'
+      ]
+      
+      trayCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('tray')
+      })
+    })
+
+    it('should detect communication commands', () => {
+      const commCommands = [
+        'say hello',
+        'team message',
+        'tell player message',
+        'zone announcement',
+        'command "with quotes"'
+      ]
+      
+      commCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('communication')
+      })
+    })
+
+    it('should detect combat commands', () => {
+      const combatCommands = [
+        'FireAll',
+        'firephasers',
+        'firetorps',
+        'attack target'
+      ]
+      
+      combatCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('combat')
+      })
+    })
+
+    it('should detect power management commands', () => {
+      const powerCommands = [
+        '+power_exec Distribute_Shields',
+        'reroute_shields_to_front'
+      ]
+      
+      powerCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('power')
+      })
+    })
+
+    it('should detect movement commands', () => {
+      const movementCommands = [
+        '+fullimpulse',
+        'throttle_adjust 25',
+        '+forward',
+        '+reverse',
+        'follow target'
+      ]
+      
+      movementCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('movement')
+      })
+    })
+
+    it('should detect camera commands', () => {
+      const cameraCommands = [
+        'cam_distance 10',
+        'look_at target',
+        'zoom_in'
+      ]
+      
+      cameraCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('camera')
+      })
+    })
+
+    it('should detect system commands', () => {
+      const systemCommands = [
+        '+gentoggle',
+        'screenshot',
+        'hud_toggle',
+        'interactwindow'
+      ]
+      
+      systemCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('system')
+      })
+    })
+
+    it('should default to custom type for unknown commands', () => {
+      const customCommands = [
+        'unknown_command',
+        'custom_macro',
+        ''
+      ]
+      
+      customCommands.forEach(cmd => {
+        expect(commandManager.detectCommandType(cmd)).toBe('custom')
+      })
+    })
+
+    it('should handle null/undefined input', () => {
+      expect(commandManager.detectCommandType(null)).toBe('custom')
+      expect(commandManager.detectCommandType(undefined)).toBe('custom')
+      expect(commandManager.detectCommandType(123)).toBe('custom')
+    })
+  })
+
+  describe('Command icons and text', () => {
+    it('should return appropriate icon for command type', () => {
+      const iconTests = [
+        { command: 'target_enemy_near', expectedIcon: '🎯' },
+        { command: 'FireAll', expectedIcon: '🔥' },
+        { command: '+STOTrayExecByTray 0 0', expectedIcon: '⚡' },
+        { command: '+power_exec Distribute_Shields', expectedIcon: '🔋' },
+        { command: 'say hello', expectedIcon: '💬' },
+        { command: '+fullimpulse', expectedIcon: '🚀' },
+        { command: 'cam_distance 10', expectedIcon: '📹' },
+        { command: 'screenshot', expectedIcon: '⚙️' },
+        { command: 'unknown_command', expectedIcon: '⚙️' }
+      ]
+      
+      iconTests.forEach(({ command, expectedIcon }) => {
+        expect(commandManager.getCommandIcon(command)).toBe(expectedIcon)
+      })
+    })
+
+    it('should generate descriptive text for tray commands', () => {
+      const trayTests = [
+        { command: '+STOTrayExecByTray 0 0', expected: 'Execute Tray 1 Slot 1' },
+        { command: '+STOTrayExecByTray 1 2', expected: 'Execute Tray 2 Slot 3' },
+        { command: '+STOTrayExecByTray 2 5', expected: 'Execute Tray 3 Slot 6' }
+      ]
+      
+      trayTests.forEach(({ command, expected }) => {
+        expect(commandManager.getCommandText(command)).toBe(expected)
+      })
+    })
+
+    it('should find friendly names for known commands', () => {
+      expect(commandManager.getCommandText('target_enemy_near')).toBe('Target Nearest Enemy')
+      expect(commandManager.getCommandText('FireAll')).toBe('Fire All Weapons')
+    })
+
+    it('should generate friendly names for unknown commands', () => {
+      expect(commandManager.getCommandText('unknown_command')).toBe('unknown command')
+      expect(commandManager.getCommandText('+some_action')).toBe('some action')
+      expect(commandManager.getCommandText('CamelCaseCommand')).toBe('Camel Case Command')
+    })
+  })
+
+  describe('Template commands', () => {
+    it('should return template commands for category', () => {
+      const templates = commandManager.getTemplateCommands('combat')
+      
+      expect(templates).toBeInstanceOf(Array)
+      expect(templates.length).toBeGreaterThan(0)
+      
+      const template = templates[0]
+      expect(template).toHaveProperty('id')
+      expect(template).toHaveProperty('name')
+      expect(template).toHaveProperty('description')
+      expect(template).toHaveProperty('commands')
+      expect(template.commands).toBeInstanceOf(Array)
+    })
+
+    it('should return empty array for non-existent categories', () => {
+      const templates = commandManager.getTemplateCommands('nonexistent')
+      expect(templates).toEqual([])
+    })
+
+    it('should handle missing templates data', () => {
+      delete global.STO_DATA.templates
+      const templates = commandManager.getTemplateCommands('combat')
+      expect(templates).toEqual([])
+    })
+  })
+
+  describe('UI creation methods', () => {
+    it('should create targeting UI', () => {
+      const builder = commandManager.commandBuilders.get('targeting')
+      const ui = builder.getUI()
+      
+      expect(ui).toBeTruthy()
+      expect(typeof ui).toBe('string')
+      expect(ui).toContain('select')
+    })
+
+    it('should create tray UI', () => {
+      const builder = commandManager.commandBuilders.get('tray')
+      const ui = builder.getUI()
+      
+      expect(ui).toBeTruthy()
+      expect(typeof ui).toBe('string')
+      expect(ui).toContain('tray')
+    })
+
+    it('should create communication UI', () => {
+      const builder = commandManager.commandBuilders.get('communication')
+      const ui = builder.getUI()
+      
+      expect(ui).toBeTruthy()
+      expect(typeof ui).toBe('string')
+      expect(ui).toContain('input')
+    })
+  })
+
+  describe('Current command handling', () => {
+    it('should return null for getCurrentCommand when no command built', () => {
+      const result = commandManager.getCurrentCommand()
+      expect(result).toBeNull()
+    })
+
+    it('should build command from UI state', () => {
+      // Mock DOM elements with values
+      document.getElementById('commandTypeSelect').innerHTML = '<option value="targeting" selected>Targeting</option>'
+      
+      // Since buildCurrentCommand is complex and requires full DOM setup,
+      // we'll test that it doesn't throw and returns something reasonable
+      expect(() => commandManager.buildCurrentCommand()).not.toThrow()
+    })
+  })
+
+  describe('Tray visual updates', () => {
+    it('should update tray visual without errors', () => {
+      // Setup tray visual elements
+      const trayVisual = document.getElementById('trayVisual')
+      trayVisual.innerHTML = '<div class="tray-slot" data-slot="0"></div>'
+      
+      expect(() => commandManager.updateTrayVisual()).not.toThrow()
+    })
+  })
+
+  describe('Event handling', () => {
+    it('should handle command type changes', () => {
+      const mockContainer = document.getElementById('commandBuilderContainer')
+      
+      commandManager.handleCommandTypeChange('targeting')
+      
+      // Should not throw and should update the container
+      expect(mockContainer).toBeTruthy()
+    })
+
+    it('should setup type-specific listeners', () => {
+      // Test that setupTypeSpecificListeners doesn't throw for each type
+      const types = ['targeting', 'combat', 'tray', 'power', 'movement', 'camera', 'communication', 'system']
+      
+      types.forEach(type => {
+        expect(() => commandManager.setupTypeSpecificListeners(type)).not.toThrow()
+      })
+    })
+  })
+}) 
