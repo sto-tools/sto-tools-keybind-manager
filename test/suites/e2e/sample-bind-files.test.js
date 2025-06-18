@@ -64,117 +64,126 @@ describe('Sample Bind File Loading', () => {
             }
         });
 
-        it('should correctly parse movement keys (E, D, S, F)', () => {
-            if (parsedSpaceBinds) {
-                // Movement keys
-                if (parsedSpaceBinds.E) {
-                    expect(parsedSpaceBinds.E).toContain('invertibleup');
-                }
-                if (parsedSpaceBinds.D) {
-                    expect(parsedSpaceBinds.D).toContain('invertibledown');
-                }
-                if (parsedSpaceBinds.S) {
-                    expect(parsedSpaceBinds.S).toContain('left');
-                }
-                if (parsedSpaceBinds.F) {
-                    expect(parsedSpaceBinds.F).toContain('right');
-                }
+        it('should correctly parse movement bindings', () => {
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            if (parsedSpaceBinds.W) {
+                expect(parsedSpaceBinds.W).toContain('throttleadjust');
+            }
+            if (parsedSpaceBinds.D) {
+                expect(parsedSpaceBinds.D).toContain('invertibledown');
+            }
+            if (parsedSpaceBinds.S) {
+                expect(parsedSpaceBinds.S).toContain('left');
+            }
+            if (parsedSpaceBinds.F) {
+                expect(parsedSpaceBinds.F).toContain('right');
             }
         });
 
         it('should correctly parse tray execution bindings', () => {
-            if (parsedSpaceBinds) {
-                // Check various tray execution bindings
-                const trayKeys = ['C', 'T', 'V', 'A', 'Q', 'Z'];
-                trayKeys.forEach(key => {
-                    if (parsedSpaceBinds[key]) {
-                        expect(parsedSpaceBinds[key]).toContain('TrayExec');
-                    }
-                });
-            }
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            // Check various tray execution bindings
+            const trayKeys = ['C', 'T', 'V', 'A', 'Q', 'Z'];
+            trayKeys.forEach(key => {
+                if (parsedSpaceBinds[key]) {
+                    expect(parsedSpaceBinds[key]).toContain('TrayExec');
+                }
+            });
         });
 
         it('should correctly parse numbered keys (1-9, 0)', () => {
-            if (parsedSpaceBinds) {
-                // Check numbered keys
-                for (let i = 1; i <= 9; i++) {
-                    if (parsedSpaceBinds[i.toString()]) {
-                        const binding = parsedSpaceBinds[i.toString()];
-                        expect(typeof binding).toBe('string');
-                        expect(binding.length).toBeGreaterThan(0);
-                    }
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            // Check numbered keys
+            for (let i = 1; i <= 9; i++) {
+                if (parsedSpaceBinds[i.toString()]) {
+                    const binding = parsedSpaceBinds[i.toString()];
+                    expect(typeof binding).toBe('string');
+                    expect(binding.length).toBeGreaterThan(0);
                 }
-                
-                if (parsedSpaceBinds['0']) {
-                    expect(parsedSpaceBinds['0']).toContain('TrayExecByTray');
-                }
+            }
+            
+            if (parsedSpaceBinds['0']) {
+                expect(parsedSpaceBinds['0']).toContain('TrayExecByTray');
             }
         });
 
         it('should correctly parse function keys (F9, F10, F11, F12)', () => {
-            if (parsedSpaceBinds) {
-                if (parsedSpaceBinds.F9) {
-                    expect(parsedSpaceBinds.F9).toContain('dynFxExcludeFX');
-                }
-                if (parsedSpaceBinds.F10) {
-                    expect(parsedSpaceBinds.F10).toContain('dynFxExcludeFX');
-                }
-                if (parsedSpaceBinds.F11) {
-                    expect(parsedSpaceBinds.F11).toContain('toggle_combatlog_off');
-                }
-                if (parsedSpaceBinds.F12) {
-                    expect(parsedSpaceBinds.F12).toContain('toggle_combatlog_on');
-                }
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            if (parsedSpaceBinds.F9) {
+                expect(parsedSpaceBinds.F9).toContain('dynFxExcludeFX');
+            }
+            if (parsedSpaceBinds.F10) {
+                expect(parsedSpaceBinds.F10).toContain('dynFxExcludeFX');
+            }
+            if (parsedSpaceBinds.F11) {
+                expect(parsedSpaceBinds.F11).toContain('toggle_combatlog_off');
+            }
+            if (parsedSpaceBinds.F12) {
+                expect(parsedSpaceBinds.F12).toContain('toggle_combatlog_on');
             }
         });
 
         it('should correctly parse modifier key combinations', () => {
-            if (parsedSpaceBinds) {
-                // Control combinations
-                if (parsedSpaceBinds['Control+j']) {
-                    expect(parsedSpaceBinds['Control+j']).toContain('Missions');
-                }
-                if (parsedSpaceBinds['Control+m']) {
-                    expect(parsedSpaceBinds['Control+m']).toContain('Map');
-                }
-                if (parsedSpaceBinds['Control+L']) {
-                    expect(parsedSpaceBinds['Control+L']).toContain('save_my_space_binds');
-                }
-                
-                // Alt combinations
-                if (parsedSpaceBinds['ALT+1']) {
-                    expect(parsedSpaceBinds['ALT+1']).toContain('TrayExecByTray 6 0');
-                }
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            // Control combinations
+            if (parsedSpaceBinds['Control+j']) {
+                expect(parsedSpaceBinds['Control+j']).toContain('Missions');
+            }
+            if (parsedSpaceBinds['Control+m']) {
+                expect(parsedSpaceBinds['Control+m']).toContain('Map');
+            }
+            if (parsedSpaceBinds['Control+L']) {
+                expect(parsedSpaceBinds['Control+L']).toContain('save_my_space_binds');
+            }
+            
+            // Alt combinations
+            if (parsedSpaceBinds['ALT+1']) {
+                expect(parsedSpaceBinds['ALT+1']).toContain('TrayExecByTray 6 0');
             }
         });
 
         it('should correctly parse mouse bindings', () => {
-            if (parsedSpaceBinds) {
-                if (parsedSpaceBinds.Middleclick) {
-                    expect(parsedSpaceBinds.Middleclick).toContain('throttletoggle');
-                }
-                if (parsedSpaceBinds.Button4) {
-                    expect(parsedSpaceBinds.Button4).toContain('FullImpulseToggle');
-                }
-                if (parsedSpaceBinds.Button5) {
-                    expect(parsedSpaceBinds.Button5).toContain('TrayExecByTrayWithBackup');
-                }
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            if (parsedSpaceBinds.Middleclick) {
+                expect(parsedSpaceBinds.Middleclick).toContain('throttletoggle');
+            }
+            if (parsedSpaceBinds.Button4) {
+                expect(parsedSpaceBinds.Button4).toContain('FullImpulseToggle');
+            }
+            if (parsedSpaceBinds.Button5) {
+                expect(parsedSpaceBinds.Button5).toContain('TrayExecByTrayWithBackup');
             }
         });
 
         it('should correctly parse wheel bindings', () => {
-            if (parsedSpaceBinds) {
-                if (parsedSpaceBinds.Wheelplus) {
-                    expect(parsedSpaceBinds.Wheelplus).toContain('throttleadjust');
-                }
-                if (parsedSpaceBinds.Wheelminus) {
-                    expect(parsedSpaceBinds.Wheelminus).toContain('throttleadjust');
-                }
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            if (parsedSpaceBinds.Wheelplus) {
+                expect(parsedSpaceBinds.Wheelplus).toContain('throttleadjust');
+            }
+            if (parsedSpaceBinds.Wheelminus) {
+                expect(parsedSpaceBinds.Wheelminus).toContain('throttleadjust');
             }
         });
 
         it('should handle complex command chains correctly', () => {
-            if (parsedSpaceBinds && parsedSpaceBinds.SPACE) {
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            if (parsedSpaceBinds.SPACE) {
                 const spaceCommand = parsedSpaceBinds.SPACE;
                 // Should contain multiple commands separated by $$
                 const commandCount = (spaceCommand.match(/\$\$/g) || []).length;
@@ -192,13 +201,14 @@ describe('Sample Bind File Loading', () => {
             expect(spaceBindContent).toContain(';Middleclick');
             
             // Commented lines should not be parsed as active bindings
-            if (parsedSpaceBinds) {
-                // These should not exist as they're commented out
-                expect(parsedSpaceBinds[';SPACE']).toBeUndefined();
-                expect(parsedSpaceBinds[';Rightdrag']).toBeUndefined();
-                expect(parsedSpaceBinds[';Button4']).toBeUndefined();
-                expect(parsedSpaceBinds[';Middleclick']).toBeUndefined();
-            }
+            expect(parsedSpaceBinds).toBeDefined();
+            expect(parsedSpaceBinds).not.toBeNull();
+            
+            // These should not exist as they're commented out
+            expect(parsedSpaceBinds[';SPACE']).toBeUndefined();
+            expect(parsedSpaceBinds[';Rightdrag']).toBeUndefined();
+            expect(parsedSpaceBinds[';Button4']).toBeUndefined();
+            expect(parsedSpaceBinds[';Middleclick']).toBeUndefined();
         });
 
         it('should parse active bindings vs commented alternatives correctly', () => {
@@ -380,9 +390,11 @@ describe('Sample Bind File Loading', () => {
 
     describe('Comment Parsing Behavior', () => {
         it('should properly distinguish between active and commented bindings', async () => {
-            if (window.stoKeybinds && window.stoKeybinds.parseKeybindFile) {
-                // Test with a sample that has both active and commented lines
-                const testBindContent = `
+            expect(window.stoKeybinds).toBeDefined();
+            expect(window.stoKeybinds.parseKeybindFile).toBeInstanceOf(Function);
+            
+            // Test with a sample that has both active and commented lines
+            const testBindContent = `
 ; This is a comment line
 A "FireAll" ""
 ; A "CommentedFireAll" ""
@@ -391,42 +403,43 @@ B "TrayExecByTray 1 0" ""
 ; Another comment
 C "" ""
 `;
+            
+            const parsed = window.stoKeybinds.parseKeybindFile(testBindContent);
+            
+            if (parsed && parsed.keybinds && Object.keys(parsed.keybinds).length > 0) {
+                // Active bindings should be parsed
+                expect(parsed.keybinds.A).toBeTruthy();
+                expect(parsed.keybinds.A.commands[0].command).toBe('FireAll');
+                expect(parsed.keybinds.B).toBeTruthy();
+                expect(parsed.keybinds.B.commands[0].command).toBe('TrayExecByTray 1 0');
+                expect(parsed.keybinds.C).toBeTruthy();
+                expect(parsed.keybinds.C.commands[0].command).toBe('');
                 
-                const parsed = window.stoKeybinds.parseKeybindFile(testBindContent);
+                // Commented bindings should not exist
+                expect(parsed.keybinds['; A']).toBeUndefined();
+                expect(parsed.keybinds[';B']).toBeUndefined();
+                expect(parsed.keybinds['; This is a comment line']).toBeUndefined();
+                expect(parsed.keybinds['; Another comment']).toBeUndefined();
                 
-                if (parsed && parsed.keybinds && Object.keys(parsed.keybinds).length > 0) {
-                    // Active bindings should be parsed
-                    expect(parsed.keybinds.A).toBeTruthy();
-                    expect(parsed.keybinds.A.commands[0].command).toBe('FireAll');
-                    expect(parsed.keybinds.B).toBeTruthy();
-                    expect(parsed.keybinds.B.commands[0].command).toBe('TrayExecByTray 1 0');
-                    expect(parsed.keybinds.C).toBeTruthy();
-                    expect(parsed.keybinds.C.commands[0].command).toBe('');
-                    
-                    // Commented bindings should not exist
-                    expect(parsed.keybinds['; A']).toBeUndefined();
-                    expect(parsed.keybinds[';B']).toBeUndefined();
-                    expect(parsed.keybinds['; This is a comment line']).toBeUndefined();
-                    expect(parsed.keybinds['; Another comment']).toBeUndefined();
-                    
-                    // Comments should be captured separately
-                    expect(parsed.comments.length).toBeGreaterThan(0);
-                    
-                    // Should not contain commented commands in keybinds
-                    const allCommands = Object.values(parsed.keybinds).flatMap(kb => kb.commands.map(c => c.command));
-                    expect(allCommands.includes('CommentedFireAll')).toBe(false);
-                    expect(allCommands.includes('CommentedTrayExec')).toBe(false);
-                } else {
-                    // If parsing fails or returns empty, skip this test
-                    console.warn('Keybind parsing returned empty or failed, skipping comment parsing test');
-                }
+                // Comments should be captured separately
+                expect(parsed.comments.length).toBeGreaterThan(0);
+                
+                // Should not contain commented commands in keybinds
+                const allCommands = Object.values(parsed.keybinds).flatMap(kb => kb.commands.map(c => c.command));
+                expect(allCommands.includes('CommentedFireAll')).toBe(false);
+                expect(allCommands.includes('CommentedTrayExec')).toBe(false);
+            } else {
+                // If parsing fails or returns empty, skip this test
+                console.warn('Keybind parsing returned empty or failed, skipping comment parsing test');
             }
         });
 
         it('should handle mixed comment styles correctly', async () => {
-            if (window.stoKeybinds && window.stoKeybinds.parseKeybindFile) {
-                // Test various comment patterns from the actual bind files
-                const testContent = `
+            expect(window.stoKeybinds).toBeDefined();
+            expect(window.stoKeybinds.parseKeybindFile).toBeInstanceOf(Function);
+            
+            // Test various comment patterns from the actual bind files
+            const testContent = `
 ;SPACE "Target_Enemy_Near_ForArc 90" ""
 SPACE "LootRollNeed" ""
 ;Middleclick "FullImpulseToggle" ""
@@ -435,28 +448,27 @@ Middleclick "throttletoggle" ""
 ;Comment without spaces
 X "ActiveBinding" ""
 `;
+            
+            const parsed = window.stoKeybinds.parseKeybindFile(testContent);
+            
+            if (parsed && parsed.keybinds && Object.keys(parsed.keybinds).length > 0) {
+                // Only active bindings should be present
+                expect(parsed.keybinds.SPACE).toBeTruthy();
+                expect(parsed.keybinds.SPACE.commands[0].command).toBe('LootRollNeed');
+                expect(parsed.keybinds.Middleclick).toBeTruthy();
+                expect(parsed.keybinds.Middleclick.commands[0].command).toBe('throttletoggle');
+                expect(parsed.keybinds.X).toBeTruthy();
+                expect(parsed.keybinds.X.commands[0].command).toBe('ActiveBinding');
                 
-                const parsed = window.stoKeybinds.parseKeybindFile(testContent);
+                // Commented versions should not override active ones
+                expect(parsed.keybinds.SPACE.commands[0].command === 'Target_Enemy_Near_ForArc 90').toBe(false);
+                expect(parsed.keybinds.Middleclick.commands[0].command === 'FullImpulseToggle').toBe(false);
                 
-                if (parsed && parsed.keybinds && Object.keys(parsed.keybinds).length > 0) {
-                    // Only active bindings should be present
-                    expect(parsed.keybinds.SPACE).toBeTruthy();
-                    expect(parsed.keybinds.SPACE.commands[0].command).toBe('LootRollNeed');
-                    expect(parsed.keybinds.Middleclick).toBeTruthy();
-                    expect(parsed.keybinds.Middleclick.commands[0].command).toBe('throttletoggle');
-                    expect(parsed.keybinds.X).toBeTruthy();
-                    expect(parsed.keybinds.X.commands[0].command).toBe('ActiveBinding');
-                    
-                    // Commented versions should not override active ones
-                    expect(parsed.keybinds.SPACE.commands[0].command === 'Target_Enemy_Near_ForArc 90').toBe(false);
-                    expect(parsed.keybinds.Middleclick.commands[0].command === 'FullImpulseToggle').toBe(false);
-                    
-                    // Comments should be captured
-                    expect(parsed.comments.length).toBeGreaterThan(0);
-                } else {
-                    // If parsing fails or returns empty, skip this test
-                    console.warn('Keybind parsing returned empty or failed, skipping mixed comment test');
-                }
+                // Comments should be captured
+                expect(parsed.comments.length).toBeGreaterThan(0);
+            } else {
+                // If parsing fails or returns empty, skip this test
+                console.warn('Keybind parsing returned empty or failed, skipping mixed comment test');
             }
         });
     });
