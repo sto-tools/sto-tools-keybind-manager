@@ -80,6 +80,11 @@ class STOProfileManager {
             this.closeAliasesMenu();
         });
 
+        document.getElementById('loadDefaultDataBtn')?.addEventListener('click', () => {
+            this.loadDefaultData();
+            this.closeSettingsMenu();
+        });
+
         document.getElementById('resetAppBtn')?.addEventListener('click', () => {
             this.confirmResetApp();
             this.closeSettingsMenu();
@@ -480,10 +485,45 @@ class STOProfileManager {
             // Clear all data
             stoStorage.clearAllData();
             
-            // Reload the page to reinitialize with defaults
-            window.location.reload();
+            // Reinitialize app with empty data instead of reloading
+            app.currentProfile = null;
+            app.selectedKey = null;
+            app.setModified(false);
+            
+            // Re-render UI with empty state
+            app.renderProfiles();
+            app.renderKeyGrid();
+            app.renderCommandChain();
+            app.updateProfileInfo();
+            
+            stoUI.showToast('Application reset successfully. All data cleared.', 'success');
         } catch (error) {
             stoUI.showToast('Failed to reset application: ' + error.message, 'error');
+        }
+    }
+
+    // Load default/demo data
+    loadDefaultData() {
+        try {
+            if (stoStorage.loadDefaultData()) {
+                // Reinitialize app with default data
+                const data = stoStorage.getAllData();
+                app.currentProfile = data.currentProfile;
+                app.selectedKey = null;
+                app.setModified(false);
+                
+                // Re-render UI with default data
+                app.renderProfiles();
+                app.renderKeyGrid();
+                app.renderCommandChain();
+                app.updateProfileInfo();
+                
+                stoUI.showToast('Default demo data loaded successfully', 'success');
+            } else {
+                stoUI.showToast('Failed to load default data', 'error');
+            }
+        } catch (error) {
+            stoUI.showToast('Failed to load default data: ' + error.message, 'error');
         }
     }
 

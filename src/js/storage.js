@@ -23,7 +23,14 @@ class STOStorage {
     getAllData() {
         try {
             const data = localStorage.getItem(this.storageKey);
+            const resetFlag = localStorage.getItem('sto_app_reset');
+            
             if (!data) {
+                // If reset flag exists, return empty structure instead of default data
+                if (resetFlag) {
+                    localStorage.removeItem('sto_app_reset');
+                    return this.getEmptyData();
+                }
                 return this.getDefaultData();
             }
             
@@ -182,6 +189,10 @@ class STOStorage {
             localStorage.removeItem(this.storageKey);
             localStorage.removeItem(this.backupKey);
             localStorage.removeItem(this.settingsKey);
+            
+            // Set reset flag to prevent loading default data on next startup
+            localStorage.setItem('sto_app_reset', 'true');
+            
             return true;
         } catch (error) {
             console.error('Error clearing data:', error);
@@ -221,6 +232,18 @@ class STOStorage {
                 default_space: { ...STO_DATA.defaultProfiles.default_space },
                 tactical_space: { ...STO_DATA.defaultProfiles.tactical_space }
             },
+            globalAliases: {},
+            settings: this.getDefaultSettings()
+        };
+    }
+
+    getEmptyData() {
+        return {
+            version: this.version,
+            created: new Date().toISOString(),
+            lastModified: new Date().toISOString(),
+            currentProfile: null,
+            profiles: {},
             globalAliases: {},
             settings: this.getDefaultSettings()
         };
@@ -301,16 +324,16 @@ class STOStorage {
         if (!data.globalAliases) data.globalAliases = {};
         if (!data.settings) data.settings = this.getDefaultSettings();
         
-        // Ensure we have at least one profile
-        if (Object.keys(data.profiles).length === 0) {
+        // Only ensure we have at least one profile if this isn't a post-reset state
+        if (Object.keys(data.profiles).length === 0 && data.currentProfile !== null) {
             data.profiles = {
                 default_space: { ...STO_DATA.defaultProfiles.default_space }
             };
             data.currentProfile = 'default_space';
         }
         
-        // Ensure current profile exists
-        if (!data.profiles[data.currentProfile]) {
+        // Ensure current profile exists (if we have profiles)
+        if (Object.keys(data.profiles).length > 0 && !data.profiles[data.currentProfile]) {
             data.currentProfile = Object.keys(data.profiles)[0];
         }
         
@@ -360,6 +383,12 @@ class STOStorage {
         } catch (error) {
             return 0;
         }
+    }
+
+    // Load default/demo data explicitly
+    loadDefaultData() {
+        const defaultData = this.getDefaultData();
+        return this.saveAllData(defaultData);
     }
 }
 

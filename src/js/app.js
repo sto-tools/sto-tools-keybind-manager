@@ -394,34 +394,47 @@ class STOToolsKeybindManager {
         const data = stoStorage.getAllData();
         select.innerHTML = '';
         
-        Object.entries(data.profiles).forEach(([id, profile]) => {
+        if (Object.keys(data.profiles).length === 0) {
+            // No profiles available
             const option = document.createElement('option');
-            option.value = id;
-            option.textContent = profile.name;
-            if (id === this.currentProfile) {
-                option.selected = true;
-            }
+            option.value = '';
+            option.textContent = 'No profiles available';
+            option.disabled = true;
             select.appendChild(option);
-        });
+        } else {
+            Object.entries(data.profiles).forEach(([id, profile]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = profile.name;
+                if (id === this.currentProfile) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
         
         this.updateProfileInfo();
     }
 
     updateProfileInfo() {
         const profile = this.getCurrentProfile();
-        if (!profile) return;
         
         // Update mode buttons
         const modeBtns = document.querySelectorAll('.mode-btn');
         modeBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.mode === this.currentEnvironment);
+            btn.classList.toggle('active', profile && btn.dataset.mode === this.currentEnvironment);
+            btn.disabled = !profile;
         });
         
         // Update key count
         const keyCount = document.getElementById('keyCount');
         if (keyCount) {
-            const count = Object.keys(profile.keys).length;
-            keyCount.textContent = `${count} key${count !== 1 ? 's' : ''}`;
+            if (profile) {
+                const count = Object.keys(profile.keys).length;
+                keyCount.textContent = `${count} key${count !== 1 ? 's' : ''}`;
+            } else {
+                keyCount.textContent = 'No profile';
+            }
         }
     }
 
@@ -430,9 +443,19 @@ class STOToolsKeybindManager {
         if (!grid) return;
         
         const profile = this.getCurrentProfile();
-        if (!profile) return;
-        
         grid.innerHTML = '';
+        
+        if (!profile) {
+            // Show empty state when no profile is available
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-folder-open"></i>
+                    <h4>No Profile Selected</h4>
+                    <p>Create a new profile or load default data to get started.</p>
+                </div>
+            `;
+            return;
+        }
         
         // Get all keys for this profile
         const keys = Object.keys(profile.keys);
