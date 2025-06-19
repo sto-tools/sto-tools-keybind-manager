@@ -270,8 +270,9 @@ class STOKeybindFileManager {
 
     // Import keybind file content
     importKeybindFile(content) {
-        const profile = app.getCurrentProfile()
-        if (!profile) {
+        // Get the actual profile from storage to work with the real structure
+        const actualProfile = stoStorage.getProfile(app.currentProfile)
+        if (!actualProfile) {
             stoUI.showToast('No profile selected for import', 'warning')
             return { success: false, error: 'No active profile' }
         }
@@ -287,7 +288,23 @@ class STOKeybindFileManager {
                 return { success: false, error: 'No keybinds found' }
             }
 
-            // Merge keybinds into profile
+            // Ensure builds structure exists
+            if (!actualProfile.builds) {
+                actualProfile.builds = {
+                    space: { keys: {} },
+                    ground: { keys: {} }
+                }
+            }
+
+            // Ensure current environment build exists
+            if (!actualProfile.builds[app.currentEnvironment]) {
+                actualProfile.builds[app.currentEnvironment] = { keys: {} }
+            }
+
+            // Get reference to the current build's keys
+            const buildKeys = actualProfile.builds[app.currentEnvironment].keys
+
+            // Merge keybinds into the actual build structure
             Object.entries(parsed.keybinds).forEach(([key, keybindData]) => {
                 // Detect if commands are mirrored and extract original commands
                 const commandString = keybindData.commands.map(cmd => cmd.command).join(' $$ ');
@@ -295,22 +312,22 @@ class STOKeybindFileManager {
                 
                 if (mirrorInfo.isMirrored) {
                     // Store original commands with stabilization flag
-                    profile.keys[key] = this.parseCommandString(mirrorInfo.originalCommands.join(' $$ '));
-                    // Store metadata about stabilization
-                    if (!profile.keybindMetadata) {
-                        profile.keybindMetadata = {};
+                    buildKeys[key] = this.parseCommandString(mirrorInfo.originalCommands.join(' $$ '));
+                    // Store metadata about stabilization at profile level
+                    if (!actualProfile.keybindMetadata) {
+                        actualProfile.keybindMetadata = {};
                     }
-                    profile.keybindMetadata[key] = {
+                    actualProfile.keybindMetadata[key] = {
                         stabilizeExecutionOrder: true
                     };
                 } else {
                     // Store commands as-is
-                    profile.keys[key] = keybindData.commands;
+                    buildKeys[key] = keybindData.commands;
                 }
             })
 
-            // Save the current build properly which handles the builds structure
-            app.saveCurrentBuild()
+            // Save the modified profile directly
+            stoStorage.saveProfile(app.currentProfile, actualProfile)
             app.setModified(true)
 
             // Refresh key grid

@@ -159,11 +159,17 @@ class STOToolsKeybindManager {
             profile.builds[this.currentEnvironment] = { keys: {} };
         }
         
+        // Ensure the build keys object exists
+        if (!profile.builds[this.currentEnvironment].keys) {
+            profile.builds[this.currentEnvironment].keys = {};
+        }
+        
         // Return a profile-like object with current build data
         // Keys are build-specific, but aliases are profile-wide
+        // IMPORTANT: keys must be a direct reference, not a copy
         return {
             ...profile,
-            keys: profile.builds[this.currentEnvironment].keys || {},
+            keys: profile.builds[this.currentEnvironment].keys, // Direct reference to build keys
             aliases: profile.aliases || {}, // Profile-level aliases, not build-specific
             mode: this.currentEnvironment // For backward compatibility
         };
@@ -1433,21 +1439,25 @@ class STOToolsKeybindManager {
 
     // Utility Methods
     saveProfile() {
-        // Get the actual stored profile structure
-        const actualProfile = stoStorage.getProfile(this.currentProfile);
         const virtualProfile = this.getCurrentProfile();
         
-        if (!actualProfile || !virtualProfile) {
+        if (!virtualProfile) {
             return;
         }
         
         // Save current build data to the proper structure
         this.saveCurrentBuild();
         
+        // Get the actual stored profile structure AFTER saveCurrentBuild
+        const actualProfile = stoStorage.getProfile(this.currentProfile);
+        if (!actualProfile) {
+            return;
+        }
+        
         // Update profile-level data (aliases, metadata, etc.) from virtual profile
-        // but preserve the builds structure
+        // but preserve the builds structure that was just saved
         const updatedProfile = {
-            ...actualProfile, // Keep the actual structure with builds
+            ...actualProfile, // Keep the actual structure with builds (now includes saved keybinds)
             // Update profile-level fields from virtual profile
             name: virtualProfile.name,
             description: virtualProfile.description || actualProfile.description,
