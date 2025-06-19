@@ -309,8 +309,8 @@ class STOKeybindFileManager {
                 }
             })
 
-            // Update storage and UI
-            app.saveProfile()
+            // Save the current build properly which handles the builds structure
+            app.saveCurrentBuild()
             app.setModified(true)
 
             // Refresh key grid
@@ -355,20 +355,28 @@ class STOKeybindFileManager {
                 return { success: false, error: 'No aliases found' }
             }
 
-            // Merge aliases into profile
-            if (!profile.aliases) {
-                profile.aliases = {}
+            // Get the actual profile from storage (aliases are profile-level, not build-specific)
+            const actualProfile = stoStorage.getProfile(app.currentProfile)
+            if (!actualProfile) {
+                stoUI.showToast('Failed to get profile for import', 'error')
+                return { success: false, error: 'Profile not found' }
             }
 
+            // Ensure aliases structure exists at profile level
+            if (!actualProfile.aliases) {
+                actualProfile.aliases = {}
+            }
+
+            // Merge aliases into profile (profile-level, not build-specific)
             Object.entries(parsed.aliases).forEach(([name, aliasData]) => {
-                profile.aliases[name] = {
+                actualProfile.aliases[name] = {
                     commands: aliasData.commands,
                     description: aliasData.description || ''
                 }
             })
 
             // Update storage and UI
-            app.saveProfile()
+            stoStorage.saveProfile(app.currentProfile, actualProfile)
             app.setModified(true)
 
             // Refresh alias manager if open
@@ -546,12 +554,8 @@ class STOKeybindFileManager {
 
     // Event listeners
     setupEventListeners() {
-        // Import keybind file handler
-        document.addEventListener('change', (e) => {
-            if (e.target.id === 'fileInput' && e.target.accept === '.txt') {
-                this.handleKeybindFileImport(e);
-            }
-        });
+        // Note: File input handling is done directly in profiles.js
+        // No global event delegation needed for file input
     }
 
     handleKeybindFileImport(event) {

@@ -31,11 +31,26 @@ beforeEach(() => {
       mode: 'Space'
     })),
     currentProfile: 'test-profile',
+    currentEnvironment: 'space',
     setModified: vi.fn(),
     loadData: vi.fn(),
     renderKeyGrid: vi.fn(),
-    renderCommandChain: vi.fn()
+    renderCommandChain: vi.fn(),
+    saveCurrentBuild: vi.fn(),
+    saveProfile: vi.fn()
   }
+
+  // Mock stoStorage.getProfile to return a profile with builds structure
+  global.stoStorage.getProfile = vi.fn(() => ({
+    name: 'Test Profile',
+    builds: {
+      space: { keys: {} },
+      ground: { keys: {} }
+    },
+    aliases: {}
+  }))
+
+  global.stoStorage.saveProfile = vi.fn()
 })
 
 describe('STOKeybindFileManager', () => {
@@ -223,7 +238,7 @@ describe('STOKeybindFileManager', () => {
       
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
-      expect(app.saveProfile).toHaveBeenCalled()
+      expect(app.saveCurrentBuild).toHaveBeenCalled()
     })
 
     it('should merge with existing profile data', () => {
@@ -676,11 +691,9 @@ describe('STOKeybindFileManager', () => {
 
   describe('event handling', () => {
     it('should setup event listeners', () => {
-      const addEventListenerSpy = vi.spyOn(document, 'addEventListener')
-      
-      keybindManager.setupEventListeners()
-      
-      expect(addEventListenerSpy).toHaveBeenCalledWith('change', expect.any(Function))
+      // Event listeners are now handled directly in profiles.js
+      // This test verifies the method exists and doesn't throw
+      expect(() => keybindManager.setupEventListeners()).not.toThrow()
     })
 
     it('should handle file input changes', () => {
@@ -768,6 +781,9 @@ F2 "say world"`
       }
       global.app.getCurrentProfile.mockReturnValue(profile)
       
+      // Mock stoStorage.getProfile to return the same profile that will be modified
+      global.stoStorage.getProfile.mockReturnValue(profile)
+      
       const content = 'alias NewAlias "new command"'
       keybindManager.importAliasFile(content)
       
@@ -779,7 +795,7 @@ F2 "say world"`
       const content = 'alias TestAlias "say test"'
       keybindManager.importAliasFile(content)
       
-      expect(app.saveProfile).toHaveBeenCalled()
+      expect(stoStorage.saveProfile).toHaveBeenCalled()
       expect(app.setModified).toHaveBeenCalledWith(true)
     })
   })
@@ -979,7 +995,10 @@ F2 "say world"`
           keys: {},
           keybindMetadata: {}
         }),
+        currentProfile: 'test-profile',
+        currentEnvironment: 'space',
         saveProfile: vi.fn(),
+        saveCurrentBuild: vi.fn(),
         setModified: vi.fn(),
         renderKeyGrid: vi.fn()
       }

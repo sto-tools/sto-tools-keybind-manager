@@ -406,7 +406,22 @@ class STOProfileManager {
         const input = document.getElementById('fileInput');
         if (input) {
             input.accept = '.txt';
-            input.onchange = null; // Clear any existing handlers
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            stoKeybinds.importKeybindFile(e.target.result);
+                        } catch (error) {
+                            stoUI.showToast('Failed to import keybind file: ' + error.message, 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+                // Reset file input
+                e.target.value = '';
+            };
             input.click();
         }
     }
