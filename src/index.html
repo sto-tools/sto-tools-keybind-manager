@@ -13,7 +13,7 @@
         <!-- Header -->
         <header class="app-header">
             <div class="header-left">
-                <h1><img src="img/delta_64x64.png" alt="STO Tools Logo" class="app-logo"> STO Tools Keybind Manager</h1>
+                <h1><a href="https://sto-tools.org/" target="_blank" rel="noopener noreferrer"><img src="img/delta_64x64.png" alt="STO Tools Logo" class="app-logo"></a> STO Tools Keybind Manager</h1>
                 <span class="version" id="appVersion"></span>
             </div>
             <div class="header-right">
@@ -52,8 +52,8 @@
                         </button>
                     </div>
                 </div>
-                <button class="btn btn-secondary" id="vertigoBtn" title="Vertigo VFX Manager">
-                    <i class="fas fa-eye-slash"></i> VERTIGO
+                <button class="btn btn-secondary" id="vertigoBtn" title="VFX Manager">
+                    <i class="fas fa-eye-slash"></i> VFX
                 </button>
                 <div class="dropdown">
                     <button class="btn btn-icon dropdown-toggle" id="settingsBtn" title="Settings">
@@ -471,11 +471,11 @@
         </div>
     </div>
 
-    <!-- Vertigo Modal -->
+    <!-- Modal -->
     <div class="modal large-modal" id="vertigoModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Vertigo VFX Manager</h3>
+                <h3>VFX Manager</h3>
                 <button class="modal-close" data-modal="vertigoModal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -484,13 +484,6 @@
                 <div class="vertigo-content">
                     <div class="vertigo-header">
                         <p>Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.</p>
-                        <div class="vertigo-controls">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="vertigoShowPlayerSay" />
-                                <span class="checkmark"></span>
-                                Show Player Say
-                            </label>
-                        </div>
                     </div>
                     <div class="vertigo-environments">
                         <div class="vertigo-environment">
@@ -540,6 +533,14 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <div class="vertigo-controls">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="vertigoShowPlayerSay" />
+                        <span class="checkmark"></span>
+                        Show Player Say
+                    </label>
+                </div>
+
                 <button class="btn btn-primary" id="saveVertigoBtn">Generate Aliases</button>
                 <button class="btn btn-secondary" data-modal="vertigoModal">Cancel</button>
             </div>
@@ -559,26 +560,37 @@
                 <div class="about-content">
                     <div class="app-info">
                         <h4><i class="fas fa-bolt"></i> STO Tools Keybind Manager <span id="aboutVersion"></span></h4>
-                        <p>A comprehensive tool for creating, editing, and managing Star Trek Online keybind configurations.</p>
+                        <p>A comprehensive web-based tool for creating, editing, and managing Star Trek Online keybind configurations with visual editing and advanced features.</p>
                     </div>
                     <div class="features">
                         <h4>Features:</h4>
                         <ul>
-                            <li>Visual keybind editor with drag-and-drop support</li>
-                            <li>Command library with all STO commands</li>
-                            <li>Custom alias management</li>
-                            <li>Multiple profile support</li>
-                            <li>Import/export STO keybind files</li>
-                            <li>Local storage - no data leaves your browser</li>
+                            <li>Visual keybind editor</li>
+                            <li>STO command library with search and categorization</li>
+                            <li>Multiple profile management (create, clone, rename, delete)</li>
+                            <li>Custom alias system for complex command sequences</li>
+                            <li>VERTIGO-inspired VFX Manager for visual effects control</li>
+                            <li>Import/export keybind and alias files, and project backups</li>
+                            <li>Real-time validation and command preview</li>
                         </ul>
                     </div>
                     <div class="usage">
                         <h4>Quick Start:</h4>
                         <ol>
-                            <li>Create a new profile or use the default</li>
-                            <li>Select keys and add commands from the library</li>
-                            <li>Export your keybinds to use in STO</li>
+                            <li>Create a new profile or use the default profile</li>
+                            <li>Select keys from the grid and add commands from the library</li>
+                            <li>Use the command chain editor to build complex sequences</li>
+                            <li>Export your keybinds as .txt files for use in STO</li>
                         </ol>
+                    </div>
+                    <div class="contact-info">
+                        <h4>Resources:</h4>
+                        <p>
+                            <i class="fas fa-globe"></i> <a href="https://sto-tools.org/" target="_blank" rel="noopener noreferrer">https://sto-tools.org/</a> | <i class="fas fa-envelope"></i> <a href="mailto:keybinds@sto-tools.org">keybinds@sto-tools.org</a>
+                        </p>
+                    </div>
+                    <div class="copyright">
+                        <p><small>© 2025 STO Tools. All rights reserved.</small></p>
                     </div>
                 </div>
             </div>

@@ -3,7 +3,7 @@
 
 // Custom error classes for better error handling
 class VertigoError extends Error {
-    constructor(message, code = 'VERTIGO_ERROR') {
+    constructor(message, code = 'VFX_ERROR') {
         super(message);
         this.name = 'VertigoError';
         this.code = code;
@@ -25,7 +25,7 @@ class InvalidEffectError extends VertigoError {
     }
 }
 
-const VERTIGO_EFFECTS = {
+const VFX_EFFECTS = {
     space: [
         { label: "Advanced inhibiting turret shield bubble", effect: "Fx_Rep_Temporal_Ship_Chroniton_Stabilization_Proc" },
         { label: "Approaching Agony", effect: "Cfx_Lockboxfx_Cb29_Ship_Agony_Field" },
@@ -175,7 +175,7 @@ class VertigoManager {
         let command = `alias ${aliasName} <& dynFxSetFXExlusionList ${effects.join(',')}`;
         
         if (this.showPlayerSay) {
-            command += ' $$ PlayerSay Vertigo VFX Loaded';
+            command += ' $$ PlayerSay VFX Supression Loaded';
         }
         
         command += ' &>';
@@ -215,7 +215,7 @@ class VertigoManager {
 
     // Set all effects for an environment
     selectAllEffects(environment) {
-        if (!VERTIGO_EFFECTS[environment]) {
+        if (!VFX_EFFECTS[environment]) {
             throw new InvalidEnvironmentError(environment);
         }
         
@@ -223,7 +223,7 @@ class VertigoManager {
             throw new InvalidEnvironmentError(environment);
         }
         
-        VERTIGO_EFFECTS[environment].forEach(effect => {
+        VFX_EFFECTS[environment].forEach(effect => {
             this.selectedEffects[environment].add(effect.effect);
         });
     }
@@ -283,7 +283,7 @@ class VertigoManager {
 const vertigoManager = new VertigoManager();
 
 // Make globals accessible
-window.VERTIGO_EFFECTS = VERTIGO_EFFECTS;
+window.VFX_EFFECTS = VERTIGO_EFFECTS;
 window.vertigoManager = vertigoManager;
 window.VertigoError = VertigoError;
 window.InvalidEnvironmentError = InvalidEnvironmentError;

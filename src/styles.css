@@ -1210,7 +1210,8 @@ body {
 }
 
 .features h4,
-.usage h4 {
+.usage h4,
+.contact-info h4 {
   color: var(--text);
   margin-bottom: 0.75rem;
   font-size: 1rem;
@@ -1228,11 +1229,64 @@ body {
 
 .usage ol {
   padding-left: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
 .usage li {
   margin-bottom: 0.5rem;
   color: var(--text-muted);
+}
+
+.contact-info {
+  margin-bottom: 1.5rem;
+}
+
+.contact-info p {
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+
+.contact-info a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.contact-info a:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+.contact-info i {
+  width: 1.2rem;
+  color: var(--primary);
+}
+
+.copyright {
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+}
+
+.copyright p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* Header logo link styling */
+.header-left h1 a {
+  text-decoration: none;
+  display: inline-block;
+  transition: var(--transition);
+}
+
+.header-left h1 a:hover {
+  transform: scale(1.05);
+}
+
+.header-left h1 a:hover .app-logo {
+  filter: brightness(1.1);
 }
 
 /* Toast notifications */

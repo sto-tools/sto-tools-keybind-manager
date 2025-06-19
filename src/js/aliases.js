@@ -365,7 +365,7 @@ class STOAliasManager {
             existingVertigoCategory.remove();
         }
 
-        // Separate regular aliases from VERTIGO aliases
+        // Separate regular aliases from VFX aliases
         const allAliases = Object.entries(profile.aliases);
         const regularAliases = allAliases.filter(([name, alias]) => 
             !name.startsWith('dynFxSetFXExlusionList_')
@@ -380,9 +380,9 @@ class STOAliasManager {
             categories.appendChild(aliasCategory);
         }
 
-        // Add VERTIGO aliases category if there are VERTIGO aliases
+        // Add VFX aliases category if there are VERTIGO aliases
         if (vertigoAliases.length > 0) {
-            const vertigoCategory = this.createAliasCategoryElement(vertigoAliases, 'vertigo-aliases', 'VERTIGO Aliases', 'fas fa-eye-slash');
+            const vertigoCategory = this.createAliasCategoryElement(vertigoAliases, 'vertigo-aliases', 'VFX Aliases', 'fas fa-eye-slash');
             categories.appendChild(vertigoCategory);
         }
     }

@@ -2810,7 +2810,7 @@ class STOToolsKeybindManager {
         const spaceList = document.getElementById('spaceEffectsList');
         if (spaceList) {
             spaceList.innerHTML = '';
-            VERTIGO_EFFECTS.space.forEach(effect => {
+            VFX_EFFECTS.space.forEach(effect => {
                 const effectItem = this.createEffectItem('space', effect);
                 spaceList.appendChild(effectItem);
             });
@@ -2820,7 +2820,7 @@ class STOToolsKeybindManager {
         const groundList = document.getElementById('groundEffectsList');
         if (groundList) {
             groundList.innerHTML = '';
-            VERTIGO_EFFECTS.ground.forEach(effect => {
+            VFX_EFFECTS.ground.forEach(effect => {
                 const effectItem = this.createEffectItem('ground', effect);
                 groundList.appendChild(effectItem);
             });
@@ -3081,7 +3081,7 @@ class STOToolsKeybindManager {
             
             rootProfile.aliases[spaceAliasName] = {
                 name: spaceAliasName,
-                description: 'Vertigo - Disable Space Visual Effects',
+                description: 'VFX - Disable Space Visual Effects',
                 commands: spaceCommands,
                 created: new Date().toISOString(),
                 lastModified: new Date().toISOString()
@@ -3099,7 +3099,7 @@ class STOToolsKeybindManager {
             
             rootProfile.aliases[groundAliasName] = {
                 name: groundAliasName,
-                description: 'Vertigo - Disable Ground Visual Effects',
+                description: 'VFX - Disable Ground Visual Effects',
                 commands: groundCommands,
                 created: new Date().toISOString(),
                 lastModified: new Date().toISOString()
@@ -3117,7 +3117,7 @@ class STOToolsKeybindManager {
         this.saveProfile();
         this.setModified(true);
 
-        // Update the command library to show the new VERTIGO aliases
+        // Update the command library to show the new VFX aliases
         if (typeof stoAliases !== 'undefined' && stoAliases.updateCommandLibrary) {
             stoAliases.updateCommandLibrary();
         }
