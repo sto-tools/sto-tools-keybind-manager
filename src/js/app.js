@@ -1189,9 +1189,18 @@ class STOToolsKeybindManager {
         element.className = 'category';
         element.dataset.category = categoryId;
         
+        // Check if category should be collapsed (similar to Keys UI)
+        const storageKey = `commandCategory_${categoryId}_collapsed`;
+        const isCollapsed = localStorage.getItem(storageKey) === 'true';
+        
         element.innerHTML = `
-            <h4><i class="${category.icon}"></i> ${category.name}</h4>
-            <div class="category-commands">
+            <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryId}">
+                <i class="fas fa-chevron-right category-chevron"></i>
+                <i class="${category.icon}"></i> 
+                ${category.name}
+                <span class="command-count">(${Object.keys(category.commands).length})</span>
+            </h4>
+            <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">
                 ${Object.entries(category.commands).map(([cmdId, cmd]) => `
                     <div class="command-item ${cmd.customizable ? 'customizable' : ''}" data-command="${cmdId}" title="${cmd.description}${cmd.customizable ? ' (Customizable)' : ''}">
                         ${cmd.icon} ${cmd.name}${cmd.customizable ? ' <span class="param-indicator">⚙️</span>' : ''}
@@ -1199,6 +1208,12 @@ class STOToolsKeybindManager {
                 `).join('')}
             </div>
         `;
+        
+        // Add click handler for category header
+        const header = element.querySelector('h4');
+        header.addEventListener('click', () => {
+            this.toggleCommandCategory(categoryId, element);
+        });
         
         // Add click handlers for commands
         element.addEventListener('click', (e) => {
@@ -1209,6 +1224,27 @@ class STOToolsKeybindManager {
         });
         
         return element;
+    }
+
+    toggleCommandCategory(categoryId, element) {
+        const header = element.querySelector('h4');
+        const commands = element.querySelector('.category-commands');
+        const chevron = header.querySelector('.category-chevron');
+        
+        const isCollapsed = commands.classList.contains('collapsed');
+        const storageKey = `commandCategory_${categoryId}_collapsed`;
+        
+        if (isCollapsed) {
+            commands.classList.remove('collapsed');
+            header.classList.remove('collapsed');
+            chevron.style.transform = 'rotate(90deg)';
+            localStorage.setItem(storageKey, 'false');
+        } else {
+            commands.classList.add('collapsed');
+            header.classList.add('collapsed');
+            chevron.style.transform = 'rotate(0deg)';
+            localStorage.setItem(storageKey, 'true');
+        }
     }
 
     addCommandFromLibrary(categoryId, commandId) {
@@ -1752,10 +1788,19 @@ class STOToolsKeybindManager {
         const commandItems = document.querySelectorAll('.command-item');
         const filterLower = filter.toLowerCase();
         
+        // Filter command items
         commandItems.forEach(item => {
             const text = item.textContent.toLowerCase();
             const visible = !filter || text.includes(filterLower);
             item.style.display = visible ? 'flex' : 'none';
+        });
+        
+        // Hide/show categories based on whether they have visible commands
+        const categories = document.querySelectorAll('.category');
+        categories.forEach(category => {
+            const visibleCommands = category.querySelectorAll('.command-item:not([style*="display: none"])');
+            const categoryVisible = !filter || visibleCommands.length > 0;
+            category.style.display = categoryVisible ? 'block' : 'none';
         });
     }
     

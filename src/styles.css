@@ -906,10 +906,37 @@ body {
   width: 1.25rem;
 }
 
+/* Command Library category collapsible enhancements */
+.category h4 .category-chevron {
+  transition: transform 0.2s ease;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  width: 12px;
+}
+
+.category h4:not(.collapsed) .category-chevron {
+  transform: rotate(90deg);
+}
+
+.category h4.collapsed {
+  margin-bottom: 0;
+}
+
+.category h4 .command-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
 .category-commands {
   display: grid;
   gap: 0.25rem;
   margin-left: 1.75rem;
+}
+
+.category-commands.collapsed {
+  display: none;
 }
 
 .command-item {
