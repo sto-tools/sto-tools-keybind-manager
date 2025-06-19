@@ -94,6 +94,11 @@ class STOProfileManager {
             stoUI.showModal('aboutModal');
         });
 
+        document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
+            app.toggleTheme();
+            this.closeSettingsMenu();
+        });
+
         // Close settings menu when clicking outside
         document.addEventListener('click', () => {
             this.closeSettingsMenu();

@@ -32,11 +32,93 @@
   --transition: all 0.2s ease-in-out;
 }
 
+/* Dark theme variables */
+[data-theme="dark"] {
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-light: #60a5fa;
+  --secondary: #94a3b8;
+  --secondary-hover: #cbd5e1;
+  --accent: #fbbf24;
+  --accent-hover: #f59e0b;
+  --success: #34d399;
+  --success-hover: #10b981;
+  --warning: #fbbf24;
+  --warning-hover: #f59e0b;
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --background: #0f172a;
+  --surface: #1e293b;
+  --surface-dark: #334155;
+  --surface-darker: #475569;
+  --border: #334155;
+  --border-dark: #475569;
+  --border-focus: #3b82f6;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+}
+
+/* Improved dark mode styles */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .command-warning {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] select:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+[data-theme="dark"] .toast {
+  background: var(--surface-darker);
+  border: 1px solid var(--border-dark);
+}
+
+[data-theme="dark"] .modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .dropdown-menu {
+  background: var(--surface-dark);
+  border: 1px solid var(--border-dark);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--surface-dark);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 /* Base styles */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* Smooth theme transitions */
+*,
+*::before,
+*::after {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 html {

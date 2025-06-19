@@ -33,6 +33,9 @@ class STOToolsKeybindManager {
             // Load data from storage
             await this.loadData();
             
+            // Apply saved theme
+            this.applyTheme();
+            
             // Setup UI components
             this.setupEventListeners();
             this.setupCommandLibrary();
@@ -42,6 +45,10 @@ class STOToolsKeybindManager {
             this.renderProfiles();
             this.renderKeyGrid();
             this.renderCommandChain();
+            
+            // Update theme toggle button to reflect current theme
+            const settings = stoStorage.getSettings();
+            this.updateThemeToggleButton(settings.theme || 'default');
             
             // Show welcome message for new users
             if (this.isFirstTime()) {
@@ -3137,6 +3144,50 @@ class STOToolsKeybindManager {
         // Close modal and show success message
         stoUI.hideModal('vertigoModal');
         stoUI.showToast(`Generated ${addedCount} Vertigo alias${addedCount > 1 ? 'es' : ''}! Check the Alias Manager to bind them to keys.`, 'success');
+    }
+
+    // Theme Management
+    applyTheme() {
+        const settings = stoStorage.getSettings();
+        const theme = settings.theme || 'default';
+        
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+        
+        this.updateThemeToggleButton(theme);
+    }
+
+    toggleTheme() {
+        const settings = stoStorage.getSettings();
+        const currentTheme = settings.theme || 'default';
+        const newTheme = currentTheme === 'dark' ? 'default' : 'dark';
+        
+        settings.theme = newTheme;
+        stoStorage.saveSettings(settings);
+        
+        this.applyTheme();
+        
+        const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode';
+        stoUI.showToast(`Switched to ${themeName}`, 'success');
+    }
+
+    updateThemeToggleButton(theme) {
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const themeToggleText = document.getElementById('themeToggleText');
+        const themeIcon = themeToggleBtn?.querySelector('i');
+        
+        if (themeToggleBtn && themeToggleText && themeIcon) {
+            if (theme === 'dark') {
+                themeIcon.className = 'fas fa-sun';
+                themeToggleText.textContent = 'Light Mode';
+            } else {
+                themeIcon.className = 'fas fa-moon';
+                themeToggleText.textContent = 'Dark Mode';
+            }
+        }
     }
 }
 
