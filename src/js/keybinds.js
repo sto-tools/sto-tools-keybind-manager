@@ -174,6 +174,62 @@ class STOKeybindFileManager {
         return result;
     }
 
+    // Generate mirrored command string for stable execution order
+    generateMirroredCommandString(commands) {
+        if (!commands || commands.length <= 1) {
+            return commands.map(cmd => cmd.command || cmd).join(' $$ ');
+        }
+        
+        // Extract command strings
+        const commandStrings = commands.map(cmd => cmd.command || cmd);
+        
+        // Create mirrored pattern: original + reverse(without last element)
+        // This ensures Phase 1 (left-to-right) and Phase 2 (right-to-left) execute in same order
+        // Pattern: [A, B, C] -> [A, B, C, B, A] (palindrome-like structure)
+        const reversed = [...commandStrings].reverse();
+        const reversedWithoutLast = reversed.slice(1); // Remove first element of reverse (which is last of original)
+        const mirrored = [...commandStrings, ...reversedWithoutLast];
+        
+        return mirrored.join(' $$ ');
+    }
+
+    // Detect if a command string uses mirroring pattern and extract original commands
+    detectAndUnmirrorCommands(commandString) {
+        if (!commandString || typeof commandString !== 'string') {
+            return { isMirrored: false, originalCommands: [] };
+        }
+
+        const commands = commandString.split(' $$ ').map(cmd => cmd.trim()).filter(cmd => cmd);
+        
+        // Single command or empty - not mirrored
+        if (commands.length <= 1) {
+            return { isMirrored: false, originalCommands: commands };
+        }
+
+        // Check if this follows the mirroring pattern: [A, B, C, B, A]
+        // For mirrored commands, length should be odd and >= 3
+        if (commands.length < 3 || commands.length % 2 === 0) {
+            return { isMirrored: false, originalCommands: commands };
+        }
+
+        const midIndex = Math.floor(commands.length / 2);
+        const firstHalf = commands.slice(0, midIndex + 1); // Include middle element
+        const secondHalf = commands.slice(midIndex + 1); // After middle element
+        
+        // Check if second half is reverse of first half (without the middle element)
+        const expectedReverse = firstHalf.slice(0, -1).reverse(); // Remove middle, then reverse
+        
+        if (secondHalf.length === expectedReverse.length && 
+            secondHalf.every((cmd, index) => cmd === expectedReverse[index])) {
+            return { 
+                isMirrored: true, 
+                originalCommands: firstHalf 
+            };
+        }
+
+        return { isMirrored: false, originalCommands: commands };
+    }
+
     // Parse command string into individual commands
     parseCommandString(commandString) {
         const commands = commandString.split('$$').map(cmd => cmd.trim());
@@ -233,7 +289,24 @@ class STOKeybindFileManager {
 
             // Merge keybinds into profile
             Object.entries(parsed.keybinds).forEach(([key, keybindData]) => {
-                profile.keys[key] = keybindData.commands
+                // Detect if commands are mirrored and extract original commands
+                const commandString = keybindData.commands.map(cmd => cmd.command).join(' $$ ');
+                const mirrorInfo = this.detectAndUnmirrorCommands(commandString);
+                
+                if (mirrorInfo.isMirrored) {
+                    // Store original commands with stabilization flag
+                    profile.keys[key] = this.parseCommandString(mirrorInfo.originalCommands.join(' $$ '));
+                    // Store metadata about stabilization
+                    if (!profile.keybindMetadata) {
+                        profile.keybindMetadata = {};
+                    }
+                    profile.keybindMetadata[key] = {
+                        stabilizeExecutionOrder: true
+                    };
+                } else {
+                    // Store commands as-is
+                    profile.keys[key] = keybindData.commands;
+                }
             })
 
             // Update storage and UI
@@ -335,7 +408,19 @@ class STOKeybindFileManager {
         sortedKeys.forEach(key => {
             const commands = profile.keys[key];
             if (commands && commands.length > 0) {
-                const commandString = commands.map(cmd => cmd.command).join(' $$ ');
+                let commandString;
+                
+                // Check if this key should use stabilized execution order
+                const shouldStabilize = profile.keybindMetadata && 
+                                      profile.keybindMetadata[key] && 
+                                      profile.keybindMetadata[key].stabilizeExecutionOrder;
+                
+                if (shouldStabilize && commands.length > 1) {
+                    commandString = this.generateMirroredCommandString(commands);
+                } else {
+                    commandString = commands.map(cmd => cmd.command).join(' $$ ');
+                }
+                
                 // Export with optional parameter format for compatibility (empty second parameter)
                 output += `${key} "${commandString}" ""\n`;
             } else {

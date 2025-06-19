@@ -783,4 +783,334 @@ F2 "say world"`
       expect(app.setModified).toHaveBeenCalledWith(true)
     })
   })
+
+  describe('execution order stabilization', () => {
+    it('should generate mirrored command string for multiple commands', () => {
+      const commands = [
+        { command: '+TrayExecByTray 9 0' },
+        { command: '+TrayExecByTray 9 1' },
+        { command: '+TrayExecByTray 9 2' }
+      ]
+      
+      const result = keybindManager.generateMirroredCommandString(commands)
+      
+      // Should be: reverse + original = [2,1,0] + [0,1,2]
+      expect(result).toBe('+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0')
+    })
+
+    it('should handle single command without mirroring', () => {
+      const commands = [
+        { command: '+TrayExecByTray 9 0' }
+      ]
+      
+      const result = keybindManager.generateMirroredCommandString(commands)
+      
+      expect(result).toBe('+TrayExecByTray 9 0')
+    })
+
+    it('should handle empty command list', () => {
+      const commands = []
+      
+      const result = keybindManager.generateMirroredCommandString(commands)
+      
+      expect(result).toBe('')
+    })
+
+    it('should handle commands with only command strings', () => {
+      const commands = [
+        'FirePhasers',
+        '+TrayExecByTray 9 0',
+        '+TrayExecByTray 9 1'
+      ]
+      
+      const result = keybindManager.generateMirroredCommandString(commands)
+      
+      expect(result).toBe('FirePhasers $$ +TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0 $$ FirePhasers')
+    })
+
+    it('should handle two commands correctly', () => {
+      const commands = [
+        { command: 'FirePhasers' },
+        { command: 'FireTorpedos' }
+      ]
+      
+      const result = keybindManager.generateMirroredCommandString(commands)
+      
+      expect(result).toBe('FirePhasers $$ FireTorpedos $$ FirePhasers')
+    })
+
+    it('should handle four commands correctly', () => {
+      const commands = [
+        { command: 'A' },
+        { command: 'B' },
+        { command: 'C' },
+        { command: 'D' }
+      ]
+      
+      const result = keybindManager.generateMirroredCommandString(commands)
+      
+      expect(result).toBe('A $$ B $$ C $$ D $$ C $$ B $$ A')
+    })
+
+    it('should handle mixed command formats', () => {
+      const commands = [
+        'StringCommand',
+        { command: 'ObjectCommand1' },
+        { command: 'ObjectCommand2' }
+      ]
+      
+      const result = keybindManager.generateMirroredCommandString(commands)
+      
+      expect(result).toBe('StringCommand $$ ObjectCommand1 $$ ObjectCommand2 $$ ObjectCommand1 $$ StringCommand')
+    })
+  })
+
+  describe('mirroring detection', () => {
+    it('should detect mirrored commands and extract originals', () => {
+      const mirroredCommand = '+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(mirroredCommand)
+      
+      expect(result.isMirrored).toBe(true)
+      expect(result.originalCommands).toEqual([
+        '+TrayExecByTray 9 0',
+        '+TrayExecByTray 9 1', 
+        '+TrayExecByTray 9 2'
+      ])
+    })
+
+    it('should not detect non-mirrored commands as mirrored', () => {
+      const normalCommand = '+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(normalCommand)
+      
+      expect(result.isMirrored).toBe(false)
+      expect(result.originalCommands).toEqual([
+        '+TrayExecByTray 9 0',
+        '+TrayExecByTray 9 1',
+        '+TrayExecByTray 9 2'
+      ])
+    })
+
+    it('should detect two-command mirroring pattern', () => {
+      const mirroredCommand = 'FirePhasers $$ FireTorpedos $$ FirePhasers'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(mirroredCommand)
+      
+      expect(result.isMirrored).toBe(true)
+      expect(result.originalCommands).toEqual(['FirePhasers', 'FireTorpedos'])
+    })
+
+    it('should handle single commands as non-mirrored', () => {
+      const singleCommand = 'FirePhasers'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(singleCommand)
+      
+      expect(result.isMirrored).toBe(false)
+      expect(result.originalCommands).toEqual(['FirePhasers'])
+    })
+
+    it('should handle empty commands', () => {
+      const result1 = keybindManager.detectAndUnmirrorCommands('')
+      const result2 = keybindManager.detectAndUnmirrorCommands(null)
+      const result3 = keybindManager.detectAndUnmirrorCommands(undefined)
+      
+      expect(result1.isMirrored).toBe(false)
+      expect(result1.originalCommands).toEqual([])
+      
+      expect(result2.isMirrored).toBe(false)
+      expect(result2.originalCommands).toEqual([])
+      
+      expect(result3.isMirrored).toBe(false)
+      expect(result3.originalCommands).toEqual([])
+    })
+
+    it('should not detect even-length sequences as mirrored', () => {
+      const evenSequence = 'A $$ B $$ C $$ D'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(evenSequence)
+      
+      expect(result.isMirrored).toBe(false)
+      expect(result.originalCommands).toEqual(['A', 'B', 'C', 'D'])
+    })
+
+    it('should not detect sequences shorter than 3 as mirrored', () => {
+      const twoCommands = 'A $$ B'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(twoCommands)
+      
+      expect(result.isMirrored).toBe(false)
+      expect(result.originalCommands).toEqual(['A', 'B'])
+    })
+
+    it('should detect complex mirrored pattern', () => {
+      const complexMirrored = 'cmd1 $$ cmd2 $$ cmd3 $$ cmd4 $$ cmd5 $$ cmd4 $$ cmd3 $$ cmd2 $$ cmd1'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(complexMirrored)
+      
+      expect(result.isMirrored).toBe(true)
+      expect(result.originalCommands).toEqual(['cmd1', 'cmd2', 'cmd3', 'cmd4', 'cmd5'])
+    })
+
+    it('should not detect partial mirrors as mirrored', () => {
+      const partialMirror = 'A $$ B $$ C $$ B $$ D' // Should be A-B-C-B-A
+      
+      const result = keybindManager.detectAndUnmirrorCommands(partialMirror)
+      
+      expect(result.isMirrored).toBe(false)
+      expect(result.originalCommands).toEqual(['A', 'B', 'C', 'B', 'D'])
+    })
+
+    it('should handle commands with spaces and special characters', () => {
+      const specialCommand = '+power_exec Distribute_Shields $$ target_nearest_enemy $$ +power_exec Distribute_Shields'
+      
+      const result = keybindManager.detectAndUnmirrorCommands(specialCommand)
+      
+      expect(result.isMirrored).toBe(true)
+      expect(result.originalCommands).toEqual(['+power_exec Distribute_Shields', 'target_nearest_enemy'])
+    })
+  })
+
+  describe('import with mirroring detection', () => {
+    beforeEach(() => {
+      // Mock app.getCurrentProfile for import tests
+      global.app = {
+        getCurrentProfile: vi.fn().mockReturnValue({
+          keys: {},
+          keybindMetadata: {}
+        }),
+        saveProfile: vi.fn(),
+        setModified: vi.fn(),
+        renderKeyGrid: vi.fn()
+      }
+    })
+    
+    afterEach(() => {
+      delete global.app
+      // Don't delete global.stoUI as it's needed globally
+    })
+
+    it('should detect and unmirror commands during import', () => {
+      const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"
+F2 "FirePhasers $$ FireTorpedos $$ FirePhasers"`
+      
+      const result = keybindManager.importKeybindFile(keybindContent)
+      
+      expect(result.success).toBe(true)
+      expect(result.imported.keys).toBe(2)
+      
+      // Check that the profile was updated with original commands
+      const profile = app.getCurrentProfile()
+      expect(profile.keys.F1).toHaveLength(3)
+      expect(profile.keys.F1[0].command).toBe('+TrayExecByTray 9 0')
+      expect(profile.keys.F1[1].command).toBe('+TrayExecByTray 9 1')
+      expect(profile.keys.F1[2].command).toBe('+TrayExecByTray 9 2')
+      
+      expect(profile.keys.F2).toHaveLength(2)
+      expect(profile.keys.F2[0].command).toBe('FirePhasers')
+      expect(profile.keys.F2[1].command).toBe('FireTorpedos')
+      
+      // Check that stabilization metadata was set
+      expect(profile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      expect(profile.keybindMetadata.F2.stabilizeExecutionOrder).toBe(true)
+    })
+
+    it('should not set stabilization metadata for non-mirrored commands', () => {
+      const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2"
+F2 "FirePhasers"`
+      
+      const result = keybindManager.importKeybindFile(keybindContent)
+      
+      expect(result.success).toBe(true)
+      
+      // Check that commands are stored normally
+      const profile = app.getCurrentProfile()
+      expect(profile.keys.F1).toHaveLength(3)
+      expect(profile.keys.F2).toHaveLength(1)
+      
+      // Check that no stabilization metadata was set
+      expect(profile.keybindMetadata.F1).toBeUndefined()
+      expect(profile.keybindMetadata.F2).toBeUndefined()
+    })
+
+    it('should handle mixed mirrored and non-mirrored commands', () => {
+      const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"
+F2 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1"
+F3 "SingleCommand"`
+      
+      const result = keybindManager.importKeybindFile(keybindContent)
+      
+      expect(result.success).toBe(true)
+      
+      const profile = app.getCurrentProfile()
+      
+      // F1 is mirrored
+      expect(profile.keys.F1).toHaveLength(2)
+      expect(profile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      
+      // F2 is not mirrored
+      expect(profile.keys.F2).toHaveLength(2)
+      expect(profile.keybindMetadata.F2).toBeUndefined()
+      
+      // F3 is single command
+      expect(profile.keys.F3).toHaveLength(1)
+      expect(profile.keybindMetadata.F3).toBeUndefined()
+    })
+
+    it('should handle empty command chains', () => {
+      const keybindContent = `F1 ""
+F2 " "`
+      
+      const result = keybindManager.importKeybindFile(keybindContent)
+      
+      expect(result.success).toBe(true)
+      
+      const profile = app.getCurrentProfile()
+      // Empty strings still get parsed as command objects but with empty command strings
+      expect(profile.keys.F1).toHaveLength(1)
+      expect(profile.keys.F1[0].command).toBe('')
+      expect(profile.keys.F2).toHaveLength(1)
+      expect(profile.keys.F2[0].command).toBe('')
+      expect(profile.keybindMetadata.F1).toBeUndefined()
+      expect(profile.keybindMetadata.F2).toBeUndefined()
+    })
+
+    it('should preserve existing keybindMetadata structure', () => {
+      // Set up profile with existing metadata
+      app.getCurrentProfile.mockReturnValue({
+        keys: {},
+        keybindMetadata: {
+          F3: { stabilizeExecutionOrder: false }
+        }
+      })
+      
+      const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"`
+      
+      const result = keybindManager.importKeybindFile(keybindContent)
+      
+      expect(result.success).toBe(true)
+      
+      const profile = app.getCurrentProfile()
+      
+      // Should preserve existing metadata
+      expect(profile.keybindMetadata.F3.stabilizeExecutionOrder).toBe(false)
+      
+      // Should add new metadata
+      expect(profile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+    })
+
+    it('should handle complex mirrored patterns', () => {
+      const keybindContent = `numpad0 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 3 $$ +TrayExecByTray 9 4 $$ +TrayExecByTray 9 3 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"`
+      
+      const result = keybindManager.importKeybindFile(keybindContent)
+      
+      expect(result.success).toBe(true)
+      
+      const profile = app.getCurrentProfile()
+      expect(profile.keys.numpad0).toHaveLength(5)
+      expect(profile.keys.numpad0[0].command).toBe('+TrayExecByTray 9 0')
+      expect(profile.keys.numpad0[4].command).toBe('+TrayExecByTray 9 4')
+      expect(profile.keybindMetadata.numpad0.stabilizeExecutionOrder).toBe(true)
+    })
+  })
 }) 

@@ -63,6 +63,14 @@ global.Blob = class Blob {
   }
 }
 
+// Mock stoUI for global availability in tests
+global.stoUI = {
+  showToast: vi.fn(),
+  showModal: vi.fn(),
+  hideModal: vi.fn(),
+  confirm: vi.fn().mockResolvedValue(true)
+}
+
 // Clean up after each test
 beforeEach(() => {
   // Clear all mocks

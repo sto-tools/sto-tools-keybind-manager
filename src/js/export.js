@@ -28,11 +28,6 @@ class STOExportManager {
         document.getElementById('copyPreviewBtn')?.addEventListener('click', () => {
             this.copyCommandPreview();
         });
-
-        // Copy chain button
-        document.getElementById('copyChainBtn')?.addEventListener('click', () => {
-            this.copyCommandChain();
-        });
     }
 
     // Export Options Dialog
@@ -60,14 +55,14 @@ class STOExportManager {
         }
     }
 
-    generateSTOKeybindFile(profile) {
+    generateSTOKeybindFile(profile, options = {}) {
         let content = '';
         
         // Header with metadata
         content += this.generateFileHeader(profile);
         
         // Export keybinds only (aliases are exported separately)
-        content += this.generateKeybindSection(profile.keys);
+        content += this.generateKeybindSection(profile.keys, options);
         
         // Footer with usage instructions
         content += this.generateFileFooter();
@@ -141,7 +136,7 @@ class STOExportManager {
         return content;
     }
 
-    generateKeybindSection(keys) {
+    generateKeybindSection(keys, options = {}) {
         if (!keys || Object.keys(keys).length === 0) {
             return '; No keybinds defined\n\n';
         }
@@ -149,7 +144,16 @@ class STOExportManager {
         let content = `; Keybind Commands
 ; ================================================================
 ; Each line binds a key to one or more commands.
-; Multiple commands are separated by $$
+; Multiple commands are separated by $$`;
+        
+        if (options.stabilizeExecutionOrder) {
+            content += `
+; EXECUTION ORDER STABILIZATION: ON
+; Commands are mirrored to ensure consistent execution order
+; Phase 1: left-to-right, Phase 2: right-to-left`;
+        }
+        
+        content += `
 ; ================================================================
 
 `;
@@ -175,7 +179,14 @@ class STOExportManager {
             groupKeys.forEach(key => {
                 const commands = keys[key];
                 if (commands && commands.length > 0) {
-                    const commandString = commands.map(cmd => cmd.command).join(' $$ ');
+                    let commandString;
+                    if (options.stabilizeExecutionOrder && commands.length > 1) {
+                        // Use mirroring for stabilized execution order
+                        commandString = stoKeybinds ? stoKeybinds.generateMirroredCommandString(commands) 
+                                                    : commands.map(cmd => cmd.command).join(' $$ ');
+                    } else {
+                        commandString = commands.map(cmd => cmd.command).join(' $$ ');
+                    }
                     content += `${key} "${commandString}"\n`;
                 }
             });
@@ -506,25 +517,7 @@ class STOExportManager {
         stoUI.copyToClipboard(preview.textContent);
     }
 
-    copyCommandChain() {
-        if (!app.selectedKey) {
-            stoUI.showToast('No key selected', 'warning');
-            return;
-        }
 
-        const profile = app.getCurrentProfile();
-        const commands = profile.keys[app.selectedKey];
-        
-        if (!commands || commands.length === 0) {
-            stoUI.showToast('No commands to copy', 'warning');
-            return;
-        }
-
-        const commandString = commands.map(cmd => cmd.command).join(' $$ ');
-        const fullCommand = `${app.selectedKey} "${commandString}"`;
-        
-        stoUI.copyToClipboard(fullCommand);
-    }
 
     // Utility Methods
     generateFileName(profile, extension) {

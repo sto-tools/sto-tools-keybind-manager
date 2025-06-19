@@ -563,6 +563,13 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.chain-options {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .command-count {
@@ -1009,6 +1016,34 @@ body {
 .form-group textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* Checkbox styling */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text);
+  transition: var(--transition);
+}
+
+.checkbox-label:hover {
+  color: var(--primary);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.checkbox-label .checkmark {
+  display: none; /* Using native checkbox for simplicity */
 }
 
 /* Key suggestions */

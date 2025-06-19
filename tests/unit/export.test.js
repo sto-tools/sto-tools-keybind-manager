@@ -101,18 +101,15 @@ describe('STOExportManager', () => {
     it('should setup event listeners', () => {
       const exportBtn = document.getElementById('exportKeybindsBtn')
       const copyPreviewBtn = document.getElementById('copyPreviewBtn')
-      const copyChainBtn = document.getElementById('copyChainBtn')
       
       expect(exportBtn).toBeTruthy()
       expect(copyPreviewBtn).toBeTruthy()
-      expect(copyChainBtn).toBeTruthy()
       
       exportManager.setupEventListeners()
       
       // Verify elements exist (real DOM test)
       expect(exportBtn.id).toBe('exportKeybindsBtn')
       expect(copyPreviewBtn.id).toBe('copyPreviewBtn')
-      expect(copyChainBtn.id).toBe('copyChainBtn')
     })
   })
 
@@ -596,40 +593,7 @@ describe('STOExportManager', () => {
       expect(stoUI.copyToClipboard).toHaveBeenCalledWith('F1 "FireAll $$ target_nearest_enemy"')
     })
 
-    it('should copy entire command chain', () => {
-      exportManager.copyCommandChain()
-      
-      expect(stoUI.copyToClipboard).toHaveBeenCalledWith('F1 "FireAll $$ target_nearest_enemy"')
-    })
 
-    it('should format commands for clipboard', () => {
-            // Create a new profile with specific commands and set it as current
-      const testProfile = {
-        id: 'test-profile-2',
-        name: 'Test Profile 2',
-        mode: 'space',
-        keys: {
-          F1: [
-            { command: 'FireAll' },
-            { command: 'target_nearest_enemy' }
-          ]
-        },
-        aliases: {}
-      }
-      stoStorage.saveProfile(testProfile.id, testProfile)
-      app.currentProfile = testProfile.id
-      app.saveCurrentProfile()
-      app.selectedKey = 'F1'
-      
-      // Wait for the profile to be properly set
-      const profile = app.getCurrentProfile()
-      expect(profile).not.toBeNull()
-      expect(profile.keys.F1).toBeDefined()
-      
-      exportManager.copyCommandChain()
-      
-      expect(stoUI.copyToClipboard).toHaveBeenCalledWith('F1 "FireAll $$ target_nearest_enemy"')
-    })
 
     it('should show success feedback on copy', () => {
       exportManager.copyCommandPreview()
@@ -943,6 +907,182 @@ describe('STOExportManager', () => {
       
       expect(importBtn).toBeTruthy()
       expect(importBtn.id).toBe('importAliasesBtn')
+    })
+  })
+
+  describe('execution order stabilization export', () => {
+    let mockAnchor
+    
+    beforeEach(() => {
+      mockAnchor = { 
+        click: vi.fn(),
+        href: '',
+        download: ''
+      }
+      vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor)
+      vi.spyOn(document.body, 'appendChild').mockImplementation(() => {})
+      vi.spyOn(document.body, 'removeChild').mockImplementation(() => {})
+    })
+
+    it('should generate keybind file with stabilization disabled', () => {
+      const profile = {
+        name: 'Test Profile',
+        mode: 'space',
+        keys: {
+          F1: [
+            { command: '+TrayExecByTray 9 0' },
+            { command: '+TrayExecByTray 9 1' },
+            { command: '+TrayExecByTray 9 2' }
+          ]
+        },
+        aliases: {}
+      }
+      
+      const options = { stabilizeExecutionOrder: false }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // Should contain normal command chain
+      expect(content).toContain('F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2"')
+      
+      // Should not contain stabilization header
+      expect(content).not.toContain('EXECUTION ORDER STABILIZATION: ON')
+    })
+
+    it('should generate keybind file with stabilization enabled', () => {
+      const profile = {
+        name: 'Test Profile',
+        mode: 'space',
+        keys: {
+          F1: [
+            { command: '+TrayExecByTray 9 0' },
+            { command: '+TrayExecByTray 9 1' },
+            { command: '+TrayExecByTray 9 2' }
+          ]
+        },
+        aliases: {}
+      }
+      
+      const options = { stabilizeExecutionOrder: true }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // Should contain stabilization header
+      expect(content).toContain('EXECUTION ORDER STABILIZATION: ON')
+      expect(content).toContain('Commands are mirrored to ensure consistent execution order')
+      expect(content).toContain('Phase 1: left-to-right, Phase 2: right-to-left')
+      
+      // Should contain mirrored command chain
+      expect(content).toContain('F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"')
+    })
+
+    it('should not mirror single commands', () => {
+      const profile = {
+        name: 'Test Profile',
+        mode: 'space',
+        keys: {
+          F1: [{ command: 'FirePhasers' }]
+        },
+        aliases: {}
+      }
+      
+      const options = { stabilizeExecutionOrder: true }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // Single command should not be mirrored
+      expect(content).toContain('F1 "FirePhasers"')
+      expect(content).not.toContain('FirePhasers $$ FirePhasers')
+    })
+
+    it('should handle mixed single and multi-command keys', () => {
+      const profile = {
+        name: 'Test Profile',
+        mode: 'space',
+        keys: {
+          F1: [{ command: 'FirePhasers' }], // Single command
+          F2: [
+            { command: '+TrayExecByTray 9 0' },
+            { command: '+TrayExecByTray 9 1' }
+          ] // Multi-command
+        },
+        aliases: {}
+      }
+      
+      const options = { stabilizeExecutionOrder: true }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // Single command should not be mirrored
+      expect(content).toContain('F1 "FirePhasers"')
+      
+      // Multi-command should be mirrored
+      expect(content).toContain('F2 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"')
+    })
+
+    it('should handle stabilization with different command types', () => {
+      const profile = {
+        name: 'Test Profile',
+        mode: 'space',
+        keys: {
+          F1: [
+            { command: 'FirePhasers' },
+            { command: 'target_nearest_enemy' },
+            { command: '+power_exec Distribute_Shields' }
+          ]
+        },
+        aliases: {}
+      }
+      
+      const options = { stabilizeExecutionOrder: true }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // Should contain mirrored command chain with mixed command types
+      expect(content).toContain('F1 "FirePhasers $$ target_nearest_enemy $$ +power_exec Distribute_Shields $$ target_nearest_enemy $$ FirePhasers"')
+    })
+
+    it('should include documentation example pattern', () => {
+      // Test the tray 10 example from the documentation
+      const commands = []
+      for (let i = 0; i <= 9; i++) {
+        commands.push({ command: `+TrayExecByTray 9 ${i}` })
+      }
+      
+      const profile = {
+        name: 'Tray Test',
+        mode: 'space',
+        keys: { numpad0: commands },
+        aliases: {}
+      }
+      
+      const options = { stabilizeExecutionOrder: true }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // Should contain the mirrored tray sequence
+      const expectedPattern = '+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 3 $$ +TrayExecByTray 9 4 $$ +TrayExecByTray 9 5 $$ +TrayExecByTray 9 6 $$ +TrayExecByTray 9 7 $$ +TrayExecByTray 9 8 $$ +TrayExecByTray 9 9 $$ +TrayExecByTray 9 8 $$ +TrayExecByTray 9 7 $$ +TrayExecByTray 9 6 $$ +TrayExecByTray 9 5 $$ +TrayExecByTray 9 4 $$ +TrayExecByTray 9 3 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0'
+      
+      expect(content).toContain(`numpad0 "${expectedPattern}"`)
+    })
+
+    it('should handle complex command chains with central commands', () => {
+      const profile = {
+        name: 'Complex Test',
+        mode: 'space',
+        keys: {
+          Space: [
+            { command: '+TrayExecByTray 9 9' },
+            { command: '+TrayExecByTray 9 8' },
+            { command: 'FirePhasers' },
+            { command: '+TrayExecByTray 9 7' },
+            { command: '+TrayExecByTray 9 6' }
+          ]
+        },
+        aliases: {}
+      }
+      
+      const options = { stabilizeExecutionOrder: true }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // Should create proper mirror with central FirePhasers command
+      const expectedPattern = '+TrayExecByTray 9 9 $$ +TrayExecByTray 9 8 $$ FirePhasers $$ +TrayExecByTray 9 7 $$ +TrayExecByTray 9 6 $$ +TrayExecByTray 9 7 $$ FirePhasers $$ +TrayExecByTray 9 8 $$ +TrayExecByTray 9 9'
+      
+      expect(content).toContain(`Space "${expectedPattern}"`)
     })
   })
 }) 

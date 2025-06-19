@@ -157,13 +157,17 @@
                     <h3 id="chainTitle">Select a key to edit</h3>
                     <div class="chain-info">
                         <span class="command-count" id="commandCount">0 commands</span>
+                        <div class="chain-options">
+                            <label class="checkbox-label" title="Ensures consistent execution order by mirroring commands (Phase 1: left-to-right, Phase 2: right-to-left)">
+                                <input type="checkbox" id="stabilizeExecutionOrder" />
+                                <span class="checkmark"></span>
+                                Stabilise Execution Order
+                            </label>
+                        </div>
                     </div>
                     <div class="chain-actions">
                         <button class="btn btn-small" id="validateChainBtn" title="Validate Command Chain">
                             <i class="fas fa-check"></i> Validate
-                        </button>
-                        <button class="btn btn-small" id="copyChainBtn" title="Copy Command String">
-                            <i class="fas fa-copy"></i> Copy
                         </button>
                         <button class="btn btn-small btn-danger" id="clearChainBtn" title="Clear All Commands">
                             <i class="fas fa-trash"></i> Clear

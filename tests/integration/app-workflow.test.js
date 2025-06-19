@@ -37,6 +37,7 @@ describe('App Workflow Integration', () => {
     await import('../../src/js/storage.js')
     await import('../../src/js/profiles.js')
     await import('../../src/js/keybinds.js')
+    await import('../../src/js/export.js')
     await import('../../src/js/ui.js')
     await import('../../src/js/app.js')
     
@@ -47,6 +48,11 @@ describe('App Workflow Integration', () => {
     stoKeybinds = window.stoKeybinds
     stoUI = window.stoUI
     app = window.app
+    
+    // Mock export functionality for tests
+    window.stoExport = {
+      generateSTOKeybindFile: vi.fn().mockReturnValue('mocked keybind content')
+    }
     
     // Initialize app
     await app.init()

@@ -853,4 +853,459 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       expect(messageInput.value).toBe('Attacking $Target');
     });
   })
+
+  describe('execution order stabilization UI', () => {
+    let stabilizeCheckbox;
+    let originalGetCurrentProfile;
+
+    beforeEach(() => {
+      // Create the stabilization checkbox
+      stabilizeCheckbox = document.createElement('input');
+      stabilizeCheckbox.type = 'checkbox';
+      stabilizeCheckbox.id = 'stabilizeExecutionOrder';
+      document.body.appendChild(stabilizeCheckbox);
+
+      // Mock command preview element
+      const commandPreview = document.createElement('div');
+      commandPreview.id = 'commandPreview';
+      document.body.appendChild(commandPreview);
+
+      // Ensure stoKeybinds global is available for mirroring
+      global.stoKeybinds = {
+        generateMirroredCommandString: (commands) => {
+          if (!commands || commands.length <= 1) {
+            return commands.map(cmd => cmd.command || cmd).join(' $$ ');
+          }
+          const commandStrings = commands.map(cmd => cmd.command || cmd);
+          const reversed = [...commandStrings].reverse();
+          const reversedWithoutLast = reversed.slice(1);
+          const mirrored = [...commandStrings, ...reversedWithoutLast];
+          return mirrored.join(' $$ ');
+        }
+      };
+
+      // Mock selected key and profile
+      app.selectedKey = 'F1';
+      
+      // Store original method and mock it
+      originalGetCurrentProfile = app.getCurrentProfile;
+      app.getCurrentProfile = vi.fn().mockReturnValue({
+        keys: {
+          F1: [
+            { command: '+TrayExecByTray 9 0' },
+            { command: '+TrayExecByTray 9 1' },
+            { command: '+TrayExecByTray 9 2' }
+          ]
+        }
+      });
+    });
+
+    afterEach(() => {
+      if (stabilizeCheckbox) {
+        stabilizeCheckbox.remove();
+      }
+      const commandPreview = document.getElementById('commandPreview');
+      if (commandPreview) {
+        commandPreview.remove();
+      }
+      
+      // Restore original method
+      if (originalGetCurrentProfile) {
+        app.getCurrentProfile = originalGetCurrentProfile;
+      }
+    });
+
+    it('should render command preview without stabilization by default', () => {
+      stabilizeCheckbox.checked = false;
+      
+      app.renderCommandChain();
+      
+      const preview = document.getElementById('commandPreview');
+      expect(preview.textContent).toBe('F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2"');
+    });
+
+    it('should render mirrored command preview when stabilization is enabled', () => {
+      stabilizeCheckbox.checked = true;
+      
+      // Store original getElementById
+      const originalGetElementById = document.getElementById;
+      
+      // Mock document.getElementById for the render method
+      document.getElementById = vi.fn((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        if (id === 'commandPreview') {
+          return originalGetElementById.call(document, 'commandPreview');
+        }
+        return originalGetElementById.call(document, id);
+      });
+      
+      app.renderCommandChain();
+      
+      const preview = originalGetElementById.call(document, 'commandPreview');
+      expect(preview.textContent).toBe('F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"');
+      
+      // Restore original
+      document.getElementById = originalGetElementById;
+    });
+
+    it('should not mirror single commands even when stabilization is enabled', () => {
+      stabilizeCheckbox.checked = true;
+      app.getCurrentProfile.mockReturnValue({
+        keys: {
+          F1: [{ command: 'FirePhasers' }]
+        }
+      });
+      
+      app.renderCommandChain();
+      
+      const preview = document.getElementById('commandPreview');
+      expect(preview.textContent).toBe('F1 "FirePhasers"');
+    });
+
+    it('should update preview when checkbox state changes', () => {
+      // Since setupEventListeners uses document.getElementById, we need to test differently
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+      
+      const addEventListenerSpy = vi.spyOn(stabilizeCheckbox, 'addEventListener');
+      app.setupEventListeners();
+      
+      expect(addEventListenerSpy).toHaveBeenCalledWith('change', expect.any(Function));
+      spy.mockRestore();
+    });
+
+    it('should trigger re-render when checkbox is toggled', () => {
+      const renderSpy = vi.spyOn(app, 'renderCommandChain');
+      
+      // Mock document.getElementById to return our checkbox
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+      
+      app.setupEventListeners();
+      
+      // Simulate checkbox change
+      stabilizeCheckbox.checked = true;
+      stabilizeCheckbox.dispatchEvent(new Event('change'));
+      
+      expect(renderSpy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('should set checkbox based on keybind metadata when selecting key', () => {
+      app.getCurrentProfile.mockReturnValue({
+        keys: {
+          F1: [{ command: 'FirePhasers' }],
+          F2: [{ command: 'FireTorpedos' }]
+        },
+        keybindMetadata: {
+          F1: { stabilizeExecutionOrder: true }
+          // F2 has no metadata, should default to false
+        }
+      });
+
+      // Mock document.getElementById to return our checkbox
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+
+      // Test selecting key with stabilization enabled
+      app.selectKey('F1');
+      expect(stabilizeCheckbox.checked).toBe(true);
+
+      // Test selecting key without stabilization metadata
+      app.selectKey('F2');
+      expect(stabilizeCheckbox.checked).toBe(false);
+
+      spy.mockRestore();
+    });
+
+    it('should handle missing keybindMetadata gracefully', () => {
+      app.getCurrentProfile.mockReturnValue({
+        keys: {
+          F1: [{ command: 'FirePhasers' }]
+        }
+        // No keybindMetadata property
+      });
+
+      // Mock document.getElementById to return our checkbox
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+
+      app.selectKey('F1');
+      expect(stabilizeCheckbox.checked).toBe(false);
+
+      spy.mockRestore();
+    });
+
+    it('should save stabilization state to metadata when checkbox changes', () => {
+      app.selectedKey = 'F2';
+      const mockProfile = {
+        keys: {
+          F2: [{ command: 'FirePhasers' }]
+        },
+        keybindMetadata: {}
+      };
+      app.getCurrentProfile.mockReturnValue(mockProfile);
+      
+      const saveProfileSpy = vi.spyOn(app, 'saveProfile');
+      const setModifiedSpy = vi.spyOn(app, 'setModified');
+
+      // Mock document.getElementById to return our checkbox
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+
+      app.setupEventListeners();
+
+      // Simulate checkbox change
+      stabilizeCheckbox.checked = true;
+      stabilizeCheckbox.dispatchEvent(new Event('change'));
+
+      // Check that metadata was saved
+      expect(mockProfile.keybindMetadata.F2.stabilizeExecutionOrder).toBe(true);
+      expect(saveProfileSpy).toHaveBeenCalled();
+      expect(setModifiedSpy).toHaveBeenCalledWith(true);
+
+      spy.mockRestore();
+    });
+
+    it('should create keybindMetadata structure if it does not exist', () => {
+      app.selectedKey = 'F3';
+      const mockProfile = {
+        keys: {
+          F3: [{ command: 'FirePhasers' }]
+        }
+        // No keybindMetadata at all
+      };
+      app.getCurrentProfile.mockReturnValue(mockProfile);
+
+      // Mock document.getElementById to return our checkbox
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+
+      app.setupEventListeners();
+
+      // Simulate checkbox change
+      stabilizeCheckbox.checked = true;
+      stabilizeCheckbox.dispatchEvent(new Event('change'));
+
+      // Check that metadata structure was created
+      expect(mockProfile.keybindMetadata).toBeDefined();
+      expect(mockProfile.keybindMetadata.F3).toBeDefined();
+      expect(mockProfile.keybindMetadata.F3.stabilizeExecutionOrder).toBe(true);
+
+      spy.mockRestore();
+    });
+  })
+
+  describe('stabilized export functionality', () => {
+    let stabilizeCheckbox;
+    let originalGetCurrentProfile;
+
+    beforeEach(() => {
+      // Create the stabilization checkbox
+      stabilizeCheckbox = document.createElement('input');
+      stabilizeCheckbox.type = 'checkbox';
+      stabilizeCheckbox.id = 'stabilizeExecutionOrder';
+      document.body.appendChild(stabilizeCheckbox);
+
+      // Mock export functionality
+      global.stoExport = {
+        generateSTOKeybindFile: vi.fn().mockReturnValue('mocked keybind content')
+      };
+
+      // Ensure stoKeybinds global is available for mirroring
+      global.stoKeybinds = {
+        generateMirroredCommandString: (commands) => {
+          if (!commands || commands.length <= 1) {
+            return commands.map(cmd => cmd.command || cmd).join(' $$ ');
+          }
+          const commandStrings = commands.map(cmd => cmd.command || cmd);
+          const reversed = [...commandStrings].reverse();
+          const reversedWithoutLast = reversed.slice(1);
+          const mirrored = [...commandStrings, ...reversedWithoutLast];
+          return mirrored.join(' $$ ');
+        }
+      };
+
+      // Store original method and mock profile
+      originalGetCurrentProfile = app.getCurrentProfile;
+      app.getCurrentProfile = vi.fn().mockReturnValue({
+        name: 'Test Profile',
+        keys: {
+          F1: [
+            { command: '+TrayExecByTray 9 0' },
+            { command: '+TrayExecByTray 9 1' }
+          ]
+        }
+      });
+
+      // Mock DOM elements for file download
+      global.URL = {
+        createObjectURL: vi.fn().mockReturnValue('blob:url'),
+        revokeObjectURL: vi.fn()
+      };
+      global.Blob = vi.fn();
+
+      const mockAnchor = {
+        click: vi.fn(),
+        href: '',
+        download: ''
+      };
+      vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor);
+    });
+
+    afterEach(() => {
+      if (stabilizeCheckbox) {
+        stabilizeCheckbox.remove();
+      }
+      delete global.stoExport;
+      delete global.URL;
+      delete global.Blob;
+      
+      // Restore original method
+      if (originalGetCurrentProfile) {
+        app.getCurrentProfile = originalGetCurrentProfile;
+      }
+    });
+
+    it('should export with stabilization disabled by default', () => {
+      stabilizeCheckbox.checked = false;
+      
+      app.exportKeybinds();
+      
+      expect(stoExport.generateSTOKeybindFile).toHaveBeenCalledWith(
+        expect.any(Object),
+        { stabilizeExecutionOrder: false }
+      );
+    });
+
+    it('should export with stabilization enabled when checkbox is checked', () => {
+      stabilizeCheckbox.checked = true;
+      
+      // Mock document.getElementById for the export method
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+      
+      app.exportKeybinds();
+      
+      expect(stoExport.generateSTOKeybindFile).toHaveBeenCalledWith(
+        expect.any(Object),
+        { stabilizeExecutionOrder: true }
+      );
+      
+      spy.mockRestore();
+    });
+
+    it('should include stabilization flag in filename when enabled', () => {
+      stabilizeCheckbox.checked = true;
+      app.currentEnvironment = 'space';
+      
+      const mockAnchor = document.createElement('a');
+      vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor);
+      
+      // Mock document.getElementById for the export method
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+      
+      app.exportKeybinds();
+      
+      expect(mockAnchor.download).toContain('_stabilized');
+      expect(mockAnchor.download).toContain('space');
+      expect(mockAnchor.download).toContain('.txt');
+      
+      spy.mockRestore();
+    });
+
+    it('should not include stabilization flag in filename when disabled', () => {
+      stabilizeCheckbox.checked = false;
+      app.currentEnvironment = 'ground';
+      
+      const mockAnchor = document.createElement('a');
+      vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor);
+      
+      app.exportKeybinds();
+      
+      expect(mockAnchor.download).not.toContain('_stabilized');
+      expect(mockAnchor.download).toContain('ground');
+      expect(mockAnchor.download).toContain('.txt');
+    });
+
+    it('should show appropriate toast message with stabilization status', () => {
+      stabilizeCheckbox.checked = true;
+      app.currentEnvironment = 'space';
+      
+      // Mock document.getElementById for the export method
+      const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+        if (id === 'stabilizeExecutionOrder') {
+          return stabilizeCheckbox;
+        }
+        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+      });
+      
+      app.exportKeybinds();
+      
+      expect(stoUI.showToast).toHaveBeenCalledWith(
+        'space keybinds exported successfully (with stabilized execution order)',
+        'success'
+      );
+      
+      spy.mockRestore();
+    });
+
+    it('should show normal toast message without stabilization', () => {
+      stabilizeCheckbox.checked = false;
+      app.currentEnvironment = 'ground';
+      
+      app.exportKeybinds();
+      
+      expect(stoUI.showToast).toHaveBeenCalledWith(
+        'ground keybinds exported successfully',
+        'success'
+      );
+    });
+
+    it('should handle missing checkbox gracefully', () => {
+      stabilizeCheckbox.remove();
+      
+      app.exportKeybinds();
+      
+      expect(stoExport.generateSTOKeybindFile).toHaveBeenCalledWith(
+        expect.any(Object),
+        { stabilizeExecutionOrder: false }
+      );
+    });
+  })
 }) 
