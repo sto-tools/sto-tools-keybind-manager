@@ -57,21 +57,15 @@ describe('STOAliasManager', () => {
     })
 
     it('should setup event listeners', () => {
-      const addAliasBtn = document.getElementById('addAliasBtn')
-      const newAliasBtn = document.getElementById('newAliasBtn')
-      const saveAliasBtn = document.getElementById('saveAliasBtn')
-      
-      expect(addAliasBtn).toBeTruthy()
-      expect(newAliasBtn).toBeTruthy()
-      expect(saveAliasBtn).toBeTruthy()
-      
-      // Setup event listeners
-      aliasManager.setupEventListeners()
-      
-      // Verify elements exist (real DOM test)
-      expect(addAliasBtn.id).toBe('addAliasBtn')
-      expect(newAliasBtn.id).toBe('newAliasBtn')
-      expect(saveAliasBtn.id).toBe('saveAliasBtn')
+      const spy = vi.spyOn(aliasManager, 'setupEventListeners')
+      aliasManager.init()
+      expect(spy).toHaveBeenCalled()
+    })
+
+    it('should update command library during initialization', () => {
+      const spy = vi.spyOn(aliasManager, 'updateCommandLibrary')
+      aliasManager.init()
+      expect(spy).toHaveBeenCalled()
     })
   })
 
@@ -681,7 +675,7 @@ describe('STOAliasManager', () => {
       expect(regularCategory.innerHTML).not.toContain('dynFxSetFXExlusionList')
       
       // Check VERTIGO aliases section
-      expect(vertigoCategory.innerHTML).toContain('VERTIGO Aliases')
+      expect(vertigoCategory.innerHTML).toContain('VFX Aliases')
       expect(vertigoCategory.innerHTML).toContain('fas fa-eye-slash')
       expect(vertigoCategory.innerHTML).toContain('dynFxSetFXExlusionList_Space')
       expect(vertigoCategory.innerHTML).toContain('dynFxSetFXExlusionList_Ground')

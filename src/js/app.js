@@ -3196,15 +3196,17 @@ const app = new STOToolsKeybindManager();
 window.app = app;
 
 // Initialize other modules after app is ready
-if (typeof stoProfiles !== 'undefined') {
-    stoProfiles.init();
-}
-if (typeof stoKeybinds !== 'undefined') {
-    stoKeybinds.init();
-}
-if (typeof stoAliases !== 'undefined') {
-    stoAliases.init();
-}
-if (typeof stoExport !== 'undefined') {
-    stoExport.init();
-} 
+window.addEventListener('sto-app-ready', () => {
+    if (typeof stoProfiles !== 'undefined') {
+        stoProfiles.init();
+    }
+    if (typeof stoKeybinds !== 'undefined') {
+        stoKeybinds.init();
+    }
+    if (typeof stoAliases !== 'undefined') {
+        stoAliases.init();
+    }
+    if (typeof stoExport !== 'undefined') {
+        stoExport.init();
+    }
+}); 

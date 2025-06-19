@@ -68,6 +68,9 @@ describe('VFX Aliases Reload Integration', () => {
         
         // Clear all mocks
         vi.clearAllMocks();
+
+        // Ensure fresh module imports for each test
+        vi.resetModules();
     });
 
     afterEach(() => {

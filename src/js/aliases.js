@@ -9,6 +9,8 @@ class STOAliasManager {
 
     init() {
         this.setupEventListeners();
+        // Update command library to show existing aliases on initialization
+        this.updateCommandLibrary();
     }
 
     setupEventListeners() {
