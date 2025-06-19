@@ -1367,7 +1367,7 @@ class STOToolsKeybindManager {
         
         // Command management
         document.getElementById('addCommandBtn')?.addEventListener('click', () => {
-            stoUI.showModal('addCommandModal');  
+            modalManager.show('addCommandModal');
         });
         
         document.getElementById('addFromTemplateBtn')?.addEventListener('click', () => {
@@ -1450,7 +1450,7 @@ class STOToolsKeybindManager {
             const keyName = document.getElementById('newKeyName')?.value.trim();
             if (keyName) {
                 this.addKey(keyName);
-                stoUI.hideModal('addKeyModal');
+                modalManager.hide('addKeyModal');
             }
         });
         
@@ -1475,7 +1475,7 @@ class STOToolsKeybindManager {
             btn.addEventListener('click', (e) => {
                 const modalId = e.target.dataset.modal || e.target.closest('button').dataset.modal;
                 if (modalId) {
-                    stoUI.hideModal(modalId);
+                    modalManager.hide(modalId);
                     
                     // Handle Vertigo modal cancellation - rollback to initial state
                     if (modalId === 'vertigoModal') {
@@ -1692,7 +1692,7 @@ class STOToolsKeybindManager {
 
     showWelcomeMessage() {
         localStorage.setItem('sto_keybind_manager_visited', 'true');
-        stoUI.showModal('aboutModal');
+        modalManager.show('aboutModal');
     }
 
     // Additional Methods
@@ -1863,7 +1863,7 @@ class STOToolsKeybindManager {
         }
         
         this.addCommand(this.selectedKey, command);
-        stoUI.hideModal('addCommandModal');
+        modalManager.hide('addCommandModal');
     }
     
     // Parameter Modal for Customizable Commands
@@ -1879,7 +1879,7 @@ class STOToolsKeybindManager {
         this.populateParameterModal(commandDef);
         
         // Show modal
-        stoUI.showModal('parameterModal');
+        modalManager.show('parameterModal');
     }
     
     createParameterModal() {
@@ -1939,7 +1939,7 @@ class STOToolsKeybindManager {
         }
         
         // Hide modal
-        stoUI.hideModal('parameterModal');
+        modalManager.hide('parameterModal');
     }
     
     populateParameterModal(commandDef) {
@@ -2395,7 +2395,7 @@ class STOToolsKeybindManager {
                 this.addCommand(this.selectedKey, command);
             }
             
-            stoUI.hideModal('parameterModal');
+            modalManager.hide('parameterModal');
             this.currentParameterCommand = null;
             
             // Reset modal button text
@@ -2520,7 +2520,7 @@ class STOToolsKeybindManager {
         document.getElementById('saveParameterCommandBtn').textContent = 'Update Command';
         
         // Show modal
-        stoUI.showModal('parameterModal');
+        modalManager.show('parameterModal');
     }
     
     populateParameterModalForEdit(commandDef, existingParams) {
@@ -2658,7 +2658,7 @@ class STOToolsKeybindManager {
 
     showKeySelectionModal() {
         this.setupKeySelectionModal();
-        stoUI.showModal('keySelectionModal');
+        modalManager.show('keySelectionModal');
     }
 
     setupKeySelectionModal() {
@@ -2846,7 +2846,7 @@ class STOToolsKeybindManager {
     }
 
     selectKeyFromModal(keyName) {
-        stoUI.hideModal('keySelectionModal');
+        modalManager.hide('keySelectionModal');
         this.selectKey(keyName);
     }
 
@@ -2882,7 +2882,7 @@ class STOToolsKeybindManager {
         
         this.populateVertigoModal();
         this.setupVertigoEventListeners();
-        stoUI.showModal('vertigoModal');
+        modalManager.show('vertigoModal');
     }
 
     populateVertigoModal() {
@@ -3215,7 +3215,7 @@ class STOToolsKeybindManager {
         this.vertigoSaving = true;
 
         // Close modal and show success message
-        stoUI.hideModal('vertigoModal');
+        modalManager.hide('vertigoModal');
         stoUI.showToast(`Generated ${addedCount} Vertigo alias${addedCount > 1 ? 'es' : ''}! Check the Alias Manager to bind them to keys.`, 'success');
     }
 
