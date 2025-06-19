@@ -170,6 +170,25 @@ describe('STOKeybindFileManager', () => {
       expect(result.keybinds).toHaveProperty('F1')
       expect(result.errors).toHaveLength(0)
     })
+
+    it('should parse aliases with both quoted and bracket syntax', () => {
+      const content = `alias test_quoted "say hello world"
+alias test_bracket <& say hello world &>
+alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2" &>`
+      
+      const result = keybindManager.parseKeybindFile(content)
+      
+      expect(result.aliases).toHaveProperty('test_quoted')
+      expect(result.aliases.test_quoted.commands).toBe('say hello world')
+      
+      expect(result.aliases).toHaveProperty('test_bracket')
+      expect(result.aliases.test_bracket.commands).toBe('say hello world')
+      
+      expect(result.aliases).toHaveProperty('complex_bracket')
+      expect(result.aliases.complex_bracket.commands).toBe('TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2"')
+      
+      expect(Object.keys(result.aliases)).toHaveLength(3)
+    })
   })
 
   describe('command string parsing', () => {

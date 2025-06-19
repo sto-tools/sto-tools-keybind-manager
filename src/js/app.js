@@ -2676,18 +2676,27 @@ class STOToolsKeybindManager {
         // Skip common keys since they're already shown above
         Object.entries(STO_DATA.keys).forEach(([categoryId, categoryData]) => {
             if (categoryId === 'common') return;
+            
+            // Debug logging
+            console.log('Processing category:', categoryId, categoryData);
+            
+            // Validate category data
+            if (!categoryData || !categoryData.name || !categoryData.keys) {
+                console.warn(`Invalid category data for categoryId: ${categoryId}`, categoryData);
+                return;
+            }
 
             const categoryElement = document.createElement('div');
             categoryElement.className = 'key-category';
             
             const headerElement = document.createElement('div');
             headerElement.className = 'key-category-header';
-            headerElement.onclick = () => this.toggleKeyCategory(categoryId);
+            headerElement.onclick = () => this.toggleKeySelectionCategory(categoryId);
             
             headerElement.innerHTML = `
                 <div>
                     <h5>${categoryData.name}</h5>
-                    <div class="category-desc">${categoryData.description}</div>
+                    <div class="category-desc">${categoryData.description || ''}</div>
                 </div>
                 <i class="fas fa-chevron-right category-chevron"></i>
             `;
@@ -2697,18 +2706,22 @@ class STOToolsKeybindManager {
             contentElement.id = `key-category-${categoryId}`;
             
             // Populate keys for this category
-            categoryData.keys.forEach(keyData => {
-                const keyButton = document.createElement('div');
-                keyButton.className = 'key-button';
-                keyButton.onclick = () => this.selectKeyFromModal(keyData.key);
-                
-                keyButton.innerHTML = `
-                    <div class="key-name">${keyData.key}</div>
-                    <div class="key-desc">${keyData.description}</div>
-                `;
-                
-                contentElement.appendChild(keyButton);
-            });
+            if (Array.isArray(categoryData.keys)) {
+                categoryData.keys.forEach(keyData => {
+                    if (keyData && keyData.key) {
+                        const keyButton = document.createElement('div');
+                        keyButton.className = 'key-button';
+                        keyButton.onclick = () => this.selectKeyFromModal(keyData.key);
+                        
+                        keyButton.innerHTML = `
+                            <div class="key-name">${keyData.key}</div>
+                            <div class="key-desc">${keyData.description || ''}</div>
+                        `;
+                        
+                        contentElement.appendChild(keyButton);
+                    }
+                });
+            }
             
             categoryElement.appendChild(headerElement);
             categoryElement.appendChild(contentElement);
@@ -2716,9 +2729,14 @@ class STOToolsKeybindManager {
         });
     }
 
-    toggleKeyCategory(categoryId) {
-        const header = document.querySelector(`#key-category-${categoryId}`).previousElementSibling;
+    toggleKeySelectionCategory(categoryId) {
         const content = document.getElementById(`key-category-${categoryId}`);
+        if (!content) {
+            console.warn(`Key selection category content not found for categoryId: ${categoryId}`);
+            return;
+        }
+        
+        const header = content.previousElementSibling;
         
         if (content && header) {
             const isCollapsed = content.classList.contains('collapsed');
@@ -2726,9 +2744,19 @@ class STOToolsKeybindManager {
             if (isCollapsed) {
                 content.classList.remove('collapsed');
                 header.classList.remove('collapsed');
+                // Update chevron rotation
+                const chevron = header.querySelector('.category-chevron');
+                if (chevron) {
+                    chevron.style.transform = 'rotate(90deg)';
+                }
             } else {
                 content.classList.add('collapsed');
                 header.classList.add('collapsed');
+                // Update chevron rotation
+                const chevron = header.querySelector('.category-chevron');
+                if (chevron) {
+                    chevron.style.transform = 'rotate(0deg)';
+                }
             }
         }
     }
