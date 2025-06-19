@@ -1946,21 +1946,42 @@ class STOToolsKeybindManager {
                 
                 // Note: Event handling is done by global event delegation in commands.js
             } else {
-                // Regular input for non-message parameters
-                input = document.createElement('input');
-                input.type = paramDef.type === 'number' ? 'number' : 'text';
-                input.id = `param_${paramName}`;
-                input.name = paramName;
-                input.value = paramDef.default || '';
-                
-                if (paramDef.placeholder) {
-                    input.placeholder = paramDef.placeholder;
-                }
-                
-                if (paramDef.type === 'number') {
-                    if (paramDef.min !== undefined) input.min = paramDef.min;
-                    if (paramDef.max !== undefined) input.max = paramDef.max;
-                    if (paramDef.step !== undefined) input.step = paramDef.step;
+                // Handle different parameter types
+                if (paramDef.type === 'select') {
+                    // Create select dropdown
+                    input = document.createElement('select');
+                    input.id = `param_${paramName}`;
+                    input.name = paramName;
+                    
+                    // Add options
+                    paramDef.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = option;
+                        optionElement.textContent = option === 'STOTrayExecByTray' 
+                            ? 'STOTrayExecByTray (shows key binding on UI)' 
+                            : 'TrayExecByTray (no UI indication)';
+                        if (option === paramDef.default) {
+                            optionElement.selected = true;
+                        }
+                        input.appendChild(optionElement);
+                    });
+                } else {
+                    // Regular input for non-select parameters
+                    input = document.createElement('input');
+                    input.type = paramDef.type === 'number' ? 'number' : 'text';
+                    input.id = `param_${paramName}`;
+                    input.name = paramName;
+                    input.value = paramDef.default || '';
+                    
+                    if (paramDef.placeholder) {
+                        input.placeholder = paramDef.placeholder;
+                    }
+                    
+                    if (paramDef.type === 'number') {
+                        if (paramDef.min !== undefined) input.min = paramDef.min;
+                        if (paramDef.max !== undefined) input.max = paramDef.max;
+                        if (paramDef.step !== undefined) input.step = paramDef.step;
+                    }
                 }
                 
                 const help = document.createElement('small');
@@ -1976,6 +1997,13 @@ class STOToolsKeybindManager {
             input.addEventListener('input', () => {
                 this.updateParameterPreview();
             });
+            
+            // Also listen for 'change' event for select elements
+            if (input.tagName === 'SELECT') {
+                input.addEventListener('change', () => {
+                    this.updateParameterPreview();
+                });
+            }
         });
         
         // Initial preview update
@@ -1999,7 +2027,8 @@ class STOToolsKeybindManager {
             distance: 'Camera distance from target',
             filename: 'Name of the keybind file (without extension)',
             message: 'Text message to send',
-            state: 'Enable (1) or disable (0) combat log'
+            state: 'Enable (1) or disable (0) combat log',
+            command_type: 'STOTrayExecByTray shows key binding on UI, TrayExecByTray does not'
         };
         
         return helps[paramName] || `${paramDef.type} value ${paramDef.min !== undefined ? `(${paramDef.min} to ${paramDef.max})` : ''}`;
@@ -2028,7 +2057,7 @@ class STOToolsKeybindManager {
     
     getParameterValues() {
         const params = {};
-        const inputs = document.querySelectorAll('#parameterInputs input');
+        const inputs = document.querySelectorAll('#parameterInputs input, #parameterInputs select');
         
         inputs.forEach(input => {
             const paramName = input.name;
@@ -2205,19 +2234,22 @@ class STOToolsKeybindManager {
                 } else {
                     // Preserve original command format when editing
                     const isEditing = this.currentParameterCommand && this.currentParameterCommand.isEditing;
+                    const commandType = params.command_type || 'STOTrayExecByTray';
+                    const prefix = '+';
+                    
                     if (isEditing) {
                         const profile = this.getCurrentProfile();
                         const existingCommand = profile.keys[this.selectedKey][this.currentParameterCommand.editIndex];
-                        if (existingCommand && existingCommand.command.startsWith('TrayExecByTray') && !existingCommand.command.startsWith('+')) {
+                        if (existingCommand && (existingCommand.command.startsWith('TrayExecByTray') || existingCommand.command.startsWith('+TrayExecByTray'))) {
                             return {
-                                command: `TrayExecByTray ${tray} ${slot}`,
+                                command: `+TrayExecByTray ${tray} ${slot}`,
                                 text: `Execute Tray ${tray + 1} Slot ${slot + 1}`
                             };
                         }
                     }
                     
                     return {
-                        command: `+STOTrayExecByTray ${tray} ${slot}`,
+                        command: `${prefix}${commandType} ${tray} ${slot}`,
                         text: `Execute Tray ${tray + 1} Slot ${slot + 1}`
                     };
                 }
@@ -2452,25 +2484,52 @@ class STOToolsKeybindManager {
             label.textContent = this.formatParameterName(paramName);
             label.setAttribute('for', `param_${paramName}`);
             
-            const input = document.createElement('input');
-            input.type = paramDef.type === 'number' ? 'number' : 'text';
-            input.id = `param_${paramName}`;
-            input.name = paramName;
+            let input;
             
-            // Use existing parameter value or default
-            const existingValue = existingParams && existingParams[paramName] !== undefined 
-                ? existingParams[paramName] 
-                : paramDef.default;
-            input.value = existingValue || '';
-            
-            if (paramDef.placeholder) {
-                input.placeholder = paramDef.placeholder;
-            }
-            
-            if (paramDef.type === 'number') {
-                if (paramDef.min !== undefined) input.min = paramDef.min;
-                if (paramDef.max !== undefined) input.max = paramDef.max;
-                if (paramDef.step !== undefined) input.step = paramDef.step;
+            // Handle different parameter types
+            if (paramDef.type === 'select') {
+                // Create select dropdown
+                input = document.createElement('select');
+                input.id = `param_${paramName}`;
+                input.name = paramName;
+                
+                // Add options
+                paramDef.options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    optionElement.textContent = option === 'STOTrayExecByTray' 
+                        ? 'STOTrayExecByTray (shows key binding on UI)' 
+                        : 'TrayExecByTray (no UI indication)';
+                    input.appendChild(optionElement);
+                });
+                
+                // Set existing value or default
+                const existingValue = existingParams && existingParams[paramName] !== undefined 
+                    ? existingParams[paramName] 
+                    : paramDef.default;
+                input.value = existingValue || paramDef.default;
+            } else {
+                // Regular input for non-select parameters
+                input = document.createElement('input');
+                input.type = paramDef.type === 'number' ? 'number' : 'text';
+                input.id = `param_${paramName}`;
+                input.name = paramName;
+                
+                // Use existing parameter value or default
+                const existingValue = existingParams && existingParams[paramName] !== undefined 
+                    ? existingParams[paramName] 
+                    : paramDef.default;
+                input.value = existingValue || '';
+                
+                if (paramDef.placeholder) {
+                    input.placeholder = paramDef.placeholder;
+                }
+                
+                if (paramDef.type === 'number') {
+                    if (paramDef.min !== undefined) input.min = paramDef.min;
+                    if (paramDef.max !== undefined) input.max = paramDef.max;
+                    if (paramDef.step !== undefined) input.step = paramDef.step;
+                }
             }
             
             const help = document.createElement('small');
@@ -2485,6 +2544,13 @@ class STOToolsKeybindManager {
             input.addEventListener('input', () => {
                 this.updateParameterPreview();
             });
+            
+            // Also listen for 'change' event for select elements
+            if (input.tagName === 'SELECT') {
+                input.addEventListener('change', () => {
+                    this.updateParameterPreview();
+                });
+            }
         });
         
         // Initial preview update

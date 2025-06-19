@@ -155,7 +155,8 @@ const STO_DATA = {
                     customizable: true,
                     parameters: {
                         tray: { type: "number", min: 0, max: 9, default: 0 },
-                        slot: { type: "number", min: 0, max: 9, default: 0 }
+                        slot: { type: "number", min: 0, max: 9, default: 0 },
+                        command_type: { type: "select", options: ["STOTrayExecByTray", "TrayExecByTray"], default: "STOTrayExecByTray" }
                     }
                 },
                 tray_with_backup: {

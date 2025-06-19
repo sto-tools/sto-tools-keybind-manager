@@ -159,13 +159,16 @@ class STOCommandManager {
                 }
                 
                 // Regular tray command
+                const commandType = params.command_type || 'STOTrayExecByTray';
+                const prefix = '+';
+                
                 return {
-                    command: `+STOTrayExecByTray ${tray} ${slot}`,
+                    command: `${prefix}${commandType} ${tray} ${slot}`,
                     type: 'tray',
                     icon: '⚡',
                     text: `Execute Tray ${tray + 1} Slot ${slot + 1}`,
                     description: `Execute ability in tray ${tray + 1}, slot ${slot + 1}`,
-                    parameters: { tray, slot }
+                    parameters: { tray, slot, command_type: commandType }
                 };
             },
             getUI: () => this.createTrayUI()
@@ -933,6 +936,7 @@ class STOCommandManager {
         switch (commandType) {
             case 'custom_tray':
                 if (sections.singleTrayConfig) sections.singleTrayConfig.style.display = 'block';
+                if (sections.commandTypeConfig) sections.commandTypeConfig.style.display = 'block';
                 break;
                 
             case 'tray_with_backup':
@@ -1082,7 +1086,8 @@ class STOCommandManager {
                     case 'custom_tray':
                         params = {
                             tray: parseInt(document.getElementById('trayNumber')?.value || 0),
-                            slot: parseInt(document.getElementById('slotNumber')?.value || 0)
+                            slot: parseInt(document.getElementById('slotNumber')?.value || 0),
+                            command_type: document.getElementById('trayCommandVariant')?.value || 'STOTrayExecByTray'
                         };
                         break;
                         
