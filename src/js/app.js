@@ -1433,10 +1433,33 @@ class STOToolsKeybindManager {
 
     // Utility Methods
     saveProfile() {
-        const profile = this.getCurrentProfile();
-        if (profile) {
-            stoStorage.saveProfile(this.currentProfile, profile);
+        // Get the actual stored profile structure
+        const actualProfile = stoStorage.getProfile(this.currentProfile);
+        const virtualProfile = this.getCurrentProfile();
+        
+        if (!actualProfile || !virtualProfile) {
+            return;
         }
+        
+        // Save current build data to the proper structure
+        this.saveCurrentBuild();
+        
+        // Update profile-level data (aliases, metadata, etc.) from virtual profile
+        // but preserve the builds structure
+        const updatedProfile = {
+            ...actualProfile, // Keep the actual structure with builds
+            // Update profile-level fields from virtual profile
+            name: virtualProfile.name,
+            description: virtualProfile.description || actualProfile.description,
+            aliases: virtualProfile.aliases || {},
+            keybindMetadata: virtualProfile.keybindMetadata || actualProfile.keybindMetadata,
+            // Preserve existing profile fields
+            created: actualProfile.created,
+            lastModified: new Date().toISOString(),
+            currentEnvironment: this.currentEnvironment
+        };
+        
+        stoStorage.saveProfile(this.currentProfile, updatedProfile);
     }
 
     switchMode(mode) {
@@ -1522,7 +1545,7 @@ class STOToolsKeybindManager {
         if (confirmed) {
             const profile = this.getCurrentProfile();
             profile.keys[keyName] = [];
-            stoStorage.saveProfile(this.currentProfile, profile);
+            this.saveCurrentBuild(); // Use saveCurrentBuild for build-level data
             this.renderCommandChain();
             this.renderKeyGrid();
             this.setModified(true);
