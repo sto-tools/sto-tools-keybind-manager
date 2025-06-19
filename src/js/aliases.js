@@ -394,14 +394,23 @@ class STOAliasManager {
         element.className = 'category';
         element.dataset.category = categoryType;
         
+        // Check if category should be collapsed (similar to main command library)
+        const storageKey = `commandCategory_${categoryType}_collapsed`;
+        const isCollapsed = localStorage.getItem(storageKey) === 'true';
+        
         // Choose appropriate icon and styling for different alias types
         const isVertigo = categoryType === 'vertigo-aliases';
         const itemIcon = isVertigo ? '👁️' : '🎭';
         const itemClass = isVertigo ? 'command-item vertigo-alias-item' : 'command-item alias-item';
         
         element.innerHTML = `
-            <h4><i class="${iconClass}"></i> ${title}</h4>
-            <div class="category-commands">
+            <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryType}">
+                <i class="fas fa-chevron-right category-chevron"></i>
+                <i class="${iconClass}"></i> 
+                ${title}
+                <span class="command-count">(${aliases.length})</span>
+            </h4>
+            <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">
                 ${aliases.map(([name, alias]) => `
                     <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
                         ${itemIcon} ${name}
@@ -409,6 +418,12 @@ class STOAliasManager {
                 `).join('')}
             </div>
         `;
+        
+        // Add click handler for category header
+        const header = element.querySelector('h4');
+        header.addEventListener('click', () => {
+            this.toggleAliasCategory(categoryType, element);
+        });
         
         // Add click handlers for aliases
         element.addEventListener('click', (e) => {
@@ -419,6 +434,27 @@ class STOAliasManager {
         });
         
         return element;
+    }
+
+    toggleAliasCategory(categoryType, element) {
+        const header = element.querySelector('h4');
+        const commands = element.querySelector('.category-commands');
+        const chevron = header.querySelector('.category-chevron');
+        
+        const isCollapsed = commands.classList.contains('collapsed');
+        const storageKey = `commandCategory_${categoryType}_collapsed`;
+        
+        if (isCollapsed) {
+            commands.classList.remove('collapsed');
+            header.classList.remove('collapsed');
+            chevron.style.transform = 'rotate(90deg)';
+            localStorage.setItem(storageKey, 'false');
+        } else {
+            commands.classList.add('collapsed');
+            header.classList.add('collapsed');
+            chevron.style.transform = 'rotate(0deg)';
+            localStorage.setItem(storageKey, 'true');
+        }
     }
 
     addAliasToKey(aliasName) {
