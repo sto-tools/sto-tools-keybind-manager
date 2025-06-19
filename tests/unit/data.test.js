@@ -129,8 +129,16 @@ describe('STO Data Module - Critical Validation', () => {
                         // Each parameter should have type and default
                         Object.entries(command.parameters).forEach(([paramKey, param]) => {
                             expect(param.type, `${commandKey}.${paramKey} missing type`).toBeDefined();
-                            expect(['text', 'number', 'boolean']).toContain(param.type);
+                            expect(['text', 'number', 'boolean', 'select']).toContain(param.type);
                             expect(param.default, `${commandKey}.${paramKey} missing default`).toBeDefined();
+                            
+                            // If it's a select type, it should have options
+                            if (param.type === 'select') {
+                                expect(param.options, `${commandKey}.${paramKey} select type missing options`).toBeDefined();
+                                expect(Array.isArray(param.options), `${commandKey}.${paramKey} options should be array`).toBe(true);
+                                expect(param.options.length, `${commandKey}.${paramKey} options should not be empty`).toBeGreaterThan(0);
+                                expect(param.options, `${commandKey}.${paramKey} default should be in options`).toContain(param.default);
+                            }
                         });
                     }
                 });

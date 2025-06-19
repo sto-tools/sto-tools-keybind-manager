@@ -350,16 +350,29 @@ class STOToolsKeybindManager {
             profile.keys[keyName] = [];
         }
         
-        // Generate unique ID for command
-        command.id = this.generateCommandId();
+        // Handle both single commands and arrays of commands (for tray ranges)
+        if (Array.isArray(command)) {
+            // Array of commands - add each one with unique ID if not already present
+            command.forEach(cmd => {
+                if (!cmd.id) {
+                    cmd.id = this.generateCommandId();
+                }
+                profile.keys[keyName].push(cmd);
+            });
+            stoUI.showToast(`${command.length} commands added`, 'success');
+        } else {
+            // Single command
+            if (!command.id) {
+                command.id = this.generateCommandId();
+            }
+            profile.keys[keyName].push(command);
+            stoUI.showToast('Command added', 'success');
+        }
         
-        profile.keys[keyName].push(command);
         stoStorage.saveProfile(this.currentProfile, profile);
         this.renderCommandChain();
         this.renderKeyGrid();
         this.setModified(true);
-        
-        stoUI.showToast('Command added', 'success');
     }
 
     deleteCommand(keyName, commandIndex) {
@@ -1961,7 +1974,13 @@ class STOToolsKeybindManager {
         
         const preview = document.getElementById('parameterCommandPreview');
         if (preview && command) {
-            preview.textContent = command.command;
+            // Support both single and array command results
+            if (Array.isArray(command)) {
+                const commandStrings = command.map(cmd => cmd.command);
+                preview.textContent = commandStrings.join(' $$ ');
+            } else {
+                preview.textContent = command.command;
+            }
         }
     }
     
@@ -2008,6 +2027,139 @@ class STOToolsKeybindManager {
                         command: `TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`,
                         text: `Execute Tray ${tray + 1} Slot ${slot + 1} (backup: Tray ${backupTray + 1} Slot ${backupSlot + 1})`
                     };
+                } else if (commandId === 'tray_range') {
+                    const startTray = params.start_tray || 0;
+                    const startSlot = params.start_slot || 0;
+                    const endTray = params.end_tray || 0;
+                    const endSlot = params.end_slot || 0;
+                    const commandType = params.command_type || 'STOTrayExecByTray';
+                    
+                    const commands = stoCommands.generateTrayRangeCommands(startTray, startSlot, endTray, endSlot, commandType);
+                    
+                    // Return array of command objects with slot-specific parameters
+                    return commands.map((cmd, index) => {
+                        // Attempt to extract tray and slot numbers from the command string
+                        let trayParam, slotParam;
+                        try {
+                            const parts = cmd.replace('+', '').trim().split(/\s+/);
+                            trayParam = parseInt(parts[1]);
+                            slotParam = parseInt(parts[2]);
+                        } catch (_) {
+                            trayParam = undefined;
+                            slotParam = undefined;
+                        }
+
+                        return {
+                            command: cmd,
+                            type: categoryId,
+                            icon: commandDef.icon,
+                            text: index === 0 ? `Execute Range: Tray ${startTray + 1} Slot ${startSlot + 1} to Tray ${endTray + 1} Slot ${endSlot + 1}` : cmd,
+                            id: this.generateCommandId(),
+                            parameters: { tray: trayParam, slot: slotParam }
+                        };
+                    });
+                } else if (commandId === 'tray_range_with_backup') {
+                    const active = params.active || 1;
+                    const startTray = params.start_tray || 0;
+                    const startSlot = params.start_slot || 0;
+                    const endTray = params.end_tray || 0;
+                    const endSlot = params.end_slot || 0;
+                    const backupStartTray = params.backup_start_tray || 0;
+                    const backupStartSlot = params.backup_start_slot || 0;
+                    const backupEndTray = params.backup_end_tray || 0;
+                    const backupEndSlot = params.backup_end_slot || 0;
+                    
+                    const commands = stoCommands.generateTrayRangeWithBackupCommands(
+                        active, startTray, startSlot, endTray, endSlot,
+                        backupStartTray, backupStartSlot, backupEndTray, backupEndSlot
+                    );
+                    
+                    // Return array with parsed parameters for each command
+                    return commands.map((cmd, index) => {
+                        let activeParam, primaryTray, primarySlot, backupTrayParam, backupSlotParam;
+                        try {
+                            const parts = cmd.trim().split(/\s+/);
+                            // TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>
+                            activeParam = parseInt(parts[1]);
+                            primaryTray = parseInt(parts[2]);
+                            primarySlot = parseInt(parts[3]);
+                            backupTrayParam = parseInt(parts[4]);
+                            backupSlotParam = parseInt(parts[5]);
+                        } catch (_) {}
+
+                        return {
+                            command: cmd,
+                            type: categoryId,
+                            icon: commandDef.icon,
+                            text: index === 0 ? `Execute Range with Backup: Tray ${startTray + 1}-${endTray + 1}` : cmd,
+                            id: this.generateCommandId(),
+                            parameters: {
+                                active: activeParam,
+                                tray: primaryTray,
+                                slot: primarySlot,
+                                backup_tray: backupTrayParam,
+                                backup_slot: backupSlotParam
+                            }
+                        };
+                    });
+                } else if (commandId === 'whole_tray') {
+                    const commandType = params.command_type || 'STOTrayExecByTray';
+                    const commands = stoCommands.generateWholeTrayCommands(tray, commandType);
+                    
+                    // Return array of command objects instead of single command with $$
+                    return commands.map((cmd, index) => {
+                        // Extract slot number
+                        let slotParam;
+                        try {
+                            const parts = cmd.replace('+', '').trim().split(/\s+/);
+                            slotParam = parseInt(parts[2]);
+                        } catch (_) {
+                            slotParam = undefined;
+                        }
+
+                        return {
+                            command: cmd,
+                            type: categoryId,
+                            icon: commandDef.icon,
+                            text: index === 0 ? `Execute Whole Tray ${tray + 1}` : cmd,
+                            id: this.generateCommandId(),
+                            parameters: { tray, slot: slotParam }
+                        };
+                    });
+                } else if (commandId === 'whole_tray_with_backup') {
+                    const active = params.active || 1;
+                    const backupTray = params.backup_tray || 0;
+                    
+                    const commands = stoCommands.generateWholeTrayWithBackupCommands(active, tray, backupTray);
+                    
+                    // Return array with parsed parameters for each command
+                    return commands.map((cmd, index) => {
+                        let activeParam, primaryTray, primarySlot, backupTrayParam, backupSlotParam;
+                        try {
+                            const parts = cmd.trim().split(/\s+/);
+                            // TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>
+                            activeParam = parseInt(parts[1]);
+                            primaryTray = parseInt(parts[2]);
+                            primarySlot = parseInt(parts[3]);
+                            backupTrayParam = parseInt(parts[4]);
+                            backupSlotParam = parseInt(parts[5]);
+                        } catch (_) {}
+
+                        return {
+                            command: cmd,
+                            type: categoryId,
+                            icon: commandDef.icon,
+                            text: index === 0 ? `Execute Whole Tray ${tray + 1} (with backup Tray ${backupTray + 1})` : cmd,
+                            id: this.generateCommandId(),
+                            parameters: {
+                                active: activeParam,
+                                tray: primaryTray,
+                                slot: primarySlot,
+                                backup_tray: backupTrayParam,
+                                backup_slot: backupSlotParam
+                            }
+                        };
+                    });
                 } else {
                     // Preserve original command format when editing
                     const isEditing = this.currentParameterCommand && this.currentParameterCommand.isEditing;
@@ -2062,6 +2214,12 @@ class STOToolsKeybindManager {
         const builder = builders[categoryId];
         if (builder) {
             const result = builder(params);
+            // If tray (or other) builder returned an array of command objects, forward it
+            if (Array.isArray(result)) {
+                return result;
+            }
+
+            // Otherwise wrap single command
             return {
                 command: result.command,
                 type: categoryId,
@@ -2085,15 +2243,29 @@ class STOToolsKeybindManager {
         
         if (command) {
             if (isEditing && editIndex !== undefined) {
-                // Update existing command
-                const profile = this.getCurrentProfile();
-                profile.keys[this.selectedKey][editIndex] = command;
-                stoStorage.saveProfile(this.currentProfile, profile);
-                this.renderCommandChain();
-                this.setModified(true);
-                stoUI.showToast('Command updated successfully', 'success');
+                // For arrays of commands, we need to handle replacement differently
+                if (Array.isArray(command)) {
+                    const profile = this.getCurrentProfile();
+                    const commands = profile.keys[this.selectedKey];
+                    
+                    // Remove the old command and insert the new array of commands
+                    commands.splice(editIndex, 1, ...command);
+                    
+                    stoStorage.saveProfile(this.currentProfile, profile);
+                    this.renderCommandChain();
+                    this.setModified(true);
+                    stoUI.showToast(`${command.length} commands updated successfully`, 'success');
+                } else {
+                    // Update existing single command
+                    const profile = this.getCurrentProfile();
+                    profile.keys[this.selectedKey][editIndex] = command;
+                    stoStorage.saveProfile(this.currentProfile, profile);
+                    this.renderCommandChain();
+                    this.setModified(true);
+                    stoUI.showToast('Command updated successfully', 'success');
+                }
             } else {
-                // Add new command
+                // Add new command (addCommand already handles arrays)
                 this.addCommand(this.selectedKey, command);
             }
             
@@ -2141,8 +2313,29 @@ class STOToolsKeybindManager {
         if (command.command.includes('TrayExec')) {
             const trayCategory = STO_DATA.commands.tray;
             if (trayCategory) {
-                // Check for TrayExecByTrayWithBackup
-                if (command.command.includes('TrayExecByTrayWithBackup')) {
+                // Check for multiple TrayExecByTrayWithBackup commands (range with backup)
+                if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
+                    const parts = command.command.split('$$').map(s => s.trim());
+                    if (parts.length > 1) {
+                        const trayRangeWithBackupDef = trayCategory.commands.tray_range_with_backup;
+                        if (trayRangeWithBackupDef) {
+                            return { commandId: 'tray_range_with_backup', ...trayRangeWithBackupDef };
+                        }
+                    }
+                }
+                // Check for multiple STOTrayExecByTray/TrayExecByTray commands (range)
+                else if ((command.command.includes('STOTrayExecByTray') || command.command.includes('TrayExecByTray')) && 
+                         command.command.includes('$$') && !command.command.includes('WithBackup')) {
+                    const parts = command.command.split('$$').map(s => s.trim());
+                    if (parts.length > 1) {
+                        const trayRangeDef = trayCategory.commands.tray_range;
+                        if (trayRangeDef) {
+                            return { commandId: 'tray_range', ...trayRangeDef };
+                        }
+                    }
+                }
+                // Check for single TrayExecByTrayWithBackup
+                else if (command.command.includes('TrayExecByTrayWithBackup')) {
                     const trayWithBackupDef = trayCategory.commands.tray_with_backup;
                     if (trayWithBackupDef) {
                         return { commandId: 'tray_with_backup', ...trayWithBackupDef };

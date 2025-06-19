@@ -1454,6 +1454,58 @@ body {
   border-color: var(--primary);
 }
 
+.tray-config-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--surface-light);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.tray-config-section h4 {
+  margin: 0 0 1rem 0;
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.tray-config-section .form-group {
+  margin-bottom: 1rem;
+}
+
+.tray-config-section .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.tray-config-section select {
+  width: 100%;
+}
+
+/* Tray range preview */
+.tray-range-preview {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: var(--surface-dark);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-dark);
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.tray-range-preview .range-info {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.tray-range-preview .command-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .command-help {
   margin-top: 1rem;
   padding: 1rem;

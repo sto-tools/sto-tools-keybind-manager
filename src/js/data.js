@@ -147,7 +147,7 @@ const STO_DATA = {
             description: "Execute abilities from action trays",
             commands: {
                 custom_tray: {
-                    name: "Custom Tray Execution",
+                    name: "Tray Execution",
                     command: "+STOTrayExecByTray 0 0",
                     description: "Execute specific tray slot",
                     syntax: "+STOTrayExecByTray <tray> <slot>",
@@ -171,6 +171,65 @@ const STO_DATA = {
                         slot: { type: "number", min: 0, max: 9, default: 0 },
                         backup_tray: { type: "number", min: 0, max: 9, default: 0 },
                         backup_slot: { type: "number", min: 0, max: 9, default: 0 }
+                    }
+                },
+                tray_range: {
+                    name: "Tray Range Execution",
+                    command: "+STOTrayExecByTray 0 0",
+                    description: "Execute a range of tray slots",
+                    syntax: "+STOTrayExecByTray <tray> <slot> $$ ... (range)",
+                    icon: "⚡",
+                    customizable: true,
+                    parameters: {
+                        start_tray: { type: "number", min: 0, max: 9, default: 0 },
+                        start_slot: { type: "number", min: 0, max: 9, default: 0 },
+                        end_tray: { type: "number", min: 0, max: 9, default: 0 },
+                        end_slot: { type: "number", min: 0, max: 9, default: 0 },
+                        command_type: { type: "select", options: ["STOTrayExecByTray", "TrayExecByTray"], default: "STOTrayExecByTray" }
+                    }
+                },
+                tray_range_with_backup: {
+                    name: "Tray Range with Backup",
+                    command: "TrayExecByTrayWithBackup 1 0 0 0 0",
+                    description: "Execute a range of tray slots with backup abilities",
+                    syntax: "TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot> $$ ... (range)",
+                    icon: "⚡",
+                    customizable: true,
+                    parameters: {
+                        active: { type: "number", min: 0, max: 1, default: 1 },
+                        start_tray: { type: "number", min: 0, max: 9, default: 0 },
+                        start_slot: { type: "number", min: 0, max: 9, default: 0 },
+                        end_tray: { type: "number", min: 0, max: 9, default: 0 },
+                        end_slot: { type: "number", min: 0, max: 9, default: 0 },
+                        backup_start_tray: { type: "number", min: 0, max: 9, default: 0 },
+                        backup_start_slot: { type: "number", min: 0, max: 9, default: 0 },
+                        backup_end_tray: { type: "number", min: 0, max: 9, default: 0 },
+                        backup_end_slot: { type: "number", min: 0, max: 9, default: 0 }
+                    }
+                },
+                whole_tray: {
+                    name: "Whole Tray Execution",
+                    command: "+STOTrayExecByTray 0 0",
+                    description: "Execute all slots in a tray",
+                    syntax: "+STOTrayExecByTray <tray> <slot> $$ ... (all slots)",
+                    icon: "⚡",
+                    customizable: true,
+                    parameters: {
+                        tray: { type: "number", min: 0, max: 9, default: 0 },
+                        command_type: { type: "select", options: ["STOTrayExecByTray", "TrayExecByTray"], default: "STOTrayExecByTray" }
+                    }
+                },
+                whole_tray_with_backup: {
+                    name: "Whole Tray with Backup",
+                    command: "TrayExecByTrayWithBackup 1 0 0 0 0",
+                    description: "Execute all slots in a tray with backup tray",
+                    syntax: "TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot> $$ ... (all slots)",
+                    icon: "⚡",
+                    customizable: true,
+                    parameters: {
+                        active: { type: "number", min: 0, max: 1, default: 1 },
+                        tray: { type: "number", min: 0, max: 9, default: 0 },
+                        backup_tray: { type: "number", min: 0, max: 9, default: 0 }
                     }
                 }
             }

@@ -161,6 +161,193 @@ describe('STOCommandManager', () => {
         expect(result.command).toBe('+STOTrayExecByTray 0 0')
         expect(result.text).toBe('Execute Tray 1 Slot 1')
       })
+
+      it('should build tray range execution command', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('tray_range', {
+          start_tray: 0,
+          start_slot: 0,
+          end_tray: 0,
+          end_slot: 2,
+          command_type: 'STOTrayExecByTray'
+        })
+        
+        expect(Array.isArray(result)).toBe(true)
+        expect(result).toHaveLength(3)
+        
+        // First command should have full metadata
+        expect(result[0].type).toBe('tray')
+        expect(result[0].icon).toBe('⚡')
+        expect(result[0].text).toBe('Execute Range: Tray 1 Slot 1 to Tray 1 Slot 3')
+        expect(result[0].command).toBe('+STOTrayExecByTray 0 0')
+        expect(result[0].parameters).toEqual({
+          start_tray: 0,
+          start_slot: 0,
+          end_tray: 0,
+          end_slot: 2,
+          command_type: 'STOTrayExecByTray'
+        })
+        
+        // Subsequent commands should have minimal metadata
+        expect(result[1].command).toBe('+STOTrayExecByTray 0 1')
+        expect(result[2].command).toBe('+STOTrayExecByTray 0 2')
+      })
+
+      it('should build tray range across multiple trays', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('tray_range', {
+          start_tray: 0,
+          start_slot: 8,
+          end_tray: 1,
+          end_slot: 1,
+          command_type: 'STOTrayExecByTray'
+        })
+        
+        expect(Array.isArray(result)).toBe(true)
+        expect(result).toHaveLength(4)
+        expect(result[0].command).toBe('+STOTrayExecByTray 0 8')
+        expect(result[1].command).toBe('+STOTrayExecByTray 0 9')
+        expect(result[2].command).toBe('+STOTrayExecByTray 1 0')
+        expect(result[3].command).toBe('+STOTrayExecByTray 1 1')
+      })
+
+      it('should build tray range with TrayExecByTray variant', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('tray_range', {
+          start_tray: 0,
+          start_slot: 0,
+          end_tray: 0,
+          end_slot: 1,
+          command_type: 'TrayExecByTray'
+        })
+        
+        expect(Array.isArray(result)).toBe(true)
+        expect(result).toHaveLength(2)
+        expect(result[0].command).toBe('TrayExecByTray 0 0')
+        expect(result[1].command).toBe('TrayExecByTray 0 1')
+      })
+
+      it('should build whole tray execution command', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('whole_tray', {
+          tray: 2,
+          command_type: 'STOTrayExecByTray'
+        })
+        
+        expect(Array.isArray(result)).toBe(true)
+        expect(result).toHaveLength(10)
+        expect(result[0].type).toBe('tray')
+        expect(result[0].icon).toBe('⚡')
+        expect(result[0].text).toBe('Execute Whole Tray 3')
+        expect(result[0].command).toBe('+STOTrayExecByTray 2 0')
+        expect(result[9].command).toBe('+STOTrayExecByTray 2 9')
+      })
+
+      it('should build tray range with backup command', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('tray_range_with_backup', {
+          active: 1,
+          start_tray: 0,
+          start_slot: 0,
+          end_tray: 0,
+          end_slot: 1,
+          backup_start_tray: 1,
+          backup_start_slot: 0,
+          backup_end_tray: 1,
+          backup_end_slot: 1
+        })
+        
+        expect(Array.isArray(result)).toBe(true)
+        expect(result).toHaveLength(2)
+        expect(result[0].type).toBe('tray')
+        expect(result[0].icon).toBe('⚡')
+        expect(result[0].text).toBe('Execute Range with Backup: Tray 1-1')
+        expect(result[0].command).toBe('TrayExecByTrayWithBackup 1 0 0 1 0')
+        expect(result[1].command).toBe('TrayExecByTrayWithBackup 1 0 1 1 1')
+      })
+
+      it('should build whole tray with backup command', () => {
+        const builder = commandManager.commandBuilders.get('tray')
+        const result = builder.build('whole_tray_with_backup', {
+          active: 1,
+          tray: 0,
+          backup_tray: 1
+        })
+        
+        expect(Array.isArray(result)).toBe(true)
+        expect(result).toHaveLength(10)
+        expect(result[0].type).toBe('tray')
+        expect(result[0].icon).toBe('⚡')
+        expect(result[0].text).toBe('Execute Whole Tray 1 (with backup Tray 2)')
+        expect(result[0].command).toBe('TrayExecByTrayWithBackup 1 0 0 1 0')
+        expect(result[9].command).toBe('TrayExecByTrayWithBackup 1 0 9 1 9')
+      })
+    })
+
+    describe('tray range helper methods', () => {
+      it('should generate correct tray range commands for same tray', () => {
+        const commands = commandManager.generateTrayRangeCommands(0, 0, 0, 2, 'STOTrayExecByTray')
+        
+        expect(commands).toEqual([
+          '+STOTrayExecByTray 0 0',
+          '+STOTrayExecByTray 0 1',
+          '+STOTrayExecByTray 0 2'
+        ])
+      })
+
+      it('should generate correct tray range commands across multiple trays', () => {
+        const commands = commandManager.generateTrayRangeCommands(0, 8, 1, 1, 'STOTrayExecByTray')
+        
+        expect(commands).toHaveLength(4) // slots 8,9 from tray 0 + slots 0,1 from tray 1
+        expect(commands[0]).toBe('+STOTrayExecByTray 0 8')
+        expect(commands[1]).toBe('+STOTrayExecByTray 0 9')
+        expect(commands[2]).toBe('+STOTrayExecByTray 1 0')
+        expect(commands[3]).toBe('+STOTrayExecByTray 1 1')
+      })
+
+      it('should generate whole tray commands', () => {
+        const commands = commandManager.generateWholeTrayCommands(1, 'TrayExecByTray')
+        
+        expect(commands).toHaveLength(10)
+        expect(commands[0]).toBe('TrayExecByTray 1 0')
+        expect(commands[9]).toBe('TrayExecByTray 1 9')
+      })
+
+      it('should generate tray slot list correctly', () => {
+        const slots = commandManager.generateTraySlotList(0, 1, 0, 3)
+        
+        expect(slots).toEqual([
+          { tray: 0, slot: 1 },
+          { tray: 0, slot: 2 },
+          { tray: 0, slot: 3 }
+        ])
+      })
+
+      it('should generate tray slot list across multiple trays', () => {
+        const slots = commandManager.generateTraySlotList(0, 9, 1, 0)
+        
+        expect(slots).toEqual([
+          { tray: 0, slot: 9 },
+          { tray: 1, slot: 0 }
+        ])
+      })
+
+      it('should generate tray range with backup commands', () => {
+        const commands = commandManager.generateTrayRangeWithBackupCommands(1, 0, 0, 0, 1, 1, 0, 1, 1)
+        
+        expect(commands).toHaveLength(2)
+        expect(commands[0]).toBe('TrayExecByTrayWithBackup 1 0 0 1 0')
+        expect(commands[1]).toBe('TrayExecByTrayWithBackup 1 0 1 1 1')
+      })
+
+      it('should generate whole tray with backup commands', () => {
+        const commands = commandManager.generateWholeTrayWithBackupCommands(1, 0, 1)
+        
+        expect(commands).toHaveLength(10)
+        expect(commands[0]).toBe('TrayExecByTrayWithBackup 1 0 0 1 0')
+        expect(commands[5]).toBe('TrayExecByTrayWithBackup 1 0 5 1 5')
+        expect(commands[9]).toBe('TrayExecByTrayWithBackup 1 0 9 1 9')
+      })
     })
 
     describe('power management commands', () => {
@@ -713,4 +900,4 @@ describe('STOCommandManager', () => {
       }
     });
   });
-}) 
+})

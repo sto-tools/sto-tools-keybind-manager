@@ -71,6 +71,93 @@ class STOCommandManager {
                     };
                 }
                 
+                // Handle tray range commands
+                if (commandId === 'tray_range') {
+                    const startTray = params.start_tray || 0;
+                    const startSlot = params.start_slot || 0;
+                    const endTray = params.end_tray || 0;
+                    const endSlot = params.end_slot || 0;
+                    const commandType = params.command_type || 'STOTrayExecByTray';
+                    
+                    const commands = this.generateTrayRangeCommands(startTray, startSlot, endTray, endSlot, commandType);
+                    
+                    // Return an array of individual command objects instead of a single command with $$
+                    return commands.map((cmd, index) => ({
+                        command: cmd,
+                        type: 'tray',
+                        icon: '⚡',
+                        text: index === 0 ? `Execute Range: Tray ${startTray + 1} Slot ${startSlot + 1} to Tray ${endTray + 1} Slot ${endSlot + 1}` : cmd,
+                        description: index === 0 ? `Execute abilities from tray ${startTray + 1} slot ${startSlot + 1} to tray ${endTray + 1} slot ${endSlot + 1}` : cmd,
+                        parameters: index === 0 ? { start_tray: startTray, start_slot: startSlot, end_tray: endTray, end_slot: endSlot, command_type: commandType } : undefined
+                    }));
+                }
+                
+                // Handle tray range with backup commands
+                if (commandId === 'tray_range_with_backup') {
+                    const active = params.active || 1;
+                    const startTray = params.start_tray || 0;
+                    const startSlot = params.start_slot || 0;
+                    const endTray = params.end_tray || 0;
+                    const endSlot = params.end_slot || 0;
+                    const backupStartTray = params.backup_start_tray || 0;
+                    const backupStartSlot = params.backup_start_slot || 0;
+                    const backupEndTray = params.backup_end_tray || 0;
+                    const backupEndSlot = params.backup_end_slot || 0;
+                    
+                    const commands = this.generateTrayRangeWithBackupCommands(
+                        active, startTray, startSlot, endTray, endSlot,
+                        backupStartTray, backupStartSlot, backupEndTray, backupEndSlot
+                    );
+                    
+                    // Return an array of individual command objects instead of a single command with $$
+                    return commands.map((cmd, index) => ({
+                        command: cmd,
+                        type: 'tray',
+                        icon: '⚡',
+                        text: index === 0 ? `Execute Range with Backup: Tray ${startTray + 1}-${endTray + 1}` : cmd,
+                        description: index === 0 ? `Execute abilities from tray ${startTray + 1} to ${endTray + 1} with backup range` : cmd,
+                        parameters: index === 0 ? { 
+                            active, start_tray: startTray, start_slot: startSlot, end_tray: endTray, end_slot: endSlot,
+                            backup_start_tray: backupStartTray, backup_start_slot: backupStartSlot,
+                            backup_end_tray: backupEndTray, backup_end_slot: backupEndSlot
+                        } : undefined
+                    }));
+                }
+                
+                // Handle whole tray commands
+                if (commandId === 'whole_tray') {
+                    const commandType = params.command_type || 'STOTrayExecByTray';
+                    const commands = this.generateWholeTrayCommands(tray, commandType);
+                    
+                    // Return an array of individual command objects instead of a single command with $$
+                    return commands.map((cmd, index) => ({
+                        command: cmd,
+                        type: 'tray',
+                        icon: '⚡',
+                        text: index === 0 ? `Execute Whole Tray ${tray + 1}` : cmd,
+                        description: index === 0 ? `Execute all abilities in tray ${tray + 1}` : cmd,
+                        parameters: index === 0 ? { tray, command_type: commandType } : undefined
+                    }));
+                }
+                
+                // Handle whole tray with backup commands
+                if (commandId === 'whole_tray_with_backup') {
+                    const active = params.active || 1;
+                    const backupTray = params.backup_tray || 0;
+                    
+                    const commands = this.generateWholeTrayWithBackupCommands(active, tray, backupTray);
+                    
+                    // Return an array of individual command objects instead of a single command with $$
+                    return commands.map((cmd, index) => ({
+                        command: cmd,
+                        type: 'tray',
+                        icon: '⚡',
+                        text: index === 0 ? `Execute Whole Tray ${tray + 1} (with backup Tray ${backupTray + 1})` : cmd,
+                        description: index === 0 ? `Execute all abilities in tray ${tray + 1} with backup from tray ${backupTray + 1}` : cmd,
+                        parameters: index === 0 ? { active, tray, backup_tray: backupTray } : undefined
+                    }));
+                }
+                
                 // Regular tray command
                 return {
                     command: `+STOTrayExecByTray ${tray} ${slot}`,
@@ -283,24 +370,163 @@ class STOCommandManager {
     createTrayUI() {
         return `
             <div class="tray-builder">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="trayNumber">Tray Number:</label>
-                        <select id="trayNumber">
-                            ${Array.from({length: 10}, (_, i) => 
-                                `<option value="${i}">Tray ${i + 1}</option>`
-                            ).join('')}
-                        </select>
+                <div class="form-group">
+                    <label for="trayCommandType">Command Type:</label>
+                    <select id="trayCommandType">
+                        <option value="custom_tray">Single Tray Slot</option>
+                        <option value="tray_with_backup">Single Tray with Backup</option>
+                        <option value="tray_range">Tray Range</option>
+                        <option value="tray_range_with_backup">Tray Range with Backup</option>
+                        <option value="whole_tray">Whole Tray</option>
+                        <option value="whole_tray_with_backup">Whole Tray with Backup</option>
+                    </select>
+                </div>
+                
+                <!-- Single Tray Configuration -->
+                <div id="singleTrayConfig" class="tray-config-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="trayNumber">Tray Number:</label>
+                            <select id="trayNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="slotNumber">Slot Number:</label>
+                            <select id="slotNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Backup Configuration -->
+                <div id="backupConfig" class="tray-config-section" style="display: none;">
+                    <h4>Backup Configuration</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="backupTrayNumber">Backup Tray:</label>
+                            <select id="backupTrayNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="backupSlotNumber">Backup Slot:</label>
+                            <select id="backupSlotNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="slotNumber">Slot Number:</label>
-                        <select id="slotNumber">
-                            ${Array.from({length: 10}, (_, i) => 
-                                `<option value="${i}">Slot ${i + 1}</option>`
-                            ).join('')}
+                        <label for="activeState">Active State:</label>
+                        <select id="activeState">
+                            <option value="1">Active (1)</option>
+                            <option value="0">Inactive (0)</option>
                         </select>
                     </div>
                 </div>
+                
+                <!-- Range Configuration -->
+                <div id="rangeConfig" class="tray-config-section" style="display: none;">
+                    <h4>Range Configuration</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="startTrayNumber">Start Tray:</label>
+                            <select id="startTrayNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="startSlotNumber">Start Slot:</label>
+                            <select id="startSlotNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="endTrayNumber">End Tray:</label>
+                            <select id="endTrayNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="endSlotNumber">End Slot:</label>
+                            <select id="endSlotNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Backup Range Configuration -->
+                <div id="backupRangeConfig" class="tray-config-section" style="display: none;">
+                    <h4>Backup Range Configuration</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="backupStartTrayNumber">Backup Start Tray:</label>
+                            <select id="backupStartTrayNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="backupStartSlotNumber">Backup Start Slot:</label>
+                            <select id="backupStartSlotNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="backupEndTrayNumber">Backup End Tray:</label>
+                            <select id="backupEndTrayNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="backupEndSlotNumber">Backup End Slot:</label>
+                            <select id="backupEndSlotNumber">
+                                ${Array.from({length: 10}, (_, i) => 
+                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Command Type Selection -->
+                <div id="commandTypeConfig" class="tray-config-section" style="display: none;">
+                    <div class="form-group">
+                        <label for="trayCommandVariant">Command Variant:</label>
+                        <select id="trayCommandVariant">
+                            <option value="STOTrayExecByTray">STOTrayExecByTray (shows key binding on UI)</option>
+                            <option value="TrayExecByTray">TrayExecByTray (no UI indication)</option>
+                        </select>
+                    </div>
+                </div>
+                
                 <div class="tray-visual" id="trayVisual">
                     <!-- Visual tray representation will be generated here -->
                 </div>
@@ -617,6 +843,36 @@ class STOCommandManager {
     setupTypeSpecificListeners(type) {
         if (type === 'tray') {
             this.updateTrayVisual();
+            
+            // Add listener for tray command type selection
+            const trayCommandType = document.getElementById('trayCommandType');
+            if (trayCommandType) {
+                trayCommandType.addEventListener('change', () => {
+                    this.updateTrayConfigSections(trayCommandType.value);
+                    this.updateCommandPreview();
+                });
+                
+                // Initialize with default selection
+                this.updateTrayConfigSections(trayCommandType.value);
+            }
+            
+            // Add listeners for all tray configuration inputs
+            const inputs = [
+                'trayNumber', 'slotNumber', 'backupTrayNumber', 'backupSlotNumber', 'activeState',
+                'startTrayNumber', 'startSlotNumber', 'endTrayNumber', 'endSlotNumber',
+                'backupStartTrayNumber', 'backupStartSlotNumber', 'backupEndTrayNumber', 'backupEndSlotNumber',
+                'trayCommandVariant'
+            ];
+            
+            inputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('change', () => {
+                        this.updateTrayVisual();
+                        this.updateCommandPreview();
+                    });
+                }
+            });
         } else if (type === 'power') {
             // Add power command change listener for warnings
             const powerSelect = document.getElementById('powerCommand');
@@ -655,6 +911,55 @@ class STOCommandManager {
                     }
                 });
             }
+        }
+    }
+
+    // Update tray configuration sections based on selected command type
+    updateTrayConfigSections(commandType) {
+        const sections = {
+            singleTrayConfig: document.getElementById('singleTrayConfig'),
+            backupConfig: document.getElementById('backupConfig'),
+            rangeConfig: document.getElementById('rangeConfig'),
+            backupRangeConfig: document.getElementById('backupRangeConfig'),
+            commandTypeConfig: document.getElementById('commandTypeConfig')
+        };
+        
+        // Hide all sections first
+        Object.values(sections).forEach(section => {
+            if (section) section.style.display = 'none';
+        });
+        
+        // Show relevant sections based on command type
+        switch (commandType) {
+            case 'custom_tray':
+                if (sections.singleTrayConfig) sections.singleTrayConfig.style.display = 'block';
+                break;
+                
+            case 'tray_with_backup':
+                if (sections.singleTrayConfig) sections.singleTrayConfig.style.display = 'block';
+                if (sections.backupConfig) sections.backupConfig.style.display = 'block';
+                break;
+                
+            case 'tray_range':
+                if (sections.rangeConfig) sections.rangeConfig.style.display = 'block';
+                if (sections.commandTypeConfig) sections.commandTypeConfig.style.display = 'block';
+                break;
+                
+            case 'tray_range_with_backup':
+                if (sections.rangeConfig) sections.rangeConfig.style.display = 'block';
+                if (sections.backupRangeConfig) sections.backupRangeConfig.style.display = 'block';
+                if (sections.backupConfig) sections.backupConfig.style.display = 'block';
+                break;
+                
+            case 'whole_tray':
+                if (sections.singleTrayConfig) sections.singleTrayConfig.style.display = 'block';
+                if (sections.commandTypeConfig) sections.commandTypeConfig.style.display = 'block';
+                break;
+                
+            case 'whole_tray_with_backup':
+                if (sections.singleTrayConfig) sections.singleTrayConfig.style.display = 'block';
+                if (sections.backupConfig) sections.backupConfig.style.display = 'block';
+                break;
         }
     }
 
@@ -722,13 +1027,28 @@ class STOCommandManager {
     // Update command preview in modal
     updateCommandPreview() {
         const preview = document.getElementById('modalCommandPreview');
-        if (!preview) return;
+        if (!preview) {
+            console.log('DEBUG: modalCommandPreview element not found');
+            return;
+        }
         
         const command = this.buildCurrentCommand();
+        console.log('DEBUG: buildCurrentCommand returned:', command);
+        
         if (command) {
-            preview.textContent = command.command;
+            // Handle both single commands and arrays of commands
+            if (Array.isArray(command)) {
+                console.log('DEBUG: Command is array with length:', command.length);
+                const commandStrings = command.map(cmd => cmd.command);
+                console.log('DEBUG: Command strings:', commandStrings);
+                preview.textContent = commandStrings.join(' $$ ');
+            } else {
+                console.log('DEBUG: Command is single object:', command.command);
+                preview.textContent = command.command;
+            }
             preview.className = 'command-preview valid';
         } else {
+            console.log('DEBUG: No command returned, showing default message');
             preview.textContent = 'Configure command options to see preview';
             preview.className = 'command-preview';
         }
@@ -756,11 +1076,65 @@ class STOCommandManager {
                 break;
                 
             case 'tray':
-                commandId = 'custom_tray';
-                params = {
-                    tray: parseInt(document.getElementById('trayNumber')?.value || 0),
-                    slot: parseInt(document.getElementById('slotNumber')?.value || 0)
-                };
+                commandId = document.getElementById('trayCommandType')?.value || 'custom_tray';
+                
+                switch (commandId) {
+                    case 'custom_tray':
+                        params = {
+                            tray: parseInt(document.getElementById('trayNumber')?.value || 0),
+                            slot: parseInt(document.getElementById('slotNumber')?.value || 0)
+                        };
+                        break;
+                        
+                    case 'tray_with_backup':
+                        params = {
+                            tray: parseInt(document.getElementById('trayNumber')?.value || 0),
+                            slot: parseInt(document.getElementById('slotNumber')?.value || 0),
+                            backup_tray: parseInt(document.getElementById('backupTrayNumber')?.value || 0),
+                            backup_slot: parseInt(document.getElementById('backupSlotNumber')?.value || 0),
+                            active: parseInt(document.getElementById('activeState')?.value || 1)
+                        };
+                        break;
+                        
+                    case 'tray_range':
+                        params = {
+                            start_tray: parseInt(document.getElementById('startTrayNumber')?.value || 0),
+                            start_slot: parseInt(document.getElementById('startSlotNumber')?.value || 0),
+                            end_tray: parseInt(document.getElementById('endTrayNumber')?.value || 0),
+                            end_slot: parseInt(document.getElementById('endSlotNumber')?.value || 0),
+                            command_type: document.getElementById('trayCommandVariant')?.value || 'STOTrayExecByTray'
+                        };
+                        break;
+                        
+                    case 'tray_range_with_backup':
+                        params = {
+                            active: parseInt(document.getElementById('activeState')?.value || 1),
+                            start_tray: parseInt(document.getElementById('startTrayNumber')?.value || 0),
+                            start_slot: parseInt(document.getElementById('startSlotNumber')?.value || 0),
+                            end_tray: parseInt(document.getElementById('endTrayNumber')?.value || 0),
+                            end_slot: parseInt(document.getElementById('endSlotNumber')?.value || 0),
+                            backup_start_tray: parseInt(document.getElementById('backupStartTrayNumber')?.value || 0),
+                            backup_start_slot: parseInt(document.getElementById('backupStartSlotNumber')?.value || 0),
+                            backup_end_tray: parseInt(document.getElementById('backupEndTrayNumber')?.value || 0),
+                            backup_end_slot: parseInt(document.getElementById('backupEndSlotNumber')?.value || 0)
+                        };
+                        break;
+                        
+                    case 'whole_tray':
+                        params = {
+                            tray: parseInt(document.getElementById('trayNumber')?.value || 0),
+                            command_type: document.getElementById('trayCommandVariant')?.value || 'STOTrayExecByTray'
+                        };
+                        break;
+                        
+                    case 'whole_tray_with_backup':
+                        params = {
+                            active: parseInt(document.getElementById('activeState')?.value || 1),
+                            tray: parseInt(document.getElementById('trayNumber')?.value || 0),
+                            backup_tray: parseInt(document.getElementById('backupTrayNumber')?.value || 0)
+                        };
+                        break;
+                }
                 break;
                 
             case 'power':
@@ -854,6 +1228,113 @@ class STOCommandManager {
         });
     }
 
+    // Helper method to generate tray range commands
+    generateTrayRangeCommands(startTray, startSlot, endTray, endSlot, commandType) {
+        const commands = [];
+        const prefix = commandType === 'STOTrayExecByTray' ? '+' : '';
+        
+        // If same tray, iterate through slots
+        if (startTray === endTray) {
+            for (let slot = startSlot; slot <= endSlot; slot++) {
+                commands.push(`${prefix}${commandType} ${startTray} ${slot}`);
+            }
+        } else {
+            // Multi-tray range
+            // First tray: from startSlot to end of tray (slot 9)
+            for (let slot = startSlot; slot <= 9; slot++) {
+                commands.push(`${prefix}${commandType} ${startTray} ${slot}`);
+            }
+            
+            // Middle trays: all slots (0-9)
+            for (let tray = startTray + 1; tray < endTray; tray++) {
+                for (let slot = 0; slot <= 9; slot++) {
+                    commands.push(`${prefix}${commandType} ${tray} ${slot}`);
+                }
+            }
+            
+            // Last tray: from slot 0 to endSlot
+            if (endTray > startTray) {
+                for (let slot = 0; slot <= endSlot; slot++) {
+                    commands.push(`${prefix}${commandType} ${endTray} ${slot}`);
+                }
+            }
+        }
+        
+        return commands;
+    }
+
+    // Helper method to generate tray range with backup commands
+    generateTrayRangeWithBackupCommands(active, startTray, startSlot, endTray, endSlot, backupStartTray, backupStartSlot, backupEndTray, backupEndSlot) {
+        const commands = [];
+        const primarySlots = this.generateTraySlotList(startTray, startSlot, endTray, endSlot);
+        const backupSlots = this.generateTraySlotList(backupStartTray, backupStartSlot, backupEndTray, backupEndSlot);
+        
+        // Pair primary and backup slots
+        for (let i = 0; i < Math.max(primarySlots.length, backupSlots.length); i++) {
+            const primary = primarySlots[i] || primarySlots[primarySlots.length - 1];
+            const backup = backupSlots[i] || backupSlots[backupSlots.length - 1];
+            
+            commands.push(`TrayExecByTrayWithBackup ${active} ${primary.tray} ${primary.slot} ${backup.tray} ${backup.slot}`);
+        }
+        
+        return commands;
+    }
+
+    // Helper method to generate whole tray commands
+    generateWholeTrayCommands(tray, commandType) {
+        const commands = [];
+        const prefix = commandType === 'STOTrayExecByTray' ? '+' : '';
+        
+        for (let slot = 0; slot <= 9; slot++) {
+            commands.push(`${prefix}${commandType} ${tray} ${slot}`);
+        }
+        
+        return commands;
+    }
+
+    // Helper method to generate whole tray with backup commands
+    generateWholeTrayWithBackupCommands(active, tray, backupTray) {
+        const commands = [];
+        
+        for (let slot = 0; slot <= 9; slot++) {
+            commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${slot}`);
+        }
+        
+        return commands;
+    }
+
+    // Helper method to generate list of tray slots from range
+    generateTraySlotList(startTray, startSlot, endTray, endSlot) {
+        const slots = [];
+        
+        if (startTray === endTray) {
+            for (let slot = startSlot; slot <= endSlot; slot++) {
+                slots.push({ tray: startTray, slot });
+            }
+        } else {
+            // First tray
+            for (let slot = startSlot; slot <= 9; slot++) {
+                slots.push({ tray: startTray, slot });
+            }
+            
+            // Middle trays
+            for (let tray = startTray + 1; tray < endTray; tray++) {
+                for (let slot = 0; slot <= 9; slot++) {
+                    slots.push({ tray, slot });
+                }
+            }
+            
+            // Last tray
+            if (endTray > startTray) {
+                for (let slot = 0; slot <= endSlot; slot++) {
+                    slots.push({ tray: endTray, slot });
+                }
+            }
+        }
+        
+        return slots;
+    }
+
     // Get current command for saving
     getCurrentCommand() {
         return this.buildCurrentCommand();
@@ -861,6 +1342,18 @@ class STOCommandManager {
 
     // Validate command
     validateCommand(command) {
+        // Handle arrays of commands (for tray ranges)
+        if (Array.isArray(command)) {
+            // Validate each command in the array
+            for (let i = 0; i < command.length; i++) {
+                const validation = this.validateCommand(command[i]);
+                if (!validation.valid) {
+                    return { valid: false, error: `Command ${i + 1}: ${validation.error}` };
+                }
+            }
+            return { valid: true };
+        }
+        
         // Handle both string and object inputs
         let cmdString;
         if (typeof command === 'string') {
