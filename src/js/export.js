@@ -130,7 +130,7 @@ class STOExportManager {
             if (alias.description) {
                 content += `; ${alias.description}\n`;
             }
-            content += `alias ${name} "${alias.commands}"\n\n`;
+            content += `alias ${name} <& ${alias.commands} &>\n\n`;
         });
 
         return content;
