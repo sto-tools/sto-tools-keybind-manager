@@ -153,10 +153,12 @@ class STOFileExplorer {
             name: `${rootProfile.name} ${environment}`,
             mode: environment,
             keys: build.keys || {},
+            // carry over full keybind metadata for stabilization preview
+            keybindMetadata: rootProfile.keybindMetadata || {},
             // include build-specific aliases if present so users can see them in file (optional)
             aliases: build.aliases || {},
         };
-        return stoExport.generateSTOKeybindFile(tempProfile);
+        return stoExport.generateSTOKeybindFile(tempProfile, { environment });
     }
 
     generateAliasExport(profileId) {

@@ -924,7 +924,7 @@ describe('STOExportManager', () => {
       vi.spyOn(document.body, 'removeChild').mockImplementation(() => {})
     })
 
-    it('should generate keybind file with stabilization disabled', () => {
+    it('should generate keybind file with stabilization disabled and no per-key metadata', () => {
       const profile = {
         name: 'Test Profile',
         mode: 'space',
@@ -935,16 +935,51 @@ describe('STOExportManager', () => {
             { command: '+TrayExecByTray 9 2' }
           ]
         },
-        aliases: {}
+        aliases: {},
+        // No keybindMetadata, so no per-key stabilization
       }
       
       const options = { stabilizeExecutionOrder: false }
       const content = exportManager.generateSTOKeybindFile(profile, options)
       
-      // Should contain normal command chain
+      // Should contain normal command chain (no per-key metadata to trigger mirroring)
       expect(content).toContain('F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2"')
       
       // Should not contain stabilization header
+      expect(content).not.toContain('EXECUTION ORDER STABILIZATION: ON')
+    })
+
+    it('should respect per-key metadata even when global stabilization is disabled', () => {
+      const profile = {
+        name: 'Test Profile',
+        mode: 'space',
+        keys: {
+          F1: [
+            { command: '+TrayExecByTray 9 0' },
+            { command: '+TrayExecByTray 9 1' },
+            { command: '+TrayExecByTray 9 2' }
+          ],
+          F2: [
+            { command: 'FirePhasers' }
+          ]
+        },
+        aliases: {},
+        keybindMetadata: {
+          F1: { stabilizeExecutionOrder: true }
+          // F2 has no metadata
+        }
+      }
+      
+      const options = { stabilizeExecutionOrder: false }
+      const content = exportManager.generateSTOKeybindFile(profile, options)
+      
+      // F1 should be mirrored due to per-key metadata
+      expect(content).toContain('F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"')
+      
+      // F2 should not be mirrored (no metadata)
+      expect(content).toContain('F2 "FirePhasers"')
+      
+      // Should not contain global stabilization header
       expect(content).not.toContain('EXECUTION ORDER STABILIZATION: ON')
     })
 

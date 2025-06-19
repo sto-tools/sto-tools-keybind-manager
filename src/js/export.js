@@ -62,7 +62,16 @@ class STOExportManager {
         content += this.generateFileHeader(profile);
         
         // Export keybinds only (aliases are exported separately)
-        content += this.generateKeybindSection(profile.keys, options);
+        // Pass the profile and environment (if available) to the keybind section for per-key metadata access
+        content += this.generateKeybindSection(
+            profile.keys,
+            {
+                ...options,
+                profile,
+                // Support both explicit environment option or fallback to profile.mode/current environment string
+                environment: options.environment || profile.mode || 'space'
+            }
+        );
         
         // Footer with usage instructions
         content += this.generateFileFooter();
@@ -180,7 +189,28 @@ class STOExportManager {
                 const commands = keys[key];
                 if (commands && commands.length > 0) {
                     let commandString;
-                    if (options.stabilizeExecutionOrder && commands.length > 1) {
+                    
+                    // Global stabilization (legacy – kept for backward-compatibility/tests)
+                    const globalStabilize = options.stabilizeExecutionOrder;
+
+                    // Environment-scoped per-key stabilization
+                    let perKeyStabilize = false;
+
+                    if (options.profile && options.profile.keybindMetadata) {
+                        if (options.environment && options.profile.keybindMetadata[options.environment]) {
+                            // New structure: keybindMetadata -> environment -> key
+                            const envMeta = options.profile.keybindMetadata[options.environment];
+                            perKeyStabilize = !!(envMeta && envMeta[key] && envMeta[key].stabilizeExecutionOrder);
+                        } else {
+                            // Legacy flat structure (no environment nesting)
+                            perKeyStabilize = !!(options.profile.keybindMetadata[key] && 
+                                                 options.profile.keybindMetadata[key].stabilizeExecutionOrder);
+                        }
+                    }
+
+                    const shouldStabilize = globalStabilize || perKeyStabilize;
+                    
+                    if (shouldStabilize && commands.length > 1) {
                         // Use mirroring for stabilized execution order
                         commandString = stoKeybinds ? stoKeybinds.generateMirroredCommandString(commands) 
                                                     : commands.map(cmd => cmd.command).join(' $$ ');
@@ -516,8 +546,6 @@ class STOExportManager {
 
         stoUI.copyToClipboard(preview.textContent);
     }
-
-
 
     // Utility Methods
     generateFileName(profile, extension) {

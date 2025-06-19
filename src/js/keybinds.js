@@ -313,11 +313,15 @@ class STOKeybindFileManager {
                 if (mirrorInfo.isMirrored) {
                     // Store original commands with stabilization flag
                     buildKeys[key] = this.parseCommandString(mirrorInfo.originalCommands.join(' $$ '));
-                    // Store metadata about stabilization at profile level
+                    // Store metadata about stabilization at profile level (scoped by environment)
+                    const env = app.currentEnvironment;
                     if (!actualProfile.keybindMetadata) {
                         actualProfile.keybindMetadata = {};
                     }
-                    actualProfile.keybindMetadata[key] = {
+                    if (!actualProfile.keybindMetadata[env]) {
+                        actualProfile.keybindMetadata[env] = {};
+                    }
+                    actualProfile.keybindMetadata[env][key] = {
                         stabilizeExecutionOrder: true
                     };
                 } else {
@@ -436,9 +440,16 @@ class STOKeybindFileManager {
                 let commandString;
                 
                 // Check if this key should use stabilized execution order
-                const shouldStabilize = profile.keybindMetadata && 
-                                      profile.keybindMetadata[key] && 
-                                      profile.keybindMetadata[key].stabilizeExecutionOrder;
+                let shouldStabilize = false;
+                if (profile.keybindMetadata) {
+                    const env = profile.mode || 'space';
+                    if (profile.keybindMetadata[env] && profile.keybindMetadata[env][key]) {
+                        shouldStabilize = !!profile.keybindMetadata[env][key].stabilizeExecutionOrder;
+                    } else if (profile.keybindMetadata[key]) {
+                        // Legacy flat structure
+                        shouldStabilize = !!profile.keybindMetadata[key].stabilizeExecutionOrder;
+                    }
+                }
                 
                 if (shouldStabilize && commands.length > 1) {
                     commandString = this.generateMirroredCommandString(commands);

@@ -287,11 +287,20 @@ class STOToolsKeybindManager {
     selectKey(keyName) {
         this.selectedKey = keyName;
         
-        // Update stabilize checkbox based on keybind metadata
+        // Update stabilize checkbox based on keybind metadata (environment-scoped)
         const profile = this.getCurrentProfile();
         const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder');
-        if (stabilizeCheckbox && profile && profile.keybindMetadata && profile.keybindMetadata[keyName]) {
-            stabilizeCheckbox.checked = profile.keybindMetadata[keyName].stabilizeExecutionOrder || false;
+        if (stabilizeCheckbox && profile && profile.keybindMetadata) {
+            let flag = false;
+            if (profile.keybindMetadata[this.currentEnvironment]) {
+                const envMeta = profile.keybindMetadata[this.currentEnvironment];
+                flag = !!(envMeta[keyName] && envMeta[keyName].stabilizeExecutionOrder);
+            }
+            // Legacy fallback (flat structure)
+            if (!flag && profile.keybindMetadata[keyName]) {
+                flag = !!profile.keybindMetadata[keyName].stabilizeExecutionOrder;
+            }
+            stabilizeCheckbox.checked = flag;
         } else if (stabilizeCheckbox) {
             stabilizeCheckbox.checked = false;
         }
@@ -1334,18 +1343,24 @@ class STOToolsKeybindManager {
         
         // Stabilization checkbox
         document.getElementById('stabilizeExecutionOrder')?.addEventListener('change', (e) => {
-            // Save stabilization state to metadata
+            // Persist stabilization flag to stored profile (environment-scoped)
             if (this.selectedKey) {
-                const profile = this.getCurrentProfile();
-                if (profile) {
-                    if (!profile.keybindMetadata) {
-                        profile.keybindMetadata = {};
+                const env = this.currentEnvironment;
+                const storedProfile = stoStorage.getProfile(this.currentProfile);
+                if (storedProfile) {
+                    if (!storedProfile.keybindMetadata) {
+                        storedProfile.keybindMetadata = {};
                     }
-                    if (!profile.keybindMetadata[this.selectedKey]) {
-                        profile.keybindMetadata[this.selectedKey] = {};
+                    if (!storedProfile.keybindMetadata[env]) {
+                        storedProfile.keybindMetadata[env] = {};
                     }
-                    profile.keybindMetadata[this.selectedKey].stabilizeExecutionOrder = e.target.checked;
-                    this.saveProfile();
+                    if (!storedProfile.keybindMetadata[env][this.selectedKey]) {
+                        storedProfile.keybindMetadata[env][this.selectedKey] = {};
+                    }
+                    storedProfile.keybindMetadata[env][this.selectedKey].stabilizeExecutionOrder = e.target.checked;
+
+                    // Save immediately and mark modified
+                    stoStorage.saveProfile(this.currentProfile, storedProfile);
                     this.setModified(true);
                 }
             }
@@ -1609,29 +1624,23 @@ class STOToolsKeybindManager {
     exportKeybinds() {
         const profile = this.getCurrentProfile();
         if (!profile) return;
-        
-        // Check if stabilization is enabled
-        const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder');
-        const stabilizeExecutionOrder = stabilizeCheckbox && stabilizeCheckbox.checked;
-        
-        // Use the export manager with stabilization options
-        const options = { stabilizeExecutionOrder };
-        const content = stoExport.generateSTOKeybindFile(profile, options);
-        
+
+        // Generate keybind file (per-key stabilization handled within export manager)
+        const content = stoExport.generateSTOKeybindFile(profile, { environment: this.currentEnvironment });
+
         // Download the file
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
+
         // Include environment in filename
         const safeName = profile.name.replace(/[^a-zA-Z0-9]/g, '_');
-        const stabilizeFlag = stabilizeExecutionOrder ? '_stabilized' : '';
-        a.download = `${safeName}_${this.currentEnvironment}${stabilizeFlag}_keybinds.txt`;
+        a.download = `${safeName}_${this.currentEnvironment}_keybinds.txt`;
         a.click();
         URL.revokeObjectURL(url);
-        
-        const stabilizeMsg = stabilizeExecutionOrder ? ' (with stabilized execution order)' : '';
-        stoUI.showToast(`${this.currentEnvironment} keybinds exported successfully${stabilizeMsg}`, 'success');
+
+        stoUI.showToast(`${this.currentEnvironment} keybinds exported successfully`, 'success');
     }
 
     isFirstTime() {
