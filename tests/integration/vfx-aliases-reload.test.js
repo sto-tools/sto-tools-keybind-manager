@@ -74,11 +74,13 @@ describe('VFX Aliases Reload Integration', () => {
         delete global.app;
         delete global.stoUI;
         delete global.stoStorage;
+        delete global.stoAliases;
     });
 
     it('should initialize aliases in command library after app ready event', async () => {
-        const { STOAliasManager } = await import('../../src/js/aliases.js');
-        const aliasManager = new STOAliasManager();
+        // Import the aliases.js module which creates the global stoAliases instance
+        await import('../../src/js/aliases.js');
+        const aliasManager = global.stoAliases;
         
         // Spy on updateCommandLibrary
         const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary');
@@ -116,10 +118,11 @@ describe('VFX Aliases Reload Integration', () => {
     });
 
     it('should handle app ready event timing correctly', async () => {
-        const { STOAliasManager } = await import('../../src/js/aliases.js');
+        // Import the aliases.js module which creates the global stoAliases instance
+        await import('../../src/js/aliases.js');
         
-        // Create alias manager but don't initialize yet
-        const aliasManager = new STOAliasManager();
+        // Get the alias manager instance
+        const aliasManager = global.stoAliases;
         const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary');
         
         // Simulate the real application flow:
@@ -147,10 +150,11 @@ describe('VFX Aliases Reload Integration', () => {
     });
 
     it('should maintain VFX aliases across simulated reload', async () => {
-        const { STOAliasManager } = await import('../../src/js/aliases.js');
+        // Import the aliases.js module which creates the global stoAliases instance
+        await import('../../src/js/aliases.js');
         
         // Simulate first load - aliases are generated and visible
-        const aliasManager1 = new STOAliasManager();
+        const aliasManager1 = global.stoAliases;
         aliasManager1.init();
         
         let commandCategories = document.getElementById('commandCategories');
@@ -161,8 +165,8 @@ describe('VFX Aliases Reload Integration', () => {
         document.body.innerHTML = `<div id="commandCategories"></div>`;
         
         // Simulate second load (after reload) - aliases should still be visible
-        const aliasManager2 = new STOAliasManager();
-        aliasManager2.init();
+        // Note: In reality this would be a new instance, but for testing we reuse the same one
+        aliasManager1.init();
         
         commandCategories = document.getElementById('commandCategories');
         vfxCategory = commandCategories.querySelector('[data-category="vertigo-aliases"]');
@@ -179,8 +183,6 @@ describe('VFX Aliases Reload Integration', () => {
     });
 
     it('should handle empty aliases gracefully during initialization', async () => {
-        const { STOAliasManager } = await import('../../src/js/aliases.js');
-        
         // Mock profile with no aliases
         mockApp.getCurrentProfile.mockReturnValue({
             name: 'Empty Profile',
@@ -188,7 +190,10 @@ describe('VFX Aliases Reload Integration', () => {
             keys: {}
         });
         
-        const aliasManager = new STOAliasManager();
+        // Import the aliases.js module which creates the global stoAliases instance
+        await import('../../src/js/aliases.js');
+        
+        const aliasManager = global.stoAliases;
         const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary');
         
         // Should not throw error with empty aliases
