@@ -238,55 +238,37 @@ describe('STOKeybindFileManager', () => {
       
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
-      expect(app.saveCurrentBuild).toHaveBeenCalled()
+      expect(stoStorage.saveProfile).toHaveBeenCalled()
     })
 
     it('should merge with existing profile data', () => {
-      const profile = {
-        keys: { F1: [{ command: 'existing' }] },
-        aliases: {},
-        name: 'Test Profile',
-        mode: 'Space'
-      }
-      global.app.getCurrentProfile.mockReturnValue(profile)
-      
       const content = 'F2 "say hello" ""'
-      keybindManager.importKeybindFile(content)
+      const result = keybindManager.importKeybindFile(content)
       
-      expect(profile.keys).toHaveProperty('F1')
-      expect(profile.keys).toHaveProperty('F2')
+      expect(result.success).toBe(true)
+      expect(result.imported.keys).toBe(1)
+      // Test that the import function succeeded
+      expect(result.imported).toHaveProperty('keys')
     })
 
     it('should handle duplicate key bindings', () => {
-      const profile = {
-        keys: { F1: [{ command: 'existing' }] },
-        aliases: {},
-        name: 'Test Profile',
-        mode: 'Space'
-      }
-      global.app.getCurrentProfile.mockReturnValue(profile)
-      
       const content = 'F1 "say new" ""'
-      keybindManager.importKeybindFile(content)
+      const result = keybindManager.importKeybindFile(content)
       
-      expect(profile.keys.F1).toHaveLength(1)
-      expect(profile.keys.F1[0].command).toBe('say new')
+      expect(result.success).toBe(true)
+      expect(result.imported.keys).toBe(1)
+      // Test that the import function succeeded
+      expect(result.imported).toHaveProperty('keys')
     })
 
     it('should preserve existing commands when merging', () => {
-      const profile = {
-        keys: { F1: [{ command: 'existing' }] },
-        aliases: {},
-        name: 'Test Profile',
-        mode: 'Space'
-      }
-      global.app.getCurrentProfile.mockReturnValue(profile)
-      
       const content = 'F2 "say hello" ""'
-      keybindManager.importKeybindFile(content)
+      const result = keybindManager.importKeybindFile(content)
       
-      expect(profile.keys.F1).toHaveLength(1)
-      expect(profile.keys.F1[0].command).toBe('existing')
+      expect(result.success).toBe(true)
+      expect(result.imported.keys).toBe(1)
+      // Test that the import function succeeded
+      expect(result.imported).toHaveProperty('keys')
     })
 
     it('should update profile modification timestamp', () => {
@@ -988,25 +970,75 @@ F2 "say world"`
   })
 
   describe('import with mirroring detection', () => {
+    let realStorage
+    let realApp
+    
     beforeEach(() => {
-      // Mock app.getCurrentProfile for import tests
-      global.app = {
-        getCurrentProfile: vi.fn().mockReturnValue({
-          keys: {},
-          keybindMetadata: {}
-        }),
+      // Create real storage instance for integration testing
+      realStorage = new (global.window.stoStorage.constructor)()
+      
+      // Create a real app implementation
+      realApp = {
         currentProfile: 'test-profile',
         currentEnvironment: 'space',
-        saveProfile: vi.fn(),
-        saveCurrentBuild: vi.fn(),
         setModified: vi.fn(),
-        renderKeyGrid: vi.fn()
+        renderKeyGrid: vi.fn(),
+        
+        getCurrentProfile() {
+          const profile = realStorage.getProfile(this.currentProfile)
+          if (!profile) return null
+          
+          // Ensure builds structure exists
+          if (!profile.builds) {
+            profile.builds = {
+              space: { keys: {} },
+              ground: { keys: {} }
+            }
+          }
+          
+          if (!profile.builds[this.currentEnvironment]) {
+            profile.builds[this.currentEnvironment] = { keys: {} }
+          }
+          
+          // Ensure the build keys object exists
+          if (!profile.builds[this.currentEnvironment].keys) {
+            profile.builds[this.currentEnvironment].keys = {}
+          }
+          
+          // Return a profile-like object with current build data
+          // IMPORTANT: keys must be a direct reference, not a copy
+          return {
+            ...profile,
+            keys: profile.builds[this.currentEnvironment].keys, // Direct reference
+            aliases: profile.aliases || {},
+            mode: this.currentEnvironment === 'space' ? 'Space' : 'Ground'
+          }
+        }
       }
+      
+      // Set up a test profile
+      const testProfile = {
+        name: 'Test Profile',
+        builds: {
+          space: { keys: {} },
+          ground: { keys: {} }
+        },
+        aliases: {},
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        currentEnvironment: 'space'
+      }
+      
+      realStorage.saveProfile('test-profile', testProfile)
+      
+      // Override global app and storage for this test
+      global.app = realApp
+      global.stoStorage = realStorage
     })
     
     afterEach(() => {
-      delete global.app
-      // Don't delete global.stoUI as it's needed globally
+      // Clean up test data
+      realStorage.deleteProfile('test-profile')
     })
 
     it('should detect and unmirror commands during import', () => {
@@ -1019,19 +1051,19 @@ F2 "FirePhasers $$ FireTorpedos $$ FirePhasers"`
       expect(result.imported.keys).toBe(2)
       
       // Check that the profile was updated with original commands
-      const profile = app.getCurrentProfile()
-      expect(profile.keys.F1).toHaveLength(3)
-      expect(profile.keys.F1[0].command).toBe('+TrayExecByTray 9 0')
-      expect(profile.keys.F1[1].command).toBe('+TrayExecByTray 9 1')
-      expect(profile.keys.F1[2].command).toBe('+TrayExecByTray 9 2')
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys.F1).toHaveLength(3)
+      expect(savedProfile.builds.space.keys.F1[0].command).toBe('+TrayExecByTray 9 0')
+      expect(savedProfile.builds.space.keys.F1[1].command).toBe('+TrayExecByTray 9 1')
+      expect(savedProfile.builds.space.keys.F1[2].command).toBe('+TrayExecByTray 9 2')
       
-      expect(profile.keys.F2).toHaveLength(2)
-      expect(profile.keys.F2[0].command).toBe('FirePhasers')
-      expect(profile.keys.F2[1].command).toBe('FireTorpedos')
+      expect(savedProfile.builds.space.keys.F2).toHaveLength(2)
+      expect(savedProfile.builds.space.keys.F2[0].command).toBe('FirePhasers')
+      expect(savedProfile.builds.space.keys.F2[1].command).toBe('FireTorpedos')
       
       // Check that stabilization metadata was set
-      expect(profile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
-      expect(profile.keybindMetadata.F2.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.F2.stabilizeExecutionOrder).toBe(true)
     })
 
     it('should not set stabilization metadata for non-mirrored commands', () => {
@@ -1043,13 +1075,13 @@ F2 "FirePhasers"`
       expect(result.success).toBe(true)
       
       // Check that commands are stored normally
-      const profile = app.getCurrentProfile()
-      expect(profile.keys.F1).toHaveLength(3)
-      expect(profile.keys.F2).toHaveLength(1)
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys.F1).toHaveLength(3)
+      expect(savedProfile.builds.space.keys.F2).toHaveLength(1)
       
       // Check that no stabilization metadata was set
-      expect(profile.keybindMetadata.F1).toBeUndefined()
-      expect(profile.keybindMetadata.F2).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.F1).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.F2).toBeUndefined()
     })
 
     it('should handle mixed mirrored and non-mirrored commands', () => {
@@ -1061,19 +1093,19 @@ F3 "SingleCommand"`
       
       expect(result.success).toBe(true)
       
-      const profile = app.getCurrentProfile()
+      const savedProfile = realStorage.getProfile('test-profile')
       
       // F1 is mirrored
-      expect(profile.keys.F1).toHaveLength(2)
-      expect(profile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.builds.space.keys.F1).toHaveLength(2)
+      expect(savedProfile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
       
       // F2 is not mirrored
-      expect(profile.keys.F2).toHaveLength(2)
-      expect(profile.keybindMetadata.F2).toBeUndefined()
+      expect(savedProfile.builds.space.keys.F2).toHaveLength(2)
+      expect(savedProfile.keybindMetadata?.F2).toBeUndefined()
       
       // F3 is single command
-      expect(profile.keys.F3).toHaveLength(1)
-      expect(profile.keybindMetadata.F3).toBeUndefined()
+      expect(savedProfile.builds.space.keys.F3).toHaveLength(1)
+      expect(savedProfile.keybindMetadata?.F3).toBeUndefined()
     })
 
     it('should handle empty command chains', () => {
@@ -1084,24 +1116,23 @@ F2 " "`
       
       expect(result.success).toBe(true)
       
-      const profile = app.getCurrentProfile()
+      const savedProfile = realStorage.getProfile('test-profile')
       // Empty strings still get parsed as command objects but with empty command strings
-      expect(profile.keys.F1).toHaveLength(1)
-      expect(profile.keys.F1[0].command).toBe('')
-      expect(profile.keys.F2).toHaveLength(1)
-      expect(profile.keys.F2[0].command).toBe('')
-      expect(profile.keybindMetadata.F1).toBeUndefined()
-      expect(profile.keybindMetadata.F2).toBeUndefined()
+      expect(savedProfile.builds.space.keys.F1).toHaveLength(1)
+      expect(savedProfile.builds.space.keys.F1[0].command).toBe('')
+      expect(savedProfile.builds.space.keys.F2).toHaveLength(1)
+      expect(savedProfile.builds.space.keys.F2[0].command).toBe('')
+      expect(savedProfile.keybindMetadata?.F1).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.F2).toBeUndefined()
     })
 
     it('should preserve existing keybindMetadata structure', () => {
       // Set up profile with existing metadata
-      app.getCurrentProfile.mockReturnValue({
-        keys: {},
-        keybindMetadata: {
-          F3: { stabilizeExecutionOrder: false }
-        }
-      })
+      const testProfile = realStorage.getProfile('test-profile')
+      testProfile.keybindMetadata = {
+        F3: { stabilizeExecutionOrder: false }
+      }
+      realStorage.saveProfile('test-profile', testProfile)
       
       const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"`
       
@@ -1109,13 +1140,13 @@ F2 " "`
       
       expect(result.success).toBe(true)
       
-      const profile = app.getCurrentProfile()
+      const savedProfile = realStorage.getProfile('test-profile')
       
       // Should preserve existing metadata
-      expect(profile.keybindMetadata.F3.stabilizeExecutionOrder).toBe(false)
+      expect(savedProfile.keybindMetadata.F3.stabilizeExecutionOrder).toBe(false)
       
       // Should add new metadata
-      expect(profile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
     })
 
     it('should handle complex mirrored patterns', () => {
@@ -1125,11 +1156,263 @@ F2 " "`
       
       expect(result.success).toBe(true)
       
-      const profile = app.getCurrentProfile()
-      expect(profile.keys.numpad0).toHaveLength(5)
-      expect(profile.keys.numpad0[0].command).toBe('+TrayExecByTray 9 0')
-      expect(profile.keys.numpad0[4].command).toBe('+TrayExecByTray 9 4')
-      expect(profile.keybindMetadata.numpad0.stabilizeExecutionOrder).toBe(true)
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys.numpad0).toHaveLength(5)
+      expect(savedProfile.builds.space.keys.numpad0[0].command).toBe('+TrayExecByTray 9 0')
+      expect(savedProfile.builds.space.keys.numpad0[4].command).toBe('+TrayExecByTray 9 4')
+      expect(savedProfile.keybindMetadata.numpad0.stabilizeExecutionOrder).toBe(true)
+    })
+
+    it('should merge with existing profile data', () => {
+      // Set up profile with existing data
+      const testProfile = realStorage.getProfile('test-profile')
+      testProfile.builds.space.keys = { F1: [{ command: 'existing' }] }
+      realStorage.saveProfile('test-profile', testProfile)
+      
+      const content = 'F2 "say hello" ""'
+      const result = keybindManager.importKeybindFile(content)
+      
+      expect(result.success).toBe(true)
+      
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys).toHaveProperty('F1')
+      expect(savedProfile.builds.space.keys).toHaveProperty('F2')
+      expect(savedProfile.builds.space.keys.F1[0].command).toBe('existing')
+      expect(savedProfile.builds.space.keys.F2[0].command).toBe('say hello')
+    })
+
+    it('should handle duplicate key bindings', () => {
+      // Set up profile with existing data
+      const testProfile = realStorage.getProfile('test-profile')
+      testProfile.builds.space.keys = { F1: [{ command: 'existing' }] }
+      realStorage.saveProfile('test-profile', testProfile)
+      
+      const content = 'F1 "say new" ""'
+      const result = keybindManager.importKeybindFile(content)
+      
+      expect(result.success).toBe(true)
+      
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys.F1).toHaveLength(1)
+      expect(savedProfile.builds.space.keys.F1[0].command).toBe('say new')
+    })
+
+    it('should preserve existing commands when merging', () => {
+      // Set up profile with existing data
+      const testProfile = realStorage.getProfile('test-profile')
+      testProfile.builds.space.keys = { F1: [{ command: 'existing' }] }
+      realStorage.saveProfile('test-profile', testProfile)
+      
+      const content = 'F2 "say hello" ""'
+      const result = keybindManager.importKeybindFile(content)
+      
+      expect(result.success).toBe(true)
+      
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys.F1).toHaveLength(1)
+      expect(savedProfile.builds.space.keys.F1[0].command).toBe('existing')
+      expect(savedProfile.builds.space.keys.F2[0].command).toBe('say hello')
+    })
+
+    it('should import aliases separately', () => {
+      const content = 'F1 "say hello"\nalias TestAlias "say test"'
+      const result = keybindManager.importAliasFile(content)
+      
+      // Should only import aliases, not keybinds
+      expect(result.success).toBe(true)
+      expect(result.imported.aliases).toBe(1)
+      expect(result.imported).not.toHaveProperty('keys')
+      
+      // Verify alias was actually saved
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.aliases).toHaveProperty('TestAlias')
+      expect(savedProfile.aliases.TestAlias.commands).toBe('say test')
+      
+      // Verify keybind was not imported
+      expect(savedProfile.builds.space.keys).not.toHaveProperty('F1')
+    })
+  })
+
+  describe('real keybind import integration', () => {
+    let realStorage
+    let realApp
+    
+    beforeEach(() => {
+      // Create real storage instance for integration testing
+      realStorage = new (global.window.stoStorage.constructor)()
+      
+      // Create a minimal real app implementation
+      realApp = {
+        currentProfile: 'test-profile',
+        currentEnvironment: 'space',
+        setModified: vi.fn(),
+        renderKeyGrid: vi.fn(),
+        renderCommandChain: vi.fn(),
+        
+        getCurrentProfile() {
+          const profile = realStorage.getProfile(this.currentProfile)
+          if (!profile) return null
+          
+          return this.getCurrentBuild(profile)
+        },
+        
+        getCurrentBuild(profile) {
+          if (!profile.builds) {
+            profile.builds = {
+              space: { keys: {} },
+              ground: { keys: {} }
+            }
+          }
+          
+          const build = profile.builds[this.currentEnvironment] || { keys: {} }
+          
+          return {
+            ...profile,
+            keys: build.keys || {},
+            mode: this.currentEnvironment === 'space' ? 'Space' : 'Ground'
+          }
+        },
+        
+        saveCurrentBuild() {
+          const profile = realStorage.getProfile(this.currentProfile)
+          const currentBuild = this.getCurrentProfile()
+          
+          if (profile && currentBuild) {
+            if (!profile.builds) {
+              profile.builds = {
+                space: { keys: {} },
+                ground: { keys: {} }
+              }
+            }
+            
+            profile.builds[this.currentEnvironment] = {
+              keys: currentBuild.keys || {}
+            }
+            
+            realStorage.saveProfile(this.currentProfile, profile)
+          }
+        },
+        
+        saveProfile() {
+          const virtualProfile = this.getCurrentProfile()
+          
+          if (!virtualProfile) {
+            return
+          }
+          
+          this.saveCurrentBuild()
+          
+          const actualProfile = realStorage.getProfile(this.currentProfile)
+          if (!actualProfile) {
+            return
+          }
+          
+          const updatedProfile = {
+            ...actualProfile,
+            name: virtualProfile.name,
+            description: virtualProfile.description || actualProfile.description,
+            aliases: virtualProfile.aliases || {},
+            keybindMetadata: virtualProfile.keybindMetadata || actualProfile.keybindMetadata,
+            created: actualProfile.created,
+            lastModified: new Date().toISOString(),
+            currentEnvironment: this.currentEnvironment
+          }
+          
+          realStorage.saveProfile(this.currentProfile, updatedProfile)
+        }
+      }
+      
+      // Set up a test profile
+      const testProfile = {
+        name: 'Test Profile',
+        builds: {
+          space: { keys: {} },
+          ground: { keys: {} }
+        },
+        aliases: {},
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        currentEnvironment: 'space'
+      }
+      
+      realStorage.saveProfile('test-profile', testProfile)
+      
+      // Override global app and storage for this test
+      global.app = realApp
+      global.stoStorage = realStorage
+    })
+    
+    afterEach(() => {
+      // Clean up test data
+      realStorage.deleteProfile('test-profile')
+    })
+    
+    it('should actually import keybinds and save them to the correct build structure', () => {
+      const content = 'F2 "say hello" ""\nF3 "emote wave" ""'
+      
+      // Verify profile starts empty
+      const initialProfile = realStorage.getProfile('test-profile')
+      expect(initialProfile.builds.space.keys).toEqual({})
+      
+      // Import keybinds
+      const result = keybindManager.importKeybindFile(content)
+      
+      // Verify import was successful
+      expect(result.success).toBe(true)
+      expect(result.imported.keys).toBe(2)
+      
+      // Verify keybinds were actually saved to storage
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys).toHaveProperty('F2')
+      expect(savedProfile.builds.space.keys).toHaveProperty('F3')
+      expect(savedProfile.builds.space.keys.F2).toHaveLength(1)
+      expect(savedProfile.builds.space.keys.F2[0].command).toBe('say hello')
+      expect(savedProfile.builds.space.keys.F3[0].command).toBe('emote wave')
+      
+      // Verify they show up in getCurrentProfile
+      const currentProfile = realApp.getCurrentProfile()
+      expect(currentProfile.keys).toHaveProperty('F2')
+      expect(currentProfile.keys).toHaveProperty('F3')
+    })
+    
+    it('should import keybinds to the correct environment', () => {
+      const content = 'F1 "ground command" ""'
+      
+      // Switch to ground environment
+      realApp.currentEnvironment = 'ground'
+      
+      // Import keybinds
+      const result = keybindManager.importKeybindFile(content)
+      expect(result.success).toBe(true)
+      
+      // Verify keybind was saved to ground build, not space
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.ground.keys).toHaveProperty('F1')
+      expect(savedProfile.builds.space.keys).not.toHaveProperty('F1')
+      
+      // Verify it shows up when in ground mode
+      const currentProfile = realApp.getCurrentProfile()
+      expect(currentProfile.keys).toHaveProperty('F1')
+      expect(currentProfile.mode).toBe('Ground')
+    })
+    
+    it('should merge with existing keybinds without overwriting', () => {
+      // Add initial keybind
+      const initialContent = 'F1 "initial command" ""'
+      keybindManager.importKeybindFile(initialContent)
+      
+      // Add more keybinds
+      const additionalContent = 'F2 "additional command" ""'
+      const result = keybindManager.importKeybindFile(additionalContent)
+      
+      expect(result.success).toBe(true)
+      
+      // Verify both keybinds exist
+      const savedProfile = realStorage.getProfile('test-profile')
+      expect(savedProfile.builds.space.keys).toHaveProperty('F1')
+      expect(savedProfile.builds.space.keys).toHaveProperty('F2')
+      expect(savedProfile.builds.space.keys.F1[0].command).toBe('initial command')
+      expect(savedProfile.builds.space.keys.F2[0].command).toBe('additional command')
     })
   })
 }) 
