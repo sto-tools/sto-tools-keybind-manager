@@ -49,6 +49,9 @@
                         </button>
                     </div>
                 </div>
+                <button class="btn btn-secondary" id="vertigoBtn" title="Vertigo VFX Manager">
+                    <i class="fas fa-eye-slash"></i> VERTIGO
+                </button>
                 <div class="dropdown">
                     <button class="btn btn-icon dropdown-toggle" id="settingsBtn" title="Settings">
                         <i class="fas fa-cog"></i>
@@ -303,6 +306,7 @@
                         <option value="camera">Camera</option>
                         <option value="communication">Communication</option>
                         <option value="system">System</option>
+                        <option value="alias">Alias</option>
                         <option value="custom">Custom Command</option>
                     </select>
                 </div>
@@ -464,6 +468,81 @@
         </div>
     </div>
 
+    <!-- Vertigo Modal -->
+    <div class="modal large-modal" id="vertigoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Vertigo VFX Manager</h3>
+                <button class="modal-close" data-modal="vertigoModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="vertigo-content">
+                    <div class="vertigo-header">
+                        <p>Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.</p>
+                        <div class="vertigo-controls">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="vertigoShowPlayerSay" />
+                                <span class="checkmark"></span>
+                                Show Player Say
+                            </label>
+                        </div>
+                    </div>
+                    <div class="vertigo-environments">
+                        <div class="vertigo-environment">
+                            <div class="environment-header">
+                                <h4><i class="fas fa-rocket"></i> Space Effects</h4>
+                                <div class="environment-controls">
+                                    <button class="btn btn-small" id="spaceSelectAll">Select All</button>
+                                    <button class="btn btn-small" id="spaceClearAll">Clear All</button>
+                                    <span class="effect-count" id="spaceEffectCount">0 selected</span>
+                                </div>
+                            </div>
+                            <div class="effects-list" id="spaceEffectsList">
+                                <!-- Space effects populated by JavaScript -->
+                            </div>
+                        </div>
+                        <div class="vertigo-environment">
+                            <div class="environment-header">
+                                <h4><i class="fas fa-user"></i> Ground Effects</h4>
+                                <div class="environment-controls">
+                                    <button class="btn btn-small" id="groundSelectAll">Select All</button>
+                                    <button class="btn btn-small" id="groundClearAll">Clear All</button>
+                                    <span class="effect-count" id="groundEffectCount">0 selected</span>
+                                </div>
+                            </div>
+                            <div class="effects-list" id="groundEffectsList">
+                                <!-- Ground effects populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="vertigo-preview">
+                        <div class="alias-preview-section">
+                            <h4>Generated Aliases:</h4>
+                            <div class="alias-preview" id="spaceAliasPreview">
+                                <label>Space Alias:</label>
+                                <div class="command-preview" id="spaceAliasCommand">
+                                    No space effects selected
+                                </div>
+                            </div>
+                            <div class="alias-preview" id="groundAliasPreview">
+                                <label>Ground Alias:</label>
+                                <div class="command-preview" id="groundAliasCommand">
+                                    No ground effects selected
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="saveVertigoBtn">Generate Aliases</button>
+                <button class="btn btn-secondary" data-modal="vertigoModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- About Modal -->
     <div class="modal" id="aboutModal">
         <div class="modal-content">
@@ -513,6 +592,7 @@
     <script src="js/constants.js"></script>
     <script src="js/version.js"></script>
     <script src="js/data.js"></script>
+    <script src="js/vertigo_data.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/commands.js"></script>

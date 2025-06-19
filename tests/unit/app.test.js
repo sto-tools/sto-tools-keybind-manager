@@ -36,17 +36,16 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           keys: {
             Space: [{ command: 'Target_Enemy_Near' }, { command: 'FireAll' }],
             F1: [{ command: 'FireAll' }]
-          },
-          aliases: {
-            TestAlias: { commands: 'say hello', description: 'Test alias' }
           }
         },
         ground: {
           keys: {
             F2: [{ command: 'GenSendMessage' }]
-          },
-          aliases: {}
+          }
         }
+      },
+      aliases: {
+        TestAlias: { commands: 'say hello', description: 'Test alias' }
       },
       created: new Date().toISOString(),
       lastModified: new Date().toISOString()
@@ -153,7 +152,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       const build = app.getCurrentBuild(profile)
       
       expect(build.keys).toEqual(testProfile.builds.space.keys)
-      expect(build.aliases).toEqual(testProfile.builds.space.aliases)
+      expect(build.aliases).toEqual(testProfile.aliases)
     })
 
     it('should migrate old profile format to new builds structure', () => {
@@ -182,8 +181,8 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         name: 'Test Profile 2',
         currentEnvironment: 'ground',
         builds: {
-          space: { keys: {}, aliases: {} },
-          ground: { keys: { F3: [{ command: 'test' }] }, aliases: {} }
+          space: { keys: {} },
+          ground: { keys: { F3: [{ command: 'test' }] } }
         }
       }
       stoStorage.saveProfile(testProfile2.id, testProfile2)
@@ -234,7 +233,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       const extraProfile = {
         id: 'extra-profile',
         name: 'Extra Profile',
-        builds: { space: { keys: {}, aliases: {} }, ground: { keys: {}, aliases: {} } }
+        builds: { space: { keys: {} }, ground: { keys: {} } }
       }
       stoStorage.saveProfile(extraProfile.id, extraProfile)
       

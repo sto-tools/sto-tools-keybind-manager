@@ -1165,8 +1165,8 @@ window.SAMPLE_PROFILES = Object.values(STO_DATA.defaultProfiles).map(profile => 
     description: profile.description,
     currentEnvironment: profile.currentEnvironment || 'space',
     builds: profile.builds || {
-        space: { keys: {}, aliases: {} },
-        ground: { keys: {}, aliases: {} }
+        space: { keys: {} },
+        ground: { keys: {} }
     },
     // Maintain backward compatibility
     mode: profile.currentEnvironment || 'space',

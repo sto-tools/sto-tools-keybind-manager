@@ -579,7 +579,7 @@ describe('App Workflow Integration', () => {
       
       // Add an alias
       const profile = app.getCurrentProfile()
-      profile.builds.space.aliases['TestExportAlias'] = [{ command: 'say "alias command"', type: 'chat' }]
+      profile.aliases['TestExportAlias'] = [{ command: 'say "alias command"', type: 'chat' }]
       app.saveCurrentProfile()
       
       // Export profile
@@ -588,7 +588,7 @@ describe('App Workflow Integration', () => {
       // Since export triggers download, we can verify the profile has exportable data
       expect(profile.builds.space.keys['F1']).toBeDefined()
       expect(profile.builds.space.keys['F2']).toHaveLength(2)
-      expect(profile.builds.space.aliases['TestExportAlias']).toBeDefined()
+      expect(profile.aliases['TestExportAlias']).toBeDefined()
     })
 
     it('should handle validation and error scenarios', async () => {

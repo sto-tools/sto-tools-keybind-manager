@@ -203,6 +203,27 @@ class STOCommandManager {
             getUI: () => this.createSystemUI()
         });
 
+        // Alias commands
+        this.commandBuilders.set('alias', {
+            build: (commandId, params = {}) => {
+                const aliasName = params.alias_name || '';
+                
+                if (!aliasName.trim()) {
+                    return null;
+                }
+                
+                return {
+                    command: aliasName,
+                    type: 'alias',
+                    icon: '📝',
+                    text: `Alias: ${aliasName}`,
+                    description: 'Execute custom alias',
+                    parameters: { alias_name: aliasName }
+                };
+            },
+            getUI: () => this.createAliasUI()
+        });
+
         // Custom commands
         this.commandBuilders.set('custom', {
             build: (commandId, params = {}) => {
@@ -416,6 +437,48 @@ class STOCommandManager {
         `;
     }
 
+    createAliasUI() {
+        // Get available aliases from current profile
+        const profile = app?.getCurrentProfile();
+        const aliases = profile?.aliases || {};
+        const aliasEntries = Object.entries(aliases);
+        
+        if (aliasEntries.length === 0) {
+            return `
+                <div class="alias-builder">
+                    <div class="empty-state">
+                        <i class="fas fa-mask"></i>
+                        <h4>No Aliases Available</h4>
+                        <p>Create aliases in the Alias Manager first.</p>
+                        <button type="button" class="btn btn-primary" id="openAliasManager">
+                            <i class="fas fa-plus"></i> Create Alias
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="alias-builder">
+                <div class="form-group">
+                    <label for="aliasSelect">Available Aliases:</label>
+                    <select id="aliasSelect">
+                        <option value="">Select an alias...</option>
+                        ${aliasEntries.map(([name, alias]) => 
+                            `<option value="${name}">${name}${alias.description ? ' - ' + alias.description : ''}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div id="aliasPreviewSection" style="display: none;">
+                    <div class="alias-info">
+                        <label>Alias Commands:</label>
+                        <div class="command-preview" id="selectedAliasPreview"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     createCustomUI() {
         return `
             <div class="custom-builder">
@@ -515,7 +578,7 @@ class STOCommandManager {
         document.addEventListener('change', (e) => {
             const commandSelectors = [
                 'targetingCommand', 'combatCommand', 'powerCommand', 
-                'movementCommand', 'cameraCommand', 'systemCommand', 'commCommand'
+                'movementCommand', 'cameraCommand', 'systemCommand', 'commCommand', 'aliasSelect'
             ];
             
             if (commandSelectors.includes(e.target.id)) {
@@ -570,6 +633,28 @@ class STOCommandManager {
                     this.showCombatWarning(combatSelect.value);
                 });
             }
+        } else if (type === 'alias') {
+            // Add alias selection listener
+            const aliasSelect = document.getElementById('aliasSelect');
+            if (aliasSelect) {
+                aliasSelect.addEventListener('change', () => {
+                    this.updateAliasPreview(aliasSelect.value);
+                    this.updateCommandPreview();
+                });
+            }
+            
+            // Add create alias button listener
+            const createBtn = document.getElementById('openAliasManager');
+            if (createBtn) {
+                createBtn.addEventListener('click', () => {
+                    if (typeof stoAliases !== 'undefined' && stoAliases.showAliasManager) {
+                        stoAliases.showAliasManager();
+                    } else {
+                        stoUI.hideModal('addCommandModal');
+                        stoUI.showModal('aliasManagerModal');
+                    }
+                });
+            }
         }
     }
 
@@ -611,6 +696,27 @@ class STOCommandManager {
         
         // Hide warning if no warning for this command
         warningDiv.style.display = 'none';
+    }
+
+    updateAliasPreview(aliasName) {
+        const previewSection = document.getElementById('aliasPreviewSection');
+        const preview = document.getElementById('selectedAliasPreview');
+        
+        if (!previewSection || !preview) return;
+        
+        if (aliasName) {
+            const profile = app?.getCurrentProfile();
+            const alias = profile?.aliases?.[aliasName];
+            
+            if (alias) {
+                preview.textContent = alias.commands;
+                previewSection.style.display = 'block';
+            } else {
+                previewSection.style.display = 'none';
+            }
+        } else {
+            previewSection.style.display = 'none';
+        }
     }
 
     // Update command preview in modal
@@ -691,6 +797,13 @@ class STOCommandManager {
                 } else if (commandId === 'combat_log') {
                     params.state = parseInt(document.getElementById('systemState')?.value || 1);
                 }
+                break;
+                
+            case 'alias':
+                commandId = 'alias';
+                params = {
+                    alias_name: document.getElementById('aliasSelect')?.value || ''
+                };
                 break;
                 
             case 'custom':

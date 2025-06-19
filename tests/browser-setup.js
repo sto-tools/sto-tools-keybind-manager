@@ -19,6 +19,26 @@ globalThis.testUtils = {
     throw new Error(`Element ${selector} not found within ${timeout}ms`)
   },
 
+  // Wait for element in modal content (more flexible visibility check)
+  waitForModalElement: async (selector, timeout = 5000) => {
+    const start = Date.now()
+    while (Date.now() - start < timeout) {
+      const element = document.querySelector(selector)
+      if (element) {
+        // For modal elements, check if the element exists and is not display:none
+        const computedStyle = window.getComputedStyle(element)
+        const parentModal = element.closest('.modal')
+        
+        // If element exists and parent modal is active, consider it found
+        if (computedStyle.display !== 'none' || (parentModal && parentModal.classList.contains('active'))) {
+          return element
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    throw new Error(`Modal element ${selector} not found within ${timeout}ms`)
+  },
+
   // Wait for element to disappear
   waitForElementToDisappear: async (selector, timeout = 5000) => {
     const start = Date.now()
@@ -123,6 +143,7 @@ async function loadApplication() {
     '/src/js/constants.js',
     '/src/js/version.js', 
     '/src/js/data.js',
+    '/src/js/vertigo_data.js',
     '/src/js/storage.js',
     '/src/js/ui.js',
     '/src/js/commands.js',

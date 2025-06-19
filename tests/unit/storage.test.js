@@ -99,8 +99,8 @@ describe('STOStorage', () => {
           test_profile: {
             name: 'Test Profile',
             builds: {
-              space: { keys: { 'a': [{ command: 'Target_Enemy_Near' }] }, aliases: {} },
-              ground: { keys: {}, aliases: {} }
+              space: { keys: { 'a': [{ command: 'Target_Enemy_Near' }] } },
+              ground: { keys: {} }
             }
           }
         },
@@ -139,7 +139,7 @@ describe('STOStorage', () => {
         profiles: {
           initial: {
             name: 'Initial Profile',
-            builds: { space: { keys: {}, aliases: {} } }
+            builds: { space: { keys: {} } }
           }
         },
         globalAliases: {}
@@ -152,7 +152,7 @@ describe('STOStorage', () => {
         profiles: {
           new_profile: {
             name: 'New Profile',
-            builds: { space: { keys: { 'x': [{ command: 'Target_Self' }] }, aliases: {} } }
+            builds: { space: { keys: { 'x': [{ command: 'Target_Self' }] } } }
           }
         },
         globalAliases: {}
@@ -178,10 +178,9 @@ describe('STOStorage', () => {
           space: { 
             keys: Object.fromEntries(
               Array.from({length: 1000}, (_, i) => [`key${i}`, [{ command: `command${i}` }]])
-            ), 
-            aliases: {} 
+            )
           },
-          ground: { keys: {}, aliases: {} }
+          ground: { keys: {} }
         }
       }
       
@@ -207,15 +206,15 @@ describe('STOStorage', () => {
           profile1: {
             name: 'Profile 1',
             builds: {
-              space: { keys: { 'a': [{ command: 'Target_Enemy_Near' }] }, aliases: {} },
-              ground: { keys: {}, aliases: {} }
+              space: { keys: { 'a': [{ command: 'Target_Enemy_Near' }] } },
+              ground: { keys: {} }
             }
           },
           profile2: {
             name: 'Profile 2',
             builds: {
-              space: { keys: {}, aliases: {} },
-              ground: { keys: { 'b': [{ command: 'FireAll' }] }, aliases: {} }
+              space: { keys: {} },
+              ground: { keys: { 'b': [{ command: 'FireAll' }] } }
             }
           }
         },
@@ -242,8 +241,8 @@ describe('STOStorage', () => {
       const newProfile = {
         name: 'Updated Profile',
         builds: {
-          space: { keys: { 'c': [{ command: 'FireAll' }] }, aliases: {} },
-          ground: { keys: {}, aliases: {} }
+          space: { keys: { 'c': [{ command: 'FireAll' }] } },
+          ground: { keys: {} }
         }
       }
       
@@ -323,7 +322,7 @@ describe('STOStorage', () => {
         profiles: {
           original: {
             name: 'Original Profile',
-            builds: { space: { keys: { 'x': [{ command: 'Target_Self' }] }, aliases: {} } }
+            builds: { space: { keys: { 'x': [{ command: 'Target_Self' }] } } }
           }
         },
         globalAliases: {}
@@ -366,8 +365,8 @@ describe('STOStorage', () => {
           export_test: {
             name: 'Export Test Profile',
             builds: {
-              space: { keys: { 'f': [{ command: 'FireAll' }] }, aliases: {} },
-              ground: { keys: {}, aliases: {} }
+              space: { keys: { 'f': [{ command: 'FireAll' }] } },
+              ground: { keys: {} }
             }
           }
         },
@@ -395,8 +394,8 @@ describe('STOStorage', () => {
           imported_profile: {
             name: 'Imported Profile',
             builds: {
-              space: { keys: { 'x': [{ command: 'Target_Enemy_Near' }] }, aliases: {} },
-              ground: { keys: {}, aliases: {} }
+              space: { keys: { 'x': [{ command: 'Target_Enemy_Near' }] } },
+              ground: { keys: {} }
             }
           }
         },
@@ -431,8 +430,8 @@ describe('STOStorage', () => {
           test: {
             name: 'Test Profile',
             builds: {
-              space: { keys: {}, aliases: {} },
-              ground: { keys: {}, aliases: {} }
+              space: { keys: {} },
+              ground: { keys: {} }
             }
           }
         },
@@ -450,8 +449,8 @@ describe('STOStorage', () => {
           new_format: {
             name: 'New Format Profile',
             builds: {
-              space: { keys: { 'a': [{ command: 'Target_Self' }] }, aliases: {} },
-              ground: { keys: {}, aliases: {} }
+              space: { keys: { 'a': [{ command: 'Target_Self' }] } },
+              ground: { keys: {} }
             }
           }
         },
@@ -500,10 +499,9 @@ describe('STOStorage', () => {
                 keys: { 
                   'a': [{ command: 'Target_Enemy_Near' }],
                   'b': [{ command: 'FireAll' }]
-                }, 
-                aliases: {} 
+                }
               },
-              ground: { keys: {}, aliases: {} }
+              ground: { keys: {} }
             }
           }
         },
@@ -528,7 +526,7 @@ describe('STOStorage', () => {
       // Add some data first
       storage.saveAllData({ 
         currentProfile: 'test',
-        profiles: { test: { name: 'Test', builds: { space: { keys: {}, aliases: {} } } } },
+        profiles: { test: { name: 'Test', builds: { space: { keys: {} } } } },
         globalAliases: {}
       })
       storage.saveSettings({ theme: 'dark' })

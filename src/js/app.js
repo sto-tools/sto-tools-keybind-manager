@@ -132,40 +132,39 @@ class STOToolsKeybindManager {
         if (!profile.builds) {
             profile.builds = {
                 space: {
-                    keys: profile.keys || {},
-                    aliases: profile.aliases || {}
+                    keys: profile.keys || {}
                 },
                 ground: {
-                    keys: {},
-                    aliases: {}
+                    keys: {}
                 }
             };
             profile.currentEnvironment = profile.mode || 'space';
             delete profile.mode; // Remove old mode property
             delete profile.keys; // Move to builds
-            delete profile.aliases; // Move to builds
+            // Keep profile.aliases at profile level - don't move to builds
             
             // Save the converted profile
             stoStorage.saveProfile(this.currentProfile, profile);
         }
         
-        // Ensure builds exist
+                // Ensure builds exist
         if (!profile.builds) {
             profile.builds = {
-                space: { keys: {}, aliases: {} },
-                ground: { keys: {}, aliases: {} }
+                space: { keys: {} },
+                ground: { keys: {} }
             };
         }
-        
+
         if (!profile.builds[this.currentEnvironment]) {
-            profile.builds[this.currentEnvironment] = { keys: {}, aliases: {} };
+            profile.builds[this.currentEnvironment] = { keys: {} };
         }
         
         // Return a profile-like object with current build data
+        // Keys are build-specific, but aliases are profile-wide
         return {
             ...profile,
             keys: profile.builds[this.currentEnvironment].keys || {},
-            aliases: profile.builds[this.currentEnvironment].aliases || {},
+            aliases: profile.aliases || {}, // Profile-level aliases, not build-specific
             mode: this.currentEnvironment // For backward compatibility
         };
     }
@@ -1273,6 +1272,11 @@ class STOToolsKeybindManager {
             this.exportKeybinds();
         });
         
+        // Vertigo VFX manager
+        document.getElementById('vertigoBtn')?.addEventListener('click', () => {
+            this.showVertigoModal();
+        });
+        
         // Key management
         document.getElementById('addKeyBtn')?.addEventListener('click', () => {
             this.showKeySelectionModal();
@@ -1395,6 +1399,20 @@ class STOToolsKeybindManager {
                 const modalId = e.target.dataset.modal || e.target.closest('button').dataset.modal;
                 if (modalId) {
                     stoUI.hideModal(modalId);
+                    
+                    // Handle Vertigo modal cancellation - rollback to initial state
+                    if (modalId === 'vertigoModal') {
+                        // Only rollback if we're not in the middle of saving
+                        if (this.vertigoInitialState && !this.vertigoSaving) {
+                            vertigoManager.selectedEffects.space = new Set(this.vertigoInitialState.selectedEffects.space);
+                            vertigoManager.selectedEffects.ground = new Set(this.vertigoInitialState.selectedEffects.ground);
+                            vertigoManager.showPlayerSay = this.vertigoInitialState.showPlayerSay;
+                        }
+                        
+                        // Clean up stored state
+                        delete this.vertigoInitialState;
+                        this.vertigoSaving = false;
+                    }
                 }
             });
         });
@@ -1454,15 +1472,15 @@ class STOToolsKeybindManager {
             // Ensure builds structure exists
             if (!profile.builds) {
                 profile.builds = {
-                    space: { keys: {}, aliases: {} },
-                    ground: { keys: {}, aliases: {} }
+                    space: { keys: {} },
+                    ground: { keys: {} }
                 };
             }
             
             // Save current build data
             profile.builds[this.currentEnvironment] = {
-                keys: currentBuild.keys || {},
-                aliases: currentBuild.aliases || {}
+                keys: currentBuild.keys || {}
+                // Note: aliases are profile-level, not build-specific
             };
             
             stoStorage.saveProfile(this.currentProfile, profile);
@@ -2462,6 +2480,357 @@ class STOToolsKeybindManager {
         
         // Trigger input event to update preview
         input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // Vertigo VFX Manager Methods
+    showVertigoModal() {
+        // Load state from root profile (not build-specific view)
+        const rootProfile = stoStorage.getProfile(this.currentProfile);
+        if (rootProfile) {
+            vertigoManager.loadState(rootProfile);
+        }
+        
+        // Store the initial state for potential rollback on cancel
+        this.vertigoInitialState = {
+            selectedEffects: {
+                space: new Set(vertigoManager.selectedEffects.space),
+                ground: new Set(vertigoManager.selectedEffects.ground)
+            },
+            showPlayerSay: vertigoManager.showPlayerSay
+        };
+        
+        this.populateVertigoModal();
+        this.setupVertigoEventListeners();
+        stoUI.showModal('vertigoModal');
+    }
+
+    populateVertigoModal() {
+        // Populate space effects
+        const spaceList = document.getElementById('spaceEffectsList');
+        if (spaceList) {
+            spaceList.innerHTML = '';
+            VERTIGO_EFFECTS.space.forEach(effect => {
+                const effectItem = this.createEffectItem('space', effect);
+                spaceList.appendChild(effectItem);
+            });
+        }
+
+        // Populate ground effects
+        const groundList = document.getElementById('groundEffectsList');
+        if (groundList) {
+            groundList.innerHTML = '';
+            VERTIGO_EFFECTS.ground.forEach(effect => {
+                const effectItem = this.createEffectItem('ground', effect);
+                groundList.appendChild(effectItem);
+            });
+        }
+
+        // Update UI state based on loaded data
+        this.updateVertigoCheckboxes('space');
+        this.updateVertigoCheckboxes('ground');
+        
+        // Update PlayerSay checkbox
+        const playerSayCheckbox = document.getElementById('vertigoShowPlayerSay');
+        if (playerSayCheckbox) {
+            playerSayCheckbox.checked = vertigoManager.showPlayerSay;
+        }
+        
+        // Update effect counts and preview
+        this.updateVertigoEffectCounts();
+        this.updateVertigoPreview();
+    }
+
+    createEffectItem(environment, effect) {
+        const item = document.createElement('div');
+        item.className = 'effect-item';
+        item.innerHTML = `
+            <input type="checkbox" id="effect_${environment}_${effect.effect.replace(/[^a-zA-Z0-9]/g, '_')}" 
+                   data-environment="${environment}" 
+                   data-effect="${effect.effect}">
+            <label for="effect_${environment}_${effect.effect.replace(/[^a-zA-Z0-9]/g, '_')}" 
+                   class="effect-label">${effect.label}</label>
+        `;
+        
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener('change', () => {
+            vertigoManager.toggleEffect(environment, effect.effect);
+            this.updateVertigoEffectCounts();
+            this.updateVertigoPreview();
+            item.classList.toggle('selected', checkbox.checked);
+            
+            // Note: Don't save immediately - only save when "Generate Aliases" is clicked
+            // This allows for proper transaction behavior with rollback on cancel
+        });
+
+        const label = item.querySelector('.effect-label');
+        label.addEventListener('click', () => {
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('change'));
+        });
+
+        return item;
+    }
+
+    setupVertigoEventListeners() {
+        // Clear existing listeners to avoid duplicates
+        const existingListeners = ['spaceSelectAll', 'spaceClearAll', 'groundSelectAll', 'groundClearAll', 'vertigoShowPlayerSay', 'saveVertigoBtn'];
+        existingListeners.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.replaceWith(element.cloneNode(true));
+            }
+        });
+
+        // Space controls
+        document.getElementById('spaceSelectAll')?.addEventListener('click', () => {
+            try {
+                vertigoManager.selectAllEffects('space');
+                this.updateVertigoCheckboxes('space');
+                this.updateVertigoEffectCounts();
+                this.updateVertigoPreview();
+                
+                // Note: Don't save immediately - only save when "Generate Aliases" is clicked
+            } catch (error) {
+                if (error instanceof InvalidEnvironmentError) {
+                    stoUI.showToast(`Error: ${error.message}`, 'error');
+                } else {
+                    stoUI.showToast('Failed to select all space effects', 'error');
+                    console.error('Error selecting all space effects:', error);
+                }
+            }
+        });
+
+        document.getElementById('spaceClearAll')?.addEventListener('click', () => {
+            vertigoManager.selectedEffects.space.clear();
+            this.updateVertigoCheckboxes('space');
+            this.updateVertigoEffectCounts();
+            this.updateVertigoPreview();
+            
+            // Note: Don't save immediately - only save when "Generate Aliases" is clicked
+        });
+
+        // Ground controls
+        document.getElementById('groundSelectAll')?.addEventListener('click', () => {
+            try {
+                vertigoManager.selectAllEffects('ground');
+                this.updateVertigoCheckboxes('ground');
+                this.updateVertigoEffectCounts();
+                this.updateVertigoPreview();
+                
+                // Note: Don't save immediately - only save when "Generate Aliases" is clicked
+            } catch (error) {
+                if (error instanceof InvalidEnvironmentError) {
+                    stoUI.showToast(`Error: ${error.message}`, 'error');
+                } else {
+                    stoUI.showToast('Failed to select all ground effects', 'error');
+                    console.error('Error selecting all ground effects:', error);
+                }
+            }
+        });
+
+        document.getElementById('groundClearAll')?.addEventListener('click', () => {
+            vertigoManager.selectedEffects.ground.clear();
+            this.updateVertigoCheckboxes('ground');
+            this.updateVertigoEffectCounts();
+            this.updateVertigoPreview();
+            
+            // Note: Don't save immediately - only save when "Generate Aliases" is clicked
+        });
+
+        // Show Player Say toggle
+        document.getElementById('vertigoShowPlayerSay')?.addEventListener('change', (e) => {
+            vertigoManager.showPlayerSay = e.target.checked;
+            this.updateVertigoPreview();
+            
+            // Note: Don't save immediately - only save when "Generate Aliases" is clicked
+        });
+
+        // Generate aliases button
+        document.getElementById('saveVertigoBtn')?.addEventListener('click', () => {
+            this.generateVertigoAliases();
+        });
+    }
+
+    updateVertigoCheckboxes(environment) {
+        const checkboxes = document.querySelectorAll(`input[data-environment="${environment}"]`);
+        checkboxes.forEach(checkbox => {
+            const effectName = checkbox.dataset.effect;
+            const isSelected = vertigoManager.isEffectSelected(environment, effectName);
+            checkbox.checked = isSelected;
+            checkbox.closest('.effect-item').classList.toggle('selected', isSelected);
+        });
+    }
+
+    updateVertigoEffectCounts() {
+        const spaceCount = vertigoManager.getEffectCount('space');
+        const groundCount = vertigoManager.getEffectCount('ground');
+        
+        const spaceCounter = document.getElementById('spaceEffectCount');
+        const groundCounter = document.getElementById('groundEffectCount');
+        
+        if (spaceCounter) {
+            spaceCounter.textContent = `${spaceCount} selected`;
+        }
+        
+        if (groundCounter) {
+            groundCounter.textContent = `${groundCount} selected`;
+        }
+    }
+
+    updateVertigoPreview() {
+        const spacePreview = document.getElementById('spaceAliasCommand');
+        const groundPreview = document.getElementById('groundAliasCommand');
+        
+        // Update space preview
+        if (spacePreview) {
+            try {
+                const spaceAlias = vertigoManager.generateAlias('space');
+                spacePreview.textContent = spaceAlias || 'No space effects selected';
+            } catch (error) {
+                if (error instanceof InvalidEnvironmentError) {
+                    spacePreview.textContent = 'Error: Invalid environment';
+                    stoUI.showToast(`Space preview error: ${error.message}`, 'error');
+                } else {
+                    spacePreview.textContent = 'Error generating preview';
+                    console.error('Error generating space alias preview:', error);
+                }
+            }
+        }
+        
+        // Update ground preview
+        if (groundPreview) {
+            try {
+                const groundAlias = vertigoManager.generateAlias('ground');
+                groundPreview.textContent = groundAlias || 'No ground effects selected';
+            } catch (error) {
+                if (error instanceof InvalidEnvironmentError) {
+                    groundPreview.textContent = 'Error: Invalid environment';
+                    stoUI.showToast(`Ground preview error: ${error.message}`, 'error');
+                } else {
+                    groundPreview.textContent = 'Error generating preview';
+                    console.error('Error generating ground alias preview:', error);
+                }
+            }
+        }
+    }
+
+    generateVertigoAliases() {
+        let spaceAlias = '';
+        let groundAlias = '';
+        
+        // Generate aliases with error handling
+        try {
+            spaceAlias = vertigoManager.generateAlias('space');
+        } catch (error) {
+            if (error instanceof InvalidEnvironmentError) {
+                stoUI.showToast(`Space alias error: ${error.message}`, 'error');
+                return;
+            } else {
+                stoUI.showToast('Failed to generate space alias', 'error');
+                console.error('Error generating space alias:', error);
+                return;
+            }
+        }
+        
+        try {
+            groundAlias = vertigoManager.generateAlias('ground');
+        } catch (error) {
+            if (error instanceof InvalidEnvironmentError) {
+                stoUI.showToast(`Ground alias error: ${error.message}`, 'error');
+                return;
+            } else {
+                stoUI.showToast('Failed to generate ground alias', 'error');
+                console.error('Error generating ground alias:', error);
+                return;
+            }
+        }
+        
+        if (!spaceAlias && !groundAlias) {
+            stoUI.showToast('No effects selected. Please select at least one effect to generate aliases.', 'warning');
+            return;
+        }
+
+        const currentProfile = this.getCurrentProfile();
+        if (!currentProfile) {
+            stoUI.showToast('No profile selected', 'error');
+            return;
+        }
+
+        // Get the root profile object (not the build-specific view)
+        const rootProfile = stoStorage.getProfile(this.currentProfile);
+        if (!rootProfile) {
+            stoUI.showToast('No profile found', 'error');
+            return;
+        }
+
+        let addedCount = 0;
+
+        // Ensure aliases structure exists at profile level (not build-specific)
+        if (!rootProfile.aliases) {
+            rootProfile.aliases = {};
+        }
+
+        // Add space alias if effects are selected
+        if (spaceAlias) {
+            const spaceAliasName = 'dynFxSetFXExlusionList_Space';
+            // Extract commands from the full alias (remove the alias name and brackets)
+            // spaceAlias format: 'alias aliasName <& commands&>'
+            const match = spaceAlias.match(/alias\s+\w+\s+<&\s+(.+?)&>/);
+            const spaceCommands = match ? match[1] : '';
+            
+            rootProfile.aliases[spaceAliasName] = {
+                name: spaceAliasName,
+                description: 'Vertigo - Disable Space Visual Effects',
+                commands: spaceCommands,
+                created: new Date().toISOString(),
+                lastModified: new Date().toISOString()
+            };
+            addedCount++;
+        }
+
+        // Add ground alias if effects are selected
+        if (groundAlias) {
+            const groundAliasName = 'dynFxSetFXExlusionList_Ground';
+            // Extract commands from the full alias (remove the alias name and brackets)
+            // groundAlias format: 'alias aliasName <& commands&>'
+            const match = groundAlias.match(/alias\s+\w+\s+<&\s+(.+?)&>/);
+            const groundCommands = match ? match[1] : '';
+            
+            rootProfile.aliases[groundAliasName] = {
+                name: groundAliasName,
+                description: 'Vertigo - Disable Ground Visual Effects',
+                commands: groundCommands,
+                created: new Date().toISOString(),
+                lastModified: new Date().toISOString()
+            };
+            addedCount++;
+        }
+
+        // Save current state to root profile so it persists (commit the transaction)
+        vertigoManager.saveState(rootProfile);
+
+        // Save the root profile to storage
+        stoStorage.saveProfile(this.currentProfile, rootProfile);
+
+        // Save the changes - follow the same pattern as aliases.js
+        this.saveProfile();
+        this.setModified(true);
+
+        // Update the stored initial state to the new saved state
+        this.vertigoInitialState = {
+            selectedEffects: {
+                space: new Set(vertigoManager.selectedEffects.space),
+                ground: new Set(vertigoManager.selectedEffects.ground)
+            },
+            showPlayerSay: vertigoManager.showPlayerSay
+        };
+
+        // Set flag to indicate we're saving (not canceling)
+        this.vertigoSaving = true;
+
+        // Close modal and show success message
+        stoUI.hideModal('vertigoModal');
+        stoUI.showToast(`Generated ${addedCount} Vertigo alias${addedCount > 1 ? 'es' : ''}! Check the Alias Manager to bind them to keys.`, 'success');
     }
 }
 
