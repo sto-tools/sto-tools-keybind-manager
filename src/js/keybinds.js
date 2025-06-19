@@ -8,8 +8,8 @@ class STOKeybindFileManager {
             standard: /^([a-zA-Z0-9_+\-\s\[\]]+)\s+"([^"]*)"(?:\s+"([^"]*)")?$/,
             // Bind command format: /bind Key command or /bind Key "command"
             bind: /^\/bind\s+([a-zA-Z0-9_+\-\s\[\]]+)\s+(.+)$/,
-            // Alias format: alias AliasName "command sequence"
-            alias: /^alias\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+"([^"]+)"$/,
+            // Alias format: alias AliasName "command sequence" or alias AliasName <& command sequence &>
+            alias: /^alias\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(?:"([^"]+)"|<&\s+(.+?)\s+&>)$/,
             // Comment lines (both # and ; style comments)
             comment: /^[#;].*$/
         };
@@ -118,7 +118,9 @@ class STOKeybindFileManager {
                 } else if (this.keybindPatterns.alias.test(trimmed)) {
                     const match = trimmed.match(this.keybindPatterns.alias);
                     if (match) {
-                        const [, aliasName, commands] = match;
+                        const [, aliasName, quotedCommands, bracketCommands] = match;
+                        // Use whichever format was matched (quoted or bracket syntax)
+                        const commands = quotedCommands || bracketCommands;
                         result.aliases[aliasName] = {
                             name: aliasName,
                             commands: commands,
