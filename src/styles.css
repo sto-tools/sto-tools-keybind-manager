@@ -2460,4 +2460,62 @@ body {
   .effect-item {
     padding: 0.75rem 0.5rem;
   }
+}
+
+/* File Explorer Modal */
+.file-explorer-content {
+  display: flex;
+  gap: 1rem;
+  max-height: 60vh;
+}
+
+.file-tree {
+  flex: 0 0 30%;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding-right: 0.5rem;
+}
+
+.tree-node {
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  transition: background 0.2s;
+}
+.tree-node:hover {
+  background: var(--surface-dark);
+}
+.tree-node.selected {
+  background: var(--primary-light);
+  color: #fff;
+}
+.tree-node.profile {
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+.tree-children {
+  margin-left: 1rem;
+}
+
+.file-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.file-actions {
+  margin-bottom: 0.5rem;
+}
+
+.file-content {
+  flex: 1;
+  background: var(--surface-dark);
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 0.8rem;
 } 
