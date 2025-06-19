@@ -538,7 +538,7 @@ class STOAliasManager {
             if (alias.description) {
                 output += `# ${alias.description}\n`;
             }
-            output += `alias ${name} "${alias.commands}"\n\n`;
+            output += `alias ${name} <& ${alias.commands} &>\n\n`;
         });
 
         const blob = new Blob([output], { type: 'text/plain' });
