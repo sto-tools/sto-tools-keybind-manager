@@ -2507,7 +2507,7 @@ class STOToolsKeybindManager {
                 const existingValue = existingParams && existingParams[paramName] !== undefined 
                     ? existingParams[paramName] 
                     : paramDef.default;
-                input.value = existingValue || paramDef.default;
+                input.value = existingValue !== undefined && existingValue !== null ? existingValue : paramDef.default;
             } else {
                 // Regular input for non-select parameters
                 input = document.createElement('input');
@@ -2519,7 +2519,7 @@ class STOToolsKeybindManager {
                 const existingValue = existingParams && existingParams[paramName] !== undefined 
                     ? existingParams[paramName] 
                     : paramDef.default;
-                input.value = existingValue || '';
+                input.value = existingValue !== undefined && existingValue !== null ? existingValue : '';
                 
                 if (paramDef.placeholder) {
                     input.placeholder = paramDef.placeholder;
@@ -3116,6 +3116,11 @@ class STOToolsKeybindManager {
         // Save the changes - follow the same pattern as aliases.js
         this.saveProfile();
         this.setModified(true);
+
+        // Update the command library to show the new VERTIGO aliases
+        if (typeof stoAliases !== 'undefined' && stoAliases.updateCommandLibrary) {
+            stoAliases.updateCommandLibrary();
+        }
 
         // Update the stored initial state to the new saved state
         this.vertigoInitialState = {

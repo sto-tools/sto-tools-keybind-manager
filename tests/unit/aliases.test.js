@@ -638,9 +638,103 @@ describe('STOAliasManager', () => {
       // Should not create category element for empty aliases
       expect(createCategorySpy).not.toHaveBeenCalled()
     })
+
+    it('should create separate sections for regular and VERTIGO aliases', () => {
+      const categories = document.getElementById('commandCategories')
+      expect(categories).toBeTruthy()
+      
+      // Set up profile with both regular and VERTIGO aliases
+      global.app.getCurrentProfile.mockReturnValue({
+        aliases: {
+          TestAlias: { 
+            name: 'TestAlias', 
+            description: 'Regular alias',
+            commands: 'target_nearest_enemy $$ FireAll' 
+          },
+          dynFxSetFXExlusionList_Space: {
+            name: 'dynFxSetFXExlusionList_Space',
+            description: 'Vertigo - Disable Space Visual Effects',
+            commands: 'dynFxSetFXExlusionList Fx_Test_Effect'
+          },
+          dynFxSetFXExlusionList_Ground: {
+            name: 'dynFxSetFXExlusionList_Ground',
+            description: 'Vertigo - Disable Ground Visual Effects',
+            commands: 'dynFxSetFXExlusionList Fx_Ground_Effect'
+          }
+        }
+      })
+      
+      aliasManager.updateCommandLibrary()
+      
+      // Should have both regular and VERTIGO categories
+      const regularCategory = categories.querySelector('[data-category="aliases"]')
+      const vertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]')
+      
+      expect(regularCategory).toBeTruthy()
+      expect(vertigoCategory).toBeTruthy()
+      
+      // Check regular aliases section
+      expect(regularCategory.innerHTML).toContain('Command Aliases')
+      expect(regularCategory.innerHTML).toContain('fas fa-mask')
+      expect(regularCategory.innerHTML).toContain('TestAlias')
+      expect(regularCategory.innerHTML).toContain('alias-item')
+      expect(regularCategory.innerHTML).not.toContain('dynFxSetFXExlusionList')
+      
+      // Check VERTIGO aliases section
+      expect(vertigoCategory.innerHTML).toContain('VERTIGO Aliases')
+      expect(vertigoCategory.innerHTML).toContain('fas fa-eye-slash')
+      expect(vertigoCategory.innerHTML).toContain('dynFxSetFXExlusionList_Space')
+      expect(vertigoCategory.innerHTML).toContain('dynFxSetFXExlusionList_Ground')
+      expect(vertigoCategory.innerHTML).toContain('vertigo-alias-item')
+      expect(vertigoCategory.innerHTML).not.toContain('TestAlias')
+    })
+
+    it('should only show regular aliases section when no VERTIGO aliases exist', () => {
+      const categories = document.getElementById('commandCategories')
+      expect(categories).toBeTruthy()
+      
+      global.app.getCurrentProfile.mockReturnValue({
+        aliases: {
+          TestAlias: { 
+            name: 'TestAlias', 
+            description: 'Regular alias',
+            commands: 'target_nearest_enemy $$ FireAll' 
+          }
+        }
+      })
+      
+      aliasManager.updateCommandLibrary()
+      
+      const regularCategory = categories.querySelector('[data-category="aliases"]')
+      const vertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]')
+      
+      expect(regularCategory).toBeTruthy()
+      expect(vertigoCategory).toBeFalsy()
+    })
+
+    it('should only show VERTIGO aliases section when no regular aliases exist', () => {
+      const categories = document.getElementById('commandCategories')
+      expect(categories).toBeTruthy()
+      
+      global.app.getCurrentProfile.mockReturnValue({
+        aliases: {
+          dynFxSetFXExlusionList_Space: {
+            name: 'dynFxSetFXExlusionList_Space',
+            description: 'Vertigo - Disable Space Visual Effects',
+            commands: 'dynFxSetFXExlusionList Fx_Test_Effect'
+          }
+        }
+      })
+      
+      aliasManager.updateCommandLibrary()
+      
+      const regularCategory = categories.querySelector('[data-category="aliases"]')
+      const vertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]')
+      
+      expect(regularCategory).toBeFalsy()
+      expect(vertigoCategory).toBeTruthy()
+    })
   })
-
-
 
   describe('$Target variable support in alias editor', () => {
     beforeEach(() => {

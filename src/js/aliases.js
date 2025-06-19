@@ -355,31 +355,54 @@ class STOAliasManager {
         const categories = document.getElementById('commandCategories');
         if (!categories) return;
 
-        // Remove existing alias category
+        // Remove existing alias categories
         const existingAliasCategory = categories.querySelector('[data-category="aliases"]');
         if (existingAliasCategory) {
             existingAliasCategory.remove();
         }
+        const existingVertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]');
+        if (existingVertigoCategory) {
+            existingVertigoCategory.remove();
+        }
 
-        // Add aliases category if there are aliases
-        const aliases = Object.entries(profile.aliases);
-        if (aliases.length > 0) {
-            const aliasCategory = this.createAliasCategoryElement(aliases);
+        // Separate regular aliases from VERTIGO aliases
+        const allAliases = Object.entries(profile.aliases);
+        const regularAliases = allAliases.filter(([name, alias]) => 
+            !name.startsWith('dynFxSetFXExlusionList_')
+        );
+        const vertigoAliases = allAliases.filter(([name, alias]) => 
+            name.startsWith('dynFxSetFXExlusionList_')
+        );
+
+        // Add regular aliases category if there are regular aliases
+        if (regularAliases.length > 0) {
+            const aliasCategory = this.createAliasCategoryElement(regularAliases, 'aliases', 'Command Aliases', 'fas fa-mask');
             categories.appendChild(aliasCategory);
+        }
+
+        // Add VERTIGO aliases category if there are VERTIGO aliases
+        if (vertigoAliases.length > 0) {
+            const vertigoCategory = this.createAliasCategoryElement(vertigoAliases, 'vertigo-aliases', 'VERTIGO Aliases', 'fas fa-eye-slash');
+            categories.appendChild(vertigoCategory);
         }
     }
 
-    createAliasCategoryElement(aliases) {
+    createAliasCategoryElement(aliases, categoryType = 'aliases', title = 'Command Aliases', iconClass = 'fas fa-mask') {
         const element = document.createElement('div');
         element.className = 'category';
-        element.dataset.category = 'aliases';
+        element.dataset.category = categoryType;
+        
+        // Choose appropriate icon and styling for different alias types
+        const isVertigo = categoryType === 'vertigo-aliases';
+        const itemIcon = isVertigo ? '👁️' : '🎭';
+        const itemClass = isVertigo ? 'command-item vertigo-alias-item' : 'command-item alias-item';
         
         element.innerHTML = `
-            <h4><i class="fas fa-mask"></i> Command Aliases</h4>
+            <h4><i class="${iconClass}"></i> ${title}</h4>
             <div class="category-commands">
                 ${aliases.map(([name, alias]) => `
-                    <div class="command-item alias-item" data-alias="${name}" title="${alias.description || alias.commands}">
-                        🎭 ${name}
+                    <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
+                        ${itemIcon} ${name}
                     </div>
                 `).join('')}
             </div>
@@ -387,7 +410,7 @@ class STOAliasManager {
         
         // Add click handlers for aliases
         element.addEventListener('click', (e) => {
-            if (e.target.classList.contains('alias-item')) {
+            if (e.target.classList.contains('alias-item') || e.target.classList.contains('vertigo-alias-item')) {
                 const aliasName = e.target.dataset.alias;
                 this.addAliasToKey(aliasName);
             }

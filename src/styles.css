@@ -861,6 +861,17 @@ body {
   transform: translateX(4px) scale(1.02);
 }
 
+.command-item.vertigo-alias-item {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: white;
+  font-weight: 500;
+}
+
+.command-item.vertigo-alias-item:hover {
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  transform: translateX(4px) scale(1.02);
+}
+
 /* Empty states */
 .empty-state {
   text-align: center;
