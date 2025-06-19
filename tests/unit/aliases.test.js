@@ -238,7 +238,7 @@ describe('STOAliasManager', () => {
       
       aliasManager.updateAliasPreview()
       
-      expect(preview.textContent).toBe('alias TestAlias "say hello"')
+      expect(preview.textContent).toBe('alias TestAlias <& say hello &>')
     })
 
     it('should handle empty inputs in preview', () => {
@@ -251,7 +251,7 @@ describe('STOAliasManager', () => {
       
       aliasManager.updateAliasPreview()
       
-      expect(preview.textContent).toBe('alias AliasName "command sequence"')
+      expect(preview.textContent).toBe('alias AliasName <& command sequence &>')
     })
   })
 

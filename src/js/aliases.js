@@ -343,7 +343,7 @@ class STOAliasManager {
         const name = nameInput.value.trim() || 'AliasName';
         const commands = commandsInput.value.trim() || 'command sequence';
 
-        preview.textContent = `alias ${name} "${commands}"`;
+        preview.textContent = `alias ${name} <& ${commands} &>`;
     }
 
     // Command Library Integration

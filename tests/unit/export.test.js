@@ -215,9 +215,9 @@ describe('STOExportManager', () => {
       const section = exportManager.generateAliasSection(profile.aliases)
       
       expect(section).toContain('; Test alias description')
-      expect(section).toContain('alias TestAlias "say hello $$ emote wave"')
+      expect(section).toContain('alias TestAlias <& say hello $$ emote wave &>')
       expect(section).toContain('; Attack sequence')
-      expect(section).toContain('alias AttackRun "target_nearest_enemy $$ FireAll"')
+              expect(section).toContain('alias AttackRun <& target_nearest_enemy $$ FireAll &>')
     })
 
     it('should generate keybind section with commands', () => {
