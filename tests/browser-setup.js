@@ -141,7 +141,8 @@ async function loadApplication() {
   // Then load the scripts
   const scripts = [
     '/src/js/constants.js',
-    '/src/js/version.js', 
+    '/src/js/errors.js',
+    '/src/js/version.js',
     '/src/js/data.js',
     '/src/js/vertigo_data.js',
     '/src/js/storage.js',

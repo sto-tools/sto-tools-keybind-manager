@@ -1,29 +1,7 @@
 // STO Tools Keybind Manager - Vertigo Effects Data
 // Visual effects data for disabling via dynFxSetFXExlusionList
 
-// Custom error classes for better error handling
-class VertigoError extends Error {
-    constructor(message, code = 'VFX_ERROR') {
-        super(message);
-        this.name = 'VertigoError';
-        this.code = code;
-    }
-}
-
-class InvalidEnvironmentError extends VertigoError {
-    constructor(environment) {
-        super(`Invalid environment '${environment}'. Valid environments are: space, ground`, 'INVALID_ENVIRONMENT');
-        this.environment = environment;
-    }
-}
-
-class InvalidEffectError extends VertigoError {
-    constructor(effectName, environment) {
-        super(`Invalid effect '${effectName}' for environment '${environment}'`, 'INVALID_EFFECT');
-        this.effectName = effectName;
-        this.environment = environment;
-    }
-}
+// Error classes are defined in errors.js and exposed globally
 
 const VFX_EFFECTS = {
     space: [
@@ -285,6 +263,3 @@ const vertigoManager = new VertigoManager();
 // Make globals accessible
 window.VFX_EFFECTS = VERTIGO_EFFECTS;
 window.vertigoManager = vertigoManager;
-window.VertigoError = VertigoError;
-window.InvalidEnvironmentError = InvalidEnvironmentError;
-window.InvalidEffectError = InvalidEffectError; 
