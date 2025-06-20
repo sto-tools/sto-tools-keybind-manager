@@ -58,7 +58,7 @@ export default class STOExportManager {
     const select = document.getElementById('exportFormat')
     const format = select ? select.value : 'sto_keybind'
     const envSelect = document.getElementById('exportEnvironment')
-    const environment = envSelect
+    const environment = envSelect && envSelect.value
       ? envSelect.value
       : profile.mode || 'space'
 
@@ -67,16 +67,16 @@ export default class STOExportManager {
         this.exportSTOKeybindFile(profile, environment)
         break
       case 'json_profile':
-        this.exportJSONProfile(profile)
+        this.exportJSONProfile(profile, environment)
         break
       case 'json_project':
         this.exportCompleteProject()
         break
       case 'csv_data':
-        this.exportCSVData(profile)
+        this.exportCSVData(profile, environment)
         break
       case 'html_report':
-        this.exportHTMLReport(profile)
+        this.exportHTMLReport(profile, environment)
         break
       case 'alias_file':
         this.exportAliases(profile)
@@ -395,7 +395,7 @@ export default class STOExportManager {
   }
 
   // JSON Profile Export
-  exportJSONProfile(profile) {
+  exportJSONProfile(profile, environment = profile.mode) {
     try {
       const exportData = {
         version: STO_DATA.settings.version,
@@ -407,7 +407,7 @@ export default class STOExportManager {
       const content = JSON.stringify(exportData, null, 2)
       this.downloadFile(
         content,
-        this.generateFileName(profile, 'json'),
+        this.generateFileName(profile, 'json', environment),
         'application/json'
       )
 
@@ -439,12 +439,12 @@ export default class STOExportManager {
   }
 
   // CSV Data Export
-  exportCSVData(profile) {
+  exportCSVData(profile, environment = profile.mode) {
     try {
       const csvContent = this.generateCSVData(profile)
       this.downloadFile(
         csvContent,
-        this.generateFileName(profile, 'csv'),
+        this.generateFileName(profile, 'csv', environment),
         'text/csv'
       )
 
@@ -486,12 +486,12 @@ export default class STOExportManager {
   }
 
   // HTML Report Export
-  exportHTMLReport(profile) {
+  exportHTMLReport(profile, environment = profile.mode) {
     try {
       const htmlContent = this.generateHTMLReport(profile)
       this.downloadFile(
         htmlContent,
-        this.generateFileName(profile, 'html'),
+        this.generateFileName(profile, 'html', environment),
         'text/html'
       )
 
@@ -632,9 +632,10 @@ export default class STOExportManager {
 
   // Utility Methods
   generateFileName(profile, extension, environment = profile.mode || 'space') {
+    const env = environment || profile.mode || 'space'
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
-    return `${safeName}_${environment}_${timestamp}.${extension}`
+    return `${safeName}_${env}_${timestamp}.${extension}`
   }
 
   downloadFile(content, filename, mimeType) {

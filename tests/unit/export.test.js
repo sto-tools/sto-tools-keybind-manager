@@ -703,6 +703,13 @@ describe('STOExportManager', () => {
       expect(exportManager.generateFileName(profile, 'html')).toMatch(/\.html$/)
     })
 
+    it('should fall back to profile mode when environment missing', () => {
+      const profile = { name: 'Test', mode: 'Space' }
+      const filename = exportManager.generateFileName(profile, 'txt', '')
+
+      expect(filename).toMatch(/^Test_Space_\d{4}-\d{2}-\d{2}\.txt$/)
+    })
+
     it('should trigger file download', () => {
       const mockAnchor = {
         click: vi.fn(),
@@ -927,13 +934,17 @@ describe('STOExportManager', () => {
     it('should trigger selected export action from modal', () => {
       const select = document.getElementById('exportFormat')
       select.value = 'csv_data'
+      const env = document.getElementById('exportEnvironment')
+      env.value = 'ground'
 
-      const spy = vi.spyOn(exportManager, 'exportCSVData').mockImplementation(() => {})
+      const spy = vi
+        .spyOn(exportManager, 'exportCSVData')
+        .mockImplementation(() => {})
       vi.spyOn(stoUI, 'hideModal').mockImplementation(() => {})
 
       exportManager.performExport()
 
-      expect(spy).toHaveBeenCalledWith(app.getCurrentProfile())
+      expect(spy).toHaveBeenCalledWith(app.getCurrentProfile(), 'ground')
       expect(stoUI.hideModal).toHaveBeenCalledWith('exportModal')
     })
 
