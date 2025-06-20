@@ -1,6 +1,6 @@
 // Integration test for VFX aliases reload issue
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import '../../src/js/eventBus.js'
+import eventBus from '../../src/js/eventBus.js'
 
 describe('VFX Aliases Reload Integration', () => {
     let mockApp, mockProfile, mockUI, mockStorage;

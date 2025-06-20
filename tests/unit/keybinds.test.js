@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import '../../src/js/data.js'
 
 // Load the modules (they create global instances)
-import '../../src/js/eventBus.js'
+import eventBus from '../../src/js/eventBus.js'
 import store, { resetStore } from '../../src/js/store.js'
 import STOStorage from '../../src/js/storage.js'
 import STOCommandManager from '../../src/js/commands.js'

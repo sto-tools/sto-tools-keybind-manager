@@ -1,6 +1,7 @@
 // STO Tools Keybind Manager - Alias Management
 // Handles command alias creation, editing, and management
 import store from './store.js'
+import eventBus from './eventBus.js'
 
 export default class STOAliasManager {
     constructor() {

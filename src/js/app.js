@@ -1,6 +1,7 @@
 // STO Tools Keybind Manager - Main Application Controller
 // Coordinates all modules and handles global application state
 import store from './store.js'
+import eventBus from './eventBus.js'
 
 export default class STOToolsKeybindManager {
     constructor() {

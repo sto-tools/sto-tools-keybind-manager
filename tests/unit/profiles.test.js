@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import '../../src/js/eventBus.js'
+import eventBus from '../../src/js/eventBus.js'
 import STOStorage from '../../src/js/storage.js'
 
 describe('STOProfileManager', () => {
