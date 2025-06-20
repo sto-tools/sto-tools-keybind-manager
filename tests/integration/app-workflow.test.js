@@ -45,9 +45,10 @@ describe('App Workflow Integration', () => {
     stoProfiles = new STOProfileManager()
     stoKeybinds = new STOKeybindFileManager()
     stoUI = new STOUIManager()
+    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
     app = new STOToolsKeybindManager()
     stoExport = new STOExportManager()
-    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI, app, stoExport })
+    Object.assign(global, { app, stoExport })
     await app.init()
   })
 
