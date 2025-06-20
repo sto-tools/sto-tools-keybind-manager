@@ -19,7 +19,7 @@
     "test:browser": "vitest run --project=browser --workspace=vitest.workspace.js",
     "test:browser:ui": "vitest --ui --project=browser --workspace=vitest.workspace.js",
     "test:all": "vitest run --workspace=vitest.workspace.js",
-    "lint": "eslint \"{src,tests}/**/*.js\"",
+    "lint": "eslint \"{src,tests}/**/*.js\" --ignore-pattern \"src/dist/bundle.js\"",
     "format": "prettier --write \"{src,tests}/**/*.{js,css,html}\""
   },
   "devDependencies": {
