@@ -7,7 +7,7 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 
 // Import real modules in dependency order
 import '../../src/js/data.js'
-import '../../src/js/eventBus.js'
+import eventBus from '../../src/js/eventBus.js'
 import store, { resetStore } from '../../src/js/store.js'
 import STOStorage from '../../src/js/storage.js'
 import STOProfileManager from '../../src/js/profiles.js'

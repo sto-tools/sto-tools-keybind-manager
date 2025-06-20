@@ -1,5 +1,5 @@
 import './constants.js';
-import './eventBus.js';
+import eventBus from './eventBus.js';
 import './data.js';
 import './errors.js';
 import STOStorage from './storage.js';

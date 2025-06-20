@@ -1,5 +1,6 @@
 // Vitest Browser Mode setup file
 import { beforeEach, afterEach } from 'vitest'
+import eventBus from '../src/js/eventBus.js'
 
 // Browser tests run in real browsers, so we don't need to mock browser APIs
 // But we can still set up global test helpers and utilities

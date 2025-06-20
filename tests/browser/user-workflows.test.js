@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import eventBus from '../../src/js/eventBus.js'
 
 describe('Complete User Workflows', () => {
   let app, stoStorage, stoUI, stoExport, stoKeybinds;

@@ -1,4 +1,4 @@
-import './eventBus.js'
+import eventBus from './eventBus.js'
 
 const state = {
   currentProfile: null,
@@ -15,7 +15,7 @@ const state = {
 const store = new Proxy(state, {
   set(target, prop, value) {
     target[prop] = value
-    if (typeof eventBus !== 'undefined' && eventBus.emit) {
+    if (eventBus && eventBus.emit) {
       eventBus.emit(`store:${prop}`, value)
     }
     return true

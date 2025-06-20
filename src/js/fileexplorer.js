@@ -1,5 +1,6 @@
 // STO Tools Keybind Manager - File Explorer Modal
 // Provides a tree view of profiles/builds/aliases and preview of export files
+import eventBus from './eventBus.js'
 
 export default class STOFileExplorer {
     constructor() {

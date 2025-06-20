@@ -5,7 +5,7 @@ import { join } from 'path'
 // Import real data first to ensure STO_DATA is available
 import '../../src/js/data.js'
 
-import "../../src/js/eventBus.js"
+import eventBus from "../../src/js/eventBus.js"
 // Load the aliases module (it creates a global instance)
 import STOAliasManager from '../../src/js/aliases.js'
 import store, { resetStore } from '../../src/js/store.js'
