@@ -848,6 +848,42 @@ Select an item on the left to preview export</pre
             Close
           </button>
         </div>
+    </div>
+  </div>
+
+    <!-- Export Options Modal -->
+    <div class="modal" id="exportModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Select Export Format</h3>
+          <button class="modal-close" data-modal="exportModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="exportFormat">Export As:</label>
+            <select id="exportFormat">
+              <option value="sto_keybind">STO Keybind File (.txt)</option>
+              <option value="json_profile">JSON Profile (.json)</option>
+              <option value="json_project">Complete Project (.json)</option>
+              <option value="csv_data">CSV Data (.csv)</option>
+              <option value="html_report">HTML Report (.html)</option>
+              <option value="alias_file">Alias File (.txt)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="exportEnvironment">Environment:</label>
+            <select id="exportEnvironment">
+              <option value="space">Space</option>
+              <option value="ground">Ground</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmExportBtn">Export</button>
+          <button class="btn btn-secondary" data-modal="exportModal">Cancel</button>
+        </div>
       </div>
     </div>
 

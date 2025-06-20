@@ -10,6 +10,7 @@ export default class STOExportManager {
       json_project: 'Complete Project (.json)',
       csv_data: 'CSV Data (.csv)',
       html_report: 'HTML Report (.html)',
+      alias_file: 'Alias File (.txt)',
     }
 
     // Don't initialize immediately - wait for app to be ready
@@ -23,6 +24,11 @@ export default class STOExportManager {
     // Main export button
     eventBus.onDom('exportKeybindsBtn', 'click', 'exportKeybinds', () => {
       this.showExportOptions()
+    })
+
+    // Confirm export
+    eventBus.onDom('confirmExportBtn', 'click', 'export-confirm', () => {
+      this.performExport()
     })
 
     // Copy command preview
@@ -39,18 +45,56 @@ export default class STOExportManager {
       return
     }
 
-    // For now, directly export as STO keybind file
-    // TODO: Add export options modal for different formats
-    this.exportSTOKeybindFile(profile)
+    stoUI.showModal('exportModal')
+  }
+
+  performExport() {
+    const profile = app.getCurrentProfile()
+    if (!profile) {
+      stoUI.showToast('No profile selected to export', 'warning')
+      return
+    }
+
+    const select = document.getElementById('exportFormat')
+    const format = select ? select.value : 'sto_keybind'
+    const envSelect = document.getElementById('exportEnvironment')
+    const environment = envSelect && envSelect.value
+      ? envSelect.value
+      : profile.mode || 'space'
+
+    switch (format) {
+      case 'sto_keybind':
+        this.exportSTOKeybindFile(profile, environment)
+        break
+      case 'json_profile':
+        this.exportJSONProfile(profile, environment)
+        break
+      case 'json_project':
+        this.exportCompleteProject()
+        break
+      case 'csv_data':
+        this.exportCSVData(profile, environment)
+        break
+      case 'html_report':
+        this.exportHTMLReport(profile, environment)
+        break
+      case 'alias_file':
+        this.exportAliases(profile)
+        break
+      default:
+        break
+    }
+
+    stoUI.hideModal('exportModal')
   }
 
   // STO Keybind File Export
-  exportSTOKeybindFile(profile) {
+  exportSTOKeybindFile(profile, environment = profile.mode) {
     try {
-      const content = this.generateSTOKeybindFile(profile)
+      const content = this.generateSTOKeybindFile(profile, { environment })
       this.downloadFile(
         content,
-        this.generateFileName(profile, 'txt'),
+        this.generateFileName(profile, 'txt', environment),
         'text/plain'
       )
 
@@ -351,7 +395,7 @@ export default class STOExportManager {
   }
 
   // JSON Profile Export
-  exportJSONProfile(profile) {
+  exportJSONProfile(profile, environment = profile.mode) {
     try {
       const exportData = {
         version: STO_DATA.settings.version,
@@ -363,7 +407,7 @@ export default class STOExportManager {
       const content = JSON.stringify(exportData, null, 2)
       this.downloadFile(
         content,
-        this.generateFileName(profile, 'json'),
+        this.generateFileName(profile, 'json', environment),
         'application/json'
       )
 
@@ -395,12 +439,12 @@ export default class STOExportManager {
   }
 
   // CSV Data Export
-  exportCSVData(profile) {
+  exportCSVData(profile, environment = profile.mode) {
     try {
       const csvContent = this.generateCSVData(profile)
       this.downloadFile(
         csvContent,
-        this.generateFileName(profile, 'csv'),
+        this.generateFileName(profile, 'csv', environment),
         'text/csv'
       )
 
@@ -442,12 +486,12 @@ export default class STOExportManager {
   }
 
   // HTML Report Export
-  exportHTMLReport(profile) {
+  exportHTMLReport(profile, environment = profile.mode) {
     try {
       const htmlContent = this.generateHTMLReport(profile)
       this.downloadFile(
         htmlContent,
-        this.generateFileName(profile, 'html'),
+        this.generateFileName(profile, 'html', environment),
         'text/html'
       )
 
@@ -587,11 +631,11 @@ export default class STOExportManager {
   }
 
   // Utility Methods
-  generateFileName(profile, extension) {
+  generateFileName(profile, extension, environment = profile.mode || 'space') {
+    const env = environment || profile.mode || 'space'
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
-    const environment = profile.mode || 'space' // Use mode for environment
-    return `${safeName}_${environment}_${timestamp}.${extension}`
+    return `${safeName}_${env}_${timestamp}.${extension}`
   }
 
   downloadFile(content, filename, mimeType) {

@@ -703,6 +703,13 @@ describe('STOExportManager', () => {
       expect(exportManager.generateFileName(profile, 'html')).toMatch(/\.html$/)
     })
 
+    it('should fall back to profile mode when environment missing', () => {
+      const profile = { name: 'Test', mode: 'Space' }
+      const filename = exportManager.generateFileName(profile, 'txt', '')
+
+      expect(filename).toMatch(/^Test_Space_\d{4}-\d{2}-\d{2}\.txt$/)
+    })
+
     it('should trigger file download', () => {
       const mockAnchor = {
         click: vi.fn(),
@@ -885,29 +892,22 @@ describe('STOExportManager', () => {
 
   describe('export options and configuration', () => {
     it('should show export options dialog', () => {
-      const mockAnchor = {
-        click: vi.fn(),
-        href: '',
-        download: '',
-      }
-      vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor)
-      vi.spyOn(document.body, 'appendChild').mockImplementation(() => {})
-      vi.spyOn(document.body, 'removeChild').mockImplementation(() => {})
+      const spy = vi.spyOn(stoUI, 'showModal').mockImplementation(() => {})
 
       exportManager.showExportOptions()
 
-      // For now it directly exports, but should show options in future
-      expect(mockAnchor.click).toHaveBeenCalled()
+      expect(spy).toHaveBeenCalledWith('exportModal')
     })
 
     it('should handle different export formats', () => {
       const formats = exportManager.exportFormats
 
-      expect(Object.keys(formats)).toHaveLength(5)
+      expect(Object.keys(formats)).toHaveLength(6)
       expect(formats.sto_keybind).toContain('.txt')
       expect(formats.json_profile).toContain('.json')
       expect(formats.csv_data).toContain('.csv')
       expect(formats.html_report).toContain('.html')
+      expect(formats.alias_file).toContain('.txt')
     })
 
     it('should validate profile before export', () => {
@@ -929,6 +929,40 @@ describe('STOExportManager', () => {
       expect(() => exportManager.exportJSONProfile(profile)).not.toThrow()
       expect(() => exportManager.exportCSVData(profile)).not.toThrow()
       expect(() => exportManager.exportHTMLReport(profile)).not.toThrow()
+    })
+
+    it('should trigger selected export action from modal', () => {
+      const select = document.getElementById('exportFormat')
+      select.value = 'csv_data'
+      const env = document.getElementById('exportEnvironment')
+      env.value = 'ground'
+
+      const spy = vi
+        .spyOn(exportManager, 'exportCSVData')
+        .mockImplementation(() => {})
+      vi.spyOn(stoUI, 'hideModal').mockImplementation(() => {})
+
+      exportManager.performExport()
+
+      expect(spy).toHaveBeenCalledWith(app.getCurrentProfile(), 'ground')
+      expect(stoUI.hideModal).toHaveBeenCalledWith('exportModal')
+    })
+
+    it('should pass environment to keybind export', () => {
+      const format = document.getElementById('exportFormat')
+      format.value = 'sto_keybind'
+      const env = document.getElementById('exportEnvironment')
+      env.value = 'ground'
+
+      const spy = vi
+        .spyOn(exportManager, 'exportSTOKeybindFile')
+        .mockImplementation(() => {})
+      vi.spyOn(stoUI, 'hideModal').mockImplementation(() => {})
+
+      exportManager.performExport()
+
+      expect(spy).toHaveBeenCalledWith(app.getCurrentProfile(), 'ground')
+      expect(stoUI.hideModal).toHaveBeenCalledWith('exportModal')
     })
   })
 
