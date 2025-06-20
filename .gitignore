@@ -36,7 +36,6 @@ coverage/
 Thumbs.db
 
 # Build
-dist/
 build/
 
 # Environment

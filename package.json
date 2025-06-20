@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npm run serve",
     "serve": "npx http-server src -p 3000 -c-1",
+    "build": "rollup -c",
     "test": "vitest run --workspace=vitest.workspace.js",
     "test:ui": "vitest --ui --workspace=vitest.workspace.js",
     "test:watch": "vitest --watch --workspace=vitest.workspace.js",
@@ -20,6 +21,8 @@
     "test:all": "vitest run --workspace=vitest.workspace.js"
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
     "@vitest/browser": "^1.0.4",
     "@vitest/coverage-istanbul": "^1.6.1",
     "@vitest/coverage-v8": "^1.0.4",
@@ -28,6 +31,7 @@
     "http-server": "^14.1.1",
     "jsdom": "^23.0.1",
     "playwright": "^1.40.1",
+    "rollup": "^4.44.0",
     "vitest": "^1.0.4"
   },
   "engines": {
