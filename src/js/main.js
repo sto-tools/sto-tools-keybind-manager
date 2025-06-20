@@ -95,7 +95,7 @@ const stoUI = new STOUIManager()
 const stoCommands = new STOCommandManager()
 const stoFileExplorer = new STOFileExplorer()
 const vertigoManager = new VertigoManager()
-const stoSync = new STOSyncManager()
+const stoSync = new STOSyncManager(stoStorage)
 Object.assign(window, {
   stoStorage,
   stoProfiles,

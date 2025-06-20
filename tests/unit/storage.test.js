@@ -276,6 +276,8 @@ describe('STOStorage', () => {
       expect(settings.autoSave).toBe(true)
       expect(settings.showTooltips).toBe(true)
       expect(settings.maxUndoSteps).toBe(50)
+      expect(settings.syncFolderName).toBeNull()
+      expect(settings.autoSync).toBe(false)
     })
 
     it('should save and retrieve custom settings', () => {
@@ -284,6 +286,8 @@ describe('STOStorage', () => {
         autoSave: false,
         showTooltips: false,
         maxUndoSteps: 25,
+        syncFolderName: 'Test',
+        autoSync: true,
       }
 
       const saveResult = storage.saveSettings(customSettings)
@@ -293,6 +297,8 @@ describe('STOStorage', () => {
       expect(retrievedSettings.theme).toBe('dark')
       expect(retrievedSettings.autoSave).toBe(false)
       expect(retrievedSettings.maxUndoSteps).toBe(25)
+      expect(retrievedSettings.syncFolderName).toBe('Test')
+      expect(retrievedSettings.autoSync).toBe(true)
     })
 
     it('should handle corrupted settings gracefully', () => {
@@ -303,6 +309,8 @@ describe('STOStorage', () => {
       // Should return default settings
       expect(settings.theme).toBe('default')
       expect(settings.autoSave).toBe(true)
+      expect(settings.syncFolderName).toBeNull()
+      expect(settings.autoSync).toBe(false)
     })
   })
 
