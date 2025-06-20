@@ -92,6 +92,16 @@ export default class STOProfileManager {
       this.closeSettingsMenu()
     })
 
+    eventBus.onDom('setSyncFolderBtn', 'click', 'set-sync-folder', () => {
+      stoSync.setSyncFolder()
+      this.closeSettingsMenu()
+    })
+
+    eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
+      stoSync.syncProject()
+      this.closeSettingsMenu()
+    })
+
     eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
       modalManager.show('aboutModal')
     })
