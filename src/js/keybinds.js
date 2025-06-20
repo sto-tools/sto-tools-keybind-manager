@@ -1,6 +1,7 @@
 // STO Tools Keybind Manager - Keybind Operations
 // Handles keybind parsing, validation, and file operations
 import store from './store.js'
+import i18next from 'i18next'
 
 export default class STOKeybindFileManager {
   constructor() {
@@ -340,7 +341,7 @@ export default class STOKeybindFileManager {
     // Get the actual profile from storage to work with the real structure
     const actualProfile = stoStorage.getProfile(store.currentProfile)
     if (!actualProfile) {
-      stoUI.showToast('No profile selected for import', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_for_import'), 'warning')
       return { success: false, error: 'No active profile' }
     }
 
@@ -351,7 +352,7 @@ export default class STOKeybindFileManager {
       const keyCount = Object.keys(parsed.keybinds).length
 
       if (keyCount === 0) {
-        stoUI.showToast('No keybinds found in file', 'warning')
+        stoUI.showToast(i18next.t('no_keybinds_found_in_file'), 'warning')
         return { success: false, error: 'No keybinds found' }
       }
 
@@ -408,11 +409,13 @@ export default class STOKeybindFileManager {
       // Refresh key grid
       app.renderKeyGrid()
 
-      const message = `Import completed: ${keyCount} keybinds`
+      const message = i18next.t('import_completed_keybinds', { count: keyCount })
       if (Object.keys(parsed.aliases).length > 0) {
         stoUI.showToast(
-          message +
-            ` (${Object.keys(parsed.aliases).length} aliases ignored - use Import Aliases)`,
+          i18next.t('import_completed_keybinds_with_aliases', {
+            keyCount,
+            aliasCount: Object.keys(parsed.aliases).length,
+          }),
           'success'
         )
       } else {
@@ -427,7 +430,10 @@ export default class STOKeybindFileManager {
         errors: parsed.errors,
       }
     } catch (error) {
-      stoUI.showToast('Import failed: ' + error.message, 'error')
+      stoUI.showToast(
+        i18next.t('import_failed', { error: error.message }),
+        'error'
+      )
       return { success: false, error: error.message }
     }
   }
@@ -436,7 +442,7 @@ export default class STOKeybindFileManager {
   importAliasFile(content) {
     const profile = app.getCurrentProfile()
     if (!profile) {
-      stoUI.showToast('No profile selected for import', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_for_import'), 'warning')
       return { success: false, error: 'No active profile' }
     }
 
@@ -447,14 +453,14 @@ export default class STOKeybindFileManager {
       const aliasCount = Object.keys(parsed.aliases).length
 
       if (aliasCount === 0) {
-        stoUI.showToast('No aliases found in file', 'warning')
+        stoUI.showToast(i18next.t('no_aliases_found_in_file'), 'warning')
         return { success: false, error: 'No aliases found' }
       }
 
       // Get the actual profile from storage (aliases are profile-level, not build-specific)
       const actualProfile = stoStorage.getProfile(store.currentProfile)
       if (!actualProfile) {
-        stoUI.showToast('Failed to get profile for import', 'error')
+        stoUI.showToast(i18next.t('failed_to_get_profile_for_import'), 'error')
         return { success: false, error: 'Profile not found' }
       }
 
@@ -483,8 +489,10 @@ export default class STOKeybindFileManager {
         window.stoAliases.updateCommandLibrary()
       }
 
-      const message = `Import completed: ${aliasCount} aliases`
-      stoUI.showToast(message, 'success')
+      stoUI.showToast(
+        i18next.t('import_completed_aliases', { count: aliasCount }),
+        'success'
+      )
 
       return {
         success: true,
@@ -494,7 +502,10 @@ export default class STOKeybindFileManager {
         errors: parsed.errors,
       }
     } catch (error) {
-      stoUI.showToast('Import failed: ' + error.message, 'error')
+      stoUI.showToast(
+        i18next.t('import_failed', { error: error.message }),
+        'error'
+      )
       return { success: false, error: error.message }
     }
   }

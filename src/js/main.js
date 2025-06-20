@@ -32,6 +32,10 @@ import './version.js'
     },
   })
 
+  if (window.localizeCommandData) {
+    window.localizeCommandData()
+  }
+
   function applyTranslations(root = document) {
     root.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n')
