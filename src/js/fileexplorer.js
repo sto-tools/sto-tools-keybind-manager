@@ -1,16 +1,29 @@
 // STO Tools Keybind Manager - File Explorer Modal
 // Provides a tree view of profiles/builds/aliases and preview of export files
 import eventBus from './eventBus.js'
+import i18next from 'i18next'
+
+const STO_PATHS = [
+  'C:/Program Files (x86)/Steam/steamapps/common/Star Trek Online/Star Trek Online/Live',
+  'C:/Program Files/Steam/steamapps/common/Star Trek Online/Star Trek Online/Live',
+  'C:/Program Files/Perfect World Entertainment/Star Trek Online_en/Star Trek Online/Live',
+  'C:/Program Files (x86)/Perfect World Entertainment/Star Trek Online_en/Star Trek Online/Live',
+  'C:/Program Files/Epic Games/StarTrekOnline/Star Trek Online/Live',
+]
 
 export default class STOFileExplorer {
   constructor() {
     this.modalId = 'fileExplorerModal'
     this.treeId = 'fileTree'
     this.contentId = 'fileContent'
+    this.stoDirectoryHandle = null
+    this.currentExportContent = ''
+    this.currentExportFilename = ''
   }
 
-  init() {
+  async init() {
     this.setupEventListeners()
+    await this.detectSTOPath()
   }
 
   // ---------------------------------------------------------------------
@@ -41,6 +54,14 @@ export default class STOFileExplorer {
       stoUI.copyToClipboard(text)
       stoUI.showToast('Content copied to clipboard', 'success')
     })
+
+    eventBus.onDom('copyToStoBtn', 'click', 'copyToSto', () => {
+      this.copyToSTO()
+    })
+
+    eventBus.onDom('browseStoFolderBtn', 'click', 'browseStoFolder', () => {
+      this.browseStoFolder()
+    })
   }
 
   // ---------------------------------------------------------------------
@@ -53,6 +74,8 @@ export default class STOFileExplorer {
     if (contentEl) {
       contentEl.textContent = 'Select an item on the left to preview export'
     }
+    this.updateFolderStatus()
+    this.refreshStoFileList()
     stoUI.showModal(this.modalId)
   }
 
@@ -129,8 +152,10 @@ export default class STOFileExplorer {
       let exportContent = ''
       if (type === 'build') {
         exportContent = this.generateBuildExport(profileid, environment)
+        this.currentExportFilename = `${profileid}_${environment}.txt`
       } else if (type === 'aliases') {
         exportContent = this.generateAliasExport(profileid)
+        this.currentExportFilename = `${profileid}_aliases.txt`
       } else {
         // Root profile node selected – no export preview
         exportContent =
@@ -140,6 +165,7 @@ export default class STOFileExplorer {
       if (contentEl) {
         contentEl.textContent = exportContent || 'No content available.'
       }
+      this.currentExportContent = exportContent
     } catch (err) {
       console.error('Failed to generate export content:', err)
       stoUI.showToast('Failed to generate export', 'error')
@@ -181,6 +207,121 @@ export default class STOFileExplorer {
       aliases: aggregatedAliases,
     }
     return stoExport.generateAliasFile(tempProfile)
+  }
+
+  async detectSTOPath() {
+    if (typeof process !== 'undefined' && process.versions?.node) {
+      try {
+        const fs = (await import('fs')).default || (await import('fs'))
+        for (const p of STO_PATHS) {
+          if (fs.existsSync(p)) {
+            this.stoDirectoryHandle = { path: p, fs }
+            break
+          }
+        }
+      } catch {}
+    }
+    this.updateFolderStatus()
+    this.refreshStoFileList()
+  }
+
+  async browseStoFolder() {
+    if (window.showDirectoryPicker) {
+      try {
+        this.stoDirectoryHandle = await window.showDirectoryPicker()
+        this.updateFolderStatus()
+        await this.refreshStoFileList()
+      } catch (err) {
+        console.error('Failed to pick folder', err)
+        stoUI.showToast(i18next.t('sto_folder_not_found'), 'error')
+      }
+    } else {
+      stoUI.showToast('File system access not supported', 'error')
+    }
+  }
+
+  updateFolderStatus() {
+    const statusEl = document.getElementById('stoFolderStatus')
+    if (!statusEl) return
+    if (this.stoDirectoryHandle) {
+      statusEl.textContent = i18next.t('sto_folder_connected')
+      statusEl.classList.remove('disconnected')
+      statusEl.classList.add('connected')
+    } else {
+      statusEl.textContent = i18next.t('sto_folder_not_found')
+      statusEl.classList.remove('connected')
+      statusEl.classList.add('disconnected')
+    }
+  }
+
+  async refreshStoFileList() {
+    const listEl = document.getElementById('stoFileList')
+    if (!listEl) return
+    listEl.innerHTML = ''
+    if (!this.stoDirectoryHandle) return
+    try {
+      if (this.stoDirectoryHandle.path && this.stoDirectoryHandle.fs) {
+        const files = this.stoDirectoryHandle.fs.readdirSync(
+          this.stoDirectoryHandle.path
+        )
+        files.forEach((f) => {
+          const li = document.createElement('li')
+          li.textContent = f
+          listEl.appendChild(li)
+        })
+      } else if (this.stoDirectoryHandle.values) {
+        for await (const entry of this.stoDirectoryHandle.values()) {
+          if (entry.kind === 'file') {
+            const li = document.createElement('li')
+            li.textContent = entry.name
+            listEl.appendChild(li)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to list STO directory', err)
+    }
+  }
+
+  async copyToSTO() {
+    if (!this.currentExportContent) return
+    if (!this.stoDirectoryHandle) {
+      await this.browseStoFolder()
+      if (!this.stoDirectoryHandle) return
+    }
+    await this.writeFileToSTO(
+      this.stoDirectoryHandle,
+      this.currentExportFilename,
+      this.currentExportContent
+    )
+  }
+
+  async writeFileToSTO(directoryHandle, filename, content) {
+    try {
+      if (directoryHandle.getFileHandle) {
+        const fileHandle = await directoryHandle.getFileHandle(filename, {
+          create: true,
+        })
+        const writable = await fileHandle.createWritable()
+        await writable.write(content)
+        await writable.close()
+      } else if (directoryHandle.path && directoryHandle.fs) {
+        const pathMod = (await import('path')).default || (await import('path'))
+        directoryHandle.fs.writeFileSync(
+          pathMod.join(directoryHandle.path, filename),
+          content,
+          'utf-8'
+        )
+      }
+      stoUI.showToast(
+        i18next.t('file_copied_to_sto', { filename }),
+        'success'
+      )
+      this.refreshStoFileList()
+    } catch (err) {
+      console.error('Failed to write file', err)
+      stoUI.showToast(err.message, 'error')
+    }
   }
 }
 

@@ -838,7 +838,7 @@
           </button>
         </div>
         <div class="modal-body">
-          <div class="file-explorer-content">
+          <div class="file-explorer-content three-pane">
             <div class="file-tree" id="fileTree">
               <!-- Tree populated by JavaScript -->
             </div>
@@ -852,8 +852,21 @@
                   <i class="fas fa-copy"></i>
                   <span data-i18n="copy"></span>
                 </button>
+                <button
+                  class="btn btn-small"
+                  id="copyToStoBtn"
+                  data-i18n-title="copy_to_sto"
+                >
+                  <i class="fas fa-folder-open"></i>
+                  <span data-i18n="copy_to_sto"></span>
+                </button>
               </div>
               <pre class="file-content" id="fileContent" data-i18n="select_an_item_on_the_left_to_preview_export"></pre>
+            </div>
+            <div class="sto-browser">
+              <div class="sto-folder-status disconnected" id="stoFolderStatus" data-i18n="sto_folder_not_found"></div>
+              <button class="btn btn-small" id="browseStoFolderBtn" data-i18n="browse_sto_folder"></button>
+              <ul class="sto-file-list" id="stoFileList"></ul>
             </div>
           </div>
         </div>

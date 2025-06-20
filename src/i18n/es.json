@@ -494,5 +494,14 @@
   "no_profiles_to_export": "Ningún perfil para exportar",
   "exporting_profiles": "Exportando {{count}} perfiles...",
   "aliases_exported_successfully": "Alias exportados exitosamente",
-  "failed_to_export_aliases": "Falló al exportar alias: {{error}}"
+  "failed_to_export_aliases": "Falló al exportar alias: {{error}}",
+  "sto_folder_browser": "Carpeta Live de STO",
+  "browse_sto_folder": "Buscar carpeta Live de STO",
+  "sto_folder_connected": "Conectado a carpeta Live de STO",
+  "sto_folder_not_found": "Carpeta Live de STO no encontrada",
+  "copy_to_sto": "Copiar a STO",
+  "replace_file": "Reemplazar archivo",
+  "rename_and_copy": "Renombrar y Copiar",
+  "file_already_exists": "El archivo ya existe en la carpeta STO",
+  "file_copied_to_sto": "Archivo {{filename}} copiado en carpeta STO"
 }

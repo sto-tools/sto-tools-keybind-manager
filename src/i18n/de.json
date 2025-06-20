@@ -494,5 +494,14 @@
   "no_profiles_to_export": "Keine Profile zum Exportieren",
   "exporting_profiles": "Exportiere {{count}} Profile...",
   "aliases_exported_successfully": "Aliase erfolgreich exportiert",
-  "failed_to_export_aliases": "Alias Export fehlgeschlagen: {{error}}"
+  "failed_to_export_aliases": "Alias Export fehlgeschlagen: {{error}}",
+  "sto_folder_browser": "STO Live Ordner",
+  "browse_sto_folder": "Zum STO Live Ordner durchsuchen",
+  "sto_folder_connected": "Mit STO Live Ordner verbunden",
+  "sto_folder_not_found": "STO Live Ordner nicht gefunden",
+  "copy_to_sto": "In STO kopieren",
+  "replace_file": "Datei ersetzen",
+  "rename_and_copy": "Umbenennen & Kopieren",
+  "file_already_exists": "Datei existiert bereits im STO Ordner",
+  "file_copied_to_sto": "Datei {{filename}} in STO Ordner kopiert"
 }

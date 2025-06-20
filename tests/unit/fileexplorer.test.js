@@ -123,4 +123,29 @@ describe('STOFileExplorer', () => {
 
     expect(copySpy).toHaveBeenCalled()
   })
+
+  it('should store directory handle when browsing STO folder', async () => {
+    const fakeHandle = {}
+    global.showDirectoryPicker = vi.fn().mockResolvedValue(fakeHandle)
+
+    await stoFileExplorer.browseStoFolder()
+
+    expect(stoFileExplorer.stoDirectoryHandle).toBe(fakeHandle)
+  })
+
+  it('should write file to STO folder when copyToSTO called', async () => {
+    const write = vi.fn()
+    const close = vi.fn()
+    const fileHandle = { createWritable: vi.fn().mockResolvedValue({ write, close }) }
+    const dirHandle = { getFileHandle: vi.fn().mockResolvedValue(fileHandle) }
+    stoFileExplorer.stoDirectoryHandle = dirHandle
+    stoFileExplorer.currentExportContent = 'test'
+    stoFileExplorer.currentExportFilename = 'test.txt'
+
+    await stoFileExplorer.copyToSTO()
+
+    expect(dirHandle.getFileHandle).toHaveBeenCalledWith('test.txt', { create: true })
+    expect(write).toHaveBeenCalledWith('test')
+    expect(close).toHaveBeenCalled()
+  })
 })

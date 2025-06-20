@@ -2705,6 +2705,12 @@ body {
   max-height: 60vh;
 }
 
+.file-explorer-content.three-pane {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+}
+
 .file-tree {
   flex: 0 0 30%;
   overflow-y: auto;
@@ -2754,4 +2760,38 @@ body {
   white-space: pre-wrap;
   font-family: monospace;
   font-size: 0.8rem;
+}
+
+.sto-browser {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  padding-left: 1rem;
+}
+
+.sto-folder-status {
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+}
+
+.sto-folder-status.connected {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.sto-folder-status.disconnected {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.sto-file-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 1rem;
+  overflow-y: auto;
+}
+
+.sto-file-list li {
+  padding: 0.25rem 0;
 }
