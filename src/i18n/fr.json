@@ -494,5 +494,11 @@
   "no_profiles_to_export": "Aucun profil à exporter",
   "exporting_profiles": "Exportation de {{count}} profils...",
   "aliases_exported_successfully": "Alias exportés avec succès",
-  "failed_to_export_aliases": "Échec de l'exportation des alias : {{error}}"
+  "failed_to_export_aliases": "Échec de l'exportation des alias : {{error}}",
+  "sync_folder_set": "Dossier de synchronisation sélectionné",
+  "failed_to_set_sync_folder": "Échec de la sélection du dossier de synchronisation : {{error}}",
+  "no_sync_folder_selected": "Aucun dossier de synchronisation sélectionné",
+  "project_synced_successfully": "Projet synchronisé avec succès",
+  "permission_denied_to_folder": "Permission refusée pour écrire dans le dossier",
+  "failed_to_sync_project": "Échec de la synchronisation du projet : {{error}}"
 }

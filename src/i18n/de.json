@@ -494,5 +494,11 @@
   "no_profiles_to_export": "Keine Profile zum Exportieren",
   "exporting_profiles": "Exportiere {{count}} Profile...",
   "aliases_exported_successfully": "Aliase erfolgreich exportiert",
-  "failed_to_export_aliases": "Alias Export fehlgeschlagen: {{error}}"
+  "failed_to_export_aliases": "Alias Export fehlgeschlagen: {{error}}",
+  "sync_folder_set": "Sync-Ordner ausgewählt",
+  "failed_to_set_sync_folder": "Sync-Ordner auswählen fehlgeschlagen: {{error}}",
+  "no_sync_folder_selected": "Kein Sync-Ordner ausgewählt",
+  "project_synced_successfully": "Projekt erfolgreich synchronisiert",
+  "permission_denied_to_folder": "Berechtigung zum Schreiben in Ordner verweigert",
+  "failed_to_sync_project": "Projekt-Synchronisation fehlgeschlagen: {{error}}"
 }
