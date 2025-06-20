@@ -101,6 +101,10 @@ export default class STOProfileManager {
       this.closeSettingsMenu()
     })
 
+    eventBus.onDom('languageSelect', 'change', 'language-change', (e) => {
+      app.changeLanguage(e.target.value)
+    })
+
     // Close settings menu when clicking outside
     document.addEventListener('click', () => {
       this.closeSettingsMenu()

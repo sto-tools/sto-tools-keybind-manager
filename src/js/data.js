@@ -1111,6 +1111,7 @@ const STO_DATA = {
     autoSave: true,
     maxUndoSteps: 50,
     defaultMode: 'space',
+    language: 'en',
   },
 
   // STO Variables that can be used in commands
@@ -1244,6 +1245,7 @@ window.DEFAULT_SETTINGS = {
   exportFormat: 'txt',
   maxUndoSteps: STO_DATA.settings?.maxUndoSteps || 50,
   defaultMode: STO_DATA.settings?.defaultMode || 'space',
+  language: STO_DATA.settings?.language || 'en',
 }
 
 // Sample profiles

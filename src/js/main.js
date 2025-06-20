@@ -20,9 +20,12 @@ import VertigoManager, { VFX_EFFECTS } from './vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './version.js'
 
+const stoStorage = new STOStorage()
+const settings = stoStorage.getSettings()
+
 ;(async () => {
   await i18next.init({
-    lng: 'en',
+    lng: settings.language || 'en',
     fallbackLng: 'en',
     resources: {
       en: { translation: en },
@@ -82,8 +85,6 @@ import './version.js'
     applyTranslations()
   }
 })()
-
-const stoStorage = new STOStorage()
 const stoProfiles = new STOProfileManager()
 const stoKeybinds = new STOKeybindFileManager()
 const stoAliases = new STOAliasManager()

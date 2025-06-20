@@ -91,6 +91,7 @@ export default class STOToolsKeybindManager {
 
       // Apply saved theme
       this.applyTheme()
+      await this.applyLanguage()
 
       // Setup UI components
       this.setupEventListeners()
@@ -3620,6 +3621,33 @@ export default class STOToolsKeybindManager {
         themeToggleText.textContent = 'Dark Mode'
       }
     }
+  }
+
+  async applyLanguage() {
+    const settings = stoStorage.getSettings()
+    const lang = settings.language || 'en'
+
+    if (typeof i18next !== 'undefined' && i18next.language !== lang) {
+      await i18next.changeLanguage(lang)
+    }
+
+    if (typeof applyTranslations === 'function') {
+      applyTranslations()
+    }
+
+    const select = document.getElementById('languageSelect')
+    if (select) {
+      select.value = lang
+    }
+  }
+
+  async changeLanguage(lang) {
+    const settings = stoStorage.getSettings()
+    settings.language = lang
+    stoStorage.saveSettings(settings)
+
+    await this.applyLanguage()
+    stoUI.showToast('Language updated', 'success')
   }
 }
 
