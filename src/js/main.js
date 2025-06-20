@@ -20,31 +20,33 @@ import VertigoManager, { VFX_EFFECTS } from './vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './version.js'
 
-await i18next.init({
-  lng: 'en',
-  fallbackLng: 'en',
-  resources: {
-    en: { translation: en },
-    de: { translation: de },
-    fr: { translation: fr },
-    es: { translation: es },
-  },
-})
-
-function applyTranslations() {
-  document.querySelectorAll('[data-i18n]').forEach((el) => {
-    const key = el.getAttribute('data-i18n')
-    if (key) {
-      el.textContent = i18next.t(key)
-    }
+;(async () => {
+  await i18next.init({
+    lng: 'en',
+    fallbackLng: 'en',
+    resources: {
+      en: { translation: en },
+      de: { translation: de },
+      fr: { translation: fr },
+      es: { translation: es },
+    },
   })
-}
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', applyTranslations)
-} else {
-  applyTranslations()
-}
+  function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n')
+      if (key) {
+        el.textContent = i18next.t(key)
+      }
+    })
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyTranslations)
+  } else {
+    applyTranslations()
+  }
+})()
 
 const stoStorage = new STOStorage()
 const stoProfiles = new STOProfileManager()

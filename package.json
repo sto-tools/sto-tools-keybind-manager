@@ -23,6 +23,7 @@
     "format": "prettier --write \"{src,tests}/**/*.{js,css,html}\""
   },
   "devDependencies": {
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@vitest/browser": "^1.0.4",
