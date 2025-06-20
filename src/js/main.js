@@ -2,6 +2,11 @@ import './constants.js'
 import eventBus from './eventBus.js'
 import './data.js'
 import './errors.js'
+import i18next from 'i18next'
+import en from '../i18n/en.json'
+import de from '../i18n/de.json'
+import fr from '../i18n/fr.json'
+import es from '../i18n/es.json'
 import STOStorage from './storage.js'
 import STOProfileManager from './profiles.js'
 import STOKeybindFileManager from './keybinds.js'
@@ -14,6 +19,34 @@ import STOFileExplorer from './fileexplorer.js'
 import VertigoManager, { VFX_EFFECTS } from './vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './version.js'
+
+;(async () => {
+  await i18next.init({
+    lng: 'en',
+    fallbackLng: 'en',
+    resources: {
+      en: { translation: en },
+      de: { translation: de },
+      fr: { translation: fr },
+      es: { translation: es },
+    },
+  })
+
+  function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n')
+      if (key) {
+        el.textContent = i18next.t(key)
+      }
+    })
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyTranslations)
+  } else {
+    applyTranslations()
+  }
+})()
 
 const stoStorage = new STOStorage()
 const stoProfiles = new STOProfileManager()
@@ -50,3 +83,4 @@ eventBus.on('sto-app-ready', () => {
   stoExport.init()
   stoFileExplorer.init()
 })
+

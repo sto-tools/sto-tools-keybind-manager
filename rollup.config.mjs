@@ -1,15 +1,17 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
+import json from '@rollup/plugin-json';
 
 export default {
   input: 'src/js/main.js',
   output: {
     file: 'src/dist/bundle.js',
     format: 'esm',
-    sourcemap: false,
+    sourcemap: true,
   },
   plugins: [
     nodeResolve(),
+    json(),
     terser({
       compress: {
         drop_console: false, // Keep console logs for debugging
