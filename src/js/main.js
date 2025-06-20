@@ -2,6 +2,31 @@ import './constants.js'
 import eventBus from './eventBus.js'
 import './data.js'
 import './errors.js'
+import i18next from 'i18next'
+import en from '../i18n/en.json'
+import de from '../i18n/de.json'
+import fr from '../i18n/fr.json'
+import es from '../i18n/es.json'
+
+await i18next.init({
+  lng: 'en',
+  fallbackLng: 'en',
+  resources: {
+    en: { translation: en },
+    de: { translation: de },
+    fr: { translation: fr },
+    es: { translation: es },
+  },
+})
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n')
+    if (key) {
+      el.textContent = i18next.t(key)
+    }
+  })
+})
 import STOStorage from './storage.js'
 import STOProfileManager from './profiles.js'
 import STOKeybindFileManager from './keybinds.js'
