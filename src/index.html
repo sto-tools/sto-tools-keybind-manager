@@ -1,642 +1,865 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>STO Tools Keybind Manager</title>
-    <meta name="description" content="Star Trek Online Keybind Manager - Create, edit, and export keybind configurations">
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-</head>
-<body>
+    <meta
+      name="description"
+      content="Star Trek Online Keybind Manager - Create, edit, and export keybind configurations"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
     <div class="app-container">
-        <!-- Header -->
-        <header class="app-header">
-            <div class="header-left">
-                <h1><a href="https://sto-tools.org/" target="_blank" rel="noopener noreferrer"><img src="img/delta_64x64.png" alt="STO Tools Logo" class="app-logo"></a> STO Tools Keybind Manager</h1>
-                <span class="version" id="appVersion"></span>
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-left">
+          <h1>
+            <a
+              href="https://sto-tools.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              ><img
+                src="img/delta_64x64.png"
+                alt="STO Tools Logo"
+                class="app-logo"
+            /></a>
+            STO Tools Keybind Manager
+          </h1>
+          <span class="version" id="appVersion"></span>
+        </div>
+        <div class="header-right">
+          <button
+            class="btn btn-secondary"
+            id="openProjectBtn"
+            title="Open Project JSON"
+          >
+            <i class="fas fa-folder-open"></i> Open
+          </button>
+          <button
+            class="btn btn-secondary"
+            id="saveProjectBtn"
+            title="Save Project JSON"
+          >
+            <i class="fas fa-save"></i> Save
+          </button>
+          <button
+            class="btn btn-secondary"
+            id="fileExplorerBtn"
+            title="File Explorer"
+          >
+            <i class="fas fa-sitemap"></i> Explorer
+          </button>
+          <div class="dropdown">
+            <button
+              class="btn btn-secondary dropdown-toggle"
+              id="keybindsBtn"
+              title="Keybind Operations"
+            >
+              <i class="fas fa-keyboard"></i> Keybinds
+            </button>
+            <div class="dropdown-menu" id="keybindsMenu">
+              <button class="dropdown-item" id="importKeybindsBtn">
+                <i class="fas fa-file-import"></i> Import Keybinds
+              </button>
+              <button class="dropdown-item" id="exportKeybindsBtn">
+                <i class="fas fa-download"></i> Export Keybinds
+              </button>
             </div>
-            <div class="header-right">
-                <button class="btn btn-secondary" id="openProjectBtn" title="Open Project JSON">
-                    <i class="fas fa-folder-open"></i> Open
-                </button>
-                <button class="btn btn-secondary" id="saveProjectBtn" title="Save Project JSON">
-                    <i class="fas fa-save"></i> Save
-                </button>
-                <button class="btn btn-secondary" id="fileExplorerBtn" title="File Explorer">
-                    <i class="fas fa-sitemap"></i> Explorer
-                </button>
-                <div class="dropdown">
-                    <button class="btn btn-secondary dropdown-toggle" id="keybindsBtn" title="Keybind Operations">
-                        <i class="fas fa-keyboard"></i> Keybinds
-                    </button>
-                    <div class="dropdown-menu" id="keybindsMenu">
-                        <button class="dropdown-item" id="importKeybindsBtn">
-                            <i class="fas fa-file-import"></i> Import Keybinds
-                        </button>
-                        <button class="dropdown-item" id="exportKeybindsBtn">
-                            <i class="fas fa-download"></i> Export Keybinds
-                        </button>
-                    </div>
-                </div>
-                <div class="dropdown">
-                    <button class="btn btn-secondary dropdown-toggle" id="aliasesBtn" title="Alias Operations">
-                        <i class="fas fa-mask"></i> Aliases
-                    </button>
-                    <div class="dropdown-menu" id="aliasesMenu">
-                        <button class="dropdown-item" id="importAliasesBtn">
-                            <i class="fas fa-mask"></i> Import Aliases
-                        </button>
-                        <button class="dropdown-item" id="exportAliasesBtn">
-                            <i class="fas fa-mask"></i> Export Aliases
-                        </button>
-                    </div>
-                </div>
-                <button class="btn btn-secondary" id="vertigoBtn" title="VFX Manager">
-                    <i class="fas fa-eye-slash"></i> VFX
-                </button>
-                <div class="dropdown">
-                    <button class="btn btn-icon dropdown-toggle" id="settingsBtn" title="Settings">
-                        <i class="fas fa-cog"></i>
-                    </button>
-                    <div class="dropdown-menu" id="settingsMenu">
-                        <button class="dropdown-item" id="themeToggleBtn">
-                            <i class="fas fa-moon"></i> <span id="themeToggleText">Dark Mode</span>
-                        </button>
-                        <button class="dropdown-item" id="loadDefaultDataBtn">
-                            <i class="fas fa-download"></i> Load Default Data
-                        </button>
-                        <button class="dropdown-item" id="resetAppBtn">
-                            <i class="fas fa-refresh"></i> Reset Application
-                        </button>
-                        <button class="dropdown-item" id="aboutBtn">
-                            <i class="fas fa-info-circle"></i> About
-                        </button>
-                    </div>
-                </div>
+          </div>
+          <div class="dropdown">
+            <button
+              class="btn btn-secondary dropdown-toggle"
+              id="aliasesBtn"
+              title="Alias Operations"
+            >
+              <i class="fas fa-mask"></i> Aliases
+            </button>
+            <div class="dropdown-menu" id="aliasesMenu">
+              <button class="dropdown-item" id="importAliasesBtn">
+                <i class="fas fa-mask"></i> Import Aliases
+              </button>
+              <button class="dropdown-item" id="exportAliasesBtn">
+                <i class="fas fa-mask"></i> Export Aliases
+              </button>
             </div>
-        </header>
+          </div>
+          <button class="btn btn-secondary" id="vertigoBtn" title="VFX Manager">
+            <i class="fas fa-eye-slash"></i> VFX
+          </button>
+          <div class="dropdown">
+            <button
+              class="btn btn-icon dropdown-toggle"
+              id="settingsBtn"
+              title="Settings"
+            >
+              <i class="fas fa-cog"></i>
+            </button>
+            <div class="dropdown-menu" id="settingsMenu">
+              <button class="dropdown-item" id="themeToggleBtn">
+                <i class="fas fa-moon"></i>
+                <span id="themeToggleText">Dark Mode</span>
+              </button>
+              <button class="dropdown-item" id="loadDefaultDataBtn">
+                <i class="fas fa-download"></i> Load Default Data
+              </button>
+              <button class="dropdown-item" id="resetAppBtn">
+                <i class="fas fa-refresh"></i> Reset Application
+              </button>
+              <button class="dropdown-item" id="aboutBtn">
+                <i class="fas fa-info-circle"></i> About
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
 
-        <!-- Profile Bar -->
-        <div class="profile-bar">
-            <div class="profile-selector">
-                <i class="fas fa-clipboard-list"></i>
-                <select id="profileSelect" title="Select Profile">
-                    <!-- Profiles populated by JavaScript -->
-                </select>
-                <div class="profile-actions">
-                    <button class="btn-small" id="newProfileBtn" title="New Profile">
-                        <i class="fas fa-plus"></i> New
-                    </button>
-                    <button class="btn-small" id="cloneProfileBtn" title="Clone Profile">
-                        <i class="fas fa-copy"></i> Clone
-                    </button>
-                    <button class="btn-small" id="renameProfileBtn" title="Rename Profile">
-                        <i class="fas fa-edit"></i> Rename
-                    </button>
-                    <button class="btn-small btn-danger" id="deleteProfileBtn" title="Delete Profile">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                </div>
+      <!-- Profile Bar -->
+      <div class="profile-bar">
+        <div class="profile-selector">
+          <i class="fas fa-clipboard-list"></i>
+          <select id="profileSelect" title="Select Profile">
+            <!-- Profiles populated by JavaScript -->
+          </select>
+          <div class="profile-actions">
+            <button class="btn-small" id="newProfileBtn" title="New Profile">
+              <i class="fas fa-plus"></i> New
+            </button>
+            <button
+              class="btn-small"
+              id="cloneProfileBtn"
+              title="Clone Profile"
+            >
+              <i class="fas fa-copy"></i> Clone
+            </button>
+            <button
+              class="btn-small"
+              id="renameProfileBtn"
+              title="Rename Profile"
+            >
+              <i class="fas fa-edit"></i> Rename
+            </button>
+            <button
+              class="btn-small btn-danger"
+              id="deleteProfileBtn"
+              title="Delete Profile"
+            >
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+        <div class="profile-info">
+          <div class="mode-toggle">
+            <button
+              class="mode-btn active"
+              data-mode="space"
+              title="Space Mode"
+            >
+              <i class="fas fa-rocket"></i> Space
+            </button>
+            <button class="mode-btn" data-mode="ground" title="Ground Mode">
+              <i class="fas fa-user"></i> Ground
+            </button>
+          </div>
+          <div class="status-indicators">
+            <span
+              class="modified-indicator"
+              id="modifiedIndicator"
+              style="display: none"
+              title="Unsaved Changes"
+            >
+              <i class="fas fa-circle"></i> Modified
+            </span>
+            <span
+              class="status-indicator"
+              id="statusIndicator"
+              title="Validation Status"
+            >
+              <i class="fas fa-check-circle"></i> Valid
+            </span>
+            <span class="key-count" id="keyCount" title="Bound Keys">
+              0 keys
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="main-content">
+        <!-- Key Selector -->
+        <div class="key-selector-container">
+          <div class="key-selector-header">
+            <h3>Keys</h3>
+            <div class="key-controls">
+              <div class="key-filter">
+                <input
+                  type="text"
+                  placeholder="Filter keys..."
+                  id="keyFilter"
+                />
+                <button class="btn btn-small" id="showAllKeysBtn">
+                  <i class="fas fa-eye"></i> All
+                </button>
+              </div>
+              <div class="view-toggle">
+                <button
+                  class="btn btn-small"
+                  id="toggleKeyViewBtn"
+                  title="Toggle between grid and categorized view"
+                >
+                  <i class="fas fa-list"></i>
+                </button>
+              </div>
             </div>
-            <div class="profile-info">
-                <div class="mode-toggle">
-                    <button class="mode-btn active" data-mode="space" title="Space Mode">
-                        <i class="fas fa-rocket"></i> Space
-                    </button>
-                    <button class="mode-btn" data-mode="ground" title="Ground Mode">
-                        <i class="fas fa-user"></i> Ground
-                    </button>
-                </div>
-                <div class="status-indicators">
-                    <span class="modified-indicator" id="modifiedIndicator" style="display: none;" title="Unsaved Changes">
-                        <i class="fas fa-circle"></i> Modified
-                    </span>
-                    <span class="status-indicator" id="statusIndicator" title="Validation Status">
-                        <i class="fas fa-check-circle"></i> Valid
-                    </span>
-                    <span class="key-count" id="keyCount" title="Bound Keys">
-                        0 keys
-                    </span>
-                </div>
+          </div>
+          <div class="key-selector">
+            <div class="key-grid" id="keyGrid">
+              <!-- Keys populated by JavaScript -->
             </div>
+            <div class="key-actions">
+              <button class="btn btn-small btn-primary" id="addKeyBtn">
+                <i class="fas fa-plus"></i> Add Key
+              </button>
+              <button
+                class="btn btn-small btn-danger"
+                id="deleteKeyBtn"
+                disabled
+              >
+                <i class="fas fa-trash"></i> Delete
+              </button>
+              <button class="btn btn-small" id="duplicateKeyBtn" disabled>
+                <i class="fas fa-copy"></i> Copy
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Key Selector -->
-            <div class="key-selector-container">
-                <div class="key-selector-header">
-                    <h3>Keys</h3>
-                    <div class="key-controls">
-                        <div class="key-filter">
-                            <input type="text" placeholder="Filter keys..." id="keyFilter">
-                            <button class="btn btn-small" id="showAllKeysBtn">
-                                <i class="fas fa-eye"></i> All
-                            </button>
-                        </div>
-                        <div class="view-toggle">
-                            <button class="btn btn-small" id="toggleKeyViewBtn" title="Toggle between grid and categorized view">
-                                <i class="fas fa-list"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="key-selector">
-                    <div class="key-grid" id="keyGrid">
-                        <!-- Keys populated by JavaScript -->
-                    </div>
-                    <div class="key-actions">
-                        <button class="btn btn-small btn-primary" id="addKeyBtn">
-                            <i class="fas fa-plus"></i> Add Key
-                        </button>
-                        <button class="btn btn-small btn-danger" id="deleteKeyBtn" disabled>
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                        <button class="btn btn-small" id="duplicateKeyBtn" disabled>
-                            <i class="fas fa-copy"></i> Copy
-                        </button>
-                    </div>
-                </div>
+        <!-- Command Chain Editor -->
+        <div class="command-chain-container">
+          <div class="chain-header">
+            <h3 id="chainTitle">Select a key to edit</h3>
+            <div class="chain-info">
+              <span class="command-count" id="commandCount">0 commands</span>
+              <div class="chain-options">
+                <label
+                  class="checkbox-label"
+                  title="Ensures consistent execution order by mirroring commands (Phase 1: left-to-right, Phase 2: right-to-left)"
+                >
+                  <input type="checkbox" id="stabilizeExecutionOrder" />
+                  <span class="checkmark"></span>
+                  Stabilize Execution Order
+                </label>
+              </div>
             </div>
-
-            <!-- Command Chain Editor -->
-            <div class="command-chain-container">
-                <div class="chain-header">
-                    <h3 id="chainTitle">Select a key to edit</h3>
-                    <div class="chain-info">
-                        <span class="command-count" id="commandCount">0 commands</span>
-                        <div class="chain-options">
-                            <label class="checkbox-label" title="Ensures consistent execution order by mirroring commands (Phase 1: left-to-right, Phase 2: right-to-left)">
-                                <input type="checkbox" id="stabilizeExecutionOrder" />
-                                <span class="checkmark"></span>
-                                Stabilize Execution Order
-                            </label>
-                        </div>
-                    </div>
-                    <div class="chain-actions">
-                        <button class="btn btn-small" id="validateChainBtn" title="Validate Command Chain">
-                            <i class="fas fa-check"></i> Validate
-                        </button>
-                        <button class="btn btn-small btn-danger" id="clearChainBtn" title="Clear All Commands">
-                            <i class="fas fa-trash"></i> Clear
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="command-list-container">
-                    <div class="command-list" id="commandList">
-                        <div class="empty-state" id="emptyState">
-                            <i class="fas fa-keyboard"></i>
-                            <h4>No Key Selected</h4>
-                            <p>Select a key from the left panel to view and edit its command chain.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="generated-command">
-                    <div class="command-preview-header">
-                        <label>Generated Command:</label>
-                        <button class="btn btn-small" id="copyPreviewBtn" title="Copy to Clipboard">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                    <div class="command-preview" id="commandPreview">
-                        Select a key to see the generated command
-                    </div>
-                </div>
-
-                <div class="chain-bottom-actions">
-                    <button class="btn btn-primary" id="addCommandBtn" disabled>
-                        <i class="fas fa-plus"></i> Add Command
-                    </button>
-                    <button class="btn btn-secondary" id="addFromTemplateBtn" disabled>
-                        <i class="fas fa-list"></i> From Template
-                    </button>
-                    <button class="btn btn-secondary" id="addAliasBtn">
-                        <i class="fas fa-mask"></i> Add Alias
-                    </button>
-                    <button class="btn btn-secondary" id="importFromKeyBtn" disabled>
-                        <i class="fas fa-copy"></i> Copy from Key
-                    </button>
-                </div>
+            <div class="chain-actions">
+              <button
+                class="btn btn-small"
+                id="validateChainBtn"
+                title="Validate Command Chain"
+              >
+                <i class="fas fa-check"></i> Validate
+              </button>
+              <button
+                class="btn btn-small btn-danger"
+                id="clearChainBtn"
+                title="Clear All Commands"
+              >
+                <i class="fas fa-trash"></i> Clear
+              </button>
             </div>
+          </div>
 
-            <!-- Command Library -->
-            <div class="command-library">
-                <div class="library-header">
-                    <h3>Command Library</h3>
-                    <div class="library-controls">
-                        <div class="library-search">
-                            <input type="text" placeholder="Search commands..." id="commandSearch">
-                            <button class="btn btn-icon">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </div>
-                        <button class="btn btn-small" id="toggleLibraryBtn" title="Collapse/Expand">
-                            <i class="fas fa-chevron-up"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="library-content" id="libraryContent">
-                    <div class="command-categories" id="commandCategories">
-                        <!-- Categories populated by JavaScript -->
-                    </div>
-                </div>
+          <div class="command-list-container">
+            <div class="command-list" id="commandList">
+              <div class="empty-state" id="emptyState">
+                <i class="fas fa-keyboard"></i>
+                <h4>No Key Selected</h4>
+                <p>
+                  Select a key from the left panel to view and edit its command
+                  chain.
+                </p>
+              </div>
             </div>
+          </div>
+
+          <div class="generated-command">
+            <div class="command-preview-header">
+              <label>Generated Command:</label>
+              <button
+                class="btn btn-small"
+                id="copyPreviewBtn"
+                title="Copy to Clipboard"
+              >
+                <i class="fas fa-copy"></i>
+              </button>
+            </div>
+            <div class="command-preview" id="commandPreview">
+              Select a key to see the generated command
+            </div>
+          </div>
+
+          <div class="chain-bottom-actions">
+            <button class="btn btn-primary" id="addCommandBtn" disabled>
+              <i class="fas fa-plus"></i> Add Command
+            </button>
+            <button class="btn btn-secondary" id="addFromTemplateBtn" disabled>
+              <i class="fas fa-list"></i> From Template
+            </button>
+            <button class="btn btn-secondary" id="addAliasBtn">
+              <i class="fas fa-mask"></i> Add Alias
+            </button>
+            <button class="btn btn-secondary" id="importFromKeyBtn" disabled>
+              <i class="fas fa-copy"></i> Copy from Key
+            </button>
+          </div>
         </div>
 
-        <!-- Toast Notifications -->
-        <div class="toast-container" id="toastContainer"></div>
+        <!-- Command Library -->
+        <div class="command-library">
+          <div class="library-header">
+            <h3>Command Library</h3>
+            <div class="library-controls">
+              <div class="library-search">
+                <input
+                  type="text"
+                  placeholder="Search commands..."
+                  id="commandSearch"
+                />
+                <button class="btn btn-icon">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <button
+                class="btn btn-small"
+                id="toggleLibraryBtn"
+                title="Collapse/Expand"
+              >
+                <i class="fas fa-chevron-up"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="library-content" id="libraryContent">
+            <div class="command-categories" id="commandCategories">
+              <!-- Categories populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notifications -->
+      <div class="toast-container" id="toastContainer"></div>
     </div>
 
     <!-- Modals -->
     <div class="modal-overlay" id="modalOverlay"></div>
-    
+
     <!-- Add Key Modal -->
     <div class="modal" id="addKeyModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add New Key</h3>
-                <button class="modal-close" data-modal="addKeyModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="newKeyName">Key Name:</label>
-                    <input type="text" id="newKeyName" placeholder="e.g., F5, Ctrl+A, Shift+1" autocomplete="off">
-                    <small>Use standard key names like F1, Ctrl+A, Shift+Space, etc.</small>
-                </div>
-                <div class="common-keys">
-                    <h4>Common Keys:</h4>
-                    <div class="key-suggestions">
-                        <button class="key-suggestion" data-key="F5">F5</button>
-                        <button class="key-suggestion" data-key="F6">F6</button>
-                        <button class="key-suggestion" data-key="F7">F7</button>
-                        <button class="key-suggestion" data-key="F8">F8</button>
-                        <button class="key-suggestion" data-key="Ctrl+1">Ctrl+1</button>
-                        <button class="key-suggestion" data-key="Ctrl+2">Ctrl+2</button>
-                        <button class="key-suggestion" data-key="Alt+1">Alt+1</button>
-                        <button class="key-suggestion" data-key="Shift+Space">Shift+Space</button>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="confirmAddKeyBtn">Add Key</button>
-                <button class="btn btn-secondary" data-modal="addKeyModal">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add New Key</h3>
+          <button class="modal-close" data-modal="addKeyModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="newKeyName">Key Name:</label>
+            <input
+              type="text"
+              id="newKeyName"
+              placeholder="e.g., F5, Ctrl+A, Shift+1"
+              autocomplete="off"
+            />
+            <small
+              >Use standard key names like F1, Ctrl+A, Shift+Space, etc.</small
+            >
+          </div>
+          <div class="common-keys">
+            <h4>Common Keys:</h4>
+            <div class="key-suggestions">
+              <button class="key-suggestion" data-key="F5">F5</button>
+              <button class="key-suggestion" data-key="F6">F6</button>
+              <button class="key-suggestion" data-key="F7">F7</button>
+              <button class="key-suggestion" data-key="F8">F8</button>
+              <button class="key-suggestion" data-key="Ctrl+1">Ctrl+1</button>
+              <button class="key-suggestion" data-key="Ctrl+2">Ctrl+2</button>
+              <button class="key-suggestion" data-key="Alt+1">Alt+1</button>
+              <button class="key-suggestion" data-key="Shift+Space">
+                Shift+Space
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmAddKeyBtn">Add Key</button>
+          <button class="btn btn-secondary" data-modal="addKeyModal">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Add Command Modal -->
     <div class="modal" id="addCommandModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add Command</h3>
-                <button class="modal-close" data-modal="addCommandModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="commandType">Command Type:</label>
-                    <select id="commandType">
-                        <option value="">Select command type...</option>
-                        <option value="targeting">Targeting</option>
-                        <option value="combat">Combat</option>
-                        <option value="tray">Tray Execution</option>
-                        <option value="power">Shield Management</option>
-                        <option value="movement">Movement</option>
-                        <option value="camera">Camera</option>
-                        <option value="communication">Communication</option>
-                        <option value="system">System</option>
-                        <option value="alias">Alias</option>
-                        <option value="custom">Custom Command</option>
-                    </select>
-                </div>
-
-                <div class="command-builder" id="commandBuilder">
-                    <!-- Command builder content populated by JavaScript -->
-                </div>
-
-                <div class="command-preview-modal">
-                    <label>Generated Command:</label>
-                    <div class="command-preview" id="modalCommandPreview">
-                        Select a command type to see preview
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="saveCommandBtn" disabled>Add Command</button>
-                <button class="btn btn-secondary" data-modal="addCommandModal">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add Command</h3>
+          <button class="modal-close" data-modal="addCommandModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="commandType">Command Type:</label>
+            <select id="commandType">
+              <option value="">Select command type...</option>
+              <option value="targeting">Targeting</option>
+              <option value="combat">Combat</option>
+              <option value="tray">Tray Execution</option>
+              <option value="power">Shield Management</option>
+              <option value="movement">Movement</option>
+              <option value="camera">Camera</option>
+              <option value="communication">Communication</option>
+              <option value="system">System</option>
+              <option value="alias">Alias</option>
+              <option value="custom">Custom Command</option>
+            </select>
+          </div>
+
+          <div class="command-builder" id="commandBuilder">
+            <!-- Command builder content populated by JavaScript -->
+          </div>
+
+          <div class="command-preview-modal">
+            <label>Generated Command:</label>
+            <div class="command-preview" id="modalCommandPreview">
+              Select a command type to see preview
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="saveCommandBtn" disabled>
+            Add Command
+          </button>
+          <button class="btn btn-secondary" data-modal="addCommandModal">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Profile Modal -->
     <div class="modal" id="profileModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="profileModalTitle">Profile</h3>
-                <button class="modal-close" data-modal="profileModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="profileName">Profile Name:</label>
-                    <input type="text" id="profileName" placeholder="Enter profile name" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="profileDescription">Description (optional):</label>
-                    <textarea id="profileDescription" placeholder="Describe this keybind profile" rows="3"></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="saveProfileBtn">Save</button>
-                <button class="btn btn-secondary" data-modal="profileModal">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="profileModalTitle">Profile</h3>
+          <button class="modal-close" data-modal="profileModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="profileName">Profile Name:</label>
+            <input
+              type="text"
+              id="profileName"
+              placeholder="Enter profile name"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-group">
+            <label for="profileDescription">Description (optional):</label>
+            <textarea
+              id="profileDescription"
+              placeholder="Describe this keybind profile"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="saveProfileBtn">Save</button>
+          <button class="btn btn-secondary" data-modal="profileModal">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Alias Manager Modal -->
     <div class="modal large-modal" id="aliasManagerModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Command Alias Manager</h3>
-                <button class="modal-close" data-modal="aliasManagerModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="alias-manager-content">
-                    <div class="alias-list" id="aliasList">
-                        <!-- Aliases populated by JavaScript -->
-                    </div>
-                    <div class="alias-actions">
-                        <button class="btn btn-primary" id="newAliasBtn">
-                            <i class="fas fa-plus"></i> New Alias
-                        </button>
-                    </div>
-                </div>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Command Alias Manager</h3>
+          <button class="modal-close" data-modal="aliasManagerModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="alias-manager-content">
+            <div class="alias-list" id="aliasList">
+              <!-- Aliases populated by JavaScript -->
+            </div>
+            <div class="alias-actions">
+              <button class="btn btn-primary" id="newAliasBtn">
+                <i class="fas fa-plus"></i> New Alias
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Edit Alias Modal -->
     <div class="modal" id="editAliasModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="editAliasTitle">Edit Alias</h3>
-                <button class="modal-close" data-modal="editAliasModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="aliasName">Alias Name:</label>
-                    <input type="text" id="aliasName" placeholder="MyAlias" autocomplete="off">
-                    <small>Use alphanumeric characters only, no spaces</small>
-                </div>
-                <div class="form-group">
-                    <label for="aliasDescription">Description:</label>
-                    <input type="text" id="aliasDescription" placeholder="Brief description of what this alias does" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="aliasCommands">Commands:</label>
-                    <div class="textarea-with-button">
-                        <textarea id="aliasCommands" placeholder="Enter command sequence (use $$ to separate commands)" rows="4"></textarea>
-                        <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
-                            <i class="fas fa-crosshairs"></i> $Target
-                        </button>
-                    </div>
-                    <small>Example: target_self $$ +power_exec Science_Team $$ team Healing [$Target]</small>
-                    <div class="variable-help">
-                        <strong>$Target</strong> - Use in communication commands to include target name
-                    </div>
-                </div>
-                <div class="alias-preview">
-                    <label>Preview:</label>
-                    <div class="command-preview" id="aliasPreview">
-                        alias MyAlias "command sequence"
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="saveAliasBtn">Save Alias</button>
-                <button class="btn btn-secondary" data-modal="editAliasModal">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="editAliasTitle">Edit Alias</h3>
+          <button class="modal-close" data-modal="editAliasModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="aliasName">Alias Name:</label>
+            <input
+              type="text"
+              id="aliasName"
+              placeholder="MyAlias"
+              autocomplete="off"
+            />
+            <small>Use alphanumeric characters only, no spaces</small>
+          </div>
+          <div class="form-group">
+            <label for="aliasDescription">Description:</label>
+            <input
+              type="text"
+              id="aliasDescription"
+              placeholder="Brief description of what this alias does"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-group">
+            <label for="aliasCommands">Commands:</label>
+            <div class="textarea-with-button">
+              <textarea
+                id="aliasCommands"
+                placeholder="Enter command sequence (use $$ to separate commands)"
+                rows="4"
+              ></textarea>
+              <button
+                type="button"
+                class="btn btn-small insert-target-btn"
+                title="Insert $Target variable"
+              >
+                <i class="fas fa-crosshairs"></i> $Target
+              </button>
+            </div>
+            <small
+              >Example: target_self $$ +power_exec Science_Team $$ team Healing
+              [$Target]</small
+            >
+            <div class="variable-help">
+              <strong>$Target</strong> - Use in communication commands to
+              include target name
+            </div>
+          </div>
+          <div class="alias-preview">
+            <label>Preview:</label>
+            <div class="command-preview" id="aliasPreview">
+              alias MyAlias "command sequence"
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="saveAliasBtn">Save Alias</button>
+          <button class="btn btn-secondary" data-modal="editAliasModal">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Key Selection Modal -->
     <div class="modal large-modal" id="keySelectionModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Select Key</h3>
-                <button class="modal-close" data-modal="keySelectionModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="key-selection-content">
-                    <!-- Common Keys Section -->
-                    <div class="common-keys-section">
-                        <h4>Common Keys</h4>
-                        <div class="common-keys-grid" id="commonKeysGrid">
-                            <!-- Populated by JavaScript -->
-                        </div>
-                    </div>
-                    
-                    <!-- Find Other Keys Button -->
-                    <div class="find-keys-section">
-                        <button class="btn btn-outline" id="findOtherKeysBtn">
-                            <i class="fas fa-search"></i> Find other keys...
-                        </button>
-                    </div>
-                    
-                    <!-- Full Key List (initially hidden) -->
-                    <div class="full-keys-section" id="fullKeysSection" style="display: none;">
-                        <div class="key-search">
-                            <input type="text" id="keySearchInput" placeholder="Search keys..." autocomplete="off">
-                        </div>
-                        <div class="key-categories" id="keyCategories">
-                            <!-- Populated by JavaScript -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-modal="keySelectionModal">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Select Key</h3>
+          <button class="modal-close" data-modal="keySelectionModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="key-selection-content">
+            <!-- Common Keys Section -->
+            <div class="common-keys-section">
+              <h4>Common Keys</h4>
+              <div class="common-keys-grid" id="commonKeysGrid">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+
+            <!-- Find Other Keys Button -->
+            <div class="find-keys-section">
+              <button class="btn btn-outline" id="findOtherKeysBtn">
+                <i class="fas fa-search"></i> Find other keys...
+              </button>
+            </div>
+
+            <!-- Full Key List (initially hidden) -->
+            <div
+              class="full-keys-section"
+              id="fullKeysSection"
+              style="display: none"
+            >
+              <div class="key-search">
+                <input
+                  type="text"
+                  id="keySearchInput"
+                  placeholder="Search keys..."
+                  autocomplete="off"
+                />
+              </div>
+              <div class="key-categories" id="keyCategories">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-modal="keySelectionModal">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Modal -->
     <div class="modal large-modal" id="vertigoModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>VFX Manager</h3>
-                <button class="modal-close" data-modal="vertigoModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="vertigo-content">
-                    <div class="vertigo-header">
-                        <p>Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.</p>
-                    </div>
-                    <div class="vertigo-environments">
-                        <div class="vertigo-environment">
-                            <div class="environment-header">
-                                <h4><i class="fas fa-rocket"></i> Space Effects</h4>
-                                <div class="environment-controls">
-                                    <button class="btn btn-small" id="spaceSelectAll">Select All</button>
-                                    <button class="btn btn-small" id="spaceClearAll">Clear All</button>
-                                    <span class="effect-count" id="spaceEffectCount">0 selected</span>
-                                </div>
-                            </div>
-                            <div class="effects-list" id="spaceEffectsList">
-                                <!-- Space effects populated by JavaScript -->
-                            </div>
-                        </div>
-                        <div class="vertigo-environment">
-                            <div class="environment-header">
-                                <h4><i class="fas fa-user"></i> Ground Effects</h4>
-                                <div class="environment-controls">
-                                    <button class="btn btn-small" id="groundSelectAll">Select All</button>
-                                    <button class="btn btn-small" id="groundClearAll">Clear All</button>
-                                    <span class="effect-count" id="groundEffectCount">0 selected</span>
-                                </div>
-                            </div>
-                            <div class="effects-list" id="groundEffectsList">
-                                <!-- Ground effects populated by JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                    <div class="vertigo-preview">
-                        <div class="alias-preview-section">
-                            <h4>Generated Aliases:</h4>
-                            <div class="alias-preview" id="spaceAliasPreview">
-                                <label>Space Alias:</label>
-                                <div class="command-preview" id="spaceAliasCommand">
-                                    No space effects selected
-                                </div>
-                            </div>
-                            <div class="alias-preview" id="groundAliasPreview">
-                                <label>Ground Alias:</label>
-                                <div class="command-preview" id="groundAliasCommand">
-                                    No ground effects selected
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div class="vertigo-controls">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="vertigoShowPlayerSay" />
-                        <span class="checkmark"></span>
-                        Show Player Say
-                    </label>
-                </div>
-
-                <button class="btn btn-primary" id="saveVertigoBtn">Generate Aliases</button>
-                <button class="btn btn-secondary" data-modal="vertigoModal">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>VFX Manager</h3>
+          <button class="modal-close" data-modal="vertigoModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="vertigo-content">
+            <div class="vertigo-header">
+              <p>
+                Select visual effects to disable using dynFxSetFXExlusionList
+                aliases. Effects are organized by environment.
+              </p>
+            </div>
+            <div class="vertigo-environments">
+              <div class="vertigo-environment">
+                <div class="environment-header">
+                  <h4><i class="fas fa-rocket"></i> Space Effects</h4>
+                  <div class="environment-controls">
+                    <button class="btn btn-small" id="spaceSelectAll">
+                      Select All
+                    </button>
+                    <button class="btn btn-small" id="spaceClearAll">
+                      Clear All
+                    </button>
+                    <span class="effect-count" id="spaceEffectCount"
+                      >0 selected</span
+                    >
+                  </div>
+                </div>
+                <div class="effects-list" id="spaceEffectsList">
+                  <!-- Space effects populated by JavaScript -->
+                </div>
+              </div>
+              <div class="vertigo-environment">
+                <div class="environment-header">
+                  <h4><i class="fas fa-user"></i> Ground Effects</h4>
+                  <div class="environment-controls">
+                    <button class="btn btn-small" id="groundSelectAll">
+                      Select All
+                    </button>
+                    <button class="btn btn-small" id="groundClearAll">
+                      Clear All
+                    </button>
+                    <span class="effect-count" id="groundEffectCount"
+                      >0 selected</span
+                    >
+                  </div>
+                </div>
+                <div class="effects-list" id="groundEffectsList">
+                  <!-- Ground effects populated by JavaScript -->
+                </div>
+              </div>
+            </div>
+            <div class="vertigo-preview">
+              <div class="alias-preview-section">
+                <h4>Generated Aliases:</h4>
+                <div class="alias-preview" id="spaceAliasPreview">
+                  <label>Space Alias:</label>
+                  <div class="command-preview" id="spaceAliasCommand">
+                    No space effects selected
+                  </div>
+                </div>
+                <div class="alias-preview" id="groundAliasPreview">
+                  <label>Ground Alias:</label>
+                  <div class="command-preview" id="groundAliasCommand">
+                    No ground effects selected
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="vertigo-controls">
+            <label class="checkbox-label">
+              <input type="checkbox" id="vertigoShowPlayerSay" />
+              <span class="checkmark"></span>
+              Show Player Say
+            </label>
+          </div>
+
+          <button class="btn btn-primary" id="saveVertigoBtn">
+            Generate Aliases
+          </button>
+          <button class="btn btn-secondary" data-modal="vertigoModal">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- About Modal -->
     <div class="modal" id="aboutModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>About STO Tools Keybind Manager</h3>
-                <button class="modal-close" data-modal="aboutModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="about-content">
-                    <div class="app-info">
-                        <h4><i class="fas fa-bolt"></i> STO Tools Keybind Manager <span id="aboutVersion"></span></h4>
-                        <p>A comprehensive web-based tool for creating, editing, and managing Star Trek Online keybind configurations with visual editing and advanced features.</p>
-                    </div>
-                    <div class="features">
-                        <h4>Features:</h4>
-                        <ul>
-                            <li>Visual keybind editor</li>
-                            <li>STO command library with search and categorization</li>
-                            <li>Multiple profile management (create, clone, rename, delete)</li>
-                            <li>Custom alias system for complex command sequences</li>
-                            <li>VERTIGO-inspired VFX Manager for visual effects control</li>
-                            <li>Import/export keybind and alias files, and project backups</li>
-                            <li>Real-time validation and command preview</li>
-                        </ul>
-                    </div>
-                    <div class="usage">
-                        <h4>Quick Start:</h4>
-                        <ol>
-                            <li>Create a new profile or use the default profile</li>
-                            <li>Select keys from the grid and add commands from the library</li>
-                            <li>Use the command chain editor to build complex sequences</li>
-                            <li>Export your keybinds as .txt files for use in STO</li>
-                        </ol>
-                    </div>
-                    <div class="contact-info">
-                        <h4>Resources:</h4>
-                        <p>
-                            <i class="fas fa-globe"></i> <a href="https://sto-tools.org/" target="_blank" rel="noopener noreferrer">https://sto-tools.org/</a> | <i class="fas fa-envelope"></i> <a href="mailto:keybinds@sto-tools.org">keybinds@sto-tools.org</a>
-                        </p>
-                    </div>
-                    <div class="copyright">
-                        <p><small>© 2025 STO Tools. All rights reserved.</small></p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" data-modal="aboutModal">Got it!</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>About STO Tools Keybind Manager</h3>
+          <button class="modal-close" data-modal="aboutModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="about-content">
+            <div class="app-info">
+              <h4>
+                <i class="fas fa-bolt"></i> STO Tools Keybind Manager
+                <span id="aboutVersion"></span>
+              </h4>
+              <p>
+                A comprehensive web-based tool for creating, editing, and
+                managing Star Trek Online keybind configurations with visual
+                editing and advanced features.
+              </p>
+            </div>
+            <div class="features">
+              <h4>Features:</h4>
+              <ul>
+                <li>Visual keybind editor</li>
+                <li>STO command library with search and categorization</li>
+                <li>
+                  Multiple profile management (create, clone, rename, delete)
+                </li>
+                <li>Custom alias system for complex command sequences</li>
+                <li>VERTIGO-inspired VFX Manager for visual effects control</li>
+                <li>
+                  Import/export keybind and alias files, and project backups
+                </li>
+                <li>Real-time validation and command preview</li>
+              </ul>
+            </div>
+            <div class="usage">
+              <h4>Quick Start:</h4>
+              <ol>
+                <li>Create a new profile or use the default profile</li>
+                <li>
+                  Select keys from the grid and add commands from the library
+                </li>
+                <li>Use the command chain editor to build complex sequences</li>
+                <li>Export your keybinds as .txt files for use in STO</li>
+              </ol>
+            </div>
+            <div class="contact-info">
+              <h4>Resources:</h4>
+              <p>
+                <i class="fas fa-globe"></i>
+                <a
+                  href="https://sto-tools.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >https://sto-tools.org/</a
+                >
+                | <i class="fas fa-envelope"></i>
+                <a href="mailto:keybinds@sto-tools.org"
+                  >keybinds@sto-tools.org</a
+                >
+              </p>
+            </div>
+            <div class="copyright">
+              <p><small>© 2025 STO Tools. All rights reserved.</small></p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" data-modal="aboutModal">
+            Got it!
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- File Explorer Modal -->
     <div class="modal large-modal" id="fileExplorerModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>File Explorer</h3>
-                <button class="modal-close" data-modal="fileExplorerModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="file-explorer-content">
-                    <div class="file-tree" id="fileTree">
-                        <!-- Tree populated by JavaScript -->
-                    </div>
-                    <div class="file-details">
-                        <div class="file-actions">
-                            <button class="btn btn-small" id="copyFileContentBtn" title="Copy to Clipboard">
-                                <i class="fas fa-copy"></i> Copy
-                            </button>
-                        </div>
-                        <pre class="file-content" id="fileContent">Select an item on the left to preview export</pre>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-modal="fileExplorerModal">Close</button>
-            </div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>File Explorer</h3>
+          <button class="modal-close" data-modal="fileExplorerModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
+        <div class="modal-body">
+          <div class="file-explorer-content">
+            <div class="file-tree" id="fileTree">
+              <!-- Tree populated by JavaScript -->
+            </div>
+            <div class="file-details">
+              <div class="file-actions">
+                <button
+                  class="btn btn-small"
+                  id="copyFileContentBtn"
+                  title="Copy to Clipboard"
+                >
+                  <i class="fas fa-copy"></i> Copy
+                </button>
+              </div>
+              <pre class="file-content" id="fileContent">
+Select an item on the left to preview export</pre
+              >
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-modal="fileExplorerModal">
+            Close
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- File input for imports (hidden) -->
-    <input type="file" id="fileInput" accept=".json,.txt" style="display: none;">
+    <input
+      type="file"
+      id="fileInput"
+      accept=".json,.txt"
+      style="display: none"
+    />
 
     <!-- Scripts -->
     <script src="dist/bundle.js"></script>
-</body>
-</html> 
+  </body>
+</html>

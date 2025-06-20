@@ -18,7 +18,9 @@
     "test:unit": "vitest run --project=unit --workspace=vitest.workspace.js",
     "test:browser": "vitest run --project=browser --workspace=vitest.workspace.js",
     "test:browser:ui": "vitest --ui --project=browser --workspace=vitest.workspace.js",
-    "test:all": "vitest run --workspace=vitest.workspace.js"
+    "test:all": "vitest run --workspace=vitest.workspace.js",
+    "lint": "eslint \"{src,tests}/**/*.js\"",
+    "format": "prettier --write \"{src,tests}/**/*.{js,css,html}\""
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
@@ -27,10 +29,18 @@
     "@vitest/coverage-istanbul": "^1.6.1",
     "@vitest/coverage-v8": "^1.0.4",
     "@vitest/ui": "^1.0.4",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-prettier": "^5.5.0",
+    "eslint-plugin-promise": "^6.6.0",
     "happy-dom": "^18.0.1",
     "http-server": "^14.1.1",
     "jsdom": "^23.0.1",
     "playwright": "^1.40.1",
+    "prettier": "^3.5.3",
     "rollup": "^4.44.0",
     "vitest": "^1.0.4"
   },

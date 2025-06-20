@@ -3,7 +3,10 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
 // Load the real HTML content
-const htmlContent = readFileSync(resolve(__dirname, '../../src/index.html'), 'utf-8')
+const htmlContent = readFileSync(
+  resolve(__dirname, '../../src/index.html'),
+  'utf-8'
+)
 
 // Import modules in dependency order
 let stoUI
@@ -12,19 +15,19 @@ describe('STOUIManager', () => {
   beforeEach(async () => {
     // Set up DOM with real HTML content
     document.documentElement.innerHTML = htmlContent
-    
+
     // Import the UI class and create an instance
     const { default: STOUIManager } = await import('../../src/js/ui.js')
     stoUI = new STOUIManager()
     window.stoUI = stoUI
-    
+
     // Add required containers to DOM if not present
     if (!document.getElementById('toastContainer')) {
       const toastContainer = document.createElement('div')
       toastContainer.id = 'toastContainer'
       document.body.appendChild(toastContainer)
     }
-    
+
     if (!document.getElementById('modalOverlay')) {
       const modalOverlay = document.createElement('div')
       modalOverlay.id = 'modalOverlay'
@@ -52,7 +55,7 @@ describe('STOUIManager', () => {
       expect(stoUI.dragState).toEqual({
         isDragging: false,
         dragElement: null,
-        dragData: null
+        dragData: null,
       })
     })
 
@@ -68,7 +71,7 @@ describe('STOUIManager', () => {
   describe('Toast Notifications', () => {
     it('should show toast with default parameters', () => {
       stoUI.showToast('Test message')
-      
+
       const toasts = document.querySelectorAll('.toast')
       expect(toasts.length).toBe(1)
       expect(toasts[0].textContent).toContain('Test message')
@@ -76,7 +79,7 @@ describe('STOUIManager', () => {
 
     it('should show toast with custom type and duration', () => {
       stoUI.showToast('Success message', 'success', 5000)
-      
+
       const toast = document.querySelector('.toast')
       expect(toast.classList.contains('toast-success')).toBe(true)
       expect(toast.querySelector('.fa-check-circle')).toBeTruthy()
@@ -84,21 +87,19 @@ describe('STOUIManager', () => {
 
     it('should create toast with correct icon for type', () => {
       stoUI.showToast('Error message', 'error')
-      
+
       const toast = document.querySelector('.toast')
       expect(toast.querySelector('.fa-exclamation-circle')).toBeTruthy()
     })
 
-
-
     it('should handle toast close button click', () => {
       stoUI.showToast('Test message')
-      
+
       const closeBtn = document.querySelector('.toast-close')
       expect(closeBtn).toBeTruthy()
-      
+
       closeBtn.click()
-      
+
       // Toast should be marked for removal
       const toast = document.querySelector('.toast')
       expect(toast.classList.contains('removing')).toBe(true)
@@ -107,9 +108,9 @@ describe('STOUIManager', () => {
     it('should hide specific toast', () => {
       stoUI.showToast('Test message')
       const toast = document.querySelector('.toast')
-      
+
       stoUI.hideToast(toast)
-      
+
       expect(toast.classList.contains('removing')).toBe(true)
     })
 
@@ -117,7 +118,7 @@ describe('STOUIManager', () => {
       // Remove toast container
       const container = document.getElementById('toastContainer')
       container.remove()
-      
+
       // Should not throw error
       expect(() => {
         stoUI.showToast('Test message')
@@ -143,16 +144,20 @@ describe('STOUIManager', () => {
 
     it('should show modal with overlay', () => {
       const result = stoUI.showModal('testModal')
-      
+
       expect(result).toBe(true)
-      expect(document.getElementById('modalOverlay').classList.contains('active')).toBe(true)
-      expect(document.getElementById('testModal').classList.contains('active')).toBe(true)
+      expect(
+        document.getElementById('modalOverlay').classList.contains('active')
+      ).toBe(true)
+      expect(
+        document.getElementById('testModal').classList.contains('active')
+      ).toBe(true)
       expect(document.body.classList.contains('modal-open')).toBe(true)
     })
 
     it('should focus first input in modal', async () => {
       stoUI.showModal('testModal')
-      
+
       // Test that modal is shown and input exists
       const firstInput = document.getElementById('testInput')
       expect(firstInput).toBeTruthy()
@@ -162,23 +167,29 @@ describe('STOUIManager', () => {
       const testData = {
         name: 'John Doe',
         email: 'john@example.com',
-        active: true
+        active: true,
       }
-      
+
       stoUI.showModal('testModal', testData)
-      
+
       expect(document.getElementById('testInput').value).toBe('John Doe')
-      expect(document.getElementById('testEmail').value).toBe('john@example.com')
+      expect(document.getElementById('testEmail').value).toBe(
+        'john@example.com'
+      )
       expect(document.getElementById('testCheck').checked).toBe(true)
     })
 
     it('should hide modal and overlay', () => {
       stoUI.showModal('testModal')
       const result = stoUI.hideModal('testModal')
-      
+
       expect(result).toBe(true)
-      expect(document.getElementById('modalOverlay').classList.contains('active')).toBe(false)
-      expect(document.getElementById('testModal').classList.contains('active')).toBe(false)
+      expect(
+        document.getElementById('modalOverlay').classList.contains('active')
+      ).toBe(false)
+      expect(
+        document.getElementById('testModal').classList.contains('active')
+      ).toBe(false)
       expect(document.body.classList.contains('modal-open')).toBe(false)
     })
 
@@ -186,9 +197,9 @@ describe('STOUIManager', () => {
       // Set some data first
       document.getElementById('testInput').value = 'Test Value'
       document.getElementById('testCheck').checked = true
-      
+
       stoUI.hideModal('testModal')
-      
+
       expect(document.getElementById('testInput').value).toBe('')
       expect(document.getElementById('testCheck').checked).toBe(false)
     })
@@ -199,12 +210,14 @@ describe('STOUIManager', () => {
       modal2.id = 'testModal2'
       modal2.className = 'modal active'
       document.body.appendChild(modal2)
-      
+
       stoUI.showModal('testModal')
-      
+
       stoUI.hideAllModals()
-      
-      expect(document.getElementById('modalOverlay').classList.contains('active')).toBe(false)
+
+      expect(
+        document.getElementById('modalOverlay').classList.contains('active')
+      ).toBe(false)
       expect(document.body.classList.contains('modal-open')).toBe(false)
       expect(document.querySelectorAll('.modal.active').length).toBe(0)
     })
@@ -212,7 +225,7 @@ describe('STOUIManager', () => {
     it('should handle missing modal gracefully', () => {
       const result = stoUI.showModal('nonExistentModal')
       expect(result).toBe(false)
-      
+
       const hideResult = stoUI.hideModal('nonExistentModal')
       expect(hideResult).toBe(false)
     })
@@ -224,9 +237,9 @@ describe('STOUIManager', () => {
       testElement.id = 'testButton'
       testElement.innerHTML = 'Click me'
       document.body.appendChild(testElement)
-      
+
       stoUI.showLoading(testElement)
-      
+
       expect(testElement.classList.contains('loading')).toBe(true)
       expect(testElement.innerHTML).toContain('fa-spinner')
       expect(testElement.disabled).toBe(true)
@@ -237,18 +250,18 @@ describe('STOUIManager', () => {
       const testElement = document.createElement('div')
       testElement.id = 'testDiv'
       document.body.appendChild(testElement)
-      
+
       stoUI.showLoading(testElement, 'Processing...')
-      
+
       expect(testElement.innerHTML).toContain('Processing...')
     })
 
     it('should disable element while loading', () => {
       const testElement = document.createElement('button')
       document.body.appendChild(testElement)
-      
+
       stoUI.showLoading(testElement)
-      
+
       expect(testElement.disabled).toBe(true)
     })
 
@@ -256,10 +269,10 @@ describe('STOUIManager', () => {
       const testElement = document.createElement('button')
       testElement.innerHTML = 'Original Content'
       document.body.appendChild(testElement)
-      
+
       stoUI.showLoading(testElement)
       stoUI.hideLoading(testElement)
-      
+
       expect(testElement.classList.contains('loading')).toBe(false)
       expect(testElement.innerHTML).toBe('Original Content')
       expect(testElement.disabled).toBe(false)
@@ -270,11 +283,11 @@ describe('STOUIManager', () => {
       const testElement = document.createElement('div')
       testElement.id = 'testElement'
       document.body.appendChild(testElement)
-      
+
       // Test with string ID
       stoUI.showLoading('testElement')
       expect(testElement.classList.contains('loading')).toBe(true)
-      
+
       stoUI.hideLoading('testElement')
       expect(testElement.classList.contains('loading')).toBe(false)
     })
@@ -283,33 +296,33 @@ describe('STOUIManager', () => {
   describe('Confirmation Dialogs', () => {
     it('should show confirmation dialog with message', async () => {
       const confirmPromise = stoUI.confirm('Are you sure?')
-      
+
       // Check that modal was created
       const confirmModal = document.querySelector('.confirm-modal')
       expect(confirmModal).toBeTruthy()
       expect(confirmModal.textContent).toContain('Are you sure?')
-      
+
       // Simulate clicking yes
       confirmModal.querySelector('.confirm-yes').click()
-      
+
       const result = await confirmPromise
       expect(result).toBe(true)
     })
 
     it('should return promise that resolves with user choice', async () => {
       const confirmPromise = stoUI.confirm('Delete this item?')
-      
+
       // Simulate clicking no
       const confirmModal = document.querySelector('.confirm-modal')
       confirmModal.querySelector('.confirm-no').click()
-      
+
       const result = await confirmPromise
       expect(result).toBe(false)
     })
 
     it('should create confirmation modal with appropriate styling', () => {
       stoUI.confirm('Warning message', 'Warning', 'danger')
-      
+
       const confirmModal = document.querySelector('.confirm-modal')
       expect(confirmModal.querySelector('.fa-exclamation-circle')).toBeTruthy()
       expect(confirmModal.textContent).toContain('Warning')
@@ -317,7 +330,7 @@ describe('STOUIManager', () => {
 
     it('should handle different confirmation types', () => {
       stoUI.confirm('Info message', 'Information', 'info')
-      
+
       const confirmModal = document.querySelector('.confirm-modal')
       expect(confirmModal.querySelector('.fa-info-circle')).toBeTruthy()
     })
@@ -341,11 +354,11 @@ describe('STOUIManager', () => {
       const callbacks = {
         onDragStart: vi.fn(),
         onDragEnd: vi.fn(),
-        onDrop: vi.fn()
+        onDrop: vi.fn(),
       }
-      
+
       stoUI.initDragAndDrop(container, callbacks)
-      
+
       // Test that method exists and can be called
       expect(typeof stoUI.initDragAndDrop).toBe('function')
     })
@@ -353,7 +366,7 @@ describe('STOUIManager', () => {
     it('should track drag state during operation', () => {
       const container = document.getElementById('dragContainer')
       stoUI.initDragAndDrop(container)
-      
+
       // Test that drag state exists and can be accessed
       expect(stoUI.dragState).toBeDefined()
       expect(stoUI.dragState.isDragging).toBe(false)
@@ -363,9 +376,9 @@ describe('STOUIManager', () => {
     it('should handle drag start events', () => {
       const container = document.getElementById('dragContainer')
       const onDragStart = vi.fn()
-      
+
       stoUI.initDragAndDrop(container, { onDragStart })
-      
+
       // Test that callback function is stored
       expect(typeof onDragStart).toBe('function')
     })
@@ -373,9 +386,9 @@ describe('STOUIManager', () => {
     it('should handle drag end events', () => {
       const container = document.getElementById('dragContainer')
       const onDragEnd = vi.fn()
-      
+
       stoUI.initDragAndDrop(container, { onDragEnd })
-      
+
       // Test that callback function is stored
       expect(typeof onDragEnd).toBe('function')
     })
@@ -385,11 +398,11 @@ describe('STOUIManager', () => {
       const callbacks = {
         onDragStart: vi.fn(),
         onDragEnd: vi.fn(),
-        onDrop: vi.fn()
+        onDrop: vi.fn(),
       }
-      
+
       stoUI.initDragAndDrop(container, callbacks)
-      
+
       // Test that callbacks are stored and can be called
       expect(typeof callbacks.onDragStart).toBe('function')
       expect(typeof callbacks.onDragEnd).toBe('function')
@@ -412,10 +425,10 @@ describe('STOUIManager', () => {
 
     it('should validate form and return result', () => {
       const form = document.getElementById('testForm')
-      
+
       // Test with empty required fields
       const result = stoUI.validateForm(form)
-      
+
       expect(result.isValid).toBe(false)
       expect(result.errors.length).toBeGreaterThan(0)
       expect(result.errors).toContain('email is required')
@@ -433,9 +446,9 @@ describe('STOUIManager', () => {
       const form = document.getElementById('testForm')
       const emailInput = document.getElementById('email')
       const nameInput = document.getElementById('name')
-      
+
       stoUI.validateForm(form)
-      
+
       expect(emailInput.classList.contains('error')).toBe(true)
       expect(nameInput.classList.contains('error')).toBe(true)
     })
@@ -444,15 +457,15 @@ describe('STOUIManager', () => {
       const form = document.getElementById('testForm')
       const emailInput = document.getElementById('email')
       const nameInput = document.getElementById('name')
-      
+
       // First validation - should add errors
       stoUI.validateForm(form)
       expect(emailInput.classList.contains('error')).toBe(true)
-      
+
       // Fix the fields
       emailInput.value = 'test@example.com'
       nameInput.value = 'John Doe'
-      
+
       // Second validation - should remove errors
       const result = stoUI.validateForm(form)
       expect(result.isValid).toBe(true)
@@ -466,12 +479,12 @@ describe('STOUIManager', () => {
       // Mock clipboard API
       Object.assign(navigator, {
         clipboard: {
-          writeText: vi.fn().mockResolvedValue(undefined)
-        }
+          writeText: vi.fn().mockResolvedValue(undefined),
+        },
       })
-      
+
       const result = await stoUI.copyToClipboard('Test text')
-      
+
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Test text')
       expect(result).toBe(true)
     })
@@ -480,15 +493,17 @@ describe('STOUIManager', () => {
       // Mock clipboard API failure
       Object.assign(navigator, {
         clipboard: {
-          writeText: vi.fn().mockRejectedValue(new Error('Clipboard not available'))
-        }
+          writeText: vi
+            .fn()
+            .mockRejectedValue(new Error('Clipboard not available')),
+        },
       })
-      
+
       // Mock document.execCommand
       document.execCommand = vi.fn().mockReturnValue(true)
-      
+
       const result = await stoUI.copyToClipboard('Test text')
-      
+
       expect(result).toBe(true)
       expect(document.execCommand).toHaveBeenCalledWith('copy')
     })
@@ -497,16 +512,18 @@ describe('STOUIManager', () => {
       // Mock both clipboard API and execCommand failure
       Object.assign(navigator, {
         clipboard: {
-          writeText: vi.fn().mockRejectedValue(new Error('Clipboard not available'))
-        }
+          writeText: vi
+            .fn()
+            .mockRejectedValue(new Error('Clipboard not available')),
+        },
       })
-      
+
       document.execCommand = vi.fn().mockImplementation(() => {
         throw new Error('execCommand failed')
       })
-      
+
       const result = await stoUI.copyToClipboard('Test text')
-      
+
       expect(result).toBe(false)
     })
   })
@@ -516,9 +533,9 @@ describe('STOUIManager', () => {
       const testElement = document.createElement('div')
       testElement.style.display = 'none'
       document.body.appendChild(testElement)
-      
+
       stoUI.fadeIn(testElement)
-      
+
       expect(testElement.style.display).toBe('block')
       expect(testElement.style.opacity).toBe('0')
     })
@@ -527,9 +544,9 @@ describe('STOUIManager', () => {
       const testElement = document.createElement('div')
       testElement.style.opacity = '1'
       document.body.appendChild(testElement)
-      
+
       stoUI.fadeOut(testElement)
-      
+
       // Test that method exists and can be called
       expect(typeof stoUI.fadeOut).toBe('function')
     })
@@ -537,11 +554,11 @@ describe('STOUIManager', () => {
     it('should respect custom animation duration', () => {
       const testElement = document.createElement('div')
       document.body.appendChild(testElement)
-      
+
       // Test that custom duration can be passed
       stoUI.fadeIn(testElement, 500)
       stoUI.fadeOut(testElement, 500)
-      
+
       // Method should complete without error
       expect(true).toBe(true)
     })
@@ -550,7 +567,7 @@ describe('STOUIManager', () => {
       const testElement = document.createElement('div')
       testElement.style.opacity = '0'
       document.body.appendChild(testElement)
-      
+
       // Should not throw error
       expect(() => {
         stoUI.fadeIn(testElement)
@@ -562,15 +579,15 @@ describe('STOUIManager', () => {
     it('should debounce function calls', () => {
       const mockFn = vi.fn()
       const debouncedFn = stoUI.debounce(mockFn, 100)
-      
+
       // Call multiple times rapidly
       debouncedFn()
       debouncedFn()
       debouncedFn()
-      
+
       // Should not be called immediately
       expect(mockFn).not.toHaveBeenCalled()
-      
+
       // Test that debounced function exists
       expect(typeof debouncedFn).toBe('function')
     })
@@ -578,15 +595,15 @@ describe('STOUIManager', () => {
     it('should throttle function calls', () => {
       const mockFn = vi.fn()
       const throttledFn = stoUI.throttle(mockFn, 100)
-      
+
       // Call multiple times rapidly
       throttledFn()
       throttledFn()
       throttledFn()
-      
+
       // Should be called immediately once
       expect(mockFn).toHaveBeenCalledTimes(1)
-      
+
       // Test that throttled function exists
       expect(typeof throttledFn).toBe('function')
     })
@@ -594,14 +611,14 @@ describe('STOUIManager', () => {
     it('should handle multiple debounced calls', () => {
       const mockFn = vi.fn()
       const debouncedFn = stoUI.debounce(mockFn, 50)
-      
+
       debouncedFn('call1')
       debouncedFn('call2')
       debouncedFn('call3')
-      
+
       // Should not be called immediately
       expect(mockFn).not.toHaveBeenCalled()
-      
+
       // Test that function can be called multiple times
       expect(typeof debouncedFn).toBe('function')
     })
@@ -609,14 +626,14 @@ describe('STOUIManager', () => {
     it('should respect throttle timing', () => {
       const mockFn = vi.fn()
       const throttledFn = stoUI.throttle(mockFn, 100)
-      
+
       throttledFn('call1')
       expect(mockFn).toHaveBeenCalledTimes(1)
-      
+
       // Immediate second call should be ignored
       throttledFn('call2')
       expect(mockFn).toHaveBeenCalledTimes(1)
-      
+
       // Test that throttle respects timing
       expect(typeof throttledFn).toBe('function')
     })
@@ -627,9 +644,9 @@ describe('STOUIManager', () => {
       const testElement = document.createElement('div')
       testElement.setAttribute('title', 'Test tooltip')
       document.body.appendChild(testElement)
-      
+
       stoUI.showTooltip(testElement, 'Test tooltip')
-      
+
       const tooltip = document.getElementById('active-tooltip')
       expect(tooltip).toBeTruthy()
       expect(tooltip.textContent).toBe('Test tooltip')
@@ -643,9 +660,9 @@ describe('STOUIManager', () => {
       testElement.style.width = '50px'
       testElement.style.height = '20px'
       document.body.appendChild(testElement)
-      
+
       stoUI.showTooltip(testElement, 'Positioned tooltip')
-      
+
       const tooltip = document.getElementById('active-tooltip')
       expect(tooltip).toBeTruthy()
       expect(tooltip.style.left).toBeTruthy()
@@ -655,10 +672,10 @@ describe('STOUIManager', () => {
     it('should hide tooltip', () => {
       const testElement = document.createElement('div')
       document.body.appendChild(testElement)
-      
+
       stoUI.showTooltip(testElement, 'Test tooltip')
       expect(document.getElementById('active-tooltip')).toBeTruthy()
-      
+
       stoUI.hideTooltip()
       expect(document.getElementById('active-tooltip')).toBeFalsy()
     })
@@ -666,20 +683,24 @@ describe('STOUIManager', () => {
     it('should handle tooltip content updates', () => {
       const testElement = document.createElement('div')
       document.body.appendChild(testElement)
-      
+
       stoUI.showTooltip(testElement, 'First tooltip')
-      expect(document.getElementById('active-tooltip').textContent).toBe('First tooltip')
-      
+      expect(document.getElementById('active-tooltip').textContent).toBe(
+        'First tooltip'
+      )
+
       stoUI.showTooltip(testElement, 'Updated tooltip')
-      expect(document.getElementById('active-tooltip').textContent).toBe('Updated tooltip')
+      expect(document.getElementById('active-tooltip').textContent).toBe(
+        'Updated tooltip'
+      )
     })
 
     it('should setup tooltip event listeners', () => {
       // Test that method exists and can be called
       expect(typeof stoUI.setupTooltips).toBe('function')
-      
+
       stoUI.setupTooltips()
-      
+
       // Method should complete without error
       expect(true).toBe(true)
     })
@@ -696,39 +717,43 @@ describe('STOUIManager', () => {
 
     it('should handle escape key to close modals', () => {
       stoUI.showModal('testModal')
-      
+
       // Simulate escape key press
       const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape' })
       document.dispatchEvent(escapeEvent)
-      
-      expect(document.getElementById('testModal').classList.contains('active')).toBe(false)
+
+      expect(
+        document.getElementById('testModal').classList.contains('active')
+      ).toBe(false)
     })
 
     it('should handle click outside to close dropdowns', () => {
       stoUI.showModal('testModal')
-      
+
       // Simulate click on modal overlay
       const overlay = document.getElementById('modalOverlay')
       overlay.classList.add('modal-overlay')
-      
+
       const clickEvent = new MouseEvent('click', { bubbles: true })
       Object.defineProperty(clickEvent, 'target', {
-        value: overlay
+        value: overlay,
       })
-      
+
       document.dispatchEvent(clickEvent)
-      
-      expect(document.getElementById('testModal').classList.contains('active')).toBe(false)
+
+      expect(
+        document.getElementById('testModal').classList.contains('active')
+      ).toBe(false)
     })
 
     it('should prevent event bubbling where appropriate', () => {
       // Test that global event listeners are set up
       expect(typeof stoUI.setupGlobalEventListeners).toBe('function')
-      
+
       stoUI.setupGlobalEventListeners()
-      
+
       // Method should complete without error
       expect(true).toBe(true)
     })
   })
-}) 
+})
