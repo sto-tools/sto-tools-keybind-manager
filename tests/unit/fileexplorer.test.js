@@ -32,8 +32,9 @@ describe('STOFileExplorer', () => {
     stoUI = new STOUIManager()
     stoStorage = new STOStorage()
     stoExport = new STOExportManager()
+    Object.assign(global, { stoUI, stoStorage, stoExport })
     stoFileExplorer = new STOFileExplorer()
-    Object.assign(global, { stoUI, stoStorage, stoExport, stoFileExplorer })
+    global.stoFileExplorer = stoFileExplorer
     stoFileExplorer.init()
   })
 

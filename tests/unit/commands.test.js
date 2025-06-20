@@ -44,12 +44,10 @@ describe('STOCommandManager', () => {
       <input id="amountInput" type="number">
     `
     
-    // Load the commands module (it creates a global instance and class)
-    await import('../../src/js/commands.js')
-    
-    // Get the constructor from the global instance
-    const STOCommandManager = global.window.stoCommands.constructor
+    // Load the commands module as ES module and instantiate
+    const { default: STOCommandManager } = await import('../../src/js/commands.js')
     commandManager = new STOCommandManager()
+    global.window.stoCommands = commandManager
   })
 
   afterEach(() => {
@@ -130,7 +128,7 @@ describe('STOCommandManager', () => {
           icon: '⚡',
           text: 'Execute Tray 2 Slot 3',
           description: 'Execute ability in tray 2, slot 3',
-          parameters: { tray: 1, slot: 2 }
+          parameters: { command_type: 'STOTrayExecByTray', tray: 1, slot: 2 }
         })
       })
 

@@ -31,9 +31,10 @@ beforeEach(() => {
   stoProfiles = new STOProfileManager()
   stoKeybinds = new STOKeybindFileManager()
   stoUI = new STOUIManager()
+  Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()
   exportManager = new STOExportManager()
-  Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI, app, exportManager })
+  Object.assign(global, { app, exportManager })
   
   // Mock only the UI methods that would show actual modals or toasts
   vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})

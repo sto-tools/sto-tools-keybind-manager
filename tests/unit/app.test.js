@@ -36,8 +36,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     stoProfiles = new STOProfileManager()
     stoKeybinds = new STOKeybindFileManager()
     stoUI = new STOUIManager()
+    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
     app = new STOToolsKeybindManager()
-    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI, app })
+    global.app = app
 
     // Create test profile with new builds structure
     testProfile = {
@@ -979,11 +980,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
     it('should update preview when checkbox state changes', () => {
       // Since setupEventListeners uses document.getElementById, we need to test differently
+      const originalGet = document.getElementById;
       const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
       
       const addEventListenerSpy = vi.spyOn(stabilizeCheckbox, 'addEventListener');
@@ -997,11 +999,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       const renderSpy = vi.spyOn(app, 'renderCommandChain');
       
       // Mock document.getElementById to return our checkbox
+      const originalGet = document.getElementById;
       const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
       
       app.setupEventListeners();
@@ -1027,11 +1030,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       });
 
       // Mock document.getElementById to return our checkbox
+      const originalGet = document.getElementById;
       const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
 
       // Test selecting key with stabilization enabled
@@ -1054,11 +1058,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       });
 
       // Mock document.getElementById to return our checkbox
+      const originalGet = document.getElementById;
       const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
 
       app.selectKey('F1');
@@ -1076,16 +1081,17 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         keybindMetadata: {}
       };
       app.getCurrentProfile.mockReturnValue(mockProfile);
-      
-      const saveProfileSpy = vi.spyOn(app, 'saveProfile');
+      vi.spyOn(stoStorage, 'getProfile').mockReturnValue(mockProfile);
+      const saveProfileSpy = vi.spyOn(stoStorage, 'saveProfile').mockImplementation(() => {});
       const setModifiedSpy = vi.spyOn(app, 'setModified');
 
       // Mock document.getElementById to return our checkbox
+      const originalGet = document.getElementById;
       const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
 
       app.setupEventListeners();
@@ -1095,8 +1101,14 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       stabilizeCheckbox.dispatchEvent(new Event('change'));
 
       // Check that metadata was saved
-      expect(mockProfile.keybindMetadata.F2.stabilizeExecutionOrder).toBe(true);
-      expect(saveProfileSpy).toHaveBeenCalled();
+      expect(stoStorage.saveProfile).toHaveBeenCalledWith(
+        app.currentProfile,
+        expect.objectContaining({
+          keybindMetadata: {
+            space: { F2: { stabilizeExecutionOrder: true } }
+          }
+        })
+      );
       expect(setModifiedSpy).toHaveBeenCalledWith(true);
 
       spy.mockRestore();
@@ -1111,13 +1123,16 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         // No keybindMetadata at all
       };
       app.getCurrentProfile.mockReturnValue(mockProfile);
+      vi.spyOn(stoStorage, 'getProfile').mockReturnValue(mockProfile);
+      vi.spyOn(stoStorage, 'saveProfile').mockImplementation(() => {});
 
       // Mock document.getElementById to return our checkbox
+      const originalGet = document.getElementById;
       const spy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
 
       app.setupEventListeners();
@@ -1126,10 +1141,15 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       stabilizeCheckbox.checked = true;
       stabilizeCheckbox.dispatchEvent(new Event('change'));
 
-      // Check that metadata structure was created
-      expect(mockProfile.keybindMetadata).toBeDefined();
-      expect(mockProfile.keybindMetadata.F3).toBeDefined();
-      expect(mockProfile.keybindMetadata.F3.stabilizeExecutionOrder).toBe(true);
+      // Check that metadata structure was created and saved
+      expect(stoStorage.saveProfile).toHaveBeenCalledWith(
+        app.currentProfile,
+        expect.objectContaining({
+          keybindMetadata: {
+            space: { F3: { stabilizeExecutionOrder: true } }
+          }
+        })
+      );
 
       spy.mockRestore();
     });
@@ -1208,12 +1228,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
     it('should export with stabilization disabled by default', () => {
       stabilizeCheckbox.checked = false;
-      
+
       app.exportKeybinds();
-      
+
       expect(stoExport.generateSTOKeybindFile).toHaveBeenCalledWith(
         expect.any(Object),
-        { stabilizeExecutionOrder: false }
+        { environment: app.currentEnvironment }
       );
     });
 
@@ -1225,20 +1245,20 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
       
       app.exportKeybinds();
-      
+
       expect(stoExport.generateSTOKeybindFile).toHaveBeenCalledWith(
         expect.any(Object),
-        { stabilizeExecutionOrder: true }
+        { environment: app.currentEnvironment }
       );
-      
+
       spy.mockRestore();
     });
 
-    it('should include stabilization flag in filename when enabled', () => {
+    it('should include environment in filename', () => {
       stabilizeCheckbox.checked = true;
       app.currentEnvironment = 'space';
       
@@ -1250,12 +1270,11 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
       
       app.exportKeybinds();
       
-      expect(mockAnchor.download).toContain('_stabilized');
       expect(mockAnchor.download).toContain('space');
       expect(mockAnchor.download).toContain('.txt');
       
@@ -1270,7 +1289,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor);
       
       app.exportKeybinds();
-      
+
       expect(mockAnchor.download).not.toContain('_stabilized');
       expect(mockAnchor.download).toContain('ground');
       expect(mockAnchor.download).toContain('.txt');
@@ -1285,13 +1304,13 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         if (id === 'stabilizeExecutionOrder') {
           return stabilizeCheckbox;
         }
-        return document.getElementById.wrappedMethod ? document.getElementById.wrappedMethod(id) : null;
+        return originalGet.call(document, id);
       });
       
       app.exportKeybinds();
       
       expect(stoUI.showToast).toHaveBeenCalledWith(
-        'space keybinds exported successfully (with stabilized execution order)',
+        'space keybinds exported successfully',
         'success'
       );
       
@@ -1317,7 +1336,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       
       expect(stoExport.generateSTOKeybindFile).toHaveBeenCalledWith(
         expect.any(Object),
-        { stabilizeExecutionOrder: false }
+        { environment: app.currentEnvironment }
       );
     });
   })

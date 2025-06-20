@@ -24,8 +24,6 @@ const stoUI = new STOUIManager();
 const stoCommands = new STOCommandManager();
 const stoFileExplorer = new STOFileExplorer();
 const vertigoManager = new VertigoManager();
-const app = new STOToolsKeybindManager();
-
 Object.assign(window, {
   stoStorage,
   stoProfiles,
@@ -36,9 +34,11 @@ Object.assign(window, {
   stoUI,
   stoCommands,
   stoFileExplorer,
-  vertigoManager,
-  app
+  vertigoManager
 });
+
+const app = new STOToolsKeybindManager();
+window.app = app;
 
 eventBus.on('sto-app-ready', () => {
   stoProfiles.init();
