@@ -156,5 +156,16 @@
   "clear_all_commands": "Limpiar todos los comandos",
   "copy_to_clipboard": "Copiar al portapapeles",
   "collapse_expand": "Contraer/Expandir",
-  "insert_target_variable": "Insertar variable $Target"
+  "insert_target_variable": "Insertar variable $Target",
+  "sto_keybind_report": "Reporte de atajos STO",
+  "mode": "Modo:",
+  "generated": "Generado:",
+  "created_by": "Creado por:",
+  "statistics": "Estadísticas",
+  "keys_bound": "Teclas vinculadas:",
+  "total_commands": "Total de comandos:",
+  "aliases_defined": "Alias definidos:",
+  "no_keybinds_defined": "No hay atajos de teclado definidos.",
+  "command_aliases": "Alias de comandos",
+  "report_footer": "Este reporte fue generado por STO Tools Keybind Manager. Para más información sobre atajos de teclado de Star Trek Online, visita el Wiki de STO."
 }
