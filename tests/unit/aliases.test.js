@@ -8,12 +8,14 @@ import '../../src/js/data.js'
 import "../../src/js/eventBus.js"
 // Load the aliases module (it creates a global instance)
 import STOAliasManager from '../../src/js/aliases.js'
+import store, { resetStore } from '../../src/js/store.js'
 
 // Load the real HTML
 const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 
 // Global setup for all tests
 beforeEach(() => {
+  resetStore()
   // Set up the real DOM
   document.documentElement.innerHTML = htmlContent
   
@@ -404,6 +406,7 @@ describe('STOAliasManager', () => {
   describe('alias usage', () => {
     it('should add alias to selected key', () => {
       global.app.selectedKey = 'F1'
+      store.selectedKey = 'F1'
       
       aliasManager.useAlias('TestAlias')
       
@@ -419,6 +422,7 @@ describe('STOAliasManager', () => {
 
     it('should require key selection before adding alias', () => {
       global.app.selectedKey = null
+      store.selectedKey = null
       
       aliasManager.useAlias('TestAlias')
       
@@ -428,6 +432,7 @@ describe('STOAliasManager', () => {
 
     it('should add alias to key through addAliasToKey', () => {
       global.app.selectedKey = 'F2'
+      store.selectedKey = 'F2'
       global.app.getCurrentProfile.mockReturnValue({
         aliases: {
           TestAlias: {
@@ -451,6 +456,7 @@ describe('STOAliasManager', () => {
 
     it('should handle missing alias in addAliasToKey', () => {
       global.app.selectedKey = 'F1'
+      store.selectedKey = 'F1'
       global.app.getCurrentProfile.mockReturnValue({ aliases: {} })
       
       aliasManager.addAliasToKey('NonExistentAlias')

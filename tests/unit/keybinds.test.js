@@ -1404,6 +1404,7 @@ F2 " "`
       
       // Switch to ground environment
       realApp.currentEnvironment = 'ground'
+      store.currentEnvironment = 'ground'
       
       // Import keybinds
       const result = keybindManager.importKeybindFile(content)
