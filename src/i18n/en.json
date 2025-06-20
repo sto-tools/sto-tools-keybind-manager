@@ -13,6 +13,8 @@
   "dark_mode": "Dark Mode",
   "load_default_data": "Load Default Data",
   "reset_application": "Reset Application",
+  "set_sync_folder": "Set Sync Folder",
+  "sync_now": "Sync Now",
   "about": "About",
   "new": "New",
   "clone": "Clone",
