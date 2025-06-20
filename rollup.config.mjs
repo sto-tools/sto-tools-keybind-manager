@@ -6,10 +6,25 @@ export default {
   output: {
     file: 'src/dist/bundle.js',
     format: 'esm',
-    sourcemap: true,
+    sourcemap: false,
   },
   plugins: [
     nodeResolve(),
-    terser()
+    terser({
+      compress: {
+        drop_console: false, // Keep console logs for debugging
+        drop_debugger: true,
+        pure_funcs: ['console.debug'],
+        passes: 2
+      },
+      mangle: {
+        properties: {
+          regex: /^_/
+        }
+      },
+      format: {
+        comments: false
+      }
+    })
   ]
 };
