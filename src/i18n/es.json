@@ -13,6 +13,8 @@
   "dark_mode": "Modo oscuro",
   "load_default_data": "Cargar datos predeterminados",
   "reset_application": "Restablecer aplicación",
+  "set_sync_folder": "Establecer carpeta de sincronización",
+  "sync_now": "Sincronizar ahora",
   "about": "Acerca de",
   "new": "Nuevo",
   "clone": "Clonar",
