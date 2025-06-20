@@ -259,6 +259,20 @@ export default class STOStorage {
       maxUndoSteps: 50,
       defaultMode: 'space',
       compactView: false,
+      language: this.detectBrowserLanguage(),
+    }
+  }
+
+  detectBrowserLanguage() {
+    try {
+      if (typeof navigator === 'undefined') return 'en'
+      const cand = (navigator.languages && navigator.languages[0]) || navigator.language
+      if (!cand) return 'en'
+      const lang = cand.toLowerCase().split(/[-_]/)[0]
+      return ['en', 'de', 'es', 'fr'].includes(lang) ? lang : 'en'
+    } catch (error) {
+      console.error('Error detecting browser language:', error)
+      return 'en'
     }
   }
 

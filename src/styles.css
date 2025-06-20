@@ -268,6 +268,22 @@ body {
   color: var(--text-muted);
 }
 
+.dropdown-item select {
+  flex: 1;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dropdown-item select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 /* Profile bar */
 .profile-bar {
   display: flex;
