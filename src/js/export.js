@@ -25,6 +25,11 @@ export default class STOExportManager {
       this.showExportOptions()
     })
 
+    // Confirm export
+    eventBus.onDom('confirmExportBtn', 'click', 'export-confirm', () => {
+      this.performExport()
+    })
+
     // Copy command preview
     eventBus.onDom('copyPreviewBtn', 'click', 'copyPreview', () => {
       this.copyCommandPreview()
@@ -39,9 +44,40 @@ export default class STOExportManager {
       return
     }
 
-    // For now, directly export as STO keybind file
-    // TODO: Add export options modal for different formats
-    this.exportSTOKeybindFile(profile)
+    stoUI.showModal('exportModal')
+  }
+
+  performExport() {
+    const profile = app.getCurrentProfile()
+    if (!profile) {
+      stoUI.showToast('No profile selected to export', 'warning')
+      return
+    }
+
+    const select = document.getElementById('exportFormat')
+    const format = select ? select.value : 'sto_keybind'
+
+    switch (format) {
+      case 'sto_keybind':
+        this.exportSTOKeybindFile(profile)
+        break
+      case 'json_profile':
+        this.exportJSONProfile(profile)
+        break
+      case 'json_project':
+        this.exportCompleteProject()
+        break
+      case 'csv_data':
+        this.exportCSVData(profile)
+        break
+      case 'html_report':
+        this.exportHTMLReport(profile)
+        break
+      default:
+        break
+    }
+
+    stoUI.hideModal('exportModal')
   }
 
   // STO Keybind File Export

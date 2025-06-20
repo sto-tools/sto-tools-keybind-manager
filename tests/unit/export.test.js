@@ -885,19 +885,11 @@ describe('STOExportManager', () => {
 
   describe('export options and configuration', () => {
     it('should show export options dialog', () => {
-      const mockAnchor = {
-        click: vi.fn(),
-        href: '',
-        download: '',
-      }
-      vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor)
-      vi.spyOn(document.body, 'appendChild').mockImplementation(() => {})
-      vi.spyOn(document.body, 'removeChild').mockImplementation(() => {})
+      const spy = vi.spyOn(stoUI, 'showModal').mockImplementation(() => {})
 
       exportManager.showExportOptions()
 
-      // For now it directly exports, but should show options in future
-      expect(mockAnchor.click).toHaveBeenCalled()
+      expect(spy).toHaveBeenCalledWith('exportModal')
     })
 
     it('should handle different export formats', () => {
@@ -929,6 +921,19 @@ describe('STOExportManager', () => {
       expect(() => exportManager.exportJSONProfile(profile)).not.toThrow()
       expect(() => exportManager.exportCSVData(profile)).not.toThrow()
       expect(() => exportManager.exportHTMLReport(profile)).not.toThrow()
+    })
+
+    it('should trigger selected export action from modal', () => {
+      const select = document.getElementById('exportFormat')
+      select.value = 'csv_data'
+
+      const spy = vi.spyOn(exportManager, 'exportCSVData').mockImplementation(() => {})
+      vi.spyOn(stoUI, 'hideModal').mockImplementation(() => {})
+
+      exportManager.performExport()
+
+      expect(spy).toHaveBeenCalledWith(app.getCurrentProfile())
+      expect(stoUI.hideModal).toHaveBeenCalledWith('exportModal')
     })
   })
 
