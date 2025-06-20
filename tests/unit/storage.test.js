@@ -457,8 +457,6 @@ describe('STOStorage', () => {
       const savedData = storage.getAllData()
       expect(savedData.profiles.new_format.name).toBe('New Format Profile')
     })
-
-
   })
 
   describe('storage info and cleanup', () => {
@@ -516,6 +514,266 @@ describe('STOStorage', () => {
       expect(localStorage.getItem('sto_keybind_manager')).toBeNull()
       expect(localStorage.getItem('sto_keybind_manager_backup')).toBeNull()
       expect(localStorage.getItem('sto_keybind_settings')).toBeNull()
+    })
+  })
+
+  describe('Profile Migration', () => {
+    beforeEach(() => {
+      localStorage.clear()
+    })
+
+    it('should migrate old profile format to new format', () => {
+      // Create old format profile data
+      const oldProfileData = {
+        version: '1.0.0',
+        currentProfile: 'old_profile',
+        profiles: {
+          old_profile: {
+            name: 'Old Profile',
+            description: 'Profile with old format',
+            mode: 'space',
+            keys: {
+              F1: [{ command: 'Target_Enemy_Near', type: 'targeting' }],
+              F2: [{ command: 'FireAll', type: 'combat' }]
+            },
+            aliases: {
+              'fire': 'FireAll'
+            },
+            keybindMetadata: {
+              F1: { stabilizeExecutionOrder: true }
+            },
+            created: '2023-01-01T00:00:00.000Z'
+          }
+        },
+        globalAliases: {},
+        settings: {}
+      }
+
+      // Save old format data
+      localStorage.setItem('sto_keybind_manager', JSON.stringify(oldProfileData))
+
+      // Initialize storage (should trigger migration)
+      const storage = new STOStorage()
+      storage.init()
+
+      // Get migrated data
+      const migratedData = storage.getAllData()
+      const migratedProfile = migratedData.profiles.old_profile
+
+      // Verify migration
+      expect(migratedProfile.builds).toBeDefined()
+      expect(migratedProfile.builds.space).toBeDefined()
+      expect(migratedProfile.builds.ground).toBeDefined()
+      expect(migratedProfile.builds.space.keys).toEqual({
+        F1: [{ command: 'Target_Enemy_Near', type: 'targeting' }],
+        F2: [{ command: 'FireAll', type: 'combat' }]
+      })
+      expect(migratedProfile.builds.ground.keys).toEqual({})
+      expect(migratedProfile.currentEnvironment).toBe('space')
+      expect(migratedProfile.aliases).toEqual({ 'fire': 'FireAll' })
+      expect(migratedProfile.keybindMetadata.space.F1.stabilizeExecutionOrder).toBe(true)
+    })
+
+    it('should migrate ground mode profile correctly', () => {
+      const oldProfileData = {
+        version: '1.0.0',
+        currentProfile: 'ground_profile',
+        profiles: {
+          ground_profile: {
+            name: 'Ground Profile',
+            mode: 'ground',
+            keys: {
+              Space: [{ command: 'Jump', type: 'movement' }]
+            },
+            aliases: {}
+          }
+        },
+        globalAliases: {},
+        settings: {}
+      }
+
+      localStorage.setItem('sto_keybind_manager', JSON.stringify(oldProfileData))
+
+      const storage = new STOStorage()
+      storage.init()
+
+      const migratedData = storage.getAllData()
+      const migratedProfile = migratedData.profiles.ground_profile
+
+      expect(migratedProfile.currentEnvironment).toBe('ground')
+      expect(migratedProfile.builds.ground.keys).toEqual({
+        Space: [{ command: 'Jump', type: 'movement' }]
+      })
+      expect(migratedProfile.builds.space.keys).toEqual({})
+    })
+
+    it('should not migrate profiles that already have builds structure', () => {
+      const newProfileData = {
+        version: '2.0.0',
+        currentProfile: 'new_profile',
+        profiles: {
+          new_profile: {
+            name: 'New Profile',
+            currentEnvironment: 'space',
+            builds: {
+              space: { keys: { F1: [{ command: 'Test' }] } },
+              ground: { keys: {} }
+            },
+            aliases: {}
+          }
+        },
+        globalAliases: {},
+        settings: {}
+      }
+
+      localStorage.setItem('sto_keybind_manager', JSON.stringify(newProfileData))
+
+      const storage = new STOStorage()
+      storage.init()
+
+      const data = storage.getAllData()
+      const profile = data.profiles.new_profile
+
+      // Should remain unchanged
+      expect(profile.builds.space.keys).toEqual({ F1: [{ command: 'Test' }] })
+      expect(profile.currentEnvironment).toBe('space')
+    })
+
+    it('should handle profiles with environment-scoped keybind metadata', () => {
+      const oldProfileData = {
+        version: '1.0.0',
+        currentProfile: 'meta_profile',
+        profiles: {
+          meta_profile: {
+            name: 'Metadata Profile',
+            mode: 'space',
+            keys: { F1: [{ command: 'Test' }] },
+            keybindMetadata: {
+              space: {
+                F1: { stabilizeExecutionOrder: true }
+              }
+            }
+          }
+        },
+        globalAliases: {},
+        settings: {}
+      }
+
+      localStorage.setItem('sto_keybind_manager', JSON.stringify(oldProfileData))
+
+      const storage = new STOStorage()
+      storage.init()
+
+      const migratedData = storage.getAllData()
+      const migratedProfile = migratedData.profiles.meta_profile
+
+      // Should preserve environment-scoped metadata
+      expect(migratedProfile.keybindMetadata.space.F1.stabilizeExecutionOrder).toBe(true)
+    })
+
+    it('should validate both old and new profile formats', () => {
+      const storage = new STOStorage()
+
+      // Old format should be valid
+      const oldProfile = {
+        name: 'Old Profile',
+        mode: 'space',
+        keys: { F1: [] }
+      }
+      expect(storage.isValidProfile(oldProfile)).toBe(true)
+
+      // New format should be valid
+      const newProfile = {
+        name: 'New Profile',
+        builds: {
+          space: { keys: {} }
+        }
+      }
+      expect(storage.isValidProfile(newProfile)).toBe(true)
+
+      // Invalid profile should be rejected
+      const invalidProfile = {
+        name: 'Invalid Profile'
+        // Missing both old and new format structures
+      }
+      expect(storage.isValidProfile(invalidProfile)).toBe(false)
+    })
+  })
+
+  describe('mapOldModeToEnvironment', () => {
+    let storage
+
+    beforeEach(() => {
+      storage = new STOStorage()
+    })
+
+    it('should handle string mode values correctly', () => {
+      expect(storage.mapOldModeToEnvironment('space')).toBe('space')
+      expect(storage.mapOldModeToEnvironment('Space')).toBe('space')
+      expect(storage.mapOldModeToEnvironment('SPACE')).toBe('space')
+      expect(storage.mapOldModeToEnvironment('ground')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('Ground')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('GROUND')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('ground mode')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('Ground Mode')).toBe('ground')
+    })
+
+    it('should handle non-string mode values without throwing TypeError', () => {
+      // Numbers
+      expect(() => storage.mapOldModeToEnvironment(1)).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(1)).toBe('space')
+      expect(storage.mapOldModeToEnvironment(0)).toBe('space')
+
+      // Objects
+      expect(() => storage.mapOldModeToEnvironment({})).not.toThrow()
+      expect(storage.mapOldModeToEnvironment({})).toBe('space')
+      expect(() => storage.mapOldModeToEnvironment({ mode: 'ground' })).not.toThrow()
+      expect(storage.mapOldModeToEnvironment({ mode: 'ground' })).toBe('space')
+
+      // Arrays
+      expect(() => storage.mapOldModeToEnvironment([])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment([])).toBe('space')
+      expect(() => storage.mapOldModeToEnvironment(['ground'])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(['ground'])).toBe('ground') // ['ground'] converts to 'ground'
+      expect(() => storage.mapOldModeToEnvironment(['space'])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(['space'])).toBe('space') // ['space'] converts to 'space'
+      expect(() => storage.mapOldModeToEnvironment(['other'])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(['other'])).toBe('space') // ['other'] converts to 'other', defaults to space
+
+      // Booleans
+      expect(() => storage.mapOldModeToEnvironment(true)).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(true)).toBe('space')
+      expect(() => storage.mapOldModeToEnvironment(false)).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(false)).toBe('space')
+    })
+
+    it('should handle null and undefined values', () => {
+      expect(storage.mapOldModeToEnvironment(null)).toBe('space')
+      expect(storage.mapOldModeToEnvironment(undefined)).toBe('space')
+      expect(storage.mapOldModeToEnvironment('')).toBe('space')
+    })
+
+    it('should convert non-string values to string and process them', () => {
+      // If someone accidentally stored a number that represents ground mode
+      // it should still default to space since it won't match the string patterns
+      expect(storage.mapOldModeToEnvironment(42)).toBe('space')
+      
+      // Test edge case where String() conversion might create 'ground'
+      const objWithGroundToString = {
+        toString: () => 'ground'
+      }
+      expect(storage.mapOldModeToEnvironment(objWithGroundToString)).toBe('ground')
+    })
+
+    it('should handle string-like objects correctly', () => {
+      // Objects that convert to ground-like strings
+      const groundObj = { toString: () => 'ground' }
+      const groundModeObj = { toString: () => 'ground mode' }
+      const spaceObj = { toString: () => 'space' }
+
+      expect(storage.mapOldModeToEnvironment(groundObj)).toBe('ground')
+      expect(storage.mapOldModeToEnvironment(groundModeObj)).toBe('ground')
+      expect(storage.mapOldModeToEnvironment(spaceObj)).toBe('space')
     })
   })
 })
