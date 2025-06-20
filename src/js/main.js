@@ -32,14 +32,42 @@ import './version.js'
     },
   })
 
-  function applyTranslations() {
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
+  function applyTranslations(root = document) {
+    root.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n')
+      const attr = el.getAttribute('data-i18n-attr')
+      if (!key) return
+      const text = i18next.t(key)
+      if (attr) {
+        el.setAttribute(attr, text)
+      } else {
+        el.textContent = text
+      }
+    })
+
+    root.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-placeholder')
       if (key) {
-        el.textContent = i18next.t(key)
+        el.setAttribute('placeholder', i18next.t(key))
+      }
+    })
+
+    root.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-title')
+      if (key) {
+        el.setAttribute('title', i18next.t(key))
+      }
+    })
+
+    root.querySelectorAll('[data-i18n-alt]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-alt')
+      if (key) {
+        el.setAttribute('alt', i18next.t(key))
       }
     })
   }
+
+  window.applyTranslations = applyTranslations
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', applyTranslations)

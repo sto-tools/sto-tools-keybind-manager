@@ -1,5 +1,15 @@
 // Vitest global setup file
 import { beforeEach, afterEach, vi } from 'vitest'
+import i18next from 'i18next'
+import en from '../src/i18n/en.json' assert { type: 'json' }
+
+// Initialize i18next with English resources so modules relying on translations
+// behave consistently in the test environment
+await i18next.init({
+  lng: 'en',
+  fallbackLng: 'en',
+  resources: { en: { translation: en } },
+})
 
 // Mock browser APIs that aren't available in jsdom
 Object.defineProperty(window, 'matchMedia', {
