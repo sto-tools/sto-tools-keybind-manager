@@ -1,18 +1,10 @@
 // STO Tools Keybind Manager - Main Application Controller
 // Coordinates all modules and handles global application state
+import store from './store.js'
 
 export default class STOToolsKeybindManager {
     constructor() {
-        this.currentProfile = null;
-        this.currentMode = 'space';
-        this.currentEnvironment = 'space'; // New: tracks current environment (space/ground)
-        this.selectedKey = null;
-        this.isModified = false;
-        this.undoStack = [];
-        this.redoStack = [];
-        this.maxUndoSteps = 50;
-        this.commandIdCounter = 0;
-        
+        this.store = store;
         this.eventListeners = new Map();
         
         // Initialize when DOM is ready
@@ -22,6 +14,33 @@ export default class STOToolsKeybindManager {
             this.init();
         }
     }
+
+    get currentProfile() { return this.store.currentProfile }
+    set currentProfile(val) { this.store.currentProfile = val }
+
+    get currentMode() { return this.store.currentMode }
+    set currentMode(val) { this.store.currentMode = val }
+
+    get currentEnvironment() { return this.store.currentEnvironment }
+    set currentEnvironment(val) { this.store.currentEnvironment = val }
+
+    get selectedKey() { return this.store.selectedKey }
+    set selectedKey(val) { this.store.selectedKey = val }
+
+    get isModified() { return this.store.isModified }
+    set isModified(val) { this.store.isModified = val }
+
+    get undoStack() { return this.store.undoStack }
+    set undoStack(val) { this.store.undoStack = val }
+
+    get redoStack() { return this.store.redoStack }
+    set redoStack(val) { this.store.redoStack = val }
+
+    get maxUndoSteps() { return this.store.maxUndoSteps }
+    set maxUndoSteps(val) { this.store.maxUndoSteps = val }
+
+    get commandIdCounter() { return this.store.commandIdCounter }
+    set commandIdCounter(val) { this.store.commandIdCounter = val }
 
     async init() {
         try {

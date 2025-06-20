@@ -1,5 +1,6 @@
 // STO Tools Keybind Manager - Profile Management
 // Handles profile creation, editing, and management operations
+import store from './store.js'
 
 export default class STOProfileManager {
     constructor() {
@@ -287,7 +288,7 @@ export default class STOProfileManager {
         currentProfile.description = description;
         currentProfile.lastModified = new Date().toISOString();
 
-        if (stoStorage.saveProfile(app.currentProfile, currentProfile)) {
+        if (stoStorage.saveProfile(store.currentProfile, currentProfile)) {
             app.renderProfiles();
             app.setModified(true);
             stoUI.showToast(`Profile renamed from "${oldName}" to "${name}"`, 'success');
