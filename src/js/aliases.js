@@ -54,7 +54,7 @@ class STOAliasManager {
     // Alias Manager Modal
     showAliasManager() {
         this.renderAliasList();
-        stoUI.showModal('aliasManagerModal');
+        modalManager.show('aliasManagerModal');
     }
 
     renderAliasList() {
@@ -179,8 +179,8 @@ class STOAliasManager {
         }
 
         this.updateAliasPreview();
-        stoUI.hideModal('aliasManagerModal');
-        stoUI.showModal('editAliasModal');
+        modalManager.hide('aliasManagerModal');
+        modalManager.show('editAliasModal');
     }
 
     editAlias(aliasName) {
@@ -228,7 +228,7 @@ class STOAliasManager {
         };
 
         app.addCommand(app.selectedKey, command);
-        stoUI.hideModal('aliasManagerModal');
+        modalManager.hide('aliasManagerModal');
         stoUI.showToast(`Alias "${aliasName}" added to ${app.selectedKey}`, 'success');
     }
 
@@ -287,7 +287,7 @@ class STOAliasManager {
         const action = this.currentAlias ? 'updated' : 'created';
         stoUI.showToast(`Alias "${name}" ${action}`, 'success');
         
-        stoUI.hideModal('editAliasModal');
+        modalManager.hide('editAliasModal');
         this.showAliasManager();
     }
 

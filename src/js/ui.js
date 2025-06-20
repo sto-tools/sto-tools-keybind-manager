@@ -86,60 +86,38 @@ class STOUIManager {
 
     // Modal Management
     showModal(modalId, data = null) {
-        const overlay = document.getElementById('modalOverlay');
         const modal = document.getElementById(modalId);
-        
-        if (overlay && modal) {
-            overlay.classList.add('active');
-            modal.classList.add('active');
-            document.body.classList.add('modal-open');
-            
-            // Focus first input if available
-            const firstInput = modal.querySelector('input, textarea, select');
-            if (firstInput) {
-                setTimeout(() => firstInput.focus(), 100);
-            }
+
+        if (modalManager.show(modalId)) {
             
             // Populate modal data if provided
             if (data) {
                 this.populateModalData(modalId, data);
             }
-            
             return true;
         }
         return false;
     }
 
     hideModal(modalId) {
-        const overlay = document.getElementById('modalOverlay');
         const modal = document.getElementById(modalId);
-        
-        if (overlay && modal) {
-            overlay.classList.remove('active');
-            modal.classList.remove('active');
-            document.body.classList.remove('modal-open');
+
+        if (modalManager.hide(modalId)) {
             
             // Clear modal data
             this.clearModalData(modalId);
-            
+
             return true;
         }
         return false;
     }
 
     hideAllModals() {
-        const overlay = document.getElementById('modalOverlay');
         const modals = document.querySelectorAll('.modal.active');
-        
-        if (overlay) {
-            overlay.classList.remove('active');
-        }
-        
+
         modals.forEach(modal => {
-            modal.classList.remove('active');
+            modalManager.hide(modal.id);
         });
-        
-        document.body.classList.remove('modal-open');
     }
 
     populateModalData(modalId, data) {
@@ -210,36 +188,26 @@ class STOUIManager {
     async confirm(message, title = 'Confirm', type = 'warning') {
         return new Promise((resolve) => {
             const confirmModal = this.createConfirmModal(message, title, type);
+            const confirmId = 'confirmModal';
+            confirmModal.id = confirmId;
             document.body.appendChild(confirmModal);
-            
-            // Use the global modal overlay
-            const overlay = document.getElementById('modalOverlay');
-            if (overlay) {
-                overlay.classList.add('active');
-            }
-            document.body.classList.add('modal-open');
-            
+
             const handleConfirm = (result) => {
-                // Clean up modal and overlay
-                if (overlay) {
-                    overlay.classList.remove('active');
-                }
-                document.body.classList.remove('modal-open');
+                modalManager.hide(confirmId);
                 document.body.removeChild(confirmModal);
                 resolve(result);
             };
-            
+
             confirmModal.querySelector('.confirm-yes').addEventListener('click', () => {
                 handleConfirm(true);
             });
-            
+
             confirmModal.querySelector('.confirm-no').addEventListener('click', () => {
                 handleConfirm(false);
             });
-            
-            // Show modal
+
             requestAnimationFrame(() => {
-                confirmModal.classList.add('active');
+                modalManager.show(confirmId);
             });
         });
     }

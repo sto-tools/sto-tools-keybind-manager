@@ -91,7 +91,7 @@ class STOProfileManager {
         });
 
         document.getElementById('aboutBtn')?.addEventListener('click', () => {
-            stoUI.showModal('aboutModal');
+            modalManager.show('aboutModal');
         });
 
         document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
@@ -124,7 +124,7 @@ class STOProfileManager {
         }
 
         this.currentModal = 'new';
-        stoUI.showModal('profileModal');
+        modalManager.show('profileModal');
     }
 
     showCloneProfileModal() {
@@ -149,7 +149,7 @@ class STOProfileManager {
         }
 
         this.currentModal = 'clone';
-        stoUI.showModal('profileModal');
+        modalManager.show('profileModal');
     }
 
     showRenameProfileModal() {
@@ -174,7 +174,7 @@ class STOProfileManager {
         }
 
         this.currentModal = 'rename';
-        stoUI.showModal('profileModal');
+        modalManager.show('profileModal');
     }
 
     handleProfileSave() {
@@ -224,7 +224,7 @@ class STOProfileManager {
                     break;
             }
 
-            stoUI.hideModal('profileModal');
+            modalManager.hide('profileModal');
             this.currentModal = null;
         } catch (error) {
             stoUI.showToast('Failed to save profile: ' + error.message, 'error');
