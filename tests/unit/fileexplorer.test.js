@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
+import '../../src/js/data.js'
+import '../../src/js/eventBus.js'
+import STOUIManager from '../../src/js/ui.js'
+import STOStorage from '../../src/js/storage.js'
+import STOExportManager from '../../src/js/export.js'
+import STOFileExplorer from '../../src/js/fileexplorer.js'
 
 // Load real HTML
 const htmlContent = readFileSync(resolve(__dirname, '../../src/index.html'), 'utf-8')
@@ -22,35 +28,13 @@ describe('STOFileExplorer', () => {
       document.body.appendChild(container)
     }
 
-    // Execute data.js in global scope to register STO_DATA
-    const fs = require('fs')
-    const path = require('path')
-    const dataPath = path.resolve(__dirname, '../../src/js/data.js')
-    const dataCode = fs.readFileSync(dataPath, 'utf8')
-    // eslint-disable-next-line no-eval
-    eval(dataCode)
-
-    // Clear storage BEFORE importing modules
     localStorage.clear()
-
-    // Import dependencies in correct order
-    await import('../../src/js/ui.js')
-    await import('../../src/js/storage.js')
-    await import('../../src/js/export.js')
-
-    // Load FileExplorer via eval to simulate script load
-    const explorerPath = path.resolve(__dirname, '../../src/js/fileexplorer.js')
-    const explorerCode = fs.readFileSync(explorerPath, 'utf8')
-    // eslint-disable-next-line no-eval
-    eval(explorerCode)
-
-    // Grab global instances
-    stoUI = window.stoUI
-    stoStorage = window.stoStorage
-    stoExport = window.stoExport
-    stoFileExplorer = window.stoFileExplorer
-
-    // Ensure the explorer sets up its event listeners immediately for tests
+    stoUI = new STOUIManager()
+    stoStorage = new STOStorage()
+    stoExport = new STOExportManager()
+    Object.assign(global, { stoUI, stoStorage, stoExport })
+    stoFileExplorer = new STOFileExplorer()
+    global.stoFileExplorer = stoFileExplorer
     stoFileExplorer.init()
   })
 

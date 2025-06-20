@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Profile Management
 // Handles profile creation, editing, and management operations
 
-class STOProfileManager {
+export default class STOProfileManager {
     constructor() {
         this.currentModal = null;
         // Don't initialize immediately - wait for app to be ready
@@ -852,4 +852,3 @@ class STOProfileManager {
 }
 
 // Global profile manager instance
-window.stoProfiles = new STOProfileManager(); 

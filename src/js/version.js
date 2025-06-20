@@ -1,3 +1,4 @@
+import { DISPLAY_VERSION } from "./constants.js";
 /**
  * Version display management
  */

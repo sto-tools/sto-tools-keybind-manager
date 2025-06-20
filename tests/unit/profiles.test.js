@@ -4,6 +4,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import '../../src/js/eventBus.js'
+import STOStorage from '../../src/js/storage.js'
 
 describe('STOProfileManager', () => {
   let profileManager
@@ -20,25 +22,6 @@ describe('STOProfileManager', () => {
     
     // Import real modules
     const { STO_DATA } = await import('../../src/js/data.js')
-    await import('../../src/js/storage.js')
-    
-    // Get the constructor from the global instance
-    const STOStorage = global.window.stoStorage?.constructor || class MockSTOStorage {
-      constructor() {
-        this.storageKey = 'sto_keybind_manager'
-        this.backupKey = 'sto_keybind_manager_backup'
-        this.settingsKey = 'sto_keybind_settings'
-        this.version = '1.0.0'
-      }
-      getAllData() { return { profiles: {}, currentProfile: null, globalAliases: {}, settings: {} } }
-      saveAllData() { return true }
-      getProfile() { return null }
-      saveProfile() { return true }
-      deleteProfile() { return true }
-      getSettings() { return {} }
-      saveSettings() { return true }
-      clearAllData() { return true }
-    }
     
     // Setup DOM elements needed for tests
     document.body.innerHTML = `
@@ -92,22 +75,19 @@ describe('STOProfileManager', () => {
       showToast: vi.fn(),
       confirm: vi.fn(() => Promise.resolve(true))
     }
+
+    global.modalManager = {
+      show: vi.fn(),
+      hide: vi.fn()
+    }
     
     // Setup global objects
     global.app = mockApp
     global.stoStorage = mockStorage
     global.stoUI = mockUI
     
-    // Load the profiles module (it creates a global instance)
-    await import('../../src/js/profiles.js')
-    
-    // Ensure we have the real constructor, not a mock
-    if (!global.window.stoProfiles) {
-      throw new Error('STOProfileManager not properly loaded - global.window.stoProfiles is undefined')
-    }
-    
-    // Get the constructor from the global instance
-    const STOProfileManager = global.window.stoProfiles.constructor
+    // Load the profiles module as ES module and instantiate
+    const { default: STOProfileManager } = await import('../../src/js/profiles.js')
     profileManager = new STOProfileManager()
     profileManager.init()
   })
@@ -118,6 +98,7 @@ describe('STOProfileManager', () => {
     delete global.app
     delete global.stoStorage
     delete global.stoUI
+    delete global.modalManager
   })
 
   describe('Initialization and setup', () => {
@@ -134,7 +115,7 @@ describe('STOProfileManager', () => {
       
       // Test that event listeners are attached by triggering events
       newProfileBtn.click()
-      expect(mockUI.showModal).toHaveBeenCalledWith('profileModal')
+      expect(modalManager.show).toHaveBeenCalledWith('profileModal')
     })
 
     it('should handle missing DOM elements gracefully', () => {
@@ -149,7 +130,7 @@ describe('STOProfileManager', () => {
     it('should show new profile modal with correct setup', () => {
       profileManager.showNewProfileModal()
       
-      expect(mockUI.showModal).toHaveBeenCalledWith('profileModal')
+      expect(modalManager.show).toHaveBeenCalledWith('profileModal')
       expect(profileManager.currentModal).toBe('new')
       
       const title = document.getElementById('profileModalTitle')
@@ -163,7 +144,7 @@ describe('STOProfileManager', () => {
     it('should show clone profile modal with current profile data', () => {
       profileManager.showCloneProfileModal()
       
-      expect(mockUI.showModal).toHaveBeenCalledWith('profileModal')
+      expect(modalManager.show).toHaveBeenCalledWith('profileModal')
       expect(profileManager.currentModal).toBe('clone')
       
       const title = document.getElementById('profileModalTitle')
@@ -178,7 +159,7 @@ describe('STOProfileManager', () => {
     it('should show rename profile modal with existing data', () => {
       profileManager.showRenameProfileModal()
       
-      expect(mockUI.showModal).toHaveBeenCalledWith('profileModal')
+      expect(modalManager.show).toHaveBeenCalledWith('profileModal')
       expect(profileManager.currentModal).toBe('rename')
       
       const title = document.getElementById('profileModalTitle')
@@ -194,7 +175,7 @@ describe('STOProfileManager', () => {
       profileManager.showCloneProfileModal()
       
       expect(mockUI.showToast).toHaveBeenCalledWith('No profile selected to clone', 'warning')
-      expect(mockUI.showModal).not.toHaveBeenCalled()
+      expect(modalManager.show).not.toHaveBeenCalled()
     })
 
     it('should handle missing current profile for rename', () => {
@@ -203,7 +184,7 @@ describe('STOProfileManager', () => {
       profileManager.showRenameProfileModal()
       
       expect(mockUI.showToast).toHaveBeenCalledWith('No profile selected to rename', 'warning')
-      expect(mockUI.showModal).not.toHaveBeenCalled()
+      expect(modalManager.show).not.toHaveBeenCalled()
     })
   })
 

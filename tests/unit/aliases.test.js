@@ -5,8 +5,9 @@ import { join } from 'path'
 // Import real data first to ensure STO_DATA is available
 import '../../src/js/data.js'
 
+import "../../src/js/eventBus.js"
 // Load the aliases module (it creates a global instance)
-import '../../src/js/aliases.js'
+import STOAliasManager from '../../src/js/aliases.js'
 
 // Load the real HTML
 const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
@@ -18,10 +19,13 @@ beforeEach(() => {
   
   // Mock only the UI methods that would show actual UI
   global.stoUI = {
-    showModal: vi.fn(),
-    hideModal: vi.fn(),
     showToast: vi.fn(),
     confirm: vi.fn().mockResolvedValue(true)
+  }
+
+  global.modalManager = {
+    show: vi.fn(),
+    hide: vi.fn()
   }
   
   // Mock only the app methods that would modify actual DOM
@@ -42,11 +46,8 @@ beforeEach(() => {
 
 describe('STOAliasManager', () => {
   let aliasManager
-  let STOAliasManager
 
   beforeEach(() => {
-    // Get the constructor from the global instance
-    STOAliasManager = global.window.stoAliases.constructor
     aliasManager = new STOAliasManager()
     vi.clearAllMocks()
   })
@@ -76,7 +77,7 @@ describe('STOAliasManager', () => {
       aliasManager.showAliasManager()
       
       expect(renderSpy).toHaveBeenCalled()
-      expect(stoUI.showModal).toHaveBeenCalledWith('aliasManagerModal')
+      expect(modalManager.show).toHaveBeenCalledWith('aliasManagerModal')
     })
 
     it('should render alias list with existing aliases', () => {
@@ -167,8 +168,8 @@ describe('STOAliasManager', () => {
       expect(commandsInput.value).toBe('')
       expect(aliasManager.currentAlias).toBeNull()
       expect(updatePreviewSpy).toHaveBeenCalled()
-      expect(stoUI.hideModal).toHaveBeenCalledWith('aliasManagerModal')
-      expect(stoUI.showModal).toHaveBeenCalledWith('editAliasModal')
+      expect(modalManager.hide).toHaveBeenCalledWith('aliasManagerModal')
+      expect(modalManager.show).toHaveBeenCalledWith('editAliasModal')
     })
 
     it('should show edit alias modal with existing data', () => {
@@ -276,7 +277,7 @@ describe('STOAliasManager', () => {
       expect(app.setModified).toHaveBeenCalledWith(true)
       expect(updateLibrarySpy).toHaveBeenCalled()
       expect(stoUI.showToast).toHaveBeenCalledWith('Alias "ValidAlias" created', 'success')
-      expect(stoUI.hideModal).toHaveBeenCalledWith('editAliasModal')
+      expect(modalManager.hide).toHaveBeenCalledWith('editAliasModal')
       expect(showManagerSpy).toHaveBeenCalled()
     })
 
@@ -412,7 +413,7 @@ describe('STOAliasManager', () => {
         icon: '🎭',
         text: 'Alias: TestAlias'
       }))
-      expect(stoUI.hideModal).toHaveBeenCalledWith('aliasManagerModal')
+      expect(modalManager.hide).toHaveBeenCalledWith('aliasManagerModal')
       expect(stoUI.showToast).toHaveBeenCalledWith('Alias "TestAlias" added to F1', 'success')
     })
 

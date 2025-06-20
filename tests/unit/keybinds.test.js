@@ -4,18 +4,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import '../../src/js/data.js'
 
 // Load the modules (they create global instances)
-import '../../src/js/storage.js'
-import '../../src/js/commands.js'
-import '../../src/js/keybinds.js'
+import '../../src/js/eventBus.js'
+import STOStorage from '../../src/js/storage.js'
+import STOCommandManager from '../../src/js/commands.js'
+import STOKeybindFileManager from '../../src/js/keybinds.js'
 
 // Setup real global objects instead of mocks
 beforeEach(() => {
-  // Set up global environment
   global.window = global.window || {}
-  
-  // The modules create global instances automatically
-  global.stoStorage = global.window.stoStorage
-  global.stoCommands = global.window.stoCommands
+  global.stoStorage = new STOStorage()
+  global.stoCommands = new STOCommandManager()
   
   // Mock only the UI methods that would show actual UI
   global.stoUI = {
@@ -55,11 +53,8 @@ beforeEach(() => {
 
 describe('STOKeybindFileManager', () => {
   let keybindManager
-  let STOKeybindFileManager
 
   beforeEach(() => {
-    // Get the constructor from the global instance
-    STOKeybindFileManager = global.window.stoKeybinds.constructor
     keybindManager = new STOKeybindFileManager()
     vi.clearAllMocks()
   })
@@ -994,7 +989,7 @@ F2 "say world"`
     
     beforeEach(() => {
       // Create real storage instance for integration testing
-      realStorage = new (global.window.stoStorage.constructor)()
+      realStorage = new STOStorage()
       
       // Create a real app implementation
       realApp = {
@@ -1081,8 +1076,8 @@ F2 "FirePhasers $$ FireTorpedos $$ FirePhasers"`
       expect(savedProfile.builds.space.keys.F2[1].command).toBe('FireTorpedos')
       
       // Check that stabilization metadata was set
-      expect(savedProfile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
-      expect(savedProfile.keybindMetadata.F2.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.space.F1.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.space.F2.stabilizeExecutionOrder).toBe(true)
     })
 
     it('should not set stabilization metadata for non-mirrored commands', () => {
@@ -1099,8 +1094,8 @@ F2 "FirePhasers"`
       expect(savedProfile.builds.space.keys.F2).toHaveLength(1)
       
       // Check that no stabilization metadata was set
-      expect(savedProfile.keybindMetadata?.F1).toBeUndefined()
-      expect(savedProfile.keybindMetadata?.F2).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.space?.F1).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.space?.F2).toBeUndefined()
     })
 
     it('should handle mixed mirrored and non-mirrored commands', () => {
@@ -1116,15 +1111,15 @@ F3 "SingleCommand"`
       
       // F1 is mirrored
       expect(savedProfile.builds.space.keys.F1).toHaveLength(2)
-      expect(savedProfile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.space.F1.stabilizeExecutionOrder).toBe(true)
       
       // F2 is not mirrored
       expect(savedProfile.builds.space.keys.F2).toHaveLength(2)
-      expect(savedProfile.keybindMetadata?.F2).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.space?.F2).toBeUndefined()
       
       // F3 is single command
       expect(savedProfile.builds.space.keys.F3).toHaveLength(1)
-      expect(savedProfile.keybindMetadata?.F3).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.space?.F3).toBeUndefined()
     })
 
     it('should handle empty command chains', () => {
@@ -1141,15 +1136,15 @@ F2 " "`
       expect(savedProfile.builds.space.keys.F1[0].command).toBe('')
       expect(savedProfile.builds.space.keys.F2).toHaveLength(1)
       expect(savedProfile.builds.space.keys.F2[0].command).toBe('')
-      expect(savedProfile.keybindMetadata?.F1).toBeUndefined()
-      expect(savedProfile.keybindMetadata?.F2).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.space?.F1).toBeUndefined()
+      expect(savedProfile.keybindMetadata?.space?.F2).toBeUndefined()
     })
 
     it('should preserve existing keybindMetadata structure', () => {
       // Set up profile with existing metadata
       const testProfile = realStorage.getProfile('test-profile')
       testProfile.keybindMetadata = {
-        F3: { stabilizeExecutionOrder: false }
+        space: { F3: { stabilizeExecutionOrder: false } }
       }
       realStorage.saveProfile('test-profile', testProfile)
       
@@ -1162,10 +1157,10 @@ F2 " "`
       const savedProfile = realStorage.getProfile('test-profile')
       
       // Should preserve existing metadata
-      expect(savedProfile.keybindMetadata.F3.stabilizeExecutionOrder).toBe(false)
+      expect(savedProfile.keybindMetadata.space.F3.stabilizeExecutionOrder).toBe(false)
       
       // Should add new metadata
-      expect(savedProfile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.space.F1.stabilizeExecutionOrder).toBe(true)
     })
 
     it('should handle complex mirrored patterns', () => {
@@ -1179,7 +1174,7 @@ F2 " "`
       expect(savedProfile.builds.space.keys.numpad0).toHaveLength(5)
       expect(savedProfile.builds.space.keys.numpad0[0].command).toBe('+TrayExecByTray 9 0')
       expect(savedProfile.builds.space.keys.numpad0[4].command).toBe('+TrayExecByTray 9 4')
-      expect(savedProfile.keybindMetadata.numpad0.stabilizeExecutionOrder).toBe(true)
+      expect(savedProfile.keybindMetadata.space.numpad0.stabilizeExecutionOrder).toBe(true)
     })
 
     it('should merge with existing profile data', () => {
@@ -1258,7 +1253,7 @@ F2 " "`
     
     beforeEach(() => {
       // Create real storage instance for integration testing
-      realStorage = new (global.window.stoStorage.constructor)()
+      realStorage = new STOStorage()
       
       // Create a minimal real app implementation
       realApp = {

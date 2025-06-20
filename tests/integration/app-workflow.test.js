@@ -1,9 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import path from 'path'
+import '../../src/js/data.js'
+import '../../src/js/eventBus.js'
+import STOStorage from '../../src/js/storage.js'
+import STOProfileManager from '../../src/js/profiles.js'
+import STOKeybindFileManager from '../../src/js/keybinds.js'
+import STOExportManager from '../../src/js/export.js'
+import STOUIManager from '../../src/js/ui.js'
+import STOToolsKeybindManager from '../../src/js/app.js'
 
 describe('App Workflow Integration', () => {
-  let app, stoData, stoStorage, stoProfiles, stoKeybinds, stoUI
+  let app, stoData, stoStorage, stoProfiles, stoKeybinds, stoUI, stoExport
 
   beforeEach(async () => {
     // Load real HTML
@@ -32,30 +40,15 @@ describe('App Workflow Integration', () => {
     window._originalConfirm = originalConfirm
     window._originalPrompt = originalPrompt
     
-    // Import modules in dependency order
     await import('../../src/js/data.js')
-    await import('../../src/js/storage.js')
-    await import('../../src/js/profiles.js')
-    await import('../../src/js/keybinds.js')
-    await import('../../src/js/export.js')
-    await import('../../src/js/ui.js')
-    await import('../../src/js/eventBus.js')
-    await import('../../src/js/app.js')
-    
-    // Get global instances
-    stoData = window.stoData
-    stoStorage = window.stoStorage
-    stoProfiles = window.stoProfiles
-    stoKeybinds = window.stoKeybinds
-    stoUI = window.stoUI
-    app = window.app
-    
-    // Mock export functionality for tests
-    window.stoExport = {
-      generateSTOKeybindFile: vi.fn().mockReturnValue('mocked keybind content')
-    }
-    
-    // Initialize app
+    stoStorage = new STOStorage()
+    stoProfiles = new STOProfileManager()
+    stoKeybinds = new STOKeybindFileManager()
+    stoUI = new STOUIManager()
+    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
+    app = new STOToolsKeybindManager()
+    stoExport = new STOExportManager()
+    Object.assign(global, { app, stoExport })
     await app.init()
   })
 

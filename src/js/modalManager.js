@@ -1,4 +1,4 @@
-class STOModalManager {
+export default class STOModalManager {
     constructor() {
         this.overlayId = 'modalOverlay';
     }
@@ -42,4 +42,3 @@ class STOModalManager {
 }
 
 // Global instance
-window.modalManager = new STOModalManager();

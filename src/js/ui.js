@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - UI Utilities
 // Handles DOM manipulation, notifications, and user interface helpers
 
-class STOUIManager {
+export default class STOUIManager {
     constructor() {
         this.toastQueue = [];
         this.dragState = {
@@ -512,4 +512,3 @@ class STOUIManager {
 }
 
 // Global UI manager instance
-window.stoUI = new STOUIManager(); 

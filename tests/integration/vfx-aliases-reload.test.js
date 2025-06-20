@@ -1,5 +1,6 @@
 // Integration test for VFX aliases reload issue
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import '../../src/js/eventBus.js'
 
 describe('VFX Aliases Reload Integration', () => {
     let mockApp, mockProfile, mockUI, mockStorage;
@@ -83,86 +84,10 @@ describe('VFX Aliases Reload Integration', () => {
 
     it('should initialize aliases in command library after app ready event', async () => {
         // Import the aliases.js module and create a new instance for testing
-        const { default: aliasesModule } = await import('../../src/js/aliases.js');
-        
+        const { default: STOAliasManager } = await import('../../src/js/aliases.js');
+
         // Create alias manager instance manually for testing
-        const aliasManager = window.stoAliases || new (class STOAliasManager {
-            constructor() {
-                this.currentAlias = null;
-            }
-            
-            init() {
-                this.setupEventListeners();
-                this.updateCommandLibrary();
-            }
-            
-            setupEventListeners() {
-                // Mock implementation for testing
-            }
-            
-            updateCommandLibrary() {
-                const profile = global.app.getCurrentProfile();
-                if (!profile || !profile.aliases) return;
-
-                const categories = document.getElementById('commandCategories');
-                if (!categories) return;
-
-                // Remove existing alias categories
-                const existingAliasCategory = categories.querySelector('[data-category="aliases"]');
-                if (existingAliasCategory) {
-                    existingAliasCategory.remove();
-                }
-                const existingVertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]');
-                if (existingVertigoCategory) {
-                    existingVertigoCategory.remove();
-                }
-
-                // Separate regular aliases from VFX aliases
-                const allAliases = Object.entries(profile.aliases);
-                const regularAliases = allAliases.filter(([name, alias]) => 
-                    !name.startsWith('dynFxSetFXExlusionList_')
-                );
-                const vertigoAliases = allAliases.filter(([name, alias]) => 
-                    name.startsWith('dynFxSetFXExlusionList_')
-                );
-
-                // Add regular aliases category if there are regular aliases
-                if (regularAliases.length > 0) {
-                    const aliasCategory = this.createAliasCategoryElement(regularAliases, 'aliases', 'Command Aliases', 'fas fa-mask');
-                    categories.appendChild(aliasCategory);
-                }
-
-                // Add VFX aliases category if there are VERTIGO aliases
-                if (vertigoAliases.length > 0) {
-                    const vertigoCategory = this.createAliasCategoryElement(vertigoAliases, 'vertigo-aliases', 'VFX Aliases', 'fas fa-eye-slash');
-                    categories.appendChild(vertigoCategory);
-                }
-            }
-            
-            createAliasCategoryElement(aliases, categoryType = 'aliases', title = 'Command Aliases', iconClass = 'fas fa-mask') {
-                const element = document.createElement('div');
-                element.className = 'category';
-                element.dataset.category = categoryType;
-                
-                const isVertigo = categoryType === 'vertigo-aliases';
-                const itemIcon = isVertigo ? '👁️' : '🎭';
-                const itemClass = isVertigo ? 'command-item vertigo-alias-item' : 'command-item alias-item';
-                
-                element.innerHTML = `
-                    <h4><i class="${iconClass}"></i> ${title}</h4>
-                    <div class="category-commands">
-                        ${aliases.map(([name, alias]) => `
-                            <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
-                                ${itemIcon} ${name}
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                
-                return element;
-            }
-        });
-        
+        const aliasManager = new STOAliasManager();
         global.stoAliases = aliasManager;
         window.stoAliases = aliasManager;
         
@@ -200,12 +125,10 @@ describe('VFX Aliases Reload Integration', () => {
     });
 
     it('should handle app ready event timing correctly', async () => {
-        // Import the aliases.js module which creates the global stoAliases instance
-        await import('../../src/js/aliases.js');
-        
-        // Get the alias manager instance
-        const aliasManager = window.stoAliases;
-        global.stoAliases = aliasManager; // Also set it on global for consistency
+        // Import and instantiate the alias manager
+        const { default: STOAliasManager } = await import('../../src/js/aliases.js');
+        const aliasManager = new STOAliasManager();
+        global.stoAliases = aliasManager;
         const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary');
         
         // Simulate the real application flow:
@@ -231,12 +154,10 @@ describe('VFX Aliases Reload Integration', () => {
     });
 
     it('should maintain VFX aliases across simulated reload', async () => {
-        // Import the aliases.js module which creates the global stoAliases instance
-        await import('../../src/js/aliases.js');
-        
-        // Simulate first load - aliases are generated and visible
-        const aliasManager1 = window.stoAliases;
-        global.stoAliases = aliasManager1; // Also set it on global for consistency
+        // Import and instantiate the alias manager
+        const { default: STOAliasManager } = await import('../../src/js/aliases.js');
+        const aliasManager1 = new STOAliasManager();
+        global.stoAliases = aliasManager1;
         aliasManager1.init();
         
         let commandCategories = document.getElementById('commandCategories');
@@ -272,11 +193,10 @@ describe('VFX Aliases Reload Integration', () => {
             keys: {}
         });
         
-        // Import the aliases.js module which creates the global stoAliases instance
-        await import('../../src/js/aliases.js');
-        
-        const aliasManager = window.stoAliases;
-        global.stoAliases = aliasManager; // Also set it on global for consistency
+        // Import and instantiate the alias manager
+        const { default: STOAliasManager } = await import('../../src/js/aliases.js');
+        const aliasManager = new STOAliasManager();
+        global.stoAliases = aliasManager;
         const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary');
         
         // Should not throw error with empty aliases

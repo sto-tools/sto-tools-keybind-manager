@@ -4,14 +4,20 @@ import { join } from 'path'
 
 // Import real modules in dependency order
 import '../../src/js/data.js'
-import '../../src/js/storage.js'
-import '../../src/js/profiles.js'
-import '../../src/js/keybinds.js'
-import '../../src/js/ui.js'
 import '../../src/js/eventBus.js'
-import '../../src/js/app.js'
-// Load the export module (it creates a global instance)
-import '../../src/js/export.js'
+import STOStorage from '../../src/js/storage.js'
+import STOProfileManager from '../../src/js/profiles.js'
+import STOKeybindFileManager from '../../src/js/keybinds.js'
+import STOUIManager from '../../src/js/ui.js'
+import STOToolsKeybindManager from '../../src/js/app.js'
+import STOExportManager from '../../src/js/export.js'
+
+let stoStorage
+let stoProfiles
+let stoKeybinds
+let stoUI
+let app
+let exportManager
 
 // Load the real HTML
 const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
@@ -20,6 +26,15 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 beforeEach(() => {
   // Set up the real DOM
   document.documentElement.innerHTML = htmlContent
+
+  stoStorage = new STOStorage()
+  stoProfiles = new STOProfileManager()
+  stoKeybinds = new STOKeybindFileManager()
+  stoUI = new STOUIManager()
+  Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
+  app = new STOToolsKeybindManager()
+  exportManager = new STOExportManager()
+  Object.assign(global, { app, exportManager })
   
   // Mock only the UI methods that would show actual modals or toasts
   vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})
@@ -80,12 +95,7 @@ afterEach(() => {
 })
 
 describe('STOExportManager', () => {
-  let exportManager
-  let STOExportManager
-
   beforeEach(() => {
-    // Get the constructor from the global instance
-    STOExportManager = global.window.stoExport.constructor
     exportManager = new STOExportManager()
   })
 

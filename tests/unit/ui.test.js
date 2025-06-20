@@ -13,11 +13,10 @@ describe('STOUIManager', () => {
     // Set up DOM with real HTML content
     document.documentElement.innerHTML = htmlContent
     
-    // Import the real UI module (this creates window.stoUI)
-    await import('../../src/js/ui.js')
-    
-    // Use the global instance
-    stoUI = window.stoUI
+    // Import the UI class and create an instance
+    const { default: STOUIManager } = await import('../../src/js/ui.js')
+    stoUI = new STOUIManager()
+    window.stoUI = stoUI
     
     // Add required containers to DOM if not present
     if (!document.getElementById('toastContainer')) {

@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - File Explorer Modal
 // Provides a tree view of profiles/builds/aliases and preview of export files
 
-class STOFileExplorer {
+export default class STOFileExplorer {
     constructor() {
         this.modalId = 'fileExplorerModal';
         this.treeId = 'fileTree';
@@ -180,9 +180,3 @@ class STOFileExplorer {
 }
 
 // Create global instance and initialize when dependencies are ready
-window.stoFileExplorer = new STOFileExplorer();
-document.addEventListener('DOMContentLoaded', () => {
-    if (window.stoFileExplorer) {
-        window.stoFileExplorer.init();
-    }
-}); 

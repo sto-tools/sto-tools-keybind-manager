@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import fs from 'fs'
-import path from 'path'
+
+import '../../src/js/data.js'
+import STOStorage from '../../src/js/storage.js'
+import STOKeybindFileManager from '../../src/js/keybinds.js'
+import STOExportManager from '../../src/js/export.js'
 
 describe('Export Mirroring Integration', () => {
-  let app, stoData, stoStorage, stoProfiles, stoKeybinds, stoExport, stoUI
+  let app, stoStorage, stoKeybinds, stoExport, stoUI
 
-  beforeEach(async () => {
+  beforeEach(() => {
     // Clear localStorage
     localStorage.clear()
     
@@ -42,18 +45,11 @@ describe('Export Mirroring Integration', () => {
       return document.createElement.wrappedMethod ? document.createElement.wrappedMethod(tagName) : {}
     })
     
-    // Import modules in dependency order
-    await import('../../src/js/data.js')
-    await import('../../src/js/storage.js')
-    await import('../../src/js/keybinds.js')
-    await import('../../src/js/export.js')
-    
-    // Get global instances
-    stoData = window.stoData
-    stoStorage = window.stoStorage
-    stoKeybinds = window.stoKeybinds
-    stoExport = window.stoExport
-    stoUI = window.stoUI
+    stoStorage = new STOStorage()
+    stoKeybinds = new STOKeybindFileManager()
+    stoExport = new STOExportManager()
+    stoUI = { showToast: vi.fn() }
+    Object.assign(global, { stoStorage, stoKeybinds, stoExport, stoUI })
     
     // Create minimal app-like object for testing
     app = {
@@ -345,7 +341,7 @@ describe('Export Mirroring Integration', () => {
       
       // Stabilization metadata should be set
       const actualProfile = stoStorage.getProfile(importProfileId)
-      expect(actualProfile.keybindMetadata.F1.stabilizeExecutionOrder).toBe(true)
+      expect(actualProfile.keybindMetadata.space.F1.stabilizeExecutionOrder).toBe(true)
       
       // Single commands should remain unchanged
       expect(importedProfile.builds.space.keys.F2).toHaveLength(1)

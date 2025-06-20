@@ -3,7 +3,7 @@
 
 // Error classes are defined in errors.js and exposed globally
 
-const VFX_EFFECTS = {
+export const VFX_EFFECTS = {
     space: [
         { label: "Advanced inhibiting turret shield bubble", effect: "Fx_Rep_Temporal_Ship_Chroniton_Stabilization_Proc" },
         { label: "Approaching Agony", effect: "Cfx_Lockboxfx_Cb29_Ship_Agony_Field" },
@@ -131,7 +131,7 @@ const VFX_EFFECTS = {
 };
 
 // Vertigo management class
-class VertigoManager {
+export default class VertigoManager {
     constructor() {
         this.selectedEffects = {
             space: new Set(),
@@ -258,8 +258,3 @@ class VertigoManager {
 }
 
 // Global vertigo manager instance
-const vertigoManager = new VertigoManager();
-
-// Make globals accessible
-window.VFX_EFFECTS = VERTIGO_EFFECTS;
-window.vertigoManager = vertigoManager;

@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Alias Management
 // Handles command alias creation, editing, and management
 
-class STOAliasManager {
+export default class STOAliasManager {
     constructor() {
         this.currentAlias = null;
         // Don't initialize immediately - wait for app to be ready
@@ -634,4 +634,3 @@ class STOAliasManager {
 }
 
 // Global alias manager instance
-window.stoAliases = new STOAliasManager(); 
