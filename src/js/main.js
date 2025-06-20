@@ -32,6 +32,9 @@ import './version.js'
     },
   })
 
+  // Make i18next available globally for data.js and other modules that need it
+  window.i18next = i18next
+
   if (window.localizeCommandData) {
     window.localizeCommandData()
   }
