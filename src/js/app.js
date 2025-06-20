@@ -103,6 +103,9 @@ export default class STOToolsKeybindManager {
       this.renderKeyGrid()
       this.renderCommandChain()
 
+      // Update mode buttons to reflect current environment
+      this.updateModeButtons()
+
       // Update theme toggle button to reflect current theme
       const settings = stoStorage.getSettings()
       this.updateThemeToggleButton(settings.theme || 'default')
@@ -528,14 +531,16 @@ export default class STOToolsKeybindManager {
   updateProfileInfo() {
     const profile = this.getCurrentProfile()
 
-    // Update mode buttons
+    // Update mode buttons - only update active state, don't disable them
     const modeBtns = document.querySelectorAll('.mode-btn')
     modeBtns.forEach((btn) => {
       btn.classList.toggle(
         'active',
         profile && btn.dataset.mode === this.currentEnvironment
       )
-      btn.disabled = !profile
+      // Remove the problematic btn.disabled = !profile line
+      // Mode buttons should always be enabled as long as we have a valid profile ID
+      btn.disabled = !this.currentProfile
     })
 
     // Update key count
@@ -1477,11 +1482,15 @@ export default class STOToolsKeybindManager {
       this.switchProfile(e.target.value)
     })
 
-    // Mode switching
+    // Mode switching - fix event target issue by using currentTarget and closest
     document.querySelectorAll('.mode-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
-        const mode = e.target.dataset.mode
-        this.switchMode(mode)
+        // Use currentTarget to get the button element, not the clicked child element
+        const button = e.currentTarget
+        const mode = button.dataset.mode
+        if (mode) {
+          this.switchMode(mode)
+        }
       })
     })
 
@@ -1710,6 +1719,12 @@ export default class STOToolsKeybindManager {
   }
 
   switchMode(mode) {
+    // Guard against undefined or invalid mode values
+    if (!mode || (mode !== 'space' && mode !== 'ground')) {
+      console.warn('Invalid mode provided to switchMode:', mode)
+      return
+    }
+    
     if (this.currentEnvironment !== mode) {
       // Save current build before switching
       this.saveCurrentBuild()
@@ -1723,14 +1738,15 @@ export default class STOToolsKeybindManager {
         stoStorage.saveProfile(this.currentProfile, profile)
       }
 
-      // Update UI button states
-      this.updateModeButtons()
-
+      // Update UI components
       this.updateProfileInfo()
       this.renderKeyGrid()
       this.renderCommandChain()
       this.filterCommandLibrary() // Apply environment filter to command library
       this.setModified(true)
+
+      // Update button states after all other updates are complete
+      this.updateModeButtons()
 
       stoUI.showToast(`Switched to ${mode} mode`, 'success')
     }
@@ -1744,6 +1760,10 @@ export default class STOToolsKeybindManager {
     if (spaceBtn && groundBtn) {
       spaceBtn.classList.toggle('active', this.currentEnvironment === 'space')
       groundBtn.classList.toggle('active', this.currentEnvironment === 'ground')
+      
+      // Ensure buttons are enabled when we have a valid profile
+      spaceBtn.disabled = !this.currentProfile
+      groundBtn.disabled = !this.currentProfile
     }
   }
 
