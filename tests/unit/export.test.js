@@ -984,7 +984,7 @@ describe('STOExportManager', () => {
         mode: 'space',
       }
 
-      const filename = exportManager.generateAliasFileName(profile, 'txt', 'space')
+      const filename = exportManager.generateAliasFileName(profile, 'txt')
 
       expect(filename).toContain('Test_Profile')
       expect(filename).toContain('aliases')

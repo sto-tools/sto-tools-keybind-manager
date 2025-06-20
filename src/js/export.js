@@ -79,7 +79,7 @@ export default class STOExportManager {
         this.exportHTMLReport(profile)
         break
       case 'alias_file':
-        this.exportAliases(profile, environment)
+        this.exportAliases(profile)
         break
       default:
         break
@@ -736,12 +736,12 @@ export default class STOExportManager {
   }
 
   // Separate Alias Export
-  exportAliases(profile, environment = profile.mode) {
+  exportAliases(profile) {
     try {
       const content = this.generateAliasFile(profile)
       this.downloadFile(
         content,
-        this.generateAliasFileName(profile, 'txt', environment),
+        this.generateAliasFileName(profile, 'txt'),
         'text/plain'
       )
 
@@ -797,13 +797,10 @@ export default class STOExportManager {
     return content
   }
 
-  generateAliasFileName(
-    profile,
-    extension,
-    environment = profile.mode || 'space'
-  ) {
+  generateAliasFileName(profile, extension) {
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
+    const environment = profile.mode || 'space'
     return `${safeName}_aliases_${environment}_${timestamp}.${extension}`
   }
 }
