@@ -9,7 +9,7 @@ const state = {
   undoStack: [],
   redoStack: [],
   maxUndoSteps: 50,
-  commandIdCounter: 0
+  commandIdCounter: 0,
 }
 
 const store = new Proxy(state, {
@@ -19,7 +19,7 @@ const store = new Proxy(state, {
       eventBus.emit(`store:${prop}`, value)
     }
     return true
-  }
+  },
 })
 
 export function resetStore() {
@@ -32,10 +32,8 @@ export function resetStore() {
     undoStack: [],
     redoStack: [],
     maxUndoSteps: 50,
-    commandIdCounter: 0
+    commandIdCounter: 0,
   })
 }
 
 export default store
-
-

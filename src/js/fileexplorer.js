@@ -3,181 +3,185 @@
 import eventBus from './eventBus.js'
 
 export default class STOFileExplorer {
-    constructor() {
-        this.modalId = 'fileExplorerModal';
-        this.treeId = 'fileTree';
-        this.contentId = 'fileContent';
+  constructor() {
+    this.modalId = 'fileExplorerModal'
+    this.treeId = 'fileTree'
+    this.contentId = 'fileContent'
+  }
+
+  init() {
+    this.setupEventListeners()
+  }
+
+  // ---------------------------------------------------------------------
+  // Event Handling
+  // ---------------------------------------------------------------------
+  setupEventListeners() {
+    // Open Explorer button
+    eventBus.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
+      this.openExplorer()
+    })
+
+    // Delegate clicks on tree nodes
+    eventBus.onDom(this.treeId, 'click', 'fileExplorer-tree-click', (e) => {
+      const node = e.target.closest('.tree-node')
+      if (!node) return
+      this.selectNode(node)
+    })
+
+    // Copy file content
+    eventBus.onDom('copyFileContentBtn', 'click', 'copyFileContent', () => {
+      const contentEl = document.getElementById(this.contentId)
+      if (!contentEl) return
+      const text = contentEl.textContent || ''
+      if (!text.trim()) {
+        stoUI.showToast('Nothing to copy', 'warning')
+        return
+      }
+      stoUI.copyToClipboard(text)
+      stoUI.showToast('Content copied to clipboard', 'success')
+    })
+  }
+
+  // ---------------------------------------------------------------------
+  // UI Actions
+  // ---------------------------------------------------------------------
+  openExplorer() {
+    this.buildTree()
+    // Reset preview
+    const contentEl = document.getElementById(this.contentId)
+    if (contentEl) {
+      contentEl.textContent = 'Select an item on the left to preview export'
     }
+    stoUI.showModal(this.modalId)
+  }
 
-    init() {
-        this.setupEventListeners();
+  buildTree() {
+    const treeEl = document.getElementById(this.treeId)
+    if (!treeEl) return
+    treeEl.innerHTML = ''
+
+    const data = stoStorage.getAllData()
+    const profiles = data.profiles || {}
+
+    Object.entries(profiles).forEach(([profileId, profile]) => {
+      const profileNode = this.createNode('profile', profile.name, {
+        profileId,
+      })
+
+      // Child container
+      const childrenContainer = document.createElement('div')
+      childrenContainer.className = 'tree-children'
+
+      // Space Build
+      if (profile.builds && profile.builds.space) {
+        const spaceNode = this.createNode('build', 'Space Build', {
+          profileId,
+          environment: 'space',
+        })
+        childrenContainer.appendChild(spaceNode)
+      }
+
+      // Ground Build
+      if (profile.builds && profile.builds.ground) {
+        const groundNode = this.createNode('build', 'Ground Build', {
+          profileId,
+          environment: 'ground',
+        })
+        childrenContainer.appendChild(groundNode)
+      }
+
+      // Aliases node (aggregated)
+      const aliasNode = this.createNode('aliases', 'Aliases', {
+        profileId,
+      })
+      childrenContainer.appendChild(aliasNode)
+
+      profileNode.appendChild(childrenContainer)
+      treeEl.appendChild(profileNode)
+    })
+  }
+
+  createNode(type, label, dataset = {}) {
+    const node = document.createElement('div')
+    node.className = `tree-node ${type}`
+    node.textContent = label
+    node.dataset.type = type
+    Object.entries(dataset).forEach(([k, v]) => {
+      // Use setAttribute for better test environment compatibility
+      node.setAttribute(`data-${k}`, v)
+    })
+    return node
+  }
+
+  selectNode(node) {
+    // Remove previous selection
+    const prevSel = document.querySelector('.tree-node.selected')
+    if (prevSel) prevSel.classList.remove('selected')
+    node.classList.add('selected')
+
+    const type = node.dataset.type || node.getAttribute('data-type')
+    const profileid = node.getAttribute('data-profileid')
+    const environment = node.getAttribute('data-environment')
+
+    if (!profileid) return
+    try {
+      let exportContent = ''
+      if (type === 'build') {
+        exportContent = this.generateBuildExport(profileid, environment)
+      } else if (type === 'aliases') {
+        exportContent = this.generateAliasExport(profileid)
+      } else {
+        // Root profile node selected – no export preview
+        exportContent =
+          'Select a Space/Ground build or Aliases to preview export.'
+      }
+      const contentEl = document.getElementById(this.contentId)
+      if (contentEl) {
+        contentEl.textContent = exportContent || 'No content available.'
+      }
+    } catch (err) {
+      console.error('Failed to generate export content:', err)
+      stoUI.showToast('Failed to generate export', 'error')
     }
+  }
 
-    // ---------------------------------------------------------------------
-    // Event Handling
-    // ---------------------------------------------------------------------
-    setupEventListeners() {
-        // Open Explorer button
-        eventBus.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
-            this.openExplorer();
-        });
-
-        // Delegate clicks on tree nodes
-        eventBus.onDom(this.treeId, 'click', 'fileExplorer-tree-click', (e) => {
-            const node = e.target.closest('.tree-node');
-            if (!node) return;
-            this.selectNode(node);
-        });
-
-        // Copy file content
-        eventBus.onDom('copyFileContentBtn', 'click', 'copyFileContent', () => {
-            const contentEl = document.getElementById(this.contentId);
-            if (!contentEl) return;
-            const text = contentEl.textContent || '';
-            if (!text.trim()) {
-                stoUI.showToast('Nothing to copy', 'warning');
-                return;
-            }
-            stoUI.copyToClipboard(text);
-            stoUI.showToast('Content copied to clipboard', 'success');
-        });
+  // ---------------------------------------------------------------------
+  // Export Generators
+  // ---------------------------------------------------------------------
+  generateBuildExport(profileId, environment) {
+    const rootProfile = stoStorage.getProfile(profileId)
+    if (!rootProfile || !rootProfile.builds || !rootProfile.builds[environment])
+      return ''
+    const build = rootProfile.builds[environment]
+    const tempProfile = {
+      name: `${rootProfile.name} ${environment}`,
+      mode: environment,
+      keys: build.keys || {},
+      // carry over full keybind metadata for stabilization preview
+      keybindMetadata: rootProfile.keybindMetadata || {},
+      // include build-specific aliases if present so users can see them in file (optional)
+      aliases: build.aliases || {},
     }
+    return stoExport.generateSTOKeybindFile(tempProfile, { environment })
+  }
 
-    // ---------------------------------------------------------------------
-    // UI Actions
-    // ---------------------------------------------------------------------
-    openExplorer() {
-        this.buildTree();
-        // Reset preview
-        const contentEl = document.getElementById(this.contentId);
-        if (contentEl) {
-            contentEl.textContent = 'Select an item on the left to preview export';
-        }
-        stoUI.showModal(this.modalId);
+  generateAliasExport(profileId) {
+    const rootProfile = stoStorage.getProfile(profileId)
+    if (!rootProfile) return ''
+    // Aggregate aliases from profile-level and both builds
+    const aggregatedAliases = {
+      ...(rootProfile.aliases || {}),
+      ...(rootProfile.builds?.space?.aliases || {}),
+      ...(rootProfile.builds?.ground?.aliases || {}),
     }
-
-    buildTree() {
-        const treeEl = document.getElementById(this.treeId);
-        if (!treeEl) return;
-        treeEl.innerHTML = '';
-
-        const data = stoStorage.getAllData();
-        const profiles = data.profiles || {};
-
-        Object.entries(profiles).forEach(([profileId, profile]) => {
-            const profileNode = this.createNode('profile', profile.name, { profileId });
-
-            // Child container
-            const childrenContainer = document.createElement('div');
-            childrenContainer.className = 'tree-children';
-
-            // Space Build
-            if (profile.builds && profile.builds.space) {
-                const spaceNode = this.createNode('build', 'Space Build', {
-                    profileId,
-                    environment: 'space',
-                });
-                childrenContainer.appendChild(spaceNode);
-            }
-
-            // Ground Build
-            if (profile.builds && profile.builds.ground) {
-                const groundNode = this.createNode('build', 'Ground Build', {
-                    profileId,
-                    environment: 'ground',
-                });
-                childrenContainer.appendChild(groundNode);
-            }
-
-            // Aliases node (aggregated)
-            const aliasNode = this.createNode('aliases', 'Aliases', {
-                profileId,
-            });
-            childrenContainer.appendChild(aliasNode);
-
-            profileNode.appendChild(childrenContainer);
-            treeEl.appendChild(profileNode);
-        });
+    const tempProfile = {
+      name: rootProfile.name,
+      mode: rootProfile.currentEnvironment || 'space',
+      aliases: aggregatedAliases,
     }
-
-    createNode(type, label, dataset = {}) {
-        const node = document.createElement('div');
-        node.className = `tree-node ${type}`;
-        node.textContent = label;
-        node.dataset.type = type;
-        Object.entries(dataset).forEach(([k, v]) => {
-            // Use setAttribute for better test environment compatibility
-            node.setAttribute(`data-${k}`, v);
-        });
-        return node;
-    }
-
-    selectNode(node) {
-        // Remove previous selection
-        const prevSel = document.querySelector('.tree-node.selected');
-        if (prevSel) prevSel.classList.remove('selected');
-        node.classList.add('selected');
-
-        const type = node.dataset.type || node.getAttribute('data-type');
-        const profileid = node.getAttribute('data-profileid');
-        const environment = node.getAttribute('data-environment');
-        
-        if (!profileid) return;
-        try {
-            let exportContent = '';
-            if (type === 'build') {
-                exportContent = this.generateBuildExport(profileid, environment);
-            } else if (type === 'aliases') {
-                exportContent = this.generateAliasExport(profileid);
-            } else {
-                // Root profile node selected – no export preview
-                exportContent = 'Select a Space/Ground build or Aliases to preview export.';
-            }
-            const contentEl = document.getElementById(this.contentId);
-            if (contentEl) {
-                contentEl.textContent = exportContent || 'No content available.';
-            }
-        } catch (err) {
-            console.error('Failed to generate export content:', err);
-            stoUI.showToast('Failed to generate export', 'error');
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // Export Generators
-    // ---------------------------------------------------------------------
-    generateBuildExport(profileId, environment) {
-        const rootProfile = stoStorage.getProfile(profileId);
-        if (!rootProfile || !rootProfile.builds || !rootProfile.builds[environment]) return '';
-        const build = rootProfile.builds[environment];
-        const tempProfile = {
-            name: `${rootProfile.name} ${environment}`,
-            mode: environment,
-            keys: build.keys || {},
-            // carry over full keybind metadata for stabilization preview
-            keybindMetadata: rootProfile.keybindMetadata || {},
-            // include build-specific aliases if present so users can see them in file (optional)
-            aliases: build.aliases || {},
-        };
-        return stoExport.generateSTOKeybindFile(tempProfile, { environment });
-    }
-
-    generateAliasExport(profileId) {
-        const rootProfile = stoStorage.getProfile(profileId);
-        if (!rootProfile) return '';
-        // Aggregate aliases from profile-level and both builds
-        const aggregatedAliases = {
-            ...(rootProfile.aliases || {}),
-            ...(rootProfile.builds?.space?.aliases || {}),
-            ...(rootProfile.builds?.ground?.aliases || {}),
-        };
-        const tempProfile = {
-            name: rootProfile.name,
-            mode: rootProfile.currentEnvironment || 'space',
-            aliases: aggregatedAliases,
-        };
-        return stoExport.generateAliasFile(tempProfile);
-    }
+    return stoExport.generateAliasFile(tempProfile)
+  }
 }
 
 // Create global instance and initialize when dependencies are ready

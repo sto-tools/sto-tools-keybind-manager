@@ -9,7 +9,10 @@ import STOExportManager from '../../src/js/export.js'
 import STOFileExplorer from '../../src/js/fileexplorer.js'
 
 // Load real HTML
-const htmlContent = readFileSync(resolve(__dirname, '../../src/index.html'), 'utf-8')
+const htmlContent = readFileSync(
+  resolve(__dirname, '../../src/index.html'),
+  'utf-8'
+)
 
 let stoFileExplorer
 let stoUI
@@ -48,13 +51,19 @@ describe('STOFileExplorer', () => {
     stoFileExplorer.buildTree()
 
     // Check for default profiles that exist
-    const profileNode = Array.from(document.querySelectorAll('.tree-node.profile')).find(n => n.textContent.startsWith('Default Space'))
+    const profileNode = Array.from(
+      document.querySelectorAll('.tree-node.profile')
+    ).find((n) => n.textContent.startsWith('Default Space'))
     expect(profileNode).toBeTruthy()
     expect(profileNode.textContent.startsWith('Default Space')).toBe(true)
 
     // Child build nodes
-    const spaceNode = Array.from(profileNode.querySelectorAll('.tree-node.build')).find(n => n.textContent.startsWith('Space'))
-    const groundNode = Array.from(profileNode.querySelectorAll('.tree-node.build')).find(n => n.textContent.startsWith('Ground'))
+    const spaceNode = Array.from(
+      profileNode.querySelectorAll('.tree-node.build')
+    ).find((n) => n.textContent.startsWith('Space'))
+    const groundNode = Array.from(
+      profileNode.querySelectorAll('.tree-node.build')
+    ).find((n) => n.textContent.startsWith('Ground'))
     const aliasNode = profileNode.querySelector('.tree-node.aliases')
 
     expect(spaceNode).toBeTruthy()
@@ -66,8 +75,12 @@ describe('STOFileExplorer', () => {
     stoFileExplorer.openExplorer()
 
     // Click space build node - use default_space profile which already exists
-    const spaceNode = Array.from(document.querySelectorAll('.tree-node.build')).find(n => 
-      n.textContent.startsWith('Space') && n.getAttribute('data-profileid') === 'default_space'
+    const spaceNode = Array.from(
+      document.querySelectorAll('.tree-node.build')
+    ).find(
+      (n) =>
+        n.textContent.startsWith('Space') &&
+        n.getAttribute('data-profileid') === 'default_space'
     )
     expect(spaceNode).toBeTruthy()
     spaceNode.click()
@@ -81,7 +94,9 @@ describe('STOFileExplorer', () => {
     stoFileExplorer.openExplorer()
 
     // Use default_space profile which already exists
-    const aliasNode = Array.from(document.querySelectorAll('.tree-node.aliases')).find(n => n.getAttribute('data-profileid') === 'default_space')
+    const aliasNode = Array.from(
+      document.querySelectorAll('.tree-node.aliases')
+    ).find((n) => n.getAttribute('data-profileid') === 'default_space')
     expect(aliasNode).toBeTruthy()
     aliasNode.click()
 
@@ -94,14 +109,18 @@ describe('STOFileExplorer', () => {
     stoFileExplorer.openExplorer()
 
     // Select alias node to populate preview - use default_space profile
-    const aliasNode = Array.from(document.querySelectorAll('.tree-node.aliases')).find(n => n.getAttribute('data-profileid') === 'default_space')
+    const aliasNode = Array.from(
+      document.querySelectorAll('.tree-node.aliases')
+    ).find((n) => n.getAttribute('data-profileid') === 'default_space')
     expect(aliasNode).toBeTruthy()
     aliasNode.click()
 
-    const copySpy = vi.spyOn(stoUI, 'copyToClipboard').mockImplementation(() => {})
+    const copySpy = vi
+      .spyOn(stoUI, 'copyToClipboard')
+      .mockImplementation(() => {})
 
     document.getElementById('copyFileContentBtn').click()
 
     expect(copySpy).toHaveBeenCalled()
   })
-}) 
+})

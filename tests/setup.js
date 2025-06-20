@@ -4,7 +4,7 @@ import { beforeEach, afterEach, vi } from 'vitest'
 // Mock browser APIs that aren't available in jsdom
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -36,7 +36,7 @@ global.FileReader = class FileReader {
     this.onerror = null
     this.onabort = null
   }
-  
+
   readAsText(file) {
     setTimeout(() => {
       this.readyState = 2
@@ -44,7 +44,7 @@ global.FileReader = class FileReader {
       if (this.onload) this.onload({ target: this })
     }, 0)
   }
-  
+
   abort() {
     this.readyState = 2
     if (this.onabort) this.onabort({ target: this })
@@ -68,7 +68,7 @@ global.stoUI = {
   showToast: vi.fn(),
   showModal: vi.fn(),
   hideModal: vi.fn(),
-  confirm: vi.fn().mockResolvedValue(true)
+  confirm: vi.fn().mockResolvedValue(true),
 }
 
 // Provide a minimal modalManager for modules that expect it
@@ -97,7 +97,7 @@ global.modalManager = {
       return true
     }
     return false
-  })
+  }),
 }
 
 // Clean up after each test
@@ -110,4 +110,4 @@ afterEach(() => {
   // Clean up DOM after each test
   document.body.innerHTML = ''
   document.head.innerHTML = ''
-}) 
+})

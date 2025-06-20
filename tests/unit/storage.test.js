@@ -4,9 +4,9 @@ import '../../src/js/data.js'
 
 /**
  * Unit Tests for STOStorage
- * 
+ *
  * Tests the localStorage persistence layer for the STO Keybind Manager.
- * 
+ *
  * TESTING APPROACH:
  * ✅ Import actual modules (STOStorage, STO_DATA)
  * ✅ Test real behavior with real localStorage
@@ -14,7 +14,7 @@ import '../../src/js/data.js'
  * ✅ Test actual data persistence
  * ✅ Minimal, targeted mocking only when necessary
  * ✅ Test isolation through proper cleanup
- * 
+ *
  * ANTI-PATTERNS AVOIDED:
  * ❌ Global mocking (global.STO_DATA)
  * ❌ Over-mocking localStorage
@@ -36,7 +36,7 @@ describe('STOStorage', () => {
   beforeEach(() => {
     // Clear localStorage before each test for isolation
     localStorage.clear()
-    
+
     // Create a fresh STOStorage instance
     storage = new STOStorage()
   })
@@ -56,7 +56,7 @@ describe('STOStorage', () => {
 
     it('should return default data structure when no data exists', () => {
       const data = storage.getAllData()
-      
+
       expect(data).toHaveProperty('profiles')
       expect(data).toHaveProperty('currentProfile')
       expect(data).toHaveProperty('globalAliases')
@@ -68,10 +68,14 @@ describe('STOStorage', () => {
 
     it('should use real STO_DATA for default profiles', () => {
       const data = storage.getAllData()
-      
+
       // Verify it's using actual STO_DATA
-      expect(data.profiles.default_space.name).toBe(STO_DATA.defaultProfiles.default_space.name)
-      expect(data.profiles.tactical_space.name).toBe(STO_DATA.defaultProfiles.tactical_space.name)
+      expect(data.profiles.default_space.name).toBe(
+        STO_DATA.defaultProfiles.default_space.name
+      )
+      expect(data.profiles.tactical_space.name).toBe(
+        STO_DATA.defaultProfiles.tactical_space.name
+      )
     })
   })
 
@@ -83,21 +87,21 @@ describe('STOStorage', () => {
           test_profile: {
             name: 'Test Profile',
             builds: {
-              space: { keys: { 'a': [{ command: 'Target_Enemy_Near' }] } },
-              ground: { keys: {} }
-            }
-          }
+              space: { keys: { a: [{ command: 'Target_Enemy_Near' }] } },
+              ground: { keys: {} },
+            },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       const saveResult = storage.saveAllData(testData)
       expect(saveResult).toBe(true)
-      
+
       // Verify data was actually saved to localStorage
       const savedItem = localStorage.getItem('sto_keybind_manager')
       expect(savedItem).toBeTruthy()
-      
+
       const retrievedData = storage.getAllData()
       expect(retrievedData.currentProfile).toBe('test_profile')
       expect(retrievedData.profiles.test_profile.name).toBe('Test Profile')
@@ -108,9 +112,9 @@ describe('STOStorage', () => {
     it('should handle corrupted JSON gracefully', () => {
       // Manually corrupt the localStorage data
       localStorage.setItem('sto_keybind_manager', 'invalid json{')
-      
+
       const data = storage.getAllData()
-      
+
       // Should fallback to default data
       expect(data.currentProfile).toBe('default_space')
       expect(data.profiles.default_space).toBeDefined()
@@ -118,36 +122,36 @@ describe('STOStorage', () => {
 
     it('should create backup before saving', () => {
       // Save initial data
-      const initialData = { 
+      const initialData = {
         currentProfile: 'initial',
         profiles: {
           initial: {
             name: 'Initial Profile',
-            builds: { space: { keys: {} } }
-          }
+            builds: { space: { keys: {} } },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
       storage.saveAllData(initialData)
-      
+
       // Save new data (should trigger backup)
       const newData = {
         currentProfile: 'new_profile',
         profiles: {
           new_profile: {
             name: 'New Profile',
-            builds: { space: { keys: { 'x': [{ command: 'Target_Self' }] } } }
-          }
+            builds: { space: { keys: { x: [{ command: 'Target_Self' }] } } },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       storage.saveAllData(newData)
-      
+
       // Verify backup was created
       const backup = localStorage.getItem('sto_keybind_manager_backup')
       expect(backup).toBeTruthy()
-      
+
       const parsedBackup = JSON.parse(backup)
       expect(parsedBackup.data).toBeDefined()
       expect(parsedBackup.timestamp).toBeDefined()
@@ -159,21 +163,24 @@ describe('STOStorage', () => {
       const largeProfile = {
         name: 'Large Profile',
         builds: {
-          space: { 
+          space: {
             keys: Object.fromEntries(
-              Array.from({length: 1000}, (_, i) => [`key${i}`, [{ command: `command${i}` }]])
-            )
+              Array.from({ length: 1000 }, (_, i) => [
+                `key${i}`,
+                [{ command: `command${i}` }],
+              ])
+            ),
           },
-          ground: { keys: {} }
-        }
+          ground: { keys: {} },
+        },
       }
-      
+
       const largeData = {
         currentProfile: 'large_profile',
         profiles: { large_profile: largeProfile },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       // This should either succeed or fail gracefully (return boolean, not throw)
       const result = storage.saveAllData(largeData)
       expect(typeof result).toBe('boolean')
@@ -190,26 +197,26 @@ describe('STOStorage', () => {
           profile1: {
             name: 'Profile 1',
             builds: {
-              space: { keys: { 'a': [{ command: 'Target_Enemy_Near' }] } },
-              ground: { keys: {} }
-            }
+              space: { keys: { a: [{ command: 'Target_Enemy_Near' }] } },
+              ground: { keys: {} },
+            },
           },
           profile2: {
             name: 'Profile 2',
             builds: {
               space: { keys: {} },
-              ground: { keys: { 'b': [{ command: 'FireAll' }] } }
-            }
-          }
+              ground: { keys: { b: [{ command: 'FireAll' }] } },
+            },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
       localStorage.setItem('sto_keybind_manager', JSON.stringify(testData))
     })
 
     it('should retrieve existing profile', () => {
       const profile = storage.getProfile('profile1')
-      
+
       expect(profile).toBeDefined()
       expect(profile.name).toBe('Profile 1')
       expect(profile.builds.space.keys.a).toBeDefined()
@@ -225,19 +232,19 @@ describe('STOStorage', () => {
       const newProfile = {
         name: 'Updated Profile',
         builds: {
-          space: { keys: { 'c': [{ command: 'FireAll' }] } },
-          ground: { keys: {} }
-        }
+          space: { keys: { c: [{ command: 'FireAll' }] } },
+          ground: { keys: {} },
+        },
       }
-      
+
       const result = storage.saveProfile('profile1', newProfile)
       expect(result).toBe(true)
-      
+
       const savedProfile = storage.getProfile('profile1')
       expect(savedProfile.name).toBe('Updated Profile')
       expect(savedProfile.lastModified).toBeDefined()
       expect(typeof savedProfile.lastModified).toBe('string')
-      
+
       // Verify timestamp is recent (within last 5 seconds)
       const timestamp = new Date(savedProfile.lastModified)
       const now = new Date()
@@ -247,10 +254,10 @@ describe('STOStorage', () => {
     it('should delete profile and update current profile', () => {
       const result = storage.deleteProfile('profile1')
       expect(result).toBe(true)
-      
+
       const deletedProfile = storage.getProfile('profile1')
       expect(deletedProfile).toBeNull()
-      
+
       const data = storage.getAllData()
       expect(data.currentProfile).toBe('profile2')
     })
@@ -264,7 +271,7 @@ describe('STOStorage', () => {
   describe('settings management', () => {
     it('should return default settings when none exist', () => {
       const settings = storage.getSettings()
-      
+
       expect(settings.theme).toBe('default')
       expect(settings.autoSave).toBe(true)
       expect(settings.showTooltips).toBe(true)
@@ -276,12 +283,12 @@ describe('STOStorage', () => {
         theme: 'dark',
         autoSave: false,
         showTooltips: false,
-        maxUndoSteps: 25
+        maxUndoSteps: 25,
       }
-      
+
       const saveResult = storage.saveSettings(customSettings)
       expect(saveResult).toBe(true)
-      
+
       const retrievedSettings = storage.getSettings()
       expect(retrievedSettings.theme).toBe('dark')
       expect(retrievedSettings.autoSave).toBe(false)
@@ -290,9 +297,9 @@ describe('STOStorage', () => {
 
     it('should handle corrupted settings gracefully', () => {
       localStorage.setItem('sto_keybind_settings', 'invalid json{')
-      
+
       const settings = storage.getSettings()
-      
+
       // Should return default settings
       expect(settings.theme).toBe('default')
       expect(settings.autoSave).toBe(true)
@@ -301,28 +308,31 @@ describe('STOStorage', () => {
 
   describe('backup and restore', () => {
     it('should restore data from backup', () => {
-      const originalData = { 
+      const originalData = {
         currentProfile: 'original',
         profiles: {
           original: {
             name: 'Original Profile',
-            builds: { space: { keys: { 'x': [{ command: 'Target_Self' }] } } }
-          }
+            builds: { space: { keys: { x: [{ command: 'Target_Self' }] } } },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       // Create backup manually
       const backupData = {
         data: JSON.stringify(originalData),
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: '1.0.0',
       }
-      localStorage.setItem('sto_keybind_manager_backup', JSON.stringify(backupData))
-      
+      localStorage.setItem(
+        'sto_keybind_manager_backup',
+        JSON.stringify(backupData)
+      )
+
       const result = storage.restoreFromBackup()
       expect(result).toBe(true)
-      
+
       const restoredData = storage.getAllData()
       expect(restoredData.currentProfile).toBe('original')
       expect(restoredData.profiles.original.name).toBe('Original Profile')
@@ -335,7 +345,7 @@ describe('STOStorage', () => {
 
     it('should handle corrupted backup gracefully', () => {
       localStorage.setItem('sto_keybind_manager_backup', 'invalid json{')
-      
+
       const result = storage.restoreFromBackup()
       expect(result).toBe(false)
     })
@@ -349,23 +359,23 @@ describe('STOStorage', () => {
           export_test: {
             name: 'Export Test Profile',
             builds: {
-              space: { keys: { 'f': [{ command: 'FireAll' }] } },
-              ground: { keys: {} }
-            }
-          }
+              space: { keys: { f: [{ command: 'FireAll' }] } },
+              ground: { keys: {} },
+            },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
       storage.saveAllData(testData)
-      
+
       const exportedData = storage.exportData()
-      
+
       expect(typeof exportedData).toBe('string')
-      
+
       const parsedData = JSON.parse(exportedData)
       expect(parsedData.currentProfile).toBe('export_test')
       expect(parsedData.profiles.export_test.name).toBe('Export Test Profile')
-      
+
       // Verify it's formatted (has indentation)
       expect(exportedData).toContain('\n  ')
     })
@@ -378,17 +388,17 @@ describe('STOStorage', () => {
           imported_profile: {
             name: 'Imported Profile',
             builds: {
-              space: { keys: { 'x': [{ command: 'Target_Enemy_Near' }] } },
-              ground: { keys: {} }
-            }
-          }
+              space: { keys: { x: [{ command: 'Target_Enemy_Near' }] } },
+              ground: { keys: {} },
+            },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       const result = storage.importData(JSON.stringify(importData))
       expect(result).toBe(true)
-      
+
       const data = storage.getAllData()
       expect(data.currentProfile).toBe('imported_profile')
       expect(data.profiles.imported_profile.name).toBe('Imported Profile')
@@ -415,13 +425,13 @@ describe('STOStorage', () => {
             name: 'Test Profile',
             builds: {
               space: { keys: {} },
-              ground: { keys: {} }
-            }
-          }
+              ground: { keys: {} },
+            },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       const result = storage.importData(JSON.stringify(validData))
       expect(result).toBe(true)
     })
@@ -433,17 +443,17 @@ describe('STOStorage', () => {
           new_format: {
             name: 'New Format Profile',
             builds: {
-              space: { keys: { 'a': [{ command: 'Target_Self' }] } },
-              ground: { keys: {} }
-            }
-          }
+              space: { keys: { a: [{ command: 'Target_Self' }] } },
+              ground: { keys: {} },
+            },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       const result = storage.importData(JSON.stringify(newFormatData))
       expect(result).toBe(true)
-      
+
       const savedData = storage.getAllData()
       expect(savedData.profiles.new_format.name).toBe('New Format Profile')
     })
@@ -455,16 +465,16 @@ describe('STOStorage', () => {
           legacy_profile: {
             name: 'Legacy Profile',
             mode: 'space',
-            keys: { 'a': [{ command: 'Target_Self' }] },
-            aliases: {}
-          }
+            keys: { a: [{ command: 'Target_Self' }] },
+            aliases: {},
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
-      
+
       const result = storage.importData(JSON.stringify(legacyData))
       expect(result).toBe(true)
-      
+
       const savedData = storage.getAllData()
       expect(savedData.profiles.legacy_profile.name).toBe('Legacy Profile')
     })
@@ -475,54 +485,56 @@ describe('STOStorage', () => {
       // Add some data to storage
       const testData = {
         currentProfile: 'test',
-        profiles: { 
-          test: { 
+        profiles: {
+          test: {
             name: 'Test Profile',
-            builds: { 
-              space: { 
-                keys: { 
-                  'a': [{ command: 'Target_Enemy_Near' }],
-                  'b': [{ command: 'FireAll' }]
-                }
+            builds: {
+              space: {
+                keys: {
+                  a: [{ command: 'Target_Enemy_Near' }],
+                  b: [{ command: 'FireAll' }],
+                },
               },
-              ground: { keys: {} }
-            }
-          }
+              ground: { keys: {} },
+            },
+          },
         },
-        globalAliases: {}
+        globalAliases: {},
       }
       storage.saveAllData(testData)
       storage.saveSettings({ theme: 'dark', autoSave: false })
-      
+
       const info = storage.getStorageInfo()
-      
+
       expect(info).toBeDefined()
       expect(info.totalSize).toBeGreaterThan(0)
       expect(info.dataSize).toBeGreaterThan(0)
       expect(info.available).toBeGreaterThan(0)
-      
+
       // Verify the sizes are realistic
       expect(info.dataSize).toBeGreaterThan(100) // At least 100 bytes
-      expect(info.totalSize).toBe(info.dataSize + info.backupSize + info.settingsSize)
+      expect(info.totalSize).toBe(
+        info.dataSize + info.backupSize + info.settingsSize
+      )
     })
 
     it('should clear all data', () => {
       // Add some data first
-      storage.saveAllData({ 
+      storage.saveAllData({
         currentProfile: 'test',
         profiles: { test: { name: 'Test', builds: { space: { keys: {} } } } },
-        globalAliases: {}
+        globalAliases: {},
       })
       storage.saveSettings({ theme: 'dark' })
       storage.createBackup()
-      
+
       const result = storage.clearAllData()
       expect(result).toBe(true)
-      
+
       // Verify all data is cleared
       expect(localStorage.getItem('sto_keybind_manager')).toBeNull()
       expect(localStorage.getItem('sto_keybind_manager_backup')).toBeNull()
       expect(localStorage.getItem('sto_keybind_settings')).toBeNull()
     })
   })
-}) 
+})
