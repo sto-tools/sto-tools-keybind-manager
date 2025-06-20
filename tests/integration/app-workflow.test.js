@@ -39,6 +39,7 @@ describe('App Workflow Integration', () => {
     await import('../../src/js/keybinds.js')
     await import('../../src/js/export.js')
     await import('../../src/js/ui.js')
+    await import('../../src/js/eventBus.js')
     await import('../../src/js/app.js')
     
     // Get global instances

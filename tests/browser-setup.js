@@ -141,6 +141,7 @@ async function loadApplication() {
   // Then load the scripts
   const scripts = [
     '/src/js/constants.js',
+    '/src/js/eventBus.js',
     '/src/js/errors.js',
     '/src/js/version.js',
     '/src/js/data.js',

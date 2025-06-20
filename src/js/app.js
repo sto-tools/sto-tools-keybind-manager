@@ -57,7 +57,8 @@ class STOToolsKeybindManager {
             
             stoUI.showToast('STO Tools Keybind Manager loaded successfully', 'success');
             
-            // Dispatch app ready event
+            // Dispatch app ready event through eventBus and DOM for compatibility
+            eventBus.emit('sto-app-ready', { app: this });
             const readyEvent = new CustomEvent('sto-app-ready', {
                 detail: { app: this }
             });
@@ -69,7 +70,8 @@ class STOToolsKeybindManager {
                 stoUI.showToast('Failed to load application', 'error');
             }
             
-            // Dispatch error event
+            // Dispatch error event through eventBus and DOM for compatibility
+            eventBus.emit('sto-app-error', { error });
             const errorEvent = new CustomEvent('sto-app-error', {
                 detail: { error }
             });
@@ -3269,7 +3271,7 @@ const app = new STOToolsKeybindManager();
 window.app = app;
 
 // Initialize other modules after app is ready
-window.addEventListener('sto-app-ready', () => {
+eventBus.on('sto-app-ready', () => {
     if (typeof stoProfiles !== 'undefined') {
         stoProfiles.init();
     }
