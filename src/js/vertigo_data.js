@@ -3,7 +3,7 @@
 
 // Error classes are defined in errors.js and exposed globally
 
-const VFX_EFFECTS = {
+export const VFX_EFFECTS = {
     space: [
         { label: "Advanced inhibiting turret shield bubble", effect: "Fx_Rep_Temporal_Ship_Chroniton_Stabilization_Proc" },
         { label: "Approaching Agony", effect: "Cfx_Lockboxfx_Cb29_Ship_Agony_Field" },

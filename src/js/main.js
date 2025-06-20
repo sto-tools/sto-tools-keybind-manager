@@ -10,7 +10,7 @@ import STOModalManager from './modalManager.js';
 import STOUIManager from './ui.js';
 import STOCommandManager from './commands.js';
 import STOFileExplorer from './fileexplorer.js';
-import VertigoManager from './vertigo_data.js';
+import VertigoManager, { VFX_EFFECTS } from './vertigo_data.js';
 import STOToolsKeybindManager from './app.js';
 import './version.js';
 
@@ -34,7 +34,8 @@ Object.assign(window, {
   stoUI,
   stoCommands,
   stoFileExplorer,
-  vertigoManager
+  vertigoManager,
+  VFX_EFFECTS
 });
 
 const app = new STOToolsKeybindManager();
