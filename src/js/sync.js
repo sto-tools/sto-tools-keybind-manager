@@ -15,10 +15,20 @@ export async function writeFile(dirHandle, relativePath, contents) {
 }
 
 export default class STOSyncManager {
-  async setSyncFolder() {
+  constructor(storage = null) {
+    this.storage = storage
+  }
+
+  async setSyncFolder(autoSync = false) {
     try {
       const handle = await window.showDirectoryPicker();
       await saveDirectoryHandle(KEY_SYNC_FOLDER, handle);
+      if (this.storage) {
+        const settings = this.storage.getSettings();
+        settings.syncFolderName = handle.name;
+        settings.autoSync = autoSync;
+        this.storage.saveSettings(settings);
+      }
       stoUI.showToast(i18next.t('sync_folder_set'), 'success');
       return handle;
     } catch (error) {

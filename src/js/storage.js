@@ -107,8 +107,10 @@ export default class STOStorage {
   // Get application settings
   getSettings() {
     try {
-      const settings = localStorage.getItem(this.settingsKey)
-      return settings ? JSON.parse(settings) : this.getDefaultSettings()
+      const raw = localStorage.getItem(this.settingsKey)
+      if (!raw) return this.getDefaultSettings()
+      const parsed = JSON.parse(raw)
+      return { ...this.getDefaultSettings(), ...parsed }
     } catch (error) {
       console.error('Error loading settings:', error)
       return this.getDefaultSettings()
@@ -118,7 +120,9 @@ export default class STOStorage {
   // Save application settings
   saveSettings(settings) {
     try {
-      localStorage.setItem(this.settingsKey, JSON.stringify(settings))
+      const current = this.getSettings()
+      const merged = { ...current, ...settings }
+      localStorage.setItem(this.settingsKey, JSON.stringify(merged))
       return true
     } catch (error) {
       console.error('Error saving settings:', error)
@@ -260,6 +264,8 @@ export default class STOStorage {
       defaultMode: 'space',
       compactView: false,
       language: this.detectBrowserLanguage(),
+      syncFolderName: null,
+      autoSync: false,
     }
   }
 
