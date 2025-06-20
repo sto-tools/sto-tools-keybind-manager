@@ -5,6 +5,12 @@ import i18next from 'i18next'
 
 export default class STOExportManager {
   constructor() {
+    // Initialize as null - will be set up in init() after i18next is ready
+    this.exportFormats = null
+  }
+
+  init() {
+    // Initialize export formats after i18next is ready
     this.exportFormats = {
       sto_keybind: i18next.t('sto_keybind_file_txt'),
       json_profile: i18next.t('json_profile_json'),
@@ -13,11 +19,7 @@ export default class STOExportManager {
       html_report: i18next.t('html_report_html'),
       alias_file: i18next.t('alias_file_txt'),
     }
-
-    // Don't initialize immediately - wait for app to be ready
-  }
-
-  init() {
+    
     this.setupEventListeners()
   }
 
