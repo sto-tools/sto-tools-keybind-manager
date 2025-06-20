@@ -2,10 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import i18next from 'i18next'
 import en from '../../src/i18n/en.json'
 
+const handleStore = new Map()
 vi.mock('../../src/js/fsHandles.js', () => {
   return {
-    saveDirectoryHandle: vi.fn(),
-    getDirectoryHandle: vi.fn(),
+    saveDirectoryHandle: vi.fn((key, handle) => {
+      handleStore.set(key, handle)
+      return Promise.resolve()
+    }),
+    getDirectoryHandle: vi.fn((key) => Promise.resolve(handleStore.get(key))),
     KEY_SYNC_FOLDER: 'sync-folder',
   }
 })
@@ -81,6 +85,8 @@ describe('STOSyncManager', () => {
       syncFolderName: handle.name,
       autoSync: false,
     })
+    const stored = await getDirectoryHandle('sync-folder')
+    expect(stored).toBe(handle)
   })
 
   it('setSyncFolder can enable autoSync', async () => {
@@ -105,6 +111,19 @@ describe('STOSyncManager', () => {
     getDirectoryHandle.mockResolvedValue(handle)
     await sync.syncProject()
     expect(stoExport.syncToFolder).toHaveBeenCalledWith(handle)
+  })
+
+  it('syncProject writes files via export manager', async () => {
+    const handle = new MockDirHandle()
+    global.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
+    await sync.setSyncFolder()
+
+    stoExport.syncToFolder.mockImplementation(async (dir) => {
+      await writeFile(dir, 'test.txt', 'data')
+    })
+
+    await sync.syncProject()
+    expect(handle.children['test.txt'].contents).toBe('data')
   })
 })
 
