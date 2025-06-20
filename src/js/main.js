@@ -77,7 +77,7 @@ import './version.js'
   window.applyTranslations = applyTranslations
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyTranslations)
+    document.addEventListener('DOMContentLoaded', () => applyTranslations())
   } else {
     applyTranslations()
   }
