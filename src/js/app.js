@@ -57,12 +57,8 @@ class STOToolsKeybindManager {
             
             stoUI.showToast('STO Tools Keybind Manager loaded successfully', 'success');
             
-            // Dispatch app ready event through eventBus and DOM for compatibility
+            // Dispatch app ready event through eventBus
             eventBus.emit('sto-app-ready', { app: this });
-            const readyEvent = new CustomEvent('sto-app-ready', {
-                detail: { app: this }
-            });
-            window.dispatchEvent(readyEvent);
             
         } catch (error) {
             console.error('Failed to initialize application:', error);
@@ -70,12 +66,8 @@ class STOToolsKeybindManager {
                 stoUI.showToast('Failed to load application', 'error');
             }
             
-            // Dispatch error event through eventBus and DOM for compatibility
+            // Dispatch error event through eventBus
             eventBus.emit('sto-app-error', { error });
-            const errorEvent = new CustomEvent('sto-app-error', {
-                detail: { error }
-            });
-            window.dispatchEvent(errorEvent);
         }
     }
 

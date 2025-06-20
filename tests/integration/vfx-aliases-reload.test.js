@@ -174,9 +174,7 @@ describe('VFX Aliases Reload Integration', () => {
         expect(updateLibrarySpy).not.toHaveBeenCalled();
         
         // 2. App ready event is dispatched (simulating app.init() completion)
-        const appReadyEvent = new CustomEvent('sto-app-ready', {
-            detail: { app: mockApp }
-        });
+        const appReadyPayload = { app: mockApp };
         
         // 3. Initialize alias manager (this should happen after app ready)
         aliasManager.init();
@@ -212,26 +210,24 @@ describe('VFX Aliases Reload Integration', () => {
         
         // Simulate the real application flow:
         // 1. App dispatches ready event
-        const appReadyEvent = new CustomEvent('sto-app-ready', {
-            detail: { app: mockApp }
-        });
+        const appReadyPayload = { app: mockApp };
         
         // 2. Set up event listener (this is what the fixed app.js does)
         let aliasManagerInitialized = false;
-        window.addEventListener('sto-app-ready', () => {
+        eventBus.on('sto-app-ready', () => {
             aliasManager.init();
             aliasManagerInitialized = true;
         });
         
         // 3. Dispatch the event
-        window.dispatchEvent(appReadyEvent);
+        eventBus.emit('sto-app-ready', appReadyPayload);
         
         // 4. Verify alias manager was initialized after app ready
         expect(aliasManagerInitialized).toBe(true);
         expect(updateLibrarySpy).toHaveBeenCalled();
         
         // Clean up event listener
-        window.removeEventListener('sto-app-ready', () => {});
+        eventBus.off('sto-app-ready', () => {});
     });
 
     it('should maintain VFX aliases across simulated reload', async () => {

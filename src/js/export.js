@@ -20,12 +20,20 @@ class STOExportManager {
 
     setupEventListeners() {
         // Main export button
-        document.getElementById('exportKeybindsBtn')?.addEventListener('click', () => {
+        const exportBtn = document.getElementById('exportKeybindsBtn');
+        if (exportBtn) {
+            eventBus.onDom(exportBtn, 'click', 'exportKeybinds');
+        }
+        eventBus.on('exportKeybinds', () => {
             this.showExportOptions();
         });
 
         // Copy command preview
-        document.getElementById('copyPreviewBtn')?.addEventListener('click', () => {
+        const copyBtn = document.getElementById('copyPreviewBtn');
+        if (copyBtn) {
+            eventBus.onDom(copyBtn, 'click', 'copyPreview');
+        }
+        eventBus.on('copyPreview', () => {
             this.copyCommandPreview();
         });
     }

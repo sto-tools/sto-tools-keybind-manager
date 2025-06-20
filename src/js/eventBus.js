@@ -1,4 +1,4 @@
-(function(global){
+(function (global) {
   const listeners = {};
 
   function on(event, handler) {
@@ -25,5 +25,12 @@
     }
   }
 
-  global.eventBus = { on, off, emit };
+  function onDom(element, domEvent, busEvent = domEvent) {
+    if (!element || !element.addEventListener) return () => {};
+    const wrapped = (e) => emit(busEvent, e);
+    element.addEventListener(domEvent, wrapped);
+    return () => element.removeEventListener(domEvent, wrapped);
+  }
+
+  global.eventBus = { on, off, emit, onDom };
 })(typeof window !== 'undefined' ? window : this);

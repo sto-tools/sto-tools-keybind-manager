@@ -246,16 +246,16 @@ export async function waitForAppReady() {
     // Listen for the app ready event
     const handleAppReady = () => {
       console.log('App ready event received');
-      window.removeEventListener('sto-app-ready', handleAppReady);
+      eventBus.off('sto-app-ready', handleAppReady);
       resolve();
     };
 
-    window.addEventListener('sto-app-ready', handleAppReady);
+    eventBus.on('sto-app-ready', handleAppReady);
     
     // Fallback timeout
     setTimeout(() => {
       console.log('App ready timeout - checking globals');
-      window.removeEventListener('sto-app-ready', handleAppReady);
+      eventBus.off('sto-app-ready', handleAppReady);
       resolve();
     }, 10000);
   });
