@@ -744,20 +744,6 @@ const STO_DATA = {
               },
             ],
           },
-          aliases: {
-            AttackCall: {
-              description: 'Call out attack target to team',
-              commands: 'team Attacking [$Target] - focus fire!',
-            },
-            TargetReport: {
-              description: 'Report current target to team',
-              commands: 'team Current target: [$Target]',
-            },
-            HealCall: {
-              description: 'Request healing for target',
-              commands: 'team Need healing on [$Target]!',
-            },
-          },
         },
         ground: {
           keys: {
@@ -778,7 +764,20 @@ const STO_DATA = {
               },
             ],
           },
-          aliases: {},
+        },
+      },
+      aliases: {
+        AttackCall: {
+          description: 'Call out attack target to team',
+          commands: 'team Attacking [$Target] - focus fire!',
+        },
+        TargetReport: {
+          description: 'Report current target to team',
+          commands: 'team Current target: [$Target]',
+        },
+        HealCall: {
+          description: 'Request healing for target',
+          commands: 'team Need healing on [$Target]!',
         },
       },
     },
@@ -845,7 +844,6 @@ const STO_DATA = {
               },
             ],
           },
-          aliases: {},
         },
         ground: {
           keys: {
@@ -891,9 +889,9 @@ const STO_DATA = {
               },
             ],
           },
-          aliases: {},
         },
       },
+      aliases: {},
     },
   },
 
@@ -1130,7 +1128,7 @@ const STO_DATA = {
 // Make available globally
 window.STO_DATA = STO_DATA
 
-// Create flattened data structures for backward compatibility and testing
+// Create flattened data structures for testing
 window.COMMAND_CATEGORIES = STO_DATA.commands
 
 // Flatten all commands into a single object
@@ -1259,10 +1257,7 @@ window.SAMPLE_PROFILES = Object.values(STO_DATA.defaultProfiles).map(
       space: { keys: {} },
       ground: { keys: {} },
     },
-    // Maintain backward compatibility
-    mode: profile.currentEnvironment || 'space',
-    keybinds: profile.builds?.space?.keys || {},
-    aliases: profile.builds?.space?.aliases || {},
+
     created: new Date().toISOString(),
     modified: new Date().toISOString(),
   })

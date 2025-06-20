@@ -1,10 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
+// Mock writeFile from sync.js
+vi.mock('../../src/js/sync.js', () => ({
+  writeFile: vi.fn()
+}))
+
 import '../../src/js/data.js'
 import STOStorage from '../../src/js/storage.js'
 import STOKeybindFileManager from '../../src/js/keybinds.js'
 import STOExportManager from '../../src/js/export.js'
 import store, { resetStore } from '../../src/js/store.js'
+import { writeFile } from '../../src/js/sync.js'
 
 describe('Export Mirroring Integration', () => {
   let app, stoStorage, stoKeybinds, stoExport, stoUI
@@ -213,12 +219,14 @@ describe('Export Mirroring Integration', () => {
         })
       }
 
-      // Set up keybind metadata for stabilization
+      // Set up keybind metadata for stabilization (environment-scoped)
       actualProfile.keybindMetadata = {
-        F1: { stabilizeExecutionOrder: true },
-        F3: { stabilizeExecutionOrder: true },
-        numpad0: { stabilizeExecutionOrder: true },
-        // F2 intentionally left without stabilization metadata
+        space: {
+          F1: { stabilizeExecutionOrder: true },
+          F3: { stabilizeExecutionOrder: true },
+          numpad0: { stabilizeExecutionOrder: true },
+          // F2 intentionally left without stabilization metadata
+        }
       }
 
       // Save the modified profile back to storage
@@ -232,6 +240,8 @@ describe('Export Mirroring Integration', () => {
       // Generate export content without global stabilization
       const exportContent = stoExport.generateSTOKeybindFile(profile, {
         stabilizeExecutionOrder: false,
+        profile: profile,
+        environment: 'space'
       })
 
       // Verify export content
@@ -267,6 +277,8 @@ describe('Export Mirroring Integration', () => {
       // Generate export content with stabilization
       const exportContent = stoExport.generateSTOKeybindFile(profile, {
         stabilizeExecutionOrder: true,
+        profile: profile,
+        environment: 'space'
       })
 
       // Verify export content
@@ -345,6 +357,8 @@ describe('Export Mirroring Integration', () => {
       const profile = app.getCurrentProfile()
       const exportContent = stoExport.generateSTOKeybindFile(profile, {
         stabilizeExecutionOrder: true,
+        profile: profile,
+        environment: 'space'
       })
 
       // Create a new profile for import test
@@ -398,6 +412,179 @@ describe('Export Mirroring Integration', () => {
       expect(importedProfile.builds.space.keys.F2[0].command).toBe(
         'FirePhasers'
       )
+    })
+  })
+
+  describe('syncToFolder Bug Fix Integration', () => {
+    let testProfile
+
+    beforeEach(() => {
+      // Reset the mocked writeFile function
+      vi.mocked(writeFile).mockClear()
+
+      // Create a test profile with the correct data structure
+      testProfile = {
+        name: 'Bug Test Profile',
+        currentEnvironment: 'space',
+        builds: {
+          space: {
+            keys: {
+              F1: [{ command: 'FireAll', delay: 0 }],
+              F2: [{ command: 'FirePhasers', delay: 0 }]
+            }
+          },
+          ground: {
+            keys: {
+              F3: [{ command: 'Walk', delay: 0 }]
+            }
+          }
+        },
+        aliases: {
+          attack: { commands: ['FireAll'], description: 'Attack command' }
+        },
+        keybindMetadata: {
+          space: {
+            F1: { stabilizeExecutionOrder: true }
+          },
+          ground: {
+            F3: { stabilizeExecutionOrder: false }
+          }
+        }
+      }
+
+      // Save the test profile
+      stoStorage.saveProfile('bug-test-profile', testProfile)
+      
+      // Mock stoStorage.getAllData to return our test profile
+      vi.spyOn(stoStorage, 'getAllData').mockReturnValue({
+        profiles: {
+          'bug-test-profile': testProfile
+        },
+        settings: {}
+      })
+    })
+
+    afterEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('should correctly export keybinds from profile.builds structure', async () => {
+      const mockDirHandle = {}
+      
+      await stoExport.syncToFolder(mockDirHandle)
+      
+      // Find the space keybind file write call
+      const spaceKeybindCall = vi.mocked(writeFile).mock.calls.find(call => 
+        call[1].includes('Bug_Test_Profile_space.txt')
+      )
+      
+      expect(spaceKeybindCall).toBeDefined()
+      const spaceContent = spaceKeybindCall[2]
+      
+      // Should contain keybinds from profile.builds.space.keys
+      expect(spaceContent).toMatch(/F1 "FireAll"/)
+      expect(spaceContent).toMatch(/F2 "FirePhasers"/)
+      
+      // Find the ground keybind file write call
+      const groundKeybindCall = vi.mocked(writeFile).mock.calls.find(call => 
+        call[1].includes('Bug_Test_Profile_ground.txt')
+      )
+      
+      expect(groundKeybindCall).toBeDefined()
+      const groundContent = groundKeybindCall[2]
+      
+      // Should contain keybinds from profile.builds.ground.keys
+      expect(groundContent).toMatch(/F3 "Walk"/)
+    })
+
+    it('should use profile.currentEnvironment for alias file mode', async () => {
+      const mockDirHandle = {}
+      
+      await stoExport.syncToFolder(mockDirHandle)
+      
+      // Find the alias file write call
+      const aliasCall = vi.mocked(writeFile).mock.calls.find(call => 
+        call[1].includes('Bug_Test_Profile_aliases.txt')
+      )
+      
+      expect(aliasCall).toBeDefined()
+      const aliasContent = aliasCall[2]
+      
+      // Should use currentEnvironment (space) in header
+      expect(aliasContent).toMatch(/Mode: SPACE/)
+    })
+
+    it('should generate non-timestamped filenames for sync operations', async () => {
+      const mockDirHandle = {}
+      
+      await stoExport.syncToFolder(mockDirHandle)
+      
+      // Check that written filenames don't have timestamps
+      const writtenFiles = vi.mocked(writeFile).mock.calls.map(call => call[1])
+      
+      expect(writtenFiles).toContain('Bug_Test_Profile/Bug_Test_Profile_space.txt')
+      expect(writtenFiles).toContain('Bug_Test_Profile/Bug_Test_Profile_ground.txt')
+      expect(writtenFiles).toContain('Bug_Test_Profile/Bug_Test_Profile_aliases.txt')
+      
+      // Verify no timestamp patterns in filenames
+      writtenFiles.forEach(filename => {
+        if (filename.endsWith('.txt') && !filename.endsWith('project.json')) {
+          expect(filename).not.toMatch(/_\d{4}-\d{2}-\d{2}\.txt$/)
+        }
+      })
+    })
+
+    it('should include keybindMetadata in exported keybind files', async () => {
+      const mockDirHandle = {}
+      
+      // Spy on generateSTOKeybindFile to check metadata inclusion
+      const generateSpy = vi.spyOn(stoExport, 'generateSTOKeybindFile')
+      
+      await stoExport.syncToFolder(mockDirHandle)
+      
+      // Check space keybind generation call
+      const spaceCall = generateSpy.mock.calls.find(call => 
+        call[1]?.environment === 'space'
+      )
+      expect(spaceCall).toBeDefined()
+      expect(spaceCall[0]).toHaveProperty('keybindMetadata')
+      expect(spaceCall[0].keybindMetadata).toEqual(testProfile.keybindMetadata)
+      
+      // Check ground keybind generation call
+      const groundCall = generateSpy.mock.calls.find(call => 
+        call[1]?.environment === 'ground'
+      )
+      expect(groundCall).toBeDefined()
+      expect(groundCall[0]).toHaveProperty('keybindMetadata')
+      expect(groundCall[0].keybindMetadata).toEqual(testProfile.keybindMetadata)
+      
+      generateSpy.mockRestore()
+    })
+
+    it('should generate correct bind_load_file commands without timestamps', async () => {
+      const mockDirHandle = {}
+      
+      await stoExport.syncToFolder(mockDirHandle)
+      
+      // Find the space keybind file content
+      const spaceKeybindCall = vi.mocked(writeFile).mock.calls.find(call => 
+        call[1].includes('Bug_Test_Profile_space.txt')
+      )
+      
+      const spaceContent = spaceKeybindCall[2]
+      
+      // Header should reference the actual filename without timestamp
+      expect(spaceContent).toMatch(/bind_load_file Bug_Test_Profile_space\.txt/)
+      
+      // Find the ground keybind file content
+      const groundKeybindCall = vi.mocked(writeFile).mock.calls.find(call => 
+        call[1].includes('Bug_Test_Profile_ground.txt')
+      )
+      
+      const groundContent = groundKeybindCall[2]
+      
+      // Header should reference the actual filename without timestamp
+      expect(groundContent).toMatch(/bind_load_file Bug_Test_Profile_ground\.txt/)
     })
   })
 })

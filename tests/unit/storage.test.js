@@ -458,26 +458,7 @@ describe('STOStorage', () => {
       expect(savedData.profiles.new_format.name).toBe('New Format Profile')
     })
 
-    it('should validate legacy profile format', () => {
-      const legacyData = {
-        currentProfile: 'legacy_profile',
-        profiles: {
-          legacy_profile: {
-            name: 'Legacy Profile',
-            mode: 'space',
-            keys: { a: [{ command: 'Target_Self' }] },
-            aliases: {},
-          },
-        },
-        globalAliases: {},
-      }
 
-      const result = storage.importData(JSON.stringify(legacyData))
-      expect(result).toBe(true)
-
-      const savedData = storage.getAllData()
-      expect(savedData.profiles.legacy_profile.name).toBe('Legacy Profile')
-    })
   })
 
   describe('storage info and cleanup', () => {

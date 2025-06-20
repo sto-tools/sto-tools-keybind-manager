@@ -191,25 +191,6 @@ export default class STOToolsKeybindManager {
   getCurrentBuild(profile) {
     if (!profile) return null
 
-    // Convert old profile format to new format if needed
-    if (!profile.builds) {
-      profile.builds = {
-        space: {
-          keys: profile.keys || {},
-        },
-        ground: {
-          keys: {},
-        },
-      }
-      profile.currentEnvironment = profile.mode || 'space'
-      delete profile.mode // Remove old mode property
-      delete profile.keys // Move to builds
-      // Keep profile.aliases at profile level - don't move to builds
-
-      // Save the converted profile
-      stoStorage.saveProfile(this.currentProfile, profile)
-    }
-
     // Ensure builds exist
     if (!profile.builds) {
       profile.builds = {
@@ -234,7 +215,6 @@ export default class STOToolsKeybindManager {
       ...profile,
       keys: profile.builds[this.currentEnvironment].keys, // Direct reference to build keys
       aliases: profile.aliases || {}, // Profile-level aliases, not build-specific
-      mode: this.currentEnvironment, // For backward compatibility
     }
   }
 
@@ -266,8 +246,11 @@ export default class STOToolsKeybindManager {
     const profile = {
       name,
       description,
-      mode,
-      keys: {},
+      currentEnvironment: mode,
+      builds: {
+        space: { keys: {} },
+        ground: { keys: {} },
+      },
       aliases: {},
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
@@ -364,10 +347,6 @@ export default class STOToolsKeybindManager {
       if (profile.keybindMetadata[this.currentEnvironment]) {
         const envMeta = profile.keybindMetadata[this.currentEnvironment]
         flag = !!(envMeta[keyName] && envMeta[keyName].stabilizeExecutionOrder)
-      }
-      // Legacy fallback (flat structure)
-      if (!flag && profile.keybindMetadata[keyName]) {
-        flag = !!profile.keybindMetadata[keyName].stabilizeExecutionOrder
       }
       stabilizeCheckbox.checked = flag
     } else if (stabilizeCheckbox) {
@@ -1160,6 +1139,17 @@ export default class STOToolsKeybindManager {
     }
 
     const profile = this.getCurrentProfile()
+    if (!profile) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-exclamation-triangle"></i>
+          <h4>No Valid Profile</h4>
+          <p>Please create or select a valid profile to manage commands.</p>
+        </div>
+      `
+      preview.textContent = ''
+      return
+    }
     const commands = profile.keys[this.selectedKey] || []
 
     title.textContent = `Command Chain for ${this.selectedKey}`

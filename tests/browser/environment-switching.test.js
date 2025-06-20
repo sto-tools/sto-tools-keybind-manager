@@ -586,27 +586,7 @@ describe('Environment Switching Tests', () => {
       })
     })
 
-    describe('Profile Structure Migration', () => {
-      it('should migrate old profile format to new builds structure', () => {
-        // Test migration from legacy profile format
-        expect(window.app.currentEnvironment).toBeDefined()
-      })
 
-      it('should preserve data during migration', () => {
-        // Test no data loss during profile format migration
-        expect(window.app.getCurrentProfile()).toBeDefined()
-      })
-
-      it('should handle mixed profile formats in same project', () => {
-        // Test compatibility with mixed old/new profile formats
-        expect(window.stoStorage).toBeDefined()
-      })
-
-      it('should maintain backwards compatibility', () => {
-        // Test legacy profiles continue to work
-        expect(window.app.currentEnvironment).toBeDefined()
-      })
-    })
 
     describe('Storage Synchronization', () => {
       it('should synchronize build changes to localStorage', () => {

@@ -64,7 +64,7 @@ export default class STOExportManager {
     const envSelect = document.getElementById('exportEnvironment')
     const environment = envSelect && envSelect.value
       ? envSelect.value
-      : profile.mode || 'space'
+      : profile.currentEnvironment || 'space'
 
     switch (format) {
       case 'sto_keybind':
@@ -93,7 +93,7 @@ export default class STOExportManager {
   }
 
   // STO Keybind File Export
-  exportSTOKeybindFile(profile, environment = profile.mode) {
+  exportSTOKeybindFile(profile, environment = profile.currentEnvironment || 'space') {
     try {
       const content = this.generateSTOKeybindFile(profile, { environment })
       this.downloadFile(
@@ -115,15 +115,15 @@ export default class STOExportManager {
     let content = ''
 
     // Header with metadata
-    content += this.generateFileHeader(profile)
+    content += this.generateFileHeader(profile, options.syncFilename)
 
     // Export keybinds only (aliases are exported separately)
     // Pass the profile and environment (if available) to the keybind section for per-key metadata access
     content += this.generateKeybindSection(profile.keys, {
       ...options,
       profile,
-      // Support both explicit environment option or fallback to profile.mode/current environment string
-      environment: options.environment || profile.mode || 'space',
+      // Support explicit environment option
+      environment: options.environment || profile.currentEnvironment || 'space',
     })
 
     // Footer with usage instructions
@@ -132,7 +132,7 @@ export default class STOExportManager {
     return content
   }
 
-  generateFileHeader(profile) {
+  generateFileHeader(profile, syncFilename = null) {
     const timestamp = new Date().toLocaleString()
 
     // Calculate stats locally if stoKeybinds is not available
@@ -151,10 +151,13 @@ export default class STOExportManager {
       })
     }
 
+    // Use syncFilename if provided (for syncToFolder), otherwise generate timestamped filename
+    const bindLoadFilename = syncFilename || this.generateFileName(profile, 'txt')
+
     return `; ================================================================
 ; ${profile.name} - STO Keybind Configuration
 ; ================================================================
-; Mode: ${profile.mode.toUpperCase()}
+; Mode: ${(profile.currentEnvironment || 'space').toUpperCase()}
 ; Generated: ${timestamp}
 ; Created by: STO Tools Keybind Manager v${STO_DATA.settings.version}
 ;
@@ -165,7 +168,7 @@ export default class STOExportManager {
 ; Note: Aliases are exported separately
 ; To use this file in Star Trek Online:
 ; 1. Save this file to your STO Live folder
-; 2. In game, type: /bind_load_file ${this.generateFileName(profile, 'txt')}
+; 2. In game, type: /bind_load_file ${bindLoadFilename}
 ; ================================================================
 
 `
@@ -247,7 +250,7 @@ export default class STOExportManager {
         if (commands && commands.length > 0) {
           let commandString
 
-          // Global stabilization (legacy – kept for backward-compatibility/tests)
+          // Global stabilization
           const globalStabilize = options.stabilizeExecutionOrder
 
           // Environment-scoped per-key stabilization
@@ -258,19 +261,13 @@ export default class STOExportManager {
               options.environment &&
               options.profile.keybindMetadata[options.environment]
             ) {
-              // New structure: keybindMetadata -> environment -> key
+              // Environment-scoped structure: keybindMetadata -> environment -> key
               const envMeta =
                 options.profile.keybindMetadata[options.environment]
               perKeyStabilize = !!(
                 envMeta &&
                 envMeta[key] &&
                 envMeta[key].stabilizeExecutionOrder
-              )
-            } else {
-              // Legacy flat structure (no environment nesting)
-              perKeyStabilize = !!(
-                options.profile.keybindMetadata[key] &&
-                options.profile.keybindMetadata[key].stabilizeExecutionOrder
               )
             }
           }
@@ -295,7 +292,7 @@ export default class STOExportManager {
     return content
   }
 
-  // Local key comparison for sorting (fallback when stoKeybinds is not available)
+  // Local key comparison for sorting
   compareKeys(a, b) {
     // Function keys first
     const aIsF = a.match(/^F(\d+)$/)
@@ -399,7 +396,7 @@ export default class STOExportManager {
   }
 
   // JSON Profile Export
-  exportJSONProfile(profile, environment = profile.mode) {
+  exportJSONProfile(profile, environment = profile.currentEnvironment || 'space') {
     try {
       const exportData = {
         version: STO_DATA.settings.version,
@@ -449,7 +446,7 @@ export default class STOExportManager {
   }
 
   // CSV Data Export
-  exportCSVData(profile, environment = profile.mode) {
+  exportCSVData(profile, environment = profile.currentEnvironment || 'space') {
     try {
       const csvContent = this.generateCSVData(profile)
       this.downloadFile(
@@ -499,7 +496,7 @@ export default class STOExportManager {
   }
 
   // HTML Report Export
-  exportHTMLReport(profile, environment = profile.mode) {
+  exportHTMLReport(profile, environment = profile.currentEnvironment || 'space') {
     try {
       const htmlContent = this.generateHTMLReport(profile)
       this.downloadFile(
@@ -551,7 +548,7 @@ export default class STOExportManager {
 <body>
     <div class="header">
         <h1>${profile.name}</h1>
-        <p><strong>${i18next.t('mode')}</strong> ${profile.mode.toUpperCase()}</p>
+        <p><strong>${i18next.t('mode')}</strong> ${(profile.currentEnvironment || 'space').toUpperCase()}</p>
         <p><strong>${i18next.t('generated')}</strong> ${timestamp}</p>
         <p><strong>${i18next.t('created_by')}</strong> STO Tools Keybind Manager v${STO_DATA.settings.version}</p>
     </div>
@@ -647,8 +644,8 @@ export default class STOExportManager {
   }
 
   // Utility Methods
-  generateFileName(profile, extension, environment = profile.mode || 'space') {
-    const env = environment || profile.mode || 'space'
+  generateFileName(profile, extension, environment = profile.currentEnvironment || 'space') {
+    const env = environment || profile.currentEnvironment || 'space'
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
     return `${safeName}_${env}_${timestamp}.${extension}`
@@ -785,7 +782,7 @@ export default class STOExportManager {
     content += `; ================================================================
 ; ${profile.name} - STO Alias Configuration
 ; ================================================================
-; Mode: ${profile.mode.toUpperCase()}
+; Mode: ${(profile.currentEnvironment || 'space').toUpperCase()}
 ; Generated: ${timestamp}
 ; Created by: STO Tools Keybind Manager v${STO_DATA.settings.version}
 ;
@@ -822,7 +819,7 @@ export default class STOExportManager {
   generateAliasFileName(profile, extension) {
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
-    const environment = profile.mode || 'space'
+    const environment = profile.currentEnvironment || 'space'
     return `${safeName}_aliases_${environment}_${timestamp}.${extension}`
   }
 
@@ -839,32 +836,46 @@ export default class STOExportManager {
     const profiles = data.profiles || {}
     for (const profile of Object.values(profiles)) {
       const base = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
+      
+      // Generate keybind files for each environment if builds exist
       if (profile.builds?.space) {
         const temp = {
           name: profile.name,
-          mode: 'space',
+          currentEnvironment: 'space',
           keys: profile.builds.space.keys || {},
+          // Include keybindMetadata for stabilization settings
+          keybindMetadata: profile.keybindMetadata || {},
         }
-        const content = this.generateSTOKeybindFile(temp, { environment: 'space' })
-        await writeFile(dirHandle, `${base}/${base}_space.txt`, content)
+        const syncFilename = `${base}_space.txt`
+        const content = this.generateSTOKeybindFile(temp, { 
+          environment: 'space',
+          syncFilename: syncFilename,
+          profile: temp
+        })
+        await writeFile(dirHandle, `${base}/${syncFilename}`, content)
       }
       if (profile.builds?.ground) {
         const temp = {
           name: profile.name,
-          mode: 'ground',
+          currentEnvironment: 'ground',
           keys: profile.builds.ground.keys || {},
+          // Include keybindMetadata for stabilization settings
+          keybindMetadata: profile.keybindMetadata || {},
         }
-        const content = this.generateSTOKeybindFile(temp, { environment: 'ground' })
-        await writeFile(dirHandle, `${base}/${base}_ground.txt`, content)
+        const syncFilename = `${base}_ground.txt`
+        const content = this.generateSTOKeybindFile(temp, { 
+          environment: 'ground',
+          syncFilename: syncFilename,
+          profile: temp
+        })
+        await writeFile(dirHandle, `${base}/${syncFilename}`, content)
       }
-      const aliases = {
-        ...(profile.aliases || {}),
-        ...(profile.builds?.space?.aliases || {}),
-        ...(profile.builds?.ground?.aliases || {}),
-      }
+      
+      // Generate alias file - aliases are profile-level, not build-specific
+      const aliases = profile.aliases || {}
       const aliasProfile = {
         name: profile.name,
-        mode: profile.currentEnvironment || 'space',
+        currentEnvironment: profile.currentEnvironment || 'space',
         aliases,
       }
       const aliasContent = this.generateAliasFile(aliasProfile)

@@ -302,32 +302,21 @@ export default class STOStorage {
   isValidProfile(profile) {
     if (!profile || typeof profile !== 'object') return false
 
-    // New format with builds structure
-    if (profile.builds) {
-      if (!profile.name || typeof profile.builds !== 'object') return false
+    // Only accept new format with builds structure
+    if (!profile.builds) return false
+    if (!profile.name || typeof profile.builds !== 'object') return false
 
-      // Check if at least one build exists
-      const builds = profile.builds
-      if (!builds.space && !builds.ground) return false
+    // Check if at least one build exists
+    const builds = profile.builds
+    if (!builds.space && !builds.ground) return false
 
-      // Validate build structure
-      for (const [env, build] of Object.entries(builds)) {
-        if (env === 'space' || env === 'ground') {
-          if (!build || typeof build !== 'object') return false
-          if (!build.keys || typeof build.keys !== 'object') return false
-        }
+    // Validate build structure
+    for (const [env, build] of Object.entries(builds)) {
+      if (env === 'space' || env === 'ground') {
+        if (!build || typeof build !== 'object') return false
+        if (!build.keys || typeof build.keys !== 'object') return false
       }
-
-      return true
     }
-
-    // Old format - maintain backward compatibility
-    const required = ['name', 'mode', 'keys']
-    for (const prop of required) {
-      if (!(prop in profile)) return false
-    }
-
-    if (typeof profile.keys !== 'object') return false
 
     return true
   }
