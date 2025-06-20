@@ -36,8 +36,8 @@ export default class STOStorage {
 
       const parsed = JSON.parse(data)
 
-      // Validate data structure
-      if (!this.isValidDataStructure(parsed)) {
+      // Validate data structure (but allow migration-eligible data to pass through)
+      if (!this.isValidDataStructure(parsed, true)) {
         return this.getDefaultData()
       }
 
@@ -276,7 +276,7 @@ export default class STOStorage {
     }
   }
 
-  isValidDataStructure(data) {
+  isValidDataStructure(data, allowMigration = false) {
     if (!data || typeof data !== 'object') return false
 
     // Check required properties
@@ -290,7 +290,10 @@ export default class STOStorage {
 
     // Validate each profile
     for (const [profileId, profile] of Object.entries(data.profiles)) {
-      if (!this.isValidProfile(profile)) {
+      const isValid = this.isValidProfile(profile)
+      const canMigrate = allowMigration && this.needsProfileMigration(profile)
+      
+      if (!isValid && !canMigrate) {
         // Invalid profile structure is an expected validation result, not something to log
         return false
       }
@@ -301,24 +304,30 @@ export default class STOStorage {
 
   isValidProfile(profile) {
     if (!profile || typeof profile !== 'object') return false
+    if (!profile.name) return false
 
-    // Only accept new format with builds structure
-    if (!profile.builds) return false
-    if (!profile.name || typeof profile.builds !== 'object') return false
+    // Check for new format with builds structure
+    if (profile.builds && typeof profile.builds === 'object') {
+      // Validate new format
+      const builds = profile.builds
+      if (!builds.space && !builds.ground) return false
 
-    // Check if at least one build exists
-    const builds = profile.builds
-    if (!builds.space && !builds.ground) return false
-
-    // Validate build structure
-    for (const [env, build] of Object.entries(builds)) {
-      if (env === 'space' || env === 'ground') {
-        if (!build || typeof build !== 'object') return false
-        if (!build.keys || typeof build.keys !== 'object') return false
+      // Validate build structure
+      for (const [env, build] of Object.entries(builds)) {
+        if (env === 'space' || env === 'ground') {
+          if (!build || typeof build !== 'object') return false
+          if (!build.keys || typeof build.keys !== 'object') return false
+        }
       }
+      return true
     }
 
-    return true
+    // Check for old format with mode and keys at top level
+    if (profile.mode && profile.keys && typeof profile.keys === 'object') {
+      return true
+    }
+
+    return false
   }
 
   ensureStorageStructure() {
@@ -353,15 +362,83 @@ export default class STOStorage {
   migrateData() {
     // Handle data migration for future versions
     const data = this.getAllData()
+    let migrationPerformed = false
 
     if (data.version !== this.version) {
       console.log(`Migrating data from ${data.version} to ${this.version}`)
+      migrationPerformed = true
+    }
 
-      // Add migration logic here for future versions
+    // Migrate profiles from old format to new format
+    for (const [profileId, profile] of Object.entries(data.profiles)) {
+      if (this.needsProfileMigration(profile)) {
+        console.log(`Migrating profile "${profile.name}" from old format to new format`)
+        data.profiles[profileId] = this.migrateProfile(profile)
+        migrationPerformed = true
+      }
+    }
 
+    if (migrationPerformed) {
       data.version = this.version
       this.saveAllData(data)
+      console.log('Data migration completed')
     }
+  }
+
+  needsProfileMigration(profile) {
+    // Profile needs migration if it has old format (mode + keys) but not new format (builds)
+    return profile && profile.mode && profile.keys && !profile.builds
+  }
+
+  migrateProfile(oldProfile) {
+    console.log(`Migrating profile: ${oldProfile.name}`)
+    
+    // Create new profile structure
+    const newProfile = {
+      name: oldProfile.name,
+      description: oldProfile.description || '',
+      currentEnvironment: this.mapOldModeToEnvironment(oldProfile.mode),
+      builds: {
+        space: { keys: {} },
+        ground: { keys: {} }
+      },
+      aliases: oldProfile.aliases || {},
+      keybindMetadata: oldProfile.keybindMetadata || {},
+      created: oldProfile.created || new Date().toISOString(),
+      lastModified: new Date().toISOString()
+    }
+
+    // Map old keys to the appropriate environment
+    const targetEnvironment = this.mapOldModeToEnvironment(oldProfile.mode)
+    newProfile.builds[targetEnvironment].keys = oldProfile.keys || {}
+
+    // If the profile had keybind metadata, migrate it to be environment-scoped
+    if (oldProfile.keybindMetadata && typeof oldProfile.keybindMetadata === 'object') {
+      // Check if metadata is already environment-scoped
+      const hasEnvironmentScope = oldProfile.keybindMetadata.space || oldProfile.keybindMetadata.ground
+      
+      if (!hasEnvironmentScope) {
+        // Migrate flat metadata structure to environment-scoped
+        newProfile.keybindMetadata = {
+          [targetEnvironment]: oldProfile.keybindMetadata
+        }
+      } else {
+        // Already environment-scoped, keep as is
+        newProfile.keybindMetadata = oldProfile.keybindMetadata
+      }
+    }
+
+    return newProfile
+  }
+
+  mapOldModeToEnvironment(mode) {
+    if (!mode) return 'space'
+    
+    const lowerMode = mode.toLowerCase()
+    if (lowerMode === 'ground' || lowerMode === 'ground mode') {
+      return 'ground'
+    }
+    return 'space' // Default to space for 'space', 'Space', or any other value
   }
 
   getAvailableStorage() {
