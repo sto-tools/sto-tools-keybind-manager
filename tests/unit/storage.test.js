@@ -699,4 +699,81 @@ describe('STOStorage', () => {
       expect(storage.isValidProfile(invalidProfile)).toBe(false)
     })
   })
+
+  describe('mapOldModeToEnvironment', () => {
+    let storage
+
+    beforeEach(() => {
+      storage = new STOStorage()
+    })
+
+    it('should handle string mode values correctly', () => {
+      expect(storage.mapOldModeToEnvironment('space')).toBe('space')
+      expect(storage.mapOldModeToEnvironment('Space')).toBe('space')
+      expect(storage.mapOldModeToEnvironment('SPACE')).toBe('space')
+      expect(storage.mapOldModeToEnvironment('ground')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('Ground')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('GROUND')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('ground mode')).toBe('ground')
+      expect(storage.mapOldModeToEnvironment('Ground Mode')).toBe('ground')
+    })
+
+    it('should handle non-string mode values without throwing TypeError', () => {
+      // Numbers
+      expect(() => storage.mapOldModeToEnvironment(1)).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(1)).toBe('space')
+      expect(storage.mapOldModeToEnvironment(0)).toBe('space')
+
+      // Objects
+      expect(() => storage.mapOldModeToEnvironment({})).not.toThrow()
+      expect(storage.mapOldModeToEnvironment({})).toBe('space')
+      expect(() => storage.mapOldModeToEnvironment({ mode: 'ground' })).not.toThrow()
+      expect(storage.mapOldModeToEnvironment({ mode: 'ground' })).toBe('space')
+
+      // Arrays
+      expect(() => storage.mapOldModeToEnvironment([])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment([])).toBe('space')
+      expect(() => storage.mapOldModeToEnvironment(['ground'])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(['ground'])).toBe('ground') // ['ground'] converts to 'ground'
+      expect(() => storage.mapOldModeToEnvironment(['space'])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(['space'])).toBe('space') // ['space'] converts to 'space'
+      expect(() => storage.mapOldModeToEnvironment(['other'])).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(['other'])).toBe('space') // ['other'] converts to 'other', defaults to space
+
+      // Booleans
+      expect(() => storage.mapOldModeToEnvironment(true)).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(true)).toBe('space')
+      expect(() => storage.mapOldModeToEnvironment(false)).not.toThrow()
+      expect(storage.mapOldModeToEnvironment(false)).toBe('space')
+    })
+
+    it('should handle null and undefined values', () => {
+      expect(storage.mapOldModeToEnvironment(null)).toBe('space')
+      expect(storage.mapOldModeToEnvironment(undefined)).toBe('space')
+      expect(storage.mapOldModeToEnvironment('')).toBe('space')
+    })
+
+    it('should convert non-string values to string and process them', () => {
+      // If someone accidentally stored a number that represents ground mode
+      // it should still default to space since it won't match the string patterns
+      expect(storage.mapOldModeToEnvironment(42)).toBe('space')
+      
+      // Test edge case where String() conversion might create 'ground'
+      const objWithGroundToString = {
+        toString: () => 'ground'
+      }
+      expect(storage.mapOldModeToEnvironment(objWithGroundToString)).toBe('ground')
+    })
+
+    it('should handle string-like objects correctly', () => {
+      // Objects that convert to ground-like strings
+      const groundObj = { toString: () => 'ground' }
+      const groundModeObj = { toString: () => 'ground mode' }
+      const spaceObj = { toString: () => 'space' }
+
+      expect(storage.mapOldModeToEnvironment(groundObj)).toBe('ground')
+      expect(storage.mapOldModeToEnvironment(groundModeObj)).toBe('ground')
+      expect(storage.mapOldModeToEnvironment(spaceObj)).toBe('space')
+    })
+  })
 })

@@ -434,7 +434,10 @@ export default class STOStorage {
   mapOldModeToEnvironment(mode) {
     if (!mode) return 'space'
     
-    const lowerMode = mode.toLowerCase()
+    // Ensure mode is a string before calling toLowerCase()
+    const modeStr = typeof mode === 'string' ? mode : String(mode)
+    const lowerMode = modeStr.toLowerCase()
+    
     if (lowerMode === 'ground' || lowerMode === 'ground mode') {
       return 'ground'
     }
