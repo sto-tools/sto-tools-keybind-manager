@@ -25,11 +25,26 @@
     }
   }
 
-  function onDom(element, domEvent, busEvent = domEvent) {
-    if (!element || !element.addEventListener) return () => {};
-    const wrapped = (e) => emit(busEvent, e);
-    element.addEventListener(domEvent, wrapped);
-    return () => element.removeEventListener(domEvent, wrapped);
+  function onDom(target, domEvent, busEvent, handler) {
+    if (typeof target === 'string') {
+      target = document.getElementById(target);
+    }
+    if (!target || !target.addEventListener) return () => {};
+    if (typeof busEvent === 'function') {
+      handler = busEvent;
+      busEvent = domEvent;
+    }
+    if (!busEvent) busEvent = domEvent;
+
+    const domHandler = (e) => emit(busEvent, e);
+    target.addEventListener(domEvent, domHandler);
+
+    if (handler) on(busEvent, handler);
+
+    return () => {
+      target.removeEventListener(domEvent, domHandler);
+      if (handler) off(busEvent, handler);
+    };
   }
 
   global.eventBus = { on, off, emit, onDom };

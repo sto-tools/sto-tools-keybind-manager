@@ -21,11 +21,7 @@ class STOProfileManager {
         }
 
         // Profile action buttons
-        const newBtn = document.getElementById('newProfileBtn');
-        if (newBtn) {
-            eventBus.onDom(newBtn, 'click', 'profile-new');
-        }
-        eventBus.on('profile-new', () => {
+        eventBus.onDom('newProfileBtn', 'click', 'profile-new', () => {
             this.showNewProfileModal();
         });
 
@@ -42,11 +38,7 @@ class STOProfileManager {
         });
 
         // Profile modal save button
-        const saveBtn = document.getElementById('saveProfileBtn');
-        if (saveBtn) {
-            eventBus.onDom(saveBtn, 'click', 'profile-save');
-        }
-        eventBus.on('profile-save', () => {
+        eventBus.onDom('saveProfileBtn', 'click', 'profile-save', () => {
             this.handleProfileSave();
         });
 
