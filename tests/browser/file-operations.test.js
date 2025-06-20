@@ -50,17 +50,17 @@ describe('File Import/Export Operations', () => {
                 }, 10000)
                 
                 // Listen for the app ready event
-                const handleReady = (event) => {
+                const handleReady = (payload) => {
                     clearTimeout(timeout)
-                    window.removeEventListener('sto-app-ready', handleReady)
-                    resolve(event.detail.app)
+                    eventBus.off('sto-app-ready', handleReady)
+                    resolve(payload.app)
                 }
-                
-                const handleError = (event) => {
+
+                const handleError = (payload) => {
                     clearTimeout(timeout)
-                    window.removeEventListener('sto-app-ready', handleReady)
-                    window.removeEventListener('sto-app-error', handleError)
-                    reject(event.detail.error)
+                    eventBus.off('sto-app-ready', handleReady)
+                    eventBus.off('sto-app-error', handleError)
+                    reject(payload.error)
                 }
                 
                 // Check if already loaded (in case event fired before we started listening)
@@ -70,8 +70,8 @@ describe('File Import/Export Operations', () => {
                     return
                 }
                 
-                window.addEventListener('sto-app-ready', handleReady, { once: true })
-                window.addEventListener('sto-app-error', handleError, { once: true })
+                eventBus.on('sto-app-ready', handleReady)
+                eventBus.on('sto-app-error', handleError)
             })
         }
 

@@ -57,11 +57,8 @@ class STOToolsKeybindManager {
             
             stoUI.showToast('STO Tools Keybind Manager loaded successfully', 'success');
             
-            // Dispatch app ready event
-            const readyEvent = new CustomEvent('sto-app-ready', {
-                detail: { app: this }
-            });
-            window.dispatchEvent(readyEvent);
+            // Dispatch app ready event through eventBus
+            eventBus.emit('sto-app-ready', { app: this });
             
         } catch (error) {
             console.error('Failed to initialize application:', error);
@@ -69,11 +66,8 @@ class STOToolsKeybindManager {
                 stoUI.showToast('Failed to load application', 'error');
             }
             
-            // Dispatch error event
-            const errorEvent = new CustomEvent('sto-app-error', {
-                detail: { error }
-            });
-            window.dispatchEvent(errorEvent);
+            // Dispatch error event through eventBus
+            eventBus.emit('sto-app-error', { error });
         }
     }
 
@@ -1331,61 +1325,61 @@ class STOToolsKeybindManager {
         });
         
         // File operations
-        document.getElementById('openProjectBtn')?.addEventListener('click', () => {
+        eventBus.onDom('openProjectBtn', 'click', 'project-open', () => {
             this.openProject();
         });
         
-        document.getElementById('saveProjectBtn')?.addEventListener('click', () => {
+        eventBus.onDom('saveProjectBtn', 'click', 'project-save', () => {
             this.saveProject();
         });
         
-        document.getElementById('exportKeybindsBtn')?.addEventListener('click', () => {
+        eventBus.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
             this.exportKeybinds();
         });
         
         // Vertigo VFX manager
-        document.getElementById('vertigoBtn')?.addEventListener('click', () => {
+        eventBus.onDom('vertigoBtn', 'click', 'vertigo-open', () => {
             this.showVertigoModal();
         });
         
         // Key management
-        document.getElementById('addKeyBtn')?.addEventListener('click', () => {
+        eventBus.onDom('addKeyBtn', 'click', 'key-add', () => {
             this.showKeySelectionModal();
         });
         
-        document.getElementById('deleteKeyBtn')?.addEventListener('click', () => {
+        eventBus.onDom('deleteKeyBtn', 'click', 'key-delete', () => {
             if (this.selectedKey) {
                 this.confirmDeleteKey(this.selectedKey);
             }
         });
         
-        document.getElementById('duplicateKeyBtn')?.addEventListener('click', () => {
+        eventBus.onDom('duplicateKeyBtn', 'click', 'key-duplicate', () => {
             if (this.selectedKey) {
                 this.duplicateKey(this.selectedKey);
             }
         });
         
         // Command management
-        document.getElementById('addCommandBtn')?.addEventListener('click', () => {
+        eventBus.onDom('addCommandBtn', 'click', 'command-add', () => {
             modalManager.show('addCommandModal');
         });
         
-        document.getElementById('addFromTemplateBtn')?.addEventListener('click', () => {
+        eventBus.onDom('addFromTemplateBtn', 'click', 'command-add-template', () => {
             this.showTemplateModal();
         });
         
-        document.getElementById('clearChainBtn')?.addEventListener('click', () => {
+        eventBus.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
             if (this.selectedKey) {
                 this.confirmClearChain(this.selectedKey);
             }
         });
         
-        document.getElementById('validateChainBtn')?.addEventListener('click', () => {
+        eventBus.onDom('validateChainBtn', 'click', 'command-chain-validate', () => {
             this.validateCurrentChain();
         });
         
         // Stabilization checkbox
-        document.getElementById('stabilizeExecutionOrder')?.addEventListener('change', (e) => {
+        eventBus.onDom('stabilizeExecutionOrder', 'change', 'stabilize-change', (e) => {
             // Persist stabilization flag to stored profile (environment-scoped)
             if (this.selectedKey) {
                 const env = this.currentEnvironment;
@@ -1411,25 +1405,25 @@ class STOToolsKeybindManager {
         });
         
         // Search and filter
-        document.getElementById('keyFilter')?.addEventListener('input', (e) => {
+        eventBus.onDom('keyFilter', 'input', 'key-filter', (e) => {
             this.filterKeys(e.target.value);
         });
         
-        document.getElementById('commandSearch')?.addEventListener('input', (e) => {
+        eventBus.onDom('commandSearch', 'input', 'command-search', (e) => {
             this.filterCommands(e.target.value);
         });
         
-        document.getElementById('showAllKeysBtn')?.addEventListener('click', () => {
+        eventBus.onDom('showAllKeysBtn', 'click', 'show-all-keys', () => {
             this.showAllKeys();
         });
         
         // Key view toggle
-        document.getElementById('toggleKeyViewBtn')?.addEventListener('click', () => {
+        eventBus.onDom('toggleKeyViewBtn', 'click', 'toggle-key-view', () => {
             this.toggleKeyView();
         });
         
         // Library toggle
-        document.getElementById('toggleLibraryBtn')?.addEventListener('click', () => {
+        eventBus.onDom('toggleLibraryBtn', 'click', 'toggle-library', () => {
             this.toggleLibrary();
         });
         
@@ -1446,7 +1440,7 @@ class STOToolsKeybindManager {
 
     setupModalHandlers() {
         // Add Key Modal
-        document.getElementById('confirmAddKeyBtn')?.addEventListener('click', () => {
+        eventBus.onDom('confirmAddKeyBtn', 'click', 'key-add-confirm', () => {
             const keyName = document.getElementById('newKeyName')?.value.trim();
             if (keyName) {
                 this.addKey(keyName);
@@ -1466,7 +1460,7 @@ class STOToolsKeybindManager {
         });
         
         // Add Command Modal
-        document.getElementById('saveCommandBtn')?.addEventListener('click', () => {
+        eventBus.onDom('saveCommandBtn', 'click', 'command-save', () => {
             this.saveCommandFromModal();
         });
         
@@ -1915,7 +1909,7 @@ class STOToolsKeybindManager {
         document.body.appendChild(modal);
         
         // Add event listeners
-        document.getElementById('saveParameterCommandBtn').addEventListener('click', () => {
+        eventBus.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
             this.saveParameterCommand();
         });
         
@@ -2963,7 +2957,7 @@ class STOToolsKeybindManager {
         });
 
         // Space controls
-        document.getElementById('spaceSelectAll')?.addEventListener('click', () => {
+        eventBus.onDom('spaceSelectAll', 'click', 'vertigo-space-select-all', () => {
             try {
                 vertigoManager.selectAllEffects('space');
                 this.updateVertigoCheckboxes('space');
@@ -2981,7 +2975,7 @@ class STOToolsKeybindManager {
             }
         });
 
-        document.getElementById('spaceClearAll')?.addEventListener('click', () => {
+        eventBus.onDom('spaceClearAll', 'click', 'vertigo-space-clear-all', () => {
             vertigoManager.selectedEffects.space.clear();
             this.updateVertigoCheckboxes('space');
             this.updateVertigoEffectCounts();
@@ -2991,7 +2985,7 @@ class STOToolsKeybindManager {
         });
 
         // Ground controls
-        document.getElementById('groundSelectAll')?.addEventListener('click', () => {
+        eventBus.onDom('groundSelectAll', 'click', 'vertigo-ground-select-all', () => {
             try {
                 vertigoManager.selectAllEffects('ground');
                 this.updateVertigoCheckboxes('ground');
@@ -3009,7 +3003,7 @@ class STOToolsKeybindManager {
             }
         });
 
-        document.getElementById('groundClearAll')?.addEventListener('click', () => {
+        eventBus.onDom('groundClearAll', 'click', 'vertigo-ground-clear-all', () => {
             vertigoManager.selectedEffects.ground.clear();
             this.updateVertigoCheckboxes('ground');
             this.updateVertigoEffectCounts();
@@ -3019,7 +3013,7 @@ class STOToolsKeybindManager {
         });
 
         // Show Player Say toggle
-        document.getElementById('vertigoShowPlayerSay')?.addEventListener('change', (e) => {
+        eventBus.onDom('vertigoShowPlayerSay', 'change', 'vertigo-show-playersay', (e) => {
             vertigoManager.showPlayerSay = e.target.checked;
             this.updateVertigoPreview();
             
@@ -3027,7 +3021,7 @@ class STOToolsKeybindManager {
         });
 
         // Generate aliases button
-        document.getElementById('saveVertigoBtn')?.addEventListener('click', () => {
+        eventBus.onDom('saveVertigoBtn', 'click', 'vertigo-save', () => {
             this.generateVertigoAliases();
         });
     }
@@ -3269,7 +3263,7 @@ const app = new STOToolsKeybindManager();
 window.app = app;
 
 // Initialize other modules after app is ready
-window.addEventListener('sto-app-ready', () => {
+eventBus.on('sto-app-ready', () => {
     if (typeof stoProfiles !== 'undefined') {
         stoProfiles.init();
     }

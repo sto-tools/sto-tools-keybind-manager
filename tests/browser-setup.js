@@ -141,6 +141,7 @@ async function loadApplication() {
   // Then load the scripts
   const scripts = [
     '/src/js/constants.js',
+    '/src/js/eventBus.js',
     '/src/js/errors.js',
     '/src/js/version.js',
     '/src/js/data.js',
@@ -245,16 +246,16 @@ export async function waitForAppReady() {
     // Listen for the app ready event
     const handleAppReady = () => {
       console.log('App ready event received');
-      window.removeEventListener('sto-app-ready', handleAppReady);
+      eventBus.off('sto-app-ready', handleAppReady);
       resolve();
     };
 
-    window.addEventListener('sto-app-ready', handleAppReady);
+    eventBus.on('sto-app-ready', handleAppReady);
     
     // Fallback timeout
     setTimeout(() => {
       console.log('App ready timeout - checking globals');
-      window.removeEventListener('sto-app-ready', handleAppReady);
+      eventBus.off('sto-app-ready', handleAppReady);
       resolve();
     }, 10000);
   });

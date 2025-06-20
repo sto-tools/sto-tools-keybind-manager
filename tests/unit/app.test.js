@@ -11,6 +11,7 @@ import '../../src/js/storage.js'
 import '../../src/js/profiles.js'
 import '../../src/js/keybinds.js'
 import '../../src/js/ui.js'
+import '../../src/js/eventBus.js'
 import '../../src/js/app.js'
 
 /**
