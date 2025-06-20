@@ -4,11 +4,13 @@ import '../../src/js/data.js'
 import STOStorage from '../../src/js/storage.js'
 import STOKeybindFileManager from '../../src/js/keybinds.js'
 import STOExportManager from '../../src/js/export.js'
+import store, { resetStore } from '../../src/js/store.js'
 
 describe('Export Mirroring Integration', () => {
   let app, stoStorage, stoKeybinds, stoExport, stoUI
 
   beforeEach(() => {
+    resetStore()
     // Clear localStorage
     localStorage.clear()
     
@@ -73,11 +75,19 @@ describe('Export Mirroring Integration', () => {
         }
         stoStorage.saveProfile(profileId, profile)
         this.currentProfile = profileId
+        store.currentProfile = profileId
+        store.currentEnvironment = 'space'
         return profileId
       },
-      
+
       switchProfile(profileId) {
         this.currentProfile = profileId
+        store.currentProfile = profileId
+        const profile = stoStorage.getProfile(profileId)
+        if (profile) {
+          this.currentEnvironment = profile.currentEnvironment || 'space'
+        }
+        store.currentEnvironment = this.currentEnvironment
       },
       
       getCurrentProfile() {
@@ -137,7 +147,9 @@ describe('Export Mirroring Integration', () => {
       }
     }
     
-    // Set global app reference for keybinds module
+    // Set initial store state and global app reference
+    store.currentProfile = app.currentProfile
+    store.currentEnvironment = app.currentEnvironment
     global.app = app
   })
 
@@ -154,6 +166,7 @@ describe('Export Mirroring Integration', () => {
     
     // Clean up storage
     localStorage.clear()
+    resetStore()
   })
 
   describe('mirrored command sequence export', () => {

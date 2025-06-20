@@ -1,5 +1,6 @@
 // STO Tools Keybind Manager - Alias Management
 // Handles command alias creation, editing, and management
+import store from './store.js'
 
 export default class STOAliasManager {
     constructor() {
@@ -214,7 +215,7 @@ export default class STOAliasManager {
     }
 
     useAlias(aliasName) {
-        if (!app.selectedKey) {
+        if (!store.selectedKey) {
             stoUI.showToast('Please select a key first', 'warning');
             return;
         }
@@ -227,9 +228,9 @@ export default class STOAliasManager {
             id: app.generateCommandId()
         };
 
-        app.addCommand(app.selectedKey, command);
+        app.addCommand(store.selectedKey, command);
         modalManager.hide('aliasManagerModal');
-        stoUI.showToast(`Alias "${aliasName}" added to ${app.selectedKey}`, 'success');
+        stoUI.showToast(`Alias "${aliasName}" added to ${store.selectedKey}`, 'success');
     }
 
     // Save Alias
@@ -458,7 +459,7 @@ export default class STOAliasManager {
     }
 
     addAliasToKey(aliasName) {
-        if (!app.selectedKey) {
+        if (!store.selectedKey) {
             stoUI.showToast('Please select a key first', 'warning');
             return;
         }
@@ -480,7 +481,7 @@ export default class STOAliasManager {
             id: app.generateCommandId()
         };
 
-        app.addCommand(app.selectedKey, command);
+        app.addCommand(store.selectedKey, command);
     }
 
     // Alias Templates

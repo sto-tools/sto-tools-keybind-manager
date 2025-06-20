@@ -5,12 +5,14 @@ import '../../src/js/data.js'
 
 // Load the modules (they create global instances)
 import '../../src/js/eventBus.js'
+import store, { resetStore } from '../../src/js/store.js'
 import STOStorage from '../../src/js/storage.js'
 import STOCommandManager from '../../src/js/commands.js'
 import STOKeybindFileManager from '../../src/js/keybinds.js'
 
 // Setup real global objects instead of mocks
 beforeEach(() => {
+  resetStore()
   global.window = global.window || {}
   global.stoStorage = new STOStorage()
   global.stoCommands = new STOCommandManager()
@@ -37,6 +39,9 @@ beforeEach(() => {
     saveCurrentBuild: vi.fn(),
     saveProfile: vi.fn()
   }
+
+  store.currentProfile = 'test-profile'
+  store.currentEnvironment = 'space'
 
   // Mock stoStorage.getProfile to return a profile with builds structure
   global.stoStorage.getProfile = vi.fn(() => ({
@@ -986,8 +991,9 @@ F2 "say world"`
   describe('import with mirroring detection', () => {
     let realStorage
     let realApp
-    
+
     beforeEach(() => {
+      resetStore()
       // Create real storage instance for integration testing
       realStorage = new STOStorage()
       
@@ -1048,6 +1054,8 @@ F2 "say world"`
       // Override global app and storage for this test
       global.app = realApp
       global.stoStorage = realStorage
+      store.currentProfile = 'test-profile'
+      store.currentEnvironment = 'space'
     })
     
     afterEach(() => {
@@ -1354,6 +1362,8 @@ F2 " "`
       // Override global app and storage for this test
       global.app = realApp
       global.stoStorage = realStorage
+      store.currentProfile = 'test-profile'
+      store.currentEnvironment = 'space'
     })
     
     afterEach(() => {
@@ -1394,6 +1404,7 @@ F2 " "`
       
       // Switch to ground environment
       realApp.currentEnvironment = 'ground'
+      store.currentEnvironment = 'ground'
       
       // Import keybinds
       const result = keybindManager.importKeybindFile(content)

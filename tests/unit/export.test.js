@@ -5,6 +5,7 @@ import { join } from 'path'
 // Import real modules in dependency order
 import '../../src/js/data.js'
 import '../../src/js/eventBus.js'
+import store, { resetStore } from '../../src/js/store.js'
 import STOStorage from '../../src/js/storage.js'
 import STOProfileManager from '../../src/js/profiles.js'
 import STOKeybindFileManager from '../../src/js/keybinds.js'
@@ -24,6 +25,7 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 
 // Global setup for all tests
 beforeEach(() => {
+  resetStore()
   // Set up the real DOM
   document.documentElement.innerHTML = htmlContent
 
@@ -35,6 +37,8 @@ beforeEach(() => {
   app = new STOToolsKeybindManager()
   exportManager = new STOExportManager()
   Object.assign(global, { app, exportManager })
+  store.currentProfile = 'test-profile'
+  store.currentEnvironment = 'space'
   
   // Mock only the UI methods that would show actual modals or toasts
   vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})
@@ -92,6 +96,7 @@ afterEach(() => {
   stoStorage.clearAllData()
   app.currentProfile = null
   app.selectedKey = null
+  resetStore()
 })
 
 describe('STOExportManager', () => {

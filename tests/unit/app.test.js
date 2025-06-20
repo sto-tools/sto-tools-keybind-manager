@@ -8,6 +8,7 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 // Import real modules in dependency order
 import '../../src/js/data.js'
 import '../../src/js/eventBus.js'
+import store, { resetStore } from '../../src/js/store.js'
 import STOStorage from '../../src/js/storage.js'
 import STOProfileManager from '../../src/js/profiles.js'
 import STOKeybindFileManager from '../../src/js/keybinds.js'
@@ -29,6 +30,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
   let testProfile
 
   beforeEach(() => {
+    resetStore()
     // Load real HTML content
     document.documentElement.innerHTML = htmlContent
 
@@ -113,6 +115,14 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
     it('should initialize event listeners map', () => {
       expect(app.eventListeners).toBeInstanceOf(Map)
+    })
+
+    it('should sync state with store', () => {
+      app.currentProfile = 'sync-test'
+      expect(store.currentProfile).toBe('sync-test')
+
+      store.selectedKey = 'F9'
+      expect(app.selectedKey).toBe('F9')
     })
   })
 

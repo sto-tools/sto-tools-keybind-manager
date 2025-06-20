@@ -1,5 +1,6 @@
 // STO Tools Keybind Manager - Keybind Operations
 // Handles keybind parsing, validation, and file operations
+import store from './store.js'
 
 export default class STOKeybindFileManager {
     constructor() {
@@ -273,7 +274,7 @@ export default class STOKeybindFileManager {
     // Import keybind file content
     importKeybindFile(content) {
         // Get the actual profile from storage to work with the real structure
-        const actualProfile = stoStorage.getProfile(app.currentProfile)
+        const actualProfile = stoStorage.getProfile(store.currentProfile)
         if (!actualProfile) {
             stoUI.showToast('No profile selected for import', 'warning')
             return { success: false, error: 'No active profile' }
@@ -299,12 +300,12 @@ export default class STOKeybindFileManager {
             }
 
             // Ensure current environment build exists
-            if (!actualProfile.builds[app.currentEnvironment]) {
-                actualProfile.builds[app.currentEnvironment] = { keys: {} }
+            if (!actualProfile.builds[store.currentEnvironment]) {
+                actualProfile.builds[store.currentEnvironment] = { keys: {} }
             }
 
             // Get reference to the current build's keys
-            const buildKeys = actualProfile.builds[app.currentEnvironment].keys
+            const buildKeys = actualProfile.builds[store.currentEnvironment].keys
 
             // Merge keybinds into the actual build structure
             Object.entries(parsed.keybinds).forEach(([key, keybindData]) => {
@@ -316,7 +317,7 @@ export default class STOKeybindFileManager {
                     // Store original commands with stabilization flag
                     buildKeys[key] = this.parseCommandString(mirrorInfo.originalCommands.join(' $$ '));
                     // Store metadata about stabilization at profile level (scoped by environment)
-                    const env = app.currentEnvironment;
+                    const env = store.currentEnvironment;
                     if (!actualProfile.keybindMetadata) {
                         actualProfile.keybindMetadata = {};
                     }
@@ -333,7 +334,7 @@ export default class STOKeybindFileManager {
             })
 
             // Save the modified profile directly
-            stoStorage.saveProfile(app.currentProfile, actualProfile)
+            stoStorage.saveProfile(store.currentProfile, actualProfile)
             app.setModified(true)
 
             // Refresh key grid
@@ -379,7 +380,7 @@ export default class STOKeybindFileManager {
             }
 
             // Get the actual profile from storage (aliases are profile-level, not build-specific)
-            const actualProfile = stoStorage.getProfile(app.currentProfile)
+            const actualProfile = stoStorage.getProfile(store.currentProfile)
             if (!actualProfile) {
                 stoUI.showToast('Failed to get profile for import', 'error')
                 return { success: false, error: 'Profile not found' }
@@ -399,7 +400,7 @@ export default class STOKeybindFileManager {
             })
 
             // Update storage and UI
-            stoStorage.saveProfile(app.currentProfile, actualProfile)
+            stoStorage.saveProfile(store.currentProfile, actualProfile)
             app.setModified(true)
 
             // Refresh alias manager if open
