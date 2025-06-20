@@ -36,6 +36,7 @@ beforeEach(() => {
   Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()
   exportManager = new STOExportManager()
+  exportManager.init() // Initialize after i18next is ready
   Object.assign(global, { app, exportManager })
   store.currentProfile = 'test-profile'
   store.currentEnvironment = 'space'
@@ -108,6 +109,7 @@ afterEach(() => {
 describe('STOExportManager', () => {
   beforeEach(() => {
     exportManager = new STOExportManager()
+    exportManager.init() // Initialize after i18next is ready
   })
 
   describe('initialization', () => {

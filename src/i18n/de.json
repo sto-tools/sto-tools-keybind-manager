@@ -156,5 +156,16 @@
   "clear_all_commands": "Alle Befehle löschen",
   "copy_to_clipboard": "In Zwischenablage kopieren",
   "collapse_expand": "Einklappen/Ausklappen",
-  "insert_target_variable": "$Target-Variable einfügen"
+  "insert_target_variable": "$Target-Variable einfügen",
+  "sto_keybind_report": "STO Keybind-Bericht",
+  "mode": "Modus:",
+  "generated": "Generiert:",
+  "created_by": "Erstellt von:",
+  "statistics": "Statistiken",
+  "keys_bound": "Gebundene Tasten:",
+  "total_commands": "Gesamtbefehle:",
+  "aliases_defined": "Definierte Aliase:",
+  "no_keybinds_defined": "Keine Keybinds definiert.",
+  "command_aliases": "Befehlsaliase",
+  "report_footer": "Dieser Bericht wurde vom STO Tools Keybind Manager generiert. Für weitere Informationen über Star Trek Online Keybinds besuchen Sie das STO Wiki."
 }

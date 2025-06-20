@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>STO Tools Keybind Manager</title>
+    <title data-i18n="sto_tools_keybind_manager"></title>
     <meta
       name="description"
       content="Star Trek Online Keybind Manager - Create, edit, and export keybind configurations"
@@ -29,7 +29,7 @@
                 alt="STO Tools Logo"
                 class="app-logo"
             /></a>
-            STO Tools Keybind Manager
+            <span data-i18n="sto_tools_keybind_manager"></span>
           </h1>
           <span class="version" id="appVersion"></span>
         </div>
@@ -37,38 +37,44 @@
           <button
             class="btn btn-secondary"
             id="openProjectBtn"
-            title="Open Project JSON"
+            data-i18n-title="open_project_json"
           >
-            <i class="fas fa-folder-open"></i> Open
+            <i class="fas fa-folder-open"></i>
+            <span data-i18n="open"></span>
           </button>
           <button
             class="btn btn-secondary"
             id="saveProjectBtn"
-            title="Save Project JSON"
+            data-i18n-title="save_project_json"
           >
-            <i class="fas fa-save"></i> Save
+            <i class="fas fa-save"></i>
+            <span data-i18n="save"></span>
           </button>
           <button
             class="btn btn-secondary"
             id="fileExplorerBtn"
-            title="File Explorer"
+            data-i18n-title="file_explorer"
           >
-            <i class="fas fa-sitemap"></i> Explorer
+            <i class="fas fa-sitemap"></i>
+            <span data-i18n="explorer"></span>
           </button>
           <div class="dropdown">
             <button
               class="btn btn-secondary dropdown-toggle"
               id="keybindsBtn"
-              title="Keybind Operations"
+              data-i18n-title="keybind_operations"
             >
-              <i class="fas fa-keyboard"></i> Keybinds
+              <i class="fas fa-keyboard"></i>
+              <span data-i18n="keybinds"></span>
             </button>
             <div class="dropdown-menu" id="keybindsMenu">
               <button class="dropdown-item" id="importKeybindsBtn">
-                <i class="fas fa-file-import"></i> Import Keybinds
+                <i class="fas fa-file-import"></i>
+                <span data-i18n="import_keybinds"></span>
               </button>
               <button class="dropdown-item" id="exportKeybindsBtn">
-                <i class="fas fa-download"></i> Export Keybinds
+                <i class="fas fa-download"></i>
+                <span data-i18n="export_keybinds"></span>
               </button>
             </div>
           </div>
@@ -82,37 +88,43 @@
             </button>
             <div class="dropdown-menu" id="aliasesMenu">
               <button class="dropdown-item" id="importAliasesBtn">
-                <i class="fas fa-mask"></i> Import Aliases
+                <i class="fas fa-mask"></i>
+                <span data-i18n="import_aliases"></span>
               </button>
               <button class="dropdown-item" id="exportAliasesBtn">
-                <i class="fas fa-mask"></i> Export Aliases
+                <i class="fas fa-mask"></i>
+                <span data-i18n="export_aliases"></span>
               </button>
             </div>
           </div>
-          <button class="btn btn-secondary" id="vertigoBtn" title="VFX Manager">
-            <i class="fas fa-eye-slash"></i> VFX
+          <button class="btn btn-secondary" id="vertigoBtn" data-i18n-title="vfx_manager">
+            <i class="fas fa-eye-slash"></i>
+            <span data-i18n="vfx"></span>
           </button>
           <div class="dropdown">
             <button
               class="btn btn-icon dropdown-toggle"
               id="settingsBtn"
-              title="Settings"
+              data-i18n-title="settings"
             >
               <i class="fas fa-cog"></i>
             </button>
             <div class="dropdown-menu" id="settingsMenu">
               <button class="dropdown-item" id="themeToggleBtn">
                 <i class="fas fa-moon"></i>
-                <span id="themeToggleText">Dark Mode</span>
+                <span id="themeToggleText" data-i18n="dark_mode"></span>
               </button>
               <button class="dropdown-item" id="loadDefaultDataBtn">
-                <i class="fas fa-download"></i> Load Default Data
+                <i class="fas fa-download"></i>
+                <span data-i18n="load_default_data"></span>
               </button>
               <button class="dropdown-item" id="resetAppBtn">
-                <i class="fas fa-refresh"></i> Reset Application
+                <i class="fas fa-refresh"></i>
+                <span data-i18n="reset_application"></span>
               </button>
               <button class="dropdown-item" id="aboutBtn">
-                <i class="fas fa-info-circle"></i> About
+                <i class="fas fa-info-circle"></i>
+                <span data-i18n="about"></span>
               </button>
             </div>
           </div>
@@ -123,33 +135,37 @@
       <div class="profile-bar">
         <div class="profile-selector">
           <i class="fas fa-clipboard-list"></i>
-          <select id="profileSelect" title="Select Profile">
+          <select id="profileSelect" data-i18n-title="select_profile">
             <!-- Profiles populated by JavaScript -->
           </select>
           <div class="profile-actions">
-            <button class="btn-small" id="newProfileBtn" title="New Profile">
-              <i class="fas fa-plus"></i> New
+            <button class="btn-small" id="newProfileBtn" data-i18n-title="new_profile">
+              <i class="fas fa-plus"></i>
+              <span data-i18n="new"></span>
             </button>
             <button
               class="btn-small"
               id="cloneProfileBtn"
-              title="Clone Profile"
+              data-i18n-title="clone_profile"
             >
-              <i class="fas fa-copy"></i> Clone
+              <i class="fas fa-copy"></i>
+              <span data-i18n="clone"></span>
             </button>
             <button
               class="btn-small"
               id="renameProfileBtn"
-              title="Rename Profile"
+              data-i18n-title="rename_profile"
             >
-              <i class="fas fa-edit"></i> Rename
+              <i class="fas fa-edit"></i>
+              <span data-i18n="rename"></span>
             </button>
             <button
               class="btn-small btn-danger"
               id="deleteProfileBtn"
-              title="Delete Profile"
+              data-i18n-title="delete_profile"
             >
-              <i class="fas fa-trash"></i> Delete
+              <i class="fas fa-trash"></i>
+              <span data-i18n="delete"></span>
             </button>
           </div>
         </div>
@@ -158,12 +174,14 @@
             <button
               class="mode-btn active"
               data-mode="space"
-              title="Space Mode"
+              data-i18n-title="space_mode"
             >
-              <i class="fas fa-rocket"></i> Space
+              <i class="fas fa-rocket"></i>
+              <span data-i18n="space"></span>
             </button>
-            <button class="mode-btn" data-mode="ground" title="Ground Mode">
-              <i class="fas fa-user"></i> Ground
+            <button class="mode-btn" data-mode="ground" data-i18n-title="ground_mode">
+              <i class="fas fa-user"></i>
+              <span data-i18n="ground"></span>
             </button>
           </div>
           <div class="status-indicators">
@@ -171,18 +189,20 @@
               class="modified-indicator"
               id="modifiedIndicator"
               style="display: none"
-              title="Unsaved Changes"
+              data-i18n-title="unsaved_changes"
             >
-              <i class="fas fa-circle"></i> Modified
+              <i class="fas fa-circle"></i>
+              <span data-i18n="modified"></span>
             </span>
             <span
               class="status-indicator"
               id="statusIndicator"
-              title="Validation Status"
+              data-i18n-title="validation_status"
             >
-              <i class="fas fa-check-circle"></i> Valid
+              <i class="fas fa-check-circle"></i>
+              <span data-i18n="valid"></span>
             </span>
-            <span class="key-count" id="keyCount" title="Bound Keys">
+            <span class="key-count" id="keyCount" data-i18n-title="bound_keys">
               0 keys
             </span>
           </div>
@@ -194,23 +214,24 @@
         <!-- Key Selector -->
         <div class="key-selector-container">
           <div class="key-selector-header">
-            <h3>Keys</h3>
+            <h3 data-i18n="keys"></h3>
             <div class="key-controls">
               <div class="key-filter">
                 <input
                   type="text"
-                  placeholder="Filter keys..."
                   id="keyFilter"
+                  data-i18n-placeholder="filter_keys"
                 />
                 <button class="btn btn-small" id="showAllKeysBtn">
-                  <i class="fas fa-eye"></i> All
+                  <i class="fas fa-eye"></i>
+                  <span data-i18n="all"></span>
                 </button>
               </div>
               <div class="view-toggle">
                 <button
                   class="btn btn-small"
                   id="toggleKeyViewBtn"
-                  title="Toggle between grid and categorized view"
+                  data-i18n-title="toggle_between_grid_and_categorized_view"
                 >
                   <i class="fas fa-list"></i>
                 </button>
@@ -223,17 +244,20 @@
             </div>
             <div class="key-actions">
               <button class="btn btn-small btn-primary" id="addKeyBtn">
-                <i class="fas fa-plus"></i> Add Key
+                <i class="fas fa-plus"></i>
+                <span data-i18n="add_key"></span>
               </button>
               <button
                 class="btn btn-small btn-danger"
                 id="deleteKeyBtn"
                 disabled
               >
-                <i class="fas fa-trash"></i> Delete
+                <i class="fas fa-trash"></i>
+                <span data-i18n="delete"></span>
               </button>
               <button class="btn btn-small" id="duplicateKeyBtn" disabled>
-                <i class="fas fa-copy"></i> Copy
+                <i class="fas fa-copy"></i>
+                <span data-i18n="copy"></span>
               </button>
             </div>
           </div>
@@ -242,17 +266,17 @@
         <!-- Command Chain Editor -->
         <div class="command-chain-container">
           <div class="chain-header">
-            <h3 id="chainTitle">Select a key to edit</h3>
+            <h3 id="chainTitle" data-i18n="select_a_key_to_edit"></h3>
             <div class="chain-info">
-              <span class="command-count" id="commandCount">0 commands</span>
+              <span class="command-count" id="commandCount">0 <span data-i18n="commands"></span></span>
               <div class="chain-options">
                 <label
                   class="checkbox-label"
-                  title="Ensures consistent execution order by mirroring commands (Phase 1: left-to-right, Phase 2: right-to-left)"
+                  data-i18n-title="ensures_consistent_execution_order_by_mirroring_commands_phase_1_left_to_right_phase_2_right_to_left"
                 >
                   <input type="checkbox" id="stabilizeExecutionOrder" />
                   <span class="checkmark"></span>
-                  Stabilize Execution Order
+                  <span data-i18n="stabilize_execution_order"></span>
                 </label>
               </div>
             </div>
@@ -260,16 +284,18 @@
               <button
                 class="btn btn-small"
                 id="validateChainBtn"
-                title="Validate Command Chain"
+                data-i18n-title="validate_command_chain"
               >
-                <i class="fas fa-check"></i> Validate
+                <i class="fas fa-check"></i>
+                <span data-i18n="validate"></span>
               </button>
               <button
                 class="btn btn-small btn-danger"
                 id="clearChainBtn"
-                title="Clear All Commands"
+                data-i18n-title="clear_all_commands"
               >
-                <i class="fas fa-trash"></i> Clear
+                <i class="fas fa-trash"></i>
+                <span data-i18n="clear"></span>
               </button>
             </div>
           </div>
@@ -278,43 +304,42 @@
             <div class="command-list" id="commandList">
               <div class="empty-state" id="emptyState">
                 <i class="fas fa-keyboard"></i>
-                <h4>No Key Selected</h4>
-                <p>
-                  Select a key from the left panel to view and edit its command
-                  chain.
-                </p>
+                <h4 data-i18n="no_key_selected"></h4>
+                <p data-i18n="select_a_key_from_the_left_panel_to_view_and_edit_its_command_chain"></p>
               </div>
             </div>
           </div>
 
           <div class="generated-command">
             <div class="command-preview-header">
-              <label>Generated Command:</label>
+              <label data-i18n="generated_command"></label>
               <button
                 class="btn btn-small"
                 id="copyPreviewBtn"
-                title="Copy to Clipboard"
+                data-i18n-title="copy_to_clipboard"
               >
                 <i class="fas fa-copy"></i>
               </button>
             </div>
-            <div class="command-preview" id="commandPreview">
-              Select a key to see the generated command
-            </div>
+            <div class="command-preview" id="commandPreview" data-i18n="select_a_key_to_see_the_generated_command"></div>
           </div>
 
           <div class="chain-bottom-actions">
             <button class="btn btn-primary" id="addCommandBtn" disabled>
-              <i class="fas fa-plus"></i> Add Command
+              <i class="fas fa-plus"></i>
+              <span data-i18n="add_command"></span>
             </button>
             <button class="btn btn-secondary" id="addFromTemplateBtn" disabled>
-              <i class="fas fa-list"></i> From Template
+              <i class="fas fa-list"></i>
+              <span data-i18n="from_template"></span>
             </button>
             <button class="btn btn-secondary" id="addAliasBtn">
-              <i class="fas fa-mask"></i> Add Alias
+              <i class="fas fa-mask"></i>
+              <span data-i18n="add_alias"></span>
             </button>
             <button class="btn btn-secondary" id="importFromKeyBtn" disabled>
-              <i class="fas fa-copy"></i> Copy from Key
+              <i class="fas fa-copy"></i>
+              <span data-i18n="copy_from_key"></span>
             </button>
           </div>
         </div>
@@ -322,13 +347,13 @@
         <!-- Command Library -->
         <div class="command-library">
           <div class="library-header">
-            <h3>Command Library</h3>
+            <h3 data-i18n="command_library"></h3>
             <div class="library-controls">
               <div class="library-search">
                 <input
                   type="text"
-                  placeholder="Search commands..."
                   id="commandSearch"
+                  data-i18n-placeholder="search_commands"
                 />
                 <button class="btn btn-icon">
                   <i class="fas fa-search"></i>
@@ -337,7 +362,7 @@
               <button
                 class="btn btn-small"
                 id="toggleLibraryBtn"
-                title="Collapse/Expand"
+                data-i18n-title="collapse_expand"
               >
                 <i class="fas fa-chevron-up"></i>
               </button>
@@ -363,26 +388,24 @@
     <div class="modal" id="addKeyModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Add New Key</h3>
+          <h3 data-i18n="add_new_key"></h3>
           <button class="modal-close" data-modal="addKeyModal">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label for="newKeyName">Key Name:</label>
+            <label for="newKeyName" data-i18n="key_name"></label>
             <input
               type="text"
               id="newKeyName"
-              placeholder="e.g., F5, Ctrl+A, Shift+1"
+              data-i18n-placeholder="e_g_f5_ctrl_a_shift_1"
               autocomplete="off"
             />
-            <small
-              >Use standard key names like F1, Ctrl+A, Shift+Space, etc.</small
-            >
+            <small data-i18n="use_standard_key_names_like_f1_ctrl_a_shift_space_etc"></small>
           </div>
           <div class="common-keys">
-            <h4>Common Keys:</h4>
+            <h4 data-i18n="common_keys"></h4>
             <div class="key-suggestions">
               <button class="key-suggestion" data-key="F5">F5</button>
               <button class="key-suggestion" data-key="F6">F6</button>
@@ -398,10 +421,8 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="confirmAddKeyBtn">Add Key</button>
-          <button class="btn btn-secondary" data-modal="addKeyModal">
-            Cancel
-          </button>
+          <button class="btn btn-primary" id="confirmAddKeyBtn" data-i18n="add_key"></button>
+          <button class="btn btn-secondary" data-modal="addKeyModal" data-i18n="cancel"></button>
         </div>
       </div>
     </div>
@@ -410,26 +431,26 @@
     <div class="modal" id="addCommandModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Add Command</h3>
+          <h3 data-i18n="add_command"></h3>
           <button class="modal-close" data-modal="addCommandModal">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label for="commandType">Command Type:</label>
+            <label for="commandType" data-i18n="command_type"></label>
             <select id="commandType">
-              <option value="">Select command type...</option>
-              <option value="targeting">Targeting</option>
-              <option value="combat">Combat</option>
-              <option value="tray">Tray Execution</option>
-              <option value="power">Shield Management</option>
-              <option value="movement">Movement</option>
-              <option value="camera">Camera</option>
-              <option value="communication">Communication</option>
-              <option value="system">System</option>
-              <option value="alias">Alias</option>
-              <option value="custom">Custom Command</option>
+              <option value="" data-i18n="select_command_type"></option>
+              <option value="targeting" data-i18n="targeting"></option>
+              <option value="combat" data-i18n="combat"></option>
+              <option value="tray" data-i18n="tray_execution"></option>
+              <option value="power" data-i18n="shield_management"></option>
+              <option value="movement" data-i18n="movement"></option>
+              <option value="camera" data-i18n="camera"></option>
+              <option value="communication" data-i18n="communication"></option>
+              <option value="system" data-i18n="system"></option>
+              <option value="alias" data-i18n="alias"></option>
+              <option value="custom" data-i18n="custom_command"></option>
             </select>
           </div>
 
@@ -438,19 +459,13 @@
           </div>
 
           <div class="command-preview-modal">
-            <label>Generated Command:</label>
-            <div class="command-preview" id="modalCommandPreview">
-              Select a command type to see preview
-            </div>
+            <label data-i18n="generated_command"></label>
+            <div class="command-preview" id="modalCommandPreview" data-i18n="select_a_command_type_to_see_preview"></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="saveCommandBtn" disabled>
-            Add Command
-          </button>
-          <button class="btn btn-secondary" data-modal="addCommandModal">
-            Cancel
-          </button>
+          <button class="btn btn-primary" id="saveCommandBtn" disabled data-i18n="add_command"></button>
+          <button class="btn btn-secondary" data-modal="addCommandModal" data-i18n="cancel"></button>
         </div>
       </div>
     </div>
@@ -459,35 +474,33 @@
     <div class="modal" id="profileModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3 id="profileModalTitle">Profile</h3>
+          <h3 id="profileModalTitle" data-i18n="profile"></h3>
           <button class="modal-close" data-modal="profileModal">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label for="profileName">Profile Name:</label>
+            <label for="profileName" data-i18n="profile_name"></label>
             <input
               type="text"
               id="profileName"
-              placeholder="Enter profile name"
+              data-i18n-placeholder="enter_profile_name"
               autocomplete="off"
             />
           </div>
           <div class="form-group">
-            <label for="profileDescription">Description (optional):</label>
+            <label for="profileDescription" data-i18n="description_optional"></label>
             <textarea
               id="profileDescription"
-              placeholder="Describe this keybind profile"
+              data-i18n-placeholder="describe_this_keybind_profile"
               rows="3"
             ></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="saveProfileBtn">Save</button>
-          <button class="btn btn-secondary" data-modal="profileModal">
-            Cancel
-          </button>
+          <button class="btn btn-primary" id="saveProfileBtn" data-i18n="save"></button>
+          <button class="btn btn-secondary" data-modal="profileModal" data-i18n="cancel"></button>
         </div>
       </div>
     </div>
@@ -496,7 +509,7 @@
     <div class="modal large-modal" id="aliasManagerModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Command Alias Manager</h3>
+          <h3 data-i18n="command_alias_manager"></h3>
           <button class="modal-close" data-modal="aliasManagerModal">
             <i class="fas fa-times"></i>
           </button>
@@ -508,7 +521,8 @@
             </div>
             <div class="alias-actions">
               <button class="btn btn-primary" id="newAliasBtn">
-                <i class="fas fa-plus"></i> New Alias
+                <i class="fas fa-plus"></i>
+                <span data-i18n="new_alias"></span>
               </button>
             </div>
           </div>
@@ -520,68 +534,60 @@
     <div class="modal" id="editAliasModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3 id="editAliasTitle">Edit Alias</h3>
+          <h3 id="editAliasTitle" data-i18n="edit_alias"></h3>
           <button class="modal-close" data-modal="editAliasModal">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label for="aliasName">Alias Name:</label>
+            <label for="aliasName" data-i18n="alias_name"></label>
             <input
               type="text"
               id="aliasName"
-              placeholder="MyAlias"
+              data-i18n-placeholder="myalias"
               autocomplete="off"
             />
-            <small>Use alphanumeric characters only, no spaces</small>
+            <small data-i18n="use_alphanumeric_characters_only_no_spaces"></small>
           </div>
           <div class="form-group">
-            <label for="aliasDescription">Description:</label>
+            <label for="aliasDescription" data-i18n="description"></label>
             <input
               type="text"
               id="aliasDescription"
-              placeholder="Brief description of what this alias does"
+              data-i18n-placeholder="brief_description_of_what_this_alias_does"
               autocomplete="off"
             />
           </div>
           <div class="form-group">
-            <label for="aliasCommands">Commands:</label>
+            <label for="aliasCommands" data-i18n="commands"></label>
             <div class="textarea-with-button">
               <textarea
                 id="aliasCommands"
-                placeholder="Enter command sequence (use $$ to separate commands)"
+                data-i18n-placeholder="enter_command_sequence_use_to_separate_commands"
                 rows="4"
               ></textarea>
               <button
                 type="button"
                 class="btn btn-small insert-target-btn"
-                title="Insert $Target variable"
+                data-i18n-title="insert_target_variable"
               >
-                <i class="fas fa-crosshairs"></i> $Target
+                <i class="fas fa-crosshairs"></i> <span data-i18n="target"></span>
               </button>
             </div>
-            <small
-              >Example: target_self $$ +power_exec Science_Team $$ team Healing
-              [$Target]</small
-            >
+            <small data-i18n="example_target_self_power_exec_science_team_team_healing_target"></small>
             <div class="variable-help">
-              <strong>$Target</strong> - Use in communication commands to
-              include target name
+              <strong>$Target</strong> <span data-i18n="use_in_communication_commands_to_include_target_name"></span>
             </div>
           </div>
           <div class="alias-preview">
-            <label>Preview:</label>
-            <div class="command-preview" id="aliasPreview">
-              alias MyAlias "command sequence"
-            </div>
+            <label data-i18n="preview"></label>
+            <div class="command-preview" id="aliasPreview" data-i18n="alias_myalias_command_sequence"></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="saveAliasBtn">Save Alias</button>
-          <button class="btn btn-secondary" data-modal="editAliasModal">
-            Cancel
-          </button>
+          <button class="btn btn-primary" id="saveAliasBtn" data-i18n="save_alias"></button>
+          <button class="btn btn-secondary" data-modal="editAliasModal" data-i18n="cancel"></button>
         </div>
       </div>
     </div>
@@ -739,7 +745,7 @@
     <div class="modal" id="aboutModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>About STO Tools Keybind Manager</h3>
+          <h3 data-i18n="about_sto_tools_keybind_manager"></h3>
           <button class="modal-close" data-modal="aboutModal">
             <i class="fas fa-times"></i>
           </button>
@@ -748,7 +754,8 @@
           <div class="about-content">
             <div class="app-info">
               <h4>
-                <i class="fas fa-bolt"></i> STO Tools Keybind Manager
+                <i class="fas fa-bolt"></i>
+                <span data-i18n="sto_tools_keybind_manager"></span>
                 <span id="aboutVersion"></span>
               </h4>
               <p>
@@ -806,9 +813,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" data-modal="aboutModal">
-            Got it!
-          </button>
+          <button class="btn btn-primary" data-modal="aboutModal" data-i18n="got_it"></button>
         </div>
       </div>
     </div>
@@ -817,7 +822,7 @@
     <div class="modal large-modal" id="fileExplorerModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>File Explorer</h3>
+          <h3 data-i18n="file_explorer"></h3>
           <button class="modal-close" data-modal="fileExplorerModal">
             <i class="fas fa-times"></i>
           </button>
@@ -832,21 +837,18 @@
                 <button
                   class="btn btn-small"
                   id="copyFileContentBtn"
-                  title="Copy to Clipboard"
+                  data-i18n-title="copy_to_clipboard"
                 >
-                  <i class="fas fa-copy"></i> Copy
+                  <i class="fas fa-copy"></i>
+                  <span data-i18n="copy"></span>
                 </button>
               </div>
-              <pre class="file-content" id="fileContent">
-Select an item on the left to preview export</pre
-              >
+              <pre class="file-content" id="fileContent" data-i18n="select_an_item_on_the_left_to_preview_export"></pre>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" data-modal="fileExplorerModal">
-            Close
-          </button>
+          <button class="btn btn-secondary" data-modal="fileExplorerModal" data-i18n="close"></button>
         </div>
     </div>
   </div>
@@ -855,34 +857,34 @@ Select an item on the left to preview export</pre
     <div class="modal" id="exportModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Select Export Format</h3>
+          <h3 data-i18n="select_export_format"></h3>
           <button class="modal-close" data-modal="exportModal">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label for="exportFormat">Export As:</label>
+            <label for="exportFormat" data-i18n="export_as"></label>
             <select id="exportFormat">
-              <option value="sto_keybind">STO Keybind File (.txt)</option>
-              <option value="json_profile">JSON Profile (.json)</option>
-              <option value="json_project">Complete Project (.json)</option>
-              <option value="csv_data">CSV Data (.csv)</option>
-              <option value="html_report">HTML Report (.html)</option>
-              <option value="alias_file">Alias File (.txt)</option>
+              <option value="sto_keybind" data-i18n="sto_keybind_file_txt"></option>
+              <option value="json_profile" data-i18n="json_profile_json"></option>
+              <option value="json_project" data-i18n="complete_project_json"></option>
+              <option value="csv_data" data-i18n="csv_data_csv"></option>
+              <option value="html_report" data-i18n="html_report_html"></option>
+              <option value="alias_file" data-i18n="alias_file_txt"></option>
             </select>
           </div>
           <div class="form-group">
-            <label for="exportEnvironment">Environment:</label>
+            <label for="exportEnvironment" data-i18n="environment"></label>
             <select id="exportEnvironment">
-              <option value="space">Space</option>
-              <option value="ground">Ground</option>
+              <option value="space" data-i18n="space"></option>
+              <option value="ground" data-i18n="ground"></option>
             </select>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="confirmExportBtn">Export</button>
-          <button class="btn btn-secondary" data-modal="exportModal">Cancel</button>
+          <button class="btn btn-primary" id="confirmExportBtn" data-i18n="export"></button>
+          <button class="btn btn-secondary" data-modal="exportModal" data-i18n="cancel"></button>
         </div>
       </div>
     </div>

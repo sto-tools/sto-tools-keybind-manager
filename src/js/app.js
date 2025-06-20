@@ -1136,7 +1136,17 @@ export default class STOToolsKeybindManager {
     if (!this.selectedKey) {
       title.textContent = 'Select a key to edit'
       preview.textContent = 'Select a key to see the generated command'
-      if (commandCount) commandCount.textContent = '0 commands'
+      if (commandCount) {
+        // Update only the number part while preserving the internationalized text
+        const commandsSpan = commandCount.querySelector('[data-i18n="commands"]')
+        if (commandsSpan) {
+          // Use i18next to get the translated text and preserve the data-i18n attribute
+          const translatedText = typeof i18next !== 'undefined' ? i18next.t('commands') : 'commands'
+          commandCount.innerHTML = `0 <span data-i18n="commands">${translatedText}</span>`
+        } else {
+          commandCount.textContent = '0 commands'
+        }
+      }
       if (emptyState) emptyState.style.display = 'block'
       container.innerHTML =
         '<div class="empty-state" id="emptyState"><i class="fas fa-keyboard"></i><h4>No Key Selected</h4><p>Select a key from the left panel to view and edit its command chain.</p></div>'
@@ -1147,8 +1157,17 @@ export default class STOToolsKeybindManager {
     const commands = profile.keys[this.selectedKey] || []
 
     title.textContent = `Command Chain for ${this.selectedKey}`
-    if (commandCount)
-      commandCount.textContent = `${commands.length} command${commands.length !== 1 ? 's' : ''}`
+    if (commandCount) {
+      // Update only the number part while preserving the internationalized text
+      const commandsSpan = commandCount.querySelector('[data-i18n="commands"]')
+      if (commandsSpan) {
+        // Use i18next to get the translated text and preserve the data-i18n attribute
+        const translatedText = typeof i18next !== 'undefined' ? i18next.t('commands') : 'commands'
+        commandCount.innerHTML = `${commands.length} <span data-i18n="commands">${translatedText}</span>`
+      } else {
+        commandCount.textContent = `${commands.length} command${commands.length !== 1 ? 's' : ''}`
+      }
+    }
 
     if (commands.length === 0) {
       container.innerHTML = `

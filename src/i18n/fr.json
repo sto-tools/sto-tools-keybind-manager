@@ -156,5 +156,16 @@
   "clear_all_commands": "Effacer toutes les commandes",
   "copy_to_clipboard": "Copier dans le presse-papiers",
   "collapse_expand": "Réduire/Développer",
-  "insert_target_variable": "Insérer la variable $Target"
+  "insert_target_variable": "Insérer la variable $Target",
+  "sto_keybind_report": "Rapport de raccourcis STO",
+  "mode": "Mode :",
+  "generated": "Généré :",
+  "created_by": "Créé par :",
+  "statistics": "Statistiques",
+  "keys_bound": "Touches liées :",
+  "total_commands": "Total des commandes :",
+  "aliases_defined": "Alias définis :",
+  "no_keybinds_defined": "Aucun raccourci défini.",
+  "command_aliases": "Alias de commandes",
+  "report_footer": "Ce rapport a été généré par STO Tools Keybind Manager. Pour plus d'informations sur les raccourcis Star Trek Online, visitez le Wiki STO."
 }
