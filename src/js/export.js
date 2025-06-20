@@ -10,6 +10,7 @@ export default class STOExportManager {
       json_project: 'Complete Project (.json)',
       csv_data: 'CSV Data (.csv)',
       html_report: 'HTML Report (.html)',
+      alias_file: 'Alias File (.txt)',
     }
 
     // Don't initialize immediately - wait for app to be ready
@@ -56,10 +57,14 @@ export default class STOExportManager {
 
     const select = document.getElementById('exportFormat')
     const format = select ? select.value : 'sto_keybind'
+    const envSelect = document.getElementById('exportEnvironment')
+    const environment = envSelect
+      ? envSelect.value
+      : profile.mode || 'space'
 
     switch (format) {
       case 'sto_keybind':
-        this.exportSTOKeybindFile(profile)
+        this.exportSTOKeybindFile(profile, environment)
         break
       case 'json_profile':
         this.exportJSONProfile(profile)
@@ -73,6 +78,9 @@ export default class STOExportManager {
       case 'html_report':
         this.exportHTMLReport(profile)
         break
+      case 'alias_file':
+        this.exportAliases(profile, environment)
+        break
       default:
         break
     }
@@ -81,12 +89,12 @@ export default class STOExportManager {
   }
 
   // STO Keybind File Export
-  exportSTOKeybindFile(profile) {
+  exportSTOKeybindFile(profile, environment = profile.mode) {
     try {
-      const content = this.generateSTOKeybindFile(profile)
+      const content = this.generateSTOKeybindFile(profile, { environment })
       this.downloadFile(
         content,
-        this.generateFileName(profile, 'txt'),
+        this.generateFileName(profile, 'txt', environment),
         'text/plain'
       )
 
@@ -623,10 +631,9 @@ export default class STOExportManager {
   }
 
   // Utility Methods
-  generateFileName(profile, extension) {
+  generateFileName(profile, extension, environment = profile.mode || 'space') {
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
-    const environment = profile.mode || 'space' // Use mode for environment
     return `${safeName}_${environment}_${timestamp}.${extension}`
   }
 
@@ -729,12 +736,12 @@ export default class STOExportManager {
   }
 
   // Separate Alias Export
-  exportAliases(profile) {
+  exportAliases(profile, environment = profile.mode) {
     try {
       const content = this.generateAliasFile(profile)
       this.downloadFile(
         content,
-        this.generateAliasFileName(profile, 'txt'),
+        this.generateAliasFileName(profile, 'txt', environment),
         'text/plain'
       )
 
@@ -790,10 +797,13 @@ export default class STOExportManager {
     return content
   }
 
-  generateAliasFileName(profile, extension) {
+  generateAliasFileName(
+    profile,
+    extension,
+    environment = profile.mode || 'space'
+  ) {
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
-    const environment = profile.mode || 'space'
     return `${safeName}_aliases_${environment}_${timestamp}.${extension}`
   }
 }

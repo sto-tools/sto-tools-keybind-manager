@@ -895,11 +895,12 @@ describe('STOExportManager', () => {
     it('should handle different export formats', () => {
       const formats = exportManager.exportFormats
 
-      expect(Object.keys(formats)).toHaveLength(5)
+      expect(Object.keys(formats)).toHaveLength(6)
       expect(formats.sto_keybind).toContain('.txt')
       expect(formats.json_profile).toContain('.json')
       expect(formats.csv_data).toContain('.csv')
       expect(formats.html_report).toContain('.html')
+      expect(formats.alias_file).toContain('.txt')
     })
 
     it('should validate profile before export', () => {
@@ -935,6 +936,23 @@ describe('STOExportManager', () => {
       expect(spy).toHaveBeenCalledWith(app.getCurrentProfile())
       expect(stoUI.hideModal).toHaveBeenCalledWith('exportModal')
     })
+
+    it('should pass environment to keybind export', () => {
+      const format = document.getElementById('exportFormat')
+      format.value = 'sto_keybind'
+      const env = document.getElementById('exportEnvironment')
+      env.value = 'ground'
+
+      const spy = vi
+        .spyOn(exportManager, 'exportSTOKeybindFile')
+        .mockImplementation(() => {})
+      vi.spyOn(stoUI, 'hideModal').mockImplementation(() => {})
+
+      exportManager.performExport()
+
+      expect(spy).toHaveBeenCalledWith(app.getCurrentProfile(), 'ground')
+      expect(stoUI.hideModal).toHaveBeenCalledWith('exportModal')
+    })
   })
 
   describe('alias export functionality', () => {
@@ -966,7 +984,7 @@ describe('STOExportManager', () => {
         mode: 'space',
       }
 
-      const filename = exportManager.generateAliasFileName(profile, 'txt')
+      const filename = exportManager.generateAliasFileName(profile, 'txt', 'space')
 
       expect(filename).toContain('Test_Profile')
       expect(filename).toContain('aliases')
