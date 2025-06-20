@@ -2,6 +2,7 @@
 // Handles exporting keybinds and profiles in various formats
 import eventBus from './eventBus.js'
 import i18next from 'i18next'
+import { writeFile } from './sync.js'
 
 export default class STOExportManager {
   constructor() {
@@ -823,6 +824,52 @@ export default class STOExportManager {
     const timestamp = new Date().toISOString().split('T')[0]
     const environment = profile.mode || 'space'
     return `${safeName}_aliases_${environment}_${timestamp}.${extension}`
+  }
+
+  async syncToFolder(dirHandle) {
+    const data = stoStorage.getAllData()
+    const exportData = {
+      version: STO_DATA.settings.version,
+      exported: new Date().toISOString(),
+      type: 'project',
+      data,
+    }
+    await writeFile(dirHandle, 'project.json', JSON.stringify(exportData, null, 2))
+
+    const profiles = data.profiles || {}
+    for (const profile of Object.values(profiles)) {
+      const base = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
+      if (profile.builds?.space) {
+        const temp = {
+          name: profile.name,
+          mode: 'space',
+          keys: profile.builds.space.keys || {},
+        }
+        const content = this.generateSTOKeybindFile(temp, { environment: 'space' })
+        await writeFile(dirHandle, `${base}/${base}_space.txt`, content)
+      }
+      if (profile.builds?.ground) {
+        const temp = {
+          name: profile.name,
+          mode: 'ground',
+          keys: profile.builds.ground.keys || {},
+        }
+        const content = this.generateSTOKeybindFile(temp, { environment: 'ground' })
+        await writeFile(dirHandle, `${base}/${base}_ground.txt`, content)
+      }
+      const aliases = {
+        ...(profile.aliases || {}),
+        ...(profile.builds?.space?.aliases || {}),
+        ...(profile.builds?.ground?.aliases || {}),
+      }
+      const aliasProfile = {
+        name: profile.name,
+        mode: profile.currentEnvironment || 'space',
+        aliases,
+      }
+      const aliasContent = this.generateAliasFile(aliasProfile)
+      await writeFile(dirHandle, `${base}/${base}_aliases.txt`, aliasContent)
+    }
   }
 }
 
