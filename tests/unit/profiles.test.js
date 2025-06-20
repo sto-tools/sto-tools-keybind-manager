@@ -36,6 +36,8 @@ describe('STOProfileManager', () => {
       </div>
       <button id="importKeybindsBtn"></button>
       <button id="resetAppBtn"></button>
+      <button id="setSyncFolderBtn"></button>
+      <button id="syncNowBtn"></button>
       <button id="aboutBtn"></button>
       <input id="fileInput">
       <div id="profileModal">
@@ -83,6 +85,11 @@ describe('STOProfileManager', () => {
       hide: vi.fn(),
     }
 
+    global.stoSync = {
+      setSyncFolder: vi.fn(),
+      syncProject: vi.fn(),
+    }
+
     // Setup global objects
     global.app = mockApp
     global.stoStorage = mockStorage
@@ -103,6 +110,7 @@ describe('STOProfileManager', () => {
     delete global.stoStorage
     delete global.stoUI
     delete global.modalManager
+    delete global.stoSync
   })
 
   describe('Initialization and setup', () => {
@@ -113,6 +121,8 @@ describe('STOProfileManager', () => {
     it('should setup event listeners on init', () => {
       const profileSelect = document.getElementById('profileSelect')
       const newProfileBtn = document.getElementById('newProfileBtn')
+      const setSyncFolderBtn = document.getElementById('setSyncFolderBtn')
+      const syncNowBtn = document.getElementById('syncNowBtn')
 
       expect(profileSelect).toBeTruthy()
       expect(newProfileBtn).toBeTruthy()
@@ -120,6 +130,12 @@ describe('STOProfileManager', () => {
       // Test that event listeners are attached by triggering events
       newProfileBtn.click()
       expect(modalManager.show).toHaveBeenCalledWith('profileModal')
+
+      setSyncFolderBtn.click()
+      expect(global.stoSync.setSyncFolder).toHaveBeenCalled()
+
+      syncNowBtn.click()
+      expect(global.stoSync.syncProject).toHaveBeenCalled()
     })
 
     it('should handle missing DOM elements gracefully', () => {

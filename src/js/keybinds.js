@@ -540,10 +540,6 @@ export default class STOKeybindFileManager {
           ) {
             shouldStabilize =
               !!profile.keybindMetadata[env][key].stabilizeExecutionOrder
-          } else if (profile.keybindMetadata[key]) {
-            // Legacy flat structure
-            shouldStabilize =
-              !!profile.keybindMetadata[key].stabilizeExecutionOrder
           }
         }
 
@@ -553,10 +549,8 @@ export default class STOKeybindFileManager {
           commandString = commands.map((cmd) => cmd.command).join(' $$ ')
         }
 
-        // Export with optional parameter format for compatibility (empty second parameter)
         output += `${key} "${commandString}" ""\n`
       } else {
-        // Export empty keybinds with the two-parameter format
         output += `${key} "" ""\n`
       }
     })

@@ -16,6 +16,7 @@ import STOModalManager from './modalManager.js'
 import STOUIManager from './ui.js'
 import STOCommandManager from './commands.js'
 import STOFileExplorer from './fileexplorer.js'
+import STOSyncManager from './sync.js'
 import VertigoManager, { VFX_EFFECTS } from './vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './version.js'
@@ -94,6 +95,7 @@ const stoUI = new STOUIManager()
 const stoCommands = new STOCommandManager()
 const stoFileExplorer = new STOFileExplorer()
 const vertigoManager = new VertigoManager()
+const stoSync = new STOSyncManager(stoStorage)
 Object.assign(window, {
   stoStorage,
   stoProfiles,
@@ -105,6 +107,7 @@ Object.assign(window, {
   stoCommands,
   stoFileExplorer,
   vertigoManager,
+  stoSync,
   VFX_EFFECTS,
   VERTIGO_EFFECTS: VFX_EFFECTS,
 })

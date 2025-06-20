@@ -92,6 +92,32 @@ export default class STOProfileManager {
       this.closeSettingsMenu()
     })
 
+    // Settings dropdown sync buttons - with element existence check
+    const setSyncFolderBtn = document.getElementById('setSyncFolderBtn')
+    if (!setSyncFolderBtn) {
+      console.warn('setSyncFolderBtn element not found in DOM during event listener setup')
+      
+      // Retry after a short delay in case DOM is still loading
+      setTimeout(() => {
+        const retryBtn = document.getElementById('setSyncFolderBtn')
+        if (retryBtn) {
+          console.log('setSyncFolderBtn found on retry, setting up event listener')
+          this.setupSyncFolderEventListener()
+        } else {
+          console.error('setSyncFolderBtn still not found after retry')
+        }
+      }, 1000)
+    } else {
+      console.log('setSyncFolderBtn element found, setting up event listener')
+    }
+    
+    this.setupSyncFolderEventListener()
+
+    eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
+      stoSync.syncProject()
+      this.closeSettingsMenu()
+    })
+
     eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
       modalManager.show('aboutModal')
     })
@@ -988,6 +1014,47 @@ export default class STOProfileManager {
       stoUI.showToast('Failed to import profile: ' + error.message, 'error')
       return false
     }
+  }
+
+  setupSyncFolderEventListener() {
+    eventBus.onDom('setSyncFolderBtn', 'click', 'set-sync-folder', () => {
+      console.log('setSyncFolderBtn clicked - starting debug...')
+      
+      // Check if stoSync is available
+      if (typeof stoSync === 'undefined') {
+        console.error('stoSync is not available')
+        stoUI.showToast('Sync functionality not available', 'error')
+        return
+      }
+      
+      // Check if File System Access API is supported
+      if (!window.showDirectoryPicker) {
+        console.error('File System Access API not supported')
+        stoUI.showToast('File System Access API not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser.', 'error')
+        return
+      }
+      
+      console.log('Calling stoSync.setSyncFolder()...')
+      
+      try {
+        stoSync.setSyncFolder().then(result => {
+          console.log('setSyncFolder completed with result:', result)
+          if (result) {
+            console.log('Sync folder set successfully')
+          } else {
+            console.log('setSyncFolder returned null (likely user cancelled)')
+          }
+        }).catch(error => {
+          console.error('Error in setSyncFolder:', error)
+          // Error is already handled in STOSyncManager.setSyncFolder()
+        })
+      } catch (error) {
+        console.error('Synchronous error calling setSyncFolder:', error)
+        stoUI.showToast('Error setting sync folder: ' + error.message, 'error')
+      }
+      
+      this.closeSettingsMenu()
+    })
   }
 }
 

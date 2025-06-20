@@ -37,6 +37,7 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-prettier": "^5.5.0",
     "eslint-plugin-promise": "^6.6.0",
+    "fsa-mock": "^1.0.0",
     "happy-dom": "^18.0.1",
     "http-server": "^14.1.1",
     "jsdom": "^23.0.1",

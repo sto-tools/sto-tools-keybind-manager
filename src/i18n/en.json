@@ -13,6 +13,8 @@
   "dark_mode": "Dark Mode",
   "load_default_data": "Load Default Data",
   "reset_application": "Reset Application",
+  "set_sync_folder": "Set Sync Folder",
+  "sync_now": "Sync Now",
   "about": "About",
   "new": "New",
   "clone": "Clone",
@@ -494,5 +496,11 @@
   "no_profiles_to_export": "No profiles to export",
   "exporting_profiles": "Exporting {{count}} profiles...",
   "aliases_exported_successfully": "Aliases exported successfully",
-  "failed_to_export_aliases": "Failed to export aliases: {{error}}"
+  "failed_to_export_aliases": "Failed to export aliases: {{error}}",
+  "sync_folder_set": "Sync folder selected",
+  "failed_to_set_sync_folder": "Failed to select sync folder: {{error}}",
+  "no_sync_folder_selected": "No sync folder selected",
+  "project_synced_successfully": "Project synchronized successfully",
+  "permission_denied_to_folder": "Permission denied to write to folder",
+  "failed_to_sync_project": "Failed to sync project: {{error}}"
 }

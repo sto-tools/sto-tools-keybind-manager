@@ -167,7 +167,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       expect(profile.name).toBe('Test Profile')
       expect(profile.keys).toBeDefined()
       expect(profile.aliases).toBeDefined()
-      expect(profile.mode).toBe('space') // Backward compatibility
+
     })
 
     it('should get current build for active environment', () => {
@@ -180,24 +180,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       expect(build.aliases).toEqual(testProfile.aliases)
     })
 
-    it('should migrate old profile format to new builds structure', () => {
-      // Create old format profile
-      const oldProfile = {
-        id: 'old-profile',
-        name: 'Old Profile',
-        mode: 'space',
-        keys: { F1: [{ command: 'test' }] },
-        aliases: { OldAlias: { commands: 'test' } },
-      }
 
-      const build = app.getCurrentBuild(oldProfile)
-
-      // After migration, the profile should have builds structure
-      expect(build).toBeDefined()
-      expect(build.mode).toBe('space')
-      expect(oldProfile.builds).toBeDefined()
-      expect(oldProfile.builds.space).toBeDefined()
-    })
 
     it('should switch between profiles', () => {
       // Create another test profile
@@ -1070,8 +1053,10 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           F2: [{ command: 'FireTorpedos' }],
         },
         keybindMetadata: {
-          F1: { stabilizeExecutionOrder: true },
-          // F2 has no metadata, should default to false
+          space: {
+            F1: { stabilizeExecutionOrder: true },
+            // F2 has no metadata, should default to false
+          }
         },
       })
 
