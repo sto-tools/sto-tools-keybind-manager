@@ -167,5 +167,332 @@
   "aliases_defined": "Alias definidos:",
   "no_keybinds_defined": "No hay atajos de teclado definidos.",
   "command_aliases": "Alias de comandos",
-  "report_footer": "Este reporte fue generado por STO Tools Keybind Manager. Para más información sobre atajos de teclado de Star Trek Online, visita el Wiki de STO."
+  "report_footer": "Este reporte fue generado por STO Tools Keybind Manager. Para más información sobre atajos de teclado de Star Trek Online, visita el Wiki de STO.",
+  "command_categories": {
+    "targeting": "Selección de objetivos",
+    "combat": "Combate",
+    "tray": "Ejecución de bandeja",
+    "power": "Gestión de escudos",
+    "movement": "Movimiento",
+    "camera": "Cámara",
+    "communication": "Comunicación",
+    "system": "Sistema"
+  },
+  "command_definitions": {
+    "target": {
+      "name": "Apuntar por nombre",
+      "description": "Apuntar entidad por nombre (requiere comillas)"
+    },
+    "target_enemy_near": {
+      "name": "Apuntar enemigo más cercano",
+      "description": "Apuntar al enemigo más cercano visible"
+    },
+    "target_friend_near": {
+      "name": "Apuntar aliado más cercano",
+      "description": "Apuntar a la entidad aliada más cercana"
+    },
+    "target_self": {
+      "name": "Apuntarse a sí mismo",
+      "description": "Apuntar a tu propia nave/personaje"
+    },
+    "target_clear": {
+      "name": "Limpiar objetivo",
+      "description": "Eliminar el bloqueo de objetivo actual"
+    },
+    "target_teammate_1": {
+      "name": "Apuntar compañero 1",
+      "description": "Apuntar al primer miembro del equipo"
+    },
+    "target_teammate_2": {
+      "name": "Apuntar compañero 2",
+      "description": "Apuntar al segundo miembro del equipo"
+    },
+    "target_teammate_3": {
+      "name": "Apuntar compañero 3",
+      "description": "Apuntar al tercer miembro del equipo"
+    },
+    "target_teammate_4": {
+      "name": "Apuntar compañero 4",
+      "description": "Apuntar al cuarto miembro del equipo"
+    },
+    "fire_all": {
+      "name": "Disparar todas las armas",
+      "description": "Disparar todas las armas"
+    },
+    "fire_phasers": {
+      "name": "Disparar armas de energía",
+      "description": "Disparar todas las armas de energía"
+    },
+    "fire_torps": {
+      "name": "Disparar torpedos",
+      "description": "Disparar todos los torpedos"
+    },
+    "fire_mines": {
+      "name": "Disparar minas",
+      "description": "Disparar todas las minas"
+    },
+    "fire_phasers_torps": {
+      "name": "Disparar phasers y torpedos",
+      "description": "Disparar phasers y torpedos"
+    },
+    "fire_projectiles": {
+      "name": "Disparar proyectiles",
+      "description": "Disparar torpedos y minas"
+    },
+    "custom_tray": {
+      "name": "Ejecución de bandeja",
+      "description": "Ejecutar ranura específica de bandeja"
+    },
+    "tray_with_backup": {
+      "name": "Ejecución de bandeja con respaldo",
+      "description": "Ejecutar ranura específica de bandeja con habilidad de respaldo"
+    },
+    "tray_range": {
+      "name": "Ejecución de rango de bandeja",
+      "description": "Ejecutar un rango de ranuras de bandeja"
+    },
+    "tray_range_with_backup": {
+      "name": "Rango de bandeja con respaldo",
+      "description": "Ejecutar un rango de ranuras de bandeja con habilidades de respaldo"
+    },
+    "whole_tray": {
+      "name": "Ejecución de bandeja completa",
+      "description": "Ejecutar todas las ranuras de una bandeja"
+    },
+    "whole_tray_with_backup": {
+      "name": "Bandeja completa con respaldo",
+      "description": "Ejecutar todas las ranuras de una bandeja con bandeja de respaldo"
+    },
+    "distribute_shields": {
+      "name": "Distribuir escudos",
+      "description": "Distribuye uniformemente los escudos como si hicieras clic en el medio del ícono de nave y escudos"
+    },
+    "reroute_shields_rear": {
+      "name": "Redirigir escudos traseros",
+      "description": "Redirigir energía de escudos hacia atrás"
+    },
+    "reroute_shields_left": {
+      "name": "Redirigir escudos izquierdos",
+      "description": "Redirigir energía de escudos hacia la izquierda"
+    },
+    "reroute_shields_right": {
+      "name": "Redirigir escudos derechos",
+      "description": "Redirigir energía de escudos hacia la derecha"
+    },
+    "reroute_shields_forward": {
+      "name": "Redirigir escudos delanteros",
+      "description": "Redirigir energía de escudos hacia adelante"
+    },
+    "full_impulse": {
+      "name": "Impulso completo",
+      "description": "Activar motor de impulso completo"
+    },
+    "reverse": {
+      "name": "Reversa",
+      "description": "Motores en reversa"
+    },
+    "throttle_adjust": {
+      "name": "Ajustar acelerador",
+      "description": "Aumentar o disminuir el acelerador por cantidad"
+    },
+    "throttle_set": {
+      "name": "Establecer acelerador",
+      "description": "Establecer el acelerador a una posición específica (negativo = reversa, 0 = parar)"
+    },
+    "throttle_toggle": {
+      "name": "Alternar acelerador",
+      "description": "Alternar entre acelerador completo y parada completa"
+    },
+    "turn_left": {
+      "name": "Girar izquierda",
+      "description": "Girar nave a la izquierda (continuo mientras se mantiene)"
+    },
+    "turn_right": {
+      "name": "Girar derecha",
+      "description": "Girar nave a la derecha (continuo mientras se mantiene)"
+    },
+    "pitch_up": {
+      "name": "Cabecear arriba",
+      "description": "Cabecear nariz de nave hacia arriba (cambio de altitud espacial)"
+    },
+    "pitch_down": {
+      "name": "Cabecear abajo",
+      "description": "Cabecear nariz de nave hacia abajo (cambio de altitud espacial)"
+    },
+    "strafe_left": {
+      "name": "Desplazamiento lateral izquierdo",
+      "description": "Desplazar nave lateralmente a la izquierda"
+    },
+    "strafe_right": {
+      "name": "Desplazamiento lateral derecho",
+      "description": "Desplazar nave lateralmente a la derecha"
+    },
+    "forward": {
+      "name": "Adelante",
+      "description": "Moverse adelante"
+    },
+    "backward": {
+      "name": "Atrás",
+      "description": "Moverse atrás"
+    },
+    "auto_forward": {
+      "name": "Avance automático",
+      "description": "El personaje se mueve adelante hasta que se den nuevos comandos de movimiento"
+    },
+    "follow": {
+      "name": "Seguir objetivo",
+      "description": "Seguir a la entidad objetivo"
+    },
+    "follow_cancel": {
+      "name": "Cancelar seguimiento",
+      "description": "Dejar de seguir y olvidar el objetivo"
+    },
+    "zoom_in": {
+      "name": "Acercar zoom",
+      "description": "Acercar la cámara"
+    },
+    "zoom_out": {
+      "name": "Alejar zoom",
+      "description": "Alejar la cámara"
+    },
+    "zoom_in_small": {
+      "name": "Acercar zoom ligeramente",
+      "description": "Acercar la cámara ligeramente"
+    },
+    "zoom_out_small": {
+      "name": "Alejar zoom ligeramente",
+      "description": "Alejar la cámara ligeramente"
+    },
+    "cam_distance": {
+      "name": "Establecer distancia de cámara",
+      "description": "Establecer la distancia de la cámara del jugador"
+    },
+    "cam_reset": {
+      "name": "Reiniciar cámara",
+      "description": "Reiniciar la posición de la cámara por defecto"
+    },
+    "cam_target_lock": {
+      "name": "Bloquear cámara al objetivo",
+      "description": "Bloquear o desbloquear la cámara al objetivo"
+    },
+    "cam_cycle_distance": {
+      "name": "Alternar distancia de cámara",
+      "description": "Alternar la distancia de la cámara entre varios valores preestablecidos"
+    },
+    "cam_mouse_look": {
+      "name": "Vista de ratón",
+      "description": "Activar control de cámara con vista de ratón"
+    },
+    "cam_turn_to_face": {
+      "name": "Girar hacia la cámara",
+      "description": "Girar nave para mirar hacia la dirección de la cámara"
+    },
+    "look_up": {
+      "name": "Mirar arriba",
+      "description": "Cambiar punto de vista para mirar directamente arriba"
+    },
+    "look_down": {
+      "name": "Mirar abajo",
+      "description": "Cambiar punto de vista para mirar directamente abajo"
+    },
+    "team_message": {
+      "name": "Mensaje de equipo",
+      "description": "Enviar mensaje al equipo"
+    },
+    "local_message": {
+      "name": "Mensaje local",
+      "description": "Enviar mensaje al área local"
+    },
+    "zone_message": {
+      "name": "Mensaje de zona",
+      "description": "Enviar mensaje a la zona"
+    },
+    "toggle_hud": {
+      "name": "Alternar HUD",
+      "description": "Alternar visibilidad del HUD"
+    },
+    "screenshot": {
+      "name": "Captura de pantalla",
+      "description": "Tomar una captura de pantalla"
+    },
+    "screenshot_jpg": {
+      "name": "Captura de pantalla JPG",
+      "description": "Guardar una captura de pantalla como JPG"
+    },
+    "autofire_toggle": {
+      "name": "Alternar disparo automático",
+      "description": "Alternar disparo automático de armas"
+    },
+    "bind_save_file": {
+      "name": "Guardar atajos a archivo",
+      "description": "Guardar todos tus atajos en un archivo de texto"
+    },
+    "bind_load_file": {
+      "name": "Cargar atajos desde archivo",
+      "description": "Cargar un archivo de atajos en el cliente"
+    },
+    "combat_log": {
+      "name": "Alternar registro de combate",
+      "description": "Activar/desactivar grabación del registro de combate (1=activado, 0=desactivado)"
+    },
+    "missions": {
+      "name": "Mostrar/Ocultar misiones",
+      "description": "Mostrar/ocultar el diario de misiones"
+    },
+    "inventory": {
+      "name": "Mostrar/Ocultar inventario",
+      "description": "Mostrar/ocultar tu inventario"
+    },
+    "map": {
+      "name": "Mostrar/Ocultar mapa",
+      "description": "Mostrar/ocultar la ventana del mapa"
+    }
+  },
+  "category_descriptions": {
+    "targeting": "Selección y gestión de objetivos",
+    "combat": "Disparo de armas y acciones de combate",
+    "tray": "Ejecutar habilidades desde bandejas de acción",
+    "power": "Gestión de energía y distribución de escudos",
+    "movement": "Movimiento y navegación de nave",
+    "camera": "Control de cámara y gestión de vista",
+    "communication": "Chat y comunicación de equipo",
+    "system": "Comandos de UI y sistema"
+  },
+  "no_aliases": "Sin alias",
+  "create_aliases_hint": "Crea alias de comandos para simplificar secuencias de comandos complejas.",
+  "alias_deleted": "Alias \"{{alias}}\" eliminado",
+  "please_select_a_key_first": "Por favor selecciona una tecla primero",
+  "alias_added_to_key": "Alias \"{{alias}}\" agregado a {{key}}",
+  "no_active_profile": "Sin perfil activo",
+  "alias_exists": "Ya existe un alias con este nombre",
+  "alias_template_exists": "El alias \"{{alias}}\" ya existe",
+  "alias_created_from_template": "Alias \"{{alias}}\" creado desde plantilla",
+  "template_not_found": "Plantilla no encontrada",
+  "alias_not_found": "Alias no encontrado",
+  "alias_created": "Alias \"{{alias}}\" creado",
+  "alias_updated": "Alias \"{{alias}}\" actualizado",
+  "no_profile_selected_for_import": "Ningún perfil seleccionado para importar",
+  "no_keybinds_found_in_file": "No se encontraron atajos en el archivo",
+  "import_failed": "Importación falló: {{error}}",
+  "no_aliases_found_in_file": "No se encontraron alias en el archivo",
+  "failed_to_get_profile_for_import": "Falló al obtener perfil para importar",
+  "import_completed_keybinds": "Importación completada: {{count}} atajos",
+  "import_completed_keybinds_with_aliases": "Importación completada: {{keyCount}} atajos ({{aliasCount}} alias ignorados - usa Importar Alias)",
+  "import_completed_aliases": "Importación completada: {{count}} alias",
+  "no_profile_selected_to_export": "Ningún perfil seleccionado para exportar",
+  "keybind_file_exported": "Archivo de atajos exportado exitosamente",
+  "failed_to_export_keybind_file": "Falló al exportar archivo de atajos: {{error}}",
+  "profile_exported_json": "Perfil exportado como JSON",
+  "failed_to_export_profile": "Falló al exportar perfil: {{error}}",
+  "complete_project_exported": "Proyecto completo exportado",
+  "failed_to_export_project": "Falló al exportar proyecto: {{error}}",
+  "data_exported_csv": "Datos exportados como CSV",
+  "failed_to_export_csv": "Falló al exportar CSV: {{error}}",
+  "html_report_exported": "Reporte HTML exportado",
+  "failed_to_export_html_report": "Falló al exportar reporte HTML: {{error}}",
+  "no_command_to_copy": "Ningún comando para copiar",
+  "no_profiles_to_export": "Ningún perfil para exportar",
+  "exporting_profiles": "Exportando {{count}} perfiles...",
+  "aliases_exported_successfully": "Alias exportados exitosamente",
+  "failed_to_export_aliases": "Falló al exportar alias: {{error}}"
 }

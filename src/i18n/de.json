@@ -167,5 +167,332 @@
   "aliases_defined": "Definierte Aliase:",
   "no_keybinds_defined": "Keine Keybinds definiert.",
   "command_aliases": "Befehlsaliase",
-  "report_footer": "Dieser Bericht wurde vom STO Tools Keybind Manager generiert. Für weitere Informationen über Star Trek Online Keybinds besuchen Sie das STO Wiki."
+  "report_footer": "Dieser Bericht wurde vom STO Tools Keybind Manager generiert. Für weitere Informationen über Star Trek Online Keybinds besuchen Sie das STO Wiki.",
+  "command_categories": {
+    "targeting": "Zielerfassung",
+    "combat": "Kampf",
+    "tray": "Tray-Ausführung",
+    "power": "Schildverwaltung",
+    "movement": "Bewegung",
+    "camera": "Kamera",
+    "communication": "Kommunikation",
+    "system": "System"
+  },
+  "command_definitions": {
+    "target": {
+      "name": "Ziel nach Name",
+      "description": "Ziel nach Namen anvisieren (benötigt Anführungszeichen)"
+    },
+    "target_enemy_near": {
+      "name": "Nächsten Feind anvisieren",
+      "description": "Den nächsten sichtbaren Feind anvisieren"
+    },
+    "target_friend_near": {
+      "name": "Nächsten Verbündeten anvisieren",
+      "description": "Die nächste befreundete Einheit anvisieren"
+    },
+    "target_self": {
+      "name": "Sich selbst anvisieren",
+      "description": "Das eigene Schiff/den eigenen Charakter anvisieren"
+    },
+    "target_clear": {
+      "name": "Ziel aufheben",
+      "description": "Aktuelle Zielerfassung aufheben"
+    },
+    "target_teammate_1": {
+      "name": "Teammitglied 1 anvisieren",
+      "description": "Erstes Teammitglied anvisieren"
+    },
+    "target_teammate_2": {
+      "name": "Teammitglied 2 anvisieren",
+      "description": "Zweites Teammitglied anvisieren"
+    },
+    "target_teammate_3": {
+      "name": "Teammitglied 3 anvisieren",
+      "description": "Drittes Teammitglied anvisieren"
+    },
+    "target_teammate_4": {
+      "name": "Teammitglied 4 anvisieren",
+      "description": "Viertes Teammitglied anvisieren"
+    },
+    "fire_all": {
+      "name": "Alle Waffen feuern",
+      "description": "Alle Waffen feuern"
+    },
+    "fire_phasers": {
+      "name": "Energiewaffen feuern",
+      "description": "Alle Energiewaffen feuern"
+    },
+    "fire_torps": {
+      "name": "Torpedos feuern",
+      "description": "Alle Torpedos feuern"
+    },
+    "fire_mines": {
+      "name": "Minen feuern",
+      "description": "Alle Minen feuern"
+    },
+    "fire_phasers_torps": {
+      "name": "Phaser & Torpedos feuern",
+      "description": "Phaser & Torpedos feuern"
+    },
+    "fire_projectiles": {
+      "name": "Projektile feuern",
+      "description": "Torpedos & Minen feuern"
+    },
+    "custom_tray": {
+      "name": "Tray-Ausführung",
+      "description": "Bestimmten Tray-Slot ausführen"
+    },
+    "tray_with_backup": {
+      "name": "Tray-Ausführung mit Backup",
+      "description": "Bestimmten Tray-Slot mit Backup-Fähigkeit ausführen"
+    },
+    "tray_range": {
+      "name": "Tray-Bereich-Ausführung",
+      "description": "Einen Bereich von Tray-Slots ausführen"
+    },
+    "tray_range_with_backup": {
+      "name": "Tray-Bereich mit Backup",
+      "description": "Einen Bereich von Tray-Slots mit Backup-Fähigkeiten ausführen"
+    },
+    "whole_tray": {
+      "name": "Gesamtes Tray ausführen",
+      "description": "Alle Slots in einem Tray ausführen"
+    },
+    "whole_tray_with_backup": {
+      "name": "Gesamtes Tray mit Backup",
+      "description": "Alle Slots in einem Tray mit Backup-Tray ausführen"
+    },
+    "distribute_shields": {
+      "name": "Schilde verteilen",
+      "description": "Schilde gleichmäßig verteilen, als würde man in die Mitte des Schiff- und Schildsymbols klicken"
+    },
+    "reroute_shields_rear": {
+      "name": "Schilde nach hinten umleiten",
+      "description": "Schildenergie zur Heckseite umleiten"
+    },
+    "reroute_shields_left": {
+      "name": "Schilde nach links umleiten",
+      "description": "Schildenergie zur linken Seite umleiten"
+    },
+    "reroute_shields_right": {
+      "name": "Schilde nach rechts umleiten",
+      "description": "Schildenergie zur rechten Seite umleiten"
+    },
+    "reroute_shields_forward": {
+      "name": "Schilde nach vorne umleiten",
+      "description": "Schildenergie zur Bugseite umleiten"
+    },
+    "full_impulse": {
+      "name": "Vollimpuls",
+      "description": "Vollimpulsantrieb einschalten"
+    },
+    "reverse": {
+      "name": "Rückwärts",
+      "description": "Triebwerke rückwärts"
+    },
+    "throttle_adjust": {
+      "name": "Schub anpassen",
+      "description": "Schub um Betrag erhöhen oder verringern"
+    },
+    "throttle_set": {
+      "name": "Schub setzen",
+      "description": "Schub auf bestimmte Position setzen (negativ = rückwärts, 0 = stopp)"
+    },
+    "throttle_toggle": {
+      "name": "Schub umschalten",
+      "description": "Zwischen Vollschub und Vollstopp wechseln"
+    },
+    "turn_left": {
+      "name": "Links drehen",
+      "description": "Schiff nach links drehen (kontinuierlich während gehalten)"
+    },
+    "turn_right": {
+      "name": "Rechts drehen",
+      "description": "Schiff nach rechts drehen (kontinuierlich während gehalten)"
+    },
+    "pitch_up": {
+      "name": "Aufwärts neigen",
+      "description": "Schiffsnase nach oben neigen (Höhenänderung im Weltraum)"
+    },
+    "pitch_down": {
+      "name": "Abwärts neigen",
+      "description": "Schiffsnase nach unten neigen (Höhenänderung im Weltraum)"
+    },
+    "strafe_left": {
+      "name": "Links seitlich bewegen",
+      "description": "Schiff nach links seitlich bewegen"
+    },
+    "strafe_right": {
+      "name": "Rechts seitlich bewegen",
+      "description": "Schiff nach rechts seitlich bewegen"
+    },
+    "forward": {
+      "name": "Vorwärts",
+      "description": "Vorwärts bewegen"
+    },
+    "backward": {
+      "name": "Rückwärts",
+      "description": "Rückwärts bewegen"
+    },
+    "auto_forward": {
+      "name": "Auto-Vorwärts",
+      "description": "Charakter bewegt sich vorwärts bis neue Bewegungsbefehle gegeben werden"
+    },
+    "follow": {
+      "name": "Ziel folgen",
+      "description": "Der anvisierten Einheit folgen"
+    },
+    "follow_cancel": {
+      "name": "Folgen abbrechen",
+      "description": "Aufhören zu folgen und Ziel vergessen"
+    },
+    "zoom_in": {
+      "name": "Hineinzoomen",
+      "description": "Kamera hineinzoomen"
+    },
+    "zoom_out": {
+      "name": "Herauszoomen",
+      "description": "Kamera herauszoomen"
+    },
+    "zoom_in_small": {
+      "name": "Leicht hineinzoomen",
+      "description": "Kamera leicht hineinzoomen"
+    },
+    "zoom_out_small": {
+      "name": "Leicht herauszoomen",
+      "description": "Kamera leicht herauszoomen"
+    },
+    "cam_distance": {
+      "name": "Kameraentfernung setzen",
+      "description": "Kameraentfernung vom Spieler setzen"
+    },
+    "cam_reset": {
+      "name": "Kamera zurücksetzen",
+      "description": "Kameraposition auf Standard zurücksetzen"
+    },
+    "cam_target_lock": {
+      "name": "Kamera an Ziel fixieren",
+      "description": "Kamera am Ziel fixieren oder lösen"
+    },
+    "cam_cycle_distance": {
+      "name": "Kameraentfernung wechseln",
+      "description": "Kameraentfernung zwischen mehreren voreingestellten Werten wechseln"
+    },
+    "cam_mouse_look": {
+      "name": "Maus-Blick",
+      "description": "Maus-Blick-Kamerasteuerung aktivieren"
+    },
+    "cam_turn_to_face": {
+      "name": "Zur Kamera drehen",
+      "description": "Schiff in Kamerarichtung drehen"
+    },
+    "look_up": {
+      "name": "Nach oben blicken",
+      "description": "Blickwinkel ändern um geradeaus nach oben zu blicken"
+    },
+    "look_down": {
+      "name": "Nach unten blicken",
+      "description": "Blickwinkel ändern um geradeaus nach unten zu blicken"
+    },
+    "team_message": {
+      "name": "Team-Nachricht",
+      "description": "Nachricht an Team senden"
+    },
+    "local_message": {
+      "name": "Lokale Nachricht",
+      "description": "Nachricht an lokalen Bereich senden"
+    },
+    "zone_message": {
+      "name": "Zonen-Nachricht",
+      "description": "Nachricht an Zone senden"
+    },
+    "toggle_hud": {
+      "name": "HUD umschalten",
+      "description": "HUD-Sichtbarkeit umschalten"
+    },
+    "screenshot": {
+      "name": "Screenshot",
+      "description": "Einen Screenshot machen"
+    },
+    "screenshot_jpg": {
+      "name": "Screenshot JPG",
+      "description": "Einen Screenshot als JPG speichern"
+    },
+    "autofire_toggle": {
+      "name": "Autofeuer umschalten",
+      "description": "Waffen-Autofeuer umschalten"
+    },
+    "bind_save_file": {
+      "name": "Binds in Datei speichern",
+      "description": "Alle Binds in eine Textdatei speichern"
+    },
+    "bind_load_file": {
+      "name": "Binds aus Datei laden",
+      "description": "Eine Bind-Datei in den Client laden"
+    },
+    "combat_log": {
+      "name": "Kampflog umschalten",
+      "description": "Kampflog-Aufzeichnung ein-/ausschalten (1=ein, 0=aus)"
+    },
+    "missions": {
+      "name": "Missionen anzeigen/verbergen",
+      "description": "Missionstagebuch anzeigen/verbergen"
+    },
+    "inventory": {
+      "name": "Inventar anzeigen/verbergen",
+      "description": "Inventar anzeigen/verbergen"
+    },
+    "map": {
+      "name": "Karte anzeigen/verbergen",
+      "description": "Kartenfenster anzeigen/verbergen"
+    }
+  },
+  "category_descriptions": {
+    "targeting": "Zielauswahl und -verwaltung",
+    "combat": "Waffenfeuer und Kampfaktionen",
+    "tray": "Fähigkeiten aus Aktions-Trays ausführen",
+    "power": "Schildenergie und Verteilungsverwaltung",
+    "movement": "Schiffsbewegung und Navigation",
+    "camera": "Kamerasteuerung und Ansichtsverwaltung",
+    "communication": "Chat und Teamkommunikation",
+    "system": "UI- und Systembefehle"
+  },
+  "no_aliases": "Keine Aliase",
+  "create_aliases_hint": "Erstellen Sie Befehlsaliase um komplexe Befehlssequenzen zu vereinfachen.",
+  "alias_deleted": "Alias \"{{alias}}\" gelöscht",
+  "please_select_a_key_first": "Bitte wählen Sie zuerst eine Taste",
+  "alias_added_to_key": "Alias \"{{alias}}\" zu {{key}} hinzugefügt",
+  "no_active_profile": "Kein aktives Profil",
+  "alias_exists": "Ein Alias mit diesem Namen existiert bereits",
+  "alias_template_exists": "Alias \"{{alias}}\" existiert bereits",
+  "alias_created_from_template": "Alias \"{{alias}}\" aus Vorlage erstellt",
+  "template_not_found": "Vorlage nicht gefunden",
+  "alias_not_found": "Alias nicht gefunden",
+  "alias_created": "Alias \"{{alias}}\" erstellt",
+  "alias_updated": "Alias \"{{alias}}\" aktualisiert",
+  "no_profile_selected_for_import": "Kein Profil für Import ausgewählt",
+  "no_keybinds_found_in_file": "Keine Keybinds in Datei gefunden",
+  "import_failed": "Import fehlgeschlagen: {{error}}",
+  "no_aliases_found_in_file": "Keine Aliase in Datei gefunden",
+  "failed_to_get_profile_for_import": "Profil für Import konnte nicht abgerufen werden",
+  "import_completed_keybinds": "Import abgeschlossen: {{count}} Keybinds",
+  "import_completed_keybinds_with_aliases": "Import abgeschlossen: {{keyCount}} Keybinds ({{aliasCount}} Aliase ignoriert - verwenden Sie Aliase importieren)",
+  "import_completed_aliases": "Import abgeschlossen: {{count}} Aliase",
+  "no_profile_selected_to_export": "Kein Profil für Export ausgewählt",
+  "keybind_file_exported": "Keybind-Datei erfolgreich exportiert",
+  "failed_to_export_keybind_file": "Keybind-Datei Export fehlgeschlagen: {{error}}",
+  "profile_exported_json": "Profil als JSON exportiert",
+  "failed_to_export_profile": "Profil Export fehlgeschlagen: {{error}}",
+  "complete_project_exported": "Vollständiges Projekt exportiert",
+  "failed_to_export_project": "Projekt Export fehlgeschlagen: {{error}}",
+  "data_exported_csv": "Daten als CSV exportiert",
+  "failed_to_export_csv": "CSV Export fehlgeschlagen: {{error}}",
+  "html_report_exported": "HTML-Bericht exportiert",
+  "failed_to_export_html_report": "HTML-Bericht Export fehlgeschlagen: {{error}}",
+  "no_command_to_copy": "Kein Befehl zum Kopieren",
+  "no_profiles_to_export": "Keine Profile zum Exportieren",
+  "exporting_profiles": "Exportiere {{count}} Profile...",
+  "aliases_exported_successfully": "Aliase erfolgreich exportiert",
+  "failed_to_export_aliases": "Alias Export fehlgeschlagen: {{error}}"
 }

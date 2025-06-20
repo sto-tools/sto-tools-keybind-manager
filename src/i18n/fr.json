@@ -167,5 +167,332 @@
   "aliases_defined": "Alias définis :",
   "no_keybinds_defined": "Aucun raccourci défini.",
   "command_aliases": "Alias de commandes",
-  "report_footer": "Ce rapport a été généré par STO Tools Keybind Manager. Pour plus d'informations sur les raccourcis Star Trek Online, visitez le Wiki STO."
+  "report_footer": "Ce rapport a été généré par STO Tools Keybind Manager. Pour plus d'informations sur les raccourcis Star Trek Online, visitez le Wiki STO.",
+  "command_categories": {
+    "targeting": "Ciblage",
+    "combat": "Combat",
+    "tray": "Exécution de plateau",
+    "power": "Gestion des boucliers",
+    "movement": "Mouvement",
+    "camera": "Caméra",
+    "communication": "Communication",
+    "system": "Système"
+  },
+  "command_definitions": {
+    "target": {
+      "name": "Cibler par nom",
+      "description": "Cibler une entité par son nom (nécessite des guillemets)"
+    },
+    "target_enemy_near": {
+      "name": "Cibler l'ennemi le plus proche",
+      "description": "Cibler l'ennemi le plus proche en vue"
+    },
+    "target_friend_near": {
+      "name": "Cibler l'allié le plus proche",
+      "description": "Cibler l'entité amie la plus proche"
+    },
+    "target_self": {
+      "name": "Se cibler soi-même",
+      "description": "Cibler votre propre vaisseau/personnage"
+    },
+    "target_clear": {
+      "name": "Effacer la cible",
+      "description": "Supprimer le verrouillage de cible actuel"
+    },
+    "target_teammate_1": {
+      "name": "Cibler coéquipier 1",
+      "description": "Cibler le premier membre de l'équipe"
+    },
+    "target_teammate_2": {
+      "name": "Cibler coéquipier 2",
+      "description": "Cibler le deuxième membre de l'équipe"
+    },
+    "target_teammate_3": {
+      "name": "Cibler coéquipier 3",
+      "description": "Cibler le troisième membre de l'équipe"
+    },
+    "target_teammate_4": {
+      "name": "Cibler coéquipier 4",
+      "description": "Cibler le quatrième membre de l'équipe"
+    },
+    "fire_all": {
+      "name": "Tirer toutes les armes",
+      "description": "Tirer toutes les armes"
+    },
+    "fire_phasers": {
+      "name": "Tirer armes à énergie",
+      "description": "Tirer toutes les armes à énergie"
+    },
+    "fire_torps": {
+      "name": "Tirer torpilles",
+      "description": "Tirer toutes les torpilles"
+    },
+    "fire_mines": {
+      "name": "Tirer mines",
+      "description": "Tirer toutes les mines"
+    },
+    "fire_phasers_torps": {
+      "name": "Tirer phasers et torpilles",
+      "description": "Tirer phasers et torpilles"
+    },
+    "fire_projectiles": {
+      "name": "Tirer projectiles",
+      "description": "Tirer torpilles et mines"
+    },
+    "custom_tray": {
+      "name": "Exécution de plateau",
+      "description": "Exécuter un emplacement de plateau spécifique"
+    },
+    "tray_with_backup": {
+      "name": "Exécution de plateau avec sauvegarde",
+      "description": "Exécuter un emplacement de plateau spécifique avec capacité de sauvegarde"
+    },
+    "tray_range": {
+      "name": "Exécution de plage de plateau",
+      "description": "Exécuter une plage d'emplacements de plateau"
+    },
+    "tray_range_with_backup": {
+      "name": "Plage de plateau avec sauvegarde",
+      "description": "Exécuter une plage d'emplacements de plateau avec capacités de sauvegarde"
+    },
+    "whole_tray": {
+      "name": "Exécution de plateau entier",
+      "description": "Exécuter tous les emplacements d'un plateau"
+    },
+    "whole_tray_with_backup": {
+      "name": "Plateau entier avec sauvegarde",
+      "description": "Exécuter tous les emplacements d'un plateau avec plateau de sauvegarde"
+    },
+    "distribute_shields": {
+      "name": "Distribuer les boucliers",
+      "description": "Distribue uniformément les boucliers comme si on cliquait au milieu de l'icône vaisseau et boucliers"
+    },
+    "reroute_shields_rear": {
+      "name": "Rediriger boucliers arrière",
+      "description": "Rediriger l'énergie des boucliers vers l'arrière"
+    },
+    "reroute_shields_left": {
+      "name": "Rediriger boucliers gauche",
+      "description": "Rediriger l'énergie des boucliers vers la gauche"
+    },
+    "reroute_shields_right": {
+      "name": "Rediriger boucliers droite",
+      "description": "Rediriger l'énergie des boucliers vers la droite"
+    },
+    "reroute_shields_forward": {
+      "name": "Rediriger boucliers avant",
+      "description": "Rediriger l'énergie des boucliers vers l'avant"
+    },
+    "full_impulse": {
+      "name": "Impulsion maximale",
+      "description": "Engager le moteur à impulsion maximale"
+    },
+    "reverse": {
+      "name": "Marche arrière",
+      "description": "Moteurs en marche arrière"
+    },
+    "throttle_adjust": {
+      "name": "Ajuster les gaz",
+      "description": "Augmenter ou diminuer les gaz d'une certaine quantité"
+    },
+    "throttle_set": {
+      "name": "Régler les gaz",
+      "description": "Régler les gaz à une position spécifique (négatif = marche arrière, 0 = arrêt)"
+    },
+    "throttle_toggle": {
+      "name": "Basculer les gaz",
+      "description": "Alterner entre gaz maximum et arrêt complet"
+    },
+    "turn_left": {
+      "name": "Tourner à gauche",
+      "description": "Tourner le vaisseau à gauche (continu tant que maintenu)"
+    },
+    "turn_right": {
+      "name": "Tourner à droite",
+      "description": "Tourner le vaisseau à droite (continu tant que maintenu)"
+    },
+    "pitch_up": {
+      "name": "Cabrer",
+      "description": "Cabrer le nez du vaisseau vers le haut (changement d'altitude dans l'espace)"
+    },
+    "pitch_down": {
+      "name": "Piquer",
+      "description": "Piquer le nez du vaisseau vers le bas (changement d'altitude dans l'espace)"
+    },
+    "strafe_left": {
+      "name": "Déplacement latéral gauche",
+      "description": "Déplacer le vaisseau latéralement à gauche"
+    },
+    "strafe_right": {
+      "name": "Déplacement latéral droite",
+      "description": "Déplacer le vaisseau latéralement à droite"
+    },
+    "forward": {
+      "name": "Avancer",
+      "description": "Avancer"
+    },
+    "backward": {
+      "name": "Reculer",
+      "description": "Reculer"
+    },
+    "auto_forward": {
+      "name": "Avance automatique",
+      "description": "Le personnage avance jusqu'à ce que de nouvelles commandes de mouvement soient données"
+    },
+    "follow": {
+      "name": "Suivre la cible",
+      "description": "Suivre l'entité ciblée"
+    },
+    "follow_cancel": {
+      "name": "Annuler le suivi",
+      "description": "Arrêter de suivre et oublier la cible"
+    },
+    "zoom_in": {
+      "name": "Zoomer",
+      "description": "Zoomer la caméra"
+    },
+    "zoom_out": {
+      "name": "Dézoomer",
+      "description": "Dézoomer la caméra"
+    },
+    "zoom_in_small": {
+      "name": "Zoomer légèrement",
+      "description": "Zoomer légèrement la caméra"
+    },
+    "zoom_out_small": {
+      "name": "Dézoomer légèrement",
+      "description": "Dézoomer légèrement la caméra"
+    },
+    "cam_distance": {
+      "name": "Définir distance caméra",
+      "description": "Définir la distance de la caméra par rapport au joueur"
+    },
+    "cam_reset": {
+      "name": "Réinitialiser caméra",
+      "description": "Réinitialiser la position de la caméra par défaut"
+    },
+    "cam_target_lock": {
+      "name": "Verrouiller caméra sur cible",
+      "description": "Verrouiller ou déverrouiller la caméra sur la cible"
+    },
+    "cam_cycle_distance": {
+      "name": "Alterner distance caméra",
+      "description": "Alterner la distance de la caméra entre plusieurs valeurs prédéfinies"
+    },
+    "cam_mouse_look": {
+      "name": "Vue souris",
+      "description": "Activer le contrôle de caméra par vue souris"
+    },
+    "cam_turn_to_face": {
+      "name": "Tourner vers la caméra",
+      "description": "Tourner le vaisseau pour faire face à la direction de la caméra"
+    },
+    "look_up": {
+      "name": "Regarder vers le haut",
+      "description": "Changer le point de vue pour regarder droit vers le haut"
+    },
+    "look_down": {
+      "name": "Regarder vers le bas",
+      "description": "Changer le point de vue pour regarder droit vers le bas"
+    },
+    "team_message": {
+      "name": "Message d'équipe",
+      "description": "Envoyer un message à l'équipe"
+    },
+    "local_message": {
+      "name": "Message local",
+      "description": "Envoyer un message à la zone locale"
+    },
+    "zone_message": {
+      "name": "Message de zone",
+      "description": "Envoyer un message à la zone"
+    },
+    "toggle_hud": {
+      "name": "Basculer HUD",
+      "description": "Basculer la visibilité du HUD"
+    },
+    "screenshot": {
+      "name": "Capture d'écran",
+      "description": "Prendre une capture d'écran"
+    },
+    "screenshot_jpg": {
+      "name": "Capture d'écran JPG",
+      "description": "Sauvegarder une capture d'écran en JPG"
+    },
+    "autofire_toggle": {
+      "name": "Basculer tir automatique",
+      "description": "Basculer le tir automatique des armes"
+    },
+    "bind_save_file": {
+      "name": "Sauvegarder raccourcis vers fichier",
+      "description": "Sauvegarder tous vos raccourcis dans un fichier texte"
+    },
+    "bind_load_file": {
+      "name": "Charger raccourcis depuis fichier",
+      "description": "Charger un fichier de raccourcis dans le client"
+    },
+    "combat_log": {
+      "name": "Basculer journal de combat",
+      "description": "Activer/désactiver l'enregistrement du journal de combat (1=activé, 0=désactivé)"
+    },
+    "missions": {
+      "name": "Afficher/Masquer missions",
+      "description": "Afficher/masquer le journal des missions"
+    },
+    "inventory": {
+      "name": "Afficher/Masquer inventaire",
+      "description": "Afficher/masquer votre inventaire"
+    },
+    "map": {
+      "name": "Afficher/Masquer carte",
+      "description": "Afficher/masquer la fenêtre de carte"
+    }
+  },
+  "category_descriptions": {
+    "targeting": "Sélection et gestion des cibles",
+    "combat": "Tir d'armes et actions de combat",
+    "tray": "Exécuter des capacités depuis les plateaux d'action",
+    "power": "Gestion de l'énergie et distribution des boucliers",
+    "movement": "Mouvement et navigation du vaisseau",
+    "camera": "Contrôle de caméra et gestion de vue",
+    "communication": "Chat et communication d'équipe",
+    "system": "Commandes UI et système"
+  },
+  "no_aliases": "Aucun alias",
+  "create_aliases_hint": "Créez des alias de commandes pour simplifier les séquences de commandes complexes.",
+  "alias_deleted": "Alias \"{{alias}}\" supprimé",
+  "please_select_a_key_first": "Veuillez d'abord sélectionner une touche",
+  "alias_added_to_key": "Alias \"{{alias}}\" ajouté à {{key}}",
+  "no_active_profile": "Aucun profil actif",
+  "alias_exists": "Un alias avec ce nom existe déjà",
+  "alias_template_exists": "L'alias \"{{alias}}\" existe déjà",
+  "alias_created_from_template": "Alias \"{{alias}}\" créé à partir du modèle",
+  "template_not_found": "Modèle non trouvé",
+  "alias_not_found": "Alias non trouvé",
+  "alias_created": "Alias \"{{alias}}\" créé",
+  "alias_updated": "Alias \"{{alias}}\" mis à jour",
+  "no_profile_selected_for_import": "Aucun profil sélectionné pour l'importation",
+  "no_keybinds_found_in_file": "Aucun raccourci trouvé dans le fichier",
+  "import_failed": "Échec de l'importation : {{error}}",
+  "no_aliases_found_in_file": "Aucun alias trouvé dans le fichier",
+  "failed_to_get_profile_for_import": "Échec de l'obtention du profil pour l'importation",
+  "import_completed_keybinds": "Importation terminée : {{count}} raccourcis",
+  "import_completed_keybinds_with_aliases": "Importation terminée : {{keyCount}} raccourcis ({{aliasCount}} alias ignorés - utilisez Importer les alias)",
+  "import_completed_aliases": "Importation terminée : {{count}} alias",
+  "no_profile_selected_to_export": "Aucun profil sélectionné pour l'exportation",
+  "keybind_file_exported": "Fichier de raccourcis exporté avec succès",
+  "failed_to_export_keybind_file": "Échec de l'exportation du fichier de raccourcis : {{error}}",
+  "profile_exported_json": "Profil exporté en JSON",
+  "failed_to_export_profile": "Échec de l'exportation du profil : {{error}}",
+  "complete_project_exported": "Projet complet exporté",
+  "failed_to_export_project": "Échec de l'exportation du projet : {{error}}",
+  "data_exported_csv": "Données exportées en CSV",
+  "failed_to_export_csv": "Échec de l'exportation CSV : {{error}}",
+  "html_report_exported": "Rapport HTML exporté",
+  "failed_to_export_html_report": "Échec de l'exportation du rapport HTML : {{error}}",
+  "no_command_to_copy": "Aucune commande à copier",
+  "no_profiles_to_export": "Aucun profil à exporter",
+  "exporting_profiles": "Exportation de {{count}} profils...",
+  "aliases_exported_successfully": "Alias exportés avec succès",
+  "failed_to_export_aliases": "Échec de l'exportation des alias : {{error}}"
 }

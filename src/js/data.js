@@ -1303,3 +1303,29 @@ window.getCommandsByCategory = function (category) {
   }
   return Object.values(STO_DATA.commands[category].commands)
 }
+
+window.localizeCommandData = function () {
+  const i18n = window.i18next
+  if (!i18n) return
+
+  Object.entries(STO_DATA.commands).forEach(([catKey, category]) => {
+    if (category.name) {
+      category.name = i18n.t(`command_categories.${catKey}`)
+    }
+    if (category.description) {
+      category.description = i18n.t(
+        `category_descriptions.${catKey}`
+      )
+    }
+    Object.entries(category.commands).forEach(([cmdKey, cmd]) => {
+      if (cmd.name) {
+        cmd.name = i18n.t(`command_definitions.${cmdKey}.name`)
+      }
+      if (cmd.description) {
+        cmd.description = i18n.t(
+          `command_definitions.${cmdKey}.description`
+        )
+      }
+    })
+  })
+}

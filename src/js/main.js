@@ -32,6 +32,13 @@ import './version.js'
     },
   })
 
+  // Make i18next available globally for data.js and other modules that need it
+  window.i18next = i18next
+
+  if (window.localizeCommandData) {
+    window.localizeCommandData()
+  }
+
   function applyTranslations(root = document) {
     root.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n')
@@ -70,7 +77,7 @@ import './version.js'
   window.applyTranslations = applyTranslations
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyTranslations)
+    document.addEventListener('DOMContentLoaded', () => applyTranslations())
   } else {
     applyTranslations()
   }

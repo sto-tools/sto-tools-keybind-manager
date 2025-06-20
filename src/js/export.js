@@ -44,7 +44,7 @@ export default class STOExportManager {
   async showExportOptions() {
     const profile = app.getCurrentProfile()
     if (!profile) {
-      stoUI.showToast('No profile selected to export', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_to_export'), 'warning')
       return
     }
 
@@ -54,7 +54,7 @@ export default class STOExportManager {
   performExport() {
     const profile = app.getCurrentProfile()
     if (!profile) {
-      stoUI.showToast('No profile selected to export', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_to_export'), 'warning')
       return
     }
 
@@ -101,10 +101,10 @@ export default class STOExportManager {
         'text/plain'
       )
 
-      stoUI.showToast('Keybind file exported successfully', 'success')
+      stoUI.showToast(i18next.t('keybind_file_exported'), 'success')
     } catch (error) {
       stoUI.showToast(
-        'Failed to export keybind file: ' + error.message,
+        i18next.t('failed_to_export_keybind_file', { error: error.message }),
         'error'
       )
     }
@@ -414,9 +414,12 @@ export default class STOExportManager {
         'application/json'
       )
 
-      stoUI.showToast('Profile exported as JSON', 'success')
+      stoUI.showToast(i18next.t('profile_exported_json'), 'success')
     } catch (error) {
-      stoUI.showToast('Failed to export profile: ' + error.message, 'error')
+      stoUI.showToast(
+        i18next.t('failed_to_export_profile', { error: error.message }),
+        'error'
+      )
     }
   }
 
@@ -435,9 +438,12 @@ export default class STOExportManager {
       const filename = `STO_Tools_Keybinds_Project_${new Date().toISOString().split('T')[0]}.json`
       this.downloadFile(content, filename, 'application/json')
 
-      stoUI.showToast('Complete project exported', 'success')
+      stoUI.showToast(i18next.t('complete_project_exported'), 'success')
     } catch (error) {
-      stoUI.showToast('Failed to export project: ' + error.message, 'error')
+      stoUI.showToast(
+        i18next.t('failed_to_export_project', { error: error.message }),
+        'error'
+      )
     }
   }
 
@@ -451,9 +457,12 @@ export default class STOExportManager {
         'text/csv'
       )
 
-      stoUI.showToast('Data exported as CSV', 'success')
+      stoUI.showToast(i18next.t('data_exported_csv'), 'success')
     } catch (error) {
-      stoUI.showToast('Failed to export CSV: ' + error.message, 'error')
+      stoUI.showToast(
+        i18next.t('failed_to_export_csv', { error: error.message }),
+        'error'
+      )
     }
   }
 
@@ -498,9 +507,12 @@ export default class STOExportManager {
         'text/html'
       )
 
-      stoUI.showToast('HTML report exported', 'success')
+      stoUI.showToast(i18next.t('html_report_exported'), 'success')
     } catch (error) {
-      stoUI.showToast('Failed to export HTML report: ' + error.message, 'error')
+      stoUI.showToast(
+        i18next.t('failed_to_export_html_report', { error: error.message }),
+        'error'
+      )
     }
   }
 
@@ -626,7 +638,7 @@ export default class STOExportManager {
   copyCommandPreview() {
     const preview = document.getElementById('commandPreview')
     if (!preview || !preview.textContent.trim()) {
-      stoUI.showToast('No command to copy', 'warning')
+      stoUI.showToast(i18next.t('no_command_to_copy'), 'warning')
       return
     }
 
@@ -676,7 +688,7 @@ export default class STOExportManager {
     const profiles = data.profiles
 
     if (!profiles || Object.keys(profiles).length === 0) {
-      stoUI.showToast('No profiles to export', 'warning')
+      stoUI.showToast(i18next.t('no_profiles_to_export'), 'warning')
       return
     }
 
@@ -688,7 +700,9 @@ export default class STOExportManager {
     })
 
     stoUI.showToast(
-      `Exporting ${Object.keys(profiles).length} profiles...`,
+      i18next.t('exporting_profiles', {
+        count: Object.keys(profiles).length,
+      }),
       'info'
     )
   }
@@ -749,9 +763,12 @@ export default class STOExportManager {
         'text/plain'
       )
 
-      stoUI.showToast('Aliases exported successfully', 'success')
+      stoUI.showToast(i18next.t('aliases_exported_successfully'), 'success')
     } catch (error) {
-      stoUI.showToast('Failed to export aliases: ' + error.message, 'error')
+      stoUI.showToast(
+        i18next.t('failed_to_export_aliases', { error: error.message }),
+        'error'
+      )
     }
   }
 

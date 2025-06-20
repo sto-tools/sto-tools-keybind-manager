@@ -2,6 +2,7 @@
 // Handles command alias creation, editing, and management
 import store from './store.js'
 import eventBus from './eventBus.js'
+import i18next from 'i18next'
 
 export default class STOAliasManager {
   constructor() {
@@ -77,8 +78,8 @@ export default class STOAliasManager {
       container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-mask"></i>
-                    <h4>No Aliases</h4>
-                    <p>Create command aliases to simplify complex command sequences.</p>
+                    <h4>${i18next.t('no_aliases')}</h4>
+                    <p>${i18next.t('create_aliases_hint')}</p>
                 </div>
             `
       return
@@ -90,8 +91,8 @@ export default class STOAliasManager {
       container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-mask"></i>
-                    <h4>No Aliases</h4>
-                    <p>Create command aliases to simplify complex command sequences.</p>
+                    <h4>${i18next.t('no_aliases')}</h4>
+                    <p>${i18next.t('create_aliases_hint')}</p>
                 </div>
             `
       return
@@ -221,13 +222,16 @@ export default class STOAliasManager {
       this.renderAliasList()
       this.updateCommandLibrary()
 
-      stoUI.showToast(`Alias "${aliasName}" deleted`, 'success')
+      stoUI.showToast(
+        i18next.t('alias_deleted', { alias: aliasName }),
+        'success'
+      )
     }
   }
 
   useAlias(aliasName) {
     if (!store.selectedKey) {
-      stoUI.showToast('Please select a key first', 'warning')
+      stoUI.showToast(i18next.t('please_select_a_key_first'), 'warning')
       return
     }
 
@@ -242,7 +246,10 @@ export default class STOAliasManager {
     app.addCommand(store.selectedKey, command)
     modalManager.hide('aliasManagerModal')
     stoUI.showToast(
-      `Alias "${aliasName}" added to ${store.selectedKey}`,
+      i18next.t('alias_added_to_key', {
+        alias: aliasName,
+        key: store.selectedKey,
+      }),
       'success'
     )
   }
@@ -268,7 +275,7 @@ export default class STOAliasManager {
 
     const profile = app.getCurrentProfile()
     if (!profile) {
-      stoUI.showToast('No active profile', 'error')
+      stoUI.showToast(i18next.t('no_active_profile'), 'error')
       return
     }
 
@@ -279,7 +286,7 @@ export default class STOAliasManager {
 
     // Check for duplicate names (only when creating new alias)
     if (!this.currentAlias && profile.aliases[name]) {
-      stoUI.showToast('An alias with this name already exists', 'error')
+      stoUI.showToast(i18next.t('alias_exists'), 'error')
       nameInput.focus()
       return
     }
@@ -302,7 +309,10 @@ export default class STOAliasManager {
     this.updateCommandLibrary()
 
     const action = this.currentAlias ? 'updated' : 'created'
-    stoUI.showToast(`Alias "${name}" ${action}`, 'success')
+    stoUI.showToast(
+      i18next.t(`alias_${action}`, { alias: name }),
+      'success'
+    )
 
     modalManager.hide('editAliasModal')
     this.showAliasManager()
@@ -527,7 +537,7 @@ export default class STOAliasManager {
 
   addAliasToKey(aliasName) {
     if (!store.selectedKey) {
-      stoUI.showToast('Please select a key first', 'warning')
+      stoUI.showToast(i18next.t('please_select_a_key_first'), 'warning')
       return
     }
 
@@ -535,7 +545,7 @@ export default class STOAliasManager {
     const alias = profile.aliases[aliasName]
 
     if (!alias) {
-      stoUI.showToast('Alias not found', 'error')
+      stoUI.showToast(i18next.t('alias_not_found'), 'error')
       return
     }
 
@@ -625,14 +635,17 @@ export default class STOAliasManager {
     const template = templates[category]?.templates?.[templateId]
 
     if (!template) {
-      stoUI.showToast('Template not found', 'error')
+      stoUI.showToast(i18next.t('template_not_found'), 'error')
       return
     }
 
     // Check if alias already exists
     const profile = app.getCurrentProfile()
     if (profile.aliases && profile.aliases[template.name]) {
-      stoUI.showToast(`Alias "${template.name}" already exists`, 'warning')
+      stoUI.showToast(
+        i18next.t('alias_template_exists', { alias: template.name }),
+        'warning'
+      )
       return
     }
 
@@ -653,7 +666,10 @@ export default class STOAliasManager {
     this.updateCommandLibrary()
     this.renderAliasList()
 
-    stoUI.showToast(`Alias "${template.name}" created from template`, 'success')
+    stoUI.showToast(
+      i18next.t('alias_created_from_template', { alias: template.name }),
+      'success'
+    )
   }
 
   // Utility Methods
