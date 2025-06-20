@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Export Functionality
 // Handles exporting keybinds and profiles in various formats
 
-class STOExportManager {
+export default class STOExportManager {
     constructor() {
         this.exportFormats = {
             sto_keybind: 'STO Keybind File (.txt)',
@@ -717,4 +717,3 @@ class STOExportManager {
 }
 
 // Global export manager instance
-window.stoExport = new STOExportManager(); 

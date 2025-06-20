@@ -5,8 +5,9 @@ import { join } from 'path'
 // Import real data first to ensure STO_DATA is available
 import '../../src/js/data.js'
 
+import "../../src/js/eventBus.js"
 // Load the aliases module (it creates a global instance)
-import '../../src/js/aliases.js'
+import STOAliasManager from '../../src/js/aliases.js'
 
 // Load the real HTML
 const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
@@ -42,11 +43,8 @@ beforeEach(() => {
 
 describe('STOAliasManager', () => {
   let aliasManager
-  let STOAliasManager
 
   beforeEach(() => {
-    // Get the constructor from the global instance
-    STOAliasManager = global.window.stoAliases.constructor
     aliasManager = new STOAliasManager()
     vi.clearAllMocks()
   })

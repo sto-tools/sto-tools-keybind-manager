@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Storage Layer
 // Handles localStorage persistence and data management
 
-class STOStorage {
+export default class STOStorage {
     constructor() {
         this.storageKey = 'sto_keybind_manager';
         this.backupKey = 'sto_keybind_manager_backup';
@@ -393,4 +393,3 @@ class STOStorage {
 }
 
 // Global storage instance
-window.stoStorage = new STOStorage();

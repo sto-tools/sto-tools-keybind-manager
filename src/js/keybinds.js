@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Keybind Operations
 // Handles keybind parsing, validation, and file operations
 
-class STOKeybindFileManager {
+export default class STOKeybindFileManager {
     constructor() {
         this.keybindPatterns = {
             // Standard keybind format: Key "command1 $$ command2" or Key "command" "optional"
@@ -642,4 +642,3 @@ class STOKeybindFileManager {
 }
 
 // Global keybind manager instance
-window.stoKeybinds = new STOKeybindFileManager();

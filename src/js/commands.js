@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Command Management
 // Handles command building, editing, and validation
 
-class STOCommandManager {
+export default class STOCommandManager {
     constructor() {
         this.currentCommand = null;
         this.commandBuilders = new Map();
@@ -1555,4 +1555,3 @@ class STOCommandManager {
 }
 
 // Global command manager instance
-window.stoCommands = new STOCommandManager(); 

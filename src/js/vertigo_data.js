@@ -131,7 +131,7 @@ const VFX_EFFECTS = {
 };
 
 // Vertigo management class
-class VertigoManager {
+export default class VertigoManager {
     constructor() {
         this.selectedEffects = {
             space: new Set(),
@@ -258,8 +258,3 @@ class VertigoManager {
 }
 
 // Global vertigo manager instance
-const vertigoManager = new VertigoManager();
-
-// Make globals accessible
-window.VFX_EFFECTS = VERTIGO_EFFECTS;
-window.vertigoManager = vertigoManager;

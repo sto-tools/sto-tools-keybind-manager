@@ -20,25 +20,6 @@ describe('STOProfileManager', () => {
     
     // Import real modules
     const { STO_DATA } = await import('../../src/js/data.js')
-    await import('../../src/js/storage.js')
-    
-    // Get the constructor from the global instance
-    const STOStorage = global.window.stoStorage?.constructor || class MockSTOStorage {
-      constructor() {
-        this.storageKey = 'sto_keybind_manager'
-        this.backupKey = 'sto_keybind_manager_backup'
-        this.settingsKey = 'sto_keybind_settings'
-        this.version = '1.0.0'
-      }
-      getAllData() { return { profiles: {}, currentProfile: null, globalAliases: {}, settings: {} } }
-      saveAllData() { return true }
-      getProfile() { return null }
-      saveProfile() { return true }
-      deleteProfile() { return true }
-      getSettings() { return {} }
-      saveSettings() { return true }
-      clearAllData() { return true }
-    }
     
     // Setup DOM elements needed for tests
     document.body.innerHTML = `

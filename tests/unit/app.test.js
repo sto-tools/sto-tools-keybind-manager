@@ -7,12 +7,18 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 
 // Import real modules in dependency order
 import '../../src/js/data.js'
-import '../../src/js/storage.js'
-import '../../src/js/profiles.js'
-import '../../src/js/keybinds.js'
-import '../../src/js/ui.js'
 import '../../src/js/eventBus.js'
-import '../../src/js/app.js'
+import STOStorage from '../../src/js/storage.js'
+import STOProfileManager from '../../src/js/profiles.js'
+import STOKeybindFileManager from '../../src/js/keybinds.js'
+import STOUIManager from '../../src/js/ui.js'
+import STOToolsKeybindManager from '../../src/js/app.js'
+
+let app
+let stoStorage
+let stoProfiles
+let stoKeybinds
+let stoUI
 
 /**
  * Unit Tests for app.js - STOToolsKeybindManager
@@ -25,6 +31,13 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
   beforeEach(() => {
     // Load real HTML content
     document.documentElement.innerHTML = htmlContent
+
+    stoStorage = new STOStorage()
+    stoProfiles = new STOProfileManager()
+    stoKeybinds = new STOKeybindFileManager()
+    stoUI = new STOUIManager()
+    app = new STOToolsKeybindManager()
+    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI, app })
 
     // Create test profile with new builds structure
     testProfile = {

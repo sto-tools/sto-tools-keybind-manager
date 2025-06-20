@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Main Application Controller
 // Coordinates all modules and handles global application state
 
-class STOToolsKeybindManager {
+export default class STOToolsKeybindManager {
     constructor() {
         this.currentProfile = null;
         this.currentMode = 'space';
@@ -3259,21 +3259,4 @@ class STOToolsKeybindManager {
 }
 
 // Initialize application
-const app = new STOToolsKeybindManager();
-window.app = app;
 
-// Initialize other modules after app is ready
-eventBus.on('sto-app-ready', () => {
-    if (typeof stoProfiles !== 'undefined') {
-        stoProfiles.init();
-    }
-    if (typeof stoKeybinds !== 'undefined') {
-        stoKeybinds.init();
-    }
-    if (typeof stoAliases !== 'undefined') {
-        stoAliases.init();
-    }
-    if (typeof stoExport !== 'undefined') {
-        stoExport.init();
-    }
-}); 

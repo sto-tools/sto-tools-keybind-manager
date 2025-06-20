@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest'
+import STOStorage from '../../src/js/storage.js'
+import '../../src/js/data.js'
 
 /**
  * Unit Tests for STOStorage
@@ -22,31 +24,13 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest'
  */
 
 describe('STOStorage', () => {
-  let STOStorage
   let STO_DATA
   let storage
 
   beforeAll(async () => {
-    // Set up global environment for module dependencies
     global.window = global.window || {}
-    
-    // Load data.js by executing it as a script (since it's not an ES6 module)
-    const fs = require('fs')
-    const path = require('path')
-    const dataPath = path.resolve(__dirname, '../../src/js/data.js')
-    const dataContent = fs.readFileSync(dataPath, 'utf8')
-    
-    // Execute the data.js content in the global context
-    eval(dataContent)
-    
-    // Now STO_DATA should be available on window
+    await import('../../src/js/data.js')
     STO_DATA = global.window.STO_DATA
-    
-    // Load the storage module (it creates a global instance)
-    await import('../../src/js/storage.js')
-    
-    // Get the constructor from the global instance
-    STOStorage = global.window.stoStorage.constructor
   })
 
   beforeEach(() => {
