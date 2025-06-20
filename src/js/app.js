@@ -3647,6 +3647,27 @@ export default class STOToolsKeybindManager {
     stoStorage.saveSettings(settings)
 
     await this.applyLanguage()
+    
+    // Re-localize command data with new language
+    if (window.localizeCommandData) {
+      window.localizeCommandData()
+    }
+    
+    // Re-render all dynamic content
+    this.renderProfiles()
+    this.renderKeyGrid()
+    this.renderCommandChain()
+    
+    // Update command library if it exists
+    if (this.setupCommandLibrary) {
+      this.setupCommandLibrary()
+    }
+    
+    // Update export formats if export manager exists
+    if (typeof stoExport !== 'undefined' && stoExport.init) {
+      stoExport.init()
+    }
+    
     stoUI.showToast('Language updated', 'success')
   }
 }
