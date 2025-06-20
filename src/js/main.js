@@ -1,6 +1,7 @@
 import './constants.js';
 import './eventBus.js';
 import './data.js';
+import './errors.js';
 import STOStorage from './storage.js';
 import STOProfileManager from './profiles.js';
 import STOKeybindFileManager from './keybinds.js';
@@ -35,7 +36,8 @@ Object.assign(window, {
   stoCommands,
   stoFileExplorer,
   vertigoManager,
-  VFX_EFFECTS
+  VFX_EFFECTS,
+  VERTIGO_EFFECTS: VFX_EFFECTS
 });
 
 const app = new STOToolsKeybindManager();

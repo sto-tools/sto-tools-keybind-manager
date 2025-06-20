@@ -138,34 +138,15 @@ async function loadApplication() {
     console.warn('Failed to load HTML structure:', error)
   }
   
-  // Then load the scripts
-  const scripts = [
-    '/src/js/constants.js',
-    '/src/js/eventBus.js',
-    '/src/js/errors.js',
-    '/src/js/version.js',
-    '/src/js/data.js',
-    '/src/js/vertigo_data.js',
-    '/src/js/storage.js',
-    '/src/js/modalManager.js',
-    '/src/js/ui.js',
-    '/src/js/commands.js',
-    '/src/js/keybinds.js',
-    '/src/js/profiles.js',
-    '/src/js/aliases.js',
-    '/src/js/export.js',
-    '/src/js/app.js'
-  ]
-  
-  for (const src of scripts) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement('script')
-      script.src = src
-      script.onload = resolve
-      script.onerror = reject
-      document.head.appendChild(script)
-    })
-  }
+  // Then load the main ES module bundle
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.type = 'module'
+    script.src = '/src/js/main.js'
+    script.onload = resolve
+    script.onerror = reject
+    document.head.appendChild(script)
+  })
 
   // Ensure modalManager hides overlays during tests
   if (window.modalManager) {
