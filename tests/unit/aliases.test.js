@@ -19,10 +19,13 @@ beforeEach(() => {
   
   // Mock only the UI methods that would show actual UI
   global.stoUI = {
-    showModal: vi.fn(),
-    hideModal: vi.fn(),
     showToast: vi.fn(),
     confirm: vi.fn().mockResolvedValue(true)
+  }
+
+  global.modalManager = {
+    show: vi.fn(),
+    hide: vi.fn()
   }
   
   // Mock only the app methods that would modify actual DOM
@@ -74,7 +77,7 @@ describe('STOAliasManager', () => {
       aliasManager.showAliasManager()
       
       expect(renderSpy).toHaveBeenCalled()
-      expect(stoUI.showModal).toHaveBeenCalledWith('aliasManagerModal')
+      expect(modalManager.show).toHaveBeenCalledWith('aliasManagerModal')
     })
 
     it('should render alias list with existing aliases', () => {
@@ -165,8 +168,8 @@ describe('STOAliasManager', () => {
       expect(commandsInput.value).toBe('')
       expect(aliasManager.currentAlias).toBeNull()
       expect(updatePreviewSpy).toHaveBeenCalled()
-      expect(stoUI.hideModal).toHaveBeenCalledWith('aliasManagerModal')
-      expect(stoUI.showModal).toHaveBeenCalledWith('editAliasModal')
+      expect(modalManager.hide).toHaveBeenCalledWith('aliasManagerModal')
+      expect(modalManager.show).toHaveBeenCalledWith('editAliasModal')
     })
 
     it('should show edit alias modal with existing data', () => {
@@ -274,7 +277,7 @@ describe('STOAliasManager', () => {
       expect(app.setModified).toHaveBeenCalledWith(true)
       expect(updateLibrarySpy).toHaveBeenCalled()
       expect(stoUI.showToast).toHaveBeenCalledWith('Alias "ValidAlias" created', 'success')
-      expect(stoUI.hideModal).toHaveBeenCalledWith('editAliasModal')
+      expect(modalManager.hide).toHaveBeenCalledWith('editAliasModal')
       expect(showManagerSpy).toHaveBeenCalled()
     })
 
@@ -410,7 +413,7 @@ describe('STOAliasManager', () => {
         icon: '🎭',
         text: 'Alias: TestAlias'
       }))
-      expect(stoUI.hideModal).toHaveBeenCalledWith('aliasManagerModal')
+      expect(modalManager.hide).toHaveBeenCalledWith('aliasManagerModal')
       expect(stoUI.showToast).toHaveBeenCalledWith('Alias "TestAlias" added to F1', 'success')
     })
 
