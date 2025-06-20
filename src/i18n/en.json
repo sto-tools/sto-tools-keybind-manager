@@ -500,6 +500,9 @@
   "sync_folder_set": "Sync folder selected",
   "failed_to_set_sync_folder": "Failed to select sync folder: {{error}}",
   "no_sync_folder_selected": "No sync folder selected",
+  "sync_folder_not_set": "No sync folder selected",
+  "sync_complete": "Exported project to sync folder",
+  "sync_error": "Failed to sync project",
   "project_synced_successfully": "Project synchronized successfully",
   "permission_denied_to_folder": "Permission denied to write to folder",
   "failed_to_sync_project": "Failed to sync project: {{error}}"
