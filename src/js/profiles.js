@@ -25,15 +25,15 @@ class STOProfileManager {
             this.showNewProfileModal();
         });
 
-        document.getElementById('cloneProfileBtn')?.addEventListener('click', () => {
+        eventBus.onDom('cloneProfileBtn', 'click', 'profile-clone', () => {
             this.showCloneProfileModal();
         });
 
-        document.getElementById('renameProfileBtn')?.addEventListener('click', () => {
+        eventBus.onDom('renameProfileBtn', 'click', 'profile-rename', () => {
             this.showRenameProfileModal();
         });
 
-        document.getElementById('deleteProfileBtn')?.addEventListener('click', () => {
+        eventBus.onDom('deleteProfileBtn', 'click', 'profile-delete', () => {
             this.confirmDeleteProfile();
         });
 
@@ -43,58 +43,58 @@ class STOProfileManager {
         });
 
         // Settings dropdown
-        document.getElementById('settingsBtn')?.addEventListener('click', (e) => {
+        eventBus.onDom('settingsBtn', 'click', 'settings-menu', (e) => {
             e.stopPropagation();
             this.toggleSettingsMenu();
         });
 
         // Keybinds dropdown
-        document.getElementById('keybindsBtn')?.addEventListener('click', (e) => {
+        eventBus.onDom('keybindsBtn', 'click', 'keybinds-menu', (e) => {
             e.stopPropagation();
             this.toggleKeybindsMenu();
         });
 
         // Aliases dropdown  
-        document.getElementById('aliasesBtn')?.addEventListener('click', (e) => {
+        eventBus.onDom('aliasesBtn', 'click', 'aliases-menu', (e) => {
             e.stopPropagation();
             this.toggleAliasesMenu();
         });
 
-        document.getElementById('importKeybindsBtn')?.addEventListener('click', () => {
+        eventBus.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
             this.importKeybinds();
             this.closeKeybindsMenu();
         });
 
-        document.getElementById('exportKeybindsBtn')?.addEventListener('click', () => {
+        eventBus.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
             this.exportKeybinds();
             this.closeKeybindsMenu();
         });
 
-        document.getElementById('importAliasesBtn')?.addEventListener('click', () => {
+        eventBus.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
             this.importAliases();
             this.closeAliasesMenu();
         });
 
-        document.getElementById('exportAliasesBtn')?.addEventListener('click', () => {
+        eventBus.onDom('exportAliasesBtn', 'click', 'aliases-export', () => {
             this.exportAliases();
             this.closeAliasesMenu();
         });
 
-        document.getElementById('loadDefaultDataBtn')?.addEventListener('click', () => {
+        eventBus.onDom('loadDefaultDataBtn', 'click', 'load-default-data', () => {
             this.loadDefaultData();
             this.closeSettingsMenu();
         });
 
-        document.getElementById('resetAppBtn')?.addEventListener('click', () => {
+        eventBus.onDom('resetAppBtn', 'click', 'reset-app', () => {
             this.confirmResetApp();
             this.closeSettingsMenu();
         });
 
-        document.getElementById('aboutBtn')?.addEventListener('click', () => {
+        eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
             modalManager.show('aboutModal');
         });
 
-        document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
+        eventBus.onDom('themeToggleBtn', 'click', 'theme-toggle', () => {
             app.toggleTheme();
             this.closeSettingsMenu();
         });

@@ -15,17 +15,17 @@ class STOAliasManager {
 
     setupEventListeners() {
         // Alias manager button
-        document.getElementById('addAliasBtn')?.addEventListener('click', () => {
+        eventBus.onDom('addAliasBtn', 'click', 'alias-manager-open', () => {
             this.showAliasManager();
         });
 
         // New alias button
-        document.getElementById('newAliasBtn')?.addEventListener('click', () => {
+        eventBus.onDom('newAliasBtn', 'click', 'alias-new', () => {
             this.showEditAliasModal();
         });
 
         // Save alias button
-        document.getElementById('saveAliasBtn')?.addEventListener('click', () => {
+        eventBus.onDom('saveAliasBtn', 'click', 'alias-save', () => {
             this.saveAlias();
         });
 

@@ -17,19 +17,19 @@ class STOFileExplorer {
     // ---------------------------------------------------------------------
     setupEventListeners() {
         // Open Explorer button
-        document.getElementById('fileExplorerBtn')?.addEventListener('click', () => {
+        eventBus.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
             this.openExplorer();
         });
 
         // Delegate clicks on tree nodes
-        document.getElementById(this.treeId)?.addEventListener('click', (e) => {
+        eventBus.onDom(this.treeId, 'click', 'fileExplorer-tree-click', (e) => {
             const node = e.target.closest('.tree-node');
             if (!node) return;
             this.selectNode(node);
         });
 
         // Copy file content
-        document.getElementById('copyFileContentBtn')?.addEventListener('click', () => {
+        eventBus.onDom('copyFileContentBtn', 'click', 'copyFileContent', () => {
             const contentEl = document.getElementById(this.contentId);
             if (!contentEl) return;
             const text = contentEl.textContent || '';
