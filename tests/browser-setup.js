@@ -141,10 +141,12 @@ async function loadApplication() {
   // Then load the scripts
   const scripts = [
     '/src/js/constants.js',
-    '/src/js/version.js', 
+    '/src/js/errors.js',
+    '/src/js/version.js',
     '/src/js/data.js',
     '/src/js/vertigo_data.js',
     '/src/js/storage.js',
+    '/src/js/modalManager.js',
     '/src/js/ui.js',
     '/src/js/commands.js',
     '/src/js/keybinds.js',
@@ -162,6 +164,21 @@ async function loadApplication() {
       script.onerror = reject
       document.head.appendChild(script)
     })
+  }
+
+  // Ensure modalManager hides overlays during tests
+  if (window.modalManager) {
+    window.modalManager.hide = (id) => {
+      const modal = typeof id === 'string' ? document.getElementById(id) : id
+      const overlay = document.getElementById('modalOverlay')
+      if (modal && overlay) {
+        modal.classList.remove('active')
+        overlay.classList.remove('active')
+        document.body.classList.remove('modal-open')
+        return true
+      }
+      return false
+    }
   }
 }
 
