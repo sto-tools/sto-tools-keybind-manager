@@ -3,8 +3,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// Mock the VERTIGO_EFFECTS and vertigoManager since they're loaded in a different file
-const VERTIGO_EFFECTS = {
+// Mock the VFX_EFFECTS and vertigoManager since they're loaded in a different file
+const VFX_EFFECTS = {
   space: [
     { label: 'Test Space Effect 1', effect: 'Fx_Test_Space_Effect_1' },
     { label: 'Test Space Effect 2', effect: 'Fx_Test_Space_Effect_2' },
@@ -53,7 +53,7 @@ class MockVertigoManager {
   }
 
   selectAllEffects(environment) {
-    VERTIGO_EFFECTS[environment].forEach((effect) => {
+    VFX_EFFECTS[environment].forEach((effect) => {
       this.selectedEffects[environment].add(effect.effect)
     })
   }
@@ -87,7 +87,7 @@ const mockApp = {
 
 // Global setup
 beforeEach(() => {
-  global.VERTIGO_EFFECTS = VERTIGO_EFFECTS
+  global.VFX_EFFECTS = VFX_EFFECTS
   global.vertigoManager = new MockVertigoManager()
   global.stoUI = mockUI
   global.app = mockApp
@@ -116,7 +116,7 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = ''
-  delete global.VERTIGO_EFFECTS
+  delete global.VFX_EFFECTS
   delete global.vertigoManager
   delete global.stoUI
   delete global.app
@@ -255,7 +255,7 @@ describe('Vertigo UI Integration', () => {
       expect(spaceList).toBeTruthy()
 
       // Mock the effects list population
-      VERTIGO_EFFECTS.space.forEach((effect) => {
+      VFX_EFFECTS.space.forEach((effect) => {
         const effectItem = document.createElement('div')
         effectItem.className = 'effect-item'
         effectItem.innerHTML = `
@@ -274,7 +274,7 @@ describe('Vertigo UI Integration', () => {
       expect(groundList).toBeTruthy()
 
       // Mock the effects list population
-      VERTIGO_EFFECTS.ground.forEach((effect) => {
+      VFX_EFFECTS.ground.forEach((effect) => {
         const effectItem = document.createElement('div')
         effectItem.className = 'effect-item'
         effectItem.innerHTML = `
@@ -386,13 +386,13 @@ describe('Vertigo UI Integration', () => {
 
 describe('Vertigo Data Validation', () => {
   it('should have valid effect data structure', () => {
-    expect(VERTIGO_EFFECTS).toBeDefined()
-    expect(VERTIGO_EFFECTS.space).toBeInstanceOf(Array)
-    expect(VERTIGO_EFFECTS.ground).toBeInstanceOf(Array)
+    expect(VFX_EFFECTS).toBeDefined()
+    expect(VFX_EFFECTS.space).toBeInstanceOf(Array)
+    expect(VFX_EFFECTS.ground).toBeInstanceOf(Array)
   })
 
   it('should have properly formatted space effects', () => {
-    VERTIGO_EFFECTS.space.forEach((effect) => {
+    VFX_EFFECTS.space.forEach((effect) => {
       expect(effect).toHaveProperty('label')
       expect(effect).toHaveProperty('effect')
       expect(typeof effect.label).toBe('string')
@@ -403,7 +403,7 @@ describe('Vertigo Data Validation', () => {
   })
 
   it('should have properly formatted ground effects', () => {
-    VERTIGO_EFFECTS.ground.forEach((effect) => {
+    VFX_EFFECTS.ground.forEach((effect) => {
       expect(effect).toHaveProperty('label')
       expect(effect).toHaveProperty('effect')
       expect(typeof effect.label).toBe('string')

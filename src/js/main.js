@@ -109,7 +109,6 @@ Object.assign(window, {
   vertigoManager,
   stoSync,
   VFX_EFFECTS,
-  VERTIGO_EFFECTS: VFX_EFFECTS,
 })
 
 const app = new STOToolsKeybindManager()

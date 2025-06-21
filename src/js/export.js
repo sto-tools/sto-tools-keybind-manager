@@ -819,8 +819,8 @@ export default class STOExportManager {
   generateAliasFileName(profile, extension) {
     const safeName = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
     const timestamp = new Date().toISOString().split('T')[0]
-    const environment = profile.currentEnvironment || 'space'
-    return `${safeName}_aliases_${environment}_${timestamp}.${extension}`
+    // Aliases are not environment specific; omit environment from filename
+    return `${safeName}_aliases_${timestamp}.${extension}`
   }
 
   async syncToFolder(dirHandle) {

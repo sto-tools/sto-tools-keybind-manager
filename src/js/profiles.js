@@ -50,36 +50,30 @@ export default class STOProfileManager {
       this.toggleSettingsMenu()
     })
 
-    // Keybinds dropdown
-    eventBus.onDom('keybindsBtn', 'click', 'keybinds-menu', (e) => {
+    // Import dropdown
+    eventBus.onDom('importMenuBtn', 'click', 'import-menu', (e) => {
       e.stopPropagation()
-      this.toggleKeybindsMenu()
+      this.toggleImportMenu()
     })
 
-    // Aliases dropdown
-    eventBus.onDom('aliasesBtn', 'click', 'aliases-menu', (e) => {
+    // Backup dropdown
+    eventBus.onDom('backupMenuBtn', 'click', 'backup-menu', (e) => {
       e.stopPropagation()
-      this.toggleAliasesMenu()
+      this.toggleBackupMenu()
     })
+
+    // Close backup menu after operations
+    eventBus.on('project-open', () => this.closeBackupMenu())
+    eventBus.on('project-save', () => this.closeBackupMenu())
 
     eventBus.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
       this.importKeybinds()
-      this.closeKeybindsMenu()
-    })
-
-    eventBus.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
-      this.exportKeybinds()
-      this.closeKeybindsMenu()
+      this.closeImportMenu()
     })
 
     eventBus.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
       this.importAliases()
-      this.closeAliasesMenu()
-    })
-
-    eventBus.onDom('exportAliasesBtn', 'click', 'aliases-export', () => {
-      this.exportAliases()
-      this.closeAliasesMenu()
+      this.closeImportMenu()
     })
 
     eventBus.onDom('loadDefaultDataBtn', 'click', 'load-default-data', () => {
@@ -92,26 +86,7 @@ export default class STOProfileManager {
       this.closeSettingsMenu()
     })
 
-    // Settings dropdown sync buttons - with element existence check
-    const setSyncFolderBtn = document.getElementById('setSyncFolderBtn')
-    if (!setSyncFolderBtn) {
-      console.warn('setSyncFolderBtn element not found in DOM during event listener setup')
-      
-      // Retry after a short delay in case DOM is still loading
-      setTimeout(() => {
-        const retryBtn = document.getElementById('setSyncFolderBtn')
-        if (retryBtn) {
-          console.log('setSyncFolderBtn found on retry, setting up event listener')
-          this.setupSyncFolderEventListener()
-        } else {
-          console.error('setSyncFolderBtn still not found after retry')
-        }
-      }, 1000)
-    } else {
-      console.log('setSyncFolderBtn element found, setting up event listener')
-    }
-    
-    this.setupSyncFolderEventListener()
+    // Note: setSyncFolderBtn event listener is now handled by preferences.js to maintain user activation
 
     eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
       stoSync.syncProject()
@@ -127,20 +102,35 @@ export default class STOProfileManager {
       this.closeSettingsMenu()
     })
 
-    eventBus.onDom('languageSelect', 'change', 'language-change', (e) => {
-      app.changeLanguage(e.target.value)
+    eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
+      if (typeof app !== 'undefined' && app.preferencesManager) {
+        app.preferencesManager.showPreferences()
+      } else {
+        // Fallback to old modal if preferences manager not available
+        modalManager.show('preferencesModal')
+      }
+      this.closeSettingsMenu()
     })
 
-    // Prevent language select from closing the dropdown
-    eventBus.onDom('languageSelect', 'click', 'language-select-click', (e) => {
+    eventBus.onDom('languageMenuBtn', 'click', 'language-menu', (e) => {
       e.stopPropagation()
+      this.toggleLanguageMenu()
+    })
+
+    document.querySelectorAll('.language-option').forEach((btn) => {
+      eventBus.onDom(btn, 'click', 'language-change', (e) => {
+        const lang = e.target.dataset.lang
+        if (lang) app.changeLanguage(lang)
+        this.closeLanguageMenu()
+      })
     })
 
     // Close settings menu when clicking outside
     document.addEventListener('click', () => {
       this.closeSettingsMenu()
-      this.closeKeybindsMenu()
-      this.closeAliasesMenu()
+      this.closeImportMenu()
+      this.closeBackupMenu()
+      this.closeLanguageMenu()
     })
   }
 
@@ -401,50 +391,65 @@ export default class STOProfileManager {
     }
   }
 
-  // Keybinds Menu Management
-  toggleKeybindsMenu() {
-    // Close other dropdowns first
+  // Import Menu Management
+  toggleImportMenu() {
     this.closeSettingsMenu()
-    this.closeAliasesMenu()
-
-    const keybindsBtn = document.getElementById('keybindsBtn')
-    if (keybindsBtn) {
-      const dropdown = keybindsBtn.closest('.dropdown')
+    const btn = document.getElementById('importMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.toggle('active')
       }
     }
   }
 
-  closeKeybindsMenu() {
-    const keybindsBtn = document.getElementById('keybindsBtn')
-    if (keybindsBtn) {
-      const dropdown = keybindsBtn.closest('.dropdown')
+  closeImportMenu() {
+    const btn = document.getElementById('importMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.remove('active')
       }
     }
   }
 
-  // Aliases Menu Management
-  toggleAliasesMenu() {
-    // Close other dropdowns first
+  // Backup Menu Management
+  toggleBackupMenu() {
     this.closeSettingsMenu()
-    this.closeKeybindsMenu()
-
-    const aliasesBtn = document.getElementById('aliasesBtn')
-    if (aliasesBtn) {
-      const dropdown = aliasesBtn.closest('.dropdown')
+    const btn = document.getElementById('backupMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.toggle('active')
       }
     }
   }
 
-  closeAliasesMenu() {
-    const aliasesBtn = document.getElementById('aliasesBtn')
-    if (aliasesBtn) {
-      const dropdown = aliasesBtn.closest('.dropdown')
+  closeBackupMenu() {
+    const btn = document.getElementById('backupMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
+      if (dropdown) {
+        dropdown.classList.remove('active')
+      }
+    }
+  }
+
+  // Language Menu Management
+  toggleLanguageMenu() {
+    const btn = document.getElementById('languageMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
+      if (dropdown) {
+        dropdown.classList.toggle('active')
+      }
+    }
+  }
+
+  closeLanguageMenu() {
+    const btn = document.getElementById('languageMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.remove('active')
       }
@@ -1016,46 +1021,7 @@ export default class STOProfileManager {
     }
   }
 
-  setupSyncFolderEventListener() {
-    eventBus.onDom('setSyncFolderBtn', 'click', 'set-sync-folder', () => {
-      console.log('setSyncFolderBtn clicked - starting debug...')
-      
-      // Check if stoSync is available
-      if (typeof stoSync === 'undefined') {
-        console.error('stoSync is not available')
-        stoUI.showToast('Sync functionality not available', 'error')
-        return
-      }
-      
-      // Check if File System Access API is supported
-      if (!window.showDirectoryPicker) {
-        console.error('File System Access API not supported')
-        stoUI.showToast('File System Access API not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser.', 'error')
-        return
-      }
-      
-      console.log('Calling stoSync.setSyncFolder()...')
-      
-      try {
-        stoSync.setSyncFolder().then(result => {
-          console.log('setSyncFolder completed with result:', result)
-          if (result) {
-            console.log('Sync folder set successfully')
-          } else {
-            console.log('setSyncFolder returned null (likely user cancelled)')
-          }
-        }).catch(error => {
-          console.error('Error in setSyncFolder:', error)
-          // Error is already handled in STOSyncManager.setSyncFolder()
-        })
-      } catch (error) {
-        console.error('Synchronous error calling setSyncFolder:', error)
-        stoUI.showToast('Error setting sync folder: ' + error.message, 'error')
-      }
-      
-      this.closeSettingsMenu()
-    })
-  }
+  // setupSyncFolderEventListener method removed - now handled by preferences.js
 }
 
 // Global profile manager instance

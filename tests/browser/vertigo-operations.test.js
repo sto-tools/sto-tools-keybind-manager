@@ -45,12 +45,12 @@ describe('Vertigo Operations Browser Test', () => {
   })
 
   describe('Core Vertigo Manager Functionality', () => {
-    it('should have VERTIGO_EFFECTS data loaded', () => {
-      expect(window.VERTIGO_EFFECTS).toBeDefined()
-      expect(window.VERTIGO_EFFECTS.space).toBeInstanceOf(Array)
-      expect(window.VERTIGO_EFFECTS.ground).toBeInstanceOf(Array)
-      expect(window.VERTIGO_EFFECTS.space.length).toBeGreaterThan(0)
-      expect(window.VERTIGO_EFFECTS.ground.length).toBeGreaterThan(0)
+    it('should have VFX_EFFECTS data loaded', () => {
+      expect(window.VFX_EFFECTS).toBeDefined()
+      expect(window.VFX_EFFECTS.space).toBeInstanceOf(Array)
+      expect(window.VFX_EFFECTS.ground).toBeInstanceOf(Array)
+      expect(window.VFX_EFFECTS.space.length).toBeGreaterThan(0)
+      expect(window.VFX_EFFECTS.ground.length).toBeGreaterThan(0)
     })
 
     it('should have vertigoManager instance available', () => {
@@ -153,7 +153,7 @@ describe('Vertigo Operations Browser Test', () => {
       const manager = window.vertigoManager
       manager.clearAllEffects()
 
-      const firstEffect = window.VERTIGO_EFFECTS.space[0]
+      const firstEffect = window.VFX_EFFECTS.space[0]
       manager.toggleEffect('space', firstEffect.effect)
 
       expect(manager.isEffectSelected('space', firstEffect.effect)).toBe(true)
@@ -171,12 +171,12 @@ describe('Vertigo Operations Browser Test', () => {
 
       manager.selectAllEffects('space')
       expect(manager.getEffectCount('space')).toBe(
-        window.VERTIGO_EFFECTS.space.length
+        window.VFX_EFFECTS.space.length
       )
 
       manager.selectAllEffects('ground')
       expect(manager.getEffectCount('ground')).toBe(
-        window.VERTIGO_EFFECTS.ground.length
+        window.VFX_EFFECTS.ground.length
       )
     })
 
@@ -278,10 +278,10 @@ describe('Vertigo Operations Browser Test', () => {
 
       // Check if effects were selected
       expect(manager.getEffectCount('space')).toBe(
-        window.VERTIGO_EFFECTS.space.length
+        window.VFX_EFFECTS.space.length
       )
       expect(manager.getEffectCount('ground')).toBe(
-        window.VERTIGO_EFFECTS.ground.length
+        window.VFX_EFFECTS.ground.length
       )
     })
 
@@ -438,8 +438,8 @@ describe('Vertigo Operations Browser Test', () => {
       await testUtils.waitForModalElement('#vertigoModal')
 
       // Select some effects
-      const firstSpaceEffect = window.VERTIGO_EFFECTS.space[0]
-      const firstGroundEffect = window.VERTIGO_EFFECTS.ground[0]
+      const firstSpaceEffect = window.VFX_EFFECTS.space[0]
+      const firstGroundEffect = window.VFX_EFFECTS.ground[0]
 
       manager.toggleEffect('space', firstSpaceEffect.effect)
       manager.toggleEffect('ground', firstGroundEffect.effect)
@@ -485,7 +485,7 @@ describe('Vertigo Operations Browser Test', () => {
 
       // Start with one effect selected and save it
       manager.clearAllEffects()
-      const initialEffect = window.VERTIGO_EFFECTS.space[0]
+      const initialEffect = window.VFX_EFFECTS.space[0]
       manager.toggleEffect('space', initialEffect.effect)
       manager.saveState(rootProfile)
       stoStorage.saveProfile(app.currentProfile, rootProfile)
@@ -498,7 +498,7 @@ describe('Vertigo Operations Browser Test', () => {
       expect(manager.isEffectSelected('space', initialEffect.effect)).toBe(true)
 
       // Make changes: deselect initial effect and select a different one
-      const newEffect = window.VERTIGO_EFFECTS.space[1]
+      const newEffect = window.VFX_EFFECTS.space[1]
       manager.toggleEffect('space', initialEffect.effect) // deselect
       manager.toggleEffect('space', newEffect.effect) // select new
 

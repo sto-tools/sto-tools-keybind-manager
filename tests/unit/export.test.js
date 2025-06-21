@@ -138,16 +138,12 @@ describe('STOExportManager', () => {
     })
 
     it('should setup event listeners', () => {
-      const exportBtn = document.getElementById('exportKeybindsBtn')
       const copyPreviewBtn = document.getElementById('copyPreviewBtn')
 
-      expect(exportBtn).toBeTruthy()
       expect(copyPreviewBtn).toBeTruthy()
 
       exportManager.setupEventListeners()
 
-      // Verify elements exist (real DOM test)
-      expect(exportBtn.id).toBe('exportKeybindsBtn')
       expect(copyPreviewBtn.id).toBe('copyPreviewBtn')
     })
   })
@@ -1008,8 +1004,8 @@ describe('STOExportManager', () => {
 
       expect(filename).toContain('Test_Profile')
       expect(filename).toContain('aliases')
-      expect(filename).toContain('space')
-      expect(filename).toContain('.txt')
+      expect(filename).not.toContain('space')
+      expect(filename).toMatch(/\d{4}-\d{2}-\d{2}\.txt$/)
     })
 
     it('should handle profiles with no aliases', () => {
@@ -1027,13 +1023,6 @@ describe('STOExportManager', () => {
   })
 
   describe('UI elements', () => {
-    it('should have export aliases button', () => {
-      const exportBtn = document.getElementById('exportAliasesBtn')
-
-      expect(exportBtn).toBeTruthy()
-      expect(exportBtn.id).toBe('exportAliasesBtn')
-    })
-
     it('should have import aliases button', () => {
       const importBtn = document.getElementById('importAliasesBtn')
 

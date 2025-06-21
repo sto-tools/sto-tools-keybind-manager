@@ -13,6 +13,10 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css"
+    />
   </head>
   <body>
     <div class="app-container">
@@ -34,22 +38,26 @@
           <span class="version" id="appVersion"></span>
         </div>
         <div class="header-right">
-          <button
-            class="btn btn-secondary"
-            id="openProjectBtn"
-            data-i18n-title="open_project_json"
-          >
-            <i class="fas fa-folder-open"></i>
-            <span data-i18n="open"></span>
-          </button>
-          <button
-            class="btn btn-secondary"
-            id="saveProjectBtn"
-            data-i18n-title="save_project_json"
-          >
-            <i class="fas fa-save"></i>
-            <span data-i18n="save"></span>
-          </button>
+          <div class="dropdown">
+            <button
+              class="btn btn-secondary dropdown-toggle"
+              id="backupMenuBtn"
+              data-i18n-title="backup_menu"
+            >
+              <i class="fas fa-save"></i>
+              <span data-i18n="backup"></span>
+            </button>
+            <div class="dropdown-menu" id="backupMenu">
+              <button class="dropdown-item" id="saveProjectBtn" data-i18n-title="backup_application_state">
+                <i class="fas fa-download"></i>
+                <span data-i18n="backup_application_state"></span>
+              </button>
+              <button class="dropdown-item" id="openProjectBtn" data-i18n-title="restore_application_state">
+                <i class="fas fa-upload"></i>
+                <span data-i18n="restore_application_state"></span>
+              </button>
+            </div>
+          </div>
           <button
             class="btn btn-secondary"
             id="fileExplorerBtn"
@@ -61,40 +69,20 @@
           <div class="dropdown">
             <button
               class="btn btn-secondary dropdown-toggle"
-              id="keybindsBtn"
-              data-i18n-title="keybind_operations"
+              id="importMenuBtn"
+              data-i18n-title="import"
             >
-              <i class="fas fa-keyboard"></i>
-              <span data-i18n="keybinds"></span>
+              <i class="fas fa-file-import"></i>
+              <span data-i18n="import"></span>
             </button>
-            <div class="dropdown-menu" id="keybindsMenu">
+            <div class="dropdown-menu" id="importMenu">
               <button class="dropdown-item" id="importKeybindsBtn">
-                <i class="fas fa-file-import"></i>
+                <i class="fas fa-keyboard"></i>
                 <span data-i18n="import_keybinds"></span>
               </button>
-              <button class="dropdown-item" id="exportKeybindsBtn">
-                <i class="fas fa-download"></i>
-                <span data-i18n="export_keybinds"></span>
-              </button>
-            </div>
-          </div>
-          <div class="dropdown">
-            <button
-              class="btn btn-secondary dropdown-toggle"
-              id="aliasesBtn"
-              data-i18n-title="alias_operations"
-            >
-              <i class="fas fa-mask"></i>
-              <span data-i18n="aliases"></span>
-            </button>
-            <div class="dropdown-menu" id="aliasesMenu">
               <button class="dropdown-item" id="importAliasesBtn">
                 <i class="fas fa-mask"></i>
                 <span data-i18n="import_aliases"></span>
-              </button>
-              <button class="dropdown-item" id="exportAliasesBtn">
-                <i class="fas fa-mask"></i>
-                <span data-i18n="export_aliases"></span>
               </button>
             </div>
           </div>
@@ -102,6 +90,33 @@
             <i class="fas fa-eye-slash"></i>
             <span data-i18n="vfx"></span>
           </button>
+          <button class="btn btn-secondary" id="syncNowBtn" data-i18n-title="sync_now">
+            <i class="fas fa-sync"></i>
+            <span data-i18n="sync_now"></span>
+          </button>
+          <div class="dropdown language-select">
+            <button class="btn btn-icon dropdown-toggle" id="languageMenuBtn" data-i18n-title="language">
+              <span id="languageFlag" class="fi fi-gb"></span>
+            </button>
+            <div class="dropdown-menu" id="languageMenu">
+              <button class="dropdown-item language-option" data-lang="en">
+                <span class="fi fi-gb"></span>
+                <span>English</span>
+              </button>
+              <button class="dropdown-item language-option" data-lang="de">
+                <span class="fi fi-de"></span>
+                <span>Deutsch</span>
+              </button>
+              <button class="dropdown-item language-option" data-lang="es">
+                <span class="fi fi-es"></span>
+                <span>Español</span>
+              </button>
+              <button class="dropdown-item language-option" data-lang="fr">
+                <span class="fi fi-fr"></span>
+                <span>Français</span>
+              </button>
+            </div>
+          </div>
           <div class="dropdown">
             <button
               class="btn btn-icon dropdown-toggle"
@@ -111,19 +126,14 @@
               <i class="fas fa-cog"></i>
             </button>
             <div class="dropdown-menu" id="settingsMenu">
+              <button class="dropdown-item" id="preferencesBtn">
+                <i class="fas fa-sliders-h"></i>
+                <span data-i18n="preferences"></span>
+              </button>
               <button class="dropdown-item" id="themeToggleBtn">
                 <i class="fas fa-moon"></i>
                 <span id="themeToggleText" data-i18n="dark_mode"></span>
               </button>
-              <div class="dropdown-item">
-                <i class="fas fa-language"></i>
-                <select id="languageSelect">
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                  <option value="es">Español</option>
-                  <option value="fr">Français</option>
-                </select>
-              </div>
               <button class="dropdown-item" id="loadDefaultDataBtn">
                 <i class="fas fa-download"></i>
                 <span data-i18n="load_default_data"></span>
@@ -131,14 +141,6 @@
               <button class="dropdown-item" id="resetAppBtn">
                 <i class="fas fa-refresh"></i>
                 <span data-i18n="reset_application"></span>
-              </button>
-              <button class="dropdown-item" id="setSyncFolderBtn">
-                <i class="fas fa-folder-open"></i>
-                <span data-i18n="set_sync_folder"></span>
-              </button>
-              <button class="dropdown-item" id="syncNowBtn">
-                <i class="fas fa-sync"></i>
-                <span data-i18n="sync_now"></span>
               </button>
               <button class="dropdown-item" id="aboutBtn">
                 <i class="fas fa-info-circle"></i>
@@ -836,6 +838,82 @@
       </div>
     </div>
 
+    <!-- Preferences Modal -->
+    <div class="modal large-modal" id="preferencesModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="preferences"></h3>
+          <button class="modal-close" data-modal="preferencesModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="preferences-layout">
+            <!-- Category Tree -->
+            <div class="preferences-sidebar">
+              <div class="category-tree">
+                <div class="category-item active" data-category="sync">
+                  <i class="fas fa-sync-alt"></i>
+                  <span data-i18n="synchronization"></span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Settings Content -->
+            <div class="preferences-content">
+                              <!-- Sync Settings -->
+                <div class="settings-panel active" id="sync-settings">
+                  <h4 data-i18n="synchronization_settings"></h4>
+                  <div class="settings-group">
+                    <div class="setting-item">
+                      <label data-i18n="sync_folder_label"></label>
+                      <div class="setting-control">
+                        <div class="folder-setting">
+                          <span id="currentSyncFolder" class="folder-path" data-i18n="no_folder_selected"></span>
+                          <button type="button" class="btn btn-secondary" id="setSyncFolderBtn">
+                            <i class="fas fa-folder-open"></i>
+                            <span data-i18n="set_sync_folder"></span>
+                          </button>
+                        </div>
+                        <span class="setting-description" data-i18n="sync_folder_description"></span>
+                      </div>
+                    </div>
+                    <div class="setting-item">
+                      <label data-i18n="auto_sync"></label>
+                      <div class="setting-control">
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="autoSync">
+                          <span class="slider"></span>
+                        </label>
+                        <span class="setting-description" data-i18n="auto_sync_description"></span>
+                      </div>
+                    </div>
+                    <div class="setting-item">
+                      <label data-i18n="auto_sync_interval"></label>
+                      <div class="setting-control">
+                        <select id="autoSyncInterval" class="setting-select">
+                          <option value="change" data-i18n="after_every_change"></option>
+                          <option value="60" data-i18n="every_1_minute"></option>
+                          <option value="120" data-i18n="every_2_minutes"></option>
+                          <option value="300" data-i18n="every_5_minutes"></option>
+                        </select>
+                        <span class="setting-description" data-i18n="auto_sync_interval_description"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="savePreferencesBtn" data-i18n="save"></button>
+          <button class="btn btn-secondary" data-modal="preferencesModal" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
+
     <!-- File Explorer Modal -->
     <div class="modal large-modal" id="fileExplorerModal">
       <div class="modal-content">
@@ -859,6 +937,13 @@
                 >
                   <i class="fas fa-copy"></i>
                   <span data-i18n="copy"></span>
+                </button>
+                <button
+                  class="btn btn-small"
+                  id="downloadFileBtn"
+                >
+                  <i class="fas fa-download"></i>
+                  <span data-i18n="download"></span>
                 </button>
               </div>
               <pre class="file-content" id="fileContent" data-i18n="select_an_item_on_the_left_to_preview_export"></pre>
