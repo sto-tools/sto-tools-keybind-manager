@@ -68,7 +68,7 @@ export default class STOSyncManager {
   async syncProject() {
     const handle = await this.getSyncFolderHandle();
     if (!handle) {
-      stoUI.showToast(i18next.t('no_sync_folder_selected'), 'warning');
+      stoUI.showToast(i18next.t('sync_folder_not_set'), 'warning');
       return;
     }
     const allowed = await this.ensurePermission(handle);
@@ -78,12 +78,9 @@ export default class STOSyncManager {
     }
     try {
       await stoExport.syncToFolder(handle);
-      stoUI.showToast(i18next.t('project_synced_successfully'), 'success');
+      stoUI.showToast(i18next.t('sync_complete'), 'success');
     } catch (error) {
-      stoUI.showToast(
-        i18next.t('failed_to_sync_project', { error: error.message }),
-        'error'
-      );
+      stoUI.showToast(i18next.t('sync_error'), 'error');
     }
   }
 }
