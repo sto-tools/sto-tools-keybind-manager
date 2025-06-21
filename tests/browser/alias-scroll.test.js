@@ -46,7 +46,7 @@ describe('Alias list scrolling', () => {
     expect(scrollContainer.scrollTop).toBeGreaterThan(initialTop)
   })
 
-  it('should keep alias action buttons visible at bottom during scroll', async () => {
+  it('should keep alias action buttons visible in header toolbar during scroll', async () => {
     // Ensure there is an active profile; create one if needed
     if (!window.app.currentProfile) {
       window.app.createProfile('TestProfile')
@@ -66,24 +66,29 @@ describe('Alias list scrolling', () => {
     // Wait for UI to update
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    // Locate the scroll container and action buttons
+    // Locate the scroll container and header toolbar buttons
     const scrollContainer = await testUtils.waitForElement('.alias-grid')
-    const actionButtons = await testUtils.waitForElement('.alias-selector-actions')
+    const headerToolbar = await testUtils.waitForElement('.alias-selector-header .header-toolbar')
+    const addButton = document.getElementById('addAliasChainBtn')
+    const deleteButton = document.getElementById('deleteAliasChainBtn')
     
     expect(scrollContainer).toBeTruthy()
-    expect(actionButtons).toBeTruthy()
+    expect(headerToolbar).toBeTruthy()
+    expect(addButton).toBeTruthy()
+    expect(deleteButton).toBeTruthy()
 
     // Reset scroll position to top for consistent test
     scrollContainer.scrollTop = 0
     await new Promise((resolve) => setTimeout(resolve, 50))
 
-    // Get initial button position
+    // Get initial toolbar and button positions
     const containerRect = document.querySelector('.alias-selector-container').getBoundingClientRect()
-    const buttonRect = actionButtons.getBoundingClientRect()
+    const toolbarRect = headerToolbar.getBoundingClientRect()
+    const addButtonRect = addButton.getBoundingClientRect()
     
-    // Buttons should be visible within the container (not necessarily at exact bottom due to scrollbar)
-    expect(buttonRect.top).toBeGreaterThanOrEqual(containerRect.top)
-    expect(buttonRect.bottom).toBeLessThanOrEqual(containerRect.bottom + 161) // Allow extra tolerance for test environment vs real browser differences
+    // Toolbar should be visible within the container header
+    expect(toolbarRect.top).toBeGreaterThanOrEqual(containerRect.top)
+    expect(addButtonRect.top).toBeGreaterThanOrEqual(containerRect.top)
     
     // Scroll the alias grid down from the top
     const initialScrollTop = scrollContainer.scrollTop // Should be 0
@@ -95,14 +100,16 @@ describe('Alias list scrolling', () => {
     // Verify scrolling occurred (from 0 to middle)
     expect(scrollContainer.scrollTop).toBeGreaterThan(initialScrollTop)
     
-    // Check that buttons are still visible after scrolling
-    const buttonRectAfterScroll = actionButtons.getBoundingClientRect()
+    // Check that toolbar buttons are still visible after scrolling (they're in the fixed header)
+    const toolbarRectAfterScroll = headerToolbar.getBoundingClientRect()
+    const addButtonRectAfterScroll = addButton.getBoundingClientRect()
     
-    // Verify buttons are still visible (not scrolled out of view)
-    expect(buttonRectAfterScroll.top).toBeGreaterThanOrEqual(containerRect.top)
-    expect(buttonRectAfterScroll.bottom).toBeLessThanOrEqual(containerRect.bottom + 161) // Allow tolerance for test environment differences
+    // Verify toolbar and buttons are still visible and haven't moved (they're in the fixed header)
+    expect(toolbarRectAfterScroll.top).toBeGreaterThanOrEqual(containerRect.top)
+    expect(addButtonRectAfterScroll.top).toBeGreaterThanOrEqual(containerRect.top)
     
-    // Most importantly: buttons should not have moved (they're anchored)
-    expect(Math.abs(buttonRectAfterScroll.top - buttonRect.top)).toBeLessThan(5) // Should be roughly same position
+    // Most importantly: toolbar buttons should not have moved (they're in the fixed header)
+    expect(Math.abs(toolbarRectAfterScroll.top - toolbarRect.top)).toBeLessThan(5) // Should be same position
+    expect(Math.abs(addButtonRectAfterScroll.top - addButtonRect.top)).toBeLessThan(5) // Should be same position
   })
 }) 

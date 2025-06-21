@@ -847,7 +847,7 @@ describe('STOAliasManager', () => {
                 </div>
               </div>
               <div class="alias-preview">
-                <div class="command-preview" id="aliasPreview">alias MyAlias "command sequence"</div>
+                <div class="command-preview" id="aliasPreview">alias MyAlias <& command sequence &></div>
               </div>
             </div>
           </div>

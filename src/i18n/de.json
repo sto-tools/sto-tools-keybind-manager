@@ -58,7 +58,7 @@
   "command_library": "Befehlsbibliothek",
   "add_new_key": "Neue Taste hinzufügen",
   "key_name": "Tastenname:",
-  "use_standard_key_names_like_f1_ctrl_a_shift_space_etc": "Verwenden Sie Standardtastennamen wie F1, Strg+A, Umschalt+Leertaste, etc.",
+  "use_standard_key_names_like_f1_ctrl_a_shift_space_etc": "Verwenden Sie Standard-Tastennamen wie F1, Strg+A, Umschalt+Leertaste, usw.",
   "common_keys": "Häufige Tasten:",
   "ctrl": "Strg",
   "alt": "Alt",
@@ -564,5 +564,9 @@
   "app_description": "Ein umfassendes webbasiertes Tool zum Erstellen, Bearbeiten und Verwalten von Star Trek Online Keybind-Konfigurationen mit visueller Bearbeitung und erweiterten Funktionen.",
   "csv_header": "Taste,Befehl,Typ,Beschreibung,Position",
   "default_export_filename": "export.txt",
-  "select_a_space_ground_build_or_aliases_to_preview_export": "Wählen Sie einen Raum-/Boden-Build oder Aliase aus, um die Exportvorschau anzuzeigen."
+  "select_a_space_ground_build_or_aliases_to_preview_export": "Wählen Sie einen Raum-/Boden-Build oder Aliase aus, um die Exportvorschau anzuzeigen.",
+  "or_capture_keys": "Oder Tasten erfassen:",
+  "click_here_then_press_keys": "Hier klicken, dann Tastenkombination drücken",
+  "press_key_combination_now": "Drücken Sie jetzt die Tastenkombination...",
+  "supports_single_modifier_plus_key_combinations": "Unterstützt Einzelmodifikator + Tastenkombinationen (z.B. Strg+A, Alt+1, Umschalt+Leertaste)"
 }

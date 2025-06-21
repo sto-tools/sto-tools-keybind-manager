@@ -12,6 +12,10 @@ export default class STOToolsKeybindManager {
     this.preferencesManager = new STOPreferencesManager()
     this.autoSyncManager = new STOAutoSyncManager()
 
+    // Bind key capture handlers once for consistent add/remove
+    this.boundHandleKeyDown = this.handleKeyDown.bind(this)
+    this.boundHandleKeyUp = this.handleKeyUp.bind(this)
+
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => this.init())
@@ -1236,15 +1240,7 @@ export default class STOToolsKeybindManager {
       title.textContent = selectText
       preview.textContent = previewText
       if (commandCount) {
-        // Update only the number part while preserving the internationalized text
-        const commandsSpan = commandCount.querySelector('[data-i18n="commands"]')
-        if (commandsSpan) {
-          // Use i18next to get the translated text and preserve the data-i18n attribute
-          const translatedText = typeof i18next !== 'undefined' ? i18next.t('commands') : 'commands'
-          commandCount.innerHTML = `0 <span data-i18n="commands">${translatedText}</span>`
-        } else {
-          commandCount.textContent = '0 commands'
-        }
+        commandCount.textContent = '0'
       }
       if (emptyState) emptyState.style.display = 'block'
       const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
@@ -1281,13 +1277,17 @@ export default class STOToolsKeybindManager {
       if (alias && alias.commands) {
         // Convert alias command string to command array format
         const commandStrings = alias.commands.split('$$').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0)
-        commands = commandStrings.map((cmd, index) => ({
-          command: cmd,
-          text: cmd,
-          type: 'alias',
-          icon: '🎭',
-          id: `alias_${index}`
-        }))
+        commands = commandStrings.map((cmd, index) => {
+          // Find the command definition to get the correct icon and name
+          const commandDef = this.findCommandDefinition({ command: cmd })
+          return {
+            command: cmd,
+            text: commandDef ? commandDef.name : cmd,
+            type: 'alias',
+            icon: commandDef ? commandDef.icon : '🎭', // Use command library icon if available, fallback to alias icon
+            id: `alias_${index}`
+          }
+        })
       }
     } else {
       // For keybinds, use the build-specific view
@@ -1309,15 +1309,7 @@ export default class STOToolsKeybindManager {
     const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
     title.textContent = `${chainType} for ${this.selectedKey}`
     if (commandCount) {
-      // Update only the number part while preserving the internationalized text
-      const commandsSpan = commandCount.querySelector('[data-i18n="commands"]')
-      if (commandsSpan) {
-        // Use i18next to get the translated text and preserve the data-i18n attribute
-        const translatedText = typeof i18next !== 'undefined' ? i18next.t('commands') : 'commands'
-        commandCount.innerHTML = `${commands.length} <span data-i18n="commands">${translatedText}</span>`
-      } else {
-        commandCount.textContent = `${commands.length} command${commands.length !== 1 ? 's' : ''}`
-      }
+      commandCount.textContent = commands.length.toString()
     }
 
     if (commands.length === 0) {
@@ -1334,7 +1326,7 @@ export default class STOToolsKeybindManager {
             `
       
       if (this.currentEnvironment === 'alias') {
-        preview.textContent = `alias ${this.selectedKey} ""`
+        preview.textContent = `alias ${this.selectedKey} <&  &>`
       } else {
       preview.textContent = `${this.selectedKey} ""`
       }
@@ -1347,9 +1339,9 @@ export default class STOToolsKeybindManager {
 
       // Generate preview based on mode
       if (this.currentEnvironment === 'alias') {
-        // For aliases, show the alias command format
+        // For aliases, show the alias command format with <& and &> delimiters
         const commandString = commands.map((cmd) => cmd.command).join(' $$ ')
-        preview.textContent = `alias ${this.selectedKey} "${commandString}"`
+        preview.textContent = `alias ${this.selectedKey} <& ${commandString} &>`
       } else {
         // For keybinds, use the existing logic with optional mirroring
         const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder')
@@ -1638,7 +1630,7 @@ export default class STOToolsKeybindManager {
       }
 
       // Disable key-specific buttons in alias mode
-      const keyButtons = ['addFromTemplateBtn', 'importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
+      const keyButtons = ['importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
       keyButtons.forEach((btnId) => {
         const btn = document.getElementById(btnId)
         if (btn) {
@@ -1649,7 +1641,6 @@ export default class STOToolsKeybindManager {
       // In key mode, enable/disable key-specific buttons
     const buttonsToToggle = [
       'addCommandBtn',
-      'addFromTemplateBtn',
       'importFromKeyBtn',
       'deleteKeyBtn',
       'duplicateKeyBtn',
@@ -1750,14 +1741,7 @@ export default class STOToolsKeybindManager {
       modalManager.show('addCommandModal')
     })
 
-    eventBus.onDom(
-      'addFromTemplateBtn',
-      'click',
-      'command-add-template',
-      () => {
-        this.showTemplateModal()
-      }
-    )
+
 
     eventBus.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
       if (this.selectedKey) {
@@ -1862,6 +1846,99 @@ export default class STOToolsKeybindManager {
         this.saveData()
       }
     }, 30000) // Auto-save every 30 seconds
+
+    // Stabilize execution order toolbar button
+    eventBus.onDom('stabilizeExecutionOrderBtn', 'click', 'stabilize-toggle', (e) => {
+      const btn = e.target.closest('.toolbar-btn')
+      const checkbox = document.getElementById('stabilizeExecutionOrder')
+      
+      // Toggle the hidden checkbox
+      checkbox.checked = !checkbox.checked
+      
+      // Update button visual state
+      btn.classList.toggle('active', checkbox.checked)
+      
+      // Trigger the existing change event
+      checkbox.dispatchEvent(new Event('change'))
+    })
+
+    // Alias options toolbar button
+    eventBus.onDom('aliasOptionsBtn', 'click', 'alias-options-toggle', (e) => {
+      const btn = e.target.closest('.toolbar-btn')
+      const optionsDiv = document.getElementById('aliasOptions')
+      
+      // Toggle visibility
+      const isVisible = optionsDiv.style.display !== 'none'
+      optionsDiv.style.display = isVisible ? 'none' : 'block'
+      
+      // Update button visual state
+      btn.classList.toggle('active', !isVisible)
+    })
+
+    // Expandable search functionality
+    this.setupExpandableSearch('keySearchBtn', 'keyFilter')
+    this.setupExpandableSearch('aliasSearchBtn', 'aliasFilter')
+    this.setupExpandableSearch('commandSearchBtn', 'commandSearch')
+  }
+
+  setupExpandableSearch(buttonId, inputId) {
+    const button = document.getElementById(buttonId)
+    const input = document.getElementById(inputId)
+    
+    if (!button || !input) return
+
+    // Toggle search input visibility
+    eventBus.onDom(buttonId, 'click', `${buttonId}-toggle`, (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const isExpanded = input.classList.contains('expanded')
+      
+      if (isExpanded) {
+        // If expanded and has content, clear it; if empty, collapse
+        if (input.value.trim()) {
+          input.value = ''
+          // Trigger the existing filter/search logic
+          input.dispatchEvent(new Event('input'))
+        } else {
+          input.classList.remove('expanded')
+          input.blur()
+        }
+      } else {
+        // Expand and focus
+        input.classList.add('expanded')
+        setTimeout(() => input.focus(), 100)
+      }
+    })
+
+    // Handle clicks outside to collapse
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.toolbar-search') && input.classList.contains('expanded')) {
+        if (!input.value.trim()) {
+          input.classList.remove('expanded')
+        }
+      }
+    })
+
+    // Handle escape key to collapse
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (input.value.trim()) {
+          input.value = ''
+          input.dispatchEvent(new Event('input'))
+        } else {
+          input.classList.remove('expanded')
+          input.blur()
+        }
+      }
+    })
+
+    // Keep expanded if there's content
+    input.addEventListener('input', () => {
+      if (input.value.trim()) {
+        input.classList.add('expanded')
+      }
+    })
   }
 
   setupModalHandlers() {
@@ -1884,6 +1961,14 @@ export default class STOToolsKeybindManager {
         }
       })
     })
+
+    // Key Capture functionality for Add Key Modal
+    const addKeyCaptureBtn = document.getElementById('addKeyCaptureBtn')
+    if (addKeyCaptureBtn) {
+      addKeyCaptureBtn.addEventListener('click', () => {
+        this.startKeyCapture('addKeyModal')
+      })
+    }
 
     // Add Command Modal
     eventBus.onDom('saveCommandBtn', 'click', 'command-save', () => {
@@ -1915,6 +2000,11 @@ export default class STOToolsKeybindManager {
             // Clean up stored state
             delete this.vertigoInitialState
             this.vertigoSaving = false
+          }
+          
+          // Stop key capture if modal is closed
+          if (modalId === 'addKeyModal' || modalId === 'keySelectionModal') {
+            this.stopKeyCapture()
           }
         }
       })
@@ -2043,18 +2133,22 @@ export default class STOToolsKeybindManager {
   }
 
   updateChainOptionsForAlias() {
-    const stabilizeLabel = document.getElementById('stabilizeExecutionOrderLabel')
+    const stabilizeBtn = document.getElementById('stabilizeExecutionOrderBtn')
+    const aliasOptionsBtn = document.getElementById('aliasOptionsBtn')
     const aliasOptions = document.getElementById('aliasOptions')
     
-    if (stabilizeLabel) stabilizeLabel.style.display = 'none'
-    if (aliasOptions) aliasOptions.style.display = 'block'
+    if (stabilizeBtn) stabilizeBtn.style.display = 'none'
+    if (aliasOptionsBtn) aliasOptionsBtn.style.display = 'block'
+    if (aliasOptions) aliasOptions.style.display = 'none' // Initially hidden, shown when button is clicked
   }
 
   updateChainOptionsForKeybind() {
-    const stabilizeLabel = document.getElementById('stabilizeExecutionOrderLabel')
+    const stabilizeBtn = document.getElementById('stabilizeExecutionOrderBtn')
+    const aliasOptionsBtn = document.getElementById('aliasOptionsBtn')
     const aliasOptions = document.getElementById('aliasOptions')
     
-    if (stabilizeLabel) stabilizeLabel.style.display = 'block'
+    if (stabilizeBtn) stabilizeBtn.style.display = 'block'
+    if (aliasOptionsBtn) aliasOptionsBtn.style.display = 'none'
     if (aliasOptions) aliasOptions.style.display = 'none'
   }
 
@@ -3498,11 +3592,13 @@ export default class STOToolsKeybindManager {
   }
 
   showKeySelectionModal() {
+    console.log('[KeyCapture] showKeySelectionModal called')
     this.setupKeySelectionModal()
     modalManager.show('keySelectionModal')
   }
 
   setupKeySelectionModal() {
+    console.log('[KeyCapture] setupKeySelectionModal called')
     // Populate common keys
     this.populateCommonKeys()
 
@@ -3516,6 +3612,23 @@ export default class STOToolsKeybindManager {
     const searchInput = document.getElementById('keySearchInput')
     if (searchInput) {
       searchInput.oninput = (e) => this.filterKeyList(e.target.value)
+    }
+
+    // Setup Key Capture functionality
+    const captureKeyBtn = document.getElementById('captureKeyBtn')
+    console.log('[KeyCapture] setupKeySelectionModal: captureKeyBtn:', captureKeyBtn)
+    if (captureKeyBtn) {
+      // Remove any existing handlers
+      captureKeyBtn.onclick = null
+      captureKeyBtn.removeEventListener('click', () => {})
+      
+      // Add event listener that will work for clicks anywhere on the button
+      captureKeyBtn.addEventListener('click', (event) => {
+        console.log('[KeyCapture] captureKeyBtn clicked (event delegation)')
+        event.preventDefault()
+        event.stopPropagation()
+        this.startKeyCapture('keySelectionModal')
+      })
     }
   }
 
@@ -4265,6 +4378,249 @@ export default class STOToolsKeybindManager {
       }
     }
   }
+
+  // Key Capture Methods
+  startKeyCapture(modalContext = 'keySelectionModal') {
+    console.log('[KeyCapture] startKeyCapture called for modal:', modalContext)
+    this.isCapturingKeys = true
+    this.pressedCodes = new Set()
+    this.currentCaptureContext = modalContext
+    this.hasCapturedValidKey = false  // Add flag to track if we've captured a valid key
+    
+    // Determine which elements to use based on modal context
+    const captureStatusId = modalContext === 'addKeyModal' ? 'addKeyCaptureStatus' : 'keyCaptureStatus'
+    const capturedKeysId = modalContext === 'addKeyModal' ? 'addKeyCapturedKeys' : 'capturedKeys'
+    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'captureKeyBtn'
+    
+    // Show capture status
+    const captureStatus = document.getElementById(captureStatusId)
+    const capturedKeys = document.getElementById(capturedKeysId)
+    const captureBtn = document.getElementById(captureBtnId)
+    
+    console.log('[KeyCapture] Elements found:', {
+      captureStatus: !!captureStatus,
+      capturedKeys: !!capturedKeys,
+      captureBtn: !!captureBtn,
+      modalContext
+    })
+    
+    if (captureStatus) captureStatus.style.display = 'block'
+    if (capturedKeys) {
+      capturedKeys.textContent = ''
+      capturedKeys.setAttribute('data-placeholder', 'Press keys...')
+    }
+    if (captureBtn) captureBtn.disabled = true
+    
+    // Add event listeners
+    console.log('[KeyCapture] Adding key event listeners to document')
+    document.addEventListener('keydown', this.boundHandleKeyDown)
+    document.addEventListener('keyup', this.boundHandleKeyUp)
+    
+    // Test if listeners are attached
+    console.log('[KeyCapture] Event listeners attached:', {
+      keydown: document.onkeydown,
+      hasKeydown: !!document.onkeydown
+    })
+    
+    // Focus on the modal to capture keys
+    const modal = document.getElementById(modalContext)
+    console.log('[KeyCapture] Modal found:', !!modal)
+    if (modal) {
+      modal.focus()
+      console.log('[KeyCapture] Modal focused')
+    }
+    
+    console.log('[KeyCapture] startKeyCapture completed')
+  }
+
+  stopKeyCapture() {
+    this.isCapturingKeys = false
+    this.pressedCodes.clear()
+    
+    // Determine which elements to use based on current context
+    const modalContext = this.currentCaptureContext || 'keySelectionModal'
+    const captureStatusId = modalContext === 'addKeyModal' ? 'addKeyCaptureStatus' : 'keyCaptureStatus'
+    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'captureKeyBtn'
+    
+    // Hide capture status
+    const captureStatus = document.getElementById(captureStatusId)
+    const captureBtn = document.getElementById(captureBtnId)
+    
+    if (captureStatus) captureStatus.style.display = 'none'
+    if (captureBtn) captureBtn.disabled = false
+    
+    // Hide confirm section if in addKeyModal
+    if (modalContext === 'addKeyModal') {
+      const confirmSection = document.getElementById('addKeyConfirmSection')
+      if (confirmSection) confirmSection.style.display = 'none'
+    }
+    
+    // Remove event listeners
+    document.removeEventListener('keydown', this.boundHandleKeyDown)
+    document.removeEventListener('keyup', this.boundHandleKeyUp)
+    
+    // Clear context
+    this.currentCaptureContext = null
+  }
+
+  handleKeyDown(event) {
+    if (!this.isCapturingKeys) return
+    
+    // Ignore pure modifier presses
+    if (this.isPureModifier(event.code)) {
+      this.pressedCodes.add(event.code)
+      this.updateCapturedKeysDisplay()
+      return
+    }
+
+    // At this point, a "real" key was pressed—grab the full set
+    this.pressedCodes.add(event.code)
+    const chord = this.chordToString(this.pressedCodes)
+    
+    // Update display
+    this.updateCapturedKeysDisplay(chord)
+    
+    // Add a button to select the captured key
+    this.addCapturedKeySelectionButton(chord)
+    
+    // Mark that we've captured a valid key combination
+    this.hasCapturedValidKey = true
+    
+    // Do NOT auto-stop capture; wait for user to confirm
+    event.preventDefault()
+  }
+
+  addCapturedKeySelectionButton(chord) {
+    const modalContext = this.currentCaptureContext || 'keySelectionModal'
+    const capturedKeysId = modalContext === 'addKeyModal' ? 'addKeyCapturedKeys' : 'capturedKeys'
+    const capturedKeys = document.getElementById(capturedKeysId)
+    if (!capturedKeys) return
+    
+    // Clear any existing selection button
+    const existingButton = capturedKeys.querySelector('.captured-key-select-btn')
+    if (existingButton) {
+      existingButton.remove()
+    }
+    
+    // Show the select button for both modals
+    const selectButton = document.createElement('button')
+    selectButton.className = 'btn btn-primary captured-key-select-btn'
+    selectButton.textContent = `Select "${chord}"`
+    selectButton.onclick = () => {
+      if (modalContext === 'addKeyModal') {
+        // For addKeyModal, populate the key name input field and add the key
+        const keyNameInput = document.getElementById('newKeyName')
+        if (keyNameInput) {
+          keyNameInput.value = chord
+        }
+        this.addKey(chord)
+        modalManager.hide('addKeyModal')
+        this.stopKeyCapture()
+      } else {
+        // For keySelectionModal, use the existing behavior
+        this.selectKeyFromModal(chord)
+        this.stopKeyCapture()
+      }
+    }
+    capturedKeys.appendChild(selectButton)
+  }
+
+  handleKeyUp(event) {
+    if (!this.isCapturingKeys) return
+    
+    // Only clear pressed codes if we haven't captured a valid key yet
+    if (!this.hasCapturedValidKey) {
+      this.pressedCodes.delete(event.code)
+      this.updateCapturedKeysDisplay()
+    }
+  }
+
+  isPureModifier(code) {
+    return [
+      'ShiftLeft', 'ShiftRight',
+      'ControlLeft', 'ControlRight',
+      'AltLeft', 'AltRight',
+      'MetaLeft', 'MetaRight'
+    ].includes(code)
+  }
+
+  chordToString(codes) {
+    // Sort so you get a consistent order
+    return [...codes]
+      .sort()
+      .map(code => {
+        // Convert to STO key format
+        if (code.startsWith('Control')) return 'Ctrl'
+        if (code.startsWith('Alt')) return 'Alt'
+        if (code.startsWith('Shift')) return 'Shift'
+        if (code.startsWith('Meta')) return 'Meta'
+        
+        // DigitX → X
+        const digitMatch = code.match(/^Digit(\d)$/)
+        if (digitMatch) return digitMatch[1]
+        
+        // KeyX → X (for letters)
+        const keyMatch = code.match(/^Key([A-Z])$/)
+        if (keyMatch) return keyMatch[1]
+        
+        // Function keys
+        if (code.startsWith('F') && /^F\d+$/.test(code)) {
+          return code
+        }
+        
+        // Special keys
+        const specialKeyMap = {
+          'Space': 'Space',
+          'Enter': 'Enter',
+          'Tab': 'Tab',
+          'Escape': 'Escape',
+          'Backspace': 'Backspace',
+          'Delete': 'Delete',
+          'Home': 'Home',
+          'End': 'End',
+          'PageUp': 'PageUp',
+          'PageDown': 'PageDown',
+          'ArrowUp': 'Up',
+          'ArrowDown': 'Down',
+          'ArrowLeft': 'Left',
+          'ArrowRight': 'Right',
+          'BracketLeft': '[',
+          'BracketRight': ']',
+          'Semicolon': ';',
+          'Quote': "'",
+          'Comma': ',',
+          'Period': '.',
+          'Slash': '/',
+          'Backslash': '\\',
+          'Minus': '-',
+          'Equal': '=',
+          'Backquote': '`',
+          'IntlBackslash': '\\'
+        }
+        
+        return specialKeyMap[code] || code.replace(/^Key/, '')
+      })
+      .join('+')
+  }
+
+  updateCapturedKeysDisplay(chord = null) {
+    const modalContext = this.currentCaptureContext || 'keySelectionModal'
+    const capturedKeysId = modalContext === 'addKeyModal' ? 'addKeyCapturedKeys' : 'capturedKeys'
+    const capturedKeys = document.getElementById(capturedKeysId)
+    if (!capturedKeys) return
+    
+    if (chord) {
+      capturedKeys.textContent = chord
+    } else if (this.pressedCodes.size > 0) {
+      const currentChord = this.chordToString(this.pressedCodes)
+      capturedKeys.textContent = currentChord
+    } else {
+      capturedKeys.textContent = ''
+      capturedKeys.setAttribute('data-placeholder', 'Press keys...')
+    }
+  }
+
+  // Utility Methods
 }
 
 // Initialize application
