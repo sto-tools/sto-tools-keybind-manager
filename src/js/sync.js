@@ -86,7 +86,14 @@ export default class STOSyncManager {
     }
     try {
       await stoExport.syncToFolder(handle);
-      stoUI.showToast(i18next.t('project_synced_successfully'), 'success');
+      
+      // Show success toast for manual syncs or interval-based auto-syncs, but not for change-based auto-syncs
+      const isAutoSync = app?.autoSyncManager?.isEnabled;
+      const isChangeBasedSync = app?.autoSyncManager?.interval === 'change';
+      
+      if (!isAutoSync || !isChangeBasedSync) {
+        stoUI.showToast(i18next.t('project_synced_successfully'), 'success');
+      }
       
       // Emit project-synced event for auto-sync
       eventBus.emit('project-synced')
