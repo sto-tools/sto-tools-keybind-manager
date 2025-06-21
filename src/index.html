@@ -492,41 +492,10 @@
             <input
               type="text"
               id="newKeyName"
-              data-i18n-placeholder="e_g_f5_ctrl_a_shift_1"
+              data-i18n-placeholder="enter_key_name"
               autocomplete="off"
             />
-            <small data-i18n="use_standard_key_names_like_f1_ctrl_a_shift_space_etc"></small>
-          </div>
-          
-          <!-- Key Capture Section -->
-          <div class="form-group">
-            <label data-i18n="or_capture_keys">Or capture keys:</label>
-            <div class="key-capture-section">
-              <button 
-                type="button" 
-                class="btn btn-primary" 
-                id="addKeyCaptureBtn"
-                data-i18n="click_here_then_press_keys"
-              >
-                <i class="fas fa-keyboard"></i>
-                <span data-i18n="click_here_then_press_keys">Click here, then press the key combination</span>
-              </button>
-              <div class="key-capture-status" id="addKeyCaptureStatus" style="display: none;">
-                <div class="capture-indicator">
-                  <i class="fas fa-circle-notch fa-spin"></i>
-                  <span data-i18n="press_key_combination_now">Press the key combination now...</span>
-                </div>
-                <div class="captured-keys" id="addKeyCapturedKeys"></div>
-                <div class="key-capture-confirm" id="addKeyConfirmSection" style="display: none;">
-                  <span id="addKeyConfirmText"></span>
-                  <div class="confirm-btns">
-                    <button type="button" class="btn btn-success" id="addKeyConfirmYesBtn" data-i18n="yes">Yes</button>
-                    <button type="button" class="btn btn-secondary" id="addKeyConfirmNoBtn" data-i18n="no">No</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <small data-i18n="supports_single_modifier_plus_key_combinations">Supports single modifier + key combinations (e.g., Ctrl+A, Alt+1, Shift+Space)</small>
+            <small data-i18n="use_alphanumeric_characters_only_no_spaces"></small>
           </div>
           
           <div class="common-keys">
@@ -728,61 +697,112 @@
         </div>
         <div class="modal-body">
           <div class="key-selection-content">
-            <!-- Key Capture Section -->
-            <div class="form-group">
-              <label data-i18n="or_capture_keys">Or capture keys:</label>
-              <div class="key-capture-section">
-                <button 
-                  type="button" 
-                  class="btn btn-outline" 
-                  id="captureKeyBtn"
-                  data-i18n="click_here_then_press_keys"
-                >
-                  <i class="fas fa-keyboard"></i>
-                  <span data-i18n="click_here_then_press_keys">Click here, then press the key combination</span>
-                </button>
-                <div class="key-capture-status" id="keyCaptureStatus" style="display: none;">
-                  <div class="capture-indicator">
-                    <i class="fas fa-circle-notch fa-spin"></i>
-                    <span data-i18n="press_key_combination_now">Press the key combination now...</span>
-                  </div>
-                  <div class="captured-keys" id="capturedKeys"></div>
-                </div>
-              </div>
-              <small data-i18n="supports_single_modifier_plus_key_combinations">Supports single modifier + key combinations (e.g., Ctrl+A, Alt+1, Shift+Space)</small>
+            <div class="key-selection-header">
+              <h4>Select Key</h4>
+              <p>Choose from the available keys below:</p>
             </div>
             
-            <!-- Common Keys Section -->
-            <div class="common-keys-section">
-              <h4>Common Keys</h4>
-              <div class="common-keys-grid" id="commonKeysGrid">
-                <!-- Populated by JavaScript -->
+            <!-- Preview Section (moved up) -->
+            <div class="key-preview">
+              <label>Key Combination:</label>
+              <div class="key-preview-display" id="keyPreviewDisplay">
+                <span class="no-selection">No key selected</span>
+              </div>
+              <div class="key-preview-actions">
+                <button class="btn" id="keySelectionCaptureBtn">
+                  <i class="fas fa-keyboard"></i> Capture Key
+                </button>
+                <button class="btn btn-primary" id="confirmKeySelection" disabled>
+                  Select This Key
+                </button>
+              </div>
+              
+              <!-- Key Capture Status Popup -->
+              <div class="key-capture-status" id="keyCaptureStatus" style="display: none;">
+                <div class="capture-indicator">
+                  <i class="fas fa-circle-notch fa-spin"></i>
+                  <span data-i18n="press_key_combination_now">Press the key combination now...</span>
+                </div>
+                <div class="captured-keys" id="capturedKeys"></div>
               </div>
             </div>
-
-            <!-- Find Other Keys Button -->
-            <div class="find-keys-section">
-              <button class="btn btn-outline" id="findOtherKeysBtn">
-                <i class="fas fa-search"></i> Find other keys...
-              </button>
-            </div>
-
-            <!-- Full Key List (initially hidden) -->
-            <div
-              class="full-keys-section"
-              id="fullKeysSection"
-              style="display: none"
-            >
-              <div class="key-search">
-                <input
-                  type="text"
-                  id="keySearchInput"
-                  placeholder="Search keys..."
-                  autocomplete="off"
-                />
+            
+            <!-- Modifier + Key Selection Section -->
+            <div class="modifier-key-selection">
+              <h4>Select Modifier + Key</h4>
+              
+              <!-- Step 1: Modifier Selection -->
+              <div class="modifier-selection">
+                <label>Step 1: Select Modifiers (Optional)</label>
+                <div class="modifier-buttons">
+                  <button class="modifier-btn" data-modifier="Ctrl" data-selected="false">
+                    <span class="modifier-label">Ctrl</span>
+                  </button>
+                  <button class="modifier-btn" data-modifier="Alt" data-selected="false">
+                    <span class="modifier-label">Alt</span>
+                  </button>
+                  <button class="modifier-btn" data-modifier="Shift" data-selected="false">
+                    <span class="modifier-label">Shift</span>
+                  </button>
+                </div>
               </div>
-              <div class="key-categories" id="keyCategories">
-                <!-- Populated by JavaScript -->
+              
+              <!-- Step 2: Key Selection -->
+              <div class="key-selection">
+                <label>Step 2: Select Key</label>
+                <div class="key-selection-tabs">
+                  <button class="tab-btn active" data-tab="common">Common</button>
+                  <button class="tab-btn" data-tab="letters">Letters</button>
+                  <button class="tab-btn" data-tab="numbers">Numbers</button>
+                  <button class="tab-btn" data-tab="function">Function</button>
+                  <button class="tab-btn" data-tab="arrows">Arrows</button>
+                  <button class="tab-btn" data-tab="symbols">Symbols</button>
+                  <button class="tab-btn" data-tab="mouse">Mouse</button>
+                  <button class="tab-btn" data-tab="gamepad">Gamepad</button>
+                </div>
+                
+                <div class="key-tab-content">
+                  <div class="key-tab active" id="common-tab">
+                    <div class="key-grid" id="commonKeyGrid">
+                      <!-- Common keys populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="letters-tab">
+                    <div class="key-grid" id="lettersKeyGrid">
+                      <!-- Letter keys populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="numbers-tab">
+                    <div class="key-grid" id="numbersKeyGrid">
+                      <!-- Number keys populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="function-tab">
+                    <div class="key-grid" id="functionKeyGrid">
+                      <!-- Function keys populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="arrows-tab">
+                    <div class="key-grid" id="arrowsKeyGrid">
+                      <!-- Arrow keys populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="symbols-tab">
+                    <div class="key-grid" id="symbolsKeyGrid">
+                      <!-- Symbol keys populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="mouse-tab">
+                    <div class="key-grid" id="mouseKeyGrid">
+                      <!-- Mouse controls populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="gamepad-tab">
+                    <div class="key-grid" id="gamepadKeyGrid">
+                      <!-- Gamepad controls populated by JavaScript -->
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

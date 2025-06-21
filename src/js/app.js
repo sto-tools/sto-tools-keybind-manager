@@ -924,6 +924,10 @@ export default class STOToolsKeybindManager {
       // Always break compound keys for better readability
       return keyName.replace(/\+/g, '<br>+<br>')
     }
+    // Handle underscores for word wrapping
+    if (keyName.includes('_')) {
+      return keyName.replace(/_/g, '<br>_<br>')
+    }
     return keyName
   }
 
@@ -1142,7 +1146,7 @@ export default class STOToolsKeybindManager {
     let lengthClass
     if (hasLineBreaks) {
       // For compound keys with line breaks, check the longest part
-      const parts = keyName.split('+')
+      const parts = keyName.split(/[+_]/)
       const longestPart = Math.max(...parts.map((part) => part.length))
       if (longestPart <= 4) {
         lengthClass = 'short'
@@ -3599,23 +3603,12 @@ export default class STOToolsKeybindManager {
 
   setupKeySelectionModal() {
     console.log('[KeyCapture] setupKeySelectionModal called')
-    // Populate common keys
-    this.populateCommonKeys()
-
-    // Setup "Find other keys" button
-    const findKeysBtn = document.getElementById('findOtherKeysBtn')
-    if (findKeysBtn) {
-      findKeysBtn.onclick = () => this.showFullKeyList()
-    }
-
-    // Setup search functionality
-    const searchInput = document.getElementById('keySearchInput')
-    if (searchInput) {
-      searchInput.oninput = (e) => this.filterKeyList(e.target.value)
-    }
-
+    
+    // Initialize the modifier + key selection interface
+    this.setupModifierKeySelection()
+    
     // Setup Key Capture functionality
-    const captureKeyBtn = document.getElementById('captureKeyBtn')
+    const captureKeyBtn = document.getElementById('keySelectionCaptureBtn')
     console.log('[KeyCapture] setupKeySelectionModal: captureKeyBtn:', captureKeyBtn)
     if (captureKeyBtn) {
       // Remove any existing handlers
@@ -3629,6 +3622,193 @@ export default class STOToolsKeybindManager {
         event.stopPropagation()
         this.startKeyCapture('keySelectionModal')
       })
+    }
+  }
+
+  setupModifierKeySelection() {
+    // Initialize state
+    this.selectedModifiers = []
+    this.selectedKey = null
+
+    // Dynamically generate modifier buttons from data.js
+    const modifierButtonsContainer = document.querySelector('.modifier-buttons')
+    if (modifierButtonsContainer) {
+      modifierButtonsContainer.innerHTML = ''
+      const modifiers = (STO_DATA.keys.modifiers && STO_DATA.keys.modifiers.keys) || []
+      modifiers.forEach(mod => {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'modifier-btn'
+        btn.dataset.modifier = mod.key
+        btn.dataset.selected = 'false'
+        btn.textContent = mod.description || mod.key
+        btn.addEventListener('click', () => {
+          const isSelected = btn.dataset.selected === 'true'
+          if (isSelected) {
+            btn.dataset.selected = 'false'
+            this.selectedModifiers = this.selectedModifiers.filter(m => m !== mod.key)
+          } else {
+            btn.dataset.selected = 'true'
+            this.selectedModifiers.push(mod.key)
+          }
+          this.updateKeyPreview()
+        })
+        modifierButtonsContainer.appendChild(btn)
+      })
+    }
+
+    // Setup tab switching
+    const tabBtns = document.querySelectorAll('.tab-btn')
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab
+        
+        // Update active tab button
+        tabBtns.forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        
+        // Update active tab content
+        const tabContents = document.querySelectorAll('.key-tab')
+        tabContents.forEach(tab => tab.classList.remove('active'))
+        document.getElementById(`${tabName}-tab`).classList.add('active')
+        
+        // Populate the selected tab if not already done
+        this.populateKeyTab(tabName)
+      })
+    })
+    
+    // Setup confirm button
+    const confirmBtn = document.getElementById('confirmKeySelection')
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        if (this.selectedKey) {
+          const keyCombination = this.buildKeyCombination()
+          this.selectKeyFromModal(keyCombination)
+        }
+      })
+    }
+    
+    // Populate the initial tab (common)
+    this.populateKeyTab('common')
+  }
+
+  populateKeyTab(tabName) {
+    const gridId = `${tabName}KeyGrid`
+    const grid = document.getElementById(gridId)
+    if (!grid || grid.children.length > 0) return // Already populated
+    
+    let keys = []
+    
+    switch (tabName) {
+      case 'common':
+        keys = STO_DATA.keys.common.keys
+        break
+      case 'letters':
+        keys = STO_DATA.keys.letters.keys
+        break
+      case 'numbers':
+        keys = STO_DATA.keys.numbers.keys
+        break
+      case 'function':
+        keys = STO_DATA.keys.function.keys
+        break
+      case 'arrows':
+        keys = STO_DATA.keys.arrows.keys
+        break
+      case 'symbols':
+        keys = STO_DATA.keys.symbols.keys
+        break
+      case 'mouse':
+        keys = STO_DATA.keys.mouse.keys
+        break
+      case 'gamepad':
+        keys = STO_DATA.keys.gamepad.keys
+        break
+    }
+    
+    grid.innerHTML = ''
+    keys.forEach(keyData => {
+      const keyItem = document.createElement('div')
+      keyItem.className = 'key-item'
+      keyItem.dataset.key = keyData.key
+      
+      // Smart formatting for compound keys and font sizing
+      const formattedKeyName = this.formatKeyName(keyData.key)
+      const hasLineBreaks = formattedKeyName.includes('<br>')
+      
+      // Determine length classification
+      let lengthClass
+      if (hasLineBreaks) {
+        // For compound keys with line breaks, check the longest part
+        const parts = keyData.key.split(/[+_]/)
+        const longestPart = Math.max(...parts.map((part) => part.length))
+        if (longestPart <= 4) {
+          lengthClass = 'short'
+        } else if (longestPart <= 8) {
+          lengthClass = 'medium'
+        } else {
+          lengthClass = 'long'
+        }
+      } else {
+        // For single keys, use total length
+        const keyLength = keyData.key.length
+        if (keyLength <= 3) {
+          lengthClass = 'short'
+        } else if (keyLength <= 5) {
+          lengthClass = 'medium'
+        } else if (keyLength <= 8) {
+          lengthClass = 'long'
+        } else {
+          lengthClass = 'extra-long'
+        }
+      }
+      
+      keyItem.dataset.length = lengthClass
+      
+      keyItem.innerHTML = `
+        <div class="key-label">${formattedKeyName}</div>
+      `
+      
+      keyItem.addEventListener('click', () => {
+        // Remove selection from other keys in this tab
+        grid.querySelectorAll('.key-item').forEach(item => {
+          item.classList.remove('selected')
+        })
+        
+        // Select this key
+        keyItem.classList.add('selected')
+        this.selectedKey = keyData.key
+        this.updateKeyPreview()
+      })
+      
+      grid.appendChild(keyItem)
+    })
+  }
+
+  buildKeyCombination() {
+    if (!this.selectedKey) return null
+    
+    if (this.selectedModifiers.length === 0) {
+      return this.selectedKey
+    }
+    
+    return [...this.selectedModifiers, this.selectedKey].join('+')
+  }
+
+  updateKeyPreview() {
+    const previewDisplay = document.getElementById('keyPreviewDisplay')
+    const confirmBtn = document.getElementById('confirmKeySelection')
+    
+    if (!previewDisplay || !confirmBtn) return
+    
+    const combination = this.buildKeyCombination()
+    
+    if (combination) {
+      previewDisplay.innerHTML = `<span class="key-combination">${combination}</span>`
+      confirmBtn.disabled = false
+    } else {
+      previewDisplay.innerHTML = '<span class="no-selection">No key selected</span>'
+      confirmBtn.disabled = true
     }
   }
 
@@ -3650,163 +3830,6 @@ export default class STOToolsKeybindManager {
             `
 
       commonKeysGrid.appendChild(keyButton)
-    })
-  }
-
-  showFullKeyList() {
-    const fullKeysSection = document.getElementById('fullKeysSection')
-    const findKeysBtn = document.getElementById('findOtherKeysBtn')
-
-    if (fullKeysSection && findKeysBtn) {
-      fullKeysSection.style.display = 'block'
-      findKeysBtn.style.display = 'none'
-
-      // Populate categories if not already done
-      this.populateKeyCategories()
-    }
-  }
-
-  populateKeyCategories() {
-    const keyCategories = document.getElementById('keyCategories')
-    if (!keyCategories) return
-
-    keyCategories.innerHTML = ''
-
-    // Skip common keys since they're already shown above
-    Object.entries(STO_DATA.keys).forEach(([categoryId, categoryData]) => {
-      if (categoryId === 'common') return
-
-      // Debug logging
-      console.log('Processing category:', categoryId, categoryData)
-
-      // Validate category data
-      if (!categoryData || !categoryData.name || !categoryData.keys) {
-        console.warn(
-          `Invalid category data for categoryId: ${categoryId}`,
-          categoryData
-        )
-        return
-      }
-
-      const categoryElement = document.createElement('div')
-      categoryElement.className = 'key-category'
-
-      const headerElement = document.createElement('div')
-      headerElement.className = 'key-category-header'
-      headerElement.onclick = () => this.toggleKeySelectionCategory(categoryId)
-
-      headerElement.innerHTML = `
-                <div>
-                    <h5>${categoryData.name}</h5>
-                    <div class="category-desc">${categoryData.description || ''}</div>
-                </div>
-                <i class="fas fa-chevron-right category-chevron"></i>
-            `
-
-      const contentElement = document.createElement('div')
-      contentElement.className = 'key-category-content collapsed'
-      contentElement.id = `key-category-${categoryId}`
-
-      // Populate keys for this category
-      if (Array.isArray(categoryData.keys)) {
-        categoryData.keys.forEach((keyData) => {
-          if (keyData && keyData.key) {
-            const keyButton = document.createElement('div')
-            keyButton.className = 'key-button'
-            keyButton.onclick = () => this.selectKeyFromModal(keyData.key)
-
-            keyButton.innerHTML = `
-                            <div class="key-name">${keyData.key}</div>
-                            <div class="key-desc">${keyData.description || ''}</div>
-                        `
-
-            contentElement.appendChild(keyButton)
-          }
-        })
-      }
-
-      categoryElement.appendChild(headerElement)
-      categoryElement.appendChild(contentElement)
-      keyCategories.appendChild(categoryElement)
-    })
-  }
-
-  toggleKeySelectionCategory(categoryId) {
-    const content = document.getElementById(`key-category-${categoryId}`)
-    if (!content) {
-      console.warn(
-        `Key selection category content not found for categoryId: ${categoryId}`
-      )
-      return
-    }
-
-    const header = content.previousElementSibling
-
-    if (content && header) {
-      const isCollapsed = content.classList.contains('collapsed')
-
-      if (isCollapsed) {
-        content.classList.remove('collapsed')
-        header.classList.remove('collapsed')
-        // Update chevron rotation
-        const chevron = header.querySelector('.category-chevron')
-        if (chevron) {
-          chevron.style.transform = 'rotate(90deg)'
-        }
-      } else {
-        content.classList.add('collapsed')
-        header.classList.add('collapsed')
-        // Update chevron rotation
-        const chevron = header.querySelector('.category-chevron')
-        if (chevron) {
-          chevron.style.transform = 'rotate(0deg)'
-        }
-      }
-    }
-  }
-
-  filterKeyList(searchTerm) {
-    const term = searchTerm.toLowerCase().trim()
-
-    // Filter through all key buttons in categories
-    const keyButtons = document.querySelectorAll('#keyCategories .key-button')
-
-    keyButtons.forEach((button) => {
-      const keyName = button
-        .querySelector('.key-name')
-        .textContent.toLowerCase()
-      const keyDesc = button
-        .querySelector('.key-desc')
-        .textContent.toLowerCase()
-
-      const matches = keyName.includes(term) || keyDesc.includes(term)
-      button.style.display = matches ? 'flex' : 'none'
-    })
-
-    // Show/hide categories based on visible keys
-    const categories = document.querySelectorAll('.key-category')
-    categories.forEach((category) => {
-      const visibleKeys = category.querySelectorAll(
-        '.key-button:not([style*="display: none"])'
-      )
-      const hasVisibleKeys = visibleKeys.length > 0
-
-      if (term === '') {
-        // If no search term, show all categories but keep them collapsed
-        category.style.display = 'block'
-      } else {
-        // If searching, show categories with matches and expand them
-        category.style.display = hasVisibleKeys ? 'block' : 'none'
-
-        if (hasVisibleKeys) {
-          const content = category.querySelector('.key-category-content')
-          const header = category.querySelector('.key-category-header')
-          if (content && header) {
-            content.classList.remove('collapsed')
-            header.classList.remove('collapsed')
-          }
-        }
-      }
     })
   }
 
@@ -4390,7 +4413,7 @@ export default class STOToolsKeybindManager {
     // Determine which elements to use based on modal context
     const captureStatusId = modalContext === 'addKeyModal' ? 'addKeyCaptureStatus' : 'keyCaptureStatus'
     const capturedKeysId = modalContext === 'addKeyModal' ? 'addKeyCapturedKeys' : 'capturedKeys'
-    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'captureKeyBtn'
+    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'keySelectionCaptureBtn'
     
     // Show capture status
     const captureStatus = document.getElementById(captureStatusId)
@@ -4440,7 +4463,7 @@ export default class STOToolsKeybindManager {
     // Determine which elements to use based on current context
     const modalContext = this.currentCaptureContext || 'keySelectionModal'
     const captureStatusId = modalContext === 'addKeyModal' ? 'addKeyCaptureStatus' : 'keyCaptureStatus'
-    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'captureKeyBtn'
+    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'keySelectionCaptureBtn'
     
     // Hide capture status
     const captureStatus = document.getElementById(captureStatusId)
@@ -4492,23 +4515,24 @@ export default class STOToolsKeybindManager {
 
   addCapturedKeySelectionButton(chord) {
     const modalContext = this.currentCaptureContext || 'keySelectionModal'
-    const capturedKeysId = modalContext === 'addKeyModal' ? 'addKeyCapturedKeys' : 'capturedKeys'
-    const capturedKeys = document.getElementById(capturedKeysId)
-    if (!capturedKeys) return
     
-    // Clear any existing selection button
-    const existingButton = capturedKeys.querySelector('.captured-key-select-btn')
-    if (existingButton) {
-      existingButton.remove()
-    }
-    
-    // Show the select button for both modals
-    const selectButton = document.createElement('button')
-    selectButton.className = 'btn btn-primary captured-key-select-btn'
-    selectButton.textContent = `Select "${chord}"`
-    selectButton.onclick = () => {
-      if (modalContext === 'addKeyModal') {
-        // For addKeyModal, populate the key name input field and add the key
+    if (modalContext === 'addKeyModal') {
+      // For addKeyModal, use the existing behavior
+      const capturedKeysId = 'addKeyCapturedKeys'
+      const capturedKeys = document.getElementById(capturedKeysId)
+      if (!capturedKeys) return
+      
+      // Clear any existing selection button
+      const existingButton = capturedKeys.querySelector('.captured-key-select-btn')
+      if (existingButton) {
+        existingButton.remove()
+      }
+      
+      // Show the select button
+      const selectButton = document.createElement('button')
+      selectButton.className = 'btn btn-primary captured-key-select-btn'
+      selectButton.textContent = `Select "${chord}"`
+      selectButton.onclick = () => {
         const keyNameInput = document.getElementById('newKeyName')
         if (keyNameInput) {
           keyNameInput.value = chord
@@ -4516,13 +4540,40 @@ export default class STOToolsKeybindManager {
         this.addKey(chord)
         modalManager.hide('addKeyModal')
         this.stopKeyCapture()
-      } else {
-        // For keySelectionModal, use the existing behavior
-        this.selectKeyFromModal(chord)
-        this.stopKeyCapture()
       }
+      capturedKeys.appendChild(selectButton)
+    } else {
+      // For keySelectionModal, update the key preview and enable the Select This Key button
+      const previewDisplay = document.getElementById('keyPreviewDisplay')
+      const confirmBtn = document.getElementById('confirmKeySelection')
+      
+      if (previewDisplay && confirmBtn) {
+        // Update the preview display with the captured key
+        previewDisplay.innerHTML = `<span class="key-combination">${chord}</span>`
+        
+        // Enable the Select This Key button
+        confirmBtn.disabled = false
+        
+        // Store the captured key for when the user clicks "Select This Key"
+        this.selectedKey = chord
+        this.selectedModifiers = [] // Clear any selected modifiers since we captured a complete key
+        
+        // Clear any selected modifiers in the UI
+        const modifierBtns = document.querySelectorAll('.modifier-btn')
+        modifierBtns.forEach(btn => {
+          btn.dataset.selected = 'false'
+        })
+        
+        // Clear any selected keys in the grids
+        const keyItems = document.querySelectorAll('.key-item.selected')
+        keyItems.forEach(item => {
+          item.classList.remove('selected')
+        })
+      }
+      
+      // Stop key capture
+      this.stopKeyCapture()
     }
-    capturedKeys.appendChild(selectButton)
   }
 
   handleKeyUp(event) {
@@ -4530,8 +4581,8 @@ export default class STOToolsKeybindManager {
     
     // Only clear pressed codes if we haven't captured a valid key yet
     if (!this.hasCapturedValidKey) {
-      this.pressedCodes.delete(event.code)
-      this.updateCapturedKeysDisplay()
+    this.pressedCodes.delete(event.code)
+    this.updateCapturedKeysDisplay()
     }
   }
 
