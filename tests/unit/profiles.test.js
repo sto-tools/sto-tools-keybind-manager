@@ -34,6 +34,13 @@ describe('STOProfileManager', () => {
       <div class="dropdown">
         <button id="settingsBtn"></button>
       </div>
+      <div class="dropdown">
+        <button id="backupMenuBtn"></button>
+        <div id="backupMenu">
+          <button id="saveProjectBtn"></button>
+          <button id="openProjectBtn"></button>
+        </div>
+      </div>
       <button id="importKeybindsBtn"></button>
       <button id="resetAppBtn"></button>
       <button id="setSyncFolderBtn"></button>
@@ -89,6 +96,7 @@ describe('STOProfileManager', () => {
       setSyncFolder: vi.fn(),
       syncProject: vi.fn(),
     }
+    global.showDirectoryPicker = vi.fn().mockResolvedValue({})
 
     // Setup global objects
     global.app = mockApp
@@ -111,6 +119,7 @@ describe('STOProfileManager', () => {
     delete global.stoUI
     delete global.modalManager
     delete global.stoSync
+    delete global.showDirectoryPicker
   })
 
   describe('Initialization and setup', () => {
@@ -472,6 +481,28 @@ describe('STOProfileManager', () => {
       // Since the button is removed, the methods will encounter null - let's test they handle it
       expect(() => profileManager.toggleSettingsMenu()).not.toThrow()
       expect(() => profileManager.closeSettingsMenu()).not.toThrow()
+    })
+  })
+
+  describe('Backup menu management', () => {
+    it('should toggle backup dropdown menu', () => {
+      const backupBtn = document.getElementById('backupMenuBtn')
+      const dropdown = backupBtn.closest('.dropdown')
+
+      profileManager.toggleBackupMenu()
+      expect(dropdown.classList.contains('active')).toBe(true)
+
+      profileManager.toggleBackupMenu()
+      expect(dropdown.classList.contains('active')).toBe(false)
+    })
+
+    it('should close backup menu', () => {
+      const backupBtn = document.getElementById('backupMenuBtn')
+      const dropdown = backupBtn.closest('.dropdown')
+      dropdown.classList.add('active')
+
+      profileManager.closeBackupMenu()
+      expect(dropdown.classList.contains('active')).toBe(false)
     })
   })
 

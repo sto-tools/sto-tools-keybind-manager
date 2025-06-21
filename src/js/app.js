@@ -3645,9 +3645,10 @@ export default class STOToolsKeybindManager {
       applyTranslations()
     }
 
-    const select = document.getElementById('languageSelect')
-    if (select) {
-      select.value = lang
+    const flag = document.getElementById('languageFlag')
+    const flags = { en: '🇬🇧', de: '🇩🇪', es: '🇪🇸', fr: '🇫🇷' }
+    if (flag) {
+      flag.textContent = flags[lang] || '🏳️'
     }
   }
 

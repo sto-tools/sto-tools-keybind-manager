@@ -1178,6 +1178,13 @@ body {
   min-height: 80px;
 }
 
+/* Preferences modal layout */
+.sync-folder-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* Checkbox styling */
 .checkbox-label {
   display: flex;

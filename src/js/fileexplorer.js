@@ -7,6 +7,7 @@ export default class STOFileExplorer {
     this.modalId = 'fileExplorerModal'
     this.treeId = 'fileTree'
     this.contentId = 'fileContent'
+    this.selectedNode = null
   }
 
   init() {
@@ -40,6 +41,23 @@ export default class STOFileExplorer {
       }
       stoUI.copyToClipboard(text)
       stoUI.showToast('Content copied to clipboard', 'success')
+    })
+
+    eventBus.onDom('downloadFileBtn', 'click', 'download-file', () => {
+      if (!this.selectedNode) return
+      const { type, profileId, environment } = this.selectedNode
+      const contentEl = document.getElementById(this.contentId)
+      if (!contentEl) return
+      const text = contentEl.textContent || ''
+      if (!text.trim()) return
+      let filename = 'export.txt'
+      const profile = stoStorage.getProfile(profileId)
+      if (type === 'build') {
+        filename = stoExport.generateFileName(profile, 'txt', environment)
+      } else if (type === 'aliases') {
+        filename = stoExport.generateAliasFileName(profile, 'txt')
+      }
+      stoExport.downloadFile(text, filename, 'text/plain')
     })
   }
 
@@ -123,6 +141,8 @@ export default class STOFileExplorer {
     const type = node.dataset.type || node.getAttribute('data-type')
     const profileid = node.getAttribute('data-profileid')
     const environment = node.getAttribute('data-environment')
+
+    this.selectedNode = { type, profileId: profileid, environment }
 
     if (!profileid) return
     try {

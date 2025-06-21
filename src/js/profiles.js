@@ -50,36 +50,30 @@ export default class STOProfileManager {
       this.toggleSettingsMenu()
     })
 
-    // Keybinds dropdown
-    eventBus.onDom('keybindsBtn', 'click', 'keybinds-menu', (e) => {
+    // Import dropdown
+    eventBus.onDom('importMenuBtn', 'click', 'import-menu', (e) => {
       e.stopPropagation()
-      this.toggleKeybindsMenu()
+      this.toggleImportMenu()
     })
 
-    // Aliases dropdown
-    eventBus.onDom('aliasesBtn', 'click', 'aliases-menu', (e) => {
+    // Backup dropdown
+    eventBus.onDom('backupMenuBtn', 'click', 'backup-menu', (e) => {
       e.stopPropagation()
-      this.toggleAliasesMenu()
+      this.toggleBackupMenu()
     })
+
+    // Close backup menu after operations
+    eventBus.on('project-open', () => this.closeBackupMenu())
+    eventBus.on('project-save', () => this.closeBackupMenu())
 
     eventBus.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
       this.importKeybinds()
-      this.closeKeybindsMenu()
-    })
-
-    eventBus.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
-      this.exportKeybinds()
-      this.closeKeybindsMenu()
+      this.closeImportMenu()
     })
 
     eventBus.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
       this.importAliases()
-      this.closeAliasesMenu()
-    })
-
-    eventBus.onDom('exportAliasesBtn', 'click', 'aliases-export', () => {
-      this.exportAliases()
-      this.closeAliasesMenu()
+      this.closeImportMenu()
     })
 
     eventBus.onDom('loadDefaultDataBtn', 'click', 'load-default-data', () => {
@@ -127,20 +121,35 @@ export default class STOProfileManager {
       this.closeSettingsMenu()
     })
 
-    eventBus.onDom('languageSelect', 'change', 'language-change', (e) => {
-      app.changeLanguage(e.target.value)
+    eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
+      const folderSpan = document.getElementById('currentSyncFolder')
+      if (folderSpan) {
+        const settings = stoStorage.getSettings()
+        folderSpan.textContent = settings.syncFolderName || i18next.t('no_folder_selected')
+      }
+      modalManager.show('preferencesModal')
+      this.closeSettingsMenu()
     })
 
-    // Prevent language select from closing the dropdown
-    eventBus.onDom('languageSelect', 'click', 'language-select-click', (e) => {
+    eventBus.onDom('languageMenuBtn', 'click', 'language-menu', (e) => {
       e.stopPropagation()
+      this.toggleLanguageMenu()
+    })
+
+    document.querySelectorAll('.language-option').forEach((btn) => {
+      eventBus.onDom(btn, 'click', 'language-change', (e) => {
+        const lang = e.target.dataset.lang
+        if (lang) app.changeLanguage(lang)
+        this.closeLanguageMenu()
+      })
     })
 
     // Close settings menu when clicking outside
     document.addEventListener('click', () => {
       this.closeSettingsMenu()
-      this.closeKeybindsMenu()
-      this.closeAliasesMenu()
+      this.closeImportMenu()
+      this.closeBackupMenu()
+      this.closeLanguageMenu()
     })
   }
 
@@ -401,50 +410,65 @@ export default class STOProfileManager {
     }
   }
 
-  // Keybinds Menu Management
-  toggleKeybindsMenu() {
-    // Close other dropdowns first
+  // Import Menu Management
+  toggleImportMenu() {
     this.closeSettingsMenu()
-    this.closeAliasesMenu()
-
-    const keybindsBtn = document.getElementById('keybindsBtn')
-    if (keybindsBtn) {
-      const dropdown = keybindsBtn.closest('.dropdown')
+    const btn = document.getElementById('importMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.toggle('active')
       }
     }
   }
 
-  closeKeybindsMenu() {
-    const keybindsBtn = document.getElementById('keybindsBtn')
-    if (keybindsBtn) {
-      const dropdown = keybindsBtn.closest('.dropdown')
+  closeImportMenu() {
+    const btn = document.getElementById('importMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.remove('active')
       }
     }
   }
 
-  // Aliases Menu Management
-  toggleAliasesMenu() {
-    // Close other dropdowns first
+  // Backup Menu Management
+  toggleBackupMenu() {
     this.closeSettingsMenu()
-    this.closeKeybindsMenu()
-
-    const aliasesBtn = document.getElementById('aliasesBtn')
-    if (aliasesBtn) {
-      const dropdown = aliasesBtn.closest('.dropdown')
+    const btn = document.getElementById('backupMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.toggle('active')
       }
     }
   }
 
-  closeAliasesMenu() {
-    const aliasesBtn = document.getElementById('aliasesBtn')
-    if (aliasesBtn) {
-      const dropdown = aliasesBtn.closest('.dropdown')
+  closeBackupMenu() {
+    const btn = document.getElementById('backupMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
+      if (dropdown) {
+        dropdown.classList.remove('active')
+      }
+    }
+  }
+
+  // Language Menu Management
+  toggleLanguageMenu() {
+    const btn = document.getElementById('languageMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
+      if (dropdown) {
+        dropdown.classList.toggle('active')
+      }
+    }
+  }
+
+  closeLanguageMenu() {
+    const btn = document.getElementById('languageMenuBtn')
+    if (btn) {
+      const dropdown = btn.closest('.dropdown')
       if (dropdown) {
         dropdown.classList.remove('active')
       }
