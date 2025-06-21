@@ -808,17 +808,20 @@ export default class STOCommandManager {
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" id="aliasToggleMode" />
                         <label class="form-check-label" for="aliasToggleMode">
-                            ${i18next.t('toggle_mode')}
+                            Toggle Mode
                             <i class="fas fa-question-circle ms-1" 
                                data-bs-toggle="tooltip" 
-                               title="${i18next.t('when_enabled_the_alias_will_automatically_toggle_between_its_onoff_states')}">
+                               title="When enabled, the alias will automatically toggle between its on/off states">
+
                             </i>
                         </label>
                     </div>
                     
+
                     <label for="aliasSelect">${i18next.t('available_aliases')}:</label>
                     <select id="aliasSelect" class="form-select">
                         <option value="">${i18next.t('select_an_alias')}</option>
+
                         ${aliasEntries
                           .map(
                             ([name, alias]) =>
@@ -835,7 +838,9 @@ export default class STOCommandManager {
                 </div>
                 <div id="toggleAliasInfo" class="alert alert-info mt-3" style="display: none;">
                     <i class="fas fa-info-circle me-2"></i>
+
                     ${i18next.t('this_alias_will_automatically_toggle_between_its_onoff_states_when_executed')}
+
                 </div>
             </div>
         `

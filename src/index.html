@@ -498,6 +498,37 @@
             <small data-i18n="use_alphanumeric_characters_only_no_spaces"></small>
           </div>
           
+          <!-- Key Capture Section -->
+          <div class="form-group">
+            <label data-i18n="or_capture_keys">Or capture keys:</label>
+            <div class="key-capture-section">
+              <button 
+                type="button" 
+                class="btn btn-primary" 
+                id="addKeyCaptureBtn"
+                data-i18n="click_here_then_press_keys"
+              >
+                <i class="fas fa-keyboard"></i>
+                <span data-i18n="click_here_then_press_keys">Click here, then press the key combination</span>
+              </button>
+              <div class="key-capture-status" id="addKeyCaptureStatus" style="display: none;">
+                <div class="capture-indicator">
+                  <i class="fas fa-circle-notch fa-spin"></i>
+                  <span data-i18n="press_key_combination_now">Press the key combination now...</span>
+                </div>
+                <div class="captured-keys" id="addKeyCapturedKeys"></div>
+                <div class="key-capture-confirm" id="addKeyConfirmSection" style="display: none;">
+                  <span id="addKeyConfirmText"></span>
+                  <div class="confirm-btns">
+                    <button type="button" class="btn btn-success" id="addKeyConfirmYesBtn" data-i18n="yes">Yes</button>
+                    <button type="button" class="btn btn-secondary" id="addKeyConfirmNoBtn" data-i18n="no">No</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <small data-i18n="supports_single_modifier_plus_key_combinations">Supports single modifier + key combinations (e.g., Ctrl+A, Alt+1, Shift+Space)</small>
+          </div>
+          
           <div class="common-keys">
             <h4 data-i18n="common_keys"></h4>
             <div class="key-suggestions">
