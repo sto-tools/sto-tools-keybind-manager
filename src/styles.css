@@ -418,12 +418,14 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: 100%; /* Use all available space within the grid cell */
+  height: max(300px, calc(100vh - 180px)); /* Use all available space within the grid cell */
+  min-height: 300px;
 }
 
 .key-selector-header {
   padding: 1rem;
   border-bottom: 1px solid var(--border);
+  background: var(--surface-dark);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -431,8 +433,15 @@ body {
 
 .key-selector-header h3 {
   margin: 0;
-  color: var(--primary);
+  color: #1e293b; /* Dark gray for light mode */
   font-size: 1.1rem;
+  text-align: center;
+  flex: 1;
+}
+
+/* Dark mode override for key-selector-header h3 */
+[data-theme='dark'] .key-selector-header h3 {
+  color: #ffffff; /* White for dark mode */
 }
 
 .key-filter {
@@ -469,9 +478,11 @@ body {
 .key-selector {
   padding: 1rem;
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden; /* scrolling handled by key-grid */
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  max-height: calc(100% - 3rem); /* Account for own padding + extra space for button breathing room */
 }
 
 .key-grid {
@@ -481,6 +492,13 @@ body {
   margin-bottom: 1rem;
   justify-content: start;
   align-content: start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100% - 1rem); /* Ensure space for margin-bottom */
+  padding-right: 0.5rem;
+  box-sizing: border-box;
 }
 
 .key-grid.categorized {
@@ -581,8 +599,11 @@ body {
 .key-actions {
   display: flex;
   gap: 0.5rem;
-  padding-top: 1rem;
+  padding: 1rem 0.25rem; /* More vertical space, minimal horizontal padding */
   border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0; /* Fixed to bottom - never shrinks */
+  justify-content: flex-start; /* Keep buttons grouped together on the left */
 }
 
 /* Key category enhancements */
@@ -652,10 +673,9 @@ body {
   background: var(--surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  padding: 1rem;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   min-height: 0;
   page-break-inside: avoid;
 }
@@ -665,16 +685,24 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--border);
+  background: var(--surface-dark);
   flex-wrap: wrap;
   gap: 1rem;
 }
 
 .chain-header h3 {
-  color: var(--primary);
+  color: #1e293b; /* Dark gray for light mode */
   font-size: 1.2rem;
   margin: 0;
+  text-align: center;
+  flex: 1;
+}
+
+/* Dark mode override for chain-header h3 */
+[data-theme='dark'] .chain-header h3 {
+  color: #ffffff; /* White for dark mode */
 }
 
 .chain-info {
@@ -707,6 +735,7 @@ body {
   flex: 1;
   overflow: hidden;
   margin-bottom: 1rem;
+  padding: 0 1rem;
 }
 
 .command-list {
@@ -863,7 +892,7 @@ body {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  padding-top: 1rem;
+  padding: 1rem;
   border-top: 1px solid var(--border);
 }
 
@@ -872,7 +901,6 @@ body {
   background: var(--surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  padding: 1rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -880,16 +908,25 @@ body {
 }
 
 .library-header {
-  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--surface-dark);
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .library-header h3 {
-  color: var(--primary);
+  color: #1e293b; /* Dark gray for light mode */
   margin: 0;
   font-size: 1.1rem;
+  text-align: center;
+  flex: 1;
+}
+
+/* Dark mode override for library-header h3 */
+[data-theme='dark'] .library-header h3 {
+  color: #ffffff; /* White for dark mode */
 }
 
 .library-controls {
@@ -915,6 +952,7 @@ body {
 .library-content {
   flex: 1;
   overflow: hidden;
+  padding: 0 1rem 1rem 1rem;
 }
 
 .command-categories {
@@ -2981,6 +3019,7 @@ input:checked + .slider:before {
 .alias-selector-header {
   padding: 1rem;
   border-bottom: 1px solid var(--border);
+  background: var(--surface-dark);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2988,8 +3027,15 @@ input:checked + .slider:before {
 
 .alias-selector-header h3 {
   margin: 0;
-  color: var(--primary);
+  color: #1e293b; /* Dark gray for light mode */
   font-size: 1.1rem;
+  text-align: center;
+  flex: 1;
+}
+
+/* Dark mode override for alias-selector-header h3 */
+[data-theme='dark'] .alias-selector-header h3 {
+  color: #ffffff; /* White for dark mode */
 }
 
 .alias-controls {
