@@ -1353,6 +1353,12 @@ export default class STOToolsKeybindManager {
 
     // Apply environment filtering after creating elements
     this.filterCommandLibrary()
+    
+    // Re-add aliases after rebuilding the command library
+    // This ensures aliases are preserved when the library is rebuilt (e.g., on language change)
+    if (typeof stoAliases !== 'undefined' && stoAliases.updateCommandLibrary) {
+      stoAliases.updateCommandLibrary()
+    }
   }
 
   createCategoryElement(categoryId, category) {
