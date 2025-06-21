@@ -36,6 +36,7 @@
   "modified": "Geändert",
   "valid": "Gültig",
   "keys": "Tasten",
+  "keys_firstupper": "Tasten",
   "key_singular": "Taste",
   "all": "Alle",
   "add_key": "Taste hinzufügen",

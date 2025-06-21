@@ -110,8 +110,7 @@ export default class STOToolsKeybindManager {
 
       // Render initial state
       this.renderProfiles()
-      this.renderKeyGrid()
-      this.renderCommandChain()
+      this.updateModeUI()
 
       // Update mode buttons to reflect current environment
       this.updateModeButtons()
@@ -426,6 +425,31 @@ export default class STOToolsKeybindManager {
   // Command Management
   addCommand(keyName, command) {
     const profile = this.getCurrentProfile()
+    
+    if (this.currentEnvironment === 'alias') {
+      // Handle alias command addition
+      if (!profile.aliases) {
+        profile.aliases = {}
+      }
+      if (!profile.aliases[keyName]) {
+        profile.aliases[keyName] = { description: '', commands: '' }
+      }
+
+      // Add command to alias
+      const currentCommands = profile.aliases[keyName].commands
+      const newCommand = Array.isArray(command) ? 
+        command.map(cmd => cmd.command).join(' $$ ') : 
+        command.command
+
+      if (currentCommands) {
+        profile.aliases[keyName].commands = currentCommands + ' $$ ' + newCommand
+      } else {
+        profile.aliases[keyName].commands = newCommand
+      }
+
+      stoUI.showToast('Command added to alias', 'success')
+    } else {
+      // Handle keybind command addition
     if (!profile.keys[keyName]) {
       profile.keys[keyName] = []
     }
@@ -447,11 +471,16 @@ export default class STOToolsKeybindManager {
       }
       profile.keys[keyName].push(command)
       stoUI.showToast('Command added', 'success')
+      }
     }
 
     stoStorage.saveProfile(this.currentProfile, profile)
     this.renderCommandChain()
+    if (this.currentEnvironment === 'alias') {
+      this.renderAliasGrid()
+    } else {
     this.renderKeyGrid()
+    }
     this.setModified(true)
     
     // Emit command modification event for auto-sync
@@ -460,6 +489,30 @@ export default class STOToolsKeybindManager {
 
   deleteCommand(keyName, commandIndex) {
     const profile = this.getCurrentProfile()
+    
+    if (this.currentEnvironment === 'alias') {
+      // Handle alias command deletion
+      const alias = profile.aliases && profile.aliases[keyName]
+      if (alias && alias.commands) {
+        const commands = alias.commands.split('$$').map(cmd => cmd.trim())
+        if (commandIndex >= 0 && commandIndex < commands.length) {
+          const deletedCommand = commands[commandIndex]
+          commands.splice(commandIndex, 1)
+          profile.aliases[keyName].commands = commands.join(' $$ ')
+          
+          stoStorage.saveProfile(this.currentProfile, profile)
+          this.renderCommandChain()
+          this.renderAliasGrid()
+          this.setModified(true)
+
+          stoUI.showToast('Command deleted from alias', 'success')
+          
+          // Emit command modification event for auto-sync
+          eventBus.emit('command-modified', { keyName, command: { command: deletedCommand }, action: 'delete' })
+        }
+      }
+    } else {
+      // Handle keybind command deletion
     if (profile.keys[keyName] && profile.keys[keyName][commandIndex]) {
       const deletedCommand = profile.keys[keyName][commandIndex]
       profile.keys[keyName].splice(commandIndex, 1)
@@ -472,11 +525,39 @@ export default class STOToolsKeybindManager {
       
       // Emit command modification event for auto-sync
       eventBus.emit('command-modified', { keyName, command: deletedCommand, action: 'delete' })
+      }
     }
   }
 
   moveCommand(keyName, fromIndex, toIndex) {
     const profile = this.getCurrentProfile()
+    
+    if (this.currentEnvironment === 'alias') {
+      // Handle alias command movement
+      const alias = profile.aliases && profile.aliases[keyName]
+      if (alias && alias.commands) {
+        const commands = alias.commands.split('$$').map(cmd => cmd.trim())
+        
+        if (
+          fromIndex >= 0 &&
+          fromIndex < commands.length &&
+          toIndex >= 0 &&
+          toIndex < commands.length
+        ) {
+          const [command] = commands.splice(fromIndex, 1)
+          commands.splice(toIndex, 0, command)
+          
+          profile.aliases[keyName].commands = commands.join(' $$ ')
+          stoStorage.saveProfile(this.currentProfile, profile)
+          this.renderCommandChain()
+          this.setModified(true)
+          
+          // Emit command modification event for auto-sync
+          eventBus.emit('command-modified', { keyName, command: { command }, action: 'move', fromIndex, toIndex })
+        }
+      }
+    } else {
+      // Handle keybind command movement
     const commands = profile.keys[keyName]
 
     if (
@@ -495,6 +576,7 @@ export default class STOToolsKeybindManager {
       
       // Emit command modification event for auto-sync
       eventBus.emit('command-modified', { keyName, command, action: 'move', fromIndex, toIndex })
+      }
     }
   }
 
@@ -1144,8 +1226,15 @@ export default class STOToolsKeybindManager {
     if (!container || !title || !preview) return
 
     if (!this.selectedKey) {
-      title.textContent = i18next.t('select_a_key_to_edit')
-      preview.textContent = i18next.t('select_a_key_to_see_the_generated_command')
+      const selectText = this.currentEnvironment === 'alias' ? 
+        i18next.t('select_an_alias_to_edit') : 
+        i18next.t('select_a_key_to_edit')
+      const previewText = this.currentEnvironment === 'alias' ? 
+        i18next.t('select_an_alias_to_see_the_generated_command') : 
+        i18next.t('select_a_key_to_see_the_generated_command')
+      
+      title.textContent = selectText
+      preview.textContent = previewText
       if (commandCount) {
         // Update only the number part while preserving the internationalized text
         const commandsSpan = commandCount.querySelector('[data-i18n="commands"]')
@@ -1158,26 +1247,67 @@ export default class STOToolsKeybindManager {
         }
       }
       if (emptyState) emptyState.style.display = 'block'
+      const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
+      const emptyTitle = this.currentEnvironment === 'alias' ? 'No Alias Selected' : 'No Key Selected'
+      const emptyDesc = this.currentEnvironment === 'alias' ? 
+        'Select an alias from the left panel to view and edit its command chain.' : 
+        'Select a key from the left panel to view and edit its command chain.'
+      
       container.innerHTML =
-        '<div class="empty-state" id="emptyState"><i class="fas fa-keyboard"></i><h4>No Key Selected</h4><p>Select a key from the left panel to view and edit its command chain.</p></div>'
+        `<div class="empty-state" id="emptyState"><i class="${emptyIcon}"></i><h4>${emptyTitle}</h4><p>${emptyDesc}</p></div>`
       return
     }
 
-    const profile = this.getCurrentProfile()
-    if (!profile) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <i class="fas fa-exclamation-triangle"></i>
-          <h4>No Valid Profile</h4>
-          <p>Please create or select a valid profile to manage commands.</p>
-        </div>
-      `
-      preview.textContent = ''
-      return
+    // Get commands based on current mode
+    let commands = []
+    let profile
+    
+    if (this.currentEnvironment === 'alias') {
+      // For aliases, get the raw profile since aliases are profile-level, not build-specific
+      profile = stoStorage.getProfile(this.currentProfile)
+      if (!profile) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h4>No Valid Profile</h4>
+            <p>Please create or select a valid profile to manage commands.</p>
+          </div>
+        `
+        preview.textContent = ''
+        return
+      }
+      
+      const alias = profile.aliases && profile.aliases[this.selectedKey]
+      if (alias && alias.commands) {
+        // Convert alias command string to command array format
+        const commandStrings = alias.commands.split('$$').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0)
+        commands = commandStrings.map((cmd, index) => ({
+          command: cmd,
+          text: cmd,
+          type: 'alias',
+          icon: '🎭',
+          id: `alias_${index}`
+        }))
+      }
+    } else {
+      // For keybinds, use the build-specific view
+      profile = this.getCurrentProfile()
+      if (!profile) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h4>No Valid Profile</h4>
+            <p>Please create or select a valid profile to manage commands.</p>
+          </div>
+        `
+        preview.textContent = ''
+        return
+      }
+      commands = profile.keys[this.selectedKey] || []
     }
-    const commands = profile.keys[this.selectedKey] || []
 
-    title.textContent = `Command Chain for ${this.selectedKey}`
+    const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
+    title.textContent = `${chainType} for ${this.selectedKey}`
     if (commandCount) {
       // Update only the number part while preserving the internationalized text
       const commandsSpan = commandCount.querySelector('[data-i18n="commands"]')
@@ -1191,25 +1321,38 @@ export default class STOToolsKeybindManager {
     }
 
     if (commands.length === 0) {
+      const emptyMessage = this.currentEnvironment === 'alias' ? 
+        `Click "Add Command" to start building your alias chain for ${this.selectedKey}.` :
+        `Click "Add Command" to start building your command chain for ${this.selectedKey}.`
+      
       container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-plus-circle"></i>
                     <h4>No Commands</h4>
-                    <p>Click "Add Command" to start building your command chain for ${this.selectedKey}.</p>
+                    <p>${emptyMessage}</p>
                 </div>
             `
+      
+      if (this.currentEnvironment === 'alias') {
+        preview.textContent = `alias ${this.selectedKey} ""`
+      } else {
       preview.textContent = `${this.selectedKey} ""`
+      }
     } else {
       container.innerHTML = ''
       commands.forEach((command, index) => {
-        const element = this.createCommandElement(command, index)
+        const element = this.createCommandElement(command, index, commands.length)
         container.appendChild(element)
       })
 
-      // Update preview with optional mirroring
-      const stabilizeCheckbox = document.getElementById(
-        'stabilizeExecutionOrder'
-      )
+      // Generate preview based on mode
+      if (this.currentEnvironment === 'alias') {
+        // For aliases, show the alias command format
+        const commandString = commands.map((cmd) => cmd.command).join(' $$ ')
+        preview.textContent = `alias ${this.selectedKey} "${commandString}"`
+      } else {
+        // For keybinds, use the existing logic with optional mirroring
+        const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder')
       const shouldStabilize = stabilizeCheckbox && stabilizeCheckbox.checked
 
       let commandString
@@ -1220,10 +1363,11 @@ export default class STOToolsKeybindManager {
       }
 
       preview.textContent = `${this.selectedKey} "${commandString}"`
+      }
     }
   }
 
-  createCommandElement(command, index) {
+  createCommandElement(command, index, totalCommands) {
     const element = document.createElement('div')
     element.className = 'command-item-row'
     element.dataset.index = index
@@ -1311,7 +1455,7 @@ export default class STOToolsKeybindManager {
                     <i class="fas fa-chevron-up"></i>
                 </button>
                 <button class="btn btn-small-icon" onclick="app.moveCommand('${this.selectedKey}', ${index}, ${index + 1})" 
-                        title="Move Down" ${index === this.getCurrentProfile().keys[this.selectedKey].length - 1 ? 'disabled' : ''}>
+                        title="Move Down" ${index === totalCommands - 1 ? 'disabled' : ''}>
                     <i class="fas fa-chevron-down"></i>
                 </button>
             </div>
@@ -1477,8 +1621,32 @@ export default class STOToolsKeybindManager {
   updateChainActions() {
     const hasSelectedKey = !!this.selectedKey
 
-    // Enable/disable buttons based on selection
-    // Note: addAliasBtn is not included because aliases are independent of key selection
+    if (this.currentEnvironment === 'alias') {
+      // In alias mode, enable/disable alias-specific buttons
+      const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
+      aliasButtons.forEach((btnId) => {
+        const btn = document.getElementById(btnId)
+        if (btn) {
+          btn.disabled = !hasSelectedKey
+        }
+      })
+
+      // Always enable addCommandBtn in alias mode when an alias is selected
+      const addCommandBtn = document.getElementById('addCommandBtn')
+      if (addCommandBtn) {
+        addCommandBtn.disabled = !hasSelectedKey
+      }
+
+      // Disable key-specific buttons in alias mode
+      const keyButtons = ['addFromTemplateBtn', 'importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
+      keyButtons.forEach((btnId) => {
+        const btn = document.getElementById(btnId)
+        if (btn) {
+          btn.disabled = true
+        }
+      })
+    } else {
+      // In key mode, enable/disable key-specific buttons
     const buttonsToToggle = [
       'addCommandBtn',
       'addFromTemplateBtn',
@@ -1493,6 +1661,16 @@ export default class STOToolsKeybindManager {
         btn.disabled = !hasSelectedKey
       }
     })
+
+      // Disable alias-specific buttons in key mode
+      const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
+      aliasButtons.forEach((btnId) => {
+        const btn = document.getElementById(btnId)
+        if (btn) {
+          btn.disabled = true
+        }
+      })
+    }
   }
 
   // Event Handlers
@@ -1547,6 +1725,23 @@ export default class STOToolsKeybindManager {
     eventBus.onDom('duplicateKeyBtn', 'click', 'key-duplicate', () => {
       if (this.selectedKey) {
         this.duplicateKey(this.selectedKey)
+      }
+    })
+
+    // Alias chain management
+    eventBus.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {
+      this.showAliasCreationModal()
+    })
+
+    eventBus.onDom('deleteAliasChainBtn', 'click', 'alias-chain-delete', () => {
+      if (this.selectedKey && this.currentEnvironment === 'alias') {
+        this.confirmDeleteAlias(this.selectedKey)
+      }
+    })
+
+    eventBus.onDom('duplicateAliasChainBtn', 'click', 'alias-chain-duplicate', () => {
+      if (this.selectedKey && this.currentEnvironment === 'alias') {
+        this.duplicateAlias(this.selectedKey)
       }
     })
 
@@ -1633,6 +1828,29 @@ export default class STOToolsKeybindManager {
     // Library toggle
     eventBus.onDom('toggleLibraryBtn', 'click', 'toggle-library', () => {
       this.toggleLibrary()
+    })
+
+    // Alias options multiselect dropdown
+    eventBus.onDom('aliasOptionsDropdown', 'click', 'alias-options-toggle', (e) => {
+      e.stopPropagation()
+      this.toggleAliasOptionsDropdown()
+    })
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('aliasOptionsDropdown')
+      const menu = document.getElementById('aliasOptionsMenu')
+      if (dropdown && menu && !dropdown.contains(e.target) && !menu.contains(e.target)) {
+        this.closeAliasOptionsDropdown()
+      }
+    })
+
+    // Handle checkbox changes in alias options
+    const aliasCheckboxes = ['aliasStabilizeOption', 'aliasToggleOption', 'aliasCycleOption']
+    aliasCheckboxes.forEach(id => {
+      eventBus.onDom(id, 'change', `alias-option-${id}`, () => {
+        this.updateAliasOptionsLabel()
+      })
     })
 
     // Modal handlers
@@ -1741,14 +1959,16 @@ export default class STOToolsKeybindManager {
 
   switchMode(mode) {
     // Guard against undefined or invalid mode values
-    if (!mode || (mode !== 'space' && mode !== 'ground')) {
+    if (!mode || (mode !== 'space' && mode !== 'ground' && mode !== 'alias')) {
       console.warn('Invalid mode provided to switchMode:', mode)
       return
     }
     
     if (this.currentEnvironment !== mode) {
-      // Save current build before switching
+      // Save current build before switching (only for space/ground modes)
+      if (this.currentEnvironment === 'space' || this.currentEnvironment === 'ground') {
       this.saveCurrentBuild()
+      }
 
       this.currentEnvironment = mode
 
@@ -1759,11 +1979,9 @@ export default class STOToolsKeybindManager {
         stoStorage.saveProfile(this.currentProfile, profile)
       }
 
-      // Update UI components
+      // Update UI components based on mode
       this.updateProfileInfo()
-      this.renderKeyGrid()
-      this.renderCommandChain()
-      this.filterCommandLibrary() // Apply environment filter to command library
+      this.updateModeUI()
       this.setModified(true)
 
       // Update button states after all other updates are complete
@@ -1777,15 +1995,287 @@ export default class STOToolsKeybindManager {
     // Update the active state of mode buttons
     const spaceBtn = document.querySelector('[data-mode="space"]')
     const groundBtn = document.querySelector('[data-mode="ground"]')
+    const aliasBtn = document.querySelector('[data-mode="alias"]')
 
-    if (spaceBtn && groundBtn) {
+    if (spaceBtn && groundBtn && aliasBtn) {
       spaceBtn.classList.toggle('active', this.currentEnvironment === 'space')
       groundBtn.classList.toggle('active', this.currentEnvironment === 'ground')
+      aliasBtn.classList.toggle('active', this.currentEnvironment === 'alias')
       
       // Ensure buttons are enabled when we have a valid profile
       spaceBtn.disabled = !this.currentProfile
       groundBtn.disabled = !this.currentProfile
+      aliasBtn.disabled = !this.currentProfile
     }
+  }
+
+  updateModeUI() {
+    if (this.currentEnvironment === 'alias') {
+      // Show alias view, hide key view
+      this.showAliasView()
+      this.renderAliasGrid()
+      this.renderCommandChain()
+      this.updateChainOptionsForAlias()
+    } else {
+      // Show key view, hide alias view
+      this.showKeyView()
+      this.renderKeyGrid()
+      this.renderCommandChain()
+      this.updateChainOptionsForKeybind()
+      this.filterCommandLibrary() // Apply environment filter to command library
+    }
+  }
+
+  showAliasView() {
+    const keyContainer = document.querySelector('.key-selector-container')
+    const aliasContainer = document.getElementById('aliasSelectorContainer')
+    
+    if (keyContainer) keyContainer.style.display = 'none'
+    if (aliasContainer) aliasContainer.style.display = 'block'
+  }
+
+  showKeyView() {
+    const keyContainer = document.querySelector('.key-selector-container')
+    const aliasContainer = document.getElementById('aliasSelectorContainer')
+    
+    if (keyContainer) keyContainer.style.display = 'block'
+    if (aliasContainer) aliasContainer.style.display = 'none'
+  }
+
+  updateChainOptionsForAlias() {
+    const stabilizeLabel = document.getElementById('stabilizeExecutionOrderLabel')
+    const aliasOptions = document.getElementById('aliasOptions')
+    
+    if (stabilizeLabel) stabilizeLabel.style.display = 'none'
+    if (aliasOptions) aliasOptions.style.display = 'block'
+  }
+
+  updateChainOptionsForKeybind() {
+    const stabilizeLabel = document.getElementById('stabilizeExecutionOrderLabel')
+    const aliasOptions = document.getElementById('aliasOptions')
+    
+    if (stabilizeLabel) stabilizeLabel.style.display = 'block'
+    if (aliasOptions) aliasOptions.style.display = 'none'
+  }
+
+  renderAliasGrid() {
+    const grid = document.getElementById('aliasGrid')
+    if (!grid) return
+
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile || !profile.aliases) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-mask"></i>
+          <h4 data-i18n="no_aliases_defined">No aliases defined</h4>
+          <p data-i18n="create_alias_to_get_started">Create an alias to get started</p>
+        </div>
+      `
+      return
+    }
+
+    const aliases = Object.entries(profile.aliases)
+    if (aliases.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-mask"></i>
+          <h4 data-i18n="no_aliases_defined">No aliases defined</h4>
+          <p data-i18n="create_alias_to_get_started">Create an alias to get started</p>
+        </div>
+      `
+      return
+    }
+
+    grid.innerHTML = aliases.map(([name, alias]) => 
+      this.createAliasChainElement(name, alias)
+    ).join('')
+
+    // Add event listeners to alias elements
+    grid.querySelectorAll('.alias-chain-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        this.selectAlias(item.dataset.alias)
+      })
+    })
+  }
+
+  createAliasChainElement(name, alias) {
+    const commandCount = alias.commands ? alias.commands.split('$$').length : 0
+    const isSelected = this.selectedKey === name // Reuse selectedKey for alias selection
+    const description = alias.description || ''
+    
+    // Calculate length class for dynamic font sizing (similar to key elements)
+    // Since aliases don't use + separators like keys, use simple length-based logic
+    const nameLength = name.length
+    let lengthClass
+    if (nameLength <= 8) {
+      lengthClass = 'short'
+    } else if (nameLength <= 12) {
+      lengthClass = 'medium'
+    } else if (nameLength <= 16) {
+      lengthClass = 'long'
+    } else {
+      lengthClass = 'extra-long'
+    }
+    
+    return `
+      <div class="alias-chain-item ${isSelected ? 'selected' : ''}" data-alias="${name}" data-length="${lengthClass}" title="${description}">
+        <div class="alias-name">${name}</div>
+        <div class="alias-command-count">${commandCount} <span data-i18n="commands">commands</span></div>
+      </div>
+    `
+  }
+
+  selectAlias(aliasName) {
+    // Reuse the selectedKey property for alias selection
+    this.selectedKey = aliasName
+    this.renderAliasGrid()
+    this.renderCommandChain()
+    this.updateChainActions()
+  }
+
+  showAliasCreationModal() {
+    // Show a simplified modal for creating a new alias
+    const modal = this.createAliasCreationModal()
+    document.body.appendChild(modal)
+    modalManager.show('aliasCreationModal')
+  }
+
+  createAliasCreationModal() {
+    const modal = document.createElement('div')
+    modal.id = 'aliasCreationModal'
+    modal.className = 'modal'
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 data-i18n="create_new_alias">Create New Alias</h2>
+          <button class="modal-close" data-modal="aliasCreationModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="newAliasName" data-i18n="alias_name">Alias Name:</label>
+            <input type="text" id="newAliasName" class="form-control" placeholder="MyAlias" />
+          </div>
+          <div class="form-group">
+            <label for="newAliasDescription" data-i18n="description">Description:</label>
+            <input type="text" id="newAliasDescription" class="form-control" placeholder="Brief description" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-modal="aliasCreationModal" data-i18n="cancel">Cancel</button>
+          <button class="btn btn-primary" id="confirmCreateAliasBtn" data-i18n="create">Create</button>
+        </div>
+      </div>
+    `
+
+    // Add event listener for create button
+    modal.querySelector('#confirmCreateAliasBtn').addEventListener('click', () => {
+      const name = modal.querySelector('#newAliasName').value.trim()
+      const description = modal.querySelector('#newAliasDescription').value.trim()
+      
+      if (name) {
+        this.createAliasChain(name, description)
+        modalManager.hide('aliasCreationModal')
+        document.body.removeChild(modal)
+      }
+    })
+
+    return modal
+  }
+
+  createAliasChain(name, description = '') {
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile) return
+
+    // Initialize aliases object if it doesn't exist
+    if (!profile.aliases) {
+      profile.aliases = {}
+    }
+
+    // Check if alias already exists
+    if (profile.aliases[name]) {
+      stoUI.showToast(`Alias "${name}" already exists`, 'error')
+      return
+    }
+
+    // Create new alias
+    profile.aliases[name] = {
+      description: description,
+      commands: ''
+    }
+
+    // Save profile
+    stoStorage.saveProfile(this.currentProfile, profile)
+    
+    // Update UI
+    this.renderAliasGrid()
+    this.selectAlias(name)
+    this.setModified(true)
+    
+    stoUI.showToast(`Alias "${name}" created`, 'success')
+  }
+
+  async confirmDeleteAlias(aliasName) {
+    const confirmed = await stoUI.confirm(
+      `Are you sure you want to delete the alias "${aliasName}"?`,
+      'Delete Alias',
+      'danger'
+    )
+
+    if (confirmed) {
+      this.deleteAliasChain(aliasName)
+    }
+  }
+
+  deleteAliasChain(aliasName) {
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile || !profile.aliases || !profile.aliases[aliasName]) return
+
+    delete profile.aliases[aliasName]
+    stoStorage.saveProfile(this.currentProfile, profile)
+
+    // Clear selection if we deleted the selected alias
+    if (this.selectedKey === aliasName) {
+      this.selectedKey = null
+    }
+
+    this.renderAliasGrid()
+    this.renderCommandChain()
+    this.updateChainActions()
+    this.setModified(true)
+
+    stoUI.showToast(`Alias "${aliasName}" deleted`, 'success')
+  }
+
+  duplicateAlias(aliasName) {
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile || !profile.aliases || !profile.aliases[aliasName]) return
+
+    const originalAlias = profile.aliases[aliasName]
+    
+    // Find a suitable new alias name
+    let newAliasName = aliasName + '_copy'
+    let counter = 1
+    
+    while (profile.aliases[newAliasName]) {
+      newAliasName = `${aliasName}_copy${counter}`
+      counter++
+    }
+
+    // Create duplicate
+    profile.aliases[newAliasName] = {
+      description: originalAlias.description + ' (copy)',
+      commands: originalAlias.commands
+    }
+
+    stoStorage.saveProfile(this.currentProfile, profile)
+    
+    this.renderAliasGrid()
+    this.selectAlias(newAliasName)
+    this.setModified(true)
+
+    stoUI.showToast(`Alias "${newAliasName}" created`, 'success')
   }
 
   saveCurrentBuild() {
@@ -3714,6 +4204,66 @@ export default class STOToolsKeybindManager {
     }
     
     stoUI.showToast('Language updated', 'success')
+  }
+
+  // Alias Options Multiselect Methods
+  toggleAliasOptionsDropdown() {
+    const dropdown = document.getElementById('aliasOptionsDropdown')
+    const menu = document.getElementById('aliasOptionsMenu')
+    
+    if (!dropdown || !menu) return
+    
+    const isOpen = menu.style.display === 'block'
+    
+    if (isOpen) {
+      this.closeAliasOptionsDropdown()
+    } else {
+      this.openAliasOptionsDropdown()
+    }
+  }
+
+  openAliasOptionsDropdown() {
+    const dropdown = document.getElementById('aliasOptionsDropdown')
+    const menu = document.getElementById('aliasOptionsMenu')
+    
+    if (!dropdown || !menu) return
+    
+    dropdown.classList.add('active')
+    menu.style.display = 'block'
+  }
+
+  closeAliasOptionsDropdown() {
+    const dropdown = document.getElementById('aliasOptionsDropdown')
+    const menu = document.getElementById('aliasOptionsMenu')
+    
+    if (!dropdown || !menu) return
+    
+    dropdown.classList.remove('active')
+    menu.style.display = 'none'
+  }
+
+  updateAliasOptionsLabel() {
+    const checkboxes = [
+      { id: 'aliasStabilizeOption', label: 'Stabilize' },
+      { id: 'aliasToggleOption', label: 'Toggle' },
+      { id: 'aliasCycleOption', label: 'Cycle' }
+    ]
+    
+    const selected = checkboxes.filter(cb => {
+      const checkbox = document.getElementById(cb.id)
+      return checkbox && checkbox.checked
+    })
+    
+    const label = document.querySelector('#aliasOptionsDropdown .multiselect-label')
+    if (label) {
+      if (selected.length === 0) {
+        label.textContent = i18next.t('select_options')
+      } else if (selected.length === 1) {
+        label.textContent = selected[0].label
+      } else {
+        label.textContent = `${selected.length} options selected`
+      }
+    }
   }
 }
 

@@ -36,6 +36,7 @@
   "modified": "Modificado",
   "valid": "Válido",
   "keys": "teclas",
+  "keys_firstupper": "Teclas",
   "key_singular": "tecla",
   "all": "Todo",
   "add_key": "Agregar tecla",

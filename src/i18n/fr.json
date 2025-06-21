@@ -36,6 +36,7 @@
   "modified": "Modifié",
   "valid": "Valide",
   "keys": "touches",
+  "keys_firstupper": "Touches",
   "key_singular": "touche",
   "all": "Tout",
   "add_key": "Ajouter une touche",

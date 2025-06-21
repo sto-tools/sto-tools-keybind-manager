@@ -189,7 +189,29 @@
             </button>
           </div>
         </div>
-        <div class="profile-info">
+        <div class="status-indicators">
+          <span
+            class="modified-indicator"
+            id="modifiedIndicator"
+            style="display: none"
+            data-i18n-title="unsaved_changes"
+          >
+            <i class="fas fa-circle"></i>
+            <span data-i18n="modified"></span>
+          </span>
+          <span
+            class="status-indicator"
+            id="statusIndicator"
+            data-i18n-title="validation_status"
+          >
+            <i class="fas fa-check-circle"></i>
+            <span data-i18n="valid"></span>
+          </span>
+          <span class="key-count" id="keyCount" data-i18n-title="bound_keys">
+            0 keys
+          </span>
+        </div>
+      <div class="profile-info">
           <div class="mode-toggle">
             <button
               class="mode-btn active"
@@ -203,28 +225,10 @@
               <i class="fas fa-user"></i>
               <span data-i18n="ground"></span>
             </button>
-          </div>
-          <div class="status-indicators">
-            <span
-              class="modified-indicator"
-              id="modifiedIndicator"
-              style="display: none"
-              data-i18n-title="unsaved_changes"
-            >
-              <i class="fas fa-circle"></i>
-              <span data-i18n="modified"></span>
-            </span>
-            <span
-              class="status-indicator"
-              id="statusIndicator"
-              data-i18n-title="validation_status"
-            >
-              <i class="fas fa-check-circle"></i>
-              <span data-i18n="valid"></span>
-            </span>
-            <span class="key-count" id="keyCount" data-i18n-title="bound_keys">
-              0 keys
-            </span>
+            <button class="mode-btn" data-mode="alias" data-i18n-title="alias_mode">
+              <i class="fas fa-mask"></i>
+              <span data-i18n="alias"></span>
+            </button>
           </div>
         </div>
       </div>
@@ -234,7 +238,7 @@
         <!-- Key Selector -->
         <div class="key-selector-container">
           <div class="key-selector-header">
-            <h3 data-i18n="keys"></h3>
+            <h3 data-i18n="keys_firstupper"></h3>
             <div class="key-controls">
               <div class="key-filter">
                 <input
@@ -283,6 +287,51 @@
           </div>
         </div>
 
+        <!-- Alias Selector -->
+        <div class="alias-selector-container" id="aliasSelectorContainer" style="display: none;">
+          <div class="alias-selector-header">
+            <h3 data-i18n="aliases"></h3>
+            <div class="alias-controls">
+              <div class="alias-filter">
+                <input
+                  type="text"
+                  id="aliasFilter"
+                  data-i18n-placeholder="filter_aliases"
+                />
+                <button class="btn btn-small" id="showAllAliasesBtn">
+                  <i class="fas fa-eye"></i>
+                  <span data-i18n="all"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="alias-selector">
+            <div class="alias-grid-container">
+              <div class="alias-grid" id="aliasGrid">
+                <!-- Aliases populated by JavaScript -->
+              </div>
+            </div>
+            <div class="alias-selector-actions">
+              <button class="btn btn-small btn-primary" id="addAliasChainBtn">
+                <i class="fas fa-plus"></i>
+                <span data-i18n="add_alias"></span>
+              </button>
+              <button
+                class="btn btn-small btn-danger"
+                id="deleteAliasChainBtn"
+                disabled
+              >
+                <i class="fas fa-trash"></i>
+                <span data-i18n="delete"></span>
+              </button>
+              <button class="btn btn-small" id="duplicateAliasChainBtn" disabled>
+                <i class="fas fa-copy"></i>
+                <span data-i18n="copy"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Command Chain Editor -->
         <div class="command-chain-container">
           <div class="chain-header">
@@ -292,12 +341,36 @@
               <div class="chain-options">
                 <label
                   class="checkbox-label"
+                  id="stabilizeExecutionOrderLabel"
                   data-i18n-title="ensures_consistent_execution_order_by_mirroring_commands_phase_1_left_to_right_phase_2_right_to_left"
                 >
                   <input type="checkbox" id="stabilizeExecutionOrder" />
                   <span class="checkmark"></span>
                   <span data-i18n="stabilize_execution_order"></span>
                 </label>
+                <div class="alias-options" id="aliasOptions" style="display: none;">
+                  <label data-i18n="alias_options">Alias Options</label>
+                  <div class="custom-multiselect">
+                    <div class="multiselect-trigger" id="aliasOptionsDropdown">
+                      <span class="multiselect-label" data-i18n="select_options">Select Options</span>
+                      <i class="fas fa-chevron-down multiselect-arrow"></i>
+                    </div>
+                    <div class="multiselect-options" id="aliasOptionsMenu" style="display: none;">
+                      <label class="multiselect-option">
+                        <input type="checkbox" value="stabilize" id="aliasStabilizeOption">
+                        <span data-i18n="stabilize_execution_order">Stabilise Execution Order</span>
+                      </label>
+                      <label class="multiselect-option">
+                        <input type="checkbox" value="toggle" id="aliasToggleOption">
+                        <span data-i18n="toggle_type">Toggle-Type</span>
+                      </label>
+                      <label class="multiselect-option">
+                        <input type="checkbox" value="cycle" id="aliasCycleOption">
+                        <span data-i18n="cycle_type">Cycle-Type</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="chain-actions">

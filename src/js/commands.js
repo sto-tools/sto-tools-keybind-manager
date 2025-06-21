@@ -806,8 +806,19 @@ export default class STOCommandManager {
     return `
             <div class="alias-builder">
                 <div class="form-group">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="aliasToggleMode" />
+                        <label class="form-check-label" for="aliasToggleMode">
+                            Toggle Mode
+                            <i class="fas fa-question-circle ms-1" 
+                               data-bs-toggle="tooltip" 
+                               title="When enabled, the alias will automatically toggle between its on/off states">
+                            </i>
+                        </label>
+                    </div>
+                    
                     <label for="aliasSelect">Available Aliases:</label>
-                    <select id="aliasSelect">
+                    <select id="aliasSelect" class="form-select">
                         <option value="">Select an alias...</option>
                         ${aliasEntries
                           .map(
@@ -822,6 +833,10 @@ export default class STOCommandManager {
                         <label>Alias Commands:</label>
                         <div class="command-preview" id="selectedAliasPreview"></div>
                     </div>
+                </div>
+                <div id="toggleAliasInfo" class="alert alert-info mt-3" style="display: none;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    This alias will automatically toggle between its on/off states when executed.
                 </div>
             </div>
         `
@@ -1043,6 +1058,26 @@ export default class STOCommandManager {
           this.updateAliasPreview(aliasSelect.value)
           this.updateCommandPreview()
         })
+      }
+
+      // Add toggle mode switch listener
+      const toggleSwitch = document.getElementById('aliasToggleMode')
+      if (toggleSwitch) {
+        toggleSwitch.addEventListener('change', () => {
+          const toggleInfo = document.getElementById('toggleAliasInfo')
+          if (toggleInfo) {
+            toggleInfo.style.display = toggleSwitch.checked ? 'block' : 'none'
+          }
+          this.updateCommandPreview()
+        })
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(
+          document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        )
+        tooltipTriggerList.map(
+          (tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl)
+        )
       }
 
       // Add create alias button listener
