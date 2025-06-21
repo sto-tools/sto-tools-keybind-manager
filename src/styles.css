@@ -1339,8 +1339,6 @@ input:checked + .slider:before {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-
-
 /* Folder Setting */
 .folder-setting {
   display: flex;
@@ -1363,8 +1361,6 @@ input:checked + .slider:before {
 .folder-setting .btn {
   flex-shrink: 0;
 }
-
-
 
 /* Checkbox styling */
 .checkbox-label {
@@ -2942,4 +2938,32 @@ input:checked + .slider:before {
   white-space: pre-wrap;
   font-family: monospace;
   font-size: 0.8rem;
+}
+
+/* Auto-Sync Indicator Styles */
+#modifiedIndicator {
+  display: none;
+  color: var(--warning);
+  font-size: 0.9em;
+  margin-left: 10px;
+  transition: all 0.3s ease;
+}
+
+#modifiedIndicator.syncing {
+  color: var(--primary);
+  display: inline !important;
+}
+
+#modifiedIndicator.synced {
+  color: var(--success);
+  display: inline !important;
+}
+
+#modifiedIndicator.error {
+  color: var(--danger);
+  display: inline !important;
+}
+
+#modifiedIndicator i {
+  margin-right: 0.25rem;
 }

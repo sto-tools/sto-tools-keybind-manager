@@ -3,12 +3,14 @@
 import store from './store.js'
 import eventBus from './eventBus.js'
 import STOPreferencesManager from './preferences.js'
+import STOAutoSyncManager from './autoSync.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
     this.store = store
     this.eventListeners = new Map()
     this.preferencesManager = new STOPreferencesManager()
+    this.autoSyncManager = new STOAutoSyncManager()
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
@@ -103,6 +105,9 @@ export default class STOToolsKeybindManager {
       // Initialize preferences manager
       this.preferencesManager.init()
 
+      // Initialize auto-sync manager
+      this.autoSyncManager.init()
+
       // Render initial state
       this.renderProfiles()
       this.renderKeyGrid()
@@ -181,6 +186,11 @@ export default class STOToolsKeybindManager {
     const indicator = document.getElementById('modifiedIndicator')
     if (indicator) {
       indicator.style.display = modified ? 'inline' : 'none'
+    }
+    
+    // Emit modification event for auto-sync
+    if (modified) {
+      eventBus.emit('profile-modified')
     }
   }
 
@@ -443,11 +453,15 @@ export default class STOToolsKeybindManager {
     this.renderCommandChain()
     this.renderKeyGrid()
     this.setModified(true)
+    
+    // Emit command modification event for auto-sync
+    eventBus.emit('command-modified', { keyName, command, action: 'add' })
   }
 
   deleteCommand(keyName, commandIndex) {
     const profile = this.getCurrentProfile()
     if (profile.keys[keyName] && profile.keys[keyName][commandIndex]) {
+      const deletedCommand = profile.keys[keyName][commandIndex]
       profile.keys[keyName].splice(commandIndex, 1)
       stoStorage.saveProfile(this.currentProfile, profile)
       this.renderCommandChain()
@@ -455,6 +469,9 @@ export default class STOToolsKeybindManager {
       this.setModified(true)
 
       stoUI.showToast('Command deleted', 'success')
+      
+      // Emit command modification event for auto-sync
+      eventBus.emit('command-modified', { keyName, command: deletedCommand, action: 'delete' })
     }
   }
 
@@ -475,6 +492,9 @@ export default class STOToolsKeybindManager {
       stoStorage.saveProfile(this.currentProfile, profile)
       this.renderCommandChain()
       this.setModified(true)
+      
+      // Emit command modification event for auto-sync
+      eventBus.emit('command-modified', { keyName, command, action: 'move', fromIndex, toIndex })
     }
   }
 
@@ -1856,6 +1876,9 @@ export default class STOToolsKeybindManager {
     URL.revokeObjectURL(url)
 
     stoUI.showToast('Project exported successfully', 'success')
+    
+    // Emit project-saved event for auto-sync
+    eventBus.emit('project-saved')
   }
 
   exportKeybinds() {

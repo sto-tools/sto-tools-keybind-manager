@@ -265,7 +265,9 @@ export default class STOStorage {
       compactView: false,
       language: this.detectBrowserLanguage(),
       syncFolderName: null,
+      syncFolderPath: null,
       autoSync: false,
+      autoSyncInterval: 'change',
     }
   }
 

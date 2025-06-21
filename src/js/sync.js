@@ -1,5 +1,6 @@
 import i18next from 'i18next'
 import { saveDirectoryHandle, getDirectoryHandle, KEY_SYNC_FOLDER } from './fsHandles.js'
+import eventBus from './eventBus.js'
 
 export async function writeFile(dirHandle, relativePath, contents) {
   const parts = relativePath.split('/');
@@ -23,9 +24,16 @@ export default class STOSyncManager {
     try {
       const handle = await window.showDirectoryPicker();
       await saveDirectoryHandle(KEY_SYNC_FOLDER, handle);
+      
+      // Note: The File System Access API only provides the folder name for security reasons
+      // We cannot access the full filesystem path from the browser
+      const folderName = handle.name;
+      
       if (this.storage) {
         const settings = this.storage.getSettings();
-        settings.syncFolderName = handle.name;
+        settings.syncFolderName = folderName;
+        // Store a user-friendly description since we can't get the full path
+        settings.syncFolderPath = `Selected folder: ${folderName}`;
         settings.autoSync = autoSync;
         this.storage.saveSettings(settings);
       }
@@ -79,6 +87,9 @@ export default class STOSyncManager {
     try {
       await stoExport.syncToFolder(handle);
       stoUI.showToast(i18next.t('project_synced_successfully'), 'success');
+      
+      // Emit project-synced event for auto-sync
+      eventBus.emit('project-synced')
     } catch (error) {
       stoUI.showToast(
         i18next.t('failed_to_sync_project', { error: error.message }),

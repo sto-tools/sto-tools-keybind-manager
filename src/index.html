@@ -852,7 +852,7 @@
             <!-- Category Tree -->
             <div class="preferences-sidebar">
               <div class="category-tree">
-                <div class="category-item" data-category="sync">
+                <div class="category-item active" data-category="sync">
                   <i class="fas fa-sync-alt"></i>
                   <span data-i18n="synchronization"></span>
                 </div>
@@ -861,35 +861,47 @@
             
             <!-- Settings Content -->
             <div class="preferences-content">
-              <!-- Sync Settings -->
-              <div class="settings-panel" id="sync-settings">
-                <h4 data-i18n="synchronization_settings"></h4>
-                <div class="settings-group">
-                  <div class="setting-item">
-                    <label data-i18n="sync_folder_label"></label>
-                    <div class="setting-control">
-                      <div class="folder-setting">
-                        <span id="currentSyncFolder" class="folder-path" data-i18n="no_folder_selected"></span>
-                        <button type="button" class="btn btn-secondary" id="setSyncFolderBtn">
-                          <i class="fas fa-folder-open"></i>
-                          <span data-i18n="set_sync_folder"></span>
-                        </button>
+                              <!-- Sync Settings -->
+                <div class="settings-panel active" id="sync-settings">
+                  <h4 data-i18n="synchronization_settings"></h4>
+                  <div class="settings-group">
+                    <div class="setting-item">
+                      <label data-i18n="sync_folder_label"></label>
+                      <div class="setting-control">
+                        <div class="folder-setting">
+                          <span id="currentSyncFolder" class="folder-path" data-i18n="no_folder_selected"></span>
+                          <button type="button" class="btn btn-secondary" id="setSyncFolderBtn">
+                            <i class="fas fa-folder-open"></i>
+                            <span data-i18n="set_sync_folder"></span>
+                          </button>
+                        </div>
+                        <span class="setting-description" data-i18n="sync_folder_description"></span>
                       </div>
-                      <span class="setting-description" data-i18n="sync_folder_description"></span>
                     </div>
-                  </div>
-                  <div class="setting-item">
-                    <label data-i18n="auto_sync"></label>
-                    <div class="setting-control">
-                      <label class="toggle-switch">
-                        <input type="checkbox" id="autoSync">
-                        <span class="slider"></span>
-                      </label>
-                      <span class="setting-description" data-i18n="auto_sync_description"></span>
+                    <div class="setting-item">
+                      <label data-i18n="auto_sync"></label>
+                      <div class="setting-control">
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="autoSync">
+                          <span class="slider"></span>
+                        </label>
+                        <span class="setting-description" data-i18n="auto_sync_description"></span>
+                      </div>
+                    </div>
+                    <div class="setting-item">
+                      <label data-i18n="auto_sync_interval"></label>
+                      <div class="setting-control">
+                        <select id="autoSyncInterval" class="setting-select">
+                          <option value="change" data-i18n="after_every_change"></option>
+                          <option value="60" data-i18n="every_1_minute"></option>
+                          <option value="120" data-i18n="every_2_minutes"></option>
+                          <option value="300" data-i18n="every_5_minutes"></option>
+                        </select>
+                        <span class="setting-description" data-i18n="auto_sync_interval_description"></span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
 
             </div>
