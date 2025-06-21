@@ -36,6 +36,7 @@
   "modified": "Modifié",
   "valid": "Valide",
   "keys": "touches",
+  "keys_firstupper": "Touches",
   "key_singular": "touche",
   "all": "Tout",
   "add_key": "Ajouter une touche",
@@ -57,7 +58,7 @@
   "command_library": "Bibliothèque de commandes",
   "add_new_key": "Ajouter une nouvelle touche",
   "key_name": "Nom de la touche :",
-  "use_standard_key_names_like_f1_ctrl_a_shift_space_etc": "Utilisez des noms de touches standard comme F1, Ctrl+A, Maj+Espace, etc.",
+  "use_standard_key_names_like_f1_ctrl_a_shift_space_etc": "Utilisez des noms de touches standard comme F1, Ctrl+A, Shift+Space, etc.",
   "common_keys": "Touches communes :",
   "ctrl": "Ctrl",
   "alt": "Alt",
@@ -563,5 +564,9 @@
   "app_description": "Un outil web complet pour créer, éditer et gérer les configurations de raccourcis de Star Trek Online avec édition visuelle et fonctionnalités avancées.",
   "csv_header": "Touche,Commande,Type,Description,Position",
   "default_export_filename": "export.txt",
-  "select_a_space_ground_build_or_aliases_to_preview_export": "Sélectionnez une construction Espace/Sol ou des Alias pour prévisualiser l'exportation."
+  "select_a_space_ground_build_or_aliases_to_preview_export": "Sélectionnez une construction Espace/Sol ou des Alias pour prévisualiser l'exportation.",
+  "or_capture_keys": "Ou capturer les touches :",
+  "click_here_then_press_keys": "Cliquez ici, puis appuyez sur la combinaison de touches",
+  "press_key_combination_now": "Appuyez sur la combinaison de touches maintenant...",
+  "supports_single_modifier_plus_key_combinations": "Prend en charge les combinaisons modificateur unique + touche (ex. Ctrl+A, Alt+1, Shift+Space)"
 }

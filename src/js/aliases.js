@@ -17,10 +17,7 @@ export default class STOAliasManager {
   }
 
   setupEventListeners() {
-    // Alias manager button
-    eventBus.onDom('addAliasBtn', 'click', 'alias-manager-open', () => {
-      this.showAliasManager()
-    })
+
 
     // New alias button
     eventBus.onDom('newAliasBtn', 'click', 'alias-new', () => {
