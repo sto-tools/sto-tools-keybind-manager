@@ -810,7 +810,7 @@ export default class STOExportManager {
     if (profile.aliases && Object.keys(profile.aliases).length > 0) {
       content += this.generateAliasSection(profile.aliases)
     } else {
-      content += '; No aliases defined\n\n'
+      content += `; ${i18next.t('no_aliases_defined')}\n\n`
     }
 
     return content

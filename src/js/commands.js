@@ -407,12 +407,11 @@ export default class STOCommandManager {
   // UI Builders for different command types
   createTargetingUI() {
     const commands = STO_DATA.commands.targeting.commands
-
     return `
             <div class="command-selector">
-                <label for="targetingCommand">Targeting Command:</label>
+                <label for="targetingCommand">${i18next.t('targeting_command')}</label>
                 <select id="targetingCommand">
-                    <option value="">Select targeting command...</option>
+                    <option value="">${i18next.t('select_targeting_command')}</option>
                     ${Object.entries(commands)
                       .map(
                         ([id, cmd]) =>
@@ -429,9 +428,9 @@ export default class STOCommandManager {
 
     return `
             <div class="command-selector">
-                <label for="combatCommand">Combat Command:</label>
+                <label for="combatCommand">${i18next.t('combat_command')}:</label>
                 <select id="combatCommand">
-                    <option value="">Select combat command...</option>
+                    <option value="">${i18next.t('select_combat_command')}</option>
                     ${Object.entries(commands)
                       .map(
                         ([id, cmd]) =>
@@ -451,14 +450,14 @@ export default class STOCommandManager {
     return `
             <div class="tray-builder">
                 <div class="form-group">
-                    <label for="trayCommandType">Command Type:</label>
+                    <label for="trayCommandType">${i18next.t('command_type')}:</label>
                     <select id="trayCommandType">
-                        <option value="custom_tray">Single Tray Slot</option>
-                        <option value="tray_with_backup">Single Tray with Backup</option>
-                        <option value="tray_range">Tray Range</option>
-                        <option value="tray_range_with_backup">Tray Range with Backup</option>
-                        <option value="whole_tray">Whole Tray</option>
-                        <option value="whole_tray_with_backup">Whole Tray with Backup</option>
+                        <option value="custom_tray">${i18next.t('single_tray_slot')}</option>
+                        <option value="tray_with_backup">${i18next.t('single_tray_with_backup')}</option>
+                        <option value="tray_range">${i18next.t('tray_range')}</option>
+                        <option value="tray_range_with_backup">${i18next.t('tray_range_with_backup')}</option>
+                        <option value="whole_tray">${i18next.t('whole_tray')}</option>
+                        <option value="whole_tray_with_backup">${i18next.t('whole_tray_with_backup')}</option>
                     </select>
                 </div>
                 
@@ -466,22 +465,22 @@ export default class STOCommandManager {
                 <div id="singleTrayConfig" class="tray-config-section">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="trayNumber">Tray Number:</label>
+                            <label for="trayNumber">${i18next.t('tray_number')}:</label>
                             <select id="trayNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="slotNumber">Slot Number:</label>
+                            <label for="slotNumber">${i18next.t('slot_number')}:</label>
                             <select id="slotNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
@@ -490,81 +489,81 @@ export default class STOCommandManager {
                 
                 <!-- Backup Configuration -->
                 <div id="backupConfig" class="tray-config-section" style="display: none;">
-                    <h4>Backup Configuration</h4>
+                    <h4>${i18next.t('backup_configuration')}</h4>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="backupTrayNumber">Backup Tray:</label>
+                            <label for="backupTrayNumber">${i18next.t('backup_tray')}:</label>
                             <select id="backupTrayNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="backupSlotNumber">Backup Slot:</label>
+                            <label for="backupSlotNumber">${i18next.t('backup_slot')}:</label>
                             <select id="backupSlotNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="activeState">Active State:</label>
+                        <label for="activeState">${i18next.t('active_state')}:</label>
                         <select id="activeState">
-                            <option value="1">Active (1)</option>
-                            <option value="0">Inactive (0)</option>
+                            <option value="1">${i18next.t('active')}</option>
+                            <option value="0">${i18next.t('inactive')}</option>
                         </select>
                     </div>
                 </div>
                 
                 <!-- Range Configuration -->
                 <div id="rangeConfig" class="tray-config-section" style="display: none;">
-                    <h4>Range Configuration</h4>
+                    <h4>${i18next.t('range_configuration')}</h4>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="startTrayNumber">Start Tray:</label>
+                            <label for="startTrayNumber">${i18next.t('start_tray')}:</label>
                             <select id="startTrayNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="startSlotNumber">Start Slot:</label>
+                            <label for="startSlotNumber">${i18next.t('start_slot')}:</label>
                             <select id="startSlotNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="endTrayNumber">End Tray:</label>
+                            <label for="endTrayNumber">${i18next.t('end_tray')}:</label>
                             <select id="endTrayNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="endSlotNumber">End Slot:</label>
+                            <label for="endSlotNumber">${i18next.t('end_slot')}:</label>
                             <select id="endSlotNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
@@ -573,47 +572,47 @@ export default class STOCommandManager {
                 
                 <!-- Backup Range Configuration -->
                 <div id="backupRangeConfig" class="tray-config-section" style="display: none;">
-                    <h4>Backup Range Configuration</h4>
+                    <h4>${i18next.t('backup_range_configuration')}</h4>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="backupStartTrayNumber">Backup Start Tray:</label>
+                            <label for="backupStartTrayNumber">${i18next.t('backup_start_tray')}:</label>
                             <select id="backupStartTrayNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="backupStartSlotNumber">Backup Start Slot:</label>
+                            <label for="backupStartSlotNumber">${i18next.t('backup_start_slot')}:</label>
                             <select id="backupStartSlotNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="backupEndTrayNumber">Backup End Tray:</label>
+                            <label for="backupEndTrayNumber">${i18next.t('backup_end_tray')}:</label>
                             <select id="backupEndTrayNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Tray ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="backupEndSlotNumber">Backup End Slot:</label>
+                            <label for="backupEndSlotNumber">${i18next.t('backup_end_slot')}:</label>
                             <select id="backupEndSlotNumber">
                                 ${Array.from(
                                   { length: 10 },
                                   (_, i) =>
-                                    `<option value="${i}">Slot ${i + 1}</option>`
+                                    `<option value="${i}">${i + 1}</option>`
                                 ).join('')}
                             </select>
                         </div>
@@ -623,10 +622,10 @@ export default class STOCommandManager {
                 <!-- Command Type Selection -->
                 <div id="commandTypeConfig" class="tray-config-section" style="display: none;">
                     <div class="form-group">
-                        <label for="trayCommandVariant">Command Variant:</label>
+                        <label for="trayCommandVariant">${i18next.t('command_variant')}:</label>
                         <select id="trayCommandVariant">
-                            <option value="STOTrayExecByTray">STOTrayExecByTray (shows key binding on UI)</option>
-                            <option value="TrayExecByTray">TrayExecByTray (no UI indication)</option>
+                            <option value="STOTrayExecByTray">${i18next.t('stotrayexecbytray')}</option>
+                            <option value="TrayExecByTray">${i18next.t('trayexecbytray')}</option>
                         </select>
                     </div>
                 </div>
@@ -643,9 +642,9 @@ export default class STOCommandManager {
 
     return `
             <div class="command-selector">
-                <label for="powerCommand">Shield Command:</label>
+                <label for="powerCommand">${i18next.t('shield_command')}:</label>
                 <select id="powerCommand">
-                    <option value="">Select shield command...</option>
+                    <option value="">${i18next.t('select_shield_command')}</option>
                     ${Object.entries(commands)
                       .map(
                         ([id, cmd]) =>
@@ -666,9 +665,9 @@ export default class STOCommandManager {
 
     return `
             <div class="command-selector">
-                <label for="movementCommand">Movement Command:</label>
+                <label for="movementCommand">${i18next.t('movement_command')}:</label>
                 <select id="movementCommand">
-                    <option value="">Select movement command...</option>
+                    <option value="">${i18next.t('select_movement_command')}</option>
                     ${Object.entries(commands)
                       .map(
                         ([id, cmd]) =>
@@ -678,11 +677,11 @@ export default class STOCommandManager {
                 </select>
                 <div id="movementParams" style="display: none;">
                     <div class="form-group">
-                        <label for="movementAmount">Amount (-1 to 1):</label>
+                        <label for="movementAmount">${i18next.t('amount')}: (-1 to 1)</label>
                         <input type="number" id="movementAmount" min="-1" max="1" step="0.05" value="0.25">
                     </div>
                     <div class="form-group">
-                        <label for="movementPosition">Position (-1 to 1):</label>
+                        <label for="movementPosition">${i18next.t('position')}: (-1 to 1)</label>
                         <input type="number" id="movementPosition" min="-1" max="1" step="0.1" value="1">
                     </div>
                 </div>
@@ -696,9 +695,9 @@ export default class STOCommandManager {
     return `
             <div class="communication-builder">
                 <div class="form-group">
-                    <label for="commCommand">Communication Type:</label>
+                    <label for="commCommand">${i18next.t('communication_type')}:</label>
                     <select id="commCommand">
-                        <option value="">Select communication type...</option>
+                        <option value="">${i18next.t('select_communication_type')}</option>
                         ${Object.entries(commands)
                           .map(
                             ([id, cmd]) =>
@@ -708,20 +707,20 @@ export default class STOCommandManager {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="commMessage">Message:</label>
+                    <label for="commMessage">${i18next.t('message')}:</label>
                     <div class="input-with-button">
-                        <input type="text" id="commMessage" placeholder="Enter your message" maxlength="100">
-                        <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
+                        <input type="text" id="commMessage" placeholder="${i18next.t('enter_your_message')}" maxlength="100">
+                        <button type="button" class="btn btn-small insert-target-btn" title="${i18next.t('insert_target_variable')}">
                             <i class="fas fa-crosshairs"></i> $Target
                         </button>
                     </div>
-                    <small>Maximum 100 characters</small>
+                    <small>${i18next.t('maximum_100_characters')}</small>
                 </div>
                 <div class="variable-help">
-                    <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
+                    <h4><i class="fas fa-info-circle"></i> ${i18next.t('sto_variables')}</h4>
                     <div class="variable-info">
-                        <strong>$Target</strong> - Replaced with your current target's name<br>
-                        <em>Example:</em> <code>team Attacking [$Target]</code> → <code>team Attacking [Borg Cube]</code>
+                        <strong>$Target</strong> - ${i18next.t('replaced_with_your_current_targets_name')}<br>
+                        <em>${i18next.t('example')}:</em> <code>team Attacking [$Target]</code> → <code>team Attacking [Borg Cube]</code>
                     </div>
                 </div>
             </div>
@@ -733,9 +732,9 @@ export default class STOCommandManager {
 
     return `
             <div class="command-selector">
-                <label for="cameraCommand">Camera Command:</label>
+                <label for="cameraCommand">${i18next.t('camera_command')}:</label>
                 <select id="cameraCommand">
-                    <option value="">Select camera command...</option>
+                    <option value="">${i18next.t('select_camera_command')}</option>
                     ${Object.entries(commands)
                       .map(
                         ([id, cmd]) =>
@@ -745,7 +744,7 @@ export default class STOCommandManager {
                 </select>
                 <div id="cameraParams" style="display: none;">
                     <div class="form-group">
-                        <label for="cameraDistance">Distance:</label>
+                        <label for="cameraDistance">${i18next.t('distance')}:</label>
                         <input type="number" id="cameraDistance" min="1" max="500" value="50">
                     </div>
                 </div>
@@ -758,9 +757,9 @@ export default class STOCommandManager {
 
     return `
             <div class="command-selector">
-                <label for="systemCommand">System Command:</label>
+                <label for="systemCommand">${i18next.t('system_command')}:</label>
                 <select id="systemCommand">
-                    <option value="">Select system command...</option>
+                    <option value="">${i18next.t('select_system_command')}</option>
                     ${Object.entries(commands)
                       .map(
                         ([id, cmd]) =>
@@ -770,11 +769,11 @@ export default class STOCommandManager {
                 </select>
                 <div id="systemParams" style="display: none;">
                     <div class="form-group">
-                        <label for="systemFilename">Filename:</label>
+                        <label for="systemFilename">${i18next.t('filename')}:</label>
                         <input type="text" id="systemFilename" value="my_binds.txt">
                     </div>
                     <div class="form-group">
-                        <label for="systemState">State (0/1):</label>
+                        <label for="systemState">${i18next.t('state')}: (0/1)</label>
                         <input type="number" id="systemState" min="0" max="1" value="1">
                     </div>
                 </div>
@@ -793,10 +792,10 @@ export default class STOCommandManager {
                 <div class="alias-builder">
                     <div class="empty-state">
                         <i class="fas fa-mask"></i>
-                        <h4>No Aliases Available</h4>
-                        <p>Create aliases in the Alias Manager first.</p>
+                        <h4>${i18next.t('no_aliases_available')}</h4>
+                        <p>${i18next.t('create_aliases_in_the_alias_manager_first')}</p>
                         <button type="button" class="btn btn-primary" id="openAliasManager">
-                            <i class="fas fa-plus"></i> Create Alias
+                            <i class="fas fa-plus"></i> ${i18next.t('create_alias')}
                         </button>
                     </div>
                 </div>
@@ -813,13 +812,16 @@ export default class STOCommandManager {
                             <i class="fas fa-question-circle ms-1" 
                                data-bs-toggle="tooltip" 
                                title="When enabled, the alias will automatically toggle between its on/off states">
+
                             </i>
                         </label>
                     </div>
                     
-                    <label for="aliasSelect">Available Aliases:</label>
+
+                    <label for="aliasSelect">${i18next.t('available_aliases')}:</label>
                     <select id="aliasSelect" class="form-select">
-                        <option value="">Select an alias...</option>
+                        <option value="">${i18next.t('select_an_alias')}</option>
+
                         ${aliasEntries
                           .map(
                             ([name, alias]) =>
@@ -830,13 +832,15 @@ export default class STOCommandManager {
                 </div>
                 <div id="aliasPreviewSection" style="display: none;">
                     <div class="alias-info">
-                        <label>Alias Commands:</label>
+                        <label>${i18next.t('alias_commands')}:</label>
                         <div class="command-preview" id="selectedAliasPreview"></div>
                     </div>
                 </div>
                 <div id="toggleAliasInfo" class="alert alert-info mt-3" style="display: none;">
                     <i class="fas fa-info-circle me-2"></i>
-                    This alias will automatically toggle between its on/off states when executed.
+
+                    ${i18next.t('this_alias_will_automatically_toggle_between_its_onoff_states_when_executed')}
+
                 </div>
             </div>
         `
@@ -846,21 +850,21 @@ export default class STOCommandManager {
     return `
             <div class="custom-builder">
                 <div class="form-group">
-                    <label for="customCommand">Command:</label>
+                    <label for="customCommand">${i18next.t('command')}:</label>
                     <div class="input-with-button">
-                        <input type="text" id="customCommand" placeholder="Enter STO command" autocomplete="off">
-                        <button type="button" class="btn btn-small insert-target-btn" title="Insert $Target variable">
+                        <input type="text" id="customCommand" placeholder="${i18next.t('enter_sto_command')}" autocomplete="off">
+                        <button type="button" class="btn btn-small insert-target-btn" title="${i18next.t('insert_target_variable')}">
                             <i class="fas fa-crosshairs"></i> $Target
                         </button>
                     </div>
-                    <small>Enter the exact STO command syntax</small>
+                    <small>${i18next.t('enter_the_exact_sto_command_syntax')}</small>
                 </div>
                 <div class="form-group">
-                    <label for="customText">Display Text:</label>
-                    <input type="text" id="customText" placeholder="Descriptive name for this command" autocomplete="off">
+                    <label for="customText">${i18next.t('display_text')}:</label>
+                    <input type="text" id="customText" placeholder="${i18next.t('descriptive_name_for_this_command')}" autocomplete="off">
                 </div>
                 <div class="command-help">
-                    <h4>Common Commands:</h4>
+                    <h4>${i18next.t('common_commands')}:</h4>
                     <div class="command-examples">
                         <button type="button" class="example-cmd" data-cmd="target_nearest_enemy">target_nearest_enemy</button>
                         <button type="button" class="example-cmd" data-cmd="FireAll">FireAll</button>
@@ -870,10 +874,10 @@ export default class STOCommandManager {
                     </div>
                 </div>
                 <div class="variable-help">
-                    <h4><i class="fas fa-info-circle"></i> STO Variables</h4>
+                    <h4><i class="fas fa-info-circle"></i> ${i18next.t('sto_variables')}</h4>
                     <div class="variable-info">
-                        <strong>$Target</strong> - Replaced with your current target's name<br>
-                        <em>Example:</em> <code>team Focus fire on [$Target]</code>
+                        <strong>$Target</strong> - ${i18next.t('replaced_with_your_current_targets_name')}<br>
+                        <em>${i18next.t('example')}:</em> <code>team Focus fire on [$Target]</code>
                     </div>
                 </div>
             </div>

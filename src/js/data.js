@@ -1023,8 +1023,10 @@ const STO_DATA = {
       name: 'Modifier Keys',
       description: 'Shift, Ctrl, Alt variations',
       keys: [
+        { key: 'ALT', description: 'Alt' },
         { key: 'LALT', description: 'Alt (Left)' },
         { key: 'RALT', description: 'Alt (Right)' },
+        { key: 'CTRL', description: 'Control' },
         { key: 'LCTRL', description: 'Control (Left)' },
         { key: 'RCTRL', description: 'Control (Right)' },
       ],

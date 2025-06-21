@@ -924,6 +924,10 @@ export default class STOToolsKeybindManager {
       // Always break compound keys for better readability
       return keyName.replace(/\+/g, '<br>+<br>')
     }
+    // Handle underscores for word wrapping
+    if (keyName.includes('_')) {
+      return keyName.replace(/_/g, '<br>_<br>')
+    }
     return keyName
   }
 
@@ -1142,7 +1146,7 @@ export default class STOToolsKeybindManager {
     let lengthClass
     if (hasLineBreaks) {
       // For compound keys with line breaks, check the longest part
-      const parts = keyName.split('+')
+      const parts = keyName.split(/[+_]/)
       const longestPart = Math.max(...parts.map((part) => part.length))
       if (longestPart <= 4) {
         lengthClass = 'short'
@@ -1244,10 +1248,10 @@ export default class STOToolsKeybindManager {
       }
       if (emptyState) emptyState.style.display = 'block'
       const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
-      const emptyTitle = this.currentEnvironment === 'alias' ? 'No Alias Selected' : 'No Key Selected'
+      const emptyTitle = this.currentEnvironment === 'alias' ? i18next.t('no_alias_selected') : i18next.t('no_key_selected')
       const emptyDesc = this.currentEnvironment === 'alias' ? 
-        'Select an alias from the left panel to view and edit its command chain.' : 
-        'Select a key from the left panel to view and edit its command chain.'
+        i18next.t('select_alias_from_left_panel') : 
+        i18next.t('select_key_from_left_panel')
       
       container.innerHTML =
         `<div class="empty-state" id="emptyState"><i class="${emptyIcon}"></i><h4>${emptyTitle}</h4><p>${emptyDesc}</p></div>`
@@ -1314,21 +1318,19 @@ export default class STOToolsKeybindManager {
 
     if (commands.length === 0) {
       const emptyMessage = this.currentEnvironment === 'alias' ? 
-        `Click "Add Command" to start building your alias chain for ${this.selectedKey}.` :
-        `Click "Add Command" to start building your command chain for ${this.selectedKey}.`
-      
+        `${i18next.t('click_add_command_to_start_building_your_alias_chain')} ${this.selectedKey}.` :
+        `${i18next.t('click_add_command_to_start_building_your_command_chain')} ${this.selectedKey}.`
       container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-plus-circle"></i>
-                    <h4>No Commands</h4>
-                    <p>${emptyMessage}</p>
-                </div>
-            `
-      
+        <div class="empty-state">
+          <i class="fas fa-plus-circle"></i>
+          <h4 data-i18n="no_commands">${i18next.t('no_commands')}</h4>
+          <p>${emptyMessage}</p>
+        </div>
+      `
       if (this.currentEnvironment === 'alias') {
         preview.textContent = `alias ${this.selectedKey} <&  &>`
       } else {
-      preview.textContent = `${this.selectedKey} ""`
+        preview.textContent = `${this.selectedKey} ""`
       }
     } else {
       container.innerHTML = ''
@@ -2372,6 +2374,279 @@ export default class STOToolsKeybindManager {
     stoUI.showToast(`Alias "${newAliasName}" created`, 'success')
   }
 
+  updateModeUI() {
+    if (this.currentEnvironment === 'alias') {
+      // Show alias view, hide key view
+      this.showAliasView()
+      this.renderAliasGrid()
+      this.renderCommandChain()
+      this.updateChainOptionsForAlias()
+    } else {
+      // Show key view, hide alias view
+      this.showKeyView()
+      this.renderKeyGrid()
+      this.renderCommandChain()
+      this.updateChainOptionsForKeybind()
+      this.filterCommandLibrary() // Apply environment filter to command library
+    }
+  }
+
+  showAliasView() {
+    const keyContainer = document.querySelector('.key-selector-container')
+    const aliasContainer = document.getElementById('aliasSelectorContainer')
+    
+    if (keyContainer) keyContainer.style.display = 'none'
+    if (aliasContainer) aliasContainer.style.display = 'block'
+  }
+
+  showKeyView() {
+    const keyContainer = document.querySelector('.key-selector-container')
+    const aliasContainer = document.getElementById('aliasSelectorContainer')
+    
+    if (keyContainer) keyContainer.style.display = 'block'
+    if (aliasContainer) aliasContainer.style.display = 'none'
+  }
+
+  updateChainOptionsForAlias() {
+    const stabilizeBtn = document.getElementById('stabilizeExecutionOrderBtn')
+    const aliasOptionsBtn = document.getElementById('aliasOptionsBtn')
+    const aliasOptions = document.getElementById('aliasOptions')
+    
+    if (stabilizeBtn) stabilizeBtn.style.display = 'none'
+    if (aliasOptionsBtn) aliasOptionsBtn.style.display = 'block'
+    if (aliasOptions) aliasOptions.style.display = 'none' // Initially hidden, shown when button is clicked
+  }
+
+  updateChainOptionsForKeybind() {
+    const stabilizeBtn = document.getElementById('stabilizeExecutionOrderBtn')
+    const aliasOptionsBtn = document.getElementById('aliasOptionsBtn')
+    const aliasOptions = document.getElementById('aliasOptions')
+    
+    if (stabilizeBtn) stabilizeBtn.style.display = 'block'
+    if (aliasOptionsBtn) aliasOptionsBtn.style.display = 'none'
+    if (aliasOptions) aliasOptions.style.display = 'none'
+  }
+
+  renderAliasGrid() {
+    const grid = document.getElementById('aliasGrid')
+    if (!grid) return
+
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile || !profile.aliases) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-mask"></i>
+          <h4 data-i18n="no_aliases_defined">No aliases defined</h4>
+          <p data-i18n="create_alias_to_get_started">Create an alias to get started</p>
+        </div>
+      `
+      return
+    }
+
+    const aliases = Object.entries(profile.aliases)
+    if (aliases.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-mask"></i>
+          <h4 data-i18n="no_aliases_defined">No aliases defined</h4>
+          <p data-i18n="create_alias_to_get_started">Create an alias to get started</p>
+        </div>
+      `
+      return
+    }
+
+    grid.innerHTML = aliases.map(([name, alias]) => 
+      this.createAliasChainElement(name, alias)
+    ).join('')
+
+    // Add event listeners to alias elements
+    grid.querySelectorAll('.alias-chain-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        this.selectAlias(item.dataset.alias)
+      })
+    })
+  }
+
+  createAliasChainElement(name, alias) {
+    const commandCount = alias.commands ? alias.commands.split('$$').length : 0
+    const isSelected = this.selectedKey === name // Reuse selectedKey for alias selection
+    const description = alias.description || ''
+    
+    // Calculate length class for dynamic font sizing (similar to key elements)
+    // Since aliases don't use + separators like keys, use simple length-based logic
+    const nameLength = name.length
+    let lengthClass
+    if (nameLength <= 8) {
+      lengthClass = 'short'
+    } else if (nameLength <= 12) {
+      lengthClass = 'medium'
+    } else if (nameLength <= 16) {
+      lengthClass = 'long'
+    } else {
+      lengthClass = 'extra-long'
+    }
+    
+    return `
+      <div class="alias-chain-item ${isSelected ? 'selected' : ''}" data-alias="${name}" data-length="${lengthClass}" title="${description}">
+        <div class="alias-name">${name}</div>
+        <div class="alias-command-count">${commandCount} <span data-i18n="commands">commands</span></div>
+      </div>
+    `
+  }
+
+  selectAlias(aliasName) {
+    // Reuse the selectedKey property for alias selection
+    this.selectedKey = aliasName
+    this.renderAliasGrid()
+    this.renderCommandChain()
+    this.updateChainActions()
+  }
+
+  showAliasCreationModal() {
+    // Show a simplified modal for creating a new alias
+    const modal = this.createAliasCreationModal()
+    document.body.appendChild(modal)
+    modalManager.show('aliasCreationModal')
+  }
+
+  createAliasCreationModal() {
+    const modal = document.createElement('div')
+    modal.id = 'aliasCreationModal'
+    modal.className = 'modal'
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 data-i18n="create_new_alias">Create New Alias</h2>
+          <button class="modal-close" data-modal="aliasCreationModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="newAliasName" data-i18n="alias_name">Alias Name:</label>
+            <input type="text" id="newAliasName" class="form-control" placeholder="MyAlias" />
+          </div>
+          <div class="form-group">
+            <label for="newAliasDescription" data-i18n="description">Description:</label>
+            <input type="text" id="newAliasDescription" class="form-control" placeholder="Brief description" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-modal="aliasCreationModal" data-i18n="cancel">Cancel</button>
+          <button class="btn btn-primary" id="confirmCreateAliasBtn" data-i18n="create">Create</button>
+        </div>
+      </div>
+    `
+
+    // Add event listener for create button
+    modal.querySelector('#confirmCreateAliasBtn').addEventListener('click', () => {
+      const name = modal.querySelector('#newAliasName').value.trim()
+      const description = modal.querySelector('#newAliasDescription').value.trim()
+      
+      if (name) {
+        this.createAliasChain(name, description)
+        modalManager.hide('aliasCreationModal')
+        document.body.removeChild(modal)
+      }
+    })
+
+    return modal
+  }
+
+  createAliasChain(name, description = '') {
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile) return
+
+    // Initialize aliases object if it doesn't exist
+    if (!profile.aliases) {
+      profile.aliases = {}
+    }
+
+    // Check if alias already exists
+    if (profile.aliases[name]) {
+      stoUI.showToast(`Alias "${name}" already exists`, 'error')
+      return
+    }
+
+    // Create new alias
+    profile.aliases[name] = {
+      description: description,
+      commands: ''
+    }
+
+    // Save profile
+    stoStorage.saveProfile(this.currentProfile, profile)
+    
+    // Update UI
+    this.renderAliasGrid()
+    this.selectAlias(name)
+    this.setModified(true)
+    
+    stoUI.showToast(`Alias "${name}" created`, 'success')
+  }
+
+  async confirmDeleteAlias(aliasName) {
+    const confirmed = await stoUI.confirm(
+      `Are you sure you want to delete the alias "${aliasName}"?`,
+      'Delete Alias',
+      'danger'
+    )
+
+    if (confirmed) {
+      this.deleteAliasChain(aliasName)
+    }
+  }
+
+  deleteAliasChain(aliasName) {
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile || !profile.aliases || !profile.aliases[aliasName]) return
+
+    delete profile.aliases[aliasName]
+    stoStorage.saveProfile(this.currentProfile, profile)
+
+    // Clear selection if we deleted the selected alias
+    if (this.selectedKey === aliasName) {
+      this.selectedKey = null
+    }
+
+    this.renderAliasGrid()
+    this.renderCommandChain()
+    this.updateChainActions()
+    this.setModified(true)
+
+    stoUI.showToast(`Alias "${aliasName}" deleted`, 'success')
+  }
+
+  duplicateAlias(aliasName) {
+    const profile = stoStorage.getProfile(this.currentProfile)
+    if (!profile || !profile.aliases || !profile.aliases[aliasName]) return
+
+    const originalAlias = profile.aliases[aliasName]
+    
+    // Find a suitable new alias name
+    let newAliasName = aliasName + '_copy'
+    let counter = 1
+    
+    while (profile.aliases[newAliasName]) {
+      newAliasName = `${aliasName}_copy${counter}`
+      counter++
+    }
+
+    // Create duplicate
+    profile.aliases[newAliasName] = {
+      description: originalAlias.description + ' (copy)',
+      commands: originalAlias.commands
+    }
+
+    stoStorage.saveProfile(this.currentProfile, profile)
+    
+    this.renderAliasGrid()
+    this.selectAlias(newAliasName)
+    this.setModified(true)
+
+    stoUI.showToast(`Alias "${newAliasName}" created`, 'success')
+  }
+  
   saveCurrentBuild() {
     const profile = stoStorage.getProfile(this.currentProfile)
     const currentBuild = this.getCurrentProfile()
@@ -3599,19 +3874,227 @@ export default class STOToolsKeybindManager {
 
   setupKeySelectionModal() {
     console.log('[KeyCapture] setupKeySelectionModal called')
-    // Populate common keys
-    this.populateCommonKeys()
+    
+    // Initialize the modifier + key selection interface
+    this.setupModifierKeySelection()
+    
+    // Setup Key Capture functionality
+    const captureKeyBtn = document.getElementById('keySelectionCaptureBtn')
+    console.log('[KeyCapture] setupKeySelectionModal: captureKeyBtn:', captureKeyBtn)
+    if (captureKeyBtn) {
+      // Remove any existing handlers
+      captureKeyBtn.onclick = null
+      captureKeyBtn.removeEventListener('click', () => {})
+      
+      // Add event listener that will work for clicks anywhere on the button
+      captureKeyBtn.addEventListener('click', (event) => {
+        console.log('[KeyCapture] captureKeyBtn clicked (event delegation)')
+        event.preventDefault()
+        event.stopPropagation()
+        this.startKeyCapture('keySelectionModal')
+      })
+    }
+  }
 
-    // Setup "Find other keys" button
-    const findKeysBtn = document.getElementById('findOtherKeysBtn')
-    if (findKeysBtn) {
-      findKeysBtn.onclick = () => this.showFullKeyList()
+  setupModifierKeySelection() {
+    // Initialize state
+    this.selectedModifiers = []
+    this.selectedKey = null
+
+    // Dynamically generate modifier buttons from data.js
+    const modifierButtonsContainer = document.querySelector('.modifier-buttons')
+    if (modifierButtonsContainer) {
+      modifierButtonsContainer.innerHTML = ''
+      const modifiers = (STO_DATA.keys.modifiers && STO_DATA.keys.modifiers.keys) || []
+      modifiers.forEach(mod => {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'modifier-btn'
+        btn.dataset.modifier = mod.key
+        btn.dataset.selected = 'false'
+        
+        // Create span with i18n support
+        const span = document.createElement('span')
+        span.className = 'modifier-label'
+        
+        // Map modifier keys to i18n strings
+        const i18nKey = mod.key.toLowerCase()
+        if (i18nKey === 'ctrl' || i18nKey === 'alt' || i18nKey === 'shift') {
+          span.setAttribute('data-i18n', i18nKey)
+          span.textContent = mod.description || mod.key
+        } else {
+          span.textContent = mod.description || mod.key
+        }
+        
+        btn.appendChild(span)
+        
+        btn.addEventListener('click', () => {
+          const isSelected = btn.dataset.selected === 'true'
+          if (isSelected) {
+            btn.dataset.selected = 'false'
+            this.selectedModifiers = this.selectedModifiers.filter(m => m !== mod.key)
+          } else {
+            btn.dataset.selected = 'true'
+            this.selectedModifiers.push(mod.key)
+          }
+          this.updateKeyPreview()
+        })
+        modifierButtonsContainer.appendChild(btn)
+      })
     }
 
-    // Setup search functionality
-    const searchInput = document.getElementById('keySearchInput')
-    if (searchInput) {
-      searchInput.oninput = (e) => this.filterKeyList(e.target.value)
+    // Setup tab switching
+    const tabBtns = document.querySelectorAll('.tab-btn')
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab
+        
+        // Update active tab button
+        tabBtns.forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        
+        // Update active tab content
+        const tabContents = document.querySelectorAll('.key-tab')
+        tabContents.forEach(tab => tab.classList.remove('active'))
+        document.getElementById(`${tabName}-tab`).classList.add('active')
+        
+        // Populate the selected tab if not already done
+        this.populateKeyTab(tabName)
+      })
+    })
+    
+    // Setup confirm button
+    const confirmBtn = document.getElementById('confirmKeySelection')
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        if (this.selectedKey) {
+          const keyCombination = this.buildKeyCombination()
+          this.selectKeyFromModal(keyCombination)
+        }
+      })
+    }
+    
+    // Populate the initial tab (common)
+    this.populateKeyTab('common')
+  }
+
+  populateKeyTab(tabName) {
+    const gridId = `${tabName}KeyGrid`
+    const grid = document.getElementById(gridId)
+    if (!grid || grid.children.length > 0) return // Already populated
+    
+    let keys = []
+    
+    switch (tabName) {
+      case 'common':
+        keys = STO_DATA.keys.common.keys
+        break
+      case 'letters':
+        keys = STO_DATA.keys.letters.keys
+        break
+      case 'numbers':
+        keys = STO_DATA.keys.numbers.keys
+        break
+      case 'function':
+        keys = STO_DATA.keys.function.keys
+        break
+      case 'arrows':
+        keys = STO_DATA.keys.arrows.keys
+        break
+      case 'symbols':
+        keys = STO_DATA.keys.symbols.keys
+        break
+      case 'mouse':
+        keys = STO_DATA.keys.mouse.keys
+        break
+      case 'gamepad':
+        keys = STO_DATA.keys.gamepad.keys
+        break
+    }
+    
+    grid.innerHTML = ''
+    keys.forEach(keyData => {
+      const keyItem = document.createElement('div')
+      keyItem.className = 'key-item'
+      keyItem.dataset.key = keyData.key
+      
+      // Smart formatting for compound keys and font sizing
+      const formattedKeyName = this.formatKeyName(keyData.key)
+      const hasLineBreaks = formattedKeyName.includes('<br>')
+      
+      // Determine length classification
+      let lengthClass
+      if (hasLineBreaks) {
+        // For compound keys with line breaks, check the longest part
+        const parts = keyData.key.split(/[+_]/)
+        const longestPart = Math.max(...parts.map((part) => part.length))
+        if (longestPart <= 4) {
+          lengthClass = 'short'
+        } else if (longestPart <= 8) {
+          lengthClass = 'medium'
+        } else {
+          lengthClass = 'long'
+        }
+      } else {
+        // For single keys, use total length
+        const keyLength = keyData.key.length
+        if (keyLength <= 3) {
+          lengthClass = 'short'
+        } else if (keyLength <= 5) {
+          lengthClass = 'medium'
+        } else if (keyLength <= 8) {
+          lengthClass = 'long'
+        } else {
+          lengthClass = 'extra-long'
+        }
+      }
+      
+      keyItem.dataset.length = lengthClass
+      
+      keyItem.innerHTML = `
+        <div class="key-label">${formattedKeyName}</div>
+      `
+      
+      keyItem.addEventListener('click', () => {
+        // Remove selection from other keys in this tab
+        grid.querySelectorAll('.key-item').forEach(item => {
+          item.classList.remove('selected')
+        })
+        
+        // Select this key
+        keyItem.classList.add('selected')
+        this.selectedKey = keyData.key
+        this.updateKeyPreview()
+      })
+      
+      grid.appendChild(keyItem)
+    })
+  }
+
+  buildKeyCombination() {
+    if (!this.selectedKey) return null
+    
+    if (this.selectedModifiers.length === 0) {
+      return this.selectedKey
+    }
+    
+    return [...this.selectedModifiers, this.selectedKey].join('+')
+  }
+
+  updateKeyPreview() {
+    const previewDisplay = document.getElementById('keyPreviewDisplay')
+    const confirmBtn = document.getElementById('confirmKeySelection')
+    
+    if (!previewDisplay || !confirmBtn) return
+    
+    const combination = this.buildKeyCombination()
+    
+    if (combination) {
+      previewDisplay.innerHTML = `<span class="key-combination">${combination}</span>`
+      confirmBtn.disabled = false
+    } else {
+      previewDisplay.innerHTML = '<span class="no-selection" data-i18n="no_key_selected">No key selected</span>'
+      confirmBtn.disabled = true
     }
 
     // Setup Key Capture functionality
@@ -3650,163 +4133,6 @@ export default class STOToolsKeybindManager {
             `
 
       commonKeysGrid.appendChild(keyButton)
-    })
-  }
-
-  showFullKeyList() {
-    const fullKeysSection = document.getElementById('fullKeysSection')
-    const findKeysBtn = document.getElementById('findOtherKeysBtn')
-
-    if (fullKeysSection && findKeysBtn) {
-      fullKeysSection.style.display = 'block'
-      findKeysBtn.style.display = 'none'
-
-      // Populate categories if not already done
-      this.populateKeyCategories()
-    }
-  }
-
-  populateKeyCategories() {
-    const keyCategories = document.getElementById('keyCategories')
-    if (!keyCategories) return
-
-    keyCategories.innerHTML = ''
-
-    // Skip common keys since they're already shown above
-    Object.entries(STO_DATA.keys).forEach(([categoryId, categoryData]) => {
-      if (categoryId === 'common') return
-
-      // Debug logging
-      console.log('Processing category:', categoryId, categoryData)
-
-      // Validate category data
-      if (!categoryData || !categoryData.name || !categoryData.keys) {
-        console.warn(
-          `Invalid category data for categoryId: ${categoryId}`,
-          categoryData
-        )
-        return
-      }
-
-      const categoryElement = document.createElement('div')
-      categoryElement.className = 'key-category'
-
-      const headerElement = document.createElement('div')
-      headerElement.className = 'key-category-header'
-      headerElement.onclick = () => this.toggleKeySelectionCategory(categoryId)
-
-      headerElement.innerHTML = `
-                <div>
-                    <h5>${categoryData.name}</h5>
-                    <div class="category-desc">${categoryData.description || ''}</div>
-                </div>
-                <i class="fas fa-chevron-right category-chevron"></i>
-            `
-
-      const contentElement = document.createElement('div')
-      contentElement.className = 'key-category-content collapsed'
-      contentElement.id = `key-category-${categoryId}`
-
-      // Populate keys for this category
-      if (Array.isArray(categoryData.keys)) {
-        categoryData.keys.forEach((keyData) => {
-          if (keyData && keyData.key) {
-            const keyButton = document.createElement('div')
-            keyButton.className = 'key-button'
-            keyButton.onclick = () => this.selectKeyFromModal(keyData.key)
-
-            keyButton.innerHTML = `
-                            <div class="key-name">${keyData.key}</div>
-                            <div class="key-desc">${keyData.description || ''}</div>
-                        `
-
-            contentElement.appendChild(keyButton)
-          }
-        })
-      }
-
-      categoryElement.appendChild(headerElement)
-      categoryElement.appendChild(contentElement)
-      keyCategories.appendChild(categoryElement)
-    })
-  }
-
-  toggleKeySelectionCategory(categoryId) {
-    const content = document.getElementById(`key-category-${categoryId}`)
-    if (!content) {
-      console.warn(
-        `Key selection category content not found for categoryId: ${categoryId}`
-      )
-      return
-    }
-
-    const header = content.previousElementSibling
-
-    if (content && header) {
-      const isCollapsed = content.classList.contains('collapsed')
-
-      if (isCollapsed) {
-        content.classList.remove('collapsed')
-        header.classList.remove('collapsed')
-        // Update chevron rotation
-        const chevron = header.querySelector('.category-chevron')
-        if (chevron) {
-          chevron.style.transform = 'rotate(90deg)'
-        }
-      } else {
-        content.classList.add('collapsed')
-        header.classList.add('collapsed')
-        // Update chevron rotation
-        const chevron = header.querySelector('.category-chevron')
-        if (chevron) {
-          chevron.style.transform = 'rotate(0deg)'
-        }
-      }
-    }
-  }
-
-  filterKeyList(searchTerm) {
-    const term = searchTerm.toLowerCase().trim()
-
-    // Filter through all key buttons in categories
-    const keyButtons = document.querySelectorAll('#keyCategories .key-button')
-
-    keyButtons.forEach((button) => {
-      const keyName = button
-        .querySelector('.key-name')
-        .textContent.toLowerCase()
-      const keyDesc = button
-        .querySelector('.key-desc')
-        .textContent.toLowerCase()
-
-      const matches = keyName.includes(term) || keyDesc.includes(term)
-      button.style.display = matches ? 'flex' : 'none'
-    })
-
-    // Show/hide categories based on visible keys
-    const categories = document.querySelectorAll('.key-category')
-    categories.forEach((category) => {
-      const visibleKeys = category.querySelectorAll(
-        '.key-button:not([style*="display: none"])'
-      )
-      const hasVisibleKeys = visibleKeys.length > 0
-
-      if (term === '') {
-        // If no search term, show all categories but keep them collapsed
-        category.style.display = 'block'
-      } else {
-        // If searching, show categories with matches and expand them
-        category.style.display = hasVisibleKeys ? 'block' : 'none'
-
-        if (hasVisibleKeys) {
-          const content = category.querySelector('.key-category-content')
-          const header = category.querySelector('.key-category-header')
-          if (content && header) {
-            content.classList.remove('collapsed')
-            header.classList.remove('collapsed')
-          }
-        }
-      }
     })
   }
 
@@ -4078,7 +4404,7 @@ export default class STOToolsKeybindManager {
         }
       }
     }
-
+    
     // Update ground preview
     if (groundPreview) {
       try {
@@ -4390,7 +4716,8 @@ export default class STOToolsKeybindManager {
     // Determine which elements to use based on modal context
     const captureStatusId = modalContext === 'addKeyModal' ? 'addKeyCaptureStatus' : 'keyCaptureStatus'
     const capturedKeysId = modalContext === 'addKeyModal' ? 'addKeyCapturedKeys' : 'capturedKeys'
-    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'captureKeyBtn'
+    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'keySelectionCaptureBtn'
+
     
     // Show capture status
     const captureStatus = document.getElementById(captureStatusId)
@@ -4440,7 +4767,8 @@ export default class STOToolsKeybindManager {
     // Determine which elements to use based on current context
     const modalContext = this.currentCaptureContext || 'keySelectionModal'
     const captureStatusId = modalContext === 'addKeyModal' ? 'addKeyCaptureStatus' : 'keyCaptureStatus'
-    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'captureKeyBtn'
+    const captureBtnId = modalContext === 'addKeyModal' ? 'addKeyCaptureBtn' : 'keySelectionCaptureBtn'
+
     
     // Hide capture status
     const captureStatus = document.getElementById(captureStatusId)
@@ -4492,23 +4820,25 @@ export default class STOToolsKeybindManager {
 
   addCapturedKeySelectionButton(chord) {
     const modalContext = this.currentCaptureContext || 'keySelectionModal'
-    const capturedKeysId = modalContext === 'addKeyModal' ? 'addKeyCapturedKeys' : 'capturedKeys'
-    const capturedKeys = document.getElementById(capturedKeysId)
-    if (!capturedKeys) return
-    
-    // Clear any existing selection button
-    const existingButton = capturedKeys.querySelector('.captured-key-select-btn')
-    if (existingButton) {
-      existingButton.remove()
-    }
-    
-    // Show the select button for both modals
-    const selectButton = document.createElement('button')
-    selectButton.className = 'btn btn-primary captured-key-select-btn'
-    selectButton.textContent = `Select "${chord}"`
-    selectButton.onclick = () => {
-      if (modalContext === 'addKeyModal') {
-        // For addKeyModal, populate the key name input field and add the key
+ 
+    if (modalContext === 'addKeyModal') {
+      // For addKeyModal, use the existing behavior
+      const capturedKeysId = 'addKeyCapturedKeys'
+      const capturedKeys = document.getElementById(capturedKeysId)
+      if (!capturedKeys) return
+      
+      // Clear any existing selection button
+      const existingButton = capturedKeys.querySelector('.captured-key-select-btn')
+      if (existingButton) {
+        existingButton.remove()
+      }
+      
+      // Show the select button
+      const selectButton = document.createElement('button')
+      selectButton.className = 'btn btn-primary captured-key-select-btn'
+      selectButton.textContent = `Select "${chord}"`
+      selectButton.onclick = () => {
+
         const keyNameInput = document.getElementById('newKeyName')
         if (keyNameInput) {
           keyNameInput.value = chord
@@ -4516,13 +4846,40 @@ export default class STOToolsKeybindManager {
         this.addKey(chord)
         modalManager.hide('addKeyModal')
         this.stopKeyCapture()
-      } else {
-        // For keySelectionModal, use the existing behavior
-        this.selectKeyFromModal(chord)
-        this.stopKeyCapture()
       }
+      capturedKeys.appendChild(selectButton)
+    } else {
+      // For keySelectionModal, update the key preview and enable the Select This Key button
+      const previewDisplay = document.getElementById('keyPreviewDisplay')
+      const confirmBtn = document.getElementById('confirmKeySelection')
+      
+      if (previewDisplay && confirmBtn) {
+        // Update the preview display with the captured key
+        previewDisplay.innerHTML = `<span class="key-combination">${chord}</span>`
+        
+        // Enable the Select This Key button
+        confirmBtn.disabled = false
+        
+        // Store the captured key for when the user clicks "Select This Key"
+        this.selectedKey = chord
+        this.selectedModifiers = [] // Clear any selected modifiers since we captured a complete key
+        
+        // Clear any selected modifiers in the UI
+        const modifierBtns = document.querySelectorAll('.modifier-btn')
+        modifierBtns.forEach(btn => {
+          btn.dataset.selected = 'false'
+        })
+        
+        // Clear any selected keys in the grids
+        const keyItems = document.querySelectorAll('.key-item.selected')
+        keyItems.forEach(item => {
+          item.classList.remove('selected')
+        })
+      }
+      
+      // Stop key capture
+      this.stopKeyCapture()
     }
-    capturedKeys.appendChild(selectButton)
   }
 
   handleKeyUp(event) {
@@ -4530,8 +4887,10 @@ export default class STOToolsKeybindManager {
     
     // Only clear pressed codes if we haven't captured a valid key yet
     if (!this.hasCapturedValidKey) {
-      this.pressedCodes.delete(event.code)
-      this.updateCapturedKeysDisplay()
+
+    this.pressedCodes.delete(event.code)
+    this.updateCapturedKeysDisplay()
+
     }
   }
 
