@@ -35,14 +35,30 @@ function onDom(target, domEvent, busEvent, handler) {
   }
   if (!busEvent) busEvent = domEvent
 
-  const domHandler = (e) => emit(busEvent, e)
-  target.addEventListener(domEvent, domHandler)
+  if (handler) {
+    // If a handler is provided, attach it directly to the DOM event
+    // and also emit the bus event for other listeners
+    const domHandler = (e) => {
+      try {
+        handler(e)
+      } catch (err) {
+        console.error(err)
+      }
+      emit(busEvent, e)
+    }
+    target.addEventListener(domEvent, domHandler)
 
-  if (handler) on(busEvent, handler)
+    return () => {
+      target.removeEventListener(domEvent, domHandler)
+    }
+  } else {
+    // If no handler is provided, just emit the bus event
+    const domHandler = (e) => emit(busEvent, e)
+    target.addEventListener(domEvent, domHandler)
 
-  return () => {
-    target.removeEventListener(domEvent, domHandler)
-    if (handler) off(busEvent, handler)
+    return () => {
+      target.removeEventListener(domEvent, domHandler)
+    }
   }
 }
 

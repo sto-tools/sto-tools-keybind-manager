@@ -1144,8 +1144,8 @@ export default class STOToolsKeybindManager {
     if (!container || !title || !preview) return
 
     if (!this.selectedKey) {
-      title.textContent = 'Select a key to edit'
-      preview.textContent = 'Select a key to see the generated command'
+      title.textContent = i18next.t('select_a_key_to_edit')
+      preview.textContent = i18next.t('select_a_key_to_see_the_generated_command')
       if (commandCount) {
         // Update only the number part while preserving the internationalized text
         const commandsSpan = commandCount.querySelector('[data-i18n="commands"]')
@@ -2170,7 +2170,7 @@ export default class STOToolsKeybindManager {
     // Reset modal button text in case we were editing
     const saveBtn = document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
-      saveBtn.textContent = 'Add Command'
+      saveBtn.textContent = i18next.t('add_command')
     }
 
     // Hide modal
@@ -2710,7 +2710,7 @@ export default class STOToolsKeybindManager {
 
       // Reset modal button text
       document.getElementById('saveParameterCommandBtn').textContent =
-        'Add Command'
+        i18next.t('add_command')
     }
   }
 
@@ -3674,9 +3674,9 @@ export default class STOToolsKeybindManager {
     }
 
     const flag = document.getElementById('languageFlag')
-    const flags = { en: '🇬🇧', de: '🇩🇪', es: '🇪🇸', fr: '🇫🇷' }
+    const flagClasses = { en: 'fi fi-gb', de: 'fi fi-de', es: 'fi fi-es', fr: 'fi fi-fr' }
     if (flag) {
-      flag.textContent = flags[lang] || '🏳️'
+      flag.className = flagClasses[lang] || 'fi fi-gb'
     }
   }
 

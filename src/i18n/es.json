@@ -558,5 +558,10 @@
   "every_30_minutes": "Cada 30 minutos",
   "every_hour": "Cada hora",
   "preferences_saved": "Preferencias guardadas exitosamente",
-  "failed_to_save_preferences": "Falló al guardar las preferencias"
+  "failed_to_save_preferences": "Falló al guardar las preferencias",
+  "vfx_manager_description": "Selecciona efectos visuales para desactivar usando alias de dynFxSetFXExlusionList. Los efectos están organizados por entorno.",
+  "app_description": "Una herramienta integral basada en web para crear, editar y gestionar configuraciones de atajos de Star Trek Online con edición visual y características avanzadas.",
+  "csv_header": "Tecla,Comando,Tipo,Descripción,Posición",
+  "default_export_filename": "export.txt",
+  "select_a_space_ground_build_or_aliases_to_preview_export": "Selecciona una construcción de Espacio/Tierra o Alias para previsualizar la exportación."
 }

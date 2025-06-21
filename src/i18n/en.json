@@ -557,5 +557,10 @@
   "every_30_minutes": "Every 30 minutes",
   "every_hour": "Every hour",
   "preferences_saved": "Preferences saved successfully",
-  "failed_to_save_preferences": "Failed to save preferences"
+  "failed_to_save_preferences": "Failed to save preferences",
+  "vfx_manager_description": "Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.",
+  "app_description": "A comprehensive web-based tool for creating, editing, and managing Star Trek Online keybind configurations with visual editing and advanced features.",
+  "csv_header": "Key,Command,Type,Description,Position",
+  "default_export_filename": "export.txt",
+  "select_a_space_ground_build_or_aliases_to_preview_export": "Select a Space/Ground build or Aliases to preview export."
 }

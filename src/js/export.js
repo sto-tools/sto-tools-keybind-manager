@@ -465,7 +465,7 @@ export default class STOExportManager {
   }
 
   generateCSVData(profile) {
-    let csv = 'Key,Command,Type,Description,Position\n'
+    let csv = i18next.t('csv_header') + '\n'
 
     Object.entries(profile.keys).forEach(([key, commands]) => {
       commands.forEach((command, index) => {

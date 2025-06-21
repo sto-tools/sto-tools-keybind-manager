@@ -558,5 +558,10 @@
   "every_30_minutes": "Toutes les 30 minutes",
   "every_hour": "Toutes les heures",
   "preferences_saved": "Préférences sauvegardées avec succès",
-  "failed_to_save_preferences": "Échec de la sauvegarde des préférences"
+  "failed_to_save_preferences": "Échec de la sauvegarde des préférences",
+  "vfx_manager_description": "Sélectionnez les effets visuels à désactiver en utilisant les alias dynFxSetFXExlusionList. Les effets sont organisés par environnement.",
+  "app_description": "Un outil web complet pour créer, éditer et gérer les configurations de raccourcis de Star Trek Online avec édition visuelle et fonctionnalités avancées.",
+  "csv_header": "Touche,Commande,Type,Description,Position",
+  "default_export_filename": "export.txt",
+  "select_a_space_ground_build_or_aliases_to_preview_export": "Sélectionnez une construction Espace/Sol ou des Alias pour prévisualiser l'exportation."
 }

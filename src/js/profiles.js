@@ -6,6 +6,8 @@ import eventBus from './eventBus.js'
 export default class STOProfileManager {
   constructor() {
     this.currentModal = null
+    this.languageListenersSetup = false
+    this.eventListenersSetup = false
     // Don't initialize immediately - wait for app to be ready
   }
 
@@ -14,6 +16,11 @@ export default class STOProfileManager {
   }
 
   setupEventListeners() {
+    if (this.eventListenersSetup) {
+      return // Prevent duplicate event listener setup
+    }
+    this.eventListenersSetup = true
+    
     // Profile dropdown change
     const profileSelect = document.getElementById('profileSelect')
     if (profileSelect) {
@@ -117,13 +124,40 @@ export default class STOProfileManager {
       this.toggleLanguageMenu()
     })
 
-    document.querySelectorAll('.language-option').forEach((btn) => {
-      eventBus.onDom(btn, 'click', 'language-change', (e) => {
-        const lang = e.target.dataset.lang
-        if (lang) app.changeLanguage(lang)
-        this.closeLanguageMenu()
-      })
-    })
+    // Setup language option event listeners with defensive check
+    if (!this.languageListenersSetup) {
+      const languageOptions = document.querySelectorAll('.language-option')
+      if (languageOptions.length > 0) {
+        languageOptions.forEach((btn) => {
+          eventBus.onDom(btn, 'click', 'language-change', (e) => {
+            const lang = e.currentTarget.dataset.lang
+            if (lang) app.changeLanguage(lang)
+            this.closeLanguageMenu()
+          })
+        })
+        this.languageListenersSetup = true
+      } else {
+        console.warn('Language option elements not found during setup')
+        // Retry after a short delay in case DOM is still loading
+        setTimeout(() => {
+          if (!this.languageListenersSetup) {
+            const retryOptions = document.querySelectorAll('.language-option')
+            if (retryOptions.length > 0) {
+              retryOptions.forEach((btn) => {
+                eventBus.onDom(btn, 'click', 'language-change', (e) => {
+                  const lang = e.currentTarget.dataset.lang
+                  if (lang) app.changeLanguage(lang)
+                  this.closeLanguageMenu()
+                })
+              })
+              this.languageListenersSetup = true
+            } else {
+              console.error('Language option elements still not found after retry')
+            }
+          }
+        }, 1000)
+      }
+    }
 
     // Close settings menu when clicking outside
     document.addEventListener('click', () => {
@@ -141,7 +175,7 @@ export default class STOProfileManager {
     const nameInput = document.getElementById('profileName')
     const descInput = document.getElementById('profileDescription')
 
-    if (title) title.textContent = 'New Profile'
+    if (title) title.textContent = i18next.t('new_profile')
     if (nameInput) {
       nameInput.value = ''
       nameInput.placeholder = 'Enter profile name'
@@ -166,7 +200,7 @@ export default class STOProfileManager {
     const nameInput = document.getElementById('profileName')
     const descInput = document.getElementById('profileDescription')
 
-    if (title) title.textContent = 'Clone Profile'
+    if (title) title.textContent = i18next.t('clone_profile')
     if (nameInput) {
       nameInput.value = `${currentProfile.name} Copy`
       nameInput.placeholder = 'Enter new profile name'
@@ -191,7 +225,7 @@ export default class STOProfileManager {
     const nameInput = document.getElementById('profileName')
     const descInput = document.getElementById('profileDescription')
 
-    if (title) title.textContent = 'Rename Profile'
+    if (title) title.textContent = i18next.t('rename_profile')
     if (nameInput) {
       nameInput.value = currentProfile.name
       nameInput.placeholder = 'Enter profile name'

@@ -970,8 +970,8 @@ export default class STOCommandManager {
       this.updateCommandPreview()
     } else {
       builder.innerHTML =
-        '<p class="text-muted">Select a command type to configure options.</p>'
-      if (preview) preview.textContent = 'Select a command type to see preview'
+        `<p class="text-muted">${i18next.t('select_a_command_type_to_see_preview')}</p>`
+      if (preview) preview.textContent = i18next.t('select_a_command_type_to_see_preview')
       if (saveBtn) saveBtn.disabled = true
     }
   }

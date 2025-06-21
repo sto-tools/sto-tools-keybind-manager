@@ -169,7 +169,7 @@ export default class STOAliasManager {
       const profile = app.getCurrentProfile()
       const alias = profile.aliases[aliasName]
 
-      if (title) title.textContent = 'Edit Alias'
+      if (title) title.textContent = i18next.t('edit_alias')
       if (nameInput) {
         nameInput.value = aliasName
         nameInput.disabled = true // Can't change alias name
@@ -180,7 +180,7 @@ export default class STOAliasManager {
       this.currentAlias = aliasName
     } else {
       // Creating new alias
-      if (title) title.textContent = 'New Alias'
+      if (title) title.textContent = i18next.t('new_alias')
       if (nameInput) {
         nameInput.value = ''
         nameInput.disabled = false

@@ -50,7 +50,7 @@ export default class STOFileExplorer {
       if (!contentEl) return
       const text = contentEl.textContent || ''
       if (!text.trim()) return
-      let filename = 'export.txt'
+      let filename = i18next.t('default_export_filename')
       const profile = stoStorage.getProfile(profileId)
       if (type === 'build') {
         filename = stoExport.generateFileName(profile, 'txt', environment)
@@ -69,7 +69,7 @@ export default class STOFileExplorer {
     // Reset preview
     const contentEl = document.getElementById(this.contentId)
     if (contentEl) {
-      contentEl.textContent = 'Select an item on the left to preview export'
+      contentEl.textContent = i18next.t('select_an_item_on_the_left_to_preview_export')
     }
     stoUI.showModal(this.modalId)
   }
@@ -153,8 +153,7 @@ export default class STOFileExplorer {
         exportContent = this.generateAliasExport(profileid)
       } else {
         // Root profile node selected – no export preview
-        exportContent =
-          'Select a Space/Ground build or Aliases to preview export.'
+        exportContent = i18next.t('select_a_space_ground_build_or_aliases_to_preview_export')
       }
       const contentEl = document.getElementById(this.contentId)
       if (contentEl) {
