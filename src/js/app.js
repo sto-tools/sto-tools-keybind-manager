@@ -129,7 +129,7 @@ export default class STOToolsKeybindManager {
       }
 
       stoUI.showToast(
-        'STO Tools Keybind Manager loaded successfully',
+        i18next.t('sto_tools_keybind_manager_loaded_successfully'),
         'success'
       )
 
@@ -138,7 +138,10 @@ export default class STOToolsKeybindManager {
     } catch (error) {
       console.error('Failed to initialize application:', error)
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
-        stoUI.showToast('Failed to load application', 'error')
+        stoUI.showToast(
+          typeof i18next !== 'undefined' ? i18next.t('failed_to_load_application') : 'Failed to load application',
+          'error'
+        )
       }
 
       // Dispatch error event through eventBus
@@ -253,7 +256,7 @@ export default class STOToolsKeybindManager {
 
       const currentBuild = this.getCurrentProfile()
       stoUI.showToast(
-        `Switched to profile: ${currentBuild.name} (${this.currentEnvironment})`,
+        i18next.t('switched_to_profile', { name: currentBuild.name, environment: this.currentEnvironment }),
         'success'
       )
     }
@@ -277,11 +280,11 @@ export default class STOToolsKeybindManager {
     if (stoStorage.saveProfile(profileId, profile)) {
       this.switchProfile(profileId)
       this.renderProfiles()
-      stoUI.showToast(`Profile "${name}" created`, 'success')
+      stoUI.showToast(i18next.t('profile_created', {name: name}), 'success')
       return profileId
     }
 
-    stoUI.showToast('Failed to create profile', 'error')
+    stoUI.showToast(i18next.t('failed_to_create_profile'), 'error')
     return null
   }
 
@@ -301,13 +304,13 @@ export default class STOToolsKeybindManager {
     if (stoStorage.saveProfile(profileId, clonedProfile)) {
       this.renderProfiles()
       stoUI.showToast(
-        `Profile "${newName}" created from "${sourceProfile.name}"`,
+        i18next.t('profile_created_from', { newName: newName, sourceProfile: sourceProfile.name }),
         'success'
       )
       return profileId
     }
 
-    stoUI.showToast('Failed to clone profile', 'error')
+    stoUI.showToast(i18next.t('failed_to_clone_profile'), 'error')
     return null
   }
 
@@ -319,7 +322,7 @@ export default class STOToolsKeybindManager {
     const profileCount = Object.keys(data.profiles).length
 
     if (profileCount <= 1) {
-      stoUI.showToast('Cannot delete the last profile', 'warning')
+      stoUI.showToast(i18next.t('cannot_delete_the_last_profile'), 'warning')
       return false
     }
 
@@ -331,11 +334,11 @@ export default class STOToolsKeybindManager {
       }
 
       this.renderProfiles()
-      stoUI.showToast(`Profile "${profile.name}" deleted`, 'success')
+      stoUI.showToast(i18next.t('profile_deleted', {profileName: profile.name}), 'success')
       return true
     }
 
-    stoUI.showToast('Failed to delete profile', 'error')
+    stoUI.showToast(i18next.t('failed_to_delete_profile'), 'error')
     return false
   }
 
@@ -378,7 +381,7 @@ export default class STOToolsKeybindManager {
 
   addKey(keyName) {
     if (!this.isValidKeyName(keyName)) {
-      stoUI.showToast('Invalid key name', 'error')
+      stoUI.showToast(i18next.t('invalid_key_name'), 'error')
       return false
     }
 
@@ -391,10 +394,10 @@ export default class STOToolsKeybindManager {
       this.selectKey(keyName)
       this.setModified(true)
 
-      stoUI.showToast(`Key "${keyName}" added`, 'success')
+      stoUI.showToast(i18next.t('key_added', {keyName: keyName}), 'success')
       return true
     } else {
-      stoUI.showToast(`Key "${keyName}" already exists`, 'warning')
+      stoUI.showToast(i18next.t('key_already_exists', {keyName: keyName}), 'warning')
       return false
     }
   }
@@ -413,7 +416,7 @@ export default class STOToolsKeybindManager {
       this.renderCommandChain()
       this.setModified(true)
 
-      stoUI.showToast(`Key "${keyName}" deleted`, 'success')
+      stoUI.showToast(i18next.t('key_deleted', {keyName: keyName}), 'success')
       return true
     }
 
@@ -451,7 +454,7 @@ export default class STOToolsKeybindManager {
         profile.aliases[keyName].commands = newCommand
       }
 
-      stoUI.showToast('Command added to alias', 'success')
+      stoUI.showToast(i18next.t('command_added_to_alias'), 'success')
     } else {
       // Handle keybind command addition
     if (!profile.keys[keyName]) {
@@ -467,14 +470,14 @@ export default class STOToolsKeybindManager {
         }
         profile.keys[keyName].push(cmd)
       })
-      stoUI.showToast(`${command.length} commands added`, 'success')
+      stoUI.showToast(i18next.t('commands_added', {count: command.length}), 'success')
     } else {
       // Single command
       if (!command.id) {
         command.id = this.generateCommandId()
       }
       profile.keys[keyName].push(command)
-      stoUI.showToast('Command added', 'success')
+      stoUI.showToast(i18next.t('command_added'), 'success')
       }
     }
 
@@ -509,7 +512,7 @@ export default class STOToolsKeybindManager {
           this.renderAliasGrid()
           this.setModified(true)
 
-          stoUI.showToast('Command deleted from alias', 'success')
+          stoUI.showToast(i18next.t('command_deleted_from_alias'), 'success')
           
           // Emit command modification event for auto-sync
           eventBus.emit('command-modified', { keyName, command: { command: deletedCommand }, action: 'delete' })
@@ -525,7 +528,7 @@ export default class STOToolsKeybindManager {
       this.renderKeyGrid()
       this.setModified(true)
 
-      stoUI.showToast('Command deleted', 'success')
+      stoUI.showToast(i18next.t('command_deleted'), 'success')
       
       // Emit command modification event for auto-sync
       eventBus.emit('command-modified', { keyName, command: deletedCommand, action: 'delete' })
@@ -638,9 +641,10 @@ export default class STOToolsKeybindManager {
     if (keyCount) {
       if (profile) {
         const count = Object.keys(profile.keys).length
-        keyCount.textContent = `${count} key${count !== 1 ? 's' : ''}`
+        const keyText = count === 1 ? i18next.t('key') : i18next.t('keys')
+        keyCount.textContent = `${count} ${keyText}`
       } else {
-        keyCount.textContent = 'No profile'
+        keyCount.textContent = i18next.t('no_profile')
       }
     }
   }
@@ -1568,7 +1572,7 @@ export default class STOToolsKeybindManager {
 
   addCommandFromLibrary(categoryId, commandId) {
     if (!this.selectedKey) {
-      stoUI.showToast('Please select a key first', 'warning')
+      stoUI.showToast(i18next.t('please_select_a_key_first'), 'warning')
       return
     }
 
@@ -2079,7 +2083,7 @@ export default class STOToolsKeybindManager {
       // Update button states after all other updates are complete
       this.updateModeButtons()
 
-      stoUI.showToast(`Switched to ${mode} mode`, 'success')
+      stoUI.showToast(i18next.t('switched_to_mode', {mode: mode}), 'success')
     }
   }
 
@@ -2291,7 +2295,7 @@ export default class STOToolsKeybindManager {
 
     // Check if alias already exists
     if (profile.aliases[name]) {
-      stoUI.showToast(`Alias "${name}" already exists`, 'error')
+      stoUI.showToast(i18next.t('alias_already_exists', {name: name}), 'error')
       return
     }
 
@@ -2309,13 +2313,13 @@ export default class STOToolsKeybindManager {
     this.selectAlias(name)
     this.setModified(true)
     
-    stoUI.showToast(`Alias "${name}" created`, 'success')
+    stoUI.showToast(i18next.t('alias_created', {name: name}), 'success')
   }
 
   async confirmDeleteAlias(aliasName) {
     const confirmed = await stoUI.confirm(
-      `Are you sure you want to delete the alias "${aliasName}"?`,
-      'Delete Alias',
+      i18next.t('confirm_delete_alias', { aliasName }),
+      i18next.t('delete_alias'),
       'danger'
     )
 
@@ -2341,7 +2345,7 @@ export default class STOToolsKeybindManager {
     this.updateChainActions()
     this.setModified(true)
 
-    stoUI.showToast(`Alias "${aliasName}" deleted`, 'success')
+    stoUI.showToast(i18next.t('alias_deleted', {aliasName: aliasName}), 'success')
   }
 
   duplicateAlias(aliasName) {
@@ -2371,7 +2375,7 @@ export default class STOToolsKeybindManager {
     this.selectAlias(newAliasName)
     this.setModified(true)
 
-    stoUI.showToast(`Alias "${newAliasName}" created`, 'success')
+    stoUI.showToast(i18next.t('alias_created_from_template', {newAliasName: newAliasName}), 'success')
   }
 
   updateModeUI() {
@@ -2564,7 +2568,7 @@ export default class STOToolsKeybindManager {
 
     // Check if alias already exists
     if (profile.aliases[name]) {
-      stoUI.showToast(`Alias "${name}" already exists`, 'error')
+      stoUI.showToast(i18next.t('alias_already_exists', {name: name}), 'error')
       return
     }
 
@@ -2582,13 +2586,13 @@ export default class STOToolsKeybindManager {
     this.selectAlias(name)
     this.setModified(true)
     
-    stoUI.showToast(`Alias "${name}" created`, 'success')
+    stoUI.showToast(i18next.t('alias_created', {name: name}), 'success')
   }
 
   async confirmDeleteAlias(aliasName) {
     const confirmed = await stoUI.confirm(
-      `Are you sure you want to delete the alias "${aliasName}"?`,
-      'Delete Alias',
+      i18next.t('confirm_delete_alias', { aliasName }),
+      i18next.t('delete_alias'),
       'danger'
     )
 
@@ -2614,7 +2618,7 @@ export default class STOToolsKeybindManager {
     this.updateChainActions()
     this.setModified(true)
 
-    stoUI.showToast(`Alias "${aliasName}" deleted`, 'success')
+    stoUI.showToast(i18next.t('alias_deleted', {aliasName: aliasName}), 'success')
   }
 
   duplicateAlias(aliasName) {
@@ -2644,7 +2648,7 @@ export default class STOToolsKeybindManager {
     this.selectAlias(newAliasName)
     this.setModified(true)
 
-    stoUI.showToast(`Alias "${newAliasName}" created`, 'success')
+    stoUI.showToast(i18next.t('alias_created_from_template', {newAliasName: newAliasName}), 'success')
   }
   
   saveCurrentBuild() {
@@ -2672,8 +2676,8 @@ export default class STOToolsKeybindManager {
 
   async confirmDeleteKey(keyName) {
     const confirmed = await stoUI.confirm(
-      `Are you sure you want to delete the key "${keyName}" and all its commands?`,
-      'Delete Key',
+      i18next.t('confirm_delete_key', { keyName }),
+      i18next.t('delete_key'),
       'danger'
     )
 
@@ -2684,8 +2688,8 @@ export default class STOToolsKeybindManager {
 
   async confirmClearChain(keyName) {
     const confirmed = await stoUI.confirm(
-      `Are you sure you want to clear all commands for "${keyName}"?`,
-      'Clear Commands',
+      i18next.t('confirm_clear_commands', { keyName }),
+      i18next.t('clear_commands'),
       'warning'
     )
 
@@ -2697,7 +2701,7 @@ export default class STOToolsKeybindManager {
       this.renderKeyGrid()
       this.setModified(true)
 
-      stoUI.showToast(`Commands cleared for ${keyName}`, 'success')
+      stoUI.showToast(i18next.t('commands_cleared_for_key', {keyName: keyName}), 'success')
     }
   }
 
@@ -2716,12 +2720,12 @@ export default class STOToolsKeybindManager {
               this.renderProfiles()
               this.renderKeyGrid()
               this.renderCommandChain()
-              stoUI.showToast('Project loaded successfully', 'success')
+              stoUI.showToast(i18next.t('project_loaded_successfully'), 'success')
             } else {
-              stoUI.showToast('Failed to load project file', 'error')
+              stoUI.showToast(i18next.t('failed_to_load_project_file'), 'error')
             }
           } catch (error) {
-            stoUI.showToast('Invalid project file', 'error')
+            stoUI.showToast(i18next.t('invalid_project_file'), 'error')
           }
         }
         reader.readAsText(file)
@@ -2740,7 +2744,7 @@ export default class STOToolsKeybindManager {
     a.click()
     URL.revokeObjectURL(url)
 
-    stoUI.showToast('Project exported successfully', 'success')
+    stoUI.showToast(i18next.t('project_exported_successfully'), 'success')
     
     // Emit project-saved event for auto-sync
     eventBus.emit('project-saved')
@@ -2768,7 +2772,7 @@ export default class STOToolsKeybindManager {
     URL.revokeObjectURL(url)
 
     stoUI.showToast(
-      `${this.currentEnvironment} keybinds exported successfully`,
+      i18next.t('keybinds_exported_successfully', { environment: this.currentEnvironment }),
       'success'
     )
   }
@@ -2788,7 +2792,7 @@ export default class STOToolsKeybindManager {
     const commands = profile.keys[keyName]
 
     if (!commands || commands.length === 0) {
-      stoUI.showToast('No commands to duplicate', 'warning')
+      stoUI.showToast(i18next.t('no_commands_to_duplicate'), 'warning')
       return
     }
 
@@ -2812,16 +2816,16 @@ export default class STOToolsKeybindManager {
     this.renderKeyGrid()
     this.setModified(true)
 
-    stoUI.showToast(`Key "${keyName}" duplicated as "${newKeyName}"`, 'success')
+    stoUI.showToast(i18next.t('key_duplicated', {keyName: keyName, newKeyName: newKeyName}), 'success')
   }
 
   showTemplateModal() {
-    stoUI.showToast('Template system coming soon', 'info')
+    stoUI.showToast(i18next.t('template_system_coming_soon'))
   }
 
   validateCurrentChain() {
     if (!this.selectedKey) {
-      stoUI.showToast('No key selected', 'warning')
+      stoUI.showToast(i18next.t('no_key_selected'), 'warning')
       return
     }
 
@@ -2829,17 +2833,17 @@ export default class STOToolsKeybindManager {
     const commands = profile.keys[this.selectedKey] || []
 
     if (commands.length === 0) {
-      stoUI.showToast('No commands to validate', 'warning')
+      stoUI.showToast(i18next.t('no_commands_to_validate'), 'warning')
       return
     }
 
     const validation = stoKeybinds.validateKeybind(this.selectedKey, commands)
 
     if (validation.valid) {
-      stoUI.showToast('Command chain is valid', 'success')
+      stoUI.showToast(i18next.t('command_chain_is_valid'), 'success')
     } else {
       const errorMsg = 'Validation errors:\n' + validation.errors.join('\n')
-      stoUI.showToast(errorMsg, 'error', 5000)
+      stoUI.showToast(i18next.t('error_message', {error: errorMsg}), 'error', 5000)
     }
   }
 
@@ -2939,19 +2943,19 @@ export default class STOToolsKeybindManager {
 
   saveCommandFromModal() {
     if (!this.selectedKey) {
-      stoUI.showToast('Please select a key first', 'warning')
+      stoUI.showToast(i18next.t('please_select_a_key_first'), 'warning')
       return
     }
 
     const command = stoCommands.getCurrentCommand()
     if (!command) {
-      stoUI.showToast('Please configure a command', 'warning')
+      stoUI.showToast(i18next.t('please_configure_a_command'), 'warning')
       return
     }
 
     const validation = stoCommands.validateCommand(command)
     if (!validation.valid) {
-      stoUI.showToast(validation.error, 'error')
+      stoUI.showToast(i18next.t('validation_error'), 'error')
       return
     }
 
@@ -3553,7 +3557,7 @@ export default class STOToolsKeybindManager {
           this.renderCommandChain()
           this.setModified(true)
           stoUI.showToast(
-            `${command.length} commands updated successfully`,
+            i18next.t('commands_updated_successfully', { count: command.length }),
             'success'
           )
         } else {
@@ -3563,7 +3567,7 @@ export default class STOToolsKeybindManager {
           stoStorage.saveProfile(this.currentProfile, profile)
           this.renderCommandChain()
           this.setModified(true)
-          stoUI.showToast('Command updated successfully', 'success')
+          stoUI.showToast(i18next.t('command_updated_successfully'), 'success')
         }
       } else {
         // Add new command (addCommand already handles arrays)
@@ -3608,7 +3612,7 @@ export default class STOToolsKeybindManager {
 
     // For non-parameterized commands, show command details
     stoUI.showToast(
-      `Command: ${command.command}\nType: ${command.type}`,
+      i18next.t('command_info', { command: command.command, type: command.type }),
       'info',
       3000
     )
@@ -4279,9 +4283,9 @@ export default class STOToolsKeybindManager {
           // Note: Don't save immediately - only save when "Generate Aliases" is clicked
         } catch (error) {
           if (error instanceof InvalidEnvironmentError) {
-            stoUI.showToast(`Error: ${error.message}`, 'error')
+            stoUI.showToast(i18next.t('error_message', {error: error.message}), 'error')
           } else {
-            stoUI.showToast('Failed to select all space effects', 'error')
+            stoUI.showToast(i18next.t('failed_to_select_all_space_effects'), 'error')
             console.error('Error selecting all space effects:', error)
           }
         }
@@ -4312,9 +4316,9 @@ export default class STOToolsKeybindManager {
           // Note: Don't save immediately - only save when "Generate Aliases" is clicked
         } catch (error) {
           if (error instanceof InvalidEnvironmentError) {
-            stoUI.showToast(`Error: ${error.message}`, 'error')
+            stoUI.showToast(i18next.t('error_message', {error: error.message}), 'error')
           } else {
-            stoUI.showToast('Failed to select all ground effects', 'error')
+            stoUI.showToast(i18next.t('failed_to_select_all_ground_effects'), 'error')
             console.error('Error selecting all ground effects:', error)
           }
         }
@@ -4397,7 +4401,7 @@ export default class STOToolsKeybindManager {
       } catch (error) {
         if (error instanceof InvalidEnvironmentError) {
           spacePreview.textContent = 'Error: Invalid environment'
-          stoUI.showToast(`Space preview error: ${error.message}`, 'error')
+          stoUI.showToast(i18next.t('space_preview_error', {error: error.message}), 'error')
         } else {
           spacePreview.textContent = 'Error generating preview'
           console.error('Error generating space alias preview:', error)
@@ -4413,7 +4417,7 @@ export default class STOToolsKeybindManager {
       } catch (error) {
         if (error instanceof InvalidEnvironmentError) {
           groundPreview.textContent = 'Error: Invalid environment'
-          stoUI.showToast(`Ground preview error: ${error.message}`, 'error')
+          stoUI.showToast(i18next.t('ground_preview_error', {error: error.message}), 'error')
         } else {
           groundPreview.textContent = 'Error generating preview'
           console.error('Error generating ground alias preview:', error)
@@ -4431,10 +4435,10 @@ export default class STOToolsKeybindManager {
       spaceAlias = vertigoManager.generateAlias('space')
     } catch (error) {
       if (error instanceof InvalidEnvironmentError) {
-        stoUI.showToast(`Space alias error: ${error.message}`, 'error')
+        stoUI.showToast(i18next.t('space_alias_error', {error: error.message}), 'error')
         return
       } else {
-        stoUI.showToast('Failed to generate space alias', 'error')
+        stoUI.showToast(i18next.t('failed_to_generate_space_alias'), 'error')
         console.error('Error generating space alias:', error)
         return
       }
@@ -4444,10 +4448,10 @@ export default class STOToolsKeybindManager {
       groundAlias = vertigoManager.generateAlias('ground')
     } catch (error) {
       if (error instanceof InvalidEnvironmentError) {
-        stoUI.showToast(`Ground alias error: ${error.message}`, 'error')
+        stoUI.showToast(i18next.t('ground_alias_error', {error: error.message}), 'error')
         return
       } else {
-        stoUI.showToast('Failed to generate ground alias', 'error')
+        stoUI.showToast(i18next.t('failed_to_generate_ground_alias'), 'error')
         console.error('Error generating ground alias:', error)
         return
       }
@@ -4455,7 +4459,7 @@ export default class STOToolsKeybindManager {
 
     if (!spaceAlias && !groundAlias) {
       stoUI.showToast(
-        'No effects selected. Please select at least one effect to generate aliases.',
+        i18next.t('no_effects_selected'),
         'warning'
       )
       return
@@ -4463,14 +4467,14 @@ export default class STOToolsKeybindManager {
 
     const currentProfile = this.getCurrentProfile()
     if (!currentProfile) {
-      stoUI.showToast('No profile selected', 'error')
+      stoUI.showToast(i18next.t('no_profile_selected'), 'error')
       return
     }
 
     // Get the root profile object (not the build-specific view)
     const rootProfile = stoStorage.getProfile(this.currentProfile)
     if (!rootProfile) {
-      stoUI.showToast('No profile found', 'error')
+      stoUI.showToast(i18next.t('no_profile_found'), 'error')
       return
     }
 
@@ -4547,7 +4551,7 @@ export default class STOToolsKeybindManager {
     // Close modal and show success message
     modalManager.hide('vertigoModal')
     stoUI.showToast(
-      `Generated ${addedCount} Vertigo alias${addedCount > 1 ? 'es' : ''}! Check the Alias Manager to bind them to keys.`,
+      i18next.t('generated_vertigo_aliases', { count: addedCount, plural: addedCount > 1 ? 'es' : '' }),
       'success'
     )
   }
@@ -4577,7 +4581,7 @@ export default class STOToolsKeybindManager {
     this.applyTheme()
 
     const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
-    stoUI.showToast(`Switched to ${themeName}`, 'success')
+    stoUI.showToast(i18next.t('switched_to_theme', {themeName: themeName}), 'success')
   }
 
   updateThemeToggleButton(theme) {
@@ -4642,7 +4646,7 @@ export default class STOToolsKeybindManager {
       stoExport.init()
     }
     
-    stoUI.showToast('Language updated', 'success')
+    stoUI.showToast(i18next.t('language_updated'), 'success')
   }
 
   // Alias Options Multiselect Methods

@@ -682,7 +682,7 @@ describe('App Workflow Integration', () => {
 
       // Verify command count updates
       const commandCount = document.getElementById('commandCount')
-      expect(commandCount.textContent).toContain('2 command')
+      expect(commandCount.textContent).toBe('2')
     })
 
     it('should update profile selector when profiles change', async () => {

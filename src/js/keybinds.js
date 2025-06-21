@@ -431,7 +431,7 @@ export default class STOKeybindFileManager {
       }
     } catch (error) {
       stoUI.showToast(
-        i18next.t('import_failed', { error: error.message }),
+        i18next.t('failed_to_import_keybind_file', { error: error.message }),
         'error'
       )
       return { success: false, error: error.message }
@@ -717,7 +717,7 @@ export default class STOKeybindFileManager {
         this.importKeybindFile(e.target.result)
       } catch (error) {
         stoUI.showToast(
-          'Failed to import keybind file: ' + error.message,
+          i18next.t('failed_to_import_keybind_file', { error: error.message }),
           'error'
         )
       }

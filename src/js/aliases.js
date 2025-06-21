@@ -199,8 +199,8 @@ export default class STOAliasManager {
 
   async confirmDeleteAlias(aliasName) {
     const confirmed = await stoUI.confirm(
-      `Are you sure you want to delete the alias "${aliasName}"?`,
-      'Delete Alias',
+      i18next.t('confirm_delete_alias', { aliasName }),
+      i18next.t('delete_alias'),
       'danger'
     )
 
@@ -266,7 +266,7 @@ export default class STOAliasManager {
     // Validation
     const validation = this.validateAlias(name, commands)
     if (!validation.valid) {
-      stoUI.showToast(validation.error, 'error')
+      stoUI.showToast(i18next.t('validation_error'), 'error')
       return
     }
 

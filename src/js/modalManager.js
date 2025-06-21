@@ -15,6 +15,11 @@ export default class STOModalManager {
       modal.classList.add('active')
       document.body.classList.add('modal-open')
 
+      // Apply translations to the modal content
+      if (typeof window.applyTranslations === 'function') {
+        window.applyTranslations(modal)
+      }
+
       const firstInput = modal.querySelector('input, textarea, select')
       if (firstInput) {
         setTimeout(() => firstInput.focus(), 100)

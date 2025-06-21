@@ -624,8 +624,8 @@ export default class STOCommandManager {
                     <div class="form-group">
                         <label for="trayCommandVariant">${i18next.t('command_variant')}:</label>
                         <select id="trayCommandVariant">
-                            <option value="STOTrayExecByTray">${i18next.t('stotrayexecbytray')}</option>
-                            <option value="TrayExecByTray">${i18next.t('trayexecbytray')}</option>
+                            <option value="STOTrayExecByTray">STOTrayExecByTray</option>
+                            <option value="TrayExecByTray">TrayExecByTray</option>
                         </select>
                     </div>
                 </div>
@@ -1246,7 +1246,7 @@ export default class STOCommandManager {
       preview.className = 'command-preview valid'
     } else {
       console.log('DEBUG: No command returned, showing default message')
-      preview.textContent = 'Configure command options to see preview'
+      preview.textContent = i18next.t('configure_command_options_to_see_preview')
       preview.className = 'command-preview'
     }
   }

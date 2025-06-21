@@ -141,7 +141,7 @@ export default class STOAutoSyncManager {
       
       // Don't show error toast for immediate sync to avoid spam
       if (this.interval !== 'change' && typeof stoUI !== 'undefined') {
-        stoUI.showToast('Auto-sync failed: ' + error.message, 'error')
+        stoUI.showToast(i18next.t('auto_sync_failed', {error: error.message}), 'error')
       }
     }
   }

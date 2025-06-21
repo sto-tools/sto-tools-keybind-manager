@@ -191,7 +191,7 @@ export default class STOProfileManager {
   showCloneProfileModal() {
     const currentProfile = app.getCurrentProfile()
     if (!currentProfile) {
-      stoUI.showToast('No profile selected to clone', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_to_clone'), 'warning')
       return
     }
 
@@ -216,7 +216,7 @@ export default class STOProfileManager {
   showRenameProfileModal() {
     const currentProfile = app.getCurrentProfile()
     if (!currentProfile) {
-      stoUI.showToast('No profile selected to rename', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_to_rename'), 'warning')
       return
     }
 
@@ -248,13 +248,13 @@ export default class STOProfileManager {
     const description = descInput?.value.trim() || ''
 
     if (!name) {
-      stoUI.showToast('Profile name is required', 'error')
+      stoUI.showToast(i18next.t('profile_name_is_required'), 'error')
       nameInput.focus()
       return
     }
 
     if (name.length > 50) {
-      stoUI.showToast('Profile name is too long (max 50 characters)', 'error')
+      stoUI.showToast(i18next.t('profile_name_too_long'), 'error')
       nameInput.focus()
       return
     }
@@ -269,7 +269,7 @@ export default class STOProfileManager {
     )
 
     if (existingProfile) {
-      stoUI.showToast('A profile with this name already exists', 'error')
+      stoUI.showToast(i18next.t('profile_name_already_exists'), 'error')
       nameInput.focus()
       return
     }
@@ -290,7 +290,7 @@ export default class STOProfileManager {
       modalManager.hide('profileModal')
       this.currentModal = null
     } catch (error) {
-      stoUI.showToast('Failed to save profile: ' + error.message, 'error')
+      stoUI.showToast(i18next.t('failed_to_save_profile', {error: error.message}), 'error')
     }
   }
 
@@ -309,7 +309,7 @@ export default class STOProfileManager {
     if (stoStorage.saveProfile(profileId, profile)) {
       app.switchProfile(profileId)
       app.renderProfiles()
-      stoUI.showToast(`Profile "${name}" created`, 'success')
+      stoUI.showToast(i18next.t('profile_created', {name: name}), 'success')
     } else {
       throw new Error('Failed to save profile')
     }
@@ -334,7 +334,7 @@ export default class STOProfileManager {
       app.switchProfile(profileId)
       app.renderProfiles()
       stoUI.showToast(
-        `Profile "${name}" created from "${currentProfile.name}"`,
+        i18next.t('profile_created_from_current', { name: name, currentProfile: currentProfile.name }),
         'success'
       )
     } else {
@@ -357,7 +357,7 @@ export default class STOProfileManager {
       app.renderProfiles()
       app.setModified(true)
       stoUI.showToast(
-        `Profile renamed from "${oldName}" to "${name}"`,
+        i18next.t('profile_renamed', { oldName: oldName, name: name }),
         'success'
       )
     } else {
@@ -368,7 +368,7 @@ export default class STOProfileManager {
   async confirmDeleteProfile() {
     const currentProfile = app.getCurrentProfile()
     if (!currentProfile) {
-      stoUI.showToast('No profile selected to delete', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_to_delete'), 'warning')
       return
     }
 
@@ -376,13 +376,13 @@ export default class STOProfileManager {
     const profileCount = Object.keys(data.profiles).length
 
     if (profileCount <= 1) {
-      stoUI.showToast('Cannot delete the last profile', 'warning')
+      stoUI.showToast(i18next.t('cannot_delete_the_last_profile'), 'warning')
       return
     }
 
     const confirmed = await stoUI.confirm(
-      `Are you sure you want to delete the profile "${currentProfile.name}"?\n\nThis action cannot be undone.`,
-      'Delete Profile',
+      i18next.t('confirm_delete_profile', { profileName: currentProfile.name }),
+      i18next.t('delete_profile'),
       'danger'
     )
 
@@ -398,9 +398,9 @@ export default class STOProfileManager {
     const profileName = currentProfile.name
 
     if (app.deleteProfile(app.currentProfile)) {
-      stoUI.showToast(`Profile "${profileName}" deleted`, 'success')
+      stoUI.showToast(i18next.t('profile_deleted', {profileName: profileName}), 'success')
     } else {
-      stoUI.showToast('Failed to delete profile', 'error')
+      stoUI.showToast(i18next.t('failed_to_delete_profile'), 'error')
     }
   }
 
@@ -504,7 +504,7 @@ export default class STOProfileManager {
               stoKeybinds.importKeybindFile(e.target.result)
             } catch (error) {
               stoUI.showToast(
-                'Failed to import keybind file: ' + error.message,
+                i18next.t('failed_to_import_keybind_file_generic', { error: error.message }),
                 'error'
               )
             }
@@ -521,12 +521,12 @@ export default class STOProfileManager {
   exportKeybinds() {
     const profile = app.getCurrentProfile()
     if (!profile) {
-      stoUI.showToast('No profile selected to export', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_to_export'), 'warning')
       return
     }
 
     if (!profile.keys || Object.keys(profile.keys).length === 0) {
-      stoUI.showToast('No keybinds to export', 'warning')
+      stoUI.showToast(i18next.t('no_keybinds_to_export'), 'warning')
       return
     }
 
@@ -555,7 +555,7 @@ export default class STOProfileManager {
             }
           } catch (error) {
             stoUI.showToast(
-              'Failed to import aliases: ' + error.message,
+              i18next.t('failed_to_import_aliases_generic', { error: error.message }),
               'error'
             )
           }
@@ -569,12 +569,12 @@ export default class STOProfileManager {
   exportAliases() {
     const profile = app.getCurrentProfile()
     if (!profile) {
-      stoUI.showToast('No profile selected to export', 'warning')
+      stoUI.showToast(i18next.t('no_profile_selected_to_export'), 'warning')
       return
     }
 
     if (!profile.aliases || Object.keys(profile.aliases).length === 0) {
-      stoUI.showToast('No aliases to export', 'warning')
+      stoUI.showToast(i18next.t('no_aliases_to_export'), 'warning')
       return
     }
 
@@ -583,8 +583,8 @@ export default class STOProfileManager {
 
   async confirmResetApp() {
     const confirmed = await stoUI.confirm(
-      'Are you sure you want to reset the application?\n\nThis will delete all profiles, keybinds, and settings. This action cannot be undone.',
-      'Reset Application',
+      i18next.t('confirm_reset_application'),
+      i18next.t('reset_application'),
       'danger'
     )
 
@@ -610,11 +610,11 @@ export default class STOProfileManager {
       app.updateProfileInfo()
 
       stoUI.showToast(
-        'Application reset successfully. All data cleared.',
+        i18next.t('application_reset_successfully'),
         'success'
       )
     } catch (error) {
-      stoUI.showToast('Failed to reset application: ' + error.message, 'error')
+      stoUI.showToast(i18next.t('failed_to_reset_application', {error: error.message}), 'error')
     }
   }
 
@@ -634,12 +634,12 @@ export default class STOProfileManager {
         app.renderCommandChain()
         app.updateProfileInfo()
 
-        stoUI.showToast('Default demo data loaded successfully', 'success')
+        stoUI.showToast(i18next.t('default_demo_data_loaded'), 'success')
       } else {
-        stoUI.showToast('Failed to load default data', 'error')
+        stoUI.showToast(i18next.t('failed_to_load_default_data'), 'error')
       }
     } catch (error) {
-      stoUI.showToast('Failed to load default data: ' + error.message, 'error')
+      stoUI.showToast(i18next.t('failed_to_load_default_data_with_error', {error: error.message}), 'error')
     }
   }
 
@@ -942,7 +942,7 @@ export default class STOProfileManager {
     const template = templates[templateId]
 
     if (!template) {
-      stoUI.showToast('Template not found', 'error')
+      stoUI.showToast(i18next.t('template_not_found'), 'error')
       return
     }
 
@@ -976,11 +976,11 @@ export default class STOProfileManager {
       app.switchProfile(profileId)
       app.renderProfiles()
       stoUI.showToast(
-        `Profile "${profileName}" created from template`,
+        i18next.t('profile_created_from_template_generic', { profileName: profileName }),
         'success'
       )
     } else {
-      stoUI.showToast('Failed to create profile from template', 'error')
+      stoUI.showToast(i18next.t('failed_to_create_profile_from_template'), 'error')
     }
   }
 
@@ -988,7 +988,7 @@ export default class STOProfileManager {
   exportProfile(profileId) {
     const profile = stoStorage.getProfile(profileId)
     if (!profile) {
-      stoUI.showToast('Profile not found', 'error')
+      stoUI.showToast(i18next.t('profile_not_found'), 'error')
       return
     }
 
@@ -1008,7 +1008,7 @@ export default class STOProfileManager {
     a.click()
     URL.revokeObjectURL(url)
 
-    stoUI.showToast(`Profile "${profile.name}" exported`, 'success')
+    stoUI.showToast(i18next.t('profile_exported', {profileName: profile.name}), 'success')
   }
 
   async importProfile(jsonData) {
@@ -1042,7 +1042,7 @@ export default class STOProfileManager {
       if (stoStorage.saveProfile(profileId, profile)) {
         app.renderProfiles()
         stoUI.showToast(
-          `Profile "${profileName}" imported successfully`,
+          i18next.t('profile_imported_successfully', { profileName: profileName }),
           'success'
         )
         return true
@@ -1050,7 +1050,7 @@ export default class STOProfileManager {
         throw new Error('Failed to save imported profile')
       }
     } catch (error) {
-      stoUI.showToast('Failed to import profile: ' + error.message, 'error')
+      stoUI.showToast(i18next.t('failed_to_import_profile', {error: error.message}), 'error')
       return false
     }
   }

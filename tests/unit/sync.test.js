@@ -36,11 +36,12 @@ class MockFileHandle {
   }
 }
 class MockDirHandle {
-  constructor() {
+  constructor(name = 'test-folder') {
+    this.name = name
     this.children = {}
   }
   async getDirectoryHandle(name, opts) {
-    if (!this.children[name]) this.children[name] = new MockDirHandle()
+    if (!this.children[name]) this.children[name] = new MockDirHandle(name)
     return this.children[name]
   }
   async getFileHandle(name, opts) {
@@ -83,6 +84,7 @@ describe('STOSyncManager', () => {
     expect(stoUI.showToast).toHaveBeenCalled()
     expect(stoStorage.saveSettings).toHaveBeenCalledWith({
       syncFolderName: handle.name,
+      syncFolderPath: `Selected folder: ${handle.name}`,
       autoSync: false,
     })
     const stored = await getDirectoryHandle('sync-folder')
@@ -95,6 +97,7 @@ describe('STOSyncManager', () => {
     await sync.setSyncFolder(true)
     expect(stoStorage.saveSettings).toHaveBeenCalledWith({
       syncFolderName: handle.name,
+      syncFolderPath: `Selected folder: ${handle.name}`,
       autoSync: true,
     })
   })

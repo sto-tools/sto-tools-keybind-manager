@@ -11,6 +11,10 @@ await i18next.init({
   resources: { en: { translation: en } },
 })
 
+// Make i18next available globally for all modules
+global.i18next = i18next
+window.i18next = i18next
+
 // Mock browser APIs that aren't available in jsdom
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

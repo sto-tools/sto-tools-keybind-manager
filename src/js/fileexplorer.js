@@ -36,11 +36,11 @@ export default class STOFileExplorer {
       if (!contentEl) return
       const text = contentEl.textContent || ''
       if (!text.trim()) {
-        stoUI.showToast('Nothing to copy', 'warning')
+        stoUI.showToast(i18next.t('nothing_to_copy'), 'warning')
         return
       }
       stoUI.copyToClipboard(text)
-      stoUI.showToast('Content copied to clipboard', 'success')
+      stoUI.showToast(i18next.t('content_copied_to_clipboard'), 'success')
     })
 
     eventBus.onDom('downloadFileBtn', 'click', 'download-file', () => {
@@ -161,7 +161,7 @@ export default class STOFileExplorer {
       }
     } catch (err) {
       console.error('Failed to generate export content:', err)
-      stoUI.showToast('Failed to generate export', 'error')
+      stoUI.showToast(i18next.t('failed_to_generate_export'), 'error')
     }
   }
 

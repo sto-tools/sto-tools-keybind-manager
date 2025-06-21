@@ -236,8 +236,8 @@ export default class STOUIManager {
                     <p>${message}</p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary confirm-yes">Yes</button>
-                    <button class="btn btn-secondary confirm-no">No</button>
+                    <button class="btn btn-primary confirm-yes">${typeof i18next !== 'undefined' ? i18next.t('yes') : 'Yes'}</button>
+                    <button class="btn btn-secondary confirm-no">${typeof i18next !== 'undefined' ? i18next.t('no') : 'No'}</button>
                 </div>
             </div>
         `
@@ -349,7 +349,7 @@ export default class STOUIManager {
   async copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text)
-      this.showToast('Copied to clipboard', 'success')
+      this.showToast(i18next.t('content_copied_to_clipboard'), 'success')
       return true
     } catch (err) {
       // Fallback for older browsers
@@ -360,10 +360,10 @@ export default class STOUIManager {
 
       try {
         document.execCommand('copy')
-        this.showToast('Copied to clipboard', 'success')
+        this.showToast(i18next.t('content_copied_to_clipboard'), 'success')
         return true
       } catch (fallbackErr) {
-        this.showToast('Failed to copy to clipboard', 'error')
+        this.showToast(i18next.t('failed_to_copy_to_clipboard'), 'error')
         return false
       } finally {
         document.body.removeChild(textArea)

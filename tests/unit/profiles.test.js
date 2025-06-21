@@ -130,7 +130,6 @@ describe('STOProfileManager', () => {
     it('should setup event listeners on init', () => {
       const profileSelect = document.getElementById('profileSelect')
       const newProfileBtn = document.getElementById('newProfileBtn')
-      const setSyncFolderBtn = document.getElementById('setSyncFolderBtn')
       const syncNowBtn = document.getElementById('syncNowBtn')
 
       expect(profileSelect).toBeTruthy()
@@ -140,8 +139,8 @@ describe('STOProfileManager', () => {
       newProfileBtn.click()
       expect(modalManager.show).toHaveBeenCalledWith('profileModal')
 
-      setSyncFolderBtn.click()
-      expect(global.stoSync.setSyncFolder).toHaveBeenCalled()
+      // Note: setSyncFolderBtn event listener is now handled by preferences.js
+      // to maintain user activation, so we don't test it here
 
       syncNowBtn.click()
       expect(global.stoSync.syncProject).toHaveBeenCalled()
