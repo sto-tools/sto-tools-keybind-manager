@@ -2,11 +2,13 @@
 // Coordinates all modules and handles global application state
 import store from './store.js'
 import eventBus from './eventBus.js'
+import STOPreferencesManager from './preferences.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
     this.store = store
     this.eventListeners = new Map()
+    this.preferencesManager = new STOPreferencesManager()
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
@@ -97,6 +99,9 @@ export default class STOToolsKeybindManager {
       this.setupEventListeners()
       this.setupCommandLibrary()
       this.setupDragAndDrop()
+      
+      // Initialize preferences manager
+      this.preferencesManager.init()
 
       // Render initial state
       this.renderProfiles()

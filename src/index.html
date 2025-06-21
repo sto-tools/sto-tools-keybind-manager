@@ -839,7 +839,7 @@
     </div>
 
     <!-- Preferences Modal -->
-    <div class="modal" id="preferencesModal">
+    <div class="modal large-modal" id="preferencesModal">
       <div class="modal-content">
         <div class="modal-header">
           <h3 data-i18n="preferences"></h3>
@@ -848,21 +848,56 @@
           </button>
         </div>
         <div class="modal-body">
-          <form id="preferencesForm">
-            <div class="form-group">
-              <label for="currentSyncFolder" data-i18n="sync_folder_label"></label>
-              <div class="sync-folder-field">
-                <span id="currentSyncFolder" data-i18n="no_folder_selected"></span>
-                <button type="button" class="btn btn-secondary" id="setSyncFolderBtn">
-                  <i class="fas fa-folder-open"></i>
-                  <span data-i18n="set_sync_folder"></span>
-                </button>
+          <div class="preferences-layout">
+            <!-- Category Tree -->
+            <div class="preferences-sidebar">
+              <div class="category-tree">
+                <div class="category-item" data-category="sync">
+                  <i class="fas fa-sync-alt"></i>
+                  <span data-i18n="synchronization"></span>
+                </div>
               </div>
             </div>
-          </form>
+            
+            <!-- Settings Content -->
+            <div class="preferences-content">
+              <!-- Sync Settings -->
+              <div class="settings-panel" id="sync-settings">
+                <h4 data-i18n="synchronization_settings"></h4>
+                <div class="settings-group">
+                  <div class="setting-item">
+                    <label data-i18n="sync_folder_label"></label>
+                    <div class="setting-control">
+                      <div class="folder-setting">
+                        <span id="currentSyncFolder" class="folder-path" data-i18n="no_folder_selected"></span>
+                        <button type="button" class="btn btn-secondary" id="setSyncFolderBtn">
+                          <i class="fas fa-folder-open"></i>
+                          <span data-i18n="set_sync_folder"></span>
+                        </button>
+                      </div>
+                      <span class="setting-description" data-i18n="sync_folder_description"></span>
+                    </div>
+                  </div>
+                  <div class="setting-item">
+                    <label data-i18n="auto_sync"></label>
+                    <div class="setting-control">
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="autoSync">
+                        <span class="slider"></span>
+                      </label>
+                      <span class="setting-description" data-i18n="auto_sync_description"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" data-modal="preferencesModal" data-i18n="close"></button>
+          <button class="btn btn-primary" id="savePreferencesBtn" data-i18n="save"></button>
+          <button class="btn btn-secondary" data-modal="preferencesModal" data-i18n="cancel"></button>
         </div>
       </div>
     </div>

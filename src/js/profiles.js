@@ -101,8 +101,6 @@ export default class STOProfileManager {
           console.error('setSyncFolderBtn still not found after retry')
         }
       }, 1000)
-    } else {
-      console.log('setSyncFolderBtn element found, setting up event listener')
     }
     
     this.setupSyncFolderEventListener()
@@ -122,12 +120,12 @@ export default class STOProfileManager {
     })
 
     eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
-      const folderSpan = document.getElementById('currentSyncFolder')
-      if (folderSpan) {
-        const settings = stoStorage.getSettings()
-        folderSpan.textContent = settings.syncFolderName || i18next.t('no_folder_selected')
+      if (typeof app !== 'undefined' && app.preferencesManager) {
+        app.preferencesManager.showPreferences()
+      } else {
+        // Fallback to old modal if preferences manager not available
+        modalManager.show('preferencesModal')
       }
-      modalManager.show('preferencesModal')
       this.closeSettingsMenu()
     })
 
