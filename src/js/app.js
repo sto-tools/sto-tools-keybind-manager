@@ -1248,10 +1248,10 @@ export default class STOToolsKeybindManager {
       }
       if (emptyState) emptyState.style.display = 'block'
       const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
-      const emptyTitle = this.currentEnvironment === 'alias' ? 'No Alias Selected' : 'No Key Selected'
+      const emptyTitle = this.currentEnvironment === 'alias' ? i18next.t('no_alias_selected') : i18next.t('no_key_selected')
       const emptyDesc = this.currentEnvironment === 'alias' ? 
-        'Select an alias from the left panel to view and edit its command chain.' : 
-        'Select a key from the left panel to view and edit its command chain.'
+        i18next.t('select_alias_from_left_panel') : 
+        i18next.t('select_key_from_left_panel')
       
       container.innerHTML =
         `<div class="empty-state" id="emptyState"><i class="${emptyIcon}"></i><h4>${emptyTitle}</h4><p>${emptyDesc}</p></div>`
@@ -1318,21 +1318,19 @@ export default class STOToolsKeybindManager {
 
     if (commands.length === 0) {
       const emptyMessage = this.currentEnvironment === 'alias' ? 
-        `Click "Add Command" to start building your alias chain for ${this.selectedKey}.` :
-        `Click "Add Command" to start building your command chain for ${this.selectedKey}.`
-      
+        `${i18next.t('click_add_command_to_start_building_your_alias_chain')} ${this.selectedKey}.` :
+        `${i18next.t('click_add_command_to_start_building_your_command_chain')} ${this.selectedKey}.`
       container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-plus-circle"></i>
-                    <h4>No Commands</h4>
-                    <p>${emptyMessage}</p>
-                </div>
-            `
-      
+        <div class="empty-state">
+          <i class="fas fa-plus-circle"></i>
+          <h4 data-i18n="no_commands">${i18next.t('no_commands')}</h4>
+          <p>${emptyMessage}</p>
+        </div>
+      `
       if (this.currentEnvironment === 'alias') {
         preview.textContent = `alias ${this.selectedKey} <&  &>`
       } else {
-      preview.textContent = `${this.selectedKey} ""`
+        preview.textContent = `${this.selectedKey} ""`
       }
     } else {
       container.innerHTML = ''
@@ -3641,7 +3639,22 @@ export default class STOToolsKeybindManager {
         btn.className = 'modifier-btn'
         btn.dataset.modifier = mod.key
         btn.dataset.selected = 'false'
-        btn.textContent = mod.description || mod.key
+        
+        // Create span with i18n support
+        const span = document.createElement('span')
+        span.className = 'modifier-label'
+        
+        // Map modifier keys to i18n strings
+        const i18nKey = mod.key.toLowerCase()
+        if (i18nKey === 'ctrl' || i18nKey === 'alt' || i18nKey === 'shift') {
+          span.setAttribute('data-i18n', i18nKey)
+          span.textContent = mod.description || mod.key
+        } else {
+          span.textContent = mod.description || mod.key
+        }
+        
+        btn.appendChild(span)
+        
         btn.addEventListener('click', () => {
           const isSelected = btn.dataset.selected === 'true'
           if (isSelected) {
@@ -3807,7 +3820,7 @@ export default class STOToolsKeybindManager {
       previewDisplay.innerHTML = `<span class="key-combination">${combination}</span>`
       confirmBtn.disabled = false
     } else {
-      previewDisplay.innerHTML = '<span class="no-selection">No key selected</span>'
+      previewDisplay.innerHTML = '<span class="no-selection" data-i18n="no_key_selected">No key selected</span>'
       confirmBtn.disabled = true
     }
   }

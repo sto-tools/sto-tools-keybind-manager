@@ -690,7 +690,7 @@
     <div class="modal large-modal" id="keySelectionModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Select Key</h3>
+          <h3 data-i18n="select_key_dialog_title">Select Key</h3>
           <button class="modal-close" data-modal="keySelectionModal">
             <i class="fas fa-times"></i>
           </button>
@@ -698,21 +698,21 @@
         <div class="modal-body">
           <div class="key-selection-content">
             <div class="key-selection-header">
-              <h4>Select Key</h4>
-              <p>Choose from the available keys below:</p>
+              <h4 data-i18n="select_key">Select Key</h4>
+              <p data-i18n="select_key_dialog_description">Choose from the available keys below:</p>
             </div>
             
             <!-- Preview Section (moved up) -->
             <div class="key-preview">
-              <label>Key Combination:</label>
+              <label data-i18n="key_combination">Key Combination:</label>
               <div class="key-preview-display" id="keyPreviewDisplay">
-                <span class="no-selection">No key selected</span>
+                <span class="no-selection" data-i18n="no_key_selected">No key selected</span>
               </div>
               <div class="key-preview-actions">
                 <button class="btn" id="keySelectionCaptureBtn">
-                  <i class="fas fa-keyboard"></i> Capture Key
+                  <i class="fas fa-keyboard"></i> <span data-i18n="capture_key">Capture Key</span>
                 </button>
-                <button class="btn btn-primary" id="confirmKeySelection" disabled>
+                <button class="btn btn-primary" id="confirmKeySelection" disabled data-i18n="select_this_key">
                   Select This Key
                 </button>
               </div>
@@ -729,36 +729,36 @@
             
             <!-- Modifier + Key Selection Section -->
             <div class="modifier-key-selection">
-              <h4>Select Modifier + Key</h4>
+              <h4 data-i18n="select_modifier_key">Select Modifier + Key</h4>
               
               <!-- Step 1: Modifier Selection -->
               <div class="modifier-selection">
-                <label>Step 1: Select Modifiers (Optional)</label>
+                <label data-i18n="step_1_select_modifiers_optional">Step 1: Select Modifiers (Optional)</label>
                 <div class="modifier-buttons">
                   <button class="modifier-btn" data-modifier="Ctrl" data-selected="false">
-                    <span class="modifier-label">Ctrl</span>
+                    <span class="modifier-label" data-i18n="ctrl">Ctrl</span>
                   </button>
                   <button class="modifier-btn" data-modifier="Alt" data-selected="false">
-                    <span class="modifier-label">Alt</span>
+                    <span class="modifier-label" data-i18n="alt">Alt</span>
                   </button>
                   <button class="modifier-btn" data-modifier="Shift" data-selected="false">
-                    <span class="modifier-label">Shift</span>
+                    <span class="modifier-label" data-i18n="shift">Shift</span>
                   </button>
                 </div>
               </div>
               
               <!-- Step 2: Key Selection -->
               <div class="key-selection">
-                <label>Step 2: Select Key</label>
+                <label data-i18n="step_2_select_key">Step 2: Select Key</label>
                 <div class="key-selection-tabs">
-                  <button class="tab-btn active" data-tab="common">Common</button>
-                  <button class="tab-btn" data-tab="letters">Letters</button>
-                  <button class="tab-btn" data-tab="numbers">Numbers</button>
-                  <button class="tab-btn" data-tab="function">Function</button>
-                  <button class="tab-btn" data-tab="arrows">Arrows</button>
-                  <button class="tab-btn" data-tab="symbols">Symbols</button>
-                  <button class="tab-btn" data-tab="mouse">Mouse</button>
-                  <button class="tab-btn" data-tab="gamepad">Gamepad</button>
+                  <button class="tab-btn active" data-tab="common" data-i18n="common">Common</button>
+                  <button class="tab-btn" data-tab="letters" data-i18n="letters">Letters</button>
+                  <button class="tab-btn" data-tab="numbers" data-i18n="numbers">Numbers</button>
+                  <button class="tab-btn" data-tab="function" data-i18n="function">Function</button>
+                  <button class="tab-btn" data-tab="arrows" data-i18n="arrows">Arrows</button>
+                  <button class="tab-btn" data-tab="symbols" data-i18n="symbols">Symbols</button>
+                  <button class="tab-btn" data-tab="mouse" data-i18n="mouse">Mouse</button>
+                  <button class="tab-btn" data-tab="gamepad" data-i18n="gamepad">Gamepad</button>
                 </div>
                 
                 <div class="key-tab-content">
@@ -808,7 +808,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" data-modal="keySelectionModal">
+          <button class="btn btn-secondary" data-modal="keySelectionModal" data-i18n="cancel">
             Cancel
           </button>
         </div>
@@ -927,53 +927,50 @@
                 <span data-i18n="sto_tools_keybind_manager"></span>
                 <span id="aboutVersion"></span>
               </h4>
-              <p>
+              <p data-i18n="a_comprehensive_web_based_tool_for_creating_editing_and_managing_star_trek_online_keybind_configurations_with_visual_editing_and_advanced_features">
                 A comprehensive web-based tool for creating, editing, and
                 managing Star Trek Online keybind configurations with visual
                 editing and advanced features.
               </p>
             </div>
             <div class="features">
-              <h4>Features:</h4>
+              <h4 data-i18n="features">Features:</h4>
               <ul>
-                <li>Visual keybind editor</li>
-                <li>STO command library with search and categorization</li>
-                <li>
+                <li data-i18n="visual_keybind_editor">Visual keybind editor</li>
+                <li data-i18n="sto_command_library_with_search_and_categorization">STO command library with search and categorization</li>
+                <li data-i18n="multiple_profile_management_create_clone_rename_delete">
                   Multiple profile management (create, clone, rename, delete)
                 </li>
-                <li>Custom alias system for complex command sequences</li>
-                <li>VERTIGO-inspired VFX Manager for visual effects control</li>
-                <li>
+                <li data-i18n="custom_alias_system_for_complex_command_sequences">Custom alias system for complex command sequences</li>
+                <li data-i18n="vertigo_inspired_vfx_manager_for_visual_effects_control">VERTIGO-inspired VFX Manager for visual effects control</li>
+                <li data-i18n="import_export_keybind_and_alias_files_and_project_backups">
                   Import/export keybind and alias files, and project backups
                 </li>
-                <li>Real-time validation and command preview</li>
+                <li data-i18n="real_time_validation_and_command_preview">Real-time validation and command preview</li>
               </ul>
             </div>
             <div class="usage">
-              <h4>Quick Start:</h4>
+              <h4 data-i18n="quick_start">Quick Start:</h4>
               <ol>
-                <li>Create a new profile or use the default profile</li>
-                <li>
+                <li data-i18n="create_a_new_profile_or_use_the_default_profile">Create a new profile or use the default profile</li>
+                <li data-i18n="select_keys_from_the_grid_and_add_commands_from_the_library">
                   Select keys from the grid and add commands from the library
                 </li>
-                <li>Use the command chain editor to build complex sequences</li>
-                <li>Export your keybinds as .txt files for use in STO</li>
+                <li data-i18n="use_the_command_chain_editor_to_build_complex_sequences">Use the command chain editor to build complex sequences</li>
+                <li data-i18n="export_your_keybinds_as_txt_files_for_use_in_sto">Export your keybinds as .txt files for use in STO</li>
               </ol>
             </div>
             <div class="contact-info">
-              <h4>Resources:</h4>
+              <h4 data-i18n="resources">Resources:</h4>
               <p>
                 <i class="fas fa-globe"></i>
                 <a
                   href="https://sto-tools.org/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  >https://sto-tools.org/</a
-                >
+                >https://sto-tools.org/</a>
                 | <i class="fas fa-envelope"></i>
-                <a href="mailto:keybinds@sto-tools.org"
-                  >keybinds@sto-tools.org</a
-                >
+                <a href="mailto:keybinds@sto-tools.org">keybinds@sto-tools.org</a>
               </p>
             </div>
             <div class="copyright">
