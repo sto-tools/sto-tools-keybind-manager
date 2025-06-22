@@ -435,7 +435,10 @@ export default class STOCommandManager {
               commandId === 'chat_log' ||
               commandId === 'remember_ui_lists' ||
               commandId === 'ui_remember_positions' ||
-              commandId === 'safe_login') &&
+              commandId === 'safe_login' ||
+              commandId === 'net_timing_graph' ||
+              commandId === 'net_timing_graph_paused' ||
+              commandId === 'netgraph') &&
             params.state !== undefined
           ) {
             command = `${cmd.command} ${params.state}`
@@ -443,6 +446,10 @@ export default class STOCommandManager {
           // Tooltip delay command
           else if (commandId === 'ui_tooltip_delay' && params.seconds !== undefined) {
             command = `${cmd.command} ${params.seconds}`
+          }
+          // Net timing graph alpha command
+          else if (commandId === 'net_timing_graph_alpha' && params.alpha !== undefined) {
+            command = `${cmd.command} ${params.alpha}`
           }
         }
 
@@ -957,6 +964,12 @@ export default class STOCommandManager {
                         <label for="systemTooltipDelay">${i18next.t('delay_seconds')}:</label>
                         <input type="number" id="systemTooltipDelay" min="0" max="10" step="0.1" value="0.5">
                     </div>
+                    <!-- Net graph alpha parameter -->
+                    <div id="systemAlphaParams" class="form-group" style="display: none;">
+                        <label for="systemAlpha">${i18next.t('transparency_level')}:</label>
+                        <input type="number" id="systemAlpha" min="50" max="255" value="255">
+                        <small>50 = highest transparency, 255 = no transparency</small>
+                    </div>
                 </div>
             </div>
         `
@@ -1271,6 +1284,29 @@ export default class STOCommandManager {
       // Add parameter change listeners for customizable cosmetic commands
       const cosmeticInputs = ['modifier1', 'modifier2']
       cosmeticInputs.forEach((inputId) => {
+        const input = document.getElementById(inputId)
+        if (input) {
+          input.addEventListener('change', () => {
+            this.updateCommandPreview()
+          })
+          input.addEventListener('input', () => {
+            this.updateCommandPreview()
+          })
+        }
+      })
+    } else if (type === 'bridge_officer') {
+      // Add bridge officer command change listener
+      const bridgeOfficerSelect = document.getElementById('bridgeOfficerCommand')
+      if (bridgeOfficerSelect) {
+        bridgeOfficerSelect.addEventListener('change', () => {
+          this.updateBridgeOfficerParams(bridgeOfficerSelect.value)
+          this.updateCommandPreview()
+        })
+      }
+
+      // Add parameter change listeners for customizable bridge officer commands
+      const bridgeOfficerInputs = ['assistName']
+      bridgeOfficerInputs.forEach((inputId) => {
         const input = document.getElementById(inputId)
         if (input) {
           input.addEventListener('change', () => {
@@ -1699,7 +1735,10 @@ export default class STOCommandManager {
           commandId === 'chat_log' ||
           commandId === 'remember_ui_lists' ||
           commandId === 'ui_remember_positions' ||
-          commandId === 'safe_login'
+          commandId === 'safe_login' ||
+          commandId === 'net_timing_graph' ||
+          commandId === 'net_timing_graph_paused' ||
+          commandId === 'netgraph'
         ) {
           params.state = parseInt(
             document.getElementById('systemState')?.value || 1
@@ -1709,6 +1748,12 @@ export default class STOCommandManager {
         else if (commandId === 'ui_tooltip_delay') {
           params.seconds = parseFloat(
             document.getElementById('systemTooltipDelay')?.value || 0.5
+          )
+        }
+        // Net timing graph alpha command
+        else if (commandId === 'net_timing_graph_alpha') {
+          params.alpha = parseInt(
+            document.getElementById('systemAlpha')?.value || 255
           )
         }
         break
@@ -1726,6 +1771,16 @@ export default class STOCommandManager {
           command: document.getElementById('customCommand')?.value || '',
           text:
             document.getElementById('customText')?.value || 'Custom Command',
+        }
+        break
+
+      case 'bridge_officer':
+        commandId = document.getElementById('bridgeOfficerCommand')?.value
+        // Handle customizable bridge officer commands
+        if (commandId === 'assist') {
+          params = {
+            name: document.getElementById('assistName')?.value || '',
+          }
         }
         break
     }
@@ -2215,6 +2270,7 @@ export default class STOCommandManager {
     const fileParams = document.getElementById('systemFileParams')
     const stateParams = document.getElementById('systemStateParams')
     const tooltipParams = document.getElementById('systemTooltipParams')
+    const alphaParams = document.getElementById('systemAlphaParams')
 
     if (!systemParams) return
 
@@ -2222,6 +2278,7 @@ export default class STOCommandManager {
     if (fileParams) fileParams.style.display = 'none'
     if (stateParams) stateParams.style.display = 'none'
     if (tooltipParams) tooltipParams.style.display = 'none'
+    if (alphaParams) alphaParams.style.display = 'none'
 
     // Show relevant parameter section based on command
     if (commandId) {
@@ -2244,13 +2301,20 @@ export default class STOCommandManager {
           commandId === 'chat_log' ||
           commandId === 'remember_ui_lists' ||
           commandId === 'ui_remember_positions' ||
-          commandId === 'safe_login'
+          commandId === 'safe_login' ||
+          commandId === 'net_timing_graph' ||
+          commandId === 'net_timing_graph_paused' ||
+          commandId === 'netgraph'
         ) {
           if (stateParams) stateParams.style.display = 'block'
         }
         // Tooltip delay command
         else if (commandId === 'ui_tooltip_delay') {
           if (tooltipParams) tooltipParams.style.display = 'block'
+        }
+        // Net timing graph alpha command
+        else if (commandId === 'net_timing_graph_alpha') {
+          if (alphaParams) alphaParams.style.display = 'block'
         }
       } else {
         systemParams.style.display = 'none'
@@ -2341,6 +2405,33 @@ export default class STOCommandManager {
         </div>
       </div>
     `
+  }
+
+  updateBridgeOfficerParams(commandId) {
+    const bridgeOfficerParams = document.getElementById('bridgeOfficerParamsConfig')
+    const assistParams = document.getElementById('assistParams')
+
+    if (!bridgeOfficerParams) return
+
+    // Hide all parameter sections first
+    if (assistParams) assistParams.style.display = 'none'
+
+    // Show relevant parameter section based on command
+    if (commandId) {
+      const cmd = STO_DATA.commands.bridge_officer.commands[commandId]
+      if (cmd && cmd.customizable) {
+        bridgeOfficerParams.style.display = 'block'
+
+        // Assist parameters
+        if (commandId === 'assist') {
+          if (assistParams) assistParams.style.display = 'block'
+        }
+      } else {
+        bridgeOfficerParams.style.display = 'none'
+      }
+    } else {
+      bridgeOfficerParams.style.display = 'none'
+    }
   }
 }
 

@@ -199,9 +199,11 @@
   "command_aliases": "Befehlsaliase",
   "report_footer": "Dieser Bericht wurde vom STO Tools Keybind Manager generiert. Für weitere Informationen über Star Trek Online Keybinds besuchen Sie das STO Wiki.",
   "command_categories": {
-    "targeting": "Zielerfassung",
+    "targeting": "Zielauswahl",
     "combat": "Kampf",
-    "tray": "Tray-Ausführung",
+    "cosmetic": "Kosmetik",
+    "bridge_officer": "Brückenoffizier",
+    "tray": "Fachausführung",
     "power": "Schildverwaltung",
     "movement": "Bewegung",
     "camera": "Kamera",
@@ -476,6 +478,174 @@
     "map": {
       "name": "Karte",
       "description": "Karte anzeigen/verbergen"
+    },
+    "assist": {
+      "name": "Unterstützen",
+      "description": "Unterstützen '<name>': Unterstützt die Entität mit dem übereinstimmenden Namen. Wenn kein Name angegeben wird, unterstützt Ihr aktuelles Ziel."
+    },
+    "net_timing_graph": {
+      "name": "Netzwerk-Timing-Graph",
+      "description": "Netzwerk-Timing-Graph aktivieren oder deaktivieren (0=deaktivieren, 1=aktivieren)"
+    },
+    "net_timing_graph_alpha": {
+      "name": "Netzwerk-Timing-Graph Alpha",
+      "description": "Transparenzstufe für Netzwerk-Timing-Graph setzen (50=höchste Transparenz, 255=keine Transparenz)"
+    },
+    "net_timing_graph_paused": {
+      "name": "Netzwerk-Timing-Graph Pausiert",
+      "description": "Netzwerk-Timing-Graph pausieren oder fortsetzen (0=Pause deaktiviert, 1=Pause aktiviert)"
+    },
+    "netgraph": {
+      "name": "Netzwerk-Graph",
+      "description": "SND und RCV Netzwerkdaten als Text anzeigen (1=aktiviert, 0=deaktiviert)"
+    },
+    "setrallypoint": {
+      "name": "Sammelpunkt setzen",
+      "description": "Einen Sammelpunkt für Ihr aktuelles Ziel setzen"
+    },
+    "setrallypointconsole": {
+      "name": "Sammelpunkt setzen (Konsole)",
+      "description": "Einen Sammelpunkt für Ihr aktuelles Ziel setzen (Konsolenvariante)"
+    },
+    "clearrallypoint": {
+      "name": "Sammelpunkt löschen",
+      "description": "Den Sammelpunkt für Ihr aktuelles Ziel löschen"
+    },
+    "clearallrallypoints": {
+      "name": "Alle Sammelpunkte löschen",
+      "description": "Alle Sammelpunkte löschen"
+    },
+    "bridge_officer_command": "Brückenoffizier-Befehl",
+    "select_bridge_officer_command": "Wählen Sie einen Brückenoffizier-Befehl",
+    "entity_name_optional": "Entitätsname (optional)",
+    "entity_name_optional_placeholder": "Geben Sie den Entitätsnamen ein (optional)",
+    "aim": {
+      "name": "Zielen",
+      "description": "Zielt auf das Ziel"
+    },
+    "change_instance": {
+      "name": "Instanz wechseln",
+      "description": "Wechselt zu einer bereits erstellten Instanz derselben Karte. Funktioniert nur außerhalb des Roten Alarms."
+    },
+    "chat_log": {
+      "name": "Chat-Log umschalten",
+      "description": "Chat-Log-Aufzeichnung ein-/ausschalten (1=an, 0=aus)"
+    },
+    "goto_character_select": {
+      "name": "Zum Charakterauswahlbildschirm",
+      "description": "Zum Charakterauswahlbildschirm wechseln, ohne sich abzumelden."
+    },
+    "holster": {
+      "name": "Waffe ablegen",
+      "description": "Waffe ablegen"
+    },
+    "holster_toggle": {
+      "name": "Waffe umschalten",
+      "description": "Waffe ein-/ausblenden"
+    },
+    "logout": {
+      "name": "Abmelden",
+      "description": "Aktuellen Charakter abmelden"
+    },
+    "quit": {
+      "name": "Spiel beenden",
+      "description": "Fenster schließen"
+    },
+    "remember_ui_lists": {
+      "name": "UI-Listen merken",
+      "description": "Ob die Platzierung und Breite der UI-Listen gemerkt werden soll"
+    },
+    "safe_login": {
+      "name": "Sicherer Login",
+      "description": "Bei Aktivierung wird der Spieler auf die zuletzt besuchte statische Karte eingeloggt"
+    },
+    "setactivecostume": {
+      "name": "Aktives Kostüm setzen",
+      "description": "Setzt das aktuelle aktive Kostüm. Erfordert zwei Modifikatoren."
+    },
+    "shooter_clear_offset_tray_binds": {
+      "name": "Shooter Offset-Tray-Bindings löschen",
+      "description": "Löscht Offset-Tray-Bindings im Shooter-Modus"
+    },
+    "shooter_clear_overlay_tray_binds": {
+      "name": "Shooter Overlay-Tray-Bindings löschen",
+      "description": "Löscht Overlay-Tray-Bindings im Shooter-Modus"
+    },
+    "shooter_primary": {
+      "name": "Shooter Primär",
+      "description": "Primärangriff im Shooter-Modus"
+    },
+    "shooter_secondary": {
+      "name": "Shooter Sekundär",
+      "description": "Sekundärangriff im Shooter-Modus"
+    },
+    "shooter_set_offset_tray_binds": {
+      "name": "Shooter Offset-Tray-Bindings setzen",
+      "description": "Setzt Offset-Tray-Bindings im Shooter-Modus"
+    },
+    "shooter_set_overlay_tray_binds": {
+      "name": "Shooter Overlay-Tray-Bindings setzen",
+      "description": "Setzt Overlay-Tray-Bindings im Shooter-Modus"
+    },
+    "shooter_tertiary": {
+      "name": "Shooter Tertiär",
+      "description": "Tertiärangriff im Shooter-Modus"
+    },
+    "show_game_ui": {
+      "name": "Spiel-UI anzeigen",
+      "description": "Zeigt die Spiel-Benutzeroberfläche an"
+    },
+    "show_game_ui_no_extra_keybinds": {
+      "name": "Spiel-UI anzeigen (ohne zusätzliche Keybinds)",
+      "description": "Zeigt die Spiel-UI ohne zusätzliche Escape-Keybinds an"
+    },
+    "toggle_shooter_mode": {
+      "name": "Shooter-Modus umschalten",
+      "description": "Zwischen Shooter- und RPG-Modus umschalten"
+    },
+    "ui_cancel": {
+      "name": "UI Abbrechen",
+      "description": "Antwortet mit 'Abbrechen' auf ein offenes Dialogfeld; funktioniert nicht in allen Dialogen"
+    },
+    "ui_gen_layers_reset": {
+      "name": "UI-Layout zurücksetzen",
+      "description": "Setzt das Layout zurück, wenn der Server die Position beweglicher Fenster aktualisiert"
+    },
+    "ui_load": {
+      "name": "UI-Einstellungen laden",
+      "description": "Lädt die Standard-UI-Einstellungsdatei, normalerweise Live\\ui_settings.txt"
+    },
+    "ui_load_file": {
+      "name": "UI-Einstellungsdatei laden",
+      "description": "Lädt eine benannte UI-Einstellungsdatei"
+    },
+    "ui_ok": {
+      "name": "UI OK",
+      "description": "Antwortet mit 'OK' auf ein offenes Dialogfeld; funktioniert nicht in allen Dialogen"
+    },
+    "ui_remember_positions": {
+      "name": "UI-Positionen merken",
+      "description": "Ob UI-Größen und -Positionen gemerkt werden sollen. Standardmäßig aktiviert."
+    },
+    "ui_resolution": {
+      "name": "UI-Auflösung anzeigen",
+      "description": "Zeigt die aktuelle UI-Bildschirmauflösung an"
+    },
+    "ui_save": {
+      "name": "UI-Einstellungen speichern",
+      "description": "Speichert das UI-Layout in der Standard-UI-Einstellungsdatei, normalerweise Live\\ui_settings.txt"
+    },
+    "ui_save_file": {
+      "name": "UI-Einstellungsdatei speichern",
+      "description": "Speichert das UI-Layout in einer benannten UI-Einstellungsdatei"
+    },
+    "ui_tooltip_delay": {
+      "name": "Tooltip-Verzögerung setzen",
+      "description": "Setzt die zusätzliche Verzögerung in Sekunden, bevor Tooltips angezeigt werden"
+    },
+    "unholster": {
+      "name": "Waffe ziehen",
+      "description": "Waffe ziehen"
     }
   },
   "category_descriptions": {
@@ -759,5 +929,32 @@
   "whole_tray_with_backup": "Ganzes Fach mit Backup",
   "configure_command_options_to_see_preview": "Konfigurieren Sie Befehlsoptionen, um eine Vorschau zu sehen",
   "key": "Taste",
-  "no_profile": "Kein Profil"
+  "no_profile": "Kein Profil",
+  "create_command_aliases": "Befehlsaliase erstellen",
+  "bridge_officer": "Brückenoffizier",
+  "select_bridge_officer_command": "Wählen Sie einen Brückenoffizier-Befehl",
+  "net_graph": "Netzwerk-Graph",
+  "net_graph_command": "Netzwerk-Graph-Befehl",
+  "select_net_graph_command": "Wählen Sie einen Netzwerk-Graph-Befehl",
+  "net_timing_graph": "Netzwerk-Timing-Graph",
+  "net_timing_graph_alpha": "Netzwerk-Timing-Graph Alpha",
+  "net_timing_graph_paused": "Netzwerk-Timing-Graph Pausiert",
+  "netgraph": "Netzwerk-Graph",
+  "enable_disable": "Aktivieren/Deaktivieren",
+  "transparency_level": "Transparenzstufe",
+  "pause_state": "Pausenzustand",
+  "cosmetic_command": "Kosmetischer Befehl",
+  "delay_seconds": "Verzögerung (Sekunden)",
+  "first_modifier": "Erster Modifikator",
+  "modifier_1": "Modifikator 1",
+  "modifier_2": "Modifikator 2",
+  "off": "Aus",
+  "on": "An",
+  "parameter_configuration": "Parameter-Konfiguration",
+  "second_modifier": "Zweiter Modifikator",
+  "select_cosmetic_command": "Kosmetischen Befehl auswählen",
+  "stotrayexecbytray_description": "Führt Tray-Befehle basierend auf der aktuellen Tray-Nummer aus",
+  "tray_command": "Tray-Befehl",
+  "trayexecbytray_description": "Führt Befehle basierend auf der aktuellen Tray-Nummer aus",
+  "vfx_aliases": "VFX-Aliase"
 }

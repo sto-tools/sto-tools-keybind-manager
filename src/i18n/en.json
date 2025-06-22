@@ -646,6 +646,22 @@
       "name": "Assist",
       "description": "Assist '<name>': Assists the Entity with the matching name. If no name is given, assists your current target."
     },
+    "net_timing_graph": {
+      "name": "Net Timing Graph",
+      "description": "Enable or disable the network timing graph (0=disable, 1=enable)"
+    },
+    "net_timing_graph_alpha": {
+      "name": "Net Timing Graph Alpha",
+      "description": "Set transparency level for network timing graph (50=highest transparency, 255=no transparency)"
+    },
+    "net_timing_graph_paused": {
+      "name": "Net Timing Graph Paused",
+      "description": "Pause or resume the network timing graph (0=pause disabled, 1=pause enabled)"
+    },
+    "netgraph": {
+      "name": "Net Graph",
+      "description": "Display SND and RCV network data as text (1=enabled, 0=disabled)"
+    },
     "bridge_officer_command": "Bridge Officer Command",
     "select_bridge_officer_command": "Select a bridge officer command",
     "entity_name_optional": "Entity Name (optional)",
@@ -932,5 +948,24 @@
   "cosmetic_command": "Cosmetic Command",
   "select_cosmetic_command": "Select a cosmetic command",
   "tray_command": "Tray Command",
-  "create_command_aliases": "Create Command Aliases"
+  "create_command_aliases": "Create Command Aliases",
+  "bridge_officer": "Bridge Officer",
+  "select_bridge_officer_command": "Select a bridge officer command",
+  "vfx_manager": "VFX Manager",
+  "select_all": "Select All",
+  "clear_all": "Clear All",
+  "no_space_effects_selected": "No space effects selected",
+  "no_ground_effects_selected": "No ground effects selected",
+  "show_player_say": "Show Player Say",
+  "generate_aliases": "Generate Aliases",
+  "net_graph": "Net Graph",
+  "net_graph_command": "Net Graph Command",
+  "select_net_graph_command": "Select a net graph command",
+  "net_timing_graph": "Net Timing Graph",
+  "net_timing_graph_alpha": "Net Timing Graph Alpha",
+  "net_timing_graph_paused": "Net Timing Graph Paused",
+  "netgraph": "Net Graph",
+  "enable_disable": "Enable/Disable",
+  "transparency_level": "Transparency Level",
+  "pause_state": "Pause State"
 }

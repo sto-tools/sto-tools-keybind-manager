@@ -124,7 +124,7 @@
   "ground_alias": "Alias de sol :",
   "no_ground_effects_selected": "Aucun effet de sol sélectionné",
   "show_player_say": "Afficher le Say du joueur",
-  "generate_aliases": "Générer les alias",
+  "generate_aliases": "Générer des Alias",
   "about_sto_tools_keybind_manager": "À propos de STO Tools Keybind Manager",
   "a_comprehensive_web_based_tool_for_creating_editing_and_managing_star_trek_online_keybind_configurations_with_visual_editing_and_advanced_features": "Un outil web complet pour créer, modifier et gérer les configurations de raccourcis Star Trek Online avec édition visuelle et fonctionnalités avancées.",
   "features": "Fonctionnalités :",
@@ -198,6 +198,14 @@
   "no_keybinds_defined": "Aucun raccourci défini.",
   "command_aliases": "Alias de commandes",
   "report_footer": "Ce rapport a été généré par STO Tools Keybind Manager. Pour plus d'informations sur les raccourcis Star Trek Online, visitez le Wiki STO.",
+  "bridge_officer": "Officier de pont",
+  "enable_disable": "Activer/Désactiver",
+  "net_graph": "Graphique réseau",
+  "net_graph_command": "Commande de graphique réseau",
+  "select_bridge_officer_command": "Sélectionner une commande d'officier de pont",
+  "select_net_graph_command": "Sélectionner une commande de graphique réseau",
+  "transparency_level": "Niveau de transparence",
+  "pause_state": "État de pause",
   "command_categories": {
     "targeting": "Ciblage",
     "combat": "Combat",
@@ -627,8 +635,12 @@
       "name": "Assister",
       "description": "Assister '<name>': Assiste l'entité portant le nom correspondant. Si aucun nom n'est donné, assiste votre cible actuelle."
     },
-    "bridge_officer_command": "Commande d'officier de passerelle",
-    "select_bridge_officer_command": "Sélectionnez une commande d'officier de passerelle",
+    "net_timing_graph": "Graphique de Timing Réseau",
+    "net_timing_graph_alpha": "Graphique de Timing Réseau Alpha",
+    "net_timing_graph_paused": "Graphique de Timing Réseau Pausé",
+    "netgraph": "Graphique Réseau",
+    "bridge_officer_command": "Commande d'Officier de Pont",
+    "select_bridge_officer_command": "Sélectionnez une commande d'officier de pont",
     "entity_name_optional": "Nom de l'entité (optionnel)",
     "entity_name_optional_placeholder": "Entrez le nom de l'entité (optionnel)"
   },
@@ -928,5 +940,9 @@
   "create_command_aliases": "Créer des Alias de Commandes",
   "on": "Activé",
   "off": "Désactivé",
-  "delay_seconds": "Délai (secondes)"
+  "delay_seconds": "Délai (secondes)",
+  "net_timing_graph": "Graphique de timing réseau",
+  "net_timing_graph_alpha": "Graphique de timing réseau alpha",
+  "net_timing_graph_paused": "Graphique de timing réseau en pause",
+  "netgraph": "Graphique réseau"
 }

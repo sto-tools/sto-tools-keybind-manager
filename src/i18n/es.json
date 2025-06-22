@@ -118,17 +118,17 @@
   "vfx_manager": "Gestor VFX",
   "select_visual_effects_to_disable_using_dynfxsetfxexlusionlist_aliases_effects_are_organized_by_environment": "Selecciona efectos visuales para desactivar usando alias dynFxSetFXExlusionList. Los efectos están organizados por entorno.",
   "space_effects": "Efectos de espacio",
-  "select_all": "Seleccionar todo",
-  "clear_all": "Limpiar todo",
+  "select_all": "Seleccionar Todo",
+  "clear_all": "Limpiar Todo",
   "selected": "seleccionado",
   "ground_effects": "Efectos de suelo",
   "generated_aliases": "Alias generados:",
   "space_alias": "Alias de espacio:",
-  "no_space_effects_selected": "No hay efectos de espacio seleccionados",
+  "no_space_effects_selected": "No hay efectos espaciales seleccionados",
   "ground_alias": "Alias de suelo:",
-  "no_ground_effects_selected": "No hay efectos de suelo seleccionados",
-  "show_player_say": "Mostrar Say del jugador",
-  "generate_aliases": "Generar alias",
+  "no_ground_effects_selected": "No hay efectos terrestres seleccionados",
+  "show_player_say": "Mostrar Decir del Jugador",
+  "generate_aliases": "Generar Alias",
   "about_sto_tools_keybind_manager": "Acerca de STO Tools Keybind Manager",
   "a_comprehensive_web_based_tool_for_creating_editing_and_managing_star_trek_online_keybind_configurations_with_visual_editing_and_advanced_features": "Una herramienta web integral para crear, editar y gestionar configuraciones de atajos de teclado de Star Trek Online con edición visual y características avanzadas.",
   "features": "Características:",
@@ -203,6 +203,10 @@
   "command_aliases": "Alias de comandos",
   "vfx_aliases": "Alias VFX",
   "create_command_aliases": "Crear Alias de Comandos",
+  "select_bridge_officer_command": {
+    "name": "Seleccionar comando de oficial de puente",
+    "description": "Selecciona un comando de oficial de puente"
+  },
   "report_footer": "Este reporte fue generado por STO Tools Keybind Manager. Para más información sobre atajos de teclado de Star Trek Online, visita el Wiki de STO.",
   "command_categories": {
     "targeting": "Apuntado",
@@ -633,10 +637,32 @@
       "name": "Asistir",
       "description": "Asistir '<name>': Asiste a la entidad con el nombre coincidente. Si no se da un nombre, asiste a tu objetivo actual."
     },
-    "bridge_officer_command": "Comando de Oficial de Puente",
-    "select_bridge_officer_command": "Selecciona un comando de oficial de puente",
+    "net_timing_graph": {
+      "name": "Gráfico de Tiempo de Red",
+      "description": "Activar o desactivar el gráfico de tiempo de red (0=desactivar, 1=activar)"
+    },
+    "net_timing_graph_alpha": {
+      "name": "Gráfico de Tiempo de Red Alpha",
+      "description": "Establecer nivel de transparencia para el gráfico de tiempo de red (50=mayor transparencia, 255=sin transparencia)"
+    },
+    "net_timing_graph_paused": {
+      "name": "Gráfico de Tiempo de Red Pausado",
+      "description": "Pausar o reanudar el gráfico de tiempo de red (0=pausa desactivada, 1=pausa activada)"
+    },
+    "netgraph": {
+      "name": "Gráfico de Red",
+      "description": "Mostrar datos de red SND y RCV como texto (1=activado, 0=desactivado)"
+    },
     "entity_name_optional": "Nombre de entidad (opcional)",
-    "entity_name_optional_placeholder": "Introduce el nombre de la entidad (opcional)"
+    "entity_name_optional_placeholder": "Introduce el nombre de la entidad (opcional)",
+    "bridge_officer_command": {
+      "name": "Comando de Oficial de Puente",
+      "description": "Ejecuta una orden de oficial de puente"
+    },
+    "select_bridge_officer_command": {
+      "name": "Seleccionar comando de oficial de puente",
+      "description": "Selecciona un comando de oficial de puente"
+    }
   },
   "category_descriptions": {
     "targeting": "Selección y gestión de objetivos",
@@ -928,5 +954,16 @@
   "tray_command": "Comando de Bandeja",
   "on": "Activado",
   "off": "Desactivado",
-  "delay_seconds": "Retraso (segundos)"
+  "delay_seconds": "Retraso (segundos)",
+  "bridge_officer": "Oficial de Puente",
+  "net_graph": "Gráfico de Red",
+  "net_graph_command": "Comando de Gráfico de Red",
+  "select_net_graph_command": "Selecciona un comando de gráfico de red",
+  "net_timing_graph": "Gráfico de Tiempo de Red",
+  "net_timing_graph_alpha": "Gráfico de Tiempo de Red Alpha",
+  "net_timing_graph_paused": "Gráfico de Tiempo de Red Pausado",
+  "netgraph": "Gráfico de Red",
+  "enable_disable": "Activar/Desactivar",
+  "transparency_level": "Nivel de Transparencia",
+  "pause_state": "Estado de Pausa"
 }
