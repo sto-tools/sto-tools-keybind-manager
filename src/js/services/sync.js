@@ -1,6 +1,6 @@
 import i18next from 'i18next'
 import { saveDirectoryHandle, getDirectoryHandle, KEY_SYNC_FOLDER } from './fsHandles.js'
-import eventBus from './eventBus.js'
+import eventBus from '../core/eventBus.js'
 
 export async function writeFile(dirHandle, relativePath, contents) {
   const parts = relativePath.split('/');

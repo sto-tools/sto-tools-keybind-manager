@@ -1,6 +1,6 @@
 // STO Tools Keybind Manager - Keybind Operations
 // Handles keybind parsing, validation, and file operations
-import store from './store.js'
+import store from '../core/store.js'
 import i18next from 'i18next'
 
 export default class STOKeybindFileManager {

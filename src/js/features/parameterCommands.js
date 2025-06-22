@@ -1,4 +1,4 @@
-import eventBus from './eventBus.js'
+import eventBus from '../core/eventBus.js'
 
 export const parameterCommands = {
     // Parameter Modal for Customizable Commands

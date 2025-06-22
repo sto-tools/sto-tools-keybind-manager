@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest'
-import STOStorage from '../../src/js/storage.js'
+import STOStorage from '../../src/js/services/storage.js'
 import '../../src/js/data.js'
 
 /**

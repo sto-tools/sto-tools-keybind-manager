@@ -4,11 +4,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import '../../src/js/data.js'
 
 // Load the modules (they create global instances)
-import eventBus from '../../src/js/eventBus.js'
-import store, { resetStore } from '../../src/js/store.js'
-import STOStorage from '../../src/js/storage.js'
-import STOCommandManager from '../../src/js/commands.js'
-import STOKeybindFileManager from '../../src/js/keybinds.js'
+import eventBus from '../../src/js/core/eventBus.js'
+import store, { resetStore } from '../../src/js/core/store.js'
+import STOStorage from '../../src/js/services/storage.js'
+import STOCommandManager from '../../src/js/features/commands.js'
+import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 
 // Setup real global objects instead of mocks
 beforeEach(() => {

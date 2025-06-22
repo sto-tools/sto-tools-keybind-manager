@@ -3,7 +3,7 @@ import i18next from 'i18next'
 import en from '../../src/i18n/en.json'
 
 const handleStore = new Map()
-vi.mock('../../src/js/fsHandles.js', () => {
+vi.mock('../../src/js/services/fsHandles.js', () => {
   return {
     saveDirectoryHandle: vi.fn((key, handle) => {
       handleStore.set(key, handle)
@@ -14,8 +14,8 @@ vi.mock('../../src/js/fsHandles.js', () => {
   }
 })
 
-import { saveDirectoryHandle, getDirectoryHandle } from '../../src/js/fsHandles.js'
-import STOSyncManager, { writeFile } from '../../src/js/sync.js'
+import { saveDirectoryHandle, getDirectoryHandle } from '../../src/js/services/fsHandles.js'
+import STOSyncManager, { writeFile } from '../../src/js/services/sync.js'
 
 class MockFile {
   constructor() {

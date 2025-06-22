@@ -1,8 +1,8 @@
 // STO Tools Keybind Manager - Export Functionality
 // Handles exporting keybinds and profiles in various formats
-import eventBus from './eventBus.js'
+import eventBus from '../core/eventBus.js'
 import i18next from 'i18next'
-import { writeFile } from './sync.js'
+import { writeFile } from '../services/sync.js'
 
 export default class STOExportManager {
   constructor() {

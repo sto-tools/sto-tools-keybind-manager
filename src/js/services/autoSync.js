@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Auto Sync Manager
 // Handles automatic synchronization based on user preferences
 
-import eventBus from './eventBus.js'
+import eventBus from '../core/eventBus.js'
 import i18next from 'i18next'
 
 export default class STOAutoSyncManager {

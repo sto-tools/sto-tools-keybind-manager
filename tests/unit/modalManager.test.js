@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import STOModalManager from '../../src/js/modalManager.js'
+import STOModalManager from '../../src/js/ui/modalManager.js'
 
 describe('STOModalManager - Language Change Callbacks', () => {
   let modalManager

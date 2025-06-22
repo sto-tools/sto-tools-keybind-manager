@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import eventBus from '../../src/js/eventBus.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
 describe('eventBus core functionality', () => {
   it('registers and emits events to handlers', () => {
