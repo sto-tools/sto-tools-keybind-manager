@@ -2798,7 +2798,9 @@ export default class STOToolsKeybindManager {
         const reader = new FileReader()
         reader.onload = (e) => {
           try {
-            const success = stoStorage.importData(e.target.result)
+            // Use the export manager's importJSONFile method to handle both
+            // direct data and wrapped project files
+            const success = stoExport.importJSONFile(e.target.result)
             if (success) {
               this.loadData()
               this.renderProfiles()
