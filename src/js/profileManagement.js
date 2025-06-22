@@ -216,6 +216,26 @@ export const profileManagement = {
     return false
   },
 
+  saveCurrentBuild() {
+    const profile = stoStorage.getProfile(this.currentProfile)
+    const currentBuild = this.getCurrentProfile()
+
+    if (profile && currentBuild) {
+      if (!profile.builds) {
+        profile.builds = {
+          space: { keys: {} },
+          ground: { keys: {} },
+        }
+      }
+
+      profile.builds[this.currentEnvironment] = {
+        keys: currentBuild.keys || {},
+      }
+
+      stoStorage.saveProfile(this.currentProfile, profile)
+    }
+  },
+
   generateProfileId(name) {
     const base = name.toLowerCase().replace(/[^a-z0-9]/g, '_')
     let id = base

@@ -626,6 +626,28 @@ export const parameterCommands = {
           i18next.t('add_command')
       }
     },
+
+    saveCommandFromModal() {
+      if (!this.selectedKey) {
+        stoUI.showToast(i18next.t('please_select_a_key_first'), 'warning')
+        return
+      }
+
+      const command = stoCommands.getCurrentCommand()
+      if (!command) {
+        stoUI.showToast(i18next.t('please_configure_a_command'), 'warning')
+        return
+      }
+
+      const validation = stoCommands.validateCommand(command)
+      if (!validation.valid) {
+        stoUI.showToast(i18next.t('validation_error'), 'error')
+        return
+      }
+
+      this.addCommand(this.selectedKey, command)
+      modalManager.hide('addCommandModal')
+    },
   
     editCommand(index) {
       if (!this.selectedKey) return
