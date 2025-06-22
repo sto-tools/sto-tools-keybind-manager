@@ -85,7 +85,13 @@ export const commandLibrary = {
         preview.textContent = ''
         return
       }
-      commands = profile.keys[this.selectedKey] || []
+      // Filter out blank commands for display in the command chain
+      const allCommands = profile.keys[this.selectedKey] || []
+      commands = allCommands.filter(cmd => {
+        if (!cmd || typeof cmd !== 'object') return false
+        if (typeof cmd.command !== 'string') return false
+        return cmd.command.trim().length > 0
+      })
     }
 
     const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
