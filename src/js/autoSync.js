@@ -194,13 +194,13 @@ export default class STOAutoSyncManager {
     this.loadSettings()
     
     if (this.isEnabled) {
-      console.log(`Auto-sync enabled with interval: ${this.interval}`)
+      // console.log(`Auto-sync enabled with interval: ${this.interval}`)
       // If we have pending changes and sync is now enabled, schedule sync
       if (this.pendingChanges && this.interval !== 'change') {
         this.scheduleSync()
       }
     } else {
-      console.log('Auto-sync disabled')
+      // console.log('Auto-sync disabled')
       this.clearSyncTimer()
     }
   }
