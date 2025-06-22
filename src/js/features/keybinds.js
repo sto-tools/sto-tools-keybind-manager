@@ -154,10 +154,10 @@ export default class STOKeybindFileManager extends STOFileHandler {
   }
 
   isValidKey(key) {
-    if (!key || typeof key !== 'string') return false
+    if (!key || typeof key !== 'string' || !Array.isArray(this.validKeys)) return false;
     return this.validKeys.some(
       (validKey) => validKey.toLowerCase() === key.toLowerCase()
-    )
+    );
   }
 
   isValidAliasName(name) {
