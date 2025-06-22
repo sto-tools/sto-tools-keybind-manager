@@ -201,8 +201,10 @@
   "command_categories": {
     "targeting": "Ciblage",
     "combat": "Combat",
-    "tray": "Exécution de plateau",
-    "power": "Gestion des boucliers",
+    "cosmetic": "Cosmétique",
+    "bridge_officer": "Officier de passerelle",
+    "tray": "Exécution de Plateau",
+    "power": "Gestion des Boucliers",
     "movement": "Mouvement",
     "camera": "Caméra",
     "communication": "Communication",
@@ -266,8 +268,12 @@
       "description": "Tirer phasers et torpilles"
     },
     "fire_projectiles": {
-      "name": "Tirer projectiles",
-      "description": "Tirer torpilles et mines"
+      "name": "Tirer les Projectiles",
+      "description": "Tirer les torpilles et mines"
+    },
+    "setactivecostume": {
+      "name": "Définir le Costume Actif",
+      "description": "Définit le costume actif actuel. Nécessite deux modificateurs."
     },
     "custom_tray": {
       "name": "Exécution de plateau",
@@ -476,7 +482,155 @@
     "map": {
       "name": "Afficher/Masquer carte",
       "description": "Afficher/masquer la fenêtre de carte"
-    }
+    },
+    "logout": {
+      "name": "Se déconnecter",
+      "description": "Se déconnecter du personnage actuel."
+    },
+    "quit": {
+      "name": "Quitter le jeu",
+      "description": "Fermer la fenêtre."
+    },
+    "ui_load": {
+      "name": "Charger les paramètres UI",
+      "description": "Charge le fichier de sauvegarde par défaut des fenêtres UI, généralement Live\\ui_settings.txt"
+    },
+    "ui_save": {
+      "name": "Sauvegarder les paramètres UI",
+      "description": "Sauvegarde la mise en page UI dans le fichier de sauvegarde par défaut des fenêtres UI, généralement Live\\ui_settings.txt"
+    },
+    "ui_load_file": {
+      "name": "Charger le fichier de paramètres UI",
+      "description": "Charge le fichier de sauvegarde des fenêtres UI nommé"
+    },
+    "ui_save_file": {
+      "name": "Sauvegarder le fichier de paramètres UI",
+      "description": "Sauvegarde la mise en page UI dans le fichier de sauvegarde des fenêtres UI nommé"
+    },
+    "ui_cancel": {
+      "name": "UI Annuler",
+      "description": "Répond \"Annuler\" à une boîte de dialogue ouverte; peut ne pas fonctionner dans tous les dialogues."
+    },
+    "ui_ok": {
+      "name": "UI OK",
+      "description": "Répond \"OK\" à une boîte de dialogue ouverte; peut ne pas fonctionner dans tous les dialogues."
+    },
+    "chat_log": {
+      "name": "Basculer le journal de chat",
+      "description": "Activer/désactiver le journal de chat. 1=activé, 0=désactivé, pas de paramètre=afficher le statut. Préfixer ++ le transforme en bascule"
+    },
+    "remember_ui_lists": {
+      "name": "Mémoriser les listes UI",
+      "description": "S'il faut mémoriser le placement et la largeur des colonnes des listes UI."
+    },
+    "ui_remember_positions": {
+      "name": "Mémoriser les positions UI",
+      "description": "S'il faut mémoriser les tailles et positions UI. Activé par défaut."
+    },
+    "safe_login": {
+      "name": "Connexion sécurisée",
+      "description": "Si vrai, alors connecte le joueur à sa carte statique la plus récente au lieu de n'importe quoi d'autre."
+    },
+    "goto_character_select": {
+      "name": "Aller à la sélection de personnage",
+      "description": "Aller à l'écran de sélection de personnage sans se déconnecter."
+    },
+    "ui_gen_layers_reset": {
+      "name": "Réinitialiser la mise en page UI",
+      "description": "Réinitialise la mise en page, utilisé quand le serveur met à jour les positions des fenêtres mobiles"
+    },
+    "ui_resolution": {
+      "name": "Afficher la résolution UI",
+      "description": "Affiche la résolution d'écran UI actuelle."
+    },
+    "ui_tooltip_delay": {
+      "name": "Définir le délai d'infobulle",
+      "description": "Définit le délai supplémentaire, en secondes, avant que les infobulles apparaissent"
+    },
+    "show_game_ui": {
+      "name": "Afficher l'UI du jeu",
+      "description": "Afficher l'UI du jeu"
+    },
+    "show_game_ui_no_extra_keybinds": {
+      "name": "Afficher l'UI du jeu (sans raccourcis supplémentaires)",
+      "description": "Cette commande n'ajoute aucun raccourci pour afficher l'UI quand l'utilisateur appuie sur échap"
+    },
+    "change_instance": {
+      "name": "Changer d'instance",
+      "description": "Changer vers une instance déjà créée de la même carte. Ne fonctionne que quand pas en alerte rouge."
+    },
+    "aim": {
+      "name": "Viser/Lunette",
+      "description": "Activer/désactiver la lunette. En mode lunette le joueur fait plus de dégâts. Peut être utilisé comme bascule ou appuyer et maintenir"
+    },
+    "holster": {
+      "name": "Ranger l'arme",
+      "description": "Tenter de ranger votre arme active"
+    },
+    "holster_toggle": {
+      "name": "Basculer ranger l'arme",
+      "description": "Tenter de ranger ou dégainer vos armes"
+    },
+    "unholster": {
+      "name": "Dégainer l'arme",
+      "description": "Tenter de dégainer votre arme active"
+    },
+    "toggle_shooter_mode": {
+      "name": "Basculer le mode tireur",
+      "description": "Activer/désactiver le mode tireur"
+    },
+    "shooter_primary": {
+      "name": "Tireur primaire",
+      "description": "Action primaire du mode tireur"
+    },
+    "shooter_secondary": {
+      "name": "Tireur secondaire",
+      "description": "Action secondaire du mode tireur"
+    },
+    "shooter_tertiary": {
+      "name": "Tireur tertiaire",
+      "description": "Action tertiaire du mode tireur"
+    },
+    "shooter_clear_offset_tray_binds": {
+      "name": "Effacer les liaisons de plateau de décalage du tireur",
+      "description": "Effacer l'emplacement de départ et le mouvement de la boîte d'action jaune qui apparaît sur le plateau en mode tireur"
+    },
+    "shooter_clear_overlay_tray_binds": {
+      "name": "Effacer les liaisons de plateau superposé du tireur",
+      "description": "Effacer les liaisons de plateau superposé pour le mode tireur"
+    },
+    "shooter_set_offset_tray_binds": {
+      "name": "Définir les liaisons de plateau de décalage du tireur",
+      "description": "Définir l'emplacement de départ et le mouvement de la boîte d'action jaune qui apparaît sur le plateau en mode tireur"
+    },
+    "shooter_set_overlay_tray_binds": {
+      "name": "Définir les liaisons de plateau superposé du tireur",
+      "description": "Définir les liaisons de plateau superposé pour le mode tireur"
+    },
+    "setrallypoint": {
+      "name": "Définir Point de Ralliement",
+      "description": "Définit un point de ralliement pour votre cible actuelle"
+    },
+    "setrallypointconsole": {
+      "name": "Définir Point de Ralliement (Console)",
+      "description": "Définit un point de ralliement pour votre cible actuelle (variante console)"
+    },
+    "clearrallypoint": {
+      "name": "Effacer Point de Ralliement",
+      "description": "Efface le point de ralliement pour votre cible actuelle"
+    },
+    "clearallrallypoints": {
+      "name": "Effacer Tous les Points de Ralliement",
+      "description": "Efface tous les points de ralliement"
+    },
+    "assist": {
+      "name": "Assister",
+      "description": "Assister '<name>': Assiste l'entité portant le nom correspondant. Si aucun nom n'est donné, assiste votre cible actuelle."
+    },
+    "bridge_officer_command": "Commande d'officier de passerelle",
+    "select_bridge_officer_command": "Sélectionnez une commande d'officier de passerelle",
+    "entity_name_optional": "Nom de l'entité (optionnel)",
+    "entity_name_optional_placeholder": "Entrez le nom de l'entité (optionnel)"
   },
   "category_descriptions": {
     "targeting": "Sélection et gestion des cibles",
@@ -759,5 +913,20 @@
   "whole_tray_with_backup": "Plateau Complet avec Sauvegarde",
   "configure_command_options_to_see_preview": "Configurez les options de commande pour voir l'aperçu",
   "key": "touche",
-  "no_profile": "Aucun profil"
+  "no_profile": "Aucun profil",
+  "stotrayexecbytray_description": "STOTrayExecByTray (affiche la liaison de touche dans l'UI)",
+  "trayexecbytray_description": "TrayExecByTray (aucune indication d'UI)",
+  "parameter_configuration": "Configuration des paramètres",
+  "modifier_1": "Modificateur 1",
+  "modifier_2": "Modificateur 2",
+  "first_modifier": "Premier modificateur",
+  "second_modifier": "Deuxième modificateur",
+  "cosmetic_command": "Commande Cosmétique",
+  "select_cosmetic_command": "Sélectionnez une commande cosmétique",
+  "tray_command": "Commande de Plateau",
+  "vfx_aliases": "Alias VFX",
+  "create_command_aliases": "Créer des Alias de Commandes",
+  "on": "Activé",
+  "off": "Désactivé",
+  "delay_seconds": "Délai (secondes)"
 }

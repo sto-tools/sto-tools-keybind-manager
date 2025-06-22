@@ -227,7 +227,7 @@
             </button>
             <button class="mode-btn" data-mode="alias" data-i18n-title="alias_mode">
               <i class="fas fa-mask"></i>
-              <span data-i18n="alias"></span>
+              <span data-i18n="aliases"></span>
             </button>
           </div>
         </div>
@@ -850,7 +850,7 @@
     <div class="modal large-modal" id="vertigoModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>VFX Manager</h3>
+          <h3 data-i18n="vfx_manager">VFX Manager</h3>
           <button class="modal-close" data-modal="vertigoModal">
             <i class="fas fa-times"></i>
           </button>
@@ -868,10 +868,10 @@
                 <div class="environment-header">
                   <h4><i class="fas fa-rocket"></i> Space Effects</h4>
                   <div class="environment-controls">
-                    <button class="btn btn-small" id="spaceSelectAll">
+                    <button class="btn btn-small" id="spaceSelectAll" data-i18n="select_all">
                       Select All
                     </button>
-                    <button class="btn btn-small" id="spaceClearAll">
+                    <button class="btn btn-small" id="spaceClearAll" data-i18n="clear_all">
                       Clear All
                     </button>
                     <span class="effect-count" id="spaceEffectCount"
@@ -887,10 +887,10 @@
                 <div class="environment-header">
                   <h4><i class="fas fa-user"></i> Ground Effects</h4>
                   <div class="environment-controls">
-                    <button class="btn btn-small" id="groundSelectAll">
+                    <button class="btn btn-small" id="groundSelectAll" data-i18n="select_all">
                       Select All
                     </button>
-                    <button class="btn btn-small" id="groundClearAll">
+                    <button class="btn btn-small" id="groundClearAll" data-i18n="clear_all">
                       Clear All
                     </button>
                     <span class="effect-count" id="groundEffectCount"
@@ -908,13 +908,13 @@
                 <h4>Generated Aliases:</h4>
                 <div class="alias-preview" id="spaceAliasPreview">
                   <label>Space Alias:</label>
-                  <div class="command-preview" id="spaceAliasCommand">
+                  <div class="command-preview" id="spaceAliasCommand" data-i18n="no_space_effects_selected">
                     No space effects selected
                   </div>
                 </div>
                 <div class="alias-preview" id="groundAliasPreview">
                   <label>Ground Alias:</label>
-                  <div class="command-preview" id="groundAliasCommand">
+                  <div class="command-preview" id="groundAliasCommand" data-i18n="no_ground_effects_selected">
                     No ground effects selected
                   </div>
                 </div>
@@ -927,11 +927,11 @@
             <label class="checkbox-label">
               <input type="checkbox" id="vertigoShowPlayerSay" />
               <span class="checkmark"></span>
-              Show Player Say
+              <span data-i18n="show_player_say">Show Player Say</span>
             </label>
           </div>
 
-          <button class="btn btn-primary" id="saveVertigoBtn">
+          <button class="btn btn-primary" id="saveVertigoBtn" data-i18n="generate_aliases">
             Generate Aliases
           </button>
           <button class="btn btn-secondary" data-modal="vertigoModal">

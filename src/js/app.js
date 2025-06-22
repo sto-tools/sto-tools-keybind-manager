@@ -2972,6 +2972,12 @@ export default class STOToolsKeybindManager {
       this.createParameterModal()
     }
 
+    // Store command definition in modal for language change regeneration
+    const modal = document.getElementById('parameterModal')
+    if (modal) {
+      modal.setAttribute('data-command-def', JSON.stringify(commandDef))
+    }
+
     // Populate modal with parameter inputs
     this.populateParameterModal(commandDef)
 

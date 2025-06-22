@@ -71,6 +71,8 @@ describe('STOCommandManager', () => {
       const expectedBuilders = [
         'targeting',
         'combat',
+        'cosmetic',
+        'bridge_officer',
         'tray',
         'power',
         'movement',
@@ -124,7 +126,101 @@ describe('STOCommandManager', () => {
           icon: '🔥',
           text: 'Fire All Weapons',
           description: 'Fire all weapons',
+          environment: 'space',
         })
+      })
+
+      it('should build ground combat command correctly', () => {
+        const builder = commandManager.commandBuilders.get('combat')
+        const result = builder.build('aim')
+
+        expect(result).toEqual({
+          command: 'aim',
+          type: 'combat',
+          icon: '🎯',
+          text: 'Aim/Scope',
+          description: 'Toggle scope on/off. In scope mode the player does more damage. Can either be used as a toggle or a press and hold',
+          environment: 'ground',
+        })
+      })
+
+      it('should build customizable ground command with parameters', () => {
+        const builder = commandManager.commandBuilders.get('cosmetic')
+        const result = builder.build('setactivecostume', {
+          modifier1: 'costume1',
+          modifier2: 'costume2',
+        })
+
+        expect(result).toEqual({
+          command: 'setactivecostume costume1 costume2',
+          type: 'cosmetic',
+          icon: '👕',
+          text: 'Set Active Costume',
+          description: 'Sets current active costume. Requires two modifiers.',
+          environment: 'ground',
+          parameters: {
+            modifier1: 'costume1',
+            modifier2: 'costume2',
+          },
+        })
+      })
+
+      it('should build shooter mode commands correctly', () => {
+        const builder = commandManager.commandBuilders.get('combat')
+        const result = builder.build('toggle_shooter_mode')
+
+        expect(result).toEqual({
+          command: 'ToggleShooterMode',
+          type: 'combat',
+          icon: '🎮',
+          text: 'Toggle Shooter Mode',
+          description: 'Toggle shooter mode on/off',
+          environment: 'ground',
+        })
+      })
+    })
+
+    describe('cosmetic commands', () => {
+      it('should build cosmetic command correctly', () => {
+        const builder = commandManager.commandBuilders.get('cosmetic')
+        const result = builder.build('setactivecostume')
+
+        expect(result).toEqual({
+          command: 'setactivecostume modifier1 modifier2',
+          type: 'cosmetic',
+          icon: '👕',
+          text: 'Set Active Costume',
+          description: 'Sets current active costume. Requires two modifiers.',
+          environment: 'ground',
+          parameters: {},
+        })
+      })
+
+      it('should build customizable cosmetic command with parameters', () => {
+        const builder = commandManager.commandBuilders.get('cosmetic')
+        const result = builder.build('setactivecostume', {
+          modifier1: 'costume1',
+          modifier2: 'costume2',
+        })
+
+        expect(result).toEqual({
+          command: 'setactivecostume costume1 costume2',
+          type: 'cosmetic',
+          icon: '👕',
+          text: 'Set Active Costume',
+          description: 'Sets current active costume. Requires two modifiers.',
+          environment: 'ground',
+          parameters: {
+            modifier1: 'costume1',
+            modifier2: 'costume2',
+          },
+        })
+      })
+
+      it('should handle invalid cosmetic command ID', () => {
+        const builder = commandManager.commandBuilders.get('cosmetic')
+        const result = builder.build('invalid_command')
+        expect(result).toBeNull()
       })
     })
 
@@ -489,6 +585,241 @@ describe('STOCommandManager', () => {
         const result = builder.build('combat_log', { state: 1 })
 
         expect(result.command).toBe('CombatLog 1')
+      })
+
+      it('should build file-based system commands', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        
+        // Test bind_save_file
+        let result = builder.build('bind_save_file', { filename: 'my_binds.txt' })
+        expect(result.command).toBe('bind_save_file my_binds.txt')
+        
+        // Test bind_load_file
+        result = builder.build('bind_load_file', { filename: 'custom_binds.txt' })
+        expect(result.command).toBe('bind_load_file custom_binds.txt')
+        
+        // Test ui_load_file
+        result = builder.build('ui_load_file', { filename: 'ui_settings.txt' })
+        expect(result.command).toBe('ui_load_file ui_settings.txt')
+        
+        // Test ui_save_file
+        result = builder.build('ui_save_file', { filename: 'my_ui.txt' })
+        expect(result.command).toBe('ui_save_file my_ui.txt')
+      })
+
+      it('should build state-based system commands (0/1)', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        
+        // Test combat_log
+        let result = builder.build('combat_log', { state: 1 })
+        expect(result.command).toBe('CombatLog 1')
+        
+        result = builder.build('combat_log', { state: 0 })
+        expect(result.command).toBe('CombatLog 0')
+        
+        // Test chat_log
+        result = builder.build('chat_log', { state: 1 })
+        expect(result.command).toBe('ChatLog 1')
+        
+        // Test remember_ui_lists
+        result = builder.build('remember_ui_lists', { state: 0 })
+        expect(result.command).toBe('RememberUILists 0')
+        
+        // Test ui_remember_positions
+        result = builder.build('ui_remember_positions', { state: 1 })
+        expect(result.command).toBe('UIRememberPositions 1')
+        
+        // Test safe_login
+        result = builder.build('safe_login', { state: 0 })
+        expect(result.command).toBe('SafeLogin 0')
+      })
+
+      it('should build tooltip delay system command', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        
+        const result = builder.build('ui_tooltip_delay', { seconds: 0.5 })
+        expect(result.command).toBe('ui_TooltipDelay 0.5')
+        
+        const result2 = builder.build('ui_tooltip_delay', { seconds: 2.0 })
+        expect(result2.command).toBe('ui_TooltipDelay 2')
+      })
+
+      it('should build non-parameterized system commands', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        
+        // Test logout
+        let result = builder.build('logout')
+        expect(result.command).toBe('logout')
+        expect(result.text).toBe('Logout')
+        expect(result.icon).toBe('🚪')
+        
+        // Test quit
+        result = builder.build('quit')
+        expect(result.command).toBe('quit')
+        expect(result.text).toBe('Quit Game')
+        expect(result.icon).toBe('❌')
+        
+        // Test goto_character_select
+        result = builder.build('goto_character_select')
+        expect(result.command).toBe('gotoCharacterSelect')
+        expect(result.text).toBe('Go to Character Select')
+        expect(result.icon).toBe('👤')
+        
+        // Test ui_load
+        result = builder.build('ui_load')
+        expect(result.command).toBe('ui_load')
+        expect(result.text).toBe('Load UI Settings')
+        expect(result.icon).toBe('📂')
+        
+        // Test ui_save
+        result = builder.build('ui_save')
+        expect(result.command).toBe('ui_save')
+        expect(result.text).toBe('Save UI Settings')
+        expect(result.icon).toBe('💾')
+        
+        // Test ui_cancel
+        result = builder.build('ui_cancel')
+        expect(result.command).toBe('uiCancel')
+        expect(result.text).toBe('UI Cancel')
+        expect(result.icon).toBe('❌')
+        
+        // Test ui_ok
+        result = builder.build('ui_ok')
+        expect(result.command).toBe('uiOK')
+        expect(result.text).toBe('UI OK')
+        expect(result.icon).toBe('✅')
+        
+        // Test ui_gen_layers_reset
+        result = builder.build('ui_gen_layers_reset')
+        expect(result.command).toBe('ui_GenLayersReset')
+        expect(result.text).toBe('Reset UI Layout')
+        expect(result.icon).toBe('🔄')
+        
+        // Test ui_resolution
+        result = builder.build('ui_resolution')
+        expect(result.command).toBe('ui_resolution')
+        expect(result.text).toBe('Print UI Resolution')
+        expect(result.icon).toBe('📐')
+        
+        // Test show_game_ui
+        result = builder.build('show_game_ui')
+        expect(result.command).toBe('ShowGameUI')
+        expect(result.text).toBe('Show Game UI')
+        expect(result.icon).toBe('🎮')
+        
+        // Test show_game_ui_no_extra_keybinds
+        result = builder.build('show_game_ui_no_extra_keybinds')
+        expect(result.command).toBe('ShowGameUINoExtraKeyBinds')
+        expect(result.text).toBe('Show Game UI (No Extra Keybinds)')
+        expect(result.icon).toBe('🎮')
+        
+        // Test change_instance
+        result = builder.build('change_instance')
+        expect(result.command).toBe('ChangeInstance')
+        expect(result.text).toBe('Change Instance')
+        expect(result.icon).toBe('🔄')
+      })
+
+      it('should handle missing parameters gracefully', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        
+        // Should use default values when parameters are missing
+        const result = builder.build('bind_save_file')
+        expect(result.command).toBe('bind_save_file')
+        
+        const result2 = builder.build('combat_log')
+        expect(result2.command).toBe('CombatLog')
+        
+        const result3 = builder.build('ui_tooltip_delay')
+        expect(result3.command).toBe('ui_TooltipDelay')
+      })
+
+      it('should handle invalid system command IDs', () => {
+        const builder = commandManager.commandBuilders.get('system')
+        const result = builder.build('invalid_system_command')
+        expect(result).toBeNull()
+      })
+    })
+
+    describe('bridge_officer commands', () => {
+      it('should build setrallypoint command', () => {
+        const builder = commandManager.commandBuilders.get('bridge_officer')
+        const result = builder.build('setrallypoint')
+        expect(result).toEqual({
+          command: 'Setrallypoint',
+          type: 'bridge_officer',
+          icon: '📍',
+          text: 'Set Rally Point',
+          description: 'Set a rally point for your current target',
+          environment: 'ground',
+        })
+      })
+      it('should build setrallypointconsole command', () => {
+        const builder = commandManager.commandBuilders.get('bridge_officer')
+        const result = builder.build('setrallypointconsole')
+        expect(result).toEqual({
+          command: 'Setrallypointconsole',
+          type: 'bridge_officer',
+          icon: '🖥️',
+          text: 'Set Rally Point (Console)',
+          description: 'Set a rally point for your current target (console variant)',
+          environment: 'ground',
+        })
+      })
+      it('should build clearrallypoint command', () => {
+        const builder = commandManager.commandBuilders.get('bridge_officer')
+        const result = builder.build('clearrallypoint')
+        expect(result).toEqual({
+          command: 'Clearrallypoint',
+          type: 'bridge_officer',
+          icon: '❌',
+          text: 'Clear Rally Point',
+          description: 'Clear the rally point for your current target',
+          environment: 'ground',
+        })
+      })
+      it('should build clearallrallypoints command', () => {
+        const builder = commandManager.commandBuilders.get('bridge_officer')
+        const result = builder.build('clearallrallypoints')
+        expect(result).toEqual({
+          command: 'Clearallrallypoints',
+          type: 'bridge_officer',
+          icon: '🧹',
+          text: 'Clear All Rally Points',
+          description: 'Clear all the rally points',
+          environment: 'ground',
+        })
+      })
+      it('should build assist command with no name', () => {
+        const builder = commandManager.commandBuilders.get('bridge_officer')
+        const result = builder.build('assist', {})
+        expect(result).toEqual({
+          command: 'Assist',
+          type: 'bridge_officer',
+          icon: '🤝',
+          text: 'Assist',
+          description: 'Assist "<name>": Assists the Entity with the matching name. If no name is given, assists your current target.',
+          environment: 'ground',
+          parameters: {},
+        })
+      })
+      it('should build assist command with a name', () => {
+        const builder = commandManager.commandBuilders.get('bridge_officer')
+        const result = builder.build('assist', { name: 'Tuvok' })
+        expect(result).toEqual({
+          command: 'Assist Tuvok',
+          type: 'bridge_officer',
+          icon: '🤝',
+          text: 'Assist',
+          description: 'Assist "<name>": Assists the Entity with the matching name. If no name is given, assists your current target.',
+          environment: 'ground',
+          parameters: { name: 'Tuvok' },
+        })
+      })
+      it('should handle invalid bridge_officer command ID', () => {
+        const builder = commandManager.commandBuilders.get('bridge_officer')
+        const result = builder.build('invalid_command')
+        expect(result).toBeNull()
       })
     })
   })

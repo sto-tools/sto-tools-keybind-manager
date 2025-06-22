@@ -163,8 +163,6 @@ export default class STOPreferencesManager {
     }
   }
 
-
-
   updateFolderUI(folderInfo) {
     const folderElement = document.getElementById('currentSyncFolder')
     if (folderElement) {
@@ -211,12 +209,6 @@ export default class STOPreferencesManager {
         break
     }
   }
-
-
-
-
-
-
 
   saveAllSettings() {
     // Save to storage
@@ -286,5 +278,17 @@ export default class STOPreferencesManager {
   removeSetting(key) {
     delete this.settingDefinitions[key]
     delete this.settings[key]
+  }
+
+  // Regenerate preferences modal content for language changes
+  populatePreferencesModal() {
+    // Re-apply translations to the modal
+    const modal = document.getElementById('preferencesModal')
+    if (modal && typeof window.applyTranslations === 'function') {
+      window.applyTranslations(modal)
+    }
+    
+    // Update folder UI with current language
+    this.updateFolderUI()
   }
 } 

@@ -38,15 +38,92 @@ export default class STOCommandManager {
         const cmd = STO_DATA.commands.combat.commands[commandId]
         if (!cmd) return null
 
+        // Handle customizable commands
+        if (cmd.customizable && cmd.parameters) {
+          let command = cmd.command
+          
+          // Replace parameters in the command
+          Object.entries(cmd.parameters).forEach(([paramName, paramConfig]) => {
+            const value = params[paramName] || paramConfig.default || ''
+            const placeholder = `{{${paramName}}}`
+            command = command.replace(placeholder, value)
+          })
+
+          // Handle specific parameter replacements for setactivecostume
+          if (commandId === 'setactivecostume') {
+            const modifier1 = params.modifier1 || 'modifier1'
+            const modifier2 = params.modifier2 || 'modifier2'
+            command = `setactivecostume ${modifier1} ${modifier2}`
+          }
+
+          return {
+            command: command,
+            type: 'combat',
+            icon: cmd.icon,
+            text: cmd.name,
+            description: cmd.description,
+            environment: cmd.environment,
+            parameters: params,
+          }
+        }
+
         return {
           command: cmd.command,
           type: 'combat',
           icon: cmd.icon,
           text: cmd.name,
           description: cmd.description,
+          environment: cmd.environment,
         }
       },
       getUI: () => this.createCombatUI(),
+    })
+
+    // Cosmetic commands
+    this.commandBuilders.set('cosmetic', {
+      build: (commandId, params = {}) => {
+        const cmd = STO_DATA.commands.cosmetic.commands[commandId]
+        if (!cmd) return null
+
+        // Handle customizable commands
+        if (cmd.customizable && cmd.parameters) {
+          let command = cmd.command
+          
+          // Replace parameters in the command
+          Object.entries(cmd.parameters).forEach(([paramName, paramConfig]) => {
+            const value = params[paramName] || paramConfig.default || ''
+            const placeholder = `{{${paramName}}}`
+            command = command.replace(placeholder, value)
+          })
+
+          // Handle specific parameter replacements for setactivecostume
+          if (commandId === 'setactivecostume') {
+            const modifier1 = params.modifier1 || 'modifier1'
+            const modifier2 = params.modifier2 || 'modifier2'
+            command = `setactivecostume ${modifier1} ${modifier2}`
+          }
+
+          return {
+            command: command,
+            type: 'cosmetic',
+            icon: cmd.icon,
+            text: cmd.name,
+            description: cmd.description,
+            environment: cmd.environment,
+            parameters: params,
+          }
+        }
+
+        return {
+          command: cmd.command,
+          type: 'cosmetic',
+          icon: cmd.icon,
+          text: cmd.name,
+          description: cmd.description,
+          environment: cmd.environment,
+        }
+      },
+      getUI: () => this.createCosmeticUI(),
     })
 
     // Tray execution commands
@@ -342,14 +419,30 @@ export default class STOCommandManager {
 
         // Handle parameterized system commands
         if (cmd.customizable && params) {
+          // File-based commands
           if (
             (commandId === 'bind_save_file' ||
-              commandId === 'bind_load_file') &&
+              commandId === 'bind_load_file' ||
+              commandId === 'ui_load_file' ||
+              commandId === 'ui_save_file') &&
             params.filename
           ) {
             command = `${cmd.command} ${params.filename}`
-          } else if (commandId === 'combat_log' && params.state !== undefined) {
+          }
+          // State-based commands (0/1)
+          else if (
+            (commandId === 'combat_log' ||
+              commandId === 'chat_log' ||
+              commandId === 'remember_ui_lists' ||
+              commandId === 'ui_remember_positions' ||
+              commandId === 'safe_login') &&
+            params.state !== undefined
+          ) {
             command = `${cmd.command} ${params.state}`
+          }
+          // Tooltip delay command
+          else if (commandId === 'ui_tooltip_delay' && params.seconds !== undefined) {
+            command = `${cmd.command} ${params.seconds}`
           }
         }
 
@@ -402,6 +495,46 @@ export default class STOCommandManager {
       },
       getUI: () => this.createCustomUI(),
     })
+
+    // Bridge Officer commands
+    this.commandBuilders.set('bridge_officer', {
+      build: (commandId, params = {}) => {
+        const cmd = STO_DATA.commands.bridge_officer.commands[commandId]
+        if (!cmd) return null
+
+        // Handle customizable commands
+        if (cmd.customizable && cmd.parameters) {
+          let command = cmd.command
+          Object.entries(cmd.parameters).forEach(([paramName, paramConfig]) => {
+            const value = params[paramName] || paramConfig.default || ''
+            const placeholder = `{{${paramName}}}`
+            command = command.replace(placeholder, value)
+          })
+          if (commandId === 'assist') {
+            const name = params.name || ''
+            command = name ? `Assist ${name}` : 'Assist'
+          }
+          return {
+            command: command,
+            type: 'bridge_officer',
+            icon: cmd.icon,
+            text: cmd.name,
+            description: cmd.description,
+            environment: cmd.environment,
+            parameters: params,
+          }
+        }
+        return {
+          command: cmd.command,
+          type: 'bridge_officer',
+          icon: cmd.icon,
+          text: cmd.name,
+          description: cmd.description,
+          environment: cmd.environment,
+        }
+      },
+      getUI: () => this.createBridgeOfficerUI(),
+    })
   }
 
   // UI Builders for different command types
@@ -441,6 +574,44 @@ export default class STOCommandManager {
                 <div id="combatCommandWarning" class="command-warning" style="display: none;">
                     <i class="fas fa-exclamation-triangle"></i>
                     <span id="combatWarningText"></span>
+                </div>
+            </div>
+        `
+  }
+
+  createCosmeticUI() {
+    const commands = STO_DATA.commands.cosmetic.commands
+
+    return `
+            <div class="command-selector">
+                <label for="cosmeticCommand">${i18next.t('cosmetic_command')}:</label>
+                <select id="cosmeticCommand">
+                    <option value="">${i18next.t('select_cosmetic_command')}</option>
+                    ${Object.entries(commands)
+                      .map(
+                        ([id, cmd]) =>
+                          `<option value="${id}">${cmd.name}</option>`
+                      )
+                      .join('')}
+                </select>
+            </div>
+            
+            <!-- Parameter Configuration for Customizable Commands -->
+            <div id="cosmeticParamsConfig" class="params-config-section" style="display: none;">
+                <h4>${i18next.t('parameter_configuration')}</h4>
+                
+                <!-- setactivecostume parameters -->
+                <div id="setactivecostumeParams" class="param-group" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modifier1">${i18next.t('modifier_1')}:</label>
+                            <input type="text" id="modifier1" placeholder="${i18next.t('first_modifier')}" value="modifier1">
+                        </div>
+                        <div class="form-group">
+                            <label for="modifier2">${i18next.t('modifier_2')}:</label>
+                            <input type="text" id="modifier2" placeholder="${i18next.t('second_modifier')}" value="modifier2">
+                        </div>
+                    </div>
                 </div>
             </div>
         `
@@ -624,8 +795,8 @@ export default class STOCommandManager {
                     <div class="form-group">
                         <label for="trayCommandVariant">${i18next.t('command_variant')}:</label>
                         <select id="trayCommandVariant">
-                            <option value="STOTrayExecByTray">STOTrayExecByTray</option>
-                            <option value="TrayExecByTray">TrayExecByTray</option>
+                            <option value="STOTrayExecByTray">${i18next.t('stotrayexecbytray_description')}</option>
+                            <option value="TrayExecByTray">${i18next.t('trayexecbytray_description')}</option>
                         </select>
                     </div>
                 </div>
@@ -768,13 +939,23 @@ export default class STOCommandManager {
                       .join('')}
                 </select>
                 <div id="systemParams" style="display: none;">
-                    <div class="form-group">
+                    <!-- File-based parameters -->
+                    <div id="systemFileParams" class="form-group" style="display: none;">
                         <label for="systemFilename">${i18next.t('filename')}:</label>
                         <input type="text" id="systemFilename" value="my_binds.txt">
                     </div>
-                    <div class="form-group">
+                    <!-- State-based parameters (0/1) -->
+                    <div id="systemStateParams" class="form-group" style="display: none;">
                         <label for="systemState">${i18next.t('state')}: (0/1)</label>
-                        <input type="number" id="systemState" min="0" max="1" value="1">
+                        <select id="systemState">
+                            <option value="1">${i18next.t('on')}</option>
+                            <option value="0">${i18next.t('off')}</option>
+                        </select>
+                    </div>
+                    <!-- Tooltip delay parameter -->
+                    <div id="systemTooltipParams" class="form-group" style="display: none;">
+                        <label for="systemTooltipDelay">${i18next.t('delay_seconds')}:</label>
+                        <input type="number" id="systemTooltipDelay" min="0" max="10" step="0.1" value="0.5">
                     </div>
                 </div>
             </div>
@@ -965,6 +1146,13 @@ export default class STOCommandManager {
         this.updateCommandPreview()
       }
     })
+
+    // Language change listener
+    if (window.i18next) {
+      window.i18next.on('languageChanged', () => {
+        this.regenerateModalContent()
+      })
+    }
   }
 
   // Command Type Change Handler
@@ -1052,8 +1240,47 @@ export default class STOCommandManager {
       if (combatSelect) {
         combatSelect.addEventListener('change', () => {
           this.showCombatWarning(combatSelect.value)
+          this.updateCombatParams(combatSelect.value)
+          this.updateCommandPreview()
         })
       }
+
+      // Add parameter change listeners for customizable combat commands
+      const combatInputs = ['modifier1', 'modifier2']
+      combatInputs.forEach((inputId) => {
+        const input = document.getElementById(inputId)
+        if (input) {
+          input.addEventListener('change', () => {
+            this.updateCommandPreview()
+          })
+          input.addEventListener('input', () => {
+            this.updateCommandPreview()
+          })
+        }
+      })
+    } else if (type === 'cosmetic') {
+      // Add cosmetic command change listener
+      const cosmeticSelect = document.getElementById('cosmeticCommand')
+      if (cosmeticSelect) {
+        cosmeticSelect.addEventListener('change', () => {
+          this.updateCosmeticParams(cosmeticSelect.value)
+          this.updateCommandPreview()
+        })
+      }
+
+      // Add parameter change listeners for customizable cosmetic commands
+      const cosmeticInputs = ['modifier1', 'modifier2']
+      cosmeticInputs.forEach((inputId) => {
+        const input = document.getElementById(inputId)
+        if (input) {
+          input.addEventListener('change', () => {
+            this.updateCommandPreview()
+          })
+          input.addEventListener('input', () => {
+            this.updateCommandPreview()
+          })
+        }
+      })
     } else if (type === 'alias') {
       // Add alias selection listener
       const aliasSelect = document.getElementById('aliasSelect')
@@ -1099,6 +1326,29 @@ export default class STOCommandManager {
           }
         })
       }
+    } else if (type === 'system') {
+      // Add system command selection listener
+      const systemSelect = document.getElementById('systemCommand')
+      if (systemSelect) {
+        systemSelect.addEventListener('change', () => {
+          this.updateSystemParams(systemSelect.value)
+          this.updateCommandPreview()
+        })
+      }
+
+      // Add parameter change listeners
+      const systemInputs = ['systemFilename', 'systemState', 'systemTooltipDelay']
+      systemInputs.forEach((inputId) => {
+        const input = document.getElementById(inputId)
+        if (input) {
+          input.addEventListener('change', () => {
+            this.updateCommandPreview()
+          })
+          input.addEventListener('input', () => {
+            this.updateCommandPreview()
+          })
+        }
+      })
     }
   }
 
@@ -1270,6 +1520,24 @@ export default class STOCommandManager {
 
       case 'combat':
         commandId = document.getElementById('combatCommand')?.value
+        // Handle customizable combat commands
+        if (commandId === 'setactivecostume') {
+          params = {
+            modifier1: document.getElementById('modifier1')?.value || 'modifier1',
+            modifier2: document.getElementById('modifier2')?.value || 'modifier2',
+          }
+        }
+        break
+
+      case 'cosmetic':
+        commandId = document.getElementById('cosmeticCommand')?.value
+        // Handle customizable cosmetic commands
+        if (commandId === 'setactivecostume') {
+          params = {
+            modifier1: document.getElementById('modifier1')?.value || 'modifier1',
+            modifier2: document.getElementById('modifier2')?.value || 'modifier2',
+          }
+        }
         break
 
       case 'tray':
@@ -1415,12 +1683,32 @@ export default class STOCommandManager {
 
       case 'system':
         commandId = document.getElementById('systemCommand')?.value
-        if (commandId === 'bind_save_file' || commandId === 'bind_load_file') {
+        // File-based commands
+        if (
+          commandId === 'bind_save_file' ||
+          commandId === 'bind_load_file' ||
+          commandId === 'ui_load_file' ||
+          commandId === 'ui_save_file'
+        ) {
           params.filename =
             document.getElementById('systemFilename')?.value || 'my_binds.txt'
-        } else if (commandId === 'combat_log') {
+        }
+        // State-based commands (0/1)
+        else if (
+          commandId === 'combat_log' ||
+          commandId === 'chat_log' ||
+          commandId === 'remember_ui_lists' ||
+          commandId === 'ui_remember_positions' ||
+          commandId === 'safe_login'
+        ) {
           params.state = parseInt(
             document.getElementById('systemState')?.value || 1
+          )
+        }
+        // Tooltip delay command
+        else if (commandId === 'ui_tooltip_delay') {
+          params.seconds = parseFloat(
+            document.getElementById('systemTooltipDelay')?.value || 0.5
           )
         }
         break
@@ -1889,6 +2177,170 @@ export default class STOCommandManager {
 
     // Trigger input event to update preview
     input.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
+  regenerateModalContent() {
+    // Check if the add command modal is currently open
+    const modal = document.getElementById('addCommandModal')
+    if (!modal || modal.style.display === 'none') {
+      return
+    }
+
+    // Get the current command type
+    const commandTypeSelect = document.getElementById('commandType')
+    if (!commandTypeSelect) {
+      return
+    }
+
+    const currentType = commandTypeSelect.value
+    
+    // Regenerate the UI for the current command type
+    if (currentType && this.commandBuilders.has(currentType)) {
+      const builder = document.getElementById('commandBuilder')
+      if (builder) {
+        const ui = this.commandBuilders.get(currentType).getUI()
+        builder.innerHTML = ui
+        
+        // Re-setup specific event listeners for this type
+        this.setupTypeSpecificListeners(currentType)
+        
+        // Update the preview
+        this.updateCommandPreview()
+      }
+    }
+  }
+
+  updateSystemParams(commandId) {
+    const systemParams = document.getElementById('systemParams')
+    const fileParams = document.getElementById('systemFileParams')
+    const stateParams = document.getElementById('systemStateParams')
+    const tooltipParams = document.getElementById('systemTooltipParams')
+
+    if (!systemParams) return
+
+    // Hide all parameter sections first
+    if (fileParams) fileParams.style.display = 'none'
+    if (stateParams) stateParams.style.display = 'none'
+    if (tooltipParams) tooltipParams.style.display = 'none'
+
+    // Show relevant parameter section based on command
+    if (commandId) {
+      const cmd = STO_DATA.commands.system.commands[commandId]
+      if (cmd && cmd.customizable) {
+        systemParams.style.display = 'block'
+
+        // File-based commands
+        if (
+          commandId === 'bind_save_file' ||
+          commandId === 'bind_load_file' ||
+          commandId === 'ui_load_file' ||
+          commandId === 'ui_save_file'
+        ) {
+          if (fileParams) fileParams.style.display = 'block'
+        }
+        // State-based commands (0/1)
+        else if (
+          commandId === 'combat_log' ||
+          commandId === 'chat_log' ||
+          commandId === 'remember_ui_lists' ||
+          commandId === 'ui_remember_positions' ||
+          commandId === 'safe_login'
+        ) {
+          if (stateParams) stateParams.style.display = 'block'
+        }
+        // Tooltip delay command
+        else if (commandId === 'ui_tooltip_delay') {
+          if (tooltipParams) tooltipParams.style.display = 'block'
+        }
+      } else {
+        systemParams.style.display = 'none'
+      }
+    } else {
+      systemParams.style.display = 'none'
+    }
+  }
+
+  updateCombatParams(commandId) {
+    const combatParams = document.getElementById('combatParamsConfig')
+    const setactivecostumeParams = document.getElementById('setactivecostumeParams')
+
+    if (!combatParams) return
+
+    // Hide all parameter sections first
+    if (setactivecostumeParams) setactivecostumeParams.style.display = 'none'
+
+    // Show relevant parameter section based on command
+    if (commandId) {
+      const cmd = STO_DATA.commands.combat.commands[commandId]
+      if (cmd && cmd.customizable) {
+        combatParams.style.display = 'block'
+
+        // Setactivecostume parameters
+        if (commandId === 'setactivecostume') {
+          if (setactivecostumeParams) setactivecostumeParams.style.display = 'block'
+        }
+      } else {
+        combatParams.style.display = 'none'
+      }
+    } else {
+      combatParams.style.display = 'none'
+    }
+  }
+
+  updateCosmeticParams(commandId) {
+    const cosmeticParams = document.getElementById('cosmeticParamsConfig')
+    const setactivecostumeParams = document.getElementById('setactivecostumeParams')
+
+    if (!cosmeticParams) return
+
+    // Hide all parameter sections first
+    if (setactivecostumeParams) setactivecostumeParams.style.display = 'none'
+
+    // Show relevant parameter section based on command
+    if (commandId) {
+      const cmd = STO_DATA.commands.cosmetic.commands[commandId]
+      if (cmd && cmd.customizable) {
+        cosmeticParams.style.display = 'block'
+
+        // Setactivecostume parameters
+        if (commandId === 'setactivecostume') {
+          if (setactivecostumeParams) setactivecostumeParams.style.display = 'block'
+        }
+      } else {
+        cosmeticParams.style.display = 'none'
+      }
+    } else {
+      cosmeticParams.style.display = 'none'
+    }
+  }
+
+  createBridgeOfficerUI() {
+    const commands = STO_DATA.commands.bridge_officer.commands
+    return `
+      <div class="command-selector">
+        <label for="bridgeOfficerCommand">${i18next.t('bridge_officer_command')}:</label>
+        <select id="bridgeOfficerCommand">
+          <option value="">${i18next.t('select_bridge_officer_command')}</option>
+          ${Object.entries(commands)
+            .map(
+              ([id, cmd]) =>
+                `<option value="${id}">${cmd.name}</option>`
+            )
+            .join('')}
+        </select>
+      </div>
+      <div id="bridgeOfficerParamsConfig" class="params-config-section" style="display: none;">
+        <h4>${i18next.t('parameter_configuration')}</h4>
+        <div id="assistParams" class="param-group" style="display: none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="assistName">${i18next.t('entity_name_optional')}:</label>
+              <input type="text" id="assistName" placeholder="${i18next.t('entity_name_optional_placeholder')}">
+            </div>
+          </div>
+        </div>
+      </div>
+    `
   }
 }
 

@@ -432,7 +432,7 @@ export default class STOAliasManager {
       const aliasCategory = this.createAliasCategoryElement(
         regularAliases,
         'aliases',
-        'Command Aliases',
+        'command_aliases',
         'fas fa-mask'
       )
       categories.appendChild(aliasCategory)
@@ -443,7 +443,7 @@ export default class STOAliasManager {
       const vertigoCategory = this.createAliasCategoryElement(
         vertigoAliases,
         'vertigo-aliases',
-        'VFX Aliases',
+        'vfx_aliases',
         'fas fa-eye-slash'
       )
       categories.appendChild(vertigoCategory)
@@ -453,7 +453,7 @@ export default class STOAliasManager {
   createAliasCategoryElement(
     aliases,
     categoryType = 'aliases',
-    title = 'Command Aliases',
+    titleKey = 'command_aliases',
     iconClass = 'fas fa-mask'
   ) {
     const element = document.createElement('div')
@@ -475,7 +475,7 @@ export default class STOAliasManager {
             <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryType}">
                 <i class="fas fa-chevron-right category-chevron"></i>
                 <i class="${iconClass}"></i> 
-                ${title}
+                ${i18next.t(titleKey)}
                 <span class="command-count">(${aliases.length})</span>
             </h4>
             <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">

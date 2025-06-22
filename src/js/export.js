@@ -52,6 +52,15 @@ export default class STOExportManager {
     stoUI.showModal('exportModal')
   }
 
+  // Regenerate export modal content for language changes
+  populateExportModal() {
+    // Re-apply translations to the modal
+    const modal = document.getElementById('exportModal')
+    if (modal && typeof window.applyTranslations === 'function') {
+      window.applyTranslations(modal)
+    }
+  }
+
   performExport() {
     const profile = app.getCurrentProfile()
     if (!profile) {

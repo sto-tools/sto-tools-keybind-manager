@@ -201,12 +201,16 @@
   "aliases_defined": "Alias definidos:",
   "no_keybinds_defined": "No hay atajos de teclado definidos.",
   "command_aliases": "Alias de comandos",
+  "vfx_aliases": "Alias VFX",
+  "create_command_aliases": "Crear Alias de Comandos",
   "report_footer": "Este reporte fue generado por STO Tools Keybind Manager. Para más información sobre atajos de teclado de Star Trek Online, visita el Wiki de STO.",
   "command_categories": {
-    "targeting": "Selección de objetivos",
+    "targeting": "Apuntado",
     "combat": "Combate",
-    "tray": "Ejecución de bandeja",
-    "power": "Gestión de escudos",
+    "cosmetic": "Cosmético",
+    "bridge_officer": "Oficial de Puente",
+    "tray": "Ejecución de Bandeja",
+    "power": "Gestión de Escudos",
     "movement": "Movimiento",
     "camera": "Cámara",
     "communication": "Comunicación",
@@ -270,8 +274,12 @@
       "description": "Disparar phasers y torpedos"
     },
     "fire_projectiles": {
-      "name": "Disparar proyectiles",
+      "name": "Disparar Proyectiles",
       "description": "Disparar torpedos y minas"
+    },
+    "setactivecostume": {
+      "name": "Establecer Disfraz Activo",
+      "description": "Establece el disfraz activo actual. Requiere dos modificadores."
     },
     "custom_tray": {
       "name": "Ejecución de bandeja",
@@ -480,7 +488,155 @@
     "map": {
       "name": "Mostrar/Ocultar mapa",
       "description": "Mostrar/ocultar la ventana del mapa"
-    }
+    },
+    "logout": {
+      "name": "Cerrar sesión",
+      "description": "Cerrar sesión del personaje actual."
+    },
+    "quit": {
+      "name": "Salir del juego",
+      "description": "Cerrar la ventana."
+    },
+    "ui_load": {
+      "name": "Cargar configuración de UI",
+      "description": "Carga el archivo de guardado predeterminado de ventanas de UI, generalmente Live\\ui_settings.txt"
+    },
+    "ui_save": {
+      "name": "Guardar configuración de UI",
+      "description": "Guarda el diseño de UI en el archivo de guardado predeterminado de ventanas de UI, generalmente Live\\ui_settings.txt"
+    },
+    "ui_load_file": {
+      "name": "Cargar archivo de configuración de UI",
+      "description": "Carga archivo de guardado de ventanas de UI con nombre"
+    },
+    "ui_save_file": {
+      "name": "Guardar archivo de configuración de UI",
+      "description": "Guarda el diseño de UI en archivo de guardado de ventanas de UI con nombre"
+    },
+    "ui_cancel": {
+      "name": "UI Cancelar",
+      "description": "Responde \"Cancelar\" a un cuadro de diálogo abierto; puede no funcionar en todos los diálogos."
+    },
+    "ui_ok": {
+      "name": "UI OK",
+      "description": "Responde \"OK\" a un cuadro de diálogo abierto; puede no funcionar en todos los diálogos."
+    },
+    "chat_log": {
+      "name": "Alternar registro de chat",
+      "description": "Activar/desactivar registro de chat. 1=activado, 0=desactivado, sin parámetro=imprimir estado. Anteponer ++ lo convierte en alternador"
+    },
+    "remember_ui_lists": {
+      "name": "Recordar listas de UI",
+      "description": "Si se deben recordar la colocación y ancho de columnas de listas de UI."
+    },
+    "ui_remember_positions": {
+      "name": "Recordar posiciones de UI",
+      "description": "Si se deben recordar tamaños y posiciones de UI. Activado por defecto."
+    },
+    "safe_login": {
+      "name": "Inicio de sesión seguro",
+      "description": "Si es verdadero, entonces inicia sesión al jugador en su mapa estático más reciente en lugar de cualquier otra cosa."
+    },
+    "goto_character_select": {
+      "name": "Ir a selección de personaje",
+      "description": "Ir a la pantalla de selección de personaje sin cerrar sesión."
+    },
+    "ui_gen_layers_reset": {
+      "name": "Restablecer diseño de UI",
+      "description": "Restablece el diseño, usado cuando el servidor actualiza posiciones de ventanas movibles"
+    },
+    "ui_resolution": {
+      "name": "Imprimir resolución de UI",
+      "description": "Imprime la resolución de pantalla de UI actual."
+    },
+    "ui_tooltip_delay": {
+      "name": "Establecer retraso de tooltip",
+      "description": "Establece el retraso adicional, en segundos, antes de que aparezcan los tooltips"
+    },
+    "show_game_ui": {
+      "name": "Mostrar UI del juego",
+      "description": "Mostrar la UI del juego"
+    },
+    "show_game_ui_no_extra_keybinds": {
+      "name": "Mostrar UI del juego (sin keybinds extra)",
+      "description": "Este comando no agrega ningún keybind para mostrar la UI cuando el usuario presiona escape"
+    },
+    "change_instance": {
+      "name": "Cambiar instancia",
+      "description": "Cambiar a una instancia ya creada del mismo mapa. Solo funciona cuando no está en alerta roja."
+    },
+    "aim": {
+      "name": "Apuntar/Mira",
+      "description": "Activar/desactivar mira. En modo mira el jugador hace más daño. Puede usarse como alternador o presionar y mantener"
+    },
+    "holster": {
+      "name": "Enfundar arma",
+      "description": "Intentar enfundar tu arma activa"
+    },
+    "holster_toggle": {
+      "name": "Alternar enfundar arma",
+      "description": "Intentar enfundar o desenfundar tus armas"
+    },
+    "unholster": {
+      "name": "Desenfundar arma",
+      "description": "Intentar desenfundar tu arma activa"
+    },
+    "toggle_shooter_mode": {
+      "name": "Alternar modo tirador",
+      "description": "Activar/desactivar modo tirador"
+    },
+    "shooter_primary": {
+      "name": "Tirador primario",
+      "description": "Acción primaria del modo tirador"
+    },
+    "shooter_secondary": {
+      "name": "Tirador secundario",
+      "description": "Acción secundaria del modo tirador"
+    },
+    "shooter_tertiary": {
+      "name": "Tirador terciario",
+      "description": "Acción terciaria del modo tirador"
+    },
+    "shooter_clear_offset_tray_binds": {
+      "name": "Limpiar enlaces de bandeja de compensación del tirador",
+      "description": "Limpiar la ubicación inicial y movimiento de la caja de acción amarilla que aparece en la bandeja en modo tirador"
+    },
+    "shooter_clear_overlay_tray_binds": {
+      "name": "Limpiar enlaces de bandeja superpuesta del tirador",
+      "description": "Limpiar enlaces de bandeja superpuesta para modo tirador"
+    },
+    "shooter_set_offset_tray_binds": {
+      "name": "Establecer enlaces de bandeja de compensación del tirador",
+      "description": "Establecer la ubicación inicial y movimiento de la caja de acción amarilla que aparece en la bandeja en modo tirador"
+    },
+    "shooter_set_overlay_tray_binds": {
+      "name": "Establecer enlaces de bandeja superpuesta del tirador",
+      "description": "Establecer enlaces de bandeja superpuesta para modo tirador"
+    },
+    "setrallypoint": {
+      "name": "Establecer Punto de Encuentro",
+      "description": "Establece un punto de encuentro para tu objetivo actual"
+    },
+    "setrallypointconsole": {
+      "name": "Establecer Punto de Encuentro (Consola)",
+      "description": "Establece un punto de encuentro para tu objetivo actual (variante consola)"
+    },
+    "clearrallypoint": {
+      "name": "Borrar Punto de Encuentro",
+      "description": "Borra el punto de encuentro para tu objetivo actual"
+    },
+    "clearallrallypoints": {
+      "name": "Borrar Todos los Puntos de Encuentro",
+      "description": "Borra todos los puntos de encuentro"
+    },
+    "assist": {
+      "name": "Asistir",
+      "description": "Asistir '<name>': Asiste a la entidad con el nombre coincidente. Si no se da un nombre, asiste a tu objetivo actual."
+    },
+    "bridge_officer_command": "Comando de Oficial de Puente",
+    "select_bridge_officer_command": "Selecciona un comando de oficial de puente",
+    "entity_name_optional": "Nombre de entidad (opcional)",
+    "entity_name_optional_placeholder": "Introduce el nombre de la entidad (opcional)"
   },
   "category_descriptions": {
     "targeting": "Selección y gestión de objetivos",
@@ -759,5 +915,18 @@
   "whole_tray_with_backup": "Bandeja Completa con Respaldo",
   "configure_command_options_to_see_preview": "Configure las opciones del comando para ver la vista previa",
   "key": "tecla",
-  "no_profile": "Sin perfil"
+  "no_profile": "Sin perfil",
+  "stotrayexecbytray_description": "STOTrayExecByTray (muestra el enlace de tecla en la UI)",
+  "trayexecbytray_description": "TrayExecByTray (sin indicación de UI)",
+  "parameter_configuration": "Configuración de parámetros",
+  "modifier_1": "Modificador 1",
+  "modifier_2": "Modificador 2",
+  "first_modifier": "Primer modificador",
+  "second_modifier": "Segundo modificador",
+  "cosmetic_command": "Comando Cosmético",
+  "select_cosmetic_command": "Selecciona un comando cosmético",
+  "tray_command": "Comando de Bandeja",
+  "on": "Activado",
+  "off": "Desactivado",
+  "delay_seconds": "Retraso (segundos)"
 }

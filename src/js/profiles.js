@@ -738,7 +738,7 @@ export default class STOProfileManager {
     if (analysis.aliasCount === 0 && analysis.commandCount > 15) {
       recommendations.push({
         type: 'organization',
-        title: 'Create Command Aliases',
+        title: i18next.t('create_command_aliases'),
         description:
           'Use aliases to group related commands and simplify complex sequences.',
         priority: 'medium',
