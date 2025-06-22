@@ -385,11 +385,35 @@ export default class STOToolsKeybindManager {
       return false
     }
 
-    const profile = this.getCurrentProfile()
+    // Get the full profile from storage
+    const fullProfile = stoStorage.getProfile(this.currentProfile)
+    if (!fullProfile) {
+      stoUI.showToast(i18next.t('no_profile_selected'), 'error')
+      return false
+    }
 
-    if (!profile.keys[keyName]) {
-      profile.keys[keyName] = []
-      stoStorage.saveProfile(this.currentProfile, profile)
+    // Ensure builds structure exists
+    if (!fullProfile.builds) {
+      fullProfile.builds = {
+        space: { keys: {} },
+        ground: { keys: {} },
+      }
+    }
+
+    // Ensure current environment build exists
+    if (!fullProfile.builds[this.currentEnvironment]) {
+      fullProfile.builds[this.currentEnvironment] = { keys: {} }
+    }
+
+    // Check if key already exists in the current build
+    if (!fullProfile.builds[this.currentEnvironment].keys[keyName]) {
+      // Add the key to the current build
+      fullProfile.builds[this.currentEnvironment].keys[keyName] = []
+      
+      // Save the full profile back to storage
+      stoStorage.saveProfile(this.currentProfile, fullProfile)
+      
+      // Update UI
       this.renderKeyGrid()
       this.selectKey(keyName)
       this.setModified(true)
@@ -403,10 +427,24 @@ export default class STOToolsKeybindManager {
   }
 
   deleteKey(keyName) {
-    const profile = this.getCurrentProfile()
-    if (profile.keys[keyName]) {
-      delete profile.keys[keyName]
-      stoStorage.saveProfile(this.currentProfile, profile)
+    // Get the full profile from storage
+    const fullProfile = stoStorage.getProfile(this.currentProfile)
+    if (!fullProfile) {
+      stoUI.showToast(i18next.t('no_profile_selected'), 'error')
+      return false
+    }
+
+    // Check if key exists in the current build
+    if (fullProfile.builds && 
+        fullProfile.builds[this.currentEnvironment] && 
+        fullProfile.builds[this.currentEnvironment].keys && 
+        fullProfile.builds[this.currentEnvironment].keys[keyName]) {
+      
+      // Delete the key from the current build
+      delete fullProfile.builds[this.currentEnvironment].keys[keyName]
+      
+      // Save the full profile back to storage
+      stoStorage.saveProfile(this.currentProfile, fullProfile)
 
       if (this.selectedKey === keyName) {
         this.selectedKey = null
@@ -431,10 +469,10 @@ export default class STOToolsKeybindManager {
 
   // Command Management
   addCommand(keyName, command) {
-    const profile = this.getCurrentProfile()
-    
     if (this.currentEnvironment === 'alias') {
-      // Handle alias command addition
+      // Handle alias command addition - aliases are profile-level
+      const profile = this.getCurrentProfile()
+      
       if (!profile.aliases) {
         profile.aliases = {}
       }
@@ -454,39 +492,62 @@ export default class STOToolsKeybindManager {
         profile.aliases[keyName].commands = newCommand
       }
 
+      stoStorage.saveProfile(this.currentProfile, profile)
       stoUI.showToast(i18next.t('command_added_to_alias'), 'success')
     } else {
-      // Handle keybind command addition
-    if (!profile.keys[keyName]) {
-      profile.keys[keyName] = []
-    }
+      // Handle keybind command addition - keybinds are build-specific
+      const fullProfile = stoStorage.getProfile(this.currentProfile)
+      if (!fullProfile) {
+        stoUI.showToast(i18next.t('no_profile_selected'), 'error')
+        return
+      }
 
-    // Handle both single commands and arrays of commands (for tray ranges)
-    if (Array.isArray(command)) {
-      // Array of commands - add each one with unique ID if not already present
-      command.forEach((cmd) => {
-        if (!cmd.id) {
-          cmd.id = this.generateCommandId()
+      // Ensure builds structure exists
+      if (!fullProfile.builds) {
+        fullProfile.builds = {
+          space: { keys: {} },
+          ground: { keys: {} },
         }
-        profile.keys[keyName].push(cmd)
-      })
-      stoUI.showToast(i18next.t('commands_added', {count: command.length}), 'success')
-    } else {
-      // Single command
-      if (!command.id) {
-        command.id = this.generateCommandId()
       }
-      profile.keys[keyName].push(command)
-      stoUI.showToast(i18next.t('command_added'), 'success')
+
+      // Ensure current environment build exists
+      if (!fullProfile.builds[this.currentEnvironment]) {
+        fullProfile.builds[this.currentEnvironment] = { keys: {} }
       }
+
+      // Ensure the key exists
+      if (!fullProfile.builds[this.currentEnvironment].keys[keyName]) {
+        fullProfile.builds[this.currentEnvironment].keys[keyName] = []
+      }
+
+      // Handle both single commands and arrays of commands (for tray ranges)
+      if (Array.isArray(command)) {
+        // Array of commands - add each one with unique ID if not already present
+        command.forEach((cmd) => {
+          if (!cmd.id) {
+            cmd.id = this.generateCommandId()
+          }
+          fullProfile.builds[this.currentEnvironment].keys[keyName].push(cmd)
+        })
+        stoUI.showToast(i18next.t('commands_added', {count: command.length}), 'success')
+      } else {
+        // Single command
+        if (!command.id) {
+          command.id = this.generateCommandId()
+        }
+        fullProfile.builds[this.currentEnvironment].keys[keyName].push(command)
+        stoUI.showToast(i18next.t('command_added'), 'success')
+      }
+
+      // Save the full profile back to storage
+      stoStorage.saveProfile(this.currentProfile, fullProfile)
     }
 
-    stoStorage.saveProfile(this.currentProfile, profile)
     this.renderCommandChain()
     if (this.currentEnvironment === 'alias') {
       this.renderAliasGrid()
     } else {
-    this.renderKeyGrid()
+      this.renderKeyGrid()
     }
     this.setModified(true)
     
@@ -495,10 +556,10 @@ export default class STOToolsKeybindManager {
   }
 
   deleteCommand(keyName, commandIndex) {
-    const profile = this.getCurrentProfile()
-    
     if (this.currentEnvironment === 'alias') {
-      // Handle alias command deletion
+      // Handle alias command deletion - aliases are profile-level
+      const profile = this.getCurrentProfile()
+      
       const alias = profile.aliases && profile.aliases[keyName]
       if (alias && alias.commands) {
         const commands = alias.commands.split('$$').map(cmd => cmd.trim())
@@ -519,28 +580,41 @@ export default class STOToolsKeybindManager {
         }
       }
     } else {
-      // Handle keybind command deletion
-    if (profile.keys[keyName] && profile.keys[keyName][commandIndex]) {
-      const deletedCommand = profile.keys[keyName][commandIndex]
-      profile.keys[keyName].splice(commandIndex, 1)
-      stoStorage.saveProfile(this.currentProfile, profile)
-      this.renderCommandChain()
-      this.renderKeyGrid()
-      this.setModified(true)
+      // Handle keybind command deletion - keybinds are build-specific
+      const fullProfile = stoStorage.getProfile(this.currentProfile)
+      if (!fullProfile) {
+        stoUI.showToast(i18next.t('no_profile_selected'), 'error')
+        return
+      }
 
-      stoUI.showToast(i18next.t('command_deleted'), 'success')
-      
-      // Emit command modification event for auto-sync
-      eventBus.emit('command-modified', { keyName, command: deletedCommand, action: 'delete' })
+      if (fullProfile.builds && 
+          fullProfile.builds[this.currentEnvironment] && 
+          fullProfile.builds[this.currentEnvironment].keys && 
+          fullProfile.builds[this.currentEnvironment].keys[keyName] && 
+          fullProfile.builds[this.currentEnvironment].keys[keyName][commandIndex]) {
+        
+        const deletedCommand = fullProfile.builds[this.currentEnvironment].keys[keyName][commandIndex]
+        fullProfile.builds[this.currentEnvironment].keys[keyName].splice(commandIndex, 1)
+        
+        // Save the full profile back to storage
+        stoStorage.saveProfile(this.currentProfile, fullProfile)
+        this.renderCommandChain()
+        this.renderKeyGrid()
+        this.setModified(true)
+
+        stoUI.showToast(i18next.t('command_deleted'), 'success')
+        
+        // Emit command modification event for auto-sync
+        eventBus.emit('command-modified', { keyName, command: deletedCommand, action: 'delete' })
       }
     }
   }
 
   moveCommand(keyName, fromIndex, toIndex) {
-    const profile = this.getCurrentProfile()
-    
     if (this.currentEnvironment === 'alias') {
-      // Handle alias command movement
+      // Handle alias command movement - aliases are profile-level
+      const profile = this.getCurrentProfile()
+      
       const alias = profile.aliases && profile.aliases[keyName]
       if (alias && alias.commands) {
         const commands = alias.commands.split('$$').map(cmd => cmd.trim())
@@ -564,25 +638,35 @@ export default class STOToolsKeybindManager {
         }
       }
     } else {
-      // Handle keybind command movement
-    const commands = profile.keys[keyName]
+      // Handle keybind command movement - keybinds are build-specific
+      const fullProfile = stoStorage.getProfile(this.currentProfile)
+      if (!fullProfile) {
+        stoUI.showToast(i18next.t('no_profile_selected'), 'error')
+        return
+      }
 
-    if (
-      commands &&
-      fromIndex >= 0 &&
-      fromIndex < commands.length &&
-      toIndex >= 0 &&
-      toIndex < commands.length
-    ) {
-      const [command] = commands.splice(fromIndex, 1)
-      commands.splice(toIndex, 0, command)
+      const commands = fullProfile.builds && 
+                      fullProfile.builds[this.currentEnvironment] && 
+                      fullProfile.builds[this.currentEnvironment].keys && 
+                      fullProfile.builds[this.currentEnvironment].keys[keyName]
 
-      stoStorage.saveProfile(this.currentProfile, profile)
-      this.renderCommandChain()
-      this.setModified(true)
-      
-      // Emit command modification event for auto-sync
-      eventBus.emit('command-modified', { keyName, command, action: 'move', fromIndex, toIndex })
+      if (
+        commands &&
+        fromIndex >= 0 &&
+        fromIndex < commands.length &&
+        toIndex >= 0 &&
+        toIndex < commands.length
+      ) {
+        const [command] = commands.splice(fromIndex, 1)
+        commands.splice(toIndex, 0, command)
+
+        // Save the full profile back to storage
+        stoStorage.saveProfile(this.currentProfile, fullProfile)
+        this.renderCommandChain()
+        this.setModified(true)
+        
+        // Emit command modification event for auto-sync
+        eventBus.emit('command-modified', { keyName, command, action: 'move', fromIndex, toIndex })
       }
     }
   }
@@ -4148,7 +4232,9 @@ export default class STOToolsKeybindManager {
 
   selectKeyFromModal(keyName) {
     modalManager.hide('keySelectionModal')
-    this.selectKey(keyName)
+    
+    // Add the key to the profile if it doesn't exist, then select it
+    this.addKey(keyName)
   }
 
   insertTargetVariable(input) {

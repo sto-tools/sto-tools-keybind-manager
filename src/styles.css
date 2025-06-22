@@ -3896,12 +3896,15 @@ input:checked + .slider:before {
   min-height: 400px;
   width: 800px;
   height: auto;
+  max-height: 90vh; /* Allow expansion up to 90% of viewport height */
 }
 
 #keySelectionModal .modal-body {
   min-height: 300px;
+  max-height: calc(90vh - 120px); /* Account for header and footer */
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* Let content handle scrolling */
 }
 
 #keySelectionModal .key-selection-content {
@@ -3909,11 +3912,15 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden; /* Let sections handle scrolling */
 }
 
 #keySelectionModal .key-capture-section {
   flex-shrink: 0;
   min-height: 60px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 #keySelectionModal .common-keys-section {
@@ -3921,11 +3928,16 @@ input:checked + .slider:before {
   min-height: 200px;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  overflow: hidden; /* Let grid handle scrolling */
 }
 
 #keySelectionModal .common-keys-grid {
   flex: 1;
   min-height: 150px;
+  width: 100%;
+  overflow-y: auto; /* Allow scrolling when content exceeds available space */
+  overflow-x: hidden;
 }
 
 /* Key Selection Modal specific styles - high specificity */
@@ -3934,13 +3946,16 @@ input:checked + .slider:before {
   min-height: 400px !important;
   width: 800px !important;
   height: auto !important;
+  max-height: 90vh !important; /* Allow expansion up to 90% of viewport height */
 }
 
 #keySelectionModal .modal-body {
   min-height: 300px !important;
+  max-height: calc(90vh - 120px) !important; /* Account for header and footer */
   display: flex !important;
   flex-direction: column !important;
   width: 100% !important;
+  overflow: hidden !important; /* Let content handle scrolling */
 }
 
 #keySelectionModal .key-selection-content {
@@ -3949,6 +3964,7 @@ input:checked + .slider:before {
   flex-direction: column !important;
   min-height: 0 !important;
   width: 100% !important;
+  overflow: hidden !important; /* Let sections handle scrolling */
 }
 
 #keySelectionModal .key-capture-section {
@@ -3965,12 +3981,15 @@ input:checked + .slider:before {
   display: flex !important;
   flex-direction: column !important;
   width: 100% !important;
+  overflow: hidden !important; /* Let grid handle scrolling */
 }
 
 #keySelectionModal .common-keys-grid {
   flex: 1 !important;
   min-height: 150px !important;
   width: 100% !important;
+  overflow-y: auto !important; /* Allow scrolling when content exceeds available space */
+  overflow-x: hidden !important;
 }
 
 /* Add Key Modal: Key Capture Confirm Section */
@@ -4120,7 +4139,6 @@ input:checked + .slider:before {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
   gap: 0.5rem;
-  max-height: 200px;
   overflow-y: auto;
 }
 
@@ -4819,7 +4837,8 @@ input:checked + .slider:before {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
   gap: 0.25rem;
-  max-height: 200px;
+  /* Remove max-height constraint to allow expansion */
+  max-height: none !important;
   overflow-y: auto;
 }
 
