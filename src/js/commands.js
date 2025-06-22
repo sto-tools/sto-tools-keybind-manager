@@ -1511,22 +1511,22 @@ export default class STOCommandManager {
   updateCommandPreview() {
     const preview = document.getElementById('modalCommandPreview')
     if (!preview) {
-      console.log('DEBUG: modalCommandPreview element not found')
+      //console.log('DEBUG: modalCommandPreview element not found')
       return
     }
 
     const command = this.buildCurrentCommand()
-    console.log('DEBUG: buildCurrentCommand returned:', command)
+    //console.log('DEBUG: buildCurrentCommand returned:', command)
 
     if (command) {
       // Handle both single commands and arrays of commands
       if (Array.isArray(command)) {
-        console.log('DEBUG: Command is array with length:', command.length)
+        //console.log('DEBUG: Command is array with length:', command.length)
         const commandStrings = command.map((cmd) => cmd.command)
-        console.log('DEBUG: Command strings:', commandStrings)
+        //console.log('DEBUG: Command strings:', commandStrings)
         preview.textContent = commandStrings.join(' $$ ')
       } else {
-        console.log('DEBUG: Command is single object:', command.command)
+        //console.log('DEBUG: Command is single object:', command.command)
         preview.textContent = command.command
       }
       preview.className = 'command-preview valid'

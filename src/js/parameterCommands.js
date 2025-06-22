@@ -1,3 +1,5 @@
+import eventBus from './eventBus.js'
+
 export const parameterCommands = {
     // Parameter Modal for Customizable Commands
     showParameterModal(categoryId, commandId, commandDef) {
