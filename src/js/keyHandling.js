@@ -1,14 +1,42 @@
 import eventBus from "./eventBus.js"
+
+// Helper function to get the application context
+function getAppContext() {
+  // Try to get the global app instance
+  if (typeof global !== 'undefined' && global.app) {
+    return global.app
+  }
+  // Try to get from window in browser environment
+  if (typeof window !== 'undefined' && window.app) {
+    return window.app
+  }
+  // Fallback to any available STOToolsKeybindManager instance
+  if (typeof window !== 'undefined' && window.STOToolsKeybindManager) {
+    return window.STOToolsKeybindManager
+  }
+  return null
+}
+
+// Helper function to ensure we have the required context
+function ensureContext() {
+  const context = getAppContext()
+  if (!context) {
+    throw new Error('keyHandling methods must be called within the application context. Use app.addKey() instead of keyHandling.addKey().')
+  }
+  return context
+}
+
 export const keyHandling = {
   selectKey(keyName) {
-    this.selectedKey = keyName
+    const context = ensureContext()
+    context.selectedKey = keyName
 
-    const profile = this.getCurrentProfile()
+    const profile = context.getCurrentProfile()
     const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder')
     if (stabilizeCheckbox && profile && profile.keybindMetadata) {
       let flag = false
-      if (profile.keybindMetadata[this.currentEnvironment]) {
-        const envMeta = profile.keybindMetadata[this.currentEnvironment]
+      if (profile.keybindMetadata[context.currentEnvironment]) {
+        const envMeta = profile.keybindMetadata[context.currentEnvironment]
         flag = !!(envMeta[keyName] && envMeta[keyName].stabilizeExecutionOrder)
       }
       stabilizeCheckbox.checked = flag
@@ -16,18 +44,20 @@ export const keyHandling = {
       stabilizeCheckbox.checked = false
     }
 
-    this.renderKeyGrid()
-    this.renderCommandChain()
-    this.updateChainActions()
+    context.renderKeyGrid()
+    context.renderCommandChain()
+    context.updateChainActions()
   },
 
   addKey(keyName) {
-    if (!this.isValidKeyName(keyName)) {
+    const context = ensureContext()
+    
+    if (!context.isValidKeyName(keyName)) {
       stoUI.showToast(i18next.t('invalid_key_name'), 'error')
       return false
     }
 
-    const fullProfile = stoStorage.getProfile(this.currentProfile)
+    const fullProfile = stoStorage.getProfile(context.currentProfile)
     if (!fullProfile) {
       stoUI.showToast(i18next.t('no_profile_selected'), 'error')
       return false
@@ -40,18 +70,24 @@ export const keyHandling = {
       }
     }
 
-    if (!fullProfile.builds[this.currentEnvironment]) {
-      fullProfile.builds[this.currentEnvironment] = { keys: {} }
+    if (!fullProfile.builds[context.currentEnvironment]) {
+      fullProfile.builds[context.currentEnvironment] = { keys: {} }
     }
 
-    if (!fullProfile.builds[this.currentEnvironment].keys[keyName]) {
-      fullProfile.builds[this.currentEnvironment].keys[keyName] = []
+    if (!fullProfile.builds[context.currentEnvironment].keys[keyName]) {
+      fullProfile.builds[context.currentEnvironment].keys[keyName] = []
 
-      stoStorage.saveProfile(this.currentProfile, fullProfile)
+      stoStorage.saveProfile(context.currentProfile, fullProfile)
 
-      this.renderKeyGrid()
-      this.selectKey(keyName)
-      this.setModified(true)
+      context.renderKeyGrid()
+      // Call selectKey through the context to avoid recursion
+      if (context.selectKey) {
+        context.selectKey(keyName)
+      } else {
+        // Fallback: set selectedKey directly
+        context.selectedKey = keyName
+      }
+      context.setModified(true)
 
       stoUI.showToast(i18next.t('key_added', { keyName }), 'success')
       return true
@@ -61,7 +97,9 @@ export const keyHandling = {
   },
 
   deleteKey(keyName) {
-    const fullProfile = stoStorage.getProfile(this.currentProfile)
+    const context = ensureContext()
+    
+    const fullProfile = stoStorage.getProfile(context.currentProfile)
     if (!fullProfile) {
       stoUI.showToast(i18next.t('no_profile_selected'), 'error')
       return false
@@ -69,21 +107,21 @@ export const keyHandling = {
 
     if (
       fullProfile.builds &&
-      fullProfile.builds[this.currentEnvironment] &&
-      fullProfile.builds[this.currentEnvironment].keys &&
-      fullProfile.builds[this.currentEnvironment].keys[keyName]
+      fullProfile.builds[context.currentEnvironment] &&
+      fullProfile.builds[context.currentEnvironment].keys &&
+      fullProfile.builds[context.currentEnvironment].keys[keyName]
     ) {
-      delete fullProfile.builds[this.currentEnvironment].keys[keyName]
+      delete fullProfile.builds[context.currentEnvironment].keys[keyName]
 
-      stoStorage.saveProfile(this.currentProfile, fullProfile)
+      stoStorage.saveProfile(context.currentProfile, fullProfile)
 
-      if (this.selectedKey === keyName) {
-        this.selectedKey = null
+      if (context.selectedKey === keyName) {
+        context.selectedKey = null
       }
 
-      this.renderKeyGrid()
-      this.renderCommandChain()
-      this.setModified(true)
+      context.renderKeyGrid()
+      context.renderCommandChain()
+      context.setModified(true)
 
       stoUI.showToast(i18next.t('key_deleted', { keyName }), 'success')
       return true
@@ -97,8 +135,10 @@ export const keyHandling = {
   },
 
   addCommand(keyName, command) {
-    if (this.currentEnvironment === 'alias') {
-      const profile = this.getCurrentProfile()
+    const context = ensureContext()
+    
+    if (context.currentEnvironment === 'alias') {
+      const profile = context.getCurrentProfile()
 
       if (!profile.aliases) {
         profile.aliases = {}
@@ -118,10 +158,10 @@ export const keyHandling = {
         profile.aliases[keyName].commands = newCommand
       }
 
-      stoStorage.saveProfile(this.currentProfile, profile)
+      context.saveCurrentBuild()
       stoUI.showToast(i18next.t('command_added_to_alias'), 'success')
     } else {
-      const fullProfile = stoStorage.getProfile(this.currentProfile)
+      const fullProfile = stoStorage.getProfile(context.currentProfile)
       if (!fullProfile) {
         stoUI.showToast(i18next.t('no_profile_selected'), 'error')
         return
@@ -134,47 +174,49 @@ export const keyHandling = {
         }
       }
 
-      if (!fullProfile.builds[this.currentEnvironment]) {
-        fullProfile.builds[this.currentEnvironment] = { keys: {} }
+      if (!fullProfile.builds[context.currentEnvironment]) {
+        fullProfile.builds[context.currentEnvironment] = { keys: {} }
       }
 
-      if (!fullProfile.builds[this.currentEnvironment].keys[keyName]) {
-        fullProfile.builds[this.currentEnvironment].keys[keyName] = []
+      if (!fullProfile.builds[context.currentEnvironment].keys[keyName]) {
+        fullProfile.builds[context.currentEnvironment].keys[keyName] = []
       }
 
       if (Array.isArray(command)) {
         command.forEach((cmd) => {
           if (!cmd.id) {
-            cmd.id = this.generateCommandId()
+            cmd.id = context.generateCommandId()
           }
-          fullProfile.builds[this.currentEnvironment].keys[keyName].push(cmd)
+          fullProfile.builds[context.currentEnvironment].keys[keyName].push(cmd)
         })
         stoUI.showToast(i18next.t('commands_added', { count: command.length }), 'success')
       } else {
         if (!command.id) {
-          command.id = this.generateCommandId()
+          command.id = context.generateCommandId()
         }
-        fullProfile.builds[this.currentEnvironment].keys[keyName].push(command)
+        fullProfile.builds[context.currentEnvironment].keys[keyName].push(command)
         stoUI.showToast(i18next.t('command_added'), 'success')
       }
 
-      stoStorage.saveProfile(this.currentProfile, fullProfile)
+      stoStorage.saveProfile(context.currentProfile, fullProfile)
     }
 
-    this.renderCommandChain()
-    if (this.currentEnvironment === 'alias') {
-      this.renderAliasGrid()
+    context.renderCommandChain()
+    if (context.currentEnvironment === 'alias') {
+      context.renderAliasGrid()
     } else {
-      this.renderKeyGrid()
+      context.renderKeyGrid()
     }
-    this.setModified(true)
+    context.setModified(true)
 
     eventBus.emit('command-modified', { keyName, command, action: 'add' })
   },
 
   deleteCommand(keyName, commandIndex) {
-    if (this.currentEnvironment === 'alias') {
-      const profile = this.getCurrentProfile()
+    const context = ensureContext()
+    
+    if (context.currentEnvironment === 'alias') {
+      const profile = context.getCurrentProfile()
 
       const alias = profile.aliases && profile.aliases[keyName]
       if (alias && alias.commands) {
@@ -184,10 +226,10 @@ export const keyHandling = {
           commands.splice(commandIndex, 1)
           profile.aliases[keyName].commands = commands.join(' $$ ')
 
-          stoStorage.saveProfile(this.currentProfile, profile)
-          this.renderCommandChain()
-          this.renderAliasGrid()
-          this.setModified(true)
+          context.saveCurrentBuild()
+          context.renderCommandChain()
+          context.renderAliasGrid()
+          context.setModified(true)
 
           stoUI.showToast(i18next.t('command_deleted_from_alias'), 'success')
 
@@ -199,7 +241,7 @@ export const keyHandling = {
         }
       }
     } else {
-      const fullProfile = stoStorage.getProfile(this.currentProfile)
+      const fullProfile = stoStorage.getProfile(context.currentProfile)
       if (!fullProfile) {
         stoUI.showToast(i18next.t('no_profile_selected'), 'error')
         return
@@ -207,18 +249,18 @@ export const keyHandling = {
 
       if (
         fullProfile.builds &&
-        fullProfile.builds[this.currentEnvironment] &&
-        fullProfile.builds[this.currentEnvironment].keys &&
-        fullProfile.builds[this.currentEnvironment].keys[keyName] &&
-        fullProfile.builds[this.currentEnvironment].keys[keyName][commandIndex]
+        fullProfile.builds[context.currentEnvironment] &&
+        fullProfile.builds[context.currentEnvironment].keys &&
+        fullProfile.builds[context.currentEnvironment].keys[keyName] &&
+        fullProfile.builds[context.currentEnvironment].keys[keyName][commandIndex]
       ) {
-        const deletedCommand = fullProfile.builds[this.currentEnvironment].keys[keyName][commandIndex]
-        fullProfile.builds[this.currentEnvironment].keys[keyName].splice(commandIndex, 1)
+        const deletedCommand = fullProfile.builds[context.currentEnvironment].keys[keyName][commandIndex]
+        fullProfile.builds[context.currentEnvironment].keys[keyName].splice(commandIndex, 1)
 
-        stoStorage.saveProfile(this.currentProfile, fullProfile)
-        this.renderCommandChain()
-        this.renderKeyGrid()
-        this.setModified(true)
+        stoStorage.saveProfile(context.currentProfile, fullProfile)
+        context.renderCommandChain()
+        context.renderKeyGrid()
+        context.setModified(true)
 
         stoUI.showToast(i18next.t('command_deleted'), 'success')
 
@@ -228,8 +270,10 @@ export const keyHandling = {
   },
 
   moveCommand(keyName, fromIndex, toIndex) {
-    if (this.currentEnvironment === 'alias') {
-      const profile = this.getCurrentProfile()
+    const context = ensureContext()
+    
+    if (context.currentEnvironment === 'alias') {
+      const profile = context.getCurrentProfile()
 
       const alias = profile.aliases && profile.aliases[keyName]
       if (alias && alias.commands) {
@@ -245,9 +289,9 @@ export const keyHandling = {
           commands.splice(toIndex, 0, command)
 
           profile.aliases[keyName].commands = commands.join(' $$ ')
-          stoStorage.saveProfile(this.currentProfile, profile)
-          this.renderCommandChain()
-          this.setModified(true)
+          context.saveCurrentBuild()
+          context.renderCommandChain()
+          context.setModified(true)
 
           eventBus.emit('command-modified', {
             keyName,
@@ -259,7 +303,7 @@ export const keyHandling = {
         }
       }
     } else {
-      const fullProfile = stoStorage.getProfile(this.currentProfile)
+      const fullProfile = stoStorage.getProfile(context.currentProfile)
       if (!fullProfile) {
         stoUI.showToast(i18next.t('no_profile_selected'), 'error')
         return
@@ -267,9 +311,9 @@ export const keyHandling = {
 
       const commands =
         fullProfile.builds &&
-        fullProfile.builds[this.currentEnvironment] &&
-        fullProfile.builds[this.currentEnvironment].keys &&
-        fullProfile.builds[this.currentEnvironment].keys[keyName]
+        fullProfile.builds[context.currentEnvironment] &&
+        fullProfile.builds[context.currentEnvironment].keys &&
+        fullProfile.builds[context.currentEnvironment].keys[keyName]
 
       if (
         commands &&
@@ -281,9 +325,9 @@ export const keyHandling = {
         const [command] = commands.splice(fromIndex, 1)
         commands.splice(toIndex, 0, command)
 
-        stoStorage.saveProfile(this.currentProfile, fullProfile)
-        this.renderCommandChain()
-        this.setModified(true)
+        stoStorage.saveProfile(context.currentProfile, fullProfile)
+        context.renderCommandChain()
+        context.setModified(true)
 
         eventBus.emit('command-modified', { keyName, command, action: 'move', fromIndex, toIndex })
       }
@@ -291,6 +335,8 @@ export const keyHandling = {
   },
 
   async confirmDeleteKey(keyName) {
+    const context = ensureContext()
+    
     const confirmed = await stoUI.confirm(
       i18next.t('confirm_delete_key', { keyName }),
       i18next.t('delete_key'),
@@ -298,11 +344,19 @@ export const keyHandling = {
     )
 
     if (confirmed) {
-      this.deleteKey(keyName)
+      // Call deleteKey through the context to avoid recursion
+      if (context.deleteKey) {
+        context.deleteKey(keyName)
+      } else {
+        // Fallback: call the method directly
+        this.deleteKey(keyName)
+      }
     }
   },
 
   async confirmClearChain(keyName) {
+    const context = ensureContext()
+    
     const confirmed = await stoUI.confirm(
       i18next.t('confirm_clear_commands', { keyName }),
       i18next.t('clear_commands'),
@@ -310,23 +364,51 @@ export const keyHandling = {
     )
 
     if (confirmed) {
-      const profile = this.getCurrentProfile()
-      profile.keys[keyName] = []
-      this.saveCurrentBuild()
-      this.renderCommandChain()
-      this.renderKeyGrid()
-      this.setModified(true)
+      const fullProfile = stoStorage.getProfile(context.currentProfile)
+      if (!fullProfile) {
+        stoUI.showToast(i18next.t('no_profile_selected'), 'error')
+        return
+      }
 
-      stoUI.showToast(
-        i18next.t('commands_cleared_for_key', { keyName: keyName }),
-        'success'
-      )
+      if (!fullProfile.builds) {
+        fullProfile.builds = {
+          space: { keys: {} },
+          ground: { keys: {} },
+        }
+      }
+
+      if (!fullProfile.builds[context.currentEnvironment]) {
+        fullProfile.builds[context.currentEnvironment] = { keys: {} }
+      }
+
+      if (fullProfile.builds[context.currentEnvironment].keys[keyName]) {
+        fullProfile.builds[context.currentEnvironment].keys[keyName] = []
+        stoStorage.saveProfile(context.currentProfile, fullProfile)
+        context.renderCommandChain()
+        context.renderKeyGrid()
+        context.setModified(true)
+
+        stoUI.showToast(
+          i18next.t('commands_cleared_for_key', { keyName: keyName }),
+          'success'
+        )
+      }
     }
   },
 
   duplicateKey(keyName) {
-    const profile = this.getCurrentProfile()
-    const commands = profile.keys[keyName]
+    const context = ensureContext()
+    
+    const fullProfile = stoStorage.getProfile(context.currentProfile)
+    if (!fullProfile) {
+      stoUI.showToast(i18next.t('no_profile_selected'), 'error')
+      return
+    }
+
+    const commands = fullProfile.builds &&
+      fullProfile.builds[context.currentEnvironment] &&
+      fullProfile.builds[context.currentEnvironment].keys &&
+      fullProfile.builds[context.currentEnvironment].keys[keyName]
 
     if (!commands || commands.length === 0) {
       stoUI.showToast(i18next.t('no_commands_to_duplicate'), 'warning')
@@ -336,20 +418,20 @@ export const keyHandling = {
     let newKeyName = keyName + '_copy'
     let counter = 1
 
-    while (profile.keys[newKeyName]) {
+    while (fullProfile.builds[context.currentEnvironment].keys[newKeyName]) {
       newKeyName = `${keyName}_copy_${counter}`
       counter++
     }
 
     const clonedCommands = commands.map((cmd) => ({
       ...cmd,
-      id: this.generateCommandId(),
+      id: context.generateCommandId(),
     }))
 
-    profile.keys[newKeyName] = clonedCommands
-    stoStorage.saveProfile(this.currentProfile, profile)
-    this.renderKeyGrid()
-    this.setModified(true)
+    fullProfile.builds[context.currentEnvironment].keys[newKeyName] = clonedCommands
+    stoStorage.saveProfile(context.currentProfile, fullProfile)
+    context.renderKeyGrid()
+    context.setModified(true)
 
     stoUI.showToast(
       i18next.t('key_duplicated', { keyName: keyName, newKeyName: newKeyName }),
@@ -358,20 +440,22 @@ export const keyHandling = {
   },
 
   validateCurrentChain() {
-    if (!this.selectedKey) {
+    const context = ensureContext()
+    
+    if (!context.selectedKey) {
       stoUI.showToast(i18next.t('no_key_selected'), 'warning')
       return
     }
 
-    const profile = this.getCurrentProfile()
-    const commands = profile.keys[this.selectedKey] || []
+    const profile = context.getCurrentProfile()
+    const commands = profile.keys[context.selectedKey] || []
 
     if (commands.length === 0) {
       stoUI.showToast(i18next.t('no_commands_to_validate'), 'warning')
       return
     }
 
-    const validation = stoKeybinds.validateKeybind(this.selectedKey, commands)
+    const validation = stoKeybinds.validateKeybind(context.selectedKey, commands)
 
     if (validation.valid) {
       stoUI.showToast(i18next.t('command_chain_is_valid'), 'success')
@@ -382,6 +466,7 @@ export const keyHandling = {
   },
 
   generateCommandId() {
+    const context = ensureContext()
     return 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
   },
 }
