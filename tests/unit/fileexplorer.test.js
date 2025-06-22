@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import '../../src/js/data.js'
-import eventBus from '../../src/js/eventBus.js'
-import STOUIManager from '../../src/js/ui.js'
-import STOStorage from '../../src/js/storage.js'
-import STOExportManager from '../../src/js/export.js'
-import STOFileExplorer from '../../src/js/fileexplorer.js'
+import eventBus from '../../src/js/core/eventBus.js'
+import STOUIManager from '../../src/js/ui/ui.js'
+import STOStorage from '../../src/js/services/storage.js'
+import STOExportManager from '../../src/js/features/export.js'
+import STOFileExplorer from '../../src/js/ui/fileexplorer.js'
 
 // Load real HTML
 const htmlContent = readFileSync(

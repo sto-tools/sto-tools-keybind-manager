@@ -1,4 +1,4 @@
-import eventBus from "./eventBus.js"
+import eventBus from "../core/eventBus.js"
 
 // Helper function to get the application context
 function getAppContext() {

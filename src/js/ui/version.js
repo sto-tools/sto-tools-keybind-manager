@@ -1,4 +1,4 @@
-import { DISPLAY_VERSION } from './constants.js'
+import { DISPLAY_VERSION } from '../core/constants.js'
 /**
  * Version display management
  */

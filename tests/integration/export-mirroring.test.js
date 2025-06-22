@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // Mock writeFile from sync.js
-vi.mock('../../src/js/sync.js', () => ({
+vi.mock('../../src/js/services/sync.js', () => ({
   writeFile: vi.fn()
 }))
 
 import '../../src/js/data.js'
-import STOStorage from '../../src/js/storage.js'
-import STOKeybindFileManager from '../../src/js/keybinds.js'
-import STOExportManager from '../../src/js/export.js'
-import store, { resetStore } from '../../src/js/store.js'
-import { writeFile } from '../../src/js/sync.js'
+import STOStorage from '../../src/js/services/storage.js'
+import STOKeybindFileManager from '../../src/js/features/keybinds.js'
+import STOExportManager from '../../src/js/features/export.js'
+import store, { resetStore } from '../../src/js/core/store.js'
+import { writeFile } from '../../src/js/services/sync.js'
 
 describe('Export Mirroring Integration', () => {
   let app, stoStorage, stoKeybinds, stoExport, stoUI

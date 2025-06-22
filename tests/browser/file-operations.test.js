@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import eventBus from '../../src/js/eventBus.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
 /**
  * E2E Tests for File Import/Export Operations

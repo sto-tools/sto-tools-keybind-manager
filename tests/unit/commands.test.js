@@ -46,7 +46,7 @@ describe('STOCommandManager', () => {
 
     // Load the commands module as ES module and instantiate
     const { default: STOCommandManager } = await import(
-      '../../src/js/commands.js'
+      '../../src/js/features/commands.js'
     )
     commandManager = new STOCommandManager()
     global.window.stoCommands = commandManager

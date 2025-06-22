@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Profile Management
 // Handles profile creation, editing, and management operations
-import store from './store.js'
-import eventBus from './eventBus.js'
+import store from '../core/store.js'
+import eventBus from '../core/eventBus.js'
 
 export default class STOProfileManager {
   constructor() {

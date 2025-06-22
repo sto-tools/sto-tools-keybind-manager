@@ -1,6 +1,6 @@
 // Integration test for command library alias persistence
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import eventBus from '../../src/js/eventBus.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
 describe('Command Library Alias Persistence Integration', () => {
   let mockApp, mockProfile, mockUI, mockStorage, mockAliasManager
@@ -109,7 +109,7 @@ describe('Command Library Alias Persistence Integration', () => {
   it('should preserve aliases when setupCommandLibrary is called after aliases are added', async () => {
     // Import and create the app and alias manager instances
     const { default: STOToolsKeybindManager } = await import('../../src/js/app.js')
-    const { default: STOAliasManager } = await import('../../src/js/aliases.js')
+    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
 
     // Create real app instance
     const app = new STOToolsKeybindManager()
@@ -167,7 +167,7 @@ describe('Command Library Alias Persistence Integration', () => {
   it('should handle multiple setupCommandLibrary calls without losing aliases', async () => {
     // Import and create instances
     const { default: STOToolsKeybindManager } = await import('../../src/js/app.js')
-    const { default: STOAliasManager } = await import('../../src/js/aliases.js')
+    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
 
     const app = new STOToolsKeybindManager()
     global.app = app

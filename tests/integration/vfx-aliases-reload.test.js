@@ -1,6 +1,6 @@
 // Integration test for VFX aliases reload issue
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import eventBus from '../../src/js/eventBus.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
 describe('VFX Aliases Reload Integration', () => {
   let mockApp, mockProfile, mockUI, mockStorage
@@ -84,7 +84,7 @@ describe('VFX Aliases Reload Integration', () => {
 
   it('should initialize aliases in command library after app ready event', async () => {
     // Import the aliases.js module and create a new instance for testing
-    const { default: STOAliasManager } = await import('../../src/js/aliases.js')
+    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
 
     // Create alias manager instance manually for testing
     const aliasManager = new STOAliasManager()
@@ -130,7 +130,7 @@ describe('VFX Aliases Reload Integration', () => {
 
   it('should handle app ready event timing correctly', async () => {
     // Import and instantiate the alias manager
-    const { default: STOAliasManager } = await import('../../src/js/aliases.js')
+    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
     const aliasManager = new STOAliasManager()
     global.stoAliases = aliasManager
     const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary')
@@ -159,7 +159,7 @@ describe('VFX Aliases Reload Integration', () => {
 
   it('should maintain VFX aliases across simulated reload', async () => {
     // Import and instantiate the alias manager
-    const { default: STOAliasManager } = await import('../../src/js/aliases.js')
+    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
     const aliasManager1 = new STOAliasManager()
     global.stoAliases = aliasManager1
     aliasManager1.init()
@@ -202,7 +202,7 @@ describe('VFX Aliases Reload Integration', () => {
     })
 
     // Import and instantiate the alias manager
-    const { default: STOAliasManager } = await import('../../src/js/aliases.js')
+    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
     const aliasManager = new STOAliasManager()
     global.stoAliases = aliasManager
     const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary')

@@ -7,12 +7,12 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 
 // Import real modules in dependency order
 import '../../src/js/data.js'
-import eventBus from '../../src/js/eventBus.js'
-import store, { resetStore } from '../../src/js/store.js'
-import STOStorage from '../../src/js/storage.js'
-import STOProfileManager from '../../src/js/profiles.js'
-import STOKeybindFileManager from '../../src/js/keybinds.js'
-import STOUIManager from '../../src/js/ui.js'
+import eventBus from '../../src/js/core/eventBus.js'
+import store, { resetStore } from '../../src/js/core/store.js'
+import STOStorage from '../../src/js/services/storage.js'
+import STOProfileManager from '../../src/js/features/profiles.js'
+import STOKeybindFileManager from '../../src/js/features/keybinds.js'
+import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 
 let app

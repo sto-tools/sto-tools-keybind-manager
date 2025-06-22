@@ -1,12 +1,12 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import '../../src/js/data.js'
-import STOSyncManager, { writeFile } from '../../src/js/sync.js'
-import STOExportManager from '../../src/js/export.js'
-import STOStorage from '../../src/js/storage.js'
-import eventBus from '../../src/js/eventBus.js'
+import STOSyncManager, { writeFile } from '../../src/js/services/sync.js'
+import STOExportManager from '../../src/js/features/export.js'
+import STOStorage from '../../src/js/services/storage.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
 const store = new Map()
-vi.mock('../../src/js/fsHandles.js', () => ({
+vi.mock('../../src/js/services/fsHandles.js', () => ({
   saveDirectoryHandle: vi.fn((k, h) => {
     store.set(k, h)
     return Promise.resolve()

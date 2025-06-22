@@ -17,7 +17,7 @@ describe('STOUIManager', () => {
     document.documentElement.innerHTML = htmlContent
 
     // Import the UI class and create an instance
-    const { default: STOUIManager } = await import('../../src/js/ui.js')
+    const { default: STOUIManager } = await import('../../src/js/ui/ui.js')
     stoUI = new STOUIManager()
     window.stoUI = stoUI
 

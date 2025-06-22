@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // Hoisted mock for writeFile from sync.js
 const writeFileMock = vi.fn()
-vi.mock('../../src/js/sync.js', () => ({
+vi.mock('../../src/js/services/sync.js', () => ({
   writeFile: vi.fn()
 }))
 
-import STOExportManager from '../../src/js/export.js'
+import STOExportManager from '../../src/js/features/export.js'
 import '../../src/js/data.js'
 import { mock } from 'fsa-mock'
-import { writeFile } from '../../src/js/sync.js'
+import { writeFile } from '../../src/js/services/sync.js'
 
 // Mock STO_DATA for tests
 global.STO_DATA = {

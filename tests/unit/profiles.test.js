@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import eventBus from '../../src/js/eventBus.js'
-import STOStorage from '../../src/js/storage.js'
+import eventBus from '../../src/js/core/eventBus.js'
+import STOStorage from '../../src/js/services/storage.js'
 
 describe('STOProfileManager', () => {
   let profileManager
@@ -105,7 +105,7 @@ describe('STOProfileManager', () => {
 
     // Load the profiles module as ES module and instantiate
     const { default: STOProfileManager } = await import(
-      '../../src/js/profiles.js'
+      '../../src/js/features/profiles.js'
     )
     profileManager = new STOProfileManager()
     profileManager.init()

@@ -1,4 +1,4 @@
-import eventBus from "./eventBus.js"
+import eventBus from "../core/eventBus.js"
 export const profileManagement = {
   async loadData() {
     const data = stoStorage.getAllData()

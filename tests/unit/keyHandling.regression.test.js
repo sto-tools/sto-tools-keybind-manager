@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { keyHandling } from '../../src/js/keyHandling.js'
+import { keyHandling } from '../../src/js/features/keyHandling.js'
 
 let getElementByIdSpy
 

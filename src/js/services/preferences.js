@@ -1,7 +1,7 @@
 // STO Tools Keybind Manager - Preferences Manager
 // Handles the revamped preferences modal with category tree and flexible settings
 
-import eventBus from './eventBus.js'
+import eventBus from '../core/eventBus.js'
 import i18next from 'i18next'
 
 export default class STOPreferencesManager {
