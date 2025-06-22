@@ -220,7 +220,7 @@ export const keyHandling = {
 
       const alias = profile.aliases && profile.aliases[keyName]
       if (alias && alias.commands) {
-        const commands = alias.commands.split('$$').map((cmd) => cmd.trim())
+        const commands = alias.commands.split(/\s*\$\$\s*/).map((cmd) => cmd.trim())
         if (commandIndex >= 0 && commandIndex < commands.length) {
           const deletedCommand = commands[commandIndex]
           commands.splice(commandIndex, 1)
@@ -277,7 +277,7 @@ export const keyHandling = {
 
       const alias = profile.aliases && profile.aliases[keyName]
       if (alias && alias.commands) {
-        const commands = alias.commands.split('$$').map((cmd) => cmd.trim())
+        const commands = alias.commands.split(/\s*\$\$\s*/).map((cmd) => cmd.trim())
 
         if (
           fromIndex >= 0 &&

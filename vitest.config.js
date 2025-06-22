@@ -32,5 +32,19 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis'
+  },
+  optimizeDeps: {
+    exclude: [
+      "chromium-bidi/lib/cjs/bidiMapper/BidiMapper",
+      "chromium-bidi/lib/cjs/cdp/CdpConnection"
+    ]
+  },
+  build: {
+    rollupOptions: {
+      external: [
+        "chromium-bidi/lib/cjs/bidiMapper/BidiMapper",
+        "chromium-bidi/lib/cjs/cdp/CdpConnection"
+      ]
+    }
   }
 }) 

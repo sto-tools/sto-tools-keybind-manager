@@ -229,13 +229,22 @@ export const uiRendering = {
   createKeyElementHTML(keyName) {
     const profile = this.getCurrentProfile()
     const commands = profile.keys[keyName] || []
-    const isActive = this.selectedKey === keyName
+    const isActive = keyName === this.selectedKey
 
-    const keyLength = keyName.length
+    // Filter out blank commands for display
+    const nonBlankCommands = commands.filter(cmd => {
+      if (typeof cmd === 'string') {
+        return cmd.trim() !== ''
+      } else if (cmd && typeof cmd === 'object' && typeof cmd.command === 'string') {
+        return cmd.command.trim() !== ''
+      }
+      return false
+    })
+
     let lengthClass
-    if (keyLength <= 6) {
+    if (keyName.length <= 3) {
       lengthClass = 'short'
-    } else if (keyLength <= 12) {
+    } else if (keyName.length <= 5) {
       lengthClass = 'medium'
     } else {
       lengthClass = 'long'
@@ -245,9 +254,9 @@ export const uiRendering = {
             <div class="command-item ${isActive ? 'active' : ''}" data-key="${keyName}" data-length="${lengthClass}">
                 <span class="key-label">${keyName}</span>
                 ${
-                  commands.length > 0
+                  nonBlankCommands.length > 0
                     ? `
-                    <span class="command-count-badge">${commands.length}</span>
+                    <span class="command-count-badge">${nonBlankCommands.length}</span>
                 `
                     : ''
                 }
@@ -466,10 +475,20 @@ export const uiRendering = {
     const commands = profile.keys[keyName] || []
     const isSelected = keyName === this.selectedKey
 
+    // Filter out blank commands for display
+    const nonBlankCommands = commands.filter(cmd => {
+      if (typeof cmd === 'string') {
+        return cmd.trim() !== ''
+      } else if (cmd && typeof cmd === 'object' && typeof cmd.command === 'string') {
+        return cmd.command.trim() !== ''
+      }
+      return false
+    })
+
     const keyElement = document.createElement('div')
     keyElement.className = `key-item ${isSelected ? 'active' : ''}`
     keyElement.dataset.key = keyName
-    keyElement.title = `${keyName}: ${commands.length} command${commands.length !== 1 ? 's' : ''}`
+    keyElement.title = `${keyName}: ${nonBlankCommands.length} command${nonBlankCommands.length !== 1 ? 's' : ''}`
 
     const formattedKeyName = this.formatKeyName(keyName)
     const hasLineBreaks = formattedKeyName.includes('<br>')
@@ -503,10 +522,10 @@ export const uiRendering = {
     keyElement.innerHTML = `
             <div class="key-label">${formattedKeyName}</div>
             ${
-              commands.length > 0
+              nonBlankCommands.length > 0
                 ? `
-                <div class="activity-bar" style="width: ${Math.min(commands.length * 15, 100)}%"></div>
-                <div class="command-count-badge">${commands.length}</div>
+                <div class="activity-bar" style="width: ${Math.min(nonBlankCommands.length * 15, 100)}%"></div>
+                <div class="command-count-badge">${nonBlankCommands.length}</div>
             `
                 : ''
             }

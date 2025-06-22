@@ -58,7 +58,7 @@ export const commandLibrary = {
       const alias = profile.aliases && profile.aliases[this.selectedKey]
       if (alias && alias.commands) {
         // Convert alias command string to command array format
-        const commandStrings = alias.commands.split('$$').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0)
+        const commandStrings = alias.commands.split(/\s*\$\$\s*/).map(cmd => cmd.trim()).filter(cmd => cmd.length > 0)
         commands = commandStrings.map((cmd, index) => {
           // Find the command definition to get the correct icon and name
           const commandDef = this.findCommandDefinition({ command: cmd })
@@ -85,7 +85,13 @@ export const commandLibrary = {
         preview.textContent = ''
         return
       }
-      commands = profile.keys[this.selectedKey] || []
+      // Filter out blank commands for display in the command chain
+      const allCommands = profile.keys[this.selectedKey] || []
+      commands = allCommands.filter(cmd => {
+        if (!cmd || typeof cmd !== 'object') return false
+        if (typeof cmd.command !== 'string') return false
+        return cmd.command.trim().length > 0
+      })
     }
 
     const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'

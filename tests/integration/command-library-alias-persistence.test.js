@@ -34,7 +34,7 @@ describe('Command Library Alias Persistence Integration', () => {
       keys: {},
     }
 
-    // Mock storage
+    // Mock storage with all required methods
     mockStorage = {
       getProfile: vi.fn(() => mockProfile),
       getAllData: vi.fn(() => ({
@@ -43,6 +43,23 @@ describe('Command Library Alias Persistence Integration', () => {
           'test-profile': mockProfile,
         },
       })),
+      getSettings: vi.fn(() => ({
+        theme: 'default',
+        language: 'en',
+        autoSave: true,
+        showTooltips: true,
+        confirmDeletes: true,
+        maxUndoSteps: 50,
+        defaultMode: 'space',
+        compactView: false,
+        syncFolderName: null,
+        syncFolderPath: null,
+        autoSync: false,
+        autoSyncInterval: 'change',
+      })),
+      saveSettings: vi.fn(() => true),
+      saveProfile: vi.fn(() => true),
+      saveAllData: vi.fn(() => true),
     }
 
     // Mock app
