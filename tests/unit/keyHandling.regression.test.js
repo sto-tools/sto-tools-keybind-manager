@@ -137,4 +137,23 @@ describe('keyHandling direct-call regression (context binding)', () => {
     expect(typeof keyHandling.generateCommandId).toBe('function')
     expect(typeof keyHandling.validateCurrentChain).toBe('function')
   })
+
+  it('confirmDeleteKey works when context has deleteKey method', async () => {
+    // Add deleteKey method to the mock context
+    window.app.deleteKey = vi.fn()
+    
+    await keyHandling.confirmDeleteKey('F1')
+    
+    expect(window.stoUI.confirm).toHaveBeenCalled()
+    expect(window.app.deleteKey).toHaveBeenCalledWith('F1')
+  })
+
+  it('confirmDeleteKey throws error when context is missing deleteKey method', async () => {
+    // Ensure deleteKey method is not present
+    delete window.app.deleteKey
+    
+    await expect(keyHandling.confirmDeleteKey('F1')).rejects.toThrow(
+      'Application context is missing deleteKey method. This indicates a configuration issue.'
+    )
+  })
 }) 

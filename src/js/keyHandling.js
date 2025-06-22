@@ -344,13 +344,13 @@ export const keyHandling = {
     )
 
     if (confirmed) {
-      // Call deleteKey through the context to avoid recursion
-      if (context.deleteKey) {
-        context.deleteKey(keyName)
-      } else {
-        // Fallback: call the method directly
-        this.deleteKey(keyName)
+      // Ensure the context has the deleteKey method available
+      if (!context.deleteKey) {
+        throw new Error('Application context is missing deleteKey method. This indicates a configuration issue.')
       }
+      
+      // Call deleteKey through the context
+      context.deleteKey(keyName)
     }
   },
 
