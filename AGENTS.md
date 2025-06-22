@@ -71,4 +71,5 @@ The application currently supports:
 - Follow the established project structure and naming conventions
 - When adding new features, consider the impact on existing functionality
 - Prioritize test coverage and code maintainability
-- Remember that the user handles translation coordination - focus on English content only 
+- Remember that the user handles translation coordination - focus on English content only
+- 'npm run build' must be run prior to 'npm test' type commands
