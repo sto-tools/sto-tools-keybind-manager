@@ -290,6 +290,97 @@ export const keyHandling = {
     }
   },
 
+  async confirmDeleteKey(keyName) {
+    const confirmed = await stoUI.confirm(
+      i18next.t('confirm_delete_key', { keyName }),
+      i18next.t('delete_key'),
+      'danger'
+    )
+
+    if (confirmed) {
+      this.deleteKey(keyName)
+    }
+  },
+
+  async confirmClearChain(keyName) {
+    const confirmed = await stoUI.confirm(
+      i18next.t('confirm_clear_commands', { keyName }),
+      i18next.t('clear_commands'),
+      'warning'
+    )
+
+    if (confirmed) {
+      const profile = this.getCurrentProfile()
+      profile.keys[keyName] = []
+      this.saveCurrentBuild()
+      this.renderCommandChain()
+      this.renderKeyGrid()
+      this.setModified(true)
+
+      stoUI.showToast(
+        i18next.t('commands_cleared_for_key', { keyName: keyName }),
+        'success'
+      )
+    }
+  },
+
+  duplicateKey(keyName) {
+    const profile = this.getCurrentProfile()
+    const commands = profile.keys[keyName]
+
+    if (!commands || commands.length === 0) {
+      stoUI.showToast(i18next.t('no_commands_to_duplicate'), 'warning')
+      return
+    }
+
+    let newKeyName = keyName + '_copy'
+    let counter = 1
+
+    while (profile.keys[newKeyName]) {
+      newKeyName = `${keyName}_copy_${counter}`
+      counter++
+    }
+
+    const clonedCommands = commands.map((cmd) => ({
+      ...cmd,
+      id: this.generateCommandId(),
+    }))
+
+    profile.keys[newKeyName] = clonedCommands
+    stoStorage.saveProfile(this.currentProfile, profile)
+    this.renderKeyGrid()
+    this.setModified(true)
+
+    stoUI.showToast(
+      i18next.t('key_duplicated', { keyName: keyName, newKeyName: newKeyName }),
+      'success'
+    )
+  },
+
+  validateCurrentChain() {
+    if (!this.selectedKey) {
+      stoUI.showToast(i18next.t('no_key_selected'), 'warning')
+      return
+    }
+
+    const profile = this.getCurrentProfile()
+    const commands = profile.keys[this.selectedKey] || []
+
+    if (commands.length === 0) {
+      stoUI.showToast(i18next.t('no_commands_to_validate'), 'warning')
+      return
+    }
+
+    const validation = stoKeybinds.validateKeybind(this.selectedKey, commands)
+
+    if (validation.valid) {
+      stoUI.showToast(i18next.t('command_chain_is_valid'), 'success')
+    } else {
+      const errorMsg = 'Validation errors:\n' + validation.errors.join('\n')
+      stoUI.showToast(i18next.t('error_message', { error: errorMsg }), 'error', 5000)
+    }
+  },
+
   generateCommandId() {
     return 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
   },

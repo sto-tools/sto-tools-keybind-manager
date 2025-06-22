@@ -441,7 +441,25 @@ export const commandLibrary = {
         }
       })
     }
-  }
+  },
 
+  toggleLibrary() {
+    const content = document.getElementById('libraryContent')
+    const btn = document.getElementById('toggleLibraryBtn')
+
+    if (content && btn) {
+      const isCollapsed = content.style.display === 'none'
+      content.style.display = isCollapsed ? 'block' : 'none'
+
+      const icon = btn.querySelector('i')
+      if (icon) {
+        icon.className = isCollapsed ? 'fas fa-chevron-up' : 'fas fa-chevron-down'
+      }
+    }
+  },
+
+  showTemplateModal() {
+    stoUI.showToast(i18next.t('template_system_coming_soon'))
+  },
 
 };
