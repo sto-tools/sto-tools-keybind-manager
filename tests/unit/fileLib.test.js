@@ -29,4 +29,38 @@ describe('STOFileHandler library', () => {
     expect(txt).toContain('F1 "say hi"')
     expect(txt).toContain('STO Keybind Configuration')
   })
+
+  it('handles getCommandText when STO_DATA.commands is undefined', () => {
+    // Save original STO_DATA
+    const originalSTO_DATA = globalThis.STO_DATA
+    
+    // Set STO_DATA to an object without commands property
+    globalThis.STO_DATA = {}
+    
+    try {
+      // This should not throw a TypeError
+      const result = lib.getCommandText('some_command')
+      expect(result).toBe('some command')
+    } finally {
+      // Restore original STO_DATA
+      globalThis.STO_DATA = originalSTO_DATA
+    }
+  })
+
+  it('handles getCommandText when STO_DATA is undefined', () => {
+    // Save original STO_DATA
+    const originalSTO_DATA = globalThis.STO_DATA
+    
+    // Set STO_DATA to undefined
+    globalThis.STO_DATA = undefined
+    
+    try {
+      // This should not throw a TypeError
+      const result = lib.getCommandText('some_command')
+      expect(result).toBe('some command')
+    } finally {
+      // Restore original STO_DATA
+      globalThis.STO_DATA = originalSTO_DATA
+    }
+  })
 })

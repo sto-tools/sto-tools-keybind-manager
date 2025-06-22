@@ -58,7 +58,7 @@ export const commandLibrary = {
       const alias = profile.aliases && profile.aliases[this.selectedKey]
       if (alias && alias.commands) {
         // Convert alias command string to command array format
-        const commandStrings = alias.commands.split('$$').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0)
+        const commandStrings = alias.commands.split(/\s*\$\$\s*/).map(cmd => cmd.trim()).filter(cmd => cmd.length > 0)
         commands = commandStrings.map((cmd, index) => {
           // Find the command definition to get the correct icon and name
           const commandDef = this.findCommandDefinition({ command: cmd })

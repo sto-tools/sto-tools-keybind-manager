@@ -45,7 +45,7 @@ export const aliasView = {
   },
 
   createAliasChainElement(name, alias) {
-    const commandCount = alias.commands ? alias.commands.split('$$').length : 0
+    const commandCount = alias.commands ? alias.commands.split(/\s*\$\$\s*/).length : 0
     const isSelected = this.selectedKey === name // Reuse selectedKey for alias selection
     const description = alias.description || ''
     

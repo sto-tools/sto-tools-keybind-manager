@@ -101,7 +101,7 @@ export default class STOFileHandler {
 
   generateMirroredCommandString(commands) {
     if (!commands || commands.length <= 1) {
-      return commands.map(c => c.command || c).join(' $$ ')
+      return (commands || []).map(c => c.command || c).join(' $$ ')
     }
     const commandStrings = commands.map(c => c.command || c)
     const reversed = [...commandStrings].reverse().slice(1)
@@ -113,7 +113,7 @@ export default class STOFileHandler {
     if (!commandString || typeof commandString !== 'string') {
       return { isMirrored: false, originalCommands: [] }
     }
-    const cmds = commandString.split(' $$ ').map(c => c.trim()).filter(c => c)
+    const cmds = commandString.split(/\s*\$\$\s*/).map(c => c.trim()).filter(c => c)
     if (cmds.length <= 1) return { isMirrored: false, originalCommands: cmds }
     if (cmds.length < 3 || cmds.length % 2 === 0) {
       return { isMirrored: false, originalCommands: cmds }
@@ -129,7 +129,7 @@ export default class STOFileHandler {
   }
 
   parseCommandString(commandString) {
-    const commands = commandString.split('$$').map(c => c.trim())
+    const commands = commandString.split(/\s*\$\$\s*/).map(c => c.trim())
     return commands.map((command, index) => {
       const type = this.detectCommandType(command)
       const obj = {
@@ -194,10 +194,12 @@ export default class STOFileHandler {
         return `Execute Tray ${tray} Slot ${slot}`
       }
     }
-    for (const [, category] of Object.entries(STO_DATA.commands)) {
-      for (const [, cmd] of Object.entries(category.commands)) {
-        if (cmd.command === command) {
-          return cmd.name
+    if (STO_DATA.commands) {
+      for (const [, category] of Object.entries(STO_DATA.commands)) {
+        for (const [, cmd] of Object.entries(category.commands)) {
+          if (cmd.command === command) {
+            return cmd.name
+          }
         }
       }
     }
@@ -287,7 +289,7 @@ export default class STOFileHandler {
         if (options.stabilizeExecutionOrder || shouldStabilize) {
           commandString = this.generateMirroredCommandString(commands)
         } else {
-          commandString = commands.map((c) => c.command).join(' $$ ')
+          commandString = commands.map((c) => c.command).join('$$')
         }
         content += `${key} "${commandString}"\n`
       }
