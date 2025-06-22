@@ -10,7 +10,7 @@ import { uiRendering } from './uiRendering.js'
 import { parameterCommands } from './parameterCommands.js'
 import { keyCapture } from './keyCapture.js'
 import { eventHandlers } from './eventHandlers.js'
-import { projectOperations } from './projectOperations.js'
+import { projectManagement } from './projectManagement.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -1269,7 +1269,7 @@ Object.assign(
   parameterCommands,
   keyCapture,
   eventHandlers,
-  projectOperations,
+  projectManagement,
 )
 ;
 

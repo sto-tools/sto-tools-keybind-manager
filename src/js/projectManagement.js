@@ -1,6 +1,6 @@
 import eventBus from './eventBus.js'
 
-export const projectOperations = {
+export const projectManagement = {
   openProject() {
     const input = document.getElementById('fileInput')
     input.accept = '.json'
@@ -10,8 +10,6 @@ export const projectOperations = {
         const reader = new FileReader()
         reader.onload = (e) => {
           try {
-            // Use the export manager's importJSONFile method to handle both
-            // direct data and wrapped project files
             const success = stoExport.importJSONFile(e.target.result)
             if (success) {
               this.loadData()
