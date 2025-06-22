@@ -956,5 +956,8 @@
   "stotrayexecbytray_description": "Führt Tray-Befehle basierend auf der aktuellen Tray-Nummer aus",
   "tray_command": "Tray-Befehl",
   "trayexecbytray_description": "Führt Befehle basierend auf der aktuellen Tray-Nummer aus",
-  "vfx_aliases": "VFX-Aliase"
+  "vfx_aliases": "VFX-Aliase",
+  "delete_selected_key": "Ausgewählte Taste löschen",
+  "duplicate_selected_key": "Ausgewählte Taste duplizieren",
+  "show_all_keys": "Alle Tasten anzeigen"
 }

@@ -967,5 +967,8 @@
   "netgraph": "Net Graph",
   "enable_disable": "Enable/Disable",
   "transparency_level": "Transparency Level",
-  "pause_state": "Pause State"
+  "pause_state": "Pause State",
+  "delete_selected_key": "Delete Selected Key",
+  "duplicate_selected_key": "Duplicate Selected Key",
+  "show_all_keys": "Show All Keys"
 }

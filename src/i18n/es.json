@@ -965,5 +965,8 @@
   "netgraph": "Gráfico de Red",
   "enable_disable": "Activar/Desactivar",
   "transparency_level": "Nivel de Transparencia",
-  "pause_state": "Estado de Pausa"
+  "pause_state": "Estado de Pausa",
+  "delete_selected_key": "Eliminar tecla seleccionada",
+  "duplicate_selected_key": "Duplicar tecla seleccionada",
+  "show_all_keys": "Mostrar todas las teclas"
 }

@@ -944,5 +944,8 @@
   "net_timing_graph": "Graphique de timing réseau",
   "net_timing_graph_alpha": "Graphique de timing réseau alpha",
   "net_timing_graph_paused": "Graphique de timing réseau en pause",
-  "netgraph": "Graphique réseau"
+  "netgraph": "Graphique réseau",
+  "delete_selected_key": "Supprimer la touche sélectionnée",
+  "duplicate_selected_key": "Dupliquer la touche sélectionnée",
+  "show_all_keys": "Afficher toutes les touches"
 }
