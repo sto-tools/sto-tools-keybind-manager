@@ -17,6 +17,41 @@ export const profileManagement = {
     }
   },
 
+  saveProfile() {
+    const virtualProfile = this.getCurrentProfile()
+
+    if (!virtualProfile) {
+      return
+    }
+
+    // Save current build data to the proper structure
+    this.saveCurrentBuild()
+
+    // Get the actual stored profile structure AFTER saveCurrentBuild
+    const actualProfile = stoStorage.getProfile(this.currentProfile)
+    if (!actualProfile) {
+      return
+    }
+
+    // Update profile-level data (aliases, metadata, etc.) from virtual profile
+    // but preserve the builds structure that was just saved
+    const updatedProfile = {
+      ...actualProfile, // Keep the actual structure with builds (now includes saved keybinds)
+      // Update profile-level fields from virtual profile
+      name: virtualProfile.name,
+      description: virtualProfile.description || actualProfile.description,
+      aliases: virtualProfile.aliases || {},
+      keybindMetadata:
+        virtualProfile.keybindMetadata || actualProfile.keybindMetadata,
+      // Preserve existing profile fields
+      created: actualProfile.created,
+      lastModified: new Date().toISOString(),
+      currentEnvironment: this.currentEnvironment,
+    }
+
+    stoStorage.saveProfile(this.currentProfile, updatedProfile)
+  },
+
   saveData() {
     const data = stoStorage.getAllData()
     data.currentProfile = this.currentProfile
