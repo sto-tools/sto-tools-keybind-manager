@@ -72,8 +72,21 @@ export const aliasView = {
   },
 
   selectAlias(aliasName) {
-    // Reuse the selectedKey property for alias selection
+    // Ensure we're in alias mode
+    if (this.currentEnvironment !== 'alias') {
+      this.switchMode('alias')
+    }
+    
+    // Set the selected key (alias name)
     this.selectedKey = aliasName
+    
+    // Notify the command library service about the selection and environment
+    if (this.commandLibraryService) {
+      this.commandLibraryService.setCurrentEnvironment('alias')
+      this.commandLibraryService.setSelectedKey(aliasName)
+    }
+    
+    // Update the UI
     this.renderAliasGrid()
     this.renderCommandChain()
     this.updateChainActions()

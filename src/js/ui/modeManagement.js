@@ -21,6 +21,12 @@ export const modeManagement = {
         stoStorage.saveProfile(this.currentProfile, profile)
       }
 
+      // Notify the command library service about the environment change
+      // TODO: this should notify via eventBus
+      if (this.commandLibraryService) {
+        this.commandLibraryService.setCurrentEnvironment(mode)
+      }
+
       // Update UI components based on mode
       this.updateProfileInfo()
       this.updateModeUI()
@@ -57,12 +63,24 @@ export const modeManagement = {
 
   updateModeUI() {
     if (this.currentEnvironment === 'alias') {
+      // Clear selected key when switching to alias mode
+      this.selectedKey = null
+      if (this.commandLibraryService) {
+        this.commandLibraryService.setSelectedKey(null)
+      }
+      
       // Show alias view, hide key view
       this.showAliasView()
       this.renderAliasGrid()
       this.renderCommandChain()
       this.updateChainOptionsForAlias()
     } else {
+      // Clear selected key when switching from alias mode to key mode
+      if (this.selectedKey && this.commandLibraryService) {
+        // Only clear if we were in alias mode before
+        this.commandLibraryService.setSelectedKey(null)
+      }
+      
       // Show key view, hide alias view
       this.showKeyView()
       this.renderKeyGrid()
