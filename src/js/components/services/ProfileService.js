@@ -34,6 +34,13 @@ export default class ProfileService extends ComponentBase {
         this.saveCurrentProfile()
       }
 
+      // Notify other components that a profile has been set/loaded
+      this.emit('profile-switched', {
+        profileId: this.currentProfile,
+        profile: this.currentProfile,
+        environment: this.currentEnvironment,
+      })
+
       return { 
         currentProfile: this.currentProfile, 
         currentEnvironment: this.currentEnvironment,
@@ -192,6 +199,13 @@ export default class ProfileService extends ComponentBase {
       this.currentEnvironment = profile.currentEnvironment || 'space'
 
       this.saveCurrentProfile()
+
+      // Notify other components of the profile change
+      this.emit('profile-switched', {
+        profileId: this.currentProfile,
+        profile: this.currentProfile,
+        environment: this.currentEnvironment,
+      })
 
       const currentBuild = this.getCurrentProfile()
       return { 
@@ -379,7 +393,8 @@ export default class ProfileService extends ComponentBase {
    */
   setCurrentEnvironment(environment) {
     this.currentEnvironment = environment
-    return { success: true, environment }
+    // Notify other components of environment change
+    this.emit('environment-changed', { environment })
   }
 
   /**

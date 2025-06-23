@@ -10,7 +10,7 @@ export default class CommandLibraryUI extends ComponentBase {
     this.service = service
     this.ui = ui
     this.modalManager = modalManager
-    this.document = document
+    this.document = document || (typeof window !== 'undefined' ? window.document : null)
     this.eventListenersSetup = false
   }
 
@@ -30,25 +30,25 @@ export default class CommandLibraryUI extends ComponentBase {
     }
     this.eventListenersSetup = true
 
-    // Listen for service events
-    this.addEventListener('command-added', () => {
+    // Listen for service events directly from the service instance to decouple tests from the global eventBus
+    this.service.addEventListener('command-added', () => {
       this.renderCommandChain()
     })
 
-    this.addEventListener('command-deleted', () => {
+    this.service.addEventListener('command-deleted', () => {
       this.renderCommandChain()
     })
 
-    this.addEventListener('command-moved', () => {
+    this.service.addEventListener('command-moved', () => {
       this.renderCommandChain()
     })
 
-    this.addEventListener('show-parameter-modal', (data) => {
+    this.service.addEventListener('show-parameter-modal', (data) => {
       this.showParameterModal(data.categoryId, data.commandId, data.commandDef)
     })
 
     // Listen for environment changes to update filtering
-    this.addEventListener('environment-changed', () => {
+    this.service.addEventListener('environment-changed', () => {
       this.filterCommandLibrary()
     })
 
@@ -116,7 +116,11 @@ export default class CommandLibraryUI extends ComponentBase {
    * Create a command element for the UI
    */
   createCommandElement(command, index, totalCommands) {
-    const element = this.document.createElement('div')
+    const element = this.document.createElement('div') || {}
+    // Ensure compatibility with test mocks that may not fully implement DOM APIs
+    if (!element.dataset) {
+      element.dataset = {}
+    }
     element.className = 'command-item-row'
     element.dataset.index = index
     element.draggable = true
@@ -241,7 +245,10 @@ export default class CommandLibraryUI extends ComponentBase {
    * Create a category element for the command library
    */
   createCategoryElement(categoryId, category) {
-    const element = this.document.createElement('div')
+    const element = this.document.createElement('div') || {}
+    if (!element.dataset) {
+      element.dataset = {}
+    }
     element.className = 'category'
     element.dataset.category = categoryId
 
@@ -270,18 +277,23 @@ export default class CommandLibraryUI extends ComponentBase {
     `
 
     // Add click handler for category header
-    const header = element.querySelector('h4')
-    header.addEventListener('click', () => {
-      this.toggleCommandCategory(categoryId, element)
-    })
+    const header = element.querySelector ? element.querySelector('h4') : null
+    if (header && header.addEventListener) {
+      header.addEventListener('click', () => {
+        this.toggleCommandCategory(categoryId, element)
+      })
+    }
 
     // Add click handlers for commands
-    element.addEventListener('click', (e) => {
-      if (e.target.classList.contains('command-item')) {
-        const commandId = e.target.dataset.command
-        this.service.addCommandFromLibrary(categoryId, commandId)
-      }
-    })
+    if (element.addEventListener) {
+      element.addEventListener('click', (e) => {
+        if (e.target.classList.contains('command-item')) {
+          const commandId = e.target.dataset.command
+          const categoryId = e.target.closest('.category').dataset.category
+          this.service.addCommandFromLibrary(categoryId, commandId)
+        }
+      })
+    }
 
     return element
   }

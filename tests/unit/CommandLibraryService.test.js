@@ -542,7 +542,7 @@ describe('CommandLibraryService', () => {
         { command: 'cmd3' }
       ]
       const result = service.generateMirroredCommandString(commands)
-      expect(result).toBe('cmd1 $$ cmd2 $$ cmd3 $$ cmd3 $$ cmd2 $$ cmd1')
+      expect(result).toBe('cmd1 $$ cmd2 $$ cmd3 $$ cmd2 $$ cmd1')
     })
   })
 

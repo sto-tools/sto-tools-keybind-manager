@@ -98,16 +98,13 @@ describe('Environment Switching Tests', () => {
 
     // Ensure we have a valid profile for testing - simplified setup
     let currentProfile = app.getCurrentProfile()
-    console.log('Initial currentProfile:', currentProfile?.name || 'none')
     
     // If we have a profile, just ensure it's properly set up
     if (currentProfile) {
-      console.log('Using existing profile:', currentProfile.name)
       // Ensure the profile is properly loaded and current
       app.currentProfile = currentProfile.id || app.currentProfile
       app.currentEnvironment = currentProfile.currentEnvironment || 'space'
     } else {
-      console.log('No profile found, creating basic test profile...')
       // Only create if truly no profile exists
       try {
         const profileId = app.createProfile('Test Profile', 'Profile for environment switching tests', 'space')
@@ -139,7 +136,7 @@ describe('Environment Switching Tests', () => {
     }
 
     // Debug output
-    console.log('Test setup complete:', {
+    /*console.log('Test setup complete:', {
       hasApp: !!app,
       currentProfile: app?.getCurrentProfile()?.name || 'none',
       currentEnvironment: app?.currentEnvironment,
@@ -147,7 +144,7 @@ describe('Environment Switching Tests', () => {
       groundButtonActive: document.querySelector('[data-mode="ground"]')?.classList.contains('active'),
       spaceButtonExists: !!document.querySelector('[data-mode="space"]'),
       groundButtonExists: !!document.querySelector('[data-mode="ground"]')
-    })
+    })*/
   })
 
   afterEach(async () => {

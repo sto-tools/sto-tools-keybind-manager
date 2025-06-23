@@ -18,6 +18,7 @@ import { CommandLibraryUI } from './components/ui/index.js'
 import { AliasModalService, AliasModalUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
+import { aliasView } from './ui/aliasView.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -134,9 +135,13 @@ export default class STOToolsKeybindManager {
         document
       })
 
-      // Sync command library service with profile service
-      this.commandLibraryService.setCurrentProfile(this.profileService.getCurrentProfileId())
-      this.commandLibraryService.setCurrentEnvironment(this.profileService.getCurrentEnvironment())
+      // Load profile data
+      await this.profileService.loadData()
+
+      // Ensure command library service is synced with the loaded profile/environment
+      if (this.commandLibraryService && this.profileService) {
+        this.commandLibraryService.setCurrentProfile(this.profileService.getCurrentProfileId())
+      }
 
       window.stoAliases = this.aliasUI
 
@@ -146,9 +151,6 @@ export default class STOToolsKeybindManager {
         this.commandLibraryService.init()
         this.commandLibraryUI.init()
       })
-
-      // Load profile data
-      await this.profileService.loadData()
 
       // Apply saved theme
       this.applyTheme()
@@ -564,6 +566,7 @@ Object.assign(
   projectManagement,
   modeManagement,
   viewManagement,
+  aliasView,
   welcome,
 )
 ;
