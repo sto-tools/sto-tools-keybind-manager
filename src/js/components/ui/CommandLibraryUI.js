@@ -111,6 +111,11 @@ export default class CommandLibraryUI extends ComponentBase {
           <h4>${emptyStateInfo.emptyTitle}</h4>
           <p>${emptyStateInfo.emptyDesc}</p>
         </div>`
+
+      // Also instruct chain UI
+      if (window.commandChainUI && typeof window.commandChainUI.render === 'function') {
+        window.commandChainUI.render()
+      }
       return
     }
 
@@ -134,9 +139,17 @@ export default class CommandLibraryUI extends ComponentBase {
       })
     }
 
-    // After updating UI, broadcast to new command-chain component (phase-1 integration)
+    // After updating UI, broadcast to new command-chain component (phase-2): still emit event but also call chainUI.render
     if (this.eventBus) {
-      this.eventBus.emit('command-chain:update', { commands })
+      this.eventBus.emit('command-chain:update', {
+        commands,
+        selectedKey: this.service.selectedKey,
+        environment: this.service.currentEnvironment,
+      })
+    }
+
+    if (window.commandChainUI && typeof window.commandChainUI.render === 'function') {
+      window.commandChainUI.render(commands)
     }
   }
 
@@ -361,8 +374,14 @@ export default class CommandLibraryUI extends ComponentBase {
    * Setup drag and drop for command reordering
    */
   setupDragAndDrop() {
+    if (window.commandChainUI && typeof window.commandChainUI.setupDragAndDrop === 'function') {
+      window.commandChainUI.setupDragAndDrop()
+      return
+    }
+
+    // Fallback (test environment)
     const commandList = this.document.getElementById('commandList')
-    if (!commandList) return
+    if (!commandList || !this.ui || typeof this.ui.initDragAndDrop !== 'function') return
 
     this.ui.initDragAndDrop(commandList, {
       dragSelector: '.command-item-row',
@@ -384,55 +403,35 @@ export default class CommandLibraryUI extends ComponentBase {
    * Update chain action buttons state
    */
   updateChainActions() {
+    if (window.commandChainUI && typeof window.commandChainUI.updateChainActions === 'function') {
+      window.commandChainUI.updateChainActions()
+      return
+    }
+
+    // Fallback for test mocks
     const hasSelectedKey = !!this.service.selectedKey
 
+    const doc = this.document
+
     if (this.service.currentEnvironment === 'alias') {
-      // In alias mode, enable/disable alias-specific buttons
-      const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
-      aliasButtons.forEach((btnId) => {
-        const btn = this.document.getElementById(btnId)
-        if (btn) {
-          btn.disabled = !hasSelectedKey
-        }
+      ;['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
+        const btn = doc.getElementById(id)
+        if (btn) btn.disabled = !hasSelectedKey
       })
-
-      // Always enable addCommandBtn in alias mode when an alias is selected
-      const addCommandBtn = this.document.getElementById('addCommandBtn')
-      if (addCommandBtn) {
-        addCommandBtn.disabled = !hasSelectedKey
-      }
-
-      // Disable key-specific buttons in alias mode
-      const keyButtons = ['importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
-      keyButtons.forEach((btnId) => {
-        const btn = this.document.getElementById(btnId)
-        if (btn) {
-          btn.disabled = true
-        }
+      const ac = doc.getElementById('addCommandBtn')
+      if (ac) ac.disabled = !hasSelectedKey
+      ;['importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+        const btn = doc.getElementById(id)
+        if (btn) btn.disabled = true
       })
     } else {
-      // In key mode, enable/disable key-specific buttons
-      const buttonsToToggle = [
-        'addCommandBtn',
-        'importFromKeyBtn',
-        'deleteKeyBtn',
-        'duplicateKeyBtn',
-      ]
-
-      buttonsToToggle.forEach((btnId) => {
-        const btn = this.document.getElementById(btnId)
-        if (btn) {
-          btn.disabled = !hasSelectedKey
-        }
+      ;['addCommandBtn', 'importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+        const btn = doc.getElementById(id)
+        if (btn) btn.disabled = !hasSelectedKey
       })
-
-      // Disable alias-specific buttons in key mode
-      const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
-      aliasButtons.forEach((btnId) => {
-        const btn = this.document.getElementById(btnId)
-        if (btn) {
-          btn.disabled = true
-        }
+      ;['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
+        const btn = doc.getElementById(id)
+        if (btn) btn.disabled = true
       })
     }
   }

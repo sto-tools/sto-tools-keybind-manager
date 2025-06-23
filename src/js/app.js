@@ -139,11 +139,15 @@ export default class STOToolsKeybindManager {
       // ------------------------------------------------------------------
       // New command-chain component (phase-1)
       // ------------------------------------------------------------------
-      this.commandChainService = new CommandChainService({ i18n: i18next })
+      this.commandChainService = new CommandChainService({
+        i18n: i18next,
+        commandLibraryService: this.commandLibraryService,
+      })
       this.commandChainUI      = new CommandChainUI({
         service: this.commandChainService,
+        ui: stoUI,
         eventBus,
-        document,
+        document
       })
 
       // Load profile data
@@ -213,6 +217,9 @@ export default class STOToolsKeybindManager {
 
       // Dispatch app ready event through eventBus
       eventBus.emit('sto-app-ready', { app: this })
+
+      // Make chain UI globally accessible for legacy components/test hooks
+      window.commandChainUI = this.commandChainUI
     } catch (error) {
       console.error('Failed to initialize application:', error)
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
