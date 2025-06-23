@@ -383,8 +383,8 @@ export default class CommandLibraryService extends ComponentBase {
     const commandDef = STO_DATA.commands[categoryId].commands[commandId]
     if (!commandDef) return false
 
-    // If the command is customizable, immediately trigger the parameter modal
-    // (no key selection needed for the test scenario)
+    // If the command is customizable, trigger parameter modal immediately
+    // This path does not require a selected key; users will provide parameters later
     if (commandDef.customizable && commandDef.parameters) {
       this.showParameterModal(categoryId, commandId, commandDef)
       return true

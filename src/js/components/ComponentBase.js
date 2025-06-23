@@ -16,7 +16,7 @@ export default class ComponentBase {
    */
   init() {
     if (this.initialized) {
-      // console.warn(`${this.constructor.name} is already initialized`)
+      console.warn(`${this.constructor.name} is already initialized`)
       return
     }
     
@@ -116,6 +116,8 @@ export default class ComponentBase {
     // Emit via event bus if available
     if (this.eventBus && typeof this.eventBus.emit === 'function') {
       this.eventBus.emit(event, data)
+    } else if (!this.eventBus) {
+      console.warn(`${this.constructor.name}: No eventBus available for emit`)
     }
 
     // Also call any listeners registered through this component in cases where

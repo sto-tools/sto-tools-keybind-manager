@@ -19,6 +19,7 @@ import { AliasModalService, AliasModalUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
 import { aliasView } from './ui/aliasView.js'
+import { CommandChainService, CommandChainUI } from './components/chain/index.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -135,6 +136,16 @@ export default class STOToolsKeybindManager {
         document
       })
 
+      // ------------------------------------------------------------------
+      // New command-chain component (phase-1)
+      // ------------------------------------------------------------------
+      this.commandChainService = new CommandChainService({ i18n: i18next })
+      this.commandChainUI      = new CommandChainUI({
+        service: this.commandChainService,
+        eventBus,
+        document,
+      })
+
       // Load profile data
       await this.profileService.loadData()
 
@@ -150,6 +161,8 @@ export default class STOToolsKeybindManager {
         this.aliasUI.init()
         this.commandLibraryService.init()
         this.commandLibraryUI.init()
+        this.commandChainService.init()
+        this.commandChainUI.init()
       })
 
       // Apply saved theme

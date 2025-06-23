@@ -644,7 +644,34 @@ export default class STOExportManager {
   // Copy Operations
   copyCommandPreview() {
     const preview = document.getElementById('commandPreview')
-    if (!preview || !preview.textContent.trim()) {
+    if (!preview) {
+      stoUI.showToast(i18next.t('no_command_to_copy'), 'warning')
+      return
+    }
+
+    // If preview is still showing the default placeholder, regenerate it from the service
+    const defaultPlaceholders = [
+      i18next.t('select_a_key_to_see_the_generated_command'),
+      i18next.t('select_an_alias_to_see_the_generated_command'),
+    ]
+
+    if (defaultPlaceholders.includes(preview.textContent.trim())) {
+      if (window.app && app.commandLibraryService) {
+        const svc = app.commandLibraryService
+        if (!svc.selectedKey) {
+          const profile = app.getCurrentProfile()
+          if (profile && profile.keys) {
+            const firstKey = Object.keys(profile.keys)[0]
+            if (firstKey) {
+              svc.setSelectedKey(firstKey)
+            }
+          }
+        }
+        preview.textContent = svc.getCommandChainPreview()
+      }
+    }
+
+    if (!preview.textContent.trim()) {
       stoUI.showToast(i18next.t('no_command_to_copy'), 'warning')
       return
     }

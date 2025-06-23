@@ -31,31 +31,51 @@ export default class CommandLibraryUI extends ComponentBase {
     this.eventListenersSetup = true
 
     // Listen for service events directly from the service instance to decouple tests from the global eventBus
-    this.service.addEventListener('command-added', () => {
-      this.renderCommandChain()
-    })
+    if (this.service && typeof this.service.addEventListener === 'function') {
+      this.service.addEventListener('command-added', () => {
+        this.renderCommandChain()
+      })
 
-    this.service.addEventListener('command-deleted', () => {
-      this.renderCommandChain()
-    })
+      this.service.addEventListener('command-deleted', () => {
+        this.renderCommandChain()
+      })
 
-    this.service.addEventListener('command-moved', () => {
-      this.renderCommandChain()
-    })
-
-    this.service.addEventListener('show-parameter-modal', (data) => {
-      this.showParameterModal(data.categoryId, data.commandId, data.commandDef)
-    })
-
-    // Listen for environment changes to update filtering
-    this.service.addEventListener('environment-changed', () => {
-      this.filterCommandLibrary()
-    })
+      this.service.addEventListener('command-moved', () => {
+        this.renderCommandChain()
+      })
+    }
 
     // Listen for stabilize execution order checkbox changes
     this.eventBus.onDom('stabilizeExecutionOrder', 'change', 'stabilize-order-change', () => {
       this.renderCommandChain()
     })
+
+    if (this.service && typeof this.service.addEventListener === 'function') {
+      this.service.addEventListener('environment-changed', () => {
+        this.filterCommandLibrary()
+      })
+      this.service.addEventListener('show-parameter-modal', (data) => {
+        this.showParameterModal(data.categoryId, data.commandId, data.commandDef)
+      })
+    }
+
+    if (typeof this.addEventListener === 'function') {
+      this.addEventListener('command-added', () => {
+        this.renderCommandChain()
+      })
+      this.addEventListener('command-deleted', () => {
+        this.renderCommandChain()
+      })
+      this.addEventListener('command-moved', () => {
+        this.renderCommandChain()
+      })
+      this.addEventListener('show-parameter-modal', (data) => {
+        this.showParameterModal(data.categoryId, data.commandId, data.commandDef)
+      })
+      this.addEventListener('environment-changed', () => {
+        this.filterCommandLibrary()
+      })
+    }
   }
 
   /**
@@ -71,6 +91,9 @@ export default class CommandLibraryUI extends ComponentBase {
     if (!container || !title || !preview) return
 
     const emptyStateInfo = this.service.getEmptyStateInfo()
+
+    // We'll populate this later; ensures it's defined for cross-component emit
+    let commands = []
 
     // Update title and preview
     title.textContent = emptyStateInfo.title
@@ -92,7 +115,7 @@ export default class CommandLibraryUI extends ComponentBase {
     }
 
     // Get commands from service
-    const commands = this.service.getCommandsForSelectedKey()
+    commands = this.service.getCommandsForSelectedKey()
 
     if (commands.length === 0) {
       // No commands - show empty state
@@ -109,6 +132,11 @@ export default class CommandLibraryUI extends ComponentBase {
         const element = this.createCommandElement(command, index, commands.length)
         container.appendChild(element)
       })
+    }
+
+    // After updating UI, broadcast to new command-chain component (phase-1 integration)
+    if (this.eventBus) {
+      this.eventBus.emit('command-chain:update', { commands })
     }
   }
 
