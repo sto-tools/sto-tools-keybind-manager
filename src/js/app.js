@@ -18,8 +18,8 @@ import { CommandLibraryUI } from './components/ui/index.js'
 import { AliasModalService, AliasModalUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
-import { aliasView } from './ui/aliasView.js'
 import { CommandChainService, CommandChainUI } from './components/chain/index.js'
+import { AliasBrowserService, AliasBrowserUI } from './components/aliases/index.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -119,6 +119,19 @@ export default class STOToolsKeybindManager {
         document,
       })
 
+      // ------------------------------
+      // Alias Browser (grid selector)
+      // ------------------------------
+      this.aliasBrowserService = new AliasBrowserService({
+        storage: stoStorage,
+        ui: stoUI,
+      })
+
+      this.aliasBrowserUI = new AliasBrowserUI({
+        service: this.aliasBrowserService,
+        document,
+      })
+
       // Initialize command library service and UI
       this.commandLibraryService = new CommandLibraryService({
         storage: stoStorage,
@@ -167,6 +180,8 @@ export default class STOToolsKeybindManager {
         this.commandLibraryUI.init()
         this.commandChainService.init()
         this.commandChainUI.init()
+        this.aliasBrowserService.init()
+        this.aliasBrowserUI.init()
       })
 
       // Apply saved theme
@@ -220,6 +235,12 @@ export default class STOToolsKeybindManager {
 
       // Make chain UI globally accessible for legacy components/test hooks
       window.commandChainUI = this.commandChainUI
+
+      // Keep command library in sync with alias selection
+      this.aliasBrowserService.addEventListener('alias:selected', ({ name }) => {
+        this.commandLibraryService.setCurrentEnvironment('alias')
+        this.commandLibraryService.setSelectedKey(name)
+      })
     } catch (error) {
       console.error('Failed to initialize application:', error)
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
@@ -448,8 +469,8 @@ export default class STOToolsKeybindManager {
   }
 
   renderAliasGrid() {
-    if (this.aliasService) {
-      return this.aliasService.renderAliasGrid()
+    if (this.aliasBrowserUI && typeof this.aliasBrowserUI.render === 'function') {
+      this.aliasBrowserUI.render()
     }
   }
 
@@ -586,7 +607,6 @@ Object.assign(
   projectManagement,
   modeManagement,
   viewManagement,
-  aliasView,
   welcome,
 )
 ;
