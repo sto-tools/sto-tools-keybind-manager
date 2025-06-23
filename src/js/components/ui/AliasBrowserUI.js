@@ -12,8 +12,8 @@ export default class AliasBrowserUI extends ComponentBase {
   onInit () {
     if (!this.service) return
 
-    this.service.addEventListener('aliases:changed', () => this.render())
-    this.service.addEventListener('alias:selected', () => this.render())
+    this.service.addEventListener('aliases-changed', () => this.render())
+    this.service.addEventListener('alias-selected', () => this.render())
 
     // Initial render
     this.render()
@@ -42,7 +42,7 @@ export default class AliasBrowserUI extends ComponentBase {
     grid.querySelectorAll('.alias-chain-item').forEach((item) => {
       item.addEventListener('click', () => {
         this.service.selectAlias(item.dataset.alias)
-        this.emit('alias-browser:alias-clicked', { name: item.dataset.alias })
+        this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
       })
     })
   }

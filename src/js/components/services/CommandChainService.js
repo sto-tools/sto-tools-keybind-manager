@@ -50,7 +50,7 @@ export default class CommandChainService extends ComponentBase {
       if (environment) this.currentEnvironment = environment
     })
 
-    this.addEventListener('environment:changed', (env) => {
+    this.addEventListener('environment-changed', (env) => {
       this.currentEnvironment = env
       this.selectedKey = null
       this.commands = []

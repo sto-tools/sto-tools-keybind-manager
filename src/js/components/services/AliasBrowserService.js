@@ -31,14 +31,14 @@ export default class AliasBrowserService extends ComponentBase {
     this.addEventListener('profile-switched', ({ profileId }) => {
       this.currentProfileId  = profileId
       this.selectedAliasName = null
-      this.emit('aliases:changed', { aliases: this.getAliases() })
+      this.emit('aliases-changed', { aliases: this.getAliases() })
     })
 
     // Back-compat: also accept legacy topic if emitted elsewhere
     this.addEventListener('profile:changed', (profileId) => {
       this.currentProfileId  = profileId
       this.selectedAliasName = null
-      this.emit('aliases:changed', { aliases: this.getAliases() })
+      this.emit('aliases-changed', { aliases: this.getAliases() })
     })
   }
 
@@ -57,7 +57,7 @@ export default class AliasBrowserService extends ComponentBase {
 
   selectAlias (name) {
     this.selectedAliasName = name
-    this.emit('alias:selected', { name })
+    this.emit('alias-selected', { name })
   }
 
   createAlias (name, description = '') {
@@ -73,7 +73,7 @@ export default class AliasBrowserService extends ComponentBase {
 
     profile.aliases[name] = { description, commands: '' }
     this.storage.saveProfile(this.currentProfileId, profile)
-    this.emit('aliases:changed', { aliases: this.getAliases() })
+    this.emit('aliases-changed', { aliases: this.getAliases() })
     this.selectAlias(name)
     return true
   }
@@ -84,7 +84,7 @@ export default class AliasBrowserService extends ComponentBase {
     delete profile.aliases[name]
     this.storage.saveProfile(this.currentProfileId, profile)
     if (this.selectedAliasName === name) this.selectedAliasName = null
-    this.emit('aliases:changed', { aliases: this.getAliases() })
+    this.emit('aliases-changed', { aliases: this.getAliases() })
     return true
   }
 
@@ -104,7 +104,7 @@ export default class AliasBrowserService extends ComponentBase {
       commands: original.commands,
     }
     this.storage.saveProfile(this.currentProfileId, profile)
-    this.emit('aliases:changed', { aliases: this.getAliases() })
+    this.emit('aliases-changed', { aliases: this.getAliases() })
     this.selectAlias(newName)
     return true
   }

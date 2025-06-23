@@ -20,6 +20,7 @@ import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
 import { CommandChainService, CommandChainUI } from './components/chain/index.js'
 import { AliasBrowserService, AliasBrowserUI } from './components/aliases/index.js'
+import { KeyBrowserService, KeyBrowserUI } from './components/keybinds/index.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -35,6 +36,8 @@ export default class STOToolsKeybindManager {
     this.aliasUI = null
     this.commandLibraryService = null
     this.commandLibraryUI = null
+    this.keyBrowserService = null
+    this.keyBrowserUI = null
 
     // Bind key capture handlers once for consistent add/remove
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
@@ -132,6 +135,21 @@ export default class STOToolsKeybindManager {
         document,
       })
 
+      // ------------------------------
+      // Key Browser (key grid)
+      // ------------------------------
+      this.keyBrowserService = new KeyBrowserService({
+        storage: stoStorage,
+        profileService: this.profileService,
+        ui: stoUI,
+      })
+
+      this.keyBrowserUI = new KeyBrowserUI({
+        service: this.keyBrowserService,
+        app: this,
+        document,
+      })
+
       // Initialize command library service and UI
       this.commandLibraryService = new CommandLibraryService({
         storage: stoStorage,
@@ -182,6 +200,8 @@ export default class STOToolsKeybindManager {
         this.commandChainUI.init()
         this.aliasBrowserService.init()
         this.aliasBrowserUI.init()
+        this.keyBrowserService.init()
+        this.keyBrowserUI.init()
       })
 
       // Apply saved theme
@@ -236,8 +256,11 @@ export default class STOToolsKeybindManager {
       // Make chain UI globally accessible for legacy components/test hooks
       window.commandChainUI = this.commandChainUI
 
+      // Expose key browser for legacy hooks/tests
+      window.keyBrowserUI = this.keyBrowserUI
+
       // Keep command library in sync with alias selection
-      this.aliasBrowserService.addEventListener('alias:selected', ({ name }) => {
+      this.aliasBrowserService.addEventListener('alias-selected', ({ name }) => {
         this.commandLibraryService.setCurrentEnvironment('alias')
         this.commandLibraryService.setSelectedKey(name)
       })
