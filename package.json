@@ -24,7 +24,7 @@
     "format": "prettier --write \"{src,tests}/**/*.{js,css,html}\""
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.1",
+    "@playwright/test": "^1.52.0",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
@@ -43,7 +43,7 @@
     "happy-dom": "^18.0.1",
     "http-server": "^14.1.1",
     "jsdom": "^23.0.1",
-    "playwright": "^1.40.1",
+    "playwright": "^1.52.0",
     "postcss": "^8.5.6",
     "postcss-cli": "^11.0.1",
     "postcss-discard-duplicates": "^7.0.2",
