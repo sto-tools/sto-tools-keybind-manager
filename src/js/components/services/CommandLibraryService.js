@@ -79,6 +79,13 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   /**
+   * Get the current profile ID
+   */
+  getCurrentProfileId() {
+    return this.currentProfile
+  }
+
+  /**
    * Get commands for the selected key based on current environment
    */
   getCommandsForSelectedKey() {
@@ -214,7 +221,7 @@ export default class CommandLibraryService extends ComponentBase {
    * Add a command to the selected key
    */
   addCommand(key, command) {
-    if (!key) {
+    if (!this.selectedKey) {
       this.ui.showToast(this.i18n.t('please_select_a_key_first'), 'warning')
       return false
     }

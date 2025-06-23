@@ -88,6 +88,9 @@ describe('CommandLibraryService', () => {
       ui: mockUI,
       modalManager: mockModalManager
     })
+    
+    // Mock the emit method as a spy
+    vi.spyOn(service, 'emit')
   })
 
   describe('constructor', () => {
@@ -488,6 +491,7 @@ describe('CommandLibraryService', () => {
     it('should return empty keybind format for keybind environment with no commands', () => {
       service.setCurrentEnvironment('space')
       service.setSelectedKey('test-key')
+      mockStorage.getProfile.mockReturnValue(null)
       const preview = service.getCommandChainPreview()
       expect(preview).toBe('test-key ""')
     })
