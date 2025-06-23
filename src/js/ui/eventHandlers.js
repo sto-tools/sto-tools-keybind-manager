@@ -8,17 +8,31 @@ export const eventHandlers = {
       this.switchProfile(e.target.value)
     })
 
-    // Mode switching - fix event target issue by using currentTarget and closest
-    document.querySelectorAll('.mode-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        // Use currentTarget to get the button element, not the clicked child element
-        const button = e.currentTarget
-        const mode = button.dataset.mode
-        if (mode) {
-          this.switchMode(mode)
-        }
+    // Mode switching - get elements first, then use eventBus for consistent event handling
+    const spaceBtn = document.querySelector('[data-mode="space"]')
+    const groundBtn = document.querySelector('[data-mode="ground"]')
+    const aliasBtn = document.querySelector('[data-mode="alias"]')
+
+    if (spaceBtn) {
+      eventBus.onDom(spaceBtn, 'click', 'mode-space', (e) => {
+        e.stopPropagation()
+        this.switchMode('space')
       })
-    })
+    }
+
+    if (groundBtn) {
+      eventBus.onDom(groundBtn, 'click', 'mode-ground', (e) => {
+        e.stopPropagation()
+        this.switchMode('ground')
+      })
+    }
+
+    if (aliasBtn) {
+      eventBus.onDom(aliasBtn, 'click', 'mode-alias', (e) => {
+        e.stopPropagation()
+        this.switchMode('alias')
+      })
+    }
 
     // File operations
     eventBus.onDom('openProjectBtn', 'click', 'project-open', () => {
@@ -213,6 +227,292 @@ export const eventHandlers = {
     this.setupExpandableSearch('keySearchBtn', 'keyFilter')
     this.setupExpandableSearch('aliasSearchBtn', 'aliasFilter')
     this.setupExpandableSearch('commandSearchBtn', 'commandSearch')
+
+    // Global UI event listeners
+    this.setupGlobalUIEventListeners()
+  },
+
+  setupGlobalUIEventListeners() {
+    // Settings dropdown
+    eventBus.onDom('settingsBtn', 'click', 'settings-menu', (e) => {
+      e.stopPropagation()
+      this.toggleSettingsMenu()
+    })
+
+    // Import dropdown
+    eventBus.onDom('importMenuBtn', 'click', 'import-menu', (e) => {
+      e.stopPropagation()
+      this.toggleImportMenu()
+    })
+
+    // Backup dropdown
+    eventBus.onDom('backupMenuBtn', 'click', 'backup-menu', (e) => {
+      e.stopPropagation()
+      this.toggleBackupMenu()
+    })
+
+    // Language dropdown
+    eventBus.onDom('languageMenuBtn', 'click', 'language-menu', (e) => {
+      e.stopPropagation()
+      this.toggleLanguageMenu()
+    })
+
+    // Import menu items
+    eventBus.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
+      this.importKeybinds()
+      this.closeImportMenu()
+    })
+
+    eventBus.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
+      this.importAliases()
+      this.closeImportMenu()
+    })
+
+    // Settings menu items
+    eventBus.onDom('loadDefaultDataBtn', 'click', 'load-default-data', () => {
+      this.loadDefaultData()
+      this.closeSettingsMenu()
+    })
+
+    eventBus.onDom('resetAppBtn', 'click', 'reset-app', () => {
+      this.confirmResetApp()
+      this.closeSettingsMenu()
+    })
+
+    eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
+      if (typeof stoSync !== 'undefined') {
+        stoSync.syncProject()
+      }
+      this.closeSettingsMenu()
+    })
+
+    eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
+      modalManager.show('aboutModal')
+    })
+
+    eventBus.onDom('themeToggleBtn', 'click', 'theme-toggle', () => {
+      this.toggleTheme()
+      this.closeSettingsMenu()
+    })
+
+    eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
+      if (this.preferencesManager) {
+        this.preferencesManager.showPreferences()
+      } else {
+        // Fallback to old modal if preferences manager not available
+        modalManager.show('preferencesModal')
+      }
+      this.closeSettingsMenu()
+    })
+
+    // Setup language option event listeners
+    this.setupLanguageListeners()
+
+    // Close dropdown menus when clicking outside
+    document.addEventListener('click', () => {
+      // Close all dropdowns by removing active class
+      document.querySelectorAll('.dropdown.active').forEach(dropdown => {
+        dropdown.classList.remove('active')
+      })
+    })
+  },
+
+  setupLanguageListeners() {
+    if (this.languageListenersSetup) return
+
+    const languageOptions = document.querySelectorAll('.language-option')
+    if (languageOptions.length > 0) {
+      languageOptions.forEach((btn) => {
+        eventBus.onDom(btn, 'click', 'language-change', (e) => {
+          const lang = e.currentTarget.dataset.lang
+          if (lang) {
+            this.changeLanguage(lang)
+          }
+          this.closeLanguageMenu()
+        })
+      })
+      this.languageListenersSetup = true
+    } else {
+      // Retry after a short delay in case DOM is still loading
+      setTimeout(() => {
+        if (!this.languageListenersSetup) {
+          const retryOptions = document.querySelectorAll('.language-option')
+          if (retryOptions.length > 0) {
+            retryOptions.forEach((btn) => {
+              eventBus.onDom(btn, 'click', 'language-change', (e) => {
+                const lang = e.currentTarget.dataset.lang
+                if (lang) {
+                  this.changeLanguage(lang)
+                }
+                this.closeLanguageMenu()
+              })
+            })
+            this.languageListenersSetup = true
+          }
+        }
+      }, 1000)
+    }
+  },
+
+  // Dropdown menu methods
+  toggleSettingsMenu() {
+    const btn = document.getElementById('settingsBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.toggle('active')
+    }
+  },
+
+  closeSettingsMenu() {
+    const btn = document.getElementById('settingsBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.remove('active')
+    }
+  },
+
+  toggleImportMenu() {
+    const btn = document.getElementById('importMenuBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.toggle('active')
+    }
+  },
+
+  closeImportMenu() {
+    const btn = document.getElementById('importMenuBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.remove('active')
+    }
+  },
+
+  toggleBackupMenu() {
+    const btn = document.getElementById('backupMenuBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.toggle('active')
+    }
+  },
+
+  closeBackupMenu() {
+    const btn = document.getElementById('backupMenuBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.remove('active')
+    }
+  },
+
+  toggleLanguageMenu() {
+    const btn = document.getElementById('languageMenuBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.toggle('active')
+    }
+  },
+
+  closeLanguageMenu() {
+    const btn = document.getElementById('languageMenuBtn')
+    const dropdown = btn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.remove('active')
+    }
+  },
+
+  // Import/Export methods
+  importKeybinds() {
+    if (typeof stoKeybinds !== 'undefined' && stoKeybinds.handleKeybindFileImport) {
+      // Trigger file input for keybind import
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.txt'
+      input.onchange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              stoKeybinds.importKeybindFile(e.target.result)
+            } catch (error) {
+              stoUI.showToast(i18next.t('failed_to_import_keybind_file', { error: error.message }), 'error')
+            }
+          }
+          reader.readAsText(file)
+        }
+      }
+      input.click()
+    }
+  },
+
+  importAliases() {
+    if (typeof stoKeybinds !== 'undefined' && stoKeybinds.importAliasFile) {
+      // Trigger file input for alias import
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.txt'
+      input.onchange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              stoKeybinds.importAliasFile(e.target.result)
+            } catch (error) {
+              stoUI.showToast(i18next.t('failed_to_import_aliases', { error: error.message }), 'error')
+            }
+          }
+          reader.readAsText(file)
+        }
+      }
+      input.click()
+    }
+  },
+
+  loadDefaultData() {
+    try {
+      if (stoStorage.loadDefaultData()) {
+        const data = stoStorage.getAllData()
+        this.currentProfile = data.currentProfile
+        this.selectedKey = null
+        this.setModified(false)
+        this.renderProfiles()
+        this.renderKeyGrid()
+        this.renderCommandChain()
+        this.updateProfileInfo()
+        stoUI.showToast(i18next.t('default_demo_data_loaded'), 'success')
+      } else {
+        stoUI.showToast(i18next.t('failed_to_load_default_data'), 'error')
+      }
+    } catch (error) {
+      stoUI.showToast(i18next.t('failed_to_load_default_data_with_error', { error: error.message }), 'error')
+    }
+  },
+
+  async confirmResetApp() {
+    const confirmed = confirm(
+      i18next.t('confirm_reset_application') ||
+      'Are you sure you want to reset the application?\n\nThis will delete all profiles, keybinds, and settings. This action cannot be undone.'
+    )
+
+    if (confirmed) {
+      this.resetApplication()
+    }
+  },
+
+  resetApplication() {
+    try {
+      stoStorage.clearAllData()
+      this.currentProfile = null
+      this.selectedKey = null
+      this.setModified(false)
+      this.renderProfiles()
+      this.renderKeyGrid()
+      this.renderCommandChain()
+      this.updateProfileInfo()
+      stoUI.showToast(i18next.t('application_reset_successfully'), 'success')
+    } catch (error) {
+      stoUI.showToast(i18next.t('failed_to_reset_application', { error: error.message }), 'error')
+    }
   },
 
   setupExpandableSearch(buttonId, inputId) {

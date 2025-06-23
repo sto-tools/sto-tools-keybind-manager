@@ -4,14 +4,14 @@ import path from 'path'
 import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import STOStorage from '../../src/js/services/storage.js'
-import STOProfileManager from '../../src/js/features/profiles.js'
+// Profile functionality is now handled by the app instance
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 import STOExportManager from '../../src/js/features/export.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 
 describe('App Workflow Integration', () => {
-  let app, stoData, stoStorage, stoProfiles, stoKeybinds, stoUI, stoExport
+  let app, stoData, stoStorage, stoKeybinds, stoUI, stoExport
 
   beforeEach(async () => {
     // Load real HTML
@@ -42,10 +42,9 @@ describe('App Workflow Integration', () => {
 
     await import('../../src/js/data.js')
     stoStorage = new STOStorage()
-    stoProfiles = new STOProfileManager()
     stoKeybinds = new STOKeybindFileManager()
     stoUI = new STOUIManager()
-    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
+    Object.assign(global, { stoStorage, stoKeybinds, stoUI })
     app = new STOToolsKeybindManager()
     stoExport = new STOExportManager()
     Object.assign(global, { app, stoExport })

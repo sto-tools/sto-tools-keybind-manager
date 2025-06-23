@@ -96,15 +96,58 @@ describe('Environment Switching Tests', () => {
       throw error
     }
 
-    // Reset to clean state and force space mode
-    if (app?.resetApplication) {
-      app.resetApplication()
+    // Ensure we have a valid profile for testing - simplified setup
+    let currentProfile = app.getCurrentProfile()
+    console.log('Initial currentProfile:', currentProfile?.name || 'none')
+    
+    // If we have a profile, just ensure it's properly set up
+    if (currentProfile) {
+      console.log('Using existing profile:', currentProfile.name)
+      // Ensure the profile is properly loaded and current
+      app.currentProfile = currentProfile.id || app.currentProfile
+      app.currentEnvironment = currentProfile.currentEnvironment || 'space'
+    } else {
+      console.log('No profile found, creating basic test profile...')
+      // Only create if truly no profile exists
+      try {
+        const profileId = app.createProfile('Test Profile', 'Profile for environment switching tests', 'space')
+        if (profileId) {
+          app.switchProfile(profileId)
+          currentProfile = app.getCurrentProfile()
+        }
+      } catch (error) {
+        console.error('Failed to create profile:', error)
+      }
     }
 
+    // Ensure proper initialization without resetting
     if (app) {
+      // Set environment without resetting the app
+      app.currentEnvironment = 'space'
       app.switchMode('space')
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      
+      // Force button state update
+      app.updateModeButtons()
+      
+      // Ensure event handlers are attached
+      if (app.setupEventListeners) {
+        app.setupEventListeners()
+      }
+      
+      // Wait for everything to be ready
+      await new Promise((resolve) => setTimeout(resolve, 100))
     }
+
+    // Debug output
+    console.log('Test setup complete:', {
+      hasApp: !!app,
+      currentProfile: app?.getCurrentProfile()?.name || 'none',
+      currentEnvironment: app?.currentEnvironment,
+      spaceButtonActive: document.querySelector('[data-mode="space"]')?.classList.contains('active'),
+      groundButtonActive: document.querySelector('[data-mode="ground"]')?.classList.contains('active'),
+      spaceButtonExists: !!document.querySelector('[data-mode="space"]'),
+      groundButtonExists: !!document.querySelector('[data-mode="ground"]')
+    })
   })
 
   afterEach(async () => {
@@ -585,8 +628,6 @@ describe('Environment Switching Tests', () => {
         expect(window.app.currentEnvironment).toBe('space')
       })
     })
-
-
 
     describe('Storage Synchronization', () => {
       it('should synchronize build changes to localStorage', () => {

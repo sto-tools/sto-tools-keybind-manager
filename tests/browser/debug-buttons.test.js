@@ -56,24 +56,27 @@ describe('Button Debug Test', () => {
     console.log('\n=== Click Test Results ===')
     
     if (settingsBtn && settingsMenu) {
-      const before = settingsMenu.style.display
+      const dropdown = settingsBtn.closest('.dropdown')
+      const beforeClass = dropdown.classList.contains('active')
       settingsBtn.click()
-      const after = settingsMenu.style.display
-      console.log(`Settings: ${before} -> ${after} (Changed: ${before !== after})`)
+      const afterClass = dropdown.classList.contains('active')
+      console.log(`Settings: active=${beforeClass} -> active=${afterClass} (Changed: ${beforeClass !== afterClass})`)
     }
 
     if (backupBtn && backupMenu) {
-      const before = backupMenu.style.display
+      const dropdown = backupBtn.closest('.dropdown')
+      const beforeClass = dropdown.classList.contains('active')
       backupBtn.click()
-      const after = backupMenu.style.display
-      console.log(`Backup: ${before} -> ${after} (Changed: ${before !== after})`)
+      const afterClass = dropdown.classList.contains('active')
+      console.log(`Backup: active=${beforeClass} -> active=${afterClass} (Changed: ${beforeClass !== afterClass})`)
     }
 
     if (importBtn && importMenu) {
-      const before = importMenu.style.display
+      const dropdown = importBtn.closest('.dropdown')
+      const beforeClass = dropdown.classList.contains('active')
       importBtn.click()
-      const after = importMenu.style.display
-      console.log(`Import: ${before} -> ${after} (Changed: ${before !== after})`)
+      const afterClass = dropdown.classList.contains('active')
+      console.log(`Import: active=${beforeClass} -> active=${afterClass} (Changed: ${beforeClass !== afterClass})`)
     }
 
     // Check if app has the required methods

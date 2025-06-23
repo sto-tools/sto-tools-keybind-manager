@@ -8,7 +8,7 @@ import de from '../i18n/de.json'
 import fr from '../i18n/fr.json'
 import es from '../i18n/es.json'
 import STOStorage from './services/storage.js'
-import STOProfileManager from './features/profiles.js'
+// Profile functionality is now handled by the app instance
 import STOKeybindFileManager from './features/keybinds.js'
 import STOAliasManager from './features/aliases.js'
 import STOExportManager from './features/export.js'
@@ -86,7 +86,7 @@ const settings = stoStorage.getSettings()
     applyTranslations()
   }
 })()
-const stoProfiles = new STOProfileManager()
+// Profile functionality is now handled by the app instance
 const stoKeybinds = new STOKeybindFileManager()
 const stoAliases = new STOAliasManager()
 const stoExport = new STOExportManager()
@@ -98,7 +98,6 @@ const vertigoManager = new VertigoManager()
 const stoSync = new STOSyncManager(stoStorage)
 Object.assign(window, {
   stoStorage,
-  stoProfiles,
   stoKeybinds,
   stoAliases,
   stoExport,
@@ -115,7 +114,7 @@ const app = new STOToolsKeybindManager()
 window.app = app
 
 eventBus.on('sto-app-ready', () => {
-  stoProfiles.init()
+  // Profile initialization is now handled by the app instance
   stoKeybinds.init()
   stoAliases.init()
   stoExport.init()

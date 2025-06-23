@@ -7,14 +7,14 @@ import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 import STOStorage from '../../src/js/services/storage.js'
-import STOProfileManager from '../../src/js/features/profiles.js'
+// Profile functionality is now handled by the app instance
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 import STOExportManager from '../../src/js/features/export.js'
 
 let stoStorage
-let stoProfiles
+// stoProfiles removed - profile functionality is now in app
 let stoKeybinds
 let stoUI
 let app
@@ -30,10 +30,10 @@ beforeEach(() => {
   document.documentElement.innerHTML = htmlContent
 
   stoStorage = new STOStorage()
-  stoProfiles = new STOProfileManager()
+      // Profile functionality is now handled by the app instance
   stoKeybinds = new STOKeybindFileManager()
   stoUI = new STOUIManager()
-  Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
+      Object.assign(global, { stoStorage, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()
   exportManager = new STOExportManager()
   exportManager.init() // Initialize after i18next is ready

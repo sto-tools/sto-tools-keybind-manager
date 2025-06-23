@@ -29,7 +29,11 @@ export const modeManagement = {
       // Update button states after all other updates are complete
       this.updateModeButtons()
 
-      stoUI.showToast(i18next.t('switched_to_mode', { mode: mode }), 'success')
+      // Show toast with fallback if i18next is not available
+      const message = (typeof i18next !== 'undefined' && i18next.t) 
+        ? i18next.t('switched_to_mode', { mode: mode })
+        : `Switched to ${mode} mode`
+      stoUI.showToast(message, 'success')
     }
   },
 

@@ -4,7 +4,8 @@ import store from './core/store.js'
 import eventBus from './core/eventBus.js'
 import STOPreferencesManager from './services/preferences.js'
 import STOAutoSyncManager from './services/autoSync.js'
-import { profileManagement } from './features/profileManagement.js'
+import ProfileService from './components/services/ProfileService.js'
+import ProfileUI from './components/ui/ProfileUI.js'
 import { keyHandling } from './features/keyHandling.js'
 import { uiRendering } from './ui/uiRendering.js'
 import { parameterCommands } from './features/parameterCommands.js'
@@ -23,6 +24,10 @@ export default class STOToolsKeybindManager {
     this.eventListeners = new Map()
     this.preferencesManager = new STOPreferencesManager()
     this.autoSyncManager = new STOAutoSyncManager()
+    
+    // Initialize profile service and UI when dependencies are available
+    this.profileService = null
+    this.profileUI = null
 
     // Bind key capture handlers once for consistent add/remove
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
@@ -36,39 +41,11 @@ export default class STOToolsKeybindManager {
     }
   }
 
-  get currentProfile() {
-    return this.store.currentProfile
-  }
-  set currentProfile(val) {
-    this.store.currentProfile = val
-  }
-
   get currentMode() {
     return this.store.currentMode
   }
   set currentMode(val) {
     this.store.currentMode = val
-  }
-
-  get currentEnvironment() {
-    return this.store.currentEnvironment
-  }
-  set currentEnvironment(val) {
-    this.store.currentEnvironment = val
-  }
-
-  get selectedKey() {
-    return this.store.selectedKey
-  }
-  set selectedKey(val) {
-    this.store.selectedKey = val
-  }
-
-  get isModified() {
-    return this.store.isModified
-  }
-  set isModified(val) {
-    this.store.isModified = val
   }
 
   get undoStack() {
@@ -106,8 +83,23 @@ export default class STOToolsKeybindManager {
         throw new Error('Required dependencies not loaded')
       }
 
-      // Load data from storage
-      await this.loadData()
+      // Initialize profile service and UI
+      this.profileService = new ProfileService({ 
+        storage: stoStorage, 
+        eventBus, 
+        i18n: i18next 
+      })
+      
+      this.profileUI = new ProfileUI({
+        service: this.profileService,
+        eventBus,
+        ui: stoUI,
+        modalManager,
+        document
+      })
+
+      // Load profile data
+      await this.profileService.loadData()
 
       // Apply saved theme
       this.applyTheme()
@@ -124,8 +116,14 @@ export default class STOToolsKeybindManager {
       // Initialize auto-sync manager
       this.autoSyncManager.init()
 
+      // Initialize profile UI
+      this.profileUI.init()
+
       // Render initial state
-      this.renderProfiles()
+      this.profileUI.renderProfiles()
+      this.profileUI.renderKeyGrid()
+      this.profileUI.renderCommandChain()
+      this.profileUI.updateProfileInfo()
       this.updateModeUI()
 
       // Update mode buttons to reflect current environment
@@ -164,12 +162,213 @@ export default class STOToolsKeybindManager {
       eventBus.emit('sto-app-error', { error })
     }
   }
+
+  // Proxy methods for backward compatibility
+  get currentProfile() {
+    return this.profileService ? this.profileService.getCurrentProfileId() : this.store.currentProfile
+  }
+  
+  set currentProfile(val) {
+    this.store.currentProfile = val
+    if (this.profileService) {
+      this.profileService.currentProfile = val
+    }
+  }
+
+  get currentEnvironment() {
+    return this.profileService ? this.profileService.getCurrentEnvironment() : this.store.currentEnvironment
+  }
+  
+  set currentEnvironment(val) {
+    this.store.currentEnvironment = val
+    if (this.profileService) {
+      this.profileService.setCurrentEnvironment(val)
+    }
+  }
+
+  get selectedKey() {
+    return this.store.selectedKey
+  }
+  
+  set selectedKey(val) {
+    this.store.selectedKey = val
+  }
+
+  get isModified() {
+    return this.profileService ? this.profileService.getModified() : this.store.isModified
+  }
+  
+  set isModified(val) {
+    this.store.isModified = val
+    if (this.profileService) {
+      this.profileService.setModified(val)
+    }
+  }
+
+  // Profile management proxy methods
+  getCurrentProfile() {
+    return this.profileService ? this.profileService.getCurrentProfile() : null
+  }
+
+  switchProfile(profileId) {
+    if (this.profileService && this.profileUI) {
+      return this.profileUI.handleProfileSwitch(profileId)
+    }
+  }
+
+  createProfile(name, description, mode) {
+    if (this.profileService && this.profileUI) {
+      try {
+        const result = this.profileService.createProfile(name, description, mode)
+        if (result.success) {
+          this.profileService.switchProfile(result.profileId)
+          this.profileUI.renderProfiles()
+          this.profileUI.renderKeyGrid()
+          this.profileUI.renderCommandChain()
+          this.profileUI.updateProfileInfo()
+          // Show toast message for test compatibility
+          if (typeof stoUI !== 'undefined' && stoUI.showToast) {
+            stoUI.showToast(result.message, 'success')
+          }
+          return result.profileId
+        }
+        return null
+      } catch (error) {
+        return null
+      }
+    }
+    return null
+  }
+
+  cloneProfile(sourceProfileId, newName) {
+    if (this.profileService && this.profileUI) {
+      try {
+        const result = this.profileService.cloneProfile(sourceProfileId, newName)
+        if (result.success) {
+          this.profileUI.renderProfiles()
+          // Show toast message for test compatibility
+          if (typeof stoUI !== 'undefined' && stoUI.showToast) {
+            stoUI.showToast(result.message, 'success')
+          }
+          return result.profileId
+        }
+        return null
+      } catch (error) {
+        return null
+      }
+    }
+    return null
+  }
+
+  deleteProfile(profileId) {
+    if (this.profileService && this.profileUI) {
+      try {
+        const result = this.profileService.deleteProfile(profileId)
+        if (result.success) {
+          if (result.switchedProfile) {
+            this.selectedKey = null
+            this.profileUI.renderKeyGrid()
+            this.profileUI.renderCommandChain()
+            this.profileUI.updateProfileInfo()
+          }
+          this.profileUI.renderProfiles()
+          return true
+        }
+        return false
+      } catch (error) {
+        return false
+      }
+    }
+    return false
+  }
+
+  saveProfile() {
+    if (this.profileService) {
+      try {
+        this.profileService.saveProfile()
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+    return false
+  }
+
+  saveData() {
+    if (this.profileService) {
+      try {
+        this.profileService.saveData()
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+    return false
+  }
+
+  setModified(modified = true) {
+    if (this.profileService) {
+      this.profileService.setModified(modified)
+    }
+    if (this.profileUI) {
+      this.profileUI.updateProfileInfo()
+    }
+  }
+
+  renderProfiles() {
+    if (this.profileUI) {
+      this.profileUI.renderProfiles()
+    }
+  }
+
+  updateProfileInfo() {
+    if (this.profileUI) {
+      this.profileUI.updateProfileInfo()
+    }
+  }
+
+  saveCurrentBuild() {
+    if (this.profileService) {
+      try {
+        this.profileService.saveCurrentBuild()
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+    return false
+  }
+
+  saveCurrentProfile() {
+    if (this.profileService) {
+      try {
+        this.profileService.saveCurrentProfile()
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+    return false
+  }
+
+  getCurrentBuild(profile) {
+    if (this.profileService) {
+      return this.profileService.getCurrentBuild(profile)
+    }
+    return null
+  }
+
+  generateProfileId(name) {
+    if (this.profileService) {
+      return this.profileService.generateProfileId(name)
+    }
+    return null
+  }
 }
 
 // Initialize application
 Object.assign(
   STOToolsKeybindManager.prototype,
-  profileManagement,
   keyHandling,
   uiRendering,
   parameterCommands,

@@ -10,14 +10,12 @@ import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 import STOStorage from '../../src/js/services/storage.js'
-import STOProfileManager from '../../src/js/features/profiles.js'
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 
 let app
 let stoStorage
-let stoProfiles
 let stoKeybinds
 let stoUI
 
@@ -35,10 +33,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     document.documentElement.innerHTML = htmlContent
 
     stoStorage = new STOStorage()
-    stoProfiles = new STOProfileManager()
     stoKeybinds = new STOKeybindFileManager()
     stoUI = new STOUIManager()
-    Object.assign(global, { stoStorage, stoProfiles, stoKeybinds, stoUI })
+    Object.assign(global, { stoStorage, stoKeybinds, stoUI })
     app = new STOToolsKeybindManager()
     global.app = app
 

@@ -970,5 +970,16 @@
   "pause_state": "Pause State",
   "delete_selected_key": "Delete Selected Key",
   "duplicate_selected_key": "Duplicate Selected Key",
-  "show_all_keys": "Show All Keys"
+  "show_all_keys": "Show All Keys",
+  "failed_to_load_profile_data": "Failed to load profile data",
+  "no_profile_to_save": "No profile to save",
+  "profile_saved": "Profile saved",
+  "data_saved": "Data saved",
+  "failed_to_save_data": "Failed to save data",
+  "failed_to_save_current_profile": "Failed to save current profile",
+  "already_on_profile": "Already on this profile",
+  "source_profile_not_found": "Source profile not found",
+  "no_profile_or_build_data": "No profile or build data",
+  "profile_name_required": "Profile name is required",
+  "confirm_reset_app": "Are you sure you want to reset the application? This will delete all profiles and data. This action cannot be undone."
 }

@@ -165,12 +165,11 @@ export default class STOModalManager {
 
     // Profile modal - regenerate profile form
     this.registerRegenerateCallback('profileModal', () => {
-      if (window.stoProfiles && typeof window.stoProfiles.populateProfileForm === 'function') {
-        const modal = document.getElementById('profileModal')
-        if (modal) {
-          const mode = modal.getAttribute('data-mode') // 'new', 'clone', 'rename'
-          window.stoProfiles.populateProfileForm(mode)
-        }
+      // Profile form regeneration is handled by ProfileUI internally
+      // Just re-apply translations for now
+      const modal = document.getElementById('profileModal')
+      if (modal && typeof window.applyTranslations === 'function') {
+        window.applyTranslations(modal)
       }
     })
 

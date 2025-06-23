@@ -749,7 +749,17 @@ export default class STOExportManager {
       const data = JSON.parse(content)
 
       if (data.type === 'profile' && data.profile) {
-        return stoProfiles.importProfile(content)
+        // Use app's profile service instead of stoProfiles
+        if (window.app && window.app.profileService) {
+          const profileId = window.app.profileService.generateProfileId(data.profile.name || 'Imported Profile')
+          return window.app.profileService.createProfile(
+            data.profile.name || 'Imported Profile',
+            data.profile.description || 'Imported profile',
+            data.profile.currentEnvironment || 'space'
+          )
+        } else {
+          throw new Error('Profile service not available')
+        }
       } else if (data.type === 'project' && data.data) {
         return stoStorage.importData(JSON.stringify(data.data))
       } else {
