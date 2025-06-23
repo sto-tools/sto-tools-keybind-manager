@@ -389,7 +389,7 @@ export default class CommandLibraryService extends ComponentBase {
       }
 
       if (category) {
-        const isVisible = category.environments.includes(this.currentEnvironment)
+        const isVisible = category.environments && category.environments.includes(this.currentEnvironment)
         item.style.display = isVisible ? 'block' : 'none'
       }
     })
@@ -441,7 +441,7 @@ export default class CommandLibraryService extends ComponentBase {
    */
   generateMirroredCommandString(commands) {
     const forwardCommands = commands.map(cmd => cmd.command)
-    const reverseCommands = [...commands].reverse().map(cmd => cmd.command)
+    const reverseCommands = [...commands].slice(0, -1).reverse().map(cmd => cmd.command)
     return `${forwardCommands.join(' $$ ')} $$ ${reverseCommands.join(' $$ ')}`
   }
 

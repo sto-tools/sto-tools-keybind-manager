@@ -241,6 +241,10 @@ export default class STOToolsKeybindManager {
   
   set selectedKey(val) {
     this.store.selectedKey = val
+    // Synchronize with the command library service
+    if (this.commandLibraryService) {
+      this.commandLibraryService.setSelectedKey(val)
+    }
   }
 
   get isModified() {
@@ -450,6 +454,10 @@ export default class STOToolsKeybindManager {
 
   selectKey(keyName) {
     keyHandling.selectKey(keyName)
+    // Synchronize with the command library service
+    if (this.commandLibraryService) {
+      this.commandLibraryService.setSelectedKey(keyName)
+    }
   }
 
   // Command library proxy methods for backward compatibility
@@ -514,6 +522,13 @@ export default class STOToolsKeybindManager {
       return this.commandLibraryService.moveCommand(key, fromIndex, toIndex)
     }
     return false
+  }
+
+  getCommandWarning(command) {
+    if (this.commandLibraryService) {
+      return this.commandLibraryService.getCommandWarning(command)
+    }
+    return null
   }
 
   editCommand(index) {

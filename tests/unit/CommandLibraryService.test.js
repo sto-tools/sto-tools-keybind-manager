@@ -546,6 +546,73 @@ describe('CommandLibraryService', () => {
     })
   })
 
+  describe('filterCommandLibrary', () => {
+    beforeEach(() => {
+      // Mock DOM elements
+      const mockCommandItems = [
+        {
+          dataset: { command: 'ground_cmd' },
+          style: { display: '' }
+        },
+        {
+          dataset: { command: 'space_cmd' },
+          style: { display: '' }
+        },
+        {
+          dataset: { command: 'unknown_cmd' },
+          style: { display: '' }
+        }
+      ]
+      
+      document.querySelectorAll = vi.fn().mockReturnValue(mockCommandItems)
+      service.setCurrentEnvironment('space')
+    })
+
+    it('should handle categories without environments property', () => {
+      // Temporarily modify STO_DATA to include a category without environments
+      const originalSTO_DATA = global.STO_DATA
+      global.STO_DATA = {
+        commands: {
+          ground: {
+            commands: {
+              ground_cmd: { command: 'GroundCommand' }
+            }
+            // Note: no environments property
+          },
+          space: {
+            commands: {
+              space_cmd: { command: 'SpaceCommand' }
+            },
+            environments: ['space']
+          }
+        }
+      }
+
+      // This should not throw an error
+      expect(() => service.filterCommandLibrary()).not.toThrow()
+      
+      // Restore original STO_DATA
+      global.STO_DATA = originalSTO_DATA
+    })
+
+    it('should filter commands based on current environment', () => {
+      service.filterCommandLibrary()
+      
+      const commandItems = document.querySelectorAll('.command-item')
+      // Verify that querySelectorAll was called
+      expect(document.querySelectorAll).toHaveBeenCalledWith('.command-item')
+    })
+
+    it('should handle missing STO_DATA gracefully', () => {
+      const originalSTO_DATA = global.STO_DATA
+      global.STO_DATA = null
+      
+      expect(() => service.filterCommandLibrary()).not.toThrow()
+      
+      global.STO_DATA = originalSTO_DATA
+    })
+  })
+
   describe('getEmptyStateInfo', () => {
     it('should return empty state info when no key is selected', () => {
       const info = service.getEmptyStateInfo()

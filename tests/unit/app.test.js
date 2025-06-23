@@ -934,6 +934,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
   describe('execution order stabilization UI', () => {
     let stabilizeCheckbox
     let originalGetCurrentProfile
+    let originalGetCommandsForSelectedKey
 
     beforeEach(() => {
       // Create the stabilization checkbox
@@ -964,6 +965,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       // Mock selected key and profile
       app.selectedKey = 'F1'
 
+      // Ensure the service is synchronized with the current profile and environment
+      if (app.commandLibraryService) {
+        app.commandLibraryService.setCurrentProfile(testProfile.id)
+        app.commandLibraryService.setCurrentEnvironment('space')
+      }
+
       // Store original method and mock it
       originalGetCurrentProfile = app.getCurrentProfile
       app.getCurrentProfile = vi.fn().mockReturnValue({
@@ -975,6 +982,16 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           ],
         },
       })
+
+      // Also mock the service's getCommandsForSelectedKey method
+      if (app.commandLibraryService) {
+        originalGetCommandsForSelectedKey = app.commandLibraryService.getCommandsForSelectedKey
+        app.commandLibraryService.getCommandsForSelectedKey = vi.fn().mockReturnValue([
+          { command: '+TrayExecByTray 9 0' },
+          { command: '+TrayExecByTray 9 1' },
+          { command: '+TrayExecByTray 9 2' },
+        ])
+      }
     })
 
     afterEach(() => {
@@ -989,6 +1006,11 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       // Restore original method
       if (originalGetCurrentProfile) {
         app.getCurrentProfile = originalGetCurrentProfile
+      }
+
+      // Restore service method
+      if (originalGetCommandsForSelectedKey && app.commandLibraryService) {
+        app.commandLibraryService.getCommandsForSelectedKey = originalGetCommandsForSelectedKey
       }
     })
 
@@ -1038,6 +1060,13 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           F1: [{ command: 'FirePhasers' }],
         },
       })
+
+      // Also mock the service method for single command
+      if (app.commandLibraryService) {
+        app.commandLibraryService.getCommandsForSelectedKey.mockReturnValue([
+          { command: 'FirePhasers' }
+        ])
+      }
 
       app.renderCommandChain()
 

@@ -104,7 +104,7 @@ export default class STOFileHandler {
       return (commands || []).map(c => c.command || c).join(' $$ ')
     }
     const commandStrings = commands.map(c => c.command || c)
-    const reversed = [...commandStrings].reverse().slice(1)
+    const reversed = [...commandStrings].slice(0, -1).reverse()
     const mirrored = [...commandStrings, ...reversed]
     return mirrored.join(' $$ ')
   }
