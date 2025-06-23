@@ -72,6 +72,44 @@ global.STO_DATA = {
           customizable: false
         }
       }
+    },
+    tray: {
+      name: 'Tray Execution',
+      icon: 'fas fa-th',
+      commands: {
+        custom_tray: {
+          name: 'Tray Execution',
+          command: '+STOTrayExecByTray 0 0',
+          icon: '⚡',
+          description: 'Execute specific tray slot',
+          customizable: true,
+          parameters: {
+            tray: { type: 'number', min: 0, max: 9, default: 0 },
+            slot: { type: 'number', min: 0, max: 9, default: 0 },
+          },
+        },
+        tray_with_backup: {
+          name: 'Tray Execution with Backup',
+          command: 'TrayExecByTrayWithBackup 1 0 0 0 0',
+          icon: '⚡',
+          description: 'Execute specific tray slot with backup ability',
+          customizable: true,
+        },
+        tray_range: {
+          name: 'Tray Range Execution',
+          command: '+STOTrayExecByTray 0 0',
+          icon: '⚡',
+          description: 'Execute a range of tray slots',
+          customizable: true,
+        },
+        tray_range_with_backup: {
+          name: 'Tray Range with Backup',
+          command: 'TrayExecByTrayWithBackup 1 0 0 0 0',
+          icon: '⚡',
+          description: 'Execute a range of tray slots with backup',
+          customizable: true,
+        },
+      }
     }
   }
 }
@@ -218,6 +256,14 @@ describe('CommandLibraryService', () => {
       const command = { command: 'nonexistent' }
       const result = service.findCommandDefinition(command)
       expect(result).toBeNull()
+    })
+
+    it('should map tray execution command with parameters back to library definition', () => {
+      const command = { command: '+STOTrayExecByTray 1 1', text: '+STOTrayExecByTray 1 1' }
+      const result = service.findCommandDefinition(command)
+      expect(result).toBeDefined()
+      expect(result.commandId).toBe('custom_tray')
+      expect(result.name).toBe('Tray Execution')
     })
   })
 

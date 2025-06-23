@@ -186,12 +186,63 @@ export default class CommandLibraryService extends ComponentBase {
   findCommandDefinition(command) {
     if (!STO_DATA || !STO_DATA.commands) return null
 
+    // --------------------------------------------------------------------
+    // Special handling for Tray Execution style commands
+    // These commands embed tray/slot parameters, so the literal match used
+    // for most commands (which compares against a sample command string)
+    // will fail (e.g. "+STOTrayExecByTray 1 1" vs sample "+STOTrayExecByTray 0 0").
+    // We therefore detect them heuristically and map them back to the
+    // correct library entry so that the UI can display the friendly name.
+    // --------------------------------------------------------------------
+    if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
+      const trayCategory = STO_DATA.commands.tray
+      if (trayCategory) {
+        const categoryId = 'tray'
+
+        // 1. TrayExecByTrayWithBackup variants --------------------------------
+        if (command.command.includes('TrayExecByTrayWithBackup')) {
+          // a) Range with backup (multiple commands separated by $$)
+          if (command.command.includes('$$')) {
+            const def = trayCategory.commands.tray_range_with_backup
+            if (def) {
+              return { ...def, commandId: 'tray_range_with_backup', categoryId }
+            }
+          }
+          // b) Single tray slot with backup
+          const def = trayCategory.commands.tray_with_backup
+          if (def) {
+            return { ...def, commandId: 'tray_with_backup', categoryId }
+          }
+        }
+
+        // 2. STOTrayExecByTray / TrayExecByTray variants ----------------------
+        if (
+          command.command.includes('STOTrayExecByTray') ||
+          (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))
+        ) {
+          // a) Range across many slots (command chain using $$)
+          if (command.command.includes('$$')) {
+            const def = trayCategory.commands.tray_range
+            if (def) {
+              return { ...def, commandId: 'tray_range', categoryId }
+            }
+          }
+          // b) Single tray slot (custom tray execution)
+          const def = trayCategory.commands.custom_tray
+          if (def) {
+            return { ...def, commandId: 'custom_tray', categoryId }
+          }
+        }
+      }
+    }
+
+    // Generic lookup (exact match or containment) ---------------------------
     for (const [categoryId, category] of Object.entries(STO_DATA.commands)) {
       for (const [cmdId, cmdData] of Object.entries(category.commands)) {
         if (
           cmdData.command === command.command ||
           cmdData.name === command.text ||
-          command.command.includes(cmdData.command)
+          (command.command && command.command.includes(cmdData.command))
         ) {
           return { ...cmdData, commandId: cmdId, categoryId }
         }
