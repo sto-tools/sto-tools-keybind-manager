@@ -537,4 +537,11 @@ export const uiRendering = {
 
     return keyElement
   },
+
+  selectKey(keyName) {
+    this.selectedKey = keyName
+    this.renderKeyGrid()
+    this.renderCommandChain()
+    this.updateChainActions()
+  },
 }

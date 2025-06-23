@@ -689,7 +689,7 @@
   "alias_template_exists": "Alias \"{{alias}}\" already exists",
   "alias_created_from_template": "Alias \"{{alias}}\" created from template",
   "template_not_found": "Template not found",
-  "alias_not_found": "Alias not found",
+  "alias_not_found": "Alias \"{{alias}}\" not found",
   "alias_created": "Alias \"{{alias}}\" created",
   "alias_updated": "Alias \"{{alias}}\" updated",
   "no_profile_selected_for_import": "No profile selected for import",

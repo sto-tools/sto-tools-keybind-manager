@@ -1,7 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
 import i18next from 'i18next'
 
-export default class AliasUI extends ComponentBase {
+export default class AliasModalUI extends ComponentBase {
   constructor({ service, eventBus, ui, modalManager, document }) {
     super(eventBus)
     this.service = service
@@ -205,16 +205,65 @@ export default class AliasUI extends ComponentBase {
   }
 
   insertTargetVariable(textarea) {
-    const targetVar = '$Target'
-    const cursorPosition = textarea.selectionStart
-    const value = textarea.value
-    const newValue = value.slice(0, cursorPosition) + targetVar + value.slice(cursorPosition)
-    textarea.value = newValue
-    textarea.setSelectionRange(
-      cursorPosition + targetVar.length,
-      cursorPosition + targetVar.length
-    )
+    const cursorPos = textarea.selectionStart
+    const textBefore = textarea.value.substring(0, cursorPos)
+    const textAfter = textarea.value.substring(cursorPos)
+    
+    textarea.value = textBefore + '$Target' + textAfter
+    textarea.selectionStart = textarea.selectionEnd = cursorPos + 7
+    
+    // Maintain focus on the textarea
     textarea.focus()
+    
+    // Trigger input event to update preview
     textarea.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
+  updateCommandLibrary() {
+    // This method is now handled by AliasService, but we keep it for backward compatibility
+    if (this.service && this.service.updateCommandLibrary) {
+      this.service.updateCommandLibrary()
+    }
+  }
+
+  createAliasCategoryElement(aliases, categoryType = 'aliases', titleKey = 'command_aliases', iconClass = 'fas fa-mask') {
+    if (!aliases || aliases.length === 0) {
+      return null
+    }
+
+    const category = document.createElement('div')
+    category.className = 'category'
+    category.dataset.category = categoryType
+
+    const header = document.createElement('div')
+    header.className = 'category-header'
+    header.innerHTML = `
+      <i class="${iconClass}"></i>
+      <span>${i18next.t(titleKey)}</span>
+      <span class="category-count">(${aliases.length})</span>
+    `
+
+    const content = document.createElement('div')
+    content.className = 'category-content'
+
+    aliases.forEach(([name, alias]) => {
+      const item = document.createElement('div')
+      item.className = 'command-item alias-command'
+      item.dataset.command = name
+      item.dataset.type = 'alias'
+      item.innerHTML = `
+        <div class="command-icon">🎭</div>
+        <div class="command-info">
+          <div class="command-name">${name}</div>
+          <div class="command-description">${alias.description || ''}</div>
+        </div>
+      `
+      content.appendChild(item)
+    })
+
+    category.appendChild(header)
+    category.appendChild(content)
+
+    return category
   }
 }

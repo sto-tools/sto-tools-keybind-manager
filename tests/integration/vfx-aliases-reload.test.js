@@ -84,16 +84,16 @@ describe('VFX Aliases Reload Integration', () => {
 
   it('should initialize aliases in command library after app ready event', async () => {
     // Import the aliases.js module and create a new instance for testing
-    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
+    const { AliasModalService, AliasModalUI } = await import('../../src/js/components/aliases/index.js')
 
     // Create alias manager instance manually for testing
-    const aliasService = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
-    const aliasManager = new AliasUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
+    const aliasService = new AliasModalService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager = new AliasModalUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager
     window.stoAliases = aliasManager
 
     // Spy on updateCommandLibrary
-    const updateLibrarySpy = vi.spyOn(aliasManager, 'updateCommandLibrary')
+    const updateLibrarySpy = vi.spyOn(aliasService, 'updateCommandLibrary')
 
     // Simulate the app initialization sequence
     // 1. App is created but not yet initialized
@@ -121,7 +121,7 @@ describe('VFX Aliases Reload Integration', () => {
     expect(regularCategory).toBeTruthy()
 
     // Check VFX aliases are present
-    const vfxAliases = vfxCategory.querySelectorAll('.vertigo-alias-item')
+    const vfxAliases = vfxCategory.querySelectorAll('.command-item.vertigo-alias-item')
     expect(vfxAliases).toHaveLength(2) // Space and Ground VFX aliases
 
     const aliasNames = Array.from(vfxAliases).map((el) => el.dataset.alias)
@@ -131,9 +131,9 @@ describe('VFX Aliases Reload Integration', () => {
 
   it('should handle app ready event timing correctly', async () => {
     // Import and instantiate the alias manager
-    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
-    const aliasService = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
-    const aliasManager = new AliasUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
+    const { AliasModalService, AliasModalUI } = await import('../../src/js/components/aliases/index.js')
+    const aliasService = new AliasModalService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager = new AliasModalUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager
     const updateLibrarySpy = vi.spyOn(aliasService, 'updateCommandLibrary')
 
@@ -161,9 +161,9 @@ describe('VFX Aliases Reload Integration', () => {
 
   it('should maintain VFX aliases across simulated reload', async () => {
     // Import and instantiate the alias manager
-    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
-    const aliasService1 = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
-    const aliasManager1 = new AliasUI({ service: aliasService1, eventBus, ui: mockUI, modalManager: mockUI, document })
+    const { AliasModalService, AliasModalUI } = await import('../../src/js/components/aliases/index.js')
+    const aliasService1 = new AliasModalService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager1 = new AliasModalUI({ service: aliasService1, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager1
     aliasManager1.init()
 
@@ -188,7 +188,7 @@ describe('VFX Aliases Reload Integration', () => {
     // VFX aliases should still be present after "reload"
     expect(vfxCategory).toBeTruthy()
 
-    const vfxAliases = vfxCategory.querySelectorAll('.vertigo-alias-item')
+    const vfxAliases = vfxCategory.querySelectorAll('.command-item.vertigo-alias-item')
     expect(vfxAliases).toHaveLength(2)
 
     const aliasNames = Array.from(vfxAliases).map((el) => el.dataset.alias)
@@ -205,9 +205,9 @@ describe('VFX Aliases Reload Integration', () => {
     })
 
     // Import and instantiate the alias manager
-    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
-    const aliasService = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
-    const aliasManager = new AliasUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
+    const { AliasModalService, AliasModalUI } = await import('../../src/js/components/aliases/index.js')
+    const aliasService = new AliasModalService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager = new AliasModalUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager
     const updateLibrarySpy = vi.spyOn(aliasService, 'updateCommandLibrary')
 
@@ -217,6 +217,8 @@ describe('VFX Aliases Reload Integration', () => {
 
     // Command library should be empty but not broken
     const commandCategories = document.getElementById('commandCategories')
-    expect(commandCategories.children).toHaveLength(0)
+    // When aliases are empty, no alias categories should be created
+    const aliasCategories = commandCategories.querySelectorAll('[data-category="aliases"], [data-category="vertigo-aliases"]')
+    expect(aliasCategories).toHaveLength(0)
   })
 })

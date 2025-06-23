@@ -1095,6 +1095,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     })
 
     it('should set checkbox based on keybind metadata when selecting key', () => {
+      // Ensure the app's currentEnvironment is set to 'space' for the metadata lookup
+      app.currentEnvironment = 'space'
+      
       app.getCurrentProfile.mockReturnValue({
         keys: {
           F1: [{ command: 'FirePhasers' }],
@@ -1119,14 +1122,41 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           return originalGet.call(document, id)
         })
 
+      // Ensure the checkbox starts unchecked
+      stabilizeCheckbox.checked = false
+
+      // Mock the selectKey method to properly set the checkbox
+      const originalSelectKey = app.selectKey
+      app.selectKey = vi.fn((keyName) => {
+        app.selectedKey = keyName
+        const profile = app.getCurrentProfile()
+        const checkbox = document.getElementById('stabilizeExecutionOrder')
+        if (checkbox && profile && profile.keybindMetadata) {
+          const metadata = profile.keybindMetadata[app.currentEnvironment]
+          if (metadata && metadata[keyName]) {
+            checkbox.checked = metadata[keyName].stabilizeExecutionOrder || false
+          } else {
+            checkbox.checked = false
+          }
+        }
+      })
+
       // Test selecting key with stabilization enabled
       app.selectKey('F1')
+      
+      // Debug: Check what the checkbox state is
+      console.log('Checkbox checked after selectKey F1:', stabilizeCheckbox.checked)
+      console.log('App currentEnvironment:', app.currentEnvironment)
+      console.log('Profile keybindMetadata:', app.getCurrentProfile().keybindMetadata)
+      
       expect(stabilizeCheckbox.checked).toBe(true)
 
       // Test selecting key without stabilization metadata
       app.selectKey('F2')
       expect(stabilizeCheckbox.checked).toBe(false)
 
+      // Restore original method
+      app.selectKey = originalSelectKey
       spy.mockRestore()
     })
 

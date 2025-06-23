@@ -13,8 +13,9 @@ import { keyCapture } from './ui/keyCapture.js'
 import { eventHandlers } from './ui/eventHandlers.js'
 import { projectManagement } from './services/projectManagement.js'
 import { modeManagement } from './ui/modeManagement.js'
-import { commandLibrary } from './features/commandLibrary.js'
-import { AliasService, AliasUI } from './components/aliases/index.js'
+import { CommandLibraryService } from './components/services/index.js'
+import { CommandLibraryUI } from './components/ui/index.js'
+import { AliasModalService, AliasModalUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
 
@@ -30,6 +31,8 @@ export default class STOToolsKeybindManager {
     this.profileUI = null
     this.aliasService = null
     this.aliasUI = null
+    this.commandLibraryService = null
+    this.commandLibraryUI = null
 
     // Bind key capture handlers once for consistent add/remove
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
@@ -100,13 +103,13 @@ export default class STOToolsKeybindManager {
         document
       })
 
-      this.aliasService = new AliasService({
+      this.aliasService = new AliasModalService({
         eventBus,
         storage: stoStorage,
         ui: stoUI,
       })
 
-      this.aliasUI = new AliasUI({
+      this.aliasUI = new AliasModalUI({
         service: this.aliasService,
         eventBus,
         ui: stoUI,
@@ -114,12 +117,34 @@ export default class STOToolsKeybindManager {
         document,
       })
 
+      // Initialize command library service and UI
+      this.commandLibraryService = new CommandLibraryService({
+        storage: stoStorage,
+        eventBus,
+        i18n: i18next,
+        ui: stoUI,
+        modalManager
+      })
+
+      this.commandLibraryUI = new CommandLibraryUI({
+        service: this.commandLibraryService,
+        eventBus,
+        ui: stoUI,
+        modalManager,
+        document
+      })
+
+      // Sync command library service with profile service
+      this.commandLibraryService.setCurrentProfile(this.profileService.getCurrentProfileId())
+      this.commandLibraryService.setCurrentEnvironment(this.profileService.getCurrentEnvironment())
+
       window.stoAliases = this.aliasUI
-      global.stoAliases = this.aliasUI
 
       eventBus.on('sto-app-ready', () => {
         this.aliasService.init()
         this.aliasUI.init()
+        this.commandLibraryService.init()
+        this.commandLibraryUI.init()
       })
 
       // Load profile data
@@ -388,6 +413,129 @@ export default class STOToolsKeybindManager {
     }
     return null
   }
+
+  // Alias management proxy methods for backward compatibility
+  createAliasChain(name, description = '') {
+    if (this.aliasService) {
+      return this.aliasService.createAliasChain(name, description)
+    }
+  }
+
+  renderAliasGrid() {
+    if (this.aliasService) {
+      return this.aliasService.renderAliasGrid()
+    }
+  }
+
+  generateCommandId() {
+    return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  addCommand(key, command) {
+    const profile = this.getCurrentProfile()
+    if (!profile || !key) return false
+
+    if (!profile.keys) {
+      profile.keys = {}
+    }
+    if (!profile.keys[key]) {
+      profile.keys[key] = []
+    }
+
+    profile.keys[key].push(command)
+    this.saveProfile()
+    this.setModified(true)
+    return true
+  }
+
+  selectKey(keyName) {
+    keyHandling.selectKey(keyName)
+  }
+
+  // Command library proxy methods for backward compatibility
+  renderCommandChain() {
+    if (this.commandLibraryUI) {
+      this.commandLibraryUI.renderCommandChain()
+    }
+  }
+
+  setupCommandLibrary() {
+    if (this.commandLibraryUI) {
+      this.commandLibraryUI.setupCommandLibrary()
+    }
+  }
+
+  setupDragAndDrop() {
+    if (this.commandLibraryUI) {
+      this.commandLibraryUI.setupDragAndDrop()
+    }
+  }
+
+  filterCommandLibrary() {
+    if (this.commandLibraryService) {
+      this.commandLibraryService.filterCommandLibrary()
+    }
+  }
+
+  updateChainActions() {
+    if (this.commandLibraryUI) {
+      this.commandLibraryUI.updateChainActions()
+    }
+  }
+
+  toggleLibrary() {
+    if (this.commandLibraryUI) {
+      this.commandLibraryUI.toggleLibrary()
+    }
+  }
+
+  showTemplateModal() {
+    if (this.commandLibraryUI) {
+      this.commandLibraryUI.showTemplateModal()
+    }
+  }
+
+  addCommandFromLibrary(categoryId, commandId) {
+    if (this.commandLibraryService) {
+      return this.commandLibraryService.addCommandFromLibrary(categoryId, commandId)
+    }
+    return false
+  }
+
+  deleteCommand(key, index) {
+    if (this.commandLibraryService) {
+      return this.commandLibraryService.deleteCommand(key, index)
+    }
+    return false
+  }
+
+  moveCommand(key, fromIndex, toIndex) {
+    if (this.commandLibraryService) {
+      return this.commandLibraryService.moveCommand(key, fromIndex, toIndex)
+    }
+    return false
+  }
+
+  editCommand(index) {
+    // This will be handled by the existing parameter modal system
+    if (typeof app !== 'undefined' && app.showParameterModal) {
+      // Get the command at the specified index and show the parameter modal
+      const commands = this.commandLibraryService.getCommandsForSelectedKey()
+      if (commands[index]) {
+        const command = commands[index]
+        const commandDef = this.commandLibraryService.findCommandDefinition(command)
+        if (commandDef && commandDef.customizable) {
+          this.showParameterModal(commandDef.categoryId, commandDef.commandId, commandDef)
+        }
+      }
+    }
+  }
+
+  showParameterModal(categoryId, commandId, commandDef) {
+    if (this.commandLibraryUI) {
+      this.commandLibraryUI.showParameterModal(categoryId, commandId, commandDef)
+    }
+  }
 }
 
 // Initialize application
@@ -400,7 +548,6 @@ Object.assign(
   eventHandlers,
   projectManagement,
   modeManagement,
-  commandLibrary,
   viewManagement,
   welcome,
 )

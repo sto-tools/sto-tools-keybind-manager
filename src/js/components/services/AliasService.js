@@ -1,7 +1,8 @@
 import ComponentBase from '../ComponentBase.js'
 import i18next from 'i18next'
+import store from '../../core/store.js'
 
-export default class AliasService extends ComponentBase {
+export default class AliasModalService extends ComponentBase {
   constructor({ eventBus, storage, ui }) {
     super(eventBus)
     this.storage = storage
@@ -176,7 +177,7 @@ export default class AliasService extends ComponentBase {
 
   updateCommandLibrary() {
     const profile = app.getCurrentProfile()
-    if (!profile || !profile.aliases) return
+    if (!profile) return
 
     const categories = document.getElementById('commandCategories')
     if (!categories) return
@@ -190,7 +191,7 @@ export default class AliasService extends ComponentBase {
       existingVertigoCategory.remove()
     }
 
-    const allAliases = Object.entries(profile.aliases)
+    const allAliases = Object.entries(profile.aliases || {})
     const regularAliases = allAliases.filter(
       ([name]) => !name.startsWith('dynFxSetFXExlusionList_')
     )
@@ -198,6 +199,7 @@ export default class AliasService extends ComponentBase {
       name.startsWith('dynFxSetFXExlusionList_')
     )
 
+    // Only create regular aliases category if there are regular aliases
     if (regularAliases.length > 0) {
       const aliasCategory = this.createAliasCategoryElement(
         regularAliases,
@@ -208,6 +210,7 @@ export default class AliasService extends ComponentBase {
       categories.appendChild(aliasCategory)
     }
 
+    // Only create VERTIGO category if there are VERTIGO aliases
     if (vertigoAliases.length > 0) {
       const vertigoCategory = this.createAliasCategoryElement(
         vertigoAliases,
@@ -310,7 +313,7 @@ export default class AliasService extends ComponentBase {
 
     if (!alias) {
       if (this.ui && this.ui.showToast) {
-        this.ui.showToast(i18next.t('alias_not_found'), 'error')
+        this.ui.showToast(i18next.t('alias_not_found', { alias: aliasName }), 'error')
       }
       return false
     }
@@ -325,6 +328,17 @@ export default class AliasService extends ComponentBase {
     }
 
     app.addCommand(store.selectedKey, command)
+    
+    if (this.ui && this.ui.showToast) {
+      this.ui.showToast(
+        i18next.t('alias_added_to_key', {
+          alias: aliasName,
+          key: store.selectedKey,
+        }),
+        'success'
+      )
+    }
+    
     return true
   }
 
@@ -433,6 +447,11 @@ export default class AliasService extends ComponentBase {
 
     this.updateCommandLibrary()
 
+    // Update the alias list UI if available - call the UI's renderAliasList method
+    if (this.ui && typeof this.ui.renderAliasList === 'function') {
+      this.ui.renderAliasList()
+    }
+
     if (this.ui && this.ui.showToast) {
       this.ui.showToast(
         i18next.t('alias_created_from_template', { alias: template.name }),
@@ -475,5 +494,50 @@ export default class AliasService extends ComponentBase {
     })
 
     return usage
+  }
+
+  createAliasChain(name, description = '') {
+    const profile = app.getCurrentProfile()
+    if (!profile) return
+
+    // Initialize aliases object if it doesn't exist
+    if (!profile.aliases) {
+      profile.aliases = {}
+    }
+
+    // Check if alias already exists
+    if (profile.aliases[name]) {
+      if (this.ui && this.ui.showToast) {
+        this.ui.showToast(i18next.t('alias_already_exists', {name: name}), 'error')
+      }
+      return
+    }
+
+    // Create new alias
+    profile.aliases[name] = {
+      name: name,
+      description: description,
+      commands: '',
+      created: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    }
+
+    // Save profile
+    app.saveProfile()
+    app.setModified(true)
+    
+    // Update UI
+    this.updateCommandLibrary()
+    
+    if (this.ui && this.ui.showToast) {
+      this.ui.showToast(i18next.t('alias_created', {name: name}), 'success')
+    }
+  }
+
+  renderAliasGrid() {
+    // This method is now handled by AliasUI, but we keep it for backward compatibility
+    if (this.ui && this.ui.renderAliasList) {
+      this.ui.renderAliasList()
+    }
   }
 }

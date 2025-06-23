@@ -2,6 +2,9 @@
 import { beforeEach, afterEach } from 'vitest'
 import eventBus from '../src/js/core/eventBus.js'
 
+// Import data to ensure STO_DATA is available
+import '../src/js/data.js'
+
 // Browser tests run in real browsers, so we don't need to mock browser APIs
 // But we can still set up global test helpers and utilities
 

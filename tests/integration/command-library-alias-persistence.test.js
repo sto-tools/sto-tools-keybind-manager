@@ -126,7 +126,7 @@ describe('Command Library Alias Persistence Integration', () => {
   it('should preserve aliases when setupCommandLibrary is called after aliases are added', async () => {
     // Import and create the app and alias manager instances
     const { default: STOToolsKeybindManager } = await import('../../src/js/app.js')
-    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
+    const { AliasModalService, AliasModalUI } = await import('../../src/js/components/aliases/index.js')
 
     // Create real app instance
     const app = new STOToolsKeybindManager()
@@ -134,8 +134,8 @@ describe('Command Library Alias Persistence Integration', () => {
     window.app = app
 
     // Create alias manager instance
-    const aliasService = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
-    const aliasManager = new AliasUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
+    const aliasService = new AliasModalService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager = new AliasModalUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager
     window.stoAliases = aliasManager
 
@@ -151,8 +151,8 @@ describe('Command Library Alias Persistence Integration', () => {
     expect(regularCategory).toBeTruthy()
 
     // Verify alias items are present
-    let vfxAliases = vfxCategory.querySelectorAll('.vertigo-alias-item')
-    let regularAliases = regularCategory.querySelectorAll('.alias-item')
+    let vfxAliases = vfxCategory.querySelectorAll('.command-item.vertigo-alias-item')
+    let regularAliases = regularCategory.querySelectorAll('.command-item.alias-item')
     expect(vfxAliases).toHaveLength(2) // Space and Ground VFX aliases
     expect(regularAliases).toHaveLength(2) // RegularAlias and CustomCommand
 
@@ -167,8 +167,8 @@ describe('Command Library Alias Persistence Integration', () => {
     expect(regularCategory).toBeTruthy()
 
     // Verify alias items are still present
-    vfxAliases = vfxCategory.querySelectorAll('.vertigo-alias-item')
-    regularAliases = regularCategory.querySelectorAll('.alias-item')
+    vfxAliases = vfxCategory.querySelectorAll('.command-item.vertigo-alias-item')
+    regularAliases = regularCategory.querySelectorAll('.command-item.alias-item')
     expect(vfxAliases).toHaveLength(2)
     expect(regularAliases).toHaveLength(2)
 
@@ -185,14 +185,14 @@ describe('Command Library Alias Persistence Integration', () => {
   it('should handle multiple setupCommandLibrary calls without losing aliases', async () => {
     // Import and create instances
     const { default: STOToolsKeybindManager } = await import('../../src/js/app.js')
-    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
+    const { AliasModalService, AliasModalUI } = await import('../../src/js/components/aliases/index.js')
 
     const app = new STOToolsKeybindManager()
     global.app = app
     window.app = app
 
-    const aliasService = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
-    const aliasManager = new AliasUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
+    const aliasService = new AliasModalService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager = new AliasModalUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager
     window.stoAliases = aliasManager
 
@@ -212,8 +212,8 @@ describe('Command Library Alias Persistence Integration', () => {
     expect(vfxCategory).toBeTruthy()
     expect(regularCategory).toBeTruthy()
 
-    const vfxAliases = vfxCategory.querySelectorAll('.vertigo-alias-item')
-    const regularAliases = regularCategory.querySelectorAll('.alias-item')
+    const vfxAliases = vfxCategory.querySelectorAll('.command-item.vertigo-alias-item')
+    const regularAliases = regularCategory.querySelectorAll('.command-item.alias-item')
     expect(vfxAliases).toHaveLength(2)
     expect(regularAliases).toHaveLength(2)
   })

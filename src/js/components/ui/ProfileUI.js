@@ -161,11 +161,11 @@ export default class ProfileUI extends ComponentBase {
   }
 
   /**
-   * Render the command chain (delegated to existing commandLibrary)
+   * Render the command chain (delegated to command library UI)
    */
   renderCommandChain() {
-    if (typeof app !== 'undefined' && app.renderCommandChain) {
-      app.renderCommandChain()
+    if (typeof app !== 'undefined' && app.commandLibraryUI) {
+      app.commandLibraryUI.renderCommandChain()
     }
   }
 

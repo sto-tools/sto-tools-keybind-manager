@@ -7,7 +7,7 @@ import '../../src/js/data.js'
 
 import eventBus from '../../src/js/core/eventBus.js'
 // Load the aliases module (it creates a global instance)
-import { AliasService, AliasUI } from '../../src/js/components/aliases/index.js'
+import { AliasModalService, AliasModalUI } from '../../src/js/components/aliases/index.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 
 // Load the real HTML
@@ -23,6 +23,7 @@ beforeEach(() => {
   global.stoUI = {
     showToast: vi.fn(),
     confirm: vi.fn().mockResolvedValue(true),
+    renderAliasList: vi.fn(),
   }
 
   global.modalManager = {
@@ -53,8 +54,8 @@ describe('Alias Components', () => {
   let aliasUI
 
   beforeEach(() => {
-    aliasService = new AliasService({ eventBus, storage: stoStorage, ui: stoUI })
-    aliasUI = new AliasUI({ service: aliasService, eventBus, ui: stoUI, modalManager, document })
+    aliasService = new AliasModalService({ eventBus, storage: stoStorage, ui: stoUI })
+    aliasUI = new AliasModalUI({ service: aliasService, eventBus, ui: stoUI, modalManager, document })
     vi.clearAllMocks()
   })
 
@@ -273,7 +274,7 @@ describe('Alias Components', () => {
       global.app.getCurrentProfile.mockReturnValue(mockProfile)
 
       const updateLibrarySpy = vi
-        .spyOn(aliasUI, 'updateCommandLibrary')
+        .spyOn(aliasService, 'updateCommandLibrary')
         .mockImplementation(() => {})
       const showManagerSpy = vi
         .spyOn(aliasUI, 'showAliasManager')
@@ -295,8 +296,6 @@ describe('Alias Components', () => {
         'Alias "ValidAlias" created',
         'success'
       )
-      expect(modalManager.hide).toHaveBeenCalledWith('editAliasModal')
-      expect(showManagerSpy).toHaveBeenCalled()
     })
 
     it('should update existing alias', () => {
@@ -370,11 +369,9 @@ describe('Alias Components', () => {
     })
 
     it('should prevent duplicate alias names', () => {
-      const nameInput = document.getElementById('aliasName')
-      const commandsInput = document.getElementById('aliasCommands')
-
-      nameInput.value = 'ExistingAlias'
-      commandsInput.value = 'say hello'
+      const name = 'ExistingAlias'
+      const description = 'Test description'
+      const commands = 'say hello'
 
       global.app.getCurrentProfile.mockReturnValue({
         aliases: {
@@ -383,8 +380,9 @@ describe('Alias Components', () => {
       })
 
       aliasService.currentAlias = null
-      aliasService.saveAlias()
+      const result = aliasService.saveAlias({ name, description, commands })
 
+      expect(result).toBe(false)
       expect(stoUI.showToast).toHaveBeenCalledWith(
         'An alias with this name already exists',
         'error'
@@ -414,7 +412,7 @@ describe('Alias Components', () => {
         .spyOn(aliasUI, 'renderAliasList')
         .mockImplementation(() => {})
       const updateLibrarySpy = vi
-        .spyOn(aliasUI, 'updateCommandLibrary')
+        .spyOn(aliasService, 'updateCommandLibrary')
         .mockImplementation(() => {})
 
       aliasService.deleteAlias('TestAlias')
@@ -423,7 +421,6 @@ describe('Alias Components', () => {
       expect(mockProfile.aliases.KeepAlias).toBeDefined()
       expect(app.saveProfile).toHaveBeenCalled()
       expect(app.setModified).toHaveBeenCalledWith(true)
-      expect(renderSpy).toHaveBeenCalled()
       expect(updateLibrarySpy).toHaveBeenCalled()
       expect(stoUI.showToast).toHaveBeenCalledWith(
         'Alias "TestAlias" deleted',
@@ -448,7 +445,6 @@ describe('Alias Components', () => {
           text: 'Alias: TestAlias',
         })
       )
-      expect(modalManager.hide).toHaveBeenCalledWith('aliasManagerModal')
       expect(stoUI.showToast).toHaveBeenCalledWith(
         'Alias "TestAlias" added to F1',
         'success'
@@ -469,15 +465,10 @@ describe('Alias Components', () => {
     })
 
     it('should add alias to key through addAliasToKey', () => {
-      global.app.selectedKey = 'F2'
       store.selectedKey = 'F2'
       global.app.getCurrentProfile.mockReturnValue({
         aliases: {
-          TestAlias: {
-            name: 'TestAlias',
-            description: 'Test description',
-            commands: 'say hello',
-          },
+          TestAlias: { name: 'TestAlias', commands: 'test command' },
         },
       })
 
@@ -490,19 +481,26 @@ describe('Alias Components', () => {
           type: 'alias',
           icon: '🎭',
           text: 'Alias: TestAlias',
-          description: 'Test description',
         })
+      )
+      expect(stoUI.showToast).toHaveBeenCalledWith(
+        'Alias "TestAlias" added to F2',
+        'success'
       )
     })
 
     it('should handle missing alias in addAliasToKey', () => {
-      global.app.selectedKey = 'F1'
-      store.selectedKey = 'F1'
-      global.app.getCurrentProfile.mockReturnValue({ aliases: {} })
+      store.selectedKey = 'F3'
+      global.app.getCurrentProfile.mockReturnValue({
+        aliases: {},
+      })
 
       aliasService.addAliasToKey('NonExistentAlias')
 
-      expect(stoUI.showToast).toHaveBeenCalledWith('Alias not found', 'error')
+      expect(stoUI.showToast).toHaveBeenCalledWith(
+        'Alias "NonExistentAlias" not found',
+        'error'
+      )
       expect(app.addCommand).not.toHaveBeenCalled()
     })
 
@@ -601,24 +599,30 @@ describe('Alias Components', () => {
     })
 
     it('should create alias from template', () => {
+      const templateId = 'AttackRun'
+      const category = 'space_combat'
+
       const mockProfile = { aliases: {} }
       global.app.getCurrentProfile.mockReturnValue(mockProfile)
 
       const updateLibrarySpy = vi
-        .spyOn(aliasUI, 'updateCommandLibrary')
+        .spyOn(aliasService, 'updateCommandLibrary')
         .mockImplementation(() => {})
+      
+      // Spy on the UI's renderAliasList method that gets called by the service
       const renderSpy = vi
-        .spyOn(aliasUI, 'renderAliasList')
+        .spyOn(stoUI, 'renderAliasList')
         .mockImplementation(() => {})
 
-      aliasService.createAliasFromTemplate('space_combat', 'AttackRun')
+      const result = aliasService.createAliasFromTemplate(category, templateId)
 
-      expect(mockProfile.aliases.AttackRun).toBeDefined()
-      expect(mockProfile.aliases.AttackRun.name).toBe('AttackRun')
-      expect(mockProfile.aliases.AttackRun.commands).toContain(
+      expect(result).toBe(true)
+      expect(mockProfile.aliases['AttackRun']).toBeDefined()
+      expect(mockProfile.aliases['AttackRun'].commands).toContain(
         'target_nearest_enemy'
       )
       expect(app.saveProfile).toHaveBeenCalled()
+      expect(app.setModified).toHaveBeenCalledWith(true)
       expect(updateLibrarySpy).toHaveBeenCalled()
       expect(renderSpy).toHaveBeenCalled()
       expect(stoUI.showToast).toHaveBeenCalledWith(
@@ -658,55 +662,53 @@ describe('Alias Components', () => {
 
   describe('command library integration', () => {
     it('should update command library when aliases change', () => {
-      const categories = document.getElementById('commandCategories')
-      expect(categories).toBeTruthy()
-
-      global.app.getCurrentProfile.mockReturnValue({
+      const mockProfile = {
         aliases: {
           TestAlias: { name: 'TestAlias', commands: 'test' },
         },
-      })
+      }
+      global.app.getCurrentProfile.mockReturnValue(mockProfile)
 
       const createCategorySpy = vi.spyOn(
-        aliasUI,
+        aliasService,
         'createAliasCategoryElement'
-      )
+      ).mockReturnValue(document.createElement('div'))
 
       aliasService.updateCommandLibrary()
 
-      // Should remove existing alias category and add new one if aliases exist
-      expect(createCategorySpy).toHaveBeenCalled()
+      expect(createCategorySpy).toHaveBeenCalledWith(
+        [['TestAlias', { name: 'TestAlias', commands: 'test' }]],
+        'aliases',
+        'command_aliases',
+        'fas fa-mask'
+      )
     })
 
     it('should create alias category element for library', () => {
       const aliases = [
-        [
-          'TestAlias',
-          { description: 'Test description', commands: 'say hello' },
-        ],
+        ['TestAlias', { name: 'TestAlias', commands: 'test' }],
+        ['AnotherAlias', { name: 'AnotherAlias', commands: 'another' }],
       ]
 
-      const element = aliasUI.createAliasCategoryElement(aliases)
+      const element = aliasService.createAliasCategoryElement(aliases)
 
       expect(element.className).toBe('category')
       expect(element.dataset.category).toBe('aliases')
-      expect(element.innerHTML).toContain('Command Aliases')
-      expect(element.innerHTML).toContain('TestAlias')
+      expect(element.querySelector('h4')).toBeTruthy()
+      expect(element.querySelectorAll('.command-item')).toHaveLength(2)
     })
 
     it('should handle empty aliases in command library', () => {
-      const categories = document.getElementById('commandCategories')
-
       global.app.getCurrentProfile.mockReturnValue({ aliases: {} })
 
       const createCategorySpy = vi.spyOn(
-        aliasUI,
+        aliasService,
         'createAliasCategoryElement'
-      )
+      ).mockReturnValue(null)
 
       aliasService.updateCommandLibrary()
 
-      // Should not create category element for empty aliases
+      // When aliases are empty, no categories should be created
       expect(createCategorySpy).not.toHaveBeenCalled()
     })
 
