@@ -455,7 +455,14 @@ export default class CommandLibraryService extends ComponentBase {
       }
 
       if (category) {
-        const isVisible = category.environments && category.environments.includes(this.currentEnvironment)
+        let isVisible
+        if (this.currentEnvironment === 'alias') {
+          // In alias mode, show all categories as alias commands are not environment-specific
+          isVisible = true
+        } else {
+          // In key modes, categories without env list are assumed universal
+          isVisible = !category.environments || category.environments.includes(this.currentEnvironment)
+        }
         item.style.display = isVisible ? 'block' : 'none'
       }
     })
