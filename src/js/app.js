@@ -14,7 +14,7 @@ import { eventHandlers } from './ui/eventHandlers.js'
 import { projectManagement } from './services/projectManagement.js'
 import { modeManagement } from './ui/modeManagement.js'
 import { commandLibrary } from './features/commandLibrary.js'
-import { aliasView } from './ui/aliasView.js'
+import { AliasService, AliasUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
 
@@ -24,10 +24,12 @@ export default class STOToolsKeybindManager {
     this.eventListeners = new Map()
     this.preferencesManager = new STOPreferencesManager()
     this.autoSyncManager = new STOAutoSyncManager()
-    
+
     // Initialize profile service and UI when dependencies are available
     this.profileService = null
     this.profileUI = null
+    this.aliasService = null
+    this.aliasUI = null
 
     // Bind key capture handlers once for consistent add/remove
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
@@ -96,6 +98,28 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         modalManager,
         document
+      })
+
+      this.aliasService = new AliasService({
+        eventBus,
+        storage: stoStorage,
+        ui: stoUI,
+      })
+
+      this.aliasUI = new AliasUI({
+        service: this.aliasService,
+        eventBus,
+        ui: stoUI,
+        modalManager,
+        document,
+      })
+
+      window.stoAliases = this.aliasUI
+      global.stoAliases = this.aliasUI
+
+      eventBus.on('sto-app-ready', () => {
+        this.aliasService.init()
+        this.aliasUI.init()
       })
 
       // Load profile data
@@ -377,7 +401,6 @@ Object.assign(
   projectManagement,
   modeManagement,
   commandLibrary,
-  aliasView,
   viewManagement,
   welcome,
 )

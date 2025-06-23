@@ -126,7 +126,7 @@ describe('Command Library Alias Persistence Integration', () => {
   it('should preserve aliases when setupCommandLibrary is called after aliases are added', async () => {
     // Import and create the app and alias manager instances
     const { default: STOToolsKeybindManager } = await import('../../src/js/app.js')
-    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
+    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
 
     // Create real app instance
     const app = new STOToolsKeybindManager()
@@ -134,7 +134,8 @@ describe('Command Library Alias Persistence Integration', () => {
     window.app = app
 
     // Create alias manager instance
-    const aliasManager = new STOAliasManager()
+    const aliasService = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager = new AliasUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager
     window.stoAliases = aliasManager
 
@@ -184,13 +185,14 @@ describe('Command Library Alias Persistence Integration', () => {
   it('should handle multiple setupCommandLibrary calls without losing aliases', async () => {
     // Import and create instances
     const { default: STOToolsKeybindManager } = await import('../../src/js/app.js')
-    const { default: STOAliasManager } = await import('../../src/js/features/aliases.js')
+    const { AliasService, AliasUI } = await import('../../src/js/components/aliases/index.js')
 
     const app = new STOToolsKeybindManager()
     global.app = app
     window.app = app
 
-    const aliasManager = new STOAliasManager()
+    const aliasService = new AliasService({ eventBus, storage: mockStorage, ui: mockUI })
+    const aliasManager = new AliasUI({ service: aliasService, eventBus, ui: mockUI, modalManager: mockUI, document })
     global.stoAliases = aliasManager
     window.stoAliases = aliasManager
 

@@ -7,7 +7,7 @@ import '../../src/js/data.js'
 
 import eventBus from '../../src/js/core/eventBus.js'
 // Load the aliases module (it creates a global instance)
-import STOAliasManager from '../../src/js/features/aliases.js'
+import { AliasService, AliasUI } from '../../src/js/components/aliases/index.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 
 // Load the real HTML
@@ -30,6 +30,8 @@ beforeEach(() => {
     hide: vi.fn(),
   }
 
+  global.stoStorage = {}
+
   // Mock only the app methods that would modify actual DOM
   global.app = {
     getCurrentProfile: vi.fn(() => ({
@@ -46,28 +48,30 @@ beforeEach(() => {
   }
 })
 
-describe('STOAliasManager', () => {
-  let aliasManager
+describe('Alias Components', () => {
+  let aliasService
+  let aliasUI
 
   beforeEach(() => {
-    aliasManager = new STOAliasManager()
+    aliasService = new AliasService({ eventBus, storage: stoStorage, ui: stoUI })
+    aliasUI = new AliasUI({ service: aliasService, eventBus, ui: stoUI, modalManager, document })
     vi.clearAllMocks()
   })
 
   describe('initialization', () => {
     it('should initialize with null currentAlias', () => {
-      expect(aliasManager.currentAlias).toBeNull()
+      expect(aliasService.currentAlias).toBeNull()
     })
 
     it('should setup event listeners', () => {
-      const spy = vi.spyOn(aliasManager, 'setupEventListeners')
-      aliasManager.init()
+      const spy = vi.spyOn(aliasUI, 'setupEventListeners')
+      aliasUI.init()
       expect(spy).toHaveBeenCalled()
     })
 
     it('should update command library during initialization', () => {
-      const spy = vi.spyOn(aliasManager, 'updateCommandLibrary')
-      aliasManager.init()
+      const spy = vi.spyOn(aliasService, 'updateCommandLibrary')
+      aliasUI.init()
       expect(spy).toHaveBeenCalled()
     })
   })
@@ -75,10 +79,10 @@ describe('STOAliasManager', () => {
   describe('alias manager modal', () => {
     it('should show alias manager modal', () => {
       const renderSpy = vi
-        .spyOn(aliasManager, 'renderAliasList')
+        .spyOn(aliasUI, 'renderAliasList')
         .mockImplementation(() => {})
 
-      aliasManager.showAliasManager()
+      aliasUI.showAliasManager()
 
       expect(renderSpy).toHaveBeenCalled()
       expect(modalManager.show).toHaveBeenCalledWith('aliasManagerModal')
@@ -98,7 +102,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.renderAliasList()
+      aliasUI.renderAliasList()
 
       expect(container.innerHTML).toContain('alias-grid')
       expect(container.innerHTML).toContain('TestAlias')
@@ -112,7 +116,7 @@ describe('STOAliasManager', () => {
         aliases: {},
       })
 
-      aliasManager.renderAliasList()
+      aliasUI.renderAliasList()
 
       expect(container.innerHTML).toContain('empty-state')
       expect(container.innerHTML).toContain('No Aliases')
@@ -125,7 +129,7 @@ describe('STOAliasManager', () => {
         commands: 'say hello world',
       }
 
-      const card = aliasManager.createAliasCard('TestAlias', alias)
+      const card = aliasUI.createAliasCard('TestAlias', alias)
 
       expect(card).toContain('alias-card')
       expect(card).toContain('TestAlias')
@@ -144,7 +148,7 @@ describe('STOAliasManager', () => {
           'this is a very long command sequence that should be truncated when displayed',
       }
 
-      const card = aliasManager.createAliasCard('LongAlias', alias)
+      const card = aliasUI.createAliasCard('LongAlias', alias)
 
       expect(card).toContain('...')
     })
@@ -163,17 +167,17 @@ describe('STOAliasManager', () => {
       expect(commandsInput).toBeTruthy()
 
       const updatePreviewSpy = vi
-        .spyOn(aliasManager, 'updateAliasPreview')
+        .spyOn(aliasUI, 'updateAliasPreview')
         .mockImplementation(() => {})
 
-      aliasManager.showEditAliasModal()
+      aliasUI.showEditAliasModal()
 
       expect(title.textContent).toBe('New Alias')
       expect(nameInput.value).toBe('')
       expect(nameInput.disabled).toBe(false)
       expect(descInput.value).toBe('')
       expect(commandsInput.value).toBe('')
-      expect(aliasManager.currentAlias).toBeNull()
+      expect(aliasService.currentAlias).toBeNull()
       expect(updatePreviewSpy).toHaveBeenCalled()
       expect(modalManager.hide).toHaveBeenCalledWith('aliasManagerModal')
       expect(modalManager.show).toHaveBeenCalledWith('editAliasModal')
@@ -196,17 +200,17 @@ describe('STOAliasManager', () => {
       })
 
       const updatePreviewSpy = vi
-        .spyOn(aliasManager, 'updateAliasPreview')
+        .spyOn(aliasUI, 'updateAliasPreview')
         .mockImplementation(() => {})
 
-      aliasManager.showEditAliasModal('ExistingAlias')
+      aliasUI.showEditAliasModal('ExistingAlias')
 
       expect(title.textContent).toBe('Edit Alias')
       expect(nameInput.value).toBe('ExistingAlias')
       expect(nameInput.disabled).toBe(true)
       expect(descInput.value).toBe('Existing description')
       expect(commandsInput.value).toBe('existing command')
-      expect(aliasManager.currentAlias).toBe('ExistingAlias')
+      expect(aliasService.currentAlias).toBe('ExistingAlias')
       expect(updatePreviewSpy).toHaveBeenCalled()
     })
 
@@ -223,7 +227,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.showEditAliasModal('ExistingAlias')
+      aliasUI.showEditAliasModal('ExistingAlias')
 
       expect(nameInput.disabled).toBe(true)
     })
@@ -240,7 +244,7 @@ describe('STOAliasManager', () => {
       nameInput.value = 'TestAlias'
       commandsInput.value = 'say hello'
 
-      aliasManager.updateAliasPreview()
+      aliasUI.updateAliasPreview()
 
       expect(preview.textContent).toBe('alias TestAlias <& say hello &>')
     })
@@ -253,7 +257,7 @@ describe('STOAliasManager', () => {
       nameInput.value = ''
       commandsInput.value = ''
 
-      aliasManager.updateAliasPreview()
+      aliasUI.updateAliasPreview()
 
       expect(preview.textContent).toBe('alias AliasName <& command sequence &>')
     })
@@ -261,26 +265,22 @@ describe('STOAliasManager', () => {
 
   describe('alias operations', () => {
     it('should save new alias with validation', () => {
-      const nameInput = document.getElementById('aliasName')
-      const descInput = document.getElementById('aliasDescription')
-      const commandsInput = document.getElementById('aliasCommands')
-
-      nameInput.value = 'ValidAlias'
-      descInput.value = 'Test description'
-      commandsInput.value = 'say hello'
+      const name = 'ValidAlias'
+      const description = 'Test description'
+      const commands = 'say hello'
 
       const mockProfile = { aliases: {} }
       global.app.getCurrentProfile.mockReturnValue(mockProfile)
 
       const updateLibrarySpy = vi
-        .spyOn(aliasManager, 'updateCommandLibrary')
+        .spyOn(aliasUI, 'updateCommandLibrary')
         .mockImplementation(() => {})
       const showManagerSpy = vi
-        .spyOn(aliasManager, 'showAliasManager')
+        .spyOn(aliasUI, 'showAliasManager')
         .mockImplementation(() => {})
 
-      aliasManager.currentAlias = null
-      aliasManager.saveAlias()
+      aliasService.currentAlias = null
+      const result = aliasService.saveAlias({ name, description, commands })
 
       expect(mockProfile.aliases.ValidAlias).toBeDefined()
       expect(mockProfile.aliases.ValidAlias.name).toBe('ValidAlias')
@@ -300,13 +300,9 @@ describe('STOAliasManager', () => {
     })
 
     it('should update existing alias', () => {
-      const nameInput = document.getElementById('aliasName')
-      const descInput = document.getElementById('aliasDescription')
-      const commandsInput = document.getElementById('aliasCommands')
-
-      nameInput.value = 'ExistingAlias'
-      descInput.value = 'Updated description'
-      commandsInput.value = 'updated command'
+      const name = 'ExistingAlias'
+      const description = 'Updated description'
+      const commands = 'updated command'
 
       const mockProfile = {
         aliases: {
@@ -320,8 +316,8 @@ describe('STOAliasManager', () => {
       }
       global.app.getCurrentProfile.mockReturnValue(mockProfile)
 
-      aliasManager.currentAlias = 'ExistingAlias'
-      aliasManager.saveAlias()
+      aliasService.currentAlias = 'ExistingAlias'
+      aliasService.saveAlias({ name, description, commands })
 
       expect(mockProfile.aliases.ExistingAlias.description).toBe(
         'Updated description'
@@ -338,7 +334,7 @@ describe('STOAliasManager', () => {
     })
 
     it('should validate alias name format', () => {
-      const result = aliasManager.validateAlias('ValidName123', 'say hello')
+      const result = aliasService.validateAlias('ValidName123', 'say hello')
 
       expect(result.valid).toBe(true)
     })
@@ -354,7 +350,7 @@ describe('STOAliasManager', () => {
       ]
 
       tests.forEach((test) => {
-        const result = aliasManager.validateAlias(test.name, 'valid commands')
+        const result = aliasService.validateAlias(test.name, 'valid commands')
         expect(result.valid).toBe(false)
         expect(result.error).toContain(test.expected)
       })
@@ -367,7 +363,7 @@ describe('STOAliasManager', () => {
       ]
 
       tests.forEach((test) => {
-        const result = aliasManager.validateAlias('ValidName', test.commands)
+        const result = aliasService.validateAlias('ValidName', test.commands)
         expect(result.valid).toBe(false)
         expect(result.error).toContain(test.expected)
       })
@@ -386,8 +382,8 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.currentAlias = null
-      aliasManager.saveAlias()
+      aliasService.currentAlias = null
+      aliasService.saveAlias()
 
       expect(stoUI.showToast).toHaveBeenCalledWith(
         'An alias with this name already exists',
@@ -396,7 +392,7 @@ describe('STOAliasManager', () => {
     })
 
     it('should delete alias with confirmation', async () => {
-      aliasManager.confirmDeleteAlias('TestAlias')
+      aliasUI.confirmDeleteAlias('TestAlias')
 
       expect(stoUI.confirm).toHaveBeenCalledWith(
         'Are you sure you want to delete the alias "TestAlias"?',
@@ -415,13 +411,13 @@ describe('STOAliasManager', () => {
       global.app.getCurrentProfile.mockReturnValue(mockProfile)
 
       const renderSpy = vi
-        .spyOn(aliasManager, 'renderAliasList')
+        .spyOn(aliasUI, 'renderAliasList')
         .mockImplementation(() => {})
       const updateLibrarySpy = vi
-        .spyOn(aliasManager, 'updateCommandLibrary')
+        .spyOn(aliasUI, 'updateCommandLibrary')
         .mockImplementation(() => {})
 
-      aliasManager.deleteAlias('TestAlias')
+      aliasService.deleteAlias('TestAlias')
 
       expect(mockProfile.aliases.TestAlias).toBeUndefined()
       expect(mockProfile.aliases.KeepAlias).toBeDefined()
@@ -441,7 +437,7 @@ describe('STOAliasManager', () => {
       global.app.selectedKey = 'F1'
       store.selectedKey = 'F1'
 
-      aliasManager.useAlias('TestAlias')
+      aliasService.useAlias('TestAlias')
 
       expect(app.addCommand).toHaveBeenCalledWith(
         'F1',
@@ -463,7 +459,7 @@ describe('STOAliasManager', () => {
       global.app.selectedKey = null
       store.selectedKey = null
 
-      aliasManager.useAlias('TestAlias')
+      aliasService.useAlias('TestAlias')
 
       expect(stoUI.showToast).toHaveBeenCalledWith(
         'Please select a key first',
@@ -485,7 +481,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.addAliasToKey('TestAlias')
+      aliasService.addAliasToKey('TestAlias')
 
       expect(app.addCommand).toHaveBeenCalledWith(
         'F2',
@@ -504,7 +500,7 @@ describe('STOAliasManager', () => {
       store.selectedKey = 'F1'
       global.app.getCurrentProfile.mockReturnValue({ aliases: {} })
 
-      aliasManager.addAliasToKey('NonExistentAlias')
+      aliasService.addAliasToKey('NonExistentAlias')
 
       expect(stoUI.showToast).toHaveBeenCalledWith('Alias not found', 'error')
       expect(app.addCommand).not.toHaveBeenCalled()
@@ -521,7 +517,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      const usage = aliasManager.getAliasUsage('TestAlias')
+      const usage = aliasService.getAliasUsage('TestAlias')
 
       expect(usage).toHaveLength(3)
       expect(usage[0]).toEqual({
@@ -552,7 +548,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      const usage = aliasManager.getAliasUsage('TestAlias')
+      const usage = aliasService.getAliasUsage('TestAlias')
 
       expect(usage).toHaveLength(1)
       expect(usage[0]).toEqual({
@@ -565,7 +561,7 @@ describe('STOAliasManager', () => {
 
   describe('alias templates', () => {
     it('should provide predefined alias templates', () => {
-      const templates = aliasManager.getAliasTemplates()
+      const templates = aliasService.getAliasTemplates()
 
       expect(templates).toHaveProperty('space_combat')
       expect(templates).toHaveProperty('ground_combat')
@@ -574,7 +570,7 @@ describe('STOAliasManager', () => {
     })
 
     it('should include space combat templates', () => {
-      const templates = aliasManager.getAliasTemplates()
+      const templates = aliasService.getAliasTemplates()
       const spaceCombat = templates.space_combat.templates
 
       expect(spaceCombat).toHaveProperty('AttackRun')
@@ -584,7 +580,7 @@ describe('STOAliasManager', () => {
     })
 
     it('should include ground combat templates', () => {
-      const templates = aliasManager.getAliasTemplates()
+      const templates = aliasService.getAliasTemplates()
       const groundCombat = templates.ground_combat.templates
 
       expect(groundCombat).toHaveProperty('GroundAttack')
@@ -595,7 +591,7 @@ describe('STOAliasManager', () => {
     })
 
     it('should include communication templates', () => {
-      const templates = aliasManager.getAliasTemplates()
+      const templates = aliasService.getAliasTemplates()
       const communication = templates.communication.templates
 
       expect(communication).toHaveProperty('TeamReady')
@@ -609,13 +605,13 @@ describe('STOAliasManager', () => {
       global.app.getCurrentProfile.mockReturnValue(mockProfile)
 
       const updateLibrarySpy = vi
-        .spyOn(aliasManager, 'updateCommandLibrary')
+        .spyOn(aliasUI, 'updateCommandLibrary')
         .mockImplementation(() => {})
       const renderSpy = vi
-        .spyOn(aliasManager, 'renderAliasList')
+        .spyOn(aliasUI, 'renderAliasList')
         .mockImplementation(() => {})
 
-      aliasManager.createAliasFromTemplate('space_combat', 'AttackRun')
+      aliasService.createAliasFromTemplate('space_combat', 'AttackRun')
 
       expect(mockProfile.aliases.AttackRun).toBeDefined()
       expect(mockProfile.aliases.AttackRun.name).toBe('AttackRun')
@@ -638,7 +634,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.createAliasFromTemplate('space_combat', 'AttackRun')
+      aliasService.createAliasFromTemplate('space_combat', 'AttackRun')
 
       expect(stoUI.showToast).toHaveBeenCalledWith(
         'Alias "AttackRun" already exists',
@@ -648,7 +644,7 @@ describe('STOAliasManager', () => {
     })
 
     it('should handle invalid template', () => {
-      aliasManager.createAliasFromTemplate(
+      aliasService.createAliasFromTemplate(
         'invalid_category',
         'invalid_template'
       )
@@ -672,11 +668,11 @@ describe('STOAliasManager', () => {
       })
 
       const createCategorySpy = vi.spyOn(
-        aliasManager,
+        aliasUI,
         'createAliasCategoryElement'
       )
 
-      aliasManager.updateCommandLibrary()
+      aliasService.updateCommandLibrary()
 
       // Should remove existing alias category and add new one if aliases exist
       expect(createCategorySpy).toHaveBeenCalled()
@@ -690,7 +686,7 @@ describe('STOAliasManager', () => {
         ],
       ]
 
-      const element = aliasManager.createAliasCategoryElement(aliases)
+      const element = aliasUI.createAliasCategoryElement(aliases)
 
       expect(element.className).toBe('category')
       expect(element.dataset.category).toBe('aliases')
@@ -704,11 +700,11 @@ describe('STOAliasManager', () => {
       global.app.getCurrentProfile.mockReturnValue({ aliases: {} })
 
       const createCategorySpy = vi.spyOn(
-        aliasManager,
+        aliasUI,
         'createAliasCategoryElement'
       )
 
-      aliasManager.updateCommandLibrary()
+      aliasService.updateCommandLibrary()
 
       // Should not create category element for empty aliases
       expect(createCategorySpy).not.toHaveBeenCalled()
@@ -739,7 +735,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.updateCommandLibrary()
+      aliasService.updateCommandLibrary()
 
       // Should have both regular and VERTIGO categories
       const regularCategory = categories.querySelector(
@@ -786,7 +782,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.updateCommandLibrary()
+      aliasService.updateCommandLibrary()
 
       const regularCategory = categories.querySelector(
         '[data-category="aliases"]'
@@ -813,7 +809,7 @@ describe('STOAliasManager', () => {
         },
       })
 
-      aliasManager.updateCommandLibrary()
+      aliasService.updateCommandLibrary()
 
       const regularCategory = categories.querySelector(
         '[data-category="aliases"]'
@@ -878,9 +874,9 @@ describe('STOAliasManager', () => {
       textarea.setSelectionRange(14, 14) // Position after "Attacking "
 
       // Mock the insertTargetVariable method
-      const originalMethod = aliasManager.insertTargetVariable
+      const originalMethod = aliasUI.insertTargetVariable
       const mockInsert = vi.fn()
-      aliasManager.insertTargetVariable = mockInsert
+      aliasUI.insertTargetVariable = mockInsert
 
       // Simulate the event delegation logic manually since we don't have the full event system
       const clickEvent = new MouseEvent('click', { bubbles: true })
@@ -896,7 +892,7 @@ describe('STOAliasManager', () => {
           : null
 
         if (targetTextarea) {
-          aliasManager.insertTargetVariable(targetTextarea)
+          aliasUI.insertTargetVariable(targetTextarea)
         }
       }
 
@@ -904,7 +900,7 @@ describe('STOAliasManager', () => {
       expect(mockInsert).toHaveBeenCalledWith(textarea)
 
       // Restore original method
-      aliasManager.insertTargetVariable = originalMethod
+      aliasUI.insertTargetVariable = originalMethod
     })
 
     it('should insert $Target variable correctly', () => {
@@ -913,7 +909,7 @@ describe('STOAliasManager', () => {
       // Test insertion at beginning
       textarea.value = ''
       textarea.setSelectionRange(0, 0)
-      aliasManager.insertTargetVariable(textarea)
+      aliasUI.insertTargetVariable(textarea)
       expect(textarea.value).toBe('$Target')
       expect(textarea.selectionStart).toBe(7)
       expect(textarea.selectionEnd).toBe(7)
@@ -921,7 +917,7 @@ describe('STOAliasManager', () => {
       // Test insertion in middle
       textarea.value = 'team Attacking  - focus fire!'
       textarea.setSelectionRange(15, 15) // Position after "Attacking " (note the space)
-      aliasManager.insertTargetVariable(textarea)
+      aliasUI.insertTargetVariable(textarea)
       expect(textarea.value).toBe('team Attacking $Target - focus fire!')
       expect(textarea.selectionStart).toBe(22)
       expect(textarea.selectionEnd).toBe(22)
@@ -929,7 +925,7 @@ describe('STOAliasManager', () => {
       // Test insertion at end
       textarea.value = 'team Target: '
       textarea.setSelectionRange(13, 13)
-      aliasManager.insertTargetVariable(textarea)
+      aliasUI.insertTargetVariable(textarea)
       expect(textarea.value).toBe('team Target: $Target')
       expect(textarea.selectionStart).toBe(20)
       expect(textarea.selectionEnd).toBe(20)
@@ -944,7 +940,7 @@ describe('STOAliasManager', () => {
       textarea.value = 'team Healing '
       textarea.setSelectionRange(13, 13)
 
-      aliasManager.insertTargetVariable(textarea)
+      aliasUI.insertTargetVariable(textarea)
 
       // Verify input event was triggered
       expect(inputEventSpy).toHaveBeenCalled()
@@ -956,7 +952,7 @@ describe('STOAliasManager', () => {
       textarea.value = 'team Status: '
       textarea.setSelectionRange(12, 12)
 
-      aliasManager.insertTargetVariable(textarea)
+      aliasUI.insertTargetVariable(textarea)
 
       // Verify textarea maintains focus
       expect(document.activeElement).toBe(textarea)
@@ -981,7 +977,7 @@ describe('STOAliasManager', () => {
       Object.defineProperty(clickEvent, 'target', { value: insertButton })
 
       const mockInsert = vi.fn()
-      aliasManager.insertTargetVariable = mockInsert
+      aliasUI.insertTargetVariable = mockInsert
 
       // Simulate the event delegation logic from aliases.js
       if (clickEvent.target.classList.contains('insert-target-btn')) {
@@ -993,7 +989,7 @@ describe('STOAliasManager', () => {
           : null
 
         if (targetTextarea) {
-          aliasManager.insertTargetVariable(targetTextarea)
+          aliasUI.insertTargetVariable(targetTextarea)
         }
       }
 

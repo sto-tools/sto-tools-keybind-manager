@@ -10,7 +10,6 @@ import es from '../i18n/es.json'
 import STOStorage from './services/storage.js'
 // Profile functionality is now handled by the app instance
 import STOKeybindFileManager from './features/keybinds.js'
-import STOAliasManager from './features/aliases.js'
 import STOExportManager from './features/export.js'
 import STOModalManager from './ui/modalManager.js'
 import STOUIManager from './ui/ui.js'
@@ -88,7 +87,6 @@ const settings = stoStorage.getSettings()
 })()
 // Profile functionality is now handled by the app instance
 const stoKeybinds = new STOKeybindFileManager()
-const stoAliases = new STOAliasManager()
 const stoExport = new STOExportManager()
 const modalManager = new STOModalManager()
 const stoUI = new STOUIManager()
@@ -99,7 +97,6 @@ const stoSync = new STOSyncManager(stoStorage)
 Object.assign(window, {
   stoStorage,
   stoKeybinds,
-  stoAliases,
   stoExport,
   modalManager,
   stoUI,
@@ -116,7 +113,6 @@ window.app = app
 eventBus.on('sto-app-ready', () => {
   // Profile initialization is now handled by the app instance
   stoKeybinds.init()
-  stoAliases.init()
   stoExport.init()
   stoFileExplorer.init()
 })
