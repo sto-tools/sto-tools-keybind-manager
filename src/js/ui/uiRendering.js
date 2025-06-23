@@ -52,42 +52,8 @@ export const uiRendering = {
   },
 
   renderKeyGrid() {
-    const grid = document.getElementById('keyGrid')
-    if (!grid) return
-
-    const profile = this.getCurrentProfile()
-    if (!profile) return
-
-    grid.innerHTML = ''
-
-    if (!profile) {
-      grid.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-folder-open"></i>
-                    <h4>No Profile Selected</h4>
-                    <p>Create a new profile or load default data to get started.</p>
-                </div>
-            `
-      return
-    }
-
-    const keys = Object.keys(profile.keys)
-    const keysWithCommands = {}
-    keys.forEach((key) => {
-      const commands = profile.keys[key]
-      if (commands && commands.length > 0) {
-        keysWithCommands[key] = commands
-      }
-    })
-    const allKeys = [...new Set([...keys, ...Object.keys(keysWithCommands)])]
-
-    const viewMode = localStorage.getItem('keyViewMode') || 'key-types'
-    if (viewMode === 'key-types') {
-      this.renderKeyTypeView(grid, profile, allKeys)
-    } else if (viewMode === 'grid') {
-      this.renderSimpleGridView(grid, allKeys)
-    } else {
-      this.renderCommandCategoryView(grid, keysWithCommands, allKeys)
+    if (window.keyBrowserUI && typeof window.keyBrowserUI.render === 'function') {
+      window.keyBrowserUI.render()
     }
   },
 
@@ -539,9 +505,8 @@ export const uiRendering = {
   },
 
   selectKey(keyName) {
-    this.selectedKey = keyName
-    this.renderKeyGrid()
-    this.renderCommandChain()
-    this.updateChainActions()
+    if (window.keyBrowserService && typeof window.keyBrowserService.selectKey === 'function') {
+      window.keyBrowserService.selectKey(keyName)
+    }
   },
 }

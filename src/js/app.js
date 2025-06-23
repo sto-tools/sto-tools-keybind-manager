@@ -250,6 +250,9 @@ export default class STOToolsKeybindManager {
         'success'
       )
 
+      // Flag the instance as fully initialized so tests can poll for readiness
+      this.initialized = true
+
       // Dispatch app ready event through eventBus
       eventBus.emit('sto-app-ready', { app: this })
 
@@ -258,6 +261,7 @@ export default class STOToolsKeybindManager {
 
       // Expose key browser for legacy hooks/tests
       window.keyBrowserUI = this.keyBrowserUI
+      window.keyBrowserService = this.keyBrowserService
 
       // Keep command library in sync with alias selection
       this.aliasBrowserService.addEventListener('alias-selected', ({ name }) => {

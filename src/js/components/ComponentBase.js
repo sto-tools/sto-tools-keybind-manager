@@ -16,7 +16,7 @@ export default class ComponentBase {
    */
   init() {
     if (this.initialized) {
-      console.warn(`${this.constructor.name} is already initialized`)
+      // console.warn(`${this.constructor.name} is already initialized`) // slows down tests
       return
     }
     

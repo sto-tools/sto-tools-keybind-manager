@@ -238,15 +238,29 @@ export async function waitForAppReady() {
     const handleAppReady = () => {
       console.log('App ready event received')
       eventBus.off('sto-app-ready', handleAppReady)
+      clearInterval(poll)
+      clearTimeout(timeout)
       resolve()
     }
 
     eventBus.on('sto-app-ready', handleAppReady)
 
+    // In case the event fired before we attached, poll for the flag
+    const poll = setInterval(() => {
+      if (window.app && window.app.initialized) {
+        console.log('App ready detected via polling')
+        eventBus.off('sto-app-ready', handleAppReady)
+        clearInterval(poll)
+        clearTimeout(timeout)
+        resolve()
+      }
+    }, 250)
+
     // Fallback timeout
-    setTimeout(() => {
-      console.log('App ready timeout - checking globals')
+    const timeout = setTimeout(() => {
+      console.warn('App ready timeout - proceeding anyway')
       eventBus.off('sto-app-ready', handleAppReady)
+      clearInterval(poll)
       resolve()
     }, 10000)
   })
