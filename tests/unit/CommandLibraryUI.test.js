@@ -576,4 +576,25 @@ describe('CommandLibraryUI', () => {
       expect(mockUI.showToast).toHaveBeenCalledWith('template_system_coming_soon')
     })
   })
+
+  describe('event-driven rendering', () => {
+    beforeEach(() => {
+      ui.setupEventListeners()
+    })
+
+    it('should re-render command chain on key-selected event', () => {
+      const renderSpy = vi.spyOn(ui, 'renderCommandChain')
+      // Emit the key-selected event through the component instance – this
+      // will invoke the fallback listener path used in tests when the mock
+      // eventBus does not propagate events.
+      ui.emit('key-selected', { key: 'test-key' })
+      expect(renderSpy).toHaveBeenCalled()
+    })
+
+    it('should re-render command chain on environment-changed event', () => {
+      const renderSpy = vi.spyOn(ui, 'renderCommandChain')
+      ui.emit('environment-changed', { environment: 'alias' })
+      expect(renderSpy).toHaveBeenCalled()
+    })
+  })
 }) 

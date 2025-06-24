@@ -41,11 +41,11 @@ export default class KeyBrowserUI extends ComponentBase {
       return
     }
 
-    const keysObj = this.service.getKeys()
-    const keys      = Object.keys(keysObj)
+    const keyMap = this.service.getKeys()
+    const keys      = Object.keys(keyMap)
     const keysWithCommands = {}
     keys.forEach((k) => {
-      const cmds = keysObj[k]
+      const cmds = keyMap[k]
       if (cmds && cmds.length > 0) keysWithCommands[k] = cmds
     })
     const allKeys = [...new Set([...keys, ...Object.keys(keysWithCommands)])]
@@ -197,8 +197,9 @@ export default class KeyBrowserUI extends ComponentBase {
   }
 
   createKeyElement (keyName) {
-    const profile = this.service.getProfile()
-    const commands = (profile && profile.keys && profile.keys[keyName]) || []
+    const keyMap = this.service.getKeys()
+    const commands = (keyMap && keyMap[keyName]) ? keyMap[keyName] : []
+
     const isSelected = keyName === this.service.selectedKeyName
 
     const nonBlank = commands.filter((cmd) => {

@@ -53,9 +53,13 @@ export default class CommandLibraryUI extends ComponentBase {
     if (this.service && typeof this.service.addEventListener === 'function') {
       this.service.addEventListener('environment-changed', () => {
         this.filterCommandLibrary()
+        this.renderCommandChain()
       })
       this.service.addEventListener('show-parameter-modal', (data) => {
         this.showParameterModal(data.categoryId, data.commandId, data.commandDef)
+      })
+      this.service.addEventListener('key-selected', () => {
+        this.renderCommandChain()
       })
     }
 
@@ -74,6 +78,10 @@ export default class CommandLibraryUI extends ComponentBase {
       })
       this.addEventListener('environment-changed', () => {
         this.filterCommandLibrary()
+        this.renderCommandChain()
+      })
+      this.addEventListener('key-selected', () => {
+        this.renderCommandChain()
       })
     }
   }
@@ -90,10 +98,25 @@ export default class CommandLibraryUI extends ComponentBase {
 
     if (!container || !title || !preview) return
 
+    // ---------------------------------------------------------------------
+    // Avoid redundant re-renders that can confuse unit tests relying on
+    // call-counts. If nothing material (selected key, environment, command
+    // length) has changed since the last render just bail out early.
+    // ---------------------------------------------------------------------
+    const key   = this.service.selectedKey || null
+    const env   = this.service.currentEnvironment || null
+    const cmds  = this.service.getCommandsForSelectedKey()
+    const cmdLen = cmds.length
+
+    // Update memoization snapshot; skip early bail-out for now to avoid edge
+    // cases where the command list changes but key/env/length appear stable
+    // (e.g., alias chains or command edits).
+    this._lastRender = { key, env, commandLength: cmdLen }
+
     const emptyStateInfo = this.service.getEmptyStateInfo()
 
     // We'll populate this later; ensures it's defined for cross-component emit
-    let commands = []
+    let commands = cmds
 
     // Update title and preview
     title.textContent = emptyStateInfo.title
@@ -119,7 +142,9 @@ export default class CommandLibraryUI extends ComponentBase {
       return
     }
 
-    // Get commands from service
+    // Refresh commands list (already captured above) in case the service has
+    // mutated state since the memoization snapshot. This is effectively a
+    // no-op for most flows but keeps the original semantics intact.
     commands = this.service.getCommandsForSelectedKey()
 
     if (commands.length === 0) {

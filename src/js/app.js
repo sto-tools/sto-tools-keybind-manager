@@ -265,8 +265,8 @@ export default class STOToolsKeybindManager {
 
       // Keep command library in sync with alias selection
       this.aliasBrowserService.addEventListener('alias-selected', ({ name }) => {
-        this.commandLibraryService.setCurrentEnvironment('alias')
         this.commandLibraryService.setSelectedKey(name)
+        this.commandLibraryService.setCurrentEnvironment('alias')
       })
     } catch (error) {
       console.error('Failed to initialize application:', error)

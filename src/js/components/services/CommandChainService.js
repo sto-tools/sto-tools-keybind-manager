@@ -56,6 +56,12 @@ export default class CommandChainService extends ComponentBase {
       this.commands = []
       this.emit('chain-data-changed', { commands: this.commands })
     })
+
+    // Maintain selected alias/key in sync with higher-level services so that
+    // the command-chain UI always knows what it should be displaying.
+    this.addEventListener('key-selected', ({ key, name }) => {
+      this.selectedKey = key || name || null
+    })
   }
 
   /* ------------------------------------------------------------------
