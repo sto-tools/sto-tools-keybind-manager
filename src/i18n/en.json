@@ -96,6 +96,8 @@
   "new_alias": "New Alias",
   "edit_alias": "Edit Alias",
   "alias_name": "Alias Name:",
+  "alias_command": "Alias Command",
+  "enter_alias_name": "Enter alias name",
   "use_alphanumeric_characters_only_no_spaces": "Use alphanumeric characters only, no spaces",
   "description": "Description:",
   "target": "$Target",

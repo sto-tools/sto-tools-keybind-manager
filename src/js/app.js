@@ -581,7 +581,9 @@ export default class STOToolsKeybindManager {
   }
 
   deleteCommand(key, index) {
+    console.log('deleteCommand', key, index)
     if (this.commandLibraryService) {
+      console.log('deleteCommand commandLibraryService', key, index)
       return this.commandLibraryService.deleteCommand(key, index)
     }
     return false
@@ -602,23 +604,32 @@ export default class STOToolsKeybindManager {
   }
 
   editCommand(index) {
-    // This will be handled by the existing parameter modal system
+    console.log('editCommand', index)
     if (typeof app !== 'undefined' && app.showParameterModal) {
-      // Get the command at the specified index and show the parameter modal
       const commands = this.commandLibraryService.getCommandsForSelectedKey()
-      if (commands[index]) {
-        const command = commands[index]
-        const commandDef = this.commandLibraryService.findCommandDefinition(command)
-        if (commandDef && commandDef.customizable) {
-          this.showParameterModal(commandDef.categoryId, commandDef.commandId, commandDef)
-        }
+      const command = commands[index]
+      if (!command) return
+
+      // Try to resolve definition
+      let commandDef = this.commandLibraryService.findCommandDefinition(command)
+
+      // Fallback: infer tray custom command even if definition not found
+      if (!commandDef && /TrayExecByTray/.test(command.command)) {
+        commandDef = STO_DATA.commands.tray.commands.custom_tray
+        commandDef = { ...commandDef, commandId: 'custom_tray', categoryId: 'tray' }
+      }
+
+      if (commandDef && commandDef.customizable) {
+        this.showParameterModal(commandDef.categoryId, commandDef.commandId, commandDef)
       }
     }
   }
 
   showParameterModal(categoryId, commandId, commandDef) {
-    if (this.commandLibraryUI) {
-      this.commandLibraryUI.showParameterModal(categoryId, commandId, commandDef)
+    // Delegate directly to the mix-in implementation from parameterCommands to
+    // avoid recursion between app ↔︎ commandLibraryUI.
+    if (typeof parameterCommands?.showParameterModal === 'function') {
+      parameterCommands.showParameterModal.call(this, categoryId, commandId, commandDef)
     }
   }
 }

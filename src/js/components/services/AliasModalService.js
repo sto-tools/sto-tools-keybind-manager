@@ -301,7 +301,10 @@ export default class AliasModalService extends ComponentBase {
   }
 
   addAliasToKey(aliasName) {
-    if (!store.selectedKey) {
+    // Resolve the currently selected key/alias from the new service-first API.
+    const selected = (window.app && app.commandLibraryService && app.commandLibraryService.selectedKey) || store.selectedKey || null
+
+    if (!selected) {
       if (this.ui && this.ui.showToast) {
         this.ui.showToast(i18next.t('please_select_a_key_first'), 'warning')
       }
@@ -327,13 +330,13 @@ export default class AliasModalService extends ComponentBase {
       id: app.generateCommandId(),
     }
 
-    app.addCommand(store.selectedKey, command)
+    app.addCommand(selected, command)
     
     if (this.ui && this.ui.showToast) {
       this.ui.showToast(
         i18next.t('alias_added_to_key', {
           alias: aliasName,
-          key: store.selectedKey,
+          key: selected,
         }),
         'success'
       )

@@ -139,11 +139,14 @@ export default class STOFileHandler {
         text: this.getCommandText(command),
         id: `imported_${Date.now()}_${index}`,
       }
-      if (command.includes('+STOTrayExecByTray')) {
-        const match = command.match(/\+STOTrayExecByTray\s+(\d+)\s+(\d+)/)
+      // Detect tray-exec commands for friendly display --------------------
+      if (/TrayExecByTray/.test(command)) {
+        const match = command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
         if (match) {
-          obj.parameters = { tray: parseInt(match[1]), slot: parseInt(match[2]) }
-          obj.text = `Execute Tray ${parseInt(match[1]) + 1} Slot ${parseInt(match[2]) + 1}`
+          const trayIdx = parseInt(match[1])
+          const slotIdx = parseInt(match[2])
+          obj.parameters = { tray: trayIdx, slot: slotIdx }
+          obj.text = `Execute Tray ${trayIdx + 1} Slot ${slotIdx + 1}`
         }
       } else if (command.includes('"')) {
         const match = command.match(/^(\w+)\s+"([^"]+)"$/)

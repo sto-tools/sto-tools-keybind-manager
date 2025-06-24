@@ -111,12 +111,25 @@ export default class CommandChainUI extends ComponentBase {
         } else if (commandDef.commandId === 'target') {
           displayName = `${commandDef.name}: ${p.entityName}`
         }
+      } else if (isParameterized && !command.parameters && commandDef.commandId === 'custom_tray') {
+        // Dynamically parse tray/slot from command string when parameters are absent
+        const m = command.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
+        if (m) {
+          displayName = `${commandDef.name} (${parseInt(m[1])} ${parseInt(m[2])})`
+        }
       }
     }
 
     if (isParameterized) {
       element.dataset.parameters = 'true'
       element.classList.add('customizable')
+
+      // Make entire row clickable to edit parameters for better UX.
+      element.addEventListener('dblclick', () => {
+        if (typeof app !== 'undefined' && typeof app.editCommand === 'function') {
+          app.editCommand(index)
+        }
+      })
     }
 
     const warningInfo  = this.service.getCommandWarning(command)

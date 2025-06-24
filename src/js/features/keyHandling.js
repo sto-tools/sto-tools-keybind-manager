@@ -158,7 +158,14 @@ export const keyHandling = {
         profile.aliases[keyName].commands = newCommand
       }
 
-      context.saveCurrentBuild()
+      // Persist alias mutation
+      stoStorage.saveProfile(context.currentProfile, profile)
+
+      // Keep build data in sync for other modes (noop for alias-only change)
+      if (typeof context.saveCurrentBuild === 'function') {
+        context.saveCurrentBuild()
+      }
+
       stoUI.showToast(i18next.t('command_added_to_alias'), 'success')
     } else {
       const fullProfile = stoStorage.getProfile(context.currentProfile)
@@ -213,6 +220,7 @@ export const keyHandling = {
   },
 
   deleteCommand(keyName, commandIndex) {
+    console.log('deleteCommand keyHandling', keyName, commandIndex)
     const context = ensureContext()
     
     if (context.currentEnvironment === 'alias') {
@@ -226,7 +234,8 @@ export const keyHandling = {
           commands.splice(commandIndex, 1)
           profile.aliases[keyName].commands = commands.join(' $$ ')
 
-          context.saveCurrentBuild()
+          // Persist change to storage so UI refreshes correctly
+          stoStorage.saveProfile(context.currentProfile, profile)
           context.renderCommandChain()
           context.renderAliasGrid()
           context.setModified(true)
@@ -289,7 +298,6 @@ export const keyHandling = {
           commands.splice(toIndex, 0, command)
 
           profile.aliases[keyName].commands = commands.join(' $$ ')
-          context.saveCurrentBuild()
           context.renderCommandChain()
           context.setModified(true)
 

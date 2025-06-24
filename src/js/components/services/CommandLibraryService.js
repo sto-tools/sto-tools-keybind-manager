@@ -320,19 +320,29 @@ export default class CommandLibraryService extends ComponentBase {
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
-    if (this.currentEnvironment === 'alias') {
-      // For aliases, remove from the command string
+    // Robustly determine if we're dealing with an alias chain. This covers
+    // cases where `currentEnvironment` might have fallen out-of-sync yet the
+    // key exists in the profile's `aliases` map (observed bug #ALIAS-DEL-1).
+    const isAliasContext = this.currentEnvironment === 'alias' ||
+      (profile.aliases && Object.prototype.hasOwnProperty.call(profile.aliases, key))
+
+    console.log('isAliasContext', isAliasContext)
+    
+    if (isAliasContext) {
+      // ----- Alias chain deletion -----
       const currentAlias = profile.aliases && profile.aliases[key]
       if (!currentAlias || !currentAlias.commands) return false
 
-      const commands = currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0)
+      const commands = currentAlias.commands
+        .split(/\s*\$\$\s*/)
+        .filter(cmd => cmd.trim().length > 0)
+
       if (index >= 0 && index < commands.length) {
         commands.splice(index, 1)
-        const newCommandString = commands.join(' $$ ')
-        profile.aliases[key].commands = newCommandString
+        profile.aliases[key].commands = commands.join(' $$ ')
       }
     } else {
-      // For keybinds, remove from the array
+      // ----- Key-bind deletion (unchanged) -----
       if (profile.keys[key] && profile.keys[key][index]) {
         profile.keys[key].splice(index, 1)
       }

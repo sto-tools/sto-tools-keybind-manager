@@ -511,6 +511,7 @@ export const parameterCommands = {
             return {
               command: `${prefix}${commandType} ${tray} ${slot}`,
               text: `Execute Tray ${tray + 1} Slot ${slot + 1}`,
+              parameters: { tray, slot },
             }
           }
         },
@@ -549,16 +550,36 @@ export const parameterCommands = {
           }
           return { command, text: commandDef.name }
         },
+        // Alias command builder – simply returns the alias name entered by the
+        // user. This mirrors the behaviour of the original alias builder in
+        // commands.js so that parameter editing works consistently.
+        alias: (params) => {
+          const aliasName = params.alias_name?.trim() || ''
+  
+          if (!aliasName) {
+            // Prevent saving empty alias names – the caller will handle nulls
+            return null
+          }
+  
+          return {
+            command: aliasName,
+            text: `Alias: ${aliasName}`,
+          }
+        },
       }
   
       const builder = builders[categoryId]
       if (builder) {
         const result = builder(params)
+        // If builder could not generate a valid command (e.g., empty alias name),
+        // simply return null so the caller can handle the validation feedback.
+        if (!result) {
+          return null
+        }
         // If tray (or other) builder returned an array of command objects, forward it
         if (Array.isArray(result)) {
           return result
         }
-  
         // Otherwise wrap single command
         return {
           command: result.command,
@@ -574,7 +595,13 @@ export const parameterCommands = {
     },
   
     saveParameterCommand() {
-      if (!this.selectedKey || !this.currentParameterCommand) return
+      // Resolve selected key (works for both key and alias environments)
+      const selectedKey = this.selectedKey || (this.commandLibraryService && this.commandLibraryService.selectedKey)
+
+      if (!selectedKey || !this.currentParameterCommand) {
+        stoUI && stoUI.showToast && stoUI.showToast(i18next.t('please_select_a_key_first'), 'warning')
+        return
+      }
   
       const { categoryId, commandId, commandDef, editIndex, isEditing } =
         this.currentParameterCommand
@@ -592,7 +619,7 @@ export const parameterCommands = {
           // For arrays of commands, we need to handle replacement differently
           if (Array.isArray(command)) {
             const profile = this.getCurrentProfile()
-            const commands = profile.keys[this.selectedKey]
+            const commands = profile.keys[selectedKey]
   
             // Remove the old command and insert the new array of commands
             commands.splice(editIndex, 1, ...command)
@@ -607,15 +634,35 @@ export const parameterCommands = {
           } else {
             // Update existing single command
             const profile = this.getCurrentProfile()
-            profile.keys[this.selectedKey][editIndex] = command
+            profile.keys[selectedKey][editIndex] = command
             stoStorage.saveProfile(this.currentProfile, profile)
             this.renderCommandChain()
             this.setModified(true)
             stoUI.showToast(i18next.t('command_updated_successfully'), 'success')
           }
         } else {
-          // Add new command (addCommand already handles arrays)
-          this.addCommand(this.selectedKey, command)
+          // Add new command using the service so events/UI refresh correctly
+          if (this.commandLibraryService && typeof this.commandLibraryService.addCommand === 'function') {
+            // Keep service in sync with alias context
+            if (this.currentEnvironment === 'alias') {
+              this.commandLibraryService.setCurrentEnvironment('alias')
+            }
+            this.commandLibraryService.setSelectedKey(selectedKey)
+            if (Array.isArray(command)) {
+              command.forEach((cmdObj) => {
+                this.commandLibraryService.addCommand(selectedKey, cmdObj)
+              })
+            } else {
+              this.commandLibraryService.addCommand(selectedKey, command)
+            }
+          } else {
+            // Fallback to legacy app.addCommand
+            if (Array.isArray(command)) {
+              command.forEach((cmdObj) => this.addCommand(selectedKey, cmdObj))
+            } else {
+              this.addCommand(selectedKey, command)
+            }
+          }
         }
   
         modalManager.hide('parameterModal')
@@ -650,14 +697,35 @@ export const parameterCommands = {
     },
   
     editCommand(index) {
-      if (!this.selectedKey) return
+      const selectedKey = this.selectedKey || (this.commandLibraryService && this.commandLibraryService.selectedKey)
+      if (!selectedKey) return
   
       const profile = this.getCurrentProfile()
-      const commands = profile.keys[this.selectedKey]
+      const commands = profile.keys[selectedKey]
   
       if (!commands || !commands[index]) return
   
       const command = commands[index]
+  
+      // If command lacks parameters but is a tray execution, derive them
+      if (!command.parameters && /TrayExecByTray/.test(command.command)) {
+        const trayMatch = command.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
+        if (trayMatch) {
+          command.parameters = { tray: parseInt(trayMatch[1]), slot: parseInt(trayMatch[2]) }
+        } else {
+          // TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>
+          const backupMatch = command.command.match(/(?:\+)?(?:STO)?TrayExecByTrayWithBackup\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/i)
+          if (backupMatch) {
+            command.parameters = {
+              active: parseInt(backupMatch[1]),
+              tray: parseInt(backupMatch[2]),
+              slot: parseInt(backupMatch[3]),
+              backup_tray: parseInt(backupMatch[4]),
+              backup_slot: parseInt(backupMatch[5]),
+            }
+          }
+        }
+      }
   
       // Check if this is a parameterized command that can be edited
       if (command.parameters && command.type) {
@@ -685,6 +753,31 @@ export const parameterCommands = {
     },
   
     findCommandDefinition(command) {
+      // Quick resolution for alias commands which are not defined in STO_DATA
+      if (command.type === 'alias') {
+        // Construct a synthetic command definition so the parameter modal can
+        // be reused for editing alias names just like any other customizable
+        // command type.
+        const aliasName = (command.parameters && command.parameters.alias_name) || command.command || ''
+
+        return {
+          // Maintain the same shape as real command definitions
+          commandId: 'alias',
+          name: typeof i18next !== 'undefined' && i18next.t ? i18next.t('alias_command') : 'Alias',
+          icon: '📝',
+          command: aliasName,
+          customizable: true,
+          // Only one editable parameter – the alias name itself
+          parameters: {
+            alias_name: {
+              type: 'text',
+              placeholder: typeof i18next !== 'undefined' && i18next.t ? i18next.t('enter_alias_name') : 'Enter alias name',
+              default: aliasName,
+            },
+          },
+        }
+      }
+  
       // Special handling for tray execution commands - detect by command string
       if (command.command.includes('TrayExec')) {
         const trayCategory = STO_DATA.commands.tray
