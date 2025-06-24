@@ -253,4 +253,37 @@ export default class CommandService extends ComponentBase {
   generateCommandId () {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
+
+  onInit () {
+    this.setupEventListeners()
+  }
+
+  setupEventListeners () {
+    if (!this.eventBus) return
+
+    // UI emits when a keybind is chosen
+    this.eventBus.on('key-selected', ({ key, name } = {}) => {
+      this.selectedKey = key || name || null
+    })
+
+    // Alias browser emits when an alias is chosen
+    this.eventBus.on('alias-selected', ({ name } = {}) => {
+      if (!name) return
+      this.currentEnvironment = 'alias'
+      this.selectedKey = name
+    })
+
+    // Mode switches between space/ground via modeManagement
+    this.eventBus.on('environment-changed', ({ environment } = {}) => {
+      if (environment) this.currentEnvironment = environment
+    })
+
+    // Profile service tells us when the active profile changes
+    this.eventBus.on('profile-switched', ({ profile, environment } = {}) => {
+      this.currentProfile = profile
+      if (environment) this.currentEnvironment = environment
+      // Reset key selection – UI will emit a fresh key-selected later.
+      this.selectedKey = null
+    })
+  }
 } 
