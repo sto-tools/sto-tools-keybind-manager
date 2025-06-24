@@ -23,6 +23,10 @@ export const parameterCommands = {
       modalManager.show('parameterModal')
     },
   
+    generateCommandId() {
+      return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    },
+  
     createParameterModal() {
       const modal = document.createElement('div')
       modal.className = 'modal'

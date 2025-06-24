@@ -512,8 +512,11 @@ export default class CommandLibraryUI extends ComponentBase {
    * Show parameter modal for customizable commands
    */
   showParameterModal(categoryId, commandId, commandDef) {
-    if (typeof parameterCommands?.showParameterModal === 'function') {
-      parameterCommands.showParameterModal.call(app, categoryId, commandId, commandDef)
+    if (window.app && typeof window.app.showParameterModal === 'function') {
+      window.app.showParameterModal(categoryId, commandId, commandDef)
+    } else if (typeof parameterCommands?.showParameterModal === 'function') {
+      // Fallback for test environments
+      parameterCommands.showParameterModal.call(window.app || {}, categoryId, commandId, commandDef)
     }
   }
 

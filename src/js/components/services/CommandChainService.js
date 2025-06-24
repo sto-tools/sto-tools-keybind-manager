@@ -143,11 +143,15 @@ export default class CommandChainService extends ComponentBase {
       const isCustomizable = !!(def && def.customizable)
 
       if (isCustomizable) {
-        const helper = (typeof window !== 'undefined' && window.parameterCommands?.editParameterizedCommand) ||
+        const helper = (typeof window !== 'undefined' && window.app?.editParameterizedCommand) ||
                        (typeof parameterCommands !== 'undefined' && parameterCommands.editParameterizedCommand)
 
         if (helper) {
-          helper.call(window.app, index, cmd, def)
+          if (typeof window !== 'undefined' && window.app?.editParameterizedCommand) {
+            window.app.editParameterizedCommand(index, cmd, def)
+          } else {
+            helper.call(window.app || {}, index, cmd, def)
+          }
         } else if (this.commandLibraryService) {
           this.commandLibraryService.showParameterModal(def.categoryId || cmd.type, def.commandId, def)
         }

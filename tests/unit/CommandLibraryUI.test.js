@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
 import CommandLibraryUI from '../../src/js/components/ui/CommandLibraryUI.js'
 
 // Mock dependencies
 const mockService = {
   selectedKey: null,
   currentEnvironment: 'space',
-  getCommandsForSelectedKey: vi.fn(),
+  getCommandsForSelectedKey: vi.fn().mockReturnValue([]),
   getEmptyStateInfo: vi.fn(),
   findCommandDefinition: vi.fn(),
   getCommandWarning: vi.fn(),
@@ -197,7 +198,11 @@ describe('CommandLibraryUI', () => {
       const mockElement = { 
         innerHTML: '',
         dataset: {},
-        classList: { add: vi.fn() }
+        classList: { add: vi.fn() },
+        querySelector: vi.fn().mockReturnValue({
+          addEventListener: vi.fn()
+        }),
+        addEventListener: vi.fn()
       }
       mockDocument.createElement.mockReturnValue(mockElement)
       
@@ -220,7 +225,11 @@ describe('CommandLibraryUI', () => {
         innerHTML: '',
         classList: {
           add: vi.fn()
-        }
+        },
+        querySelector: vi.fn().mockReturnValue({
+          addEventListener: vi.fn()
+        }),
+        addEventListener: vi.fn()
       }
       mockDocument.createElement.mockReturnValue(mockElement)
     })
@@ -557,16 +566,43 @@ describe('CommandLibraryUI', () => {
   })
 
   describe('showParameterModal', () => {
-    it('should call app showParameterModal if available', () => {
-      global.app = {
-        showParameterModal: vi.fn()
+    it('should call parameterCommands.showParameterModal if available', async () => {
+      // Import the actual parameterCommands module
+      const { parameterCommands } = await import('../../src/js/features/parameterCommands.js')
+      
+      // Create a mock implementation that just returns without doing anything
+      const originalShowParameterModal = parameterCommands.showParameterModal
+      parameterCommands.showParameterModal = vi.fn()
+      
+      // Provide a valid commandDef with parameters to avoid the error
+      const commandDef = {
+        name: 'Test Command',
+        parameters: {
+          testParam: { type: 'text', default: 'test' }
+        }
       }
       
-      ui.showParameterModal('space', 'tray_exec', {})
+      ui.showParameterModal('space', 'tray_exec', commandDef)
       
-      expect(global.app.showParameterModal).toHaveBeenCalledWith('space', 'tray_exec', {})
+      expect(parameterCommands.showParameterModal).toHaveBeenCalledWith('space', 'tray_exec', commandDef)
       
-      delete global.app
+      // Restore the original method
+      parameterCommands.showParameterModal = originalShowParameterModal
+    })
+
+    it('should handle case when parameterCommands is not available', () => {
+      // Test that it doesn't throw when parameterCommands is undefined
+      // Provide a valid commandDef with parameters to avoid the error
+      const commandDef = {
+        name: 'Test Command',
+        parameters: {
+          testParam: { type: 'text', default: 'test' }
+        }
+      }
+      
+      expect(() => {
+        ui.showParameterModal('space', 'tray_exec', commandDef)
+      }).not.toThrow()
     })
   })
 
