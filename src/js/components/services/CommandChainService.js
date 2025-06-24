@@ -117,8 +117,16 @@ export default class CommandChainService extends ComponentBase {
       if (index === undefined) return
 
       const cmds = this.getCommandsForSelectedKey()
-      const cmd  = cmds[index]
-      if (!cmd) return
+      const originalCmd  = cmds[index]
+      if (!originalCmd) return
+
+      // -------------------------------------------------------------------
+      // Create a copy of the command to avoid mutating the original profile
+      // data during edit. Any derived parameters are applied only to this copy.
+      // -------------------------------------------------------------------
+      const cmd = originalCmd.parameters
+        ? { ...originalCmd, parameters: { ...originalCmd.parameters } }
+        : { ...originalCmd }
 
       // Derive parameters for tray execution commands when not stored
       if (!cmd.parameters && /TrayExecByTray/.test(cmd.command)) {
@@ -160,7 +168,7 @@ export default class CommandChainService extends ComponentBase {
 
       // Non-customizable command – info only
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
-        stoUI.showToast(cmd.command, 'info')
+        stoUI.showToast(originalCmd.command, 'info')
       }
     })
 

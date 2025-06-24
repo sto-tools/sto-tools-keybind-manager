@@ -496,10 +496,18 @@ export const parameterCommands = {
   
             if (isEditing) {
               const profile = this.getCurrentProfile()
+              const selectedKey =
+                this.selectedKey ||
+                (this.commandLibraryService &&
+                  this.commandLibraryService.selectedKey)
+  
+              // Ensure we have a valid key before attempting to access commands
               const existingCommand =
-                profile.keys[this.selectedKey][
-                  this.currentParameterCommand.editIndex
-                ]
+                selectedKey && profile.keys[selectedKey]
+                  ? profile.keys[selectedKey][
+                      this.currentParameterCommand.editIndex
+                    ]
+                  : undefined
               if (
                 existingCommand &&
                 (existingCommand.command.startsWith('TrayExecByTray') ||
@@ -718,16 +726,32 @@ export const parameterCommands = {
   
       const command = commands[index]
   
-      // If command lacks parameters but is a tray execution, derive them
-      if (!command.parameters && /TrayExecByTray/.test(command.command)) {
-        const trayMatch = command.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
+      // -------------------------------------------------------------------
+      // IMPORTANT: Work on a copy of the command so that any derived
+      // parameters added for the edit session do NOT mutate the command that
+      // is stored in the profile. This prevents accidental permanent changes
+      // if the user cancels the edit.
+      // -------------------------------------------------------------------
+      const commandForEdit = command.parameters
+        ? { ...command, parameters: { ...command.parameters } }
+        : { ...command }
+  
+      // If the command lacks parameters but is a tray execution, derive them
+      // into the local copy only.
+      if (!commandForEdit.parameters && /TrayExecByTray/.test(commandForEdit.command)) {
+        const trayMatch = commandForEdit.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
         if (trayMatch) {
-          command.parameters = { tray: parseInt(trayMatch[1]), slot: parseInt(trayMatch[2]) }
+          commandForEdit.parameters = {
+            tray: parseInt(trayMatch[1]),
+            slot: parseInt(trayMatch[2]),
+          }
         } else {
           // TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>
-          const backupMatch = command.command.match(/(?:\+)?(?:STO)?TrayExecByTrayWithBackup\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/i)
+          const backupMatch = commandForEdit.command.match(
+            /(?:\+)?(?:STO)?TrayExecByTrayWithBackup\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/i
+          )
           if (backupMatch) {
-            command.parameters = {
+            commandForEdit.parameters = {
               active: parseInt(backupMatch[1]),
               tray: parseInt(backupMatch[2]),
               slot: parseInt(backupMatch[3]),
@@ -739,23 +763,22 @@ export const parameterCommands = {
       }
   
       // Check if this is a parameterized command that can be edited
-      if (command.parameters && command.type) {
-        // Find the original command definition
-        const commandDef = this.findCommandDefinition(command)
+      if (commandForEdit.parameters && commandForEdit.type) {
+        const commandDef = this.findCommandDefinition(commandForEdit)
         if (commandDef && commandDef.customizable) {
-          this.editParameterizedCommand(index, command, commandDef)
+          this.editParameterizedCommand(index, commandForEdit, commandDef)
           return
         }
       }
   
       // Also check if command is detectable as parameterized via findCommandDefinition
-      const commandDef = this.findCommandDefinition(command)
-      if (commandDef && commandDef.customizable) {
-        this.editParameterizedCommand(index, command, commandDef)
+      const possibleDef = this.findCommandDefinition(commandForEdit)
+      if (possibleDef && possibleDef.customizable) {
+        this.editParameterizedCommand(index, commandForEdit, possibleDef)
         return
       }
   
-      // For non-parameterized commands, show command details
+      // For non-parameterized commands, show command details (use original object)
       stoUI.showToast(
         i18next.t('command_info', { command: command.command, type: command.type }),
         'info',
