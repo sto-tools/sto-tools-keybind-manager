@@ -665,6 +665,13 @@ export const parameterCommands = {
           }
         }
   
+        // Notify chain service so UI stays in sync
+        eventBus.emit('command-chain:update', {
+          commands: this.commandLibraryService?.getCommandsForSelectedKey?.() || [],
+          selectedKey: this.selectedKey || this.commandLibraryService?.selectedKey,
+          environment: this.currentEnvironment,
+        })
+  
         modalManager.hide('parameterModal')
         this.currentParameterCommand = null
   
@@ -753,31 +760,6 @@ export const parameterCommands = {
     },
   
     findCommandDefinition(command) {
-      // Quick resolution for alias commands which are not defined in STO_DATA
-      if (command.type === 'alias') {
-        // Construct a synthetic command definition so the parameter modal can
-        // be reused for editing alias names just like any other customizable
-        // command type.
-        const aliasName = (command.parameters && command.parameters.alias_name) || command.command || ''
-
-        return {
-          // Maintain the same shape as real command definitions
-          commandId: 'alias',
-          name: typeof i18next !== 'undefined' && i18next.t ? i18next.t('alias_command') : 'Alias',
-          icon: '📝',
-          command: aliasName,
-          customizable: true,
-          // Only one editable parameter – the alias name itself
-          parameters: {
-            alias_name: {
-              type: 'text',
-              placeholder: typeof i18next !== 'undefined' && i18next.t ? i18next.t('enter_alias_name') : 'Enter alias name',
-              default: aliasName,
-            },
-          },
-        }
-      }
-  
       // Special handling for tray execution commands - detect by command string
       if (command.command.includes('TrayExec')) {
         const trayCategory = STO_DATA.commands.tray
