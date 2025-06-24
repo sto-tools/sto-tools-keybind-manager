@@ -13,7 +13,6 @@ export default class AliasModalUI extends ComponentBase {
   init() {
     super.init()
     this.setupEventListeners()
-    this.service.updateCommandLibrary()
   }
 
   setupEventListeners() {

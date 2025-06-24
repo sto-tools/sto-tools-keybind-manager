@@ -12,7 +12,6 @@ export default class AliasModalService extends ComponentBase {
 
   init() {
     super.init()
-    this.updateCommandLibrary()
   }
 
   saveAlias({ name, description = '', commands }) {
@@ -178,131 +177,6 @@ export default class AliasModalService extends ComponentBase {
     }
 
     return { valid: true }
-  }
-
-  updateCommandLibrary() {
-    const profile = this.getProfile()
-    if (!profile) return
-
-    const categories = document.getElementById('commandCategories')
-    if (!categories) return
-
-    const existingAliasCategory = categories.querySelector('[data-category="aliases"]')
-    if (existingAliasCategory) {
-      existingAliasCategory.remove()
-    }
-    const existingVertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]')
-    if (existingVertigoCategory) {
-      existingVertigoCategory.remove()
-    }
-
-    const allAliases = Object.entries(profile.aliases || {})
-    const regularAliases = allAliases.filter(
-      ([name]) => !name.startsWith('dynFxSetFXExlusionList_')
-    )
-    const vertigoAliases = allAliases.filter(([name]) =>
-      name.startsWith('dynFxSetFXExlusionList_')
-    )
-
-    // Only create regular aliases category if there are regular aliases
-    if (regularAliases.length > 0) {
-      const aliasCategory = this.createAliasCategoryElement(
-        regularAliases,
-        'aliases',
-        'command_aliases',
-        'fas fa-mask'
-      )
-      categories.appendChild(aliasCategory)
-    }
-
-    // Only create VERTIGO category if there are VERTIGO aliases
-    if (vertigoAliases.length > 0) {
-      const vertigoCategory = this.createAliasCategoryElement(
-        vertigoAliases,
-        'vertigo-aliases',
-        'vfx_aliases',
-        'fas fa-eye-slash'
-      )
-      categories.appendChild(vertigoCategory)
-    }
-  }
-
-  createAliasCategoryElement(
-    aliases,
-    categoryType = 'aliases',
-    titleKey = 'command_aliases',
-    iconClass = 'fas fa-mask'
-  ) {
-    const element = document.createElement('div')
-    element.className = 'category'
-    element.dataset.category = categoryType
-
-    const storageKey = `commandCategory_${categoryType}_collapsed`
-    const isCollapsed = localStorage.getItem(storageKey) === 'true'
-
-    const isVertigo = categoryType === 'vertigo-aliases'
-    const itemIcon = isVertigo ? '👁️' : '🎭'
-    const itemClass = isVertigo
-      ? 'command-item vertigo-alias-item'
-      : 'command-item alias-item'
-
-    element.innerHTML = `
-            <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryType}">
-                <i class="fas fa-chevron-right category-chevron"></i>
-                <i class="${iconClass}"></i>
-                ${i18next.t(titleKey)}
-                <span class="command-count">(${aliases.length})</span>
-            </h4>
-            <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">
-                ${aliases
-                  .map(
-                    ([name, alias]) => `
-                    <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
-                        ${itemIcon} ${name}
-                    </div>
-                `
-                  )
-                  .join('')}
-            </div>
-        `
-
-    const header = element.querySelector('h4')
-    header.addEventListener('click', () => {
-      this.toggleAliasCategory(categoryType, element)
-    })
-
-    element.addEventListener('click', (e) => {
-      if (
-        e.target.classList.contains('alias-item') ||
-        e.target.classList.contains('vertigo-alias-item')
-      ) {
-        const aliasName = e.target.dataset.alias
-        this.addAliasToKey(aliasName)
-      }
-    })
-
-    return element
-  }
-
-  toggleAliasCategory(categoryType, element) {
-    const header = element.querySelector('h4')
-    const commands = element.querySelector('.category-commands')
-    const chevron = header.querySelector('.category-chevron')
-
-    const isCollapsed = commands.classList.contains('collapsed')
-    const storageKey = `commandCategory_${categoryType}_collapsed`
-
-    if (isCollapsed) {
-      commands.classList.remove('collapsed')
-      header.classList.remove('collapsed')
-      chevron.style.transform = 'rotate(90deg)'
-      localStorage.setItem(storageKey, 'false')
-    } else {
-      commands.classList.add('collapsed')
-      header.classList.add('collapsed')
-      chevron.style.transform = 'rotate(0deg)'
-      localStorage.setItem(storageKey, 'true')
-    }
   }
 
   addAliasToKey(aliasName) {

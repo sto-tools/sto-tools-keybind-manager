@@ -447,8 +447,6 @@ describe('CommandLibraryService', () => {
     })
   })
 
-
-
   describe('generateCommandId', () => {
     it('should generate unique command IDs', () => {
       const id1 = service.generateCommandId()
@@ -553,7 +551,7 @@ describe('CommandLibraryService', () => {
 
   describe('filterCommandLibrary', () => {
     beforeEach(() => {
-      // Mock DOM elements
+      // Mock DOM elements with proper structure
       const mockCommandItems = [
         {
           dataset: { command: 'ground_cmd' },
@@ -569,7 +567,27 @@ describe('CommandLibraryService', () => {
         }
       ]
       
-      document.querySelectorAll = vi.fn().mockReturnValue(mockCommandItems)
+      const mockCategories = [
+        {
+          querySelectorAll: vi.fn().mockReturnValue([
+            { style: { display: '' } },
+            { style: { display: 'none' } }
+          ]),
+          style: { display: '' },
+          getAttribute: vi.fn().mockReturnValue('space') // Mock regular category
+        }
+      ]
+      
+      // Mock document.querySelectorAll to return different results based on selector
+      document.querySelectorAll = vi.fn().mockImplementation((selector) => {
+        if (selector === '.command-item') {
+          return mockCommandItems
+        } else if (selector === '.category') {
+          return mockCategories
+        }
+        return []
+      })
+      
       service.setCurrentEnvironment('space')
     })
 
@@ -580,15 +598,13 @@ describe('CommandLibraryService', () => {
         commands: {
           ground: {
             commands: {
-              ground_cmd: { command: 'GroundCommand' }
+              ground_cmd: { command: 'GroundCommand', environment: 'ground' }
             }
-            // Note: no environments property
           },
           space: {
             commands: {
-              space_cmd: { command: 'SpaceCommand' }
-            },
-            environments: ['space']
+              space_cmd: { command: 'SpaceCommand', environment: 'space' }
+            }
           }
         }
       }
@@ -603,9 +619,9 @@ describe('CommandLibraryService', () => {
     it('should filter commands based on current environment', () => {
       service.filterCommandLibrary()
       
-      const commandItems = document.querySelectorAll('.command-item')
-      // Verify that querySelectorAll was called
+      // Verify that querySelectorAll was called for both command items and categories
       expect(document.querySelectorAll).toHaveBeenCalledWith('.command-item')
+      expect(document.querySelectorAll).toHaveBeenCalledWith('.category')
     })
 
     it('should handle missing STO_DATA gracefully', () => {

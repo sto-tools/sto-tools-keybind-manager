@@ -4,10 +4,7 @@ import eventBus from '../../core/eventBus.js'
 
 /**
  * CommandChainService – owns the data for the command-chain editor (the pane
- * inside .command-chain-container).  In phase-1 it merely mirrors the updates
- * coming from CommandLibraryUI so we can wire up the new component without
- * breaking anything.  In phase-2 it will become the single source of truth
- * for chain operations.
+ * inside .command-chain-container).  The single source of truth for chain operations.
  */
 export default class CommandChainService extends ComponentBase {
   constructor ({ i18n, commandLibraryService, commandService = null } = {}) {

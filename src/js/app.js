@@ -222,7 +222,8 @@ export default class STOToolsKeybindManager {
       eventBus.on('sto-app-ready', () => {
         this.aliasService.init()
         this.aliasUI.init()
-        this.commandService.init && this.commandService.init()
+        // commandService is initialized earlier, so we don't need to call it here
+        // this.commandService.init()
         this.commandLibraryService.init()
         this.commandChainService.init()
         this.commandChainUI.init()

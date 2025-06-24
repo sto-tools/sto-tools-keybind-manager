@@ -420,10 +420,6 @@ export default class CommandLibraryService extends ComponentBase {
     return true
   }
 
-
-
-
-
   /**
    * Generate a unique command ID
    */
@@ -450,25 +446,42 @@ export default class CommandLibraryService extends ComponentBase {
       const commandId = item.dataset.command
       if (!commandId) return
 
-      let category = null
+      // Find the command definition
+      let commandDef = null
       for (const [catId, catData] of Object.entries(STO_DATA.commands)) {
         if (catData.commands[commandId]) {
-          category = catData
+          commandDef = catData.commands[commandId]
           break
         }
       }
 
-      if (category) {
+      if (commandDef) {
         let isVisible
         if (this.currentEnvironment === 'alias') {
-          // In alias mode, show all categories as alias commands are not environment-specific
+          // In alias mode, show all commands as alias commands are not environment-specific
           isVisible = true
         } else {
-          // In key modes, categories without env list are assumed universal
-          isVisible = !category.environments || category.environments.includes(this.currentEnvironment)
+          // Check if command has environment restriction
+          if (commandDef.environment) {
+            // If command has specific environment, only show it in that environment
+            isVisible = commandDef.environment === this.currentEnvironment
+          } else {
+            // If no environment specified, show in all environments
+            isVisible = true
+          }
         }
         item.style.display = isVisible ? 'block' : 'none'
       }
+    })
+
+    // Hide/show categories based on whether they have visible commands
+    const categories = document.querySelectorAll('.category')
+    categories.forEach((category) => {
+      const visibleCommands = category.querySelectorAll(
+        '.command-item:not([style*="display: none"])'
+      )
+      const categoryVisible = visibleCommands.length > 0
+      category.style.display = categoryVisible ? 'block' : 'none'
     })
   }
 
