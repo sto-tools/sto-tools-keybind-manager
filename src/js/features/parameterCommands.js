@@ -496,18 +496,10 @@ export const parameterCommands = {
   
             if (isEditing) {
               const profile = this.getCurrentProfile()
-              const selectedKey =
-                this.selectedKey ||
-                (this.commandLibraryService &&
-                  this.commandLibraryService.selectedKey)
-  
-              // Ensure we have a valid key before attempting to access commands
               const existingCommand =
-                selectedKey && profile.keys[selectedKey]
-                  ? profile.keys[selectedKey][
-                      this.currentParameterCommand.editIndex
-                    ]
-                  : undefined
+                profile.keys[this.selectedKey][
+                  this.currentParameterCommand.editIndex
+                ]
               if (
                 existingCommand &&
                 (existingCommand.command.startsWith('TrayExecByTray') ||
@@ -654,17 +646,14 @@ export const parameterCommands = {
           }
         } else {
           // Add new command using the service so events/UI refresh correctly
-          const svc = this.commandService || this.commandLibraryService
-          if (svc && typeof svc.addCommand === 'function') {
-            // Keep service in sync with alias context
-            svc.setCurrentEnvironment && svc.setCurrentEnvironment('alias')
-            svc.setSelectedKey && svc.setSelectedKey(selectedKey)
+          if (this.commandLibraryService && typeof this.commandLibraryService.addCommand === 'function') {
+
             if (Array.isArray(command)) {
               command.forEach((cmdObj) => {
-                svc.addCommand(selectedKey, cmdObj)
+                this.commandLibraryService.addCommand(selectedKey, cmdObj)
               })
             } else {
-              svc.addCommand(selectedKey, command)
+              this.commandLibraryService.addCommand(selectedKey, command)
             }
           } else {
             // Fallback to legacy app.addCommand
@@ -678,8 +667,8 @@ export const parameterCommands = {
   
         // Notify chain service so UI stays in sync
         eventBus.emit('command-chain:update', {
-          commands: (this.commandLibraryService?.getCommandsForSelectedKey?.() || svc.getCommandsForSelectedKey?.() || []),
-          selectedKey: this.selectedKey || this.commandLibraryService?.selectedKey || svc.selectedKey,
+          commands: this.commandLibraryService?.getCommandsForSelectedKey?.() || [],
+          selectedKey: this.selectedKey || this.commandLibraryService?.selectedKey,
           environment: this.currentEnvironment,
         })
   

@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     // Browser environment for UI interaction tests
-    environment: 'happy-dom', // Fallback, but browser mode will override
+    environment: 'jsdom', // Fallback, but browser mode will override
     globals: true,
     testTimeout: 30000, // Longer timeout for browser tests
     include: [

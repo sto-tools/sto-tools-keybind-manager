@@ -69,6 +69,19 @@ export default class CommandLibraryService extends ComponentBase {
     this.eventBus.on('environment-changed', (data) => {
       this.currentEnvironment = data.environment
     })
+
+    // Keep selectedKey in sync with UI selections
+    if (this.eventBus) {
+      this.eventBus.on('key-selected', ({ key, name } = {}) => {
+        this.selectedKey = key || name || null
+      })
+
+      this.eventBus.on('alias-selected', ({ name } = {}) => {
+        if (!name) return
+        this.currentEnvironment = 'alias'
+        this.selectedKey = name
+      })
+    }
   }
 
   /**

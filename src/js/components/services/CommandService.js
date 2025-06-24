@@ -279,8 +279,8 @@ export default class CommandService extends ComponentBase {
     })
 
     // Profile service tells us when the active profile changes
-    this.eventBus.on('profile-switched', ({ profile, environment } = {}) => {
-      this.currentProfile = profile
+    this.eventBus.on('profile-switched', ({ profileId, profile, environment } = {}) => {
+      this.currentProfile = profileId || profile || null
       if (environment) this.currentEnvironment = environment
       // Reset key selection – UI will emit a fresh key-selected later.
       this.selectedKey = null

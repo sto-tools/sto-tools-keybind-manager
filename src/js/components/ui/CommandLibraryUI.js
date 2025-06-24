@@ -56,9 +56,6 @@ export default class CommandLibraryUI extends ComponentBase {
         this.filterCommandLibrary()
         this.renderCommandChain()
       })
-      this.service.addEventListener('show-parameter-modal', (data) => {
-        this.showParameterModal(data.categoryId, data.commandId, data.commandDef)
-      })
       this.service.addEventListener('key-selected', () => {
         this.renderCommandChain()
       })
@@ -73,9 +70,6 @@ export default class CommandLibraryUI extends ComponentBase {
       })
       this.addEventListener('command-moved', () => {
         this.renderCommandChain()
-      })
-      this.addEventListener('show-parameter-modal', (data) => {
-        this.showParameterModal(data.categoryId, data.commandId, data.commandDef)
       })
       this.addEventListener('environment-changed', () => {
         this.filterCommandLibrary()
@@ -505,18 +499,6 @@ export default class CommandLibraryUI extends ComponentBase {
       if (icon) {
         icon.className = isCollapsed ? 'fas fa-chevron-up' : 'fas fa-chevron-down'
       }
-    }
-  }
-
-  /**
-   * Show parameter modal for customizable commands
-   */
-  showParameterModal(categoryId, commandId, commandDef) {
-    if (window.app && typeof window.app.showParameterModal === 'function') {
-      window.app.showParameterModal(categoryId, commandId, commandDef)
-    } else if (typeof parameterCommands?.showParameterModal === 'function') {
-      // Fallback for test environments
-      parameterCommands.showParameterModal.call(window.app || {}, categoryId, commandId, commandDef)
     }
   }
 

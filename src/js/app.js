@@ -14,7 +14,7 @@ import { eventHandlers } from './ui/eventHandlers.js'
 import { projectManagement } from './services/projectManagement.js'
 import { modeManagement } from './ui/modeManagement.js'
 import { CommandService, CommandLibraryService } from './components/services/index.js'
-import { CommandLibraryUI } from './components/ui/index.js'
+import { CommandLibraryUI, CommandUI } from './components/ui/index.js'
 import { AliasModalService, AliasModalUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
@@ -38,6 +38,7 @@ export default class STOToolsKeybindManager {
     this.commandLibraryService = null
     this.keyBrowserService = null
     this.keyBrowserUI = null
+    this.commandUI = null
 
     // Bind key capture handlers once for consistent add/remove
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
@@ -160,6 +161,9 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
       })
 
+      // Initialize early so it listens to profile-switched emitted during loadData
+      this.commandService.init()
+
       // Initialize command library service and UI – delegates to commandService
       this.commandLibraryService = new CommandLibraryService({
         storage: stoStorage,
@@ -194,6 +198,17 @@ export default class STOToolsKeybindManager {
         document
       })
 
+      // ---------------------------------
+      // Command UI (parameter modal owner)
+      // ---------------------------------
+      this.commandUI = new CommandUI({
+        eventBus,
+        ui: stoUI,
+        modalManager,
+        commandService: this.commandService,
+        commandLibraryService: this.commandLibraryService,
+      })
+
       // Load profile data
       await this.profileService.loadData()
 
@@ -215,6 +230,7 @@ export default class STOToolsKeybindManager {
         this.aliasBrowserUI.init()
         this.keyBrowserService.init()
         this.keyBrowserUI.init()
+        this.commandUI.init()
       })
 
       // Apply saved theme

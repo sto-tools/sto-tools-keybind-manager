@@ -85,7 +85,7 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('commandlibrary:add', (payload = {}) => {
       const { categoryId, commandId, commandObj } = payload
       if (!categoryId || !commandId) return
-      const svc = this.commandService || this.commandLibraryService
+      const svc = this.commandLibraryService || this.commandService
       if (!svc) return
 
       // Ensure alias environment sync if necessary
