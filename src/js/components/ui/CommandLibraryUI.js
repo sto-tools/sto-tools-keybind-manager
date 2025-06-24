@@ -326,9 +326,6 @@ export default class CommandLibraryUI extends ComponentBase {
     // Re-add aliases after rebuilding the command library
     // This ensures aliases are preserved when the library is rebuilt (e.g., on language change)
     this.updateCommandLibrary()
-    // if (typeof stoAliases !== 'undefined' && stoAliases.updateCommandLibrary) {
-    //   stoAliases.updateCommandLibrary()
-    // }
   }
 
   /**
@@ -483,7 +480,20 @@ export default class CommandLibraryUI extends ComponentBase {
         e.target.classList.contains('vertigo-alias-item')
       ) {
         const aliasName = e.target.dataset.alias
-        this.addAliasToKey(aliasName)
+
+        const profile = this.service.storage.getProfile(this.service.currentProfile)
+        const alias = profile.aliases[aliasName]
+
+        const fullyHydratedAlias = {
+          command: aliasName,
+          type: 'alias',
+          icon: '🎭',
+          text: `Alias: ${aliasName}`,
+          description: alias.description,
+          id: this.service.generateCommandId(),
+        }
+
+        this.eventBus.emit('command:add', { commandDef: fullyHydratedAlias })
       }
     })
 
@@ -515,9 +525,6 @@ export default class CommandLibraryUI extends ComponentBase {
   }
 
   /**
-   * Update command library
-   */
-    /**
    * Update the command library
    */
     updateCommandLibrary() {
