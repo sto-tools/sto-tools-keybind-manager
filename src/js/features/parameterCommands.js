@@ -654,18 +654,17 @@ export const parameterCommands = {
           }
         } else {
           // Add new command using the service so events/UI refresh correctly
-          if (this.commandLibraryService && typeof this.commandLibraryService.addCommand === 'function') {
+          const svc = this.commandService || this.commandLibraryService
+          if (svc && typeof svc.addCommand === 'function') {
             // Keep service in sync with alias context
-            if (this.currentEnvironment === 'alias') {
-              this.commandLibraryService.setCurrentEnvironment('alias')
-            }
-            this.commandLibraryService.setSelectedKey(selectedKey)
+            svc.setCurrentEnvironment && svc.setCurrentEnvironment('alias')
+            svc.setSelectedKey && svc.setSelectedKey(selectedKey)
             if (Array.isArray(command)) {
               command.forEach((cmdObj) => {
-                this.commandLibraryService.addCommand(selectedKey, cmdObj)
+                svc.addCommand(selectedKey, cmdObj)
               })
             } else {
-              this.commandLibraryService.addCommand(selectedKey, command)
+              svc.addCommand(selectedKey, command)
             }
           } else {
             // Fallback to legacy app.addCommand
@@ -679,8 +678,8 @@ export const parameterCommands = {
   
         // Notify chain service so UI stays in sync
         eventBus.emit('command-chain:update', {
-          commands: this.commandLibraryService?.getCommandsForSelectedKey?.() || [],
-          selectedKey: this.selectedKey || this.commandLibraryService?.selectedKey,
+          commands: (this.commandLibraryService?.getCommandsForSelectedKey?.() || svc.getCommandsForSelectedKey?.() || []),
+          selectedKey: this.selectedKey || this.commandLibraryService?.selectedKey || svc.selectedKey,
           environment: this.currentEnvironment,
         })
   

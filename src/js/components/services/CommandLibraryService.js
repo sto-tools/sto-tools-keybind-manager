@@ -5,12 +5,13 @@ import ComponentBase from '../ComponentBase.js'
  * Manages command definitions, command chains, and command operations
  */
 export default class CommandLibraryService extends ComponentBase {
-  constructor({ storage, eventBus, i18n, ui, modalManager }) {
+  constructor({ storage, eventBus, i18n, ui, modalManager, commandService = null }) {
     super(eventBus)
     this.storage = storage
     this.i18n = i18n
     this.ui = ui
     this.modalManager = modalManager
+    this.commandService = commandService
     this.selectedKey = null
     this.currentEnvironment = 'space'
     this.currentProfile = null
@@ -75,7 +76,6 @@ export default class CommandLibraryService extends ComponentBase {
    */
   setSelectedKey(key) {
     this.selectedKey = key
-    this.emit('key-selected', { key })
   }
 
   /**
@@ -83,7 +83,6 @@ export default class CommandLibraryService extends ComponentBase {
    */
   setCurrentEnvironment(environment) {
     this.currentEnvironment = environment
-    this.emit('environment-changed', { environment })
   }
 
   /**
@@ -191,6 +190,9 @@ export default class CommandLibraryService extends ComponentBase {
    * Find a command definition by command object
    */
   findCommandDefinition(command) {
+    if (this.commandService && typeof this.commandService.findCommandDefinition === 'function') {
+      return this.commandService.findCommandDefinition(command)
+    }
     if (!STO_DATA || !STO_DATA.commands) return null
 
     // --------------------------------------------------------------------
@@ -263,6 +265,9 @@ export default class CommandLibraryService extends ComponentBase {
    * Get command warning information
    */
   getCommandWarning(command) {
+    if (this.commandService && typeof this.commandService.getCommandWarning === 'function') {
+      return this.commandService.getCommandWarning(command)
+    }
     if (!STO_DATA || !STO_DATA.commands) return null
 
     const categories = STO_DATA.commands
@@ -287,6 +292,9 @@ export default class CommandLibraryService extends ComponentBase {
    * Add a command to the selected key
    */
   addCommand(key, command) {
+    if (this.commandService && typeof this.commandService.addCommand === 'function') {
+      return this.commandService.addCommand(key, command)
+    }
     if (!this.selectedKey) {
       this.ui.showToast(this.i18n.t('please_select_a_key_first'), 'warning')
       return false
@@ -324,6 +332,9 @@ export default class CommandLibraryService extends ComponentBase {
    * Delete a command from the selected key
    */
   deleteCommand(key, index) {
+    if (this.commandService && typeof this.commandService.deleteCommand === 'function') {
+      return this.commandService.deleteCommand(key, index)
+    }
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
@@ -364,6 +375,9 @@ export default class CommandLibraryService extends ComponentBase {
    * Move a command to a new position
    */
   moveCommand(key, fromIndex, toIndex) {
+    if (this.commandService && typeof this.commandService.moveCommand === 'function') {
+      return this.commandService.moveCommand(key, fromIndex, toIndex)
+    }
     const profile = this.getCurrentProfile()
     if (!profile) return false
 

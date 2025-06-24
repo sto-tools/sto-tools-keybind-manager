@@ -10,7 +10,7 @@ import { parameterCommands } from '../../features/parameterCommands.js'
  * for chain operations.
  */
 export default class CommandChainService extends ComponentBase {
-  constructor ({ i18n, commandLibraryService } = {}) {
+  constructor ({ i18n, commandLibraryService, commandService = null } = {}) {
     super(eventBus)
     this.i18n = i18n
     this.currentEnvironment = 'space'
@@ -19,6 +19,8 @@ export default class CommandChainService extends ComponentBase {
 
     // Underlying authoritative service (legacy)
     this.commandLibraryService = commandLibraryService || null
+    // New central service
+    this.commandService = commandService
   }
 
   onInit () {
@@ -36,9 +38,10 @@ export default class CommandChainService extends ComponentBase {
       if (selectedKey !== undefined) this.selectedKey = selectedKey
       if (environment !== undefined) this.currentEnvironment = environment
 
-      if (this.commandLibraryService) {
-        this.selectedKey = this.selectedKey || this.commandLibraryService.selectedKey
-        this.currentEnvironment = this.currentEnvironment || this.commandLibraryService.currentEnvironment
+      const svcInit = this.commandService || this.commandLibraryService
+      if (svcInit) {
+        this.selectedKey = this.selectedKey || svcInit.selectedKey
+        this.currentEnvironment = this.currentEnvironment || svcInit.currentEnvironment
       }
 
       // forward to UI listeners that might care
@@ -82,27 +85,27 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('commandlibrary:add', (payload = {}) => {
       const { categoryId, commandId, commandObj } = payload
       if (!categoryId || !commandId) return
-      if (!this.commandLibraryService) return
+      const svc = this.commandService || this.commandLibraryService
+      if (!svc) return
 
       // Ensure alias environment sync if necessary
       if (this.currentEnvironment === 'alias') {
-        this.commandLibraryService.setCurrentEnvironment('alias')
+        svc.setCurrentEnvironment && svc.setCurrentEnvironment('alias')
       }
 
       // Selected key should already be set; guard against missing key
       if (!this.selectedKey) {
         // UI will take care of warning inside service
-        this.commandLibraryService.addCommandFromLibrary(categoryId, commandId)
+        svc.addCommandFromLibrary && svc.addCommandFromLibrary(categoryId, commandId)
         return
       }
 
       const before = this.getCommandsForSelectedKey()
       let success = false
       if (commandObj) {
-        // Directly add provided command object
-        success = this.commandLibraryService.addCommand(this.selectedKey, commandObj)
-      } else {
-        success = this.commandLibraryService.addCommandFromLibrary(categoryId, commandId)
+        success = svc.addCommand(this.selectedKey, commandObj)
+      } else if (svc.addCommandFromLibrary) {
+        success = svc.addCommandFromLibrary(categoryId, commandId)
       }
       if (success) {
         const after = this.getCommandsForSelectedKey()
@@ -174,8 +177,9 @@ export default class CommandChainService extends ComponentBase {
 
     // Delete command
     this.addEventListener('commandchain:delete', ({ index }) => {
-      if (index === undefined || !this.commandLibraryService || !this.selectedKey) return
-      const ok = this.commandLibraryService.deleteCommand(this.selectedKey, index)
+      const svcDel = this.commandService || this.commandLibraryService
+      if (index === undefined || !svcDel || !this.selectedKey) return
+      const ok = svcDel.deleteCommand && svcDel.deleteCommand(this.selectedKey, index)
       if (ok) {
         this.emit('chain-data-changed', { commands: this.getCommandsForSelectedKey() })
       }
@@ -183,9 +187,9 @@ export default class CommandChainService extends ComponentBase {
 
     // Move command (already done above?) – ensure unique once
     this.addEventListener('commandchain:move', ({ fromIndex, toIndex }) => {
-      if (fromIndex === undefined || toIndex === undefined) return
-      if (!this.commandLibraryService || !this.selectedKey) return
-      const ok = this.commandLibraryService.moveCommand(this.selectedKey, fromIndex, toIndex)
+      const svcMove = this.commandService || this.commandLibraryService
+      if (!svcMove || !this.selectedKey) return
+      const ok = svcMove.moveCommand && svcMove.moveCommand(this.selectedKey, fromIndex, toIndex)
       if (ok) {
         this.emit('chain-data-changed', { commands: this.getCommandsForSelectedKey() })
       }
@@ -199,15 +203,17 @@ export default class CommandChainService extends ComponentBase {
    * ------------------------------------------------------------------ */
 
   getCommandsForSelectedKey () {
-    if (this.commandLibraryService && typeof this.commandLibraryService.getCommandsForSelectedKey === 'function') {
-      return this.commandLibraryService.getCommandsForSelectedKey()
+    const svc2 = this.commandLibraryService || this.commandService
+    if (svc2 && typeof svc2.getCommandsForSelectedKey === 'function') {
+      return svc2.getCommandsForSelectedKey()
     }
     return Array.isArray(this.commands) ? this.commands : []
   }
 
   getEmptyStateInfo () {
-    if (this.commandLibraryService && typeof this.commandLibraryService.getEmptyStateInfo === 'function') {
-      return this.commandLibraryService.getEmptyStateInfo()
+    const svc2 = this.commandLibraryService || this.commandService
+    if (svc2 && typeof svc2.getEmptyStateInfo === 'function') {
+      return svc2.getEmptyStateInfo()
     }
     return {
       title: '',
@@ -220,15 +226,17 @@ export default class CommandChainService extends ComponentBase {
   }
 
   findCommandDefinition (command) {
-    if (this.commandLibraryService && typeof this.commandLibraryService.findCommandDefinition === 'function') {
-      return this.commandLibraryService.findCommandDefinition(command)
+    const svc2 = this.commandLibraryService || this.commandService
+    if (svc2 && typeof svc2.findCommandDefinition === 'function') {
+      return svc2.findCommandDefinition(command)
     }
     return null
   }
 
   getCommandWarning (command) {
-    if (this.commandLibraryService && typeof this.commandLibraryService.getCommandWarning === 'function') {
-      return this.commandLibraryService.getCommandWarning(command)
+    const svc2 = this.commandLibraryService || this.commandService
+    if (svc2 && typeof svc2.getCommandWarning === 'function') {
+      return svc2.getCommandWarning(command)
     }
     return null
   }

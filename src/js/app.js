@@ -13,7 +13,7 @@ import { keyCapture } from './ui/keyCapture.js'
 import { eventHandlers } from './ui/eventHandlers.js'
 import { projectManagement } from './services/projectManagement.js'
 import { modeManagement } from './ui/modeManagement.js'
-import { CommandLibraryService } from './components/services/index.js'
+import { CommandService, CommandLibraryService } from './components/services/index.js'
 import { CommandLibraryUI } from './components/ui/index.js'
 import { AliasModalService, AliasModalUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
@@ -34,8 +34,8 @@ export default class STOToolsKeybindManager {
     this.profileUI = null
     this.aliasService = null
     this.aliasUI = null
+    this.commandService = null
     this.commandLibraryService = null
-    this.commandLibraryUI = null
     this.keyBrowserService = null
     this.keyBrowserUI = null
 
@@ -150,21 +150,33 @@ export default class STOToolsKeybindManager {
         document,
       })
 
-      // Initialize command library service and UI
+      // ------------------------------
+      // Command service (new authority)
+      // ------------------------------
+      this.commandService = new CommandService({
+        storage: stoStorage,
+        eventBus,
+        i18n: i18next,
+        ui: stoUI,
+      })
+
+      // Initialize command library service and UI – delegates to commandService
       this.commandLibraryService = new CommandLibraryService({
         storage: stoStorage,
         eventBus,
         i18n: i18next,
         ui: stoUI,
-        modalManager
+        modalManager,
+        commandService: this.commandService,
       })
 
+      // Initialize command library UI
       this.commandLibraryUI = new CommandLibraryUI({
         service: this.commandLibraryService,
         eventBus,
         ui: stoUI,
         modalManager,
-        document
+        document,
       })
 
       // ------------------------------------------------------------------
@@ -173,6 +185,7 @@ export default class STOToolsKeybindManager {
       this.commandChainService = new CommandChainService({
         i18n: i18next,
         commandLibraryService: this.commandLibraryService,
+        commandService: this.commandService,
       })
       this.commandChainUI      = new CommandChainUI({
         service: this.commandChainService,
@@ -194,8 +207,8 @@ export default class STOToolsKeybindManager {
       eventBus.on('sto-app-ready', () => {
         this.aliasService.init()
         this.aliasUI.init()
+        this.commandService.init && this.commandService.init()
         this.commandLibraryService.init()
-        this.commandLibraryUI.init()
         this.commandChainService.init()
         this.commandChainUI.init()
         this.aliasBrowserService.init()
@@ -265,6 +278,9 @@ export default class STOToolsKeybindManager {
 
       // Alias selection now flows through the event bus to CommandChainService
       // and CommandLibraryService, so no direct wiring needed here.
+
+      // Make the service available to helper modules that are plain objects
+      parameterCommands.commandService = this.commandService
     } catch (error) {
       console.error('Failed to initialize application:', error)
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
