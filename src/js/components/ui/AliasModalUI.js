@@ -53,7 +53,7 @@ export default class AliasModalUI extends ComponentBase {
     const container = this.document.getElementById('aliasList')
     if (!container) return
 
-    const profile = app.getCurrentProfile()
+    const profile = this.service.getProfile()
     if (!profile || !profile.aliases || Object.keys(profile.aliases).length === 0) {
       container.innerHTML = `
                 <div class="empty-state">
@@ -129,7 +129,7 @@ export default class AliasModalUI extends ComponentBase {
     const commandsInput = this.document.getElementById('aliasCommands')
 
     if (aliasName) {
-      const profile = app.getCurrentProfile()
+      const profile = this.service.getProfile()
       const alias = profile.aliases[aliasName]
 
       if (title) title.textContent = i18next.t('edit_alias')

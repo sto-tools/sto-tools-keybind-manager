@@ -24,7 +24,7 @@ export default class AliasModalService extends ComponentBase {
       return false
     }
 
-    const profile = app.getCurrentProfile()
+    const profile = this.getProfile()
     if (!profile) {
       if (this.ui && this.ui.showToast) {
         this.ui.showToast(i18next.t('no_active_profile'), 'error')
@@ -53,8 +53,10 @@ export default class AliasModalService extends ComponentBase {
       lastModified: new Date().toISOString(),
     }
 
-    app.saveProfile()
-    app.setModified(true)
+    // Persist changes
+    if (this.storage && typeof this.storage.saveProfile === 'function') {
+      this.storage.saveProfile(store.currentProfile, profile)
+    }
 
     this.updateCommandLibrary()
 
@@ -67,11 +69,12 @@ export default class AliasModalService extends ComponentBase {
   }
 
   deleteAlias(aliasName) {
-    const profile = app.getCurrentProfile()
+    const profile = this.getProfile()
     if (profile && profile.aliases && profile.aliases[aliasName]) {
       delete profile.aliases[aliasName]
-      app.saveProfile()
-      app.setModified(true)
+      if (this.storage && typeof this.storage.saveProfile === 'function') {
+        this.storage.saveProfile(store.currentProfile, profile)
+      }
       this.updateCommandLibrary()
       if (this.ui && this.ui.showToast) {
         this.ui.showToast(
@@ -97,10 +100,12 @@ export default class AliasModalService extends ComponentBase {
       type: 'alias',
       icon: '🎭',
       text: `Alias: ${aliasName}`,
-      id: app.generateCommandId(),
+      id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     }
 
-    app.addCommand(store.selectedKey, command)
+    // emit event so CommandChainService can handle append
+    this.emit('commandlibrary:add', { categoryId: 'alias', commandId: aliasName, commandObj: command })
+
     if (this.ui && this.ui.showToast) {
       this.ui.showToast(
         i18next.t('alias_added_to_key', {
@@ -155,8 +160,8 @@ export default class AliasModalService extends ComponentBase {
       }
     }
 
-    if (typeof app !== 'undefined' && app.getCurrentProfile) {
-      const profile = app.getCurrentProfile()
+    {
+      const profile = this.getProfile()
       if (profile && profile.aliases) {
         const aliasNames = Object.keys(profile.aliases)
         if (
@@ -176,7 +181,7 @@ export default class AliasModalService extends ComponentBase {
   }
 
   updateCommandLibrary() {
-    const profile = app.getCurrentProfile()
+    const profile = this.getProfile()
     if (!profile) return
 
     const categories = document.getElementById('commandCategories')
@@ -311,7 +316,7 @@ export default class AliasModalService extends ComponentBase {
       return false
     }
 
-    const profile = app.getCurrentProfile()
+    const profile = this.getProfile()
     const alias = profile.aliases[aliasName]
 
     if (!alias) {
@@ -424,7 +429,7 @@ export default class AliasModalService extends ComponentBase {
       return false
     }
 
-    const profile = app.getCurrentProfile()
+    const profile = this.getProfile()
     if (profile.aliases && profile.aliases[template.name]) {
       if (this.ui && this.ui.showToast) {
         this.ui.showToast(
@@ -445,9 +450,9 @@ export default class AliasModalService extends ComponentBase {
       lastModified: new Date().toISOString(),
     }
 
-    app.saveProfile()
-    app.setModified(true)
-
+    if (this.storage && typeof this.storage.saveProfile === 'function') {
+      this.storage.saveProfile(store.currentProfile, profile)
+    }
     this.updateCommandLibrary()
 
     // Update the alias list UI if available - call the UI's renderAliasList method
@@ -465,7 +470,7 @@ export default class AliasModalService extends ComponentBase {
   }
 
   getAliasUsage(aliasName) {
-    const profile = app.getCurrentProfile()
+    const profile = this.getProfile()
     if (!profile) return []
 
     const usage = []
@@ -500,7 +505,7 @@ export default class AliasModalService extends ComponentBase {
   }
 
   createAliasChain(name, description = '') {
-    const profile = app.getCurrentProfile()
+    const profile = this.getProfile()
     if (!profile) return
 
     // Initialize aliases object if it doesn't exist
@@ -525,13 +530,13 @@ export default class AliasModalService extends ComponentBase {
       lastModified: new Date().toISOString(),
     }
 
-    // Save profile
-    app.saveProfile()
-    app.setModified(true)
-    
-    // Update UI
+    if (this.storage && typeof this.storage.saveProfile === 'function') {
+      this.storage.saveProfile(store.currentProfile, profile)
+    }
+    // Save profile UI refresh
     this.updateCommandLibrary()
     
+    // Update UI
     if (this.ui && this.ui.showToast) {
       this.ui.showToast(i18next.t('alias_created', {name: name}), 'success')
     }
@@ -542,5 +547,10 @@ export default class AliasModalService extends ComponentBase {
     if (this.ui && this.ui.renderAliasList) {
       this.ui.renderAliasList()
     }
+  }
+
+  getProfile() {
+    const profileId = store.currentProfile
+    return profileId ? this.storage.getProfile?.(profileId) : null
   }
 }

@@ -263,11 +263,8 @@ export default class STOToolsKeybindManager {
       window.keyBrowserUI = this.keyBrowserUI
       window.keyBrowserService = this.keyBrowserService
 
-      // Keep command library in sync with alias selection
-      this.aliasBrowserService.addEventListener('alias-selected', ({ name }) => {
-        this.commandLibraryService.setSelectedKey(name)
-        this.commandLibraryService.setCurrentEnvironment('alias')
-      })
+      // Alias selection now flows through the event bus to CommandChainService
+      // and CommandLibraryService, so no direct wiring needed here.
     } catch (error) {
       console.error('Failed to initialize application:', error)
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
@@ -580,56 +577,26 @@ export default class STOToolsKeybindManager {
     return false
   }
 
+  // ------------------------------------------------------------------
+  // Backward-compatibility thin wrappers – emit events rather than performing
+  // logic directly. These can be deleted once all tests & legacy hooks are
+  // migrated.
+  // ------------------------------------------------------------------
   deleteCommand(key, index) {
-    console.log('deleteCommand', key, index)
-    if (this.commandLibraryService) {
-      console.log('deleteCommand commandLibraryService', key, index)
-      return this.commandLibraryService.deleteCommand(key, index)
+    if (typeof eventBus !== 'undefined') {
+      eventBus.emit('commandchain:delete', { index })
     }
-    return false
   }
 
   moveCommand(key, fromIndex, toIndex) {
-    if (this.commandLibraryService) {
-      return this.commandLibraryService.moveCommand(key, fromIndex, toIndex)
+    if (typeof eventBus !== 'undefined') {
+      eventBus.emit('commandchain:move', { fromIndex, toIndex })
     }
-    return false
-  }
-
-  getCommandWarning(command) {
-    if (this.commandLibraryService) {
-      return this.commandLibraryService.getCommandWarning(command)
-    }
-    return null
   }
 
   editCommand(index) {
-    console.log('editCommand', index)
-    if (typeof app !== 'undefined' && app.showParameterModal) {
-      const commands = this.commandLibraryService.getCommandsForSelectedKey()
-      const command = commands[index]
-      if (!command) return
-
-      // Try to resolve definition
-      let commandDef = this.commandLibraryService.findCommandDefinition(command)
-
-      // Fallback: infer tray custom command even if definition not found
-      if (!commandDef && /TrayExecByTray/.test(command.command)) {
-        commandDef = STO_DATA.commands.tray.commands.custom_tray
-        commandDef = { ...commandDef, commandId: 'custom_tray', categoryId: 'tray' }
-      }
-
-      if (commandDef && commandDef.customizable) {
-        this.showParameterModal(commandDef.categoryId, commandDef.commandId, commandDef)
-      }
-    }
-  }
-
-  showParameterModal(categoryId, commandId, commandDef) {
-    // Delegate directly to the mix-in implementation from parameterCommands to
-    // avoid recursion between app ↔︎ commandLibraryUI.
-    if (typeof parameterCommands?.showParameterModal === 'function') {
-      parameterCommands.showParameterModal.call(this, categoryId, commandId, commandDef)
+    if (typeof eventBus !== 'undefined') {
+      eventBus.emit('commandchain:edit', { index })
     }
   }
 }

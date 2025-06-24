@@ -47,6 +47,13 @@ export default class CommandLibraryService extends ComponentBase {
       this.selectedKey = data.key
     })
 
+    // Listen for alias selection – treat it as a key but force alias env
+    this.addEventListener('alias-selected', ({ name }) => {
+      if (!name) return
+      this.selectedKey = name
+      this.currentEnvironment = 'alias'
+    })
+
     // Listen for environment changes
     this.addEventListener('environment-changed', (data) => {
       this.currentEnvironment = data.environment

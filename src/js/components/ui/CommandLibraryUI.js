@@ -1,4 +1,5 @@
 ﻿import ComponentBase from '../ComponentBase.js'
+import { parameterCommands } from '../../features/parameterCommands.js'
 
 /**
  * CommandLibraryUI - Handles all command library UI operations
@@ -262,22 +263,49 @@ export default class CommandLibraryUI extends ComponentBase {
       </div>
       <span class="command-type ${command.type}">${command.type}</span>
       <div class="command-actions">
-        <button class="btn btn-small-icon" onclick="app.editCommand(${index})" title="Edit Command">
-          <i class="fas fa-edit"></i>
-        </button>
-        <button class="btn btn-small-icon btn-danger" onclick="app.deleteCommand('${this.service.selectedKey}', ${index})" title="Delete Command">
-          <i class="fas fa-times"></i>
-        </button>
-        <button class="btn btn-small-icon" onclick="app.moveCommand('${this.service.selectedKey}', ${index}, ${index - 1})" 
-                title="Move Up" ${index === 0 ? 'disabled' : ''}>
-          <i class="fas fa-chevron-up"></i>
-        </button>
-        <button class="btn btn-small-icon" onclick="app.moveCommand('${this.service.selectedKey}', ${index}, ${index + 1})" 
-                title="Move Down" ${index === totalCommands - 1 ? 'disabled' : ''}>
-          <i class="fas fa-chevron-down"></i>
-        </button>
+        <button class="btn btn-small-icon btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-small-icon btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
+        <button class="btn btn-small-icon btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
+        <button class="btn btn-small-icon btn-down" title="Move Down" ${index === totalCommands - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
       </div>
     `
+
+    // Attach button handlers that emit events
+    const editBtn   = element.querySelector('.btn-edit')
+    const deleteBtn = element.querySelector('.btn-delete')
+    const upBtn     = element.querySelector('.btn-up')
+    const downBtn   = element.querySelector('.btn-down')
+
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:edit', { index })
+      })
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:delete', { index })
+      })
+    }
+
+    if (upBtn) {
+      upBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
+      })
+    }
+
+    if (downBtn) {
+      downBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
+      })
+    }
+
+    // Double-click edit for customizable commands
+    if (isParameterized) {
+      element.addEventListener('dblclick', () => {
+        this.eventBus.emit('commandchain:edit', { index })
+      })
+    }
 
     return element
   }
@@ -356,7 +384,8 @@ export default class CommandLibraryUI extends ComponentBase {
         if (e.target.classList.contains('command-item')) {
           const commandId = e.target.dataset.command
           const categoryId = e.target.closest('.category').dataset.category
-          this.service.addCommandFromLibrary(categoryId, commandId)
+          // Decoupled: notify via event bus so CommandChainService decides what to do
+          this.eventBus.emit('commandlibrary:add', { categoryId, commandId })
         }
       })
     }
@@ -483,9 +512,8 @@ export default class CommandLibraryUI extends ComponentBase {
    * Show parameter modal for customizable commands
    */
   showParameterModal(categoryId, commandId, commandDef) {
-    // This will be handled by the existing parameter modal system
-    if (typeof app !== 'undefined' && app.showParameterModal) {
-      app.showParameterModal(categoryId, commandId, commandDef)
+    if (typeof parameterCommands?.showParameterModal === 'function') {
+      parameterCommands.showParameterModal.call(app, categoryId, commandId, commandDef)
     }
   }
 

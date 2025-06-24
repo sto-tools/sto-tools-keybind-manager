@@ -124,11 +124,8 @@ export default class CommandChainUI extends ComponentBase {
       element.dataset.parameters = 'true'
       element.classList.add('customizable')
 
-      // Make entire row clickable to edit parameters for better UX.
       element.addEventListener('dblclick', () => {
-        if (typeof app !== 'undefined' && typeof app.editCommand === 'function') {
-          app.editCommand(index)
-        }
+        this.eventBus.emit('commandchain:edit', { index })
       })
     }
 
@@ -145,19 +142,41 @@ export default class CommandChainUI extends ComponentBase {
       </div>
       <span class="command-type ${command.type}">${command.type}</span>
       <div class="command-actions">
-        <button class="btn btn-small-icon" onclick="app.editCommand(${index})" title="Edit Command">
-          <i class="fas fa-edit"></i>
-        </button>
-        <button class="btn btn-small-icon btn-danger" onclick="app.deleteCommand('${this.service.selectedKey}', ${index})" title="Delete Command">
-          <i class="fas fa-times"></i>
-        </button>
-        <button class="btn btn-small-icon" onclick="app.moveCommand('${this.service.selectedKey}', ${index}, ${index - 1})" title="Move Up" ${index === 0 ? 'disabled' : ''}>
-          <i class="fas fa-chevron-up"></i>
-        </button>
-        <button class="btn btn-small-icon" onclick="app.moveCommand('${this.service.selectedKey}', ${index}, ${index + 1})" title="Move Down" ${index === total - 1 ? 'disabled' : ''}>
-          <i class="fas fa-chevron-down"></i>
-        </button>
+        <button class="btn btn-small-icon btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-small-icon btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
+        <button class="btn btn-small-icon btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
+        <button class="btn btn-small-icon btn-down" title="Move Down" ${index === total - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
       </div>`
+
+    // Wire up action buttons via event bus
+    const editBtn   = element.querySelector('.btn-edit')
+    const deleteBtn = element.querySelector('.btn-delete')
+    const upBtn     = element.querySelector('.btn-up')
+    const downBtn   = element.querySelector('.btn-down')
+
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:edit', { index })
+      })
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:delete', { index })
+      })
+    }
+
+    if (upBtn) {
+      upBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
+      })
+    }
+
+    if (downBtn) {
+      downBtn.addEventListener('click', () => {
+        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
+      })
+    }
 
     return element
   }
