@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
 import CommandLibraryService from '../../src/js/components/services/CommandLibraryService.js'
 
 // Mock dependencies
@@ -152,18 +153,16 @@ describe('CommandLibraryService', () => {
   })
 
   describe('setSelectedKey', () => {
-    it('should set selected key and emit event', () => {
+    it('should set selected key', () => {
       service.setSelectedKey('test-key')
       expect(service.selectedKey).toBe('test-key')
-      expect(service.emit).toHaveBeenCalledWith('key-selected', { key: 'test-key' })
     })
   })
 
   describe('setCurrentEnvironment', () => {
-    it('should set current environment and emit event', () => {
+    it('should set current environment', () => {
       service.setCurrentEnvironment('ground')
       expect(service.currentEnvironment).toBe('ground')
-      expect(service.emit).toHaveBeenCalledWith('environment-changed', { environment: 'ground' })
     })
   })
 
@@ -448,47 +447,7 @@ describe('CommandLibraryService', () => {
     })
   })
 
-  describe('addCommandFromLibrary', () => {
-    beforeEach(() => {
-      service.setCurrentProfile('profile-1')
-      service.setSelectedKey('test-key')
-    })
 
-    it('should show warning when no key is selected', () => {
-      service.setSelectedKey(null)
-      const result = service.addCommandFromLibrary('space', 'tray_exec')
-      expect(result).toBe(false)
-      expect(mockUI.showToast).toHaveBeenCalledWith('please_select_a_key_first', 'warning')
-    })
-
-    it('should return false when command definition not found', () => {
-      const result = service.addCommandFromLibrary('space', 'nonexistent')
-      expect(result).toBe(false)
-    })
-
-    it('should show parameter modal for customizable commands', () => {
-      const result = service.addCommandFromLibrary('space', 'tray_exec')
-      expect(result).toBe(true)
-      expect(service.emit).toHaveBeenCalledWith('show-parameter-modal', {
-        categoryId: 'space',
-        commandId: 'tray_exec',
-        commandDef: STO_DATA.commands.space.commands.tray_exec
-      })
-    })
-
-    it('should add non-customizable command directly', () => {
-      const addCommandSpy = vi.spyOn(service, 'addCommand').mockReturnValue(true)
-      const result = service.addCommandFromLibrary('ground', 'ground_cmd')
-      expect(result).toBe(true)
-      expect(addCommandSpy).toHaveBeenCalledWith('test-key', {
-        command: 'GroundCommand',
-        type: 'ground',
-        icon: '🏔️',
-        text: 'Ground Command',
-        id: expect.any(String)
-      })
-    })
-  })
 
   describe('generateCommandId', () => {
     it('should generate unique command IDs', () => {

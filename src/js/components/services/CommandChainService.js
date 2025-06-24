@@ -1,6 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
 import { parameterCommands } from '../../features/parameterCommands.js'
+import eventBus from '../../core/eventBus.js'
 
 /**
  * CommandChainService – owns the data for the command-chain editor (the pane
@@ -81,7 +81,14 @@ export default class CommandChainService extends ComponentBase {
       this.emit('chain-data-changed', { commands: cmds })
     })
 
-    // Handle add-command requests from command library UI
+    // Listen for command additions from CommandService (for static commands)
+    this.addEventListener('command-added', ({ key, command }) => {
+      // Update chain data when a command is added
+      const cmds = this.getCommandsForSelectedKey()
+      this.emit('chain-data-changed', { commands: cmds })
+    })
+
+    // Handle add-command requests from AliasModalService (legacy support)
     this.addEventListener('commandlibrary:add', (payload = {}) => {
       const { categoryId, commandId, commandObj } = payload
       if (!categoryId || !commandId) return
@@ -93,26 +100,39 @@ export default class CommandChainService extends ComponentBase {
         svc.setCurrentEnvironment && svc.setCurrentEnvironment('alias')
       }
 
-      // Selected key should already be set; guard against missing key
-      if (!this.selectedKey) {
-        // UI will take care of warning inside service
-        svc.addCommandFromLibrary && svc.addCommandFromLibrary(categoryId, commandId)
-        return
-      }
-
-      const before = this.getCommandsForSelectedKey()
-      let success = false
-      if (commandObj) {
-        success = svc.addCommand(this.selectedKey, commandObj)
-      } else if (svc.addCommandFromLibrary) {
-        success = svc.addCommandFromLibrary(categoryId, commandId)
-      }
-      if (success) {
-        const after = this.getCommandsForSelectedKey()
-        if (after.length !== before.length) {
-          this.emit('chain-data-changed', { commands: after })
+      // Only handle commandObj case (from AliasModalService)
+      if (commandObj && this.selectedKey) {
+        const before = this.getCommandsForSelectedKey()
+        const success = svc.addCommand(this.selectedKey, commandObj)
+        if (success) {
+          const after = this.getCommandsForSelectedKey()
+          if (after.length !== before.length) {
+            this.emit('chain-data-changed', { commands: after })
+          }
         }
       }
+    })
+
+    // Handle new command:add event from refactored UI
+    this.addEventListener('command:add', (payload = {}) => {
+      const { categoryId, commandId, commandDef } = payload
+      const svc = this.commandLibraryService || this.commandService
+      if (!svc) return
+
+      // Ensure alias environment sync if necessary
+      if (this.currentEnvironment === 'alias') {
+        svc.setCurrentEnvironment && svc.setCurrentEnvironment('alias')
+      }
+
+      // Only handle customizable commands - static commands are handled by CommandUI
+      if (categoryId && commandId && commandDef) {
+        // Customizable command - delegate directly to parameterCommands
+        if (typeof parameterCommands !== 'undefined' && parameterCommands.showParameterModal) {
+          parameterCommands.showParameterModal(categoryId, commandId, commandDef)
+        }
+      }
+      // Note: Static commands are handled by CommandUI, which will emit chain-data-changed
+      // when the command is actually added, so we don't need to handle them here
     })
 
     // Edit command
@@ -163,8 +183,8 @@ export default class CommandChainService extends ComponentBase {
           } else {
             helper.call(window.app || {}, index, cmd, def)
           }
-        } else if (this.commandLibraryService) {
-          this.commandLibraryService.showParameterModal(def.categoryId || cmd.type, def.commandId, def)
+        } else {
+          parameterCommands.showParameterModal(def.categoryId || cmd.type, def.commandId, def)
         }
         return
       }

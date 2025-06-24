@@ -4,14 +4,15 @@ import { parameterCommands } from '../../features/parameterCommands.js'
 
 /**
  * CommandUI – owns the parameter-editing modal and acts as the bridge between
- * UI interactions (coming from CommandLibraryService) and CommandService.
+ * UI interactions (coming from CommandLibraryUI) and CommandService.
  *
  * Responsibilities:
- * 1. Listen for `show-parameter-modal` events emitted by
- *    CommandLibraryService when the user selects a customisable command.
- * 2. Delegate to `parameterCommands.showParameterModal`, which already
- *    contains all the logic for building the modal DOM.
- * 3. Ensure `parameterCommands` has access to `commandService` so that when
+ * 1. Listen for `command:add` events emitted by CommandLibraryUI when the user
+ *    selects a command from the library.
+ * 2. For customizable commands, delegate to `parameterCommands.showParameterModal`
+ *    to show the parameter configuration modal.
+ * 3. For static commands, call `commandService.addCommand` immediately.
+ * 4. Ensure `parameterCommands` has access to `commandService` so that when
  *    the user clicks "Save" the finished command is persisted.
  */
 export default class CommandUI extends ComponentBase {
@@ -32,10 +33,24 @@ export default class CommandUI extends ComponentBase {
       parameterCommands.commandLibraryService = this.commandLibraryService
     }
 
-    // Listen for request to display parameter modal.
-    this.addEventListener('show-parameter-modal', ({ categoryId, commandId, commandDef }) => {
-      if (!categoryId || !commandId || !commandDef) return
-      parameterCommands.showParameterModal(categoryId, commandId, commandDef)
+    // Listen for command:add events from CommandLibraryUI
+    this.addEventListener('command:add', (payload = {}) => {
+      const { categoryId, commandId, commandDef } = payload
+
+      if (commandDef && !categoryId && !commandId) {
+        // Static command - add immediately using commandService
+        if (!this.commandService || !this.commandService.selectedKey) {
+          this.ui && this.ui.showToast && this.ui.showToast(
+            this.commandService?.i18n?.t('please_select_a_key_first') || 'Please select a key first', 
+            'warning'
+          )
+          return
+        }
+        this.commandService.addCommand(this.commandService.selectedKey, commandDef)
+      } else if (categoryId && commandId && commandDef) {
+        // Customizable command - show parameter modal
+        parameterCommands.showParameterModal(categoryId, commandId, commandDef)
+      }
     })
   }
 } 

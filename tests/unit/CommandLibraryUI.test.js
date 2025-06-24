@@ -10,7 +10,7 @@ const mockService = {
   getEmptyStateInfo: vi.fn(),
   findCommandDefinition: vi.fn(),
   getCommandWarning: vi.fn(),
-  addCommandFromLibrary: vi.fn(),
+
   filterCommandLibrary: vi.fn(),
   moveCommand: vi.fn(),
   getCommandCategories: vi.fn(),
@@ -138,8 +138,8 @@ describe('CommandLibraryUI', () => {
       expect(addEventListenerSpy).toHaveBeenCalledWith('command-added', expect.any(Function))
       expect(addEventListenerSpy).toHaveBeenCalledWith('command-deleted', expect.any(Function))
       expect(addEventListenerSpy).toHaveBeenCalledWith('command-moved', expect.any(Function))
-      expect(addEventListenerSpy).toHaveBeenCalledWith('show-parameter-modal', expect.any(Function))
       expect(addEventListenerSpy).toHaveBeenCalledWith('environment-changed', expect.any(Function))
+      expect(addEventListenerSpy).toHaveBeenCalledWith('key-selected', expect.any(Function))
     })
 
     it('should listen for stabilize execution order changes', () => {
@@ -565,46 +565,7 @@ describe('CommandLibraryUI', () => {
     })
   })
 
-  describe('showParameterModal', () => {
-    it('should call parameterCommands.showParameterModal if available', async () => {
-      // Import the actual parameterCommands module
-      const { parameterCommands } = await import('../../src/js/features/parameterCommands.js')
-      
-      // Create a mock implementation that just returns without doing anything
-      const originalShowParameterModal = parameterCommands.showParameterModal
-      parameterCommands.showParameterModal = vi.fn()
-      
-      // Provide a valid commandDef with parameters to avoid the error
-      const commandDef = {
-        name: 'Test Command',
-        parameters: {
-          testParam: { type: 'text', default: 'test' }
-        }
-      }
-      
-      ui.showParameterModal('space', 'tray_exec', commandDef)
-      
-      expect(parameterCommands.showParameterModal).toHaveBeenCalledWith('space', 'tray_exec', commandDef)
-      
-      // Restore the original method
-      parameterCommands.showParameterModal = originalShowParameterModal
-    })
 
-    it('should handle case when parameterCommands is not available', () => {
-      // Test that it doesn't throw when parameterCommands is undefined
-      // Provide a valid commandDef with parameters to avoid the error
-      const commandDef = {
-        name: 'Test Command',
-        parameters: {
-          testParam: { type: 'text', default: 'test' }
-        }
-      }
-      
-      expect(() => {
-        ui.showParameterModal('space', 'tray_exec', commandDef)
-      }).not.toThrow()
-    })
-  })
 
   describe('showTemplateModal', () => {
     it('should show template coming soon toast', () => {
@@ -631,6 +592,182 @@ describe('CommandLibraryUI', () => {
       const renderSpy = vi.spyOn(ui, 'renderCommandChain')
       ui.emit('environment-changed', { environment: 'alias' })
       expect(renderSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe('command tile click handling', () => {
+    let mockElement, mockCategoryElement, mockCommandItem
+
+    beforeEach(() => {
+      // Mock localStorage
+      Object.defineProperty(window, 'localStorage', {
+        value: {
+          getItem: vi.fn().mockReturnValue('false'),
+          setItem: vi.fn()
+        },
+        writable: true
+      })
+
+      // Mock STO_DATA global
+      global.STO_DATA = {
+        commands: {
+          space: {
+            commands: {
+              static_cmd: {
+                name: 'Static Command',
+                command: 'static_command',
+                icon: '🎯',
+                description: 'A static command',
+                customizable: false
+              },
+              custom_cmd: {
+                name: 'Custom Command',
+                command: 'custom_command',
+                icon: '⚙️',
+                description: 'A customizable command',
+                customizable: true
+              }
+            }
+          }
+        }
+      }
+
+      mockCommandItem = {
+        classList: { contains: vi.fn().mockReturnValue(true) },
+        dataset: { command: 'static_cmd' },
+        closest: vi.fn().mockReturnValue({
+          dataset: { category: 'space' }
+        })
+      }
+
+      mockCategoryElement = {
+        className: '',
+        dataset: { category: 'space' },
+        innerHTML: '',
+        addEventListener: vi.fn(),
+        querySelector: vi.fn().mockReturnValue({ addEventListener: vi.fn() })
+      }
+
+      mockElement = mockCategoryElement
+      mockDocument.createElement.mockReturnValue(mockElement)
+
+      // Mock generateCommandId
+      mockService.generateCommandId = vi.fn().mockReturnValue('test-id-123')
+    })
+
+    afterEach(() => {
+      delete global.STO_DATA
+    })
+
+    it('should emit command:add with fully-hydrated definition for static commands', () => {
+      const category = {
+        name: 'Test Category',
+        icon: 'fas fa-test',
+        commands: {
+          static_cmd: { name: 'Static Command', icon: '🎯', description: 'Test', customizable: false }
+        }
+      }
+
+      ui.createCategoryElement('space', category)
+
+      // Get the click handler that was registered
+      expect(mockElement.addEventListener).toHaveBeenCalledWith('click', expect.any(Function))
+      const clickHandler = mockElement.addEventListener.mock.calls[0][1]
+
+      // Simulate a click on a static command
+      const mockEvent = { target: mockCommandItem }
+      clickHandler(mockEvent)
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command:add', {
+        commandDef: {
+          command: 'static_command',
+          type: 'space',
+          icon: '🎯',
+          text: 'Static Command',
+          id: 'test-id-123'
+        }
+      })
+    })
+
+    it('should emit command:add with category/command info for customizable commands', () => {
+      // Update mock to return customizable command
+      mockCommandItem.dataset.command = 'custom_cmd'
+
+      const category = {
+        name: 'Test Category',
+        icon: 'fas fa-test',
+        commands: {
+          custom_cmd: { name: 'Custom Command', icon: '⚙️', description: 'Test', customizable: true }
+        }
+      }
+
+      ui.createCategoryElement('space', category)
+
+      // Get the click handler that was registered
+      const clickHandler = mockElement.addEventListener.mock.calls[0][1]
+
+      // Simulate a click on a customizable command
+      const mockEvent = { target: mockCommandItem }
+      clickHandler(mockEvent)
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command:add', {
+        categoryId: 'space',
+        commandId: 'custom_cmd',
+        commandDef: {
+          name: 'Custom Command',
+          command: 'custom_command',
+          icon: '⚙️',
+          description: 'A customizable command',
+          customizable: true
+        }
+      })
+    })
+
+    it('should return early if command definition is not found', () => {
+      // Update mock to return non-existent command
+      mockCommandItem.dataset.command = 'nonexistent_cmd'
+
+      const category = {
+        name: 'Test Category',
+        icon: 'fas fa-test',
+        commands: {
+          static_cmd: { name: 'Static Command', icon: '🎯', description: 'Test', customizable: false }
+        }
+      }
+
+      ui.createCategoryElement('space', category)
+
+      // Get the click handler that was registered
+      const clickHandler = mockElement.addEventListener.mock.calls[0][1]
+
+      // Simulate a click on a non-existent command
+      const mockEvent = { target: mockCommandItem }
+      clickHandler(mockEvent)
+
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith('command:add', expect.anything())
+    })
+
+    it('should not emit events for clicks on non-command elements', () => {
+      mockCommandItem.classList.contains.mockReturnValue(false)
+
+      const category = {
+        name: 'Test Category',
+        icon: 'fas fa-test',
+        commands: {
+          static_cmd: { name: 'Static Command', icon: '🎯', description: 'Test', customizable: false }
+        }
+      }
+
+      ui.createCategoryElement('space', category)
+
+      // Get the click handler that was registered
+      const clickHandler = mockElement.addEventListener.mock.calls[0][1]
+
+      // Simulate a click on a non-command element
+      const mockEvent = { target: mockCommandItem }
+      clickHandler(mockEvent)
+
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith('command:add', expect.anything())
     })
   })
 }) 

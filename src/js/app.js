@@ -602,12 +602,7 @@ export default class STOToolsKeybindManager {
     }
   }
 
-  addCommandFromLibrary(categoryId, commandId) {
-    if (this.commandLibraryService) {
-      return this.commandLibraryService.addCommandFromLibrary(categoryId, commandId)
-    }
-    return false
-  }
+
 
   // ------------------------------------------------------------------
   // Backward-compatibility thin wrappers – emit events rather than performing

@@ -378,8 +378,25 @@ export default class CommandLibraryUI extends ComponentBase {
         if (e.target.classList.contains('command-item')) {
           const commandId = e.target.dataset.command
           const categoryId = e.target.closest('.category').dataset.category
-          // Decoupled: notify via event bus so CommandChainService decides what to do
-          this.eventBus.emit('commandlibrary:add', { categoryId, commandId })
+          
+          // Get the command definition from STO_DATA
+          const commandDef = STO_DATA?.commands?.[categoryId]?.commands?.[commandId]
+          if (!commandDef) return
+          
+          if (commandDef.customizable) {
+            // For customizable commands, pass category/command info
+            this.eventBus.emit('command:add', { categoryId, commandId, commandDef })
+          } else {
+            // For static commands, pass the fully-hydrated definition
+            const fullyHydratedCommand = {
+              command: commandDef.command,
+              type: categoryId,
+              icon: commandDef.icon,
+              text: commandDef.name,
+              id: this.service.generateCommandId(),
+            }
+            this.eventBus.emit('command:add', { commandDef: fullyHydratedCommand })
+          }
         }
       })
     }

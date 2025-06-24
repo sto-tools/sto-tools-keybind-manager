@@ -420,49 +420,9 @@ export default class CommandLibraryService extends ComponentBase {
     return true
   }
 
-  /**
-   * Add a command from the library
-   */
-  addCommandFromLibrary(categoryId, commandId) {
-    const commandDef = STO_DATA.commands[categoryId].commands[commandId]
-    if (!commandDef) return false
 
-    if (commandDef.customizable) {
-      // If no key selected, still open modal but treat as provisional (return false)
-      if (!this.selectedKey) {
-        this.showParameterModal(categoryId, commandId, commandDef)
-        this.ui.showToast(this.i18n.t('please_select_a_key_first'), 'warning')
-        return false
-      }
-      // Key selected – proceed and return true
-      this.showParameterModal(categoryId, commandId, commandDef)
-      return true
-    }
 
-    // For static commands we require a selected key
-    if (!this.selectedKey) {
-      this.ui.showToast(this.i18n.t('please_select_a_key_first'), 'warning')
-      return false
-    }
 
-    const command = {
-      command: commandDef.command,
-      type: categoryId,
-      icon: commandDef.icon,
-      text: commandDef.name,
-      id: this.generateCommandId(),
-    }
-
-    return this.addCommand(this.selectedKey, command)
-  }
-
-  /**
-   * Show parameter modal for customizable commands
-   */
-  showParameterModal(categoryId, commandId, commandDef) {
-    // This will be handled by the UI component
-    this.emit('show-parameter-modal', { categoryId, commandId, commandDef })
-  }
 
   /**
    * Generate a unique command ID
