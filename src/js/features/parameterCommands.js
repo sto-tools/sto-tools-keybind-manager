@@ -667,8 +667,8 @@ export const parameterCommands = {
   
         // Notify chain service so UI stays in sync
         eventBus.emit('command-chain:update', {
-          commands: this.commandLibraryService?.getCommandsForSelectedKey?.() || [],
-          selectedKey: this.selectedKey || this.commandLibraryService?.selectedKey,
+          commands: (this.commandLibraryService?.getCommandsForSelectedKey?.() || []),
+          selectedKey: this.commandLibraryService?.selectedKey || this.selectedKey,
           environment: this.currentEnvironment,
         })
   
