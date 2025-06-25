@@ -60,7 +60,7 @@ describe('VFX Aliases Reload Integration', () => {
     // Set up globals
     global.app = mockApp
     global.stoUI = mockUI
-    global.stoStorage = mockStorage
+    global.storageService = mockStorage
 
     // Mock DOM
     document.body.innerHTML = `
@@ -77,7 +77,7 @@ describe('VFX Aliases Reload Integration', () => {
   afterEach(() => {
     delete global.app
     delete global.stoUI
-    delete global.stoStorage
+    delete global.storageService
     delete global.stoAliases
     delete window.stoAliases
   })

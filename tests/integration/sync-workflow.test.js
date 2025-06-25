@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import '../../src/js/data.js'
 import STOSyncManager, { writeFile } from '../../src/js/services/sync.js'
 import STOExportManager from '../../src/js/features/export.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 import eventBus from '../../src/js/core/eventBus.js'
 
 const store = new Map()
@@ -61,10 +61,10 @@ describe('Sync workflow integration', () => {
       <button id="setSyncFolderBtn"></button>
       <button id="syncNowBtn"></button>
     `
-    storage = new STOStorage()
+    storage = new StorageService()
     exportMgr = new STOExportManager()
     sync = new STOSyncManager(storage)
-    Object.assign(global, { stoStorage: storage, stoExport: exportMgr })
+    Object.assign(global, { storageService: storage, stoExport: exportMgr })
 
     eventBus.onDom('setSyncFolderBtn', 'click', 'set-sync-folder', () => sync.setSyncFolder())
     eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => sync.syncProject())

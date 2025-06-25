@@ -1,44 +1,226 @@
 // STO Tools Keybind Manager - Preferences Manager
-// Handles the revamped preferences modal with category tree and flexible settings
+// Handles user preferences and settings persistence
 
 import eventBus from '../core/eventBus.js'
 import i18next from 'i18next'
 
 export default class STOPreferencesManager {
   constructor() {
-    this.currentCategory = 'general'
     this.settings = {}
-    this.settingDefinitions = this.defineSettings()
+    this.defaultSettings = {
+      theme: 'default',
+      autoSave: true,
+      showTooltips: true,
+      confirmDeletes: true,
+      maxUndoSteps: 50,
+      defaultMode: 'space',
+      compactView: false,
+      language: 'en',
+      syncFolderName: null,
+      syncFolderPath: null,
+      autoSync: false,
+      autoSyncInterval: 'change',
+    }
   }
 
   init() {
-    this.setupEventListeners()
     this.loadSettings()
+    this.applySettings()
   }
 
-  defineSettings() {
-    return {
-      // Sync Settings
-      syncFolderName: {
-        type: 'folder',
-        default: null,
-        category: 'sync',
-        element: 'currentSyncFolder'
-      },
-      autoSync: {
-        type: 'boolean',
-        default: false,
-        category: 'sync',
-        element: 'autoSync'
-      },
-      autoSyncInterval: {
-        type: 'select',
-        default: 'change',
-        options: ['change', '60', '120', '300'],
-        category: 'sync',
-        element: 'autoSyncInterval'
+  loadSettings() {
+    try {
+      if (typeof storageService === 'undefined') {
+        console.warn('storageService not available yet, deferring settings load')
+        return
       }
+
+      const storedSettings = storageService.getSettings()
+      this.settings = { ...this.defaultSettings, ...storedSettings }
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+      this.settings = { ...this.defaultSettings }
     }
+  }
+
+  saveSettings() {
+    try {
+      if (typeof storageService === 'undefined') {
+        console.error('storageService not available')
+        return false
+      }
+
+      const success = storageService.saveSettings(this.settings)
+      return success
+    } catch (error) {
+      console.error('Failed to save settings:', error)
+      return false
+    }
+  }
+
+  getSetting(key) {
+    return this.settings[key]
+  }
+
+  setSetting(key, value) {
+    this.settings[key] = value
+    this.saveSettings()
+    this.applySettings()
+  }
+
+  getSettings() {
+    return { ...this.settings }
+  }
+
+  setSettings(newSettings) {
+    this.settings = { ...this.defaultSettings, ...newSettings }
+    this.saveSettings()
+    this.applySettings()
+  }
+
+  resetSettings() {
+    this.settings = { ...this.defaultSettings }
+    this.saveSettings()
+    this.applySettings()
+  }
+
+  applySettings() {
+    // Apply theme
+    this.applyTheme()
+
+    // Apply language
+    this.applyLanguage()
+
+    // Apply other settings
+    this.applyOtherSettings()
+  }
+
+  applyTheme() {
+    const theme = this.settings.theme || 'default'
+    document.body.className = document.body.className.replace(/theme-\w+/g, '')
+    document.body.classList.add(`theme-${theme}`)
+  }
+
+  applyLanguage() {
+    const language = this.settings.language || 'en'
+    if (typeof i18next !== 'undefined' && i18next.language !== language) {
+      i18next.changeLanguage(language)
+    }
+  }
+
+  applyOtherSettings() {
+    // Apply auto-save setting
+    if (typeof app !== 'undefined' && app.autoSave !== undefined) {
+      app.autoSave = this.settings.autoSave
+    }
+
+    // Apply max undo steps
+    if (typeof app !== 'undefined' && app.maxUndoSteps !== undefined) {
+      app.maxUndoSteps = this.settings.maxUndoSteps
+    }
+
+    // Apply compact view
+    if (this.settings.compactView) {
+      document.body.classList.add('compact-view')
+    } else {
+      document.body.classList.remove('compact-view')
+    }
+  }
+
+  getTheme() {
+    return this.settings.theme || 'default'
+  }
+
+  setTheme(theme) {
+    this.setSetting('theme', theme)
+  }
+
+  getLanguage() {
+    return this.settings.language || 'en'
+  }
+
+  setLanguage(language) {
+    this.setSetting('language', language)
+  }
+
+  getAutoSave() {
+    return this.settings.autoSave !== false
+  }
+
+  setAutoSave(autoSave) {
+    this.setSetting('autoSave', autoSave)
+  }
+
+  getShowTooltips() {
+    return this.settings.showTooltips !== false
+  }
+
+  setShowTooltips(showTooltips) {
+    this.setSetting('showTooltips', showTooltips)
+  }
+
+  getConfirmDeletes() {
+    return this.settings.confirmDeletes !== false
+  }
+
+  setConfirmDeletes(confirmDeletes) {
+    this.setSetting('confirmDeletes', confirmDeletes)
+  }
+
+  getMaxUndoSteps() {
+    return this.settings.maxUndoSteps || 50
+  }
+
+  setMaxUndoSteps(maxUndoSteps) {
+    this.setSetting('maxUndoSteps', maxUndoSteps)
+  }
+
+  getDefaultMode() {
+    return this.settings.defaultMode || 'space'
+  }
+
+  setDefaultMode(defaultMode) {
+    this.setSetting('defaultMode', defaultMode)
+  }
+
+  getCompactView() {
+    return this.settings.compactView || false
+  }
+
+  setCompactView(compactView) {
+    this.setSetting('compactView', compactView)
+  }
+
+  getSyncFolderName() {
+    return this.settings.syncFolderName || null
+  }
+
+  setSyncFolderName(syncFolderName) {
+    this.setSetting('syncFolderName', syncFolderName)
+  }
+
+  getSyncFolderPath() {
+    return this.settings.syncFolderPath || null
+  }
+
+  setSyncFolderPath(syncFolderPath) {
+    this.setSetting('syncFolderPath', syncFolderPath)
+  }
+
+  getAutoSync() {
+    return this.settings.autoSync || false
+  }
+
+  setAutoSync(autoSync) {
+    this.setSetting('autoSync', autoSync)
+  }
+
+  getAutoSyncInterval() {
+    return this.settings.autoSyncInterval || 'change'
+  }
+
+  setAutoSyncInterval(autoSyncInterval) {
+    this.setSetting('autoSyncInterval', autoSyncInterval)
   }
 
   setupEventListeners() {
@@ -117,22 +299,6 @@ export default class STOPreferencesManager {
     this.currentCategory = category
   }
 
-  loadSettings() {
-    // Load from storage or use defaults
-    if (typeof stoStorage === 'undefined') {
-      console.warn('stoStorage not available yet, deferring settings load')
-      return
-    }
-    
-    const storedSettings = stoStorage.getSettings()
-    
-    Object.entries(this.settingDefinitions).forEach(([key, definition]) => {
-      const value = storedSettings[key] !== undefined ? storedSettings[key] : definition.default
-      this.settings[key] = value
-      this.updateUI(key, value)
-    })
-  }
-
   updateUI(settingKey, value) {
     const definition = this.settingDefinitions[settingKey]
     if (!definition) return
@@ -167,7 +333,7 @@ export default class STOPreferencesManager {
     const folderElement = document.getElementById('currentSyncFolder')
     if (folderElement) {
       // Get the most current settings
-      const settings = typeof stoStorage !== 'undefined' ? stoStorage.getSettings() : {}
+      const settings = typeof storageService !== 'undefined' ? storageService.getSettings() : {}
       
       // Use the stored folder name and path
       const folderName = settings.syncFolderName
@@ -212,12 +378,12 @@ export default class STOPreferencesManager {
 
   saveAllSettings() {
     // Save to storage
-    if (typeof stoStorage === 'undefined') {
-      console.error('stoStorage not available')
+    if (typeof storageService === 'undefined') {
+      console.error('storageService not available')
       return
     }
     
-    const success = stoStorage.saveSettings(this.settings)
+    const success = storageService.saveSettings(this.settings)
     
     if (success) {
       if (typeof stoUI !== 'undefined') {
@@ -261,11 +427,6 @@ export default class STOPreferencesManager {
     
     // Switch to sync category by default since general was removed
     this.switchCategory('sync')
-  }
-
-  // Utility method to get current setting value
-  getSetting(key) {
-    return this.settings[key] !== undefined ? this.settings[key] : this.settingDefinitions[key]?.default
   }
 
   // Utility method to add new settings dynamically

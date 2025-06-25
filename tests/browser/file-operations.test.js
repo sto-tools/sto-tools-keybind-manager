@@ -8,7 +8,7 @@ import eventBus from '../../src/js/core/eventBus.js'
  */
 
 describe('File Import/Export Operations', () => {
-  let app, stoStorage, stoUI, stoExport, stoKeybinds
+  let app, storageService, stoUI, stoExport, stoKeybinds
 
   beforeEach(async () => {
     // Clear localStorage first
@@ -72,7 +72,7 @@ describe('File Import/Export Operations', () => {
         if (
           window.app &&
           window.COMMANDS &&
-          window.stoStorage &&
+          window.storageService &&
           window.stoUI
         ) {
           clearTimeout(timeout)
@@ -89,7 +89,7 @@ describe('File Import/Export Operations', () => {
       app = await waitForApp()
 
       // Get instances
-      stoStorage = window.stoStorage
+      storageService = window.storageService
       stoUI = window.stoUI
       stoExport = window.stoExport
       stoKeybinds = window.stoKeybinds

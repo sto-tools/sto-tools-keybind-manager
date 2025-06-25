@@ -63,7 +63,7 @@ describe('System Commands Integration', () => {
     // Set up globals
     global.app = mockApp
     global.stoUI = mockUI
-    global.stoStorage = mockStorage
+    global.storageService = mockStorage
 
     // Clear all mocks
     vi.clearAllMocks()
@@ -72,7 +72,7 @@ describe('System Commands Integration', () => {
   afterEach(() => {
     delete global.app
     delete global.stoUI
-    delete global.stoStorage
+    delete global.storageService
   })
 
   it('should handle system command events', () => {

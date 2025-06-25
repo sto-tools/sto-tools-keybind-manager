@@ -65,7 +65,7 @@ test('Project Import from Synced Files', async () => {
   console.log('Testing project import with wrapped data structure...')
   
   // Simulate the current broken behavior (direct importData call)
-  const directImportResult = stoStorage.importData(JSON.stringify(testProjectData))
+  const directImportResult = storageService.importData(JSON.stringify(testProjectData))
   console.log('Direct importData result:', directImportResult)
   
   // Test the correct behavior (using importJSONFile)
@@ -78,7 +78,7 @@ test('Project Import from Synced Files', async () => {
   
   // Verify the data was actually imported correctly
   if (correctImportResult) {
-    const importedData = stoStorage.getAllData()
+    const importedData = storageService.getAllData()
     console.log('Imported data profiles:', Object.keys(importedData.profiles))
     expect(importedData.profiles.test_profile).toBeDefined()
     expect(importedData.profiles.test_profile.name).toBe('Test Profile')

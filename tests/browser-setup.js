@@ -277,7 +277,7 @@ export default async function setup() {
   console.log('Available globals:', {
     app: !!window.app,
     COMMANDS: !!window.COMMANDS,
-    stoStorage: !!window.stoStorage,
+    storageService: !!window.storageService,
     stoUI: !!window.stoUI,
   })
 }

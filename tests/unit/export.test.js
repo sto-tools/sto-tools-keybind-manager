@@ -6,14 +6,14 @@ import { join } from 'path'
 import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 // Profile functionality is now handled by the app instance
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 import STOExportManager from '../../src/js/features/export.js'
 
-let stoStorage
+let storageService
 // stoProfiles removed - profile functionality is now in app
 let stoKeybinds
 let stoUI
@@ -29,11 +29,11 @@ beforeEach(() => {
   // Set up the real DOM
   document.documentElement.innerHTML = htmlContent
 
-  stoStorage = new STOStorage()
+  storageService = new StorageService()
       // Profile functionality is now handled by the app instance
   stoKeybinds = new STOKeybindFileManager()
   stoUI = new STOUIManager()
-      Object.assign(global, { stoStorage, stoKeybinds, stoUI })
+      Object.assign(global, { storageService, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()
   exportManager = new STOExportManager()
   exportManager.init() // Initialize after i18next is ready
@@ -90,7 +90,7 @@ beforeEach(() => {
   }
 
   // Add the test profile to real storage and set as current
-  stoStorage.saveProfile(testProfile.id, testProfile)
+  storageService.saveProfile(testProfile.id, testProfile)
   app.currentProfile = testProfile.id
   app.saveCurrentProfile()
 
@@ -107,7 +107,7 @@ beforeEach(() => {
 afterEach(() => {
   // Clean up after each test
   vi.restoreAllMocks()
-  stoStorage.clearAllData()
+  storageService.clearAllData()
   app.currentProfile = null
   app.selectedKey = null
   resetStore()
@@ -856,7 +856,7 @@ describe('STOExportManager', () => {
         name: 'Test Profile 2',
         keys: { F1: [{ command: 'test' }] },
       }
-      stoStorage.saveProfile(testProfile2.id, testProfile2)
+      storageService.saveProfile(testProfile2.id, testProfile2)
 
       const mockAnchor = {
         click: vi.fn(),
@@ -878,7 +878,7 @@ describe('STOExportManager', () => {
     it('should handle export progress indication', () => {
       // Mock the getAllData method to return empty profiles
       const mockGetAllData = vi
-        .spyOn(stoStorage, 'getAllData')
+        .spyOn(storageService, 'getAllData')
         .mockReturnValue({
           profiles: {},
           currentProfile: null,

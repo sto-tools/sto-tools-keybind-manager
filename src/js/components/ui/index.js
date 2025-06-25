@@ -1,14 +1,16 @@
 // UI Components
-export { default as ui } from '../../ui/ui.js'
-export { uiRendering } from '../../ui/uiRendering.js'
+export { default as ProfileUI } from './ProfileUI.js'
+export { default as CommandLibraryUI } from './CommandLibraryUI.js'
+export { default as CommandUI } from './CommandUI.js'
+export { default as InterfaceModeUI } from './InterfaceModeUI.js'
+
+// Legacy UI exports
 export { default as modalManager } from '../../ui/modalManager.js'
 export { keyCapture } from '../../ui/keyCapture.js'
-export { eventHandlers } from '../../ui/eventHandlers.js'
 export { viewManagement } from '../../ui/viewManagement.js'
-export { modeManagement } from '../../ui/modeManagement.js'
+
+// UI Rendering
+export { uiRendering } from '../../ui/uiRendering.js'
 export { default as fileexplorer } from '../../ui/fileexplorer.js'
 export { welcome } from '../../ui/welcome.js'
-export { default as ProfileUI } from './ProfileUI.js'
-export { default as AliasModalUI } from './AliasModalUI.js'
-export { default as CommandLibraryUI } from './CommandLibraryUI.js'
-export { default as CommandUI } from './CommandUI.js' 
+export { default as AliasModalUI } from './AliasModalUI.js' 

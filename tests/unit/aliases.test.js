@@ -31,7 +31,7 @@ beforeEach(() => {
     hide: vi.fn(),
   }
 
-  global.stoStorage = {}
+  global.storageService = {}
 
   // Mock only the app methods that would modify actual DOM
   global.app = {
@@ -54,7 +54,7 @@ describe('Alias Components', () => {
   let aliasUI
 
   beforeEach(() => {
-    aliasService = new AliasModalService({ eventBus, storage: stoStorage, ui: stoUI })
+    aliasService = new AliasModalService({ eventBus, storage: storageService, ui: stoUI })
     aliasUI = new AliasModalUI({ service: aliasService, eventBus, ui: stoUI, modalManager, document })
     vi.clearAllMocks()
   })

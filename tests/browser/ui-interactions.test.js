@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import eventBus from '../../src/js/core/eventBus.js'
 
 describe('UI Interactions', () => {
-  let app, stoStorage, stoUI
+  let app, storageService, stoUI
 
   beforeEach(async () => {
     // Clear localStorage first
@@ -66,7 +66,7 @@ describe('UI Interactions', () => {
         if (
           window.app &&
           window.COMMANDS &&
-          window.stoStorage &&
+          window.storageService &&
           window.stoUI
         ) {
           clearTimeout(timeout)
@@ -83,7 +83,7 @@ describe('UI Interactions', () => {
       app = await waitForApp()
 
       // Get instances
-      stoStorage = window.stoStorage
+      storageService = window.storageService
       stoUI = window.stoUI
     } catch (error) {
       console.error('Failed to wait for app:', error)
@@ -518,7 +518,7 @@ describe('UI Interactions', () => {
 
       // Attempt deletion (should be cancelled)
       const profilesBefore = Object.keys(
-        stoStorage.getAllData().profiles
+        storageService.getAllData().profiles
       ).length
 
       // Reset confirm to return true
@@ -528,7 +528,7 @@ describe('UI Interactions', () => {
       app.deleteProfile(deleteProfileId)
 
       // Verify deletion occurred
-      const profilesAfter = Object.keys(stoStorage.getAllData().profiles).length
+      const profilesAfter = Object.keys(storageService.getAllData().profiles).length
       expect(profilesAfter).toBeLessThan(profilesBefore)
     })
   })

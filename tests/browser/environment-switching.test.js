@@ -8,7 +8,7 @@ import eventBus from '../../src/js/core/eventBus.js'
  */
 
 describe('Environment Switching Tests', () => {
-  let app, stoStorage, stoUI
+  let app, storageService, stoUI
 
   beforeEach(async () => {
     // Clear localStorage first
@@ -72,7 +72,7 @@ describe('Environment Switching Tests', () => {
         if (
           window.app &&
           window.COMMANDS &&
-          window.stoStorage &&
+          window.storageService &&
           window.stoUI
         ) {
           clearTimeout(timeout)
@@ -89,7 +89,7 @@ describe('Environment Switching Tests', () => {
       app = await waitForApp()
 
       // Get instances
-      stoStorage = window.stoStorage
+      storageService = window.storageService
       stoUI = window.stoUI
     } catch (error) {
       console.error('Failed to wait for app:', error)
@@ -477,8 +477,8 @@ describe('Environment Switching Tests', () => {
 
       it('should switch to correct environment when loading profile', () => {
         // Test profile loading sets appropriate environment
-        if (stoStorage && stoStorage.data && stoStorage.data.profiles) {
-          const profiles = Object.keys(stoStorage.data.profiles)
+        if (storageService && storageService.data && storageService.data.profiles) {
+          const profiles = Object.keys(storageService.data.profiles)
           if (profiles.length > 0) {
             app.switchProfile(profiles[0])
             expect(app.currentEnvironment).toBeDefined()
@@ -646,7 +646,7 @@ describe('Environment Switching Tests', () => {
 
       it('should handle localStorage quota exceeded gracefully', () => {
         // Test error handling for storage limits
-        expect(window.stoStorage).toBeDefined()
+        expect(window.storageService).toBeDefined()
       })
 
       it('should recover from localStorage corruption', () => {
@@ -656,11 +656,11 @@ describe('Environment Switching Tests', () => {
 
       it('should maintain data consistency across browser tabs', () => {
         // Test multi-tab data synchronization
-        if (stoStorage && stoStorage.data) {
-          expect(stoStorage.data).toBeDefined()
+        if (storageService && storageService.data) {
+          expect(storageService.data).toBeDefined()
         } else {
-          // Storage may not be fully initialized, just check that stoStorage exists
-          expect(stoStorage).toBeDefined()
+          // Storage may not be fully initialized, just check that storageService exists
+          expect(storageService).toBeDefined()
         }
       })
     })

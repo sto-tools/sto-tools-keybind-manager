@@ -8,6 +8,8 @@ export default class STOFileExplorer {
     this.treeId = 'fileTree'
     this.contentId = 'fileContent'
     this.selectedNode = null
+    this.currentDirectory = null
+    this.fileHandles = new Map()
   }
 
   init() {
@@ -51,13 +53,22 @@ export default class STOFileExplorer {
       const text = contentEl.textContent || ''
       if (!text.trim()) return
       let filename = i18next.t('default_export_filename')
-      const profile = stoStorage.getProfile(profileId)
+      const profile = storageService.getProfile(profileId)
       if (type === 'build') {
         filename = stoExport.generateFileName(profile, 'txt', environment)
       } else if (type === 'aliases') {
         filename = stoExport.generateAliasFileName(profile, 'txt')
       }
       stoExport.downloadFile(text, filename, 'text/plain')
+    })
+
+    // Listen for file operations
+    eventBus.on('file-explorer:open', (data) => {
+      this.openFile(data.path)
+    })
+
+    eventBus.on('file-explorer:save', (data) => {
+      this.saveFile(data.path, data.content)
     })
   }
 
@@ -79,7 +90,7 @@ export default class STOFileExplorer {
     if (!treeEl) return
     treeEl.innerHTML = ''
 
-    const data = stoStorage.getAllData()
+    const data = storageService.getAllData()
     const profiles = data.profiles || {}
 
     Object.entries(profiles).forEach(([profileId, profile]) => {
@@ -169,7 +180,7 @@ export default class STOFileExplorer {
   // Export Generators
   // ---------------------------------------------------------------------
   generateBuildExport(profileId, environment) {
-    const rootProfile = stoStorage.getProfile(profileId)
+    const rootProfile = storageService.getProfile(profileId)
     if (!rootProfile || !rootProfile.builds || !rootProfile.builds[environment])
       return ''
     const build = rootProfile.builds[environment]
@@ -186,7 +197,7 @@ export default class STOFileExplorer {
   }
 
   generateAliasExport(profileId) {
-    const rootProfile = stoStorage.getProfile(profileId)
+    const rootProfile = storageService.getProfile(profileId)
     if (!rootProfile) return ''
     // Aggregate aliases from profile-level and both builds
     const aggregatedAliases = {
@@ -200,6 +211,160 @@ export default class STOFileExplorer {
       aliases: aggregatedAliases,
     }
     return stoExport.generateAliasFile(tempProfile)
+  }
+
+  async openFile(path) {
+    try {
+      // Implementation for opening files
+      console.log('Opening file:', path)
+    } catch (error) {
+      console.error('Failed to open file:', error)
+    }
+  }
+
+  async saveFile(path, content) {
+    try {
+      // Implementation for saving files
+      console.log('Saving file:', path)
+    } catch (error) {
+      console.error('Failed to save file:', error)
+    }
+  }
+
+  async exportProfile(profileId) {
+    try {
+      const profile = storageService.getProfile(profileId)
+      if (!profile) {
+        throw new Error('Profile not found')
+      }
+
+      const data = {
+        profile,
+        exportDate: new Date().toISOString(),
+        version: '1.0.0'
+      }
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json'
+      })
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${profile.name}-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      return { success: true, data }
+    } catch (error) {
+      console.error('Failed to export profile:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  async importProfile(file) {
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      if (!data.profile) {
+        throw new Error('Invalid profile file format')
+      }
+
+      const profile = data.profile
+      const profileId = this.generateProfileId(profile.name)
+
+      // Check if profile already exists
+      const existingData = storageService.getAllData()
+      if (existingData.profiles[profileId]) {
+        // Generate unique name
+        profile.name = `${profile.name} (Imported)`
+      }
+
+      // Save the imported profile
+      storageService.saveProfile(profileId, profile)
+
+      // Add to profiles list if not already there
+      existingData.profiles[profileId] = profile
+      storageService.saveAllData(existingData)
+
+      return { success: true, profileId, profile }
+    } catch (error) {
+      console.error('Failed to import profile:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  async exportAllProfiles() {
+    try {
+      const data = storageService.getAllData()
+      
+      const exportData = {
+        profiles: data.profiles,
+        currentProfile: data.currentProfile,
+        exportDate: new Date().toISOString(),
+        version: '1.0.0'
+      }
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+      })
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `all-profiles-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      return { success: true, data: exportData }
+    } catch (error) {
+      console.error('Failed to export all profiles:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  async importAllProfiles(file) {
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      if (!data.profiles || typeof data.profiles !== 'object') {
+        throw new Error('Invalid profiles file format')
+      }
+
+      // Import all profiles
+      const importedProfiles = {}
+      for (const [profileId, profile] of Object.entries(data.profiles)) {
+        const newProfileId = this.generateProfileId(profile.name)
+        importedProfiles[newProfileId] = profile
+        storageService.saveProfile(newProfileId, profile)
+      }
+
+      // Update main data structure
+      const existingData = storageService.getAllData()
+      existingData.profiles = { ...existingData.profiles, ...importedProfiles }
+      
+      // Set current profile if none exists
+      if (!existingData.currentProfile && Object.keys(importedProfiles).length > 0) {
+        existingData.currentProfile = Object.keys(importedProfiles)[0]
+      }
+
+      storageService.saveAllData(existingData)
+
+      return { success: true, profiles: importedProfiles }
+    } catch (error) {
+      console.error('Failed to import all profiles:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  generateProfileId(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now()
   }
 }
 

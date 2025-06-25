@@ -3,6 +3,7 @@
 import store from '../core/store.js'
 import i18next from 'i18next'
 import STOFileHandler from '../lib/fileHandler.js'
+import { StorageService } from '../components/services/index.js'
 
 export default class STOKeybindFileManager extends STOFileHandler {
   constructor() {
@@ -15,7 +16,7 @@ export default class STOKeybindFileManager extends STOFileHandler {
 
   // Import keybind file content into the current profile
   importKeybindFile(content) {
-    const actualProfile = stoStorage.getProfile(store.currentProfile)
+    const actualProfile = storageService.getProfile(store.currentProfile)
     if (!actualProfile) {
       stoUI.showToast(i18next.t('no_profile_selected_for_import'), 'warning')
       return { success: false, error: 'No active profile' }
@@ -59,7 +60,7 @@ export default class STOKeybindFileManager extends STOFileHandler {
         }
       })
 
-      stoStorage.saveProfile(store.currentProfile, actualProfile)
+      storageService.saveProfile(store.currentProfile, actualProfile)
       app.setModified(true)
       app.renderKeyGrid()
 
@@ -106,7 +107,7 @@ export default class STOKeybindFileManager extends STOFileHandler {
         return { success: false, error: 'No aliases found' }
       }
 
-      const actualProfile = stoStorage.getProfile(store.currentProfile)
+      const actualProfile = storageService.getProfile(store.currentProfile)
       if (!actualProfile) {
         stoUI.showToast(i18next.t('failed_to_get_profile_for_import'), 'error')
         return { success: false, error: 'Profile not found' }
@@ -119,7 +120,7 @@ export default class STOKeybindFileManager extends STOFileHandler {
         }
       })
 
-      stoStorage.saveProfile(store.currentProfile, actualProfile)
+      storageService.saveProfile(store.currentProfile, actualProfile)
       app.setModified(true)
 
       if (

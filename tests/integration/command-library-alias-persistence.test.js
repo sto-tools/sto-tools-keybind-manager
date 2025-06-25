@@ -82,7 +82,7 @@ describe('Command Library Alias Persistence Integration', () => {
     // Set up globals
     global.app = mockApp
     global.stoUI = mockUI
-    global.stoStorage = mockStorage
+    global.storageService = mockStorage
 
     // Mock DOM with command categories container
     document.body.innerHTML = `
@@ -117,7 +117,7 @@ describe('Command Library Alias Persistence Integration', () => {
   afterEach(() => {
     delete global.app
     delete global.stoUI
-    delete global.stoStorage
+    delete global.storageService
     delete global.stoAliases
     delete window.stoAliases
     delete global.STO_DATA

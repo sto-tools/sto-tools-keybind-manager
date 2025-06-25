@@ -36,7 +36,7 @@ function setupWindowMocks() {
   }
 
   // Mock window dependencies
-  window.stoStorage = {
+  window.storageService = {
     getProfile: vi.fn(() => ({
       builds: {
         space: { keys: { F1: [] } },
@@ -73,7 +73,7 @@ function setupWindowMocks() {
 function restoreWindowMocks() {
   // Remove window mocks
   delete window.app
-  delete window.stoStorage
+  delete window.storageService
   delete window.stoUI
   delete window.i18next
   delete window.STO_DATA
@@ -105,7 +105,7 @@ describe('keyHandling direct-call regression (context binding)', () => {
   it('addKey works when called directly', () => {
     const result = keyHandling.addKey('F3')
     expect(result).toBe(true)
-    expect(window.stoStorage.saveProfile).toHaveBeenCalled()
+    expect(window.storageService.saveProfile).toHaveBeenCalled()
     expect(window.app.renderKeyGrid).toHaveBeenCalled()
     expect(window.app.selectedKey).toBe('F3')
     expect(window.app.setModified).toHaveBeenCalled()

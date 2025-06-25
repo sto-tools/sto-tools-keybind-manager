@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import eventBus from '../../src/js/core/eventBus.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 import ProfileService from '../../src/js/components/services/ProfileService.js'
 import ProfileUI from '../../src/js/components/ui/ProfileUI.js'
 
@@ -45,7 +45,7 @@ describe('ProfileService and ProfileUI - Core Tests', () => {
     `
 
     // Create real storage instance
-    mockStorage = new STOStorage()
+    mockStorage = new StorageService()
 
     // Mock i18n object
     mockI18n = {
@@ -87,7 +87,7 @@ describe('ProfileService and ProfileUI - Core Tests', () => {
     }
 
     // Setup global objects
-    global.stoStorage = mockStorage
+    global.storageService = mockStorage
     global.stoUI = mockUI
 
     // Create ProfileService and ProfileUI instances
@@ -111,7 +111,7 @@ describe('ProfileService and ProfileUI - Core Tests', () => {
   afterEach(() => {
     document.body.innerHTML = ''
     vi.clearAllMocks()
-    delete global.stoStorage
+    delete global.storageService
     delete global.stoUI
     delete global.modalManager
     delete global.stoSync
@@ -193,7 +193,7 @@ describe('ProfileService and ProfileUI - Core Tests', () => {
       newProfileBtn.click()
       expect(global.modalManager.show).toHaveBeenCalledWith('profileModal')
 
-      // Note: Global UI event listeners (like syncNowBtn) are now handled by main app eventHandlers,
+      // Note: Global UI event listeners (like syncNowBtn) are now handled by EventHandlerService,
       // not by ProfileUI. ProfileUI only handles profile-specific events.
     })
 

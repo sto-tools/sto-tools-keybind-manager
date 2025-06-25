@@ -9,13 +9,13 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 
 let app
-let stoStorage
+let storageService
 let stoKeybinds
 let stoUI
 
@@ -32,10 +32,10 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     // Load real HTML content
     document.documentElement.innerHTML = htmlContent
 
-    stoStorage = new STOStorage()
+    storageService = new StorageService()
     stoKeybinds = new STOKeybindFileManager()
     stoUI = new STOUIManager()
-    Object.assign(global, { stoStorage, stoKeybinds, stoUI })
+    Object.assign(global, { storageService, stoKeybinds, stoUI })
     app = new STOToolsKeybindManager()
     global.app = app
 
@@ -66,7 +66,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     }
 
     // Add test profile to storage and set as current
-    stoStorage.saveProfile(testProfile.id, testProfile)
+    storageService.saveProfile(testProfile.id, testProfile)
     app.currentProfile = testProfile.id
     app.saveCurrentProfile()
 
@@ -80,7 +80,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
   afterEach(() => {
     // Clean up after each test
     vi.restoreAllMocks()
-    stoStorage.clearAllData()
+    storageService.clearAllData()
     app.currentProfile = null
     app.selectedKey = null
     app.currentEnvironment = 'space'
@@ -131,7 +131,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       const result = app.saveCurrentProfile()
 
       expect(result).toBe(true)
-      const data = stoStorage.getAllData()
+      const data = storageService.getAllData()
       expect(data.currentProfile).toBe('new-profile-id')
 
       // Restore original
@@ -169,7 +169,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
     it('should get current build for active environment', () => {
       app.currentEnvironment = 'space'
-      const profile = stoStorage.getProfile(testProfile.id)
+      const profile = storageService.getProfile(testProfile.id)
 
       const build = app.getCurrentBuild(profile)
 
@@ -190,7 +190,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           ground: { keys: { F3: [{ command: 'test' }] } },
         },
       }
-      stoStorage.saveProfile(testProfile2.id, testProfile2)
+      storageService.saveProfile(testProfile2.id, testProfile2)
 
       app.switchProfile(testProfile2.id)
 
@@ -213,7 +213,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       expect(profileId).toBeDefined()
       expect(app.currentProfile).toBe(profileId)
 
-      const profile = stoStorage.getProfile(profileId)
+      const profile = storageService.getProfile(profileId)
       expect(profile.name).toBe('New Test Profile')
       expect(profile.description).toBe('Description')
       // Skip mode check as new profiles use builds structure
@@ -237,7 +237,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
       expect(clonedId).toBeDefined()
 
-      const clonedProfile = stoStorage.getProfile(clonedId)
+      const clonedProfile = storageService.getProfile(clonedId)
       expect(clonedProfile.name).toBe('Cloned Profile')
       expect(clonedProfile.builds).toEqual(testProfile.builds)
       expect(stoUI.showToast).toHaveBeenCalledWith(
@@ -253,12 +253,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         name: 'Extra Profile',
         builds: { space: { keys: {} }, ground: { keys: {} } },
       }
-      stoStorage.saveProfile(extraProfile.id, extraProfile)
+      storageService.saveProfile(extraProfile.id, extraProfile)
 
       const result = await app.deleteProfile(testProfile.id)
 
       expect(result).toBe(true)
-      expect(stoStorage.getProfile(testProfile.id)).toBeNull()
+      expect(storageService.getProfile(testProfile.id)).toBeNull()
     })
   })
 
@@ -301,7 +301,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
       app.saveCurrentBuild()
 
-      const profile = stoStorage.getProfile(app.currentProfile)
+      const profile = storageService.getProfile(app.currentProfile)
       expect(profile.currentEnvironment).toBe('space')
     })
   })
@@ -1223,9 +1223,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         keybindMetadata: {},
       }
       app.getCurrentProfile.mockReturnValue(mockProfile)
-      vi.spyOn(stoStorage, 'getProfile').mockReturnValue(mockProfile)
+      vi.spyOn(storageService, 'getProfile').mockReturnValue(mockProfile)
       const saveProfileSpy = vi
-        .spyOn(stoStorage, 'saveProfile')
+        .spyOn(storageService, 'saveProfile')
         .mockImplementation(() => {})
       const setModifiedSpy = vi.spyOn(app, 'setModified')
 
@@ -1247,7 +1247,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       stabilizeCheckbox.dispatchEvent(new Event('change'))
 
       // Check that metadata was saved
-      expect(stoStorage.saveProfile).toHaveBeenCalledWith(
+      expect(storageService.saveProfile).toHaveBeenCalledWith(
         app.currentProfile,
         expect.objectContaining({
           keybindMetadata: {
@@ -1269,8 +1269,8 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         // No keybindMetadata at all
       }
       app.getCurrentProfile.mockReturnValue(mockProfile)
-      vi.spyOn(stoStorage, 'getProfile').mockReturnValue(mockProfile)
-      vi.spyOn(stoStorage, 'saveProfile').mockImplementation(() => {})
+      vi.spyOn(storageService, 'getProfile').mockReturnValue(mockProfile)
+      vi.spyOn(storageService, 'saveProfile').mockImplementation(() => {})
 
       // Mock document.getElementById to return our checkbox
       const originalGet = document.getElementById
@@ -1290,7 +1290,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       stabilizeCheckbox.dispatchEvent(new Event('change'))
 
       // Check that metadata structure was created and saved
-      expect(stoStorage.saveProfile).toHaveBeenCalledWith(
+      expect(storageService.saveProfile).toHaveBeenCalledWith(
         app.currentProfile,
         expect.objectContaining({
           keybindMetadata: {

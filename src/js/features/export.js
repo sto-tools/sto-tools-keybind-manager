@@ -433,7 +433,7 @@ export default class STOExportManager {
   // Complete Project Export
   exportCompleteProject() {
     try {
-      const data = stoStorage.getAllData()
+      const data = storageService.getAllData()
       const exportData = {
         version: STO_DATA.settings.version,
         exported: new Date().toISOString(),
@@ -718,7 +718,7 @@ export default class STOExportManager {
 
   // Batch Export Operations
   exportAllProfiles() {
-    const data = stoStorage.getAllData()
+    const data = storageService.getAllData()
     const profiles = data.profiles
 
     if (!profiles || Object.keys(profiles).length === 0) {
@@ -788,7 +788,7 @@ export default class STOExportManager {
           throw new Error('Profile service not available')
         }
       } else if (data.type === 'project' && data.data) {
-        return stoStorage.importData(JSON.stringify(data.data))
+        return storageService.importData(JSON.stringify(data.data))
       } else {
         throw new Error('Unknown JSON file format')
       }
@@ -870,7 +870,7 @@ export default class STOExportManager {
   }
 
   async syncToFolder(dirHandle) {
-    const data = stoStorage.getAllData()
+    const data = storageService.getAllData()
     const exportData = {
       version: STO_DATA.settings.version,
       exported: new Date().toISOString(),

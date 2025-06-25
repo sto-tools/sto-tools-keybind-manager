@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import eventBus from '../../src/js/core/eventBus.js'
 
 describe('Complete User Workflows', () => {
-  let app, stoStorage, stoUI, stoExport, stoKeybinds
+  let app, storageService, stoUI, stoExport, stoKeybinds
 
   beforeEach(async () => {
     // Clear storage & mocks first to guarantee clean slate
@@ -29,7 +29,7 @@ describe('Complete User Workflows', () => {
 
     // Cache frequently-used globals for convenience.
     app = window.app
-    stoStorage = window.stoStorage
+    storageService = window.storageService
     stoUI = window.stoUI
     stoExport = window.stoExport
     stoKeybinds = window.stoKeybinds
@@ -129,13 +129,13 @@ describe('Complete User Workflows', () => {
       if (app.deleteProfile) {
         const testProfileId = app.createProfile('Test Profile to Delete')
         app.deleteProfile(testProfileId)
-        const allData = stoStorage.getAllData()
+        const allData = storageService.getAllData()
         const deletedProfile = allData.profiles[testProfileId]
         expect(deletedProfile).toBeUndefined()
       }
 
       // Verify all operations work correctly
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(2)
     })
 
@@ -570,8 +570,8 @@ bind Tab "target_enemy_near"`
       app.addCommand('F2', { command: 'target_enemy_near', type: 'targeting' })
 
       // Export complete project (if available)
-      if (stoStorage && typeof stoStorage.exportData === 'function') {
-        const exportedData = stoStorage.exportData()
+      if (storageService && typeof storageService.exportData === 'function') {
+        const exportedData = storageService.exportData()
         expect(exportedData).toBeDefined()
         expect(exportedData.length).toBeGreaterThan(0)
 
@@ -582,12 +582,12 @@ bind Tab "target_enemy_near"`
         }
 
         // Import project file (if available)
-        if (typeof stoStorage.importData === 'function') {
-          const importSuccess = stoStorage.importData(exportedData)
+        if (typeof storageService.importData === 'function') {
+          const importSuccess = storageService.importData(exportedData)
 
           // Verify all profiles and settings restored
           if (importSuccess) {
-            const allData = stoStorage.getAllData()
+            const allData = storageService.getAllData()
             expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(
               2
             )
@@ -614,16 +614,16 @@ bind Tab "target_enemy_near"`
 
         // Attempt to import corrupted JSON (if JSON import available)
         const corruptedJson = '{"invalid": json syntax}'
-        if (stoStorage && typeof stoStorage.importData === 'function') {
+        if (storageService && typeof storageService.importData === 'function') {
           expect(() => {
-            stoStorage.importData(corruptedJson)
+            storageService.importData(corruptedJson)
           }).not.toThrow()
         }
       }
 
       // Verify app remains functional after errors
       expect(app.getCurrentProfile()).toBeDefined()
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(1)
     })
   })
@@ -894,7 +894,7 @@ bind Tab "target_enemy_near"`
       expect(totalDuration).toBeLessThan(3000) // Should complete within 3 seconds
 
       // Verify all profiles exist
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(10)
     })
   })
@@ -1030,7 +1030,7 @@ bind Tab "target_enemy_near"`
       }
 
       // Verify app recovers gracefully (app is functional)
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(1)
     })
 
@@ -1040,13 +1040,13 @@ bind Tab "target_enemy_near"`
 
       // App should handle this gracefully and not crash
       expect(() => {
-        if (stoStorage && typeof stoStorage.loadData === 'function') {
-          stoStorage.loadData()
+        if (storageService && typeof storageService.loadData === 'function') {
+          storageService.loadData()
         }
       }).not.toThrow()
 
       // Verify graceful fallback to defaults
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(0)
 
       // App should remain functional
@@ -1075,7 +1075,7 @@ bind Tab "target_enemy_near"`
 
       // Verify app remains functional even if storage is full
       expect(app.getCurrentProfile()).toBeDefined()
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(1)
     })
   })

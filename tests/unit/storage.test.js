@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 import '../../src/js/data.js'
 
 /**
@@ -38,7 +38,7 @@ describe('STOStorage', () => {
     localStorage.clear()
 
     // Create a fresh STOStorage instance
-    storage = new STOStorage()
+    storage = new StorageService()
   })
 
   afterEach(() => {
@@ -561,7 +561,7 @@ describe('STOStorage', () => {
       localStorage.setItem('sto_keybind_manager', JSON.stringify(oldProfileData))
 
       // Initialize storage (should trigger migration)
-      const storage = new STOStorage()
+      const storage = new StorageService()
       storage.init()
 
       // Get migrated data
@@ -602,7 +602,7 @@ describe('STOStorage', () => {
 
       localStorage.setItem('sto_keybind_manager', JSON.stringify(oldProfileData))
 
-      const storage = new STOStorage()
+      const storage = new StorageService()
       storage.init()
 
       const migratedData = storage.getAllData()
@@ -636,7 +636,7 @@ describe('STOStorage', () => {
 
       localStorage.setItem('sto_keybind_manager', JSON.stringify(newProfileData))
 
-      const storage = new STOStorage()
+      const storage = new StorageService()
       storage.init()
 
       const data = storage.getAllData()
@@ -669,7 +669,7 @@ describe('STOStorage', () => {
 
       localStorage.setItem('sto_keybind_manager', JSON.stringify(oldProfileData))
 
-      const storage = new STOStorage()
+      const storage = new StorageService()
       storage.init()
 
       const migratedData = storage.getAllData()
@@ -680,7 +680,7 @@ describe('STOStorage', () => {
     })
 
     it('should validate both old and new profile formats', () => {
-      const storage = new STOStorage()
+      const storage = new StorageService()
 
       // Old format should be valid
       const oldProfile = {
@@ -712,7 +712,7 @@ describe('STOStorage', () => {
     let storage
 
     beforeEach(() => {
-      storage = new STOStorage()
+      storage = new StorageService()
     })
 
     it('should handle string mode values correctly', () => {

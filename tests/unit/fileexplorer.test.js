@@ -4,7 +4,7 @@ import { resolve } from 'path'
 import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import STOUIManager from '../../src/js/ui/ui.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 import STOExportManager from '../../src/js/features/export.js'
 import STOFileExplorer from '../../src/js/ui/fileexplorer.js'
 
@@ -16,7 +16,7 @@ const htmlContent = readFileSync(
 
 let stoFileExplorer
 let stoUI
-let stoStorage
+let storageService
 let stoExport
 
 describe('STOFileExplorer', () => {
@@ -33,9 +33,9 @@ describe('STOFileExplorer', () => {
 
     localStorage.clear()
     stoUI = new STOUIManager()
-    stoStorage = new STOStorage()
+    storageService = new StorageService()
     stoExport = new STOExportManager()
-    Object.assign(global, { stoUI, stoStorage, stoExport })
+    Object.assign(global, { stoUI, storageService, stoExport })
     stoFileExplorer = new STOFileExplorer()
     global.stoFileExplorer = stoFileExplorer
     stoFileExplorer.init()

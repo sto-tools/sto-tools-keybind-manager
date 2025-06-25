@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 // Profile functionality is now handled by the app instance
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 import STOExportManager from '../../src/js/features/export.js'
@@ -11,7 +11,7 @@ import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 
 describe('App Workflow Integration', () => {
-  let app, stoData, stoStorage, stoKeybinds, stoUI, stoExport
+  let app, stoData, storageService, stoKeybinds, stoUI, stoExport
 
   beforeEach(async () => {
     // Load real HTML
@@ -41,10 +41,10 @@ describe('App Workflow Integration', () => {
     window._originalPrompt = originalPrompt
 
     await import('../../src/js/data.js')
-    stoStorage = new STOStorage()
+    storageService = new StorageService()
     stoKeybinds = new STOKeybindFileManager()
     stoUI = new STOUIManager()
-    Object.assign(global, { stoStorage, stoKeybinds, stoUI })
+    Object.assign(global, { storageService, stoKeybinds, stoUI })
     app = new STOToolsKeybindManager()
     stoExport = new STOExportManager()
     Object.assign(global, { app, stoExport })
@@ -64,7 +64,7 @@ describe('App Workflow Integration', () => {
 
   describe('profile creation and management', () => {
     it('should create new profile and switch to it', async () => {
-      const initialData = stoStorage.getAllData()
+      const initialData = storageService.getAllData()
       const initialProfileCount = Object.keys(initialData.profiles).length
 
       // Create new profile
@@ -73,7 +73,7 @@ describe('App Workflow Integration', () => {
         'Test Description'
       )
 
-      const updatedData = stoStorage.getAllData()
+      const updatedData = storageService.getAllData()
       const profiles = Object.values(updatedData.profiles)
       expect(profiles).toHaveLength(initialProfileCount + 1)
       expect(profiles.some((p) => p.name === 'Integration Test Profile')).toBe(
@@ -137,13 +137,13 @@ describe('App Workflow Integration', () => {
       const profile2Id = app.createProfile('Profile 2')
       const profile3Id = app.createProfile('Profile 3')
 
-      const initialData = stoStorage.getAllData()
+      const initialData = storageService.getAllData()
       const initialCount = Object.keys(initialData.profiles).length
 
       // Delete one profile
       app.deleteProfile(profile2Id)
 
-      const updatedData = stoStorage.getAllData()
+      const updatedData = storageService.getAllData()
       const remainingProfiles = Object.values(updatedData.profiles)
       expect(remainingProfiles).toHaveLength(initialCount - 1)
       expect(remainingProfiles.some((p) => p.id === profile2Id)).toBe(false)
@@ -607,7 +607,7 @@ describe('App Workflow Integration', () => {
       )
 
       // Verify profile can be accessed from storage
-      const data = stoStorage.getAllData()
+      const data = storageService.getAllData()
       expect(data.profiles[profileId]).toBeDefined()
     })
   })

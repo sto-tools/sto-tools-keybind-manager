@@ -628,7 +628,7 @@ export const parameterCommands = {
             // Remove the old command and insert the new array of commands
             commands.splice(editIndex, 1, ...command)
   
-            stoStorage.saveProfile(this.currentProfile, profile)
+            storageService.saveProfile(this.currentProfile, profile)
             this.renderCommandChain()
             this.setModified(true)
             stoUI.showToast(
@@ -639,7 +639,7 @@ export const parameterCommands = {
             // Update existing single command
             const profile = this.getCurrentProfile()
             profile.keys[selectedKey][editIndex] = command
-            stoStorage.saveProfile(this.currentProfile, profile)
+            storageService.saveProfile(this.currentProfile, profile)
             this.renderCommandChain()
             this.setModified(true)
             stoUI.showToast(i18next.t('command_updated_successfully'), 'success')
@@ -1323,7 +1323,7 @@ export const parameterCommands = {
     // Vertigo VFX Manager Methods
     showVertigoModal() {
       // Load state from root profile (not build-specific view)
-      const rootProfile = stoStorage.getProfile(this.currentProfile)
+      const rootProfile = storageService.getProfile(this.currentProfile)
       if (rootProfile) {
         vertigoManager.loadState(rootProfile)
       }
@@ -1630,7 +1630,7 @@ export const parameterCommands = {
       }
   
       // Get the root profile object (not the build-specific view)
-      const rootProfile = stoStorage.getProfile(this.currentProfile)
+      const rootProfile = storageService.getProfile(this.currentProfile)
       if (!rootProfile) {
         stoUI.showToast(i18next.t('no_profile_found'), 'error')
         return
@@ -1683,7 +1683,7 @@ export const parameterCommands = {
       vertigoManager.saveState(rootProfile)
   
       // Save the root profile to storage
-      stoStorage.saveProfile(this.currentProfile, rootProfile)
+      storageService.saveProfile(this.currentProfile, rootProfile)
   
       // Save the changes - follow the same pattern as aliases.js
       this.saveProfile()
@@ -1716,7 +1716,7 @@ export const parameterCommands = {
   
     // Theme Management
     applyTheme() {
-      const settings = stoStorage.getSettings()
+      const settings = storageService.getSettings()
       const theme = settings.theme || 'default'
   
       if (theme === 'dark') {
@@ -1729,12 +1729,12 @@ export const parameterCommands = {
     },
   
     toggleTheme() {
-      const settings = stoStorage.getSettings()
+      const settings = storageService.getSettings()
       const currentTheme = settings.theme || 'default'
       const newTheme = currentTheme === 'dark' ? 'default' : 'dark'
   
       settings.theme = newTheme
-      stoStorage.saveSettings(settings)
+      storageService.saveSettings(settings)
   
       this.applyTheme()
   
@@ -1759,7 +1759,7 @@ export const parameterCommands = {
     },
   
     async applyLanguage() {
-      const settings = stoStorage.getSettings()
+      const settings = storageService.getSettings()
       const lang = settings.language || 'en'
   
       if (typeof i18next !== 'undefined' && i18next.language !== lang) {
@@ -1778,9 +1778,9 @@ export const parameterCommands = {
     },
   
     async changeLanguage(lang) {
-      const settings = stoStorage.getSettings()
+      const settings = storageService.getSettings()
       settings.language = lang
-      stoStorage.saveSettings(settings)
+      storageService.saveSettings(settings)
   
       await this.applyLanguage()
       

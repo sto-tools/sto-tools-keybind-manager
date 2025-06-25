@@ -23,13 +23,13 @@ global.STO_DATA = {
   }
 }
 
-// Mock stoStorage
+// Mock storageService
 const mockStorage = {
   getAllData: vi.fn(),
   getProfile: vi.fn(),
   saveProfile: vi.fn()
 }
-global.stoStorage = mockStorage
+global.storageService = mockStorage
 
 describe('Export Operations Integration Tests', () => {
   let exportManager
@@ -114,7 +114,7 @@ describe('Export Operations Integration Tests', () => {
       }
     }
 
-    // Mock stoStorage.getAllData
+    // Mock storageService.getAllData
     mockStorage.getAllData.mockReturnValue({
       profiles: testProfiles,
       currentProfile: 'profile-1',

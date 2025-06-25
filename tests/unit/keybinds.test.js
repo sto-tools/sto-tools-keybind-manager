@@ -6,7 +6,7 @@ import '../../src/js/data.js'
 // Load the modules (they create global instances)
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 import STOCommandManager from '../../src/js/features/commands.js'
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 
@@ -14,7 +14,7 @@ import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 beforeEach(() => {
   resetStore()
   global.window = global.window || {}
-  global.stoStorage = new STOStorage()
+  global.storageService = new StorageService()
   global.stoCommands = new STOCommandManager()
 
   // Mock only the UI methods that would show actual UI
@@ -43,8 +43,8 @@ beforeEach(() => {
   store.currentProfile = 'test-profile'
   store.currentEnvironment = 'space'
 
-  // Mock stoStorage.getProfile to return a profile with builds structure
-  global.stoStorage.getProfile = vi.fn(() => ({
+  // Mock storageService.getProfile to return a profile with builds structure
+  global.storageService.getProfile = vi.fn(() => ({
     name: 'Test Profile',
     builds: {
       space: { keys: {} },
@@ -53,7 +53,7 @@ beforeEach(() => {
     aliases: {},
   }))
 
-  global.stoStorage.saveProfile = vi.fn()
+  global.storageService.saveProfile = vi.fn()
 })
 
 describe('STOKeybindFileManager', () => {
@@ -287,7 +287,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
 
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
-      expect(stoStorage.saveProfile).toHaveBeenCalled()
+      expect(storageService.saveProfile).toHaveBeenCalled()
     })
 
     it('should merge with existing profile data', () => {
@@ -822,8 +822,8 @@ F2 "say world"`
       }
       global.app.getCurrentProfile.mockReturnValue(profile)
 
-      // Mock stoStorage.getProfile to return the same profile that will be modified
-      global.stoStorage.getProfile.mockReturnValue(profile)
+      // Mock storageService.getProfile to return the same profile that will be modified
+      global.storageService.getProfile.mockReturnValue(profile)
 
       const content = 'alias NewAlias "new command"'
       keybindManager.importAliasFile(content)
@@ -836,7 +836,7 @@ F2 "say world"`
       const content = 'alias TestAlias "say test"'
       keybindManager.importAliasFile(content)
 
-      expect(stoStorage.saveProfile).toHaveBeenCalled()
+      expect(storageService.saveProfile).toHaveBeenCalled()
       expect(app.setModified).toHaveBeenCalledWith(true)
     })
   })
@@ -1057,7 +1057,7 @@ F2 "say world"`
     beforeEach(() => {
       resetStore()
       // Create real storage instance for integration testing
-      realStorage = new STOStorage()
+      realStorage = new StorageService()
 
       // Create a real app implementation
       realApp = {
@@ -1115,7 +1115,7 @@ F2 "say world"`
 
       // Override global app and storage for this test
       global.app = realApp
-      global.stoStorage = realStorage
+      global.storageService = realStorage
       store.currentProfile = 'test-profile'
       store.currentEnvironment = 'space'
     })
@@ -1345,7 +1345,7 @@ F2 " "`
 
     beforeEach(() => {
       // Create real storage instance for integration testing
-      realStorage = new STOStorage()
+      realStorage = new StorageService()
 
       // Create a minimal real app implementation
       realApp = {
@@ -1447,7 +1447,7 @@ F2 " "`
 
       // Override global app and storage for this test
       global.app = realApp
-      global.stoStorage = realStorage
+      global.storageService = realStorage
       store.currentProfile = 'test-profile'
       store.currentEnvironment = 'space'
     })

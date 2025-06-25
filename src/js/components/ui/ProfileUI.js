@@ -64,10 +64,12 @@ export default class ProfileUI extends ComponentBase {
       this.handleProfileSave()
     })
 
-    // Profile UI no longer handles global menu events - moved to main app eventHandlers
-  }
+    // Profile UI no longer handles global menu events - moved to EventHandlerService
+    // This component focuses only on profile-specific UI interactions
 
-  // Language listeners moved to main app eventHandlers
+    // Language listeners moved to EventHandlerService
+    // Global menu methods moved to EventHandlerService
+  }
 
   /**
    * Handle profile switching
@@ -348,8 +350,6 @@ export default class ProfileUI extends ComponentBase {
       this.ui.showToast(error.message, 'error')
     }
   }
-
-  // Global menu methods moved to main app eventHandlers
 
   /**
    * Set the selected key (for UI state management)

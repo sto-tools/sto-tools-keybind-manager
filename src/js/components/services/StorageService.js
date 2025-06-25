@@ -381,11 +381,8 @@ export default class StorageService extends ComponentBase {
     if (!data.globalAliases) data.globalAliases = {}
     if (!data.settings) data.settings = this.getDefaultSettings()
 
-    // Only ensure we have at least one profile if this isn't a post-reset state
-    if (
-      Object.keys(data.profiles).length === 0 &&
-      data.currentProfile !== null
-    ) {
+    // Always ensure we have at least one profile
+    if (Object.keys(data.profiles).length === 0) {
       // Access STO_DATA from global window object
       const STO_DATA = window.STO_DATA || {}
       data.profiles = {

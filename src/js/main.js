@@ -7,8 +7,7 @@ import en from '../i18n/en.json'
 import de from '../i18n/de.json'
 import fr from '../i18n/fr.json'
 import es from '../i18n/es.json'
-import STOStorage from './services/storage.js'
-// Profile functionality is now handled by the app instance
+import { StorageService } from './components/services/index.js'
 import STOKeybindFileManager from './features/keybinds.js'
 import STOExportManager from './features/export.js'
 import STOModalManager from './ui/modalManager.js'
@@ -20,10 +19,20 @@ import VertigoManager, { VFX_EFFECTS } from './features/vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './ui/version.js'
 
-const stoStorage = new STOStorage()
-const settings = stoStorage.getSettings()
+console.log('TEST: STOToolsKeybindManager class imported:', STOToolsKeybindManager)
+
+// Create new StorageService component
+const storageService = new StorageService({ eventBus })
+storageService.init()
+
+console.log('TEST: storageService initialized')
+
+// Get settings from the new StorageService
+const settings = storageService.getSettings()
 
 ;(async () => {
+
+  console.log('TEST: i18next init')
   await i18next.init({
     lng: settings.language || 'en',
     fallbackLng: 'en',
@@ -84,36 +93,73 @@ const settings = stoStorage.getSettings()
   } else {
     applyTranslations()
   }
-})()
-// Profile functionality is now handled by the app instance
-const stoKeybinds = new STOKeybindFileManager()
-const stoExport = new STOExportManager()
-const modalManager = new STOModalManager()
-const stoUI = new STOUIManager()
-const stoCommands = new STOCommandManager()
-const stoFileExplorer = new STOFileExplorer()
-const vertigoManager = new VertigoManager()
-const stoSync = new STOSyncManager(stoStorage)
-Object.assign(window, {
-  stoStorage,
-  stoKeybinds,
-  stoExport,
-  modalManager,
-  stoUI,
-  stoCommands,
-  stoFileExplorer,
-  vertigoManager,
-  stoSync,
-  VFX_EFFECTS,
-})
 
-const app = new STOToolsKeybindManager()
-window.app = app
+  // Make storageService globally available immediately
+  window.storageService = storageService
 
-eventBus.on('sto-app-ready', () => {
-  // Profile initialization is now handled by the app instance
-  stoKeybinds.init()
-  stoExport.init()
-  stoFileExplorer.init()
-})
+  // Create dependencies first
+  const stoKeybinds = new STOKeybindFileManager()
+  const stoExport = new STOExportManager()
+  const modalManager = new STOModalManager()
+  const stoUI = new STOUIManager()
+  const stoCommands = new STOCommandManager()
+  const stoFileExplorer = new STOFileExplorer()
+  const vertigoManager = new VertigoManager()
+  const stoSync = new STOSyncManager(storageService) // Use storageService instead of stoStorage
+  Object.assign(window, {
+    storageService, // Keep this for backward compatibility
+    stoKeybinds,
+    stoExport,
+    modalManager,
+    stoUI,
+    stoCommands,
+    stoFileExplorer,
+    vertigoManager,
+    stoSync,
+    VFX_EFFECTS,
+    eventBus, // Make eventBus globally available
+  })
+
+  // Initialize app after dependencies are available
+  console.log('TEST: About to create STOToolsKeybindManager instance')
+  const app = new STOToolsKeybindManager()
+  console.log('TEST: Created app instance:', app)
+  console.log('TEST: app constructor name:', app.constructor.name)
+  console.log('TEST: app prototype:', Object.getPrototypeOf(app))
+  window.app = app
+
+  console.log('TEST: app initialized')
+
+  // Initialize the app - this will emit 'sto-app-ready' when complete
+  console.log('TEST: About to call app.init(), storageService:', typeof storageService, 'stoUI:', typeof stoUI)
+  console.log('TEST: app instance:', app)
+  console.log('TEST: app.init type:', typeof app.init)
+  console.log('TEST: app.init method:', app.init)
+
+  if (typeof app.init !== 'function') {
+    console.error('TEST: app.init is not a function!')
+  } else {
+    try {
+      const initPromise = app.init()
+      console.log('TEST: app.init() returned:', initPromise)
+      if (initPromise && typeof initPromise.catch === 'function') {
+        await initPromise
+        console.log('TEST: app.init() completed successfully')
+      } else {
+        console.error('TEST: app.init() did not return a Promise')
+      }
+    } catch (error) {
+      console.error('TEST: app.init() failed:', error)
+    }
+  }
+
+  // Set up event handler for when app is ready
+  eventBus.on('sto-app-ready', () => {
+    // Profile initialization is now handled by the app instance
+    stoKeybinds.init()
+    stoExport.init()
+    stoFileExplorer.init()
+  })
+
+  })()
 

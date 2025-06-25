@@ -63,16 +63,16 @@ describe('STOSyncManager', () => {
     window.i18next = i18next
     global.stoUI = { showToast: vi.fn() }
     global.stoExport = { syncToFolder: vi.fn() }
-    global.stoStorage = {
+    global.storageService = {
       getSettings: vi.fn().mockReturnValue({}),
       saveSettings: vi.fn(),
     }
-    sync = new STOSyncManager(global.stoStorage)
+    sync = new STOSyncManager(global.storageService)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    delete global.stoStorage
+    delete global.storageService
   })
 
   it('setSyncFolder stores selected handle', async () => {
@@ -82,7 +82,7 @@ describe('STOSyncManager', () => {
     expect(showDirectoryPicker).toHaveBeenCalled()
     expect(saveDirectoryHandle).toHaveBeenCalledWith('sync-folder', handle)
     expect(stoUI.showToast).toHaveBeenCalled()
-    expect(stoStorage.saveSettings).toHaveBeenCalledWith({
+    expect(storageService.saveSettings).toHaveBeenCalledWith({
       syncFolderName: handle.name,
       syncFolderPath: `Selected folder: ${handle.name}`,
       autoSync: false,
@@ -95,7 +95,7 @@ describe('STOSyncManager', () => {
     const handle = new MockDirHandle()
     global.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
     await sync.setSyncFolder(true)
-    expect(stoStorage.saveSettings).toHaveBeenCalledWith({
+    expect(storageService.saveSettings).toHaveBeenCalledWith({
       syncFolderName: handle.name,
       syncFolderPath: `Selected folder: ${handle.name}`,
       autoSync: true,

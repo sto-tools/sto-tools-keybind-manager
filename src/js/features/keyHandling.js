@@ -57,7 +57,7 @@ export const keyHandling = {
       return false
     }
 
-    const fullProfile = stoStorage.getProfile(context.currentProfile)
+    const fullProfile = storageService.getProfile(context.currentProfile)
     if (!fullProfile) {
       stoUI.showToast(i18next.t('no_profile_selected'), 'error')
       return false
@@ -77,7 +77,7 @@ export const keyHandling = {
     if (!fullProfile.builds[context.currentEnvironment].keys[keyName]) {
       fullProfile.builds[context.currentEnvironment].keys[keyName] = []
 
-      stoStorage.saveProfile(context.currentProfile, fullProfile)
+      storageService.saveProfile(context.currentProfile, fullProfile)
 
       context.renderKeyGrid()
       // Call selectKey through the context to avoid recursion
@@ -99,7 +99,7 @@ export const keyHandling = {
   deleteKey(keyName) {
     const context = ensureContext()
     
-    const fullProfile = stoStorage.getProfile(context.currentProfile)
+    const fullProfile = storageService.getProfile(context.currentProfile)
     if (!fullProfile) {
       stoUI.showToast(i18next.t('no_profile_selected'), 'error')
       return false
@@ -113,7 +113,7 @@ export const keyHandling = {
     ) {
       delete fullProfile.builds[context.currentEnvironment].keys[keyName]
 
-      stoStorage.saveProfile(context.currentProfile, fullProfile)
+      storageService.saveProfile(context.currentProfile, fullProfile)
 
       if (context.selectedKey === keyName) {
         context.selectedKey = null
@@ -159,7 +159,7 @@ export const keyHandling = {
       }
 
       // Persist alias mutation
-      stoStorage.saveProfile(context.currentProfile, profile)
+      storageService.saveProfile(context.currentProfile, profile)
 
       // Keep build data in sync for other modes (noop for alias-only change)
       if (typeof context.saveCurrentBuild === 'function') {
@@ -168,7 +168,7 @@ export const keyHandling = {
 
       stoUI.showToast(i18next.t('command_added_to_alias'), 'success')
     } else {
-      const fullProfile = stoStorage.getProfile(context.currentProfile)
+      const fullProfile = storageService.getProfile(context.currentProfile)
       if (!fullProfile) {
         stoUI.showToast(i18next.t('no_profile_selected'), 'error')
         return
@@ -205,7 +205,7 @@ export const keyHandling = {
         stoUI.showToast(i18next.t('command_added'), 'success')
       }
 
-      stoStorage.saveProfile(context.currentProfile, fullProfile)
+      storageService.saveProfile(context.currentProfile, fullProfile)
     }
 
     context.renderCommandChain()
@@ -235,7 +235,7 @@ export const keyHandling = {
           profile.aliases[keyName].commands = commands.join(' $$ ')
 
           // Persist change to storage so UI refreshes correctly
-          stoStorage.saveProfile(context.currentProfile, profile)
+          storageService.saveProfile(context.currentProfile, profile)
           context.renderCommandChain()
           context.renderAliasGrid()
           context.setModified(true)
@@ -250,7 +250,7 @@ export const keyHandling = {
         }
       }
     } else {
-      const fullProfile = stoStorage.getProfile(context.currentProfile)
+      const fullProfile = storageService.getProfile(context.currentProfile)
       if (!fullProfile) {
         stoUI.showToast(i18next.t('no_profile_selected'), 'error')
         return
@@ -266,7 +266,7 @@ export const keyHandling = {
         const deletedCommand = fullProfile.builds[context.currentEnvironment].keys[keyName][commandIndex]
         fullProfile.builds[context.currentEnvironment].keys[keyName].splice(commandIndex, 1)
 
-        stoStorage.saveProfile(context.currentProfile, fullProfile)
+        storageService.saveProfile(context.currentProfile, fullProfile)
         context.renderCommandChain()
         context.renderKeyGrid()
         context.setModified(true)
@@ -311,7 +311,7 @@ export const keyHandling = {
         }
       }
     } else {
-      const fullProfile = stoStorage.getProfile(context.currentProfile)
+      const fullProfile = storageService.getProfile(context.currentProfile)
       if (!fullProfile) {
         stoUI.showToast(i18next.t('no_profile_selected'), 'error')
         return
@@ -333,7 +333,7 @@ export const keyHandling = {
         const [command] = commands.splice(fromIndex, 1)
         commands.splice(toIndex, 0, command)
 
-        stoStorage.saveProfile(context.currentProfile, fullProfile)
+        storageService.saveProfile(context.currentProfile, fullProfile)
         context.renderCommandChain()
         context.setModified(true)
 
@@ -372,7 +372,7 @@ export const keyHandling = {
     )
 
     if (confirmed) {
-      const fullProfile = stoStorage.getProfile(context.currentProfile)
+      const fullProfile = storageService.getProfile(context.currentProfile)
       if (!fullProfile) {
         stoUI.showToast(i18next.t('no_profile_selected'), 'error')
         return
@@ -391,7 +391,7 @@ export const keyHandling = {
 
       if (fullProfile.builds[context.currentEnvironment].keys[keyName]) {
         fullProfile.builds[context.currentEnvironment].keys[keyName] = []
-        stoStorage.saveProfile(context.currentProfile, fullProfile)
+        storageService.saveProfile(context.currentProfile, fullProfile)
         context.renderCommandChain()
         context.renderKeyGrid()
         context.setModified(true)
@@ -407,7 +407,7 @@ export const keyHandling = {
   duplicateKey(keyName) {
     const context = ensureContext()
     
-    const fullProfile = stoStorage.getProfile(context.currentProfile)
+    const fullProfile = storageService.getProfile(context.currentProfile)
     if (!fullProfile) {
       stoUI.showToast(i18next.t('no_profile_selected'), 'error')
       return
@@ -437,7 +437,7 @@ export const keyHandling = {
     }))
 
     fullProfile.builds[context.currentEnvironment].keys[newKeyName] = clonedCommands
-    stoStorage.saveProfile(context.currentProfile, fullProfile)
+    storageService.saveProfile(context.currentProfile, fullProfile)
     context.renderKeyGrid()
     context.setModified(true)
 
