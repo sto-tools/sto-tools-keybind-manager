@@ -34,7 +34,7 @@ export default class TrayCommandService extends ComponentBase {
       const active      = params.active      ?? 'on'
 
       return {
-        command: `TrayExecByTrayWithBackup ${tray} ${slot} ${backupTray} ${backupSlot} ${active === 'on' ? 1 : 0}`,
+        command: `TrayExecByTrayWithBackup ${active === 'on' ? 1 : 0} ${tray} ${slot} ${backupTray} ${backupSlot}`,
         type: 'tray',
         icon: '⚡',
         text: `Execute Tray ${tray + 1} Slot ${slot + 1} (with backup)`,
