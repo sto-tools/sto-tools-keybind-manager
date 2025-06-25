@@ -1,4 +1,8 @@
 import eventBus from '../core/eventBus.js'
+import CommandBuilderService from '../components/services/CommandBuilderService.js'
+
+// Singleton instance for parameter commands
+const commandBuilderService = new CommandBuilderService({})
 
 export const parameterCommands = {
     // Parameter Modal for Customizable Commands
@@ -329,13 +333,7 @@ export const parameterCommands = {
             const endSlot = params.end_slot || 0
             const commandType = params.command_type || 'STOTrayExecByTray'
   
-            const commands = stoCommands.generateTrayRangeCommands(
-              startTray,
-              startSlot,
-              endTray,
-              endSlot,
-              commandType
-            )
+            const commands = commandBuilderService.build('tray', 'tray_range', { start_tray: startTray, start_slot: startSlot, end_tray: endTray, end_slot: endSlot, command_type: commandType })
   
             // Return array of command objects with slot-specific parameters
             return commands.map((cmd, index) => {
@@ -373,17 +371,7 @@ export const parameterCommands = {
             const backupEndTray = params.backup_end_tray || 0
             const backupEndSlot = params.backup_end_slot || 0
   
-            const commands = stoCommands.generateTrayRangeWithBackupCommands(
-              active,
-              startTray,
-              startSlot,
-              endTray,
-              endSlot,
-              backupStartTray,
-              backupStartSlot,
-              backupEndTray,
-              backupEndSlot
-            )
+            const commands = commandBuilderService.build('tray', 'tray_range_with_backup', { active, start_tray: startTray, start_slot: startSlot, end_tray: endTray, end_slot: endSlot, backup_start_tray: backupStartTray, backup_start_slot: backupStartSlot, backup_end_tray: backupEndTray, backup_end_slot: backupEndSlot })
   
             // Return array with parsed parameters for each command
             return commands.map((cmd, index) => {
@@ -422,10 +410,7 @@ export const parameterCommands = {
             })
           } else if (commandId === 'whole_tray') {
             const commandType = params.command_type || 'STOTrayExecByTray'
-            const commands = stoCommands.generateWholeTrayCommands(
-              tray,
-              commandType
-            )
+            const commands = commandBuilderService.build('tray', 'whole_tray', { tray, command_type: commandType })
   
             // Return array of command objects instead of single command with $$
             return commands.map((cmd, index) => {
@@ -451,11 +436,7 @@ export const parameterCommands = {
             const active = params.active || 1
             const backupTray = params.backup_tray || 0
   
-            const commands = stoCommands.generateWholeTrayWithBackupCommands(
-              active,
-              tray,
-              backupTray
-            )
+            const commands = commandBuilderService.build('tray', 'whole_tray_with_backup', { active, tray, backup_tray: backupTray })
   
             // Return array with parsed parameters for each command
             return commands.map((cmd, index) => {
@@ -693,13 +674,13 @@ export const parameterCommands = {
         return
       }
 
-      const command = stoCommands.getCurrentCommand()
+      const command = commandBuilderService.build('tray', 'tray_range', { start_tray: 0, start_slot: 0, end_tray: 0, end_slot: 0, command_type: 'STOTrayExecByTray' })
       if (!command) {
         stoUI.showToast(i18next.t('please_configure_a_command'), 'warning')
         return
       }
 
-      const validation = stoCommands.validateCommand(command)
+      const validation = commandBuilderService.validate(command)
       if (!validation.valid) {
         stoUI.showToast(i18next.t('validation_error'), 'error')
         return

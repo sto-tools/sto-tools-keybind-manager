@@ -7,7 +7,7 @@ import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 import { StorageService } from '../../src/js/components/services/index.js'
-import STOCommandManager from '../../src/js/features/commands.js'
+import CommandBuilderService from '../../src/js/components/services/CommandBuilderService.js'
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 
 // Setup real global objects instead of mocks
@@ -15,7 +15,7 @@ beforeEach(() => {
   resetStore()
   global.window = global.window || {}
   global.storageService = new StorageService()
-  global.stoCommands = new STOCommandManager()
+  global.stoCommands = new CommandBuilderService({})
 
   // Mock only the UI methods that would show actual UI
   global.stoUI = {

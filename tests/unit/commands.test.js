@@ -4,8 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import CommandBuilderService from '../../src/js/components/services/CommandBuilderService.js'
 
-describe('STOCommandManager', () => {
+describe('CommandBuilderService', () => {
   let commandManager
 
   beforeEach(async () => {
@@ -44,11 +45,8 @@ describe('STOCommandManager', () => {
       <input id="amountInput" type="number">
     `
 
-    // Load the commands module as ES module and instantiate
-    const { default: STOCommandManager } = await import(
-      '../../src/js/features/commands.js'
-    )
-    commandManager = new STOCommandManager()
+    // Use CommandBuilderService instead of STOCommandManager
+    commandManager = new CommandBuilderService({})
     global.window.stoCommands = commandManager
   })
 

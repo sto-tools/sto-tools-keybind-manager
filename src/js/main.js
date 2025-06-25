@@ -12,7 +12,7 @@ import STOKeybindFileManager from './features/keybinds.js'
 import STOExportManager from './features/export.js'
 import STOModalManager from './ui/modalManager.js'
 import STOUIManager from './ui/ui.js'
-import STOCommandManager from './features/commands.js'
+// import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
 import VertigoManager, { VFX_EFFECTS } from './features/vertigo_data.js'
@@ -102,7 +102,7 @@ const settings = storageService.getSettings()
   const stoExport = new STOExportManager()
   const modalManager = new STOModalManager()
   const stoUI = new STOUIManager()
-  const stoCommands = new STOCommandManager()
+  // const stoCommands = new STOCommandManager() // DEPRECATED: see CommandBuilderService
   const stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })
   // Init immediately so header Explorer button works without waiting for sto-app-ready
   stoFileExplorer.init()
@@ -114,7 +114,7 @@ const settings = storageService.getSettings()
     stoExport,
     modalManager,
     stoUI,
-    stoCommands,
+    // stoCommands, // DEPRECATED: see CommandBuilderService
     stoFileExplorer,
     vertigoManager,
     stoSync,

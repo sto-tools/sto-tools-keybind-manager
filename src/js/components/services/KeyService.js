@@ -640,4 +640,87 @@ export default class KeyService extends ComponentBase {
     // Reset input so the same file can be chosen again if needed
     event.target.value = ''
   }
+
+  /**
+   * Detect the type of a command string (tray, communication, power, movement, camera, combat, targeting, system, custom).
+   */
+  detectCommandType(command) {
+    if (!command || typeof command !== 'string') return 'custom'
+
+    const cmd = command.toLowerCase().trim()
+
+    // Tray commands
+    if (cmd.includes('+stotrayexecbytray')) return 'tray'
+
+    // Communication commands
+    if (
+      cmd.startsWith('say ') ||
+      cmd.startsWith('team ') ||
+      cmd.startsWith('zone ') ||
+      cmd.startsWith('tell ') ||
+      cmd.includes('"')
+    )
+      return 'communication'
+
+    // Shield management commands
+    if (
+      cmd.includes('+power_exec') ||
+      cmd.includes('distribute_shields') ||
+      cmd.includes('reroute_shields')
+    )
+      return 'power'
+
+    // Movement commands
+    if (
+      cmd.includes('+fullimpulse') ||
+      cmd.includes('+reverse') ||
+      cmd.includes('throttle') ||
+      cmd.includes('+turn') ||
+      cmd.includes('+up') ||
+      cmd.includes('+down') ||
+      cmd.includes('+left') ||
+      cmd.includes('+right') ||
+      cmd.includes('+forward') ||
+      cmd.includes('+backward') ||
+      cmd.includes('follow')
+    )
+      return 'movement'
+
+    // Camera commands
+    if (cmd.includes('cam') || cmd.includes('look') || cmd.includes('zoom'))
+      return 'camera'
+
+    // Combat commands
+    if (
+      cmd.includes('fire') ||
+      cmd.includes('attack') ||
+      cmd === 'fireall' ||
+      cmd === 'firephasers' ||
+      cmd === 'firetorps' ||
+      cmd === 'firephaserstorps'
+    )
+      return 'combat'
+
+    // Targeting commands
+    if (
+      cmd.includes('target') ||
+      cmd === 'target_enemy_near' ||
+      cmd === 'target_self' ||
+      cmd === 'target_friend_near' ||
+      cmd === 'target_clear'
+    )
+      return 'targeting'
+
+    // System commands
+    if (
+      cmd.includes('+gentoggle') ||
+      cmd === 'screenshot' ||
+      cmd.includes('hud') ||
+      cmd === 'interactwindow'
+    )
+      return 'system'
+
+    // Default to custom for unknown commands
+    return 'custom'
+  }
 } 

@@ -3,6 +3,7 @@ export { default as ProfileUI } from './ProfileUI.js'
 export { default as CommandLibraryUI } from './CommandLibraryUI.js'
 export { default as CommandUI } from './CommandUI.js'
 export { default as InterfaceModeUI } from './InterfaceModeUI.js'
+export { default as CommandBuilderUI } from './CommandBuilderUI.js'
 
 // Legacy UI exports
 export { default as modalManager } from '../../ui/modalManager.js'
