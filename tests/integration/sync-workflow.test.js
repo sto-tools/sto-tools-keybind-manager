@@ -6,7 +6,7 @@ import { StorageService } from '../../src/js/components/services/index.js'
 import eventBus from '../../src/js/core/eventBus.js'
 
 const store = new Map()
-vi.mock('../../src/js/services/fsHandles.js', () => ({
+vi.mock('../../src/js/components/services/FileSystemService.js', () => ({
   saveDirectoryHandle: vi.fn((k, h) => {
     store.set(k, h)
     return Promise.resolve()

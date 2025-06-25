@@ -1,33 +1,28 @@
 import ComponentBase from '../ComponentBase.js'
 import i18next from 'i18next'
 import eventBus from '../../core/eventBus.js'
-import { saveDirectoryHandle, getDirectoryHandle, KEY_SYNC_FOLDER } from '../../services/fsHandles.js'
+import FileSystemService, {
+  writeFile as fsWriteFile,
+  KEY_SYNC_FOLDER,
+} from './FileSystemService.js'
 
-export async function writeFile(dirHandle, relativePath, contents) {
-  const parts = relativePath.split('/')
-  const fileName = parts.pop()
-  let current = dirHandle
-  for (const part of parts) {
-    current = await current.getDirectoryHandle(part, { create: true })
-  }
-  const fileHandle = await current.getFileHandle(fileName, { create: true })
-  const writable = await fileHandle.createWritable()
-  await writable.write(contents)
-  await writable.close()
-}
+// Re-export the helper so existing imports (especially tests) continue to work
+export const writeFile = fsWriteFile
 
 export default class SyncService extends ComponentBase {
-  constructor({ storage, ui } = {}) {
+  constructor({ storage, ui, fs } = {}) {
     super(eventBus)
     this.storage = storage
     this.ui = ui
+    // Accept injected FileSystemService instance or create a default one
+    this.fs = fs || new FileSystemService({ eventBus })
   }
 
   /* Set sync folder and optionally enable auto-sync */
   async setSyncFolder(autoSync = false) {
     try {
       const handle = await window.showDirectoryPicker()
-      await saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
+      await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
       const folderName = handle.name
 
       if (this.storage) {
@@ -50,7 +45,7 @@ export default class SyncService extends ComponentBase {
 
   async getSyncFolderHandle() {
     try {
-      return await getDirectoryHandle(KEY_SYNC_FOLDER)
+      return await this.fs.getDirectoryHandle(KEY_SYNC_FOLDER)
     } catch (err) {
       console.error('[SyncService] getSyncFolderHandle failed', err)
       return null
