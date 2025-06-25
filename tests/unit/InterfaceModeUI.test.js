@@ -79,6 +79,11 @@ describe('InterfaceModeUI', () => {
       expect(interfaceModeUI._uiListenersSetup).toBe(false)
       expect(interfaceModeUI._modeButtons).toEqual({})
     })
+
+    it('should initialize handler references as null', () => {
+      expect(interfaceModeUI._modeChangedHandler).toBe(null)
+      expect(interfaceModeUI._environmentChangedHandler).toBe(null)
+    })
   })
 
   describe('Initialization', () => {
@@ -86,7 +91,15 @@ describe('InterfaceModeUI', () => {
       interfaceModeUI.init()
 
       expect(mockEventBus.on).toHaveBeenCalledWith('mode-changed', expect.any(Function))
+      expect(mockEventBus.on).toHaveBeenCalledWith('environment:changed', expect.any(Function))
       expect(interfaceModeUI._uiListenersSetup).toBe(true)
+    })
+
+    it('should store handler references after setup', () => {
+      interfaceModeUI.init()
+
+      expect(interfaceModeUI._modeChangedHandler).toBeInstanceOf(Function)
+      expect(interfaceModeUI._environmentChangedHandler).toBeInstanceOf(Function)
     })
 
     it('should setup mode buttons on init', () => {
@@ -201,12 +214,114 @@ describe('InterfaceModeUI', () => {
   })
 
   describe('Cleanup', () => {
-    it('should cleanup event listeners on destroy', () => {
+    it('should cleanup event listeners on destroy with specific handler references', () => {
       interfaceModeUI.init()
+      
+      // Store references to the handlers that were registered
+      const modeChangedHandler = interfaceModeUI._modeChangedHandler
+      const environmentChangedHandler = interfaceModeUI._environmentChangedHandler
+      
       interfaceModeUI.destroy()
 
-      expect(mockEventBus.off).toHaveBeenCalledWith('mode-changed')
+      // Verify off was called with the specific handler references
+      expect(mockEventBus.off).toHaveBeenCalledWith('mode-changed', modeChangedHandler)
+      expect(mockEventBus.off).toHaveBeenCalledWith('environment:changed', environmentChangedHandler)
       expect(interfaceModeUI._uiListenersSetup).toBe(false)
+    })
+
+    it('should not call off if listeners were never setup', () => {
+      // Don't call init() - listeners never setup
+      interfaceModeUI.destroy()
+
+      expect(mockEventBus.off).not.toHaveBeenCalled()
+    })
+
+    it('should cleanup DOM event listeners', () => {
+      interfaceModeUI._modeButtons = {
+        space: mockSpaceBtn,
+        ground: mockGroundBtn,
+        alias: mockAliasBtn
+      }
+
+      interfaceModeUI.destroy()
+
+      expect(mockSpaceBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
+      expect(mockGroundBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
+      expect(mockAliasBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
+    })
+  })
+
+  describe('Event Listener Cleanup Regression Test', () => {
+    it('should only remove its own handlers, not all handlers for the event', () => {
+      // This test verifies the bug fix - that we don't remove ALL handlers for an event
+      
+      // Create a real eventBus instance to test the actual behavior
+      const realEventBus = {
+        listeners: new Map(),
+        on(event, callback) {
+          if (!this.listeners.has(event)) {
+            this.listeners.set(event, new Set())
+          }
+          this.listeners.get(event).add(callback)
+        },
+        off(event, callback) {
+          const eventListeners = this.listeners.get(event)
+          if (eventListeners) {
+            if (callback) {
+              eventListeners.delete(callback)
+            } else {
+              // This is the bug - removing all listeners when no callback provided
+              eventListeners.clear()
+            }
+          }
+        },
+        emit(event, data) {
+          const eventListeners = this.listeners.get(event)
+          if (eventListeners) {
+            eventListeners.forEach(callback => callback(data))
+          }
+        }
+      }
+
+      // Create UI with real event bus
+      const uiWithRealBus = new InterfaceModeUI({
+        service: mockService,
+        eventBus: realEventBus,
+        ui: mockUI,
+        profileUI: mockProfileUI,
+        document: mockDocument
+      })
+
+      // Add other handlers to the same events (simulating other components)
+      const otherModeChangedHandler = vi.fn()
+      const otherEnvironmentChangedHandler = vi.fn()
+      realEventBus.on('mode-changed', otherModeChangedHandler)
+      realEventBus.on('environment:changed', otherEnvironmentChangedHandler)
+
+      // Initialize our UI (adds its own handlers)
+      uiWithRealBus.init()
+
+      // Verify both handlers are present
+      expect(realEventBus.listeners.get('mode-changed').size).toBe(2)
+      expect(realEventBus.listeners.get('environment:changed').size).toBe(2)
+
+      // Destroy our UI
+      uiWithRealBus.destroy()
+
+      // Verify only our UI's handlers were removed, other handlers remain
+      expect(realEventBus.listeners.get('mode-changed').size).toBe(1)
+      expect(realEventBus.listeners.get('environment:changed').size).toBe(1)
+
+      // Verify the remaining handlers are the other ones
+      expect(realEventBus.listeners.get('mode-changed').has(otherModeChangedHandler)).toBe(true)
+      expect(realEventBus.listeners.get('environment:changed').has(otherEnvironmentChangedHandler)).toBe(true)
+
+      // Verify the other handlers still work
+      realEventBus.emit('mode-changed', { newMode: 'test' })
+      realEventBus.emit('environment:changed', { environment: 'test' })
+      
+      expect(otherModeChangedHandler).toHaveBeenCalledWith({ newMode: 'test' })
+      expect(otherEnvironmentChangedHandler).toHaveBeenCalledWith({ environment: 'test' })
     })
   })
 }) 

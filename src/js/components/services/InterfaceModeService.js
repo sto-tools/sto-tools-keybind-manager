@@ -17,11 +17,16 @@ export default class InterfaceModeService extends ComponentBase {
     this._currentMode = 'space'
     this._modeListenersSetup = false
 
+    // Store handler references for proper cleanup
+    this._modeSwitchedHandler = null
+    this._profileSwitchedHandler = null
+    this._responseDetachFunction = null
+
     // ---------------------------------------------------------
     // Register Request/Response topic for current environment
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'state:current-environment', () => this._currentMode)
+      this._responseDetachFunction = respond(this.eventBus, 'state:current-environment', () => this._currentMode)
     }
   }
 
@@ -69,17 +74,22 @@ export default class InterfaceModeService extends ComponentBase {
       return
     }
 
-    // Listen for mode switch events
-    this.eventBus.on('mode-switched', (data) => {
+    // Create handler functions and store references for cleanup
+    this._modeSwitchedHandler = (data) => {
       this.switchMode(data.mode)
-    })
+    }
 
-    // Listen for profile switches to update mode
-    this.eventBus.on('profile-switched', (data) => {
+    this._profileSwitchedHandler = (data) => {
       if (data.environment) {
         this.switchMode(data.environment)
       }
-    })
+    }
+
+    // Listen for mode switch events
+    this.eventBus.on('mode-switched', this._modeSwitchedHandler)
+
+    // Listen for profile switches to update mode
+    this.eventBus.on('profile-switched', this._profileSwitchedHandler)
 
     this._modeListenersSetup = true
   }
@@ -161,10 +171,18 @@ export default class InterfaceModeService extends ComponentBase {
    */
   destroy() {
     if (this._modeListenersSetup) {
-      this.eventBus.off('mode-switched')
-      this.eventBus.off('profile-switched')
+      // Properly remove event listeners using stored handler references
+      this.eventBus.off('mode-switched', this._modeSwitchedHandler)
+      this.eventBus.off('profile-switched', this._profileSwitchedHandler)
       this._modeListenersSetup = false
     }
+
+    // Clean up request/response handler
+    if (this._responseDetachFunction) {
+      this._responseDetachFunction()
+      this._responseDetachFunction = null
+    }
+
     super.destroy()
   }
 

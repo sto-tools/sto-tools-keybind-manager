@@ -15,6 +15,10 @@ export default class InterfaceModeUI extends ComponentBase {
     // Internal state
     this._uiListenersSetup = false
     this._modeButtons = {}
+
+    // Store handler references for proper cleanup
+    this._modeChangedHandler = null
+    this._environmentChangedHandler = null
   }
 
   /**
@@ -37,17 +41,22 @@ export default class InterfaceModeUI extends ComponentBase {
       return
     }
 
-    // Listen for mode change events from service
-    this.eventBus.on('mode-changed', (data) => {
+    // Create handler functions and store references for cleanup
+    this._modeChangedHandler = (data) => {
       this.updateModeUI(data.newMode)
-    })
+    }
+
+    this._environmentChangedHandler = (d = {}) => {
+      const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      if (env) this.updateModeUI(env)
+    }
+
+    // Listen for mode change events from service
+    this.eventBus.on('mode-changed', this._modeChangedHandler)
 
     // Also respond to generic environment change events that other services
     // emit (InterfaceModeService uses this topic as its primary broadcast).
-    this.eventBus.on('environment:changed', (d = {}) => {
-      const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
-      if (env) this.updateModeUI(env)
-    })
+    this.eventBus.on('environment:changed', this._environmentChangedHandler)
 
     this._uiListenersSetup = true
   }
@@ -180,8 +189,9 @@ export default class InterfaceModeUI extends ComponentBase {
    */
   destroy() {
     if (this._uiListenersSetup) {
-      this.eventBus.off('mode-changed')
-      this.eventBus.off('environment:changed')
+      // Properly remove event listeners using stored handler references
+      this.eventBus.off('mode-changed', this._modeChangedHandler)
+      this.eventBus.off('environment:changed', this._environmentChangedHandler)
       this._uiListenersSetup = false
     }
 
