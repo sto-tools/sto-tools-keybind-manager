@@ -1,7 +1,7 @@
 // Service Components
 // export { default as storage } from '../../services/storage.js' // removed legacy shim reference
 export { default as PreferencesService } from './PreferencesService.js'
-export { projectManagement } from '../../services/projectManagement.js'
+export { default as ProjectManagementService } from './ProjectManagementService.js'
 //export { fsHandles } from '../../services/fsHandles.js'
 export { default as AutoSync } from './AutoSync.js'
 export { default as ProfileService } from './ProfileService.js'

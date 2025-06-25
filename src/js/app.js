@@ -10,7 +10,7 @@ import { uiRendering } from './ui/uiRendering.js'
 import { parameterCommands } from './features/parameterCommands.js'
 import { keyCapture } from './ui/keyCapture.js'
 import { EventHandlerService, InterfaceModeService } from './components/services/index.js'
-import { projectManagement } from './services/projectManagement.js'
+import { ProjectManagementService } from './components/services/index.js'
 import { InterfaceModeUI } from './components/ui/index.js'
 import { CommandService, CommandLibraryService } from './components/services/index.js'
 import { CommandLibraryUI, CommandUI } from './components/ui/index.js'
@@ -39,6 +39,9 @@ export default class STOToolsKeybindManager {
     this.keyBrowserService = null
     this.keyBrowserUI = null
     this.commandUI = null
+
+    // Project management service (export/import operations)
+    this.projectManagementService = null
 
     // Bind key capture handlers once for consistent add/remove
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
@@ -432,6 +435,19 @@ export default class STOToolsKeybindManager {
       if (this.eventHandlerService) {
         this.eventHandlerService.preferencesManager = this.preferencesUI
       }
+
+      // ------------------------------
+      // Project management service (new)
+      // ------------------------------
+      this.projectManagementService = new ProjectManagementService({
+        storage: storageService,
+        ui: stoUI,
+        exportManager: window.stoExport,
+        i18n: i18next,
+        app: this,
+        eventBus,
+      })
+      // No special init needed currently
     } catch (error) {
       // dbg('Failed to initialize application:', error)
       // dbg('Error stack:', error.stack)
@@ -798,6 +814,34 @@ export default class STOToolsKeybindManager {
       return this.interfaceModeService.setCurrentMode(mode)
     }
   }
+
+  /* --------------------------------------------------
+   * Project management wrappers (delegates to service)
+   * ------------------------------------------------ */
+  exportProject(...args) {
+    return this.projectManagementService?.exportProject(...args)
+  }
+  importProject(...args) {
+    return this.projectManagementService?.importProject(...args)
+  }
+  loadProjectFromFile(...args) {
+    return this.projectManagementService?.loadProjectFromFile(...args)
+  }
+  saveProjectToFile(...args) {
+    return this.projectManagementService?.saveProjectToFile(...args)
+  }
+  validateProjectData(...args) {
+    return this.projectManagementService?.validateProjectData(...args)
+  }
+  openProject(...args) {
+    return this.projectManagementService?.openProject(...args)
+  }
+  saveProject(...args) {
+    return this.projectManagementService?.saveProject(...args)
+  }
+  exportKeybinds(...args) {
+    return this.projectManagementService?.exportKeybinds(...args)
+  }
 }
 
 // Apply mixins to prototype
@@ -807,7 +851,6 @@ Object.assign(
   uiRendering,
   parameterCommands,
   keyCapture,
-  projectManagement,
   viewManagement,
   welcome,
 )
