@@ -16,7 +16,6 @@ export default class ComponentBase {
    */
   init() {
     if (this.initialized) {
-      console.warn(`${this.constructor.name} is already initialized`)
       return
     }
     
@@ -71,7 +70,6 @@ export default class ComponentBase {
    */
   addEventListener(event, handler, context = null) {
     if (!this.eventBus) {
-      console.warn(`${this.constructor.name}: No eventBus available for addEventListener`)
       return
     }
 
@@ -91,7 +89,6 @@ export default class ComponentBase {
    */
   removeEventListener(event, handler) {
     if (!this.eventBus) {
-      console.warn(`${this.constructor.name}: No eventBus available for removeEventListener`)
       return
     }
 
@@ -117,7 +114,7 @@ export default class ComponentBase {
     if (this.eventBus && typeof this.eventBus.emit === 'function') {
       this.eventBus.emit(event, data)
     } else if (!this.eventBus) {
-      console.warn(`${this.constructor.name}: No eventBus available for emit`)
+      return
     }
 
     // Also call any listeners registered through this component in cases where

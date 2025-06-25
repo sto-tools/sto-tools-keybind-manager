@@ -18,21 +18,14 @@ import { SyncService } from './components/services/index.js'
 import VertigoManager, { VFX_EFFECTS } from './features/vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './ui/version.js'
-
-console.log('TEST: STOToolsKeybindManager class imported:', STOToolsKeybindManager)
-
 // Create new StorageService component
 const storageService = new StorageService({ eventBus })
 storageService.init()
-
-console.log('TEST: storageService initialized')
-
 // Get settings from the new StorageService
 const settings = storageService.getSettings()
 
-;(async () => {
-
-  console.log('TEST: i18next init')
+;(async () => {  
+  
   await i18next.init({
     lng: settings.language || 'en',
     fallbackLng: 'en',
@@ -123,30 +116,18 @@ const settings = storageService.getSettings()
   })
 
   // Initialize app after dependencies are available
-  console.log('TEST: About to create STOToolsKeybindManager instance')
+
   const app = new STOToolsKeybindManager()
-  console.log('TEST: Created app instance:', app)
-  console.log('TEST: app constructor name:', app.constructor.name)
-  console.log('TEST: app prototype:', Object.getPrototypeOf(app))
   window.app = app
-
-  console.log('TEST: app initialized')
-
   // Initialize the app - this will emit 'sto-app-ready' when complete
-  console.log('TEST: About to call app.init(), storageService:', typeof storageService, 'stoUI:', typeof stoUI)
-  console.log('TEST: app instance:', app)
-  console.log('TEST: app.init type:', typeof app.init)
-  console.log('TEST: app.init method:', app.init)
-
   if (typeof app.init !== 'function') {
-    console.error('TEST: app.init is not a function!')
+    console.error('app.init is not a function!')
   } else {
     try {
       const initPromise = app.init()
-      console.log('TEST: app.init() returned:', initPromise)
+
       if (initPromise && typeof initPromise.catch === 'function') {
         await initPromise
-        console.log('TEST: app.init() completed successfully')
       } else {
         console.error('TEST: app.init() did not return a Promise')
       }
@@ -165,6 +146,4 @@ const settings = storageService.getSettings()
       stoFileExplorer.init()
     }
   })
-
-  })()
-
+})()

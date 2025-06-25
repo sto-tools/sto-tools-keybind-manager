@@ -22,7 +22,6 @@ export default class InterfaceModeService extends ComponentBase {
   init() {
     super.init()
     this.setupEventListeners()
-    console.log('[InterfaceModeService] Initialized')
   }
 
   /**
@@ -58,7 +57,6 @@ export default class InterfaceModeService extends ComponentBase {
    */
   setupEventListeners() {
     if (this._modeListenersSetup) {
-      console.log('[InterfaceModeService] Event listeners already setup')
       return
     }
 
@@ -75,25 +73,18 @@ export default class InterfaceModeService extends ComponentBase {
     })
 
     this._modeListenersSetup = true
-    console.log('[InterfaceModeService] Event listeners setup complete')
   }
 
   /**
    * Switch to a new mode
    */
-  switchMode(mode) {
-    console.log('[InterfaceModeService] switchMode called with mode:', mode)
-    console.log('[InterfaceModeService] current mode before switch:', this._currentMode)
-    
+  switchMode(mode) {   
     if (mode === this._currentMode) {
-      console.log('[InterfaceModeService] Mode already set, skipping')
       return
     }
 
     const oldMode = this._currentMode
     this._currentMode = mode
-
-    console.log('[InterfaceModeService] Mode updated to:', mode)
 
     // Update profile data
     this.updateProfileMode(mode)
@@ -103,8 +94,6 @@ export default class InterfaceModeService extends ComponentBase {
       oldMode,
       newMode: mode
     })
-    
-    console.log('[InterfaceModeService] Mode switch completed')
   }
 
   /**
@@ -150,7 +139,6 @@ export default class InterfaceModeService extends ComponentBase {
   initializeFromProfile(profile) {
     if (profile?.currentEnvironment) {
       this._currentMode = profile.currentEnvironment
-      console.log('[InterfaceModeService] Initialized mode from profile:', this._currentMode)
     }
   }
 

@@ -33,20 +33,16 @@ export default class EventHandlerService extends ComponentBase {
    * Initialize all event handlers
    */
   initEventHandlers() {
-    console.log('[EventHandlerService] initEventHandlers called')
     // Ensure the DOM is fully parsed before we attempt to query for buttons.
     // If we run too early the mode-toggle elements won't exist and listeners
     // will never attach (then getEventListeners() → undefined).
     if (document.readyState === 'loading') {
-      console.log('[EventHandlerService] DOM not ready – deferring listener setup')
       document.addEventListener('DOMContentLoaded', () => {
-        console.log('[EventHandlerService] DOMContentLoaded – setting up listeners')
         this.setupEventListeners()
         // Ensure mode toggle listeners are attached once real buttons exist
         this.registerModeToggleHandler()
       }, { once: true })
     } else {
-      console.log('[EventHandlerService] DOM ready – setting up listeners immediately')
       this.setupEventListeners()
       this.registerModeToggleHandler()
     }
@@ -56,30 +52,16 @@ export default class EventHandlerService extends ComponentBase {
    * Setup all event listeners
    */
   setupEventListeners() {
-    console.log('TEST: setupEventListeners called!')
-    console.log('TEST: Checking mode buttons at setupEventListeners time:')
     const spaceBtnCheck = document.querySelector('[data-mode="space"]')
     const groundBtnCheck = document.querySelector('[data-mode="ground"]')
     const aliasBtnCheck = document.querySelector('[data-mode="alias"]')
-    console.log('TEST: Mode buttons exist:', {
-      space: !!spaceBtnCheck,
-      ground: !!groundBtnCheck,
-      alias: !!aliasBtnCheck
-    })
     // Prevent double-registration in case initEventHandlers() fires twice
     if (this._ehListenersSetup) return
     this._ehListenersSetup = true
-
-    console.log('[EventHandlerService] setupEventListeners called at:', new Date().toISOString())
-    console.log('[EventHandlerService] DOM readyState:', document.readyState)
-    
+ 
     // Check if key elements exist
     const vertigoBtn = document.getElementById('vertigoBtn')
     const settingsBtn = document.getElementById('settingsBtn')
-    console.log('[EventHandlerService] Element existence check:', {
-      vertigoBtn: !!vertigoBtn,
-      settingsBtn: !!settingsBtn
-    })
 
     // Profile management events
     this.eventBus.on('profile:create', (data) => {
@@ -130,7 +112,7 @@ export default class EventHandlerService extends ComponentBase {
     const setupModeButtonHandlers = () => {
       const modeToggleContainer = document.querySelector('.mode-toggle')
       if (!modeToggleContainer) {
-        console.warn('[EventHandlerService] .mode-toggle container not found – mode buttons will not function')
+        console.warn('[EventHandlerService] .mode-toggle container not found - mode buttons will not function')
         return
       }
 
@@ -139,8 +121,6 @@ export default class EventHandlerService extends ComponentBase {
         return
       }
       this._modeToggleHandlerAdded = true
-
-      console.log('[EventHandlerService] Registering delegated click handler for mode toggle container')
 
       // Delegate all click events from the container so that dynamically re-rendered
       // buttons (e.g. after language changes) continue to work without requiring
@@ -155,16 +135,12 @@ export default class EventHandlerService extends ComponentBase {
         e.stopPropagation()
         e.preventDefault()
 
-        console.log(`[EventHandlerService] Mode button ("${mode}") clicked via delegation`)
-
         try {
           this.switchMode(mode)
         } catch (error) {
           console.error('[EventHandlerService] Error calling switchMode:', error)
         }
       })
-
-      console.log('[EventHandlerService] Delegated mode toggle handler registered')
     }
 
     // Set up mode button handlers immediately since DOM should be ready
@@ -188,14 +164,10 @@ export default class EventHandlerService extends ComponentBase {
     })
 
     // Vertigo VFX manager
-    console.log('[EventHandlerService] About to register vertigoBtn click handler')
     const vertigoBtnCheck = document.getElementById('vertigoBtn')
-    console.log('[EventHandlerService] vertigoBtn exists before registration:', !!vertigoBtnCheck)
     this.eventBus.onDom('vertigoBtn', 'click', 'vertigo-open', () => {
-      console.log('[EventHandlerService] VFX button clicked!')
       this.showVertigoModal()
     })
-    console.log('[EventHandlerService] vertigoBtn event registration completed')
 
     // Key management
     this.eventBus.onDom('addKeyBtn', 'click', 'key-add', () => {
@@ -381,10 +353,8 @@ export default class EventHandlerService extends ComponentBase {
    * Setup global UI event listeners
    */
   setupGlobalUIEventListeners() {
-    console.log('[DEBUG] setupGlobalUIEventListeners invoked')
     // Settings dropdown
     this.eventBus.onDom('settingsBtn', 'click', 'settings-menu', (e) => {
-      console.log('[DEBUG] settingsBtn click captured via eventBus.onDom')
       e.stopPropagation()
       this.toggleSettingsMenu()
     })
@@ -509,14 +479,10 @@ export default class EventHandlerService extends ComponentBase {
 
   // Dropdown menu methods
   toggleSettingsMenu() {
-    console.log('[DEBUG] toggleSettingsMenu called')
     const btn = document.getElementById('settingsBtn')
     const dropdown = btn?.closest('.dropdown')
-    console.log('[DEBUG] settings dropdown element:', dropdown)
     if (dropdown) {
-      console.log('[DEBUG] toggling active class. Previously active:', dropdown.classList.contains('active'))
       dropdown.classList.toggle('active')
-      console.log('[DEBUG] active class now:', dropdown.classList.contains('active'))
     }
   }
 
@@ -976,8 +942,6 @@ export default class EventHandlerService extends ComponentBase {
 
     this._modeToggleHandlerAdded = true
 
-    console.log('[EventHandlerService] Registering delegated click handler for mode toggle container (late)')
-
     modeToggleContainer.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-mode]')
       if (!btn || btn.disabled) return
@@ -988,8 +952,6 @@ export default class EventHandlerService extends ComponentBase {
       e.stopPropagation()
       e.preventDefault()
 
-      console.log(`[EventHandlerService] Mode button ("${mode}") clicked via delegation`)
-
       try {
         this.switchMode(mode)
       } catch (error) {
@@ -997,7 +959,6 @@ export default class EventHandlerService extends ComponentBase {
       }
     })
 
-    console.log('[EventHandlerService] Delegated mode toggle handler registered (late)')
     return true
   }
 

@@ -51,16 +51,14 @@ describe('ComponentBase', () => {
     })
 
     it('should not initialize twice', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       const onInitSpy = vi.spyOn(component, 'onInit')
       
       component.init()
       component.init() // Second call
       
-      expect(consoleSpy).toHaveBeenCalledWith('ComponentBase is already initialized')
       expect(onInitSpy).toHaveBeenCalledOnce()
-      
-      consoleSpy.mockRestore()
+      expect(component.isInitialized()).toBe(true)
+      expect(component.isDestroyed()).toBe(false)
     })
 
     it('should destroy component correctly', () => {
