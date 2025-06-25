@@ -43,7 +43,7 @@ function onDom(target, domEvent, busEvent, handler) {
     const delegated = (e) => {
       const match = e.target.closest(selector)
       if (selector === '#settingsBtn') {
-        console.log('[DEBUG:eventBus] click captured (capture phase) target:', e.target, 'match:', match)
+        // console.log('[DEBUG:eventBus] click captured (capture phase) target:', e.target, 'match:', match)
       }
       if (!match) return
 
@@ -57,9 +57,9 @@ function onDom(target, domEvent, busEvent, handler) {
       emit(busEvent || domEvent, e)
 
       // Debug: log delegated handler fired
-      if (target === 'settingsBtn' || selector === '#settingsBtn') {
-        console.log('[DEBUG:eventBus] delegated handler fired for settingsBtn')
-      }
+      // if (target === 'settingsBtn' || selector === '#settingsBtn') {
+      //   console.log('[DEBUG:eventBus] delegated handler fired for settingsBtn')
+      // }
     }
     document.addEventListener(domEvent, delegated, true)
 
