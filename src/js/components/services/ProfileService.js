@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * ProfileService - Handles all profile data operations
@@ -12,6 +13,23 @@ export default class ProfileService extends ComponentBase {
     this.currentProfile = null
     this.currentEnvironment = 'space'
     this.isModified = false
+
+    // ---------------------------------------------------------
+    // Register Request/Response topics for state management and
+    // profile operations. This allows other modules to communicate
+    // with the ProfileService without holding a direct reference.
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'state:current-profile', () => this.getCurrentProfileId())
+      respond(this.eventBus, 'profile:get-current', () => this.getCurrentProfile())
+      respond(this.eventBus, 'profile:switch', ({ id } = {}) => this.switchProfile(id))
+      respond(this.eventBus, 'profile:create', ({ name, description } = {}) => this.createProfile(name, description))
+      respond(this.eventBus, 'profile:delete', ({ id } = {}) => this.deleteProfile(id))
+      respond(this.eventBus, 'profile:list', () => {
+        const data = this.storage?.getAllData?.()
+        return data ? data.profiles : {}
+      })
+    }
   }
 
   /**

@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -16,6 +17,17 @@ export default class CommandService extends ComponentBase {
     this.selectedKey = null
     this.currentEnvironment = 'space'
     this.currentProfile = null
+
+    // ---------------------------------------------------------
+    // Register Request/Response topics for command operations
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'command:add', ({ key, command } = {}) => this.addCommand(key, command))
+      respond(this.eventBus, 'command:delete', ({ key, index } = {}) => this.deleteCommand(key, index))
+      respond(this.eventBus, 'command:move', ({ key, fromIndex, toIndex } = {}) => this.moveCommand(key, fromIndex, toIndex))
+      respond(this.eventBus, 'command:get-for-key', ({ key } = {}) => this.getCommandsForKey(key))
+      respond(this.eventBus, 'command:validate', ({ command } = {}) => this.validateCommand(command))
+    }
   }
 
   /* ------------------------------------------------------------------
@@ -285,5 +297,30 @@ export default class CommandService extends ComponentBase {
       // Reset key selection – UI will emit a fresh key-selected later.
       this.selectedKey = null
     })
+  }
+
+  /**
+   * Return all commands associated with a key for the current environment.
+   * Alias environment returns the split command string array.
+   */
+  getCommandsForKey (key) {
+    const profile = this.getCurrentProfile()
+    if (!profile) return []
+
+    if (this.currentEnvironment === 'alias') {
+      const alias = profile.aliases && profile.aliases[key]
+      if (!alias || !alias.commands) return []
+      return alias.commands.split(/\s*\$\$\s*/).filter(c => c.trim().length > 0)
+    }
+    return profile.keys[key] || []
+  }
+
+  /**
+   * Placeholder command validator – always returns true.
+   * Can be expanded later with proper validation logic.
+   */
+  validateCommand (command) {
+    if (!command) return { valid: false, reason: 'empty' }
+    return { valid: true }
   }
 } 

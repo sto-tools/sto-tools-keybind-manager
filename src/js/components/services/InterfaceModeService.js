@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * InterfaceModeService - Handles mode switching logic and state management
@@ -14,6 +15,13 @@ export default class InterfaceModeService extends ComponentBase {
     // Internal state
     this._currentMode = 'space'
     this._modeListenersSetup = false
+
+    // ---------------------------------------------------------
+    // Register Request/Response topic for current environment
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'state:current-environment', () => this._currentMode)
+    }
   }
 
   /**

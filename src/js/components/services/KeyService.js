@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * KeyService – the authoritative service for creating, deleting and duplicating
@@ -22,6 +23,17 @@ export default class KeyService extends ComponentBase {
      * ------------------------------------------------------------------ */
     // Generate valid key list once
     this.validKeys = this.generateValidKeys()
+
+    // ---------------------------------------------------------
+    // Register Request/Response topics for key state and actions
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'state:selected-key', () => this.selectedKey)
+      respond(this.eventBus, 'key:get-selected', () => this.selectedKey)
+      respond(this.eventBus, 'key:select', ({ key } = {}) => this.selectKey(key))
+      respond(this.eventBus, 'key:add', ({ key } = {}) => this.addKey(key))
+      respond(this.eventBus, 'key:delete', ({ key } = {}) => this.deleteKey(key))
+    }
   }
 
   /* ------------------------------------------------------------------
