@@ -13,7 +13,7 @@ import STOExportManager from './features/export.js'
 import STOModalManager from './ui/modalManager.js'
 import STOUIManager from './ui/ui.js'
 import STOCommandManager from './features/commands.js'
-import STOFileExplorer from './ui/fileexplorer.js'
+import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
 import VertigoManager, { VFX_EFFECTS } from './features/vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
@@ -103,7 +103,9 @@ const settings = storageService.getSettings()
   const modalManager = new STOModalManager()
   const stoUI = new STOUIManager()
   const stoCommands = new STOCommandManager()
-  const stoFileExplorer = new STOFileExplorer()
+  const stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })
+  // Init immediately so header Explorer button works without waiting for sto-app-ready
+  stoFileExplorer.init()
   const vertigoManager = new VertigoManager()
   const stoSync = new SyncService({ storage: storageService, ui: window.stoUI })
   Object.assign(window, {
@@ -158,7 +160,10 @@ const settings = storageService.getSettings()
     // Profile initialization is now handled by the app instance
     stoKeybinds.init()
     stoExport.init()
-    stoFileExplorer.init()
+    // Already initialized above, but ensure ready when app starts
+    if (!stoFileExplorer.isInitialized()) {
+      stoFileExplorer.init()
+    }
   })
 
   })()

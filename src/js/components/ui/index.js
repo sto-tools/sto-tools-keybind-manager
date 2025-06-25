@@ -11,6 +11,6 @@ export { viewManagement } from '../../ui/viewManagement.js'
 
 // UI Rendering
 export { uiRendering } from '../../ui/uiRendering.js'
-export { default as fileexplorer } from '../../ui/fileexplorer.js'
+export { default as FileExplorerUI } from './FileExplorerUI.js'
 export { welcome } from '../../ui/welcome.js'
 export { default as AliasModalUI } from './AliasModalUI.js' 

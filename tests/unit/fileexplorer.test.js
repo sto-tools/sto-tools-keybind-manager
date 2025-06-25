@@ -6,7 +6,7 @@ import eventBus from '../../src/js/core/eventBus.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 import STOExportManager from '../../src/js/features/export.js'
-import STOFileExplorer from '../../src/js/ui/fileexplorer.js'
+import FileExplorerUI from '../../src/js/components/ui/FileExplorerUI.js'
 
 // Load real HTML
 const htmlContent = readFileSync(
@@ -19,7 +19,7 @@ let stoUI
 let storageService
 let stoExport
 
-describe('STOFileExplorer', () => {
+describe('FileExplorerUI', () => {
   beforeEach(async () => {
     // Reset DOM
     document.documentElement.innerHTML = htmlContent
@@ -36,7 +36,7 @@ describe('STOFileExplorer', () => {
     storageService = new StorageService()
     stoExport = new STOExportManager()
     Object.assign(global, { stoUI, storageService, stoExport })
-    stoFileExplorer = new STOFileExplorer()
+    stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })
     global.stoFileExplorer = stoFileExplorer
     stoFileExplorer.init()
   })
