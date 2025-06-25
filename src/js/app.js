@@ -14,11 +14,10 @@ import { ProjectManagementService } from './components/services/index.js'
 import { InterfaceModeUI } from './components/ui/index.js'
 import { CommandService, CommandLibraryService } from './components/services/index.js'
 import { CommandLibraryUI, CommandUI } from './components/ui/index.js'
-import { AliasModalService, AliasModalUI } from './components/aliases/index.js'
+import { AliasBrowserService, AliasBrowserUI } from './components/aliases/index.js'
 import { viewManagement } from './ui/viewManagement.js'
 import { welcome } from './ui/welcome.js'
 import { CommandChainService, CommandChainUI } from './components/chain/index.js'
-import { AliasBrowserService, AliasBrowserUI } from './components/aliases/index.js'
 import { KeyBrowserService, KeyBrowserUI } from './components/keybinds/index.js'
 import { PreferencesService } from './components/services/index.js'
 import PreferencesUI from './components/ui/PreferencesUI.js'
@@ -135,23 +134,6 @@ export default class STOToolsKeybindManager {
         throw error
       }
 
-      // dbg('About to create AliasModalService')
-      this.aliasService = new AliasModalService({
-        eventBus,
-        storage: storageService,
-        ui: stoUI,
-      })
-
-      // dbg('AliasModalService created')
-      this.aliasUI = new AliasModalUI({
-        service: this.aliasService,
-        eventBus,
-        ui: stoUI,
-        modalManager,
-        document,
-      })
-
-      // dbg('AliasModalUI created')
       // ------------------------------
       // Alias Browser (grid selector)
       // ------------------------------
@@ -302,19 +284,18 @@ export default class STOToolsKeybindManager {
       }
 
       // dbg('Command library synced')
-      window.stoAliases = this.aliasUI
+      // Legacy global reference kept for backward compatibility (now points to alias browser UI)
+      window.stoAliases = this.aliasBrowserUI
 
       // dbg('Setting up sto-app-ready event handler')
       eventBus.on('sto-app-ready', () => {
-        this.aliasService.init()
-        this.aliasUI.init()
+        this.aliasBrowserService.init()
+        this.aliasBrowserUI.init()
         // commandService is initialized earlier, so we don't need to call it here
         // this.commandService.init()
         this.commandLibraryService.init()
         this.commandChainService.init()
         this.commandChainUI.init()
-        this.aliasBrowserService.init()
-        this.aliasBrowserUI.init()
         this.keyBrowserService.init()
         this.keyBrowserUI.init()
         this.commandUI.init()
@@ -698,9 +679,10 @@ export default class STOToolsKeybindManager {
 
   // Alias management proxy methods for backward compatibility
   createAliasChain(name, description = '') {
-    if (this.aliasService) {
-      return this.aliasService.createAliasChain(name, description)
+    if (this.aliasBrowserService && typeof this.aliasBrowserService.createAlias === 'function') {
+      return this.aliasBrowserService.createAlias(name, description)
     }
+    return false
   }
 
   renderAliasGrid() {

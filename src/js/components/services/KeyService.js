@@ -448,26 +448,26 @@ export default class KeyService extends ComponentBase {
     const result = super.importAliasFile ? super.importAliasFile(content) : undefined
     // If super didn't exist (should not happen) use existing logic
     if (result === undefined) {
-      const parsed = this.parseKeybindFile(content)
-      const aliasCount = Object.keys(parsed.aliases).length
-      if (aliasCount === 0) return { success: false, error: 'No aliases found' }
+    const parsed = this.parseKeybindFile(content)
+    const aliasCount = Object.keys(parsed.aliases).length
+    if (aliasCount === 0) return { success: false, error: 'No aliases found' }
 
-      const storage = this.storage || (typeof window !== 'undefined' && window.storageService)
-      const profileId = this.currentProfile || (typeof window !== 'undefined' && window.app?.currentProfile)
-      if (!storage || !profileId) return { success: false, error: 'No active profile' }
+    const storage = this.storage || (typeof window !== 'undefined' && window.storageService)
+    const profileId = this.currentProfile || (typeof window !== 'undefined' && window.app?.currentProfile)
+    if (!storage || !profileId) return { success: false, error: 'No active profile' }
 
-      const profile = storage.getProfile(profileId) || { aliases: {} }
-      if (!profile.aliases) profile.aliases = {}
-      Object.entries(parsed.aliases).forEach(([name, data]) => {
-        profile.aliases[name] = { commands: data.commands, description: '' }
-      })
-      storage.saveProfile(profileId, profile)
+    const profile = storage.getProfile(profileId) || { aliases: {} }
+    if (!profile.aliases) profile.aliases = {}
+    Object.entries(parsed.aliases).forEach(([name, data]) => {
+      profile.aliases[name] = { commands: data.commands, description: '' }
+    })
+    storage.saveProfile(profileId, profile)
 
       if (typeof window !== 'undefined') {
         window.app?.setModified?.(true)
       }
 
-      return { success: true, imported: { aliases: aliasCount }, errors: parsed.errors }
+    return { success: true, imported: { aliases: aliasCount }, errors: parsed.errors }
     }
 
     // If super implementation succeeded, replicate modification flag
