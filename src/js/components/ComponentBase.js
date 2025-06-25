@@ -22,7 +22,24 @@ export default class ComponentBase {
     this.initialized = true
     this.destroyed = false
     
-    // Setup component-specific initialization in subclasses
+    // ---------------------------------------------------------
+    // Late-Join State Registration handshake setup
+    // ---------------------------------------------------------
+    // 1) Listen for other components registering so we can
+    //    respond with our current state.
+    this.addEventListener('component:register', this._onComponentRegister.bind(this))
+
+    // 2) Prepare a unique reply topic for this component instance
+    this._myReplyTopic = `component:registered:reply:${this.getComponentName()}:${Date.now()}`
+    this.addEventListener(this._myReplyTopic, this._onInitialState.bind(this))
+
+    // 3) Announce our readiness so existing components can reply
+    this.emit('component:register', {
+      name: this.getComponentName(),
+      replyTopic: this._myReplyTopic
+    })
+
+    // 4) Continue with component-specific initialization
     this.onInit()
   }
 
@@ -171,5 +188,48 @@ export default class ComponentBase {
    */
   getComponentName() {
     return this.constructor.name
+  }
+
+  // ---------------------------------------------------------
+  // Late-Join State Registration internal handlers
+  // ---------------------------------------------------------
+  _onComponentRegister({ name, replyTopic } = {}) {
+    // Ignore our own registration messages
+    if (name === this.getComponentName()) return
+
+    // If we are active, provide our current state to the requester
+    if (this.initialized && !this.destroyed) {
+      this.emit(replyTopic, {
+        sender: this.getComponentName(),
+        state: this.getCurrentState()
+      })
+    }
+  }
+
+  _onInitialState({ sender, state } = {}) {
+    if (typeof this.handleInitialState === 'function') {
+      this.handleInitialState(sender, state)
+    }
+  }
+
+  /**
+   * Retrieve a serialisable snapshot representing the component's current state.
+   * Stateful subclasses MUST override this to provide meaningful data.
+   * @returns {*}
+   */
+  getCurrentState() {
+    return null // Default: no state – subclasses should override
+  }
+
+  /**
+   * Optional hook invoked when another component sends its initial state
+   * during the late-join handshake. Subclasses can override to merge or
+   * process the provided state.
+   * @param {string} sender - Name of the component that sent the state
+   * @param {*} state - Serializable state snapshot
+   */
+  /* eslint-disable-next-line */
+  handleInitialState(sender, state) {
+    // No-op by default. Override in subclasses if needed.
   }
 } 
