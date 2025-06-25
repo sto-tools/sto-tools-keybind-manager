@@ -543,5 +543,67 @@ describe('StorageService', () => {
       expect(Object.keys(data.profiles)).toContain('default_space')
       expect(Object.keys(data.profiles)).toContain('tactical_space')
     })
+
+    it('should handle undefined STO_DATA.defaultProfiles gracefully', () => {
+      // Mock STO_DATA to have undefined defaultProfiles
+      const originalSTO_DATA = globalThis.STO_DATA
+      globalThis.STO_DATA = { defaultProfiles: undefined }
+      
+      try {
+        // Create a new storage service instance
+        const testStorage = new StorageService()
+        testStorage.init()
+        
+        const data = testStorage.getAllData()
+        
+        // Should still have valid profiles, not empty objects
+        expect(data.profiles.default_space).toBeDefined()
+        expect(data.profiles.tactical_space).toBeDefined()
+        
+        // Profiles should be valid according to validation rules
+        expect(testStorage.isValidProfile(data.profiles.default_space)).toBe(true)
+        expect(testStorage.isValidProfile(data.profiles.tactical_space)).toBe(true)
+        
+        // Profiles should have required properties
+        expect(data.profiles.default_space.name).toBeDefined()
+        expect(data.profiles.default_space.builds).toBeDefined()
+        expect(data.profiles.tactical_space.name).toBeDefined()
+        expect(data.profiles.tactical_space.builds).toBeDefined()
+      } finally {
+        // Restore original STO_DATA
+        globalThis.STO_DATA = originalSTO_DATA
+      }
+    })
+
+    it('should handle completely missing STO_DATA gracefully', () => {
+      // Mock STO_DATA to be completely undefined
+      const originalSTO_DATA = globalThis.STO_DATA
+      globalThis.STO_DATA = undefined
+      
+      try {
+        // Create a new storage service instance
+        const testStorage = new StorageService()
+        testStorage.init()
+        
+        const data = testStorage.getAllData()
+        
+        // Should still have valid profiles, not empty objects
+        expect(data.profiles.default_space).toBeDefined()
+        expect(data.profiles.tactical_space).toBeDefined()
+        
+        // Profiles should be valid according to validation rules
+        expect(testStorage.isValidProfile(data.profiles.default_space)).toBe(true)
+        expect(testStorage.isValidProfile(data.profiles.tactical_space)).toBe(true)
+        
+        // Profiles should have required properties
+        expect(data.profiles.default_space.name).toBeDefined()
+        expect(data.profiles.default_space.builds).toBeDefined()
+        expect(data.profiles.tactical_space.name).toBeDefined()
+        expect(data.profiles.tactical_space.builds).toBeDefined()
+      } finally {
+        // Restore original STO_DATA
+        globalThis.STO_DATA = originalSTO_DATA
+      }
+    })
   })
 }) 

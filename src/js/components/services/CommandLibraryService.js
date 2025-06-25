@@ -440,15 +440,15 @@ export default class CommandLibraryService extends ComponentBase {
    * Get command categories for the library
    */
   getCommandCategories() {
-    if (!STO_DATA || !STO_DATA.commands) return {}
-    return STO_DATA.commands
+    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return {}
+    return globalThis.STO_DATA.commands
   }
 
   /**
    * Filter command library based on current environment
    */
   filterCommandLibrary() {
-    if (!STO_DATA || !STO_DATA.commands) return
+    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return
 
     const commandItems = document.querySelectorAll('.command-item')
     commandItems.forEach(item => {
@@ -457,7 +457,7 @@ export default class CommandLibraryService extends ComponentBase {
 
       // Find the command definition
       let commandDef = null
-      for (const [catId, catData] of Object.entries(STO_DATA.commands)) {
+      for (const [catId, catData] of Object.entries(globalThis.STO_DATA.commands)) {
         if (catData.commands[commandId]) {
           commandDef = catData.commands[commandId]
           break

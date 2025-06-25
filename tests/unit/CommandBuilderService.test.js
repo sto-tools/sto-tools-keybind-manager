@@ -30,7 +30,7 @@ describe('CommandBuilderService – Tray Commands', () => {
       active: 'on',
     })
     expect(result).toEqual({
-      command: 'TrayExecByTrayWithBackup 0 0 1 1 1',
+      command: 'TrayExecByTrayWithBackup 1 0 0 1 1',
       type: 'tray',
       icon: '⚡',
       text: 'Execute Tray 1 Slot 1 (with backup)',
@@ -40,7 +40,7 @@ describe('CommandBuilderService – Tray Commands', () => {
         slot: 0,
         backup_tray: 1,
         backup_slot: 1,
-        active: 'on',
+        active: 1,
       },
     })
   })

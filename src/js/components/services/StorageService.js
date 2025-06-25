@@ -264,14 +264,51 @@ export default class StorageService extends ComponentBase {
     // Access STO_DATA from globalThis (works in both browser and Node.js environments)
     const STO_DATA = globalThis.STO_DATA || {}
     
+    // Create fallback profiles in case STO_DATA.defaultProfiles is undefined
+    const getDefaultSpaceProfile = () => {
+      if (STO_DATA.defaultProfiles?.default_space) {
+        return { ...STO_DATA.defaultProfiles.default_space }
+      }
+      return {
+        name: 'Default Space',
+        description: 'Basic space combat configuration',
+        currentEnvironment: 'space',
+        builds: {
+          space: { keys: {} },
+          ground: { keys: {} }
+        },
+        aliases: {},
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString()
+      }
+    }
+
+    const getTacticalSpaceProfile = () => {
+      if (STO_DATA.defaultProfiles?.tactical_space) {
+        return { ...STO_DATA.defaultProfiles.tactical_space }
+      }
+      return {
+        name: 'Tactical Space',
+        description: 'Aggressive DPS-focused space build',
+        currentEnvironment: 'space',
+        builds: {
+          space: { keys: {} },
+          ground: { keys: {} }
+        },
+        aliases: {},
+        created: new Date().toISOString(),
+        lastModified: new Date().toISOString()
+      }
+    }
+    
     return {
       version: this.version,
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
       currentProfile: 'default_space',
       profiles: {
-        default_space: { ...STO_DATA.defaultProfiles?.default_space },
-        tactical_space: { ...STO_DATA.defaultProfiles?.tactical_space },
+        default_space: getDefaultSpaceProfile(),
+        tactical_space: getTacticalSpaceProfile(),
       },
       globalAliases: {},
       settings: this.getDefaultSettings(),
@@ -385,8 +422,28 @@ export default class StorageService extends ComponentBase {
     if (Object.keys(data.profiles).length === 0) {
       // Access STO_DATA from globalThis (works in both browser and Node.js environments)
       const STO_DATA = globalThis.STO_DATA || {}
+      
+      // Create fallback profile in case STO_DATA.defaultProfiles is undefined
+      const getDefaultSpaceProfile = () => {
+        if (STO_DATA.defaultProfiles?.default_space) {
+          return { ...STO_DATA.defaultProfiles.default_space }
+        }
+        return {
+          name: 'Default Space',
+          description: 'Basic space combat configuration',
+          currentEnvironment: 'space',
+          builds: {
+            space: { keys: {} },
+            ground: { keys: {} }
+          },
+          aliases: {},
+          created: new Date().toISOString(),
+          lastModified: new Date().toISOString()
+        }
+      }
+      
       data.profiles = {
-        default_space: { ...STO_DATA.defaultProfiles?.default_space },
+        default_space: getDefaultSpaceProfile(),
       }
       data.currentProfile = 'default_space'
     }
