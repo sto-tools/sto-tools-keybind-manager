@@ -48,7 +48,9 @@ export default class AliasBrowserUI extends ComponentBase {
   }
 
   createAliasElement (name, alias) {
-    const commandCount = alias.commands ? alias.commands.split(/\s*\$\$/).length : 0
+    const commandCount = typeof alias.commands === 'string' && alias.commands.trim() 
+      ? alias.commands.trim().split(/\s*\$\$/).length 
+      : 0
     const isSelected   = this.service.selectedAliasName === name
     const description  = alias.description || ''
     const lengthClass  = name.length <= 8 ? 'short' : name.length <= 12 ? 'medium' : name.length <= 16 ? 'long' : 'extra-long'
