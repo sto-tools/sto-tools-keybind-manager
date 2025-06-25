@@ -4,6 +4,7 @@ export { default as CommandLibraryUI } from './CommandLibraryUI.js'
 export { default as CommandUI } from './CommandUI.js'
 export { default as InterfaceModeUI } from './InterfaceModeUI.js'
 export { default as CommandBuilderUI } from './CommandBuilderUI.js'
+export { default as ConfirmDialogUI } from './ConfirmDialogUI.js'
 
 // Legacy UI exports
 export { default as modalManager } from '../../ui/modalManager.js'

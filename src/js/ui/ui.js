@@ -1,9 +1,36 @@
 // STO Tools Keybind Manager - UI Utilities
 // Handles DOM manipulation, notifications, and user interface helpers
 
+import ToastService from '../components/services/ToastService.js'
+import LoadingService from '../components/services/LoadingService.js'
+import ConfirmDialogUI from '../components/ui/ConfirmDialogUI.js'
+
 export default class STOUIManager {
   constructor() {
-    this.toastQueue = []
+    // Instantiate extracted components
+    this.toastService = new ToastService()
+    this.loadingService = new LoadingService()
+    this.confirmDialog = new ConfirmDialogUI({ modalManager: typeof modalManager !== 'undefined' ? modalManager : null })
+
+    // Proxy toast queue for backward-compatibility with existing unit/integration tests
+    Object.defineProperty(this, 'toastQueue', {
+      enumerable: true,
+      get: () => this.toastService.toastQueue,
+    })
+
+    // Expose delegated APIs so callers can continue to use stoUI.* directly
+    this.showToast = this.toastService.showToast.bind(this.toastService)
+    this.createToast = this.toastService.createToast.bind(this.toastService)
+    this.hideToast = this.toastService.hideToast.bind(this.toastService)
+    this.removeToast = this.toastService.removeToast.bind(this.toastService)
+
+    this.showLoading = this.loadingService.showLoading.bind(this.loadingService)
+    this.hideLoading = this.loadingService.hideLoading.bind(this.loadingService)
+
+    this.confirm = this.confirmDialog.confirm.bind(this.confirmDialog)
+    this.createConfirmModal = this.confirmDialog.createConfirmModal.bind(this.confirmDialog)
+
+    // Keep existing drag state and other utilities
     this.dragState = {
       isDragging: false,
       dragElement: null,

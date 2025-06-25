@@ -846,7 +846,18 @@ export default class STOToolsKeybindManager {
     return this.projectManagementService?.saveProject(...args)
   }
   exportKeybinds(...args) {
-    return this.projectManagementService?.exportKeybinds(...args)
+    if (!this.projectManagementService) {
+      // Lazy-create service when called directly from unit tests before init()
+      this.projectManagementService = new ProjectManagementService({
+        storage: typeof window !== 'undefined' ? window.storageService : null,
+        ui: typeof window !== 'undefined' ? window.stoUI : null,
+        exportManager: typeof window !== 'undefined' ? window.stoExport : null,
+        i18n: typeof window !== 'undefined' ? window.i18next : null,
+        app: this,
+        eventBus,
+      })
+    }
+    return this.projectManagementService.exportKeybinds(...args)
   }
 }
 
