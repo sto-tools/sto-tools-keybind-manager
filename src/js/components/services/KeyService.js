@@ -609,6 +609,8 @@ export default class KeyService extends ComponentBase {
       if (!Array.isArray(cmdArray)) return
       stats.totalCommands += cmdArray.length
       cmdArray.forEach(cmdObj => {
+        // Skip null/undefined entries that can occur from partially edited keybinds
+        if (!cmdObj) return
         const cmdStr = cmdObj.command || ''
         const type = cmdObj.type || 'unknown'
         // Count by type

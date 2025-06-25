@@ -24,11 +24,26 @@ export default class KeyBrowserUI extends ComponentBase {
     this.service.addEventListener('keys-changed', () => this.render())
     this.service.addEventListener('key-selected', () => this.render())
 
-    // Also re-render on view-mode toggle or theme change via dedicated events.
+    // Listen for view mode toggles and update events from other components
+    this.addEventListener('key-view:toggle',        () => this.toggleKeyView())
+    this.addEventListener('key-view:update-toggle', (d) => this.updateViewToggleButton(d?.viewMode))
+    this.addEventListener('keys:filter',            (d) => {
+      const val = (typeof d === 'string') ? d : (d?.value || '')
+      this.filterKeys(val)
+    })
+    this.addEventListener('commands:filter',        (d) => {
+      const val = (typeof d === 'string') ? d : (d?.value || '')
+      this.filterCommands(val)
+    })
+    this.addEventListener('keys:show-all',          () => this.showAllKeys())
+
+    // Also re-render on explicit mode-changed events.
     this.addEventListener('key-view:mode-changed', () => this.render())
 
-    // Initial paint
+    // Initial paint and toggle-button state
     this.render()
+    const initialMode = localStorage.getItem('keyViewMode') || 'key-types'
+    this.updateViewToggleButton(initialMode)
   }
 
   render () {
@@ -251,5 +266,96 @@ export default class KeyBrowserUI extends ComponentBase {
     const isCollapsed = element.querySelector('h4').classList.toggle('collapsed')
     element.querySelector('.category-commands').classList.toggle('collapsed')
     localStorage.setItem(storageKey, isCollapsed)
+  }
+
+  /* ============================================================
+   * View-management helpers (migrated from legacy viewManagement)
+   * ========================================================== */
+
+  updateViewToggleButton (viewMode) {
+    const toggleBtn = this.document.getElementById('toggleKeyViewBtn')
+    if (!toggleBtn) return
+
+    const icon = toggleBtn.querySelector('i') || toggleBtn
+
+    if (viewMode === 'categorized') {
+      icon.className = 'fas fa-sitemap'
+      toggleBtn.title = (typeof i18next !== 'undefined' ? i18next.t('switch_to_key_type_view') : 'Switch to key type view')
+    } else if (viewMode === 'key-types') {
+      icon.className = 'fas fa-th'
+      toggleBtn.title = (typeof i18next !== 'undefined' ? i18next.t('switch_to_grid_view') : 'Switch to grid view')
+    } else { // grid
+      icon.className = 'fas fa-list'
+      toggleBtn.title = (typeof i18next !== 'undefined' ? i18next.t('switch_to_command_categories') : 'Switch to command categories')
+    }
+  }
+
+  toggleKeyView () {
+    // Prevent switching in alias environment to maintain UX parity with legacy logic
+    if (this.app && this.app.currentEnvironment === 'alias') return
+
+    const currentMode = localStorage.getItem('keyViewMode') || 'key-types'
+    let newMode
+    if (currentMode === 'key-types') {
+      newMode = 'grid'
+    } else if (currentMode === 'grid') {
+      newMode = 'categorized'
+    } else {
+      newMode = 'key-types'
+    }
+
+    localStorage.setItem('keyViewMode', newMode)
+    this.render()
+    this.updateViewToggleButton(newMode)
+
+    // Notify other interested parties (e.g., tests, services)
+    this.emit('key-view:mode-changed', { mode: newMode })
+  }
+
+  filterKeys (filter = '') {
+    const filterLower = (filter || '').toString().toLowerCase()
+
+    this.document.querySelectorAll('.key-item').forEach((item) => {
+      const keyName = (item.dataset.key || '').toLowerCase()
+      const visible = !filterLower || keyName.includes(filterLower)
+      item.style.display = visible ? 'flex' : 'none'
+    })
+
+    this.document.querySelectorAll('.command-item[data-key]').forEach((item) => {
+      const keyName = (item.dataset.key || '').toLowerCase()
+      const visible = !filterLower || keyName.includes(filterLower)
+      item.style.display = visible ? 'flex' : 'none'
+    })
+
+    this.document.querySelectorAll('.category').forEach((category) => {
+      const visibleKeys = category.querySelectorAll('.command-item[data-key]:not([style*="display: none"])')
+      const categoryVisible = !filterLower || visibleKeys.length > 0
+      category.style.display = categoryVisible ? 'block' : 'none'
+    })
+  }
+
+  filterCommands (filter = '') {
+    const filterLower = (filter || '').toString().toLowerCase()
+
+    this.document.querySelectorAll('.command-item').forEach((item) => {
+      const text = (item.textContent || '').toLowerCase()
+      const visible = !filterLower || text.includes(filterLower)
+      item.style.display = visible ? 'flex' : 'none'
+    })
+
+    this.document.querySelectorAll('.category').forEach((category) => {
+      const visibleCommands = category.querySelectorAll('.command-item:not([style*="display: none"])')
+      const categoryVisible = !filterLower || visibleCommands.length > 0
+      category.style.display = categoryVisible ? 'block' : 'none'
+    })
+  }
+
+  showAllKeys () {
+    this.document.querySelectorAll('.key-item').forEach((item) => { item.style.display = 'flex' })
+    this.document.querySelectorAll('.command-item[data-key]').forEach((item) => { item.style.display = 'flex' })
+    this.document.querySelectorAll('.category').forEach((category) => { category.style.display = 'block' })
+
+    const filterInput = this.document.getElementById('keyFilter')
+    if (filterInput) filterInput.value = ''
   }
 } 

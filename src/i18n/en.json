@@ -983,5 +983,8 @@
   "source_profile_not_found": "Source profile not found",
   "no_profile_or_build_data": "No profile or build data",
   "profile_name_required": "Profile name is required",
-  "confirm_reset_app": "Are you sure you want to reset the application? This will delete all profiles and data. This action cannot be undone."
+  "confirm_reset_app": "Are you sure you want to reset the application? This will delete all profiles and data. This action cannot be undone.",
+  "switch_to_key_type_view": "Switch to key type view",
+  "switch_to_grid_view": "Switch to grid view",
+  "switch_to_command_categories": "Switch to command categories"
 }

@@ -1,105 +1,61 @@
+import eventBus from '../core/eventBus.js'
+
 export const viewManagement = {
+  /**
+   * Update the toggle button by delegating to KeyBrowserUI via event bus.
+   * @param {string} viewMode
+   */
   updateViewToggleButton(viewMode) {
-    const toggleBtn = document.getElementById('toggleKeyViewBtn')
-    if (toggleBtn) {
-      const icon = toggleBtn.querySelector('i')
-      if (viewMode === 'categorized') {
-        icon.className = 'fas fa-sitemap'
-        toggleBtn.title = 'Switch to key type view'
-      } else if (viewMode === 'key-types') {
-        icon.className = 'fas fa-th'
-        toggleBtn.title = 'Switch to grid view'
-      } else {
-        icon.className = 'fas fa-list'
-        toggleBtn.title = 'Switch to command categories'
+    try {
+      if (typeof eventBus !== 'undefined' && eventBus.emit) {
+        eventBus.emit('key-view:update-toggle', { viewMode })
       }
-    }
+    } catch (_) { /* no-op in tests */ }
   },
 
+  /**
+   * Cycle through key view modes – delegates to KeyBrowserUI.
+   */
   toggleKeyView() {
-    if (this.currentEnvironment === 'alias') {
-      return
-    }
-
-    const currentMode = localStorage.getItem('keyViewMode') || 'key-types'
-    let newMode
-    if (currentMode === 'key-types') {
-      newMode = 'grid'
-    } else if (currentMode === 'grid') {
-      newMode = 'categorized'
-    } else {
-      newMode = 'key-types'
-    }
-
-    localStorage.setItem('keyViewMode', newMode)
-    this.renderKeyGrid()
-    this.updateViewToggleButton(newMode)
+    try {
+      if (typeof eventBus !== 'undefined' && eventBus.emit) {
+        eventBus.emit('key-view:toggle')
+      }
+    } catch (_) { /* no-op */ }
   },
 
+  /**
+   * Filter keys in current grid.
+   * @param {string} filter
+   */
   filterKeys(filter) {
-    const filterLower = filter.toLowerCase()
-    const keyItems = document.querySelectorAll('.key-item')
-    keyItems.forEach((item) => {
-      const keyName = item.dataset.key.toLowerCase()
-      const visible = !filter || keyName.includes(filterLower)
-      item.style.display = visible ? 'flex' : 'none'
-    })
-
-    const commandItems = document.querySelectorAll('.command-item[data-key]')
-    commandItems.forEach((item) => {
-      const keyName = item.dataset.key.toLowerCase()
-      const visible = !filter || keyName.includes(filterLower)
-      item.style.display = visible ? 'flex' : 'none'
-    })
-
-    const categories = document.querySelectorAll('.category')
-    categories.forEach((category) => {
-      const visibleKeys = category.querySelectorAll(
-        '.command-item[data-key]:not([style*="display: none"])'
-      )
-      const categoryVisible = !filter || visibleKeys.length > 0
-      category.style.display = categoryVisible ? 'block' : 'none'
-    })
+    try {
+      if (typeof eventBus !== 'undefined' && eventBus.emit) {
+        eventBus.emit('keys:filter', { value: filter })
+      }
+    } catch (_) {}
   },
 
+  /**
+   * Filter commands in current grid.
+   * @param {string} filter
+   */
   filterCommands(filter) {
-    const commandItems = document.querySelectorAll('.command-item')
-    const filterLower = filter.toLowerCase()
-    commandItems.forEach((item) => {
-      const text = item.textContent.toLowerCase()
-      const visible = !filter || text.includes(filterLower)
-      item.style.display = visible ? 'flex' : 'none'
-    })
-
-    const categories = document.querySelectorAll('.category')
-    categories.forEach((category) => {
-      const visibleCommands = category.querySelectorAll(
-        '.command-item:not([style*="display: none"])'
-      )
-      const categoryVisible = !filter || visibleCommands.length > 0
-      category.style.display = categoryVisible ? 'block' : 'none'
-    })
+    try {
+      if (typeof eventBus !== 'undefined' && eventBus.emit) {
+        eventBus.emit('commands:filter', { value: filter })
+      }
+    } catch (_) {}
   },
 
+  /**
+   * Show all keys – delegates to KeyBrowserUI.
+   */
   showAllKeys() {
-    const keyItems = document.querySelectorAll('.key-item')
-    keyItems.forEach((item) => {
-      item.style.display = 'flex'
-    })
-
-    const commandItems = document.querySelectorAll('.command-item[data-key]')
-    commandItems.forEach((item) => {
-      item.style.display = 'flex'
-    })
-
-    const categories = document.querySelectorAll('.category')
-    categories.forEach((category) => {
-      category.style.display = 'block'
-    })
-
-    const filterInput = document.getElementById('keyFilter')
-    if (filterInput) {
-      filterInput.value = ''
-    }
+    try {
+      if (typeof eventBus !== 'undefined' && eventBus.emit) {
+        eventBus.emit('keys:show-all')
+      }
+    } catch (_) {}
   },
 }

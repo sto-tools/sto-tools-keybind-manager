@@ -149,16 +149,21 @@ export default class ExportService extends ComponentBase {
 
       groupKeys.forEach((key) => {
         const commands = keys[key]
-        if (!commands || commands.length === 0) return
+        // Remove null/undefined placeholders that may remain after incomplete edits
+        const cleanCommands = Array.isArray(commands)
+          ? commands.filter((c) => c && typeof c.command === 'string')
+          : []
 
-        const shouldStabilize = this._shouldStabilizeKey({ key, commands, options })
+        if (cleanCommands.length === 0) return
+
+        const shouldStabilize = this._shouldStabilizeKey({ key, commands: cleanCommands, options })
         let commandString
-        if (shouldStabilize && commands.length > 1) {
+        if (shouldStabilize && cleanCommands.length > 1) {
           commandString = stoKeybinds
-            ? stoKeybinds.generateMirroredCommandString(commands)
-            : commands.map((c) => c.command).join(' $$ ')
+            ? stoKeybinds.generateMirroredCommandString(cleanCommands)
+            : cleanCommands.map((c) => c.command).join(' $$ ')
         } else {
-          commandString = commands.map((c) => c.command).join(' $$ ')
+          commandString = cleanCommands.map((c) => c.command).join(' $$ ')
         }
         content += `${key} "${commandString}"\n`
       })

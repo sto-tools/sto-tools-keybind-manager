@@ -175,7 +175,8 @@ export default class ProjectManagementService extends ComponentBase {
 
   saveProject() {
     const data = this.storage.exportData()
-    const blob = new Blob([data], { type: 'application/json' })
+    const json = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
