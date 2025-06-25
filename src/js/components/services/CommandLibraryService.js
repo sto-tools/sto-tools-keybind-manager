@@ -596,4 +596,20 @@ export default class CommandLibraryService extends ComponentBase {
       commandCount: commands.length.toString()
     }
   }
+
+  /* ------------------------------------------------------------------
+   * Late-join initial state handling
+   * ------------------------------------------------------------------ */
+  handleInitialState(sender, state) {
+    if (!state) return
+    if (sender === 'ProfileService') {
+      if (state.currentProfile) this.currentProfile = state.currentProfile
+    }
+    if (sender === 'KeyService') {
+      if (state.selectedKey) this.selectedKey = state.selectedKey
+    }
+    if (sender === 'InterfaceModeService') {
+      if (state.environment) this.currentEnvironment = state.environment
+    }
+  }
 }

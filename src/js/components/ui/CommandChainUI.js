@@ -199,7 +199,14 @@ export default class CommandChainUI extends ComponentBase {
         const toIndex   = parseInt(dropZone.dataset.index)
 
         if (fromIndex !== toIndex) {
-          this.service.moveCommand(this.service.selectedKey, fromIndex, toIndex)
+          // Delegate actual move logic via event so CommandChainService can
+          // route it to the appropriate persistence layer (CommandService or
+          // CommandLibraryService).  This matches the approach used by the
+          // move buttons elsewhere in the UI.
+          this.eventBus.emit('commandchain:move', {
+            fromIndex,
+            toIndex,
+          })
         }
       },
     })

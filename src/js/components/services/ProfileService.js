@@ -8,6 +8,7 @@ import { respond } from '../../core/requestResponse.js'
 export default class ProfileService extends ComponentBase {
   constructor({ storage, eventBus, i18n }) {
     super(eventBus)
+    this.componentName = 'ProfileService'
     this.storage = storage
     this.i18n = i18n
     this.currentProfile = null
@@ -420,5 +421,25 @@ export default class ProfileService extends ComponentBase {
    */
   getModified() {
     return this.isModified
+  }
+
+  /**
+   * Provide serialisable snapshot for late-join handshake
+   */
+  getCurrentState() {
+    return {
+      currentProfile: this.currentProfile,
+      currentEnvironment: this.currentEnvironment,
+      profiles: this.getAllProfiles(),
+      modified: this.isModified,
+    }
+  }
+
+  /**
+   * Return a shallow copy of all profiles from storage.
+   */
+  getAllProfiles () {
+    const data = this.storage?.getAllData?.()
+    return data ? { ...data.profiles } : {}
   }
 } 

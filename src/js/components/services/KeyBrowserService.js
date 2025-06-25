@@ -31,6 +31,12 @@ export default class KeyBrowserService extends ComponentBase {
       const data = this.storage.getAllData?.()
       if (data) {
         this.currentProfileId = data.currentProfile
+        
+        // Also get the current environment from the profile
+        const profile = this.storage.getProfile(data.currentProfile)
+        if (profile && profile.currentEnvironment) {
+          this.currentEnvironment = profile.currentEnvironment
+        }
       }
     }
 

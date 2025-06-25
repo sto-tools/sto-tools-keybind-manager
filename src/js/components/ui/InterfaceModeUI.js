@@ -24,6 +24,9 @@ export default class InterfaceModeUI extends ComponentBase {
     super.init()
     this.setupEventListeners()
     this.setupModeButtons()
+    // Reflect the current mode immediately so the correct
+    // selector (key vs alias) is visible on first load.
+    this.updateModeUI(this.currentMode)
   }
 
   /**
@@ -37,6 +40,13 @@ export default class InterfaceModeUI extends ComponentBase {
     // Listen for mode change events from service
     this.eventBus.on('mode-changed', (data) => {
       this.updateModeUI(data.newMode)
+    })
+
+    // Also respond to generic environment change events that other services
+    // emit (InterfaceModeService uses this topic as its primary broadcast).
+    this.eventBus.on('environment:changed', (d = {}) => {
+      const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      if (env) this.updateModeUI(env)
     })
 
     this._uiListenersSetup = true
@@ -97,11 +107,6 @@ export default class InterfaceModeUI extends ComponentBase {
     if (currentMode === 'alias') {
       if (keySelectorContainer) keySelectorContainer.style.display = 'none'
       if (aliasSelectorContainer) aliasSelectorContainer.style.display = ''
-
-      // Render the alias grid when entering alias mode
-      if (typeof this.app?.renderAliasGrid === 'function') {
-        this.app.renderAliasGrid()
-      }
     } else {
       // For space / ground modes show key selector and hide alias selector
       if (keySelectorContainer) keySelectorContainer.style.display = ''
@@ -176,6 +181,7 @@ export default class InterfaceModeUI extends ComponentBase {
   destroy() {
     if (this._uiListenersSetup) {
       this.eventBus.off('mode-changed')
+      this.eventBus.off('environment:changed')
       this._uiListenersSetup = false
     }
 
@@ -187,5 +193,16 @@ export default class InterfaceModeUI extends ComponentBase {
     })
 
     super.destroy()
+  }
+
+  /* ------------------------------------------------------------
+   * Late-join handshake: keep UI in sync with service state even
+   * if the relevant events fired before we registered.
+   * ---------------------------------------------------------- */
+  handleInitialState (sender, state) {
+    if (!state) return
+    if ((sender === 'InterfaceModeService' || state.environment) && state.environment) {
+      this.updateModeUI(state.environment)
+    }
   }
 } 

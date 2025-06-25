@@ -10,6 +10,7 @@ import { respond } from '../../core/requestResponse.js'
 export default class CommandService extends ComponentBase {
   constructor ({ storage, eventBus, i18n, ui } = {}) {
     super(eventBus)
+    this.componentName = 'CommandService'
     this.storage = storage
     this.i18n = i18n
     this.ui = ui
@@ -90,8 +91,11 @@ export default class CommandService extends ComponentBase {
    * ------------------------------------------------------------------ */
   /** Add a command (either to a keybind array or to an alias command string) */
   addCommand (key, command) {
-    if (!this.selectedKey) {
-      this.ui?.showToast?.(this.i18n.t('please_select_a_key_first'), 'warning')
+    if (!key) {
+      this.ui?.showToast?.(
+        this.i18n?.t?.('please_select_a_key_first') || 'Please select a key first',
+        'warning'
+      )
       return false
     }
 
@@ -322,5 +326,27 @@ export default class CommandService extends ComponentBase {
   validateCommand (command) {
     if (!command) return { valid: false, reason: 'empty' }
     return { valid: true }
+  }
+
+  /* ------------------------------------------------------------------
+   * Late-join state sharing
+   * ------------------------------------------------------------------ */
+  getCurrentState () {
+    return {
+      selectedKey: this.selectedKey,
+      currentEnvironment: this.currentEnvironment,
+      currentProfile: this.currentProfile
+    }
+  }
+
+  handleInitialState (sender, state) {
+    if (!state) return
+    if (sender === 'ProfileService') {
+      if (state.currentProfile) this.currentProfile = state.currentProfile
+      if (state.currentEnvironment) this.currentEnvironment = state.currentEnvironment
+    }
+    if (sender === 'KeyService' && state.selectedKey) {
+      this.selectedKey = state.selectedKey
+    }
   }
 } 

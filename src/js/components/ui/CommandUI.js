@@ -38,15 +38,23 @@ export default class CommandUI extends ComponentBase {
       const { categoryId, commandId, commandDef } = payload
 
       if (commandDef && !categoryId && !commandId) {
-        // Static command - add immediately using commandService
-        if (!this.commandService || !this.commandService.selectedKey) {
-          this.ui && this.ui.showToast && this.ui.showToast(
-            this.commandService?.i18n?.t('please_select_a_key_first') || 'Please select a key first', 
+        // Static command - add immediately using commandService.  We use the
+        // most recently selected key from the event bus (cached on
+        // `commandService`) but fall back to the payload if available.
+        const selKey = this.commandService?.selectedKey || this.commandLibraryService?.selectedKey
+        if (!selKey) {
+          // Decide message based on current environment – alias vs keybinds
+          const env = this.commandService?.currentEnvironment || this.commandLibraryService?.currentEnvironment
+          const msgKey = env === 'alias' ? 'please_select_an_alias_first' : 'please_select_a_key_first'
+
+          this.ui?.showToast?.(
+            (this.commandService?.i18n?.t?.(msgKey)) ||
+            (env === 'alias' ? 'Please select an alias first' : 'Please select a key first'),
             'warning'
           )
           return
         }
-        this.commandService.addCommand(this.commandService.selectedKey, commandDef)
+        this.commandService.addCommand(selKey, commandDef)
       } else if (categoryId && commandId && commandDef) {
         // Customizable command - show parameter modal
         parameterCommands.showParameterModal(categoryId, commandId, commandDef)

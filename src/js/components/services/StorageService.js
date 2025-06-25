@@ -11,6 +11,7 @@ export default class StorageService extends ComponentBase {
     version = '1.0.0' 
   } = {}) {
     super(bus)
+    this.componentName = 'StorageService'
     this.storageKey = storageKey
     this.backupKey = backupKey
     this.settingsKey = settingsKey

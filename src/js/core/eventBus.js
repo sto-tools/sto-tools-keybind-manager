@@ -1,26 +1,30 @@
-const listeners = {}
+const listeners = new Map()
 
-function on(event, handler) {
-  if (!listeners[event]) {
-    listeners[event] = new Set()
+function on(event, callback) {
+  if (!listeners.has(event)) {
+    listeners.set(event, new Set())
   }
-  listeners[event].add(handler)
+  listeners.get(event).add(callback)
 }
 
-function off(event, handler) {
-  if (listeners[event]) {
-    listeners[event].delete(handler)
+function off(event, callback) {
+  const eventListeners = listeners.get(event)
+  if (eventListeners) {
+    eventListeners.delete(callback)
   }
 }
 
-function emit(event, detail) {
-  if (!listeners[event]) return
-  for (const handler of listeners[event]) {
-    try {
-      handler(detail)
-    } catch (err) {
-      console.error(err)
-    }
+function emit(event, data) {
+  
+  const eventListeners = listeners.get(event)
+  if (eventListeners) {
+    eventListeners.forEach(callback => {
+      try {
+        callback(data)
+      } catch (error) {
+        console.error(`Error in event listener for ${event}:`, error)
+      }
+    })
   }
 }
 
@@ -104,4 +108,19 @@ function onDom(target, domEvent, busEvent, handler) {
   }
 }
 
-export default { on, off, emit, onDom }
+function once(event, callback) {
+  const onceCallback = (data) => {
+    off(event, onceCallback)
+    callback(data)
+  }
+  on(event, onceCallback)
+}
+
+export default {
+  on,
+  off,
+  emit,
+  onDom,
+  once
+}
+

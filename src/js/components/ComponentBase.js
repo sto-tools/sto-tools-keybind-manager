@@ -8,6 +8,8 @@ export default class ComponentBase {
     this.initialized = false
     this.destroyed = false
     this.eventListeners = new Map() // Track event listeners for cleanup
+    // Set componentName explicitly to avoid minification issues with constructor.name
+    this.componentName = this.constructor.name
   }
 
   /**
@@ -187,7 +189,7 @@ export default class ComponentBase {
    * @returns {string}
    */
   getComponentName() {
-    return this.constructor.name
+    return this.componentName || this.constructor.name
   }
 
   // ---------------------------------------------------------

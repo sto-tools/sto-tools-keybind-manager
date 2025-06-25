@@ -20,9 +20,26 @@ export default class KeyBrowserUI extends ComponentBase {
   onInit () {
     if (!this.service) return
 
+    // Initial visibility based on current environment BEFORE any rendering
+    const initialEnv = this.service.currentEnvironment || 'space'
+    this.toggleVisibility(initialEnv)
+
     // Re-render whenever keys change or selection updates.
     this.service.addEventListener('keys-changed', () => this.render())
     this.service.addEventListener('key-selected', () => this.render())
+
+    // Handle environment changes for visibility toggling
+    this.addEventListener('environment:changed', (d = {}) => {
+      const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      this.toggleVisibility(env)
+      if (env !== 'alias') {
+        this.render()
+      }
+    })
+
+    // If starting up in alias mode, postpone initial render until user
+    // switches out of alias. Otherwise render immediately.
+    const shouldInitialRender = initialEnv !== 'alias'
 
     // Listen for view mode toggles and update events from other components
     this.addEventListener('key-view:toggle',        () => this.toggleKeyView())
@@ -40,8 +57,8 @@ export default class KeyBrowserUI extends ComponentBase {
     // Also re-render on explicit mode-changed events.
     this.addEventListener('key-view:mode-changed', () => this.render())
 
-    // Initial paint and toggle-button state
-    this.render()
+    // Initial paint (only if not in alias mode) and toggle-button state
+    if (shouldInitialRender) this.render()
     const initialMode = localStorage.getItem('keyViewMode') || 'key-types'
     this.updateViewToggleButton(initialMode)
   }
@@ -357,5 +374,23 @@ export default class KeyBrowserUI extends ComponentBase {
 
     const filterInput = this.document.getElementById('keyFilter')
     if (filterInput) filterInput.value = ''
+  }
+
+  toggleVisibility (env) {
+    // Key selector container
+    const container = this.document.querySelector('.key-selector-container') || this.document.getElementById('keyGrid')?.parentElement?.parentElement?.parentElement
+    if (!container) return
+    container.style.display = (env === 'alias') ? 'none' : ''
+  }
+
+  /* ------------------------------------------------------------
+   * Late-join: sync visibility when initial state snapshot is received.
+   * ---------------------------------------------------------- */
+  handleInitialState (sender, state) {
+    if (!state || !state.environment) return
+    this.toggleVisibility(state.environment)
+    if (this.service && typeof this.service.currentEnvironment !== 'undefined') {
+      this.service.currentEnvironment = state.environment
+    }
   }
 } 

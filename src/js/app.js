@@ -287,7 +287,10 @@ export default class STOToolsKeybindManager {
       })
       // dbg('InterfaceModeUI created')
       
-      // Load profile data first
+      // Initialize ProfileService so it participates in late join handshake
+      this.profileService.init()
+      
+      // Load profile data
       await this.profileService.loadData()
 
       // dbg('Profile data loaded')
@@ -300,19 +303,20 @@ export default class STOToolsKeybindManager {
       // Legacy global reference kept for backward compatibility (now points to alias browser UI)
       window.stoAliases = this.aliasBrowserUI
 
-      // dbg('Setting up sto-app-ready event handler')
-      eventBus.on('sto-app-ready', () => {
-        this.aliasBrowserService.init()
-        this.aliasBrowserUI.init()
-        // commandService is initialized earlier, so we don't need to call it here
-        // this.commandService.init()
-        this.commandLibraryService.init()
-        this.commandChainService.init()
-        this.commandChainUI.init()
-        this.keyBrowserService.init()
-        this.keyBrowserUI.init()
-        this.commandUI.init()
-      })
+      // Initialize UI components and services
+      // These need to be initialized BEFORE sto-app-ready is emitted so they can participate in late join handshake
+      this.aliasBrowserService.init()
+      this.aliasBrowserUI.init()
+      // commandService is initialized earlier, so we don't need to call it here
+      // this.commandService.init()
+      this.commandLibraryService.init()
+      // Initialize the CommandLibrary UI so categories render on load
+      this.commandLibraryUI.init()
+      this.commandChainService.init()
+      this.commandChainUI.init()
+      this.keyBrowserService.init()
+      this.keyBrowserUI.init()
+      this.commandUI.init()
 
       // dbg('Event handler setup completed')
       // Apply theme
@@ -323,14 +327,6 @@ export default class STOToolsKeybindManager {
       await this.applyLanguage()
 
       // dbg('Language applied')
-      // Setup command library
-      this.setupCommandLibrary()
-
-      // dbg('Command library setup')
-      // Setup drag and drop
-      this.setupDragAndDrop()
-
-      // dbg('Drag and drop setup')
       // Initialize preferences service & UI
       this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
       this.preferencesUI = new PreferencesUI({ service: this.preferencesService, modalManager, ui: stoUI })
@@ -387,18 +383,11 @@ export default class STOToolsKeybindManager {
       // dbg('Command chain rendered')
       this.profileUI.updateProfileInfo()
       // dbg('Profile info updated')
-      this.updateModeUI()
-      // dbg('Mode UI updated (1st call)')
-
-      // Update mode buttons to reflect current environment
-      this.updateModeUI()
-      // dbg('Mode UI updated (2nd call)')
 
       // Update toggle button to reflect current view mode
       const currentViewMode = localStorage.getItem('keyViewMode') || 'key-types'
       this.updateViewToggleButton(currentViewMode)
       // dbg('View toggle button updated')
-
 
       // Show welcome message for new users
       if (this.isFirstTime()) {
@@ -453,6 +442,12 @@ export default class STOToolsKeybindManager {
         eventBus,
       })
       // No special init needed currently
+
+      // ------------------------------
+      // Event-based coordination only – direct UI helpers moved to dedicated services/UI components.
+      // ------------------------------
+
+      this.setupEventCoordination()
     } catch (error) {
       // dbg('Failed to initialize application:', error)
       // dbg('Error stack:', error.stack)
@@ -729,48 +724,7 @@ export default class STOToolsKeybindManager {
     }
   }
 
-  // Command library proxy methods for backward compatibility
-  renderCommandChain() {
-    if (this.commandLibraryUI) {
-      this.commandLibraryUI.renderCommandChain()
-    }
-  }
-
-  setupCommandLibrary() {
-    if (this.commandLibraryUI) {
-      this.commandLibraryUI.setupCommandLibrary()
-    }
-  }
-
-  setupDragAndDrop() {
-    if (this.commandLibraryUI) {
-      this.commandLibraryUI.setupDragAndDrop()
-    }
-  }
-
-  filterCommandLibrary() {
-    if (this.commandLibraryService) {
-      this.commandLibraryService.filterCommandLibrary()
-    }
-  }
-
-  updateChainActions() {
-    if (this.commandLibraryUI) {
-      this.commandLibraryUI.updateChainActions()
-    }
-  }
-
-  toggleLibrary() {
-    if (this.commandLibraryUI) {
-      this.commandLibraryUI.toggleLibrary()
-    }
-  }
-
-  showTemplateModal() {
-    if (this.commandLibraryUI) {
-      this.commandLibraryUI.showTemplateModal()
-    }
-  }
+  // (deprecated command library helpers removed)
 
   /* --------------------------------------------------
    * Key capture wrappers (Maintains public API used by
@@ -802,87 +756,38 @@ export default class STOToolsKeybindManager {
   }
  
   
-  deleteCommand(key, index) {
-    if (typeof eventBus !== 'undefined') {
-      eventBus.emit('commandchain:delete', { index })
+  // (deprecated mode & project proxy methods removed)
+
+  // ------------------------------
+  // Event-based coordination only – direct UI helpers moved to dedicated services/UI components.
+  // ------------------------------
+
+  setupEventCoordination() {
+    // Coordinate high-level app events between services
+    eventBus.on('profile:switched', this.onProfileSwitched.bind(this))
+    eventBus.on('environment:changed', this.onEnvironmentChanged.bind(this))
+  }
+
+  onProfileSwitched({ profileId, environment } = {}) {
+    // Keep services in sync when profile changes
+    if (this.commandLibraryService) {
+      this.commandLibraryService.setCurrentProfile(profileId)
+      this.commandLibraryService.setCurrentEnvironment(environment)
+    }
+    if (this.keyService) {
+      this.keyService.setCurrentProfile(profileId)
+      this.keyService.setCurrentEnvironment(environment)
     }
   }
 
-  moveCommand(key, fromIndex, toIndex) {
-    if (typeof eventBus !== 'undefined') {
-      eventBus.emit('commandchain:move', { fromIndex, toIndex })
+  onEnvironmentChanged({ environment } = {}) {
+    if (!environment) return
+    if (this.commandLibraryService) {
+      this.commandLibraryService.setCurrentEnvironment(environment)
     }
-  }
-
-  editCommand(index) {
-    if (typeof eventBus !== 'undefined') {
-      eventBus.emit('commandchain:edit', { index })
+    if (this.keyService) {
+      this.keyService.setCurrentEnvironment(environment)
     }
-  }
-
-  // Mode management proxy methods for backward compatibility
-  switchMode(mode) {
-    if (this.interfaceModeService) {
-      return this.interfaceModeService.switchMode(mode)
-    }
-  }
-
-  updateModeUI() {
-    if (this.interfaceModeUI) {
-      return this.interfaceModeUI.updateModeUI()
-    }
-  }
-
-  getCurrentMode() {
-    if (this.interfaceModeService) {
-      return this.interfaceModeService.getCurrentMode()
-    }
-    return this.currentMode
-  }
-
-  setCurrentMode(mode) {
-    if (this.interfaceModeService) {
-      return this.interfaceModeService.setCurrentMode(mode)
-    }
-  }
-
-  /* --------------------------------------------------
-   * Project management wrappers (delegates to service)
-   * ------------------------------------------------ */
-  exportProject(...args) {
-    return this.projectManagementService?.exportProject(...args)
-  }
-  importProject(...args) {
-    return this.projectManagementService?.importProject(...args)
-  }
-  loadProjectFromFile(...args) {
-    return this.projectManagementService?.loadProjectFromFile(...args)
-  }
-  saveProjectToFile(...args) {
-    return this.projectManagementService?.saveProjectToFile(...args)
-  }
-  validateProjectData(...args) {
-    return this.projectManagementService?.validateProjectData(...args)
-  }
-  openProject(...args) {
-    return this.projectManagementService?.openProject(...args)
-  }
-  saveProject(...args) {
-    return this.projectManagementService?.saveProject(...args)
-  }
-  exportKeybinds(...args) {
-    if (!this.projectManagementService) {
-      // Lazy-create service when called directly from unit tests before init()
-      this.projectManagementService = new ProjectManagementService({
-        storage: typeof window !== 'undefined' ? window.storageService : null,
-        ui: typeof window !== 'undefined' ? window.stoUI : null,
-        exportManager: typeof window !== 'undefined' ? window.stoExport : null,
-        i18n: typeof window !== 'undefined' ? window.i18next : null,
-        app: this,
-        eventBus,
-      })
-    }
-    return this.projectManagementService.exportKeybinds(...args)
   }
 }
 

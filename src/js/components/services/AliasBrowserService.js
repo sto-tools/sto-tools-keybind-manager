@@ -9,10 +9,12 @@ import i18next from 'i18next'
 export default class AliasBrowserService extends ComponentBase {
   constructor ({ storage, ui } = {}) {
     super(eventBus)
+    this.componentName = 'AliasBrowserService'
     this.storage = storage
     this.ui      = ui
 
     this.currentProfileId   = null
+    this.currentEnvironment = 'space'
     this.selectedAliasName  = null
   }
 
@@ -21,6 +23,12 @@ export default class AliasBrowserService extends ComponentBase {
     const data = this.storage ? this.storage.getAllData() : null
     if (data && data.currentProfile) {
       this.currentProfileId = data.currentProfile
+      
+      // Also get the current environment from the profile
+      const profile = this.storage.getProfile(data.currentProfile)
+      if (profile && profile.currentEnvironment) {
+        this.currentEnvironment = profile.currentEnvironment
+      }
     }
 
     this.setupEventListeners()
@@ -28,10 +36,26 @@ export default class AliasBrowserService extends ComponentBase {
 
   setupEventListeners () {
     // Listen for profile switched events from ProfileService
-    this.addEventListener('profile-switched', ({ profileId }) => {
+    this.addEventListener('profile-switched', ({ profileId, environment }) => {
       this.currentProfileId  = profileId
+      if (environment) this.currentEnvironment = environment
       this.selectedAliasName = null
       this.emit('aliases-changed', { aliases: this.getAliases() })
+    })
+
+    // Listen for environment changes
+    this.addEventListener('environment-changed', (payload) => {
+      const env = typeof payload === 'string' ? payload : payload?.environment
+      if (env) {
+        this.currentEnvironment = env
+      }
+    })
+
+    // Also respond to global environment changes from InterfaceModeService
+    this.eventBus.on('environment:changed', ({ environment }) => {
+      if (environment) {
+        this.currentEnvironment = environment
+      }
     })
 
     // Back-compat: also accept legacy topic if emitted elsewhere

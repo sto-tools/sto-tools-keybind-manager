@@ -885,10 +885,16 @@ export default class EventHandlerService extends ComponentBase {
   }
 
   handleCommandAdd(data) {
+    // Payloads from CommandLibraryUI for parameterizable commands contain
+    // categoryId / commandId only (no key / command). These should NOT be
+    // routed to CommandService directly; CommandUI / ParameterCommandUI will
+    // handle them after the parameter modal completes.
+    if (!data || !data.key || !data.command) return
+
     try {
       if (this.app && this.app.commandService) {
         const result = this.app.commandService.addCommand(data.key, data.command)
-        if (result.success) {
+        if (result && result.success) {
           this.eventBus.emit('command:added', result)
         }
       }
@@ -997,11 +1003,12 @@ export default class EventHandlerService extends ComponentBase {
 
   // Delegate methods to app instance or implement as no-ops
   switchProfile(profileId) {
-    return this.app?.switchProfile(profileId)
+    return this.app?.switchProfile?.(profileId)
   }
 
   switchMode(mode) {
-    return this.app?.switchMode(mode)
+    // Emit environment change – InterfaceModeService handles
+    this.eventBus.emit('environment:changed', { environment: mode })
   }
 
   setModified(modified = true) {
@@ -1009,19 +1016,19 @@ export default class EventHandlerService extends ComponentBase {
   }
 
   renderProfiles() {
-    return this.app?.renderProfiles()
+    this.eventBus.emit('ui:render-profiles')
   }
 
   renderKeyGrid() {
-    return this.app?.renderKeyGrid()
+    this.eventBus.emit('ui:render-key-grid')
   }
 
   renderCommandChain() {
-    return this.app?.renderCommandChain()
+    this.eventBus.emit('ui:render-command-chain')
   }
 
   updateProfileInfo() {
-    return this.app?.updateProfileInfo()
+    this.eventBus.emit('ui:update-profile-info')
   }
 
   saveData() {
@@ -1125,10 +1132,7 @@ export default class EventHandlerService extends ComponentBase {
   }
 
   toggleLibrary() {
-    if (this.app?.toggleLibrary) {
-      return this.app.toggleLibrary()
-    }
-    // Fallback: emit event
+    // Fire-and-forget event – UI components listen and act
     this.eventBus.emit('library:toggle')
   }
 
@@ -1197,26 +1201,15 @@ export default class EventHandlerService extends ComponentBase {
   }
 
   openProject() {
-    if (this.app?.openProject) {
-      return this.app.openProject()
-    }
-    // Fallback: emit event
     this.eventBus.emit('project:open')
   }
 
   saveProject() {
-    if (this.app?.saveProject) {
-      return this.app.saveProject()
-    }
-    // Fallback: emit event
     this.eventBus.emit('project:save')
   }
 
   exportKeybinds() {
-    if (this.app?.exportKeybinds) {
-      return this.app.exportKeybinds()
-    }
-    // Fallback: emit event
+    // Notify project management components
     this.eventBus.emit('keybinds:export')
   }
 

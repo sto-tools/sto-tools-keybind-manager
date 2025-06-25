@@ -8,6 +8,7 @@ import { respond } from '../../core/requestResponse.js'
 export default class InterfaceModeService extends ComponentBase {
   constructor({ eventBus, storage, profileService, app }) {
     super(eventBus)
+    this.componentName = 'InterfaceModeService'
     this.storage = storage
     this.profileService = profileService
     this.app = app
@@ -97,7 +98,12 @@ export default class InterfaceModeService extends ComponentBase {
     // Update profile data
     this.updateProfileMode(mode)
 
-    // Emit mode change event
+    // Emit plain events for state change and legacy compatibility
+    this.eventBus.emit('environment:changed', {
+      oldEnvironment: oldMode,
+      environment: mode
+    })
+    // Legacy alias
     this.eventBus.emit('mode-changed', {
       oldMode,
       newMode: mode
@@ -160,5 +166,27 @@ export default class InterfaceModeService extends ComponentBase {
       this._modeListenersSetup = false
     }
     super.destroy()
+  }
+
+  /**
+   * Provide serialisable snapshot representing current mode
+   */
+  getCurrentState () {
+    return {
+      currentMode: this._currentMode,
+      environment: this._currentMode
+    }
+  }
+
+  /**
+   * Handle initial state from other components during late-join handshake
+   */
+  handleInitialState(sender, state) {
+    if (!state) return
+    
+    if (sender === 'ProfileService' && state.currentEnvironment) {
+      // Initialize from ProfileService environment without triggering events
+      this._currentMode = state.currentEnvironment
+    }
   }
 } 

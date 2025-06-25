@@ -20,7 +20,23 @@ export default class CommandLibraryUI extends ComponentBase {
    */
   onInit() {
     this.setupEventListeners()
-    this.updateCommandLibrary()
+    // Build out the command categories before applying alias overlays
+    this.setupCommandLibrary()
+    // Ensure aliases and other dynamic elements are incorporated
+    // (setupCommandLibrary already invokes updateCommandLibrary internally, so
+    // calling it again here is no longer necessary)
+    // this.updateCommandLibrary()
+
+    // ---------------------------------------------
+    // UI decoupling – listen for global UI events
+    // ---------------------------------------------
+    this.addEventListener('ui:render-command-chain', () => this.renderCommandChain())
+    this.addEventListener('ui:update-profile-info', () => this.updateCommandLibrary())
+
+    // Also re-render when command service broadcasts
+    this.addEventListener('command:added', () => this.renderCommandChain())
+    this.addEventListener('command:deleted', () => this.renderCommandChain())
+    this.addEventListener('command:moved', () => this.renderCommandChain())
   }
 
   /**

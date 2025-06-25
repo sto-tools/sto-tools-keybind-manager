@@ -10,6 +10,7 @@ import { respond } from '../../core/requestResponse.js'
 export default class KeyService extends ComponentBase {
   constructor ({ storage, eventBus, i18n, ui } = {}) {
     super(eventBus)
+    this.componentName = 'KeyService'
     this.storage = storage
     this.i18n = i18n
     this.ui = ui
@@ -736,5 +737,36 @@ export default class KeyService extends ComponentBase {
 
     // Default to custom for unknown commands
     return 'custom'
+  }
+
+  /* ------------------------------------------------------------------
+   * Late-join state sharing
+   * ------------------------------------------------------------------ */
+  getCurrentState () {
+    return {
+      selectedKey: this.selectedKey,
+      keys: this.getKeys()
+    }
+  }
+
+  /**
+   * Helper: return array of key names in current profile & environment.
+   */
+  getKeys () {
+    const profile = this.getCurrentProfile()
+    if (!profile || !profile.keys) return []
+    return Object.keys(profile.keys)
+  }
+
+  handleInitialState (sender, state) {
+    if (!state) return
+    if (sender === 'ProfileService') {
+      if (state.currentProfile) this.currentProfile = state.currentProfile
+      // environment is managed by InterfaceModeService now; but fall back
+      if (state.environment) this.currentEnvironment = state.environment
+    }
+    if (sender === 'KeyService') {
+      this.selectedKey = state.selectedKey ?? this.selectedKey
+    }
   }
 } 
