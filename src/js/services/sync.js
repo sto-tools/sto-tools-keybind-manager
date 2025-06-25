@@ -105,3 +105,5 @@ export default class STOSyncManager {
     }
   }
 }
+
+export { default, writeFile } from '../components/services/SyncService.js'

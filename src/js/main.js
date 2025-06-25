@@ -14,7 +14,7 @@ import STOModalManager from './ui/modalManager.js'
 import STOUIManager from './ui/ui.js'
 import STOCommandManager from './features/commands.js'
 import STOFileExplorer from './ui/fileexplorer.js'
-import STOSyncManager from './services/sync.js'
+import { SyncService } from './components/services/index.js'
 import VertigoManager, { VFX_EFFECTS } from './features/vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './ui/version.js'
@@ -105,7 +105,7 @@ const settings = storageService.getSettings()
   const stoCommands = new STOCommandManager()
   const stoFileExplorer = new STOFileExplorer()
   const vertigoManager = new VertigoManager()
-  const stoSync = new STOSyncManager(storageService) // Use storageService instead of stoStorage
+  const stoSync = new SyncService({ storage: storageService, ui: window.stoUI })
   Object.assign(window, {
     storageService, // Keep this for backward compatibility
     stoKeybinds,

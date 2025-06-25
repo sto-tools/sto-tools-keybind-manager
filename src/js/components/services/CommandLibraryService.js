@@ -55,9 +55,10 @@ export default class CommandLibraryService extends ComponentBase {
       this.currentEnvironment = 'alias'
     })
 
-    // Listen for environment changes
+    // Listen for environment changes (space ↔ ground ↔ alias)
     this.addEventListener('environment-changed', (data) => {
       this.currentEnvironment = data.environment
+      this.selectedKey = null
     })
 
     // Listen for profile service events
@@ -68,6 +69,7 @@ export default class CommandLibraryService extends ComponentBase {
   
     this.eventBus.on('environment-changed', (data) => {
       this.currentEnvironment = data.environment
+      this.selectedKey = null
     })
 
     // Keep selectedKey in sync with UI selections
@@ -82,6 +84,13 @@ export default class CommandLibraryService extends ComponentBase {
         this.selectedKey = name
       })
     }
+
+    // Listen for high-level mode changes emitted by InterfaceModeService
+    // to cover cases where only `mode-changed` is dispatched.
+    this.eventBus.on('mode-changed', ({ newMode }) => {
+      this.currentEnvironment = newMode
+      this.selectedKey = null
+    })
   }
 
   /**

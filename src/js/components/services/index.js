@@ -1,13 +1,14 @@
 // Service Components
-export { default as storage } from '../../services/storage.js'
-export { default as preferences } from '../../services/preferences.js'
+// export { default as storage } from '../../services/storage.js' // removed legacy shim reference
+export { default as PreferencesService } from './PreferencesService.js'
 export { projectManagement } from '../../services/projectManagement.js'
 //export { fsHandles } from '../../services/fsHandles.js'
-export { default as autoSync } from '../../services/autoSync.js'
+export { default as AutoSync } from './AutoSync.js'
 export { default as ProfileService } from './ProfileService.js'
 export { default as StorageService } from './StorageService.js'
 export { default as AliasModalService } from './AliasModalService.js'
 export { default as CommandLibraryService } from './CommandLibraryService.js'
 export { default as CommandService } from './CommandService.js'
 export { default as EventHandlerService } from './EventHandlerService.js'
-export { default as InterfaceModeService } from './InterfaceModeService.js' 
+export { default as InterfaceModeService } from './InterfaceModeService.js'
+export { default as SyncService } from './SyncService.js' 

@@ -292,6 +292,12 @@ export const parameterCommands = {
     },
   
     buildParameterizedCommand(categoryId, commandId, commandDef, params) {
+      // Resolve selected key so that builder logic works even when invoked
+      // from the Command Library where `parameterCommands.selectedKey` might
+      // be undefined but the service exposes `selectedKey`.
+      const selectedKey =
+        this.selectedKey || (this.commandLibraryService && this.commandLibraryService.selectedKey)
+
       // Use the command builder logic from commands.js
       const builders = {
         targeting: (params) => {
@@ -497,7 +503,7 @@ export const parameterCommands = {
             if (isEditing) {
               const profile = this.getCurrentProfile()
               const existingCommand =
-                profile.keys[this.selectedKey][
+                profile.keys[selectedKey][
                   this.currentParameterCommand.editIndex
                 ]
               if (

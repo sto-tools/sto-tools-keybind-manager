@@ -1,15 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// Hoisted mock for writeFile from sync.js
-const writeFileMock = vi.fn()
-vi.mock('../../src/js/services/sync.js', () => ({
+// Hoisted mock for writeFile from SyncService (used by export.js)
+vi.mock('../../src/js/components/services/SyncService.js', () => ({
   writeFile: vi.fn()
 }))
 
 import STOExportManager from '../../src/js/features/export.js'
 import '../../src/js/data.js'
 import { mock } from 'fsa-mock'
-import { writeFile } from '../../src/js/services/sync.js'
+import { writeFile } from '../../src/js/components/services/SyncService.js'
 
 // Mock STO_DATA for tests
 global.STO_DATA = {
@@ -46,8 +45,8 @@ describe('Export Operations Integration Tests', () => {
     // Install fsa-mock
     mock.install()
     
-    // Create a simple mock directory handle (we don't need complex logic since writeFile is mocked)
-    mockDirHandle = {}
+    // Create a mock directory handle using helper
+    mockDirHandle = createMockDirectoryHandle()
     
     // Create test profiles with correct data structure
     testProfiles = {

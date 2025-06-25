@@ -52,6 +52,15 @@ export default class KeyBrowserService extends ComponentBase {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
       this.currentEnvironment = env
+      // Clear any prior key selection – key context is environment specific
+      this.selectedKeyName = null
+      this.emit('keys-changed', { keys: this.getKeys() })
+    })
+
+    // Also respond to global mode changes emitted by InterfaceModeService
+    this.eventBus.on('mode-changed', ({ newMode }) => {
+      this.currentEnvironment = newMode
+      this.selectedKeyName = null
       this.emit('keys-changed', { keys: this.getKeys() })
     })
 

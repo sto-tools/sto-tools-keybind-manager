@@ -2,7 +2,7 @@
 // Handles exporting keybinds and profiles in various formats
 import eventBus from '../core/eventBus.js'
 import i18next from 'i18next'
-import { writeFile } from '../services/sync.js'
+import { writeFile } from '../components/services/SyncService.js'
 
 export default class STOExportManager {
   constructor() {

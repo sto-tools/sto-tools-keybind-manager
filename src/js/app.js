@@ -2,8 +2,7 @@
 // Coordinates all modules and handles global application state
 import store from './core/store.js'
 import eventBus from './core/eventBus.js'
-import STOPreferencesManager from './services/preferences.js'
-import STOAutoSyncManager from './services/autoSync.js'
+import { AutoSync } from './components/services/index.js'
 import ProfileService from './components/services/ProfileService.js'
 import ProfileUI from './components/ui/ProfileUI.js'
 import { keyHandling } from './features/keyHandling.js'
@@ -21,13 +20,14 @@ import { welcome } from './ui/welcome.js'
 import { CommandChainService, CommandChainUI } from './components/chain/index.js'
 import { AliasBrowserService, AliasBrowserUI } from './components/aliases/index.js'
 import { KeyBrowserService, KeyBrowserUI } from './components/keybinds/index.js'
+import { PreferencesService } from './components/services/index.js'
+import PreferencesUI from './components/ui/PreferencesUI.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
     this.store = store
     this.eventListeners = new Map()
-    this.preferencesManager = new STOPreferencesManager()
-    this.autoSyncManager = new STOAutoSyncManager()
+    this.autoSyncManager = null // created later when dependencies available
 
     // Initialize profile service and UI when dependencies are available
     this.profileService = null
@@ -61,60 +61,61 @@ export default class STOToolsKeybindManager {
   }
 
   get undoStack() {
-    return this.store.undoStack
+    // Safeguard for cases where getter is accessed on prototype or an instance
+    // not yet fully constructed (e.g. via pretty-printer libraries).
+    const targetStore = this && this.store ? this.store : store
+    return targetStore.undoStack
   }
   set undoStack(val) {
-    this.store.undoStack = val
+    const targetStore = this && this.store ? this.store : store
+    targetStore.undoStack = val
   }
 
   get redoStack() {
-    return this.store.redoStack
+    const targetStore = this && this.store ? this.store : store
+    return targetStore.redoStack
   }
   set redoStack(val) {
-    this.store.redoStack = val
+    const targetStore = this && this.store ? this.store : store
+    targetStore.redoStack = val
   }
 
   get maxUndoSteps() {
-    return this.store.maxUndoSteps
+    const targetStore = this && this.store ? this.store : store
+    return targetStore.maxUndoSteps
   }
   set maxUndoSteps(val) {
-    this.store.maxUndoSteps = val
+    const targetStore = this && this.store ? this.store : store
+    targetStore.maxUndoSteps = val
   }
 
   get commandIdCounter() {
-    return this.store.commandIdCounter
+    const targetStore = this && this.store ? this.store : store
+    return targetStore.commandIdCounter
   }
   set commandIdCounter(val) {
-    this.store.commandIdCounter = val
+    const targetStore = this && this.store ? this.store : store
+    targetStore.commandIdCounter = val
   }
 
   async init() {
     try {
-      console.log('TEST: app.init')
-      console.log('TEST: app.init - line 2')
-      console.log('[app] 1. Starting init...')
-      // Check if required dependencies are available
-      console.log('TEST: checking dependencies - storageService:', typeof storageService, 'stoUI:', typeof stoUI)
+      // dbg('app.init start')
+      // dbg('checking dependencies - storageService:', typeof storageService, 'stoUI:', typeof stoUI)
       if (typeof storageService === 'undefined' || typeof stoUI === 'undefined') {
-        console.log('TEST: dependencies check FAILED')
+        // dbg('dependencies check FAILED')
         throw new Error('Required dependencies not loaded')
       }
-      console.log('TEST: dependencies check PASSED')
-      console.log('[app] 2. Dependencies check passed')
-      // Initialize profile service and UI using new StorageService
-      console.log('TEST: About to create ProfileService')
-      console.log('TEST: ProfileService class:', ProfileService)
-      console.log('TEST: eventBus:', eventBus)
-      console.log('TEST: i18next:', i18next)
+      // dbg('dependencies check passed')
+      // dbg('About to create ProfileService')
       this.profileService = new ProfileService({ 
         storage: storageService, 
         eventBus, 
         i18n: i18next 
       })
-      console.log('TEST: ProfileService created successfully')
+      // dbg('ProfileService created')
       
-      console.log('[app] 3. ProfileService created')
-      console.log('TEST: About to create ProfileUI')
+      // dbg('About to create ProfileUI')
       try {
         this.profileUI = new ProfileUI({
           service: this.profileService,
@@ -123,20 +124,20 @@ export default class STOToolsKeybindManager {
           modalManager,
           document
         })
-        console.log('TEST: ProfileUI created successfully')
+        // dbg('ProfileUI created successfully')
       } catch (error) {
-        console.error('TEST: Error creating ProfileUI:', error)
+        // dbg('TEST: Error creating ProfileUI:', error)
         throw error
       }
 
-      console.log('[app] 4. ProfileUI created')
+      // dbg('About to create AliasModalService')
       this.aliasService = new AliasModalService({
         eventBus,
         storage: storageService,
         ui: stoUI,
       })
 
-      console.log('[app] 5. AliasModalService created')
+      // dbg('AliasModalService created')
       this.aliasUI = new AliasModalUI({
         service: this.aliasService,
         eventBus,
@@ -145,7 +146,7 @@ export default class STOToolsKeybindManager {
         document,
       })
 
-      console.log('[app] 6. AliasModalUI created')
+      // dbg('AliasModalUI created')
       // ------------------------------
       // Alias Browser (grid selector)
       // ------------------------------
@@ -154,13 +155,13 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
       })
 
-      console.log('[app] 7. AliasBrowserService created')
+      // dbg('AliasBrowserService created')
       this.aliasBrowserUI = new AliasBrowserUI({
         service: this.aliasBrowserService,
         document,
       })
 
-      console.log('[app] 8. AliasBrowserUI created')
+      // dbg('AliasBrowserUI created')
       // ------------------------------
       // Key Browser (key grid)
       // ------------------------------
@@ -170,14 +171,14 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
       })
 
-      console.log('[app] 9. KeyBrowserService created')
+      // dbg('KeyBrowserService created')
       this.keyBrowserUI = new KeyBrowserUI({
         service: this.keyBrowserService,
         app: this,
         document,
       })
 
-      console.log('[app] 10. KeyBrowserUI created')
+      // dbg('KeyBrowserUI created')
       // ------------------------------
       // Command service (new authority)
       // ------------------------------
@@ -188,11 +189,11 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
       })
 
-      console.log('[app] 11. CommandService created')
+      // dbg('CommandService created')
       // Initialize early so it listens to profile-switched emitted during loadData
       this.commandService.init()
 
-      console.log('[app] 12. CommandService initialized')
+      // dbg('CommandService initialized')
       // Initialize command library service and UI – delegates to commandService
       this.commandLibraryService = new CommandLibraryService({
         storage: storageService,
@@ -203,7 +204,7 @@ export default class STOToolsKeybindManager {
         commandService: this.commandService,
       })
 
-      console.log('[app] 13. CommandLibraryService created')
+      // dbg('CommandLibraryService created')
       this.commandLibraryUI = new CommandLibraryUI({
         service: this.commandLibraryService,
         eventBus,
@@ -212,7 +213,7 @@ export default class STOToolsKeybindManager {
         document,
       })
 
-      console.log('[app] 14. CommandLibraryUI created')
+      // dbg('CommandLibraryUI created')
       // ------------------------------------------------------------------
       // New command-chain component (phase-1)
       // ------------------------------------------------------------------
@@ -221,7 +222,7 @@ export default class STOToolsKeybindManager {
         commandLibraryService: this.commandLibraryService,
         commandService: this.commandService,
       })
-      console.log('[app] 15. CommandChainService created')
+      // dbg('CommandChainService created')
       this.commandChainUI      = new CommandChainUI({
         service: this.commandChainService,
         ui: stoUI,
@@ -229,7 +230,7 @@ export default class STOToolsKeybindManager {
         document
       })
 
-      console.log('[app] 16. CommandChainUI created')
+      // dbg('CommandChainUI created')
       // ---------------------------------
       // Command UI (parameter modal owner)
       // ---------------------------------
@@ -241,7 +242,7 @@ export default class STOToolsKeybindManager {
         commandLibraryService: this.commandLibraryService,
       })
 
-      console.log('[app] 17. CommandUI created')
+      // dbg('CommandUI created')
       
       // Initialize EventHandlerService
       this.eventHandlerService = new EventHandlerService({
@@ -252,7 +253,7 @@ export default class STOToolsKeybindManager {
         i18n: i18next,
         app: this
       })
-      console.log('[app] 17.5. EventHandlerService created')
+      // dbg('EventHandlerService created')
       
       // Initialize InterfaceModeService
       this.interfaceModeService = new InterfaceModeService({
@@ -261,7 +262,7 @@ export default class STOToolsKeybindManager {
         profileService: this.profileService,
         app: this
       })
-      console.log('[app] 17.6. InterfaceModeService created')
+      // dbg('InterfaceModeService created')
       
       // Initialize InterfaceModeUI
       this.interfaceModeUI = new InterfaceModeUI({
@@ -271,21 +272,21 @@ export default class STOToolsKeybindManager {
         profileUI: this.profileUI,
         document
       })
-      console.log('[app] 17.7. InterfaceModeUI created')
+      // dbg('InterfaceModeUI created')
       
       // Load profile data first
       await this.profileService.loadData()
 
-      console.log('[app] 18. Profile data loaded')
+      // dbg('Profile data loaded')
       // Ensure command library service is synced with the loaded profile/environment
       if (this.commandLibraryService && this.profileService) {
         this.commandLibraryService.setCurrentProfile(this.profileService.getCurrentProfileId())
       }
 
-      console.log('[app] 19. Command library synced')
+      // dbg('Command library synced')
       window.stoAliases = this.aliasUI
 
-      console.log('[app] 20. Setting up sto-app-ready event handler')
+      // dbg('Setting up sto-app-ready event handler')
       eventBus.on('sto-app-ready', () => {
         this.aliasService.init()
         this.aliasUI.init()
@@ -301,111 +302,116 @@ export default class STOToolsKeybindManager {
         this.commandUI.init()
       })
 
-      console.log('[app] 21. Event handler setup completed')
+      // dbg('Event handler setup completed')
       // Apply theme
       this.applyTheme()
 
-      console.log('[app] 22. Theme applied')
+      // dbg('Theme applied')
       // Apply language
       await this.applyLanguage()
 
-      console.log('[app] 23. Language applied')
+      // dbg('Language applied')
       // Setup command library
       this.setupCommandLibrary()
 
-      console.log('[app] 24. Command library setup')
+      // dbg('Command library setup')
       // Setup drag and drop
       this.setupDragAndDrop()
 
-      console.log('[app] 25. Drag and drop setup')
-      // Initialize preferences manager
-      this.preferencesManager.init()
+      // dbg('Drag and drop setup')
+      // Initialize preferences service & UI
+      this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
+      this.preferencesUI = new PreferencesUI({ service: this.preferencesService, modalManager, ui: stoUI })
+      this.preferencesManager = this.preferencesUI
+      this.preferencesService.init()
+      this.preferencesUI.init()
 
-      console.log('[app] 26. Preferences manager initialized')
+      // dbg('Preferences service & UI initialized')
       // Initialize auto-sync manager
+      this.autoSyncManager = new AutoSync({ eventBus, storage: storageService, syncManager: window.stoSync, ui: stoUI })
       this.autoSyncManager.init()
 
-      console.log('[app] 27. Auto-sync manager initialized')
+      // dbg('Auto-sync manager initialized')
       // Initialize profile UI
       this.profileUI.init()
-      console.log('[app] 28. Profile UI initialized')
+      // dbg('Profile UI initialized')
 
       // Setup UI event handlers after all components are initialized
-      console.log('[app] About to call eventHandlerService.init, method exists:', typeof this.eventHandlerService?.init === 'function')
-      console.log('[app] About to call interfaceModeService.init, method exists:', typeof this.interfaceModeService?.init === 'function')
-      console.log('[app] About to call interfaceModeUI.init, method exists:', typeof this.interfaceModeUI?.init === 'function')
-      console.log('[app] Calling eventHandlerService.init now...')
+      // dbg('About to call eventHandlerService.init, method exists:', typeof this.eventHandlerService?.init === 'function')
+      // dbg('About to call interfaceModeService.init, method exists:', typeof this.interfaceModeService?.init === 'function')
+      // dbg('About to call interfaceModeUI.init, method exists:', typeof this.interfaceModeUI?.init === 'function')
+      // dbg('Calling eventHandlerService.init now...')
       try {
         this.eventHandlerService.init()
-        console.log('[app] eventHandlerService.init completed successfully')
+        // dbg('eventHandlerService.init completed successfully')
       } catch (error) {
-        console.error('[app] Error in eventHandlerService.init:', error)
+        // dbg('Error in eventHandlerService.init:', error)
         throw error // Re-throw to see the full error
       }
-      console.log('[app] Calling interfaceModeService.init now...')
+      // dbg('Calling interfaceModeService.init now...')
       try {
         this.interfaceModeService.init()
-        console.log('[app] interfaceModeService.init completed successfully')
+        // dbg('interfaceModeService.init completed successfully')
       } catch (error) {
-        console.error('[app] Error in interfaceModeService.init:', error)
+        // dbg('Error in interfaceModeService.init:', error)
         throw error // Re-throw to see the full error
       }
-      console.log('[app] Calling interfaceModeUI.init now...')
+      // dbg('Calling interfaceModeUI.init now...')
       try {
         this.interfaceModeUI.init()
-        console.log('[app] interfaceModeUI.init completed successfully')
+        // dbg('interfaceModeUI.init completed successfully')
       } catch (error) {
-        console.error('[app] Error in interfaceModeUI.init:', error)
+        // dbg('Error in interfaceModeUI.init:', error)
         throw error // Re-throw to see the full error
       }
 
-      console.log('[app] About to render initial state...')
+      // dbg('About to render initial state...')
       // Render initial state
       this.profileUI.renderProfiles()
-      console.log('[app] Profiles rendered')
+      // dbg('Profiles rendered')
       this.profileUI.renderKeyGrid()
-      console.log('[app] Key grid rendered')
+      // dbg('Key grid rendered')
       this.profileUI.renderCommandChain()
-      console.log('[app] Command chain rendered')
+      // dbg('Command chain rendered')
       this.profileUI.updateProfileInfo()
-      console.log('[app] Profile info updated')
+      // dbg('Profile info updated')
       this.updateModeUI()
-      console.log('[app] Mode UI updated (1st call)')
+      // dbg('Mode UI updated (1st call)')
 
       // Update mode buttons to reflect current environment
       this.updateModeUI()
-      console.log('[app] Mode UI updated (2nd call)')
+      // dbg('Mode UI updated (2nd call)')
 
       // Update toggle button to reflect current view mode
       const currentViewMode = localStorage.getItem('keyViewMode') || 'key-types'
       this.updateViewToggleButton(currentViewMode)
-      console.log('[app] View toggle button updated')
+      // dbg('View toggle button updated')
 
       // Update theme toggle button to reflect current theme
       const settings = storageService.getSettings()
       this.updateThemeToggleButton(settings.theme || 'default')
-      console.log('[app] Theme toggle button updated')
+      // dbg('Theme toggle button updated')
 
       // Show welcome message for new users
       if (this.isFirstTime()) {
         this.showWelcomeMessage()
       }
-      console.log('[app] Welcome message check completed')
+      // dbg('Welcome message check completed')
 
       stoUI.showToast(
         i18next.t('sto_tools_keybind_manager_loaded_successfully'),
         'success'
       )
-      console.log('[app] Success toast shown')
+      // dbg('Success toast shown')
 
       // Flag the instance as fully initialized so tests can poll for readiness
       this.initialized = true
-      console.log('[app] Initialized flag set to true')
+      // dbg('Initialized flag set to true')
 
       // Dispatch app ready event through eventBus
-      console.log('[app] About to emit sto-app-ready event')
+      // dbg('About to emit sto-app-ready event')
       eventBus.emit('sto-app-ready', { app: this })
-      console.log('[app] sto-app-ready event emitted successfully')
+      // dbg('sto-app-ready event emitted successfully')
 
       // Make chain UI globally accessible for legacy components/test hooks
       window.commandChainUI = this.commandChainUI
@@ -420,10 +426,15 @@ export default class STOToolsKeybindManager {
       // Make the service available to helper modules that are plain objects
       parameterCommands.commandService = this.commandService
 
-      console.log('[app] 29. Init method completed successfully!')
+      // dbg('Init method completed successfully!')
+
+      // Provide UI reference to EventHandlerService for legacy menu button
+      if (this.eventHandlerService) {
+        this.eventHandlerService.preferencesManager = this.preferencesUI
+      }
     } catch (error) {
-      console.error('Failed to initialize application:', error)
-      console.error('Error stack:', error.stack)
+      // dbg('Failed to initialize application:', error)
+      // dbg('Error stack:', error.stack)
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
         stoUI.showToast(
           typeof i18next !== 'undefined' ? i18next.t('failed_to_load_application') : 'Failed to load application',

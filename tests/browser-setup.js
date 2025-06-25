@@ -1,5 +1,5 @@
 // Vitest Browser Mode setup file
-import { beforeEach, afterEach } from 'vitest'
+import { beforeAll, beforeEach, afterEach } from 'vitest'
 import eventBus from '../src/js/core/eventBus.js'
 
 // Import data to ensure STO_DATA is available
@@ -7,6 +7,19 @@ import '../src/js/data.js'
 
 // Browser tests run in real browsers, so we don't need to mock browser APIs
 // But we can still set up global test helpers and utilities
+
+// ---------------------------------------------------------------------------
+//  PERFORMANCE PATCH FOR BROWSER TESTS
+//  ----------------------------------
+//  The original helpers wait 100-500 ms on many occasions causing the full
+//  suite to idle >8 s.  We monkey-patch small setTimeout delays to fire
+//  immediately and tighten the polling/sleep intervals to 20 ms so we keep
+//  responsiveness without wasting wall-clock time.
+// ---------------------------------------------------------------------------
+
+// Helper for short sleeps in polling loops
+const nativeSetTimeout = window.setTimeout.bind(window)
+globalThis.fastSleep = (t = 0) => new Promise((r) => nativeSetTimeout(r, t))
 
 // Global test utilities for browser tests
 globalThis.testUtils = {
@@ -18,7 +31,7 @@ globalThis.testUtils = {
       if (element && element.offsetParent !== null) {
         return element
       }
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await fastSleep(20)
     }
     throw new Error(`Element ${selector} not found within ${timeout}ms`)
   },
@@ -41,7 +54,7 @@ globalThis.testUtils = {
           return element
         }
       }
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await fastSleep(20)
     }
     throw new Error(`Modal element ${selector} not found within ${timeout}ms`)
   },
@@ -54,13 +67,13 @@ globalThis.testUtils = {
       if (!element || element.offsetParent === null) {
         return
       }
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await fastSleep(20)
     }
     throw new Error(`Element ${selector} still visible after ${timeout}ms`)
   },
 
   // Simulate user input
-  typeIntoElement: async (selector, text, delay = 50) => {
+  typeIntoElement: async (selector, text, delay = 10) => {
     const element = document.querySelector(selector)
     if (!element) throw new Error(`Element ${selector} not found`)
 
@@ -70,19 +83,19 @@ globalThis.testUtils = {
     for (const char of text) {
       element.value += char
       element.dispatchEvent(new Event('input', { bubbles: true }))
-      await new Promise((resolve) => setTimeout(resolve, delay))
+      await fastSleep(delay)
     }
 
     element.dispatchEvent(new Event('change', { bubbles: true }))
   },
 
   // Click element with optional delay
-  clickElement: async (selector, delay = 100) => {
+  clickElement: async (selector, delay = 20) => {
     const element = document.querySelector(selector)
     if (!element) throw new Error(`Element ${selector} not found`)
 
     element.click()
-    await new Promise((resolve) => setTimeout(resolve, delay))
+    await fastSleep(delay)
   },
 
   // Load test data into localStorage
@@ -218,6 +231,18 @@ afterEach(async () => {
     if (typeof window.stoKeybindManager.resetApp === 'function') {
       window.stoKeybindManager.resetApp()
     }
+  }
+})
+
+// -------------------------------------------------------------
+// Global one-time setup – load the application before test suites
+// -------------------------------------------------------------
+beforeAll(async () => {
+  // Ensure the application HTML and main script are loaded once
+  try {
+    await loadApplication()
+  } catch (err) {
+    console.warn('[browser-setup] loadApplication failed in beforeAll:', err)
   }
 })
 

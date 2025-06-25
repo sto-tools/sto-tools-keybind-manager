@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// Mock writeFile from sync.js
-vi.mock('../../src/js/services/sync.js', () => ({
+// Mock writeFile from SyncService (used by export.js)
+vi.mock('../../src/js/components/services/SyncService.js', () => ({
   writeFile: vi.fn()
 }))
 
@@ -10,7 +10,7 @@ import { StorageService } from '../../src/js/components/services/index.js'
 import STOKeybindFileManager from '../../src/js/features/keybinds.js'
 import STOExportManager from '../../src/js/features/export.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import { writeFile } from '../../src/js/services/sync.js'
+import { writeFile } from '../../src/js/components/services/SyncService.js'
 
 describe('Export Mirroring Integration', () => {
   let app, storageService, stoKeybinds, stoExport, stoUI
@@ -469,7 +469,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should correctly export keybinds from profile.builds structure', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       
@@ -498,7 +498,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should use profile.currentEnvironment for alias file mode', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       
@@ -515,7 +515,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should generate non-timestamped filenames for sync operations', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       
@@ -535,7 +535,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should include keybindMetadata in exported keybind files', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       // Spy on generateSTOKeybindFile to check metadata inclusion
       const generateSpy = vi.spyOn(stoExport, 'generateSTOKeybindFile')
@@ -562,7 +562,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should generate correct bind_load_file commands without timestamps', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       

@@ -24,7 +24,6 @@ export default class InterfaceModeUI extends ComponentBase {
     super.init()
     this.setupEventListeners()
     this.setupModeButtons()
-    console.log('[InterfaceModeUI] Initialized')
   }
 
   /**
@@ -32,7 +31,6 @@ export default class InterfaceModeUI extends ComponentBase {
    */
   setupEventListeners() {
     if (this._uiListenersSetup) {
-      console.log('[InterfaceModeUI] Event listeners already setup')
       return
     }
 
@@ -42,7 +40,6 @@ export default class InterfaceModeUI extends ComponentBase {
     })
 
     this._uiListenersSetup = true
-    console.log('[InterfaceModeUI] Event listeners setup complete')
   }
 
   /**
@@ -60,7 +57,6 @@ export default class InterfaceModeUI extends ComponentBase {
         button.addEventListener('click', () => {
           this.handleModeButtonClick(mode)
         })
-        console.log(`[InterfaceModeUI] Setup click handler for ${mode} button`)
       } else {
         console.warn(`[InterfaceModeUI] Mode button for ${mode} not found`)
       }
@@ -71,8 +67,6 @@ export default class InterfaceModeUI extends ComponentBase {
    * Handle mode button clicks
    */
   handleModeButtonClick(mode) {
-    console.log(`[InterfaceModeUI] Mode button clicked: ${mode}`)
-    
     // Emit mode switch event
     this.eventBus.emit('mode-switched', { mode })
   }
@@ -81,8 +75,6 @@ export default class InterfaceModeUI extends ComponentBase {
    * Update mode UI to reflect current mode
    */
   updateModeUI(currentMode) {
-    console.log('[InterfaceModeUI] updateModeUI called, currentMode:', currentMode)
-    
     // Update mode buttons
     Object.entries(this._modeButtons).forEach(([mode, button]) => {
       if (button) {

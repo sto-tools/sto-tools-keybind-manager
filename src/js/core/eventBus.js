@@ -31,6 +31,11 @@ function onDom(target, domEvent, busEvent, handler) {
   // dynamically replaced elements keep working.
   // -------------------------------------------------
   if (typeof target === 'string') {
+    // Allow shorthand signature onDom(selector, domEvent, handler)
+    if (typeof busEvent === 'function' && handler === undefined) {
+      handler = busEvent
+      busEvent = domEvent
+    }
     // Normalise selector: if the string already looks like a CSS selector (starts with '.' or '#') we keep it.
     // Otherwise we assume it is an element id and prefix with '#'.
     const selector = /^[.#]/.test(target) ? target : `#${target}`
@@ -58,24 +63,9 @@ function onDom(target, domEvent, busEvent, handler) {
     }
     document.addEventListener(domEvent, delegated, true)
 
-    // Attempt direct binding as well if the element currently exists
-    const directTarget = document.querySelector(selector)
-    if (directTarget && directTarget.addEventListener) {
-      directTarget.addEventListener(domEvent, delegated)
-
-      // Debug: log direct listener attached
-      if (directTarget && (selector === '#settingsBtn')) {
-        directTarget.addEventListener(domEvent, delegated)
-        console.log('[DEBUG:eventBus] direct listener attached to #settingsBtn')
-      }
-    }
-
-    // Return detach function
+    // Return detach function – remove only the delegated listener
     return () => {
       document.removeEventListener(domEvent, delegated, true)
-      if (directTarget && directTarget.removeEventListener) {
-        directTarget.removeEventListener(domEvent, delegated)
-      }
     }
   }
   
