@@ -5,10 +5,10 @@ export { default as CommandUI } from './CommandUI.js'
 export { default as InterfaceModeUI } from './InterfaceModeUI.js'
 export { default as CommandBuilderUI } from './CommandBuilderUI.js'
 export { default as ConfirmDialogUI } from './ConfirmDialogUI.js'
+export { default as KeyCaptureUI } from './KeyCaptureUI.js'
 
 // Legacy UI exports
 export { default as modalManager } from '../../ui/modalManager.js'
-export { keyCapture } from '../../ui/keyCapture.js'
 export { viewManagement } from '../../ui/viewManagement.js'
 
 // UI Rendering

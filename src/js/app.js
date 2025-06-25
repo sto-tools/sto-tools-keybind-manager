@@ -8,7 +8,6 @@ import ProfileUI from './components/ui/ProfileUI.js'
 import { keyHandling } from './features/keyHandling.js'
 import { uiRendering } from './ui/uiRendering.js'
 import { parameterCommands } from './components/ui/ParameterCommandUI.js'
-import { keyCapture } from './ui/keyCapture.js'
 import { EventHandlerService, InterfaceModeService } from './components/services/index.js'
 import { ProjectManagementService } from './components/services/index.js'
 import { InterfaceModeUI } from './components/ui/index.js'
@@ -22,6 +21,8 @@ import { KeyBrowserService, KeyBrowserUI } from './components/keybinds/index.js'
 import { PreferencesService } from './components/services/index.js'
 import PreferencesUI from './components/ui/PreferencesUI.js'
 import KeyService from './components/services/KeyService.js'
+import KeyCaptureService from './components/services/KeyCaptureService.js'
+import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -40,13 +41,11 @@ export default class STOToolsKeybindManager {
     this.keyBrowserUI = null
     this.commandUI = null
     this.keyService = null
+    this.keyCaptureService = null
+    this.keyCaptureUI = null
 
     // Project management service (export/import operations)
     this.projectManagementService = null
-
-    // Bind key capture handlers once for consistent add/remove
-    this.boundHandleKeyDown = this.handleKeyDown.bind(this)
-    this.boundHandleKeyUp = this.handleKeyUp.bind(this)
 
     // Note: init() is now called manually from main.js after dependencies are ready
   }
@@ -177,6 +176,20 @@ export default class STOToolsKeybindManager {
       })
 
       this.keyService.init()
+
+      // ------------------------------
+      // Key Capture (refactored service + UI)
+      // ------------------------------
+      this.keyCaptureService = new KeyCaptureService({ eventBus })
+      this.keyCaptureService.init()
+
+      this.keyCaptureUI = new KeyCaptureUI({
+        service: this.keyCaptureService,
+        modalManager,
+        app: this,
+        document,
+      })
+      this.keyCaptureUI.init()
 
       // dbg('KeyService created & initialized')
       // ------------------------------
@@ -759,6 +772,18 @@ export default class STOToolsKeybindManager {
     }
   }
 
+  /* --------------------------------------------------
+   * Key capture wrappers (Maintains public API used by
+   * EventHandlerService and other legacy code.)
+   * ------------------------------------------------ */
+  startKeyCapture(modalContext = 'keySelectionModal') {
+    return this.keyCaptureUI?.startCapture(modalContext)
+  }
+
+  stopKeyCapture() {
+    return this.keyCaptureUI?.stopCapture()
+  }
+
   // ------------------------------------------------------------------
   // Backward-compatibility thin wrappers – emit events rather than performing
   // logic directly. These can be deleted once all tests & legacy hooks are
@@ -867,7 +892,6 @@ Object.assign(
   keyHandling,
   uiRendering,
   parameterCommands,
-  keyCapture,
   viewManagement,
   welcome,
 )
