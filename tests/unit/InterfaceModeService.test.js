@@ -83,7 +83,6 @@ describe('InterfaceModeService', () => {
 
       expect(mockStorage.getProfile).toHaveBeenCalledWith('test-profile')
       expect(mockStorage.saveProfile).toHaveBeenCalledWith('test-profile', {
-        currentEnvironment: 'space',
         currentEnvironment: 'ground'
       })
     })
