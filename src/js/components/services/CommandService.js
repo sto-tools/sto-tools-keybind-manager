@@ -188,11 +188,11 @@ export default class CommandService extends ComponentBase {
    * Command lookup helpers (unchanged from library)
    * ------------------------------------------------------------------ */
   findCommandDefinition (command) {
-    if (!STO_DATA || !STO_DATA.commands) return null
+    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
     // Special Tray logic is preserved from original implementation (copy-paste)
     const isTrayExec = command.command && command.command.includes('TrayExec')
     if (isTrayExec) {
-      const trayCategory = STO_DATA.commands.tray
+      const trayCategory = globalThis.STO_DATA.commands.tray
       if (trayCategory) {
         if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
           return { commandId: 'tray_range_with_backup', ...trayCategory.commands.tray_range_with_backup }
@@ -213,7 +213,7 @@ export default class CommandService extends ComponentBase {
       }
     }
 
-    const category = STO_DATA.commands[command.type]
+    const category = globalThis.STO_DATA.commands[command.type]
     if (!category) return null
 
     for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
@@ -232,9 +232,9 @@ export default class CommandService extends ComponentBase {
   }
 
   getCommandWarning (command) {
-    if (!STO_DATA || !STO_DATA.commands) return null
+    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
 
-    const categories = STO_DATA.commands
+    const categories = globalThis.STO_DATA.commands
     for (const [categoryId, category] of Object.entries(categories)) {
       for (const [cmdId, cmdData] of Object.entries(category.commands)) {
         if (

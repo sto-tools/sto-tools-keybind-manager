@@ -215,7 +215,7 @@ export default class CommandLibraryService extends ComponentBase {
     if (this.commandService && typeof this.commandService.findCommandDefinition === 'function') {
       return this.commandService.findCommandDefinition(command)
     }
-    if (!STO_DATA || !STO_DATA.commands) return null
+    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
 
     // --------------------------------------------------------------------
     // Special handling for Tray Execution style commands
@@ -226,7 +226,7 @@ export default class CommandLibraryService extends ComponentBase {
     // correct library entry so that the UI can display the friendly name.
     // --------------------------------------------------------------------
     if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
-      const trayCategory = STO_DATA.commands.tray
+      const trayCategory = globalThis.STO_DATA.commands.tray
       if (trayCategory) {
         const categoryId = 'tray'
 
@@ -268,7 +268,7 @@ export default class CommandLibraryService extends ComponentBase {
     }
 
     // Generic lookup (exact match or containment) ---------------------------
-    for (const [categoryId, category] of Object.entries(STO_DATA.commands)) {
+    for (const [categoryId, category] of Object.entries(globalThis.STO_DATA.commands)) {
       for (const [cmdId, cmdData] of Object.entries(category.commands)) {
         if (
           cmdData.command === command.command ||
@@ -290,9 +290,9 @@ export default class CommandLibraryService extends ComponentBase {
     if (this.commandService && typeof this.commandService.getCommandWarning === 'function') {
       return this.commandService.getCommandWarning(command)
     }
-    if (!STO_DATA || !STO_DATA.commands) return null
+    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
 
-    const categories = STO_DATA.commands
+    const categories = globalThis.STO_DATA.commands
 
     for (const [categoryId, category] of Object.entries(categories)) {
       for (const [cmdId, cmdData] of Object.entries(category.commands)) {

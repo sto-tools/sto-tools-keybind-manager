@@ -261,8 +261,8 @@ export default class StorageService extends ComponentBase {
   // Private methods
 
   getDefaultData() {
-    // Access STO_DATA from global window object
-    const STO_DATA = window.STO_DATA || {}
+    // Access STO_DATA from globalThis (works in both browser and Node.js environments)
+    const STO_DATA = globalThis.STO_DATA || {}
     
     return {
       version: this.version,
@@ -383,8 +383,8 @@ export default class StorageService extends ComponentBase {
 
     // Always ensure we have at least one profile
     if (Object.keys(data.profiles).length === 0) {
-      // Access STO_DATA from global window object
-      const STO_DATA = window.STO_DATA || {}
+      // Access STO_DATA from globalThis (works in both browser and Node.js environments)
+      const STO_DATA = globalThis.STO_DATA || {}
       data.profiles = {
         default_space: { ...STO_DATA.defaultProfiles?.default_space },
       }

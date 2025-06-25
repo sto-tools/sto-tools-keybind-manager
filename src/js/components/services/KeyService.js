@@ -154,13 +154,13 @@ export default class KeyService extends ComponentBase {
    * ------------------------------------------------------------------ */
   isValidKeyName (keyName) {
     if (!keyName || typeof keyName !== 'string') return false
-    const pattern = (typeof STO_DATA !== 'undefined' && STO_DATA.validation && STO_DATA.validation.keyNamePattern) || /^[A-Za-z0-9_]+$/
+    const pattern = (typeof globalThis.STO_DATA !== 'undefined' && globalThis.STO_DATA.validation && globalThis.STO_DATA.validation.keyNamePattern) || /^[A-Za-z0-9_]+$/
     return pattern.test(keyName) && keyName.length <= 20
   }
 
   // Alias validation used by unit tests
   isValidAliasName (name) {
-    const pattern = (typeof STO_DATA !== 'undefined' && STO_DATA.validation && STO_DATA.validation.aliasNamePattern) || /^[A-Za-z0-9_]+$/
+    const pattern = (typeof globalThis.STO_DATA !== 'undefined' && globalThis.STO_DATA.validation && globalThis.STO_DATA.validation.aliasNamePattern) || /^[A-Za-z0-9_]+$/
     return pattern.test(name)
   }
 

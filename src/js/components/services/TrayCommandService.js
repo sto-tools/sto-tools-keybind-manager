@@ -31,10 +31,10 @@ export default class TrayCommandService extends ComponentBase {
     if (commandId === 'tray_with_backup') {
       const backupTray  = params.backup_tray ?? 0
       const backupSlot  = params.backup_slot ?? 0
-      const active      = params.active      ?? 'on'
+      const active      = this._normalizeActiveParameter(params.active ?? 1)
 
       return {
-        command: `TrayExecByTrayWithBackup ${active === 'on' ? 1 : 0} ${tray} ${slot} ${backupTray} ${backupSlot}`,
+        command: `TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`,
         type: 'tray',
         icon: '⚡',
         text: `Execute Tray ${tray + 1} Slot ${slot + 1} (with backup)`,
@@ -75,7 +75,7 @@ export default class TrayCommandService extends ComponentBase {
     // 3. Tray range with backup
     // -------------------------------------------------------------------
     if (commandId === 'tray_range_with_backup') {
-      const active             = params.active ?? 1
+      const active             = this._normalizeActiveParameter(params.active ?? 1)
       const startTray          = params.start_tray ?? 0
       const startSlot          = params.start_slot ?? 0
       const endTray            = params.end_tray ?? 0
@@ -138,7 +138,7 @@ export default class TrayCommandService extends ComponentBase {
     // 5. Whole tray with backup
     // -------------------------------------------------------------------
     if (commandId === 'whole_tray_with_backup') {
-      const active      = params.active       ?? 1
+      const active      = this._normalizeActiveParameter(params.active ?? 1)
       const backupTray  = params.backup_tray  ?? 0
 
       const commands = this._generateWholeTrayWithBackupCommands(active, tray, backupTray)
@@ -172,6 +172,42 @@ export default class TrayCommandService extends ComponentBase {
   /* ---------------------------------------------------------------------
    * Private helpers
    * ------------------------------------------------------------------- */
+
+  /**
+   * Normalizes the active parameter to a numeric value (0 or 1).
+   * Accepts various input formats for backward compatibility:
+   * - Numbers: 0 = inactive, any other number = active
+   * - Booleans: false = inactive, true = active
+   * - Strings: 'off', 'false', '0', '' = inactive, everything else = active
+   * 
+   * @param {*} active - The active parameter value
+   * @returns {number} 0 for inactive, 1 for active
+   */
+  _normalizeActiveParameter (active) {
+    // Handle numeric values
+    if (typeof active === 'number') {
+      return active === 0 ? 0 : 1
+    }
+    
+    // Handle boolean values
+    if (typeof active === 'boolean') {
+      return active ? 1 : 0
+    }
+    
+    // Handle string values
+    if (typeof active === 'string') {
+      const normalized = active.toLowerCase().trim()
+      return (normalized === '' || normalized === 'off' || normalized === 'false' || normalized === '0') ? 0 : 1
+    }
+    
+    // Handle null/undefined (should not happen due to default values, but be safe)
+    if (active == null) {
+      return 1
+    }
+    
+    // For any other type, treat as truthy/falsy
+    return active ? 1 : 0
+  }
 
   _generateTrayRangeCommands (startTray, startSlot, endTray, endSlot, commandType) {
     const cmds   = []
