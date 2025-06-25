@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { parameterCommands } from '../../features/parameterCommands.js'
+import { parameterCommands } from '../ui/ParameterCommandUI.js'
 import eventBus from '../../core/eventBus.js'
 
 /**

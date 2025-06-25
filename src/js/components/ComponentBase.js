@@ -70,6 +70,7 @@ export default class ComponentBase {
    */
   addEventListener(event, handler, context = null) {
     if (!this.eventBus) {
+      // Silently ignore if no event bus is available – useful during unit tests
       return
     }
 
@@ -89,6 +90,7 @@ export default class ComponentBase {
    */
   removeEventListener(event, handler) {
     if (!this.eventBus) {
+      // Silently ignore if no event bus is available – useful during unit tests
       return
     }
 
@@ -114,6 +116,7 @@ export default class ComponentBase {
     if (this.eventBus && typeof this.eventBus.emit === 'function') {
       this.eventBus.emit(event, data)
     } else if (!this.eventBus) {
+      // No event bus – skip routing
       return
     }
 

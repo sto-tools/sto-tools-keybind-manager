@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { parameterCommands } from '../../src/js/features/parameterCommands.js'
+import { parameterCommands } from '../../src/js/components/ui/ParameterCommandUI.js'
 
 // Minimal stubs for globals referenced inside parameterCommands
 // eslint-disable-next-line no-undef

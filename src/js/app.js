@@ -7,7 +7,7 @@ import ProfileService from './components/services/ProfileService.js'
 import ProfileUI from './components/ui/ProfileUI.js'
 import { keyHandling } from './features/keyHandling.js'
 import { uiRendering } from './ui/uiRendering.js'
-import { parameterCommands } from './features/parameterCommands.js'
+import { parameterCommands } from './components/ui/ParameterCommandUI.js'
 import { keyCapture } from './ui/keyCapture.js'
 import { EventHandlerService, InterfaceModeService } from './components/services/index.js'
 import { ProjectManagementService } from './components/services/index.js'
@@ -386,10 +386,6 @@ export default class STOToolsKeybindManager {
       this.updateViewToggleButton(currentViewMode)
       // dbg('View toggle button updated')
 
-      // Update theme toggle button to reflect current theme
-      const settings = storageService.getSettings()
-      this.updateThemeToggleButton(settings.theme || 'default')
-      // dbg('Theme toggle button updated')
 
       // Show welcome message for new users
       if (this.isFirstTime()) {
@@ -768,6 +764,19 @@ export default class STOToolsKeybindManager {
   // logic directly. These can be deleted once all tests & legacy hooks are
   // migrated.
   // ------------------------------------------------------------------
+
+  applyTheme(theme) {
+    if (this.preferencesService) {
+      this.preferencesService.applyTheme(theme)
+    }
+  }
+  applyLanguage(language) {
+    if (this.preferencesService) {
+      this.preferencesService.applyLanguage(language)
+    }
+  }
+ 
+  
   deleteCommand(key, index) {
     if (typeof eventBus !== 'undefined') {
       eventBus.emit('commandchain:delete', { index })

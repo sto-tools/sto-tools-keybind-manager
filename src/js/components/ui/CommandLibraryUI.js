@@ -1,5 +1,5 @@
 ﻿import ComponentBase from '../ComponentBase.js'
-import { parameterCommands } from '../../features/parameterCommands.js'
+import { parameterCommands } from './ParameterCommandUI.js'
 
 /**
  * CommandLibraryUI - Handles all command library UI operations

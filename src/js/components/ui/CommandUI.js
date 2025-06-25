@@ -1,6 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
-import { parameterCommands } from '../../features/parameterCommands.js'
+import { parameterCommands } from './ParameterCommandUI.js'
 
 /**
  * CommandUI – owns the parameter-editing modal and acts as the bridge between

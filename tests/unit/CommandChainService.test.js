@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mock parameterCommands
-vi.mock('../../src/js/features/parameterCommands.js', () => ({
+vi.mock('../../src/js/components/ui/ParameterCommandUI.js', () => ({
   parameterCommands: {
     showParameterModal: vi.fn()
   }
 }))
 
 import CommandChainService from '../../src/js/components/services/CommandChainService.js'
-import { parameterCommands } from '../../src/js/features/parameterCommands.js'
+import { parameterCommands } from '../../src/js/components/ui/ParameterCommandUI.js'
 
 // Mock dependencies
 const mockI18n = {

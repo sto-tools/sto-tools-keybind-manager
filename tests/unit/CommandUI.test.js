@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mock parameterCommands
-vi.mock('../../src/js/features/parameterCommands.js', () => ({
+vi.mock('../../src/js/components/ui/ParameterCommandUI.js', () => ({
   parameterCommands: {
     showParameterModal: vi.fn(),
     commandService: null,
@@ -19,7 +19,7 @@ vi.mock('../../src/js/core/eventBus.js', () => ({
 }))
 
 import CommandUI from '../../src/js/components/ui/CommandUI.js'
-import { parameterCommands } from '../../src/js/features/parameterCommands.js'
+import { parameterCommands } from '../../src/js/components/ui/ParameterCommandUI.js'
 
 // Mock dependencies
 const mockUI = {
