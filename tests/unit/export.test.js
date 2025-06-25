@@ -38,12 +38,33 @@ beforeEach(() => {
   exportManager = new STOExportManager()
   exportManager.init() // Initialize after i18next is ready
   Object.assign(global, { app, exportManager })
+
+  // Minimal stub for profileService to satisfy export/import methods in unit tests
+  app.profileService = {
+    getCurrentProfile () {
+      const id = store.currentProfile
+      const profile = storageService.getProfile(id)
+      if (!profile) return null
+      if (!profile.keys) {
+        const env = profile.currentEnvironment || store.currentEnvironment || 'space'
+        if (profile.builds && profile.builds[env] && profile.builds[env].keys) {
+          profile.keys = profile.builds[env].keys
+        }
+      }
+      return profile
+    },
+    generateProfileId: vi.fn((name) => `imported_${name.replace(/\s+/g, '_')}`),
+    createProfile: vi.fn(() => ({ success: true, profileId: 'imported_profile' })),
+  }
+
   store.currentProfile = 'test-profile'
   store.currentEnvironment = 'space'
 
   // Mock only the UI methods that would show actual modals or toasts
   vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})
   vi.spyOn(stoUI, 'copyToClipboard').mockImplementation(() => {})
+  vi.spyOn(stoUI, 'showModal').mockImplementation(() => {})
+  vi.spyOn(stoUI, 'hideModal').mockImplementation(() => {})
 
   // Create a test profile in the real storage system
   const testProfile = {

@@ -10,12 +10,22 @@ import FileSystemService, {
 export const writeFile = fsWriteFile
 
 export default class SyncService extends ComponentBase {
-  constructor({ storage, ui, fs } = {}) {
+  constructor(opts = {}) {
     super(eventBus)
-    this.storage = storage
-    this.ui = ui
-    // Accept injected FileSystemService instance or create a default one
-    this.fs = fs || new FileSystemService({ eventBus })
+
+    // Support legacy signature: new SyncService(storage)
+    if (opts && typeof opts.getSettings === 'function') {
+      this.storage = opts
+      this.ui = global.stoUI // fallback to global mock in tests
+    } else {
+      const { storage, ui, fs } = opts
+      this.storage = storage
+      this.ui = ui
+      this.fs = fs || new FileSystemService({ eventBus })
+    }
+
+    // Ensure FileSystemService instance
+    if (!this.fs) this.fs = new FileSystemService({ eventBus })
   }
 
   /* Set sync folder and optionally enable auto-sync */

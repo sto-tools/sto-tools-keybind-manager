@@ -22,6 +22,7 @@ import { AliasBrowserService, AliasBrowserUI } from './components/aliases/index.
 import { KeyBrowserService, KeyBrowserUI } from './components/keybinds/index.js'
 import { PreferencesService } from './components/services/index.js'
 import PreferencesUI from './components/ui/PreferencesUI.js'
+import KeyService from './components/services/KeyService.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -39,6 +40,7 @@ export default class STOToolsKeybindManager {
     this.keyBrowserService = null
     this.keyBrowserUI = null
     this.commandUI = null
+    this.keyService = null
 
     // Project management service (export/import operations)
     this.projectManagementService = null
@@ -182,6 +184,19 @@ export default class STOToolsKeybindManager {
       })
 
       // dbg('KeyBrowserUI created')
+      // ------------------------------
+      // Key service (key operations authority)
+      // ------------------------------
+      this.keyService = new KeyService({
+        storage: storageService,
+        eventBus,
+        i18n: i18next,
+        ui: stoUI,
+      })
+
+      this.keyService.init()
+
+      // dbg('KeyService created & initialized')
       // ------------------------------
       // Command service (new authority)
       // ------------------------------

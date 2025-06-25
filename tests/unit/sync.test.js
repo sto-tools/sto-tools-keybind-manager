@@ -4,13 +4,32 @@ import en from '../../src/i18n/en.json'
 
 const handleStore = new Map()
 vi.mock('../../src/js/components/services/FileSystemService.js', () => {
+  const stubWriteFile = vi.fn(async (dirHandle, relPath, contents) => {
+    const parts = relPath.split('/')
+    const fileName = parts.pop()
+    let current = dirHandle
+    for (const p of parts) {
+      if (!current.children[p]) current.children[p] = { children: {}, name: p }
+      current = current.children[p]
+    }
+    current.children[fileName] = { contents }
+  })
+
+  const saveDirectoryHandleSpy = vi.fn((key, handle) => { handleStore.set(key, handle); return Promise.resolve() })
+  const getDirectoryHandleSpy = vi.fn((key) => Promise.resolve(handleStore.get(key)))
+
+  const defaultCls = class {
+    saveDirectoryHandle (...args) { return saveDirectoryHandleSpy(...args) }
+    getDirectoryHandle (...args) { return getDirectoryHandleSpy(...args) }
+    writeFile (...args) { return stubWriteFile(...args) }
+  }
+
   return {
-    saveDirectoryHandle: vi.fn((key, handle) => {
-      handleStore.set(key, handle)
-      return Promise.resolve()
-    }),
-    getDirectoryHandle: vi.fn((key) => Promise.resolve(handleStore.get(key))),
+    saveDirectoryHandle: saveDirectoryHandleSpy,
+    getDirectoryHandle: getDirectoryHandleSpy,
+    writeFile: stubWriteFile,
     KEY_SYNC_FOLDER: 'sync-folder',
+    default: defaultCls,
   }
 })
 

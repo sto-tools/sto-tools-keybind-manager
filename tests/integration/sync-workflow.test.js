@@ -6,14 +6,32 @@ import { StorageService } from '../../src/js/components/services/index.js'
 import eventBus from '../../src/js/core/eventBus.js'
 
 const store = new Map()
-vi.mock('../../src/js/components/services/FileSystemService.js', () => ({
-  saveDirectoryHandle: vi.fn((k, h) => {
-    store.set(k, h)
-    return Promise.resolve()
-  }),
-  getDirectoryHandle: vi.fn((k) => Promise.resolve(store.get(k))),
-  KEY_SYNC_FOLDER: 'sync-folder'
-}))
+vi.mock('../../src/js/components/services/FileSystemService.js', () => {
+  const saveSpy = vi.fn((k, h) => { store.set(k, h); return Promise.resolve() })
+  const getSpy = vi.fn((k) => Promise.resolve(store.get(k)))
+  const writeSpy = vi.fn(async (dirHandle, relPath, contents) => {
+    const parts = relPath.split('/')
+    const fileName = parts.pop()
+    let current = dirHandle
+    for (const p of parts) {
+      if (!current.children[p]) current.children[p] = { children: {}, name: p }
+      current = current.children[p]
+    }
+    current.children[fileName] = { contents }
+  })
+
+  return {
+    saveDirectoryHandle: saveSpy,
+    getDirectoryHandle: getSpy,
+    writeFile: writeSpy,
+    KEY_SYNC_FOLDER: 'sync-folder',
+    default: class {
+      saveDirectoryHandle (...args) { return saveSpy(...args) }
+      getDirectoryHandle (...args) { return getSpy(...args) }
+      writeFile (...args) { return writeSpy(...args) }
+    },
+  }
+})
 
 class MockFile {
   constructor() {

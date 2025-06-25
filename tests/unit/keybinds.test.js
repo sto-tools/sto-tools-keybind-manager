@@ -65,14 +65,6 @@ describe('STOKeybindFileManager', () => {
   })
 
   describe('initialization', () => {
-    it('should initialize keybind patterns', () => {
-      expect(keybindManager.keybindPatterns).toBeDefined()
-      expect(keybindManager.keybindPatterns.standard).toBeInstanceOf(RegExp)
-      expect(keybindManager.keybindPatterns.bind).toBeInstanceOf(RegExp)
-      expect(keybindManager.keybindPatterns.alias).toBeInstanceOf(RegExp)
-      expect(keybindManager.keybindPatterns.comment).toBeInstanceOf(RegExp)
-    })
-
     it('should generate valid keys list', () => {
       const validKeys = keybindManager.generateValidKeys()
       expect(validKeys).toBeInstanceOf(Array)

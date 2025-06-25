@@ -8,6 +8,9 @@ export default class STOExportManager {
   constructor() {
     // Initialize as null - will be set up in init() after i18next is ready
     this.exportFormats = null
+
+    // Bind helper so it can be used as callback if needed
+    this.extractKeys = this.extractKeys.bind(this)
   }
 
   init() {
@@ -128,7 +131,9 @@ export default class STOExportManager {
 
     // Export keybinds only (aliases are exported separately)
     // Pass the profile and environment (if available) to the keybind section for per-key metadata access
-    content += this.generateKeybindSection(profile.keys, {
+    const keysForEnv = this.extractKeys(profile, options.environment || profile.currentEnvironment || 'space')
+
+    content += this.generateKeybindSection(keysForEnv, {
       ...options,
       profile,
       // Support explicit environment option
@@ -146,16 +151,19 @@ export default class STOExportManager {
 
     // Calculate stats locally if stoKeybinds is not available
     let stats
+    const env = profile.currentEnvironment || 'space'
+    const keysForEnv = this.extractKeys(profile, env)
+
     if (typeof stoKeybinds !== 'undefined' && stoKeybinds.getProfileStats) {
-      stats = stoKeybinds.getProfileStats(profile)
+      stats = stoKeybinds.getProfileStats({ ...profile, keys: keysForEnv })
     } else {
       // Calculate stats locally
       stats = {
-        totalKeys: Object.keys(profile.keys || {}).length,
+        totalKeys: Object.keys(keysForEnv).length,
         totalCommands: 0,
       }
 
-      Object.values(profile.keys || {}).forEach((commands) => {
+      Object.values(keysForEnv).forEach((commands) => {
         stats.totalCommands += commands.length
       })
     }
@@ -474,9 +482,11 @@ export default class STOExportManager {
   }
 
   generateCSVData(profile) {
+    const keys = this.extractKeys(profile, profile.currentEnvironment || 'space')
+
     let csv = i18next.t('csv_header') + '\n'
 
-    Object.entries(profile.keys).forEach(([key, commands]) => {
+    Object.entries(keys).forEach(([key, commands]) => {
       commands.forEach((command, index) => {
         const row = [
           this.escapeCSV(key),
@@ -524,7 +534,17 @@ export default class STOExportManager {
   }
 
   generateHTMLReport(profile) {
-    const stats = stoKeybinds.getProfileStats(profile)
+    const env = profile.currentEnvironment || 'space'
+    const keysForEnv = this.extractKeys(profile, env)
+
+    const stats = stoKeybinds && stoKeybinds.getProfileStats
+      ? stoKeybinds.getProfileStats({ ...profile, keys: keysForEnv })
+      : {
+          totalKeys: Object.keys(keysForEnv).length,
+          totalCommands: Object.values(keysForEnv).reduce((acc, arr) => acc + arr.length, 0),
+          totalAliases: Object.keys(profile.aliases || {}).length,
+        }
+
     const timestamp = new Date().toLocaleString()
 
     return `<!DOCTYPE html>
@@ -571,7 +591,7 @@ export default class STOExportManager {
         </ul>
     </div>
 
-    ${this.generateHTMLKeybindSection(profile.keys)}
+    ${this.generateHTMLKeybindSection(keysForEnv)}
     ${this.generateHTMLAliasSection(profile.aliases)}
 
     <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ccc; color: #666; font-size: 0.9em;">
@@ -927,6 +947,23 @@ export default class STOExportManager {
       const aliasContent = this.generateAliasFile(aliasProfile)
       await writeFile(dirHandle, `${base}/${base}_aliases.txt`, aliasContent)
     }
+  }
+
+  /**
+   * Safely retrieve the keybind map for a profile.
+   * The legacy data model exposed `profile.keys` directly, while the
+   * modern model nests keys inside `profile.builds[environment].keys`.
+   * This helper unifies the access so export routines don't depend on the
+   * flat structure (and unit-tests don't need to add it artificially).
+   */
+  extractKeys(profile = {}, environment = 'space') {
+    if (profile.keys && typeof profile.keys === 'object') {
+      return profile.keys
+    }
+    if (profile.builds && profile.builds[environment] && profile.builds[environment].keys) {
+      return profile.builds[environment].keys
+    }
+    return {}
   }
 }
 
