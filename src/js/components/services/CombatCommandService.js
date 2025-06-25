@@ -23,13 +23,6 @@ export default class CombatCommandService extends ComponentBase {
         command = command.replace(`{{${paramName}}}`, value)
       })
 
-      // setactivecostume has special handling for modifier1 / modifier2.
-      if (commandId === 'setactivecostume') {
-        const modifier1 = params.modifier1 ?? 'modifier1'
-        const modifier2 = params.modifier2 ?? 'modifier2'
-        command = `setactivecostume ${modifier1} ${modifier2}`
-      }
-
       return {
         command,
         type: 'combat',
