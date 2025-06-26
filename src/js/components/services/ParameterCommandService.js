@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 import eventBus from '../../core/eventBus.js'
 import CommandBuilderService from './CommandBuilderService.js'
 
@@ -32,6 +33,20 @@ export default class ParameterCommandService extends ComponentBase {
     this.selectedKey = null
     this.selectedAlias = null
     this.currentEnvironment = 'space'
+
+    // ---------------------------------------------------------
+    // Register Request/Response endpoints for UI components
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'parameter-command:generate-id', () => this.generateCommandId())
+      respond(this.eventBus, 'parameter-command:build', ({ categoryId, commandId, commandDef, params }) => 
+        this.buildParameterizedCommand(categoryId, commandId, commandDef, params))
+      respond(this.eventBus, 'parameter-command:find-definition', ({ command }) => 
+        this.findCommandDefinition(command))
+      respond(this.eventBus, 'parameter-command:get-current-environment', () => this.currentEnvironment)
+      respond(this.eventBus, 'parameter-command:get-selected-key', () => this.selectedKey)
+      respond(this.eventBus, 'parameter-command:get-selected-alias', () => this.selectedAlias)
+    }
   }
 
   onInit() {

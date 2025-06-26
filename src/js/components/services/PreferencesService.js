@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 /**
@@ -30,6 +31,19 @@ export default class PreferencesService extends ComponentBase {
 
     // Runtime copy
     this.settings = { ...this.defaultSettings }
+
+    // ---------------------------------------------------------
+    // Register Request/Response endpoints for UI components
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'preferences:init', () => this.init())
+      respond(this.eventBus, 'preferences:load-settings', () => this.loadSettings())
+      respond(this.eventBus, 'preferences:save-settings', () => this.saveSettings())
+      respond(this.eventBus, 'preferences:get-settings', () => this.getSettings())
+      respond(this.eventBus, 'preferences:set-setting', ({ key, value }) => this.setSetting(key, value))
+      respond(this.eventBus, 'preferences:get-setting', ({ key }) => this.getSetting(key))
+      respond(this.eventBus, 'preferences:reset-settings', () => this.resetSettings())
+    }
   }
 
   /* --------------------------------------------------

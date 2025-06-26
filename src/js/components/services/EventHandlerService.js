@@ -35,17 +35,12 @@ export default class EventHandlerService extends ComponentBase {
    */
   initEventHandlers() {
     // Ensure the DOM is fully parsed before we attempt to query for buttons.
-    // If we run too early the mode-toggle elements won't exist and listeners
-    // will never attach (then getEventListeners() → undefined).
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         this.setupEventListeners()
-        // Ensure mode toggle listeners are attached once real buttons exist
-        this.registerModeToggleHandler()
       }, { once: true })
     } else {
       this.setupEventListeners()
-      this.registerModeToggleHandler()
     }
   }
 
@@ -53,101 +48,50 @@ export default class EventHandlerService extends ComponentBase {
    * Setup all event listeners
    */
   setupEventListeners() {
-    const spaceBtnCheck = document.querySelector('[data-mode="space"]')
-    const groundBtnCheck = document.querySelector('[data-mode="ground"]')
-    const aliasBtnCheck = document.querySelector('[data-mode="alias"]')
-    // Prevent double-registration in case initEventHandlers() fires twice
-    if (this._ehListenersSetup) return
+    if (this._ehListenersSetup) {
+      return
+    }
     this._ehListenersSetup = true
- 
-    // Check if key elements exist
-    const vertigoBtn = document.getElementById('vertigoBtn')
-    const settingsBtn = document.getElementById('settingsBtn')
 
-    // Profile management events
-    this.eventBus.on('profile:create', (data) => {
-      this.handleProfileCreate(data)
+    // ============================================================
+    // Global UI Event Handlers
+    // ============================================================
+
+    // Settings menu
+    this.eventBus.onDom('settingsBtn', 'click', 'settings-toggle', () => {
+      this.toggleSettingsMenu()
     })
 
-
-
-    this.eventBus.on('profile:delete', (data) => {
-      this.handleProfileDelete(data)
+    // Import menu
+    this.eventBus.onDom('importBtn', 'click', 'import-toggle', () => {
+      this.toggleImportMenu()
     })
 
-    // Keybind management events
-    this.eventBus.on('keybind:add', (data) => {
-      this.handleKeybindAdd(data)
+    // Backup menu
+    this.eventBus.onDom('backupBtn', 'click', 'backup-toggle', () => {
+      this.toggleBackupMenu()
     })
 
-    this.eventBus.on('keybind:edit', (data) => {
-      this.handleKeybindEdit(data)
+    // Language menu
+    this.eventBus.onDom('languageBtn', 'click', 'language-toggle', () => {
+      this.toggleLanguageMenu()
     })
 
-    this.eventBus.on('keybind:delete', (data) => {
-      this.handleKeybindDelete(data)
-    })
-
-    // Command management events
-    this.eventBus.on('command:add', (data) => {
-      this.handleCommandAdd(data)
-    })
-
-    this.eventBus.on('command:edit', (data) => {
-      this.handleCommandEdit(data)
-    })
-
-    this.eventBus.on('command:delete', (data) => {
-      this.handleCommandDelete(data)
-    })
-
-    // Profile management
-    const profileSelect = document.getElementById('profileSelect')
-    profileSelect?.addEventListener('change', (e) => {
-      this.switchProfile(e.target.value)
-    })
-
-    // Mode switching - set up event handlers with proper context binding
-    const setupModeButtonHandlers = () => {
-      const modeToggleContainer = document.querySelector('.mode-toggle')
-      if (!modeToggleContainer) {
-        console.warn('[EventHandlerService] .mode-toggle container not found - mode buttons will not function')
-        return
+    // Close all menus when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.settings-menu') && !e.target.closest('#settingsBtn')) {
+        this.closeSettingsMenu()
       }
-
-      // Ensure we only register once per session to avoid duplicate handlers
-      if (this._modeToggleHandlerAdded) {
-        return
+      if (!e.target.closest('.import-menu') && !e.target.closest('#importBtn')) {
+        this.closeImportMenu()
       }
-      this._modeToggleHandlerAdded = true
-
-      // Delegate all click events from the container so that dynamically re-rendered
-      // buttons (e.g. after language changes) continue to work without requiring
-      // us to re-bind individual listeners.
-      modeToggleContainer.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-mode]')
-        if (!btn || btn.disabled) return
-
-        const mode = btn.getAttribute('data-mode')
-        if (!mode) return
-
-        e.stopPropagation()
-        e.preventDefault()
-
-        try {
-          this.switchMode(mode)
-        } catch (error) {
-          console.error('[EventHandlerService] Error calling switchMode:', error)
-        }
-      })
-    }
-
-    // Set up mode button handlers immediately since DOM should be ready
-    try {
-      setupModeButtonHandlers.call(this)
-    } catch (error) {
-      console.error('[EventHandlerService] Error setting up mode button handlers:', error)
-    }
+      if (!e.target.closest('.backup-menu') && !e.target.closest('#backupBtn')) {
+        this.closeBackupMenu()
+      }
+      if (!e.target.closest('.language-menu') && !e.target.closest('#languageBtn')) {
+        this.closeLanguageMenu()
+      }
+    })
 
     // File operations
     this.eventBus.onDom('openProjectBtn', 'click', 'project-open', () => {
@@ -282,15 +226,6 @@ export default class EventHandlerService extends ComponentBase {
     this.eventBus.onDom('aliasOptionsDropdown', 'click', 'alias-options-toggle', (e) => {
       e.stopPropagation()
       this.toggleAliasOptionsDropdown()
-    })
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      const dropdown = document.getElementById('aliasOptionsDropdown')
-      const menu = document.getElementById('aliasOptionsMenu')
-      if (dropdown && menu && !dropdown.contains(e.target) && !menu.contains(e.target)) {
-        this.closeAliasOptionsDropdown()
-      }
     })
 
     // Handle checkbox changes in alias options
@@ -781,8 +716,6 @@ export default class EventHandlerService extends ComponentBase {
     }
   }
 
-
-
   handleProfileDelete(data) {
     try {
       if (this.app && this.app.profileService) {
@@ -919,41 +852,7 @@ export default class EventHandlerService extends ComponentBase {
     }
   }
 
-  // ------------------------------------------------------------
-  // Mode toggle (space/ground/alias) click delegation
-  // ------------------------------------------------------------
-  registerModeToggleHandler() {
-    const modeToggleContainer = document.querySelector('.mode-toggle')
-    if (!modeToggleContainer) {
-      // Container may not exist yet (e.g., HTML not injected); skip for now
-      console.warn('[EventHandlerService] registerModeToggleHandler: .mode-toggle container not found')
-      return false
-    }
-
-    // Avoid duplicate registration
-    if (this._modeToggleHandlerAdded) return true
-
-    this._modeToggleHandlerAdded = true
-
-    modeToggleContainer.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-mode]')
-      if (!btn || btn.disabled) return
-
-      const mode = btn.getAttribute('data-mode')
-      if (!mode) return
-
-      e.stopPropagation()
-      e.preventDefault()
-
-      try {
-        this.switchMode(mode)
-      } catch (error) {
-        console.error('[EventHandlerService] Error calling switchMode:', error)
-      }
-    })
-
-    return true
-  }
+  // Mode toggle handling removed - now handled by InterfaceModeUI component
 
   // Proxy methods that delegate to the app instance
   get currentProfile() {
@@ -993,10 +892,7 @@ export default class EventHandlerService extends ComponentBase {
     return this.app?.switchProfile?.(profileId)
   }
 
-  switchMode(mode) {
-    // Emit environment change – InterfaceModeService handles
-    this.eventBus.emit('environment:changed', { environment: mode })
-  }
+  // switchMode method removed - mode switching now handled by InterfaceModeService via request-response
 
   setModified(modified = true) {
     return this.app?.setModified(modified)

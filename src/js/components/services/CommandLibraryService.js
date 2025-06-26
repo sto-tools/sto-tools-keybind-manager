@@ -560,7 +560,7 @@ export default class CommandLibraryService extends ComponentBase {
         this.i18n.t('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' : 
         this.i18n.t('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
       
-      return {
+        return {
         title: selectText,
         preview: previewText,
         icon: emptyIcon,
@@ -572,7 +572,7 @@ export default class CommandLibraryService extends ComponentBase {
 
     const commands = this.getCommandsForSelectedKey()
     const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
-    
+
     if (commands.length === 0) {
       const emptyMessage = this.currentEnvironment === 'alias' ? 
         `${this.i18n.t('click_add_command_to_start_building_your_alias_chain') || 'Click "Add Command" to start building your alias chain for'} ${selectedKey}.` :

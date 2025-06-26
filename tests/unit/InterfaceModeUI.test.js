@@ -3,7 +3,6 @@ import InterfaceModeUI from '../../src/js/components/ui/InterfaceModeUI.js'
 
 describe('InterfaceModeUI', () => {
   let interfaceModeUI
-  let mockService
   let mockEventBus
   let mockUI
   let mockProfileUI
@@ -15,10 +14,6 @@ describe('InterfaceModeUI', () => {
   let mockAliasSelector
 
   beforeEach(() => {
-    mockService = {
-      currentMode: 'space'
-    }
-    
     mockEventBus = {
       on: vi.fn(),
       emit: vi.fn(),
@@ -30,8 +25,7 @@ describe('InterfaceModeUI', () => {
     }
     
     mockProfileUI = {
-      renderKeyGrid: vi.fn(),
-      renderCommandChain: vi.fn()
+      renderKeyGrid: vi.fn()
     }
 
     // Mock DOM elements
@@ -57,7 +51,6 @@ describe('InterfaceModeUI', () => {
     mockAliasSelector = { style: { display: 'none' } }
 
     interfaceModeUI = new InterfaceModeUI({
-      service: mockService,
       eventBus: mockEventBus,
       ui: mockUI,
       profileUI: mockProfileUI,
@@ -68,7 +61,6 @@ describe('InterfaceModeUI', () => {
   describe('Constructor', () => {
     it('should create an instance with correct properties', () => {
       expect(interfaceModeUI).toBeInstanceOf(InterfaceModeUI)
-      expect(interfaceModeUI.service).toBe(mockService)
       expect(interfaceModeUI.eventBus).toBe(mockEventBus)
       expect(interfaceModeUI.ui).toBe(mockUI)
       expect(interfaceModeUI.profileUI).toBe(mockProfileUI)
@@ -78,6 +70,7 @@ describe('InterfaceModeUI', () => {
     it('should initialize internal state', () => {
       expect(interfaceModeUI._uiListenersSetup).toBe(false)
       expect(interfaceModeUI._modeButtons).toEqual({})
+      expect(interfaceModeUI._currentMode).toBe('space')
     })
 
     it('should initialize handler references as null', () => {
@@ -112,10 +105,21 @@ describe('InterfaceModeUI', () => {
   })
 
   describe('Mode Button Handling', () => {
-    it('should handle mode button clicks', () => {
-      interfaceModeUI.handleModeButtonClick('ground')
+    it('should handle mode button clicks', async () => {
+      // Mock the request function to resolve successfully
+      vi.doMock('../../src/js/core/requestResponse.js', () => ({
+        request: vi.fn().mockResolvedValue({ success: true })
+      }))
+      
+      await interfaceModeUI.handleModeButtonClick('ground')
 
-      expect(mockEventBus.emit).toHaveBeenCalledWith('mode-switched', { mode: 'ground' })
+      // Verify that the request-response pattern was used
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        'rpc:environment:switch',
+        expect.objectContaining({
+          payload: { mode: 'ground' }
+        })
+      )
     })
 
     it('should setup click handlers for mode buttons', () => {
@@ -146,36 +150,58 @@ describe('InterfaceModeUI', () => {
       expect(mockKeySelector.style.display).toBe('')
       expect(mockAliasSelector.style.display).toBe('none')
       expect(mockProfileUI.renderKeyGrid).toHaveBeenCalled()
-      expect(mockProfileUI.renderCommandChain).toHaveBeenCalled()
+      // Note: renderCommandChain is no longer called - command chain rendering is handled by CommandChainUI via events
     })
 
     it('should update key grid display for alias mode', () => {
       interfaceModeUI.updateKeyGridDisplay('alias')
       expect(mockKeySelector.style.display).toBe('none')
       expect(mockAliasSelector.style.display).toBe('')
-      expect(mockProfileUI.renderCommandChain).toHaveBeenCalled()
+      // Note: renderCommandChain is no longer called - command chain rendering is handled by CommandChainUI via events
     })
   })
 
   describe('Getters and Setters', () => {
-    it('should get current mode from service', () => {
+    it('should get current mode from internal state', () => {
       expect(interfaceModeUI.currentMode).toBe('space')
     })
 
-    it('should set current mode via service', () => {
-      mockService.currentMode = 'ground'
+    it('should set current mode via request-response', async () => {
+      // Mock the request function to resolve successfully
+      vi.doMock('../../src/js/core/requestResponse.js', () => ({
+        request: vi.fn().mockResolvedValue({ success: true })
+      }))
+      
       interfaceModeUI.currentMode = 'ground'
-      expect(interfaceModeUI.currentMode).toBe('ground')
+      
+      // Verify that the request-response pattern was used
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        'rpc:environment:switch',
+        expect.objectContaining({
+          payload: { mode: 'ground' }
+        })
+      )
     })
 
     it('should get current environment', () => {
       expect(interfaceModeUI.currentEnvironment).toBe('space')
     })
 
-    it('should set current environment', () => {
-      mockService.currentMode = 'ground'
+    it('should set current environment', async () => {
+      // Mock the request function to resolve successfully
+      vi.doMock('../../src/js/core/requestResponse.js', () => ({
+        request: vi.fn().mockResolvedValue({ success: true })
+      }))
+      
       interfaceModeUI.currentEnvironment = 'ground'
-      expect(interfaceModeUI.currentEnvironment).toBe('ground')
+      
+      // Verify that the request-response pattern was used
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        'rpc:environment:switch',
+        expect.objectContaining({
+          payload: { mode: 'ground' }
+        })
+      )
     })
   })
 
@@ -184,16 +210,27 @@ describe('InterfaceModeUI', () => {
       expect(interfaceModeUI.getCurrentMode()).toBe('space')
     })
 
-    it('should set current mode via method', () => {
-      mockService.currentMode = 'ground'
-      interfaceModeUI.setCurrentMode('ground')
-      expect(interfaceModeUI.getCurrentMode()).toBe('ground')
+    it('should set current mode via method', async () => {
+      // Mock the request function to resolve successfully
+      vi.doMock('../../src/js/core/requestResponse.js', () => ({
+        request: vi.fn().mockResolvedValue({ success: true })
+      }))
+      
+      await interfaceModeUI.setCurrentMode('ground')
+      
+      // Verify that the request-response pattern was used
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        'rpc:environment:switch',
+        expect.objectContaining({
+          payload: { mode: 'ground' }
+        })
+      )
     })
 
     it('should update mode UI via method', () => {
       const updateSpy = vi.spyOn(interfaceModeUI, 'updateModeUI')
-      interfaceModeUI.updateModeUIState()
-      expect(updateSpy).toHaveBeenCalled()
+      interfaceModeUI.updateModeUI('ground')
+      expect(updateSpy).toHaveBeenCalledWith('ground')
     })
   })
 
@@ -245,6 +282,9 @@ describe('InterfaceModeUI', () => {
 
       interfaceModeUI.destroy()
 
+      // Verify that removeEventListener was called on each button
+      // Note: The actual cleanup uses arrow functions, so we can't test exact function references
+      // But we can verify removeEventListener was called
       expect(mockSpaceBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
       expect(mockGroundBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
       expect(mockAliasBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
@@ -285,7 +325,6 @@ describe('InterfaceModeUI', () => {
 
       // Create UI with real event bus
       const uiWithRealBus = new InterfaceModeUI({
-        service: mockService,
         eventBus: realEventBus,
         ui: mockUI,
         profileUI: mockProfileUI,

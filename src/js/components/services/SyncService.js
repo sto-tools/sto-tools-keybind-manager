@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 import eventBus from '../../core/eventBus.js'
 import FileSystemService, {
@@ -27,6 +28,15 @@ export default class SyncService extends ComponentBase {
 
     // Ensure FileSystemService instance
     if (!this.fs) this.fs = new FileSystemService({ eventBus })
+
+    // ---------------------------------------------------------
+    // Register Request/Response endpoints for UI components
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'sync:sync-project', () => this.syncProject())
+      respond(this.eventBus, 'sync:set-sync-folder', ({ autoSync } = {}) => this.setSyncFolder(autoSync))
+      respond(this.eventBus, 'sync:get-sync-folder-handle', () => this.getSyncFolderHandle())
+    }
   }
 
   /* Set sync folder and optionally enable auto-sync */

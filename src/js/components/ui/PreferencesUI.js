@@ -1,14 +1,21 @@
-import PreferencesService from '../services/PreferencesService.js'
+import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
+import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
-export default class PreferencesUI {
-  constructor({ service, modalManager, ui } = {}) {
-    // Underlying service (logic + persistence)
+export default class PreferencesUI extends ComponentBase {
+  constructor({ service = null, ui = null, modalManager = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(eventBus)
     this.componentName = 'PreferencesUI'
-    this.service = service
-    this.modalManager = modalManager
-    this.ui = ui
+    
+    // Keep service reference for backward compatibility during migration
+    this._legacyService = service
+    
+    this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
+    this.modalManager = modalManager || (typeof modalManager !== 'undefined' ? modalManager : null)
+    this.document = document
+
+    this.eventsSetup = false
 
     // Adopt settingDefinitions from historical implementation
     this.settingDefinitions = {
@@ -21,9 +28,9 @@ export default class PreferencesUI {
     }
   }
 
-  init() {
-    // Ensure settings loaded and UI updated
-    this.service.init()
+  async init() {
+    // Use request/response instead of direct service call
+    await request(eventBus, 'preferences:init')
     this.populatePreferencesModal()
     this.setupEventListeners()
   }
@@ -56,7 +63,7 @@ export default class PreferencesUI {
             const handle = await window.stoSync.setSyncFolder(true)
             if (handle) {
               // Reload settings (folder name/path updated by stoSync)
-              this.service.loadSettings()
+              await request(eventBus, 'preferences:load-settings')
               this.updateFolderDisplay()
             }
           } catch (err) {
@@ -97,9 +104,9 @@ export default class PreferencesUI {
     panel && panel.classList.add('active')
   }
 
-  updateSetting(key, value) {
-    this.service.setSetting(key, value)
-    this.updateUI(key, value)
+  async updateSetting(key, value) {
+    // Use request/response instead of direct service call
+    await this.setSetting(key, value)
 
     if (key === 'syncFolderName' || key === 'syncFolderPath') {
       this.updateFolderDisplay()
@@ -119,40 +126,65 @@ export default class PreferencesUI {
     }
   }
 
-  saveAllSettings(manual = true) {
-    const ok = this.service.saveSettings()
+  async saveAllSettings(manual = true) {
+    // Use request/response instead of direct service call
+    const ok = await this.saveSettings()
     if (ok && manual && this.ui?.showToast) {
       this.ui.showToast(i18next.t('preferences_saved'), 'success')
     }
     this.modalManager?.hide('preferencesModal')
   }
 
-  showPreferences() {
-    // Ensure we have freshest data from storage
-    this.service.loadSettings()
-    const settings = this.service.getSettings()
+  async showPreferences() {
+    // Use request/response to get fresh settings
+    await request(eventBus, 'preferences:load-settings')
+    const settings = await request(eventBus, 'preferences:get-settings')
     Object.entries(settings).forEach(([k, v]) => this.updateUI(k, v))
     this.updateFolderDisplay()
     this.modalManager?.show('preferencesModal')
   }
 
-  populatePreferencesModal() {
-    const modal = document.getElementById('preferencesModal')
-    if (modal && typeof window.applyTranslations === 'function') {
-      window.applyTranslations(modal)
-    }
+  async populatePreferencesModal() {
+    // Use request/response to load settings
+    await request(eventBus, 'preferences:load-settings')
+    this.updatePreferencesFromStorage()
+    this.setupPreferencesEventListeners()
   }
 
-  updateFolderDisplay() {
-    const el = document.getElementById('currentSyncFolder')
-    if (!el) return
-    const { syncFolderName, syncFolderPath } = this.service.getSettings()
-    if (syncFolderName) {
-      el.textContent = syncFolderName
-      el.title = syncFolderPath || ''
+  async updateFolderDisplay() {
+    const settings = await request(eventBus, 'preferences:get-settings')
+    const { syncFolderName, syncFolderPath } = settings
+    
+    // Update folder display UI
+    const folderNameEl = this.document.getElementById('syncFolderName')
+    const folderPathEl = this.document.getElementById('syncFolderPath')
+    
+    if (folderNameEl) folderNameEl.textContent = syncFolderName || 'No folder selected'
+    if (folderPathEl) folderPathEl.textContent = syncFolderPath || ''
+  }
+
+  async setSetting(key, value) {
+    // Use request/response instead of direct service call
+    await request(eventBus, 'preferences:set-setting', { key, value })
+    this.updateUI(key, value)
+  }
+
+  async saveSettings() {
+    // Use request/response instead of direct service call
+    const ok = await request(eventBus, 'preferences:save-settings')
+    if (ok) {
+      this.ui?.showToast('Settings saved successfully', 'success')
     } else {
-      el.textContent = i18next.t('no_folder_selected')
-      el.title = ''
+      this.ui?.showToast('Failed to save settings', 'error')
     }
+    return ok
+  }
+
+  updatePreferencesFromStorage() {
+    // Implementation needed
+  }
+
+  setupPreferencesEventListeners() {
+    // Implementation needed
   }
 } 

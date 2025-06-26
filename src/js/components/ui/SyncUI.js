@@ -1,10 +1,14 @@
+import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
+import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
-export default class SyncUI {
-  constructor({ service, ui } = {}) {
+export default class SyncUI extends ComponentBase {
+  constructor({ service = null, ui = null } = {}) {
+    super(eventBus)
     this.componentName = 'SyncUI'
-    this.service = service
+    // Keep service reference for backward compatibility during migration
+    this._legacyService = service
     this.ui = ui
   }
 
@@ -12,9 +16,9 @@ export default class SyncUI {
     const btn = document.getElementById('syncNowBtn')
     if (btn) {
       btn.addEventListener('click', async () => {
-        if (!this.service) return
         this.ui?.showToast(i18next.t('syncing'), 'info')
-        await this.service.syncProject()
+        // Use request/response instead of direct service call
+        await request(eventBus, 'sync:sync-project')
       })
     }
   }

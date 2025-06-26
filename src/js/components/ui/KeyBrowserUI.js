@@ -25,24 +25,24 @@ export default class KeyBrowserUI extends ComponentBase {
     // Initialize cached selected key
     this._selectedKeyName = null
 
-    // Initial environment default
-    const initialEnv = 'space'
-    this._currentEnvironment = initialEnv
-    if (initialEnv !== 'alias') this.render()
-    this.toggleVisibility(initialEnv)
+    // Environment will be determined from initial state - don't hardcode
+    this._currentEnvironment = null
 
     // Re-render whenever key list changes or selection updates.
-    eventBus.on('key:list-changed', () => this.render())
-    eventBus.on('key-selected', (data) => {
+    this.eventBus.on('key:list-changed', () => this.render())
+    this.eventBus.on('key-selected', (data) => {
       this._selectedKeyName = data.key || data.name
       this.render()
     })
 
     // Handle environment changes for visibility toggling
-    this.addEventListener('environment:changed', (d = {}) => {
+    this.eventBus.on('environment:changed', (d = {}) => {
+      console.log('[KeyBrowserUI] environment:changed event received:', d)
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      console.log('[KeyBrowserUI] parsed environment:', env)
       if (!env) return
       this._currentEnvironment = env
+      console.log('[KeyBrowserUI] calling toggleVisibility with env:', env)
       this.toggleVisibility(env)
       if (env !== 'alias') {
         this.render()
@@ -65,8 +65,7 @@ export default class KeyBrowserUI extends ComponentBase {
     // Also re-render on explicit mode-changed events.
     this.addEventListener('key-view:mode-changed', () => this.render())
 
-    // Initial paint (only if not in alias mode) and toggle-button state
-    this.render()
+    // Initial paint and toggle-button state (will be handled by handleInitialState)
     const initialMode = localStorage.getItem('keyViewMode') || 'key-types'
     this.updateViewToggleButton(initialMode)
   }
@@ -393,20 +392,46 @@ export default class KeyBrowserUI extends ComponentBase {
   }
 
   toggleVisibility (env) {
-    // Key selector container
-    const container = this.document.querySelector('.key-selector-container') || this.document.getElementById('keyGrid')?.parentElement?.parentElement?.parentElement
-    if (!container) return
-    container.style.display = (env === 'alias') ? 'none' : ''
+    // Ensure DOM is ready before trying to manipulate elements
+    const applyVisibility = () => {
+      const container = this.document.querySelector('.key-selector-container')
+      if (!container) {
+        // If container doesn't exist yet, try again after a short delay
+        setTimeout(applyVisibility, 10)
+        return
+      }
+      
+      const shouldShow = env !== 'alias'
+      if (shouldShow) {
+        // Show the container by removing display property
+        container.style.removeProperty('display')
+      } else {
+        // Hide the container with important flag to ensure it takes precedence
+        container.style.setProperty('display', 'none', 'important')
+      }
+    }
+    
+    // Use requestAnimationFrame to ensure DOM is rendered
+    requestAnimationFrame(applyVisibility)
   }
 
   /* ------------------------------------------------------------
    * Late-join: sync visibility when initial state snapshot is received.
    * ---------------------------------------------------------- */
   handleInitialState (sender, state) {
-    if (!state || !state.environment) return
-    this.toggleVisibility(state.environment)
-    if (this.service && typeof this.service.currentEnvironment !== 'undefined') {
-      this.service.currentEnvironment = state.environment
+    if (!state) return
+    
+    // Handle environment state from various sources
+    const env = state.environment || state.currentEnvironment
+    if (env) {
+      this._currentEnvironment = env
+      this.toggleVisibility(env)
+      
+      // Render if not in alias mode
+      if (env !== 'alias') {
+        this.render()
+      }
     }
+    // Service state is now managed internally via events - no direct access needed
   }
 } 

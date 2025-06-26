@@ -18,14 +18,21 @@ export default class InterfaceModeService extends ComponentBase {
     this._modeListenersSetup = false
 
     // Store handler references for proper cleanup
-    this._modeSwitchedHandler = null
     this._profileSwitchedHandler = null
     this._responseDetachFunction = null
 
     // ---------------------------------------------------------
-    // Request/Response handlers are now registered in the constructor to
-    // avoid race conditions. This block is intentionally left blank.
+    // Register Request/Response handlers for environment switching
     // ---------------------------------------------------------
+    if (this.eventBus) {
+      this._responseDetachFunction = respond(this.eventBus, 'environment:switch', ({ mode } = {}) => {
+        if (mode) {
+          this.switchMode(mode)
+          return { success: true, mode: this._currentMode }
+        }
+        return { success: false, error: 'No mode provided' }
+      })
+    }
   }
 
   /**
@@ -80,22 +87,17 @@ export default class InterfaceModeService extends ComponentBase {
     }
 
     // Create handler functions and store references for cleanup
-    this._modeSwitchedHandler = (data = {}) => {
-      const mode = (typeof data === 'string') ? data : data.environment || data.mode || data.newMode
-      if (mode) this.switchMode(mode)
-    }
-
     this._profileSwitchedHandler = (data) => {
       if (data.environment) {
         this.switchMode(data.environment)
       }
     }
 
-    // Listen for environment change requests from UI (replacing legacy 'mode-switched')
-    this.eventBus.on('environment:changed', this._modeSwitchedHandler)
-
     // Listen for profile switches to update mode
     this.eventBus.on('profile-switched', this._profileSwitchedHandler)
+    
+    // Note: No longer listening to 'environment:changed' to prevent circular dependency.
+    // Environment switching now happens via request-response pattern with 'environment:switch' topic.
 
     this._modeListenersSetup = true
   }
@@ -121,13 +123,7 @@ export default class InterfaceModeService extends ComponentBase {
 
     // Emit plain events for state change and legacy compatibility
     this.eventBus.emit('environment:changed', {
-      oldEnvironment: oldMode,
       environment: mode
-    })
-    // Legacy alias
-    this.eventBus.emit('mode-changed', {
-      oldMode,
-      newMode: mode
     })
   }
 
@@ -184,14 +180,7 @@ export default class InterfaceModeService extends ComponentBase {
       }
       
       this.eventBus.emit('environment:changed', {
-        oldEnvironment: prev,
         environment: this._currentMode,
-        isInitialization: true
-      })
-      // Legacy alias
-      this.eventBus.emit('mode-changed', {
-        oldMode: prev,
-        newMode: this._currentMode,
         isInitialization: true
       })
     }
@@ -203,7 +192,6 @@ export default class InterfaceModeService extends ComponentBase {
   destroy() {
     if (this._modeListenersSetup) {
       // Properly remove event listeners using stored handler references
-      this.eventBus.off('environment:changed', this._modeSwitchedHandler)
       this.eventBus.off('profile-switched', this._profileSwitchedHandler)
       this._modeListenersSetup = false
     }

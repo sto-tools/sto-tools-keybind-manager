@@ -200,13 +200,13 @@ export const parameterCommands = {
   /* ------------------------------------------------------------
    * Live preview / param collection
    * ---------------------------------------------------------- */
-  updateParameterPreview () {
+  async updateParameterPreview () {
     if (!this.currentParameterCommand) return
 
     const { categoryId, commandId, commandDef } = this.currentParameterCommand
     const params = this.getParameterValues()
 
-    const cmd = this.service.buildParameterizedCommand(categoryId, commandId, commandDef, params)
+    const cmd = await request(eventBus, 'parameter-command:build', { categoryId, commandId, commandDef, params })
     const previewEl = document.getElementById('parameterCommandPreview')
     if (!previewEl || !cmd) return
 
@@ -232,9 +232,11 @@ export const parameterCommands = {
    * Saving / Editing
    * ---------------------------------------------------------- */
   async saveParameterCommand (...args) {
-    // Use the service's cached state instead of function references
-    const currentEnv = this.service.currentEnvironment || 'space'
-    const selectedKey = currentEnv === 'alias' ? this.service.selectedAlias : this.service.selectedKey
+    // Use request/response to get current state
+    const currentEnv = await request(eventBus, 'parameter-command:get-current-environment') || 'space'
+    const selectedKey = currentEnv === 'alias' 
+      ? await request(eventBus, 'parameter-command:get-selected-alias')
+      : await request(eventBus, 'parameter-command:get-selected-key')
     if (!selectedKey || !this.currentParameterCommand) {
       const message = currentEnv === 'alias' 
         ? (globalThis.i18next?.t?.('please_select_an_alias_first') || 'Please select an alias first')
@@ -245,7 +247,7 @@ export const parameterCommands = {
 
     const { categoryId, commandId, commandDef, editIndex, isEditing } = this.currentParameterCommand
     const params  = this.getParameterValues()
-    const command = this.service.buildParameterizedCommand(categoryId, commandId, commandDef, params)
+    const command = await request(eventBus, 'parameter-command:build', { categoryId, commandId, commandDef, params })
     if (!command) {
       globalThis.stoUI?.showToast?.('Failed to build command - please check parameters', 'error')
       return
@@ -391,14 +393,16 @@ export const parameterCommands = {
    * Thin wrappers delegating to the service – keeps external API
    * intact for legacy code/tests.
    * ---------------------------------------------------------- */
-  generateCommandId (...args) {
-    return this.service.generateCommandId(...args)
+  async generateCommandId (...args) {
+    return await request(eventBus, 'parameter-command:generate-id')
   },
-  buildParameterizedCommand (...args) {
-    return this.service.buildParameterizedCommand(...args)
+  async buildParameterizedCommand (...args) {
+    const [categoryId, commandId, commandDef, params] = args
+    return await request(eventBus, 'parameter-command:build', { categoryId, commandId, commandDef, params })
   },
-  findCommandDefinition (...args) {
-    return this.service.findCommandDefinition(...args)
+  async findCommandDefinition (...args) {
+    const [command] = args
+    return await request(eventBus, 'parameter-command:find-definition', { command })
   },
 }
 

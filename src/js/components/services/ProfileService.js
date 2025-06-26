@@ -34,6 +34,9 @@ export default class ProfileService extends ComponentBase {
       // request/response so UI components no longer need service refs.
       respond(this.eventBus, 'profile:clone', ({ sourceId, newName } = {}) => this.cloneProfile(sourceId, newName))
       respond(this.eventBus, 'profile:rename', ({ id, newName, description } = {}) => this.renameProfile(id, newName, description))
+      
+      // Add handler for getting current profile
+      respond(this.eventBus, 'profile:get-current', () => this.getCurrentProfile())
     }
   }
 
@@ -416,8 +419,8 @@ export default class ProfileService extends ComponentBase {
    */
   setCurrentEnvironment(environment) {
     this.currentEnvironment = environment
-    // Notify other components of environment change
-    this.emit('environment:changed', { environment })
+    // Note: No longer emitting environment:changed to prevent circular dependency.
+    // InterfaceModeService is now the single source of truth for environment changes.
   }
 
   /**

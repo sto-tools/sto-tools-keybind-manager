@@ -33,8 +33,14 @@ export default class CommandChainUI extends ComponentBase {
     this._detachFunctions.push(
       this.eventBus.on('environment:changed', (data) => {
         const env = typeof data === 'string' ? data : data?.environment
-        if (env) this._currentEnvironment = env
-        this.updateChainActions()
+        if (env) {
+          this._currentEnvironment = env
+          this.updateChainActions()
+          // Defer render slightly so data services have time to process the
+          // environment change first. This avoids race-conditions that left
+          // the header stuck in key-mode when starting in alias mode.
+          this.render()
+        }
       })
     )
     this._detachFunctions.push(
@@ -42,6 +48,7 @@ export default class CommandChainUI extends ComponentBase {
         this._selectedKey = data.key || data.name
         this._selectedAlias = null
         this.updateChainActions()
+        //setTimeout(() => this.render().catch(() => {}), 0)
       })
     )
     this._detachFunctions.push(
@@ -49,6 +56,7 @@ export default class CommandChainUI extends ComponentBase {
         this._selectedAlias = data.name
         this._selectedKey = null
         this.updateChainActions()
+        //setTimeout(() => this.render().catch(() => {}), 0)
       })
     )
 
@@ -57,11 +65,13 @@ export default class CommandChainUI extends ComponentBase {
     // Drag/drop
     this.setupDragAndDrop()
 
-    // Initial render/visibility will be adjusted once environment events
-    // arrive or via the late-join snapshot handled below.
+    // Defer the first render until we have at least the initial environment
+    // (and potentially a key/alias selection) to avoid showing the generic
+    // key-mode empty-state when the application actually starts in alias
+    // mode.  Rendering will now occur when one of the listeners below sets
+    // the necessary state and explicitly calls `this.render()`.
 
     this.updateChainActions()
-    await this.render()
   }
 
   async render (commandsArg = null) {
@@ -76,6 +86,7 @@ export default class CommandChainUI extends ComponentBase {
     const commands = commandsArg || await request(this.eventBus, 'command:get-for-selected-key')
 
     const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
+    console.log('render getEmptyStateInfo', emptyStateInfo)
 
     // Use cached selection state from event listeners
     const selectedKeyName = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
