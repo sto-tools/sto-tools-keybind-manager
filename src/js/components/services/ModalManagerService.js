@@ -7,13 +7,16 @@ import ComponentBase from '../ComponentBase.js'
  * (`window.modalManager`) for backwards-compatibility.
  */
 export default class ModalManagerService extends ComponentBase {
-  constructor () {
-    super()
+  constructor (eventBus) {
+    super(eventBus)
     this.componentName = 'ModalManagerService'
 
     this.overlayId = 'modalOverlay'
     this.regenerateCallbacks = {} // modalId -> callback
+    this.isInitialized = false
+    
     this.registerAllModalCallbacks()
+    this.setupEventListeners()
 
     // Register global instance for legacy code paths
     if (typeof window !== 'undefined') {
@@ -33,6 +36,57 @@ export default class ModalManagerService extends ComponentBase {
         }
       })
     }
+  }
+
+  async init() {
+    if (this.isInitialized) {
+      console.log(`[${this.componentName}] Already initialized`)
+      return
+    }
+
+    this.isInitialized = true
+    console.log(`[${this.componentName}] Initialized`)
+  }
+
+  setupEventListeners() {
+    // Modal control events
+    this.eventBus.on('modal:show', this.handleShowModal.bind(this))
+    this.eventBus.on('modal:hide', this.handleHideModal.bind(this))
+    this.eventBus.on('modal:toggle', this.handleToggleModal.bind(this))
+    this.eventBus.on('modal:register-callback', this.handleRegisterCallback.bind(this))
+    this.eventBus.on('modal:unregister-callback', this.handleUnregisterCallback.bind(this))
+  }
+
+  async handleShowModal({ modalId }) {
+    const result = this.show(modalId)
+    this.eventBus.emit('modal:shown', { modalId, success: result })
+    return result
+  }
+
+  async handleHideModal({ modalId }) {
+    const result = this.hide(modalId)
+    this.eventBus.emit('modal:hidden', { modalId, success: result })
+    return result
+  }
+
+  async handleToggleModal({ modalId }) {
+    const modal = (typeof modalId === 'string') ? document.getElementById(modalId) : modalId
+    if (!modal) return false
+
+    const isActive = modal.classList.contains('active')
+    const result = isActive ? this.hide(modalId) : this.show(modalId)
+    this.eventBus.emit('modal:toggled', { modalId, isActive: !isActive, success: result })
+    return result
+  }
+
+  async handleRegisterCallback({ modalId, callback }) {
+    this.registerRegenerateCallback(modalId, callback)
+    console.log(`[${this.componentName}] Registered callback for modal: ${modalId}`)
+  }
+
+  async handleUnregisterCallback({ modalId }) {
+    this.unregisterRegenerateCallback(modalId)
+    console.log(`[${this.componentName}] Unregistered callback for modal: ${modalId}`)
   }
 
   /* ----------------------------------------------------------- utilities */
@@ -138,9 +192,15 @@ export default class ModalManagerService extends ComponentBase {
       }
     })
 
-    /* Vertigo modal */
+    /* VFX/Vertigo modal - updated to use new VFX system */
     this.registerRegenerateCallback('vertigoModal', () => {
-      window.app?.populateVertigoModal?.()
+      // Emit event for VFX UI to handle regeneration
+      if (this.eventBus) {
+        this.eventBus.emit('vfx:modal-regenerate-requested')
+      } else {
+        // Fallback to legacy method
+        window.app?.populateVertigoModal?.()
+      }
     })
 
     /* Profile modal */

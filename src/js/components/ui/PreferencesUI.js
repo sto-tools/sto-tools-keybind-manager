@@ -187,4 +187,12 @@ export default class PreferencesUI extends ComponentBase {
   setupPreferencesEventListeners() {
     // Implementation needed
   }
+
+  toggleSettingsMenu() {
+    const settingsBtn = this.document.getElementById('settingsBtn')
+    const dropdown = settingsBtn?.closest('.dropdown')
+    if (dropdown) {
+      dropdown.classList.toggle('active')
+    }
+  }
 } 

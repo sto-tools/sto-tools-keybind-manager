@@ -217,6 +217,7 @@ body {
 /* Dropdown component */
 .dropdown {
   position: relative;
+  display: inline-block;
 }
 
 .dropdown-toggle {
@@ -229,22 +230,28 @@ body {
   position: absolute;
   top: 100%;
   right: 0;
-  background: var(--surface);
+  z-index: 1000;
+  display: none;
+  min-width: 200px;
+  padding: 0.5rem 0;
+  margin: 0.125rem 0 0;
+  background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  min-width: 200px;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-10px);
-  transition: var(--transition);
-  z-index: 1000;
 }
 
 .dropdown.active .dropdown-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+  display: block !important; /* Force display when active */
+}
+
+/* Debug styles */
+.dropdown.active {
+  outline: 2px solid red; /* Debug outline */
+}
+
+.dropdown.active .dropdown-menu {
+  outline: 2px solid blue; /* Debug outline */
 }
 
 .dropdown-item {

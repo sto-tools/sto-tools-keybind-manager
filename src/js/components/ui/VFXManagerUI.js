@@ -1,0 +1,203 @@
+import ComponentBase from '../ComponentBase.js'
+import { VFX_EFFECTS } from '../../features/vertigo_data.js'
+
+export default class VFXManagerUI extends ComponentBase {
+  constructor(eventBus, modalManager) {
+    super(eventBus)
+    this.componentName = 'VFXManagerUI'
+    this.modalManager = modalManager
+    this.isInitialized = false
+    this.vfxManager = null
+  }
+
+  async init() {
+    if (this.isInitialized) {
+      console.log(`[${this.componentName}] Already initialized`)
+      return
+    }
+
+    this.setupEventListeners()
+    this.isInitialized = true
+    console.log(`[${this.componentName}] Initialized`)
+  }
+
+  setupEventListeners() {
+    // Listen for modal population event from service
+    this.eventBus.on('vfx:modal-populate', this.handleModalPopulate.bind(this))
+    
+    // Setup DOM event listeners once
+    this.setupDOMEventListeners()
+  }
+
+  handleModalPopulate({ vfxManager }) {
+    console.log(`[${this.componentName}] Populating VFX modal`)
+    this.vfxManager = vfxManager
+    this.populateModal()
+    this.modalManager.show('vertigoModal')
+  }
+
+  populateModal() {
+    if (!this.vfxManager) return
+
+    // Populate space effects
+    const spaceList = document.getElementById('spaceEffectsList')
+    if (spaceList) {
+      spaceList.innerHTML = ''
+      VFX_EFFECTS.space.forEach((effect) => {
+        const effectItem = this.createEffectItem('space', effect)
+        spaceList.appendChild(effectItem)
+      })
+    }
+
+    // Populate ground effects
+    const groundList = document.getElementById('groundEffectsList')
+    if (groundList) {
+      groundList.innerHTML = ''
+      VFX_EFFECTS.ground.forEach((effect) => {
+        const effectItem = this.createEffectItem('ground', effect)
+        groundList.appendChild(effectItem)
+      })
+    }
+
+    // Update UI state based on loaded data
+    this.updateCheckboxes('space')
+    this.updateCheckboxes('ground')
+
+    // Update PlayerSay checkbox
+    const playerSayCheckbox = document.getElementById('vertigoShowPlayerSay')
+    if (playerSayCheckbox) {
+      playerSayCheckbox.checked = this.vfxManager.showPlayerSay
+    }
+
+    // Update effect counts and preview
+    this.updateEffectCounts()
+    this.updatePreview()
+  }
+
+  createEffectItem(environment, effect) {
+    const effectItem = document.createElement('div')
+    effectItem.className = 'effect-item'
+    
+    const isSelected = this.vfxManager.isEffectSelected(environment, effect.effect)
+    
+    effectItem.innerHTML = `
+      <label class="effect-label">
+        <input type="checkbox" 
+               class="effect-checkbox" 
+               data-environment="${environment}" 
+               data-effect="${effect.effect}"
+               ${isSelected ? 'checked' : ''}>
+        <span class="effect-name">${effect.label}</span>
+      </label>
+    `
+    
+    return effectItem
+  }
+
+  updateCheckboxes(environment) {
+    const checkboxes = document.querySelectorAll(`input[data-environment="${environment}"]`)
+    checkboxes.forEach(checkbox => {
+      const effectName = checkbox.dataset.effect
+      checkbox.checked = this.vfxManager.isEffectSelected(environment, effectName)
+    })
+  }
+
+  updateEffectCounts() {
+    // Update space count
+    const spaceCount = this.vfxManager.getEffectCount('space')
+    const spaceCountEl = document.getElementById('spaceEffectCount')
+    if (spaceCountEl) {
+      spaceCountEl.textContent = spaceCount
+    }
+
+    // Update ground count
+    const groundCount = this.vfxManager.getEffectCount('ground')
+    const groundCountEl = document.getElementById('groundEffectCount')
+    if (groundCountEl) {
+      groundCountEl.textContent = groundCount
+    }
+  }
+
+  updatePreview() {
+    // Update space preview
+    const spacePreviewEl = document.getElementById('spaceAliasCommand')
+    if (spacePreviewEl && this.vfxManager) {
+      const spaceEffects = Array.from(this.vfxManager.selectedEffects.space)
+      if (spaceEffects.length > 0) {
+        spacePreviewEl.textContent = `alias VFXSpace "dynFxSetFXExclusionList ${spaceEffects.join(' ')}"`
+      } else {
+        spacePreviewEl.textContent = 'No space effects selected'
+      }
+    }
+
+    // Update ground preview
+    const groundPreviewEl = document.getElementById('groundAliasCommand')
+    if (groundPreviewEl && this.vfxManager) {
+      const groundEffects = Array.from(this.vfxManager.selectedEffects.ground)
+      if (groundEffects.length > 0) {
+        groundPreviewEl.textContent = `alias VFXGround "dynFxSetFXExclusionList ${groundEffects.join(' ')}"`
+      } else {
+        groundPreviewEl.textContent = 'No ground effects selected'
+      }
+    }
+  }
+
+  setupDOMEventListeners() {
+    // Effect checkbox changes
+    document.addEventListener('change', (e) => {
+      if (e.target.classList.contains('effect-checkbox')) {
+        const environment = e.target.dataset.environment
+        const effectName = e.target.dataset.effect
+        
+        if (this.vfxManager) {
+          this.vfxManager.toggleEffect(environment, effectName)
+          this.updateEffectCounts()
+          this.updatePreview()
+        }
+      }
+    })
+
+    // PlayerSay checkbox
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'vertigoShowPlayerSay') {
+        if (this.vfxManager) {
+          this.vfxManager.showPlayerSay = e.target.checked
+          this.updatePreview()
+        }
+      }
+    })
+
+    // Select All buttons
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('select-all-btn')) {
+        const environment = e.target.dataset.environment
+        if (this.vfxManager) {
+          this.vfxManager.selectAllEffects(environment)
+          this.updateCheckboxes(environment)
+          this.updateEffectCounts()
+          this.updatePreview()
+        }
+      }
+    })
+
+    // Clear All buttons
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('clear-all-btn')) {
+        const environment = e.target.dataset.environment
+        if (this.vfxManager) {
+          this.vfxManager.selectedEffects[environment].clear()
+          this.updateCheckboxes(environment)
+          this.updateEffectCounts()
+          this.updatePreview()
+        }
+      }
+    })
+
+    // Save button
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'vertigoSaveBtn') {
+        this.eventBus.emit('vfx:save-effects')
+      }
+    })
+  }
+} 

@@ -36,10 +36,13 @@ export default class EventHandlerService extends ComponentBase {
   initEventHandlers() {
     // Ensure the DOM is fully parsed before we attempt to query for buttons.
     if (document.readyState === 'loading') {
+      console.log('[EventHandlerService] DOM still loading, waiting for DOMContentLoaded')
       document.addEventListener('DOMContentLoaded', () => {
+        console.log('[EventHandlerService] DOMContentLoaded fired, setting up event listeners')
         this.setupEventListeners()
       }, { once: true })
     } else {
+      console.log('[EventHandlerService] DOM already loaded, setting up event listeners immediately')
       this.setupEventListeners()
     }
   }
@@ -49,18 +52,15 @@ export default class EventHandlerService extends ComponentBase {
    */
   setupEventListeners() {
     if (this._ehListenersSetup) {
+      console.log('[EventHandlerService] Event listeners already setup, skipping')
       return
     }
+    console.log('[EventHandlerService] Setting up event listeners')
     this._ehListenersSetup = true
 
     // ============================================================
     // Global UI Event Handlers
     // ============================================================
-
-    // Settings menu
-    this.eventBus.onDom('settingsBtn', 'click', 'settings-toggle', () => {
-      this.toggleSettingsMenu()
-    })
 
     // Import menu
     this.eventBus.onDom('importBtn', 'click', 'import-toggle', () => {
@@ -79,17 +79,10 @@ export default class EventHandlerService extends ComponentBase {
 
     // Close all menus when clicking outside
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.settings-menu') && !e.target.closest('#settingsBtn')) {
-        this.closeSettingsMenu()
-      }
-      if (!e.target.closest('.import-menu') && !e.target.closest('#importBtn')) {
-        this.closeImportMenu()
-      }
-      if (!e.target.closest('.backup-menu') && !e.target.closest('#backupBtn')) {
-        this.closeBackupMenu()
-      }
-      if (!e.target.closest('.language-menu') && !e.target.closest('#languageBtn')) {
-        this.closeLanguageMenu()
+      if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown.active').forEach(dropdown => {
+          dropdown.classList.remove('active')
+        })
       }
     })
 
@@ -106,11 +99,15 @@ export default class EventHandlerService extends ComponentBase {
       this.exportKeybinds()
     })
 
-    // Vertigo VFX manager
+    // VFX Button
+    console.log('[eventHandlers] About to register vertigoBtn click handler')
     const vertigoBtnCheck = document.getElementById('vertigoBtn')
-    this.eventBus.onDom('vertigoBtn', 'click', 'vertigo-open', () => {
-      this.showVertigoModal()
+    console.log('[eventHandlers] vertigoBtn exists before registration:', !!vertigoBtnCheck)
+    this.eventBus.onDom('vertigoBtn', 'click', 'vfx-open', () => {
+      console.log('[eventHandlers] VFX button clicked!')
+      this.eventBus.emit('vfx:show-modal')
     })
+    console.log('[eventHandlers] vertigoBtn event registration completed')
 
     // Key management
     this.eventBus.onDom('addKeyBtn', 'click', 'key-add', () => {
@@ -287,10 +284,9 @@ export default class EventHandlerService extends ComponentBase {
    * Setup global UI event listeners
    */
   setupGlobalUIEventListeners() {
-    // Settings dropdown
-    this.eventBus.onDom('settingsBtn', 'click', 'settings-menu', (e) => {
-      e.stopPropagation()
-      this.toggleSettingsMenu()
+    // Settings menu
+    this.eventBus.onDom('settingsBtn', 'click', 'settings-toggle', (e) => {
+      this.toggleSettingsMenu(e)
     })
 
     // Import dropdown
@@ -349,11 +345,11 @@ export default class EventHandlerService extends ComponentBase {
       this.closeSettingsMenu()
     })
 
-    this.eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
+    this.eventBus.onDom('preferencesBtn', 'click', 'preferences-open', (e) => {
+      e.stopPropagation() // Prevent the click from bubbling to document
       if (this.preferencesManager) {
         this.preferencesManager.showPreferences()
       } else {
-        // Fallback to old modal if preferences manager not available
         this.modalManager.show('preferencesModal')
       }
       this.closeSettingsMenu()
@@ -412,10 +408,19 @@ export default class EventHandlerService extends ComponentBase {
   }
 
   // Dropdown menu methods
-  toggleSettingsMenu() {
+  toggleSettingsMenu(event) {
+    if (event) {
+      event.stopPropagation() // Prevent document click from immediately closing
+    }
     const btn = document.getElementById('settingsBtn')
     const dropdown = btn?.closest('.dropdown')
     if (dropdown) {
+      // Close any other open dropdowns first
+      document.querySelectorAll('.dropdown.active').forEach(d => {
+        if (d !== dropdown) {
+          d.classList.remove('active')
+        }
+      })
       dropdown.classList.toggle('active')
     }
   }
@@ -674,23 +679,9 @@ export default class EventHandlerService extends ComponentBase {
         if (modalId) {
           this.modalManager.hide(modalId)
 
-          // Handle Vertigo modal cancellation - rollback to initial state
+          // Handle VFX modal cancellation - use new VFX system
           if (modalId === 'vertigoModal') {
-            // Only rollback if we're not in the middle of saving
-            if (this.vertigoInitialState && !this.vertigoSaving) {
-              vertigoManager.selectedEffects.space = new Set(
-                this.vertigoInitialState.selectedEffects.space
-              )
-              vertigoManager.selectedEffects.ground = new Set(
-                this.vertigoInitialState.selectedEffects.ground
-              )
-              vertigoManager.showPlayerSay =
-                this.vertigoInitialState.showPlayerSay
-            }
-
-            // Clean up stored state
-            delete this.vertigoInitialState
-            this.vertigoSaving = false
+            this.eventBus.emit('vfx:cancel-effects')
           }
 
           // Stop key capture if modal is closed
@@ -1063,14 +1054,6 @@ export default class EventHandlerService extends ComponentBase {
     }
     // Fallback: emit event
     this.eventBus.emit('key-capture:stop')
-  }
-
-  showVertigoModal() {
-    if (this.app?.showVertigoModal) {
-      return this.app.showVertigoModal()
-    }
-    // Fallback: emit event
-    this.eventBus.emit('vertigo:show-modal')
   }
 
   showKeySelectionModal() {

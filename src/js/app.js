@@ -23,6 +23,8 @@ import PreferencesUI from './components/ui/PreferencesUI.js'
 import KeyService from './components/services/KeyService.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
+import { VFXManagerService } from './components/services/index.js'
+import { VFXManagerUI } from './components/ui/index.js'
 
 
 export default class STOToolsKeybindManager {
@@ -333,6 +335,13 @@ export default class STOToolsKeybindManager {
       this.preferencesUI.init()
 
       // dbg('Preferences service & UI initialized')
+      // Initialize VFX Manager service & UI
+      this.vfxManagerService = new VFXManagerService(eventBus)
+      this.vfxManagerUI = new VFXManagerUI(eventBus, modalManager)
+      this.vfxManagerService.init()
+      this.vfxManagerUI.init()
+
+      // dbg('VFX Manager service & UI initialized')
       // Initialize auto-sync manager
       this.autoSyncManager = new AutoSync({ eventBus, storage: storageService, syncManager: window.stoSync, ui: stoUI })
       this.autoSyncManager.init()

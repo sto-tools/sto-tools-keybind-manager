@@ -6,6 +6,7 @@ export { default as InterfaceModeUI } from './InterfaceModeUI.js'
 export { default as CommandBuilderUI } from './CommandBuilderUI.js'
 export { default as ConfirmDialogUI } from './ConfirmDialogUI.js'
 export { default as KeyCaptureUI } from './KeyCaptureUI.js'
+export { default as VFXManagerUI } from './VFXManagerUI.js'
 
 // Legacy UI exports
 export { default as modalManager } from '../../ui/modalManager.js'
