@@ -30,6 +30,11 @@ export default class ProfileService extends ComponentBase {
         const data = this.storage?.getAllData?.()
         return data ? data.profiles : {}
       })
+
+      // Phase-2 decoupling – expose cloning and renaming through
+      // request/response so UI components no longer need service refs.
+      respond(this.eventBus, 'profile:clone', ({ sourceId, newName } = {}) => this.cloneProfile(sourceId, newName))
+      respond(this.eventBus, 'profile:rename', ({ id, newName, description } = {}) => this.renameProfile(id, newName, description))
     }
   }
 
@@ -441,5 +446,48 @@ export default class ProfileService extends ComponentBase {
   getAllProfiles () {
     const data = this.storage?.getAllData?.()
     return data ? { ...data.profiles } : {}
+  }
+
+  /**
+   * Rename a profile – updates its name (and optional description).
+   * If the renamed profile is currently active, emit profile-modified so UIs
+   * can refresh.
+   */
+  renameProfile (profileId, newName, description = '') {
+    try {
+      if (!profileId) {
+        throw new Error(this.i18n?.t?.('profile_id_required') || 'Profile ID is required')
+      }
+
+      const profile = this.storage.getProfile(profileId)
+      if (!profile) {
+        throw new Error(this.i18n?.t?.('profile_not_found') || 'Profile not found')
+      }
+
+      profile.name = newName
+      if (description !== undefined && description !== null) {
+        profile.description = description
+      }
+      profile.lastModified = new Date().toISOString()
+
+      const saved = this.storage.saveProfile(profileId, profile)
+      if (saved) {
+        // If this is the active profile, consider it modified so UI updates.
+        if (profileId === this.currentProfile) {
+          this.emit('profile-modified', { profileId })
+        }
+
+        return {
+          success: true,
+          profileId,
+          profile,
+          message: this.i18n?.t?.('profile_renamed', { name: newName }) || `Profile renamed to "${newName}"`
+        }
+      }
+
+      throw new Error(this.i18n?.t?.('failed_to_rename_profile') || 'Failed to rename profile')
+    } catch (error) {
+      throw error
+    }
   }
 } 

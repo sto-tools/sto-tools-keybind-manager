@@ -59,7 +59,7 @@ function request(bus = eventBus, topic, payload, timeout = 5000) {
     bus.on(replyTopic, onReply)
 
     // Emit the request
-    bus.emit(topic, { requestId, replyTopic, payload })
+    bus.emit(`rpc:${topic}`, { requestId, replyTopic, payload })
   })
 }
 
@@ -92,9 +92,9 @@ function respond(bus = eventBus, topic, handler) {
     }
   }
 
-  bus.on(topic, internal)
+  bus.on(`rpc:${topic}`, internal)
   // Return a detach function so callers can unregister
-  return () => bus.off(topic, internal)
+  return () => bus.off(`rpc:${topic}`, internal)
 }
 
 /**

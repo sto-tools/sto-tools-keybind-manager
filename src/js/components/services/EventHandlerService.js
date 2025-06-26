@@ -69,9 +69,7 @@ export default class EventHandlerService extends ComponentBase {
       this.handleProfileCreate(data)
     })
 
-    this.eventBus.on('profile:switch', (data) => {
-      this.handleProfileSwitch(data)
-    })
+
 
     this.eventBus.on('profile:delete', (data) => {
       this.handleProfileDelete(data)
@@ -783,19 +781,7 @@ export default class EventHandlerService extends ComponentBase {
     }
   }
 
-  handleProfileSwitch(data) {
-    try {
-      if (this.app && this.app.profileService) {
-        const result = this.app.profileService.switchProfile(data.profileId)
-        if (result.success) {
-          this.eventBus.emit('profile:switched', result)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to switch profile:', error)
-      this.eventBus.emit('profile:switch-failed', { error: error.message })
-    }
-  }
+
 
   handleProfileDelete(data) {
     try {

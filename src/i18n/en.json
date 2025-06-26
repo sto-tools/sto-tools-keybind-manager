@@ -125,20 +125,13 @@
   "gamepad": "Gamepad",
   "common_keys1": "Common Keys",
   "find_other_keys": "Find other keys...",
-  "vfx_manager": "VFX Manager",
   "select_visual_effects_to_disable_using_dynfxsetfxexlusionlist_aliases_effects_are_organized_by_environment": "Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.",
   "space_effects": "Space Effects",
-  "select_all": "Select All",
-  "clear_all": "Clear All",
   "selected": "selected",
   "ground_effects": "Ground Effects",
   "generated_aliases": "Generated Aliases:",
   "space_alias": "Space Alias:",
-  "no_space_effects_selected": "No space effects selected",
   "ground_alias": "Ground Alias:",
-  "no_ground_effects_selected": "No ground effects selected",
-  "show_player_say": "Show Player Say",
-  "generate_aliases": "Generate Aliases",
   "about_sto_tools_keybind_manager": "About STO Tools Keybind Manager",
   "a_comprehensive_web_based_tool_for_creating_editing_and_managing_star_trek_online_keybind_configurations_with_visual_editing_and_advanced_features": "A comprehensive web-based tool for creating, editing, and managing Star Trek Online keybind configurations with visual editing and advanced features.",
   "features": "Features:",
@@ -580,10 +573,6 @@
       "name": "Aim/Scope",
       "description": "Toggle scope on/off. In scope mode the player does more damage. Can either be used as a toggle or a press and hold"
     },
-    "setactivecostume": {
-      "name": "Set Active Costume",
-      "description": "Sets current active costume. Requires two modifiers."
-    },
     "holster": {
       "name": "Holster Weapon",
       "description": "Attempt to holster your active weapon"
@@ -986,5 +975,6 @@
   "confirm_reset_app": "Are you sure you want to reset the application? This will delete all profiles and data. This action cannot be undone.",
   "switch_to_key_type_view": "Switch to key type view",
   "switch_to_grid_view": "Switch to grid view",
-  "switch_to_command_categories": "Switch to command categories"
+  "switch_to_command_categories": "Switch to command categories",
+  "no_profiles_available": "No profiles available"
 }
