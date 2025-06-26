@@ -51,27 +51,11 @@ export default class ProfileUI extends ComponentBase {
     // updates that might come in between.
     this.setupEventListeners()
 
-    // Perform initial DOM population (profiles list, info panel, etc.).
-    // We rely on cached state which may have been populated via
-    // handleInitialState() already.  If not, fallback to explicit requests.
-    if (!this._currentProfileId) {
-      request(this.eventBus, 'state:current-profile').then((id) => {
-        this._currentProfileId = id
-        return request(this.eventBus, 'profile:get-current')
-      }).then((profile) => {
-        if (profile?.currentEnvironment) {
-          this._currentEnvironment = profile.currentEnvironment
-        }
-        this.renderProfiles()
-        this.updateProfileInfo()
-      }).catch(() => {
-        // Silent – there may be no profile yet at startup.
-      })
-    } else {
-      // Cached state already present
-      this.renderProfiles()
-      this.updateProfileInfo()
-    }
+    // Initial DOM population – fetch available profiles to render dropdown.
+    // Current profile/environment will be filled in later by the
+    // late-join handshake (handleInitialState) or subsequent events.
+    this.renderProfiles()
+    this.updateProfileInfo()
   }
 
   /**
