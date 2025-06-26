@@ -1,5 +1,7 @@
 ﻿import ComponentBase from '../ComponentBase.js'
 import { parameterCommands } from './ParameterCommandUI.js'
+import eventBus from '../../core/eventBus.js'
+import { request } from '../../core/requestResponse.js'
 
 /**
  * CommandLibraryUI - Handles all command library UI operations
@@ -101,7 +103,7 @@ export default class CommandLibraryUI extends ComponentBase {
   /**
    * Render the command chain UI
    */
-  renderCommandChain() {
+  async renderCommandChain() {
     const container = this.document.getElementById('commandList')
     const title = this.document.getElementById('chainTitle')
     const preview = this.document.getElementById('commandPreview')
@@ -115,9 +117,9 @@ export default class CommandLibraryUI extends ComponentBase {
     // call-counts. If nothing material (selected key, environment, command
     // length) has changed since the last render just bail out early.
     // ---------------------------------------------------------------------
-    const key   = this.service.selectedKey || null
-    const env   = this.service.currentEnvironment || null
-    const cmds  = this.service.getCommandsForSelectedKey()
+    const key   = this.service ? this.service.selectedKey : null
+    const env   = this.service ? this.service.currentEnvironment : null
+    const cmds  = await request(eventBus, 'command:get-for-selected-key')
     const cmdLen = cmds.length
 
     // Update memoization snapshot; skip early bail-out for now to avoid edge
@@ -157,7 +159,7 @@ export default class CommandLibraryUI extends ComponentBase {
     // Refresh commands list (already captured above) in case the service has
     // mutated state since the memoization snapshot. This is effectively a
     // no-op for most flows but keeps the original semantics intact.
-    commands = this.service.getCommandsForSelectedKey()
+    commands = await request(eventBus, 'command:get-for-selected-key')
 
     if (commands.length === 0) {
       // No commands - show empty state
@@ -170,18 +172,16 @@ export default class CommandLibraryUI extends ComponentBase {
     } else {
       // Render command list
       container.innerHTML = ''
-      commands.forEach((command, index) => {
-        const element = this.createCommandElement(command, index, commands.length)
-        container.appendChild(element)
-      })
+      const elements = await Promise.all(commands.map((command, index) => this.createCommandElement(command, index, commands.length)))
+      elements.forEach(el => container.appendChild(el))
     }
 
     // After updating UI, broadcast to new command-chain component (phase-2): still emit event but also call chainUI.render
     if (this.eventBus) {
       this.eventBus.emit('command-chain:update', {
         commands,
-        selectedKey: this.service.selectedKey,
-        environment: this.service.currentEnvironment,
+        selectedKey: key,
+        environment: env,
       })
     }
 
@@ -193,7 +193,7 @@ export default class CommandLibraryUI extends ComponentBase {
   /**
    * Create a command element for the UI
    */
-  createCommandElement(command, index, totalCommands) {
+  async createCommandElement(command, index, totalCommands) {
     const element = this.document.createElement('div') || {}
     // Ensure compatibility with test mocks that may not fully implement DOM APIs
     if (!element.dataset) {
@@ -204,7 +204,7 @@ export default class CommandLibraryUI extends ComponentBase {
     element.draggable = true
 
     // Check if this command matches a library definition
-    const commandDef = this.service.findCommandDefinition(command)
+    const commandDef = await request(eventBus, 'command:find-definition', { command })
     const isParameterized = commandDef && commandDef.customizable
 
     // Use library definition for display if available
@@ -324,13 +324,13 @@ export default class CommandLibraryUI extends ComponentBase {
   /**
    * Setup the command library UI
    */
-  setupCommandLibrary() {
+  async setupCommandLibrary() {
     const container = this.document.getElementById('commandCategories')
     if (!container) return
 
     container.innerHTML = ''
 
-    const categories = this.service.getCommandCategories()
+    const categories = await request(eventBus, 'command:get-categories')
     Object.entries(categories).forEach(([categoryId, category]) => {
       const categoryElement = this.createCategoryElement(categoryId, category)
       container.appendChild(categoryElement)

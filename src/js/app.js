@@ -23,6 +23,7 @@ import PreferencesUI from './components/ui/PreferencesUI.js'
 import KeyService from './components/services/KeyService.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
+import AppStateService from './components/services/AppStateService.js'
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -144,6 +145,7 @@ export default class STOToolsKeybindManager {
       // dbg('AliasBrowserService created')
       this.aliasBrowserUI = new AliasBrowserUI({
         service: this.aliasBrowserService,
+        eventBus,
         document,
       })
 
@@ -160,7 +162,7 @@ export default class STOToolsKeybindManager {
       // dbg('KeyBrowserService created')
       this.keyBrowserUI = new KeyBrowserUI({
         service: this.keyBrowserService,
-        app: this,
+        eventBus,
         document,
       })
 
@@ -185,8 +187,8 @@ export default class STOToolsKeybindManager {
 
       this.keyCaptureUI = new KeyCaptureUI({
         service: this.keyCaptureService,
+        eventBus,
         modalManager,
-        app: this,
         document,
       })
       this.keyCaptureUI.init()
@@ -238,8 +240,8 @@ export default class STOToolsKeybindManager {
       // dbg('CommandChainService created')
       this.commandChainUI      = new CommandChainUI({
         service: this.commandChainService,
-        ui: stoUI,
         eventBus,
+        ui: stoUI,
         document
       })
 
@@ -448,6 +450,11 @@ export default class STOToolsKeybindManager {
       // ------------------------------
 
       this.setupEventCoordination()
+
+      // ---------------------------------
+      // Global AppStateService to provide snapshot endpoint
+      // ---------------------------------
+      this.appStateService = new AppStateService({ eventBus })
     } catch (error) {
       // dbg('Failed to initialize application:', error)
       // dbg('Error stack:', error.stack)

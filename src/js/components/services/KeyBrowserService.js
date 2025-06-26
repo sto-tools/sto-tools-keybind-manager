@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * KeyBrowserService – source-of-truth for the key grid.
@@ -17,6 +18,15 @@ export default class KeyBrowserService extends ComponentBase {
     this.currentProfileId   = null
     this.currentEnvironment = 'space'
     this.selectedKeyName    = null
+
+    // ---------------------------------------------------------
+    // Register Request/Response endpoints for external callers
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'key:get-all',           () => this.getKeys())
+      respond(this.eventBus, 'key:get-profile',       () => this.getProfile())
+      respond(this.eventBus, 'key:get-selected-name', () => this.selectedKeyName)
+    }
   }
 
   /* ============================================================
@@ -50,7 +60,7 @@ export default class KeyBrowserService extends ComponentBase {
       this.currentProfileId   = profileId
       if (environment) this.currentEnvironment = environment
       this.selectedKeyName = null
-      this.emit('keys-changed', { keys: this.getKeys() })
+      this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
     // Environment changed – allow either string payload or { environment }
@@ -60,19 +70,19 @@ export default class KeyBrowserService extends ComponentBase {
       this.currentEnvironment = env
       // Clear any prior key selection – key context is environment specific
       this.selectedKeyName = null
-      this.emit('keys-changed', { keys: this.getKeys() })
+      this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
     // Also respond to global mode changes emitted by InterfaceModeService
     this.eventBus.on('mode-changed', ({ newMode }) => {
       this.currentEnvironment = newMode
       this.selectedKeyName = null
-      this.emit('keys-changed', { keys: this.getKeys() })
+      this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
     // Data modifications
     this.addEventListener('profile-modified', () => {
-      this.emit('keys-changed', { keys: this.getKeys() })
+      this.emit('key:list-changed', { keys: this.getKeys() })
     })
   }
 

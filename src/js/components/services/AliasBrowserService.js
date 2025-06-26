@@ -1,6 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import i18next from 'i18next'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * AliasBrowserService – source-of-truth for alias CRUD & selection.
@@ -16,6 +17,15 @@ export default class AliasBrowserService extends ComponentBase {
     this.currentProfileId   = null
     this.currentEnvironment = 'space'
     this.selectedAliasName  = null
+
+    // ---------------------------------------------------------
+    // Register Request/Response endpoints for alias operations
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'alias:get-all',           () => this.getAliases())
+      respond(this.eventBus, 'alias:get-selected-name', () => this.selectedAliasName)
+      respond(this.eventBus, 'alias:select',            ({ name }) => this.selectAlias(name))
+    }
   }
 
   onInit () {

@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
+import { request } from '../../core/requestResponse.js'
 
 /**
  * KeyBrowserUI – responsible for rendering the key grid (#keyGrid).
@@ -18,15 +19,12 @@ export default class KeyBrowserUI extends ComponentBase {
    * Lifecycle
    * ========================================================== */
   onInit () {
-    if (!this.service) return
+    // Determine initial environment for visibility BEFORE any rendering
+    const initialEnv = this.service ? (this.service.currentEnvironment || 'space') : 'space'
 
-    // Initial visibility based on current environment BEFORE any rendering
-    const initialEnv = this.service.currentEnvironment || 'space'
-    this.toggleVisibility(initialEnv)
-
-    // Re-render whenever keys change or selection updates.
-    this.service.addEventListener('keys-changed', () => this.render())
-    this.service.addEventListener('key-selected', () => this.render())
+    // Re-render whenever key list changes or selection updates.
+    eventBus.on('key:list-changed', () => this.render())
+    eventBus.on('key-selected', () => this.render())
 
     // Handle environment changes for visibility toggling
     this.addEventListener('environment:changed', (d = {}) => {
@@ -63,17 +61,23 @@ export default class KeyBrowserUI extends ComponentBase {
     this.updateViewToggleButton(initialMode)
   }
 
-  render () {
+  async render () {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
 
-    const profile = this.service.getProfile()
+    const profile = await request(eventBus, 'key:get-profile')
     if (!profile) {
       grid.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><h4>${i18next.t('no_profile_selected') || 'No Profile Selected'}</h4></div>`
       return
     }
 
-    const keyMap = this.service.getKeys()
+    const keyMap = await request(eventBus, 'key:get-all')
+    const selectedKeyName = await request(eventBus, 'key:get-selected-name')
+
+    // Cache for child helpers
+    this._currentKeyMap = keyMap
+    this._selectedKeyName = selectedKeyName
+
     const keys      = Object.keys(keyMap)
     const keysWithCommands = {}
     keys.forEach((k) => {
@@ -229,10 +233,10 @@ export default class KeyBrowserUI extends ComponentBase {
   }
 
   createKeyElement (keyName) {
-    const keyMap = this.service.getKeys()
+    const keyMap = this._currentKeyMap || {}
     const commands = (keyMap && keyMap[keyName]) ? keyMap[keyName] : []
 
-    const isSelected = keyName === this.service.selectedKeyName
+    const isSelected = keyName === this._selectedKeyName
 
     const nonBlank = commands.filter((cmd) => {
       if (typeof cmd === 'string') return cmd.trim() !== ''
@@ -252,7 +256,10 @@ export default class KeyBrowserUI extends ComponentBase {
 
     el.innerHTML = `<div class="key-label">${formatted}</div>${nonBlank.length>0?`<div class="activity-bar" style="width:${Math.min(nonBlank.length*15,100)}%"></div><div class="command-count-badge">${nonBlank.length}</div>`:''}`
 
-    el.addEventListener('click', () => this.service.selectKey(keyName))
+    el.addEventListener('click', () => {
+      // Fire select request; no need to await
+      request(eventBus, 'key:select', { key: keyName })
+    })
     return el
   }
 

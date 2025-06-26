@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * CommandLibraryService - Handles all command library business logic
@@ -16,6 +17,17 @@ export default class CommandLibraryService extends ComponentBase {
     this.currentEnvironment = 'space'
     this.currentProfile = null
     this.commandIdCounter = 0
+
+    // ---------------------------------------------------------
+    // Register Request/Response endpoints for command data
+    // ---------------------------------------------------------
+    if (this.eventBus) {
+      respond(this.eventBus, 'command:find-definition',   ({ command }) => this.findCommandDefinition(command))
+      respond(this.eventBus, 'command:get-categories',    () => this.getCommandCategories())
+      respond(this.eventBus, 'command:get-for-selected-key', () => this.getCommandsForSelectedKey())
+      respond(this.eventBus, 'command:get-warning',       ({ command }) => this.getCommandWarning(command))
+      respond(this.eventBus, 'command:generate-id',       () => this.generateCommandId())
+    }
 
     // In test environments (Vitest/Jest), automatically make `emit` a spy so
     // expectations like `expect(service.emit).toHaveBeenCalled()` work without

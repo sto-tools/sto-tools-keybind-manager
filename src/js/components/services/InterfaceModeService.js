@@ -27,6 +27,7 @@ export default class InterfaceModeService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunction = respond(this.eventBus, 'state:current-environment', () => this._currentMode)
+      respond(this.eventBus, 'env:get-current', () => this._currentMode)
     }
   }
 
