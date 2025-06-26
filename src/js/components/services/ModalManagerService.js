@@ -9,6 +9,7 @@ import ComponentBase from '../ComponentBase.js'
 export default class ModalManagerService extends ComponentBase {
   constructor () {
     super()
+    this.componentName = 'ModalManagerService'
 
     this.overlayId = 'modalOverlay'
     this.regenerateCallbacks = {} // modalId -> callback

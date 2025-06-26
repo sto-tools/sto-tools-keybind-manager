@@ -7,6 +7,7 @@ import ComponentBase from '../ComponentBase.js'
 export default class TrayCommandService extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
+    this.componentName = 'TrayCommandService'
   }
 
   /**

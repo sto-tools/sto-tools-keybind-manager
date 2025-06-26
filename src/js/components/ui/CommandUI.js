@@ -18,6 +18,7 @@ import { parameterCommands } from './ParameterCommandUI.js'
 export default class CommandUI extends ComponentBase {
   constructor ({ eventBus: bus = eventBus, ui = null, modalManager = null, commandService = null, commandLibraryService = null } = {}) {
     super(bus)
+    this.componentName = 'CommandUI'
     this.ui           = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.modalManager = modalManager
     this.commandService = commandService

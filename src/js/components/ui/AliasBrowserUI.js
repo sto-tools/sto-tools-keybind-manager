@@ -1,37 +1,56 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
+import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 export default class AliasBrowserUI extends ComponentBase {
-  constructor ({ service, document = window.document }) {
-    super(eventBus)
+  constructor ({ eventBus: bus = eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(bus)
     this.componentName = 'AliasBrowserUI'
-    this.service  = service
     this.document = document
   }
 
-  onInit () {
-    if (!this.service) return
-
-    this.service.addEventListener('aliases-changed', () => this.render())
-    this.service.addEventListener('alias-selected', () => this.render())
+  async onInit () {
+    // Initialize cached selected alias
+    this._selectedAliasName = null
+    
+    // React to alias list or selection changes
+    this.eventBus.on('aliases-changed', () => this.render())
+    this.eventBus.on('alias-selected', (data) => {
+      this._selectedAliasName = data.name
+      this.render()
+    })
 
     // Toggle visibility based on current environment
     this.eventBus.on('environment:changed', (d = {}) => {
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      console.log('[AliasBrowserUI] environment:changed event received:', d, 'parsed env:', env)
       this.toggleVisibility(env)
     })
 
-    // Initial render & visibility
-    this.render()
-    this.toggleVisibility(this.service.currentEnvironment || 'space')
+    // Initial render & visibility - now handled through late-join handshake
+    // The late-join handshake will handle environment synchronization
+    await this.render()
+    
+    // Fallback: if no late-join state is received within reasonable time, 
+    // fetch current environment as backup
+    setTimeout(async () => {
+      if (!this._environmentInitialized) {
+        const env = await request(this.eventBus, 'state:current-environment').catch(() => 'space')
+        console.log('[AliasBrowserUI] Fallback environment initialization:', env)
+        this.toggleVisibility(env || 'space')
+        this._environmentInitialized = true
+      }
+    }, 50)
   }
 
-  render () {
+  async render () {
     const grid = this.document.getElementById('aliasGrid')
     if (!grid) return
 
-    const aliases = this.service.getAliases()
+    const aliases = await request(this.eventBus, 'alias:get-all')
+    // Use cached selected alias from event listeners instead of polling
+
     const entries = Object.entries(aliases)
 
     if (entries.length === 0) {
@@ -49,7 +68,7 @@ export default class AliasBrowserUI extends ComponentBase {
 
     grid.querySelectorAll('.alias-chain-item').forEach((item) => {
       item.addEventListener('click', () => {
-        this.service.selectAlias(item.dataset.alias)
+        request(this.eventBus, 'alias:select', { name: item.dataset.alias })
         this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
       })
     })
@@ -59,7 +78,9 @@ export default class AliasBrowserUI extends ComponentBase {
     const commandCount = typeof alias.commands === 'string' && alias.commands.trim() 
       ? alias.commands.trim().split(/\s*\$\$/).length 
       : 0
-    const isSelected   = this.service.selectedAliasName === name
+
+    const selectedName = this._selectedAliasName || null
+    const isSelected   = selectedName === name
     const description  = alias.description || ''
     const lengthClass  = name.length <= 8 ? 'short' : name.length <= 12 ? 'medium' : name.length <= 16 ? 'long' : 'extra-long'
 
@@ -73,7 +94,11 @@ export default class AliasBrowserUI extends ComponentBase {
   toggleVisibility (env) {
     const container = this.document.getElementById('aliasSelectorContainer') || this.document.getElementById('aliasGrid')?.parentElement?.parentElement
     if (!container) return
-    container.style.display = (env === 'alias') ? '' : 'none'
+    
+    const shouldShow = (env === 'alias')
+    console.log('[AliasBrowserUI] toggleVisibility called with env:', env, 'shouldShow:', shouldShow, 'container exists:', !!container)
+    
+    container.style.display = shouldShow ? '' : 'none'
   }
 
   /* ------------------------------------------------------------
@@ -82,11 +107,14 @@ export default class AliasBrowserUI extends ComponentBase {
    * paint even if the environment was set long before this UI initialised.
    * ---------------------------------------------------------- */
   handleInitialState (sender, state) {
-    if (!state || !state.environment) return
-    this.toggleVisibility(state.environment)
-    // Also propagate environment to the underlying service if it tracks it
-    if (this.service && typeof this.service.currentEnvironment !== 'undefined') {
-      this.service.currentEnvironment = state.environment
+    if (!state) return
+    
+    // Handle environment state from InterfaceModeService or other components
+    if (state.environment || state.currentEnvironment) {
+      const env = state.environment || state.currentEnvironment
+      console.log('[AliasBrowserUI] handleInitialState from', sender, 'environment:', env)
+      this.toggleVisibility(env)
+      this._environmentInitialized = true
     }
   }
 } 

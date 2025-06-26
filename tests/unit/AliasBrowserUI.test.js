@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import AliasBrowserUI from '../../src/js/components/ui/AliasBrowserUI.js'
-import i18next from 'i18next'
+import eventBus from '../../src/js/core/eventBus.js'
 
 // Mock i18next
 vi.mock('i18next', () => ({
@@ -9,34 +9,43 @@ vi.mock('i18next', () => ({
   }
 }))
 
+// Mock request responder
+vi.mock('../../src/js/core/requestResponse.js', async () => {
+  // Original module to re-export types
+  const mod = await vi.importActual('../../src/js/core/requestResponse.js')
+  return {
+    ...mod,
+    request: vi.fn(async (bus, topic) => {
+      if (topic === 'alias:get-all') return {}
+      if (topic === 'alias:get-selected-name') return null
+      if (topic === 'state:current-environment') return 'space'
+      return undefined
+    })
+  }
+})
+
 describe('AliasBrowserUI', () => {
   let ui
-  let mockService
   let mockDocument
 
   beforeEach(() => {
-    mockService = {
-      addEventListener: vi.fn(),
-      getAliases: vi.fn(),
-      selectAlias: vi.fn(),
-      selectedAliasName: null
-    }
-
     mockDocument = {
       getElementById: vi.fn(() => ({
         innerHTML: '',
         classList: {
-          remove: vi.fn()
+          remove: vi.fn(),
+          add: vi.fn(),
+          toggle: vi.fn()
         },
         querySelectorAll: vi.fn(() => [])
       }))
     }
 
-    ui = new AliasBrowserUI({ service: mockService, document: mockDocument })
+    ui = new AliasBrowserUI({ eventBus, document: mockDocument })
   })
 
   describe('createAliasElement', () => {
-    it('should handle empty commands string correctly', () => {
+    it('should handle empty commands string correctly', async () => {
       const element = ui.createAliasElement('test', { commands: '' })
       expect(element).toContain('0 <span data-i18n="commands">commands</span>')
     })

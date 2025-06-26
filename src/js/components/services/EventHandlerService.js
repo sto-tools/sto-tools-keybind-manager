@@ -7,6 +7,7 @@ import ComponentBase from '../ComponentBase.js'
 export default class EventHandlerService extends ComponentBase {
   constructor({ eventBus, storage, ui, modalManager, i18n, app }) {
     super(eventBus)
+    this.componentName = 'EventHandlerService'
     this.storage = storage
     this.ui = ui
     this.modalManager = modalManager

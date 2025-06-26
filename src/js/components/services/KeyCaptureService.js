@@ -19,7 +19,7 @@ export default class KeyCaptureService extends ComponentBase {
    */
   constructor ({ eventBus = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
-
+    this.componentName = 'KeyCaptureService'
     this.document = document
 
     // Runtime state ---------------------------------------------------------
@@ -31,6 +31,10 @@ export default class KeyCaptureService extends ComponentBase {
     // Bindings --------------------------------------------------------------
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
     this.boundHandleKeyUp   = this.handleKeyUp.bind(this)
+
+    // Listen for start/stop requests emitted by UI components
+    this.addEventListener('keycapture:start', ({ context } = {}) => this.startCapture(context))
+    this.addEventListener('keycapture:stop',  () => this.stopCapture())
   }
 
   /* ---------------------------------------------------------------------- */

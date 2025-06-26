@@ -14,6 +14,7 @@ export default class ToastService extends ComponentBase {
    */
   constructor({ eventBus = null, i18n = null, containerId = 'toastContainer' } = {}) {
     super(eventBus)
+    this.componentName = 'ToastService'
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
 
     // Currently not used by logic but kept for backward-compatibility

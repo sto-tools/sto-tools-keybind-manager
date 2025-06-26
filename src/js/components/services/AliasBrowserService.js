@@ -23,7 +23,6 @@ export default class AliasBrowserService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       respond(this.eventBus, 'alias:get-all',           () => this.getAliases())
-      respond(this.eventBus, 'alias:get-selected-name', () => this.selectedAliasName)
       respond(this.eventBus, 'alias:select',            ({ name }) => this.selectAlias(name))
     }
   }
@@ -50,11 +49,18 @@ export default class AliasBrowserService extends ComponentBase {
       this.currentProfileId  = profileId
       if (environment) this.currentEnvironment = environment
       this.selectedAliasName = null
-      this.emit('aliases-changed', { aliases: this.getAliases() })
+      const aliases = this.getAliases()
+      this.emit('aliases-changed', { aliases })
+
+      // Auto-select first alias if we are in alias mode and none is selected
+      if (this.currentEnvironment === 'alias' && !this.selectedAliasName) {
+        const names = Object.keys(aliases)
+        if (names.length) this.selectAlias(names[0])
+      }
     })
 
     // Listen for environment changes
-    this.addEventListener('environment-changed', (payload) => {
+    this.addEventListener('environment:changed', (payload) => {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (env) {
         this.currentEnvironment = env
@@ -65,6 +71,12 @@ export default class AliasBrowserService extends ComponentBase {
     this.eventBus.on('environment:changed', ({ environment }) => {
       if (environment) {
         this.currentEnvironment = environment
+
+        // If switched into alias mode and nothing selected, pick first alias
+        if (environment === 'alias' && !this.selectedAliasName) {
+          const names = Object.keys(this.getAliases())
+          if (names.length) this.selectAlias(names[0])
+        }
       }
     })
 

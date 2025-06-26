@@ -7,6 +7,7 @@ import ComponentBase from '../ComponentBase.js'
 export default class InterfaceModeUI extends ComponentBase {
   constructor({ service, eventBus, ui, profileUI, document }) {
     super(eventBus)
+    this.componentName = 'InterfaceModeUI'
     this.service = service
     this.ui = ui
     this.profileUI = profileUI
@@ -86,8 +87,8 @@ export default class InterfaceModeUI extends ComponentBase {
    * Handle mode button clicks
    */
   handleModeButtonClick(mode) {
-    // Emit mode switch event
-    this.eventBus.emit('mode-switched', { mode })
+    // Emit standardized environment change request
+    this.eventBus.emit('environment:changed', { environment: mode })
   }
 
   /**

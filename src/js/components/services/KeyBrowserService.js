@@ -11,6 +11,7 @@ import { respond } from '../../core/requestResponse.js'
 export default class KeyBrowserService extends ComponentBase {
   constructor ({ storage, profileService, ui } = {}) {
     super(eventBus)
+    this.componentName = 'KeyBrowserService'
     this.storage        = storage
     this.profileService = profileService || null
     this.ui             = ui
@@ -25,7 +26,6 @@ export default class KeyBrowserService extends ComponentBase {
     if (this.eventBus) {
       respond(this.eventBus, 'key:get-all',           () => this.getKeys())
       respond(this.eventBus, 'key:get-profile',       () => this.getProfile())
-      respond(this.eventBus, 'key:get-selected-name', () => this.selectedKeyName)
     }
   }
 
@@ -64,7 +64,7 @@ export default class KeyBrowserService extends ComponentBase {
     })
 
     // Environment changed – allow either string payload or { environment }
-    this.addEventListener('environment-changed', (payload) => {
+    this.addEventListener('environment:changed', (payload) => {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
       this.currentEnvironment = env

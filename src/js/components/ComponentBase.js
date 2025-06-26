@@ -36,6 +36,10 @@ export default class ComponentBase {
     this.addEventListener(this._myReplyTopic, this._onInitialState.bind(this))
 
     // 3) Announce our readiness so existing components can reply
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
+    }
     this.emit('component:register', {
       name: this.getComponentName(),
       replyTopic: this._myReplyTopic
@@ -199,6 +203,11 @@ export default class ComponentBase {
     // Ignore our own registration messages
     if (name === this.getComponentName()) return
 
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
+    }
+
     // If we are active, provide our current state to the requester
     if (this.initialized && !this.destroyed) {
       this.emit(replyTopic, {
@@ -209,6 +218,11 @@ export default class ComponentBase {
   }
 
   _onInitialState({ sender, state } = {}) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`, state)
+    }
+
     if (typeof this.handleInitialState === 'function') {
       this.handleInitialState(sender, state)
     }

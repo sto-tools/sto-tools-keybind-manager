@@ -5,6 +5,7 @@ import i18next from 'i18next'
 export default class PreferencesUI {
   constructor({ service, modalManager, ui } = {}) {
     // Underlying service (logic + persistence)
+    this.componentName = 'PreferencesUI'
     this.service = service
     this.modalManager = modalManager
     this.ui = ui

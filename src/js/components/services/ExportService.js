@@ -12,6 +12,7 @@ import { writeFile } from './SyncService.js'
 export default class ExportService extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
+    this.componentName = 'ExportService'
 
     // Map of export formats (filled in once i18next has been initialised)
     this.exportFormats = null

@@ -16,6 +16,7 @@ export default class ProjectManagementService extends ComponentBase {
     eventBus: bus = eventBus,
   } = {}) {
     super(bus)
+    this.componentName = 'ProjectManagementService'
     this.storage = storage
     this.ui = ui
     this.exportManager = exportManager

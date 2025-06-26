@@ -3,6 +3,7 @@ import i18next from 'i18next'
 
 export default class SyncUI {
   constructor({ service, ui } = {}) {
+    this.componentName = 'SyncUI'
     this.service = service
     this.ui = ui
   }

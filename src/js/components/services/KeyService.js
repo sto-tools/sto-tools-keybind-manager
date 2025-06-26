@@ -247,7 +247,7 @@ export default class KeyService extends ComponentBase {
     })
 
     // Mode switches between space/ground via modeManagement
-    this.eventBus.on('environment-changed', ({ environment } = {}) => {
+    this.eventBus.on('environment:changed', ({ environment } = {}) => {
       if (environment) this.currentEnvironment = environment
     })
   }

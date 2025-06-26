@@ -24,6 +24,7 @@ import CommandBuilderService from './CommandBuilderService.js'
 export default class ParameterCommandService extends ComponentBase {
   constructor ({ eventBus: bus = eventBus } = {}) {
     super(bus)
+    this.componentName = 'ParameterCommandService'
     // Re-use the existing builder hierarchy that already lives in the codebase
     this.commandBuilderService = new CommandBuilderService({ eventBus: bus })
   }

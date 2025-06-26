@@ -15,6 +15,7 @@ export const KEY_SYNC_FOLDER = 'sync-folder'
 export default class FileSystemService extends ComponentBase {
   constructor({ dbName = DB_NAME, storeName = STORE_NAME, eventBus } = {}) {
     super(eventBus)
+    this.componentName = 'FileSystemService'
     this.dbName = dbName
     this.storeName = storeName
   }

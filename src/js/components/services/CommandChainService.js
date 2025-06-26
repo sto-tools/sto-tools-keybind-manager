@@ -25,8 +25,16 @@ export default class CommandChainService extends ComponentBase {
   }
 
   setupEventListeners () {
+    const debugLog = (label, payload) => {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[CommandChainService] ${label}`, payload)
+      }
+    }
+
     // Receive broadcasts from existing components
     this.addEventListener('command-chain:update', (payload = {}) => {
+      debugLog('command-chain:update', payload)
       const { commands, selectedKey, environment } = payload
 
       this.commands = Array.isArray(commands) ? commands : []
@@ -51,16 +59,21 @@ export default class CommandChainService extends ComponentBase {
       if (environment) this.currentEnvironment = environment
     })
 
-    this.addEventListener('environment-changed', (env) => {
-      this.currentEnvironment = env
-      this.selectedKey = null
-      this.commands = []
-      this.emit('chain-data-changed', { commands: this.commands })
+    this.addEventListener('environment:changed', (data) => {
+      debugLog('environment:changed', data)
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) {
+        this.currentEnvironment = env
+        this.selectedKey = null  // Clear selection when environment changes
+        this.commands = []
+        this.emit('chain-data-changed', { commands: this.commands })
+      }
     })
 
     // Maintain selected alias/key in sync with higher-level services so that
     // the command-chain UI always knows what it should be displaying.
     this.addEventListener('key-selected', ({ key, name }) => {
+      debugLog('key-selected', { key, name })
       this.selectedKey = key || name || null
 
       // Refresh commands list when a new key is selected
@@ -94,7 +107,7 @@ export default class CommandChainService extends ComponentBase {
 
       // Ensure alias environment sync if necessary
       if (this.currentEnvironment === 'alias') {
-        svc.setCurrentEnvironment && svc.setCurrentEnvironment('alias')
+        svc.currentEnvironment = 'alias'
       }
 
       // Only handle commandObj case (from AliasModalService)
@@ -118,7 +131,7 @@ export default class CommandChainService extends ComponentBase {
 
       // Ensure alias environment sync if necessary
       if (this.currentEnvironment === 'alias') {
-        svc.setCurrentEnvironment && svc.setCurrentEnvironment('alias')
+        svc.currentEnvironment = 'alias'
       }
 
       // Only handle customizable commands - static commands are handled by CommandUI

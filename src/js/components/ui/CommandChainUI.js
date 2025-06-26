@@ -1,47 +1,70 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
+import { request } from '../../core/requestResponse.js'
 
 export default class CommandChainUI extends ComponentBase {
-  constructor ({ service, ui = null, document = window.document }) {
-    super(eventBus)
-    this.service = service
+  constructor ({ eventBus: bus = eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(bus)
+    this.componentName = 'CommandChainUI'
     this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.document = document
+    this._selectedKey = null
+    this._currentEnvironment = 'space'
   }
 
-  onInit () {
-    if (!this.service) return
-    // Listen for service-level change broadcast
-    this.service.addEventListener('chain-data-changed', ({ commands }) => {
-      this.render(commands)
-    })
+  async onInit () {
+    // Initialize cached selection state
+    this._selectedKey = null
+    this._selectedAlias = null
+    this._currentEnvironment = 'space'
+    
+    // Store detach functions for cleanup
+    this._detachFunctions = []
+    
+    // Listen for chain-data updates broadcast by service
+    this._detachFunctions.push(
+      this.eventBus.on('chain-data-changed', ({ commands }) => this.render(commands))
+    )
 
-    // Listen for command events directly from the service
-    ;['command-added', 'command-deleted', 'command-moved'].forEach(evt => {
-      this.service.addEventListener(evt, () => this.render())
-    })
+    // Command lifecycle events are handled via chain-data-changed
+    // No need to listen to individual command events
 
-    // Listen for environment changes to re-render
-    this.service.addEventListener('environment-changed', () => this.render())
+    // Listen for environment or key/alias changes for button state and caching
+    this._detachFunctions.push(
+      this.eventBus.on('environment:changed', (data) => {
+        const env = typeof data === 'string' ? data : data?.environment
+        if (env) this._currentEnvironment = env
+        this.updateChainActions()
+      })
+    )
+    this._detachFunctions.push(
+      this.eventBus.on('key-selected', (data) => {
+        this._selectedKey = data.key || data.name
+        this._selectedAlias = null
+        this.updateChainActions()
+      })
+    )
+    this._detachFunctions.push(
+      this.eventBus.on('alias-selected', (data) => {
+        this._selectedAlias = data.name
+        this._selectedKey = null
+        this.updateChainActions()
+      })
+    )
 
-    // React to manual stabilize checkbox toggle
     this.eventBus.onDom('stabilizeExecutionOrder', 'change', () => this.render())
 
-    // Drag and drop setup after DOM ready
+    // Drag/drop
     this.setupDragAndDrop()
 
-    // Chain actions buttons state
+    // Get initial environment
+    this._currentEnvironment = await request(this.eventBus, 'state:current-environment').catch(() => 'space')
+
     this.updateChainActions()
-
-    // Keep in-sync with key/environment changes
-    this.service.addEventListener('key-selected', () => this.updateChainActions())
-    this.service.addEventListener('environment-changed', () => this.updateChainActions())
-
-    // Initial paint
-    this.render()
+    await this.render()
   }
 
-  render (commandsArg = null) {
+  async render (commandsArg = null) {
     const container   = this.document.getElementById('commandList')
     const titleEl     = this.document.getElementById('chainTitle')
     const previewEl   = this.document.getElementById('commandPreview')
@@ -50,17 +73,19 @@ export default class CommandChainUI extends ComponentBase {
 
     if (!container || !titleEl || !previewEl) return
 
-    const commands = commandsArg || this.service.getCommandsForSelectedKey()
+    const commands = commandsArg || await request(this.eventBus, 'command:get-for-selected-key')
 
-    const emptyStateInfo = this.service.getEmptyStateInfo()
+    const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
 
-    // Update title / preview / count
-    titleEl.textContent   = emptyStateInfo.title
-    previewEl.textContent = emptyStateInfo.preview
-    if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+    // Use cached selection state from event listeners
+    const selectedKeyName = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
 
-    // No key selected or no commands
-    if (!this.service.selectedKey || commands.length === 0) {
+    if (!selectedKeyName || commands.length === 0) {
+      // Empty state - use empty state info for title and preview
+      titleEl.textContent   = emptyStateInfo.title
+      previewEl.textContent = emptyStateInfo.preview
+      if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+
       if (emptyState) emptyState.style.display = 'block'
       container.innerHTML = `
         <div class="empty-state" id="emptyState">
@@ -71,17 +96,23 @@ export default class CommandChainUI extends ComponentBase {
       return
     }
 
+    // Non-empty state - use emptyStateInfo which actually contains the correct title/preview for selected keys
+    titleEl.textContent   = emptyStateInfo.title
+    previewEl.textContent = emptyStateInfo.preview
+    if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+
     // Render command list
     container.innerHTML = ''
-    commands.forEach((cmd, idx) => {
-      container.appendChild(this.createCommandElement(cmd, idx, commands.length))
-    })
+    for (let i=0;i<commands.length;i++) {
+      const el = await this.createCommandElement(commands[i], i, commands.length)
+      container.appendChild(el)
+    }
   }
 
   /**
    * Adapted from legacy CommandLibraryUI implementation.
    */
-  createCommandElement (command, index, total) {
+  async createCommandElement (command, index, total) {
     const element = this.document.createElement('div') || {}
     if (!element.dataset) {
       element.dataset = {}
@@ -91,7 +122,7 @@ export default class CommandChainUI extends ComponentBase {
     element.draggable = true
 
     // Look up definition for display helpers
-    const commandDef      = this.service.findCommandDefinition(command)
+    const commandDef      = await request(this.eventBus, 'command:find-definition', { command })
     const isParameterized = commandDef && commandDef.customizable
 
     let displayName = command.text
@@ -129,7 +160,7 @@ export default class CommandChainUI extends ComponentBase {
       })
     }
 
-    const warningInfo  = this.service.getCommandWarning(command)
+    const warningInfo  = await request(this.eventBus, 'command:get-warning', { command })
     const warningIcon  = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
     const parameterInd = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : ''
 
@@ -193,7 +224,7 @@ export default class CommandChainUI extends ComponentBase {
       dragSelector: '.command-item-row',
       dropZoneSelector: '.command-item-row',
       onDrop: (e, dragState, dropZone) => {
-        if (!this.service.selectedKey) return
+        if (!this._selectedKey) return
 
         const fromIndex = parseInt(dragState.dragElement.dataset.index)
         const toIndex   = parseInt(dropZone.dataset.index)
@@ -215,10 +246,11 @@ export default class CommandChainUI extends ComponentBase {
   /**
    * Enable/disable chain-related buttons depending on environment & selection.
    */
-  updateChainActions () {
-    const hasSelectedKey = !!this.service.selectedKey
+  async updateChainActions () {
+    // Use cached state from event listeners
+    const hasSelectedKey = !!(this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey)
 
-    if (this.service.currentEnvironment === 'alias') {
+    if (this._currentEnvironment === 'alias') {
       // Alias mode – alias specific buttons
       const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
       aliasButtons.forEach((id) => {
@@ -246,6 +278,25 @@ export default class CommandChainUI extends ComponentBase {
         const btn = this.document.getElementById(id)
         if (btn) btn.disabled = true
       })
+    }
+  }
+
+  /**
+   * Clean up event listeners when component is destroyed
+   */
+  destroy() {
+    // Clean up event listeners to prevent memory leaks and duplicate handlers
+    if (this._detachFunctions) {
+      this._detachFunctions.forEach(detach => {
+        if (typeof detach === 'function') {
+          try {
+            detach()
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
+      })
+      this._detachFunctions = []
     }
   }
 } 

@@ -12,6 +12,7 @@ export const writeFile = fsWriteFile
 export default class SyncService extends ComponentBase {
   constructor(opts = {}) {
     super(eventBus)
+    this.componentName = 'SyncService'
 
     // Support legacy signature: new SyncService(storage)
     if (opts && typeof opts.getSettings === 'function') {

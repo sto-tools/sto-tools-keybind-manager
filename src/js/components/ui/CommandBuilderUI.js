@@ -11,6 +11,7 @@ import ComponentBase from '../ComponentBase.js'
 export default class CommandBuilderUI extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
+    this.componentName = 'CommandBuilderUI'
   }
 
   createTargetingUI () {

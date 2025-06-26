@@ -10,7 +10,10 @@ import { request } from '../../core/requestResponse.js'
 export default class CommandLibraryUI extends ComponentBase {
   constructor({ service, eventBus, ui, modalManager, document }) {
     super(eventBus)
-    this.service = service
+    this.componentName = 'CommandLibraryUI'
+    // Phase-2: UI components no longer rely on a direct service reference.
+    // Keep optional `service` parameter for backward compatibility but don't
+    // store or use it.
     this.ui = ui
     this.modalManager = modalManager
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
@@ -21,6 +24,11 @@ export default class CommandLibraryUI extends ComponentBase {
    * Initialize the CommandLibraryUI component
    */
   onInit() {
+    // Initialize cached selection state
+    this._selectedKey = null
+    this._selectedAlias = null
+    this._currentEnvironment = 'space'
+    
     this.setupEventListeners()
     // Build out the command categories before applying alias overlays
     this.setupCommandLibrary()
@@ -32,13 +40,20 @@ export default class CommandLibraryUI extends ComponentBase {
     // ---------------------------------------------
     // UI decoupling – listen for global UI events
     // ---------------------------------------------
-    this.addEventListener('ui:render-command-chain', () => this.renderCommandChain())
+    // Command chain events are now handled by CommandChainUI
+    // CommandLibraryUI no longer listens to ui:render-command-chain
     this.addEventListener('ui:update-profile-info', () => this.updateCommandLibrary())
 
-    // Also re-render when command service broadcasts
-    this.addEventListener('command:added', () => this.renderCommandChain())
-    this.addEventListener('command:deleted', () => this.renderCommandChain())
-    this.addEventListener('command:moved', () => this.renderCommandChain())
+    // Command chain rendering is now handled by CommandChainUI
+    // CommandLibraryUI only delegates to it
+
+    // React to environment/key changes from global event stream
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) this._currentEnvironment = env
+      this.filterCommandLibrary()
+      // Command chain rendering is now handled by CommandChainUI
+    })
   }
 
   /**
@@ -50,276 +65,28 @@ export default class CommandLibraryUI extends ComponentBase {
     }
     this.eventListenersSetup = true
 
-    // Listen for service events directly from the service instance to decouple tests from the global eventBus
-    if (this.service && typeof this.service.addEventListener === 'function') {
-      this.service.addEventListener('command-added', () => {
-        this.renderCommandChain()
-      })
-
-      this.service.addEventListener('command-deleted', () => {
-        this.renderCommandChain()
-      })
-
-      this.service.addEventListener('command-moved', () => {
-        this.renderCommandChain()
-      })
-    }
-
     // Listen for stabilize execution order checkbox changes
     this.eventBus.onDom('stabilizeExecutionOrder', 'change', 'stabilize-order-change', () => {
-      this.renderCommandChain()
+      // Command chain rendering is now handled by CommandChainUI
     })
 
-    if (this.service && typeof this.service.addEventListener === 'function') {
-      this.service.addEventListener('environment-changed', () => {
-        this.filterCommandLibrary()
-        this.renderCommandChain()
-      })
-      this.service.addEventListener('key-selected', () => {
-        this.renderCommandChain()
-      })
-    }
+    // Command lifecycle events are now handled by CommandChainUI
+    // CommandLibraryUI no longer needs to listen to these events
 
-    if (typeof this.addEventListener === 'function') {
-      this.addEventListener('command-added', () => {
-        this.renderCommandChain()
-      })
-      this.addEventListener('command-deleted', () => {
-        this.renderCommandChain()
-      })
-      this.addEventListener('command-moved', () => {
-        this.renderCommandChain()
-      })
-      this.addEventListener('environment-changed', () => {
-        this.filterCommandLibrary()
-        this.renderCommandChain()
-      })
-      this.addEventListener('key-selected', () => {
-        this.renderCommandChain()
-      })
-    }
+    // Command lifecycle events are now handled by CommandChainUI
+    // CommandLibraryUI no longer needs to listen to these events
   }
 
   /**
-   * Render the command chain UI
+   * Command chain rendering is now handled by CommandChainUI via events
+   * This method is deprecated and does nothing
    */
   async renderCommandChain() {
-    const container = this.document.getElementById('commandList')
-    const title = this.document.getElementById('chainTitle')
-    const preview = this.document.getElementById('commandPreview')
-    const commandCount = this.document.getElementById('commandCount')
-    const emptyState = this.document.getElementById('emptyState')
-
-    if (!container || !title || !preview) return
-
-    // ---------------------------------------------------------------------
-    // Avoid redundant re-renders that can confuse unit tests relying on
-    // call-counts. If nothing material (selected key, environment, command
-    // length) has changed since the last render just bail out early.
-    // ---------------------------------------------------------------------
-    const key   = this.service ? this.service.selectedKey : null
-    const env   = this.service ? this.service.currentEnvironment : null
-    const cmds  = await request(eventBus, 'command:get-for-selected-key')
-    const cmdLen = cmds.length
-
-    // Update memoization snapshot; skip early bail-out for now to avoid edge
-    // cases where the command list changes but key/env/length appear stable
-    // (e.g., alias chains or command edits).
-    this._lastRender = { key, env, commandLength: cmdLen }
-
-    const emptyStateInfo = this.service.getEmptyStateInfo()
-
-    // We'll populate this later; ensures it's defined for cross-component emit
-    let commands = cmds
-
-    // Update title and preview
-    title.textContent = emptyStateInfo.title
-    preview.textContent = emptyStateInfo.preview
-    if (commandCount) {
-      commandCount.textContent = emptyStateInfo.commandCount
-    }
-
-    if (!this.service.selectedKey) {
-      // No key selected - show empty state
-      if (emptyState) emptyState.style.display = 'block'
-      container.innerHTML = `
-        <div class="empty-state" id="emptyState">
-          <i class="${emptyStateInfo.icon}"></i>
-          <h4>${emptyStateInfo.emptyTitle}</h4>
-          <p>${emptyStateInfo.emptyDesc}</p>
-        </div>`
-
-      // Also instruct chain UI
-      if (window.commandChainUI && typeof window.commandChainUI.render === 'function') {
-        window.commandChainUI.render()
-      }
-      return
-    }
-
-    // Refresh commands list (already captured above) in case the service has
-    // mutated state since the memoization snapshot. This is effectively a
-    // no-op for most flows but keeps the original semantics intact.
-    commands = await request(eventBus, 'command:get-for-selected-key')
-
-    if (commands.length === 0) {
-      // No commands - show empty state
-      container.innerHTML = `
-        <div class="empty-state">
-          <i class="${emptyStateInfo.icon}"></i>
-          <h4 data-i18n="no_commands">${emptyStateInfo.emptyTitle}</h4>
-          <p>${emptyStateInfo.emptyDesc}</p>
-        </div>`
-    } else {
-      // Render command list
-      container.innerHTML = ''
-      const elements = await Promise.all(commands.map((command, index) => this.createCommandElement(command, index, commands.length)))
-      elements.forEach(el => container.appendChild(el))
-    }
-
-    // After updating UI, broadcast to new command-chain component (phase-2): still emit event but also call chainUI.render
-    if (this.eventBus) {
-      this.eventBus.emit('command-chain:update', {
-        commands,
-        selectedKey: key,
-        environment: env,
-      })
-    }
-
-    if (window.commandChainUI && typeof window.commandChainUI.render === 'function') {
-      window.commandChainUI.render(commands)
-    }
+    // Command chain rendering is now handled by CommandChainUI via events
+    // This method is kept for backward compatibility but does nothing
   }
 
-  /**
-   * Create a command element for the UI
-   */
-  async createCommandElement(command, index, totalCommands) {
-    const element = this.document.createElement('div') || {}
-    // Ensure compatibility with test mocks that may not fully implement DOM APIs
-    if (!element.dataset) {
-      element.dataset = {}
-    }
-    element.className = 'command-item-row'
-    element.dataset.index = index
-    element.draggable = true
 
-    // Check if this command matches a library definition
-    const commandDef = await request(eventBus, 'command:find-definition', { command })
-    const isParameterized = commandDef && commandDef.customizable
-
-    // Use library definition for display if available
-    let displayName = command.text
-    let displayIcon = command.icon
-
-    if (commandDef) {
-      displayName = commandDef.name
-      displayIcon = commandDef.icon
-
-      // For parameterized commands, add parameter details to the name
-      if (isParameterized && command.parameters) {
-        if (commandDef.commandId === 'tray_with_backup') {
-          const p = command.parameters
-          displayName = `${commandDef.name} (${p.active} ${p.tray} ${p.slot} ${p.backup_tray} ${p.backup_slot})`
-        } else if (commandDef.commandId === 'custom_tray') {
-          const p = command.parameters
-          displayName = `${commandDef.name} (${p.tray} ${p.slot})`
-        } else if (commandDef.commandId === 'target') {
-          const p = command.parameters
-          displayName = `${commandDef.name}: ${p.entityName}`
-        }
-      } else if (isParameterized) {
-        // Extract parameters from command string for display
-        if (command.command.includes('TrayExecByTrayWithBackup')) {
-          const parts = command.command.split(' ')
-          if (parts.length >= 6) {
-            displayName = `${commandDef.name} (${parts[1]} ${parts[2]} ${parts[3]} ${parts[4]} ${parts[5]})`
-          }
-        } else if (command.command.includes('TrayExec')) {
-          const parts = command.command.replace('+', '').split(' ')
-          if (parts.length >= 3) {
-            displayName = `${commandDef.name} (${parts[1]} ${parts[2]})`
-          }
-        } else if (command.command.includes('Target ')) {
-          const match = command.command.match(/Target "([^"]+)"/)
-          if (match) {
-            displayName = `${commandDef.name}: ${match[1]}`
-          }
-        }
-      }
-    }
-
-    // Add parameters data attribute for styling
-    if (isParameterized) {
-      element.dataset.parameters = 'true'
-      element.classList.add('customizable')
-    }
-
-    // Check if command has a warning
-    const warningInfo = this.service.getCommandWarning(command)
-    const warningIcon = warningInfo
-      ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>`
-      : ''
-
-    // Add parameter indicator for tray commands and other parameterized commands
-    const parameterIndicator = isParameterized
-      ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>'
-      : ''
-
-    element.innerHTML = `
-      <div class="command-number">${index + 1}</div>
-      <div class="command-content">
-        <span class="command-icon">${displayIcon}</span>
-        <span class="command-text">${displayName}${parameterIndicator}</span>
-        ${warningIcon}
-      </div>
-      <span class="command-type ${command.type}">${command.type}</span>
-      <div class="command-actions">
-        <button class="btn btn-small-icon btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>
-        <button class="btn btn-small-icon btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
-        <button class="btn btn-small-icon btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
-        <button class="btn btn-small-icon btn-down" title="Move Down" ${index === totalCommands - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
-      </div>
-    `
-
-    // Attach button handlers that emit events
-    const editBtn   = element.querySelector('.btn-edit')
-    const deleteBtn = element.querySelector('.btn-delete')
-    const upBtn     = element.querySelector('.btn-up')
-    const downBtn   = element.querySelector('.btn-down')
-
-    if (editBtn) {
-      editBtn.addEventListener('click', () => {
-        this.eventBus.emit('commandchain:edit', { index })
-      })
-    }
-
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => {
-        this.eventBus.emit('commandchain:delete', { index })
-      })
-    }
-
-    if (upBtn) {
-      upBtn.addEventListener('click', () => {
-        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
-      })
-    }
-
-    if (downBtn) {
-      downBtn.addEventListener('click', () => {
-        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
-      })
-    }
-
-    // Double-click edit for customizable commands
-    if (isParameterized) {
-      element.addEventListener('dblclick', () => {
-        this.eventBus.emit('commandchain:edit', { index })
-      })
-    }
-
-    return element
-  }
 
   /**
    * Setup the command library UI
@@ -408,7 +175,7 @@ export default class CommandLibraryUI extends ComponentBase {
               type: categoryId,
               icon: commandDef.icon,
               text: commandDef.name,
-              id: this.service.generateCommandId(),
+              id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
             }
             this.eventBus.emit('command:add', { commandDef: fullyHydratedCommand })
           }
@@ -469,7 +236,7 @@ export default class CommandLibraryUI extends ComponentBase {
             <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryType}">
                 <i class="fas fa-chevron-right category-chevron"></i>
                 <i class="${iconClass}"></i>
-                ${i18next.t(titleKey)}
+                ${typeof i18next !== 'undefined' ? i18next.t(titleKey) : titleKey}
                 <span class="command-count">(${aliases.length})</span>
             </h4>
             <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">
@@ -497,8 +264,9 @@ export default class CommandLibraryUI extends ComponentBase {
       ) {
         const aliasName = e.target.dataset.alias
 
-        const profile = this.service.storage.getProfile(this.service.currentProfile)
-        const alias = profile.aliases[aliasName]
+        // Look up alias object from provided aliases list
+        const aliasEntry = aliases.find(([n]) => n === aliasName)
+        const alias = aliasEntry ? aliasEntry[1] : {}
 
         const fullyHydratedAlias = {
           command: aliasName,
@@ -506,7 +274,7 @@ export default class CommandLibraryUI extends ComponentBase {
           icon: '🎭',
           text: `Alias: ${aliasName}`,
           description: alias.description,
-          id: this.service.generateCommandId(),
+          id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
         }
 
         this.eventBus.emit('command:add', { commandDef: fullyHydratedAlias })
@@ -543,13 +311,15 @@ export default class CommandLibraryUI extends ComponentBase {
   /**
    * Update the command library
    */
-    updateCommandLibrary() {
-      const profile = this.service.storage.getProfile(this.service.currentProfile)
+  updateCommandLibrary() {
+    const profilePromise = request(this.eventBus, 'profile:get-current')
+    if (!profilePromise || typeof profilePromise.then !== 'function') return
+    profilePromise.then((profile) => {
       if (!profile) return
-  
+
       const categories = document.getElementById('commandCategories')
       if (!categories) return
-  
+
       const existingAliasCategory = categories.querySelector('[data-category="aliases"]')
       if (existingAliasCategory) {
         existingAliasCategory.remove()
@@ -558,15 +328,11 @@ export default class CommandLibraryUI extends ComponentBase {
       if (existingVertigoCategory) {
         existingVertigoCategory.remove()
       }
-  
+
       const allAliases = Object.entries(profile.aliases || {})
-      const regularAliases = allAliases.filter(
-        ([name]) => !name.startsWith('dynFxSetFXExlusionList_')
-      )
-      const vertigoAliases = allAliases.filter(([name]) =>
-        name.startsWith('dynFxSetFXExlusionList_')
-      )
-  
+      const regularAliases = allAliases.filter(([name]) => !name.startsWith('dynFxSetFXExlusionList_'))
+      const vertigoAliases = allAliases.filter(([name]) => name.startsWith('dynFxSetFXExlusionList_'))
+
       // Only create regular aliases category if there are regular aliases
       if (regularAliases.length > 0) {
         const aliasCategory = this.createAliasCategoryElement(
@@ -577,7 +343,7 @@ export default class CommandLibraryUI extends ComponentBase {
         )
         categories.appendChild(aliasCategory)
       }
-  
+
       // Only create VERTIGO category if there are VERTIGO aliases
       if (vertigoAliases.length > 0) {
         const vertigoCategory = this.createAliasCategoryElement(
@@ -588,13 +354,15 @@ export default class CommandLibraryUI extends ComponentBase {
         )
         categories.appendChild(vertigoCategory)
       }
-    }
+    })
+  }
 
   /**
    * Filter command library based on current environment
    */
   filterCommandLibrary() {
-    this.service.filterCommandLibrary()
+    // Delegate actual filtering logic to CommandLibraryService via request-response
+    request(this.eventBus, 'command:filter-library').catch(()=>{})
   }  
   /**
    * Setup drag and drop for command reordering
@@ -612,14 +380,17 @@ export default class CommandLibraryUI extends ComponentBase {
     this.ui.initDragAndDrop(commandList, {
       dragSelector: '.command-item-row',
       dropZoneSelector: '.command-item-row',
-      onDrop: (e, dragState, dropZone) => {
-        if (!this.service.selectedKey) return
+      onDrop: async (e, dragState, dropZone) => {
+        // Use cached state from event listeners
+        const selectedKey = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+        if (!selectedKey) return
 
         const fromIndex = parseInt(dragState.dragElement.dataset.index)
-        const toIndex = parseInt(dropZone.dataset.index)
+        const toIndex   = parseInt(dropZone.dataset.index)
 
         if (fromIndex !== toIndex) {
-          this.service.moveCommand(this.service.selectedKey, fromIndex, toIndex)
+          // Delegate move via commandchain event so CommandChainService handles persistence
+          this.eventBus.emit('commandchain:move', { fromIndex, toIndex })
         }
       },
     })
@@ -634,32 +405,32 @@ export default class CommandLibraryUI extends ComponentBase {
       return
     }
 
-    // Fallback for test mocks
-    const hasSelectedKey = !!this.service.selectedKey
-
+    // Use cached state from event listeners
+    const selectedKey = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+    const hasSelectedKey = !!selectedKey
     const doc = this.document
 
-    if (this.service.currentEnvironment === 'alias') {
-      ;['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
-        const btn = doc.getElementById(id)
-        if (btn) btn.disabled = !hasSelectedKey
-      })
-      const ac = doc.getElementById('addCommandBtn')
-      if (ac) ac.disabled = !hasSelectedKey
-      ;['importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
-        const btn = doc.getElementById(id)
-        if (btn) btn.disabled = true
-      })
-    } else {
-      ;['addCommandBtn', 'importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
-        const btn = doc.getElementById(id)
-        if (btn) btn.disabled = !hasSelectedKey
-      })
-      ;['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
-        const btn = doc.getElementById(id)
-        if (btn) btn.disabled = true
-      })
-    }
+    if (this._currentEnvironment === 'alias') {
+        ['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
+          const btn = doc.getElementById(id)
+          if (btn) btn.disabled = !hasSelectedKey
+        })
+        const addCmdBtn = doc.getElementById('addCommandBtn')
+        if (addCmdBtn) addCmdBtn.disabled = !hasSelectedKey
+        ['importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+          const btn = doc.getElementById(id)
+          if (btn) btn.disabled = true
+        })
+      } else {
+        ['addCommandBtn', 'importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+          const btn = doc.getElementById(id)
+          if (btn) btn.disabled = !hasSelectedKey
+        })
+        ['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
+          const btn = doc.getElementById(id)
+          if (btn) btn.disabled = true
+        })
+      }
   }
 
   /**
@@ -684,6 +455,6 @@ export default class CommandLibraryUI extends ComponentBase {
    * Show template modal
    */
   showTemplateModal() {
-    this.ui.showToast(this.service.i18n.t('template_system_coming_soon'))
+    this.ui?.showToast?.(i18next.t('template_system_coming_soon'))
   }
 }

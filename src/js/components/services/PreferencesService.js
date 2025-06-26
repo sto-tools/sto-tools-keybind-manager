@@ -7,7 +7,8 @@ import i18next from 'i18next'
  */
 export default class PreferencesService extends ComponentBase {
   constructor({ storage, eventBus, i18n = i18next } = {}) {
-    super(eventBus)
+    super(eventBus) 
+    this.componentName = 'PreferencesService'
     this.storage = storage
     this.i18n = i18n
 

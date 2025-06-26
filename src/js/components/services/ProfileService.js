@@ -413,7 +413,7 @@ export default class ProfileService extends ComponentBase {
   setCurrentEnvironment(environment) {
     this.currentEnvironment = environment
     // Notify other components of environment change
-    this.emit('environment-changed', { environment })
+    this.emit('environment:changed', { environment })
   }
 
   /**

@@ -8,25 +8,38 @@ import { respond } from '../../core/requestResponse.js'
 export default class CommandLibraryService extends ComponentBase {
   constructor({ storage, eventBus, i18n, ui, modalManager, commandService = null }) {
     super(eventBus)
-    this.storage = storage
-    this.i18n = i18n
-    this.ui = ui
-    this.modalManager = modalManager
+    this.componentName = 'CommandLibraryService'
+    this._instanceId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    this.storage        = storage
+    this.i18n           = i18n
+    this.ui             = ui
+    this.modalManager   = modalManager
     this.commandService = commandService
-    this.selectedKey = null
-    this.currentEnvironment = 'space'
+
     this.currentProfile = null
-    this.commandIdCounter = 0
+    this.currentEnvironment = 'space'
+    this.selectedKey = null
+    this.selectedAlias = null
+
+    // Store detach functions for cleanup
+    this._responseDetachFunctions = []
 
     // ---------------------------------------------------------
-    // Register Request/Response endpoints for command data
+    // Register Request/Response endpoints for external callers
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'command:find-definition',   ({ command }) => this.findCommandDefinition(command))
-      respond(this.eventBus, 'command:get-categories',    () => this.getCommandCategories())
-      respond(this.eventBus, 'command:get-for-selected-key', () => this.getCommandsForSelectedKey())
-      respond(this.eventBus, 'command:get-warning',       ({ command }) => this.getCommandWarning(command))
-      respond(this.eventBus, 'command:generate-id',       () => this.generateCommandId())
+      this._responseDetachFunctions.push(
+        respond(this.eventBus, 'command:get-for-selected-key', () => this.getCommandsForSelectedKey()),
+        respond(this.eventBus, 'command:get-empty-state-info', () => this.getEmptyStateInfo()),
+        respond(this.eventBus, 'command:find-definition', ({ command }) => this.findCommandDefinition(command)),
+        respond(this.eventBus, 'command:get-warning', ({ command }) => this.getCommandWarning(command)),
+        respond(this.eventBus, 'command:get-categories',    () => this.getCommandCategories()),
+        respond(this.eventBus, 'command:generate-id',       () => this.generateCommandId()),
+        respond(this.eventBus, 'command:filter-library', () => {
+          this.filterCommandLibrary()
+          return true
+        })
+      )
     }
 
     // In test environments (Vitest/Jest), automatically make `emit` a spy so
@@ -58,19 +71,24 @@ export default class CommandLibraryService extends ComponentBase {
     // Listen for key selection changes
     this.addEventListener('key-selected', (data) => {
       this.selectedKey = data.key
+      this.selectedAlias = null // Clear alias selection when key is selected
     })
 
-    // Listen for alias selection – treat it as a key but force alias env
-    this.addEventListener('alias-selected', ({ name }) => {
-      if (!name) return
-      this.selectedKey = name
-      this.currentEnvironment = 'alias'
+    // Listen for alias selection changes
+    this.addEventListener('alias-selected', (data) => {
+      this.selectedAlias = data.name
+      this.selectedKey = null // Clear key selection when alias is selected
     })
 
     // Listen for environment changes (space ↔ ground ↔ alias)
-    this.addEventListener('environment-changed', (data) => {
-      this.currentEnvironment = data.environment
-      this.selectedKey = null
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) {
+        this.currentEnvironment = env
+        // Clear selections when environment changes since they're context-specific
+        this.selectedKey = null
+        this.selectedAlias = null
+      }
     })
 
     // Listen for profile service events
@@ -79,9 +97,12 @@ export default class CommandLibraryService extends ComponentBase {
       this.currentEnvironment = data.environment
     })
   
-    this.eventBus.on('environment-changed', (data) => {
-      this.currentEnvironment = data.environment
-      this.selectedKey = null
+    this.eventBus.on('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) {
+        this.currentEnvironment = env
+        this.selectedKey = null  // Clear selection when environment changes
+      }
     })
 
     // Keep selectedKey in sync with UI selections
@@ -106,78 +127,35 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   /**
-   * Set the selected key
-   */
-  setSelectedKey(key) {
-    this.selectedKey = key
-  }
-
-  /**
-   * Set the current environment
-   */
-  setCurrentEnvironment(environment) {
-    this.currentEnvironment = environment
-  }
-
-  /**
-   * Set the current profile
-   */
-  setCurrentProfile(profile) {
-    this.currentProfile = profile
-  }
-
-  /**
-   * Get the current profile ID
-   */
-  getCurrentProfileId() {
-    return this.currentProfile
-  }
-
-  /**
-   * Get commands for the selected key based on current environment
+   * Get commands for the currently selected key/alias
    */
   getCommandsForSelectedKey() {
-    if (!this.selectedKey) return []
+    // Use the appropriate cached selection based on current environment
+    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+    if (!selectedKey) return []
 
-    let commands = []
-    let profile
+    const profile = this.getCurrentProfile()
+    if (!profile) return []
 
     if (this.currentEnvironment === 'alias') {
-      // For aliases, get the raw profile since aliases are profile-level, not build-specific
-      profile = this.storage.getProfile(this.currentProfile)
-      if (!profile) return []
+      // For aliases, parse the command string
+      const alias = profile.aliases && profile.aliases[selectedKey]
+      if (!alias || !alias.commands) return []
 
-      const alias = profile.aliases && profile.aliases[this.selectedKey]
-      if (alias && alias.commands) {
-        // Convert alias command string to command array format
-        const commandStrings = alias.commands.split(/\s*\$\$\s*/).map(cmd => cmd.trim()).filter(cmd => cmd.length > 0)
-        commands = commandStrings.map((cmd, index) => {
-          // Find the command definition to get the correct icon and name
-          const commandDef = this.findCommandDefinition({ command: cmd })
-          return {
-            command: cmd,
-            text: commandDef ? commandDef.name : cmd,
-            type: 'alias',
-            icon: commandDef ? commandDef.icon : '🎭',
-            id: `alias_${index}`
-          }
-        })
-      }
+      return alias.commands
+        .split(/\s*\$\$\s*/)
+        .filter((cmd) => cmd.trim().length > 0)
+        .map((cmd, index) => ({
+          command: cmd.trim(),
+          text: cmd.trim(),
+          type: 'alias',
+          icon: '🎭',
+          id: `alias_${index}`,
+        }))
     } else {
-      // For keybinds, use the build-specific view
-      profile = this.getCurrentProfile()
-      if (!profile) return []
-
-      // Filter out blank commands for display in the command chain
-      const allCommands = profile.keys[this.selectedKey] || []
-      commands = allCommands.filter(cmd => {
-        if (!cmd || typeof cmd !== 'object') return false
-        if (typeof cmd.command !== 'string') return false
-        return cmd.command.trim().length > 0
-      })
+      // For keybinds, return the command array
+      return profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
     }
-
-    return commands
   }
 
   /**
@@ -510,7 +488,10 @@ export default class CommandLibraryService extends ComponentBase {
    * Get command chain preview text
    */
   getCommandChainPreview() {
-    if (!this.selectedKey) {
+    // Use the appropriate cached selection based on current environment
+    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+
+    if (!selectedKey) {
       const selectText = this.currentEnvironment === 'alias' ? 
         this.i18n.t('select_an_alias_to_see_the_generated_command') : 
         this.i18n.t('select_a_key_to_see_the_generated_command')
@@ -521,16 +502,16 @@ export default class CommandLibraryService extends ComponentBase {
     
     if (commands.length === 0) {
       if (this.currentEnvironment === 'alias') {
-        return `alias ${this.selectedKey} <&  &>`
+        return `alias ${selectedKey} <&  &>`
       } else {
-        return `${this.selectedKey} ""`
+        return `${selectedKey} ""`
       }
     }
 
     if (this.currentEnvironment === 'alias') {
       // For aliases, show the alias command format with <& and &> delimiters
       const commandString = commands.map((cmd) => cmd.command).join(' $$ ')
-      return `alias ${this.selectedKey} <& ${commandString} &>`
+      return `alias ${selectedKey} <& ${commandString} &>`
     } else {
       // For keybinds, use the existing logic with optional mirroring
       const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder')
@@ -543,7 +524,7 @@ export default class CommandLibraryService extends ComponentBase {
         commandString = commands.map((cmd) => cmd.command).join(' $$ ')
       }
 
-      return `${this.selectedKey} "${commandString}"`
+      return `${selectedKey} "${commandString}"`
     }
   }
 
@@ -560,19 +541,24 @@ export default class CommandLibraryService extends ComponentBase {
    * Get empty state information
    */
   getEmptyStateInfo() {
-    if (!this.selectedKey) {
+    // Use the appropriate cached selection based on current environment
+    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+
+    if (!selectedKey) {
       const selectText = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_an_alias_to_edit') : 
-        this.i18n.t('select_a_key_to_edit')
+        this.i18n.t('select_an_alias_to_edit') || 'Select an alias to edit' : 
+        this.i18n.t('select_a_key_to_edit') || 'Select a key to edit'
       const previewText = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_an_alias_to_see_the_generated_command') : 
-        this.i18n.t('select_a_key_to_see_the_generated_command')
+        this.i18n.t('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' : 
+        this.i18n.t('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
       
       const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
-      const emptyTitle = this.currentEnvironment === 'alias' ? this.i18n.t('no_alias_selected') : this.i18n.t('no_key_selected')
+      const emptyTitle = this.currentEnvironment === 'alias' ? 
+        this.i18n.t('no_alias_selected') || 'No Alias Selected' : 
+        this.i18n.t('no_key_selected') || 'No Key Selected'
       const emptyDesc = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_alias_from_left_panel') : 
-        this.i18n.t('select_key_from_left_panel')
+        this.i18n.t('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' : 
+        this.i18n.t('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
       
       return {
         title: selectText,
@@ -589,39 +575,66 @@ export default class CommandLibraryService extends ComponentBase {
     
     if (commands.length === 0) {
       const emptyMessage = this.currentEnvironment === 'alias' ? 
-        `${this.i18n.t('click_add_command_to_start_building_your_alias_chain')} ${this.selectedKey}.` :
-        `${this.i18n.t('click_add_command_to_start_building_your_command_chain')} ${this.selectedKey}.`
+        `${this.i18n.t('click_add_command_to_start_building_your_alias_chain') || 'Click "Add Command" to start building your alias chain for'} ${selectedKey}.` :
+        `${this.i18n.t('click_add_command_to_start_building_your_command_chain') || 'Click "Add Command" to start building your command chain for'} ${selectedKey}.`
       
       return {
-        title: `${chainType} for ${this.selectedKey}`,
+        title: `${chainType} for ${selectedKey}`,
         preview: this.getCommandChainPreview(),
         icon: 'fas fa-plus-circle',
-        emptyTitle: this.i18n.t('no_commands'),
+        emptyTitle: this.i18n.t('no_commands') || 'No Commands',
         emptyDesc: emptyMessage,
         commandCount: '0'
       }
     }
 
     return {
-      title: `${chainType} for ${this.selectedKey}`,
+      title: `${chainType} for ${selectedKey}`,
       preview: this.getCommandChainPreview(),
       commandCount: commands.length.toString()
     }
   }
 
   /* ------------------------------------------------------------------
-   * Late-join initial state handling
+   * Late-join state sharing
    * ------------------------------------------------------------------ */
+  getCurrentState() {
+    return {
+      selectedKey: this.selectedKey,
+      selectedAlias: this.selectedAlias,
+      currentEnvironment: this.currentEnvironment,
+      currentProfile: this.currentProfile
+    }
+  }
+
   handleInitialState(sender, state) {
     if (!state) return
     if (sender === 'ProfileService') {
       if (state.currentProfile) this.currentProfile = state.currentProfile
+      if (state.currentEnvironment) this.currentEnvironment = state.currentEnvironment
     }
-    if (sender === 'KeyService') {
-      if (state.selectedKey) this.selectedKey = state.selectedKey
+    if (sender === 'KeyService' && state.selectedKey) {
+      this.selectedKey = state.selectedKey
     }
-    if (sender === 'InterfaceModeService') {
-      if (state.environment) this.currentEnvironment = state.environment
+  }
+
+  /**
+   * Cleanup method to detach all request/response handlers
+   */
+  destroy() {
+    
+    if (this._responseDetachFunctions) {
+      this._responseDetachFunctions.forEach(detach => {
+        if (typeof detach === 'function') {
+          detach()
+        }
+      })
+      this._responseDetachFunctions = []
+    }
+    
+    // Call parent destroy if it exists
+    if (super.destroy && typeof super.destroy === 'function') {
+      super.destroy()
     }
   }
 }

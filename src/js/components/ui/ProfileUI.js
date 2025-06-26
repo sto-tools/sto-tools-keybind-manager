@@ -7,6 +7,7 @@ import ComponentBase from '../ComponentBase.js'
 export default class ProfileUI extends ComponentBase {
   constructor({ service, eventBus, ui, modalManager, document }) {
     super(eventBus)
+    this.componentName = 'ProfileUI'
     this.service = service
     this.ui = ui
     this.modalManager = modalManager
@@ -155,6 +156,7 @@ export default class ProfileUI extends ComponentBase {
 
   /**
    * Render the key grid (delegated to existing uiRendering)
+   * TODO: Target for removal like renderCommandChain()
    */
   renderKeyGrid() {
     if (typeof app !== 'undefined' && app.renderKeyGrid) {
@@ -163,12 +165,12 @@ export default class ProfileUI extends ComponentBase {
   }
 
   /**
-   * Render the command chain (delegated to command library UI)
+   * Render the command chain - now handled by CommandChainUI
+   * This method is deprecated and does nothing
    */
   renderCommandChain() {
-    if (typeof app !== 'undefined' && app.commandLibraryUI) {
-      app.commandLibraryUI.renderCommandChain()
-    }
+    // Command chain rendering is now handled by CommandChainUI
+    // This method is kept for backward compatibility but does nothing
   }
 
   /**
@@ -353,6 +355,7 @@ export default class ProfileUI extends ComponentBase {
 
   /**
    * Set the selected key (for UI state management)
+   * TODO: Target for removal like renderCommandChain()
    */
   setSelectedKey(key) {
     this.selectedKey = key
@@ -360,6 +363,7 @@ export default class ProfileUI extends ComponentBase {
 
   /**
    * Get the selected key
+   * TODO: Target for removal like renderCommandChain()
    */
   getSelectedKey() {
     return this.selectedKey

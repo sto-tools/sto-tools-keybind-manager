@@ -23,7 +23,7 @@ import PreferencesUI from './components/ui/PreferencesUI.js'
 import KeyService from './components/services/KeyService.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
-import AppStateService from './components/services/AppStateService.js'
+
 
 export default class STOToolsKeybindManager {
   constructor() {
@@ -144,7 +144,6 @@ export default class STOToolsKeybindManager {
 
       // dbg('AliasBrowserService created')
       this.aliasBrowserUI = new AliasBrowserUI({
-        service: this.aliasBrowserService,
         eventBus,
         document,
       })
@@ -186,7 +185,6 @@ export default class STOToolsKeybindManager {
       this.keyCaptureService.init()
 
       this.keyCaptureUI = new KeyCaptureUI({
-        service: this.keyCaptureService,
         eventBus,
         modalManager,
         document,
@@ -239,7 +237,6 @@ export default class STOToolsKeybindManager {
       })
       // dbg('CommandChainService created')
       this.commandChainUI      = new CommandChainUI({
-        service: this.commandChainService,
         eventBus,
         ui: stoUI,
         document
@@ -298,7 +295,7 @@ export default class STOToolsKeybindManager {
       // dbg('Profile data loaded')
       // Ensure command library service is synced with the loaded profile/environment
       if (this.commandLibraryService && this.profileService) {
-        this.commandLibraryService.setCurrentProfile(this.profileService.getCurrentProfileId())
+        this.commandLibraryService.currentProfile = this.profileService.getCurrentProfileId()
       }
 
       // dbg('Command library synced')
@@ -347,18 +344,7 @@ export default class STOToolsKeybindManager {
       // dbg('Profile UI initialized')
 
       // Setup UI event handlers after all components are initialized
-      // dbg('About to call eventHandlerService.init, method exists:', typeof this.eventHandlerService?.init === 'function')
-      // dbg('About to call interfaceModeService.init, method exists:', typeof this.interfaceModeService?.init === 'function')
-      // dbg('About to call interfaceModeUI.init, method exists:', typeof this.interfaceModeUI?.init === 'function')
-      // dbg('Calling eventHandlerService.init now...')
-      try {
-        this.eventHandlerService.init()
-        // dbg('eventHandlerService.init completed successfully')
-      } catch (error) {
-        // dbg('Error in eventHandlerService.init:', error)
-        throw error // Re-throw to see the full error
-      }
-      // dbg('Calling interfaceModeService.init now...')
+      // Initialize InterfaceModeService FIRST so it can broadcast environment state
       try {
         this.interfaceModeService.init()
         // dbg('interfaceModeService.init completed successfully')
@@ -366,7 +352,18 @@ export default class STOToolsKeybindManager {
         // dbg('Error in interfaceModeService.init:', error)
         throw error // Re-throw to see the full error
       }
-      // dbg('Calling interfaceModeUI.init now...')
+
+      // Small delay to ensure environment state is broadcast before UI components initialize
+      await new Promise(resolve => setTimeout(resolve, 10))
+
+      try {
+        this.eventHandlerService.init()
+        // dbg('eventHandlerService.init completed successfully')
+      } catch (error) {
+        // dbg('Error in eventHandlerService.init:', error)
+        throw error // Re-throw to see the full error
+      }
+      
       try {
         this.interfaceModeUI.init()
         // dbg('interfaceModeUI.init completed successfully')
@@ -379,10 +376,7 @@ export default class STOToolsKeybindManager {
       // Render initial state
       this.profileUI.renderProfiles()
       // dbg('Profiles rendered')
-      this.profileUI.renderKeyGrid()
-      // dbg('Key grid rendered')
-      this.profileUI.renderCommandChain()
-      // dbg('Command chain rendered')
+      
       this.profileUI.updateProfileInfo()
       // dbg('Profile info updated')
 
@@ -452,9 +446,7 @@ export default class STOToolsKeybindManager {
       this.setupEventCoordination()
 
       // ---------------------------------
-      // Global AppStateService to provide snapshot endpoint
-      // ---------------------------------
-      this.appStateService = new AppStateService({ eventBus })
+
     } catch (error) {
       // dbg('Failed to initialize application:', error)
       // dbg('Error stack:', error.stack)
@@ -490,6 +482,10 @@ export default class STOToolsKeybindManager {
   }
   
   set currentEnvironment(val) {
+    // DEPRECATED: Direct property assignment should only be used in tests
+    console.warn('[DEPRECATED] app.currentEnvironment setter called - use environment:changed events instead')
+    console.warn('Call stack:', new Error().stack)
+    
     if (this.store) {
       this.store.currentEnvironment = val
     }
@@ -506,13 +502,15 @@ export default class STOToolsKeybindManager {
   }
   
   set selectedKey(val) {
+    // DEPRECATED: Direct property assignment should only be used in tests
+    console.warn('[DEPRECATED] app.selectedKey setter called - use key-selected events instead')
+    console.warn('Call stack:', new Error().stack)
+    
     if (this.store) {
       this.store.selectedKey = val
     }
-    // Synchronize with the command library service
-    if (this.commandLibraryService) {
-      this.commandLibraryService.setSelectedKey(val)
-    }
+    // Synchronize with the command library service via event
+    eventBus.emit('key-selected', { key: val })
   }
 
   get isModified() {
@@ -546,8 +544,6 @@ export default class STOToolsKeybindManager {
         if (result.success) {
           this.profileService.switchProfile(result.profileId)
           this.profileUI.renderProfiles()
-          this.profileUI.renderKeyGrid()
-          this.profileUI.renderCommandChain()
           this.profileUI.updateProfileInfo()
           // Show toast message for test compatibility
           if (typeof stoUI !== 'undefined' && stoUI.showToast) {
@@ -590,8 +586,6 @@ export default class STOToolsKeybindManager {
         if (result.success) {
           if (result.switchedProfile) {
             this.selectedKey = null
-            this.profileUI.renderKeyGrid()
-            this.profileUI.renderCommandChain()
             this.profileUI.updateProfileInfo()
           }
           this.profileUI.renderProfiles()
@@ -724,11 +718,13 @@ export default class STOToolsKeybindManager {
   }
 
   selectKey(keyName) {
+    // DEPRECATED: Direct method call should only be used in tests
+    console.warn('[DEPRECATED] app.selectKey() called - use KeyBrowserService.selectKey() instead')
+    console.warn('Call stack:', new Error().stack)
+    
     keyHandling.selectKey(keyName)
-    // Synchronize with the command library service
-    if (this.commandLibraryService) {
-      this.commandLibraryService.setSelectedKey(keyName)
-    }
+    // Synchronize with the command library service via event
+    eventBus.emit('key-selected', { key: keyName })
   }
 
   // (deprecated command library helpers removed)
@@ -776,25 +772,21 @@ export default class STOToolsKeybindManager {
   }
 
   onProfileSwitched({ profileId, environment } = {}) {
-    // Keep services in sync when profile changes
-    if (this.commandLibraryService) {
-      this.commandLibraryService.setCurrentProfile(profileId)
-      this.commandLibraryService.setCurrentEnvironment(environment)
-    }
-    if (this.keyService) {
-      this.keyService.setCurrentProfile(profileId)
-      this.keyService.setCurrentEnvironment(environment)
-    }
+    // DEPRECATED: This method should not be called in event-driven architecture
+    console.warn('[DEPRECATED] app.onProfileSwitched() called - services should listen to profile:switched events directly')
+    console.warn('Call stack:', new Error().stack)
+    
+    // Services should be listening to the profile:switched event directly
+    // This is a no-op to identify legacy usage patterns
   }
 
   onEnvironmentChanged({ environment } = {}) {
-    if (!environment) return
-    if (this.commandLibraryService) {
-      this.commandLibraryService.setCurrentEnvironment(environment)
-    }
-    if (this.keyService) {
-      this.keyService.setCurrentEnvironment(environment)
-    }
+    // DEPRECATED: This method should not be called in event-driven architecture
+    console.warn('[DEPRECATED] app.onEnvironmentChanged() called - services should listen to environment:changed events directly')
+    console.warn('Call stack:', new Error().stack)
+    
+    // Services should be listening to the environment:changed event directly
+    // This is a no-op to identify legacy usage patterns
   }
 }
 

@@ -10,6 +10,7 @@ import { request } from '../../core/requestResponse.js'
 export default class KeyBrowserUI extends ComponentBase {
   constructor ({ service, app, document = window.document }) {
     super(eventBus)
+    this.componentName = 'KeyBrowserUI'
     this.service  = service
     this.app      = app
     this.document = document
@@ -19,12 +20,18 @@ export default class KeyBrowserUI extends ComponentBase {
    * Lifecycle
    * ========================================================== */
   onInit () {
+    // Initialize cached selected key
+    this._selectedKeyName = null
+    
     // Determine initial environment for visibility BEFORE any rendering
     const initialEnv = this.service ? (this.service.currentEnvironment || 'space') : 'space'
 
     // Re-render whenever key list changes or selection updates.
     eventBus.on('key:list-changed', () => this.render())
-    eventBus.on('key-selected', () => this.render())
+    eventBus.on('key-selected', (data) => {
+      this._selectedKeyName = data.key || data.name
+      this.render()
+    })
 
     // Handle environment changes for visibility toggling
     this.addEventListener('environment:changed', (d = {}) => {
@@ -72,11 +79,10 @@ export default class KeyBrowserUI extends ComponentBase {
     }
 
     const keyMap = await request(eventBus, 'key:get-all')
-    const selectedKeyName = await request(eventBus, 'key:get-selected-name')
 
     // Cache for child helpers
     this._currentKeyMap = keyMap
-    this._selectedKeyName = selectedKeyName
+    // Use cached selected key from event listeners instead of polling
 
     const keys      = Object.keys(keyMap)
     const keysWithCommands = {}

@@ -8,42 +8,39 @@ import { respond } from '../../core/requestResponse.js'
  * this service to persist changes and broadcast events.
  */
 export default class CommandService extends ComponentBase {
-  constructor ({ storage, eventBus, i18n, ui } = {}) {
+  constructor({ storage, eventBus, i18n, profileService = null, modalManager = null }) {
     super(eventBus)
     this.componentName = 'CommandService'
-    this.storage = storage
-    this.i18n = i18n
-    this.ui = ui
+    this.storage         = storage
+    this.i18n            = i18n
+    this.profileService  = profileService
+    this.modalManager    = modalManager
 
-    this.selectedKey = null
+    this.currentProfile  = null
     this.currentEnvironment = 'space'
-    this.currentProfile = null
+    this.selectedKey = null
+    this.selectedAlias = null
 
-    // ---------------------------------------------------------
-    // Register Request/Response topics for command operations
-    // ---------------------------------------------------------
+    // Store detach functions for cleanup
+    this._responseDetachFunctions = []
+
+    // Register Request/Response endpoints for editing commands
     if (this.eventBus) {
-      respond(this.eventBus, 'command:add', ({ key, command } = {}) => this.addCommand(key, command))
-      respond(this.eventBus, 'command:delete', ({ key, index } = {}) => this.deleteCommand(key, index))
-      respond(this.eventBus, 'command:move', ({ key, fromIndex, toIndex } = {}) => this.moveCommand(key, fromIndex, toIndex))
-      respond(this.eventBus, 'command:get-for-key', ({ key } = {}) => this.getCommandsForKey(key))
-      respond(this.eventBus, 'command:validate', ({ command } = {}) => this.validateCommand(command))
+      this._responseDetachFunctions.push(
+        respond(this.eventBus, 'command:edit', ({ commandId, updatedCommand }) => 
+          this.editCommand(commandId, updatedCommand)),
+        respond(this.eventBus, 'command:duplicate', ({ commandId }) => 
+          this.duplicateCommand(commandId)),
+        respond(this.eventBus, 'command:delete', ({ commandId }) => 
+          this.deleteCommand(commandId)),
+        respond(this.eventBus, 'command:add', ({ command, position }) => 
+          this.addCommand(command, position)),
+        respond(this.eventBus, 'command:reorder', ({ commandId, newPosition }) => 
+          this.reorderCommand(commandId, newPosition)),
+        respond(this.eventBus, 'command:validate', ({ command }) => 
+          this.validateCommand(command))
+      )
     }
-  }
-
-  /* ------------------------------------------------------------------
-   * State setters
-   * ------------------------------------------------------------------ */
-  setSelectedKey (key) {
-    this.selectedKey = key
-  }
-
-  setCurrentEnvironment (environment) {
-    this.currentEnvironment = environment
-  }
-
-  setCurrentProfile (profileId) {
-    this.currentProfile = profileId
   }
 
   /** Convenience getter */
@@ -274,32 +271,37 @@ export default class CommandService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  setupEventListeners () {
-    if (!this.eventBus) return
-
-    // UI emits when a keybind is chosen
-    this.eventBus.on('key-selected', ({ key, name } = {}) => {
-      this.selectedKey = key || name || null
+  /**
+   * Set up event listeners
+   */
+  setupEventListeners() {
+    // Listen for profile changes
+    this.addEventListener('profile-switched', (data) => {
+      this.currentProfile = data.profile
+      this.currentEnvironment = data.environment
     })
 
-    // Alias browser emits when an alias is chosen
-    this.eventBus.on('alias-selected', ({ name } = {}) => {
-      if (!name) return
-      this.currentEnvironment = 'alias'
-      this.selectedKey = name
+    // Listen for key selection changes
+    this.addEventListener('key-selected', (data) => {
+      this.selectedKey = data.key
+      this.selectedAlias = null // Clear alias selection when key is selected
     })
 
-    // Mode switches between space/ground via modeManagement
-    this.eventBus.on('environment-changed', ({ environment } = {}) => {
-      if (environment) this.currentEnvironment = environment
+    // Listen for alias selection changes
+    this.addEventListener('alias-selected', (data) => {
+      this.selectedAlias = data.name
+      this.selectedKey = null // Clear key selection when alias is selected
     })
 
-    // Profile service tells us when the active profile changes
-    this.eventBus.on('profile-switched', ({ profileId, profile, environment } = {}) => {
-      this.currentProfile = profileId || profile || null
-      if (environment) this.currentEnvironment = environment
-      // Reset key selection – UI will emit a fresh key-selected later.
-      this.selectedKey = null
+    // Listen for environment changes (space ↔ ground ↔ alias)
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) {
+        this.currentEnvironment = env
+        // Clear selections when environment changes since they're context-specific
+        this.selectedKey = null
+        this.selectedAlias = null
+      }
     })
   }
 
@@ -331,9 +333,10 @@ export default class CommandService extends ComponentBase {
   /* ------------------------------------------------------------------
    * Late-join state sharing
    * ------------------------------------------------------------------ */
-  getCurrentState () {
+  getCurrentState() {
     return {
       selectedKey: this.selectedKey,
+      selectedAlias: this.selectedAlias,
       currentEnvironment: this.currentEnvironment,
       currentProfile: this.currentProfile
     }
@@ -347,6 +350,26 @@ export default class CommandService extends ComponentBase {
     }
     if (sender === 'KeyService' && state.selectedKey) {
       this.selectedKey = state.selectedKey
+    }
+  }
+
+  /**
+   * Cleanup method to detach all request/response handlers
+   */
+  destroy() {
+    
+    if (this._responseDetachFunctions) {
+      this._responseDetachFunctions.forEach(detach => {
+        if (typeof detach === 'function') {
+          detach()
+        }
+      })
+      this._responseDetachFunctions = []
+    }
+    
+    // Call parent destroy if it exists
+    if (super.destroy && typeof super.destroy === 'function') {
+      super.destroy()
     }
   }
 } 

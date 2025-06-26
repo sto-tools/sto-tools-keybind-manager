@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import eventBus from '../../core/eventBus.js'
 
 /**
  * KeyCaptureUI – visual layer for key capture workflow. It relies on
@@ -13,29 +14,28 @@ export default class KeyCaptureUI extends ComponentBase {
    * @param {STOToolsKeybindManager}   [opts.app]          – main application reference (for addKey())
    * @param {Document}                 [opts.document]
    */
-  constructor ({ service, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(service?.eventBus)
-    this.service       = service
-    this.modalManager  = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
-    this.app           = app || (typeof window !== 'undefined' ? window.app : null)
-    this.document      = document
+  constructor ({ eventBus: bus = eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), service = null } = {}) {
+    // Phase-2: UI components require only an eventBus reference. Accept optional
+    // `service` for backward-compatibility but do NOT rely on it.
+    super(bus)
+    this.componentName = 'KeyCaptureUI'
 
-    // Ensure service provided
-    if (!this.service) {
-      // Fail silently during unit tests without DOM
-      console.warn('[KeyCaptureUI] No service supplied – functionality disabled')
-    }
+    this.eventBus     = bus
+    this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.app          = app || (typeof window !== 'undefined' ? window.app : null)
+    this.document     = document
+
+    // Legacy – keep reference but unused after migration
+    this.service = service
   }
 
   /* ------------------------------------------------------------ lifecycle */
   onInit () {
-    if (!this.service) return
-
-    // Wire service events to UI handlers
-    this.service.addEventListener('capture-start',  (d) => this.handleCaptureStart(d))
-    this.service.addEventListener('update',         (d) => this.updateCapturedKeysDisplay(d))
-    this.service.addEventListener('chord-captured', (d) => this.addCapturedKeySelectionButton(d))
-    this.service.addEventListener('capture-stop',   (d) => this.handleCaptureStop(d))
+    // Listen for capture lifecycle events emitted by KeyCaptureService
+    this.addEventListener('capture-start',  (d) => this.handleCaptureStart(d))
+    this.addEventListener('update',         (d) => this.updateCapturedKeysDisplay(d))
+    this.addEventListener('chord-captured', (d) => this.addCapturedKeySelectionButton(d))
+    this.addEventListener('capture-stop',   (d) => this.handleCaptureStop(d))
   }
 
   /* ---------------------------------------------------------- public API */
@@ -61,17 +61,20 @@ export default class KeyCaptureUI extends ComponentBase {
     const modal = this.document.getElementById(context)
     if (modal) modal.focus()
 
-    this.service.startCapture(context)
+    // Ask service to start capture via event bus
+    this.emit('keycapture:start', { context })
   }
 
   /** Stop key capture externally */
   stopCapture () {
-    this.service.stopCapture()
+    // Instruct service via event bus
+    this.emit('keycapture:stop')
   }
 
   /* -------------------------------------------------------- event hooks */
   handleCaptureStart ({ context }) {
     // Nothing extra – UI already prepared in startCapture()
+    // TODO: Why do we have this? if we don't need it, remove this hook
   }
 
   handleCaptureStop ({ context }) {

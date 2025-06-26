@@ -17,6 +17,7 @@ export default class FileExplorerUI extends ComponentBase {
     document = window.document,
   } = {}) {
     super(eventBus)
+    this.componentName = 'FileExplorerUI'
 
     // ----- Dependencies & fallbacks (for tests/legacy code) -----
     this.storage       = storage       || window.storageService || null
