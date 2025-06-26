@@ -5,13 +5,15 @@ import ComponentBase from '../ComponentBase.js'
  * Owns the space/ground/alias toggle buttons and manages their visual state
  */
 export default class InterfaceModeUI extends ComponentBase {
-  constructor({ service, eventBus, ui, profileUI, document }) {
-    super(eventBus)
+  constructor({ eventBus: bus, ui = null, profileUI = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(bus)
     this.componentName = 'InterfaceModeUI'
-    this.service = service
-    this.ui = ui
+    this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.profileUI = profileUI
-    this.document = document || global.document
+    this.document = document
+    
+    // Internal cached state
+    this._currentMode = 'space'
     
     // Internal state
     this._uiListenersSetup = false
@@ -29,9 +31,9 @@ export default class InterfaceModeUI extends ComponentBase {
     super.init()
     this.setupEventListeners()
     this.setupModeButtons()
-    // Reflect the current mode immediately so the correct
-    // selector (key vs alias) is visible on first load.
-    this.updateModeUI(this.currentMode)
+
+    // Initial paint using cached mode
+    this.updateModeUI(this._currentMode)
   }
 
   /**
@@ -44,12 +46,19 @@ export default class InterfaceModeUI extends ComponentBase {
 
     // Create handler functions and store references for cleanup
     this._modeChangedHandler = (data) => {
-      this.updateModeUI(data.newMode)
+      const env = typeof data === 'string' ? data : data?.newMode
+      if (env) {
+        this._currentMode = env
+        this.updateModeUI(env)
+      }
     }
 
     this._environmentChangedHandler = (d = {}) => {
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
-      if (env) this.updateModeUI(env)
+      if (env) {
+        this._currentMode = env
+        this.updateModeUI(env)
+      }
     }
 
     // Listen for mode change events from service
@@ -138,23 +147,22 @@ export default class InterfaceModeUI extends ComponentBase {
    * Get current mode from service
    */
   get currentMode() {
-    return this.service?.currentMode || 'space'
+    return this._currentMode
   }
 
   /**
    * Set current mode (delegates to service)
    */
   set currentMode(mode) {
-    if (this.service) {
-      this.service.currentMode = mode
-    }
+    this._currentMode = mode
+    this.eventBus.emit('environment:changed', { environment: mode })
   }
 
   /**
    * Get current environment (alias for currentMode)
    */
   get currentEnvironment() {
-    return this.currentMode
+    return this._currentMode
   }
 
   /**

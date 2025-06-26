@@ -1,10 +1,13 @@
 import eventBus from '../../core/eventBus.js'
 import ParameterCommandService from '../services/ParameterCommandService.js'
+import { request } from '../../core/requestResponse.js'
 
 // ---------------------------------------------------------------------------
 // Singleton service instance – shared by the entire application layer
 // ---------------------------------------------------------------------------
 const svc = new ParameterCommandService({ eventBus })
+// Initialize the service to start listening for events
+svc.init()
 
 /**
  * parameterCommands – refactored UI facade that owns the parameter editing
@@ -228,32 +231,45 @@ export const parameterCommands = {
   /* ------------------------------------------------------------
    * Saving / Editing
    * ---------------------------------------------------------- */
-  saveParameterCommand (...args) {
-    const selectedKey = this.selectedKey || this.commandLibraryService?.selectedKey
+  async saveParameterCommand (...args) {
+    // Use the service's cached state instead of function references
+    const currentEnv = this.service.currentEnvironment || 'space'
+    const selectedKey = currentEnv === 'alias' ? this.service.selectedAlias : this.service.selectedKey
     if (!selectedKey || !this.currentParameterCommand) {
-      globalThis.stoUI?.showToast?.(globalThis.i18next?.t?.('please_select_a_key_first') || 'Please select a key first', 'warning')
+      const message = currentEnv === 'alias' 
+        ? (globalThis.i18next?.t?.('please_select_an_alias_first') || 'Please select an alias first')
+        : (globalThis.i18next?.t?.('please_select_a_key_first') || 'Please select a key first')
+      globalThis.stoUI?.showToast?.(message, 'warning')
       return
     }
 
     const { categoryId, commandId, commandDef, editIndex, isEditing } = this.currentParameterCommand
     const params  = this.getParameterValues()
     const command = this.service.buildParameterizedCommand(categoryId, commandId, commandDef, params)
-    if (!command) return
-
-    // Persist via commandLibraryService if available (ensures UI refresh)
-    if (this.commandLibraryService && typeof this.commandLibraryService.addCommand === 'function') {
-      if (Array.isArray(command)) {
-        command.forEach(c => this.commandLibraryService.addCommand(selectedKey, c))
-      } else {
-        this.commandLibraryService.addCommand(selectedKey, command)
-      }
+    if (!command) {
+      globalThis.stoUI?.showToast?.('Failed to build command - please check parameters', 'error')
+      return
     }
 
-    eventBus.emit('command-chain:update', {
-      commands:    this.commandLibraryService?.getCommandsForSelectedKey?.() || [],
-      selectedKey: this.commandLibraryService?.selectedKey || this.selectedKey,
-      environment: this.currentEnvironment,
-    })
+    // Use request/response to call CommandService.addCommand - with proper validation
+    const addCmd = async (c) => {
+      if (!c || !c.command) {
+        console.warn('[ParameterCommandUI] Skipping invalid command:', c)
+        return
+      }
+      try {
+        await request(eventBus, 'command:add', { command: c, key: selectedKey })
+      } catch (error) {
+        console.error('[ParameterCommandUI] Failed to add command:', error)
+        globalThis.stoUI?.showToast?.('Failed to add command', 'error')
+      }
+    }
+    
+    if (Array.isArray(command)) {
+      for (const c of command) await addCmd(c)
+    } else {
+      await addCmd(command)
+    }
 
     globalThis.modalManager?.hide('parameterModal')
     this.currentParameterCommand = null

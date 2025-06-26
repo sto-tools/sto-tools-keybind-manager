@@ -27,6 +27,29 @@ export default class ParameterCommandService extends ComponentBase {
     this.componentName = 'ParameterCommandService'
     // Re-use the existing builder hierarchy that already lives in the codebase
     this.commandBuilderService = new CommandBuilderService({ eventBus: bus })
+    
+    // Cache selected key/alias state
+    this.selectedKey = null
+    this.selectedAlias = null
+    this.currentEnvironment = 'space'
+  }
+
+  onInit() {
+    // Listen for key/alias selection events to maintain our own state
+    this.addEventListener('key-selected', (data) => {
+      this.selectedKey = data.key || data.name
+      this.selectedAlias = null // Clear alias when key is selected
+    })
+    
+    this.addEventListener('alias-selected', (data) => {
+      this.selectedAlias = data.name
+      this.selectedKey = null // Clear key when alias is selected
+    })
+    
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data.environment
+      if (env) this.currentEnvironment = env
+    })
   }
 
   /* ------------------------------------------------------------
@@ -44,11 +67,8 @@ export default class ParameterCommandService extends ComponentBase {
    * object (or array of objects for tray ranges).
    */
   buildParameterizedCommand (categoryId, commandId, commandDef, params = {}) {
-    // Resolve selected key so that builder logic works even when invoked from
-    // the Command Library where `parameterCommands.selectedKey` might be
-    // undefined but the service exposes `selectedKey`.
-    const selectedKey =
-      this.selectedKey || (this.commandLibraryService && this.commandLibraryService.selectedKey)
+    // Use the service's own cached selected key/alias state
+    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
 
     // Per-category builder functions.  The majority of this code is lifted
     // straight from the original `parameterCommands` module.  Apart from

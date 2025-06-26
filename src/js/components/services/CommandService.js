@@ -33,8 +33,8 @@ export default class CommandService extends ComponentBase {
           this.duplicateCommand(commandId)),
         respond(this.eventBus, 'command:delete', ({ commandId }) => 
           this.deleteCommand(commandId)),
-        respond(this.eventBus, 'command:add', ({ command, position }) => 
-          this.addCommand(command, position)),
+        respond(this.eventBus, 'command:add', ({ command, key, position }) => 
+          this.addCommand(key, command, position)),
         respond(this.eventBus, 'command:reorder', ({ commandId, newPosition }) => 
           this.reorderCommand(commandId, newPosition)),
         respond(this.eventBus, 'command:validate', ({ command }) => 

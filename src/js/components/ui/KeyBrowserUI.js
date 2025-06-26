@@ -8,12 +8,14 @@ import { request } from '../../core/requestResponse.js'
  * renderKeyGrid implementation hanging off the global `app` instance.
  */
 export default class KeyBrowserUI extends ComponentBase {
-  constructor ({ service, app, document = window.document }) {
-    super(eventBus)
+  constructor ({ eventBus: bus = eventBus, app = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(bus)
     this.componentName = 'KeyBrowserUI'
-    this.service  = service
-    this.app      = app
+    this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
     this.document = document
+
+    // Cached state
+    this._currentEnvironment = 'space'
   }
 
   /* ============================================================
@@ -22,9 +24,12 @@ export default class KeyBrowserUI extends ComponentBase {
   onInit () {
     // Initialize cached selected key
     this._selectedKeyName = null
-    
-    // Determine initial environment for visibility BEFORE any rendering
-    const initialEnv = this.service ? (this.service.currentEnvironment || 'space') : 'space'
+
+    // Initial environment default
+    const initialEnv = 'space'
+    this._currentEnvironment = initialEnv
+    if (initialEnv !== 'alias') this.render()
+    this.toggleVisibility(initialEnv)
 
     // Re-render whenever key list changes or selection updates.
     eventBus.on('key:list-changed', () => this.render())
@@ -36,15 +41,13 @@ export default class KeyBrowserUI extends ComponentBase {
     // Handle environment changes for visibility toggling
     this.addEventListener('environment:changed', (d = {}) => {
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      if (!env) return
+      this._currentEnvironment = env
       this.toggleVisibility(env)
       if (env !== 'alias') {
         this.render()
       }
     })
-
-    // If starting up in alias mode, postpone initial render until user
-    // switches out of alias. Otherwise render immediately.
-    const shouldInitialRender = initialEnv !== 'alias'
 
     // Listen for view mode toggles and update events from other components
     this.addEventListener('key-view:toggle',        () => this.toggleKeyView())
@@ -63,7 +66,7 @@ export default class KeyBrowserUI extends ComponentBase {
     this.addEventListener('key-view:mode-changed', () => this.render())
 
     // Initial paint (only if not in alias mode) and toggle-button state
-    if (shouldInitialRender) this.render()
+    this.render()
     const initialMode = localStorage.getItem('keyViewMode') || 'key-types'
     this.updateViewToggleButton(initialMode)
   }

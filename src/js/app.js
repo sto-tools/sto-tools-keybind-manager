@@ -278,7 +278,6 @@ export default class STOToolsKeybindManager {
       
       // Initialize InterfaceModeUI
       this.interfaceModeUI = new InterfaceModeUI({
-        service: this.interfaceModeService,
         eventBus,
         ui: stoUI,
         profileUI: this.profileUI,
