@@ -81,7 +81,7 @@ export default class ProfileUI extends ComponentBase {
       if (result.switched) {
         this.selectedKey = null
         this.renderKeyGrid()
-        this.renderCommandChain()
+        // Command chain rendering is now handled by CommandChainUI via events
         this.updateProfileInfo()
         this.ui.showToast(result.message, 'success')
       }
@@ -277,7 +277,7 @@ export default class ProfileUI extends ComponentBase {
             this.service.switchProfile(result.profileId)
             this.renderProfiles()
             this.renderKeyGrid()
-            this.renderCommandChain()
+            // Command chain rendering is now handled by CommandChainUI via events
             this.updateProfileInfo()
             this.ui.showToast(result.message, 'success')
           }
@@ -342,7 +342,7 @@ export default class ProfileUI extends ComponentBase {
         if (result.switchedProfile) {
           this.selectedKey = null
           this.renderKeyGrid()
-          this.renderCommandChain()
+          // Command chain rendering is now handled by CommandChainUI via events
           this.updateProfileInfo()
         }
         this.renderProfiles()

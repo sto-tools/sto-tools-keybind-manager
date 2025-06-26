@@ -130,7 +130,7 @@ export default class InterfaceModeUI extends ComponentBase {
 
     // Command chain is common to all modes; re-render every time.
     if (this.profileUI) {
-      this.profileUI.renderCommandChain()
+              // Command chain rendering is now handled by CommandChainUI via events
     }
   }
 

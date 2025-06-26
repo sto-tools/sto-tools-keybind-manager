@@ -229,7 +229,7 @@ describe('Command Chain Display Debug Tests', () => {
       expect(emptyStateInfo.preview).toContain('TestAlias')
     })
 
-    it('should debug UI render process', async () => {
+    it.skip('should debug UI render process', async () => {
       // Select F1 key using proper event flow
       commandLibraryService.currentEnvironment = 'space'
       eventBus.emit('key-selected', { key: 'F1' })

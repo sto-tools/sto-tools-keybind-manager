@@ -5,6 +5,11 @@ function on(event, callback) {
     listeners.set(event, new Set())
   }
   listeners.get(event).add(callback)
+  
+  // Return detach function
+  return () => {
+    off(event, callback)
+  }
 }
 
 function off(event, callback) {

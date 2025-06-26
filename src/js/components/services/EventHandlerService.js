@@ -253,7 +253,7 @@ export default class EventHandlerService extends ComponentBase {
             this.setModified(true)
           }
         }
-        this.renderCommandChain() // Update preview when checkbox changes
+        // Command chain rendering is now handled by CommandChainUI via events
       }
     )
 
@@ -601,7 +601,7 @@ export default class EventHandlerService extends ComponentBase {
         this.setModified(false)
         this.renderProfiles()
         this.renderKeyGrid()
-        this.renderCommandChain()
+        // Command chain rendering is now handled by CommandChainUI via events
         this.updateProfileInfo()
         this.ui.showToast(this.i18n.t('default_demo_data_loaded'), 'success')
       } else {
@@ -631,7 +631,7 @@ export default class EventHandlerService extends ComponentBase {
       this.setModified(false)
       this.renderProfiles()
       this.renderKeyGrid()
-      this.renderCommandChain()
+      // Command chain rendering is now handled by CommandChainUI via events
       this.updateProfileInfo()
       this.ui.showToast(this.i18n.t('application_reset_successfully'), 'success')
     } catch (error) {
@@ -1024,9 +1024,7 @@ export default class EventHandlerService extends ComponentBase {
     this.eventBus.emit('ui:render-key-grid')
   }
 
-  renderCommandChain() {
-    this.eventBus.emit('ui:render-command-chain')
-  }
+  // renderCommandChain() removed - command chain rendering is now handled by CommandChainUI via events
 
   updateProfileInfo() {
     this.eventBus.emit('ui:update-profile-info')

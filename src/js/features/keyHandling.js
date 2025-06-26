@@ -16,7 +16,7 @@ class LegacyKeyHandling extends KeyService {
     // Replicate immediate UI refresh behaviour expected by older code/tests
     if (typeof window !== 'undefined' && window.app) {
       window.app.renderKeyGrid?.()
-      window.app.renderCommandChain?.()
+      // Command chain rendering is now handled by CommandChainUI via events
       window.app.updateChainActions?.()
     }
   }

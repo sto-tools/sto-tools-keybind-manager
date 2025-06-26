@@ -159,7 +159,7 @@ export default class ProjectManagementService extends ComponentBase {
             this.app?.loadData?.()
             this.app?.renderProfiles?.()
             this.app?.renderKeyGrid?.()
-            this.app?.renderCommandChain?.()
+            // Command chain rendering is now handled by CommandChainUI via events
             this.ui?.showToast(this.i18n?.t('project_loaded_successfully') ?? 'Project loaded', 'success')
           } else {
             this.ui?.showToast(this.i18n?.t('failed_to_load_project_file') ?? 'Failed to load project', 'error')
