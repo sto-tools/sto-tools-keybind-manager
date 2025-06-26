@@ -21,7 +21,6 @@ export default class ProfileService extends ComponentBase {
     // with the ProfileService without holding a direct reference.
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'state:current-profile', () => this.getCurrentProfileId())
       respond(this.eventBus, 'profile:get-current', () => this.getCurrentProfile())
       respond(this.eventBus, 'profile:switch', ({ id } = {}) => this.switchProfile(id))
       respond(this.eventBus, 'profile:create', ({ name, description } = {}) => this.createProfile(name, description))

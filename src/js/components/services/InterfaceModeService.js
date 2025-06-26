@@ -23,18 +23,6 @@ export default class InterfaceModeService extends ComponentBase {
     this._responseDetachFunction = null
 
     // ---------------------------------------------------------
-    // Register Request/Response topics for current environment
-    // immediately so that handlers are available as soon as the
-    // service is instantiated, avoiding race conditions with
-    // UI components that may request the current environment
-    // before init() has run.
-    // ---------------------------------------------------------
-    if (this.eventBus && !this._responseDetachFunction) {
-      this._responseDetachFunction = respond(this.eventBus, 'state:current-environment', () => this._currentMode)
-      respond(this.eventBus, 'env:get-current', () => this._currentMode)
-    }
-
-    // ---------------------------------------------------------
     // Request/Response handlers are now registered in the constructor to
     // avoid race conditions. This block is intentionally left blank.
     // ---------------------------------------------------------

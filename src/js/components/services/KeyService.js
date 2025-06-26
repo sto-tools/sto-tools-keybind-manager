@@ -29,7 +29,6 @@ export default class KeyService extends ComponentBase {
     // Register Request/Response topics for key state and actions
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'state:selected-key', () => this.selectedKey)
       respond(this.eventBus, 'key:get-selected', () => this.selectedKey)
       respond(this.eventBus, 'key:select', ({ key } = {}) => this.selectKey(key))
       respond(this.eventBus, 'key:add', ({ key } = {}) => this.addKey(key))

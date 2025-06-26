@@ -1,6 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
-import { respond } from '../../core/requestResponse.js'
 
 export default class StorageService extends ComponentBase {
   constructor({ 
@@ -16,12 +15,6 @@ export default class StorageService extends ComponentBase {
     this.backupKey = backupKey
     this.settingsKey = settingsKey
     this.version = version
-
-    // ---------------------------------------------------------
-    // Register Request/Response topic for modified flag placeholder.
-    // In future this can be wired to actual modified tracking logic.
-    // ---------------------------------------------------------
-    respond(this.eventBus, 'state:is-modified', () => false)
   }
 
   onInit() {

@@ -57,8 +57,8 @@ export default class CommandChainUI extends ComponentBase {
     // Drag/drop
     this.setupDragAndDrop()
 
-    // Get initial environment
-    this._currentEnvironment = await request(this.eventBus, 'state:current-environment').catch(() => 'space')
+    // Initial render/visibility will be adjusted once environment events
+    // arrive or via the late-join snapshot handled below.
 
     this.updateChainActions()
     await this.render()
@@ -297,6 +297,19 @@ export default class CommandChainUI extends ComponentBase {
         }
       })
       this._detachFunctions = []
+    }
+  }
+
+  /* ------------------------------------------------------------
+   * Late-join: sync environment if InterfaceModeService broadcasts its
+   * snapshot before we registered our listeners.
+   * ---------------------------------------------------------- */
+  handleInitialState (sender, state) {
+    if (!state) return
+    if (state.environment || state.currentEnvironment) {
+      const env = state.environment || state.currentEnvironment
+      this._currentEnvironment = env
+      this.updateChainActions()
     }
   }
 } 

@@ -31,17 +31,6 @@ export default class AliasBrowserUI extends ComponentBase {
     // Initial render & visibility - now handled through late-join handshake
     // The late-join handshake will handle environment synchronization
     await this.render()
-    
-    // Fallback: if no late-join state is received within reasonable time, 
-    // fetch current environment as backup
-    setTimeout(async () => {
-      if (!this._environmentInitialized) {
-        const env = await request(this.eventBus, 'state:current-environment').catch(() => 'space')
-        console.log('[AliasBrowserUI] Fallback environment initialization:', env)
-        this.toggleVisibility(env || 'space')
-        this._environmentInitialized = true
-      }
-    }, 50)
   }
 
   async render () {
@@ -114,7 +103,6 @@ export default class AliasBrowserUI extends ComponentBase {
       const env = state.environment || state.currentEnvironment
       console.log('[AliasBrowserUI] handleInitialState from', sender, 'environment:', env)
       this.toggleVisibility(env)
-      this._environmentInitialized = true
     }
   }
 } 
