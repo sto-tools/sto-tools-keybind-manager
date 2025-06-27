@@ -222,18 +222,25 @@ export default class KeyBrowserUI extends ComponentBase {
   }
 
   compareKeys (a,b) {
-    const getPriority = (k) => {
-      if (k==='Space') return 0
-      if (/^[0-9]$/.test(k)) return 1
-      if (/^F[0-9]+$/.test(k)) return 2
-      if (k.includes('Ctrl+')) return 3
-      if (k.includes('Alt+')) return 4
-      if (k.includes('Shift+')) return 5
-      return 6
+    // Delegate to FileOperationsService for authoritative implementation
+    try {
+      return request(this.eventBus, 'fileops:compare-keys', { keyA: a, keyB: b })
+    } catch (error) {
+      // Fallback to basic comparison if FileOperationsService is not available
+      console.warn('FileOperationsService not available for key comparison, using fallback')
+      const getPriority = (k) => {
+        if (k==='Space') return 0
+        if (/^[0-9]$/.test(k)) return 1
+        if (/^F[0-9]+$/.test(k)) return 2
+        if (k.includes('Ctrl+')) return 3
+        if (k.includes('Alt+')) return 4
+        if (k.includes('Shift+')) return 5
+        return 6
+      }
+      const pa=getPriority(a), pb=getPriority(b)
+      if (pa!==pb) return pa-pb
+      return a.localeCompare(b)
     }
-    const pa=getPriority(a), pb=getPriority(b)
-    if (pa!==pb) return pa-pb
-    return a.localeCompare(b)
   }
 
   formatKeyName (keyName) {

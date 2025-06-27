@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
+import { request, respond } from '../../core/requestResponse.js'
 
 /**
  * CommandLibraryService - Handles all command library business logic
@@ -29,8 +29,8 @@ export default class CommandLibraryService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        respond(this.eventBus, 'command:get-for-selected-key', () => this.getCommandsForSelectedKey()),
-        respond(this.eventBus, 'command:get-empty-state-info', () => this.getEmptyStateInfo()),
+        respond(this.eventBus, 'command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
+        respond(this.eventBus, 'command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
         respond(this.eventBus, 'command:find-definition', ({ command }) => this.findCommandDefinition(command)),
         respond(this.eventBus, 'command:get-warning', ({ command }) => this.getCommandWarning(command)),
         respond(this.eventBus, 'command:get-categories',    () => this.getCommandCategories()),
@@ -124,7 +124,7 @@ export default class CommandLibraryService extends ComponentBase {
   /**
    * Get commands for the currently selected key/alias
    */
-  getCommandsForSelectedKey() {
+  async getCommandsForSelectedKey() {
     // Use the appropriate cached selection based on current environment
     const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
     if (!selectedKey) return []
@@ -133,20 +133,35 @@ export default class CommandLibraryService extends ComponentBase {
     if (!profile) return []
 
     if (this.currentEnvironment === 'alias') {
-      // For aliases, parse the command string
+      // For aliases, parse the command string using FileOperationsService
       const alias = profile.aliases && profile.aliases[selectedKey]
       if (!alias || !alias.commands) return []
 
-      return alias.commands
-        .split(/\s*\$\$\s*/)
-        .filter((cmd) => cmd.trim().length > 0)
-        .map((cmd, index) => ({
-          command: cmd.trim(),
-          text: cmd.trim(),
+      try {
+        const commands = await request(this.eventBus, 'fileops:parse-command-string', { 
+          commandString: alias.commands 
+        })
+        return commands.map((cmd, index) => ({
+          command: cmd.command,
+          text: cmd.command,
           type: 'alias',
           icon: '🎭',
           id: `alias_${index}`,
         }))
+      } catch (error) {
+        console.warn('FileOperationsService not available for command parsing, using fallback')
+        // Fallback parsing
+        return alias.commands
+          .split(/\s*\$\$\s*/)
+          .filter((cmd) => cmd.trim().length > 0)
+          .map((cmd, index) => ({
+            command: cmd.trim(),
+            text: cmd.trim(),
+            type: 'alias',
+            icon: '🎭',
+            id: `alias_${index}`,
+          }))
+      }
     } else {
       // For keybinds, return the command array
       return profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
@@ -498,7 +513,7 @@ export default class CommandLibraryService extends ComponentBase {
   /**
    * Get command chain preview text
    */
-  getCommandChainPreview() {
+  async getCommandChainPreview() {
     // Use the appropriate cached selection based on current environment
     const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
 
@@ -509,7 +524,7 @@ export default class CommandLibraryService extends ComponentBase {
       return selectText
     }
 
-    const commands = this.getCommandsForSelectedKey()
+    const commands = await this.getCommandsForSelectedKey()
     
     if (commands.length === 0) {
       if (this.currentEnvironment === 'alias') {
@@ -530,7 +545,7 @@ export default class CommandLibraryService extends ComponentBase {
 
       let commandString
       if (shouldStabilize && commands.length > 1) {
-        commandString = this.generateMirroredCommandString(commands)
+        commandString = await this.generateMirroredCommandString(commands)
       } else {
         commandString = commands.map((cmd) => cmd.command).join(' $$ ')
       }
@@ -542,16 +557,22 @@ export default class CommandLibraryService extends ComponentBase {
   /**
    * Generate mirrored command string for stabilization
    */
-  generateMirroredCommandString(commands) {
-    const forwardCommands = commands.map(cmd => cmd.command)
-    const reverseCommands = [...commands].slice(0, -1).reverse().map(cmd => cmd.command)
-    return `${forwardCommands.join(' $$ ')} $$ ${reverseCommands.join(' $$ ')}`
+  async generateMirroredCommandString(commands) {
+    try {
+      return await request(this.eventBus, 'fileops:generate-mirrored-commands', { commands })
+    } catch (error) {
+      console.warn('FileOperationsService not available for mirrored commands, using fallback')
+      // Fallback implementation
+      const forwardCommands = commands.map(cmd => cmd.command)
+      const reverseCommands = [...commands].slice(0, -1).reverse().map(cmd => cmd.command)
+      return `${forwardCommands.join(' $$ ')} $$ ${reverseCommands.join(' $$ ')}`
+    }
   }
 
   /**
    * Get empty state information
    */
-  getEmptyStateInfo() {
+  async getEmptyStateInfo() {
     // Use the appropriate cached selection based on current environment
     const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
 
@@ -581,7 +602,7 @@ export default class CommandLibraryService extends ComponentBase {
       }
     }
 
-    const commands = this.getCommandsForSelectedKey()
+    const commands = await this.getCommandsForSelectedKey()
     const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
 
     if (commands.length === 0) {
@@ -591,7 +612,7 @@ export default class CommandLibraryService extends ComponentBase {
       
       return {
         title: `${chainType} for ${selectedKey}`,
-        preview: this.getCommandChainPreview(),
+        preview: await this.getCommandChainPreview(),
         icon: 'fas fa-plus-circle',
         emptyTitle: this.i18n.t('no_commands') || 'No Commands',
         emptyDesc: emptyMessage,
@@ -601,7 +622,7 @@ export default class CommandLibraryService extends ComponentBase {
 
     return {
       title: `${chainType} for ${selectedKey}`,
-      preview: this.getCommandChainPreview(),
+      preview: await this.getCommandChainPreview(),
       commandCount: commands.length.toString()
     }
   }

@@ -10,9 +10,27 @@ const mockStorage = {
 }
 
 const mockEventBus = {
-  on: vi.fn(),
-  emit: vi.fn(),
-  off: vi.fn()
+  listeners: new Map(),
+  on: vi.fn().mockImplementation(function(event, callback) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, [])
+    }
+    this.listeners.get(event).push(callback)
+  }),
+  emit: vi.fn().mockImplementation(function(event, data) {
+    if (this.listeners.has(event)) {
+      this.listeners.get(event).forEach(callback => callback(data))
+    }
+  }),
+  off: vi.fn().mockImplementation(function(event, callback) {
+    if (this.listeners.has(event)) {
+      const listeners = this.listeners.get(event)
+      const index = listeners.indexOf(callback)
+      if (index > -1) {
+        listeners.splice(index, 1)
+      }
+    }
+  })
 }
 
 const mockUI = {
@@ -128,8 +146,37 @@ describe('CommandLibraryService', () => {
       modalManager: mockModalManager
     })
     
+    // Initialize the service to set up event listeners
+    service.onInit()
+    
     // Mock the emit method as a spy
     vi.spyOn(service, 'emit')
+    
+    // Mock the request function that CommandLibraryService uses for FileOperationsService
+    service.request = vi.fn().mockImplementation((topic, data) => {
+      if (topic === 'fileops:parse-command-string') {
+        // Mock parsing command string
+        const commands = data.commandString.split(' $$ ')
+        return commands.map(cmd => ({ command: cmd.trim() }))
+      }
+      if (topic === 'fileops:generate-command-preview') {
+        // Mock command preview generation
+        const { key, commands } = data
+        if (!commands || commands.length === 0) {
+          return `${key} ""`
+        }
+        const commandString = commands.map(c => c.command || c).join(' $$ ')
+        return `${key} "${commandString}"`
+      }
+      if (topic === 'fileops:generate-mirrored-commands') {
+        // Mock mirrored command generation
+        const { commands } = data
+        const forwardCommands = commands.map(cmd => cmd.command)
+        const reverseCommands = [...commands].slice(0, -1).reverse().map(cmd => cmd.command)
+        return `${forwardCommands.join(' $$ ')} $$ ${reverseCommands.join(' $$ ')}`
+      }
+      return null
+    })
   })
 
   describe('constructor', () => {
@@ -152,42 +199,38 @@ describe('CommandLibraryService', () => {
     })
   })
 
-  describe('setSelectedKey', () => {
-    it('should set selected key', () => {
-      service.setSelectedKey('test-key')
+  describe('event-driven state management', () => {
+    it('should respond to key-selected events', () => {
+      service.eventBus.emit('key-selected', { key: 'test-key' })
       expect(service.selectedKey).toBe('test-key')
     })
-  })
 
-  describe('setCurrentEnvironment', () => {
-    it('should set current environment', () => {
-      service.setCurrentEnvironment('ground')
+    it('should respond to environment:changed events', () => {
+      service.eventBus.emit('environment:changed', { environment: 'ground' })
       expect(service.currentEnvironment).toBe('ground')
     })
-  })
 
-  describe('setCurrentProfile', () => {
-    it('should set current profile', () => {
-      service.setCurrentProfile('profile-1')
+    it('should respond to profile-switched events', () => {
+      service.eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
       expect(service.currentProfile).toBe('profile-1')
+      expect(service.currentEnvironment).toBe('space')
     })
-  })
 
-  describe('getCurrentProfileId', () => {
-    it('should return current profile ID', () => {
-      service.setCurrentProfile('profile-1')
-      expect(service.getCurrentProfileId()).toBe('profile-1')
+    it('should clear selections when environment changes', () => {
+      service.selectedKey = 'some-key'
+      service.eventBus.emit('environment:changed', { environment: 'ground' })
+      expect(service.selectedKey).toBe(null)
     })
   })
 
   describe('getCommandsForSelectedKey', () => {
     beforeEach(() => {
-      service.setCurrentProfile('profile-1')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      service.eventBus.emit('key-selected', { key: 'test-key' })
     })
 
     it('should return empty array when no key is selected', () => {
-      service.setSelectedKey(null)
+      service.selectedKey = null
       expect(service.getCommandsForSelectedKey()).toEqual([])
     })
 
@@ -197,7 +240,8 @@ describe('CommandLibraryService', () => {
     })
 
     it('should handle alias environment commands', () => {
-      service.setCurrentEnvironment('alias')
+      service.eventBus.emit('environment:changed', { environment: 'alias' })
+      service.selectedAlias = 'test-key'
       const mockProfile = {
         aliases: {
           'test-key': {
@@ -214,7 +258,7 @@ describe('CommandLibraryService', () => {
     })
 
     it('should handle keybind environment commands', () => {
-      service.setCurrentEnvironment('space')
+      service.eventBus.emit('environment:changed', { environment: 'space' })
       const mockProfile = {
         builds: {
           space: {
@@ -285,12 +329,12 @@ describe('CommandLibraryService', () => {
 
   describe('addCommand', () => {
     beforeEach(() => {
-      service.setCurrentProfile('profile-1')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      service.eventBus.emit('key-selected', { key: 'test-key' })
     })
 
     it('should show warning when no key is selected', () => {
-      service.setSelectedKey(null)
+      service.selectedKey = null
       const result = service.addCommand('test-key', { command: 'test' })
       expect(result).toBe(false)
       expect(mockUI.showToast).toHaveBeenCalledWith('please_select_a_key_first', 'warning')
@@ -304,7 +348,8 @@ describe('CommandLibraryService', () => {
     })
 
     it('should add command to alias environment', () => {
-      service.setCurrentEnvironment('alias')
+      service.eventBus.emit('environment:changed', { environment: 'alias' })
+      service.selectedAlias = 'test-key'
       const mockProfile = {
         aliases: {
           'test-key': {
@@ -321,7 +366,7 @@ describe('CommandLibraryService', () => {
     })
 
     it('should add command to keybind environment', () => {
-      service.setCurrentEnvironment('space')
+      service.eventBus.emit('environment:changed', { environment: 'space' })
       const mockProfile = {
         builds: {
           space: {
@@ -343,8 +388,8 @@ describe('CommandLibraryService', () => {
 
   describe('deleteCommand', () => {
     beforeEach(() => {
-      service.setCurrentProfile('profile-1')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      service.eventBus.emit('key-selected', { key: 'test-key' })
     })
 
     it('should return false when no profile exists', () => {
@@ -354,7 +399,8 @@ describe('CommandLibraryService', () => {
     })
 
     it('should delete command from alias environment', () => {
-      service.setCurrentEnvironment('alias')
+      service.eventBus.emit('environment:changed', { environment: 'alias' })
+      service.selectedAlias = 'test-key'
       const mockProfile = {
         aliases: {
           'test-key': {
@@ -371,7 +417,7 @@ describe('CommandLibraryService', () => {
     })
 
     it('should delete command from keybind environment', () => {
-      service.setCurrentEnvironment('space')
+      service.eventBus.emit('environment:changed', { environment: 'space' })
       const mockProfile = {
         builds: {
           space: {
@@ -396,8 +442,8 @@ describe('CommandLibraryService', () => {
 
   describe('moveCommand', () => {
     beforeEach(() => {
-      service.setCurrentProfile('profile-1')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      service.eventBus.emit('key-selected', { key: 'test-key' })
     })
 
     it('should return false when no profile exists', () => {
@@ -407,7 +453,8 @@ describe('CommandLibraryService', () => {
     })
 
     it('should move command in alias environment', () => {
-      service.setCurrentEnvironment('alias')
+      service.eventBus.emit('environment:changed', { environment: 'alias' })
+      service.selectedAlias = 'test-key'
       const mockProfile = {
         aliases: {
           'test-key': {
@@ -424,7 +471,7 @@ describe('CommandLibraryService', () => {
     })
 
     it('should move command in keybind environment', () => {
-      service.setCurrentEnvironment('space')
+      service.eventBus.emit('environment:changed', { environment: 'space' })
       const mockProfile = {
         builds: {
           space: {
@@ -476,7 +523,7 @@ describe('CommandLibraryService', () => {
 
   describe('getCommandChainPreview', () => {
     beforeEach(() => {
-      service.setCurrentProfile('profile-1')
+      service.eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
     })
 
     it('should return select message when no key is selected', () => {
@@ -485,23 +532,23 @@ describe('CommandLibraryService', () => {
     })
 
     it('should return empty alias format for alias environment with no commands', () => {
-      service.setCurrentEnvironment('alias')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('environment:changed', { environment: 'alias' })
+      service.selectedAlias = 'test-key'
       const preview = service.getCommandChainPreview()
       expect(preview).toBe('alias test-key <&  &>')
     })
 
     it('should return empty keybind format for keybind environment with no commands', () => {
-      service.setCurrentEnvironment('space')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('environment:changed', { environment: 'space' })
+      service.selectedKey = 'test-key'
       mockStorage.getProfile.mockReturnValue(null)
       const preview = service.getCommandChainPreview()
       expect(preview).toBe('test-key ""')
     })
 
     it('should return alias format with commands', () => {
-      service.setCurrentEnvironment('alias')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('environment:changed', { environment: 'alias' })
+      service.selectedAlias = 'test-key'
       const mockProfile = {
         aliases: {
           'test-key': {
@@ -515,9 +562,9 @@ describe('CommandLibraryService', () => {
       expect(preview).toBe('alias test-key <& cmd1 $$ cmd2 &>')
     })
 
-    it('should return keybind format with commands', () => {
-      service.setCurrentEnvironment('space')
-      service.setSelectedKey('test-key')
+    it('should return keybind format with commands', async () => {
+      service.eventBus.emit('environment:changed', { environment: 'space' })
+      service.selectedKey = 'test-key'
       const mockProfile = {
         builds: {
           space: {
@@ -532,22 +579,16 @@ describe('CommandLibraryService', () => {
       }
       mockStorage.getProfile.mockReturnValue(mockProfile)
 
-      const preview = service.getCommandChainPreview()
+      // Mock FileOperationsService response for command preview
+      const mockRequestResponse = vi.fn().mockResolvedValue('test-key "cmd1 $$ cmd2"')
+      service.requestResponse = mockRequestResponse
+
+      const preview = await service.getCommandChainPreview()
       expect(preview).toBe('test-key "cmd1 $$ cmd2"')
     })
   })
 
-  describe('generateMirroredCommandString', () => {
-    it('should generate mirrored command string', () => {
-      const commands = [
-        { command: 'cmd1' },
-        { command: 'cmd2' },
-        { command: 'cmd3' }
-      ]
-      const result = service.generateMirroredCommandString(commands)
-      expect(result).toBe('cmd1 $$ cmd2 $$ cmd3 $$ cmd2 $$ cmd1')
-    })
-  })
+
 
   describe('filterCommandLibrary', () => {
     beforeEach(() => {
@@ -588,7 +629,7 @@ describe('CommandLibraryService', () => {
         return []
       })
       
-      service.setCurrentEnvironment('space')
+      service.eventBus.emit('environment:changed', { environment: 'space' })
     })
 
     it('should handle categories without environments property', () => {
@@ -643,16 +684,16 @@ describe('CommandLibraryService', () => {
     })
 
     it('should return empty state info for alias environment', () => {
-      service.setCurrentEnvironment('alias')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('environment:changed', { environment: 'alias' })
+      service.selectedAlias = 'test-key'
       const info = service.getEmptyStateInfo()
       expect(info.title).toBe('Alias Chain for test-key')
       expect(info.emptyTitle).toBe('no_commands')
     })
 
     it('should return empty state info for keybind environment', () => {
-      service.setCurrentEnvironment('space')
-      service.setSelectedKey('test-key')
+      service.eventBus.emit('environment:changed', { environment: 'space' })
+      service.selectedKey = 'test-key'
       const info = service.getEmptyStateInfo()
       expect(info.title).toBe('Command Chain for test-key')
       expect(info.emptyTitle).toBe('no_commands')

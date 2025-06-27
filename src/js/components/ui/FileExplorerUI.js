@@ -1,6 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import FileSystemService, { KEY_SYNC_FOLDER } from '../services/FileSystemService.js'
+import { request } from '../../core/requestResponse.js'
 
 // NOTE: The FileExplorerUI is a refactor of the legacy src/js/ui/fileexplorer.js implementation.
 // It follows the modern Component pattern:  
@@ -11,7 +12,6 @@ import FileSystemService, { KEY_SYNC_FOLDER } from '../services/FileSystemServic
 export default class FileExplorerUI extends ComponentBase {
   constructor ({
     storage,          // StorageService (profile data)
-    exportManager,    // STOExportManager
     ui,               // STOUIManager (toast, modal helpers)
     fileSystem,       // FileSystemService (FS-API helpers)
     document = window.document,
@@ -21,7 +21,6 @@ export default class FileExplorerUI extends ComponentBase {
 
     // ----- Dependencies & fallbacks (for tests/legacy code) -----
     this.storage       = storage       || window.storageService || null
-    this.exportManager = exportManager || window.stoExport      || null
     this.ui            = ui            || window.stoUI          || null
     this.fileSystem    = fileSystem    || FileSystemService._getInstance()
     this.document      = document
@@ -72,7 +71,7 @@ export default class FileExplorerUI extends ComponentBase {
     })
 
     // Download preview file
-    eventBus.onDom('downloadFileBtn', 'click', 'fileExplorer-download', () => {
+    eventBus.onDom('downloadFileBtn', 'click', 'fileExplorer-download', async () => {
       if (!this.selectedNode) return
       const { type, profileId, environment } = this.selectedNode
       const contentEl = this.document.getElementById(this.contentId)
@@ -81,15 +80,27 @@ export default class FileExplorerUI extends ComponentBase {
       if (!text.trim()) return
 
       let filename = i18next.t('default_export_filename')
-      if (this.exportManager && this.storage) {
+      if (this.storage) {
         const profile = this.storage.getProfile(profileId)
-        if (type === 'build') {
-          filename = this.exportManager.generateFileName(profile, 'txt', environment)
-        } else if (type === 'aliases') {
-          filename = this.exportManager.generateAliasFileName(profile, 'txt')
+        try {
+          if (type === 'build') {
+            filename = await request(this.eventBus, 'export:generate-filename', {
+              profile,
+              extension: 'txt',
+              environment
+            })
+          } else if (type === 'aliases') {
+            filename = await request(this.eventBus, 'export:generate-alias-filename', {
+              profile,
+              extension: 'txt'
+            })
+          }
+        } catch (error) {
+          console.error('Failed to generate filename via ExportService:', error)
+          // Keep default filename
         }
       }
-      this.exportManager?.downloadFile(text, filename, 'text/plain')
+      this.downloadFile(text, filename, 'text/plain')
     })
 
     // Listen for external file-operations (other components)
@@ -161,7 +172,7 @@ export default class FileExplorerUI extends ComponentBase {
     return node
   }
 
-  selectNode (node) {
+  async selectNode (node) {
     // Remove previous selection
     const prevSel = this.document.querySelector('.tree-node.selected')
     if (prevSel) prevSel.classList.remove('selected')
@@ -173,14 +184,14 @@ export default class FileExplorerUI extends ComponentBase {
 
     this.selectedNode = { type, profileId, environment }
 
-    if (!profileId || !this.exportManager || !this.storage) return
+    if (!profileId || !this.storage) return
 
     try {
       let exportContent = ''
       if (type === 'build') {
-        exportContent = this.generateBuildExport(profileId, environment)
+        exportContent = await this.generateBuildExport(profileId, environment)
       } else if (type === 'aliases') {
-        exportContent = this.generateAliasExport(profileId)
+        exportContent = await this.generateAliasExport(profileId)
       } else {
         exportContent = i18next.t('select_a_space_ground_build_or_aliases_to_preview_export')
       }
@@ -195,9 +206,9 @@ export default class FileExplorerUI extends ComponentBase {
   }
 
   /* ============================================================
-   * Export helpers – delegate to ExportManager
+   * Export helpers – use request/response to ExportService
    * ========================================================== */
-  generateBuildExport (profileId, environment) {
+  async generateBuildExport (profileId, environment) {
     const rootProfile = this.storage.getProfile(profileId)
     if (!rootProfile || !rootProfile.builds || !rootProfile.builds[environment]) return ''
     const build = rootProfile.builds[environment]
@@ -205,14 +216,24 @@ export default class FileExplorerUI extends ComponentBase {
     const tempProfile = {
       name: `${rootProfile.name} ${environment}`,
       mode: environment,
-      keys: build.keys || {},
+      keybinds: {
+        [environment]: build.keys || {}
+      },
       keybindMetadata: rootProfile.keybindMetadata || {},
       aliases: build.aliases || {},
+      currentEnvironment: environment
     }
-    return this.exportManager.generateSTOKeybindFile(tempProfile, { environment })
+    
+    return await request(this.eventBus, 'export:generate-keybind-file', {
+      profile: tempProfile,
+      options: { environment }
+    }).catch((error) => {
+      console.error('Failed to generate keybind export via ExportService:', error)
+      return `; Failed to generate export: ${error.message}`
+    })
   }
 
-  generateAliasExport (profileId) {
+  async generateAliasExport (profileId) {
     const rootProfile = this.storage.getProfile(profileId)
     if (!rootProfile) return ''
 
@@ -226,7 +247,13 @@ export default class FileExplorerUI extends ComponentBase {
       mode: rootProfile.currentEnvironment || 'space',
       aliases: aggregatedAliases,
     }
-    return this.exportManager.generateAliasFile(tempProfile)
+    
+    return await request(this.eventBus, 'export:generate-alias-file', {
+      profile: tempProfile
+    }).catch((error) => {
+      console.error('Failed to generate alias export via ExportService:', error)
+      return `; Failed to generate export: ${error.message}`
+    })
   }
 
   /* ============================================================
@@ -258,5 +285,17 @@ export default class FileExplorerUI extends ComponentBase {
       console.error('Failed to save file:', error)
       this.ui?.showToast(i18next.t('failed_to_save_file'), 'error')
     }
+  }
+
+  downloadFile (content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const a = this.document.createElement('a')
+    a.href = url
+    a.download = filename
+    this.document.body.appendChild(a)
+    a.click()
+    this.document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 } 

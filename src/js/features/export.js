@@ -70,8 +70,6 @@ export default class STOExportManager extends ComponentBase {
   generateFileHeader (...a) { return this.service.generateFileHeader(...a) }
   generateAliasSection (...a) { return this.service.generateAliasSection(...a) }
   generateKeybindSection (...a) { return this.service.generateKeybindSection(...a) }
-  compareKeys (...a) { return this.service.compareKeys(...a) }
-  groupKeysByType (...a) { return this.service.groupKeysByType(...a) }
   generateFileFooter (...a) { return this.service.generateFileFooter(...a) }
   generateCSVData (...a) { return this.service.generateCSVData(...a) }
   escapeCSV (...a) { return this.service.escapeCSV(...a) }

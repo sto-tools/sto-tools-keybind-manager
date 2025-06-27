@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
+import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * KeyService – the authoritative service for creating, deleting and duplicating
@@ -275,251 +275,72 @@ export default class KeyService extends ComponentBase {
    * ------------------------------------------------------------------ */
   /** Mirror command array forward and then reverse (excluding last) */
   generateMirroredCommandString (commands) {
-    if (!Array.isArray(commands) || commands.length === 0) return ''
-    const forward = commands.map(c => (c.command ? c.command : c))
-    const reverse = commands.slice(0, -1).reverse().map(c => (c.command ? c.command : c))
-    return [...forward, ...reverse].join(' $$ ')
+    // Delegate to FileOperationsService for authoritative implementation
+    return request(this.eventBus, 'fileops:generate-mirrored-commands', { commands })
   }
 
   /** Detect simple mirrored sequences produced by above method */
   detectAndUnmirrorCommands (commandString) {
-    if (!commandString) {
-      return { isMirrored: false, originalCommands: [] }
-    }
-
-    const parts = commandString.split(/\s*\$\$\s*/).map(s => s.trim()).filter(Boolean)
-
-    // Always prepare originalCommands (even if empty)
-    const originalCommands = [...parts]
-
-    const len = parts.length
-    if (len < 3) return { isMirrored: false, originalCommands }
-    const mid = Math.floor(len / 2)
-    const forward = parts.slice(0, mid + 1)
-    const reverse = parts.slice(mid).reverse()
-    const isMirrored = forward.join('||') === reverse.join('||')
-
-    return isMirrored ? { isMirrored: true, originalCommands: forward } : { isMirrored: false, originalCommands }
+    // Delegate to FileOperationsService for authoritative implementation
+    return request(this.eventBus, 'fileops:detect-unmirror-commands', { commandString })
   }
 
   /** Split $$ separated string into command objects */
   parseCommandString (commandString) {
-    const parts = (commandString || '').split(/\s*\$\$\s*/)
-    const now = Date.now()
-    return parts
-      .map((raw, idx) => {
-        const cmd = typeof raw === 'string' ? raw.trim() : ''
-        // Always create an object to preserve empty commands
-        const obj = { id: `imported_${now}_${idx}`, command: cmd }
-
-        if (!cmd) return obj // Keep empty command objects for tests expecting them
-
-        // Tray execution detection (+STOTrayExecByTray or TrayExecByTray)
-        const trayMatch = cmd.match(/TrayExecByTray\s+(\d+)\s+(\d+)/i) || cmd.match(/\+STO?TrayExecByTray\s+(\d+)\s+(\d+)/i)
-        if (trayMatch) {
-          const tray = parseInt(trayMatch[1], 10)
-          const slot = parseInt(trayMatch[2], 10)
-          obj.type = 'tray'
-          obj.parameters = { tray, slot }
-          obj.text = `Execute Tray ${tray + 1} Slot ${slot + 1}`
-          return obj
-        }
-
-        // Communication commands (starting with say or team say etc)
-        if (/^(\+)?say\b/i.test(cmd)) {
-          obj.type = 'communication'
-          obj.icon = '💬'
-          return obj
-        }
-
-        // Fallback: unknown type
-        return obj
-      })
-      // Do not filter out entries – tests expect empty command objects
+    // Delegate to FileOperationsService for authoritative implementation
+    return request(this.eventBus, 'fileops:parse-command-string', { commandString })
   }
 
   /**
-   * Very lightweight keybind file parser supporting the patterns referenced in
-   * unit tests: standard keybind lines (KEY "commands") and /bind format as
-   * well as alias definitions.  It ignores comments and collects simple error
-   * information for unknown lines.
+   * Parse keybind file content using FileOperationsService
    */
   parseKeybindFile (content) {
-    const lines = content.split(/\r?\n/)
-    const keybinds = {}
-    const aliases = {}
-    const errors = []
-    const comments = []
-
-    lines.forEach((line, idx) => {
-      const trimmed = line.trim()
-      if (!trimmed) return
-
-      // Comments start with ; or #
-      if (/^[;#]/.test(trimmed)) {
-        comments.push({ line: idx + 1, content: trimmed })
-        return
-      }
-
-      // Alias definitions – quoted or bracket syntax
-      const aliasQuoted = trimmed.match(/^alias\s+(\S+)\s+"([^"]*)"/)
-      const aliasBracket = trimmed.match(/^alias\s+(\S+)\s+<&\s*(.+?)\s*&>/)
-      if (aliasQuoted || aliasBracket) {
-        const name = (aliasQuoted || aliasBracket)[1]
-        const cmdStr = (aliasQuoted ? aliasQuoted[2] : aliasBracket[2]).trim()
-        aliases[name] = { name, commands: cmdStr }
-        return
-      }
-
-      // /bind or bind line
-      const bindMatch = trimmed.match(/^\/?bind\s+(\S+)\s+"([^"]*)"/)
-      if (bindMatch) {
-        const key = bindMatch[1]
-        const cmdStr = bindMatch[2]
-        keybinds[key] = {
-          key,
-          commands: this.parseCommandString(cmdStr),
-          isMirrored: false,
-        }
-        return
-      }
-
-      // Standard keybind format: KEY "commands" "mode" (mode optional)
-      const stdMatch = trimmed.match(/^(\S+)\s+"([^"]*)"/)
-      if (stdMatch) {
-        const key = stdMatch[1]
-        const cmdStr = stdMatch[2]
-        const mirrorInfo = this.detectAndUnmirrorCommands(cmdStr)
-        const raw = mirrorInfo.isMirrored ? mirrorInfo.originalCommands.join(' $$ ') : cmdStr
-        keybinds[key] = {
-          key,
-          commands: this.parseCommandString(raw),
-          isMirrored: mirrorInfo.isMirrored,
-        }
-        return
-      }
-
-      errors.push({ line: idx + 1, error: 'Invalid keybind format' })
-    })
-
-    return { keybinds, aliases, errors, comments }
+    // Delegate to FileOperationsService for authoritative implementation
+    return request(this.eventBus, 'fileops:parse-keybind-file', { content })
   }
 
-  /** Simplified importer used by tests */
+  /** Import keybind file using FileOperationsService */
   importKeybindFile (content) {
     // Sync environment with global app context if available
     if (typeof globalThis !== 'undefined' && globalThis.app?.currentEnvironment) {
       this.currentEnvironment = globalThis.app.currentEnvironment
     }
 
-    const parsed = this.parseKeybindFile(content)
-    const keyCount = Object.keys(parsed.keybinds).length
-    if (keyCount === 0) return { success: false, error: 'No keybinds found' }
-    const storage = this.storage || (typeof window !== 'undefined' && window.storageService)
-    if (!storage) return { success: false, error: 'Storage not available' }
     const profileId = this.currentProfile || (typeof window !== 'undefined' && window.app?.currentProfile)
-    if (!profileId) return { success: false, error: 'No active profile' }
-    let profile = storage.getProfile(profileId) || { builds: { space: { keys: {} }, ground: { keys: {} } } }
-
     const env = ( (typeof window !== 'undefined' && window.app?.currentEnvironment) || (typeof globalThis !== 'undefined' && globalThis.app?.currentEnvironment) || this.currentEnvironment || (typeof store !== 'undefined' && store.currentEnvironment) || 'space' )
-    if (!profile.builds) profile.builds = { space: { keys: {} }, ground: { keys: {} } }
-    if (!profile.builds[env]) profile.builds[env] = { keys: {} }
-    const dest = profile.builds[env].keys
 
-    Object.entries(parsed.keybinds).forEach(([k, data]) => {
-      dest[k] = data.commands
-
-      if (data.isMirrored) {
-        if (!profile.keybindMetadata) profile.keybindMetadata = {}
-        if (!profile.keybindMetadata[env]) profile.keybindMetadata[env] = {}
-        if (!profile.keybindMetadata[env][k]) profile.keybindMetadata[env][k] = {}
-        profile.keybindMetadata[env][k].stabilizeExecutionOrder = true
-      }
+    // Delegate to FileOperationsService for complete import handling
+    return request(this.eventBus, 'fileops:import-keybind-file', { 
+      content, 
+      profileId, 
+      environment: env 
     })
-    storage.saveProfile(profileId, profile)
-
-    // Notify UI / tests
-    if (typeof window !== 'undefined') {
-      window.app?.setModified?.(true)
-      const ignoredAliases = Object.keys(parsed.aliases).length
-      if (window.stoUI?.showToast) {
-        const msg = ignoredAliases > 0
-          ? `Import completed: ${keyCount} keybinds (${ignoredAliases} aliases ignored - use Import Aliases)`
-          : `Import completed: ${keyCount} keybinds`
-        window.stoUI.showToast(msg, 'success')
-      }
-    }
-
-    return { success: true, imported: { keys: keyCount }, errors: parsed.errors }
   }
 
   /**
-   * Import alias-only content (similar to original STOKeybindFileManager.importAliasFile)
+   * Import alias file using FileOperationsService
    */
   importAliasFile (content) {
-    const parsed = this.parseKeybindFile(content)
-    const aliasCount = Object.keys(parsed.aliases).length
-    if (aliasCount === 0) return { success: false, error: 'No aliases found' }
-
-    const storage = this.storage || (typeof window !== 'undefined' && window.storageService)
     const profileId = this.currentProfile || (typeof window !== 'undefined' && window.app?.currentProfile)
-    if (!storage || !profileId) return { success: false, error: 'No active profile' }
 
-    const profile = storage.getProfile(profileId) || { aliases: {} }
-    if (!profile.aliases) profile.aliases = {}
-    Object.entries(parsed.aliases).forEach(([name, data]) => {
-      profile.aliases[name] = { commands: data.commands, description: '' }
+    // Delegate to FileOperationsService for complete import handling
+    return request(this.eventBus, 'fileops:import-alias-file', { 
+      content, 
+      profileId 
     })
-    storage.saveProfile(profileId, profile)
-
-    if (typeof window !== 'undefined') {
-      window.app?.setModified?.(true)
-    }
-
-    return { success: true, imported: { aliases: aliasCount }, errors: parsed.errors }
   }
 
   /* ------------------------------------------------------------------
    * Profile export helpers (simplified for unit-test expectations)
    * ------------------------------------------------------------------ */
   compareKeys (a, b) {
-    const funcA = a.match(/^F(\d+)$/)
-    const funcB = b.match(/^F(\d+)$/)
-    if (funcA && funcB) return parseInt(funcA[1]) - parseInt(funcB[1])
-    if (funcA) return -1
-    if (funcB) return 1
-
-    // Numeric keys (0-9) – treat as integers
-    const numA = /^\d+$/.test(a)
-    const numB = /^\d+$/.test(b)
-    if (numA && numB) return parseInt(a) - parseInt(b)
-    if (numA) return -1
-    if (numB) return 1
-
-    // Special keys priority list
-    const specials = ['Space', 'Tab', 'Enter', 'Escape']
-    const idxA = specials.indexOf(a)
-    const idxB = specials.indexOf(b)
-    if (idxA !== -1 && idxB !== -1) return idxA - idxB
-    if (idxA !== -1) return -1
-    if (idxB !== -1) return 1
-
-    // Fallback: alphabetical
-    return a.localeCompare(b)
+    // Delegate to FileOperationsService for authoritative implementation
+    return request(this.eventBus, 'fileops:compare-keys', { keyA: a, keyB: b })
   }
 
   exportProfile (profile) {
-    if (!profile || !profile.keys) return ''
-    const timestamp = new Date().toLocaleDateString()
-
-    let output = `; ${profile.name} - STO Keybind Configuration\n; Created by: STO Tools Keybind Manager\n; Generated: ${timestamp}\n\n`
-
-    const keys = Object.keys(profile.keys).sort(this.compareKeys.bind(this))
-    keys.forEach((k) => {
-      const cmds = profile.keys[k].map((c) => c.command).join(' $$ ')
-      output += `${k} "${cmds}"\n`
-    })
-    return output
+    // Delegate to FileOperationsService for authoritative implementation
+    return request(this.eventBus, 'fileops:generate-keybind-file', { profile })
   }
 
   /* ------------------------------------------------------------------

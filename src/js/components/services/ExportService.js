@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import i18next from 'i18next'
+import { respond, request } from '../../core/requestResponse.js'
 // Note: We intentionally import writeFile directly here instead of via index.js to avoid circular deps
 import { writeFile } from './SyncService.js'
 
@@ -35,16 +36,49 @@ export default class ExportService extends ComponentBase {
       html_report: i18next.t('html_report_html'),
       alias_file: i18next.t('alias_file_txt'),
     }
+    
+    this.setupRequestHandlers()
+  }
+
+  setupRequestHandlers() {
+    
+    // Export generation requests
+    respond(this.eventBus, 'export:generate-keybind-file', async ({ profile, options = {} }) => 
+      await this.generateSTOKeybindFile(profile, options))
+    
+    respond(this.eventBus, 'export:generate-alias-file', async ({ profile }) => 
+      await this.generateAliasFile(profile))
+    
+    respond(this.eventBus, 'export:generate-filename', async ({ profile, extension, environment }) => 
+      await this.generateFileName(profile, extension, environment))
+    
+    respond(this.eventBus, 'export:generate-alias-filename', ({ profile, extension }) => 
+      this.generateAliasFileName(profile, extension))
+    
+    respond(this.eventBus, 'export:generate-csv-data', ({ profile }) => 
+      this.generateCSVData(profile))
+    
+    respond(this.eventBus, 'export:generate-html-report', ({ profile }) => 
+      this.generateHTMLReport(profile))
+    
+    respond(this.eventBus, 'export:import-from-file', async ({ file }) => 
+      await this.importFromFile(file))
+    
+    respond(this.eventBus, 'export:sanitize-profile', ({ profile }) => 
+      this.sanitizeProfileForExport(profile))
+    
+    respond(this.eventBus, 'export:extract-keys', ({ profile, environment }) => 
+      this.extractKeys(profile, environment))
   }
 
   /* ---------------------------------------------------------- */
   /* Keybind file generation                                    */
   /* ---------------------------------------------------------- */
-  generateSTOKeybindFile (profile, options = {}) {
+  async generateSTOKeybindFile (profile, options = {}) {
     let content = ''
 
     // Header
-    content += this.generateFileHeader(profile, options.syncFilename)
+    content += await this.generateFileHeader(profile, options.syncFilename)
 
     // Keybind section
     const keysForEnv = this.extractKeys(
@@ -52,7 +86,7 @@ export default class ExportService extends ComponentBase {
       options.environment || profile.currentEnvironment || 'space'
     )
 
-    content += this.generateKeybindSection(keysForEnv, {
+    content += await this.generateKeybindSection(keysForEnv, {
       ...options,
       profile,
       environment: options.environment || profile.currentEnvironment || 'space',
@@ -63,24 +97,21 @@ export default class ExportService extends ComponentBase {
     return content
   }
 
-  generateFileHeader (profile, syncFilename = null) {
+  async generateFileHeader (profile, syncFilename = null) {
     const timestamp = new Date().toLocaleString()
 
-    // Stats – either via stoKeybinds helper or local fallback
-    let stats
+    // Stats – get via FileOperationsService
     const env = profile.currentEnvironment || 'space'
     const keysForEnv = this.extractKeys(profile, env)
 
-    if (typeof stoKeybinds !== 'undefined' && stoKeybinds.getProfileStats) {
-      stats = stoKeybinds.getProfileStats({ ...profile, keys: keysForEnv })
-    } else {
-      stats = {
-        totalKeys: Object.keys(keysForEnv).length,
-        totalCommands: Object.values(keysForEnv).reduce((a, v) => a + v.length, 0),
-      }
-    }
+    const stats = await request(this.eventBus, 'fileops:get-profile-stats', {
+      profile: { ...profile, keys: keysForEnv }
+    }).catch(() => ({
+      totalKeys: Object.keys(keysForEnv).length,
+      totalCommands: Object.values(keysForEnv).reduce((a, v) => a + v.length, 0),
+    }))
 
-    const bindLoadFilename = syncFilename || this.generateFileName(profile, 'txt')
+    const bindLoadFilename = syncFilename || await this.generateFileName(profile, 'txt')
 
     return `; ================================================================
 ; ${profile.name} - STO Keybind Configuration
@@ -122,9 +153,26 @@ export default class ExportService extends ComponentBase {
     return content
   }
 
-  generateKeybindSection (keys, options = {}) {
+  async generateKeybindSection (keys, options = {}) {
     if (!keys || Object.keys(keys).length === 0) return '; No keybinds defined\n\n'
 
+    // Use FileOperationsService to generate the keybind section
+    return await request(this.eventBus, 'fileops:generate-keybind-section', {
+      keys,
+      options: {
+        stabilizeExecutionOrder: options.stabilizeExecutionOrder,
+        profile: options.profile,
+        environment: options.environment,
+        grouped: true // Always use grouped output for export
+      }
+    }).catch((error) => {
+      console.error('Failed to generate keybind section via FileOperationsService:', error)
+      // Fallback to basic generation
+      return this._generateBasicKeybindSection(keys, options)
+    })
+  }
+
+  _generateBasicKeybindSection (keys, options = {}) {
     let content = `; Keybind Commands
 ; ================================================================
 ; Each line binds a key to one or more commands.
@@ -142,106 +190,22 @@ export default class ExportService extends ComponentBase {
 
 `
 
-    const sortedKeys = this._sortKeys(keys)
-    const keyGroups = this.groupKeysByType(sortedKeys, keys)
-
-    Object.entries(keyGroups).forEach(([groupName, groupKeys]) => {
-      if (groupKeys.length === 0) return
-      content += `; ${groupName}\n; ${'-'.repeat(groupName.length)}\n`
-
-      groupKeys.forEach((key) => {
-        const commands = keys[key]
-        // Remove null/undefined placeholders that may remain after incomplete edits
-        const cleanCommands = Array.isArray(commands)
-          ? commands.filter((c) => c && typeof c.command === 'string')
-          : []
-
-        if (cleanCommands.length === 0) return
-
-        const shouldStabilize = this._shouldStabilizeKey({ key, commands: cleanCommands, options })
-        let commandString
-        if (shouldStabilize && cleanCommands.length > 1) {
-          commandString = stoKeybinds
-            ? stoKeybinds.generateMirroredCommandString(cleanCommands)
-            : cleanCommands.map((c) => c.command).join(' $$ ')
-        } else {
-          commandString = cleanCommands.map((c) => c.command).join(' $$ ')
-        }
-        content += `${key} "${commandString}"\n`
-      })
-
-      content += '\n'
-    })
-    return content
-  }
-
-  _sortKeys (keys) {
-    if (typeof stoKeybinds !== 'undefined' && stoKeybinds.compareKeys) {
-      return Object.keys(keys).sort(stoKeybinds.compareKeys.bind(stoKeybinds))
-    }
-    return Object.keys(keys).sort(this.compareKeys.bind(this))
-  }
-
-  _shouldStabilizeKey ({ key, commands, options }) {
-    const globalStabilize = options.stabilizeExecutionOrder
-    let perKeyStabilize = false
-
-    if (options.profile?.keybindMetadata) {
-      const envMeta = options.profile.keybindMetadata[options.environment]
-      perKeyStabilize = !!(envMeta && envMeta[key] && envMeta[key].stabilizeExecutionOrder)
-    }
-    return globalStabilize || perKeyStabilize
-  }
-
-  /* ---------------------------------------------------------- */
-  /* Key sorting + grouping helpers                             */
-  /* ---------------------------------------------------------- */
-  compareKeys (a, b) {
-    const aIsF = a.match(/^F(\d+)$/)
-    const bIsF = b.match(/^F(\d+)$/)
-    if (aIsF && bIsF) return parseInt(aIsF[1]) - parseInt(bIsF[1])
-    if (aIsF && !bIsF) return -1
-    if (!aIsF && bIsF) return 1
-
-    const aIsNum = /^\d+$/.test(a)
-    const bIsNum = /^\d+$/.test(b)
-    if (aIsNum && bIsNum) return parseInt(a) - parseInt(b)
-    if (aIsNum && !bIsNum) return -1
-    if (!aIsNum && bIsNum) return 1
-
-    const aIsLetter = /^[A-Z]$/.test(a)
-    const bIsLetter = /^[A-Z]$/.test(b)
-    if (aIsLetter && bIsLetter) return a.localeCompare(b)
-    if (aIsLetter && !bIsLetter) return -1
-    if (!aIsLetter && bIsLetter) return 1
-
-    const specialOrder = ['Space', 'Tab', 'Enter', 'Escape']
-    const aSpecial = specialOrder.indexOf(a)
-    const bSpecial = specialOrder.indexOf(b)
-    if (aSpecial !== -1 && bSpecial !== -1) return aSpecial - bSpecial
-    if (aSpecial !== -1 && bSpecial === -1) return -1
-    if (aSpecial === -1 && bSpecial !== -1) return 1
-
-    return a.localeCompare(b)
-  }
-
-  groupKeysByType (sortedKeys, keys) {
-    const groups = {
-      'Function Keys': [],
-      'Number Keys': [],
-      'Letter Keys': [],
-      'Special Keys': [],
-      'Modifier Combinations': [],
-    }
-
+    // Basic key sorting and generation without grouping
+    const sortedKeys = Object.keys(keys).sort()
     sortedKeys.forEach((key) => {
-      if (/^F\d+$/.test(key)) groups['Function Keys'].push(key)
-      else if (/^\d+$/.test(key)) groups['Number Keys'].push(key)
-      else if (/^[A-Z]$/.test(key)) groups['Letter Keys'].push(key)
-      else if (key.includes('+')) groups['Modifier Combinations'].push(key)
-      else groups['Special Keys'].push(key)
+      const commands = keys[key]
+      const cleanCommands = Array.isArray(commands)
+        ? commands.filter((c) => c && typeof c.command === 'string')
+        : []
+
+      if (cleanCommands.length === 0) return
+
+      const commandString = cleanCommands.map((c) => c.command).join(' $$ ')
+      content += `${key} "${commandString}"\n`
     })
-    return groups
+
+    content += '\n'
+    return content
   }
 
   generateFileFooter () {
@@ -363,158 +327,176 @@ export default class ExportService extends ComponentBase {
 
   <h2>${i18next.t('aliases')}</h2>
   ${this.generateHTMLAliasSection(profile.aliases)}
-
-  <p style="margin-top:40px;font-size:12px;color:#888;">
-    Generated by STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
-  </p>
 </body>
 </html>`
   }
 
   generateHTMLKeybindSection (keys) {
-    if (!keys || Object.keys(keys).length === 0) {
-      return `<p>${i18next.t('no_keybinds_defined')}</p>`
-    }
-    const sortedKeys = this._sortKeys(keys)
-    let html = `<div class="keybind-group"><h2>Keybinds</h2>`
-    sortedKeys.forEach((key) => {
-      const commands = keys[key]
-      if (!commands || commands.length === 0) return
-      const cmdSpans = commands
-        .map((c) => {
-          const label = c.text || c.command
-          const cls = c.type ? ` ${c.type}` : ''
-          return `<span class="command${cls}">${label}</span>`
-        })
-        .join('<span class="separator"> $$ </span>')
-      html += `<div class="keybind"><div class="key">${key}</div><div class="commands">${cmdSpans}</div></div>`
+    if (!keys || Object.keys(keys).length === 0) return '<p>No keybinds defined</p>'
+
+    let html = '<table><thead><tr><th>Key</th><th>Commands</th></tr></thead><tbody>'
+    Object.entries(keys).forEach(([key, commands]) => {
+      const commandList = commands
+        .filter((c) => c && c.command)
+        .map((c) => `<span class="command">${c.command}</span>`)
+        .join(' ')
+      html += `<tr><td><code>${key}</code></td><td>${commandList}</td></tr>`
     })
-    html += '</div>'
+    html += '</tbody></table>'
     return html
   }
 
   generateHTMLAliasSection (aliases) {
-    if (!aliases || Object.keys(aliases).length === 0) {
-      return `<p>${i18next.t('no_aliases_defined')}</p>`
-    }
-    let html = `<div class="aliases"><h2>Command Aliases</h2>`
+    if (!aliases || Object.keys(aliases).length === 0) return '<p>No aliases defined</p>'
+
+    let html = '<table><thead><tr><th>Alias</th><th>Commands</th><th>Description</th></tr></thead><tbody>'
     Object.values(aliases).forEach((alias) => {
-      html += `<div class="alias"><div class="alias-name">${alias.name}</div>${alias.description ? `<div>${alias.description}</div>` : ''}<div class="alias-commands">${alias.commands}</div></div>`
+      html += `<tr>
+        <td><code>${alias.name}</code></td>
+        <td><code>${alias.commands}</code></td>
+        <td>${alias.description || ''}</td>
+      </tr>`
     })
-    html += '</div>'
+    html += '</tbody></table>'
     return html
   }
 
-  /* ---------------------------------------------------------- */
-  /* Misc helpers                                               */
-  /* ---------------------------------------------------------- */
-  generateFileName (profile, extension, environment = profile.currentEnvironment || 'space') {
-    const safe = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
-    const env = environment && environment.length > 0 ? environment : 'space'
-    const ts = new Date().toISOString().split('T')[0]
-    return `${safe}_${env}_${ts}.${extension}`
+  async generateFileName (profile, extension, environment = profile.currentEnvironment || 'space') {
+    return await request(this.eventBus, 'fileops:generate-filename', {
+      profile,
+      ext: extension,
+      environment
+    }).catch(() => {
+      // Fallback filename generation
+      const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
+      return `${sanitized}_${environment}.${extension}`
+    })
   }
 
   generateAliasFileName (profile, extension) {
-    const safe = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
-    const ts = new Date().toISOString().split('T')[0]
-    return `${safe}_aliases_${ts}.${extension}`
+    const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
+    return `${sanitized}_aliases.${extension}`
   }
 
   sanitizeProfileForExport (profile) {
-    const clone = JSON.parse(JSON.stringify(profile))
+    // Deep clone to avoid mutating original
+    const sanitized = JSON.parse(JSON.stringify(profile))
 
-    // Remove metadata fields commonly internal
-    delete clone.id
-    delete clone.created
-    delete clone.modified
-
+    // Strip internal IDs from commands to prevent bloat in exported files
     const stripIds = (commands=[]) => {
-      commands.forEach(cmd => { delete cmd.id })
-    }
-
-    // Legacy flat keys
-    if (clone.keys) {
-      Object.values(clone.keys).forEach(stripIds)
-    }
-
-    // Newer builds structure
-    if (clone.builds) {
-      Object.values(clone.builds).forEach(build => {
-        if (build.keys) Object.values(build.keys).forEach(stripIds)
+      return commands.map(cmd => {
+        if (!cmd || typeof cmd !== 'object') return cmd
+        const { id, ...rest } = cmd
+        return rest
       })
     }
 
-    return clone
+    // Strip IDs from all environments
+    if (sanitized.keybinds) {
+      Object.keys(sanitized.keybinds).forEach(env => {
+        if (sanitized.keybinds[env]) {
+          Object.keys(sanitized.keybinds[env]).forEach(key => {
+            sanitized.keybinds[env][key] = stripIds(sanitized.keybinds[env][key])
+          })
+        }
+      })
+    }
+
+    return sanitized
   }
 
-  /* ---------------------------------------------------------- */
-  /* Import / Sync helpers                                      */
-  /* ---------------------------------------------------------- */
   async importFromFile (file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        try {
-          const content = e.target.result
-          const ext = file.name.split('.').pop().toLowerCase()
-          switch (ext) {
-            case 'txt':
-              resolve(stoKeybinds.importKeybindFile(content))
-              break
-            case 'json':
-              resolve(this.importJSONFile(content))
-              break
-            default:
-              reject(new Error('Unsupported file format'))
-          }
-        } catch (err) {
-          reject(err)
-        }
-      }
-      reader.onerror = () => reject(new Error('Failed to read file'))
-      reader.readAsText(file)
-    })
+    const content = await file.text()
+    const filename = file.name.toLowerCase()
+
+    if (filename.endsWith('.json')) {
+      return this.importJSONFile(content)
+    } else if (filename.endsWith('.txt')) {
+      // Use FileOperationsService for keybind file import
+      return await request(this.eventBus, 'fileops:import-keybind-file', {
+        content,
+        filename: file.name
+      }).catch((error) => {
+        console.error('Failed to import keybind file via FileOperationsService:', error)
+        throw new Error(i18next.t('import_failed_invalid_format'))
+      })
+    } else {
+      throw new Error(i18next.t('import_failed_unsupported_format'))
+    }
   }
 
   importJSONFile (content) {
     try {
       const data = JSON.parse(content)
-      if (data.type === 'profile' && data.profile) {
-        if (window.app?.profileService) {
-          return window.app.profileService.createProfile(
-            data.profile.name || 'Imported Profile',
-            data.profile.description || 'Imported profile',
-            data.profile.currentEnvironment || 'space'
-          )
-        }
-        throw new Error('Profile service not available')
+      
+      // Validate basic structure
+      if (!data || typeof data !== 'object') {
+        throw new Error(i18next.t('import_failed_invalid_json'))
       }
-      if (data.type === 'project' && data.data) {
-        if (!this.storage) {
-          throw new Error('Storage service not available')
-        }
-        return this.storage.importData(JSON.stringify(data.data))
+
+      // If it looks like a profile, return it
+      if (data.name || data.keybinds || data.aliases) {
+        return { type: 'profile', data }
       }
-      throw new Error('Unknown JSON file format')
-    } catch (err) {
-      throw new Error('Invalid JSON file: ' + err.message)
+
+      // If it looks like a project (array of profiles or has profiles property)
+      if (Array.isArray(data) || data.profiles) {
+        return { type: 'project', data }
+      }
+
+      throw new Error(i18next.t('import_failed_unrecognized_format'))
+    } catch (error) {
+      if (error.name === 'SyntaxError') {
+        throw new Error(i18next.t('import_failed_invalid_json'))
+      }
+      throw error
     }
   }
 
-  generateAliasFile (profile) {
+  async generateAliasFile (profile) {
     let content = ''
-    const ts = new Date().toLocaleString()
-    const stats = { totalAliases: Object.keys(profile.aliases || {}).length }
-    content += `; ================================================================
+
+    // Generate alias file header
+    content += await this.generateAliasFileHeader(profile)
+
+    // Generate alias content via FileOperationsService
+    const aliasContent = await request(this.eventBus, 'fileops:generate-alias-file', {
+      aliases: profile.aliases || {}
+    }).catch((error) => {
+      console.error('Failed to generate alias content via FileOperationsService:', error)
+      // Fallback to basic alias content generation
+      if (!profile.aliases || Object.keys(profile.aliases).length === 0) {
+        return '; No aliases defined\n'
+      }
+
+      let fallbackContent = ''
+      Object.values(profile.aliases).forEach((alias) => {
+        if (alias.description) fallbackContent += `; ${alias.description}\n`
+        fallbackContent += `alias ${alias.name} <& ${alias.commands} &>\n\n`
+      })
+      
+      return fallbackContent
+    })
+
+    content += aliasContent
+
+    return content
+  }
+
+  async generateAliasFileHeader (profile) {
+    const timestamp = new Date().toLocaleString()
+    const aliasCount = Object.keys(profile.aliases || {}).length
+    const env = profile.currentEnvironment || 'space'
+
+    return `; ================================================================
 ; ${profile.name} - STO Alias Configuration
 ; ================================================================
-; Mode: ${(profile.currentEnvironment || 'space').toUpperCase()}
-; Generated: ${ts}
+; Mode: ${env.toUpperCase()}
+; Generated: ${timestamp}
 ; Created by: STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
 ;
 ; Alias Statistics:
-; - Total aliases: ${stats.totalAliases}
+; - Total aliases: ${aliasCount}
 ;
 ; To use these aliases in Star Trek Online:
 ; 1. Save this file as "CommandAliases.txt" (exactly, without quotes)
@@ -522,70 +504,52 @@ export default class ExportService extends ComponentBase {
 ;    [STO Install]\\Star Trek Online\\Live\\localdata\\CommandAliases.txt
 ; 3. The aliases will be available when you start the game
 ;
+; Alternative: You can append these aliases to an existing CommandAliases.txt
+; file if you already have one with other aliases.
+;
+; Common STO installation paths:
+; - Steam: C:\\Program Files (x86)\\Steam\\steamapps\\common\\Star Trek Online
+; - Epic: C:\\Program Files\\Epic Games\\Star Trek Online  
+; - Arc: C:\\Program Files (x86)\\Perfect World Entertainment\\Arc Games\\Star Trek Online
 ; ================================================================
 
 `
-    if (profile.aliases && Object.keys(profile.aliases).length > 0) {
-      content += this.generateAliasSection(profile.aliases)
-    } else {
-      content += `; ${i18next.t('no_aliases_defined')}\n\n`
-    }
-    return content
   }
 
   async syncToFolder (dirHandle) {
-    if (!this.storage) {
-      throw new Error('Storage service not available')
-    }
-    const data = this.storage.getAllData()
-    const exportData = {
-      version: STO_DATA?.settings?.version ?? 'unknown',
-      exported: new Date().toISOString(),
-      type: 'project',
-      data,
-    }
-    await writeFile(dirHandle, 'project.json', JSON.stringify(exportData, null, 2))
+    const profiles = this.storage.getAllProfiles()
+    const results = []
 
-    const profiles = data.profiles || {}
-    for (const profile of Object.values(profiles)) {
-      const base = profile.name.replace(/[^a-zA-Z0-9\-_]/g, '_')
-
+    for (const profile of profiles) {
       const writeEnv = async (env) => {
-        if (!profile.builds?.[env]) return
-        const temp = {
-          name: profile.name,
-          currentEnvironment: env,
-          keys: profile.builds[env].keys || {},
-          keybindMetadata: profile.keybindMetadata || {},
+        try {
+          const keys = this.extractKeys(profile, env)
+          if (Object.keys(keys).length === 0) return null
+
+          const content = await this.generateSTOKeybindFile(profile, { environment: env })
+          const filename = await this.generateFileName(profile, 'txt', env)
+          await writeFile(dirHandle, filename, content)
+          return { environment: env, filename, success: true }
+        } catch (error) {
+          return { environment: env, success: false, error: error.message }
         }
-        const fname = `${base}_${env}.txt`
-        const content = this.generateSTOKeybindFile(temp, {
-          environment: env,
-          syncFilename: fname,
-          profile: temp,
-        })
-        await writeFile(dirHandle, `${base}/${fname}`, content)
       }
 
-      await writeEnv('space')
-      await writeEnv('ground')
+      const envResults = await Promise.all([
+        writeEnv('space'),
+        writeEnv('ground')
+      ])
 
-      const aliasProfile = {
-        name: profile.name,
-        currentEnvironment: profile.currentEnvironment || 'space',
-        aliases: profile.aliases || {},
-      }
-      const aliasContent = this.generateAliasFile(aliasProfile)
-      await writeFile(dirHandle, `${base}/${base}_aliases.txt`, aliasContent)
+      results.push({
+        profile: profile.name,
+        environments: envResults.filter(r => r !== null)
+      })
     }
+
+    return results
   }
 
-  /* ---------------------------------------------------------- */
-  /* Data retrieval                                             */
-  /* ---------------------------------------------------------- */
   extractKeys (profile = {}, environment = 'space') {
-    if (profile.keys && typeof profile.keys === 'object') return profile.keys
-    if (profile.builds?.[environment]?.keys) return profile.builds[environment].keys
-    return {}
+    return profile.keybinds?.[environment] || {}
   }
 } 
