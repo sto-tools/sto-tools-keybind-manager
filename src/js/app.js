@@ -8,7 +8,7 @@ import ProfileService from './components/services/ProfileService.js'
 import ProfileUI from './components/ui/ProfileUI.js'
 
 import ParameterCommandUI from './components/ui/ParameterCommandUI.js'
-import { EventHandlerService, InterfaceModeService } from './components/services/index.js'
+import { InterfaceModeService } from './components/services/index.js'
 import { ProjectManagementService } from './components/services/index.js'
 import { InterfaceModeUI } from './components/ui/index.js'
 import { CommandService, CommandLibraryService } from './components/services/index.js'
@@ -25,7 +25,7 @@ import ExportService from './components/services/ExportService.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
-import { VFXManagerUI } from './components/ui/index.js'
+import { VFXManagerUI, HeaderMenuUI } from './components/ui/index.js'
 
 
 export default class STOToolsKeybindManager {
@@ -314,16 +314,12 @@ export default class STOToolsKeybindManager {
         ui: stoUI
       })
       
-      // Initialize EventHandlerService
-      this.eventHandlerService = new EventHandlerService({
+      // Initialize HeaderMenuUI to handle header dropdown menus
+      this.headerMenuUI = new HeaderMenuUI({
         eventBus,
-        storage: storageService,
-        ui: stoUI,
-        modalManager,
-        i18n: i18next,
-        app: this
+        document
       })
-      // dbg('EventHandlerService created')
+      // dbg('HeaderMenuUI created')
       
       // Initialize InterfaceModeService
       this.interfaceModeService = new InterfaceModeService({
@@ -417,10 +413,10 @@ export default class STOToolsKeybindManager {
       await new Promise(resolve => setTimeout(resolve, 10))
 
       try {
-        this.eventHandlerService.init()
-        // dbg('eventHandlerService.init completed successfully')
+        this.headerMenuUI.init()
+        // dbg('headerMenuUI.init completed successfully')
       } catch (error) {
-        // dbg('Error in eventHandlerService.init:', error)
+        // dbg('Error in headerMenuUI.init:', error)
         throw error // Re-throw to see the full error
       }
       
@@ -476,10 +472,7 @@ export default class STOToolsKeybindManager {
 
       // dbg('Init method completed successfully!')
 
-      // Provide UI reference to EventHandlerService for legacy menu button
-      if (this.eventHandlerService) {
-        this.eventHandlerService.preferencesManager = this.preferencesUI
-      }
+      // UI components now handle their own event listeners - no central coordinator needed
 
       // ------------------------------
       // Project management service (new)
@@ -495,10 +488,8 @@ export default class STOToolsKeybindManager {
       // No special init needed currently
 
       // ------------------------------
-      // Event-based coordination only – direct UI helpers moved to dedicated services/UI components.
+      // Components now handle their own event coordination - no central coordination needed
       // ------------------------------
-
-      this.setupEventCoordination()
 
       // ---------------------------------
 
@@ -518,68 +509,20 @@ export default class STOToolsKeybindManager {
     }
   }
 
-  // Proxy methods for backward compatibility
-  get currentProfile() {
-    return this.profileService ? this.profileService.getCurrentProfileId() : this.store?.currentProfile
-  }
-  
-  set currentProfile(val) {
-    if (this.store) {
-      this.store.currentProfile = val
-    }
-    if (this.profileService) {
-      this.profileService.currentProfile = val
-    }
-  }
-
-  get currentEnvironment() {
-    return this.profileService ? this.profileService.getCurrentEnvironment() : this.store?.currentEnvironment
-  }
-  
-  set currentEnvironment(val) {
-    // DEPRECATED: Direct property assignment should only be used in tests
-    console.warn('[DEPRECATED] app.currentEnvironment setter called - use environment:changed events instead')
-    console.warn('Call stack:', new Error().stack)
-    
-    if (this.store) {
-      this.store.currentEnvironment = val
-    }
-    if (this.profileService) {
-      this.profileService.setCurrentEnvironment(val)
-    }
-    if (this.interfaceModeService) {
-      this.interfaceModeService.currentEnvironment = val
-    }
-  }
-
-  get selectedKey() {
-    return this.store?.selectedKey
-  }
-  
-  set selectedKey(val) {
-    // DEPRECATED: Direct property assignment should only be used in tests
-    console.warn('[DEPRECATED] app.selectedKey setter called - use key-selected events instead')
-    console.warn('Call stack:', new Error().stack)
-    
-    if (this.store) {
-      this.store.selectedKey = val
-    }
-    // Synchronize with the command library service via event
-    eventBus.emit('key-selected', { key: val })
-  }
-
-  get isModified() {
-    return this.profileService ? this.profileService.getModified() : this.store?.isModified
-  }
-  
-  set isModified(val) {
-    if (this.store) {
-      this.store.isModified = val
-    }
-    if (this.profileService) {
-      this.profileService.setModified(val)
-    }
-  }
+  // REMOVED: All proxy methods have been eliminated to achieve clean component decoupling
+  // Components should now communicate via eventBus and request/response patterns:
+  //
+  // Instead of: app.currentProfile
+  // Use: request(eventBus, 'profile:get-current', {})
+  //
+  // Instead of: app.currentEnvironment  
+  // Use: Listen to 'environment:changed' events
+  //
+  // Instead of: app.selectedKey
+  // Use: Listen to 'key-selected' events
+  //
+  // Instead of: app.isModified
+  // Use: Listen to 'profile-modified' events
 
   // REMOVED: Profile management proxy methods
   // These have been removed as part of Phase 1 refactoring to eliminate app proxy methods.
@@ -598,59 +541,20 @@ export default class STOToolsKeybindManager {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  addCommand(key, command) {
-    // DEPRECATED: This method will be removed in Phase 2
-    // Use CommandService events instead
-    console.warn('[DEPRECATED] app.addCommand() called - use CommandService events instead')
-    console.warn('Call stack:', new Error().stack)
-    
-    const profile = this.getCurrentProfile()
-    if (!profile || !key) return false
-
-    if (!profile.keys) {
-      profile.keys = {}
-    }
-    if (!profile.keys[key]) {
-      profile.keys[key] = []
-    }
-
-    profile.keys[key].push(command)
-    // DEPRECATED: Direct calls to saveProfile and setModified
-    this.saveProfile()
-    this.setModified(true)
-    return true
-  }
-
-  // TEMPORARY: Keep minimal compatibility methods for Phase 1
-  // These will be removed in Phase 2 when EventHandlerService is refactored
-  getCurrentProfile() {
-    return this.profileService ? this.profileService.getCurrentProfile() : null
-  }
-
-  saveProfile() {
-    // DEPRECATED: This method will be removed in Phase 2
-    console.warn('[DEPRECATED] app.saveProfile() called - use ProfileService events instead')
-    if (this.profileService) {
-      try {
-        this.profileService.saveProfile()
-        return true
-      } catch (error) {
-        return false
-      }
-    }
-    return false
-  }
-
-  setModified(modified = true) {
-    // DEPRECATED: This method will be removed in Phase 2
-    console.warn('[DEPRECATED] app.setModified() called - use ProfileService events instead')
-    if (this.profileService) {
-      this.profileService.setModified(modified)
-    }
-    if (this.profileUI) {
-      this.profileUI.updateProfileInfo()
-    }
-  }
+  // REMOVED: All proxy methods have been eliminated to achieve clean component decoupling
+  // Components should now communicate via eventBus and request/response patterns:
+  //
+  // Instead of: app.addCommand(key, command)
+  // Use: eventBus.emit('command:add', { key, command })
+  //
+  // Instead of: app.getCurrentProfile()
+  // Use: request(eventBus, 'profile:get-current', {})
+  //
+  // Instead of: app.saveProfile()
+  // Use: eventBus.emit('profile:save')
+  //
+  // Instead of: app.setModified(true)
+  // Use: eventBus.emit('profile:set-modified', { modified: true })
 
   // REMOVED: Key capture proxy methods
   // These have been removed as part of Phase 1 refactoring.
@@ -671,29 +575,8 @@ export default class STOToolsKeybindManager {
   // Event-based coordination only – direct UI helpers moved to dedicated services/UI components.
   // ------------------------------
 
-  setupEventCoordination() {
-    // Coordinate high-level app events between services
-    eventBus.on('profile:switched', this.onProfileSwitched.bind(this))
-    eventBus.on('environment:changed', this.onEnvironmentChanged.bind(this))
-  }
-
-  onProfileSwitched({ profileId, environment } = {}) {
-    // DEPRECATED: This method should not be called in event-driven architecture
-    console.warn('[DEPRECATED] app.onProfileSwitched() called - services should listen to profile:switched events directly')
-    console.warn('Call stack:', new Error().stack)
-    
-    // Services should be listening to the profile:switched event directly
-    // This is a no-op to identify legacy usage patterns
-  }
-
-  onEnvironmentChanged({ environment } = {}) {
-    // DEPRECATED: This method should not be called in event-driven architecture
-    console.warn('[DEPRECATED] app.onEnvironmentChanged() called - services should listen to environment:changed events directly')
-    console.warn('Call stack:', new Error().stack)
-    
-    // Services should be listening to the environment:changed event directly
-    // This is a no-op to identify legacy usage patterns
-  }
+  // REMOVED: Event coordination methods - components now handle their own event subscriptions
+  // Each service and UI component manages its own event listeners for full decoupling
 
   // Welcome message functionality (moved from welcome mixin)
   isFirstTime() {

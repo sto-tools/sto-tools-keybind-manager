@@ -274,20 +274,33 @@ describe('InterfaceModeUI', () => {
     })
 
     it('should cleanup DOM event listeners', () => {
+      // Setup the component with buttons and handlers
       interfaceModeUI._modeButtons = {
         space: mockSpaceBtn,
         ground: mockGroundBtn,
         alias: mockAliasBtn
       }
 
+      // Simulate the handler storage that happens during setupModeButtons
+      const spaceHandler = vi.fn()
+      const groundHandler = vi.fn()
+      const aliasHandler = vi.fn()
+      
+      interfaceModeUI._modeButtonHandlers = {
+        space: spaceHandler,
+        ground: groundHandler,
+        alias: aliasHandler
+      }
+
       interfaceModeUI.destroy()
 
-      // Verify that removeEventListener was called on each button
-      // Note: The actual cleanup uses arrow functions, so we can't test exact function references
-      // But we can verify removeEventListener was called
-      expect(mockSpaceBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
-      expect(mockGroundBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
-      expect(mockAliasBtn.removeEventListener).toHaveBeenCalledWith('click', interfaceModeUI.handleModeButtonClick)
+      // Verify that removeEventListener was called with the stored handler references
+      expect(mockSpaceBtn.removeEventListener).toHaveBeenCalledWith('click', spaceHandler)
+      expect(mockGroundBtn.removeEventListener).toHaveBeenCalledWith('click', groundHandler)
+      expect(mockAliasBtn.removeEventListener).toHaveBeenCalledWith('click', aliasHandler)
+      
+      // Verify handlers are cleared
+      expect(interfaceModeUI._modeButtonHandlers).toEqual({})
     })
   })
 

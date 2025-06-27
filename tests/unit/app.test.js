@@ -67,8 +67,8 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
     // Add test profile to storage and set as current
     storageService.saveProfile(testProfile.id, testProfile)
-    app.currentProfile = testProfile.id
-    app.saveCurrentProfile()
+    // Use event-based profile switching instead of direct property assignment
+    eventBus.emit('profile:switch', { profileId: testProfile.id })
 
     // Mock UI methods that would show actual modals/toasts
     vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})
@@ -81,9 +81,10 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     // Clean up after each test
     vi.restoreAllMocks()
     storageService.clearAllData()
-    app.currentProfile = null
-    app.selectedKey = null
-    app.currentEnvironment = 'space'
+    // Use events instead of direct property assignment
+    eventBus.emit('profile:switch', { profileId: null })
+    eventBus.emit('key-selected', { key: null })
+    eventBus.emit('environment:changed', { environment: 'space' })
   })
 
   describe('Application Initialization', () => {

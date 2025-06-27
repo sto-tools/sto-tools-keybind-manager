@@ -34,6 +34,8 @@ export default class CommandUI extends ComponentBase {
       parameterCommands.commandLibraryService = this.commandLibraryService
     }
 
+    this.setupEventListeners()
+
     // Listen for command:add events from CommandLibraryUI
     this.addEventListener('command:add', (payload = {}) => {
       const { categoryId, commandId, commandDef } = payload
@@ -63,5 +65,65 @@ export default class CommandUI extends ComponentBase {
         parameterCommands.showParameterModal(categoryId, commandId, commandDef)
       }
     })
+  }
+
+  setupEventListeners() {
+    if (this.eventListenersSetup) {
+      return
+    }
+    this.eventListenersSetup = true
+
+    // Command management DOM events
+    this.eventBus.onDom('addCommandBtn', 'click', 'command-add-modal', () => {
+      this.modalManager.show('addCommandModal')
+    })
+
+    this.eventBus.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
+      const selectedKey = this.commandService?.selectedKey || this.commandLibraryService?.selectedKey
+      if (selectedKey) {
+        this.confirmClearChain(selectedKey)
+      }
+    })
+
+    this.eventBus.onDom('validateChainBtn', 'click', 'command-chain-validate', () => {
+      const selectedKey = this.commandService?.selectedKey || this.commandLibraryService?.selectedKey
+      if (selectedKey) {
+        this.validateCurrentChain(selectedKey)
+      }
+    })
+
+    // Command search
+    this.eventBus.onDom('commandSearch', 'input', 'command-search', (e) => {
+      this.filterCommands(e.target.value)
+    })
+  }
+
+  /**
+   * Confirm clearing the command chain for a key
+   */
+  confirmClearChain(key) {
+    if (!key) return
+    
+    const i18n = this.commandService?.i18n || this.commandLibraryService?.i18n
+    const message = i18n?.t?.('confirm_clear_chain', { key }) || `Clear command chain for ${key}?`
+    if (confirm(message)) {
+      this.eventBus.emit('command-chain:clear', { key })
+    }
+  }
+
+  /**
+   * Validate the current command chain
+   */
+  validateCurrentChain(key) {
+    if (key) {
+      this.eventBus.emit('command-chain:validate', { key })
+    }
+  }
+
+  /**
+   * Filter commands by search term
+   */
+  filterCommands(value) {
+    this.eventBus.emit('command:filter', { filter: value })
   }
 } 

@@ -8,7 +8,7 @@ export { default as ProfileService } from './ProfileService.js'
 export { default as StorageService } from './StorageService.js'
 export { default as CommandLibraryService } from './CommandLibraryService.js'
 export { default as CommandService } from './CommandService.js'
-export { default as EventHandlerService } from './EventHandlerService.js'
+// EventHandlerService removed - components now handle their own DOM events
 export { default as InterfaceModeService } from './InterfaceModeService.js'
 export { default as SyncService } from './SyncService.js'
 export { default as FileSystemService } from './FileSystemService.js'

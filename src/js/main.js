@@ -14,7 +14,7 @@ import STOUIManager from './ui/ui.js'
 // import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
-import VertigoManager, { VFX_EFFECTS } from './features/vertigo_data.js'
+import { VFX_EFFECTS } from './features/vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
 import './ui/version.js'
 // Create new StorageService component
@@ -86,36 +86,31 @@ const settings = storageService.getSettings()
     applyTranslations()
   }
 
-  // Make storageService globally available immediately
-  window.storageService = storageService
-
   // Create dependencies first
   const stoKeybinds = new STOKeybindFileManager()
   const stoExport = new STOExportManager({ storage: storageService })
   const stoUI = new STOUIManager()
-  // const stoCommands = new STOCommandManager() // DEPRECATED: see CommandBuilderService
   const stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })
   // Init immediately so header Explorer button works without waiting for sto-app-ready
   stoFileExplorer.init()
-  const vertigoManager = new VertigoManager()
   const stoSync = new SyncService({ storage: storageService, ui: stoUI })
+  
+  // Minimal global assignments - only what's absolutely necessary for legacy compatibility
   Object.assign(window, {
-    storageService, // Keep this for backward compatibility
-    stoKeybinds,
-    stoExport,
-    stoUI,
-    // stoCommands, // DEPRECATED: see CommandBuilderService
-    stoFileExplorer,
-    vertigoManager,
-    stoSync,
-    VFX_EFFECTS,
-    eventBus, // Make eventBus globally available
+    storageService, // Required by some legacy components and tests
+    stoKeybinds,    // Required by app initialization callback
+    stoExport,      // Required by app initialization callback  
+    stoUI,          // Required by many components for toast notifications
+    stoFileExplorer, // Required by header file explorer button
+    stoSync,        // Required by sync UI components
+    eventBus,       // Required for component communication debugging
+    VFX_EFFECTS,    // Required by VFXManagerUI for effect data
   })
 
   // Initialize app after dependencies are available
-
   const app = new STOToolsKeybindManager()
-  window.app = app
+  
+  // App instance is NOT exposed globally - components communicate via eventBus
   // Initialize the app - this will emit 'sto-app-ready' when complete
   if (typeof app.init !== 'function') {
     console.error('app.init is not a function!')
@@ -164,10 +159,9 @@ const settings = storageService.getSettings()
       console.log('- Has onclick:', !!settingsBtn.onclick)
       console.log('- Has click listeners:', !!settingsBtn._listeners)
       
-      console.log('\n4. App/EventHandler check:')
-      console.log('- window.app exists:', !!window.app)
-      console.log('- app.eventHandlerService exists:', !!(window.app && window.app.eventHandlerService))
-      console.log('- toggleSettingsMenu exists:', !!(window.app && window.app.eventHandlerService && window.app.eventHandlerService.toggleSettingsMenu))
+      console.log('\n4. Event-based architecture check:')
+      console.log('- eventBus exists:', !!window.eventBus)
+      console.log('- Settings managed by HeaderMenuUI via events')
     }
 
     if (settingsMenu) {

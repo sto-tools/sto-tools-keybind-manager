@@ -14,6 +14,8 @@ export default class AliasBrowserUI extends ComponentBase {
     // Initialize cached selected alias
     this._selectedAliasName = null
     
+    this.setupEventListeners()
+    
     // React to alias list or selection changes
     this.eventBus.on('aliases-changed', () => this.render())
     this.eventBus.on('alias-selected', (data) => {
@@ -31,6 +33,92 @@ export default class AliasBrowserUI extends ComponentBase {
     // Initial render & visibility - now handled through late-join handshake
     // The late-join handshake will handle environment synchronization
     await this.render()
+  }
+
+  setupEventListeners() {
+    if (this.eventListenersSetup) {
+      return
+    }
+    this.eventListenersSetup = true
+
+    // Alias management DOM events
+    this.eventBus.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {
+      this.showAliasCreationModal()
+    })
+
+    this.eventBus.onDom('deleteAliasChainBtn', 'click', 'alias-chain-delete', () => {
+      if (this._selectedAliasName) {
+        this.confirmDeleteAlias(this._selectedAliasName)
+      }
+    })
+
+    this.eventBus.onDom('duplicateAliasChainBtn', 'click', 'alias-chain-duplicate', () => {
+      if (this._selectedAliasName) {
+        this.duplicateAlias(this._selectedAliasName)
+      }
+    })
+
+    // Alias options dropdown
+    this.eventBus.onDom('aliasOptionsDropdown', 'click', 'alias-options-toggle', (e) => {
+      e.stopPropagation()
+      this.toggleAliasOptionsDropdown()
+    })
+
+    // Handle checkbox changes in alias options
+    const aliasCheckboxes = ['aliasStabilizeOption', 'aliasToggleOption', 'aliasCycleOption']
+    aliasCheckboxes.forEach(id => {
+      this.eventBus.onDom(id, 'change', `alias-option-${id}`, () => {
+        this.updateAliasOptionsLabel()
+      })
+    })
+  }
+
+  /**
+   * Show alias creation modal
+   */
+  showAliasCreationModal() {
+    this.eventBus.emit('alias:show-create-modal')
+  }
+
+  /**
+   * Confirm deletion of an alias
+   */
+  confirmDeleteAlias(aliasName) {
+    if (!aliasName) return
+    
+    const message = i18next.t('confirm_delete_alias', { alias: aliasName }) || `Delete alias ${aliasName}?`
+    if (confirm(message)) {
+      this.eventBus.emit('alias:delete', { name: aliasName })
+    }
+  }
+
+  /**
+   * Duplicate the selected alias
+   */
+  duplicateAlias(aliasName) {
+    if (!aliasName) return
+    this.eventBus.emit('alias:duplicate', { name: aliasName })
+  }
+
+  /**
+   * Toggle alias options dropdown
+   */
+  toggleAliasOptionsDropdown() {
+    const dropdown = this.document.getElementById('aliasOptionsDropdown')
+    if (dropdown) {
+      dropdown.classList.toggle('active')
+    }
+  }
+
+  /**
+   * Update alias options label based on selected checkboxes
+   */
+  updateAliasOptionsLabel() {
+    const stabilize = this.document.getElementById('aliasStabilizeOption')?.checked
+    const toggle = this.document.getElementById('aliasToggleOption')?.checked
+    const cycle = this.document.getElementById('aliasCycleOption')?.checked
+    
+    this.eventBus.emit('alias:options-changed', { stabilize, toggle, cycle })
   }
 
   async render () {

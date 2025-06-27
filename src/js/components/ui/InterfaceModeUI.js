@@ -19,6 +19,7 @@ export default class InterfaceModeUI extends ComponentBase {
     // Internal state
     this._uiListenersSetup = false
     this._modeButtons = {}
+    this._modeButtonHandlers = {} // Store button click handlers for cleanup
 
     // Store handler references for proper cleanup
     this._modeChangedHandler = null
@@ -90,12 +91,15 @@ export default class InterfaceModeUI extends ComponentBase {
     this._modeButtons.ground = this.document.querySelector('[data-mode="ground"]')
     this._modeButtons.alias = this.document.querySelector('[data-mode="alias"]')
 
-    // Setup click handlers
+    // Setup click handlers - store references for proper cleanup
     Object.entries(this._modeButtons).forEach(([mode, button]) => {
       if (button) {
-        button.addEventListener('click', () => {
+        // Create and store handler function for this specific button
+        const handler = () => {
           this.handleModeButtonClick(mode)
-        })
+        }
+        this._modeButtonHandlers[mode] = handler
+        button.addEventListener('click', handler)
       } else {
         console.warn(`[InterfaceModeUI] Mode button for ${mode} not found`)
       }
@@ -228,12 +232,15 @@ export default class InterfaceModeUI extends ComponentBase {
       this._uiListenersSetup = false
     }
 
-    // Remove click handlers from buttons
-    Object.values(this._modeButtons).forEach(button => {
-      if (button && button.removeEventListener) {
-        button.removeEventListener('click', this.handleModeButtonClick)
+    // Remove click handlers from buttons using stored handler references
+    Object.entries(this._modeButtons).forEach(([mode, button]) => {
+      if (button && this._modeButtonHandlers[mode]) {
+        button.removeEventListener('click', this._modeButtonHandlers[mode])
       }
     })
+    
+    // Clear stored handlers
+    this._modeButtonHandlers = {}
 
     super.destroy()
   }

@@ -68,6 +68,63 @@ export default class KeyBrowserUI extends ComponentBase {
     // Initial paint and toggle-button state (will be handled by handleInitialState)
     const initialMode = localStorage.getItem('keyViewMode') || 'key-types'
     this.updateViewToggleButton(initialMode)
+
+    this.setupEventListeners()
+  }
+
+  setupEventListeners() {
+    if (this.eventListenersSetup) {
+      return
+    }
+    this.eventListenersSetup = true
+
+    // Key management DOM events
+    this.eventBus.onDom('addKeyBtn', 'click', 'key-add', () => {
+      this.showKeySelectionModal()
+    })
+
+    this.eventBus.onDom('deleteKeyBtn', 'click', 'key-delete', () => {
+      if (this._selectedKeyName) {
+        this.confirmDeleteKey(this._selectedKeyName)
+      }
+    })
+
+    this.eventBus.onDom('duplicateKeyBtn', 'click', 'key-duplicate', () => {
+      if (this._selectedKeyName) {
+        this.duplicateKey(this._selectedKeyName)
+      }
+    })
+
+    // Key filtering and view controls
+    this.eventBus.onDom('keyFilter', 'input', 'key-filter', (e) => {
+      this.filterKeys(e.target.value)
+    })
+
+    this.eventBus.onDom('showAllKeysBtn', 'click', 'show-all-keys', () => {
+      this.showAllKeys()
+    })
+
+    this.eventBus.onDom('toggleKeyViewBtn', 'click', 'toggle-key-view', () => {
+      this.toggleKeyView()
+    })
+
+    // Listen for key selection events from other components
+    this.addEventListener('key-selected', ({ key } = {}) => {
+      this._selectedKeyName = key
+      this.render()
+    })
+
+    // Listen for profile changes
+    this.addEventListener('profile-switched', ({ profileId, environment } = {}) => {
+      this._currentProfileId = profileId
+      this._currentEnvironment = environment
+      this.render()
+    })
+
+    this.addEventListener('environment:changed', ({ environment } = {}) => {
+      this._currentEnvironment = environment
+      this.render()
+    })
   }
 
   async render () {
@@ -444,5 +501,59 @@ export default class KeyBrowserUI extends ComponentBase {
       }
     }
     // Service state is now managed internally via events - no direct access needed
+  }
+
+  /**
+   * Show key selection modal for adding new keys
+   */
+  showKeySelectionModal() {
+    if (this.modalManager) {
+      this.modalManager.show('keySelectionModal')
+    }
+  }
+
+  /**
+   * Confirm deletion of a key
+   */
+  confirmDeleteKey(key) {
+    if (!key) return
+    
+    const message = this.i18n?.t?.('confirm_delete_key', { key }) || `Delete key ${key}?`
+    if (confirm(message)) {
+      this.eventBus.emit('key:delete', { key })
+    }
+  }
+
+  /**
+   * Duplicate the selected key
+   */
+  duplicateKey(key) {
+    if (!key) return
+    this.eventBus.emit('key:duplicate', { key })
+  }
+
+  /**
+   * Filter keys by search term
+   */
+  filterKeys(value) {
+    this.eventBus.emit('key:filter', { filter: value })
+  }
+
+  /**
+   * Show all keys (clear filter)
+   */
+  showAllKeys() {
+    const filterInput = this.document.getElementById('keyFilter')
+    if (filterInput) {
+      filterInput.value = ''
+    }
+    this.eventBus.emit('key:filter', { filter: '' })
+  }
+
+  /**
+   * Toggle key view (compact/detailed)
+   */
+  toggleKeyView() {
+    this.eventBus.emit('key:toggle-view')
   }
 } 
