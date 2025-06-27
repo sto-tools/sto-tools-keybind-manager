@@ -46,8 +46,16 @@ export default class AutoSync extends ComponentBase {
     if (interval === 'change') {
       this.eventBus.on('storage:data-changed', this._onStorageChange)
     } else {
-      const ms = parseInt(interval, 10) * 1000
-      this._intervalId = setInterval(() => this.sync(), ms)
+      // Validate interval is a valid positive number
+      const parsedInterval = parseInt(interval, 10)
+      if (isNaN(parsedInterval) || parsedInterval <= 0) {
+        console.warn(`[AutoSync] Invalid interval '${interval}', falling back to 'change' mode`)
+        this.interval = 'change'
+        this.eventBus.on('storage:data-changed', this._onStorageChange)
+      } else {
+        const ms = parsedInterval * 1000
+        this._intervalId = setInterval(() => this.sync(), ms)
+      }
     }
 
     // Persist
