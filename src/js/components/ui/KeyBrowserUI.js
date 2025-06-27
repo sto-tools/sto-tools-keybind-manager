@@ -66,7 +66,7 @@ export default class KeyBrowserUI extends ComponentBase {
     this.addEventListener('key-view:mode-changed', () => this.render())
 
     // Initial paint and toggle-button state (will be handled by handleInitialState)
-    const initialMode = localStorage.getItem('keyViewMode') || 'key-types'
+    const initialMode = localStorage.getItem('keyViewMode') || 'grid'
     this.updateViewToggleButton(initialMode)
 
     this.setupEventListeners()
@@ -154,7 +154,7 @@ export default class KeyBrowserUI extends ComponentBase {
     // Clear grid
     grid.innerHTML = ''
 
-    const viewMode = localStorage.getItem('keyViewMode') || 'key-types'
+    const viewMode = localStorage.getItem('keyViewMode') || 'grid'
 
     if (viewMode === 'key-types') {
       this.renderKeyTypeView(grid, profile, allKeys)
@@ -194,7 +194,7 @@ export default class KeyBrowserUI extends ComponentBase {
 
   renderKeyTypeView (grid, profile, allKeys) {
     grid.classList.add('categorized')
-    const cats = this.categorizeKeysByType(profile.keys, allKeys)
+    const cats = this.categorizeKeysByType(this._currentKeyMap, allKeys)
     const sorted = Object.entries(cats).sort(([,a],[,b]) => a.priority - b.priority)
     sorted.forEach(([id,data]) => {
       const el = this.createKeyCategoryElement(id, data, 'key-type')
@@ -249,9 +249,10 @@ export default class KeyBrowserUI extends ComponentBase {
     if (/^NUMPAD/.test(keyName)) types.push('numberpad')
     if (/(Ctrl|Alt|Shift)/.test(keyName)) types.push('modifiers')
     if (/(UP|DOWN|LEFT|RIGHT|HOME|END|PGUP|PGDN)/.test(keyName)) types.push('navigation')
-    if (/ESC|TAB|CAPS|PRINT|SCROLL|PAUSE/.test(keyName)) types.push('system')
+    if (/(ESC|TAB|CAPS|PRINT|SCROLL|PAUSE|Space|Enter|Escape)/.test(keyName)) types.push('system')
     if (/MOUSE|WHEEL/.test(keyName)) types.push('mouse')
-    if (/[^A-Z0-9]/.test(keyName)) types.push('symbols')
+    // Only consider it a symbol if it contains actual punctuation/symbols and isn't already categorized
+    if (types.length === 0 && /[^A-Za-z0-9]/.test(keyName)) types.push('symbols')
     if (types.length === 0) types.push('other')
     return types
   }
@@ -394,7 +395,7 @@ export default class KeyBrowserUI extends ComponentBase {
     // Prevent switching in alias environment to maintain UX parity with legacy logic
     if (this.app && this.app.currentEnvironment === 'alias') return
 
-    const currentMode = localStorage.getItem('keyViewMode') || 'key-types'
+    const currentMode = localStorage.getItem('keyViewMode') || 'grid'
     let newMode
     if (currentMode === 'key-types') {
       newMode = 'grid'

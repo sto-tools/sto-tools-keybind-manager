@@ -55,6 +55,45 @@ export default class ModalManagerService extends ComponentBase {
     this.eventBus.on('modal:toggle', this.handleToggleModal.bind(this))
     this.eventBus.on('modal:register-callback', this.handleRegisterCallback.bind(this))
     this.eventBus.on('modal:unregister-callback', this.handleUnregisterCallback.bind(this))
+    
+    // Setup global DOM event listeners for modal close buttons
+    this.setupGlobalModalEventListeners()
+  }
+
+  setupGlobalModalEventListeners() {
+    // Global event delegation for modal close buttons
+    document.addEventListener('click', (e) => {
+      // Handle data-modal attribute clicks (close buttons)
+      const modalTarget = e.target.closest('[data-modal]')
+      if (modalTarget) {
+        const modalId = modalTarget.getAttribute('data-modal')
+        if (modalId) {
+          this.hide(modalId)
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      }
+    })
+
+    // Escape key to close modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const activeModal = document.querySelector('.modal.active')
+        if (activeModal) {
+          this.hide(activeModal.id)
+        }
+      }
+    })
+
+    // Click outside modal to close (modal overlay)
+    document.addEventListener('click', (e) => {
+      if (e.target.id === this.overlayId || e.target.classList.contains('modal-overlay')) {
+        const activeModal = document.querySelector('.modal.active')
+        if (activeModal) {
+          this.hide(activeModal.id)
+        }
+      }
+    })
   }
 
   async handleShowModal({ modalId }) {
