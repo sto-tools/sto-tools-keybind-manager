@@ -137,31 +137,16 @@ export default class CommandLibraryService extends ComponentBase {
       const alias = profile.aliases && profile.aliases[selectedKey]
       if (!alias || !alias.commands) return []
 
-      try {
-        const commands = await request(this.eventBus, 'fileops:parse-command-string', { 
-          commandString: alias.commands 
-        })
-        return commands.map((cmd, index) => ({
-          command: cmd.command,
-          text: cmd.command,
-          type: 'alias',
-          icon: '🎭',
-          id: `alias_${index}`,
-        }))
-      } catch (error) {
-        console.warn('FileOperationsService not available for command parsing, using fallback')
-        // Fallback parsing
-        return alias.commands
-          .split(/\s*\$\$\s*/)
-          .filter((cmd) => cmd.trim().length > 0)
-          .map((cmd, index) => ({
-            command: cmd.trim(),
-            text: cmd.trim(),
-            type: 'alias',
-            icon: '🎭',
-            id: `alias_${index}`,
-          }))
-      }
+      const commands = await request(this.eventBus, 'fileops:parse-command-string', { 
+        commandString: alias.commands 
+      })
+      return commands.map((cmd, index) => ({
+        command: cmd.command,
+        text: cmd.command,
+        type: 'alias',
+        icon: '🎭',
+        id: `alias_${index}`,
+      }))
     } else {
       // For keybinds, return the command array
       return profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
@@ -558,15 +543,7 @@ export default class CommandLibraryService extends ComponentBase {
    * Generate mirrored command string for stabilization
    */
   async generateMirroredCommandString(commands) {
-    try {
-      return await request(this.eventBus, 'fileops:generate-mirrored-commands', { commands })
-    } catch (error) {
-      console.warn('FileOperationsService not available for mirrored commands, using fallback')
-      // Fallback implementation
-      const forwardCommands = commands.map(cmd => cmd.command)
-      const reverseCommands = [...commands].slice(0, -1).reverse().map(cmd => cmd.command)
-      return `${forwardCommands.join(' $$ ')} $$ ${reverseCommands.join(' $$ ')}`
-    }
+    return await request(this.eventBus, 'fileops:generate-mirrored-commands', { commands })
   }
 
   /**

@@ -165,48 +165,10 @@ export default class ExportService extends ComponentBase {
         environment: options.environment,
         grouped: true // Always use grouped output for export
       }
-    }).catch((error) => {
-      console.error('Failed to generate keybind section via FileOperationsService:', error)
-      // Fallback to basic generation
-      return this._generateBasicKeybindSection(keys, options)
     })
   }
 
-  _generateBasicKeybindSection (keys, options = {}) {
-    let content = `; Keybind Commands
-; ================================================================
-; Each line binds a key to one or more commands.
-; Multiple commands are separated by $$`
 
-    if (options.stabilizeExecutionOrder) {
-      content += `
-; EXECUTION ORDER STABILIZATION: ON
-; Commands are mirrored to ensure consistent execution order
-; Phase 1: left-to-right, Phase 2: right-to-left`
-    }
-
-    content += `
-; ================================================================
-
-`
-
-    // Basic key sorting and generation without grouping
-    const sortedKeys = Object.keys(keys).sort()
-    sortedKeys.forEach((key) => {
-      const commands = keys[key]
-      const cleanCommands = Array.isArray(commands)
-        ? commands.filter((c) => c && typeof c.command === 'string')
-        : []
-
-      if (cleanCommands.length === 0) return
-
-      const commandString = cleanCommands.map((c) => c.command).join(' $$ ')
-      content += `${key} "${commandString}"\n`
-    })
-
-    content += '\n'
-    return content
-  }
 
   generateFileFooter () {
     return `; ================================================================
@@ -366,10 +328,6 @@ export default class ExportService extends ComponentBase {
       profile,
       ext: extension,
       environment
-    }).catch(() => {
-      // Fallback filename generation
-      const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
-      return `${sanitized}_${environment}.${extension}`
     })
   }
 
@@ -462,20 +420,6 @@ export default class ExportService extends ComponentBase {
     // Generate alias content via FileOperationsService
     const aliasContent = await request(this.eventBus, 'fileops:generate-alias-file', {
       aliases: profile.aliases || {}
-    }).catch((error) => {
-      console.error('Failed to generate alias content via FileOperationsService:', error)
-      // Fallback to basic alias content generation
-      if (!profile.aliases || Object.keys(profile.aliases).length === 0) {
-        return '; No aliases defined\n'
-      }
-
-      let fallbackContent = ''
-      Object.values(profile.aliases).forEach((alias) => {
-        if (alias.description) fallbackContent += `; ${alias.description}\n`
-        fallbackContent += `alias ${alias.name} <& ${alias.commands} &>\n\n`
-      })
-      
-      return fallbackContent
     })
 
     content += aliasContent
