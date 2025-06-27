@@ -72,34 +72,34 @@ export default class CommandChainService extends ComponentBase {
 
     // Maintain selected alias/key in sync with higher-level services so that
     // the command-chain UI always knows what it should be displaying.
-    this.addEventListener('key-selected', ({ key, name }) => {
+    this.addEventListener('key-selected', async ({ key, name }) => {
       debugLog('key-selected', { key, name })
       this.selectedKey = key || name || null
 
       // Refresh commands list when a new key is selected
-      const cmds = this.getCommandsForSelectedKey()
+      const cmds = await this.getCommandsForSelectedKey()
       this.emit('chain-data-changed', { commands: cmds })
     })
 
     // Handle alias selections explicitly so environment switches to alias
-    this.addEventListener('alias-selected', ({ name }) => {
+    this.addEventListener('alias-selected', async ({ name }) => {
       if (!name) return
       this.currentEnvironment = 'alias'
       this.selectedKey = name
 
-      const cmds = this.getCommandsForSelectedKey()
+      const cmds = await this.getCommandsForSelectedKey()
       this.emit('chain-data-changed', { commands: cmds })
     })
 
     // Listen for command additions from CommandService (for static commands)
-    this.addEventListener('command-added', ({ key, command }) => {
+    this.addEventListener('command-added', async ({ key, command }) => {
       // Update chain data when a command is added
-      const cmds = this.getCommandsForSelectedKey()
+      const cmds = await this.getCommandsForSelectedKey()
       this.emit('chain-data-changed', { commands: cmds })
     })
 
     // Handle add-command requests from AliasModalService (legacy support)
-    this.addEventListener('commandlibrary:add', (payload = {}) => {
+    this.addEventListener('commandlibrary:add', async (payload = {}) => {
       const { categoryId, commandId, commandObj } = payload
       if (!categoryId || !commandId) return
       const svc = this.commandLibraryService || this.commandService
@@ -112,10 +112,10 @@ export default class CommandChainService extends ComponentBase {
 
       // Only handle commandObj case (from AliasModalService)
       if (commandObj && this.selectedKey) {
-        const before = this.getCommandsForSelectedKey()
+        const before = await this.getCommandsForSelectedKey()
         const success = svc.addCommand(this.selectedKey, commandObj)
         if (success) {
-          const after = this.getCommandsForSelectedKey()
+          const after = await this.getCommandsForSelectedKey()
           if (after.length !== before.length) {
             this.emit('chain-data-changed', { commands: after })
           }
@@ -146,10 +146,10 @@ export default class CommandChainService extends ComponentBase {
     })
 
     // Edit command
-    this.addEventListener('commandchain:edit', ({ index }) => {
+    this.addEventListener('commandchain:edit', async ({ index }) => {
       if (index === undefined) return
 
-      const cmds = this.getCommandsForSelectedKey()
+      const cmds = await this.getCommandsForSelectedKey()
       const originalCmd  = cmds[index]
       if (!originalCmd) return
 
@@ -206,22 +206,22 @@ export default class CommandChainService extends ComponentBase {
     })
 
     // Delete command
-    this.addEventListener('commandchain:delete', ({ index }) => {
+    this.addEventListener('commandchain:delete', async ({ index }) => {
       const svcDel = this.commandService || this.commandLibraryService
       if (index === undefined || !svcDel || !this.selectedKey) return
       const ok = svcDel.deleteCommand && svcDel.deleteCommand(this.selectedKey, index)
       if (ok) {
-        this.emit('chain-data-changed', { commands: this.getCommandsForSelectedKey() })
+        this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       }
     })
 
     // Move command (already done above?) – ensure unique once
-    this.addEventListener('commandchain:move', ({ fromIndex, toIndex }) => {
+    this.addEventListener('commandchain:move', async ({ fromIndex, toIndex }) => {
       const svcMove = this.commandService || this.commandLibraryService
       if (!svcMove || !this.selectedKey) return
       const ok = svcMove.moveCommand && svcMove.moveCommand(this.selectedKey, fromIndex, toIndex)
       if (ok) {
-        this.emit('chain-data-changed', { commands: this.getCommandsForSelectedKey() })
+        this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       }
     })
   }

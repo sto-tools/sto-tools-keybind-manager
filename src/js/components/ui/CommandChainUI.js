@@ -84,7 +84,31 @@ export default class CommandChainUI extends ComponentBase {
 
       if (!container || !titleEl || !previewEl) return
 
-      const commands = commandsArg || await request(this.eventBus, 'command:get-for-selected-key')
+      // When render is called with explicit commands (from chain-data-changed),
+      // use those. When called without commands (from environment:changed),
+      // only render if we have a selected key/alias to avoid race conditions
+      // during initialization.
+      let commands = commandsArg
+      if (!commands) {
+        const selectedKeyName = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+        if (!selectedKeyName) {
+          // No selection yet - just show empty state and return
+          const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
+          titleEl.textContent   = emptyStateInfo.title
+          previewEl.textContent = emptyStateInfo.preview
+          if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+
+          container.innerHTML = `
+            <div class="empty-state show" id="emptyState">
+              <i class="${emptyStateInfo.icon}"></i>
+              <h4>${emptyStateInfo.emptyTitle}</h4>
+              <p>${emptyStateInfo.emptyDesc}</p>
+            </div>`
+          return
+        }
+        // We have a selection, so request the commands
+        commands = await request(this.eventBus, 'command:get-for-selected-key')
+      }
 
       const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
       console.log('render getEmptyStateInfo', emptyStateInfo)
@@ -111,7 +135,7 @@ export default class CommandChainUI extends ComponentBase {
       // Non-empty state - use emptyStateInfo which actually contains the correct title/preview for selected keys
       titleEl.textContent   = emptyStateInfo.title
       previewEl.textContent = emptyStateInfo.preview
-      if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+      if (countSpanEl) countSpanEl.textContent = commands.length.toString()
 
       // Hide any existing empty state
       if (emptyState) emptyState.classList.remove('show')

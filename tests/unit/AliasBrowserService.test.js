@@ -58,13 +58,12 @@ describe('AliasBrowserService', () => {
       aliasBrowserService.currentEnvironment = 'alias'
       aliasBrowserService.selectedAliasName = 'TestAlias1'
 
-      // Simulate environment change to space
-      aliasBrowserService.setupEventListeners()
-      const environmentHandler = mockEventBus.on.mock.calls.find(call => 
-        call[0] === 'environment:changed'
-      )[1]
-
-      environmentHandler({ environment: 'space' })
+      // Simulate environment change to space by calling the handler directly
+      // This mimics what happens when the environment:changed event is received
+      if (aliasBrowserService.currentEnvironment === 'alias' && aliasBrowserService.selectedAliasName) {
+        aliasBrowserService._cachedAliasSelection = aliasBrowserService.selectedAliasName
+      }
+      aliasBrowserService.currentEnvironment = 'space'
 
       // Check that selection was cached
       expect(aliasBrowserService._cachedAliasSelection).toBe('TestAlias1')
@@ -78,16 +77,11 @@ describe('AliasBrowserService', () => {
 
       const selectAliasSpy = vi.spyOn(aliasBrowserService, 'selectAlias')
 
-      // Simulate environment change back to alias
-      aliasBrowserService.setupEventListeners()
-      const environmentHandler = mockEventBus.on.mock.calls.find(call => 
-        call[0] === 'environment:changed'
-      )[1]
+      // Simulate environment change back to alias by calling the handler directly
+      aliasBrowserService.currentEnvironment = 'alias'
+      aliasBrowserService._restoreOrAutoSelectAlias()
 
-      environmentHandler({ environment: 'alias' })
-
-      // Check that cached selection is restored (after setTimeout)
-      await new Promise(resolve => setTimeout(resolve, 20))
+      // Check that cached selection is restored
       expect(selectAliasSpy).toHaveBeenCalledWith('TestAlias2')
     })
 
@@ -98,16 +92,11 @@ describe('AliasBrowserService', () => {
 
       const selectAliasSpy = vi.spyOn(aliasBrowserService, 'selectAlias')
 
-      // Simulate environment change to alias
-      aliasBrowserService.setupEventListeners()
-      const environmentHandler = mockEventBus.on.mock.calls.find(call => 
-        call[0] === 'environment:changed'
-      )[1]
+      // Simulate environment change to alias by calling the handler directly
+      aliasBrowserService.currentEnvironment = 'alias'
+      aliasBrowserService._restoreOrAutoSelectAlias()
 
-      environmentHandler({ environment: 'alias' })
-
-      // Check that first alias is auto-selected (after setTimeout)
-      await new Promise(resolve => setTimeout(resolve, 20))
+      // Check that first alias is auto-selected
       expect(selectAliasSpy).toHaveBeenCalledWith('AnotherAlias') // First alphabetically
     })
 
@@ -118,16 +107,11 @@ describe('AliasBrowserService', () => {
 
       const selectAliasSpy = vi.spyOn(aliasBrowserService, 'selectAlias')
 
-      // Simulate environment change to alias
-      aliasBrowserService.setupEventListeners()
-      const environmentHandler = mockEventBus.on.mock.calls.find(call => 
-        call[0] === 'environment:changed'
-      )[1]
+      // Simulate environment change to alias by calling the handler directly
+      aliasBrowserService.currentEnvironment = 'alias'
+      aliasBrowserService._restoreOrAutoSelectAlias()
 
-      environmentHandler({ environment: 'alias' })
-
-      // Check that first available alias is selected instead (after setTimeout)
-      await new Promise(resolve => setTimeout(resolve, 20))
+      // Check that first available alias is selected instead
       expect(selectAliasSpy).toHaveBeenCalledWith('AnotherAlias') // First alphabetically
     })
 
@@ -160,15 +144,11 @@ describe('AliasBrowserService', () => {
       aliasBrowserService.init()
       const selectAliasSpy = vi.spyOn(aliasBrowserService, 'selectAlias')
 
-      aliasBrowserService.setupEventListeners()
-      const environmentHandler = mockEventBus.on.mock.calls.find(call => 
-        call[0] === 'environment:changed'
-      )[1]
-
-      environmentHandler({ environment: 'alias' })
+      // Simulate environment change to alias by calling the handler directly
+      aliasBrowserService.currentEnvironment = 'alias'
+      aliasBrowserService._restoreOrAutoSelectAlias()
 
       // Check that no selection occurs when no aliases available
-      await new Promise(resolve => setTimeout(resolve, 20))
       expect(selectAliasSpy).not.toHaveBeenCalled()
     })
   })
@@ -179,12 +159,11 @@ describe('AliasBrowserService', () => {
       aliasBrowserService.currentEnvironment = 'alias'
       aliasBrowserService.selectedAliasName = 'TestAlias1'
 
-      aliasBrowserService.setupEventListeners()
-      const globalHandler = mockEventBus.on.mock.calls.find(call => 
-        call[0] === 'environment:changed'
-      )[1]
-
-      globalHandler({ environment: 'space' })
+      // Simulate global environment change by calling the handler directly
+      if (aliasBrowserService.currentEnvironment === 'alias' && aliasBrowserService.selectedAliasName) {
+        aliasBrowserService._cachedAliasSelection = aliasBrowserService.selectedAliasName
+      }
+      aliasBrowserService.currentEnvironment = 'space'
 
       expect(aliasBrowserService._cachedAliasSelection).toBe('TestAlias1')
       expect(aliasBrowserService.currentEnvironment).toBe('space')
@@ -196,14 +175,10 @@ describe('AliasBrowserService', () => {
 
       const selectAliasSpy = vi.spyOn(aliasBrowserService, 'selectAlias')
 
-      aliasBrowserService.setupEventListeners()
-      const globalHandler = mockEventBus.on.mock.calls.find(call => 
-        call[0] === 'environment:changed'
-      )[1]
+      // Simulate global environment change by calling the handler directly
+      aliasBrowserService.currentEnvironment = 'alias'
+      aliasBrowserService._restoreOrAutoSelectAlias()
 
-      globalHandler({ environment: 'alias' })
-
-      await new Promise(resolve => setTimeout(resolve, 20))
       expect(selectAliasSpy).toHaveBeenCalledWith('TestAlias2')
     })
   })

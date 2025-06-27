@@ -18,8 +18,9 @@ export default class ProfileUI extends ComponentBase {
      */
     this._legacyService = service
 
+    // REFACTORED: Dependency injection instead of globalThis
     this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
-    this.modalManager = modalManager || globalThis.modalManager
+    this.modalManager = modalManager || (typeof globalThis !== 'undefined' ? globalThis.modalManager : null)
     this.document = document
 
     // I18n handle

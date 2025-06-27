@@ -164,16 +164,26 @@ export default class KeyService extends ComponentBase {
   /* ------------------------------------------------------------------
    * Validation helpers
    * ------------------------------------------------------------------ */
-  isValidKeyName (keyName) {
+  async isValidKeyName (keyName) {
     if (!keyName || typeof keyName !== 'string') return false
-    const pattern = (typeof globalThis.STO_DATA !== 'undefined' && globalThis.STO_DATA.validation && globalThis.STO_DATA.validation.keyNamePattern) || /^[A-Za-z0-9_]+$/
-    return pattern.test(keyName) && keyName.length <= 20
+    try {
+      const pattern = await request(this.eventBus, 'data:get-key-name-pattern') || /^[A-Za-z0-9_]+$/
+      return pattern.test(keyName) && keyName.length <= 20
+    } catch (error) {
+      // Fallback to default pattern if DataService not available
+      return /^[A-Za-z0-9_]+$/.test(keyName) && keyName.length <= 20
+    }
   }
 
   // Alias validation used by unit tests
-  isValidAliasName (name) {
-    const pattern = (typeof globalThis.STO_DATA !== 'undefined' && globalThis.STO_DATA.validation && globalThis.STO_DATA.validation.aliasNamePattern) || /^[A-Za-z0-9_]+$/
-    return pattern.test(name)
+  async isValidAliasName (name) {
+    try {
+      const pattern = await request(this.eventBus, 'data:get-alias-name-pattern') || /^[A-Za-z0-9_]+$/
+      return pattern.test(name)
+    } catch (error) {
+      // Fallback to default pattern if DataService not available
+      return /^[A-Za-z0-9_]+$/.test(name)
+    }
   }
 
   /* Legacy helper used by keybinds tests */
@@ -301,13 +311,11 @@ export default class KeyService extends ComponentBase {
 
   /** Import keybind file using FileOperationsService */
   importKeybindFile (content) {
-    // Sync environment with global app context if available
-    if (typeof globalThis !== 'undefined' && globalThis.app?.currentEnvironment) {
-      this.currentEnvironment = globalThis.app.currentEnvironment
-    }
-
-    const profileId = this.currentProfile || (typeof window !== 'undefined' && window.app?.currentProfile)
-    const env = ( (typeof window !== 'undefined' && window.app?.currentEnvironment) || (typeof globalThis !== 'undefined' && globalThis.app?.currentEnvironment) || this.currentEnvironment || (typeof store !== 'undefined' && store.currentEnvironment) || 'space' )
+    // REFACTORED: Use cached state instead of globalThis.app
+    // Current environment and profile should be set via events or late-join handshake
+    
+    const profileId = this.currentProfile
+    const env = this.currentEnvironment || 'space'
 
     // Delegate to FileOperationsService for complete import handling
     return request(this.eventBus, 'fileops:import-keybind-file', { 
@@ -321,7 +329,7 @@ export default class KeyService extends ComponentBase {
    * Import alias file using FileOperationsService
    */
   importAliasFile (content) {
-    const profileId = this.currentProfile || (typeof window !== 'undefined' && window.app?.currentProfile)
+    const profileId = this.currentProfile
 
     // Delegate to FileOperationsService for complete import handling
     return request(this.eventBus, 'fileops:import-alias-file', { 

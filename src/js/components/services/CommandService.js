@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
+import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -217,66 +217,79 @@ export default class CommandService extends ComponentBase {
   /* ------------------------------------------------------------------
    * Command lookup helpers (unchanged from library)
    * ------------------------------------------------------------------ */
-  findCommandDefinition (command) {
-    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
-    // Special Tray logic is preserved from original implementation (copy-paste)
-    const isTrayExec = command.command && command.command.includes('TrayExec')
-    if (isTrayExec) {
-      const trayCategory = globalThis.STO_DATA.commands.tray
-      if (trayCategory) {
-        if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
-          return { commandId: 'tray_range_with_backup', ...trayCategory.commands.tray_range_with_backup }
-        } else if (
-          (command.command.includes('STOTrayExecByTray') || command.command.includes('TrayExecByTray')) &&
-          command.command.includes('$$') &&
-          !command.command.includes('WithBackup')
-        ) {
-          return { commandId: 'tray_range', ...trayCategory.commands.tray_range }
-        } else if (command.command.includes('TrayExecByTrayWithBackup')) {
-          return { commandId: 'tray_with_backup', ...trayCategory.commands.tray_with_backup }
-        } else if (
-          command.command.includes('STOTrayExecByTray') ||
-          (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))
-        ) {
-          return { commandId: 'custom_tray', ...trayCategory.commands.custom_tray }
+  async findCommandDefinition (command) {
+    try {
+      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      if (!hasCommands) return null
+      
+      // Special Tray logic is preserved from original implementation (copy-paste)
+      const isTrayExec = command.command && command.command.includes('TrayExec')
+      if (isTrayExec) {
+        const trayCategory = await request(this.eventBus, 'data:get-tray-category')
+        if (trayCategory) {
+          if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
+            return { commandId: 'tray_range_with_backup', ...trayCategory.commands.tray_range_with_backup }
+          } else if (
+            (command.command.includes('STOTrayExecByTray') || command.command.includes('TrayExecByTray')) &&
+            command.command.includes('$$') &&
+            !command.command.includes('WithBackup')
+          ) {
+            return { commandId: 'tray_range', ...trayCategory.commands.tray_range }
+          } else if (command.command.includes('TrayExecByTrayWithBackup')) {
+            return { commandId: 'tray_with_backup', ...trayCategory.commands.tray_with_backup }
+          } else if (
+            command.command.includes('STOTrayExecByTray') ||
+            (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))
+          ) {
+            return { commandId: 'custom_tray', ...trayCategory.commands.custom_tray }
+          }
         }
       }
-    }
 
-    const category = globalThis.STO_DATA.commands[command.type]
-    if (!category) return null
+      const category = await request(this.eventBus, 'data:get-command-category', { categoryId: command.type })
+      if (!category) return null
 
-    for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-      if (cmdDef.command === command.command) {
-        return { commandId: cmdId, ...cmdDef }
+      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
+        if (cmdDef.command === command.command) {
+          return { commandId: cmdId, ...cmdDef }
+        }
       }
-    }
 
-    for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-      if (cmdDef.customizable && command.command.startsWith(cmdDef.command.split(' ')[0])) {
-        return { commandId: cmdId, ...cmdDef }
+      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
+        if (cmdDef.customizable && command.command.startsWith(cmdDef.command.split(' ')[0])) {
+          return { commandId: cmdId, ...cmdDef }
+        }
       }
-    }
 
-    return null
+      return null
+    } catch (error) {
+      // Fallback if DataService not available
+      return null
+    }
   }
 
-  getCommandWarning (command) {
-    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
+  async getCommandWarning (command) {
+    try {
+      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      if (!hasCommands) return null
 
-    const categories = globalThis.STO_DATA.commands
-    for (const [categoryId, category] of Object.entries(categories)) {
-      for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-        if (
-          cmdData.command === command.command ||
-          cmdData.name === command.text ||
-          (command.command && command.command.includes(cmdData.command))
-        ) {
-          return cmdData.warning || null
+      const categories = await request(this.eventBus, 'data:get-commands')
+      for (const [categoryId, category] of Object.entries(categories)) {
+        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
+          if (
+            cmdData.command === command.command ||
+            cmdData.name === command.text ||
+            (command.command && command.command.includes(cmdData.command))
+          ) {
+            return cmdData.warning || null
+          }
         }
       }
+      return null
+    } catch (error) {
+      // Fallback if DataService not available
+      return null
     }
-    return null
   }
 
   /* ------------------------------------------------------------------ */

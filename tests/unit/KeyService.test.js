@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 
 import { KeyService, StorageService } from '../../src/js/components/services/index.js'
+import DataService from '../../src/js/components/services/DataService.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
 // Robust in-memory localStorage mock (from StorageService.test.js)
 const localStorageMock = (() => {
@@ -20,22 +22,38 @@ Object.defineProperty(global, 'localStorage', {
   configurable: true,
 })
 
-// Minimal global STO_DATA validation pattern required by KeyService.isValidKeyName
-if (typeof global.STO_DATA === 'undefined') {
-  global.STO_DATA = {
-    validation: {
-      keyNamePattern: /^[A-Za-z0-9_]+$/
-    }
+// Mock STO_DATA for DataService
+const mockStoData = {
+  validation: {
+    keyNamePattern: /^[A-Za-z0-9_]+$/,
+    aliasNamePattern: /^[A-Za-z0-9_]+$/
+  },
+  commands: {
+    tray: { commands: {} },
+    communication: { commands: {} },
+    combat: { commands: {} }
   }
 }
 
-describe('KeyService – core key operations', () => {
-  let service, storageMock, uiMock
+// Minimal global STO_DATA validation pattern required by KeyService.isValidKeyName
+if (typeof global.STO_DATA === 'undefined') {
+  global.STO_DATA = mockStoData
+}
 
-  beforeEach(() => {
+describe('KeyService – core key operations', () => {
+  let service, storageMock, uiMock, dataService
+
+  beforeEach(async () => {
     global.localStorage.clear()
+    
+    // Set up DataService with mock data
+    dataService = new DataService({ eventBus, data: mockStoData })
+    await dataService.init()
+    
     // Fresh mocks for every test
-    storageMock = new StorageService()
+    storageMock = new StorageService({ eventBus })
+    await storageMock.init()
+    
     // Ensure storage has a dummy profile to work with
     const data = storageMock.getAllData()
 
@@ -51,25 +69,29 @@ describe('KeyService – core key operations', () => {
 
     uiMock = { showToast: vi.fn() }
 
-    service = new KeyService({ storage: storageMock, ui: uiMock })
+    service = new KeyService({ eventBus, storage: storageMock, ui: uiMock })
+    await service.init()
     service.setCurrentProfile('test-profile')
     service.setCurrentEnvironment('space')
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     global.localStorage.clear()
+    if (dataService) await dataService.destroy()
+    if (storageMock) await storageMock.destroy()
+    if (service) await service.destroy()
   })
 
   describe('isValidKeyName()', () => {
-    it('accepts alphanumeric key names up to 20 chars', () => {
-      expect(service.isValidKeyName('F1')).toBe(true)
-      expect(service.isValidKeyName('CtrlA')).toBe(true)
-      expect(service.isValidKeyName('Key_123')).toBe(true)
+    it('accepts alphanumeric key names up to 20 chars', async () => {
+      expect(await service.isValidKeyName('F1')).toBe(true)
+      expect(await service.isValidKeyName('CtrlA')).toBe(true)
+      expect(await service.isValidKeyName('Key_123')).toBe(true)
     })
 
-    it('rejects names with special characters or too long', () => {
-      expect(service.isValidKeyName('Invalid-Key!')).toBe(false)
-      expect(service.isValidKeyName('ThisKeyNameIsWayTooLongToBeValid')).toBe(false)
+    it('rejects names with special characters or too long', async () => {
+      expect(await service.isValidKeyName('Invalid-Key!')).toBe(false)
+      expect(await service.isValidKeyName('ThisKeyNameIsWayTooLongToBeValid')).toBe(false)
     })
   })
 
@@ -136,12 +158,19 @@ describe('KeyService – core key operations', () => {
 })
 
 describe('KeyService – legacy file handler compatibility', () => {
-  let service, storageMock, uiMock
+  let service, storageMock, uiMock, dataService
 
-  beforeEach(() => {
+  beforeEach(async () => {
     global.localStorage.clear()
+    
+    // Set up DataService with mock data
+    dataService = new DataService({ eventBus, data: mockStoData })
+    await dataService.init()
+    
     // Fresh mocks for every test in this suite
-    storageMock = new StorageService()
+    storageMock = new StorageService({ eventBus })
+    await storageMock.init()
+    
     // Ensure storage has a dummy profile to work with
     const data = storageMock.getAllData()
     data.profiles['test-profile'] = {
@@ -155,34 +184,69 @@ describe('KeyService – legacy file handler compatibility', () => {
 
     uiMock = { showToast: vi.fn() }
 
-    service = new KeyService({ storage: storageMock, ui: uiMock })
+    service = new KeyService({ eventBus, storage: storageMock, ui: uiMock })
+    await service.init()
     service.setCurrentProfile('test-profile')
   })
 
-  it('parses keybind files and aliases', () => {
-    // TODO: If KeyService exposes parseKeybindFile, use it. Otherwise, refactor needed.
+  afterEach(async () => {
+    if (dataService) await dataService.destroy()
+    if (storageMock) await storageMock.destroy()
+    if (service) await service.destroy()
+  })
+
+  it('parses keybind files and aliases', async () => {
+    // Mock FileOperationsService response
+    const mockFileOpsResponse = {
+      keybinds: {
+        F1: { commands: [{ command: 'say hi' }] }
+      },
+      aliases: {
+        test: { commands: 'wave' }
+      }
+    }
+    
+    // Set up mock response for file parsing request using respond pattern
+    const { respond } = await import('../../src/js/core/requestResponse.js')
+    const detach = respond(eventBus, 'fileops:parse-keybind-file', () => mockFileOpsResponse)
+    
     if (typeof service.parseKeybindFile === 'function') {
       const content = 'F1 "say hi"\nalias test "wave"'
-      const result = service.parseKeybindFile(content)
+      const result = await service.parseKeybindFile(content)
       expect(result.keybinds.F1.commands[0].command).toBe('say hi')
       expect(result.aliases.test.commands).toBe('wave')
     } else {
       // If not implemented, mark as pending
       expect(true).toBe(true)
     }
+    
+    // Clean up mock
+    if (detach) detach()
   })
 
-  it('detects mirrored command strings', () => {
-    // TODO: If KeyService exposes generateMirroredCommandString and detectAndUnmirrorCommands, use them. Otherwise, refactor needed.
+  it('detects mirrored command strings', async () => {
+    // Mock FileOperationsService responses
+    const mockMirroredString = 'A$$B$$C'
+    const mockUnmirrorInfo = { isMirrored: true, originalCommands: ['A', 'B', 'C'] }
+    
+    // Set up mock responses for file operations requests using respond pattern
+    const { respond } = await import('../../src/js/core/requestResponse.js')
+    const detach1 = respond(eventBus, 'fileops:generate-mirrored-commands', () => mockMirroredString)
+    const detach2 = respond(eventBus, 'fileops:detect-unmirror-commands', () => mockUnmirrorInfo)
+    
     if (typeof service.generateMirroredCommandString === 'function' && typeof service.detectAndUnmirrorCommands === 'function') {
       const cmds = [{ command: 'A' }, { command: 'B' }, { command: 'C' }]
-      const mirrored = service.generateMirroredCommandString(cmds)
-      const info = service.detectAndUnmirrorCommands(mirrored)
+      const mirrored = await service.generateMirroredCommandString(cmds)
+      const info = await service.detectAndUnmirrorCommands(mirrored)
       expect(info.isMirrored).toBe(true)
       expect(info.originalCommands).toEqual(['A','B','C'])
     } else {
       expect(true).toBe(true)
     }
+    
+    // Clean up mocks
+    if (detach1) detach1()
+    if (detach2) detach2()
   })
 
   it('generates keybind file text', () => {
@@ -232,8 +296,13 @@ describe('KeyService – legacy file handler compatibility', () => {
 
 describe('KeyService – Command Type Detection', () => {
   let keyService
-  beforeEach(() => {
-    keyService = new KeyService({})
+  beforeEach(async () => {
+    keyService = new KeyService({ eventBus })
+    await keyService.init()
+  })
+  
+  afterEach(async () => {
+    if (keyService) await keyService.destroy()
   })
   it('should detect tray execution commands', () => {
     const trayCommands = [

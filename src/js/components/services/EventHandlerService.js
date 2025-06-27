@@ -20,6 +20,12 @@ export default class EventHandlerService extends ComponentBase {
     this.languageListenersSetup = false
     this.vertigoInitialState = null
     this.vertigoSaving = false
+
+    // REFACTORED: Cached state for event-based communication
+    this._currentProfile = null
+    this._currentEnvironment = 'space'
+    this._selectedKey = null
+    this._isModified = false
   }
 
   /**
@@ -27,8 +33,64 @@ export default class EventHandlerService extends ComponentBase {
    */
   init() {
     super.init()
+    this.setupStateEventListeners()
     this.initEventHandlers()
   }
+
+  /**
+   * Setup event listeners for state synchronization
+   */
+  setupStateEventListeners() {
+    // Listen for state changes from other components
+    this.addEventListener('profile-switched', ({ profileId, environment } = {}) => {
+      if (profileId) this._currentProfile = profileId
+      if (environment) this._currentEnvironment = environment
+      this._isModified = false // new profile starts clean
+    })
+
+    this.addEventListener('environment:changed', ({ environment } = {}) => {
+      if (environment) this._currentEnvironment = environment
+    })
+
+    this.addEventListener('key-selected', ({ key } = {}) => {
+      this._selectedKey = key
+    })
+
+         this.addEventListener('profile-modified', ({ modified } = {}) => {
+       this._isModified = modified
+     })
+   }
+
+   /**
+    * Handle initial state from late-join handshake
+    */
+   handleInitialState(sender, state) {
+     if (!state) return
+
+     // Handle state from ProfileService
+     if (sender === 'ProfileService' || state.currentProfile) {
+       if (state.currentProfile) this._currentProfile = state.currentProfile
+       if (state.currentEnvironment) this._currentEnvironment = state.currentEnvironment
+       if (typeof state.modified === 'boolean') this._isModified = state.modified
+     }
+
+     // Handle state from KeyBrowserService or similar
+     if (state.selectedKey) {
+       this._selectedKey = state.selectedKey
+     }
+   }
+
+   /**
+    * Get current state for late-join handshake
+    */
+   getCurrentState() {
+     return {
+       currentProfile: this._currentProfile,
+       currentEnvironment: this._currentEnvironment,
+       selectedKey: this._selectedKey,
+       isModified: this._isModified
+     }
+   }
 
   /**
    * Initialize all event handlers
@@ -845,48 +907,71 @@ export default class EventHandlerService extends ComponentBase {
 
   // Mode toggle handling removed - now handled by InterfaceModeUI component
 
-  // Proxy methods that delegate to the app instance
+  // REFACTORED: Event-based state management instead of app proxy methods
+  // These properties now use cached state from late-join handshake and event updates
+
   get currentProfile() {
-    return this.app?.currentProfile
+    return this._currentProfile || null
   }
 
   set currentProfile(val) {
-    if (this.app) this.app.currentProfile = val
+    // DEPRECATED: Use events instead
+    console.warn('[DEPRECATED] EventHandlerService.currentProfile setter - use profile:switched events')
+    this._currentProfile = val
+    this.eventBus.emit('profile:switched', { profileId: val })
   }
 
   get currentEnvironment() {
-    return this.app?.currentEnvironment
+    return this._currentEnvironment || 'space'
   }
 
   set currentEnvironment(val) {
-    if (this.app) this.app.currentEnvironment = val
+    // DEPRECATED: Use events instead  
+    console.warn('[DEPRECATED] EventHandlerService.currentEnvironment setter - use environment:changed events')
+    this._currentEnvironment = val
+    this.eventBus.emit('environment:changed', { environment: val })
   }
 
   get selectedKey() {
-    return this.app?.selectedKey
+    return this._selectedKey || null
   }
 
   set selectedKey(val) {
-    if (this.app) this.app.selectedKey = val
+    // DEPRECATED: Use events instead
+    console.warn('[DEPRECATED] EventHandlerService.selectedKey setter - use key-selected events')
+    this._selectedKey = val
+    this.eventBus.emit('key-selected', { key: val })
   }
 
   get isModified() {
-    return this.app?.isModified
+    return this._isModified || false
   }
 
   set isModified(val) {
-    if (this.app) this.app.isModified = val
+    // DEPRECATED: Use events instead
+    console.warn('[DEPRECATED] EventHandlerService.isModified setter - use profile-modified events')
+    this._isModified = val
+    this.eventBus.emit('profile-modified', { modified: val })
   }
 
-  // Delegate methods to app instance or implement as no-ops
-  switchProfile(profileId) {
-    return this.app?.switchProfile?.(profileId)
+  // REFACTORED: Event-based methods instead of app delegation
+  async switchProfile(profileId) {
+    // Use request/response pattern to switch profile
+    try {
+      const { request } = await import('../../core/requestResponse.js')
+      const result = await request(this.eventBus, 'profile:switch', { id: profileId })
+      return result
+    } catch (error) {
+      console.error('Failed to switch profile:', error)
+      return { success: false, error: error.message }
+    }
   }
-
-  // switchMode method removed - mode switching now handled by InterfaceModeService via request-response
 
   setModified(modified = true) {
-    return this.app?.setModified(modified)
+    // DEPRECATED: Use events instead
+    console.warn('[DEPRECATED] EventHandlerService.setModified() - use profile-modified events')
+    this._isModified = modified
+    this.eventBus.emit('profile-modified', { modified })
   }
 
   renderProfiles() {
@@ -897,170 +982,100 @@ export default class EventHandlerService extends ComponentBase {
     this.eventBus.emit('ui:render-key-grid')
   }
 
-  // renderCommandChain() removed - command chain rendering is now handled by CommandChainUI via events
-
   updateProfileInfo() {
     this.eventBus.emit('ui:update-profile-info')
   }
 
-  saveData() {
-    return this.app?.saveData()
+  async saveData() {
+    // Use ProfileService events instead of app proxy
+    try {
+      const { request } = await import('../../core/requestResponse.js')
+      const result = await request(this.eventBus, 'profile:save-data', {})
+      return result
+    } catch (error) {
+      console.error('Failed to save data:', error)
+      return { success: false, error: error.message }
+    }
   }
 
+  // REFACTORED: Pure event-based communication (no app dependencies)
   addKey(keyName) {
-    if (this.app?.addKey) {
-      return this.app.addKey(keyName)
-    }
-    // Fallback: emit event
     this.eventBus.emit('key:add', { keyName })
   }
 
   confirmDeleteKey(key) {
-    if (this.app?.confirmDeleteKey) {
-      return this.app.confirmDeleteKey(key)
-    }
-    // Fallback: emit event
     this.eventBus.emit('key:delete-confirm', { key })
   }
 
   duplicateKey(key) {
-    if (this.app?.duplicateKey) {
-      return this.app.duplicateKey(key)
-    }
-    // Fallback: emit event
     this.eventBus.emit('key:duplicate', { key })
   }
 
   showAliasCreationModal() {
-    if (this.app?.showAliasCreationModal) {
-      return this.app.showAliasCreationModal()
-    }
-    // Fallback: emit event
     this.eventBus.emit('alias:create-modal')
   }
 
   confirmDeleteAlias(key) {
-    if (this.app?.confirmDeleteAlias) {
-      return this.app.confirmDeleteAlias(key)
-    }
-    // Fallback: emit event
     this.eventBus.emit('alias:delete-confirm', { key })
   }
 
   duplicateAlias(key) {
-    if (this.app?.duplicateAlias) {
-      return this.app.duplicateAlias(key)
-    }
-    // Fallback: emit event
     this.eventBus.emit('alias:duplicate', { key })
   }
 
   confirmClearChain(key) {
-    if (this.app?.confirmClearChain) {
-      return this.app.confirmClearChain(key)
-    }
-    // Fallback: emit event
     this.eventBus.emit('chain:clear-confirm', { key })
   }
 
   validateCurrentChain() {
-    if (this.app?.validateCurrentChain) {
-      return this.app.validateCurrentChain()
-    }
-    // Fallback: emit event
     this.eventBus.emit('chain:validate')
   }
 
   filterKeys(value) {
-    if (this.app?.filterKeys) {
-      return this.app.filterKeys(value)
-    }
-    // Fallback: emit event
     this.eventBus.emit('keys:filter', { value })
   }
 
   filterCommands(value) {
-    if (this.app?.filterCommands) {
-      return this.app.filterCommands(value)
-    }
-    // Fallback: emit event
     this.eventBus.emit('commands:filter', { value })
   }
 
   showAllKeys() {
-    if (this.app?.showAllKeys) {
-      return this.app.showAllKeys()
-    }
-    // Fallback: emit event
     this.eventBus.emit('keys:show-all')
   }
 
   toggleKeyView() {
-    if (this.app?.toggleKeyView) {
-      return this.app.toggleKeyView()
-    }
-    // Fallback: emit event
     this.eventBus.emit('key-view:toggle')
   }
 
   toggleLibrary() {
-    // Fire-and-forget event – UI components listen and act
     this.eventBus.emit('library:toggle')
   }
 
   toggleAliasOptionsDropdown() {
-    if (this.app?.toggleAliasOptionsDropdown) {
-      return this.app.toggleAliasOptionsDropdown()
-    }
-    // Fallback: emit event
     this.eventBus.emit('alias-options:toggle')
   }
 
   closeAliasOptionsDropdown() {
-    if (this.app?.closeAliasOptionsDropdown) {
-      return this.app.closeAliasOptionsDropdown()
-    }
-    // Fallback: emit event
     this.eventBus.emit('alias-options:close')
   }
 
   updateAliasOptionsLabel() {
-    if (this.app?.updateAliasOptionsLabel) {
-      return this.app.updateAliasOptionsLabel()
-    }
-    // Fallback: emit event
     this.eventBus.emit('alias-options:update-label')
   }
 
   saveCommandFromModal() {
-    if (this.app?.saveCommandFromModal) {
-      return this.app.saveCommandFromModal()
-    }
-    // Fallback: emit event
     this.eventBus.emit('command:save-from-modal')
   }
 
   startKeyCapture(modalId) {
-    if (this.app?.startKeyCapture) {
-      return this.app.startKeyCapture(modalId)
-    }
-    // Fallback: emit event
     this.eventBus.emit('key-capture:start', { modalId })
   }
 
   stopKeyCapture() {
-    if (this.app?.stopKeyCapture) {
-      return this.app.stopKeyCapture()
-    }
-    // Fallback: emit event
     this.eventBus.emit('key-capture:stop')
   }
 
   showKeySelectionModal() {
-    if (this.app?.showKeySelectionModal) {
-      return this.app.showKeySelectionModal()
-    }
-    // Fallback: emit event
     this.eventBus.emit('key-selection:show-modal')
   }
 
@@ -1078,18 +1093,10 @@ export default class EventHandlerService extends ComponentBase {
   }
 
   toggleTheme() {
-    if (this.app?.toggleTheme) {
-      return this.app.toggleTheme()
-    }
-    // Fallback: emit event
     this.eventBus.emit('theme:toggle')
   }
 
   changeLanguage(lang) {
-    if (this.app?.changeLanguage) {
-      return this.app.changeLanguage(lang)
-    }
-    // Fallback: emit event
     this.eventBus.emit('language:change', { lang })
   }
 } 

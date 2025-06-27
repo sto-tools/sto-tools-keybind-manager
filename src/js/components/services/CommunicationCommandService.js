@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { request } from '../../core/requestResponse.js'
 
 export default class CommunicationCommandService extends ComponentBase {
   constructor ({ eventBus } = {}) {
@@ -6,19 +7,27 @@ export default class CommunicationCommandService extends ComponentBase {
     this.componentName = 'CommunicationCommandService'
   }
 
-  build (commandId, params = {}) {
-    const cmdDef = globalThis.STO_DATA?.commands?.communication?.commands?.[commandId]
-    if (!cmdDef) return null
+  async build (commandId, params = {}) {
+    try {
+      const cmdDef = await request(this.eventBus, 'data:get-command-definition', { 
+        categoryId: 'communication', 
+        commandId 
+      })
+      if (!cmdDef) return null
 
-    const message = params.message ?? 'Message text here'
+      const message = params.message ?? 'Message text here'
 
-    return {
-      command: `${cmdDef.command} ${message}`,
-      type: 'communication',
-      icon: cmdDef.icon,
-      text: `${cmdDef.name}: ${message}`,
-      description: cmdDef.description,
-      parameters: { message },
+      return {
+        command: `${cmdDef.command} ${message}`,
+        type: 'communication',
+        icon: cmdDef.icon,
+        text: `${cmdDef.name}: ${message}`,
+        description: cmdDef.description,
+        parameters: { message },
+      }
+    } catch (error) {
+      // Fallback if DataService not available
+      return null
     }
   }
 } 

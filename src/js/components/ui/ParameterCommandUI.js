@@ -9,6 +9,8 @@ const svc = new ParameterCommandService({ eventBus })
 // Initialize the service to start listening for events
 svc.init()
 
+
+
 /**
  * ParameterCommandUI – refactored UI component that owns the parameter editing
  * modal while delegating heavy business logic to `ParameterCommandService`.
@@ -20,9 +22,19 @@ svc.init()
  * • Emits events for actions instead of using request/response
  */
 export default class ParameterCommandUI extends ComponentBase {
-  constructor({ eventBus: bus = eventBus } = {}) {
+  constructor({ 
+    eventBus: bus = eventBus,
+    modalManager = null,
+    i18n = null,
+    ui = null
+  } = {}) {
     super(bus)
     this.componentName = 'ParameterCommandUI'
+    
+    // REFACTORED: Dependency injection instead of globalThis
+    this.modalManager = modalManager || (typeof globalThis !== 'undefined' ? globalThis.modalManager : null)
+    this.i18n = i18n || (typeof globalThis !== 'undefined' ? globalThis.i18next : null)
+    this.ui = ui || (typeof globalThis !== 'undefined' ? globalThis.stoUI : null)
     
     // State cache
     this._selectedKey = null
@@ -119,8 +131,8 @@ export default class ParameterCommandUI extends ComponentBase {
 
     this.populateParameterModal(commandDef)
 
-    // Use global modal manager (created in main.js)
-    globalThis.modalManager?.show('parameterModal')
+    // Use injected modal manager
+    this.modalManager?.show('parameterModal')
   }
 
   createParameterModal () {
@@ -166,10 +178,10 @@ export default class ParameterCommandUI extends ComponentBase {
     // Reset button text (i18n ready)
     const saveBtn = document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
-      saveBtn.textContent = globalThis.i18next?.t?.('add_command') || 'Add Command'
+      saveBtn.textContent = this.i18n?.t?.('add_command') || 'Add Command'
     }
 
-    globalThis.modalManager?.hide('parameterModal')
+    this.modalManager?.hide('parameterModal')
   }
 
   /* ------------------------------------------------------------
@@ -321,9 +333,9 @@ export default class ParameterCommandUI extends ComponentBase {
     
     if (!selectedKey || !this.currentParameterCommand) {
       const message = currentEnv === 'alias' 
-        ? (globalThis.i18next?.t?.('please_select_an_alias_first') || 'Please select an alias first')
-        : (globalThis.i18next?.t?.('please_select_a_key_first') || 'Please select a key first')
-      globalThis.stoUI?.showToast?.(message, 'warning')
+        ? (this.i18n?.t?.('please_select_an_alias_first') || 'Please select an alias first')
+        : (this.i18n?.t?.('please_select_a_key_first') || 'Please select a key first')
+      this.ui?.showToast?.(message, 'warning')
       return
     }
 
@@ -345,13 +357,13 @@ export default class ParameterCommandUI extends ComponentBase {
     }
 
     // Close modal
-    globalThis.modalManager?.hide('parameterModal')
+    this.modalManager?.hide('parameterModal')
     this.currentParameterCommand = null
 
     // Reset button text (i18n ready)
     const saveBtn = document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
-      saveBtn.textContent = globalThis.i18next?.t?.('add_command') || 'Add Command'
+      saveBtn.textContent = this.i18n?.t?.('add_command') || 'Add Command'
     }
   }
 
@@ -374,10 +386,10 @@ export default class ParameterCommandUI extends ComponentBase {
     // Update button text for editing
     const saveBtn = document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
-      saveBtn.textContent = globalThis.i18next?.t?.('update_command') || 'Update Command'
+      saveBtn.textContent = this.i18n?.t?.('update_command') || 'Update Command'
     }
 
-    globalThis.modalManager?.show('parameterModal')
+    this.modalManager?.show('parameterModal')
   }
 
   populateParameterModalForEdit (commandDef, existingParams = {}) {
@@ -483,7 +495,13 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 }
 
-// Create singleton instance for backward compatibility
-const parameterCommands = new ParameterCommandUI({ eventBus })
+// Create singleton instance for backward compatibility with dependency injection
+// Note: DataService will be injected later by app.js since it's created after this singleton
+const parameterCommands = new ParameterCommandUI({ 
+  eventBus,
+  modalManager: typeof globalThis !== 'undefined' ? globalThis.modalManager : null,
+  i18n: typeof globalThis !== 'undefined' ? globalThis.i18next : null,
+  ui: typeof globalThis !== 'undefined' ? globalThis.stoUI : null
+})
 
 export { parameterCommands } 

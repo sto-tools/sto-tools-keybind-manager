@@ -91,34 +91,6 @@ export default class CommandLibraryService extends ComponentBase {
       }
     })
 
-    // Listen for profile service events
-    this.eventBus.on('profile-switched', (data) => {
-      this.currentProfile = data.profileId
-      this.currentEnvironment = data.environment
-    })
-  
-    this.eventBus.on('environment:changed', (data) => {
-      const env = typeof data === 'string' ? data : data?.environment
-      if (env) {
-        this.currentEnvironment = env
-        this.selectedKey = null  // Clear selection when environment changes
-      }
-    })
-
-    // Keep selectedKey in sync with UI selections
-    if (this.eventBus) {
-      this.eventBus.on('key-selected', ({ key, name } = {}) => {
-        this.selectedKey = key || name || null
-      })
-
-      this.eventBus.on('alias-selected', ({ name } = {}) => {
-        if (!name) return
-        this.currentEnvironment = 'alias'
-        this.selectedKey = name
-      })
-    }
-
-
   }
 
   /**
@@ -196,112 +168,116 @@ export default class CommandLibraryService extends ComponentBase {
   /**
    * Find a command definition by command object
    */
-  findCommandDefinition(command) {
-    if (this.commandService && typeof this.commandService.findCommandDefinition === 'function') {
-      return this.commandService.findCommandDefinition(command)
-    }
-    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
+  async findCommandDefinition(command) {
+    try {
+      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      if (!hasCommands) return null
 
-    // --------------------------------------------------------------------
-    // Special handling for Tray Execution style commands
-    // These commands embed tray/slot parameters, so the literal match used
-    // for most commands (which compares against a sample command string)
-    // will fail (e.g. "+STOTrayExecByTray 1 1" vs sample "+STOTrayExecByTray 0 0").
-    // We therefore detect them heuristically and map them back to the
-    // correct library entry so that the UI can display the friendly name.
-    // --------------------------------------------------------------------
-    if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
-      const trayCategory = globalThis.STO_DATA.commands.tray
-      if (trayCategory) {
-        const categoryId = 'tray'
+      // --------------------------------------------------------------------
+      // Special handling for Tray Execution style commands
+      // These commands embed tray/slot parameters, so the literal match used
+      // for most commands (which compares against a sample command string)
+      // will fail (e.g. "+STOTrayExecByTray 1 1" vs sample "+STOTrayExecByTray 0 0").
+      // We therefore detect them heuristically and map them back to the
+      // correct library entry so that the UI can display the friendly name.
+      // --------------------------------------------------------------------
+      if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
+        const trayCategory = await request(this.eventBus, 'data:get-tray-category')
+        if (trayCategory) {
+          const categoryId = 'tray'
 
-        // 1. TrayExecByTrayWithBackup variants --------------------------------
-        if (command.command.includes('TrayExecByTrayWithBackup')) {
-          // a) Range with backup (multiple commands separated by $$)
-          if (command.command.includes('$$')) {
-            const def = trayCategory.commands.tray_range_with_backup
+          // 1. TrayExecByTrayWithBackup variants --------------------------------
+          if (command.command.includes('TrayExecByTrayWithBackup')) {
+            // a) Range with backup (multiple commands separated by $$)
+            if (command.command.includes('$$')) {
+              const def = trayCategory.commands.tray_range_with_backup
+              if (def) {
+                return { ...def, commandId: 'tray_range_with_backup', categoryId }
+              }
+            }
+            // b) Single tray slot with backup
+            const def = trayCategory.commands.tray_with_backup
             if (def) {
-              return { ...def, commandId: 'tray_range_with_backup', categoryId }
+              return { ...def, commandId: 'tray_with_backup', categoryId }
             }
           }
-          // b) Single tray slot with backup
-          const def = trayCategory.commands.tray_with_backup
-          if (def) {
-            return { ...def, commandId: 'tray_with_backup', categoryId }
-          }
-        }
 
-        // 2. STOTrayExecByTray / TrayExecByTray variants ----------------------
-        if (
-          command.command.includes('STOTrayExecByTray') ||
-          (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))
-        ) {
-          // a) Range across many slots (command chain using $$)
-          if (command.command.includes('$$')) {
-            const def = trayCategory.commands.tray_range
-            if (def) {
-              return { ...def, commandId: 'tray_range', categoryId }
+          // 2. STOTrayExecByTray / TrayExecByTray variants ----------------------
+          if (
+            command.command.includes('STOTrayExecByTray') ||
+            (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))
+          ) {
+            // a) Range across many slots (command chain using $$)
+            if (command.command.includes('$$')) {
+              const def = trayCategory.commands.tray_range
+              if (def) {
+                return { ...def, commandId: 'tray_range', categoryId }
+              }
             }
-          }
-          // b) Single tray slot (custom tray execution)
-          const def = trayCategory.commands.custom_tray
-          if (def) {
-            return { ...def, commandId: 'custom_tray', categoryId }
+            // b) Single tray slot (custom tray execution)
+            const def = trayCategory.commands.custom_tray
+            if (def) {
+              return { ...def, commandId: 'custom_tray', categoryId }
+            }
           }
         }
       }
-    }
 
-    // Generic lookup (exact match or containment) ---------------------------
-    for (const [categoryId, category] of Object.entries(globalThis.STO_DATA.commands)) {
-      for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-        if (
-          cmdData.command === command.command ||
-          cmdData.name === command.text ||
-          (command.command && command.command.includes(cmdData.command))
-        ) {
-          return { ...cmdData, commandId: cmdId, categoryId }
+      // Generic lookup (exact match or containment) ---------------------------
+      const categories = await request(this.eventBus, 'data:get-commands')
+      for (const [categoryId, category] of Object.entries(categories)) {
+        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
+          if (
+            cmdData.command === command.command ||
+            cmdData.name === command.text ||
+            (command.command && command.command.includes(cmdData.command))
+          ) {
+            return { ...cmdData, commandId: cmdId, categoryId }
+          }
         }
       }
-    }
 
-    return null
+      return null
+    } catch (error) {
+      // Fallback if DataService not available
+      return null
+    }
   }
 
   /**
    * Get command warning information
    */
-  getCommandWarning(command) {
-    if (this.commandService && typeof this.commandService.getCommandWarning === 'function') {
-      return this.commandService.getCommandWarning(command)
-    }
-    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return null
+  async getCommandWarning(command) {
+    try {
+      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      if (!hasCommands) return null
 
-    const categories = globalThis.STO_DATA.commands
+      const categories = await request(this.eventBus, 'data:get-commands')
 
-    for (const [categoryId, category] of Object.entries(categories)) {
-      for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-        // Match by command text or actual command
-        if (
-          cmdData.command === command.command ||
-          cmdData.name === command.text ||
-          command.command.includes(cmdData.command)
-        ) {
-          return cmdData.warning || null
+      for (const [categoryId, category] of Object.entries(categories)) {
+        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
+          // Match by command text or actual command
+          if (
+            cmdData.command === command.command ||
+            cmdData.name === command.text ||
+            command.command.includes(cmdData.command)
+          ) {
+            return cmdData.warning || null
+          }
         }
       }
-    }
 
-    return null
+      return null
+    } catch (error) {
+      // Fallback if DataService not available
+      return null
+    }
   }
 
   /**
    * Add a command to the selected key
    */
   addCommand(key, command) {
-    if (this.commandService && typeof this.commandService.addCommand === 'function') {
-      return this.commandService.addCommand(key, command)
-    }
     if (!this.selectedKey) {
       this.ui.showToast(this.i18n.t('please_select_a_key_first'), 'warning')
       return false
@@ -355,9 +331,6 @@ export default class CommandLibraryService extends ComponentBase {
    * Delete a command from the selected key
    */
   deleteCommand(key, index) {
-    if (this.commandService && typeof this.commandService.deleteCommand === 'function') {
-      return this.commandService.deleteCommand(key, index)
-    }
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
@@ -398,9 +371,7 @@ export default class CommandLibraryService extends ComponentBase {
    * Move a command to a new position
    */
   moveCommand(key, fromIndex, toIndex) {
-    if (this.commandService && typeof this.commandService.moveCommand === 'function') {
-      return this.commandService.moveCommand(key, fromIndex, toIndex)
-    }
+
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
@@ -440,30 +411,39 @@ export default class CommandLibraryService extends ComponentBase {
   /**
    * Get command categories for the library
    */
-  getCommandCategories() {
-    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return {}
-    return globalThis.STO_DATA.commands
+  async getCommandCategories() {
+    try {
+      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      if (!hasCommands) return {}
+      return await request(this.eventBus, 'data:get-commands')
+    } catch (error) {
+      return {}
+    }
   }
 
   /**
    * Filter command library based on current environment
    */
-  filterCommandLibrary() {
-    if (!globalThis.STO_DATA || !globalThis.STO_DATA.commands) return
+  async filterCommandLibrary() {
+    try {
+      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      if (!hasCommands) return
 
-    const commandItems = document.querySelectorAll('.command-item')
-    commandItems.forEach(item => {
-      const commandId = item.dataset.command
-      if (!commandId) return
+      const commandItems = document.querySelectorAll('.command-item')
+      const commands = await request(this.eventBus, 'data:get-commands')
+      
+      commandItems.forEach(item => {
+        const commandId = item.dataset.command
+        if (!commandId) return
 
-      // Find the command definition
-      let commandDef = null
-      for (const [catId, catData] of Object.entries(globalThis.STO_DATA.commands)) {
-        if (catData.commands[commandId]) {
-          commandDef = catData.commands[commandId]
-          break
+        // Find the command definition
+        let commandDef = null
+        for (const [catId, catData] of Object.entries(commands)) {
+          if (catData.commands[commandId]) {
+            commandDef = catData.commands[commandId]
+            break
+          }
         }
-      }
 
       if (commandDef) {
         let isVisible
@@ -493,6 +473,10 @@ export default class CommandLibraryService extends ComponentBase {
       const categoryVisible = visibleCommands.length > 0
       category.style.display = categoryVisible ? 'block' : 'none'
     })
+    } catch (error) {
+      // Fallback if DataService not available
+      console.warn('CommandLibraryService: filterCommandLibrary failed:', error)
+    }
   }
 
   /**

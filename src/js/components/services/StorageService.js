@@ -7,7 +7,8 @@ export default class StorageService extends ComponentBase {
     storageKey = 'sto_keybind_manager', 
     backupKey = 'sto_keybind_manager_backup', 
     settingsKey = 'sto_keybind_settings', 
-    version = '1.0.0' 
+    version = '1.0.0',
+    dataService = null
   } = {}) {
     super(bus)
     this.componentName = 'StorageService'
@@ -15,6 +16,8 @@ export default class StorageService extends ComponentBase {
     this.backupKey = backupKey
     this.settingsKey = settingsKey
     this.version = version
+    this.dataService = dataService
+
   }
 
   onInit() {
@@ -262,43 +265,65 @@ export default class StorageService extends ComponentBase {
   // Private methods
 
   getDefaultData() {
-    // Access STO_DATA from globalThis (works in both browser and Node.js environments)
-    const STO_DATA = globalThis.STO_DATA || {}
+    // Use STO_DATA to get rich default profiles when available
+    let profiles = {}
     
-    // Create fallback profiles in case STO_DATA.defaultProfiles is undefined
-    const getDefaultSpaceProfile = () => {
-      if (STO_DATA.defaultProfiles?.default_space) {
-        return { ...STO_DATA.defaultProfiles.default_space }
-      }
-      return {
-        name: 'Default Space',
-        description: 'Basic space combat configuration',
-        currentEnvironment: 'space',
-        builds: {
-          space: { keys: {} },
-          ground: { keys: {} }
+    // Try multiple sources for default profiles data
+    const stoData = this.dataService?.data || 
+                   (typeof globalThis !== 'undefined' ? globalThis.STO_DATA : null) ||
+                   (typeof window !== 'undefined' ? window.STO_DATA : null)
+    
+    if (stoData && stoData.defaultProfiles) {
+      // Use rich default profiles from STO_DATA
+      const defaultProfiles = stoData.defaultProfiles
+      profiles = {
+        default_space: {
+          ...defaultProfiles.default_space,
+          created: new Date().toISOString(),
+          lastModified: new Date().toISOString()
         },
-        aliases: {},
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString()
+        tactical_space: {
+          ...defaultProfiles.tactical_space,
+          created: new Date().toISOString(),
+          lastModified: new Date().toISOString()
+        }
       }
-    }
+    } else {
+      // Fallback profiles when STO_DATA is not available
+      // This avoids async complexity in storage initialization
+      const getDefaultSpaceProfile = () => {
+        return {
+          name: 'Default Space',
+          description: 'Basic space combat configuration',
+          currentEnvironment: 'space',
+          builds: {
+            space: { keys: {} },
+            ground: { keys: {} }
+          },
+          aliases: {},
+          created: new Date().toISOString(),
+          lastModified: new Date().toISOString()
+        }
+      }
 
-    const getTacticalSpaceProfile = () => {
-      if (STO_DATA.defaultProfiles?.tactical_space) {
-        return { ...STO_DATA.defaultProfiles.tactical_space }
+      const getTacticalSpaceProfile = () => {
+        return {
+          name: 'Tactical Space',
+          description: 'Aggressive DPS-focused space build',
+          currentEnvironment: 'space',
+          builds: {
+            space: { keys: {} },
+            ground: { keys: {} }
+          },
+          aliases: {},
+          created: new Date().toISOString(),
+          lastModified: new Date().toISOString()
+        }
       }
-      return {
-        name: 'Tactical Space',
-        description: 'Aggressive DPS-focused space build',
-        currentEnvironment: 'space',
-        builds: {
-          space: { keys: {} },
-          ground: { keys: {} }
-        },
-        aliases: {},
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString()
+      
+      profiles = {
+        default_space: getDefaultSpaceProfile(),
+        tactical_space: getTacticalSpaceProfile(),
       }
     }
     
@@ -307,10 +332,7 @@ export default class StorageService extends ComponentBase {
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
       currentProfile: 'default_space',
-      profiles: {
-        default_space: getDefaultSpaceProfile(),
-        tactical_space: getTacticalSpaceProfile(),
-      },
+      profiles: profiles,
       globalAliases: {},
       settings: this.getDefaultSettings(),
     }
@@ -421,14 +443,11 @@ export default class StorageService extends ComponentBase {
 
     // Always ensure we have at least one profile
     if (Object.keys(data.profiles).length === 0) {
-      // Access STO_DATA from globalThis (works in both browser and Node.js environments)
-      const STO_DATA = globalThis.STO_DATA || {}
+      // REFACTORED: Use fallback profiles instead of DataService dependency
+      // This avoids async complexity in storage initialization
       
-      // Create fallback profile in case STO_DATA.defaultProfiles is undefined
+      // Create fallback profile
       const getDefaultSpaceProfile = () => {
-        if (STO_DATA.defaultProfiles?.default_space) {
-          return { ...STO_DATA.defaultProfiles.default_space }
-        }
         return {
           name: 'Default Space',
           description: 'Basic space combat configuration',

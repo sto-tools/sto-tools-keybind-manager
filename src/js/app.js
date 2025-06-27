@@ -2,20 +2,19 @@
 // Coordinates all modules and handles global application state
 import store from './core/store.js'
 import eventBus from './core/eventBus.js'
+import DataService from './components/services/DataService.js'
 import { AutoSync } from './components/services/index.js'
 import ProfileService from './components/services/ProfileService.js'
 import ProfileUI from './components/ui/ProfileUI.js'
-import { keyHandling } from './features/keyHandling.js'
-import { uiRendering } from './ui/uiRendering.js'
-import ParameterCommandUI, { parameterCommands } from './components/ui/ParameterCommandUI.js'
+
+import ParameterCommandUI from './components/ui/ParameterCommandUI.js'
 import { EventHandlerService, InterfaceModeService } from './components/services/index.js'
 import { ProjectManagementService } from './components/services/index.js'
 import { InterfaceModeUI } from './components/ui/index.js'
 import { CommandService, CommandLibraryService } from './components/services/index.js'
 import { CommandLibraryUI, CommandUI } from './components/ui/index.js'
 import { AliasBrowserService, AliasBrowserUI } from './components/aliases/index.js'
-import { viewManagement } from './ui/viewManagement.js'
-import { welcome } from './ui/welcome.js'
+
 import { CommandChainService, CommandChainUI } from './components/chain/index.js'
 import { KeyBrowserService, KeyBrowserUI } from './components/keybinds/index.js'
 import { PreferencesService } from './components/services/index.js'
@@ -34,6 +33,9 @@ export default class STOToolsKeybindManager {
     this.store = store
     this.eventListeners = new Map()
     this.autoSyncManager = null // created later when dependencies available
+
+    // REFACTORED: Initialize DataService to eliminate globalThis.STO_DATA dependencies
+    this.dataService = null
 
     // Initialize profile service and UI when dependencies are available
     this.profileService = null
@@ -116,6 +118,16 @@ export default class STOToolsKeybindManager {
         throw new Error('Required dependencies not loaded')
       }
       // dbg('dependencies check passed')
+      
+      // REFACTORED: Create DataService first to eliminate globalThis.STO_DATA dependencies
+      this.dataService = new DataService({ 
+        eventBus,
+        data: typeof globalThis !== 'undefined' ? globalThis.STO_DATA : null
+      })
+      this.dataService.init()
+      
+
+      
       // dbg('About to create ProfileService')
       this.profileService = new ProfileService({ 
         storage: storageService, 
@@ -286,11 +298,14 @@ export default class STOToolsKeybindManager {
       // dbg('CommandUI created')
       
       // ---------------------------------
-      // Parameter Command UI (use singleton instance)
+      // Parameter Command UI
       // ---------------------------------
-      this.parameterCommandUI = parameterCommands
-      this.parameterCommandUI.commandService = this.commandService
-      this.parameterCommandUI.commandLibraryService = this.commandLibraryService
+      this.parameterCommandUI = new ParameterCommandUI({
+        eventBus,
+        modalManager,
+        i18n: i18next,
+        ui: stoUI
+      })
       
       // Initialize EventHandlerService
       this.eventHandlerService = new EventHandlerService({
@@ -354,12 +369,7 @@ export default class STOToolsKeybindManager {
       this.parameterCommandUI.init()
 
       // dbg('Event handler setup completed')
-      // Apply theme
-      this.applyTheme()
-
-      // dbg('Theme applied')
-      // Apply language
-      await this.applyLanguage()
+      // REMOVED: Theme and language application moved to dedicated services
 
       // dbg('Language applied')
       // Initialize preferences service & UI
@@ -423,15 +433,11 @@ export default class STOToolsKeybindManager {
       this.profileUI.updateProfileInfo()
       // dbg('Profile info updated')
 
-      // Update toggle button to reflect current view mode
-      const currentViewMode = localStorage.getItem('keyViewMode') || 'key-types'
-      this.updateViewToggleButton(currentViewMode)
-      // dbg('View toggle button updated')
+      // REMOVED: View toggle button management moved to dedicated UI components
 
       // Show welcome message for new users
-      if (this.isFirstTime()) {
-        this.showWelcomeMessage()
-      }
+      this.checkAndShowWelcomeMessage()
+      
       // dbg('Welcome message check completed')
 
       stoUI.showToast(
@@ -459,8 +465,7 @@ export default class STOToolsKeybindManager {
       // Alias selection now flows through the event bus to CommandChainService
       // and CommandLibraryService, so no direct wiring needed here.
 
-      // Make the service available to helper modules that are plain objects
-      parameterCommands.commandService = this.commandService
+      // REMOVED: parameterCommands mixin is now handled by ParameterCommandUI directly
 
       // dbg('Init method completed successfully!')
 
@@ -569,181 +574,29 @@ export default class STOToolsKeybindManager {
     }
   }
 
-  // Profile management proxy methods
-  getCurrentProfile() {
-    return this.profileService ? this.profileService.getCurrentProfile() : null
-  }
+  // REMOVED: Profile management proxy methods
+  // These have been removed as part of Phase 1 refactoring to eliminate app proxy methods.
+  // Components should now communicate directly with ProfileService and ProfileUI via events:
+  // - Use eventBus events: 'profile:switch', 'profile:create', 'profile:delete' etc.
+  // - Use request/response pattern: request(eventBus, 'profile:get-current', {})
+  // - Listen to events: 'profile-switched', 'profile-created', 'profile-deleted'
 
-  switchProfile(profileId) {
-    if (this.profileService && this.profileUI) {
-      return this.profileUI.handleProfileSwitch(profileId)
-    }
-  }
-
-  createProfile(name, description, mode) {
-    if (this.profileService && this.profileUI) {
-      try {
-        const result = this.profileService.createProfile(name, description, mode)
-        if (result.success) {
-          this.profileService.switchProfile(result.profileId)
-          this.profileUI.renderProfiles()
-          this.profileUI.updateProfileInfo()
-          // Show toast message for test compatibility
-          if (typeof stoUI !== 'undefined' && stoUI.showToast) {
-            stoUI.showToast(result.message, 'success')
-          }
-          return result.profileId
-        }
-        return null
-      } catch (error) {
-        return null
-      }
-    }
-    return null
-  }
-
-  cloneProfile(sourceProfileId, newName) {
-    if (this.profileService && this.profileUI) {
-      try {
-        const result = this.profileService.cloneProfile(sourceProfileId, newName)
-        if (result.success) {
-          this.profileUI.renderProfiles()
-          // Show toast message for test compatibility
-          if (typeof stoUI !== 'undefined' && stoUI.showToast) {
-            stoUI.showToast(result.message, 'success')
-          }
-          return result.profileId
-        }
-        return null
-      } catch (error) {
-        return null
-      }
-    }
-    return null
-  }
-
-  deleteProfile(profileId) {
-    if (this.profileService && this.profileUI) {
-      try {
-        const result = this.profileService.deleteProfile(profileId)
-        if (result.success) {
-          if (result.switchedProfile) {
-            this.selectedKey = null
-            this.profileUI.updateProfileInfo()
-          }
-          this.profileUI.renderProfiles()
-          return true
-        }
-        return false
-      } catch (error) {
-        return false
-      }
-    }
-    return false
-  }
-
-  saveProfile() {
-    if (this.profileService) {
-      try {
-        this.profileService.saveProfile()
-        return true
-      } catch (error) {
-        return false
-      }
-    }
-    return false
-  }
-
-  saveData() {
-    if (this.profileService) {
-      try {
-        this.profileService.saveData()
-        return true
-      } catch (error) {
-        return false
-      }
-    }
-    return false
-  }
-
-  setModified(modified = true) {
-    if (this.profileService) {
-      this.profileService.setModified(modified)
-    }
-    if (this.profileUI) {
-      this.profileUI.updateProfileInfo()
-    }
-  }
-
-  renderProfiles() {
-    if (this.profileUI) {
-      this.profileUI.renderProfiles()
-    }
-  }
-
-  updateProfileInfo() {
-    if (this.profileUI) {
-      this.profileUI.updateProfileInfo()
-    }
-  }
-
-  saveCurrentBuild() {
-    if (this.profileService) {
-      try {
-        this.profileService.saveCurrentBuild()
-        return true
-      } catch (error) {
-        return false
-      }
-    }
-    return false
-  }
-
-  saveCurrentProfile() {
-    if (this.profileService) {
-      try {
-        this.profileService.saveCurrentProfile()
-        return true
-      } catch (error) {
-        return false
-      }
-    }
-    return false
-  }
-
-  getCurrentBuild(profile) {
-    if (this.profileService) {
-      return this.profileService.getCurrentBuild(profile)
-    }
-    return null
-  }
-
-  generateProfileId(name) {
-    if (this.profileService) {
-      return this.profileService.generateProfileId(name)
-    }
-    return null
-  }
-
-  // Alias management proxy methods for backward compatibility
-  createAliasChain(name, description = '') {
-    if (this.aliasBrowserService && typeof this.aliasBrowserService.createAlias === 'function') {
-      return this.aliasBrowserService.createAlias(name, description)
-    }
-    return false
-  }
-
-  renderAliasGrid() {
-    if (this.aliasBrowserUI && typeof this.aliasBrowserUI.render === 'function') {
-      this.aliasBrowserUI.render()
-    }
-  }
+  // REMOVED: Alias management proxy methods for backward compatibility
+  // These have been removed as part of Phase 1 refactoring.
+  // Use AliasBrowserService and AliasBrowserUI events instead:
+  // - eventBus.emit('alias:create', { name, description })
+  // - eventBus.emit('alias:render')
 
   generateCommandId() {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
   addCommand(key, command) {
+    // DEPRECATED: This method will be removed in Phase 2
+    // Use CommandService events instead
+    console.warn('[DEPRECATED] app.addCommand() called - use CommandService events instead')
+    console.warn('Call stack:', new Error().stack)
+    
     const profile = this.getCurrentProfile()
     if (!profile || !key) return false
 
@@ -755,51 +608,54 @@ export default class STOToolsKeybindManager {
     }
 
     profile.keys[key].push(command)
+    // DEPRECATED: Direct calls to saveProfile and setModified
     this.saveProfile()
     this.setModified(true)
     return true
   }
 
-  selectKey(keyName) {
-    // DEPRECATED: Direct method call should only be used in tests
-    console.warn('[DEPRECATED] app.selectKey() called - use KeyBrowserService.selectKey() instead')
-    console.warn('Call stack:', new Error().stack)
-    
-    keyHandling.selectKey(keyName)
-    // Synchronize with the command library service via event
-    eventBus.emit('key-selected', { key: keyName })
+  // TEMPORARY: Keep minimal compatibility methods for Phase 1
+  // These will be removed in Phase 2 when EventHandlerService is refactored
+  getCurrentProfile() {
+    return this.profileService ? this.profileService.getCurrentProfile() : null
   }
 
-  // (deprecated command library helpers removed)
-
-  /* --------------------------------------------------
-   * Key capture wrappers (Maintains public API used by
-   * EventHandlerService and other legacy code.)
-   * ------------------------------------------------ */
-  startKeyCapture(modalContext = 'keySelectionModal') {
-    return this.keyCaptureUI?.startCapture(modalContext)
+  saveProfile() {
+    // DEPRECATED: This method will be removed in Phase 2
+    console.warn('[DEPRECATED] app.saveProfile() called - use ProfileService events instead')
+    if (this.profileService) {
+      try {
+        this.profileService.saveProfile()
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+    return false
   }
 
-  stopKeyCapture() {
-    return this.keyCaptureUI?.stopCapture()
-  }
-
-  // ------------------------------------------------------------------
-  // Backward-compatibility thin wrappers – emit events rather than performing
-  // logic directly. These can be deleted once all tests & legacy hooks are
-  // migrated.
-  // ------------------------------------------------------------------
-
-  applyTheme(theme) {
-    if (this.preferencesService) {
-      this.preferencesService.applyTheme(theme)
+  setModified(modified = true) {
+    // DEPRECATED: This method will be removed in Phase 2
+    console.warn('[DEPRECATED] app.setModified() called - use ProfileService events instead')
+    if (this.profileService) {
+      this.profileService.setModified(modified)
+    }
+    if (this.profileUI) {
+      this.profileUI.updateProfileInfo()
     }
   }
-  applyLanguage(language) {
-    if (this.preferencesService) {
-      this.preferencesService.applyLanguage(language)
-    }
-  }
+
+  // REMOVED: Key capture proxy methods
+  // These have been removed as part of Phase 1 refactoring.
+  // Use KeyCaptureService and KeyCaptureUI events instead:
+  // - eventBus.emit('key-capture:start', { modalContext })
+  // - eventBus.emit('key-capture:stop')
+
+  // REMOVED: Theme and language proxy methods
+  // These have been removed as part of Phase 1 refactoring.
+  // Use PreferencesService events instead:
+  // - eventBus.emit('preferences:theme-change', { theme })
+  // - eventBus.emit('preferences:language-change', { language })
  
   
   // (deprecated mode & project proxy methods removed)
@@ -831,15 +687,29 @@ export default class STOToolsKeybindManager {
     // Services should be listening to the environment:changed event directly
     // This is a no-op to identify legacy usage patterns
   }
+
+  // Welcome message functionality (moved from welcome mixin)
+  isFirstTime() {
+    return !localStorage.getItem('sto_keybind_manager_visited')
+  }
+
+  checkAndShowWelcomeMessage() {
+    if (this.isFirstTime()) {
+      localStorage.setItem('sto_keybind_manager_visited', 'true')
+      if (typeof modalManager !== 'undefined') {
+        modalManager.show('aboutModal')
+      }
+    }
+  }
 }
 
-// Apply mixins to prototype
-Object.assign(
-  STOToolsKeybindManager.prototype,
-  keyHandling,
-  uiRendering,
-  parameterCommands,
-  viewManagement,
-  welcome,
-)
+// REMOVED: Mixin pattern application
+// This has been removed as part of Phase 4 refactoring to eliminate mixins.
+// The functionality from these mixins has been moved to dedicated services:
+// - keyHandling -> KeyService, KeyBrowserService  
+// - uiRendering -> KeyBrowserUI, AliasBrowserUI
+// - parameterCommands -> ParameterCommandService, ParameterCommandUI
+// - viewManagement -> InterfaceModeService, InterfaceModeUI
+// - welcome -> Moved to app.checkAndShowWelcomeMessage()
+// Components should communicate via events instead of direct method calls
 

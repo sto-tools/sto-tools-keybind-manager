@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { request } from '../../core/requestResponse.js'
 import eventBus from '../../core/eventBus.js'
 import CommandBuilderService from './CommandBuilderService.js'
 
@@ -20,9 +21,10 @@ import CommandBuilderService from './CommandBuilderService.js'
  * • Only uses request/response for actions, not state access
  */
 export default class ParameterCommandService extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus } = {}) {
+  constructor ({ eventBus: bus = eventBus, dataService = null } = {}) {
     super(bus)
     this.componentName = 'ParameterCommandService'
+
     // Re-use the existing builder hierarchy that already lives in the codebase
     this.commandBuilderService = new CommandBuilderService({ eventBus: bus })
     
@@ -371,10 +373,10 @@ export default class ParameterCommandService extends ComponentBase {
    * Attempts to find the command definition in STO_DATA for a given concrete
    * command string.  Needed when editing an existing command chain.
    */
-  findCommandDefinition (command) {
+  async findCommandDefinition (command) {
     // Special handling for tray execution commands
     if (command.command.includes('TrayExec')) {
-      const trayCategory = globalThis.STO_DATA?.commands?.tray
+      const trayCategory = await request(this.eventBus, 'data:get-tray-category')
       if (trayCategory) {
         if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
           const trayRangeWithBackupDef = trayCategory.commands.tray_range_with_backup
@@ -400,23 +402,28 @@ export default class ParameterCommandService extends ComponentBase {
       }
     }
 
-    const category = globalThis.STO_DATA?.commands?.[command.type]
-    if (!category) return null
+    try {
+      const category = await request(this.eventBus, 'data:get-command-category', { categoryId: command.type })
+      if (!category) return null
 
-    // Exact match first (non-customisable commands)
-    for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-      if (cmdDef.command === command.command) {
-        return { commandId: cmdId, ...cmdDef }
+      // Exact match first (non-customisable commands)
+      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
+        if (cmdDef.command === command.command) {
+          return { commandId: cmdId, ...cmdDef }
+        }
       }
-    }
 
-    // Fallback: match by base command string (customisable commands)
-    for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-      if (cmdDef.customizable && command.command.startsWith(cmdDef.command.split(' ')[0])) {
-        return { commandId: cmdId, ...cmdDef }
+      // Fallback: match by base command string (customisable commands)
+      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
+        if (cmdDef.customizable && command.command.startsWith(cmdDef.command.split(' ')[0])) {
+          return { commandId: cmdId, ...cmdDef }
+        }
       }
-    }
 
-    return null
+      return null
+    } catch (error) {
+      // Fallback if DataService not available
+      return null
+    }
   }
 } 
