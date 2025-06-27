@@ -4,7 +4,7 @@ import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 export default class PreferencesUI extends ComponentBase {
-  constructor({ service = null, ui = null, modalManager = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({ service = null, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'PreferencesUI'
     
@@ -12,7 +12,6 @@ export default class PreferencesUI extends ComponentBase {
     this._legacyService = service
     
     this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
-    this.modalManager = modalManager || (typeof modalManager !== 'undefined' ? modalManager : null)
     this.document = document
 
     this.eventsSetup = false
@@ -132,7 +131,8 @@ export default class PreferencesUI extends ComponentBase {
     if (ok && manual && this.ui?.showToast) {
       this.ui.showToast(i18next.t('preferences_saved'), 'success')
     }
-    this.modalManager?.hide('preferencesModal')
+    // Use event bus instead of direct modalManager call
+    this.eventBus.emit('modal:hide', { modalId: 'preferencesModal' })
   }
 
   async showPreferences() {
@@ -141,7 +141,8 @@ export default class PreferencesUI extends ComponentBase {
     const settings = await request(eventBus, 'preferences:get-settings')
     Object.entries(settings).forEach(([k, v]) => this.updateUI(k, v))
     this.updateFolderDisplay()
-    this.modalManager?.show('preferencesModal')
+    // Use event bus instead of direct modalManager call
+    this.eventBus.emit('modal:show', { modalId: 'preferencesModal' })
   }
 
   async populatePreferencesModal() {
@@ -172,11 +173,6 @@ export default class PreferencesUI extends ComponentBase {
   async saveSettings() {
     // Use request/response instead of direct service call
     const ok = await request(eventBus, 'preferences:save-settings')
-    if (ok) {
-      this.ui?.showToast('Settings saved successfully', 'success')
-    } else {
-      this.ui?.showToast('Failed to save settings', 'error')
-    }
     return ok
   }
 
