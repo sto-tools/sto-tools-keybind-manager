@@ -24,7 +24,7 @@ import FileOperationsService from './components/services/FileOperationsService.j
 import ExportService from './components/services/ExportService.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
-import { VFXManagerService } from './components/services/index.js'
+import { VFXManagerService, ModalManagerService } from './components/services/index.js'
 import { VFXManagerUI } from './components/ui/index.js'
 
 
@@ -118,6 +118,13 @@ export default class STOToolsKeybindManager {
         throw new Error('Required dependencies not loaded')
       }
       // dbg('dependencies check passed')
+      
+      // Create ModalManagerService first so it's available for all components
+      this.modalManagerService = new ModalManagerService(eventBus)
+      this.modalManagerService.init()
+      
+      // Make it available globally for components that need direct access
+      const modalManager = this.modalManagerService
       
       // REFACTORED: Create DataService first to eliminate globalThis.STO_DATA dependencies
       this.dataService = new DataService({ 
@@ -374,7 +381,7 @@ export default class STOToolsKeybindManager {
       // dbg('Language applied')
       // Initialize preferences service & UI
       this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
-      this.preferencesUI = new PreferencesUI({ service: this.preferencesService, modalManager, ui: stoUI })
+      this.preferencesUI = new PreferencesUI({ service: this.preferencesService, ui: stoUI })
       this.preferencesManager = this.preferencesUI
       this.preferencesService.init()
       this.preferencesUI.init()

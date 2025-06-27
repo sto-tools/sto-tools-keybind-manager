@@ -65,22 +65,16 @@ describe('ParameterCommandService', () => {
     })
 
     it('should handle editing mode when currentParameterCommand is properly set', () => {
-      // Set up the service state to simulate editing mode
-      service.currentParameterCommand = {
-        isEditing: true,
-        editIndex: 0
-      }
-      
-      // Mock getCurrentProfile to return a profile with existing commands
-      service.getCurrentProfile = vi.fn(() => ({
-        keys: {
-          'testKey': [
-            { command: '+TrayExecByTray 0 0', type: 'tray' }
-          ]
-        }
-      }))
-      
+      // Set up the service state to simulate editing mode using events
       service.selectedKey = 'testKey'
+      
+      // Emit parameter editing start event with existing command
+      eventBus.emit('parameter-edit:start', {
+        index: 0,
+        key: 'testKey',
+        command: { command: '+TrayExecByTray 0 0', type: 'tray' },
+        commandDef: { icon: 'test', name: 'Test Command' }
+      })
       
       const result = service.buildParameterizedCommand('tray', 'custom_tray', 
         { icon: 'test', name: 'Test Command' }, 
@@ -236,7 +230,8 @@ describe('ParameterCommandService', () => {
       expect(state).toEqual({
         selectedKey: 'F1',
         selectedAlias: null,
-        currentEnvironment: 'space'
+        currentEnvironment: 'space',
+        editingContext: null
       })
     })
 
@@ -270,9 +265,32 @@ describe('ParameterCommandService', () => {
       eventBus.emit('environment:changed', { environment: 'ground' })
       expect(service.currentEnvironment).toBe('ground')
       
-      // Test with string format
+      // Test string format as well
       eventBus.emit('environment:changed', 'space')
       expect(service.currentEnvironment).toBe('space')
+    })
+
+    it('should handle parameter editing events correctly', () => {
+      const editData = {
+        index: 1,
+        key: 'F2',
+        command: { command: '+TrayExecByTray 2 3', type: 'tray' },
+        commandDef: { icon: 'test', name: 'Test Tray Command' }
+      }
+
+      // Start editing
+      eventBus.emit('parameter-edit:start', editData)
+      
+      expect(service.editingContext).toEqual({
+        isEditing: true,
+        editIndex: 1,
+        selectedKey: 'F2',
+        existingCommand: editData.command
+      })
+
+      // End editing
+      eventBus.emit('parameter-edit:end')
+      expect(service.editingContext).toBeNull()
     })
   })
 }) 

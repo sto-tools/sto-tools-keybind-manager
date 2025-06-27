@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import STOModalManager from '../../src/js/ui/modalManager.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
 describe('STOModalManager - Language Change Callbacks', () => {
   let modalManager
@@ -36,7 +37,7 @@ describe('STOModalManager - Language Change Callbacks', () => {
       }
     }
 
-    modalManager = new STOModalManager()
+    modalManager = new STOModalManager(eventBus)
   })
 
   afterEach(() => {

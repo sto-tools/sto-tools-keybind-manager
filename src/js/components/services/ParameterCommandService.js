@@ -33,6 +33,9 @@ export default class ParameterCommandService extends ComponentBase {
     this.selectedAlias = null
     this.currentEnvironment = 'space'
 
+    // Cache editing state from UI events
+    this.editingContext = null
+
     // Note: No request/response handlers for state access - we follow broadcast/cache pattern
   }
 
@@ -52,6 +55,20 @@ export default class ParameterCommandService extends ComponentBase {
       const env = typeof data === 'string' ? data : data.environment
       if (env) this.currentEnvironment = env
     })
+
+    // Listen for parameter editing events from UI
+    this.addEventListener('parameter-edit:start', (data) => {
+      this.editingContext = {
+        isEditing: true,
+        editIndex: data.index,
+        selectedKey: data.key,
+        existingCommand: data.command
+      }
+    })
+
+    this.addEventListener('parameter-edit:end', () => {
+      this.editingContext = null
+    })
   }
 
   /* ------------------------------------------------------------
@@ -61,7 +78,8 @@ export default class ParameterCommandService extends ComponentBase {
     return {
       selectedKey: this.selectedKey,
       selectedAlias: this.selectedAlias,
-      currentEnvironment: this.currentEnvironment
+      currentEnvironment: this.currentEnvironment,
+      editingContext: this.editingContext
     }
   }
 
@@ -77,6 +95,9 @@ export default class ParameterCommandService extends ComponentBase {
     }
     if (state.currentEnvironment !== undefined) {
       this.currentEnvironment = state.currentEnvironment
+    }
+    if (state.editingContext !== undefined) {
+      this.editingContext = state.editingContext
     }
   }
 
@@ -280,13 +301,12 @@ export default class ParameterCommandService extends ComponentBase {
         }
 
         /* ----- Single slot / default path -------------------------------- */
-        const isEditing = this.currentParameterCommand && this.currentParameterCommand.isEditing
+        const isEditing = this.editingContext && this.editingContext.isEditing
         const commandType = p.command_type || 'STOTrayExecByTray'
         const prefix = '+'
 
         if (isEditing) {
-          const profile = this.getCurrentProfile?.()
-          const existingCmd = profile?.keys?.[selectedKey]?.[this.currentParameterCommand?.editIndex]
+          const existingCmd = this.editingContext.existingCommand
           if (existingCmd && (existingCmd.command.startsWith('TrayExecByTray') || existingCmd.command.startsWith('+TrayExecByTray'))) {
             return {
               command: `+TrayExecByTray ${tray} ${slot}`,

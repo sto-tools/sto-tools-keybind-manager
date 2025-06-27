@@ -173,6 +173,9 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 
   cancelParameterCommand () {
+    // Emit event to notify services that editing has ended
+    this.eventBus.emit('parameter-edit:end')
+    
     this.currentParameterCommand = null
 
     // Reset button text (i18n ready)
@@ -358,6 +361,10 @@ export default class ParameterCommandUI extends ComponentBase {
 
     // Close modal
     this.modalManager?.hide('parameterModal')
+    
+    // Emit event to notify services that editing has ended
+    this.eventBus.emit('parameter-edit:end')
+    
     this.currentParameterCommand = null
 
     // Reset button text (i18n ready)
@@ -371,6 +378,17 @@ export default class ParameterCommandUI extends ComponentBase {
    * Edit mode
    * ---------------------------------------------------------- */
   editParameterizedCommand (index, command, commandDef) {
+    // Emit event for services that need editing context
+    const currentEnv = this._currentEnvironment || 'space'
+    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
+    
+    this.eventBus.emit('parameter-edit:start', {
+      index,
+      key: selectedKey,
+      command,
+      commandDef
+    })
+
     this.currentParameterCommand = {
       ...commandDef,
       editIndex: index,

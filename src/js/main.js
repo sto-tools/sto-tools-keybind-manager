@@ -10,7 +10,6 @@ import es from '../i18n/es.json'
 import { StorageService } from './components/services/index.js'
 import STOKeybindFileManager from './features/keybinds.js'
 import STOExportManager from './features/export.js'
-import STOModalManager from './ui/modalManager.js'
 import STOUIManager from './ui/ui.js'
 // import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
@@ -93,8 +92,6 @@ const settings = storageService.getSettings()
   // Create dependencies first
   const stoKeybinds = new STOKeybindFileManager()
   const stoExport = new STOExportManager({ storage: storageService })
-  const modalManager = new STOModalManager(eventBus)
-  modalManager.init()
   const stoUI = new STOUIManager()
   // const stoCommands = new STOCommandManager() // DEPRECATED: see CommandBuilderService
   const stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })
@@ -106,7 +103,6 @@ const settings = storageService.getSettings()
     storageService, // Keep this for backward compatibility
     stoKeybinds,
     stoExport,
-    modalManager,
     stoUI,
     // stoCommands, // DEPRECATED: see CommandBuilderService
     stoFileExplorer,

@@ -8,11 +8,10 @@ export { default as ConfirmDialogUI } from './ConfirmDialogUI.js'
 export { default as KeyCaptureUI } from './KeyCaptureUI.js'
 export { default as VFXManagerUI } from './VFXManagerUI.js'
 
-// Legacy UI exports
-export { default as modalManager } from '../../ui/modalManager.js'
-export { viewManagement } from '../../ui/viewManagement.js'
+export { default as KeyBrowserUI } from './KeyBrowserUI.js'
+export { default as AliasBrowserUI } from './AliasBrowserUI.js'
+
 
 // UI Rendering
-export { uiRendering } from '../../ui/uiRendering.js'
 export { default as FileExplorerUI } from './FileExplorerUI.js'
-export { welcome } from '../../ui/welcome.js' 
+//export { welcome } from '../../ui/welcome.js' 
