@@ -57,7 +57,7 @@ describe('Export Mirroring Integration', () => {
 
     storageService = new StorageService()
     stoKeybinds = new STOKeybindFileManager()
-    stoExport = new STOExportManager()
+    stoExport = new STOExportManager({ storage: storageService })
     stoUI = { showToast: vi.fn() }
     Object.assign(global, { storageService, stoKeybinds, stoExport, stoUI })
 

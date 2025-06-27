@@ -457,9 +457,6 @@ export default class KeyService extends ComponentBase {
    * Import alias-only content (similar to original STOKeybindFileManager.importAliasFile)
    */
   importAliasFile (content) {
-    const result = super.importAliasFile ? super.importAliasFile(content) : undefined
-    // If super didn't exist (should not happen) use existing logic
-    if (result === undefined) {
     const parsed = this.parseKeybindFile(content)
     const aliasCount = Object.keys(parsed.aliases).length
     if (aliasCount === 0) return { success: false, error: 'No aliases found' }
@@ -475,18 +472,11 @@ export default class KeyService extends ComponentBase {
     })
     storage.saveProfile(profileId, profile)
 
-      if (typeof window !== 'undefined') {
-        window.app?.setModified?.(true)
-      }
-
-    return { success: true, imported: { aliases: aliasCount }, errors: parsed.errors }
-    }
-
-    // If super implementation succeeded, replicate modification flag
-    if (result && result.success && typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       window.app?.setModified?.(true)
     }
-    return result
+
+    return { success: true, imported: { aliases: aliasCount }, errors: parsed.errors }
   }
 
   /* ------------------------------------------------------------------

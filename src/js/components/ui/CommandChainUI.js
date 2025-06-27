@@ -10,6 +10,7 @@ export default class CommandChainUI extends ComponentBase {
     this.document = document
     this._selectedKey = null
     this._currentEnvironment = 'space'
+
   }
 
   async onInit () {
@@ -75,49 +76,52 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   async render (commandsArg = null) {
-    const container   = this.document.getElementById('commandList')
-    const titleEl     = this.document.getElementById('chainTitle')
-    const previewEl   = this.document.getElementById('commandPreview')
-    const countSpanEl = this.document.getElementById('commandCount')
-    const emptyState  = this.document.getElementById('emptyState')
+      const container   = this.document.getElementById('commandList')
+      const titleEl     = this.document.getElementById('chainTitle')
+      const previewEl   = this.document.getElementById('commandPreview')
+      const countSpanEl = this.document.getElementById('commandCount')
+      const emptyState  = this.document.getElementById('emptyState')
 
-    if (!container || !titleEl || !previewEl) return
+      if (!container || !titleEl || !previewEl) return
 
-    const commands = commandsArg || await request(this.eventBus, 'command:get-for-selected-key')
+      const commands = commandsArg || await request(this.eventBus, 'command:get-for-selected-key')
 
-    const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
-    console.log('render getEmptyStateInfo', emptyStateInfo)
+      const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
+      console.log('render getEmptyStateInfo', emptyStateInfo)
 
-    // Use cached selection state from event listeners
-    const selectedKeyName = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+      // Use cached selection state from event listeners
+      const selectedKeyName = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
 
-    if (!selectedKeyName || commands.length === 0) {
-      // Empty state - use empty state info for title and preview
+      if (!selectedKeyName || commands.length === 0) {
+        // Empty state - use empty state info for title and preview
+        titleEl.textContent   = emptyStateInfo.title
+        previewEl.textContent = emptyStateInfo.preview
+        if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+
+        // Only show empty state if there's actually no selection (not during auto-selection)
+        container.innerHTML = `
+          <div class="empty-state ${!selectedKeyName ? 'show' : ''}" id="emptyState">
+            <i class="${emptyStateInfo.icon}"></i>
+            <h4>${emptyStateInfo.emptyTitle}</h4>
+            <p>${emptyStateInfo.emptyDesc}</p>
+          </div>`
+        return
+      }
+
+      // Non-empty state - use emptyStateInfo which actually contains the correct title/preview for selected keys
       titleEl.textContent   = emptyStateInfo.title
       previewEl.textContent = emptyStateInfo.preview
       if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
 
-      if (emptyState) emptyState.style.display = 'block'
-      container.innerHTML = `
-        <div class="empty-state" id="emptyState">
-          <i class="${emptyStateInfo.icon}"></i>
-          <h4>${emptyStateInfo.emptyTitle}</h4>
-          <p>${emptyStateInfo.emptyDesc}</p>
-        </div>`
-      return
-    }
+      // Hide any existing empty state
+      if (emptyState) emptyState.classList.remove('show')
 
-    // Non-empty state - use emptyStateInfo which actually contains the correct title/preview for selected keys
-    titleEl.textContent   = emptyStateInfo.title
-    previewEl.textContent = emptyStateInfo.preview
-    if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
-
-    // Render command list
-    container.innerHTML = ''
-    for (let i=0;i<commands.length;i++) {
-      const el = await this.createCommandElement(commands[i], i, commands.length)
-      container.appendChild(el)
-    }
+      // Render command list
+      container.innerHTML = ''
+      for (let i=0;i<commands.length;i++) {
+        const el = await this.createCommandElement(commands[i], i, commands.length)
+        container.appendChild(el)
+      }
   }
 
   /**
@@ -136,8 +140,13 @@ export default class CommandChainUI extends ComponentBase {
     const commandDef      = await request(this.eventBus, 'command:find-definition', { command })
     const isParameterized = commandDef && commandDef.customizable
 
-    let displayName = command.text
+    let displayName = command.text || command.command || command
     let displayIcon = command.icon
+
+    // Ensure displayName is always a string
+    if (typeof displayName === 'object') {
+      displayName = displayName.command || displayName.text || '[Unknown Command]'
+    }
 
     if (commandDef) {
       displayName = commandDef.name

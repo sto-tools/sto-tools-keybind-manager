@@ -20,12 +20,19 @@ export default class KeyBrowserService extends ComponentBase {
     this.currentEnvironment = 'space'
     this.selectedKeyName    = null
 
+    // Selection caching for environment switches
+    this._cachedSelections = {
+      space: null,
+      ground: null
+    }
+
     // ---------------------------------------------------------
     // Register Request/Response endpoints for external callers
     // ---------------------------------------------------------
     if (this.eventBus) {
       respond(this.eventBus, 'key:get-all',           () => this.getKeys())
       respond(this.eventBus, 'key:get-profile',       () => this.getProfile())
+      respond(this.eventBus, 'key:select',            ({ key }) => this.selectKey(key))
     }
   }
 
@@ -60,6 +67,8 @@ export default class KeyBrowserService extends ComponentBase {
       this.currentProfileId   = profileId
       if (environment) this.currentEnvironment = environment
       this.selectedKeyName = null
+      // Clear cached selections when profile changes
+      this._cachedSelections = { space: null, ground: null }
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
@@ -67,23 +76,56 @@ export default class KeyBrowserService extends ComponentBase {
     this.addEventListener('environment:changed', (payload) => {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
+      
+      // Cache current selection before changing environment (only for key environments)
+      if (this.currentEnvironment !== 'alias' && this.selectedKeyName) {
+        this._cachedSelections[this.currentEnvironment] = this.selectedKeyName
+      }
+      
       this.currentEnvironment = env
-      // Clear any prior key selection – key context is environment specific
       this.selectedKeyName = null
+      
+      // If switching to key environment, try to restore or auto-select immediately
+      if (env !== 'alias') {
+        this._restoreOrAutoSelectKey(env)
+      }
+      
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
-    // Also respond to global mode changes emitted by InterfaceModeService
-    this.eventBus.on('mode-changed', ({ newMode }) => {
-      this.currentEnvironment = newMode
-      this.selectedKeyName = null
-      this.emit('key:list-changed', { keys: this.getKeys() })
-    })
+
 
     // Data modifications
     this.addEventListener('profile-modified', () => {
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
+  }
+
+  /* ============================================================
+   * Selection caching and auto-selection
+   * ========================================================== */
+  
+  /**
+   * Restore cached selection or auto-select first key for the given environment
+   * @param {string} environment - The environment to restore/auto-select for
+   */
+  _restoreOrAutoSelectKey(environment) {
+    // Try to restore cached selection first
+    const cachedKey = this._cachedSelections[environment]
+    const availableKeys = this.getKeys()
+    
+    if (cachedKey && availableKeys[cachedKey]) {
+      this.selectKey(cachedKey)
+      return
+    }
+    
+    // Auto-select first key if none selected and keys exist
+    const keyNames = Object.keys(availableKeys)
+    if (keyNames.length > 0) {
+      // Sort keys to ensure consistent first selection
+      keyNames.sort()
+      this.selectKey(keyNames[0])
+    }
   }
 
   /* ============================================================

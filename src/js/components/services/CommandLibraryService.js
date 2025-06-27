@@ -118,12 +118,7 @@ export default class CommandLibraryService extends ComponentBase {
       })
     }
 
-    // Listen for high-level mode changes emitted by InterfaceModeService
-    // to cover cases where only `mode-changed` is dispatched.
-    this.eventBus.on('mode-changed', ({ newMode }) => {
-      this.currentEnvironment = newMode
-      this.selectedKey = null
-    })
+
   }
 
   /**
@@ -322,7 +317,23 @@ export default class CommandLibraryService extends ComponentBase {
       // For aliases, we need to update the alias command string
       const currentAlias = profile.aliases && profile.aliases[key]
       const currentCommands = currentAlias && currentAlias.commands ? currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0) : []
-      currentCommands.push(command.command)
+      
+      // Handle both single commands and arrays of commands (e.g., whole-tray execution)
+      if (Array.isArray(command)) {
+        // For arrays of commands, extract the command string from each
+        command.forEach(cmd => {
+          const commandString = cmd.command
+          if (commandString) {
+            currentCommands.push(commandString)
+          }
+        })
+      } else {
+        // For single commands, extract the command string
+        const commandString = command.command
+        if (commandString) {
+          currentCommands.push(commandString)
+        }
+      }
       
       const newCommandString = currentCommands.join(' $$ ')
       

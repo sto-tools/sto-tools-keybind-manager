@@ -1,6 +1,6 @@
 import eventBus from '../../core/eventBus.js'
 import ParameterCommandService from '../services/ParameterCommandService.js'
-import { request } from '../../core/requestResponse.js'
+import ComponentBase from '../ComponentBase.js'
 
 // ---------------------------------------------------------------------------
 // Singleton service instance – shared by the entire application layer
@@ -10,29 +10,95 @@ const svc = new ParameterCommandService({ eventBus })
 svc.init()
 
 /**
- * parameterCommands – refactored UI facade that owns the parameter editing
+ * ParameterCommandUI – refactored UI component that owns the parameter editing
  * modal while delegating heavy business logic to `ParameterCommandService`.
  *
- * NOTE:
- *  • Only the UI-facing subset required by the rest of the codebase is
- *    implemented here (modal handling + editing helpers).
- *  • All call-sites that previously accessed `parameterCommands` continue to
- *    work unchanged because `src/js/features/parameterCommands.js` now
- *    re-exports this object.
+ * Now follows the project's broadcast/cache pattern:
+ * • Extends ComponentBase for proper architecture
+ * • Caches state locally from broadcast events
+ * • Uses late-join state sync for components that initialize after state is set
+ * • Emits events for actions instead of using request/response
  */
-export const parameterCommands = {
-  /* ============================================================
-   * Public state – kept for backwards-compatibility so that tests
-   * and other modules can still attach to these properties.
-   * ========================================================== */
-  currentParameterCommand: null,
-  selectedKey:            null,
-  commandLibraryService:  null,
-  commandService:         null,
+export default class ParameterCommandUI extends ComponentBase {
+  constructor({ eventBus: bus = eventBus } = {}) {
+    super(bus)
+    this.componentName = 'ParameterCommandUI'
+    
+    // State cache
+    this._selectedKey = null
+    this._selectedAlias = null
+    this._currentEnvironment = 'space'
+    
+    // Service references (set by app.js)
+    this.commandService = null
+    this.commandLibraryService = null
+    this.currentParameterCommand = null
+  }
 
-  /* Expose the underlying business service so consumers can hook in if they
-   * need deeper access. */
-  service: svc,
+  onInit() {
+    this.setupEventListeners()
+  }
+
+  // Legacy properties for backward compatibility
+  get selectedKey() { return this._selectedKey }
+  set selectedKey(val) { this._selectedKey = val }
+  
+  get selectedAlias() { return this._selectedAlias }
+  set selectedAlias(val) { this._selectedAlias = val }
+  
+  get currentEnvironment() { return this._currentEnvironment }
+  set currentEnvironment(val) { this._currentEnvironment = val }
+
+  setupEventListeners() {
+    // Cache state from broadcast events
+    this.addEventListener('key-selected', (data) => {
+      this._selectedKey = data.key || data.name
+      this._selectedAlias = null
+      // Update legacy selectedKey for backward compatibility
+      this.selectedKey = this._selectedKey
+    })
+
+    this.addEventListener('alias-selected', (data) => {
+      this._selectedAlias = data.name
+      this._selectedKey = null
+      // Update legacy selectedKey for backward compatibility  
+      this.selectedKey = this._selectedAlias
+    })
+
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) {
+        this._currentEnvironment = env
+      }
+    })
+  }
+
+  /* ------------------------------------------------------------
+   * Late-join state sync
+   * ---------------------------------------------------------- */
+  getCurrentState() {
+    return {
+      selectedKey: this._selectedKey,
+      selectedAlias: this._selectedAlias,
+      currentEnvironment: this._currentEnvironment
+    }
+  }
+
+  handleInitialState(sender, state) {
+    if (!state) return
+    
+    if (state.selectedKey !== undefined) {
+      this._selectedKey = state.selectedKey
+      this.selectedKey = state.selectedKey
+    }
+    if (state.selectedAlias !== undefined) {
+      this._selectedAlias = state.selectedAlias
+      this.selectedKey = state.selectedAlias
+    }
+    if (state.currentEnvironment !== undefined) {
+      this._currentEnvironment = state.currentEnvironment
+    }
+  }
 
   /* ------------------------------------------------------------
    * UI – Modal lifecycle
@@ -55,7 +121,7 @@ export const parameterCommands = {
 
     // Use global modal manager (created in main.js)
     globalThis.modalManager?.show('parameterModal')
-  },
+  }
 
   createParameterModal () {
     const modal           = document.createElement('div')
@@ -85,14 +151,14 @@ export const parameterCommands = {
     document.body.appendChild(modal)
 
     // Save / Cancel handlers
-    eventBus.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
+    this.eventBus.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
       this.saveParameterCommand()
     })
 
     modal.querySelectorAll('.modal-close, [data-modal="parameterModal"]').forEach(btn => {
       btn.addEventListener('click', () => this.cancelParameterCommand())
     })
-  },
+  }
 
   cancelParameterCommand () {
     this.currentParameterCommand = null
@@ -104,7 +170,7 @@ export const parameterCommands = {
     }
 
     globalThis.modalManager?.hide('parameterModal')
-  },
+  }
 
   /* ------------------------------------------------------------
    * Modal content helpers
@@ -171,31 +237,38 @@ export const parameterCommands = {
 
     // Initial preview
     this.updateParameterPreview()
-  },
+  }
 
   /* ----- Small pure helpers ------------------------------------------- */
   formatParameterName (n) {
     return n.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  },
+  }
 
   getParameterHelp (paramName, paramDef) {
-    const helps = {
-      entityName: 'Name of the entity to target (e.g., ship name, player name)',
-      active:     'Whether the command is active (1 = active, 0 = inactive)',
-      tray:       'Primary tray number (0-9, where 0 is the first tray)',
-      slot:       'Primary slot number (0-9, where 0 is the first slot)',
-      backup_tray:'Backup tray number (0-9, where 0 is the first tray)',
-      backup_slot:'Backup slot number (0-9, where 0 is the first slot)',
-      amount:     'Throttle adjustment amount (-1 to 1)',
-      position:   'Throttle position (-1 = full reverse, 0 = stop, 1 = full forward)',
-      distance:   'Camera distance from target',
-      filename:   'Name of the keybind file (without extension)',
-      message:    'Text message to send',
-      state:      'Enable (1) or disable (0) combat log',
-      command_type: 'STOTrayExecByTray shows key binding on UI, TrayExecByTray does not',
+    if (paramDef.help) return paramDef.help
+
+    const helpMap = {
+      tray:         'Tray number (0-9)',
+      slot:         'Slot number (0-9)',
+      start_tray:   'Starting tray number',
+      end_tray:     'Ending tray number',
+      start_slot:   'Starting slot number',
+      end_slot:     'Ending slot number',
+      backup_tray:  'Backup tray number',
+      backup_slot:  'Backup slot number',
+      active:       '1 to activate immediately, 0 to queue',
+      entityName:   'Name of the entity to target',
+      message:      'Message text to send',
+      distance:     'Camera distance value',
+      amount:       'Throttle adjustment amount',
+      position:     'Throttle position (0-100)',
+      filename:     'File name (without extension)',
+      state:        '1 to enable, 0 to disable',
+      alias_name:   'Name of the alias to execute',
     }
-    return helps[paramName] || `${paramDef.type} value ${paramDef.min !== undefined ? `(${paramDef.min} to ${paramDef.max})` : ''}`
-  },
+
+    return helpMap[paramName] || 'Parameter value'
+  }
 
   /* ------------------------------------------------------------
    * Live preview / param collection
@@ -206,37 +279,46 @@ export const parameterCommands = {
     const { categoryId, commandId, commandDef } = this.currentParameterCommand
     const params = this.getParameterValues()
 
-    const cmd = await request(eventBus, 'parameter-command:build', { categoryId, commandId, commandDef, params })
+    const cmd = svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
     const previewEl = document.getElementById('parameterCommandPreview')
     if (!previewEl || !cmd) return
 
-    if (Array.isArray(cmd)) {
-      previewEl.textContent = cmd.map(c => c.command).join(' $$ ')
-    } else {
-      previewEl.textContent = cmd.command
-    }
-  },
+      if (Array.isArray(cmd)) {
+    previewEl.textContent = cmd.map(c => c.command || c).filter(c => c).join(' $$ ')
+  } else {
+    previewEl.textContent = cmd.command || cmd
+  }
+  }
 
   getParameterValues () {
-    const out = {}
-    document.querySelectorAll('#parameterInputs input, #parameterInputs select').forEach(input => {
+    const container = document.getElementById('parameterInputs')
+    if (!container) return {}
+
+    const values = {}
+    container.querySelectorAll('input, select').forEach(input => {
       const name = input.name
-      let val    = input.value
-      if (input.type === 'number') val = parseFloat(val) || 0
-      out[name] = val
+      if (!name) return
+
+      if (input.type === 'number') {
+        values[name] = input.value === '' ? undefined : Number(input.value)
+      } else {
+        values[name] = input.value
+      }
     })
-    return out
-  },
+
+    return values
+  }
 
   /* ------------------------------------------------------------
    * Saving / Editing
    * ---------------------------------------------------------- */
   async saveParameterCommand (...args) {
-    // Use request/response to get current state
-    const currentEnv = await request(eventBus, 'parameter-command:get-current-environment') || 'space'
-    const selectedKey = currentEnv === 'alias' 
-      ? await request(eventBus, 'parameter-command:get-selected-alias')
-      : await request(eventBus, 'parameter-command:get-selected-key')
+    // Use cached state instead of request/response
+    const currentEnv = this._currentEnvironment || 'space'
+    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
+    
+
+    
     if (!selectedKey || !this.currentParameterCommand) {
       const message = currentEnv === 'alias' 
         ? (globalThis.i18next?.t?.('please_select_an_alias_first') || 'Please select an alias first')
@@ -245,65 +327,68 @@ export const parameterCommands = {
       return
     }
 
-    const { categoryId, commandId, commandDef, editIndex, isEditing } = this.currentParameterCommand
-    const params  = this.getParameterValues()
-    const command = await request(eventBus, 'parameter-command:build', { categoryId, commandId, commandDef, params })
-    if (!command) {
-      globalThis.stoUI?.showToast?.('Failed to build command - please check parameters', 'error')
-      return
+    const { categoryId, commandId, commandDef } = this.currentParameterCommand
+    const params = this.getParameterValues()
+
+    const cmd = svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
+    if (!cmd) return
+
+    // Emit command:add event instead of calling service directly
+    const addCmd = (c) => {
+      this.eventBus.emit('command:add', { command: c, key: selectedKey })
     }
 
-    // Use request/response to call CommandService.addCommand - with proper validation
-    const addCmd = async (c) => {
-      if (!c || !c.command) {
-        console.warn('[ParameterCommandUI] Skipping invalid command:', c)
-        return
-      }
-      try {
-        await request(eventBus, 'command:add', { command: c, key: selectedKey })
-      } catch (error) {
-        console.error('[ParameterCommandUI] Failed to add command:', error)
-        globalThis.stoUI?.showToast?.('Failed to add command', 'error')
-      }
-    }
-    
-    if (Array.isArray(command)) {
-      for (const c of command) await addCmd(c)
+    if (Array.isArray(cmd)) {
+      cmd.forEach(addCmd)
     } else {
-      await addCmd(command)
+      addCmd(cmd)
     }
 
+    // Close modal
     globalThis.modalManager?.hide('parameterModal')
     this.currentParameterCommand = null
-  },
 
-  /* Editing existing commands (used by CommandChainService) */
+    // Reset button text (i18n ready)
+    const saveBtn = document.getElementById('saveParameterCommandBtn')
+    if (saveBtn) {
+      saveBtn.textContent = globalThis.i18next?.t?.('add_command') || 'Add Command'
+    }
+  }
+
+  /* ------------------------------------------------------------
+   * Edit mode
+   * ---------------------------------------------------------- */
   editParameterizedCommand (index, command, commandDef) {
     this.currentParameterCommand = {
-      categoryId: command.type,
-      commandId:  commandDef.commandId,
-      commandDef,
-      editIndex:  index,
-      isEditing:  true,
+      ...commandDef,
+      editIndex: index,
+      isEditing: true,
     }
 
     if (!document.getElementById('parameterModal')) {
       this.createParameterModal()
     }
 
-    this.populateParameterModalForEdit(commandDef, command.parameters)
+    this.populateParameterModalForEdit(commandDef, command.parameters || {})
 
-    document.getElementById('parameterModalTitle').textContent = `Edit: ${commandDef.name}`
-    document.getElementById('saveParameterCommandBtn').textContent = 'Update Command'
+    // Update button text for editing
+    const saveBtn = document.getElementById('saveParameterCommandBtn')
+    if (saveBtn) {
+      saveBtn.textContent = globalThis.i18next?.t?.('update_command') || 'Update Command'
+    }
 
     globalThis.modalManager?.show('parameterModal')
-  },
+  }
 
   populateParameterModalForEdit (commandDef, existingParams = {}) {
-    const container = document.getElementById('parameterInputs')
-    if (!container) return
+    const container    = document.getElementById('parameterInputs')
+    const titleElement = document.getElementById('parameterModalTitle')
 
-    container.innerHTML = ''
+    if (!container || !titleElement) return
+
+    titleElement.textContent = `Edit: ${commandDef.name}`
+    container.innerHTML      = ''
+
     Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
       const inputGroup = document.createElement('div')
       inputGroup.className = 'form-group'
@@ -323,15 +408,15 @@ export const parameterCommands = {
           o.textContent = opt === 'STOTrayExecByTray'
             ? 'STOTrayExecByTray (shows key binding on UI)'
             : 'TrayExecByTray (no UI indication)'
+          if (opt === (existingParams[paramName] ?? paramDef.default)) o.selected = true
           inputEl.appendChild(o)
         })
-        inputEl.value = existingParams[paramName] ?? paramDef.default
       } else {
         inputEl      = document.createElement('input')
         inputEl.type = paramDef.type === 'number' ? 'number' : 'text'
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
-        inputEl.value = existingParams[paramName] ?? ''
+        inputEl.value = existingParams[paramName] ?? paramDef.default ?? ''
         if (paramDef.placeholder) inputEl.placeholder = paramDef.placeholder
         if (paramDef.type === 'number') {
           if (paramDef.min !== undefined)  inputEl.min  = paramDef.min
@@ -348,62 +433,57 @@ export const parameterCommands = {
       inputGroup.appendChild(help)
       container.appendChild(inputGroup)
 
+      // Live preview updates
       inputEl.addEventListener('input', () => this.updateParameterPreview())
       if (inputEl.tagName === 'SELECT') {
         inputEl.addEventListener('change', () => this.updateParameterPreview())
       }
     })
 
+    // Initial preview
     this.updateParameterPreview()
-  },
+  }
 
-  /* ------------------------------------------------------------ */
-  // Added for backward-compatibility – provides the minimal behaviour needed
-  // by editCommandImmutable.test (derive parameters without mutating original).
+  /* ------------------------------------------------------------
+   * Legacy facade methods – keep external API intact
+   * ---------------------------------------------------------- */
   editCommand (index) {
-    const key = this.selectedKey || this.commandLibraryService?.selectedKey
-    if (!key || typeof this.getCurrentProfile !== 'function') return
+    // Use cached state instead of request/response
+    const currentEnv = this._currentEnvironment || 'space'
+    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
+    
+    if (!selectedKey) return
 
-    const profile  = this.getCurrentProfile()
-    const commands = profile?.keys?.[key]
+    // Get profile from commandService if available
+    const profile = this.commandService?.getCurrentProfile?.()
+    const commands = profile?.keys?.[selectedKey]
     if (!commands || !commands[index]) return
 
-    const sourceCmd = commands[index]
-    // Work on a shallow copy only!
-    const cmdCopy = sourceCmd.parameters
-      ? { ...sourceCmd, parameters: { ...sourceCmd.parameters } }
-      : { ...sourceCmd }
+    const command = commands[index]
+    const commandDef = svc.findCommandDefinition(command)
+    if (!commandDef) return
 
-    // If parameters missing but command is TrayExec… derive them for UI use.
-    if (!cmdCopy.parameters && /TrayExecByTray/.test(cmdCopy.command)) {
-      const match = cmdCopy.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
-      if (match) {
-        cmdCopy.parameters = { tray: parseInt(match[1]), slot: parseInt(match[2]) }
-      }
-    }
-
-    // Delegate to parameterised edit flow if possible
-    const def = this.findCommandDefinition?.(cmdCopy)
-    if (def && def.customizable) {
-      this.editParameterizedCommand(index, cmdCopy, def)
-    }
-  },
+    this.editParameterizedCommand(index, command, commandDef)
+  }
 
   /* ------------------------------------------------------------
    * Thin wrappers delegating to the service – keeps external API
    * intact for legacy code/tests.
    * ---------------------------------------------------------- */
-  async generateCommandId (...args) {
-    return await request(eventBus, 'parameter-command:generate-id')
-  },
-  async buildParameterizedCommand (...args) {
-    const [categoryId, commandId, commandDef, params] = args
-    return await request(eventBus, 'parameter-command:build', { categoryId, commandId, commandDef, params })
-  },
-  async findCommandDefinition (...args) {
-    const [command] = args
-    return await request(eventBus, 'parameter-command:find-definition', { command })
-  },
+  generateCommandId (...args) {
+    return svc.generateCommandId(...args)
+  }
+  
+  buildParameterizedCommand (...args) {
+    return svc.buildParameterizedCommand(...args)
+  }
+  
+  findCommandDefinition (...args) {
+    return svc.findCommandDefinition(...args)
+  }
 }
 
-export default parameterCommands 
+// Create singleton instance for backward compatibility
+const parameterCommands = new ParameterCommandUI({ eventBus })
+
+export { parameterCommands } 

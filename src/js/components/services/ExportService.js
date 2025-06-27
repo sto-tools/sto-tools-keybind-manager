@@ -10,9 +10,10 @@ import { writeFile } from './SyncService.js'
  * and even a CLI context.
  */
 export default class ExportService extends ComponentBase {
-  constructor ({ eventBus } = {}) {
+  constructor ({ eventBus, storage } = {}) {
     super(eventBus)
     this.componentName = 'ExportService'
+    this.storage = storage
 
     // Map of export formats (filled in once i18next has been initialised)
     this.exportFormats = null
@@ -490,7 +491,10 @@ export default class ExportService extends ComponentBase {
         throw new Error('Profile service not available')
       }
       if (data.type === 'project' && data.data) {
-        return storageService.importData(JSON.stringify(data.data))
+        if (!this.storage) {
+          throw new Error('Storage service not available')
+        }
+        return this.storage.importData(JSON.stringify(data.data))
       }
       throw new Error('Unknown JSON file format')
     } catch (err) {
@@ -530,7 +534,10 @@ export default class ExportService extends ComponentBase {
   }
 
   async syncToFolder (dirHandle) {
-    const data = storageService.getAllData()
+    if (!this.storage) {
+      throw new Error('Storage service not available')
+    }
+    const data = this.storage.getAllData()
     const exportData = {
       version: STO_DATA?.settings?.version ?? 'unknown',
       exported: new Date().toISOString(),

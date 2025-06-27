@@ -658,4 +658,68 @@ describe('CommandLibraryService', () => {
       expect(info.emptyTitle).toBe('no_commands')
     })
   })
+
+  describe('Whole tray execution bug fix', () => {
+    it('should handle whole-tray commands without [object Object] issue', () => {
+      const service = new CommandLibraryService({
+        storage: mockStorage,
+        eventBus: mockEventBus,
+        i18n: mockI18n,
+        ui: mockUI,
+        modalManager: mockModalManager
+      })
+
+      // Set up profile with alias environment
+      service.currentProfile = 'test-profile'
+      service.currentEnvironment = 'alias'
+      service.selectedAlias = 'TestAlias'
+      service.selectedKey = 'TestAlias' // Set this to pass the selectedKey check
+
+      // Mock a whole-tray command that returns an array of commands
+      const wholeTrayCommands = [
+        { command: '+STOTrayExecByTray 0 0', type: 'tray', icon: '⚡', text: 'Execute Whole Tray 1' },
+        { command: '+STOTrayExecByTray 0 1', type: 'tray', icon: '⚡', text: '+STOTrayExecByTray 0 1' },
+        { command: '+STOTrayExecByTray 0 2', type: 'tray', icon: '⚡', text: '+STOTrayExecByTray 0 2' }
+      ]
+
+      // Add the whole-tray command array
+      const result = service.addCommand('TestAlias', wholeTrayCommands)
+      expect(result).toBe(true)
+
+      // Get the stored alias
+      const profile = mockStorage.loadProfile('test-profile')
+      const aliasCommands = profile.aliases.TestAlias.commands
+
+      // Should not contain [object Object]
+      expect(aliasCommands).not.toContain('[object Object]')
+      
+      // Should contain the actual command strings
+      expect(aliasCommands).toBe('+STOTrayExecByTray 0 0 $$ +STOTrayExecByTray 0 1 $$ +STOTrayExecByTray 0 2')
+    })
+
+    it('should handle single commands normally', () => {
+      const service = new CommandLibraryService({
+        storage: mockStorage,
+        eventBus: mockEventBus,
+        i18n: mockI18n,
+        ui: mockUI,
+        modalManager: mockModalManager
+      })
+
+      service.currentProfile = 'test-profile'
+      service.currentEnvironment = 'alias'
+      service.selectedAlias = 'TestAlias2'
+      service.selectedKey = 'TestAlias2' // Set this to pass the selectedKey check
+
+      const singleCommand = { command: 'Target_Enemy_Near', type: 'targeting', icon: '🎯', text: 'Target Nearest Enemy' }
+
+      const result = service.addCommand('TestAlias2', singleCommand)
+      expect(result).toBe(true)
+
+      const profile = mockStorage.loadProfile('test-profile')
+      const aliasCommands = profile.aliases.TestAlias2.commands
+
+      expect(aliasCommands).toBe('Target_Enemy_Near')
+    })
+  })
 })

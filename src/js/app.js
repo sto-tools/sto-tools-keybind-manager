@@ -7,7 +7,7 @@ import ProfileService from './components/services/ProfileService.js'
 import ProfileUI from './components/ui/ProfileUI.js'
 import { keyHandling } from './features/keyHandling.js'
 import { uiRendering } from './ui/uiRendering.js'
-import { parameterCommands } from './components/ui/ParameterCommandUI.js'
+import ParameterCommandUI, { parameterCommands } from './components/ui/ParameterCommandUI.js'
 import { EventHandlerService, InterfaceModeService } from './components/services/index.js'
 import { ProjectManagementService } from './components/services/index.js'
 import { InterfaceModeUI } from './components/ui/index.js'
@@ -258,6 +258,13 @@ export default class STOToolsKeybindManager {
 
       // dbg('CommandUI created')
       
+      // ---------------------------------
+      // Parameter Command UI (use singleton instance)
+      // ---------------------------------
+      this.parameterCommandUI = parameterCommands
+      this.parameterCommandUI.commandService = this.commandService
+      this.parameterCommandUI.commandLibraryService = this.commandLibraryService
+      
       // Initialize EventHandlerService
       this.eventHandlerService = new EventHandlerService({
         eventBus,
@@ -317,6 +324,7 @@ export default class STOToolsKeybindManager {
       this.keyBrowserService.init()
       this.keyBrowserUI.init()
       this.commandUI.init()
+      this.parameterCommandUI.init()
 
       // dbg('Event handler setup completed')
       // Apply theme

@@ -1,5 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
 import eventBus from '../../core/eventBus.js'
 import CommandBuilderService from './CommandBuilderService.js'
 
@@ -14,13 +13,11 @@ import CommandBuilderService from './CommandBuilderService.js'
  * • findCommandDefinition – attempts to resolve a command definition from
  *   an existing command string for editing purposes.
  *
- * NOTE:  The original implementation relies on several dynamic properties
- * (selectedKey, commandLibraryService, currentParameterCommand, …) that are
- * provided by the surrounding UI layer or tests.  In order to maintain full
- * backwards-compatibility, this service does **not** encapsulate state – it
- * merely exposes the methods while still allowing external code to attach
- * those properties at runtime (identical to the behaviour of the former
- * `parameterCommands` singleton).
+ * This service follows the project's broadcast/cache pattern:
+ * • Listens for state changes via events (key-selected, alias-selected, environment:changed)
+ * • Caches state locally for business logic use
+ * • Provides late-join state sync for components that initialize after state is set
+ * • Only uses request/response for actions, not state access
  */
 export default class ParameterCommandService extends ComponentBase {
   constructor ({ eventBus: bus = eventBus } = {}) {
@@ -34,19 +31,7 @@ export default class ParameterCommandService extends ComponentBase {
     this.selectedAlias = null
     this.currentEnvironment = 'space'
 
-    // ---------------------------------------------------------
-    // Register Request/Response endpoints for UI components
-    // ---------------------------------------------------------
-    if (this.eventBus) {
-      respond(this.eventBus, 'parameter-command:generate-id', () => this.generateCommandId())
-      respond(this.eventBus, 'parameter-command:build', ({ categoryId, commandId, commandDef, params }) => 
-        this.buildParameterizedCommand(categoryId, commandId, commandDef, params))
-      respond(this.eventBus, 'parameter-command:find-definition', ({ command }) => 
-        this.findCommandDefinition(command))
-      respond(this.eventBus, 'parameter-command:get-current-environment', () => this.currentEnvironment)
-      respond(this.eventBus, 'parameter-command:get-selected-key', () => this.selectedKey)
-      respond(this.eventBus, 'parameter-command:get-selected-alias', () => this.selectedAlias)
-    }
+    // Note: No request/response handlers for state access - we follow broadcast/cache pattern
   }
 
   onInit() {
@@ -65,6 +50,32 @@ export default class ParameterCommandService extends ComponentBase {
       const env = typeof data === 'string' ? data : data.environment
       if (env) this.currentEnvironment = env
     })
+  }
+
+  /* ------------------------------------------------------------
+   * Late-join state sync
+   * ---------------------------------------------------------- */
+  getCurrentState() {
+    return {
+      selectedKey: this.selectedKey,
+      selectedAlias: this.selectedAlias,
+      currentEnvironment: this.currentEnvironment
+    }
+  }
+
+  handleInitialState(sender, state) {
+    if (!state) return
+    
+    // Sync with other services that manage selection state
+    if (state.selectedKey !== undefined) {
+      this.selectedKey = state.selectedKey
+    }
+    if (state.selectedAlias !== undefined) {
+      this.selectedAlias = state.selectedAlias  
+    }
+    if (state.currentEnvironment !== undefined) {
+      this.currentEnvironment = state.currentEnvironment
+    }
   }
 
   /* ------------------------------------------------------------
@@ -154,7 +165,7 @@ export default class ParameterCommandService extends ComponentBase {
 
         /* ----- Tray range WITH backup ------------------------------------ */
         if (commandId === 'tray_range_with_backup') {
-          const active            = p.active || 1
+          const active            = p.active !== undefined ? p.active : 1
           const startTray         = p.start_tray        || 0
           const startSlot         = p.start_slot        || 0
           const endTray           = p.end_tray          || 0
@@ -231,7 +242,7 @@ export default class ParameterCommandService extends ComponentBase {
 
         /* ----- Whole tray WITH backup ------------------------------------ */
         if (commandId === 'whole_tray_with_backup') {
-          const active     = p.active || 1
+          const active     = p.active !== undefined ? p.active : 1
           const backupTray = p.backup_tray || 0
 
           const cmds = this.commandBuilderService.build('tray', 'whole_tray_with_backup', { active, tray, backup_tray: backupTray })
@@ -273,7 +284,7 @@ export default class ParameterCommandService extends ComponentBase {
 
         if (isEditing) {
           const profile = this.getCurrentProfile?.()
-          const existingCmd = profile?.keys?.[selectedKey]?.[this.currentParameterCommand.editIndex]
+          const existingCmd = profile?.keys?.[selectedKey]?.[this.currentParameterCommand?.editIndex]
           if (existingCmd && (existingCmd.command.startsWith('TrayExecByTray') || existingCmd.command.startsWith('+TrayExecByTray'))) {
             return {
               command: `+TrayExecByTray ${tray} ${slot}`,

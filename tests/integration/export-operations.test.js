@@ -36,7 +36,7 @@ describe('Export Operations Integration Tests', () => {
   let mockDirHandle
 
   beforeEach(async () => {
-    exportManager = new STOExportManager()
+    exportManager = new STOExportManager({ storage: mockStorage })
     
     // Reset mocks
     vi.clearAllMocks()

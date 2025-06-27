@@ -108,7 +108,24 @@ export default class CommandService extends ComponentBase {
       const currentCommands = currentAlias && currentAlias.commands
         ? currentAlias.commands.split(/\s*\$\$\s*/).filter((cmd) => cmd.trim().length > 0)
         : []
-      currentCommands.push(command.command)
+      
+      // Handle both single commands and arrays of commands (e.g., whole-tray execution)
+      if (Array.isArray(command)) {
+        // For arrays of commands, extract the command string from each
+        command.forEach(cmd => {
+          const commandString = cmd.command
+          if (commandString) {
+            currentCommands.push(commandString)
+          }
+        })
+      } else {
+        // For single commands, extract the command string
+        const commandString = command.command
+        if (commandString) {
+          currentCommands.push(commandString)
+        }
+      }
+      
       const newCommandString = currentCommands.join(' $$ ')
       if (!profile.aliases) profile.aliases = {}
       if (!profile.aliases[key]) profile.aliases[key] = {}
@@ -302,6 +319,12 @@ export default class CommandService extends ComponentBase {
         this.selectedKey = null
         this.selectedAlias = null
       }
+    })
+
+    // Listen for command addition events from UI components (broadcast pattern)
+    this.addEventListener('command:add', (data) => {
+      const { command, key, position } = data
+      this.addCommand(key, command, position)
     })
   }
 

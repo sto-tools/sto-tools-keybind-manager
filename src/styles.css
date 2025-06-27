@@ -3522,6 +3522,12 @@ input:checked + .slider:before {
   border-color: var(--primary);
 }
 
+.key-item.active {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+  box-shadow: var(--shadow-md);
+}
+
 .key-item .activity-bar {
   position: absolute;
   bottom: 2px;
@@ -4040,6 +4046,12 @@ input:checked + .slider:before {
   text-align: center;
   padding: 3rem 2rem;
   color: var(--text-muted);
+  display: none; /* Hidden by default to prevent flicker */
+}
+
+/* Show empty state only when explicitly needed */
+.empty-state.show {
+  display: block;
 }
 
 .empty-state i {

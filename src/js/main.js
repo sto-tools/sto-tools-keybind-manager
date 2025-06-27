@@ -92,7 +92,7 @@ const settings = storageService.getSettings()
 
   // Create dependencies first
   const stoKeybinds = new STOKeybindFileManager()
-  const stoExport = new STOExportManager()
+  const stoExport = new STOExportManager({ storage: storageService })
   const modalManager = new STOModalManager(eventBus)
   modalManager.init()
   const stoUI = new STOUIManager()

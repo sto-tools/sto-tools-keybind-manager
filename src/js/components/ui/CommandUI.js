@@ -55,7 +55,9 @@ export default class CommandUI extends ComponentBase {
           )
           return
         }
-        this.commandService.addCommand(selKey, commandDef)
+
+        // Emit event for CommandService to handle - following broadcast pattern
+        this.eventBus.emit('command:add', { command: commandDef, key: selKey })
       } else if (categoryId && commandId && commandDef) {
         // Customizable command - show parameter modal
         parameterCommands.showParameterModal(categoryId, commandId, commandDef)

@@ -56,6 +56,10 @@ describe('CommandUI', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     
+    // Reset mock service state
+    mockCommandService.selectedKey = 'test-key'
+    mockCommandLibraryService.selectedKey = 'test-key'
+    
     commandUI = new CommandUI({
       eventBus: mockEventBus,
       ui: mockUI,
@@ -102,7 +106,7 @@ describe('CommandUI', () => {
       commandUI.onInit()
     })
 
-    it('should handle static commands by calling commandService.addCommand', () => {
+    it('should handle static commands by emitting command:add event', () => {
       const staticCommandDef = {
         command: 'test_command',
         type: 'space',
@@ -114,7 +118,11 @@ describe('CommandUI', () => {
       // Emit command:add event for static command
       commandUI.emit('command:add', { commandDef: staticCommandDef })
 
-      expect(mockCommandService.addCommand).toHaveBeenCalledWith('test-key', staticCommandDef)
+      // Should emit event with command and key for CommandService to handle
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command:add', { 
+        command: staticCommandDef, 
+        key: 'test-key' 
+      })
       expect(parameterCommands.showParameterModal).not.toHaveBeenCalled()
     })
 
@@ -144,6 +152,7 @@ describe('CommandUI', () => {
 
     it('should show warning for static commands when no key is selected', () => {
       mockCommandService.selectedKey = null
+      mockCommandLibraryService.selectedKey = null
 
       const staticCommandDef = {
         command: 'test_command',
@@ -157,10 +166,11 @@ describe('CommandUI', () => {
       commandUI.emit('command:add', { commandDef: staticCommandDef })
 
       expect(mockUI.showToast).toHaveBeenCalledWith('please_select_a_key_first', 'warning')
-      expect(mockCommandService.addCommand).not.toHaveBeenCalled()
+      // Should not emit command:add event when no key is selected
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith('command:add', expect.any(Object))
     })
 
-    it('should show warning for static commands when no commandService', () => {
+    it('should emit command:add event even when no commandService (broadcast pattern)', () => {
       commandUI.commandService = null
 
       const staticCommandDef = {
@@ -174,7 +184,11 @@ describe('CommandUI', () => {
       // Emit command:add event for static command
       commandUI.emit('command:add', { commandDef: staticCommandDef })
 
-      expect(mockUI.showToast).toHaveBeenCalledWith('Please select a key first', 'warning')
+      // Should still emit event - CommandService will handle it if available
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command:add', { 
+        command: staticCommandDef, 
+        key: 'test-key' 
+      })
     })
 
     it('should handle gracefully when ui is not available', () => {

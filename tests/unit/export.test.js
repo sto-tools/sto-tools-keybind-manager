@@ -35,7 +35,7 @@ beforeEach(() => {
   stoUI = new STOUIManager()
       Object.assign(global, { storageService, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()
-  exportManager = new STOExportManager()
+  exportManager = new STOExportManager({ storage: storageService })
   exportManager.init() // Initialize after i18next is ready
   Object.assign(global, { app, exportManager })
 
@@ -136,7 +136,7 @@ afterEach(() => {
 
 describe('STOExportManager', () => {
   beforeEach(() => {
-    exportManager = new STOExportManager()
+    exportManager = new STOExportManager({ storage: storageService })
     exportManager.init() // Initialize after i18next is ready
   })
 

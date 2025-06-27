@@ -18,6 +18,9 @@ export default class AliasBrowserService extends ComponentBase {
     this.currentEnvironment = 'space'
     this.selectedAliasName  = null
 
+    // Selection caching for environment switches
+    this._cachedAliasSelection = null
+
     // ---------------------------------------------------------
     // Register Request/Response endpoints for alias operations
     // ---------------------------------------------------------
@@ -49,6 +52,8 @@ export default class AliasBrowserService extends ComponentBase {
       this.currentProfileId  = profileId
       if (environment) this.currentEnvironment = environment
       this.selectedAliasName = null
+      // Clear cached selection when profile changes
+      this._cachedAliasSelection = null
       const aliases = this.getAliases()
       this.emit('aliases-changed', { aliases })
 
@@ -63,29 +68,58 @@ export default class AliasBrowserService extends ComponentBase {
     this.addEventListener('environment:changed', (payload) => {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (env) {
+        // Cache current selection before changing environment (only when leaving alias mode)
+        if (this.currentEnvironment === 'alias' && this.selectedAliasName) {
+          this._cachedAliasSelection = this.selectedAliasName
+        }
+        
         this.currentEnvironment = env
-      }
-    })
-
-    // Also respond to global environment changes from InterfaceModeService
-    this.eventBus.on('environment:changed', ({ environment }) => {
-      if (environment) {
-        this.currentEnvironment = environment
-
-        // If switched into alias mode and nothing selected, pick first alias
-        if (environment === 'alias' && !this.selectedAliasName) {
-          const names = Object.keys(this.getAliases())
-          if (names.length) this.selectAlias(names[0])
+        
+        // If switched into alias mode, restore cached or auto-select immediately
+        if (env === 'alias') {
+          this._restoreOrAutoSelectAlias()
         }
       }
     })
+
+
 
     // Back-compat: also accept legacy topic if emitted elsewhere
     this.addEventListener('profile:changed', (profileId) => {
       this.currentProfileId  = profileId
       this.selectedAliasName = null
+      // Clear cached selection when profile changes
+      this._cachedAliasSelection = null
       this.emit('aliases-changed', { aliases: this.getAliases() })
     })
+  }
+
+  /* ============================================================
+   * Selection caching and auto-selection
+   * ========================================================== */
+  
+  /**
+   * Restore cached selection or auto-select first alias
+   */
+  _restoreOrAutoSelectAlias() {
+    // Try to restore cached selection first
+    if (this._cachedAliasSelection) {
+      const aliases = this.getAliases()
+      if (aliases[this._cachedAliasSelection]) {
+        this.selectAlias(this._cachedAliasSelection)
+        return
+      }
+    }
+    
+    // Auto-select first alias if none selected and aliases exist
+    if (!this.selectedAliasName) {
+      const names = Object.keys(this.getAliases())
+      if (names.length > 0) {
+        // Sort names to ensure consistent first selection
+        names.sort()
+        this.selectAlias(names[0])
+      }
+    }
   }
 
   /* ============================================================

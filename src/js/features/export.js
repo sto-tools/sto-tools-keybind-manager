@@ -25,7 +25,10 @@ export default class STOExportManager extends ComponentBase {
       window.eventBus = eb
     }
 
-    this.service = opts.exportService || new ExportService({ eventBus: eb })
+    // Get storage service from options or fallback to global
+    const storage = opts.storage || (typeof window !== 'undefined' ? window.storageService : null)
+    
+    this.service = opts.exportService || new ExportService({ eventBus: eb, storage })
     this.ui = opts.exportUI || new ExportUI({ eventBus: eb, exportService: this.service, manager: this })
   }
 
