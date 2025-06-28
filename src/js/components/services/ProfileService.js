@@ -35,8 +35,8 @@ export default class ProfileService extends ComponentBase {
       respond(this.eventBus, 'profile:clone', ({ sourceId, newName } = {}) => this.cloneProfile(sourceId, newName))
       respond(this.eventBus, 'profile:rename', ({ id, newName, description } = {}) => this.renameProfile(id, newName, description))
       
-      // Add handler for getting current profile
-      respond(this.eventBus, 'profile:get-current', () => this.getCurrentProfile())
+      // Add profile save endpoint for command chain management
+      respond(this.eventBus, 'profile:save', ({ profile } = {}) => this.saveSpecificProfile(profile))
     }
   }
 
@@ -116,6 +116,30 @@ export default class ProfileService extends ComponentBase {
       this.storage.saveProfile(this.currentProfile, updatedProfile)
       return { success: true, message: this.i18n.t('profile_saved') || 'Profile saved' }
     } catch (error) {
+      throw new Error(this.i18n.t('failed_to_save_profile') || 'Failed to save profile')
+    }
+  }
+
+  /**
+   * Save a specific profile (used by command chain management)
+   */
+  saveSpecificProfile(profile) {
+    try {
+      if (!profile) {
+        throw new Error(this.i18n.t('no_profile_to_save') || 'No profile to save')
+      }
+
+      // Update the profile with current timestamp
+      const updatedProfile = {
+        ...profile,
+        lastModified: new Date().toISOString(),
+      }
+
+      this.storage.saveProfile(this.currentProfile, updatedProfile)
+      this.emit('profile-modified')
+      return { success: true, message: this.i18n.t('profile_saved') || 'Profile saved' }
+    } catch (error) {
+      console.error('Failed to save specific profile:', error)
       throw new Error(this.i18n.t('failed_to_save_profile') || 'Failed to save profile')
     }
   }
