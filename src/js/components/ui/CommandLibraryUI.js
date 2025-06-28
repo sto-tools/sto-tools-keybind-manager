@@ -163,8 +163,8 @@ export default class CommandLibraryUI extends ComponentBase {
           
           if (commandDef.customizable) {
             // For customizable commands, pass category/command info
-            console.log('[CommandLibraryUI] emitting command:add [customizable]', { categoryId, commandId, commandDef })
-            this.eventBus.emit('command:add', { categoryId, commandId, commandDef })
+            console.log('[CommandLibraryUI] emitting command-add [customizable]', { categoryId, commandId, commandDef })
+            this.eventBus.emit('command-add', { categoryId, commandId, commandDef })
           } else {
             // For static commands, pass the fully-hydrated definition
             const fullyHydratedCommand = {
@@ -174,7 +174,7 @@ export default class CommandLibraryUI extends ComponentBase {
               text: commandDef.name,
               id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
             }
-            console.log('[CommandLibraryUI] emitting command:add [static]', { commandDef: fullyHydratedCommand })
+            console.log('[CommandLibraryUI] emitting command-add [static]', { commandDef: fullyHydratedCommand })
             this.eventBus.emit('command-add', { commandDef: fullyHydratedCommand })
           }
         }
