@@ -55,7 +55,7 @@ export default class CommandChainService extends ComponentBase {
     }
 
     // Listen for profile changes
-    this.addEventListener('profile-switched', (data) => {
+    this.addEventListener('profile:switched', (data) => {
       this.currentProfile = data.profileId || data.profile
       this.currentEnvironment = data.environment || 'space'
     })

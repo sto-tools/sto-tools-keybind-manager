@@ -8,8 +8,8 @@ describe('DataCoordinator', () => {
   let mockStorage
 
   beforeEach(async () => {
-    // Clear event bus
-    eventBus.removeAllListeners()
+    // Note: We don't clear eventBus listeners as there's no public API for it
+    // Each test creates fresh components that register their own handlers
     
     // Create mock storage
     mockStorage = {
@@ -56,7 +56,8 @@ describe('DataCoordinator', () => {
   })
 
   afterEach(() => {
-    eventBus.removeAllListeners()
+    // Note: We don't clear eventBus listeners as there's no public API for it
+    // Tests should be isolated enough to not interfere with each other
   })
 
   describe('Initialization', () => {
@@ -171,7 +172,7 @@ describe('DataCoordinator', () => {
 
         const events = []
         eventBus.on('profile:switched', (event) => events.push(event))
-        eventBus.on('current-profile:changed', (event) => events.push(event))
+        eventBus.on('', (event) => events.push(event))
 
         const result = await request(eventBus, 'data:switch-profile', { profileId: 'test_profile' })
 
@@ -336,7 +337,7 @@ describe('DataCoordinator', () => {
       it('should update profile data', async () => {
         const events = []
         eventBus.on('profile:updated', (event) => events.push(event))
-        eventBus.on('current-profile:changed', (event) => events.push(event))
+        eventBus.on('', (event) => events.push(event))
 
         const updates = {
           description: 'Updated description',

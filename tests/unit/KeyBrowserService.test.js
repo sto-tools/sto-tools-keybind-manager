@@ -163,9 +163,9 @@ describe('KeyBrowserService', () => {
 
       keyBrowserService.setupEventListeners()
       
-      // Find the profile-switched handler from addEventListener calls
-      const profileSwitchedCall = keyBrowserService.addEventListener.mock.calls.find(call => 
-        call[0] === 'profile-switched'
+          // Find the profile:switched handler from addEventListener calls
+    const profileSwitchedCall = keyBrowserService.addEventListener.mock.calls.find(call =>
+      call[0] === 'profile:switched'
       )
       
       expect(profileSwitchedCall).toBeDefined()

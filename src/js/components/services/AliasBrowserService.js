@@ -48,7 +48,7 @@ export default class AliasBrowserService extends ComponentBase {
 
   setupEventListeners () {
     // Listen for profile switched events from ProfileService
-    this.addEventListener('profile-switched', ({ profileId, environment }) => {
+    this.addEventListener('profile:switched', ({ profileId, environment }) => {
       this.currentProfileId  = profileId
       if (environment) this.currentEnvironment = environment
       this.selectedAliasName = null

@@ -108,6 +108,11 @@ export default class KeyBrowserUI extends ComponentBase {
       this.toggleKeyView()
     })
 
+    // Key search button
+    this.eventBus.onDom('keySearchBtn', 'click', 'key-search-toggle', () => {
+      this.toggleKeySearch()
+    })
+
     // Listen for key selection events from other components
     this.addEventListener('key-selected', ({ key } = {}) => {
       this._selectedKeyName = key
@@ -115,7 +120,7 @@ export default class KeyBrowserUI extends ComponentBase {
     })
 
     // Listen for profile changes
-    this.addEventListener('profile-switched', ({ profileId, environment } = {}) => {
+    this.addEventListener('profile:switched', ({ profileId, environment } = {}) => {
       this._currentProfileId = profileId
       this._currentEnvironment = environment
       this.render()
@@ -570,5 +575,19 @@ export default class KeyBrowserUI extends ComponentBase {
    */
   toggleKeyView() {
     this.eventBus.emit('key:toggle-view')
+  }
+
+  /**
+   * Toggle key search functionality
+   */
+  toggleKeySearch() {
+    const searchInput = this.document.getElementById('keyFilter')
+    if (searchInput) {
+      searchInput.focus()
+      // If search is empty, show placeholder or help
+      if (!searchInput.value) {
+        searchInput.placeholder = 'Search keys...'
+      }
+    }
   }
 } 

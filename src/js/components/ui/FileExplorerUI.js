@@ -11,6 +11,7 @@ import { request } from '../../core/requestResponse.js'
 
 export default class FileExplorerUI extends ComponentBase {
   constructor ({
+    eventBus,
     storage,          // StorageService (profile data)
     ui,               // STOUIManager (toast, modal helpers)
     fileSystem,       // FileSystemService (FS-API helpers)
@@ -51,19 +52,19 @@ export default class FileExplorerUI extends ComponentBase {
     })
 
     // Open Explorer button (toolbar)
-    eventBus.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
+    this.eventBus.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
       this.openExplorer()
     })
 
     // Delegate clicks on tree nodes
-    eventBus.onDom(this.treeId, 'click', 'fileExplorer-tree-click', (e) => {
+    this.eventBus.onDom(this.treeId, 'click', 'fileExplorer-tree-click', (e) => {
       const node = e.target.closest('.tree-node')
       if (!node) return
       this.selectNode(node)
     })
 
     // Copy preview content → clipboard
-    eventBus.onDom('copyFileContentBtn', 'click', 'fileExplorer-copy-content', () => {
+    this.eventBus.onDom('copyFileContentBtn', 'click', 'fileExplorer-copy-content', () => {
       const contentEl = this.document.getElementById(this.contentId)
       if (!contentEl) return
       const text = contentEl.textContent || ''
@@ -76,7 +77,7 @@ export default class FileExplorerUI extends ComponentBase {
     })
 
     // Download preview file
-    eventBus.onDom('downloadFileBtn', 'click', 'fileExplorer-download', async () => {
+    this.eventBus.onDom('downloadFileBtn', 'click', 'fileExplorer-download', async () => {
       if (!this.selectedNode) return
       const { type, profileId, environment } = this.selectedNode
       const contentEl = this.document.getElementById(this.contentId)
@@ -109,8 +110,7 @@ export default class FileExplorerUI extends ComponentBase {
     })
 
     // Listen for external file-operations (other components)
-    this.addEventListener('file-explorer:open',   (data) => this.openFile(data.path))
-    this.addEventListener('file-explorer:save',   (data) => this.saveFile(data.path, data.content))
+    this.addEventListener('file-explorer:save', (data) => this.saveFile(data.path, data.content))
   }
 
   /* ============================================================
@@ -123,7 +123,7 @@ export default class FileExplorerUI extends ComponentBase {
     if (contentEl) {
       contentEl.textContent = i18next.t('select_an_item_on_the_left_to_preview_export')
     }
-    this.ui?.showModal(this.modalId)
+    this.eventBus.emit('modal:show', { modalId: this.modalId })
   }
 
   buildTree () {

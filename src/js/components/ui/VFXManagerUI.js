@@ -122,9 +122,9 @@ export default class VFXManagerUI extends ComponentBase {
     // Update space preview
     const spacePreviewEl = document.getElementById('spaceAliasCommand')
     if (spacePreviewEl && this.vfxManager) {
-      const spaceEffects = Array.from(this.vfxManager.selectedEffects.space)
-      if (spaceEffects.length > 0) {
-        spacePreviewEl.textContent = `alias VFXSpace "dynFxSetFXExclusionList ${spaceEffects.join(' ')}"`
+      const spaceAlias = this.vfxManager.generateAlias('space')
+      if (spaceAlias) {
+        spacePreviewEl.textContent = spaceAlias
       } else {
         spacePreviewEl.textContent = 'No space effects selected'
       }
@@ -133,9 +133,9 @@ export default class VFXManagerUI extends ComponentBase {
     // Update ground preview
     const groundPreviewEl = document.getElementById('groundAliasCommand')
     if (groundPreviewEl && this.vfxManager) {
-      const groundEffects = Array.from(this.vfxManager.selectedEffects.ground)
-      if (groundEffects.length > 0) {
-        groundPreviewEl.textContent = `alias VFXGround "dynFxSetFXExclusionList ${groundEffects.join(' ')}"`
+      const groundAlias = this.vfxManager.generateAlias('ground')
+      if (groundAlias) {
+        groundPreviewEl.textContent = groundAlias
       } else {
         groundPreviewEl.textContent = 'No ground effects selected'
       }
@@ -167,37 +167,45 @@ export default class VFXManagerUI extends ComponentBase {
       }
     })
 
-    // Select All buttons
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('select-all-btn')) {
-        const environment = e.target.dataset.environment
-        if (this.vfxManager) {
-          this.vfxManager.selectAllEffects(environment)
-          this.updateCheckboxes(environment)
-          this.updateEffectCounts()
-          this.updatePreview()
-        }
+    // VFX specific buttons using eventBus.onDom
+    this.eventBus.onDom('spaceSelectAll', 'click', 'vfx-space-select-all', () => {
+      if (this.vfxManager) {
+        this.vfxManager.selectAllEffects('space')
+        this.updateCheckboxes('space')
+        this.updateEffectCounts()
+        this.updatePreview()
       }
     })
 
-    // Clear All buttons
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('clear-all-btn')) {
-        const environment = e.target.dataset.environment
-        if (this.vfxManager) {
-          this.vfxManager.selectedEffects[environment].clear()
-          this.updateCheckboxes(environment)
-          this.updateEffectCounts()
-          this.updatePreview()
-        }
+    this.eventBus.onDom('spaceClearAll', 'click', 'vfx-space-clear-all', () => {
+      if (this.vfxManager) {
+        this.vfxManager.selectedEffects.space.clear()
+        this.updateCheckboxes('space')
+        this.updateEffectCounts()
+        this.updatePreview()
       }
     })
 
-    // Save button
-    document.addEventListener('click', (e) => {
-      if (e.target.id === 'vertigoSaveBtn') {
-        this.eventBus.emit('vfx:save-effects')
+    this.eventBus.onDom('groundSelectAll', 'click', 'vfx-ground-select-all', () => {
+      if (this.vfxManager) {
+        this.vfxManager.selectAllEffects('ground')
+        this.updateCheckboxes('ground')
+        this.updateEffectCounts()
+        this.updatePreview()
       }
+    })
+
+    this.eventBus.onDom('groundClearAll', 'click', 'vfx-ground-clear-all', () => {
+      if (this.vfxManager) {
+        this.vfxManager.selectedEffects.ground.clear()
+        this.updateCheckboxes('ground')
+        this.updateEffectCounts()
+        this.updatePreview()
+      }
+    })
+
+    this.eventBus.onDom('saveVertigoBtn', 'click', 'vfx-save', () => {
+      this.eventBus.emit('vfx:save-effects')
     })
   }
 } 

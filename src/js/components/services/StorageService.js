@@ -267,72 +267,14 @@ export default class StorageService extends ComponentBase {
   // Private methods
 
   getDefaultData() {
-    // Use STO_DATA to get rich default profiles when available
-    let profiles = {}
-    
-    // Try dataService for default profiles data
-    const stoData = this.dataService?.data
-    
-    if (stoData && stoData.defaultProfiles) {
-      // Use rich default profiles from STO_DATA
-      const defaultProfiles = stoData.defaultProfiles
-      profiles = {
-        default_space: {
-          ...defaultProfiles.default_space,
-          created: new Date().toISOString(),
-          lastModified: new Date().toISOString()
-        },
-        tactical_space: {
-          ...defaultProfiles.tactical_space,
-          created: new Date().toISOString(),
-          lastModified: new Date().toISOString()
-        }
-      }
-    } else {
-      // Fallback profiles when STO_DATA is not available
-      // This avoids async complexity in storage initialization
-      const getDefaultSpaceProfile = () => {
-        return {
-          name: 'Default Space',
-          description: 'Basic space combat configuration',
-          currentEnvironment: 'space',
-          builds: {
-            space: { keys: {} },
-            ground: { keys: {} }
-          },
-          aliases: {},
-          created: new Date().toISOString(),
-          lastModified: new Date().toISOString()
-        }
-      }
-
-      const getTacticalSpaceProfile = () => {
-        return {
-          name: 'Tactical Space',
-          description: 'Aggressive DPS-focused space build',
-          currentEnvironment: 'space',
-          builds: {
-            space: { keys: {} },
-            ground: { keys: {} }
-          },
-          aliases: {},
-          created: new Date().toISOString(),
-          lastModified: new Date().toISOString()
-        }
-      }
-      
-      profiles = {
-        default_space: getDefaultSpaceProfile(),
-        tactical_space: getTacticalSpaceProfile(),
-      }
-    }
-    
+    // StorageService should only provide empty structure
+    // DataCoordinator handles creating default profiles
     return {
       version: this.version,
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
-      currentProfile: 'default_space',
-      profiles: profiles,
+      currentProfile: null,
+      profiles: {},
       globalAliases: {},
       settings: this.getDefaultSettings(),
     }
@@ -441,32 +383,8 @@ export default class StorageService extends ComponentBase {
     if (!data.globalAliases) data.globalAliases = {}
     if (!data.settings) data.settings = this.getDefaultSettings()
 
-    // Always ensure we have at least one profile
-    if (Object.keys(data.profiles).length === 0) {
-      // REFACTORED: Use fallback profiles instead of DataService dependency
-      // This avoids async complexity in storage initialization
-      
-      // Create fallback profile
-      const getDefaultSpaceProfile = () => {
-        return {
-          name: 'Default Space',
-          description: 'Basic space combat configuration',
-          currentEnvironment: 'space',
-          builds: {
-            space: { keys: {} },
-            ground: { keys: {} }
-          },
-          aliases: {},
-          created: new Date().toISOString(),
-          lastModified: new Date().toISOString()
-        }
-      }
-      
-      data.profiles = {
-        default_space: getDefaultSpaceProfile(),
-      }
-      data.currentProfile = 'default_space'
-    }
+    // DO NOT create default profiles here - DataCoordinator handles that
+    // Just ensure basic structure exists
 
     // Ensure current profile exists (if we have profiles)
     if (

@@ -121,9 +121,9 @@ describe('AliasBrowserService', () => {
 
       aliasBrowserService.setupEventListeners()
       
-      // Find the profile-switched handler from addEventListener calls
-      const profileSwitchedCall = aliasBrowserService.addEventListener.mock.calls.find(call => 
-        call[0] === 'profile-switched'
+          // Find the profile:switched handler from addEventListener calls
+    const profileSwitchedCall = aliasBrowserService.addEventListener.mock.calls.find(call =>
+      call[0] === 'profile:switched'
       )
       
       expect(profileSwitchedCall).toBeDefined()
@@ -184,16 +184,16 @@ describe('AliasBrowserService', () => {
   })
 
   describe('Profile Switched Event Handling', () => {
-    it('should auto-select first alias when switching to alias mode via profile-switched', () => {
+    it('should auto-select first alias when switching to alias mode via profile:switched', () => {
       aliasBrowserService.init()
 
       const selectAliasSpy = vi.spyOn(aliasBrowserService, 'selectAlias')
 
       aliasBrowserService.setupEventListeners()
       
-      // Find the profile-switched handler from addEventListener calls
+      // Find the profile:switched handler from addEventListener calls
       const profileSwitchedCall = aliasBrowserService.addEventListener.mock.calls.find(call => 
-        call[0] === 'profile-switched'
+        call[0] === 'profile:switched'
       )
       
       expect(profileSwitchedCall).toBeDefined()
@@ -204,16 +204,16 @@ describe('AliasBrowserService', () => {
       expect(selectAliasSpy).toHaveBeenCalledWith('TestAlias1') // First alphabetically
     })
 
-    it('should not auto-select when not in alias mode via profile-switched', () => {
+    it('should not auto-select when not in alias mode via profile:switched', () => {
       aliasBrowserService.init()
 
       const selectAliasSpy = vi.spyOn(aliasBrowserService, 'selectAlias')
 
       aliasBrowserService.setupEventListeners()
       
-      // Find the profile-switched handler from addEventListener calls
+      // Find the profile:switched handler from addEventListener calls
       const profileSwitchedCall = aliasBrowserService.addEventListener.mock.calls.find(call => 
-        call[0] === 'profile-switched'
+        call[0] === 'profile:switched'
       )
       
       expect(profileSwitchedCall).toBeDefined()

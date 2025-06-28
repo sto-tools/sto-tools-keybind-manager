@@ -64,7 +64,7 @@ export default class CommandLibraryService extends ComponentBase {
    */
   setupEventListeners() {
     // Listen for profile changes
-    this.addEventListener('profile-switched', (data) => {
+    this.addEventListener('profile:switched', (data) => {
       this.currentProfile = data.profile
       this.currentEnvironment = data.environment
     })
@@ -603,7 +603,7 @@ export default class CommandLibraryService extends ComponentBase {
 
   handleInitialState(sender, state) {
     if (!state) return
-    if (sender === 'ProfileService') {
+    if (sender === 'DataCoordinator' || sender === 'ProfileService') {
       if (state.currentProfile) this.currentProfile = state.currentProfile
       if (state.currentEnvironment) this.currentEnvironment = state.currentEnvironment
     }

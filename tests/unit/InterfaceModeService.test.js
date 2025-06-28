@@ -99,7 +99,7 @@ describe('InterfaceModeService', () => {
     it('should setup event listeners on init', () => {
       interfaceModeService.init()
 
-      expect(mockEventBus.on).toHaveBeenCalledWith('profile-switched', expect.any(Function))
+      expect(mockEventBus.on).toHaveBeenCalledWith('profile:switched', expect.any(Function))
       // Note: No longer listens to environment:changed to prevent circular dependency
     })
 
@@ -111,12 +111,12 @@ describe('InterfaceModeService', () => {
 
     // Test removed - no longer listens to mode-switched events to prevent circular dependency
 
-    it('should respond to profile-switched events with environment', () => {
+    it('should respond to profile:switched events with environment', () => {
       interfaceModeService.init()
       
       // Get the event handler
-      const profileSwitchedHandler = mockEventBus.on.mock.calls.find(
-        call => call[0] === 'profile-switched'
+          const profileSwitchedHandler = mockEventBus.on.mock.calls.find(
+      call => call[0] === 'profile:switched'
       )[1]
 
       profileSwitchedHandler({ environment: 'ground' })
@@ -181,7 +181,7 @@ describe('InterfaceModeService', () => {
       interfaceModeService.destroy()
 
       // Verify off was called with the specific handler references
-      expect(mockEventBus.off).toHaveBeenCalledWith('profile-switched', profileSwitchedHandler)
+      expect(mockEventBus.off).toHaveBeenCalledWith('profile:switched', profileSwitchedHandler)
     })
 
     it('should not call off if listeners were never setup', () => {
@@ -260,25 +260,25 @@ describe('InterfaceModeService', () => {
 
       // Add other handlers to the same events (simulating other components)
       const otherProfileSwitchedHandler = vi.fn()
-      realEventBus.on('profile-switched', otherProfileSwitchedHandler)
+      realEventBus.on('profile:switched', otherProfileSwitchedHandler)
 
       // Initialize our service (adds its own handlers)
       serviceWithRealBus.init()
 
       // Verify both handlers are present
-      expect(realEventBus.listeners.get('profile-switched').size).toBe(2)
+      expect(realEventBus.listeners.get('profile:switched').size).toBe(2)
 
       // Destroy our service
       serviceWithRealBus.destroy()
 
       // Verify only our service's handlers were removed, other handlers remain
-      expect(realEventBus.listeners.get('profile-switched').size).toBe(1)
+      expect(realEventBus.listeners.get('profile:switched').size).toBe(1)
 
       // Verify the remaining handlers are the other ones
-      expect(realEventBus.listeners.get('profile-switched').has(otherProfileSwitchedHandler)).toBe(true)
+      expect(realEventBus.listeners.get('profile:switched').has(otherProfileSwitchedHandler)).toBe(true)
 
       // Verify the other handlers still work
-      realEventBus.emit('profile-switched', { environment: 'test' })
+      realEventBus.emit('profile:switched', { environment: 'test' })
       
       expect(otherProfileSwitchedHandler).toHaveBeenCalledWith({ environment: 'test' })
     })

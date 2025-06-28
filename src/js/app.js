@@ -261,7 +261,7 @@ export default class STOToolsKeybindManager {
       })
 
       // dbg('CommandService created')
-      // Initialize early so it listens to profile-switched emitted during loadData
+      // Initialize early so it listens to profile:switched emitted during loadData
       this.commandService.init()
 
       // dbg('CommandService initialized')
@@ -554,7 +554,7 @@ export default class STOToolsKeybindManager {
   // Components should now communicate directly with ProfileService and ProfileUI via events:
   // - Use eventBus events: 'profile:switch', 'profile:create', 'profile:delete' etc.
   // - Use request/response pattern: request(eventBus, 'profile:get-current', {})
-  // - Listen to events: 'profile-switched', 'profile-created', 'profile-deleted'
+  // - Listen to events: 'profile:switched', 'profile-created', 'profile-deleted'
 
   // REMOVED: Alias management proxy methods for backward compatibility
   // These have been removed as part of Phase 1 refactoring.

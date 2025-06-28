@@ -37,7 +37,7 @@ export default class ExportUI extends ComponentBase {
 
   setupStateListeners () {
     // Listen for profile state changes
-    this.addEventListener('profile-switched', ({ profile } = {}) => {
+    this.addEventListener('profile:switched', ({ profile } = {}) => {
       this.currentProfile = profile
     })
     

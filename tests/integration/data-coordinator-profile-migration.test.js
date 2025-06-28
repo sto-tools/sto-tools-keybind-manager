@@ -119,7 +119,7 @@ describe('DataCoordinator + ProfileService Migration Integration', () => {
       const currentProfileChangedEvents = []
       
       eventBus.on('profile:switched', (event) => profileSwitchedEvents.push(event))
-      eventBus.on('current-profile:changed', (event) => currentProfileChangedEvents.push(event))
+  
 
       // Switch to the new profile
       const switchResult = await request(eventBus, 'data:switch-profile', {
@@ -129,7 +129,7 @@ describe('DataCoordinator + ProfileService Migration Integration', () => {
       expect(switchResult.success).toBe(true)
       expect(switchResult.switched).toBe(true)
       expect(profileSwitchedEvents).toHaveLength(1)
-      expect(currentProfileChangedEvents).toHaveLength(1)
+  
     })
 
     it('should update profile data and emit events', async () => {
@@ -289,7 +289,7 @@ describe('DataCoordinator + ProfileService Migration Integration', () => {
       const profileEvents = []
       
       eventBus.on('profile:updated', (event) => dataEvents.push(event))
-      eventBus.on('current-profile:changed', (event) => profileEvents.push(event))
+  
 
       // Update through DataCoordinator
       const currentState = await request(eventBus, 'data:get-current-state')

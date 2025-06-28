@@ -94,7 +94,7 @@ export default class InterfaceModeService extends ComponentBase {
     }
 
     // Listen for profile switches to update mode
-    this.eventBus.on('profile-switched', this._profileSwitchedHandler)
+    this.eventBus.on('profile:switched', this._profileSwitchedHandler)
     
     // Note: No longer listening to 'environment:changed' to prevent circular dependency.
     // Environment switching now happens via request-response pattern with 'environment:switch' topic.
@@ -192,7 +192,7 @@ export default class InterfaceModeService extends ComponentBase {
   destroy() {
     if (this._modeListenersSetup) {
       // Properly remove event listeners using stored handler references
-      this.eventBus.off('profile-switched', this._profileSwitchedHandler)
+      this.eventBus.off('profile:switched', this._profileSwitchedHandler)
       this._modeListenersSetup = false
     }
 
@@ -222,7 +222,7 @@ export default class InterfaceModeService extends ComponentBase {
   handleInitialState(sender, state) {
     if (!state) return
     
-    if (sender === 'ProfileService' && state.currentEnvironment) {
+    if ((sender === 'DataCoordinator' || sender === 'ProfileService') && state.currentEnvironment) {
       // Initialize from ProfileService environment without triggering events
       this._currentMode = state.currentEnvironment
     }

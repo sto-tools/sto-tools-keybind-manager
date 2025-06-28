@@ -63,7 +63,7 @@ export default class KeyBrowserService extends ComponentBase {
 
   setupEventListeners () {
     // Profile switched (new modular event)
-    this.addEventListener('profile-switched', ({ profileId, environment }) => {
+    this.addEventListener('profile:switched', ({ profileId, environment }) => {
       this.currentProfileId   = profileId
       if (environment) this.currentEnvironment = environment
       this.selectedKeyName = null

@@ -110,4 +110,15 @@ export default class DataService extends ComponentBase {
     this.data = newData || {}
     this.emit('data:updated', { data: this.data })
   }
+
+  /**
+   * Provide current state for late-join handshake
+   */
+  getCurrentState() {
+    return {
+      defaultProfiles: this.data.defaultProfiles || {},
+      hasCommands: !!(this.data && this.data.commands),
+      dataAvailable: Object.keys(this.data).length > 0
+    }
+  }
 } 

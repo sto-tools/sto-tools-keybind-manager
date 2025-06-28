@@ -118,7 +118,7 @@ describe('Interface Mode Event Listener Cleanup Integration', () => {
     realEventBus.on('mode-changed', externalModeChangedHandler)
     realEventBus.on('environment:changed', externalEnvironmentChangedHandler)
     realEventBus.on('mode-switched', externalModeSwitchedHandler)
-    realEventBus.on('profile-switched', externalProfileSwitchedHandler)
+    realEventBus.on('profile:switched', externalProfileSwitchedHandler)
 
     // Initialize both components
     service.init()
@@ -128,7 +128,7 @@ describe('Interface Mode Event Listener Cleanup Integration', () => {
     expect(realEventBus.listeners.get('mode-changed').size).toBe(2) // UI + external
     expect(realEventBus.listeners.get('environment:changed').size).toBe(2) // UI + external
     expect(realEventBus.listeners.get('mode-switched').size).toBe(2) // Service + external
-    expect(realEventBus.listeners.get('profile-switched').size).toBe(2) // Service + external
+    expect(realEventBus.listeners.get('profile:switched').size).toBe(2) // Service + external
 
     // Test that the system works end-to-end
     realEventBus.emit('mode-switched', { mode: 'ground' })
@@ -151,7 +151,7 @@ describe('Interface Mode Event Listener Cleanup Integration', () => {
 
     // Verify only service handlers were removed
     expect(realEventBus.listeners.get('mode-switched').size).toBe(1) // Only external remains
-    expect(realEventBus.listeners.get('profile-switched').size).toBe(1) // Only external remains
+    expect(realEventBus.listeners.get('profile:switched').size).toBe(1) // Only external remains
     expect(realEventBus.listeners.get('mode-changed').size).toBe(2) // UI + external still there
     expect(realEventBus.listeners.get('environment:changed').size).toBe(2) // UI + external still there
 
@@ -162,13 +162,13 @@ describe('Interface Mode Event Listener Cleanup Integration', () => {
     expect(realEventBus.listeners.get('mode-changed').size).toBe(1) // Only external remains
     expect(realEventBus.listeners.get('environment:changed').size).toBe(1) // Only external remains
     expect(realEventBus.listeners.get('mode-switched').size).toBe(1) // Only external remains
-    expect(realEventBus.listeners.get('profile-switched').size).toBe(1) // Only external remains
+    expect(realEventBus.listeners.get('profile:switched').size).toBe(1) // Only external remains
 
     // Verify external handlers still work
     realEventBus.emit('mode-changed', { newMode: 'alias' })
     realEventBus.emit('environment:changed', { environment: 'alias' })
     realEventBus.emit('mode-switched', { mode: 'space' })
-    realEventBus.emit('profile-switched', { environment: 'space' })
+    realEventBus.emit('profile:switched', { environment: 'space' })
 
     expect(externalModeChangedHandler).toHaveBeenCalledWith({ newMode: 'alias' })
     expect(externalEnvironmentChangedHandler).toHaveBeenCalledWith({ environment: 'alias' })
@@ -216,14 +216,14 @@ describe('Interface Mode Event Listener Cleanup Integration', () => {
 
     // Verify all handlers are registered
     expect(realEventBus.listeners.get('mode-switched').size).toBe(2) // 2 services
-    expect(realEventBus.listeners.get('profile-switched').size).toBe(2) // 2 services
+    expect(realEventBus.listeners.get('profile:switched').size).toBe(2) // 2 services
     expect(realEventBus.listeners.get('mode-changed').size).toBe(2) // 2 UIs
     expect(realEventBus.listeners.get('environment:changed').size).toBe(2) // 2 UIs
 
     // Destroy components in mixed order
     service1.destroy()
     expect(realEventBus.listeners.get('mode-switched').size).toBe(1) // 1 service remains
-    expect(realEventBus.listeners.get('profile-switched').size).toBe(1) // 1 service remains
+    expect(realEventBus.listeners.get('profile:switched').size).toBe(1) // 1 service remains
 
     ui2.destroy()
     expect(realEventBus.listeners.get('mode-changed').size).toBe(1) // 1 UI remains
@@ -235,7 +235,7 @@ describe('Interface Mode Event Listener Cleanup Integration', () => {
 
     service2.destroy()
     expect(realEventBus.listeners.get('mode-switched').size).toBe(0) // No services remain
-    expect(realEventBus.listeners.get('profile-switched').size).toBe(0) // No services remain
+    expect(realEventBus.listeners.get('profile:switched').size).toBe(0) // No services remain
   })
 
   it('should not fail when destroying components that were never initialized', () => {

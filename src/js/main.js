@@ -7,7 +7,7 @@ import en from '../i18n/en.json'
 import de from '../i18n/de.json'
 import fr from '../i18n/fr.json'
 import es from '../i18n/es.json'
-import { StorageService } from './components/services/index.js'
+import { StorageService, DataCoordinator } from './components/services/index.js'
 import { KeyService } from './components/services/index.js'
 import ExportService from './components/services/ExportService.js'
 import { UIUtilityService } from './components/services/index.js'
@@ -18,9 +18,14 @@ import { SyncService } from './components/services/index.js'
 import STOToolsKeybindManager from './app.js'
 // Version display functionality - moved inline to reduce file count
 import { DISPLAY_VERSION } from './core/constants.js'
+
 // Create new StorageService component
 const storageService = new StorageService({ eventBus })
 storageService.init()
+
+// Create DataCoordinator - the single source of truth for data operations
+const dataCoordinator = new DataCoordinator({ eventBus, storage: storageService })
+dataCoordinator.init()
 // Get settings from the new StorageService
 const settings = storageService.getSettings()
 
@@ -108,12 +113,12 @@ const settings = storageService.getSettings()
   const stoUI = {
     showToast: (message, type = 'info') => eventBus.emit('toast:show', { message, type }),
     confirm: (message, callback) => eventBus.emit('confirm:show', { message, callback }),
-    showModal: (modalId) => eventBus.emit('modal:show', modalId),
-    hideModal: (modalId) => eventBus.emit('modal:hide', modalId),
+    showModal: (modalId) => eventBus.emit('modal:show', { modalId }),
+          hideModal: (modalId) => eventBus.emit('modal:hide', { modalId }),
     copyToClipboard: (text) => eventBus.emit('ui:copy-to-clipboard', { text })
   }
   
-  const stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })
+  const stoFileExplorer = new FileExplorerUI({ eventBus, storage: storageService, exportManager: stoExport, ui: stoUI })
   // Init immediately so header Explorer button works without waiting for sto-app-ready
   stoFileExplorer.init()
   const stoSync = new SyncService({ storage: storageService, ui: stoUI })
@@ -121,6 +126,7 @@ const settings = storageService.getSettings()
   // Minimal global assignments - only what's absolutely necessary for legacy compatibility
   Object.assign(window, {
     storageService, // Required by some legacy components and tests
+    dataCoordinator, // Required by ProfileService and other services
     stoKeybinds,    // Required by app initialization callback
     stoExport,      // Required by app initialization callback  
     stoUI,          // Required by many components for toast notifications

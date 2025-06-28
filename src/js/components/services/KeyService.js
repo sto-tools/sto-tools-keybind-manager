@@ -253,7 +253,7 @@ export default class KeyService extends ComponentBase {
     })
 
     // Profile service notifies of active profile change
-    this.eventBus.on('profile-switched', ({ profileId, environment } = {}) => {
+    this.eventBus.on('profile:switched', ({ profileId, environment } = {}) => {
       this.currentProfile = profileId || null
       if (environment) this.currentEnvironment = environment
       this.selectedKey = null
@@ -596,7 +596,7 @@ export default class KeyService extends ComponentBase {
 
   handleInitialState (sender, state) {
     if (!state) return
-    if (sender === 'ProfileService') {
+    if (sender === 'DataCoordinator' || sender === 'ProfileService') {
       if (state.currentProfile) this.currentProfile = state.currentProfile
       // environment is managed by InterfaceModeService now; but fall back
       if (state.environment) this.currentEnvironment = state.environment

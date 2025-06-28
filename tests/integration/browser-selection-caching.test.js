@@ -328,7 +328,7 @@ describe('Browser Selection Caching Integration', () => {
       expect(aliasBrowserService._cachedAliasSelection).toBe('CombatAlias')
 
       // Profile change should clear all cached selections
-      eventBus.emit('profile-switched', { 
+      eventBus.emit('profile:switched', { 
         profileId: 'new-profile', 
         environment: 'space' 
       })

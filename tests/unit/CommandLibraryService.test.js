@@ -213,9 +213,9 @@ describe('CommandLibraryService', () => {
       expect(service.currentEnvironment).toBe('ground')
     })
 
-    it('should respond to profile-switched events', () => {
-      // The service listens for both 'profile-switched' and uses profile (not profileId)
-      eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+    it('should respond to profile:switched events', () => {
+          // The service listens for both 'profile:switched' and uses profile (not profileId)
+    eventBus.emit('profile:switched', { profile: 'profile-1', environment: 'space' })
       
       // Give the event time to process
       expect(service.currentProfile).toBe('profile-1')
@@ -231,7 +231,7 @@ describe('CommandLibraryService', () => {
 
   describe('getCommandsForSelectedKey', () => {
     beforeEach(() => {
-      eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      eventBus.emit('profile:switched', { profile: 'profile-1', environment: 'space' })
       eventBus.emit('key-selected', { key: 'test-key' })
     })
 
@@ -350,7 +350,7 @@ describe('CommandLibraryService', () => {
 
   describe('addCommand', () => {
     beforeEach(() => {
-      eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      eventBus.emit('profile:switched', { profile: 'profile-1', environment: 'space' })
       eventBus.emit('key-selected', { key: 'test-key' })
     })
 
@@ -425,7 +425,7 @@ describe('CommandLibraryService', () => {
 
   describe('deleteCommand', () => {
     beforeEach(() => {
-      eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      eventBus.emit('profile:switched', { profile: 'profile-1', environment: 'space' })
       eventBus.emit('key-selected', { key: 'test-key' })
     })
 
@@ -491,7 +491,7 @@ describe('CommandLibraryService', () => {
 
   describe('moveCommand', () => {
     beforeEach(() => {
-      eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      eventBus.emit('profile:switched', { profile: 'profile-1', environment: 'space' })
       eventBus.emit('key-selected', { key: 'test-key' })
     })
 
@@ -586,7 +586,7 @@ describe('CommandLibraryService', () => {
 
   describe('getCommandChainPreview', () => {
     beforeEach(() => {
-      eventBus.emit('profile-switched', { profile: 'profile-1', environment: 'space' })
+      eventBus.emit('profile:switched', { profile: 'profile-1', environment: 'space' })
     })
 
     it('should return select message when no key is selected', async () => {

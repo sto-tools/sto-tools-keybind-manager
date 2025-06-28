@@ -136,9 +136,9 @@ describe('ProfileService (Migrated to DataCoordinator)', () => {
         expect(Object.keys(result.profiles)).toHaveLength(1)
       })
 
-      it('should emit legacy profile-switched event on load', async () => {
+      it('should emit legacy profile:switched event on load', async () => {
         const events = []
-        eventBus.on('profile-switched', (event) => events.push(event))
+        eventBus.on('profile:switched', (event) => events.push(event))
 
         await profileService.loadData()
 
@@ -395,7 +395,7 @@ describe('ProfileService (Migrated to DataCoordinator)', () => {
   describe('Event Emission Compatibility', () => {
     it('should maintain legacy event emissions', async () => {
       const profileSwitchedEvents = []
-      eventBus.on('profile-switched', (event) => profileSwitchedEvents.push(event))
+      eventBus.on('profile:switched', (event) => profileSwitchedEvents.push(event))
 
       await profileService.loadData()
 

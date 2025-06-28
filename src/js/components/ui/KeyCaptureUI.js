@@ -36,6 +36,29 @@ export default class KeyCaptureUI extends ComponentBase {
     this.addEventListener('update',         (d) => this.updateCapturedKeysDisplay(d))
     this.addEventListener('chord-captured', (d) => this.addCapturedKeySelectionButton(d))
     this.addEventListener('capture-stop',   (d) => this.handleCaptureStop(d))
+
+    // Setup DOM event listeners for key modal buttons
+    this.setupEventListeners()
+  }
+
+  setupEventListeners() {
+    if (this.eventListenersSetup) {
+      return
+    }
+    this.eventListenersSetup = true
+
+    // Add key confirmation buttons
+    this.eventBus.onDom('addKeyConfirmYesBtn', 'click', 'add-key-confirm-yes', () => {
+      this.confirmAddKey(true)
+    })
+
+    this.eventBus.onDom('addKeyConfirmNoBtn', 'click', 'add-key-confirm-no', () => {
+      this.confirmAddKey(false)
+    })
+
+    this.eventBus.onDom('confirmAddKeyBtn', 'click', 'confirm-add-key', () => {
+      this.addSelectedKey()
+    })
   }
 
   /* ---------------------------------------------------------- public API */
@@ -154,6 +177,35 @@ export default class KeyCaptureUI extends ComponentBase {
 
       // Auto-stop capture when chord chosen in this modal
       this.stopCapture()
+    }
+  }
+
+  /**
+   * Handle key confirmation in add key modal
+   */
+  confirmAddKey(confirmed) {
+    if (confirmed) {
+      // Get the captured key and add it
+      const keyNameInput = this.document.getElementById('newKeyName')
+      const keyName = keyNameInput ? keyNameInput.value : null
+      
+      if (keyName && this.app && typeof this.app.addKey === 'function') {
+        this.app.addKey(keyName)
+      }
+    }
+    
+    // Hide modal and stop capture
+    this.modalManager?.hide('addKeyModal')
+    this.stopCapture()
+  }
+
+  /**
+   * Add the selected key from key selection modal
+   */
+  addSelectedKey() {
+    if (this.selectedKey) {
+      this.eventBus.emit('key:add', { key: this.selectedKey })
+      this.modalManager?.hide('keySelectionModal')
     }
   }
 } 

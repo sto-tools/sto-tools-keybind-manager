@@ -23,6 +23,12 @@ export default class AliasBrowserUI extends ComponentBase {
       this.render()
     })
 
+    // Listen for profile changes to refresh alias list
+    this.addEventListener('profile:switched', ({ profileId, environment } = {}) => {
+      this._selectedAliasName = null // Clear selection when switching profiles
+      this.render()
+    })
+
     // Toggle visibility based on current environment
     this.eventBus.on('environment:changed', (d = {}) => {
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode

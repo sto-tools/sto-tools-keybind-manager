@@ -13,6 +13,10 @@ export default class VFXManagerService extends ComponentBase {
     }
     this.showPlayerSay = false
     
+    // Track current profile like other services
+    this.currentProfile = null
+    this.storage = null
+    
     this.initialState = null
     this.isInitialized = false
   }
@@ -23,9 +27,23 @@ export default class VFXManagerService extends ComponentBase {
       return
     }
 
+    // Call parent init to register with component system
+    super.init()
+    
     this.setupEventListeners()
     this.isInitialized = true
     console.log(`[${this.componentName}] Initialized`)
+  }
+
+  // Handle initial state from other components
+  handleInitialState(sender, state) {
+    if ((sender === 'DataCoordinator' || sender === 'ProfileService') && state) {
+      this.currentProfile = state.currentProfile
+      console.log(`[${this.componentName}] Received current profile from ProfileService: ${this.currentProfile}`)
+    } else if (sender === 'StorageService' && state) {
+      this.storage = state
+      console.log(`[${this.componentName}] Received storage service`)
+    }
   }
 
   setupEventListeners() {
@@ -49,13 +67,31 @@ export default class VFXManagerService extends ComponentBase {
     if (effects.length === 0) return ''
 
     let aliasName = `dynFxSetFXExlusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
-    let command = `alias ${aliasName} <& dynFxSetFXExlusionList ${effects.join(',')}`
+    let command = `alias ${aliasName} <& dynFxSetFXExlusionList ${effects.join(' ')}`
 
     if (this.showPlayerSay) {
       command += ' $$ PlayerSay VFX Supression Loaded'
     }
 
     command += ' &>'
+    return command
+  }
+
+  // Generate just the command part (without alias definition) for storage
+  generateAliasCommand(environment) {
+    if (!this.selectedEffects[environment]) {
+      throw new Error(`Invalid environment: ${environment}`)
+    }
+
+    const effects = Array.from(this.selectedEffects[environment])
+    if (effects.length === 0) return ''
+
+    let command = `dynFxSetFXExlusionList ${effects.join(' ')}`
+
+    if (this.showPlayerSay) {
+      command += ' $$ PlayerSay VFX Supression Loaded'
+    }
+
     return command
   }
 
@@ -163,9 +199,9 @@ export default class VFXManagerService extends ComponentBase {
     console.log(`[${this.componentName}] Showing VFX modal`)
     
     // Load state from current profile
-    const currentProfile = window.stoStorage?.currentProfile
-    if (currentProfile) {
-      const profile = window.stoStorage.getProfile(currentProfile)
+    const storage = this.storage || window.stoStorage
+    if (this.currentProfile && storage) {
+      const profile = storage.getProfile(this.currentProfile)
       if (profile) {
         this.loadState(profile)
       }
@@ -188,19 +224,41 @@ export default class VFXManagerService extends ComponentBase {
 
   saveEffects() {
     console.log(`[${this.componentName}] Saving VFX effects`)
+    console.log(`[${this.componentName}] Current selected effects:`, this.selectedEffects)
+    console.log(`[${this.componentName}] Show player say:`, this.showPlayerSay)
+    console.log(`[${this.componentName}] Current profile:`, this.currentProfile)
+    
+    // Use window.stoStorage as fallback if this.storage is not available
+    const storage = this.storage || window.stoStorage
+    console.log(`[${this.componentName}] Storage available:`, !!storage)
     
     // Save to current profile
-    const currentProfile = window.stoStorage?.currentProfile
-    if (currentProfile) {
-      const profile = window.stoStorage.getProfile(currentProfile)
+    if (this.currentProfile && storage) {
+      const profile = storage.getProfile(this.currentProfile)
+      console.log(`[${this.componentName}] Retrieved profile:`, profile ? 'found' : 'not found')
+      
       if (profile) {
         this.saveState(profile)
-        window.stoStorage.saveProfile(currentProfile, profile)
-        console.log(`[${this.componentName}] VFX effects saved to profile: ${currentProfile}`)
+        
+        // Generate and save VFX aliases
+        console.log(`[${this.componentName}] About to call generateAndSaveAliases`)
+        this.generateAndSaveAliases(profile)
+        
+        storage.saveProfile(this.currentProfile, profile)
+        console.log(`[${this.componentName}] VFX effects and aliases saved to profile: ${this.currentProfile}`)
+        
+        // Update alias browser to show new aliases
+        this.eventBus.emit('aliases-changed', { aliases: profile.aliases })
+      } else {
+        console.error(`[${this.componentName}] ERROR: Could not retrieve profile: ${this.currentProfile}`)
       }
+    } else {
+      console.error(`[${this.componentName}] ERROR: Missing required services`)
+      console.error(`[${this.componentName}] Current profile:`, this.currentProfile)
+      console.error(`[${this.componentName}] Storage:`, !!storage)
     }
 
-    this.eventBus.emit('modal:hide', 'vertigoModal')
+    this.eventBus.emit('modal:hide', { modalId: 'vertigoModal' })
   }
 
   cancelEffects() {
@@ -213,6 +271,43 @@ export default class VFXManagerService extends ComponentBase {
       this.showPlayerSay = this.initialState.showPlayerSay
     }
 
-    this.eventBus.emit('modal:hide', 'vertigoModal')
+    this.eventBus.emit('modal:hide', { modalId: 'vertigoModal' })
+  }
+
+  // Generate and save VFX aliases to the profile
+  generateAndSaveAliases(profile) {
+    console.log(`[${this.componentName}] generateAndSaveAliases called`)
+    
+    if (!profile.aliases) {
+      profile.aliases = {}
+    }
+
+    // Remove existing VFX aliases
+    Object.keys(profile.aliases).forEach(aliasName => {
+      if (aliasName.startsWith('dynFxSetFXExlusionList_')) {
+        delete profile.aliases[aliasName]
+      }
+    })
+
+    // Generate and save new VFX aliases
+    ['space', 'ground'].forEach(environment => {
+      console.log(`[${this.componentName}] Processing environment: ${environment}`)
+      console.log(`[${this.componentName}] Selected effects for ${environment}:`, Array.from(this.selectedEffects[environment]))
+      
+      const aliasCommand = this.generateAliasCommand(environment)
+      console.log(`[${this.componentName}] Generated command for ${environment}: ${aliasCommand}`)
+      
+      if (aliasCommand) {
+        const aliasName = `dynFxSetFXExlusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
+        profile.aliases[aliasName] = {
+          command: aliasCommand,
+          description: `VFX suppression for ${environment} environment`,
+          type: 'vfx'
+        }
+        console.log(`[${this.componentName}] Generated VFX alias: ${aliasName} = ${aliasCommand}`)
+      } else {
+        console.log(`[${this.componentName}] No command generated for ${environment} (no effects selected)`)
+      }
+    })
   }
 } 
