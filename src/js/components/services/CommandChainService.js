@@ -66,6 +66,11 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('profile:updated', (data) => {
       if (data?.profile) {
         this.updateCacheFromProfile(data.profile)
+        // Refresh commands if we have a selected key
+        // disabled due to command chain rendering not being atomic
+        //if (this.selectedKey) {
+        //  this.refreshCommands()
+        //}
       }
     })
 
@@ -122,7 +127,7 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('command-added', async ({ command, key }) => {
       console.log('[CommandChainService] command-added received:', { command, key })
       const cmds = await this.getCommandsForSelectedKey()
-      console.log('[CommandChainService] [command-added] emitting chain-data-changed with', cmds.length, 'commands')
+      console.log('[CommandChainService] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
     })
 
@@ -141,7 +146,6 @@ export default class CommandChainService extends ComponentBase {
           })
           const after = await this.getCommandsForSelectedKey()
           if (after.length !== before.length) {
-            console.log('[CommandChainService] [commandlibrary:add] emitting chain-data-changed with', after.length, 'commands')
             this.emit('chain-data-changed', { commands: after })
           }
         }
@@ -235,7 +239,6 @@ export default class CommandChainService extends ComponentBase {
           key: this.selectedKey, 
           index 
         })
-        console.log('[CommandChainService] [commandchain:delete] emitting chain-data-changed with', await this.getCommandsForSelectedKey().length, 'commands')
         this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       } catch (error) {
         console.error('Failed to delete command:', error)
@@ -253,7 +256,6 @@ export default class CommandChainService extends ComponentBase {
           fromIndex, 
           toIndex 
         })
-        console.log('[CommandChainService] [commandchain:move] emitting chain-data-changed with', await this.getCommandsForSelectedKey().length, 'commands')
         this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       } catch (error) {
         console.error('Failed to move command:', error)
@@ -708,7 +710,6 @@ export default class CommandChainService extends ComponentBase {
   async refreshCommands() {
     if (this.selectedKey) {
       const cmds = await this.getCommandsForSelectedKey()
-      console.log('[CommandChainService] [refreshCommands] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
     }
   }
