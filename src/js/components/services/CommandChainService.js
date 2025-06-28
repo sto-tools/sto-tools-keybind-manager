@@ -297,6 +297,7 @@ export default class CommandChainService extends ComponentBase {
 
   async findCommandDefinition (command) {
     try {
+      console.log('[CommandChainService] findCommandDefinition command:find-definition', { command })
       return await request(this.eventBus, 'command:find-definition', { command })
     } catch (error) {
       console.error('Failed to find command definition:', error)

@@ -283,14 +283,20 @@ export default class CommandLibraryUI extends ComponentBase {
 
         // Look up alias object from provided aliases list
         const aliasEntry = aliases.find(([n]) => n === aliasName)
+        console.log('[CommandLibraryUI] aliasEntry', aliasEntry)
         const alias = aliasEntry ? aliasEntry[1] : {}
 
+        // Determine if this is a VFX alias or regular alias
+        const isVfxAlias = alias.type === 'vfx-alias' 
+        
         const fullyHydratedAlias = {
           command: aliasName,
-          type: 'alias',
+          type: alias.type,
           icon: '🎭',
-          text: `Alias: ${aliasName}`,
+          text: `${aliasName}`,
           description: alias.description,
+          isUserAlias: true,  // Flag to identify this as a user-defined alias
+          isVfxAlias: isVfxAlias,
           id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
         }
         console.log('[CommandLibraryUI] emitting command:add [alias]', { commandDef: fullyHydratedAlias })

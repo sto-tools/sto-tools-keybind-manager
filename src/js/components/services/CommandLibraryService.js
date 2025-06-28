@@ -215,6 +215,33 @@ export default class CommandLibraryService extends ComponentBase {
    */
   async findCommandDefinition(command) {
     try {
+      // Special handling for user-defined alias commands - don't try to match them against command definitions
+      if (command && command.isUserAlias) {
+        return {
+          name: command.text || command.command,
+          description: command.description || `User-defined alias: ${command.command}`,
+          command: command.command,
+          type: 'alias',
+          icon: '🎭',
+          commandId: command.command,
+          categoryId: 'aliases'
+        }
+      }
+      
+      // Special handling for VFX aliases - don't try to match them against command definitions
+      console.log('[CommandLibraryService] findCommandDefinition', { command })
+      if (command && typeof command.command === 'string' && command.command.startsWith('dynFxSetFXExlusionList_')) {
+        return {
+          name: command.text || command.command,
+          description: command.description || `VFX alias: ${command.command}`,
+          command: command.command,
+          type: 'vfx-alias',
+          icon: '🎭️',
+          commandId: command.command,
+          categoryId: 'vfx-alias'
+        }
+      }
+      
       const hasCommands = await request(this.eventBus, 'data:has-commands')
       if (!hasCommands) return null
 

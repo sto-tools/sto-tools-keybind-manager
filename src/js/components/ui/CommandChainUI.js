@@ -183,6 +183,7 @@ export default class CommandChainUI extends ComponentBase {
     element.draggable = true
 
     // Look up definition for display helpers
+    console.log('[CommandChainUI] createCommandElement command:find-definition', { command })
     const commandDef      = await request(this.eventBus, 'command:find-definition', { command })
     const isParameterized = commandDef && commandDef.customizable
 
@@ -230,9 +231,12 @@ export default class CommandChainUI extends ComponentBase {
     const warningIcon  = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
     const parameterInd = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : ''
 
+    console.log('[CommandChainUI] command', command)
+    console.log('[CommandChainUI] commandDef', commandDef)
     // Determine the actual command type from the definition, not from the parsed command
     let commandType = command.type
-    if (commandDef && commandDef.categoryId) {
+    // Preserve VFX alias type, don't override it with command definition categoryId
+    if (commandDef && commandDef.categoryId && command.type !== 'vfx-alias') {
       commandType = commandDef.categoryId
     }
 

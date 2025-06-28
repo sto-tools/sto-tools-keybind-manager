@@ -521,4 +521,15 @@ export default class StorageService extends ComponentBase {
     const defaultData = this.getDefaultData()
     return this.saveAllData(defaultData)
   }
+
+  /**
+   * Get current state for late-join support
+   * @returns {Object} The storage service instance
+   */
+  getCurrentState() {
+    return {
+      service: this,
+      isReady: this.isInitialized()
+    }
+  }
 } 

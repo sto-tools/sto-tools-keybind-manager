@@ -1277,6 +1277,9 @@ input:checked + .slider:before {
 .command-type.alias {
   background: linear-gradient(135deg, var(--accent), #fbbf24);
 }
+.command-type.vfx-alias {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
 
 /* Command builder styles */
 .command-builder {
