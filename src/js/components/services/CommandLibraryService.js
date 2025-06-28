@@ -4,13 +4,14 @@ import { request, respond } from '../../core/requestResponse.js'
 /**
  * CommandLibraryService - Handles all command library business logic
  * Manages command definitions, command chains, and command operations
+ * REFACTORED: Now uses DataCoordinator broadcast/cache pattern.
  */
 export default class CommandLibraryService extends ComponentBase {
   constructor({ storage, eventBus, i18n, ui, modalManager, commandService = null }) {
     super(eventBus)
     this.componentName = 'CommandLibraryService'
     this._instanceId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    this.storage        = storage
+    this.storage        = storage // Legacy reference (no longer used directly)
     this.i18n           = i18n
     this.ui             = ui
     this.modalManager   = modalManager
@@ -20,6 +21,15 @@ export default class CommandLibraryService extends ComponentBase {
     this.currentEnvironment = 'space'
     this.selectedKey = null
     this.selectedAlias = null
+
+    // Cache for DataCoordinator data
+    this.cache = {
+      currentProfile: null,
+      currentEnvironment: 'space',
+      profile: null,
+      keys: {},
+      aliases: {}
+    }
 
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
@@ -54,19 +64,35 @@ export default class CommandLibraryService extends ComponentBase {
   /**
    * Initialize the service
    */
-  onInit() {
+  async init() {
+    super.init() // ComponentBase handles late-join automatically
     this.setupEventListeners()
     this.setupRequestResponseEndpoints()
   }
 
   /**
-   * Set up event listeners
+   * Set up event listeners for DataCoordinator integration
    */
   setupEventListeners() {
-    // Listen for profile changes
-    this.addEventListener('profile:switched', (data) => {
-      this.currentProfile = data.profile
-      this.currentEnvironment = data.environment
+    // Listen for DataCoordinator profile updates
+    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (profileId === this.cache.currentProfile) {
+        this.updateCacheFromProfile(profile)
+      }
+    })
+
+    // Listen for DataCoordinator profile switches
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
+      this.currentProfile = profileId
+      this.cache.currentProfile = profileId
+      this.currentEnvironment = environment
+      this.cache.currentEnvironment = environment
+      
+      this.updateCacheFromProfile(profile)
+      
+      // Clear selections when profile changes since they're context-specific
+      this.selectedKey = null
+      this.selectedAlias = null
     })
 
     // Listen for key selection changes
@@ -86,16 +112,30 @@ export default class CommandLibraryService extends ComponentBase {
       const env = typeof data === 'string' ? data : data?.environment
       if (env) {
         this.currentEnvironment = env
+        this.cache.currentEnvironment = env
         // Clear selections when environment changes since they're context-specific
         this.selectedKey = null
         this.selectedAlias = null
       }
     })
-
   }
 
   /**
-   * Get commands for the currently selected key/alias
+   * Update cache from profile data (DataCoordinator integration)
+   */
+  updateCacheFromProfile(profile) {
+    if (!profile) return
+    
+    this.cache.profile = profile
+    this.cache.aliases = profile.aliases || {}
+    
+    // Update keys for current environment
+    const currentBuild = profile.builds?.[this.cache.currentEnvironment]
+    this.cache.keys = currentBuild?.keys || {}
+  }
+
+  /**
+   * Get commands for the currently selected key/alias using cached data
    */
   async getCommandsForSelectedKey() {
     // Use the appropriate cached selection based on current environment
@@ -127,19 +167,16 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   /**
-   * Get the current profile with build-specific data
+   * Get the current profile with build-specific data from cache
    */
   getCurrentProfile() {
-    if (!this.currentProfile) return null
+    if (!this.cache.profile) return null
 
-    const profile = this.storage.getProfile(this.currentProfile)
-    if (!profile) return null
-
-    return this.getCurrentBuild(profile)
+    return this.getCurrentBuild(this.cache.profile)
   }
 
   /**
-   * Get the current build for a profile
+   * Get the current build for a profile using cached data
    */
   getCurrentBuild(profile) {
     if (!profile) return null
@@ -276,9 +313,9 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   /**
-   * Add a command to the selected key
+   * Add a command to the selected key using DataCoordinator
    */
-  addCommand(key, command) {
+  async addCommand(key, command) {
     if (!this.selectedKey) {
       this.ui.showToast(this.i18n.t('please_select_a_key_first'), 'warning')
       return false
@@ -290,116 +327,203 @@ export default class CommandLibraryService extends ComponentBase {
       return false
     }
 
-    if (this.currentEnvironment === 'alias') {
-      // For aliases, we need to update the alias command string
-      const currentAlias = profile.aliases && profile.aliases[key]
-      const currentCommands = currentAlias && currentAlias.commands ? currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0) : []
-      
-      // Handle both single commands and arrays of commands (e.g., whole-tray execution)
-      if (Array.isArray(command)) {
-        // For arrays of commands, extract the command string from each
-        command.forEach(cmd => {
-          const commandString = cmd.command
+    try {
+      let updates = {}
+
+      if (this.currentEnvironment === 'alias') {
+        // For aliases, we need to update the alias command string
+        const currentAlias = profile.aliases && profile.aliases[key]
+        const currentCommands = currentAlias && currentAlias.commands ? currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0) : []
+        
+        // Handle both single commands and arrays of commands (e.g., whole-tray execution)
+        if (Array.isArray(command)) {
+          // For arrays of commands, extract the command string from each
+          command.forEach(cmd => {
+            const commandString = cmd.command
+            if (commandString) {
+              currentCommands.push(commandString)
+            }
+          })
+        } else {
+          // For single commands, extract the command string
+          const commandString = command.command
           if (commandString) {
             currentCommands.push(commandString)
           }
-        })
+        }
+        
+        const newCommandString = currentCommands.join(' $$ ')
+        
+        const updatedAliases = { ...profile.aliases }
+        if (!updatedAliases[key]) updatedAliases[key] = {}
+        updatedAliases[key].commands = newCommandString
+        
+        updates.aliases = updatedAliases
       } else {
-        // For single commands, extract the command string
-        const commandString = command.command
-        if (commandString) {
-          currentCommands.push(commandString)
+        // For keybinds, add to the keys array in the current environment
+        const updatedBuilds = { ...profile.builds }
+        if (!updatedBuilds[this.currentEnvironment]) updatedBuilds[this.currentEnvironment] = { keys: {} }
+        if (!updatedBuilds[this.currentEnvironment].keys) updatedBuilds[this.currentEnvironment].keys = {}
+        
+        const updatedKeys = { ...updatedBuilds[this.currentEnvironment].keys }
+        if (!updatedKeys[key]) updatedKeys[key] = []
+        updatedKeys[key] = [...updatedKeys[key], command]
+        
+        updatedBuilds[this.currentEnvironment].keys = updatedKeys
+        updates.builds = updatedBuilds
+      }
+
+      // Send update to DataCoordinator
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+
+      if (result.success) {
+        this.emit('command-added', { key, command })
+        return true
+      } else {
+        this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
+        return false
+      }
+    } catch (error) {
+      console.error('Error adding command:', error)
+      this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
+      return false
+    }
+  }
+
+  /**
+   * Delete a command from the selected key using DataCoordinator
+   */
+  async deleteCommand(key, index) {
+    const profile = this.getCurrentProfile()
+    if (!profile) return false
+
+    try {
+      // Robustly determine if we're dealing with an alias chain. This covers
+      // cases where `currentEnvironment` might have fallen out-of-sync yet the
+      // key exists in the profile's `aliases` map (observed bug #ALIAS-DEL-1).
+      const isAliasContext = this.currentEnvironment === 'alias' ||
+        (profile.aliases && Object.prototype.hasOwnProperty.call(profile.aliases, key))
+
+      console.log('isAliasContext', isAliasContext)
+      
+      let updates = {}
+
+      if (isAliasContext) {
+        // ----- Alias chain deletion -----
+        const currentAlias = profile.aliases && profile.aliases[key]
+        if (!currentAlias || !currentAlias.commands) return false
+
+        const commands = currentAlias.commands
+          .split(/\s*\$\$\s*/)
+          .filter(cmd => cmd.trim().length > 0)
+
+        if (index >= 0 && index < commands.length) {
+          commands.splice(index, 1)
+          
+          const updatedAliases = { ...profile.aliases }
+          updatedAliases[key].commands = commands.join(' $$ ')
+          updates.aliases = updatedAliases
+        }
+      } else {
+        // ----- Key-bind deletion -----
+        if (profile.keys[key] && profile.keys[key][index]) {
+          const updatedBuilds = { ...profile.builds }
+          if (!updatedBuilds[this.currentEnvironment]) updatedBuilds[this.currentEnvironment] = { keys: {} }
+          
+          const updatedKeys = { ...updatedBuilds[this.currentEnvironment].keys }
+          updatedKeys[key] = [...updatedKeys[key]]
+          updatedKeys[key].splice(index, 1)
+          
+          updatedBuilds[this.currentEnvironment].keys = updatedKeys
+          updates.builds = updatedBuilds
         }
       }
-      
-      const newCommandString = currentCommands.join(' $$ ')
-      
-      if (!profile.aliases) profile.aliases = {}
-      if (!profile.aliases[key]) profile.aliases[key] = {}
-      profile.aliases[key].commands = newCommandString
-    } else {
-      // For keybinds, add to the keys array
-      if (!profile.keys[key]) profile.keys[key] = []
-      profile.keys[key].push(command)
-    }
 
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('command-added', { key, command })
-    return true
+      // Send update to DataCoordinator
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+
+      if (result.success) {
+        this.emit('command-deleted', { key, index })
+        return true
+      } else {
+        this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
+        return false
+      }
+    } catch (error) {
+      console.error('Error deleting command:', error)
+      this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
+      return false
+    }
   }
 
   /**
-   * Delete a command from the selected key
+   * Move a command to a new position using DataCoordinator
    */
-  deleteCommand(key, index) {
+  async moveCommand(key, fromIndex, toIndex) {
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
-    // Robustly determine if we're dealing with an alias chain. This covers
-    // cases where `currentEnvironment` might have fallen out-of-sync yet the
-    // key exists in the profile's `aliases` map (observed bug #ALIAS-DEL-1).
-    const isAliasContext = this.currentEnvironment === 'alias' ||
-      (profile.aliases && Object.prototype.hasOwnProperty.call(profile.aliases, key))
+    try {
+      let updates = {}
 
-    console.log('isAliasContext', isAliasContext)
-    
-    if (isAliasContext) {
-      // ----- Alias chain deletion -----
-      const currentAlias = profile.aliases && profile.aliases[key]
-      if (!currentAlias || !currentAlias.commands) return false
+      if (this.currentEnvironment === 'alias') {
+        // For aliases, reorder the command string
+        const currentAlias = profile.aliases && profile.aliases[key]
+        if (!currentAlias || !currentAlias.commands) return false
 
-      const commands = currentAlias.commands
-        .split(/\s*\$\$\s*/)
-        .filter(cmd => cmd.trim().length > 0)
-
-      if (index >= 0 && index < commands.length) {
-        commands.splice(index, 1)
-        profile.aliases[key].commands = commands.join(' $$ ')
+        const commands = currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0)
+        if (fromIndex >= 0 && fromIndex < commands.length && toIndex >= 0 && toIndex < commands.length) {
+          const [movedCommand] = commands.splice(fromIndex, 1)
+          commands.splice(toIndex, 0, movedCommand)
+          const newCommandString = commands.join(' $$ ')
+          
+          const updatedAliases = { ...profile.aliases }
+          updatedAliases[key].commands = newCommandString
+          updates.aliases = updatedAliases
+        }
+      } else {
+        // For keybinds, reorder the array
+        if (profile.keys[key] && fromIndex >= 0 && fromIndex < profile.keys[key].length && 
+            toIndex >= 0 && toIndex < profile.keys[key].length) {
+          
+          const updatedBuilds = { ...profile.builds }
+          if (!updatedBuilds[this.currentEnvironment]) updatedBuilds[this.currentEnvironment] = { keys: {} }
+          
+          const updatedKeys = { ...updatedBuilds[this.currentEnvironment].keys }
+          updatedKeys[key] = [...updatedKeys[key]]
+          
+          const [movedCommand] = updatedKeys[key].splice(fromIndex, 1)
+          updatedKeys[key].splice(toIndex, 0, movedCommand)
+          
+          updatedBuilds[this.currentEnvironment].keys = updatedKeys
+          updates.builds = updatedBuilds
+        }
       }
-    } else {
-      // ----- Key-bind deletion (unchanged) -----
-      if (profile.keys[key] && profile.keys[key][index]) {
-        profile.keys[key].splice(index, 1)
+
+      // Send update to DataCoordinator
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+
+      if (result.success) {
+        this.emit('command-moved', { key, fromIndex, toIndex })
+        return true
+      } else {
+        this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
+        return false
       }
+    } catch (error) {
+      console.error('Error moving command:', error)
+      this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
+      return false
     }
-
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('command-deleted', { key, index })
-    return true
-  }
-
-  /**
-   * Move a command to a new position
-   */
-  moveCommand(key, fromIndex, toIndex) {
-
-    const profile = this.getCurrentProfile()
-    if (!profile) return false
-
-    if (this.currentEnvironment === 'alias') {
-      // For aliases, reorder the command string
-      const currentAlias = profile.aliases && profile.aliases[key]
-      if (!currentAlias || !currentAlias.commands) return false
-
-      const commands = currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0)
-      if (fromIndex >= 0 && fromIndex < commands.length && toIndex >= 0 && toIndex < commands.length) {
-        const [movedCommand] = commands.splice(fromIndex, 1)
-        commands.splice(toIndex, 0, movedCommand)
-        const newCommandString = commands.join(' $$ ')
-        profile.aliases[key].commands = newCommandString
-      }
-    } else {
-      // For keybinds, reorder the array
-      if (profile.keys[key] && fromIndex >= 0 && fromIndex < profile.keys[key].length && 
-          toIndex >= 0 && toIndex < profile.keys[key].length) {
-        const [movedCommand] = profile.keys[key].splice(fromIndex, 1)
-        profile.keys[key].splice(toIndex, 0, movedCommand)
-      }
-    }
-
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('command-moved', { key, fromIndex, toIndex })
-    return true
   }
 
   /**
@@ -590,7 +714,7 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   /* ------------------------------------------------------------------
-   * Late-join state sharing
+   * ComponentBase late-join support for DataCoordinator integration
    * ------------------------------------------------------------------ */
   getCurrentState() {
     return {
@@ -603,12 +727,25 @@ export default class CommandLibraryService extends ComponentBase {
 
   handleInitialState(sender, state) {
     if (!state) return
-    if (sender === 'DataCoordinator' || sender === 'ProfileService') {
-      if (state.currentProfile) this.currentProfile = state.currentProfile
-      if (state.currentEnvironment) this.currentEnvironment = state.currentEnvironment
+    
+    // Handle state from DataCoordinator via ComponentBase late-join
+    if (sender === 'DataCoordinator' && state.currentProfileData) {
+      const profile = state.currentProfileData
+      this.currentProfile = profile.id
+      this.cache.currentProfile = profile.id
+      this.currentEnvironment = profile.environment || 'space'
+      this.cache.currentEnvironment = this.currentEnvironment
+      
+      this.updateCacheFromProfile(profile)
     }
+    
+    // Handle state from other services
     if (sender === 'KeyService' && state.selectedKey) {
       this.selectedKey = state.selectedKey
+    }
+    
+    if (sender === 'AliasBrowserService' && state.selectedAliasName) {
+      this.selectedAlias = state.selectedAliasName
     }
   }
 

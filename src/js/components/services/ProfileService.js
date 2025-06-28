@@ -20,10 +20,12 @@ export default class ProfileService extends ComponentBase {
     this.currentEnvironment = 'space'
     this.isModified = false
 
+    // Cache for profiles list from DataCoordinator broadcasts
+    this.profilesCache = {}
+
     // Register Request/Response topics for backward compatibility
     // All requests are forwarded to DataCoordinator
     if (this.eventBus) {
-      respond(this.eventBus, 'profile:get-current', () => this.getCurrentProfile())
       respond(this.eventBus, 'profile:switch', ({ id } = {}) => this.switchProfile(id))
       respond(this.eventBus, 'profile:create', ({ name, description, mode } = {}) => this.createProfile(name, description, mode))
       respond(this.eventBus, 'profile:delete', ({ id } = {}) => this.deleteProfile(id))
@@ -37,22 +39,11 @@ export default class ProfileService extends ComponentBase {
   async init() {
     super.init()
     
-    // Register with DataCoordinator for state updates
-    await request(this.eventBus, 'data:register-subscriber', { componentName: this.componentName })
-    
     this.setupEventListeners()
   }
 
   setupEventListeners() {
     // Listen for DataCoordinator state updates to maintain legacy state
-    this.addEventListener('data:initial-state', ({ targetComponent, state, currentProfile }) => {
-      if (targetComponent === this.componentName) {
-        this.currentProfile = state.currentProfile
-        this.currentEnvironment = state.currentEnvironment
-        this.isModified = false
-      }
-    })
-
     this.addEventListener('profile:switched', ({ profileId, environment }) => {
       this.currentProfile = profileId
       this.currentEnvironment = environment
@@ -62,30 +53,45 @@ export default class ProfileService extends ComponentBase {
     this.addEventListener('environment:changed', ({ environment }) => {
       this.currentEnvironment = environment
     })
+
+    // Cache profiles list when DataCoordinator broadcasts updates
+    this.addEventListener('profile:created', ({ profile }) => {
+      if (profile && profile.id) {
+        this.profilesCache[profile.id] = profile
+      }
+    })
+
+    this.addEventListener('profile:deleted', ({ profileId }) => {
+      if (this.profilesCache[profileId]) {
+        delete this.profilesCache[profileId]
+      }
+    })
+
+    this.addEventListener('profile:updated', ({ profile }) => {
+      if (profile && profile.id) {
+        this.profilesCache[profile.id] = profile
+      }
+    })
   }
 
   /**
-   * Load profile data - delegated to DataCoordinator
+   * Load profile data - now uses cached state from DataCoordinator broadcasts
    */
   async loadData() {
     try {
-      const state = await request(this.eventBus, 'data:get-current-state')
-      
-      this.currentProfile = state.currentProfile
-      this.currentEnvironment = state.currentEnvironment
-      this.isModified = false
-
       // Maintain backward compatibility by emitting legacy event
-      this.emit('profile-switched', {
-        profileId: this.currentProfile,
-        profile: this.currentProfile,
-        environment: this.currentEnvironment,
-      })
+      if (this.currentProfile) {
+        this.emit('profile-switched', {
+          profileId: this.currentProfile,
+          profile: this.currentProfile,
+          environment: this.currentEnvironment,
+        })
+      }
 
       return { 
         currentProfile: this.currentProfile, 
         currentEnvironment: this.currentEnvironment,
-        profiles: state.profiles
+        profiles: this.profilesCache
       }
     } catch (error) {
       throw new Error(this.i18n.t('failed_to_load_profile_data') || 'Failed to load profile data')
@@ -97,21 +103,12 @@ export default class ProfileService extends ComponentBase {
    */
   async saveProfile() {
     try {
-      const virtualProfile = await this.getCurrentProfile()
-
-      if (!virtualProfile) {
+      if (!this.currentProfile) {
         throw new Error(this.i18n.t('no_profile_to_save') || 'No profile to save')
       }
 
-      // For backward compatibility, save current build data first
-      await this.saveCurrentBuild()
-
-      // Get current profile state and update it
+      // Delegate entirely to DataCoordinator - it handles the current profile state
       const updates = {
-        name: virtualProfile.name,
-        description: virtualProfile.description,
-        aliases: virtualProfile.aliases || {},
-        keybindMetadata: virtualProfile.keybindMetadata,
         currentEnvironment: this.currentEnvironment,
       }
 
@@ -275,10 +272,9 @@ export default class ProfileService extends ComponentBase {
       
       // Localize the message if needed
       if (result.message && this.i18n) {
-        const sourceProfile = await request(this.eventBus, 'data:get-profile', { profileId: sourceProfileId })
         result.message = this.i18n.t('profile_created_from', { 
           newName, 
-          sourceProfile: sourceProfile?.name || 'Unknown'
+          sourceProfile: sourceProfileId // Use ID instead of name since we don't have cached profile data
         }) || result.message
       }
       
@@ -338,28 +334,22 @@ export default class ProfileService extends ComponentBase {
    */
   async saveCurrentBuild() {
     try {
-      const currentBuild = await this.getCurrentProfile()
-
-      if (currentBuild && this.currentProfile) {
-        // Prepare build structure update
-        const currentProfile = await request(this.eventBus, 'data:get-profile', { profileId: this.currentProfile })
-        const builds = currentProfile?.builds || { space: { keys: {} }, ground: { keys: {} } }
-        
-        builds[this.currentEnvironment] = {
-          keys: currentBuild.keys || {}
-        }
-
-        const updates = { builds }
-
-        await request(this.eventBus, 'data:update-profile', { 
-          profileId: this.currentProfile, 
-          updates 
-        })
-        
-        return { success: true }
+      if (!this.currentProfile) {
+        throw new Error(this.i18n.t('no_profile_or_build_data') || 'No profile or build data')
       }
 
-      throw new Error(this.i18n.t('no_profile_or_build_data') || 'No profile or build data')
+      // DataCoordinator handles current build state internally
+      // This method is kept for backward compatibility but delegates entirely
+      const updates = {
+        currentEnvironment: this.currentEnvironment,
+      }
+
+      await request(this.eventBus, 'data:update-profile', { 
+        profileId: this.currentProfile, 
+        updates 
+      })
+      
+      return { success: true }
     } catch (error) {
       throw error
     }
@@ -421,16 +411,49 @@ export default class ProfileService extends ComponentBase {
     return {
       currentProfile: this.currentProfile,
       currentEnvironment: this.currentEnvironment,
-      profiles: await this.getAllProfiles(),
+      profiles: { ...this.profilesCache },
       modified: this.isModified,
     }
   }
 
   /**
-   * Return a shallow copy of all profiles - delegated to DataCoordinator
+   * ComponentBase late-join support - handle initial state from other instances
+   */
+  async handleInitialState(state, senderName) {
+    if (senderName === 'DataCoordinator' && state.currentProfileData) {
+      this.currentProfile = state.currentProfile || state.currentProfileData?.id
+      this.currentEnvironment = state.currentEnvironment || 'space'
+      this.isModified = false
+      
+      // Cache the profiles list from DataCoordinator
+      if (state.profiles) {
+        this.profilesCache = { ...state.profiles }
+      }
+
+      // Trigger loadData to complete initialization with the synced state
+      try {
+        await this.loadData()
+      } catch (error) {
+        console.error(`[${this.componentName}] loadData failed after late-join:`, error)
+      }
+
+    } else if (state.currentProfile) {
+      this.currentProfile = state.currentProfile
+      this.currentEnvironment = state.currentEnvironment || 'space'
+      this.isModified = state.modified || false
+      
+      // Cache profiles if provided
+      if (state.profiles) {
+        this.profilesCache = { ...state.profiles }
+      }
+    }
+  }
+
+  /**
+   * Return cached profiles instead of making requests
    */
   async getAllProfiles() {
-    return await request(this.eventBus, 'data:get-all-profiles')
+    return { ...this.profilesCache }
   }
 
   /**

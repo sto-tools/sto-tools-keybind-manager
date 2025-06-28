@@ -6,11 +6,18 @@ import { respond, request } from '../../core/requestResponse.js'
  * key-bind rows in a profile. This service mirrors CommandService but focuses
  * exclusively on key level operations so other components (KeyBrowser,
  * CommandChain, etc.) can delegate all key data mutations here.
+ * 
+ * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
+ * - Caches profile state locally from DataCoordinator broadcasts
+ * - Uses DataCoordinator request/response for all profile updates
+ * - Implements late-join support for dynamic initialization
+ * - No direct storage access - all data operations go through DataCoordinator
  */
 export default class KeyService extends ComponentBase {
   constructor ({ storage, eventBus, i18n, ui } = {}) {
     super(eventBus)
     this.componentName = 'KeyService'
+    // Legacy storage parameter kept for backward compatibility but not used
     this.storage = storage
     this.i18n = i18n
     this.ui = ui
@@ -18,6 +25,18 @@ export default class KeyService extends ComponentBase {
     this.selectedKey = null
     this.currentEnvironment = 'space'
     this.currentProfile = null
+
+    // REFACTORED: Cache profile state from DataCoordinator broadcasts
+    this.cache = {
+      currentProfile: null,
+      currentEnvironment: 'space',
+      keys: {}, // Current environment's keys
+      builds: { // Full builds structure for profile
+        space: { keys: {} },
+        ground: { keys: {} }
+      },
+      aliases: {}
+    }
 
     /* ------------------------------------------------------------------
      * Legacy STOKeybindFileManager fields expected by unit tests
@@ -37,7 +56,15 @@ export default class KeyService extends ComponentBase {
   }
 
   /* ------------------------------------------------------------------
-   * State setters
+   * Lifecycle
+   * ------------------------------------------------------------------ */
+  async init() {
+    super.init() // ComponentBase handles late-join automatically
+    this.setupEventListeners()
+  }
+
+  /* ------------------------------------------------------------------
+   * State setters - Updated to use cached state
    * ------------------------------------------------------------------ */
   setSelectedKey (key) {
     this.selectedKey = key
@@ -45,10 +72,14 @@ export default class KeyService extends ComponentBase {
 
   setCurrentEnvironment (environment) {
     this.currentEnvironment = environment
+    this.cache.currentEnvironment = environment
+    // Update keys cache for current environment
+    this.cache.keys = this.cache.builds[environment]?.keys || {}
   }
 
   setCurrentProfile (profileId) {
     this.currentProfile = profileId
+    this.cache.currentProfile = profileId
   }
 
   /** Convenience getter */
@@ -57,112 +88,215 @@ export default class KeyService extends ComponentBase {
   }
 
   /* ------------------------------------------------------------------
-   * Profile helpers – modelled after CommandService helpers
+   * REFACTORED: Event listeners for DataCoordinator integration
    * ------------------------------------------------------------------ */
-  _ensureBuildStructure (profile) {
-    if (!profile.builds) {
-      profile.builds = {
-        space: { keys: {} },
-        ground: { keys: {} },
+  setupEventListeners () {
+    if (!this.eventBus) return
+
+    // Cache profile state from DataCoordinator broadcasts
+    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (profileId === this.cache.currentProfile) {
+        this.updateCacheFromProfile(profile)
+        this.emit('keys:changed', { keys: this.cache.keys })
       }
-    }
+    })
 
-    if (!profile.builds[this.currentEnvironment]) {
-      profile.builds[this.currentEnvironment] = { keys: {} }
-    }
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
+      this.cache.currentProfile = profileId
+      this.currentProfile = profileId
+      this.cache.currentEnvironment = environment || 'space'
+      this.currentEnvironment = this.cache.currentEnvironment
+      this.selectedKey = null
+      
+      this.updateCacheFromProfile(profile)
+      this.emit('keys:changed', { keys: this.cache.keys })
+    })
 
-    if (!profile.builds[this.currentEnvironment].keys) {
-      profile.builds[this.currentEnvironment].keys = {}
-    }
+    this.addEventListener('environment:changed', ({ environment }) => {
+      if (environment) {
+        this.cache.currentEnvironment = environment
+        this.currentEnvironment = environment
+        this.cache.keys = this.cache.builds[environment]?.keys || {}
+        this.emit('keys:changed', { keys: this.cache.keys })
+      }
+    })
+
+    // Late-join support now handled by ComponentBase automatically
+
+    // Legacy event compatibility
+    this.addEventListener('key-selected', ({ key, name } = {}) => {
+      this.selectedKey = key || name || null
+    })
   }
 
+  /**
+   * Update local cache from profile data
+   */
+  updateCacheFromProfile(profile) {
+    if (!profile) return
+    
+    // Ensure builds structure exists
+    this.cache.builds = profile.builds || {
+      space: { keys: {} },
+      ground: { keys: {} }
+    }
+    
+    // Update keys for current environment
+    this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
+    this.cache.aliases = profile.aliases || {}
+  }
+
+  /* ------------------------------------------------------------------
+   * REFACTORED: Profile access now uses cached state
+   * ------------------------------------------------------------------ */
   getCurrentProfile () {
-    if (!this.currentProfile) return null
-    const profile = this.storage.getProfile(this.currentProfile)
-    if (!profile) return null
-    this._ensureBuildStructure(profile)
+    if (!this.cache.currentProfile) return null
+    
+    // Return virtual profile with current environment's keys
     return {
-      ...profile,
-      keys: profile.builds[this.currentEnvironment].keys,
+      id: this.cache.currentProfile,
+      builds: this.cache.builds,
+      keys: this.cache.keys, // Current environment's keys
+      aliases: this.cache.aliases,
+      environment: this.cache.currentEnvironment
     }
   }
 
   /* ------------------------------------------------------------------
-   * Core key operations
+   * REFACTORED: Core key operations now use DataCoordinator
    * ------------------------------------------------------------------ */
   /** Add a new empty key row to the current profile */
-  addKey (keyName) {
-    if (!this.isValidKeyName(keyName)) {
+  async addKey (keyName) {
+    if (!await this.isValidKeyName(keyName)) {
       this.ui?.showToast?.(this.i18n?.t?.('invalid_key_name') || 'Invalid key name', 'error')
       return false
     }
 
-    const profile = this.storage.getProfile(this.currentProfile)
-    if (!profile) {
+    if (!this.cache.currentProfile) {
       this.ui?.showToast?.(this.i18n?.t?.('no_profile_selected') || 'No active profile', 'error')
       return false
     }
 
-    this._ensureBuildStructure(profile)
-
-    const keyMap = profile.builds[this.currentEnvironment].keys
-    if (keyMap[keyName]) {
+    // Check if key already exists in cache
+    if (this.cache.keys[keyName]) {
       this.ui?.showToast?.(this.i18n?.t?.('key_already_exists', { keyName }) || 'Key already exists', 'warning')
       return false
     }
 
-    keyMap[keyName] = []
-    this.storage.saveProfile(this.currentProfile, profile)
+    try {
+      // Prepare updated builds structure
+      const updatedBuilds = {
+        ...this.cache.builds,
+        [this.cache.currentEnvironment]: {
+          keys: {
+            ...this.cache.keys,
+            [keyName]: []
+          }
+        }
+      }
 
-    this.selectedKey = keyName
-    this.emit('key-added', { key: keyName })
-    
-    // Show success toast (legacy behavior from keyHandling.js)
-    this.ui?.showToast?.(this.i18n?.t?.('key_added') || 'Key added', 'success')
-    
-    return true
+      // Update through DataCoordinator
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates: { builds: updatedBuilds }
+      })
+
+      this.selectedKey = keyName
+      this.emit('key-added', { key: keyName })
+      
+      // Show success toast (legacy behavior from keyHandling.js)
+      this.ui?.showToast?.(this.i18n?.t?.('key_added') || 'Key added', 'success')
+      
+      return true
+    } catch (error) {
+      console.error('[KeyService] Failed to add key:', error)
+      this.ui?.showToast?.(this.i18n?.t?.('failed_to_add_key') || 'Failed to add key', 'error')
+      return false
+    }
   }
 
   /** Delete a key row from the current profile */
-  deleteKey (keyName) {
-    const profile = this.storage.getProfile(this.currentProfile)
-    if (!profile) return false
+  async deleteKey (keyName) {
+    if (!this.cache.currentProfile || !this.cache.keys[keyName]) {
+      return false
+    }
 
-    this._ensureBuildStructure(profile)
-    const keyMap = profile.builds[this.currentEnvironment].keys
-    if (!keyMap[keyName]) return false
+    try {
+      // Prepare updated builds structure
+      const updatedKeys = { ...this.cache.keys }
+      delete updatedKeys[keyName]
+      
+      const updatedBuilds = {
+        ...this.cache.builds,
+        [this.cache.currentEnvironment]: {
+          keys: updatedKeys
+        }
+      }
 
-    delete keyMap[keyName]
-    if (this.selectedKey === keyName) this.selectedKey = null
+      // Update through DataCoordinator
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates: { builds: updatedBuilds }
+      })
 
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('key-deleted', { key: keyName })
-    return true
+      if (this.selectedKey === keyName) {
+        this.selectedKey = null
+      }
+
+      this.emit('key-deleted', { key: keyName })
+      return true
+    } catch (error) {
+      console.error('[KeyService] Failed to delete key:', error)
+      return false
+    }
   }
 
   /** Duplicate an existing key row (clone commands with new ids) */
-  duplicateKey (keyName) {
-    const profile = this.storage.getProfile(this.currentProfile)
-    if (!profile) return false
-
-    this._ensureBuildStructure(profile)
-    const keyMap = profile.builds[this.currentEnvironment].keys
-    const commands = keyMap[keyName]
-    if (!commands || commands.length === 0) return false
-
-    let newKeyName = `${keyName}_copy`
-    let counter = 1
-    while (keyMap[newKeyName]) {
-      newKeyName = `${keyName}_copy_${counter}`
-      counter++
+  async duplicateKey (keyName) {
+    if (!this.cache.currentProfile || !this.cache.keys[keyName]) {
+      return false
     }
 
-    const cloned = commands.map(cmd => ({ ...cmd, id: this.generateKeyId() }))
-    keyMap[newKeyName] = cloned
+    const commands = this.cache.keys[keyName]
+    if (!commands || commands.length === 0) {
+      return false
+    }
 
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('key-duplicated', { from: keyName, to: newKeyName })
-    return true
+    try {
+      // Generate unique new key name
+      let newKeyName = `${keyName}_copy`
+      let counter = 1
+      while (this.cache.keys[newKeyName]) {
+        newKeyName = `${keyName}_copy_${counter}`
+        counter++
+      }
+
+      // Clone commands with new IDs
+      const cloned = commands.map(cmd => ({ ...cmd, id: this.generateKeyId() }))
+
+      // Prepare updated builds structure
+      const updatedBuilds = {
+        ...this.cache.builds,
+        [this.cache.currentEnvironment]: {
+          keys: {
+            ...this.cache.keys,
+            [newKeyName]: cloned
+          }
+        }
+      }
+
+      // Update through DataCoordinator
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates: { builds: updatedBuilds }
+      })
+
+      this.emit('key-duplicated', { from: keyName, to: newKeyName })
+      return true
+    } catch (error) {
+      console.error('[KeyService] Failed to duplicate key:', error)
+      return false
+    }
   }
 
   /* ------------------------------------------------------------------
@@ -238,31 +372,10 @@ export default class KeyService extends ComponentBase {
   }
 
   /* ------------------------------------------------------------------
-   * Lifecycle hooks
+   * Legacy lifecycle hooks (kept for compatibility)
    * ------------------------------------------------------------------ */
   onInit () {
-    this.setupEventListeners()
-  }
-
-  setupEventListeners () {
-    if (!this.eventBus) return
-
-    // When UI selects a key
-    this.eventBus.on('key-selected', ({ key, name } = {}) => {
-      this.selectedKey = key || name || null
-    })
-
-    // Profile service notifies of active profile change
-    this.eventBus.on('profile:switched', ({ profileId, environment } = {}) => {
-      this.currentProfile = profileId || null
-      if (environment) this.currentEnvironment = environment
-      this.selectedKey = null
-    })
-
-    // Mode switches between space/ground via modeManagement
-    this.eventBus.on('environment:changed', ({ environment } = {}) => {
-      if (environment) this.currentEnvironment = environment
-    })
+    // Now handled by init() method
   }
 
   // REMOVED: selectKey method - this should be handled by KeyBrowserService
@@ -576,31 +689,42 @@ export default class KeyService extends ComponentBase {
   }
 
   /* ------------------------------------------------------------------
-   * Late-join state sharing
+   * REFACTORED: Late-join state sharing using cached data
    * ------------------------------------------------------------------ */
   getCurrentState () {
     return {
       selectedKey: this.selectedKey,
+      currentProfile: this.cache.currentProfile,
+      currentEnvironment: this.cache.currentEnvironment,
       keys: this.getKeys()
     }
   }
 
   /**
-   * Helper: return array of key names in current profile & environment.
+   * Helper: return array of key names in current environment from cache.
    */
   getKeys () {
-    const profile = this.getCurrentProfile()
-    if (!profile || !profile.keys) return []
-    return Object.keys(profile.keys)
+    return Object.keys(this.cache.keys)
   }
 
   handleInitialState (sender, state) {
     if (!state) return
-    if (sender === 'DataCoordinator' || sender === 'ProfileService') {
-      if (state.currentProfile) this.currentProfile = state.currentProfile
-      // environment is managed by InterfaceModeService now; but fall back
-      if (state.environment) this.currentEnvironment = state.environment
+    
+    // Handle state from DataCoordinator via ComponentBase late-join
+    if (sender === 'DataCoordinator' && state.currentProfileData) {
+      const profile = state.currentProfileData
+      this.cache.currentProfile = profile.id
+      this.currentProfile = profile.id
+      this.cache.currentEnvironment = profile.environment || 'space'
+      this.currentEnvironment = this.cache.currentEnvironment
+      
+      this.updateCacheFromProfile(profile)
+      this.emit('keys:changed', { keys: this.cache.keys })
+      
+      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
     }
+    
+    // Handle state from other KeyService instances
     if (sender === 'KeyService') {
       this.selectedKey = state.selectedKey ?? this.selectedKey
     }

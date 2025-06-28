@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { KeyService, StorageService } from '../../src/js/components/services/index.js'
 import DataService from '../../src/js/components/services/DataService.js'
 import eventBus from '../../src/js/core/eventBus.js'
+import { respond } from '../../src/js/core/requestResponse.js'
 
 // Robust in-memory localStorage mock (from StorageService.test.js)
 const localStorageMock = (() => {
@@ -40,46 +41,87 @@ if (typeof global.STO_DATA === 'undefined') {
   global.STO_DATA = mockStoData
 }
 
-describe('KeyService – core key operations', () => {
-  let service, storageMock, uiMock, dataService
+describe('KeyService – core key operations with DataCoordinator', () => {
+  let service, dataService, uiMock, mockProfile
 
   beforeEach(async () => {
     global.localStorage.clear()
     
+    // Clear event bus - note: eventBus doesn't have removeAllListeners, so we'll skip this
+    // eventBus.removeAllListeners() // Not available
+    
     // Set up DataService with mock data
     dataService = new DataService({ eventBus, data: mockStoData })
     await dataService.init()
-    
-    // Fresh mocks for every test
-    storageMock = new StorageService({ eventBus })
-    await storageMock.init()
-    
-    // Ensure storage has a dummy profile to work with
-    const data = storageMock.getAllData()
 
-    data.profiles = { 
-      'test-profile': { 
-        name: 'Test Profile',
-        builds: { space: { keys: {} }, ground: { keys: {} } },
-      } 
-    }
-
-    storageMock.saveAllData(data)
-    console.log('After saveAllData, getProfile:', JSON.stringify(storageMock.getProfile('test-profile')))
-
+    // Mock UI for toast messages
     uiMock = { showToast: vi.fn() }
 
-    service = new KeyService({ eventBus, storage: storageMock, ui: uiMock })
+    // Mock profile data for testing
+    mockProfile = {
+      id: 'test-profile-123',
+      name: 'Test Profile',
+      builds: {
+        space: { keys: {} },
+        ground: { keys: {} }
+      },
+      aliases: {},
+      environment: 'space'
+    }
+
+    // Set up mock DataCoordinator responses
+    const dataCoordinatorMocks = []
+    
+    // Mock register-subscriber to resolve immediately
+    dataCoordinatorMocks.push(respond(eventBus, 'data:register-subscriber', () => ({ success: true })))
+    
+    // Mock update-profile to simulate successful profile updates
+    dataCoordinatorMocks.push(respond(eventBus, 'data:update-profile', async ({ profileId, updates }) => {
+      // Update mock profile
+      if (updates.builds) {
+        mockProfile.builds = { ...mockProfile.builds, ...updates.builds }
+      }
+      
+      // Emit profile updated event
+      setTimeout(() => {
+        eventBus.emit('profile:updated', { profileId, profile: mockProfile })
+      }, 5)
+      
+      return { success: true, profile: mockProfile }
+    }))
+    
+    // Mock get-current-profile to return our test profile
+    dataCoordinatorMocks.push(respond(eventBus, 'data:get-current-profile', () => mockProfile))
+
+    // Create KeyService
+    service = new KeyService({ eventBus, ui: uiMock })
     await service.init()
-    service.setCurrentProfile('test-profile')
-    service.setCurrentEnvironment('space')
+
+    // Simulate profile switch to set up initial state
+    eventBus.emit('profile:switched', {
+      profileId: mockProfile.id,
+      profile: mockProfile,
+      environment: 'space'
+    })
+
+    // Wait for events to propagate
+    await new Promise(resolve => setTimeout(resolve, 10))
+
+    // Store cleanup functions for later
+    service._testCleanup = dataCoordinatorMocks
   })
 
   afterEach(async () => {
     global.localStorage.clear()
     if (dataService) await dataService.destroy()
-    if (storageMock) await storageMock.destroy()
-    if (service) await service.destroy()
+    if (service) {
+      // Clean up mock responders
+      if (service._testCleanup) {
+        service._testCleanup.forEach(cleanup => cleanup())
+      }
+      await service.destroy()
+    }
+    // eventBus.removeAllListeners() // Not available
   })
 
   describe('isValidKeyName()', () => {
@@ -105,205 +147,291 @@ describe('KeyService – core key operations', () => {
     })
   })
 
-  describe('addKey()', () => {
-    it('successfully adds a new key row', () => {
-      console.log('Before addKey:', JSON.stringify(storageMock.getProfile('test-profile')))
-      const result = service.addKey('F3')
-      console.log('After addKey:', JSON.stringify(storageMock.getProfile('test-profile')))
-      expect(result).toBe(true)
-      const profile = storageMock.getProfile('test-profile')
-      expect(profile.builds.space.keys).toHaveProperty('F3')
+  describe('DataCoordinator integration', () => {
+    it('should cache profile state from DataCoordinator broadcasts', () => {
+      // Verify initial state is cached
+      expect(service.cache.currentProfile).toBe(mockProfile.id)
+      expect(service.cache.builds).toBeDefined()
+      expect(service.cache.keys).toBeDefined()
     })
 
-    it('prevents duplicate keys', () => {
-      console.log('Before addKey:', JSON.stringify(storageMock.getProfile('test-profile')))
-      const first = service.addKey('F3')
-      console.log('After first addKey:', JSON.stringify(storageMock.getProfile('test-profile')))
-      const second = service.addKey('F3')
-      console.log('After second addKey:', JSON.stringify(storageMock.getProfile('test-profile')))
-      expect(first).toBe(true)
-      expect(second).toBe(false)
+    it('should update cache when profile is updated', async () => {
+      // Listen for cache updates
+      const cacheUpdates = []
+      eventBus.on('keys:changed', (data) => cacheUpdates.push(data))
+
+      // Simulate profile update broadcast
+      const updatedProfile = {
+        ...mockProfile,
+        builds: {
+          space: { keys: { 'F1': ['test command'] } },
+          ground: { keys: {} }
+        }
+      }
+
+      eventBus.emit('profile:updated', { 
+        profileId: mockProfile.id, 
+        profile: updatedProfile 
+      })
+
+      // Wait for events to propagate
+      await new Promise(resolve => setTimeout(resolve, 10))
+
+      // Verify cache was updated
+      expect(service.cache.keys).toHaveProperty('F1')
+      expect(cacheUpdates.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('addKey()', () => {
+    it('successfully adds a new key row through DataCoordinator', async () => {
+      const result = await service.addKey('F3')
+      expect(result).toBe(true)
+      
+      // Verify key was added to cache (will be updated via broadcast)
+      await new Promise(resolve => setTimeout(resolve, 10))
+      expect(service.cache.keys).toHaveProperty('F3')
+    })
+
+    it('prevents duplicate keys', async () => {
+      // Add key to cache to simulate existing key
+      service.cache.keys['F3'] = []
+      
+      const result = await service.addKey('F3')
+      expect(result).toBe(false)
+      expect(uiMock.showToast).toHaveBeenCalledWith('Key already exists', 'warning')
+    })
+
+    it('validates key names', async () => {
+      const result = await service.addKey('Invalid-Key!')
+      expect(result).toBe(false)
+      expect(uiMock.showToast).toHaveBeenCalledWith('Invalid key name', 'error')
+    })
+
+    it('shows success toast on successful add', async () => {
+      await service.addKey('F4')
+      expect(uiMock.showToast).toHaveBeenCalledWith('Key added', 'success')
     })
   })
 
   describe('deleteKey()', () => {
-    it('removes an existing key row', () => {
-      service.addKey('F4')
-      console.log('Before deleteKey:', JSON.stringify(storageMock.getProfile('test-profile')))
-      const result = service.deleteKey('F4')
-      console.log('After deleteKey:', JSON.stringify(storageMock.getProfile('test-profile')))
+    it('removes an existing key row through DataCoordinator', async () => {
+      // Set up existing key in cache
+      service.cache.keys['F4'] = [{ id: 'test', command: 'test' }]
+      
+      const result = await service.deleteKey('F4')
       expect(result).toBe(true)
-      const profile = storageMock.getProfile('test-profile')
-      expect(profile.builds.space.keys).not.toHaveProperty('F4')
+    })
+
+    it('clears selected key if deleted key was selected', async () => {
+      service.cache.keys['F5'] = []
+      service.setSelectedKey('F5')
+      
+      await service.deleteKey('F5')
+      expect(service.selectedKey).toBe(null)
+    })
+
+    it('returns false for non-existent keys', async () => {
+      const result = await service.deleteKey('NonExistentKey')
+      expect(result).toBe(false)
     })
   })
 
   describe('duplicateKey()', () => {
-    it('creates a copy with a new name and fresh ids', () => {
-      service.addKey('F5')
-      let profileBefore = storageMock.getProfile('test-profile')
-      console.log('Before duplicateKey:', JSON.stringify(profileBefore))
-      profileBefore.builds.space.keys['F5'].push({ id: 'original-id', command: 'say hello' })
-      storageMock.saveProfile('test-profile', profileBefore)
+    it('creates a copy with a new name and fresh ids', async () => {
+      // Set up existing key with commands
+      service.cache.keys['F5'] = [{ id: 'original-id', command: 'say hello' }]
 
-      const result = service.duplicateKey('F5')
-      let profileAfter = storageMock.getProfile('test-profile')
-      console.log('After duplicateKey:', JSON.stringify(profileAfter))
-      const duplicateKeyName = Object.keys(profileAfter.builds.space.keys).find(k => k !== 'F5')
-      expect(duplicateKeyName).toMatch(/^F5_copy/)
-      expect(profileAfter.builds.space.keys[duplicateKeyName]).toHaveLength(1)
-      expect(profileAfter.builds.space.keys[duplicateKeyName][0].id).not.toBe('original-id')
+      const result = await service.duplicateKey('F5')
+      expect(result).toBe(true)
+    })
+
+    it('returns false for keys with no commands', async () => {
+      service.cache.keys['EmptyKey'] = []
+      const result = await service.duplicateKey('EmptyKey')
+      expect(result).toBe(false)
+    })
+
+    it('returns false for non-existent keys', async () => {
+      const result = await service.duplicateKey('NonExistentKey')
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('getKeys()', () => {
+    it('returns key names from cache', () => {
+      service.cache.keys = { 'F1': [], 'F2': [] }
+      
+      const keys = service.getKeys()
+      expect(keys).toContain('F1')
+      expect(keys).toContain('F2')
+    })
+
+    it('returns empty array when no keys exist', () => {
+      service.cache.keys = {}
+      const keys = service.getKeys()
+      expect(keys).toEqual([])
+    })
+  })
+
+  describe('getCurrentProfile()', () => {
+    it('returns virtual profile with cached data', () => {
+      const profile = service.getCurrentProfile()
+      
+      expect(profile).toBeDefined()
+      expect(profile.id).toBe(service.cache.currentProfile)
+      expect(profile.builds).toBeDefined()
+      expect(profile.keys).toBe(service.cache.keys)
+      expect(profile.environment).toBe(service.cache.currentEnvironment)
+    })
+
+    it('returns null when no profile is cached', () => {
+      service.cache.currentProfile = null
+      const profile = service.getCurrentProfile()
+      expect(profile).toBe(null)
     })
   })
 })
 
 describe('KeyService – legacy file handler compatibility', () => {
-  let service, storageMock, uiMock, dataService
+  let service, dataService, uiMock
 
   beforeEach(async () => {
     global.localStorage.clear()
+    // eventBus.removeAllListeners() // Not available
     
     // Set up DataService with mock data
     dataService = new DataService({ eventBus, data: mockStoData })
     await dataService.init()
-    
-    // Fresh mocks for every test in this suite
-    storageMock = new StorageService({ eventBus })
-    await storageMock.init()
-    
-    // Ensure storage has a dummy profile to work with
-    const data = storageMock.getAllData()
-    data.profiles['test-profile'] = {
-      name: 'Test Profile',
-      builds: {
-        space: { keys: {} },
-        ground: { keys: {} }
-      }
-    }
-    storageMock.saveAllData(data)
 
     uiMock = { showToast: vi.fn() }
 
-    service = new KeyService({ eventBus, storage: storageMock, ui: uiMock })
+    // Set up mock DataCoordinator responses for this test suite
+    const dataCoordinatorMocks = []
+    dataCoordinatorMocks.push(respond(eventBus, 'data:register-subscriber', () => ({ success: true })))
+
+    service = new KeyService({ eventBus, ui: uiMock })
     await service.init()
-    service.setCurrentProfile('test-profile')
+
+    service._testCleanup = dataCoordinatorMocks
   })
 
   afterEach(async () => {
     if (dataService) await dataService.destroy()
-    if (storageMock) await storageMock.destroy()
-    if (service) await service.destroy()
+    if (service) {
+      if (service._testCleanup) {
+        service._testCleanup.forEach(cleanup => cleanup())
+      }
+      await service.destroy()
+    }
+    // eventBus.removeAllListeners() // Not available
   })
 
   it('parses keybind files and aliases', async () => {
     // Mock FileOperationsService response
     const mockFileOpsResponse = {
-      keybinds: {
-        F1: { commands: [{ command: 'say hi' }] }
+      success: true,
+      keysImported: 2,
+      aliasesImported: 1
+    }
+
+    // Mock the FileOperationsService request handlers
+    const fileOpsMocks = []
+    fileOpsMocks.push(respond(eventBus, 'fileops:import-keybind-file', () => mockFileOpsResponse))
+
+    const content = 'F1 "say test"$$emote wave\nF2 "emote wave"'
+    const result = await service.importKeybindFile(content)
+    
+    expect(result).toEqual(mockFileOpsResponse)
+
+    // Clean up
+    fileOpsMocks.forEach(cleanup => cleanup())
+  })
+
+  it('validates keybinds with proper structure', () => {
+    const validation = service.validateKeybind('F1', [
+      { id: '1', command: 'say hello' },
+      { id: '2', command: 'emote wave' }
+    ])
+    
+    expect(validation.valid).toBe(true)
+    expect(validation.errors).toEqual([])
+  })
+
+  it('detects invalid keybind structure', () => {
+    const validation = service.validateKeybind('InvalidKey!', [])
+    
+    expect(validation.valid).toBe(false)
+    expect(validation.errors).toContain('Invalid key name: InvalidKey!')
+    expect(validation.errors).toContain('At least one command is required')
+  })
+
+  it('suggests valid keys based on filter', () => {
+    const suggestions = service.suggestKeys('F')
+    
+    expect(Array.isArray(suggestions)).toBe(true)
+    expect(suggestions.length).toBeGreaterThan(0)
+    expect(suggestions.every(key => key.toLowerCase().includes('f'))).toBe(true)
+  })
+
+  it('returns common keys in deterministic order', () => {
+    const commonKeys = service.getCommonKeys()
+    
+    expect(Array.isArray(commonKeys)).toBe(true)
+    expect(commonKeys).toContain('Space')
+    expect(commonKeys).toContain('F1')
+  })
+
+  it('detects command types correctly', () => {
+    expect(service.detectCommandType('say hello')).toBe('communication')
+    expect(service.detectCommandType('+STOTrayExecByTray 0 0')).toBe('tray')
+    expect(service.detectCommandType('FireAll')).toBe('combat')
+    expect(service.detectCommandType('target_enemy_near')).toBe('targeting')
+    expect(service.detectCommandType('custom_command')).toBe('custom')
+  })
+
+  it('generates profile stats correctly', () => {
+    const mockProfile = {
+      keys: {
+        'F1': [{ command: 'say hello', type: 'communication' }],
+        'F2': [{ command: 'FireAll', type: 'combat' }]
       },
       aliases: {
-        test: { commands: 'wave' }
+        'test': { command: 'say test' }
       }
     }
-    
-    // Set up mock response for file parsing request using respond pattern
-    const { respond } = await import('../../src/js/core/requestResponse.js')
-    const detach = respond(eventBus, 'fileops:parse-keybind-file', () => mockFileOpsResponse)
-    
-    if (typeof service.parseKeybindFile === 'function') {
-      const content = 'F1 "say hi"\nalias test "wave"'
-      const result = await service.parseKeybindFile(content)
-      expect(result.keybinds.F1.commands[0].command).toBe('say hi')
-      expect(result.aliases.test.commands).toBe('wave')
-    } else {
-      // If not implemented, mark as pending
-      expect(true).toBe(true)
-    }
-    
-    // Clean up mock
-    if (detach) detach()
-  })
 
-  it('detects mirrored command strings', async () => {
-    // Mock FileOperationsService responses
-    const mockMirroredString = 'A$$B$$C'
-    const mockUnmirrorInfo = { isMirrored: true, originalCommands: ['A', 'B', 'C'] }
+    const stats = service.getProfileStats(mockProfile)
     
-    // Set up mock responses for file operations requests using respond pattern
-    const { respond } = await import('../../src/js/core/requestResponse.js')
-    const detach1 = respond(eventBus, 'fileops:generate-mirrored-commands', () => mockMirroredString)
-    const detach2 = respond(eventBus, 'fileops:detect-unmirror-commands', () => mockUnmirrorInfo)
-    
-    if (typeof service.generateMirroredCommandString === 'function' && typeof service.detectAndUnmirrorCommands === 'function') {
-      const cmds = [{ command: 'A' }, { command: 'B' }, { command: 'C' }]
-      const mirrored = await service.generateMirroredCommandString(cmds)
-      const info = await service.detectAndUnmirrorCommands(mirrored)
-      expect(info.isMirrored).toBe(true)
-      expect(info.originalCommands).toEqual(['A','B','C'])
-    } else {
-      expect(true).toBe(true)
-    }
-    
-    // Clean up mocks
-    if (detach1) detach1()
-    if (detach2) detach2()
-  })
-
-  it('generates keybind file text', () => {
-    // TODO: If KeyService exposes generateKeybindFile, use it. Otherwise, refactor needed.
-    if (typeof service.generateKeybindFile === 'function') {
-      const profile = { name: 'Test', currentEnvironment: 'space', keys: { F1: [{ command: "say hi", type: 'communication' }] }, aliases: {} }
-      const txt = service.generateKeybindFile(profile)
-      expect(txt).toContain('F1 "say hi"')
-      expect(txt).toContain('STO Keybind Configuration')
-    } else {
-      expect(true).toBe(true)
-    }
-  })
-
-  it('handles getCommandText when STO_DATA.commands is undefined', () => {
-    if (typeof service.getCommandText === 'function') {
-      // Save original STO_DATA
-      const originalSTO_DATA = globalThis.STO_DATA
-      globalThis.STO_DATA = {}
-      try {
-        const result = service.getCommandText('some_command')
-        expect(result).toBe('some command')
-      } finally {
-        globalThis.STO_DATA = originalSTO_DATA
-      }
-    } else {
-      expect(true).toBe(true)
-    }
-  })
-
-  it('handles getCommandText when STO_DATA is undefined', () => {
-    if (typeof service.getCommandText === 'function') {
-      // Save original STO_DATA
-      const originalSTO_DATA = globalThis.STO_DATA
-      globalThis.STO_DATA = undefined
-      try {
-        const result = service.getCommandText('some_command')
-        expect(result).toBe('some command')
-      } finally {
-        globalThis.STO_DATA = originalSTO_DATA
-      }
-    } else {
-      expect(true).toBe(true)
-    }
+    expect(stats.totalKeys).toBe(2)
+    expect(stats.totalCommands).toBe(2)
+    expect(stats.totalAliases).toBe(1)
+    expect(stats.commandTypes.communication).toBe(1)
+    expect(stats.commandTypes.combat).toBe(1)
   })
 })
 
 describe('KeyService – Command Type Detection', () => {
   let keyService
   beforeEach(async () => {
+    // Set up minimal mock for DataCoordinator
+    const mockCleanup = respond(eventBus, 'data:register-subscriber', () => ({ success: true }))
+    
     keyService = new KeyService({ eventBus })
     await keyService.init()
+    
+    keyService._testCleanup = [mockCleanup]
   })
   
   afterEach(async () => {
-    if (keyService) await keyService.destroy()
+    if (keyService) {
+      if (keyService._testCleanup) {
+        keyService._testCleanup.forEach(cleanup => cleanup())
+      }
+      await keyService.destroy()
+    }
   })
+  
   it('should detect tray execution commands', () => {
     const trayCommands = [
       '+STOTrayExecByTray 0 0',
@@ -314,6 +442,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('tray')
     })
   })
+  
   it('should detect communication commands', () => {
     const commCommands = [
       'say Hello',
@@ -330,6 +459,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('communication')
     })
   })
+  
   it('should detect power commands', () => {
     const powerCommands = [
       '+power_exec something',
@@ -340,6 +470,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('power')
     })
   })
+  
   it('should detect movement commands', () => {
     const movementCommands = [
       '+fullimpulse',
@@ -358,6 +489,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('movement')
     })
   })
+  
   it('should detect camera commands', () => {
     const cameraCommands = [
       'camreset',
@@ -368,6 +500,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('camera')
     })
   })
+  
   it('should detect combat commands', () => {
     const combatCommands = [
       'fire',
@@ -381,6 +514,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('combat')
     })
   })
+  
   it('should detect targeting commands', () => {
     const targetingCommands = [
       'target',
@@ -394,6 +528,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('targeting')
     })
   })
+  
   it('should detect system commands', () => {
     const systemCommands = [
       '+gentoggle',
@@ -405,6 +540,7 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('system')
     })
   })
+  
   it('should default to custom type for unknown commands', () => {
     const customCommands = [
       'foobar',

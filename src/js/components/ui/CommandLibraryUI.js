@@ -2,6 +2,7 @@
 import { parameterCommands } from './ParameterCommandUI.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
+import i18next from 'i18next'
 
 /**
  * CommandLibraryUI - Handles all command library UI operations
@@ -11,49 +12,31 @@ export default class CommandLibraryUI extends ComponentBase {
   constructor({ service, eventBus, ui, modalManager, document }) {
     super(eventBus)
     this.componentName = 'CommandLibraryUI'
-    // Phase-2: UI components no longer rely on a direct service reference.
-    // Keep optional `service` parameter for backward compatibility but don't
-    // store or use it.
+    this.service = service
     this.ui = ui
     this.modalManager = modalManager
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
     this.eventListenersSetup = false
+
+    // DataCoordinator cache for profile state
+    this.cache = {
+      profile: null,
+      aliases: {},
+      currentProfile: null
+    }
+
+    // Store current state for UI updates
+    this._currentEnvironment = 'space'
+    this._selectedKey = null
+    this._selectedAlias = null
   }
 
   /**
    * Initialize the CommandLibraryUI component
    */
   onInit() {
-    // Initialize cached selection state
-    this._selectedKey = null
-    this._selectedAlias = null
-    this._currentEnvironment = 'space'
-    
     this.setupEventListeners()
-    // Build out the command categories before applying alias overlays
     this.setupCommandLibrary()
-    // Ensure aliases and other dynamic elements are incorporated
-    // (setupCommandLibrary already invokes updateCommandLibrary internally, so
-    // calling it again here is no longer necessary)
-    // this.updateCommandLibrary()
-
-    // ---------------------------------------------
-    // UI decoupling – listen for global UI events
-    // ---------------------------------------------
-    // Command chain events are now handled by CommandChainUI
-    // CommandLibraryUI no longer listens to ui:render-command-chain
-    this.addEventListener('ui:update-profile-info', () => this.updateCommandLibrary())
-
-    // Command chain rendering is now handled by CommandChainUI
-    // CommandLibraryUI only delegates to it
-
-    // React to environment/key changes from global event stream
-    this.addEventListener('environment:changed', (data) => {
-      const env = typeof data === 'string' ? data : data?.environment
-      if (env) this._currentEnvironment = env
-      this.filterCommandLibrary()
-      // Command chain rendering is now handled by CommandChainUI
-    })
   }
 
   /**
@@ -65,13 +48,44 @@ export default class CommandLibraryUI extends ComponentBase {
     }
     this.eventListenersSetup = true
 
+    // DataCoordinator profile state synchronization
+    this.addEventListener('profile:updated', ({ profile }) => {
+      this.updateCacheFromProfile(profile)
+      this.updateCommandLibrary()
+    })
+
+    this.addEventListener('profile:switched', ({ profile }) => {
+      this.updateCacheFromProfile(profile)
+      this.updateCommandLibrary()
+    })
+
+    // Environment and selection changes
+    this.addEventListener('environment:changed', ({ environment }) => {
+      this._currentEnvironment = environment
+    })
+
+    this.addEventListener('key:selected', ({ key }) => {
+      this._selectedKey = key
+      this._selectedAlias = null
+      this.updateChainActions()
+    })
+
+    this.addEventListener('alias:selected', ({ alias }) => {
+      this._selectedAlias = alias
+      this._selectedKey = null
+      this.updateChainActions()
+    })
+
+    // Command chain updates
+    this.addEventListener('chain-data-changed', ({ commands }) => {
+      this.renderCommandChain()
+      this.updateChainActions()
+    })
+
     // Listen for stabilize execution order checkbox changes
     this.eventBus.onDom('stabilizeExecutionOrder', 'change', 'stabilize-order-change', () => {
       // Command chain rendering is now handled by CommandChainUI
     })
-
-    // Command lifecycle events are now handled by CommandChainUI
-    // CommandLibraryUI no longer needs to listen to these events
 
     // Command lifecycle events are now handled by CommandChainUI
     // CommandLibraryUI no longer needs to listen to these events
@@ -85,8 +99,6 @@ export default class CommandLibraryUI extends ComponentBase {
     // Command chain rendering is now handled by CommandChainUI via events
     // This method is kept for backward compatibility but does nothing
   }
-
-
 
   /**
    * Setup the command library UI
@@ -309,52 +321,50 @@ export default class CommandLibraryUI extends ComponentBase {
   }
 
   /**
-   * Update the command library
+   * Update the command library using cached profile data
    */
   updateCommandLibrary() {
-    const profilePromise = request(this.eventBus, 'profile:get-current')
-    if (!profilePromise || typeof profilePromise.then !== 'function') return
-    profilePromise.then((profile) => {
-      if (!profile) return
+    // Use cached profile data instead of making requests
+    const profile = this.cache.profile
+    if (!profile) return
 
-      const categories = document.getElementById('commandCategories')
-      if (!categories) return
+    const categories = this.document.getElementById('commandCategories')
+    if (!categories) return
 
-      const existingAliasCategory = categories.querySelector('[data-category="aliases"]')
-      if (existingAliasCategory) {
-        existingAliasCategory.remove()
-      }
-      const existingVertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]')
-      if (existingVertigoCategory) {
-        existingVertigoCategory.remove()
-      }
+    const existingAliasCategory = categories.querySelector('[data-category="aliases"]')
+    if (existingAliasCategory) {
+      existingAliasCategory.remove()
+    }
+    const existingVertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]')
+    if (existingVertigoCategory) {
+      existingVertigoCategory.remove()
+    }
 
-      const allAliases = Object.entries(profile.aliases || {})
-      const regularAliases = allAliases.filter(([name]) => !name.startsWith('dynFxSetFXExlusionList_'))
-      const vertigoAliases = allAliases.filter(([name]) => name.startsWith('dynFxSetFXExlusionList_'))
+    const allAliases = Object.entries(this.cache.aliases)
+    const regularAliases = allAliases.filter(([name]) => !name.startsWith('dynFxSetFXExlusionList_'))
+    const vertigoAliases = allAliases.filter(([name]) => name.startsWith('dynFxSetFXExlusionList_'))
 
-      // Only create regular aliases category if there are regular aliases
-      if (regularAliases.length > 0) {
-        const aliasCategory = this.createAliasCategoryElement(
-          regularAliases,
-          'aliases',
-          'command_aliases',
-          'fas fa-mask'
-        )
-        categories.appendChild(aliasCategory)
-      }
+    // Only create regular aliases category if there are regular aliases
+    if (regularAliases.length > 0) {
+      const aliasCategory = this.createAliasCategoryElement(
+        regularAliases,
+        'aliases',
+        'command_aliases',
+        'fas fa-mask'
+      )
+      categories.appendChild(aliasCategory)
+    }
 
-      // Only create VERTIGO category if there are VERTIGO aliases
-      if (vertigoAliases.length > 0) {
-        const vertigoCategory = this.createAliasCategoryElement(
-          vertigoAliases,
-          'vertigo-aliases',
-          'vfx_aliases',
-          'fas fa-eye-slash'
-        )
-        categories.appendChild(vertigoCategory)
-      }
-    })
+    // Only create VERTIGO category if there are VERTIGO aliases
+    if (vertigoAliases.length > 0) {
+      const vertigoCategory = this.createAliasCategoryElement(
+        vertigoAliases,
+        'vertigo-aliases',
+        'vfx_aliases',
+        'fas fa-eye-slash'
+      )
+      categories.appendChild(vertigoCategory)
+    }
   }
 
   /**
@@ -456,5 +466,39 @@ export default class CommandLibraryUI extends ComponentBase {
    */
   showTemplateModal() {
     this.ui?.showToast?.(i18next.t('template_system_coming_soon'))
+  }
+
+  /**
+   * Update local cache from profile data received from DataCoordinator
+   */
+  updateCacheFromProfile(profile) {
+    if (!profile) return
+
+    this.cache.profile = profile
+    this.cache.currentProfile = profile.id
+    this.cache.aliases = profile.aliases || {}
+  }
+
+  /**
+   * ComponentBase late-join support - provide current state
+   */
+  getCurrentState() {
+    return {
+      aliases: this.cache.aliases,
+      currentProfile: this.cache.currentProfile,
+      currentEnvironment: this._currentEnvironment,
+      selectedKey: this._selectedKey,
+      selectedAlias: this._selectedAlias
+    }
+  }
+
+  /**
+   * ComponentBase late-join support - handle initial state from other instances
+   */
+  handleInitialState(state, senderName) {
+    if (senderName === 'DataCoordinator' && state.currentProfileData) {
+      this.updateCacheFromProfile(state.currentProfileData)
+      this.updateCommandLibrary()
+    }
   }
 }

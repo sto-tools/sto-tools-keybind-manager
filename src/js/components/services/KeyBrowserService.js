@@ -1,17 +1,24 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
-import { respond } from '../../core/requestResponse.js'
+import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * KeyBrowserService – source-of-truth for the key grid.
  * Keeps track of the active profile/environment and exposes
  * helpers for retrieving keybind data as well as selecting keys
  * in a decoupled, event-driven manner.
+ * 
+ * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
+ * - Caches profile state locally from DataCoordinator broadcasts
+ * - No direct storage access - all data comes from DataCoordinator
+ * - Implements late-join support for dynamic initialization
+ * - Maintains all existing selection caching and auto-selection logic
  */
 export default class KeyBrowserService extends ComponentBase {
   constructor ({ storage, profileService, ui } = {}) {
     super(eventBus)
     this.componentName = 'KeyBrowserService'
+    // Legacy parameters kept for backward compatibility but not used
     this.storage        = storage
     this.profileService = profileService || null
     this.ui             = ui
@@ -26,6 +33,18 @@ export default class KeyBrowserService extends ComponentBase {
       ground: null
     }
 
+    // REFACTORED: Cache profile state from DataCoordinator broadcasts
+    this.cache = {
+      currentProfile: null,
+      currentEnvironment: 'space',
+      keys: {}, // Current environment's keys
+      builds: { // Full builds structure for profile
+        space: { keys: {} },
+        ground: { keys: {} }
+      },
+      profile: null // Full profile object
+    }
+
     // ---------------------------------------------------------
     // Register Request/Response endpoints for external callers
     // ---------------------------------------------------------
@@ -38,37 +57,42 @@ export default class KeyBrowserService extends ComponentBase {
 
   /* ============================================================
    * Lifecycle
-   * ========================================================== */
-  onInit () {
-    // Determine initial profile/environment.
-    if (this.profileService) {
-      this.currentProfileId   = this.profileService.getCurrentProfileId?.() || null
-      this.currentEnvironment = this.profileService.getCurrentEnvironment?.() || 'space'
-    } else if (this.storage) {
-      const data = this.storage.getAllData?.()
-      if (data) {
-        this.currentProfileId = data.currentProfile
-        
-        // Also get the current environment from the profile
-        const profile = this.storage.getProfile(data.currentProfile)
-        if (profile && profile.currentEnvironment) {
-          this.currentEnvironment = profile.currentEnvironment
-        }
-      }
-    }
-
-    // Listen for profile/environment changes
+   * ============================================================ */
+  async init() {
+    super.init() // ComponentBase handles late-join automatically
     this.setupEventListeners()
   }
 
+  onInit () {
+    // Legacy method - now handled by init()
+  }
+
   setupEventListeners () {
+    // REFACTORED: Listen to DataCoordinator broadcasts instead of direct storage access
+    
+    // Cache profile state from DataCoordinator broadcasts
+    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (profileId === this.cache.currentProfile) {
+        this.updateCacheFromProfile(profile)
+        this.emit('key:list-changed', { keys: this.getKeys() })
+      }
+    })
+
     // Profile switched (new modular event)
-    this.addEventListener('profile:switched', ({ profileId, environment }) => {
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
       this.currentProfileId   = profileId
-      if (environment) this.currentEnvironment = environment
+      this.cache.currentProfile = profileId
+      
+      if (environment) {
+        this.currentEnvironment = environment
+        this.cache.currentEnvironment = environment
+      }
+      
       this.selectedKeyName = null
       // Clear cached selections when profile changes
       this._cachedSelections = { space: null, ground: null }
+      
+      this.updateCacheFromProfile(profile)
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
@@ -83,7 +107,11 @@ export default class KeyBrowserService extends ComponentBase {
       }
       
       this.currentEnvironment = env
+      this.cache.currentEnvironment = env
       this.selectedKeyName = null
+      
+      // Update keys cache for new environment
+      this.cache.keys = this.cache.builds[env]?.keys || {}
       
       // If switching to key environment, try to restore or auto-select immediately
       if (env !== 'alias') {
@@ -93,17 +121,41 @@ export default class KeyBrowserService extends ComponentBase {
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
+    // Late-join support now handled by ComponentBase automatically
 
-
-    // Data modifications
+    // Legacy event compatibility - data modifications
     this.addEventListener('profile-modified', () => {
+      this.emit('key:list-changed', { keys: this.getKeys() })
+    })
+
+    // Listen for key changes from KeyService
+    this.addEventListener('keys:changed', ({ keys }) => {
+      this.cache.keys = keys || {}
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
   }
 
+  /**
+   * Update local cache from profile data
+   */
+  updateCacheFromProfile(profile) {
+    if (!profile) return
+    
+    this.cache.profile = profile
+    
+    // Ensure builds structure exists
+    this.cache.builds = profile.builds || {
+      space: { keys: {} },
+      ground: { keys: {} }
+    }
+    
+    // Update keys for current environment
+    this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
+  }
+
   /* ============================================================
    * Selection caching and auto-selection
-   * ========================================================== */
+   * ============================================================ */
   
   /**
    * Restore cached selection or auto-select first key for the given environment
@@ -129,25 +181,21 @@ export default class KeyBrowserService extends ComponentBase {
   }
 
   /* ============================================================
-   * Data helpers
-   * ========================================================== */
+   * REFACTORED: Data helpers now use cached data
+   * ============================================================ */
   getProfile () {
-    if (!this.currentProfileId) return null
-    return this.storage.getProfile(this.currentProfileId)
+    // Return cached profile instead of accessing storage directly
+    return this.cache.profile
   }
 
   getKeys () {
-    const profile = this.getProfile()
-    if (!profile) return {}
-
-    const builds = profile.builds || {}
-    const build  = builds[this.currentEnvironment] || {}
-    return build.keys || {}
+    // Return cached keys for current environment
+    return this.cache.keys || {}
   }
 
   /* ============================================================
    * Selection helpers
-   * ========================================================== */
+   * ============================================================ */
   selectKey (name) {
     if (this.selectedKeyName === name) return name
     this.selectedKeyName = name
@@ -172,7 +220,7 @@ export default class KeyBrowserService extends ComponentBase {
 
   /* ============================================================
    * Internal helpers
-   * ========================================================== */
+   * ============================================================ */
   // Returns a cached list of all valid key names used across the app. This
   // mirrors the logic from STOFileHandler.generateValidKeys() but lets the key
   // browser remain independent of that heavier module.
@@ -201,5 +249,45 @@ export default class KeyBrowserService extends ComponentBase {
 
     this._validKeys = Array.from(keys).sort()
     return this._validKeys
+  }
+
+  /* ============================================================
+   * ComponentBase late-join support
+   * ============================================================ */
+  getCurrentState() {
+    return {
+      selectedKeyName: this.selectedKeyName,
+      currentProfileId: this.currentProfileId,
+      currentEnvironment: this.currentEnvironment,
+      cachedSelections: { ...this._cachedSelections },
+      keys: this.getKeys()
+    }
+  }
+
+  handleInitialState(sender, state) {
+    if (!state) return
+    
+    // Handle state from DataCoordinator via ComponentBase late-join
+    if (sender === 'DataCoordinator' && state.currentProfileData) {
+      const profile = state.currentProfileData
+      this.currentProfileId = profile.id
+      this.cache.currentProfile = profile.id
+      this.currentEnvironment = profile.environment || 'space'
+      this.cache.currentEnvironment = this.currentEnvironment
+      
+      // Clear cached selections when profile changes
+      this._cachedSelections = { space: null, ground: null }
+      
+      this.updateCacheFromProfile(profile)
+      this.emit('key:list-changed', { keys: this.getKeys() })
+      
+      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
+    }
+    
+    // Handle state from other KeyBrowserService instances
+    if (sender === 'KeyBrowserService') {
+      this.selectedKeyName = state.selectedKeyName ?? this.selectedKeyName
+      this._cachedSelections = { ...this._cachedSelections, ...state.cachedSelections }
+    }
   }
 } 

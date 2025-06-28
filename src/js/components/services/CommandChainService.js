@@ -20,11 +20,20 @@ export default class CommandChainService extends ComponentBase {
     this.commandLibraryService = commandLibraryService || null
     this.commandService = commandService
 
-    // Cached state
+    // Cached state - now using DataCoordinator broadcast/cache pattern
     this.selectedKey = null
     this.currentEnvironment = 'space'
     this.commands = []
     this.currentProfile = null
+    
+    // DataCoordinator cache
+    this.cache = {
+      profile: null,
+      keys: {},
+      aliases: {},
+      currentProfile: null,
+      currentEnvironment: 'space'
+    }
 
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
@@ -54,10 +63,25 @@ export default class CommandChainService extends ComponentBase {
       }
     }
 
-    // Listen for profile changes
+    // DataCoordinator integration - listen for profile updates
+    this.addEventListener('profile:updated', (data) => {
+      if (data?.profile) {
+        this.updateCacheFromProfile(data.profile)
+        // Refresh commands if we have a selected key
+        if (this.selectedKey) {
+          this.refreshCommands()
+        }
+      }
+    })
+
     this.addEventListener('profile:switched', (data) => {
-      this.currentProfile = data.profileId || data.profile
+      this.currentProfile = data.profileId || data.profile || data.id
       this.currentEnvironment = data.environment || 'space'
+      if (data.profile) {
+        this.updateCacheFromProfile(data.profile)
+      }
+      // Clear selections when switching profiles
+      this.selectedKey = null
     })
 
     // Listen for environment changes
@@ -65,6 +89,11 @@ export default class CommandChainService extends ComponentBase {
       const env = typeof data === 'string' ? data : data?.environment
       if (env) {
         this.currentEnvironment = env
+        this.cache.currentEnvironment = env
+        // Refresh commands when environment changes
+        if (this.selectedKey) {
+          this.refreshCommands()
+        }
       }
     })
 
@@ -347,9 +376,30 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      await this.saveProfile(profile)
-      this.emit('command-added', { key, command })
-      return true
+      // Use DataCoordinator to save profile changes
+      const updates = {}
+      if (this.currentEnvironment === 'alias') {
+        updates.aliases = { [key]: profile.aliases[key] }
+      } else {
+        updates.builds = {
+          [this.currentEnvironment]: {
+            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
+          }
+        }
+      }
+
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+
+      if (result?.success) {
+        this.emit('command-added', { key, command })
+        return true
+      } else {
+        console.error('CommandChainService: Failed to save profile via DataCoordinator')
+        return false
+      }
     } catch (error) {
       console.error('CommandChainService: Failed to add command:', error)
       return false
@@ -396,9 +446,30 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      await this.saveProfile(profile)
-      this.emit('command-deleted', { key, index })
-      return true
+      // Use DataCoordinator to save profile changes
+      const updates = {}
+      if (isAliasContext) {
+        updates.aliases = { [key]: profile.aliases[key] }
+      } else {
+        updates.builds = {
+          [this.currentEnvironment]: {
+            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
+          }
+        }
+      }
+
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+
+      if (result?.success) {
+        this.emit('command-deleted', { key, index })
+        return true
+      } else {
+        console.error('CommandChainService: Failed to save profile via DataCoordinator')
+        return false
+      }
     } catch (error) {
       console.error('CommandChainService: Failed to delete command:', error)
       return false
@@ -442,9 +513,30 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      await this.saveProfile(profile)
-      this.emit('command-moved', { key, fromIndex, toIndex })
-      return true
+      // Use DataCoordinator to save profile changes
+      const updates = {}
+      if (this.currentEnvironment === 'alias') {
+        updates.aliases = { [key]: profile.aliases[key] }
+      } else {
+        updates.builds = {
+          [this.currentEnvironment]: {
+            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
+          }
+        }
+      }
+
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+
+      if (result?.success) {
+        this.emit('command-moved', { key, fromIndex, toIndex })
+        return true
+      } else {
+        console.error('CommandChainService: Failed to save profile via DataCoordinator')
+        return false
+      }
     } catch (error) {
       console.error('CommandChainService: Failed to move command:', error)
       return false
@@ -516,9 +608,30 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      await this.saveProfile(profile)
-      this.emit('command-chain-cleared', { key })
-      return true
+      // Use DataCoordinator to save profile changes
+      const updates = {}
+      if (this.currentEnvironment === 'alias') {
+        updates.aliases = { [key]: profile.aliases[key] }
+      } else {
+        updates.builds = {
+          [this.currentEnvironment]: {
+            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
+          }
+        }
+      }
+
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+
+      if (result?.success) {
+        this.emit('command-chain-cleared', { key })
+        return true
+      } else {
+        console.error('CommandChainService: Failed to save profile via DataCoordinator')
+        return false
+      }
     } catch (error) {
       console.error('CommandChainService: Failed to clear command chain:', error)
       return false
@@ -526,29 +639,95 @@ export default class CommandChainService extends ComponentBase {
   }
 
   /* ------------------------------------------------------------------
-   * Helper Methods
+   * DataCoordinator Integration Methods
    * ------------------------------------------------------------------ */
 
   /**
-   * Get the current profile
+   * Update local cache from profile data received from DataCoordinator
    */
-  async getCurrentProfile() {
-    try {
-      return await request(this.eventBus, 'profile:get-current')
-    } catch (error) {
-      console.error('CommandChainService: Failed to get current profile:', error)
-      return null
+  updateCacheFromProfile(profile) {
+    if (!profile) return
+
+    this.cache.profile = profile
+    this.cache.currentProfile = profile.id
+
+    // Cache environment-specific data
+    if (profile.builds && profile.builds[this.currentEnvironment]) {
+      this.cache.keys = profile.builds[this.currentEnvironment].keys || {}
+    }
+
+    if (profile.aliases) {
+      this.cache.aliases = profile.aliases
     }
   }
 
   /**
-   * Save the profile
+   * Get the current profile with build-specific data from cache
    */
-  async saveProfile(profile) {
-    try {
-      await request(this.eventBus, 'profile:save', { profile })
-    } catch (error) {
-      console.error('CommandChainService: Failed to save profile:', error)
+  getCurrentProfile() {
+    if (!this.cache.profile) return null
+
+    return this.getCurrentBuild(this.cache.profile)
+  }
+
+  /**
+   * Get the current build for a profile using cached data
+   */
+  getCurrentBuild(profile) {
+    if (!profile) return null
+
+    if (!profile.builds) {
+      profile.builds = {
+        space: { keys: {} },
+        ground: { keys: {} },
+      }
+    }
+
+    if (!profile.builds[this.currentEnvironment]) {
+      profile.builds[this.currentEnvironment] = { keys: {} }
+    }
+
+    if (!profile.builds[this.currentEnvironment].keys) {
+      profile.builds[this.currentEnvironment].keys = {}
+    }
+
+    return {
+      ...profile,
+      keys: profile.builds[this.currentEnvironment].keys,
+      aliases: profile.aliases || {},
+    }
+  }
+
+  /**
+   * Refresh commands for the currently selected key
+   */
+  async refreshCommands() {
+    if (this.selectedKey) {
+      const cmds = await this.getCommandsForSelectedKey()
+      this.emit('chain-data-changed', { commands: cmds })
+    }
+  }
+
+  /**
+   * Get current state for ComponentBase late-join system
+   */
+  getCurrentState() {
+    return {
+      selectedKey: this.selectedKey,
+      currentEnvironment: this.currentEnvironment,
+      currentProfile: this.currentProfile,
+      commands: this.commands
+    }
+  }
+
+  /**
+   * Handle initial state from ComponentBase late-join system
+   */
+  handleInitialState(sender, state) {
+    if (sender === 'DataCoordinator' && state?.currentProfileData) {
+      this.updateCacheFromProfile(state.currentProfileData)
+      this.currentProfile = state.currentProfile
+      this.currentEnvironment = state.currentEnvironment
     }
   }
 

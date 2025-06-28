@@ -17,6 +17,25 @@ const mockI18n = {
   t: vi.fn((key) => key)
 }
 
+// Mock profile data for DataCoordinator integration
+const mockProfile = {
+  id: 'test-profile',
+  builds: { 
+    space: { 
+      keys: { 
+        'test-key': [
+          { command: 'test command 1', type: 'space' },
+          { command: 'test command 2', type: 'space' }
+        ] 
+      } 
+    },
+    ground: { keys: {} }
+  },
+  aliases: {
+    'test-alias': { commands: 'test_command' }
+  }
+}
+
 describe('CommandChainService', () => {
   let service
   let responseCleanups = []
@@ -33,11 +52,8 @@ describe('CommandChainService', () => {
       respond(eventBus, 'command:get-empty-state-info', () => ({ title: 'Test' })),
       respond(eventBus, 'command:find-definition', () => null),
       respond(eventBus, 'command:get-warning', () => null),
-      respond(eventBus, 'profile:get-current', () => ({ 
-        id: 'test-profile', 
-        builds: { space: { keys: { 'test-key': [] } } } 
-      })),
-      respond(eventBus, 'profile:save', () => ({ success: true }))
+      // DataCoordinator integration - replace old profile:get-current and profile:save
+      respond(eventBus, 'data:update-profile', () => ({ success: true }))
     )
     
     service = new CommandChainService({
@@ -46,6 +62,13 @@ describe('CommandChainService', () => {
     service.selectedKey = 'test-key'
     service.currentEnvironment = 'space'
     service.currentProfile = 'test-profile'
+    
+    // Set up DataCoordinator cache with mock profile data
+    service.cache.profile = mockProfile
+    service.cache.currentProfile = 'test-profile'
+    service.cache.keys = mockProfile.builds.space.keys
+    service.cache.aliases = mockProfile.aliases
+    service.cache.currentEnvironment = 'space'
   })
 
   afterEach(() => {

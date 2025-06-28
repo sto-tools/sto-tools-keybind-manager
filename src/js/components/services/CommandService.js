@@ -6,11 +6,18 @@ import { respond, request } from '../../core/requestResponse.js'
  * rearranging commands in a profile.  It owns no UI concerns whatsoever.  A
  * higher-level feature (CommandLibraryService / future templates) can call
  * this service to persist changes and broadcast events.
+ * 
+ * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
+ * - Caches profile state locally from DataCoordinator broadcasts
+ * - Uses DataCoordinator request/response for all profile updates
+ * - Implements late-join support for dynamic initialization
+ * - Maintains all existing command operations and events
  */
 export default class CommandService extends ComponentBase {
   constructor({ storage, eventBus, i18n, profileService = null, modalManager = null }) {
     super(eventBus)
     this.componentName = 'CommandService'
+    // Legacy parameters kept for backward compatibility but not used directly
     this.storage         = storage
     this.i18n            = i18n
     this.profileService  = profileService
@@ -20,6 +27,19 @@ export default class CommandService extends ComponentBase {
     this.currentEnvironment = 'space'
     this.selectedKey = null
     this.selectedAlias = null
+
+    // REFACTORED: Cache profile state from DataCoordinator broadcasts
+    this.cache = {
+      currentProfile: null,
+      currentEnvironment: 'space',
+      profile: null, // Full profile object
+      builds: { // Current profile's builds
+        space: { keys: {} },
+        ground: { keys: {} }
+      },
+      aliases: {}, // Current profile's aliases
+      keys: {} // Current environment's keys
+    }
 
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
@@ -43,51 +63,60 @@ export default class CommandService extends ComponentBase {
     }
   }
 
+  /* ============================================================
+   * Lifecycle
+   * ============================================================ */
+  async init() {
+    super.init() // ComponentBase handles late-join automatically
+    this.setupEventListeners()
+  }
+
+  onInit () {
+    // Legacy method - now handled by init()
+  }
+
   /** Convenience getter */
   getCurrentProfileId () {
     return this.currentProfile
   }
 
   /* ------------------------------------------------------------------
-   * Profile helpers – copied verbatim from the original CommandLibraryService
+   * REFACTORED: Profile helpers now use cached data
    * ------------------------------------------------------------------ */
   getCurrentProfile () {
-    if (!this.currentProfile) return null
-    const profile = this.storage.getProfile(this.currentProfile)
-    if (!profile) return null
-    return this.getCurrentBuild(profile)
+    if (!this.cache.currentProfile) return null
+    return this.getCurrentBuild(this.cache.profile)
   }
 
   getCurrentBuild (profile) {
     if (!profile) return null
 
-    if (!profile.builds) {
-      profile.builds = {
-        space: { keys: {} },
-        ground: { keys: {} },
-      }
+    // Use cached builds data
+    const builds = this.cache.builds || {
+      space: { keys: {} },
+      ground: { keys: {} }
     }
 
-    if (!profile.builds[this.currentEnvironment]) {
-      profile.builds[this.currentEnvironment] = { keys: {} }
+    if (!builds[this.currentEnvironment]) {
+      builds[this.currentEnvironment] = { keys: {} }
     }
 
-    if (!profile.builds[this.currentEnvironment].keys) {
-      profile.builds[this.currentEnvironment].keys = {}
+    if (!builds[this.currentEnvironment].keys) {
+      builds[this.currentEnvironment].keys = {}
     }
 
     return {
       ...profile,
-      keys: profile.builds[this.currentEnvironment].keys,
-      aliases: profile.aliases || {},
+      keys: builds[this.currentEnvironment].keys,
+      aliases: this.cache.aliases || {},
     }
   }
 
   /* ------------------------------------------------------------------
-   * Core command operations
+   * REFACTORED: Core command operations now use DataCoordinator
    * ------------------------------------------------------------------ */
   /** Add a command (either to a keybind array or to an alias command string) */
-  addCommand (key, command) {
+  async addCommand (key, command) {
     if (!key) {
       this.ui?.showToast?.(
         this.i18n?.t?.('please_select_a_key_first') || 'Please select a key first',
@@ -102,9 +131,12 @@ export default class CommandService extends ComponentBase {
       return false
     }
 
+    // Prepare profile updates
+    const updates = {}
+    
     if (this.currentEnvironment === 'alias') {
       // ----- Alias chain -----
-      const currentAlias = profile.aliases && profile.aliases[key]
+      const currentAlias = this.cache.aliases && this.cache.aliases[key]
       const currentCommands = currentAlias && currentAlias.commands
         ? currentAlias.commands.split(/\s*\$\$\s*/).filter((cmd) => cmd.trim().length > 0)
         : []
@@ -127,31 +159,59 @@ export default class CommandService extends ComponentBase {
       }
       
       const newCommandString = currentCommands.join(' $$ ')
-      if (!profile.aliases) profile.aliases = {}
-      if (!profile.aliases[key]) profile.aliases[key] = {}
-      profile.aliases[key].commands = newCommandString
+      updates.aliases = {
+        ...this.cache.aliases,
+        [key]: {
+          ...(this.cache.aliases[key] || {}),
+          commands: newCommandString
+        }
+      }
     } else {
       // ----- Key-bind -----
-      if (!profile.keys[key]) profile.keys[key] = []
-      profile.keys[key].push(command)
+      const currentKeys = this.cache.keys[key] || []
+      const newKeys = [...currentKeys, command]
+      
+      updates.builds = {
+        ...this.cache.builds,
+        [this.currentEnvironment]: {
+          ...this.cache.builds[this.currentEnvironment],
+          keys: {
+            ...this.cache.builds[this.currentEnvironment].keys,
+            [key]: newKeys
+          }
+        }
+      }
     }
 
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('command-added', { key, command })
-    return true
+    try {
+      // Update via DataCoordinator
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+      
+      this.emit('command-added', { key, command })
+      return true
+    } catch (error) {
+      console.error('Failed to add command:', error)
+      this.ui?.showToast?.('Failed to add command', 'error')
+      return false
+    }
   }
 
   /** Delete command */
-  deleteCommand (key, index) {
+  async deleteCommand (key, index) {
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
     const isAliasContext =
       this.currentEnvironment === 'alias' ||
-      (profile.aliases && Object.prototype.hasOwnProperty.call(profile.aliases, key))
+      (this.cache.aliases && Object.prototype.hasOwnProperty.call(this.cache.aliases, key))
+
+    const updates = {}
 
     if (isAliasContext) {
-      const currentAlias = profile.aliases && profile.aliases[key]
+      const currentAlias = this.cache.aliases && this.cache.aliases[key]
       if (!currentAlias || !currentAlias.commands) return false
 
       const commands = currentAlias.commands
@@ -160,26 +220,57 @@ export default class CommandService extends ComponentBase {
 
       if (index >= 0 && index < commands.length) {
         commands.splice(index, 1)
-        profile.aliases[key].commands = commands.join(' $$ ')
+        updates.aliases = {
+          ...this.cache.aliases,
+          [key]: {
+            ...this.cache.aliases[key],
+            commands: commands.join(' $$ ')
+          }
+        }
       }
     } else {
-      if (profile.keys[key] && profile.keys[key][index]) {
-        profile.keys[key].splice(index, 1)
+      const currentKeys = this.cache.keys[key] || []
+      if (currentKeys[index]) {
+        const newKeys = [...currentKeys]
+        newKeys.splice(index, 1)
+        
+        updates.builds = {
+          ...this.cache.builds,
+          [this.currentEnvironment]: {
+            ...this.cache.builds[this.currentEnvironment],
+            keys: {
+              ...this.cache.builds[this.currentEnvironment].keys,
+              [key]: newKeys
+            }
+          }
+        }
       }
     }
 
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('command-deleted', { key, index })
-    return true
+    try {
+      // Update via DataCoordinator
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+      
+      this.emit('command-deleted', { key, index })
+      return true
+    } catch (error) {
+      console.error('Failed to delete command:', error)
+      return false
+    }
   }
 
   /** Move command */
-  moveCommand (key, fromIndex, toIndex) {
+  async moveCommand (key, fromIndex, toIndex) {
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
+    const updates = {}
+
     if (this.currentEnvironment === 'alias') {
-      const currentAlias = profile.aliases && profile.aliases[key]
+      const currentAlias = this.cache.aliases && this.cache.aliases[key]
       if (!currentAlias || !currentAlias.commands) return false
 
       const commands = currentAlias.commands
@@ -194,24 +285,53 @@ export default class CommandService extends ComponentBase {
       ) {
         const [moved] = commands.splice(fromIndex, 1)
         commands.splice(toIndex, 0, moved)
-        profile.aliases[key].commands = commands.join(' $$ ')
+        
+        updates.aliases = {
+          ...this.cache.aliases,
+          [key]: {
+            ...this.cache.aliases[key],
+            commands: commands.join(' $$ ')
+          }
+        }
       }
     } else {
+      const currentKeys = this.cache.keys[key] || []
       if (
-        profile.keys[key] &&
         fromIndex >= 0 &&
-        fromIndex < profile.keys[key].length &&
+        fromIndex < currentKeys.length &&
         toIndex >= 0 &&
-        toIndex < profile.keys[key].length
+        toIndex < currentKeys.length
       ) {
-        const [moved] = profile.keys[key].splice(fromIndex, 1)
-        profile.keys[key].splice(toIndex, 0, moved)
+        const newKeys = [...currentKeys]
+        const [moved] = newKeys.splice(fromIndex, 1)
+        newKeys.splice(toIndex, 0, moved)
+        
+        updates.builds = {
+          ...this.cache.builds,
+          [this.currentEnvironment]: {
+            ...this.cache.builds[this.currentEnvironment],
+            keys: {
+              ...this.cache.builds[this.currentEnvironment].keys,
+              [key]: newKeys
+            }
+          }
+        }
       }
     }
 
-    this.storage.saveProfile(this.currentProfile, profile)
-    this.emit('command-moved', { key, fromIndex, toIndex })
-    return true
+    try {
+      // Update via DataCoordinator
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+      
+      this.emit('command-moved', { key, fromIndex, toIndex })
+      return true
+    } catch (error) {
+      console.error('Failed to move command:', error)
+      return false
+    }
   }
 
   /* ------------------------------------------------------------------
@@ -297,19 +417,33 @@ export default class CommandService extends ComponentBase {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  onInit () {
-    this.setupEventListeners()
-  }
-
   /**
-   * Set up event listeners
+   * REFACTORED: Set up event listeners for DataCoordinator integration
    */
   setupEventListeners() {
-    // Listen for profile changes
-    this.addEventListener('profile:switched', (data) => {
-      this.currentProfile = data.profile
-      this.currentEnvironment = data.environment
+    // REFACTORED: Listen to DataCoordinator broadcasts instead of direct storage access
+    
+    // Cache profile state from DataCoordinator broadcasts
+    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (profileId === this.cache.currentProfile) {
+        this.updateCacheFromProfile(profile)
+      }
     })
+
+    // Profile switched (new modular event)
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
+      this.currentProfile = profileId
+      this.cache.currentProfile = profileId
+      
+      if (environment) {
+        this.currentEnvironment = environment
+        this.cache.currentEnvironment = environment
+      }
+      
+      this.updateCacheFromProfile(profile)
+    })
+
+    // Late-join support now handled by ComponentBase automatically
 
     // Listen for key selection changes
     this.addEventListener('key-selected', (data) => {
@@ -328,6 +462,11 @@ export default class CommandService extends ComponentBase {
       const env = typeof data === 'string' ? data : data?.environment
       if (env) {
         this.currentEnvironment = env
+        this.cache.currentEnvironment = env
+        
+        // Update keys cache for new environment
+        this.cache.keys = this.cache.builds[env]?.keys || {}
+        
         // Clear selections when environment changes since they're context-specific
         this.selectedKey = null
         this.selectedAlias = null
@@ -342,19 +481,38 @@ export default class CommandService extends ComponentBase {
   }
 
   /**
+   * Update local cache from profile data
+   */
+  updateCacheFromProfile(profile) {
+    if (!profile) return
+    
+    this.cache.profile = profile
+    
+    // Update builds structure
+    this.cache.builds = profile.builds || {
+      space: { keys: {} },
+      ground: { keys: {} }
+    }
+    
+    // Update aliases
+    this.cache.aliases = profile.aliases || {}
+    
+    // Update keys for current environment
+    this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
+  }
+
+  /**
    * Return all commands associated with a key for the current environment.
    * Alias environment returns the split command string array.
+   * REFACTORED: Now uses cached data
    */
   getCommandsForKey (key) {
-    const profile = this.getCurrentProfile()
-    if (!profile) return []
-
     if (this.currentEnvironment === 'alias') {
-      const alias = profile.aliases && profile.aliases[key]
+      const alias = this.cache.aliases && this.cache.aliases[key]
       if (!alias || !alias.commands) return []
       return alias.commands.split(/\s*\$\$\s*/).filter(c => c.trim().length > 0)
     }
-    return profile.keys[key] || []
+    return this.cache.keys[key] || []
   }
 
   /**
@@ -380,10 +538,27 @@ export default class CommandService extends ComponentBase {
 
   handleInitialState (sender, state) {
     if (!state) return
-    if (sender === 'DataCoordinator' || sender === 'ProfileService') {
-      if (state.currentProfile) this.currentProfile = state.currentProfile
-      if (state.currentEnvironment) this.currentEnvironment = state.currentEnvironment
+    
+    // Handle state from DataCoordinator via ComponentBase late-join
+    if (sender === 'DataCoordinator' && state.currentProfileData) {
+      const profile = state.currentProfileData
+      this.currentProfile = profile.id
+      this.cache.currentProfile = profile.id
+      this.currentEnvironment = profile.environment || 'space'
+      this.cache.currentEnvironment = this.currentEnvironment
+      
+      this.updateCacheFromProfile(profile)
+      
+      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
     }
+    
+    // Handle state from other CommandService instances
+    if (sender === 'CommandService') {
+      this.selectedKey = state.selectedKey ?? this.selectedKey
+      this.selectedAlias = state.selectedAlias ?? this.selectedAlias
+    }
+    
+    // Handle state from KeyService
     if (sender === 'KeyService' && state.selectedKey) {
       this.selectedKey = state.selectedKey
     }

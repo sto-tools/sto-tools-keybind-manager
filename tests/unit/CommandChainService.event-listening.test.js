@@ -3,6 +3,25 @@ import eventBus from '../../src/js/core/eventBus.js'
 import { respond } from '../../src/js/core/requestResponse.js'
 import CommandChainService from '../../src/js/components/services/CommandChainService.js'
 
+// Mock profile data for DataCoordinator integration
+const mockProfile = {
+  id: 'test-profile',
+  builds: { 
+    space: { 
+      keys: { 
+        'F1': [
+          { command: 'test command 1', type: 'space' },
+          { command: 'test command 2', type: 'space' }
+        ] 
+      } 
+    },
+    ground: { keys: {} }
+  },
+  aliases: {
+    'testAlias': { commands: 'test command 1 $$ test command 2' }
+  }
+}
+
 describe('CommandChainService Event Listening', () => {
   let commandChainService
   let responseCleanups = []
@@ -24,11 +43,8 @@ describe('CommandChainService Event Listening', () => {
       })),
       respond(eventBus, 'command:find-definition', () => null),
       respond(eventBus, 'command:get-warning', () => null),
-      respond(eventBus, 'profile:get-current', () => ({ 
-        id: 'test-profile', 
-        builds: { space: { keys: { 'F1': [] } } } 
-      })),
-      respond(eventBus, 'profile:save', () => ({ success: true }))
+      // DataCoordinator integration - replace old profile:get-current and profile:save
+      respond(eventBus, 'data:update-profile', () => ({ success: true }))
     )
 
     // Create CommandChainService
@@ -36,6 +52,13 @@ describe('CommandChainService Event Listening', () => {
       i18n: { t: (key) => key }
     })
     commandChainService.currentProfile = 'test-profile'
+    
+    // Set up DataCoordinator cache with mock profile data
+    commandChainService.cache.profile = mockProfile
+    commandChainService.cache.currentProfile = 'test-profile'
+    commandChainService.cache.keys = mockProfile.builds.space.keys
+    commandChainService.cache.aliases = mockProfile.aliases
+    commandChainService.cache.currentEnvironment = 'space'
 
     commandChainService.init()
   })

@@ -28,8 +28,7 @@ export default class DataCoordinator extends ComponentBase {
       }
     }
     
-    // Track subscribers for late join support
-    this.subscribers = new Set()
+    // Late-join support is handled by ComponentBase automatically
     
     this.setupRequestHandlers()
   }
@@ -37,24 +36,22 @@ export default class DataCoordinator extends ComponentBase {
   async init() {
     super.init()
     
+    console.log(`[${this.componentName}] Initializing...`)
+    
     // Load initial state from storage
     await this.loadInitialState()
     
-    console.log(`[${this.componentName}] Initialized with profile: ${this.state.currentProfile}`)
+    console.log(`[${this.componentName}] Initialization complete`)
   }
 
   setupRequestHandlers() {
-    // Core state queries - data:get-current-profile removed (use broadcast/cache pattern)
-    respond(this.eventBus, 'data:get-current-state', () => this.getCurrentState())
-    respond(this.eventBus, 'data:get-profile', ({ profileId }) => this.getProfile(profileId))
+    // Register request/response handlers
     respond(this.eventBus, 'data:get-all-profiles', () => this.getAllProfiles())
-    
-    // Profile operations
     respond(this.eventBus, 'data:switch-profile', ({ profileId }) => this.switchProfile(profileId))
     respond(this.eventBus, 'data:create-profile', ({ name, description, mode }) => this.createProfile(name, description, mode))
     respond(this.eventBus, 'data:clone-profile', ({ sourceId, newName }) => this.cloneProfile(sourceId, newName))
-    respond(this.eventBus, 'data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
     respond(this.eventBus, 'data:delete-profile', ({ profileId }) => this.deleteProfile(profileId))
+    respond(this.eventBus, 'data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
     respond(this.eventBus, 'data:update-profile', ({ profileId, updates }) => this.updateProfile(profileId, updates))
     
     // Environment operations
@@ -67,8 +64,7 @@ export default class DataCoordinator extends ComponentBase {
     // Default data operations
     respond(this.eventBus, 'data:load-default-data', () => this.loadDefaultData())
     
-    // Late join support
-    respond(this.eventBus, 'data:register-subscriber', ({ componentName }) => this.registerSubscriber(componentName))
+    // Late join support is handled by ComponentBase automatically
   }
 
   /**
@@ -124,30 +120,29 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   /**
-   * Get current complete state
+   * Get current complete state (ComponentBase late-join method)
    */
   getCurrentState() {
+    // Build current profile data for late-join
+    let currentProfile = null
+    if (this.state.currentProfile && this.state.profiles[this.state.currentProfile]) {
+      const profile = this.state.profiles[this.state.currentProfile]
+      currentProfile = this.buildVirtualProfile(profile, this.state.currentEnvironment)
+      currentProfile.id = this.state.currentProfile
+    }
+
     return {
       currentProfile: this.state.currentProfile,
       currentEnvironment: this.state.currentEnvironment,
       profiles: { ...this.state.profiles },
       settings: { ...this.state.settings },
-      metadata: { ...this.state.metadata }
+      metadata: { ...this.state.metadata },
+      // For late-join: provide the built profile data
+      currentProfileData: currentProfile
     }
   }
 
   // getCurrentProfile method removed - components should use broadcast/cache pattern instead
-
-  /**
-   * Get specific profile by ID
-   */
-  async getProfile(profileId) {
-    const profile = this.state.profiles[profileId]
-    if (!profile) return null
-    
-    const environment = profile.currentEnvironment || 'space'
-    return this.buildVirtualProfile(profile, environment)
-  }
 
   /**
    * Get all profiles
@@ -188,11 +183,18 @@ export default class DataCoordinator extends ComponentBase {
    */
   async switchProfile(profileId) {
     if (profileId === this.state.currentProfile) {
+      // Build current profile data manually since getCurrentProfile() was removed
+      let currentProfile = null
+      if (this.state.currentProfile && this.state.profiles[this.state.currentProfile]) {
+        const profile = this.state.profiles[this.state.currentProfile]
+        currentProfile = this.buildVirtualProfile(profile, this.state.currentEnvironment)
+      }
+      
       return { 
         success: true, 
         switched: false, 
         message: 'Already on this profile',
-        profile: await this.getCurrentProfile()
+        profile: currentProfile
       }
     }
 
@@ -225,8 +227,6 @@ export default class DataCoordinator extends ComponentBase {
       environment: this.state.currentEnvironment,
       timestamp: Date.now()
     })
-
-
 
     return { 
       success: true, 
@@ -579,31 +579,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  /**
-   * Register component for late join support
-   */
-  async registerSubscriber(componentName) {
-    if (!componentName) {
-      throw new Error('Component name is required')
-    }
-
-    this.subscribers.add(componentName)
-    
-    // Send current state to new subscriber
-    const currentState = await this.getCurrentState()
-    const currentProfile = await this.getCurrentProfile()
-    
-    this.emit('data:initial-state', {
-      targetComponent: componentName,
-      state: currentState,
-      currentProfile: currentProfile,
-      timestamp: Date.now()
-    })
-
-    console.log(`[${this.componentName}] Registered subscriber: ${componentName}`)
-    
-    return { success: true, componentName }
-  }
+  // registerSubscriber method removed - ComponentBase handles late-join automatically
 
   /**
    * Try to create default profiles using DataService
