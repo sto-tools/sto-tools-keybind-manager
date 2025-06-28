@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { VFX_EFFECTS } from '../../features/vertigo_data.js'
+// VFX_EFFECTS now available globally from data.js
 
 export default class VFXManagerService extends ComponentBase {
   constructor(eventBus) {

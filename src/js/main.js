@@ -9,12 +9,12 @@ import fr from '../i18n/fr.json'
 import es from '../i18n/es.json'
 import { StorageService } from './components/services/index.js'
 import { KeyService } from './components/services/index.js'
-import STOExportManager from './features/export.js'
+import ExportService from './components/services/ExportService.js'
 import { UIUtilityService } from './components/services/index.js'
 // import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
-import { VFX_EFFECTS } from './features/vertigo_data.js'
+// VFX_EFFECTS now available globally from data.js
 import STOToolsKeybindManager from './app.js'
 // Version display functionality - moved inline to reduce file count
 import { DISPLAY_VERSION } from './core/constants.js'
@@ -104,7 +104,7 @@ const settings = storageService.getSettings()
 
   // Create dependencies first
   const stoKeybinds = new KeyService()
-  const stoExport = new STOExportManager({ storage: storageService })
+  const stoExport = new ExportService({ storage: storageService, eventBus })
   // Create UI utility service
   const uiUtilityService = new UIUtilityService(eventBus)
   
@@ -131,7 +131,7 @@ const settings = storageService.getSettings()
     stoFileExplorer, // Required by header file explorer button
     stoSync,        // Required by sync UI components
     eventBus,       // Required for component communication debugging
-    VFX_EFFECTS,    // Required by VFXManagerUI for effect data
+    // VFX_EFFECTS now available globally from data.js
   })
 
   // Initialize app after dependencies are available

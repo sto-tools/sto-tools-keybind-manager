@@ -17,19 +17,7 @@ const VFX_EFFECTS = {
   ],
 }
 
-// Mock the module import
-vi.mock('../../src/js/features/vertigo_data.js', () => ({
-  VFX_EFFECTS: {
-    space: [
-      { label: 'Test Space Effect 1', effect: 'Fx_Test_Space_Effect_1' },
-      { label: 'Test Space Effect 2', effect: 'Fx_Test_Space_Effect_2' },
-    ],
-    ground: [
-      { label: 'Test Ground Effect 1', effect: 'Fx_Test_Ground_Effect_1' },
-      { label: 'Test Ground Effect 2', effect: 'Fx_Test_Ground_Effect_2' },
-    ],
-  }
-}))
+// VFX_EFFECTS is now available globally from data.js (no mock needed)
 
 // Mock DOM and global objects
 const mockProfile = {

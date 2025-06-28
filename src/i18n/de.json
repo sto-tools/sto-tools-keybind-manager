@@ -22,6 +22,7 @@
   "download": "Herunterladen",
   "vfx": "VFX",
   "dark_mode": "Dunkler Modus",
+  "light_mode": "Heller Modus",
   "load_default_data": "Standarddaten laden",
   "reset_application": "Anwendung zurücksetzen",
   "set_sync_folder": "Sync-Ordner festlegen",

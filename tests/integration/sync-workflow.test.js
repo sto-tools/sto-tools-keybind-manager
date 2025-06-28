@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import '../../src/js/data.js'
 import SyncService, { writeFile } from '../../src/js/components/services/SyncService.js'
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 import eventBus from '../../src/js/core/eventBus.js'
 

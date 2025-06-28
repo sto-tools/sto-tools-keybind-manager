@@ -22,6 +22,7 @@
   "download": "Download",
   "vfx": "VFX",
   "dark_mode": "Dark Mode",
+  "light_mode": "Light Mode",
   "load_default_data": "Load Default Data",
   "reset_application": "Reset Application",
   "set_sync_folder": "Set Sync Folder",

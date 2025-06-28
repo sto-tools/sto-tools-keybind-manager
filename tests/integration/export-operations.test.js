@@ -5,7 +5,7 @@ vi.mock('../../src/js/components/services/SyncService.js', () => ({
   writeFile: vi.fn()
 }))
 
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 import '../../src/js/data.js'
 import { mock } from 'fsa-mock'
 import { writeFile } from '../../src/js/components/services/SyncService.js'

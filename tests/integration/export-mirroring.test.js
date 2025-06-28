@@ -8,7 +8,7 @@ vi.mock('../../src/js/components/services/SyncService.js', () => ({
 import '../../src/js/data.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 import KeyService from '../../src/js/components/services/KeyService.js'
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 import { writeFile } from '../../src/js/components/services/SyncService.js'
 

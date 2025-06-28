@@ -22,6 +22,7 @@ import PreferencesUI from './components/ui/PreferencesUI.js'
 import KeyService from './components/services/KeyService.js'
 import FileOperationsService from './components/services/FileOperationsService.js'
 import ExportService from './components/services/ExportService.js'
+import ExportUI from './components/ui/ExportUI.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
@@ -225,6 +226,15 @@ export default class STOToolsKeybindManager {
       })
 
       this.exportService.init()
+
+      // ------------------------------
+      // Export UI (file export interface)
+      // ------------------------------
+      this.exportUI = new ExportUI({
+        eventBus,
+      })
+
+      this.exportUI.init()
 
       // ------------------------------
       // Key Capture (refactored service + UI)

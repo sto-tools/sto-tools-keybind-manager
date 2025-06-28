@@ -5,7 +5,7 @@ import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import { StorageService } from '../../src/js/components/services/index.js'
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 import FileExplorerUI from '../../src/js/components/ui/FileExplorerUI.js'
 
 // Load real HTML

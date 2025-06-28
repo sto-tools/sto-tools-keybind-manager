@@ -9,9 +9,9 @@ import store, { resetStore } from '../../src/js/core/store.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 // Profile functionality is now handled by the app instance
 import KeyService from '../../src/js/components/services/KeyService.js'
-import STOUIManager from '../../src/js/ui/ui.js'
+// STOUIManager removed - using event bus for UI interactions
 import STOToolsKeybindManager from '../../src/js/app.js'
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 
 let storageService
 // stoProfiles removed - profile functionality is now in app
@@ -32,10 +32,16 @@ beforeEach(() => {
   storageService = new StorageService()
       // Profile functionality is now handled by the app instance
   stoKeybinds = new KeyService()
-  stoUI = new STOUIManager()
-      Object.assign(global, { storageService, stoKeybinds, stoUI })
+  // Create mock UI for legacy test compatibility
+  stoUI = {
+    showToast: vi.fn(),
+    copyToClipboard: vi.fn(),
+    showModal: vi.fn(),
+    hideModal: vi.fn()
+  }
+  Object.assign(global, { storageService, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()
-  exportManager = new STOExportManager({ storage: storageService })
+  exportManager = new ExportService({ storage: storageService, eventBus })
   exportManager.init() // Initialize after i18next is ready
   Object.assign(global, { app, exportManager })
 
@@ -60,11 +66,7 @@ beforeEach(() => {
   store.currentProfile = 'test-profile'
   store.currentEnvironment = 'space'
 
-  // Mock only the UI methods that would show actual modals or toasts
-  vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})
-  vi.spyOn(stoUI, 'copyToClipboard').mockImplementation(() => {})
-  vi.spyOn(stoUI, 'showModal').mockImplementation(() => {})
-  vi.spyOn(stoUI, 'hideModal').mockImplementation(() => {})
+  // UI methods are already mocked in the stoUI object above
 
   // Create a test profile in the real storage system
   const testProfile = {
@@ -134,9 +136,9 @@ afterEach(() => {
   resetStore()
 })
 
-describe('STOExportManager', () => {
+describe('ExportService', () => {
   beforeEach(() => {
-    exportManager = new STOExportManager({ storage: storageService })
+    exportManager = new ExportService({ storage: storageService, eventBus })
     exportManager.init() // Initialize after i18next is ready
   })
 

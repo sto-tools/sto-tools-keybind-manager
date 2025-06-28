@@ -6,7 +6,7 @@ import eventBus from '../../src/js/core/eventBus.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 // Profile functionality is now handled by the app instance
 import KeyService from '../../src/js/components/services/KeyService.js'
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 
