@@ -11,8 +11,8 @@ export default class DataService extends ComponentBase {
     super(eventBus)
     this.componentName = 'DataService'
     
-    // REFACTORED: Accept data via dependency injection instead of globalThis
-    this.data = data || (typeof globalThis !== 'undefined' ? globalThis.STO_DATA : null) || {}
+    // REFACTORED: Strict dependency injection - no global fallbacks
+    this.data = data || {}
     
     // Track response handlers for cleanup
     this.responseHandlers = []

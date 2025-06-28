@@ -4,15 +4,12 @@ import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 export default class PreferencesUI extends ComponentBase {
-  constructor({ service = null, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({ ui = null, document = null } = {}) {
     super(eventBus)
     this.componentName = 'PreferencesUI'
     
-    // Keep service reference for backward compatibility during migration
-    this._legacyService = service
-    
-    this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
-    this.document = document
+    this.ui = ui
+    this.document = document || (typeof window !== 'undefined' ? window.document : null)
 
     this.eventsSetup = false
 

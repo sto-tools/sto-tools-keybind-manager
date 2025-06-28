@@ -22,19 +22,19 @@ svc.init()
  * • Emits events for actions instead of using request/response
  */
 export default class ParameterCommandUI extends ComponentBase {
-  constructor({ 
-    eventBus: bus = eventBus,
+  constructor({
     modalManager = null,
     i18n = null,
-    ui = null
+    ui = null,
+    document = null
   } = {}) {
-    super(bus)
+    super(eventBus)
     this.componentName = 'ParameterCommandUI'
     
-    // REFACTORED: Dependency injection instead of globalThis
-    this.modalManager = modalManager || (typeof globalThis !== 'undefined' ? globalThis.modalManager : null)
-    this.i18n = i18n || (typeof globalThis !== 'undefined' ? globalThis.i18next : null)
-    this.ui = ui || (typeof globalThis !== 'undefined' ? globalThis.stoUI : null)
+    this.modalManager = modalManager
+    this.i18n = i18n
+    this.ui = ui
+    this.document = document || (typeof window !== 'undefined' ? window.document : null)
     
     // State cache
     this._selectedKey = null
@@ -118,12 +118,12 @@ export default class ParameterCommandUI extends ComponentBase {
     this.currentParameterCommand = { categoryId, commandId, commandDef }
 
     // Create modal lazily
-    if (!document.getElementById('parameterModal')) {
+    if (!this.document.getElementById('parameterModal')) {
       this.createParameterModal()
     }
 
     // Persist command definition on the modal so it can be rebuilt on i18n
-    const modal = document.getElementById('parameterModal')
+    const modal = this.document.getElementById('parameterModal')
     if (modal) {
       modal.setAttribute('data-command-def', JSON.stringify(commandDef))
     }
@@ -135,7 +135,7 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 
   createParameterModal () {
-    const modal           = document.createElement('div')
+    const modal           = this.document.createElement('div')
     modal.className       = 'modal'
     modal.id              = 'parameterModal'
     modal.innerHTML = `
@@ -159,7 +159,7 @@ export default class ParameterCommandUI extends ComponentBase {
         </div>
       </div>`
 
-    document.body.appendChild(modal)
+    this.document.body.appendChild(modal)
 
     // Save / Cancel handlers
     this.eventBus.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
@@ -178,7 +178,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this.currentParameterCommand = null
 
     // Reset button text (i18n ready)
-    const saveBtn = document.getElementById('saveParameterCommandBtn')
+    const saveBtn = this.document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
       saveBtn.textContent = this.i18n?.t?.('add_command') || 'Add Command'
     }
@@ -190,8 +190,8 @@ export default class ParameterCommandUI extends ComponentBase {
    * Modal content helpers
    * ---------------------------------------------------------- */
   populateParameterModal (commandDef) {
-    const container    = document.getElementById('parameterInputs')
-    const titleElement = document.getElementById('parameterModalTitle')
+    const container    = this.document.getElementById('parameterInputs')
+    const titleElement = this.document.getElementById('parameterModalTitle')
 
     if (!container || !titleElement) return
 
@@ -199,20 +199,20 @@ export default class ParameterCommandUI extends ComponentBase {
     container.innerHTML      = ''
 
     Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
-      const inputGroup = document.createElement('div')
+      const inputGroup = this.document.createElement('div')
       inputGroup.className = 'form-group'
 
-      const label = document.createElement('label')
+      const label = this.document.createElement('label')
       label.textContent = this.formatParameterName(paramName)
       label.setAttribute('for', `param_${paramName}`)
 
       let inputEl
       if (paramDef.type === 'select') {
-        inputEl      = document.createElement('select')
+        inputEl      = this.document.createElement('select')
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
         paramDef.options.forEach(opt => {
-          const o = document.createElement('option')
+          const o = this.document.createElement('option')
           o.value       = opt
           o.textContent = opt === 'STOTrayExecByTray'
             ? 'STOTrayExecByTray (shows key binding on UI)'
@@ -221,7 +221,7 @@ export default class ParameterCommandUI extends ComponentBase {
           inputEl.appendChild(o)
         })
       } else {
-        inputEl      = document.createElement('input')
+        inputEl      = this.document.createElement('input')
         inputEl.type = paramDef.type === 'number' ? 'number' : 'text'
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
@@ -234,7 +234,7 @@ export default class ParameterCommandUI extends ComponentBase {
         }
       }
 
-      const help = document.createElement('small')
+      const help = this.document.createElement('small')
       help.textContent = this.getParameterHelp(paramName, paramDef)
 
       inputGroup.appendChild(label)
@@ -294,7 +294,7 @@ export default class ParameterCommandUI extends ComponentBase {
     const params = this.getParameterValues()
 
     const cmd = svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
-    const previewEl = document.getElementById('parameterCommandPreview')
+    const previewEl = this.document.getElementById('parameterCommandPreview')
     if (!previewEl || !cmd) return
 
       if (Array.isArray(cmd)) {
@@ -305,7 +305,7 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 
   getParameterValues () {
-    const container = document.getElementById('parameterInputs')
+    const container = this.document.getElementById('parameterInputs')
     if (!container) return {}
 
     const values = {}
@@ -367,7 +367,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this.currentParameterCommand = null
 
     // Reset button text (i18n ready)
-    const saveBtn = document.getElementById('saveParameterCommandBtn')
+    const saveBtn = this.document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
       saveBtn.textContent = this.i18n?.t?.('add_command') || 'Add Command'
     }
@@ -394,14 +394,14 @@ export default class ParameterCommandUI extends ComponentBase {
       isEditing: true,
     }
 
-    if (!document.getElementById('parameterModal')) {
+    if (!this.document.getElementById('parameterModal')) {
       this.createParameterModal()
     }
 
     this.populateParameterModalForEdit(commandDef, command.parameters || {})
 
     // Update button text for editing
-    const saveBtn = document.getElementById('saveParameterCommandBtn')
+    const saveBtn = this.document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
       saveBtn.textContent = this.i18n?.t?.('update_command') || 'Update Command'
     }
@@ -410,8 +410,8 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 
   populateParameterModalForEdit (commandDef, existingParams = {}) {
-    const container    = document.getElementById('parameterInputs')
-    const titleElement = document.getElementById('parameterModalTitle')
+    const container    = this.document.getElementById('parameterInputs')
+    const titleElement = this.document.getElementById('parameterModalTitle')
 
     if (!container || !titleElement) return
 
@@ -419,20 +419,20 @@ export default class ParameterCommandUI extends ComponentBase {
     container.innerHTML      = ''
 
     Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
-      const inputGroup = document.createElement('div')
+      const inputGroup = this.document.createElement('div')
       inputGroup.className = 'form-group'
 
-      const label = document.createElement('label')
+      const label = this.document.createElement('label')
       label.textContent = this.formatParameterName(paramName)
       label.setAttribute('for', `param_${paramName}`)
 
       let inputEl
       if (paramDef.type === 'select') {
-        inputEl      = document.createElement('select')
+        inputEl      = this.document.createElement('select')
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
         paramDef.options.forEach(opt => {
-          const o = document.createElement('option')
+          const o = this.document.createElement('option')
           o.value       = opt
           o.textContent = opt === 'STOTrayExecByTray'
             ? 'STOTrayExecByTray (shows key binding on UI)'
@@ -441,7 +441,7 @@ export default class ParameterCommandUI extends ComponentBase {
           inputEl.appendChild(o)
         })
       } else {
-        inputEl      = document.createElement('input')
+        inputEl      = this.document.createElement('input')
         inputEl.type = paramDef.type === 'number' ? 'number' : 'text'
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
@@ -454,7 +454,7 @@ export default class ParameterCommandUI extends ComponentBase {
         }
       }
 
-      const help = document.createElement('small')
+      const help = this.document.createElement('small')
       help.textContent = this.getParameterHelp(paramName, paramDef)
 
       inputGroup.appendChild(label)
@@ -512,13 +512,5 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 }
 
-// Create singleton instance for backward compatibility with dependency injection
-// Note: DataService will be injected later by app.js since it's created after this singleton
-const parameterCommands = new ParameterCommandUI({ 
-  eventBus,
-  modalManager: typeof globalThis !== 'undefined' ? globalThis.modalManager : null,
-  i18n: typeof globalThis !== 'undefined' ? globalThis.i18next : null,
-  ui: typeof globalThis !== 'undefined' ? globalThis.stoUI : null
-})
-
-export { parameterCommands } 
+// Legacy singleton for backward compatibility - will be deprecated
+export const parameterCommands = new ParameterCommandUI() 

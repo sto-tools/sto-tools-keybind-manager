@@ -8,7 +8,8 @@ export default class StorageService extends ComponentBase {
     backupKey = 'sto_keybind_manager_backup', 
     settingsKey = 'sto_keybind_settings', 
     version = '1.0.0',
-    dataService = null
+    dataService = null,
+    data = {}
   } = {}) {
     super(bus)
     this.componentName = 'StorageService'
@@ -17,6 +18,7 @@ export default class StorageService extends ComponentBase {
     this.settingsKey = settingsKey
     this.version = version
     this.dataService = dataService
+    this.data = data || {}
 
   }
 
@@ -268,10 +270,8 @@ export default class StorageService extends ComponentBase {
     // Use STO_DATA to get rich default profiles when available
     let profiles = {}
     
-    // Try multiple sources for default profiles data
-    const stoData = this.dataService?.data || 
-                   (typeof globalThis !== 'undefined' ? globalThis.STO_DATA : null) ||
-                   (typeof window !== 'undefined' ? window.STO_DATA : null)
+    // Try dataService for default profiles data
+    const stoData = this.dataService?.data
     
     if (stoData && stoData.defaultProfiles) {
       // Use rich default profiles from STO_DATA

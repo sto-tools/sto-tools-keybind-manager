@@ -8,15 +8,17 @@ import eventBus from '../../core/eventBus.js'
  */
 export default class ProjectManagementService extends ComponentBase {
   constructor({
-    storage = typeof window !== 'undefined' ? window.storageService : null,
-    ui = typeof window !== 'undefined' ? window.stoUI : null,
-    exportManager = typeof window !== 'undefined' ? window.stoExport : null,
-    i18n = typeof window !== 'undefined' ? window.i18next : null,
-    app = typeof window !== 'undefined' ? window.app : null,
-    eventBus: bus = eventBus,
+    storage = null,
+    ui = null,
+    exportManager = null,
+    i18n = null,
+    app = null,
+    eventBus = null
   } = {}) {
-    super(bus)
+    super(eventBus)
     this.componentName = 'ProjectManagementService'
+    
+    // REFACTORED: Strict dependency injection - no global fallbacks
     this.storage = storage
     this.ui = ui
     this.exportManager = exportManager

@@ -6,25 +6,17 @@ import { request } from '../../core/requestResponse.js'
  * Manages profile rendering, modals, and user interactions
  */
 export default class ProfileUI extends ComponentBase {
-  constructor({ service = null, eventBus: bus, ui = null, modalManager = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n = null } = {}) {
+  constructor({ eventBus: bus, ui = null, modalManager = null, document = null, i18n = null } = {}) {
     super(bus)
     this.componentName = 'ProfileUI'
-    /**
-     * NOTE: `service` is kept only for backward-compatibility while the
-     * refactor migrates callers.  It should not be used inside the
-     * component – all logic goes through the eventBus request/response
-     * layer.  Access is retained so that legacy `new ProfileUI({ service, … })`
-     * instantiation does not break during the transition phase.
-     */
-    this._legacyService = service
 
-    // REFACTORED: Dependency injection instead of globalThis
-    this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
-    this.modalManager = modalManager || (typeof globalThis !== 'undefined' ? globalThis.modalManager : null)
-    this.document = document
+    // REFACTORED: Strict dependency injection - no global fallbacks
+    this.ui = ui
+    this.modalManager = modalManager
+    this.document = document || (typeof window !== 'undefined' ? window.document : null)
 
     // I18n handle
-    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n = i18n
 
     // Cached state
     this._currentProfileId   = null

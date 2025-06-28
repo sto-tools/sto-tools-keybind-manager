@@ -4,11 +4,9 @@ import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 export default class SyncUI extends ComponentBase {
-  constructor({ service = null, ui = null } = {}) {
+  constructor({ ui = null } = {}) {
     super(eventBus)
     this.componentName = 'SyncUI'
-    // Keep service reference for backward compatibility during migration
-    this._legacyService = service
     this.ui = ui
   }
 
