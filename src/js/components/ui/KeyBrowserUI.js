@@ -516,13 +516,27 @@ export default class KeyBrowserUI extends ComponentBase {
   /**
    * Confirm deletion of a key
    */
-  confirmDeleteKey(key) {
+  async confirmDeleteKey(key) {
     if (!key) return
     
     const message = this.i18n?.t?.('confirm_delete_key', { key }) || `Delete key ${key}?`
-    if (confirm(message)) {
-      this.eventBus.emit('key:delete', { key })
+    const confirmed = confirm(message)
+    
+    if (confirmed) {
+      try {
+        // Use the eventBus to request key deletion from KeyService
+        this.eventBus.emit('key:delete', { key })
+        return true
+      } catch (error) {
+        console.error('Error deleting key:', error)
+        if (this.ui?.showToast) {
+          this.ui.showToast('Failed to delete key', 'error')
+        }
+        return false
+      }
     }
+    
+    return false
   }
 
   /**

@@ -149,15 +149,25 @@ export default class KeyBrowserService extends ComponentBase {
    * Selection helpers
    * ========================================================== */
   selectKey (name) {
-    if (this.selectedKeyName === name) return
+    if (this.selectedKeyName === name) return name
     this.selectedKeyName = name
 
-    // Forward to legacy keySelection mechanism if available
-    if (typeof window.keyHandling?.selectKey === 'function') {
-      window.keyHandling.selectKey(name)
-    }
-
+    // Emit selection event for UI components to react
     this.emit('key-selected', { key: name, name })
+    
+    // Trigger UI updates that legacy code expects (moved from KeyService)
+    if (typeof window !== 'undefined' && window.app) {
+      // Trigger key grid refresh
+      if (window.app.renderKeyGrid) {
+        window.app.renderKeyGrid()
+      }
+      // Trigger chain actions update (button state management)
+      if (window.app.updateChainActions) {
+        window.app.updateChainActions()
+      }
+    }
+    
+    return name
   }
 
   /* ============================================================

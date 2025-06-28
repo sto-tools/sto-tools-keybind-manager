@@ -117,6 +117,14 @@ export default class CommandUI extends ComponentBase {
   validateCurrentChain(key) {
     if (key) {
       this.eventBus.emit('command-chain:validate', { key })
+      
+      // Show validation success toast (legacy behavior from keyHandling.js)
+      const i18n = this.commandService?.i18n || this.commandLibraryService?.i18n
+      const ui = this.commandService?.ui || this.commandLibraryService?.ui || this.ui
+      if (ui?.showToast) {
+        const message = i18n?.t?.('command_chain_is_valid') || 'Command chain is valid'
+        ui.showToast(message, 'success')
+      }
     }
   }
 

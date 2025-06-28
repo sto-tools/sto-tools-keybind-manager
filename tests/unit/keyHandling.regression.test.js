@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { keyHandling } from '../../src/js/features/keyHandling.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
+import KeyBrowserService from '../../src/js/components/services/KeyBrowserService.js'
+import CommandUI from '../../src/js/components/ui/CommandUI.js'
+import KeyBrowserUI from '../../src/js/components/ui/KeyBrowserUI.js'
+import eventBus from '../../src/js/core/eventBus.js'
+import { request } from '../../src/js/core/requestResponse.js'
 
 let getElementByIdSpy
+let keyService, keyBrowserService, commandUI, keyBrowserUI
 
 function setupWindowMocks() {
   // Only mock getElementById, do not overwrite document
@@ -32,7 +38,8 @@ function setupWindowMocks() {
     generateCommandId: () => 'test-id',
     saveCurrentBuild: vi.fn(),
     renderAliasGrid: vi.fn(),
-    isValidKeyName: (name) => name.length > 0
+    isValidKeyName: (name) => name.length > 0,
+    deleteKey: vi.fn()
   }
 
   // Mock window dependencies
@@ -65,9 +72,39 @@ function setupWindowMocks() {
     validateKeybind: vi.fn(() => ({ valid: true, errors: [] }))
   }
 
-  window.eventBus = {
-    emit: vi.fn()
-  }
+  window.eventBus = eventBus
+
+  // Create service instances
+  keyService = new KeyService({
+    storage: window.storageService,
+    eventBus,
+    i18n: window.i18next,
+    ui: window.stoUI
+  })
+  keyService.currentProfile = 'test-profile'
+  keyService.currentEnvironment = 'space'
+  keyService.onInit() // Initialize event listeners
+
+  keyBrowserService = new KeyBrowserService({
+    storage: window.storageService,
+    ui: window.stoUI
+  })
+  keyBrowserService.currentProfileId = 'test-profile'
+  keyBrowserService.currentEnvironment = 'space'
+  keyBrowserService.onInit() // Initialize event listeners
+
+  commandUI = new CommandUI({
+    eventBus,
+    ui: window.stoUI,
+    commandService: keyService
+  })
+
+  keyBrowserUI = new KeyBrowserUI({
+    eventBus,
+    document,
+    ui: window.stoUI,
+    i18n: window.i18next
+  })
 }
 
 function restoreWindowMocks() {
@@ -83,9 +120,13 @@ function restoreWindowMocks() {
     getElementByIdSpy.mockRestore()
     getElementByIdSpy = undefined
   }
+  keyService = null
+  keyBrowserService = null
+  commandUI = null
+  keyBrowserUI = null
 }
 
-describe('keyHandling direct-call regression (context binding)', () => {
+describe('Key Management Services Integration (formerly keyHandling)', () => {
   beforeEach(() => {
     setupWindowMocks()
   })
@@ -94,21 +135,27 @@ describe('keyHandling direct-call regression (context binding)', () => {
     restoreWindowMocks()
   })
 
-  it('selectKey works when called directly', () => {
-    expect(() => keyHandling.selectKey('F2')).not.toThrow()
-    expect(window.app.selectedKey).toBe('F2')
+  it('Key selection works via request/response pattern', async () => {
+    // Proper architecture: use request to KeyBrowserService
+    const result = await request(eventBus, 'key:select', { key: 'F2' })
+    expect(result).toBe('F2')
+    
+    // KeyService should have synced its state via the key-selected event
+    expect(keyService.selectedKey).toBe('F2')
+    
+    // KeyBrowserService should have updated its state
+    expect(keyBrowserService.selectedKeyName).toBe('F2')
+    
+    // UI updates should have been triggered by KeyBrowserService
     expect(window.app.renderKeyGrid).toHaveBeenCalled()
-    expect(window.app.renderCommandChain).toHaveBeenCalled()
     expect(window.app.updateChainActions).toHaveBeenCalled()
   })
 
-  it('addKey works when called directly', () => {
-    const result = keyHandling.addKey('F3')
+  it('KeyService.addKey works when called directly', () => {
+    const result = keyService.addKey('F3')
     expect(result).toBe(true)
     expect(window.storageService.saveProfile).toHaveBeenCalled()
-    expect(window.app.renderKeyGrid).toHaveBeenCalled()
-    expect(window.app.selectedKey).toBe('F3')
-    expect(window.app.setModified).toHaveBeenCalled()
+    expect(keyService.selectedKey).toBe('F3')
     // The showToast call signature is ('key_added', 'success') in this mock context
     try {
       expect(window.stoUI.showToast).toHaveBeenCalledWith('key_added', 'success')
@@ -120,40 +167,52 @@ describe('keyHandling direct-call regression (context binding)', () => {
     }
   })
 
-  it('generateCommandId works when called directly', () => {
-    const id = keyHandling.generateCommandId()
+  it('KeyService.generateCommandId works when called directly', () => {
+    const id = keyService.generateCommandId()
     expect(typeof id).toBe('string')
     expect(id.startsWith('cmd_')).toBe(true)
   })
 
-  it('validateCurrentChain works when called directly', () => {
-    expect(() => keyHandling.validateCurrentChain()).not.toThrow()
-    expect(window.stoUI.showToast).toHaveBeenCalled()
+  it('CommandUI.validateCurrentChain works when called directly', () => {
+    expect(() => commandUI.validateCurrentChain('F1')).not.toThrow()
+    expect(window.stoUI.showToast).toHaveBeenCalledWith('command_chain_is_valid', 'success')
   })
 
-  it('context detection works and methods are available', () => {
-    expect(typeof keyHandling.selectKey).toBe('function')
-    expect(typeof keyHandling.addKey).toBe('function')
-    expect(typeof keyHandling.generateCommandId).toBe('function')
-    expect(typeof keyHandling.validateCurrentChain).toBe('function')
+  it('service methods are available and functional', () => {
+    // KeyService no longer has selectKey - that's handled by KeyBrowserService
+    expect(typeof keyService.addKey).toBe('function')
+    expect(typeof keyService.generateCommandId).toBe('function')
+    expect(typeof keyBrowserService.selectKey).toBe('function')
+    expect(typeof commandUI.validateCurrentChain).toBe('function')
+    expect(typeof keyBrowserUI.confirmDeleteKey).toBe('function')
   })
 
-  it('confirmDeleteKey works when context has deleteKey method', async () => {
-    // Add deleteKey method to the mock context
-    window.app.deleteKey = vi.fn()
+  it('KeyBrowserUI.confirmDeleteKey works when context has deleteKey method', async () => {
+    // Mock confirm to return true
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     
-    await keyHandling.confirmDeleteKey('F1')
+    // Spy on eventBus.emit to verify the key:delete event is emitted
+    const emitSpy = vi.spyOn(eventBus, 'emit')
     
-    expect(window.stoUI.confirm).toHaveBeenCalled()
-    expect(window.app.deleteKey).toHaveBeenCalledWith('F1')
+    const result = await keyBrowserUI.confirmDeleteKey('F1')
+    
+    expect(window.confirm).toHaveBeenCalled()
+    expect(emitSpy).toHaveBeenCalledWith('key:delete', { key: 'F1' })
+    expect(result).toBe(true)
+    
+    emitSpy.mockRestore()
+    window.confirm.mockRestore()
   })
 
-  it('confirmDeleteKey throws error when context is missing deleteKey method', async () => {
-    // Ensure deleteKey method is not present
-    delete window.app.deleteKey
+  it('KeyBrowserUI.confirmDeleteKey returns false when user cancels', async () => {
+    // Mock confirm to return false
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
     
-    await expect(keyHandling.confirmDeleteKey('F1')).rejects.toThrow(
-      'Application context is missing deleteKey method. This indicates a configuration issue.'
-    )
+    const result = await keyBrowserUI.confirmDeleteKey('F1')
+    
+    expect(window.confirm).toHaveBeenCalled()
+    expect(result).toBe(false)
+    
+    window.confirm.mockRestore()
   })
 }) 

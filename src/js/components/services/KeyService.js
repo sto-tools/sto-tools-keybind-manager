@@ -30,7 +30,7 @@ export default class KeyService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       respond(this.eventBus, 'key:get-selected', () => this.selectedKey)
-      respond(this.eventBus, 'key:select', ({ key } = {}) => this.selectKey(key))
+      // Note: key:select is handled by KeyBrowserService to maintain consistency with alias pattern
       respond(this.eventBus, 'key:add', ({ key } = {}) => this.addKey(key))
       respond(this.eventBus, 'key:delete', ({ key } = {}) => this.deleteKey(key))
     }
@@ -116,6 +116,10 @@ export default class KeyService extends ComponentBase {
 
     this.selectedKey = keyName
     this.emit('key-added', { key: keyName })
+    
+    // Show success toast (legacy behavior from keyHandling.js)
+    this.ui?.showToast?.(this.i18n?.t?.('key_added') || 'Key added', 'success')
+    
     return true
   }
 
@@ -261,15 +265,8 @@ export default class KeyService extends ComponentBase {
     })
   }
 
-  /**
-   * Legacy helper maintained for backward-compatibility – mimics the old
-   * keyHandling.selectKey() behaviour by setting selection state and emitting
-   * an event so interested UI components can react.
-   */
-  selectKey (keyName) {
-    this.setSelectedKey(keyName)
-    this.emit('key-selected', { key: keyName, name: keyName })
-  }
+  // REMOVED: selectKey method - this should be handled by KeyBrowserService
+  // Use request(eventBus, 'key:select', { key: keyName }) instead
 
   /**
    * Historically the UI expected a command-id generator utility on the

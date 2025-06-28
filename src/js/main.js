@@ -10,7 +10,7 @@ import es from '../i18n/es.json'
 import { StorageService } from './components/services/index.js'
 import { KeyService } from './components/services/index.js'
 import STOExportManager from './features/export.js'
-import STOUIManager from './ui/ui.js'
+import { UIUtilityService } from './components/services/index.js'
 // import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
@@ -105,7 +105,18 @@ const settings = storageService.getSettings()
   // Create dependencies first
   const stoKeybinds = new KeyService()
   const stoExport = new STOExportManager({ storage: storageService })
-  const stoUI = new STOUIManager()
+  // Create UI utility service
+  const uiUtilityService = new UIUtilityService(eventBus)
+  
+  // Create UI compatibility facade for legacy components
+  const stoUI = {
+    showToast: (message, type = 'info') => eventBus.emit('toast:show', { message, type }),
+    confirm: (message, callback) => eventBus.emit('confirm:show', { message, callback }),
+    showModal: (modalId) => eventBus.emit('modal:show', modalId),
+    hideModal: (modalId) => eventBus.emit('modal:hide', modalId),
+    copyToClipboard: (text) => eventBus.emit('ui:copy-to-clipboard', { text })
+  }
+  
   const stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })
   // Init immediately so header Explorer button works without waiting for sto-app-ready
   stoFileExplorer.init()
