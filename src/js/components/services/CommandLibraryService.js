@@ -38,7 +38,7 @@ export default class CommandLibraryService extends ComponentBase {
         respond(this.eventBus, 'command:filter-library', () => {
           this.filterCommandLibrary()
           return true
-        })
+        }),
       )
     }
 
@@ -56,6 +56,7 @@ export default class CommandLibraryService extends ComponentBase {
    */
   onInit() {
     this.setupEventListeners()
+    this.setupRequestResponseEndpoints()
   }
 
   /**
@@ -629,5 +630,22 @@ export default class CommandLibraryService extends ComponentBase {
     if (super.destroy && typeof super.destroy === 'function') {
       super.destroy()
     }
+  }
+
+  setupRequestResponseEndpoints() {
+    // Store detach functions for cleanup
+    if (!this._responseDetachFunctions) {
+      this._responseDetachFunctions = []
+    }
+
+    // Endpoint for getting command library data
+    this._responseDetachFunctions.push(
+      respond(this.eventBus, 'command-library:get-data', () => {
+        return {
+          commandCategories: this.commandCategories,
+          userCommands: this.userCommands
+        }
+      })
+    )
   }
 }

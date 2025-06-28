@@ -1,230 +1,390 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import CommandUI from '../../src/js/components/ui/CommandUI.js'
+import eventBus from '../../src/js/core/eventBus.js'
+import { request } from '../../src/js/core/requestResponse.js'
 
-// Mock parameterCommands
+// Mock the ParameterCommandUI module
 vi.mock('../../src/js/components/ui/ParameterCommandUI.js', () => ({
   parameterCommands: {
-    showParameterModal: vi.fn(),
-    commandService: null,
-    commandLibraryService: null
+    showParameterModal: vi.fn()
   }
 }))
 
-// Mock eventBus
-vi.mock('../../src/js/core/eventBus.js', () => ({
-  default: {
-    on: vi.fn(),
-    emit: vi.fn(),
-    off: vi.fn()
-  }
+// Mock the request function
+vi.mock('../../src/js/core/requestResponse.js', () => ({
+  request: vi.fn()
 }))
-
-import CommandUI from '../../src/js/components/ui/CommandUI.js'
-import { parameterCommands } from '../../src/js/components/ui/ParameterCommandUI.js'
-
-// Mock dependencies
-const mockUI = {
-  showToast: vi.fn()
-}
-
-const mockEventBus = {
-  on: vi.fn(),
-  emit: vi.fn(),
-  off: vi.fn()
-}
-
-const mockModalManager = {
-  show: vi.fn(),
-  hide: vi.fn()
-}
-
-const mockCommandService = {
-  selectedKey: 'test-key',
-  addCommand: vi.fn(),
-  i18n: {
-    t: vi.fn((key) => key)
-  }
-}
-
-const mockCommandLibraryService = {
-  selectedKey: 'test-key',
-  addCommand: vi.fn()
-}
 
 describe('CommandUI', () => {
   let commandUI
+  let mockEventBus
+  let mockUI
+  let mockModalManager
 
   beforeEach(() => {
-    vi.clearAllMocks()
+    // Create mock dependencies
+    mockEventBus = {
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      onDom: vi.fn(),
+      offDom: vi.fn()
+    }
     
-    // Reset mock service state
-    mockCommandService.selectedKey = 'test-key'
-    mockCommandLibraryService.selectedKey = 'test-key'
-    
+    mockUI = {
+      showToast: vi.fn()
+    }
+
+    mockModalManager = {
+      show: vi.fn()
+    }
+
+    // Mock request/response for i18n and toast
+    vi.mocked(request).mockImplementation((eventBus, endpoint, params) => {
+      if (endpoint === 'i18n:translate') {
+        const translations = {
+          'please_select_a_key_first': 'Please select a key first',
+          'please_select_an_alias_first': 'Please select an alias first',
+          'confirm_clear_chain': 'Clear command chain for {key}?',
+          'command_chain_is_valid': 'Command chain is valid'
+        }
+        return Promise.resolve(translations[params.key] || params.key)
+      }
+      if (endpoint === 'ui:show-toast') {
+        mockUI.showToast(params.message, params.type)
+        return Promise.resolve()
+      }
+      return Promise.resolve()
+    })
+
+    // Create CommandUI instance with mocks
     commandUI = new CommandUI({
       eventBus: mockEventBus,
       ui: mockUI,
-      modalManager: mockModalManager,
-      commandService: mockCommandService,
-      commandLibraryService: mockCommandLibraryService
+      modalManager: mockModalManager
     })
   })
 
-  describe('constructor', () => {
-    it('should initialize with correct properties', () => {
-      expect(commandUI.ui).toBe(mockUI)
-      expect(commandUI.modalManager).toBe(mockModalManager)
-      expect(commandUI.commandService).toBe(mockCommandService)
-      expect(commandUI.commandLibraryService).toBe(mockCommandLibraryService)
-    })
-
-    it('should use global stoUI if no ui provided', () => {
-      global.stoUI = { test: 'global' }
-      const ui = new CommandUI({})
-      expect(ui.ui).toBe(global.stoUI)
-      delete global.stoUI
-    })
+  afterEach(() => {
+    vi.clearAllMocks()
+    // Clean up event listeners if any
+    if (commandUI && commandUI.destroy) {
+      commandUI.destroy()
+    }
   })
 
-  describe('onInit', () => {
-    it('should setup parameterCommands with services', () => {
+  describe('Initialization', () => {
+    it('should initialize with default state', () => {
+      expect(commandUI.componentName).toBe('CommandUI')
+      expect(commandUI._selectedKey).toBe(null)
+      expect(commandUI._selectedAlias).toBe(null)
+      expect(commandUI._currentEnvironment).toBe('space')
+    })
+
+    it('should setup event listeners on init', () => {
       commandUI.onInit()
       
-      expect(parameterCommands.commandService).toBe(mockCommandService)
-      expect(parameterCommands.commandLibraryService).toBe(mockCommandLibraryService)
-    })
-
-    it('should setup command:add event listener', () => {
-      const addEventListenerSpy = vi.spyOn(commandUI, 'addEventListener')
-      commandUI.onInit()
-      
-      expect(addEventListenerSpy).toHaveBeenCalledWith('command:add', expect.any(Function))
+      // Check that all required event listeners are set up (order doesn't matter)
+      const eventNames = mockEventBus.on.mock.calls.map(call => call[0])
+      expect(eventNames).toContain('command:add')
+      expect(eventNames).toContain('key-selected')
+      expect(eventNames).toContain('alias-selected')
+      expect(eventNames).toContain('environment:changed')
     })
   })
 
-  describe('command:add event handling', () => {
+  describe('State Management - Broadcast/Cache Pattern', () => {
     beforeEach(() => {
       commandUI.onInit()
     })
 
-    it('should handle static commands by emitting command:add event', () => {
-      const staticCommandDef = {
-        command: 'test_command',
-        type: 'space',
-        icon: '🎯',
-        text: 'Test Command',
-        id: 'test-id-123'
-      }
-
-      // Emit command:add event for static command
-      commandUI.emit('command:add', { commandDef: staticCommandDef })
-
-      // Should emit event with command and key for CommandService to handle
-      expect(mockEventBus.emit).toHaveBeenCalledWith('command:add', { 
-        command: staticCommandDef, 
-        key: 'test-key' 
-      })
-      expect(parameterCommands.showParameterModal).not.toHaveBeenCalled()
+    it('should cache key selection from broadcast events', () => {
+      // Simulate key-selected event
+      const keySelectedCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'key-selected'
+      )[1]
+      
+      keySelectedCallback({ key: 'spacebar' })
+      
+      expect(commandUI._selectedKey).toBe('spacebar')
+      expect(commandUI._selectedAlias).toBe(null)
+      expect(commandUI.getSelectedKey()).toBe('spacebar')
     })
 
-    it('should handle customizable commands by showing parameter modal', () => {
-      const customizableCommandDef = {
-        name: 'Custom Command',
-        command: 'custom_command',
-        icon: '⚙️',
-        description: 'A customizable command',
-        customizable: true
-      }
+    it('should cache alias selection from broadcast events', () => {
+      commandUI._currentEnvironment = 'alias'
+      
+      const aliasSelectedCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'alias-selected'
+      )[1]
+      
+      aliasSelectedCallback({ name: 'myalias' })
+      
+      expect(commandUI._selectedAlias).toBe('myalias')
+      expect(commandUI._selectedKey).toBe(null)
+      expect(commandUI.getSelectedKey()).toBe('myalias')
+    })
 
-      // Emit command:add event for customizable command
-      commandUI.emit('command:add', {
-        categoryId: 'space',
-        commandId: 'custom_cmd',
-        commandDef: customizableCommandDef
+    it('should cache environment changes from broadcast events', () => {
+      const envChangedCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'environment:changed'
+      )[1]
+      
+      envChangedCallback({ environment: 'ground' })
+      
+      expect(commandUI._currentEnvironment).toBe('ground')
+      expect(commandUI.getCurrentEnvironment()).toBe('ground')
+    })
+
+    it('should handle environment changes as string format', () => {
+      const envChangedCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'environment:changed'
+      )[1]
+      
+      envChangedCallback('alias')
+      
+      expect(commandUI._currentEnvironment).toBe('alias')
+    })
+  })
+
+  describe('Command Handling', () => {
+    beforeEach(() => {
+      commandUI.onInit()
+    })
+
+    it('should handle static command when key is selected', async () => {
+      // Set up cached state
+      commandUI._selectedKey = 'spacebar'
+      commandUI._currentEnvironment = 'space'
+      
+      const commandAddCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'command:add'
+      )[1]
+
+      const mockCommand = { command: '+forward' }
+      await commandAddCallback({ commandDef: mockCommand })
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command:add', {
+        command: mockCommand,
+        key: 'spacebar'
+      })
+    })
+
+    it('should show warning when no key is selected for static command', async () => {
+      // No key selected
+      commandUI._selectedKey = null
+      commandUI._currentEnvironment = 'space'
+      
+      const commandAddCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'command:add'
+      )[1]
+
+      const mockCommand = { command: '+forward' }
+      await commandAddCallback({ commandDef: mockCommand })
+
+      expect(mockUI.showToast).toHaveBeenCalledWith('Please select a key first', 'warning')
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith('command:add', expect.anything())
+    })
+
+    it('should show alias warning when in alias mode with no selection', async () => {
+      commandUI._selectedAlias = null
+      commandUI._currentEnvironment = 'alias'
+      
+      const commandAddCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'command:add'
+      )[1]
+
+      const mockCommand = { command: '+forward' }
+      await commandAddCallback({ commandDef: mockCommand })
+
+      expect(mockUI.showToast).toHaveBeenCalledWith('Please select an alias first', 'warning')
+    })
+
+    it('should delegate to parameter modal for customizable commands', async () => {
+      const { parameterCommands } = await import('../../src/js/components/ui/ParameterCommandUI.js')
+      
+      const commandAddCallback = mockEventBus.on.mock.calls.find(
+        call => call[0] === 'command:add'
+      )[1]
+
+      const mockCommand = { command: '+forward' }
+      await commandAddCallback({ 
+        categoryId: 'combat',
+        commandId: 'forwardMove',
+        commandDef: mockCommand 
       })
 
       expect(parameterCommands.showParameterModal).toHaveBeenCalledWith(
-        'space',
-        'custom_cmd',
-        customizableCommandDef
+        'combat',
+        'forwardMove', 
+        mockCommand
       )
-      expect(mockCommandService.addCommand).not.toHaveBeenCalled()
     })
+  })
 
-    it('should show warning for static commands when no key is selected', () => {
-      mockCommandService.selectedKey = null
-      mockCommandLibraryService.selectedKey = null
+  describe('Late-join State Sync', () => {
+    it('should provide current state', () => {
+      commandUI._selectedKey = 'spacebar'
+      commandUI._selectedAlias = 'myalias'
+      commandUI._currentEnvironment = 'ground'
 
-      const staticCommandDef = {
-        command: 'test_command',
-        type: 'space',
-        icon: '🎯',
-        text: 'Test Command',
-        id: 'test-id-123'
-      }
+      const state = commandUI.getCurrentState()
 
-      // Emit command:add event for static command
-      commandUI.emit('command:add', { commandDef: staticCommandDef })
-
-      expect(mockUI.showToast).toHaveBeenCalledWith('please_select_a_key_first', 'warning')
-      // Should not emit command:add event when no key is selected
-      expect(mockEventBus.emit).not.toHaveBeenCalledWith('command:add', expect.any(Object))
-    })
-
-    it('should emit command:add event even when no commandService (broadcast pattern)', () => {
-      commandUI.commandService = null
-
-      const staticCommandDef = {
-        command: 'test_command',
-        type: 'space',
-        icon: '🎯',
-        text: 'Test Command',
-        id: 'test-id-123'
-      }
-
-      // Emit command:add event for static command
-      commandUI.emit('command:add', { commandDef: staticCommandDef })
-
-      // Should still emit event - CommandService will handle it if available
-      expect(mockEventBus.emit).toHaveBeenCalledWith('command:add', { 
-        command: staticCommandDef, 
-        key: 'test-key' 
+      expect(state).toEqual({
+        selectedKey: 'spacebar',
+        selectedAlias: 'myalias',
+        currentEnvironment: 'ground'
       })
     })
 
-    it('should handle gracefully when ui is not available', () => {
-      commandUI.ui = null
-      commandUI.commandService = null
+    it('should handle initial state from other components', () => {
+      commandUI.handleInitialState('KeyService', {
+        selectedKey: 'f1',
+        selectedAlias: 'testalias',
+        currentEnvironment: 'alias'
+      })
 
-      const staticCommandDef = {
-        command: 'test_command',
-        type: 'space',
-        icon: '🎯',
-        text: 'Test Command',
-        id: 'test-id-123'
+      expect(commandUI._selectedKey).toBe('f1')
+      expect(commandUI._selectedAlias).toBe('testalias')
+      expect(commandUI._currentEnvironment).toBe('alias')
+    })
+
+    it('should handle undefined initial state gracefully', () => {
+      const originalState = {
+        selectedKey: commandUI._selectedKey,
+        selectedAlias: commandUI._selectedAlias,
+        currentEnvironment: commandUI._currentEnvironment
       }
 
-      // Should not throw an error
-      expect(() => {
-        commandUI.emit('command:add', { commandDef: staticCommandDef })
-      }).not.toThrow()
+      commandUI.handleInitialState('SomeService', undefined)
+
+      expect(commandUI._selectedKey).toBe(originalState.selectedKey)
+      expect(commandUI._selectedAlias).toBe(originalState.selectedAlias)
+      expect(commandUI._currentEnvironment).toBe(originalState.currentEnvironment)
+    })
+  })
+
+  describe('DOM Event Handlers', () => {
+    beforeEach(() => {
+      commandUI.onInit()
     })
 
-    it('should ignore invalid payloads', () => {
-      // Emit command:add event with invalid payload
-      commandUI.emit('command:add', {})
-
-      expect(mockCommandService.addCommand).not.toHaveBeenCalled()
-      expect(parameterCommands.showParameterModal).not.toHaveBeenCalled()
-      expect(mockUI.showToast).not.toHaveBeenCalled()
+    it('should setup DOM event listeners', () => {
+      expect(mockEventBus.onDom).toHaveBeenCalledWith('addCommandBtn', 'click', 'command-add-modal', expect.any(Function))
+      expect(mockEventBus.onDom).toHaveBeenCalledWith('clearChainBtn', 'click', 'command-chain-clear', expect.any(Function))
+      expect(mockEventBus.onDom).toHaveBeenCalledWith('validateChainBtn', 'click', 'command-chain-validate', expect.any(Function))
+      expect(mockEventBus.onDom).toHaveBeenCalledWith('commandSearch', 'input', 'command-search', expect.any(Function))
     })
 
-    it('should ignore payloads with partial data', () => {
-      // Emit command:add event with only categoryId but no commandId
-      commandUI.emit('command:add', { categoryId: 'space' })
+    it('should handle add command button click', () => {
+      const addCommandCallback = mockEventBus.onDom.mock.calls.find(
+        call => call[0] === 'addCommandBtn'
+      )[3]
+      
+      addCommandCallback()
+      
+      expect(mockModalManager.show).toHaveBeenCalledWith('addCommandModal')
+    })
 
-      expect(mockCommandService.addCommand).not.toHaveBeenCalled()
-      expect(parameterCommands.showParameterModal).not.toHaveBeenCalled()
-      expect(mockUI.showToast).not.toHaveBeenCalled()
+    it('should handle clear chain button click with selected key', async () => {
+      commandUI._selectedKey = 'spacebar'
+      
+      const clearChainCallback = mockEventBus.onDom.mock.calls.find(
+        call => call[0] === 'clearChainBtn'
+      )[3]
+      
+      // Mock confirm dialog to return true
+      global.confirm = vi.fn(() => true)
+      
+      // Call the callback and wait for async operations
+      clearChainCallback()
+      
+      // Wait a tick for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command-chain:clear', { key: 'spacebar' })
+    })
+
+    it('should handle validate chain button click', () => {
+      commandUI._selectedKey = 'spacebar'
+      
+      const validateChainCallback = mockEventBus.onDom.mock.calls.find(
+        call => call[0] === 'validateChainBtn'
+      )[3]
+      
+      validateChainCallback()
+      
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command-chain:validate', { key: 'spacebar' })
+    })
+
+    it('should handle command search input', () => {
+      const searchCallback = mockEventBus.onDom.mock.calls.find(
+        call => call[0] === 'commandSearch'
+      )[3]
+      
+      const mockEvent = { target: { value: 'combat' } }
+      searchCallback(mockEvent)
+      
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command:filter', { filter: 'combat' })
+    })
+  })
+
+  describe('Action Methods', () => {
+    beforeEach(() => {
+      commandUI.onInit()
+    })
+
+    it('should get i18n messages via request/response', async () => {
+      const message = await commandUI.getI18nMessage('test_key')
+      
+      expect(request).toHaveBeenCalledWith(mockEventBus, 'i18n:translate', { 
+        key: 'test_key', 
+        params: {} 
+      })
+      expect(message).toBe('test_key')
+    })
+
+    it('should show toast via UI service when available', async () => {
+      await commandUI.showToast('Test message', 'success')
+      
+      expect(mockUI.showToast).toHaveBeenCalledWith('Test message', 'success')
+    })
+
+    it('should fallback to request/response for toast when UI service unavailable', async () => {
+      commandUI.ui = null
+      
+      await commandUI.showToast('Test message', 'info')
+      
+      expect(request).toHaveBeenCalledWith(mockEventBus, 'ui:show-toast', { 
+        message: 'Test message', 
+        type: 'info' 
+      })
+    })
+
+    it('should handle confirm clear chain dialog', async () => {
+      global.confirm = vi.fn(() => true)
+      
+      await commandUI.confirmClearChain('spacebar')
+      
+      expect(request).toHaveBeenCalledWith(mockEventBus, 'i18n:translate', { 
+        key: 'confirm_clear_chain', 
+        params: { key: 'spacebar' } 
+      })
+      expect(global.confirm).toHaveBeenCalledWith('Clear command chain for {key}?')
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command-chain:clear', { key: 'spacebar' })
+    })
+
+    it('should validate current command chain', async () => {
+      await commandUI.validateCurrentChain('spacebar')
+      
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command-chain:validate', { key: 'spacebar' })
+      expect(mockUI.showToast).toHaveBeenCalledWith('Command chain is valid', 'success')
+    })
+
+    it('should filter commands by search term', () => {
+      commandUI.filterCommands('combat')
+      
+      expect(mockEventBus.emit).toHaveBeenCalledWith('command:filter', { filter: 'combat' })
     })
   })
 }) 

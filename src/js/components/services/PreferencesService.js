@@ -43,6 +43,14 @@ export default class PreferencesService extends ComponentBase {
       respond(this.eventBus, 'preferences:set-setting', ({ key, value }) => this.setSetting(key, value))
       respond(this.eventBus, 'preferences:get-setting', ({ key }) => this.getSetting(key))
       respond(this.eventBus, 'preferences:reset-settings', () => this.resetSettings())
+      
+      // Add i18n translation endpoint for UI components
+      respond(this.eventBus, 'i18n:translate', ({ key, params = {} }) => {
+        if (this.i18n && this.i18n.t) {
+          return this.i18n.t(key, params)
+        }
+        return key // Fallback to key if i18n not available
+      })
     }
 
     // Set up event listeners for theme and language changes

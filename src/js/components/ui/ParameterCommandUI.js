@@ -41,9 +41,8 @@ export default class ParameterCommandUI extends ComponentBase {
     this._selectedAlias = null
     this._currentEnvironment = 'space'
     
-    // Service references (set by app.js)
-    this.commandService = null
-    this.commandLibraryService = null
+    // REFACTORED: Remove direct service references
+    // All service interactions now use request/response pattern
     this.currentParameterCommand = null
   }
 

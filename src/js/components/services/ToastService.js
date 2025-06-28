@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
 
 /**
  * ToastService – handles creation and life-cycle of toast notifications.
@@ -23,6 +24,14 @@ export default class ToastService extends ComponentBase {
     this.toastQueue = []
 
     this.containerId = containerId
+    
+    // Register request/response endpoints
+    if (this.eventBus) {
+      respond(this.eventBus, 'ui:show-toast', ({ message, type = 'info', duration = 3000 }) => {
+        this.showToast(message, type, duration)
+        return true
+      })
+    }
   }
 
   /**
