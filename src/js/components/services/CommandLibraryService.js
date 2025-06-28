@@ -118,6 +118,13 @@ export default class CommandLibraryService extends ComponentBase {
         this.selectedAlias = null
       }
     })
+
+    // Listen for language changes - no specific action needed as translateCommandDefinition
+    // will automatically use the new language on next call
+    this.addEventListener('language:changed', () => {
+      // The translateCommandDefinition method will automatically use the new language
+      // when called, so no specific action is needed here
+    })
   }
 
   /**
@@ -155,9 +162,9 @@ export default class CommandLibraryService extends ComponentBase {
       })
       return commands.map((cmd, index) => ({
         command: cmd.command,
-        text: cmd.command,
-        type: 'alias',
-        icon: '🎭',
+        text: cmd.text || cmd.command,
+        type: cmd.type || 'alias', // Use the actual detected type, fallback to 'alias'
+        icon: cmd.icon || '🎭',
         id: `alias_${index}`,
       }))
     } else {
@@ -261,16 +268,38 @@ export default class CommandLibraryService extends ComponentBase {
         }
       }
 
-      // Generic lookup (exact match or containment) ---------------------------
+      // Generic lookup (exact match first, then containment) ------------------
       const categories = await request(this.eventBus, 'data:get-commands')
+      
+      // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
           if (
             cmdData.command === command.command ||
-            cmdData.name === command.text ||
-            (command.command && command.command.includes(cmdData.command))
+            cmdData.name === command.text
           ) {
-            return { ...cmdData, commandId: cmdId, categoryId }
+            // Apply i18n translation to the command definition
+            const translatedDef = this.translateCommandDefinition(cmdData, cmdId)
+            return { ...translatedDef, commandId: cmdId, categoryId }
+          }
+        }
+      }
+      
+      // Second pass: containment matches (only for specific known cases like tray commands)
+      for (const [categoryId, category] of Object.entries(categories)) {
+        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
+          if (command.command && command.command.includes(cmdData.command)) {
+            // Only allow partial matching for specific cases:
+            // 1. Tray execution commands (contain "TrayExec")
+            // 2. Commands that start with the definition command (for parameterized commands)
+            const isTrayCommand = command.command.includes('TrayExec')
+            const startsWithDefinition = command.command.startsWith(cmdData.command)
+            
+            if (isTrayCommand || startsWithDefinition) {
+              // Apply i18n translation to the command definition
+              const translatedDef = this.translateCommandDefinition(cmdData, cmdId)
+              return { ...translatedDef, commandId: cmdId, categoryId }
+            }
           }
         }
       }
@@ -283,6 +312,29 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   /**
+   * Translate a command definition using i18n
+   */
+  translateCommandDefinition(cmdData, cmdId) {
+    if (!this.i18n) return cmdData
+
+    const translatedDef = { ...cmdData }
+    
+    // Translate name
+    const nameKey = `command_definitions.${cmdId}.name`
+    if (this.i18n.exists && this.i18n.exists(nameKey)) {
+      translatedDef.name = this.i18n.t(nameKey)
+    }
+    
+    // Translate description
+    const descKey = `command_definitions.${cmdId}.description`
+    if (this.i18n.exists && this.i18n.exists(descKey)) {
+      translatedDef.description = this.i18n.t(descKey)
+    }
+    
+    return translatedDef
+  }
+
+  /**
    * Get command warning information
    */
   async getCommandWarning(command) {
@@ -292,15 +344,31 @@ export default class CommandLibraryService extends ComponentBase {
 
       const categories = await request(this.eventBus, 'data:get-commands')
 
+      // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-          // Match by command text or actual command
           if (
             cmdData.command === command.command ||
-            cmdData.name === command.text ||
-            command.command.includes(cmdData.command)
+            cmdData.name === command.text
           ) {
             return cmdData.warning || null
+          }
+        }
+      }
+      
+      // Second pass: containment matches (only for specific known cases like tray commands)
+      for (const [categoryId, category] of Object.entries(categories)) {
+        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
+          if (command.command && command.command.includes(cmdData.command)) {
+            // Only allow partial matching for specific cases:
+            // 1. Tray execution commands (contain "TrayExec")
+            // 2. Commands that start with the definition command (for parameterized commands)
+            const isTrayCommand = command.command.includes('TrayExec')
+            const startsWithDefinition = command.command.startsWith(cmdData.command)
+            
+            if (isTrayCommand || startsWithDefinition) {
+              return cmdData.warning || null
+            }
           }
         }
       }

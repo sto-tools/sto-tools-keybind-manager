@@ -103,12 +103,17 @@ export default class CommandChainUI extends ComponentBase {
           previewEl.textContent = emptyStateInfo.preview
           if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
 
-          container.innerHTML = `
+          // Create new container content atomically
+          const newContent = this.document.createElement('div')
+          newContent.innerHTML = `
             <div class="empty-state show" id="emptyState">
               <i class="${emptyStateInfo.icon}"></i>
               <h4>${emptyStateInfo.emptyTitle}</h4>
               <p>${emptyStateInfo.emptyDesc}</p>
             </div>`
+          
+          // Atomic replacement
+          container.replaceChildren(...newContent.children)
           return
         }
         // We have a selection, so request the commands
@@ -129,13 +134,17 @@ export default class CommandChainUI extends ComponentBase {
         previewEl.textContent = emptyStateInfo.preview
         if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
 
-        // Only show empty state if there's actually no selection (not during auto-selection)
-        container.innerHTML = `
+        // Create new container content atomically
+        const newContent = this.document.createElement('div')
+        newContent.innerHTML = `
           <div class="empty-state ${!selectedKeyName ? 'show' : ''}" id="emptyState">
             <i class="${emptyStateInfo.icon}"></i>
             <h4>${emptyStateInfo.emptyTitle}</h4>
             <p>${emptyStateInfo.emptyDesc}</p>
           </div>`
+        
+        // Atomic replacement
+        container.replaceChildren(...newContent.children)
         return
       }
 
@@ -147,15 +156,18 @@ export default class CommandChainUI extends ComponentBase {
       // Hide any existing empty state
       if (emptyState) emptyState.classList.remove('show')
 
-      // Render command list
-      console.log('[CommandChainUI] clearing container and rendering', commands.length, 'commands')
-      container.innerHTML = ''
-      for (let i=0;i<commands.length;i++) {
+      // Build the complete new command list structure atomically
+      console.log('[CommandChainUI] building new command list with', commands.length, 'commands')
+      const newCommandElements = []
+      for (let i = 0; i < commands.length; i++) {
         const el = await this.createCommandElement(commands[i], i, commands.length)
         console.log('[CommandChainUI] created element for command', i, commands[i])
-        container.appendChild(el)
+        newCommandElements.push(el)
       }
-      console.log('[CommandChainUI] finished rendering, container children:', container.children.length)
+
+      // Atomic replacement - this is the only DOM mutation that affects the command list
+      container.replaceChildren(...newCommandElements)
+      console.log('[CommandChainUI] finished atomic render, container children:', container.children.length)
   }
 
   /**
@@ -218,6 +230,12 @@ export default class CommandChainUI extends ComponentBase {
     const warningIcon  = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
     const parameterInd = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : ''
 
+    // Determine the actual command type from the definition, not from the parsed command
+    let commandType = command.type
+    if (commandDef && commandDef.categoryId) {
+      commandType = commandDef.categoryId
+    }
+
     element.innerHTML = `
       <div class="command-number">${index + 1}</div>
       <div class="command-content">
@@ -225,7 +243,7 @@ export default class CommandChainUI extends ComponentBase {
         <span class="command-text">${displayName}${parameterInd}</span>
         ${warningIcon}
       </div>
-      <span class="command-type ${command.type}">${command.type}</span>
+      <span class="command-type ${commandType}">${commandType}</span>
       <div class="command-actions">
         <button class="btn btn-small-icon btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>
         <button class="btn btn-small-icon btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>

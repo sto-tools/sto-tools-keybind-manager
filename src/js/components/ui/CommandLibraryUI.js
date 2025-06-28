@@ -75,6 +75,11 @@ export default class CommandLibraryUI extends ComponentBase {
       this._selectedKey = null
       this.updateChainActions()
     })
+    // Listen for language changes to refresh command library with new translations
+    this.addEventListener('language:changed', () => {
+      this.setupCommandLibrary()
+    })
+
     // Listen for stabilize execution order checkbox changes
     this.eventBus.onDom('stabilizeExecutionOrder', 'change', 'stabilize-order-change', () => {
       // Command chain rendering is now handled by CommandChainUI
@@ -132,11 +137,25 @@ export default class CommandLibraryUI extends ComponentBase {
       <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">
         ${Object.entries(category.commands)
           .map(
-            ([cmdId, cmd]) => `
-            <div class="command-item ${cmd.customizable ? 'customizable' : ''}" data-command="${cmdId}" title="${cmd.description}${cmd.customizable ? ' (Customizable)' : ''}">
-              ${cmd.icon} ${cmd.name}${cmd.customizable ? ' <span class="param-indicator">⚙️</span>' : ''}
+            ([cmdId, cmd]) => {
+              // Try to get translated name from i18n, fallback to original name
+              const translationKey = `command_definitions.${cmdId}.name`
+              const translatedName = (typeof i18next !== 'undefined' && i18next.exists(translationKey)) 
+                ? i18next.t(translationKey) 
+                : cmd.name
+              
+              // Try to get translated description from i18n, fallback to original description
+              const descTranslationKey = `command_definitions.${cmdId}.description`
+              const translatedDescription = (typeof i18next !== 'undefined' && i18next.exists(descTranslationKey)) 
+                ? i18next.t(descTranslationKey) 
+                : cmd.description
+              
+              return `
+            <div class="command-item ${cmd.customizable ? 'customizable' : ''}" data-command="${cmdId}" title="${translatedDescription}${cmd.customizable ? ' (Customizable)' : ''}">
+              ${cmd.icon} ${translatedName}${cmd.customizable ? ' <span class="param-indicator">⚙️</span>' : ''}
             </div>
           `
+            }
           )
           .join('')}
       </div>

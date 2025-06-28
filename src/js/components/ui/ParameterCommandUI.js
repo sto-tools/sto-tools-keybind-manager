@@ -514,4 +514,4 @@ export default class ParameterCommandUI extends ComponentBase {
 }
 
 // Legacy singleton for backward compatibility - will be deprecated
-export const parameterCommands = new ParameterCommandUI() 
+export const parameterCommands = new ParameterCommandUI({ eventBus }) 

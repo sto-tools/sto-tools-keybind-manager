@@ -8,7 +8,7 @@ import { parameterCommands } from '../ui/ParameterCommandUI.js'
  * Fully decoupled - communicates only via event bus and request/response
  */
 export default class CommandChainService extends ComponentBase {
-  constructor ({ i18n, commandLibraryService, commandService = null, eventBus: injectedEventBus = null } = {}) {
+  constructor ({ i18n, commandLibraryService, commandService = null, eventBus = null } = {}) {
     super(eventBus)
     this.componentName = 'CommandChainService'
     this.i18n = i18n
@@ -64,13 +64,15 @@ export default class CommandChainService extends ComponentBase {
 
     // DataCoordinator integration - listen for profile updates
     this.addEventListener('profile:updated', (data) => {
-      if (data?.profile) {
-        this.updateCacheFromProfile(data.profile)
+      if (data?.profile && data?.profileId) {
+        // Add the profileId to the profile object since DataCoordinator doesn't include it
+        const profileWithId = { ...data.profile, id: data.profileId }
+        this.updateCacheFromProfile(profileWithId)
         // Refresh commands if we have a selected key
         // disabled due to command chain rendering not being atomic
-        //if (this.selectedKey) {
-        //  this.refreshCommands()
-        //}
+        if (this.selectedKey) {
+          this.refreshCommands()
+        }
       }
     })
 
@@ -394,6 +396,28 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
+      // Ensure we have a valid profile ID before making the request
+      if (!this.cache.currentProfile) {
+        console.error('CommandChainService: Cannot add command - no current profile ID in cache')
+        // Try to get current profile from DataCoordinator as fallback
+        try {
+          const currentState = await request(this.eventBus, 'data:get-current-state')
+          if (currentState?.currentProfile) {
+            this.cache.currentProfile = currentState.currentProfile
+            if (currentState.currentProfileData) {
+              this.updateCacheFromProfile(currentState.currentProfileData)
+            }
+            console.log('[CommandChainService] Retrieved current profile from DataCoordinator as fallback:', this.cache.currentProfile)
+          } else {
+            console.error('CommandChainService: No current profile available from DataCoordinator')
+            return false
+          }
+        } catch (error) {
+          console.error('CommandChainService: Failed to get current profile from DataCoordinator:', error)
+          return false
+        }
+      }
+
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
         updates
@@ -417,6 +441,14 @@ export default class CommandChainService extends ComponentBase {
    */
   async deleteCommand(key, index) {
     try {
+      console.log('[CommandChainService] deleteCommand called:', {
+        key,
+        index,
+        cacheCurrentProfile: this.cache.currentProfile,
+        currentProfile: this.currentProfile,
+        currentEnvironment: this.currentEnvironment
+      })
+      
       if (!key || index === undefined) {
         console.warn('CommandChainService: Cannot delete command - invalid parameters')
         return false
@@ -462,6 +494,12 @@ export default class CommandChainService extends ComponentBase {
             keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
           }
         }
+      }
+
+      // Ensure we have a valid profile ID before making the request
+      if (!this.cache.currentProfile) {
+        console.error('CommandChainService: Cannot delete command - no current profile ID in cache')
+        return false
       }
 
       const result = await request(this.eventBus, 'data:update-profile', {
@@ -531,6 +569,12 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
+      // Ensure we have a valid profile ID before making the request
+      if (!this.cache.currentProfile) {
+        console.error('CommandChainService: Cannot move command - no current profile ID in cache')
+        return false
+      }
+
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
         updates
@@ -569,9 +613,9 @@ export default class CommandChainService extends ComponentBase {
         })
         return commands.map((cmd, index) => ({
           command: cmd.command,
-          text: cmd.command,
-          type: 'alias',
-          icon: '🎭',
+          text: cmd.text || cmd.command,
+          type: cmd.type || 'alias', // Use the actual detected type, fallback to 'alias'
+          icon: cmd.icon || '🎭',
           id: `alias_${index}`,
         }))
       } else {
@@ -626,6 +670,12 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
+      // Ensure we have a valid profile ID before making the request
+      if (!this.cache.currentProfile) {
+        console.error('CommandChainService: Cannot clear command chain - no current profile ID in cache')
+        return false
+      }
+
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
         updates
@@ -652,7 +702,16 @@ export default class CommandChainService extends ComponentBase {
    * Update local cache from profile data received from DataCoordinator
    */
   updateCacheFromProfile(profile) {
-    if (!profile) return
+    if (!profile) {
+      console.log('[CommandChainService] updateCacheFromProfile called with null/undefined profile')
+      return
+    }
+
+    console.log('[CommandChainService] updateCacheFromProfile called with profile:', {
+      profileId: profile.id,
+      environment: this.currentEnvironment,
+      stackTrace: new Error().stack
+    })
 
     this.cache.profile = profile
     this.cache.currentProfile = profile.id
@@ -665,6 +724,12 @@ export default class CommandChainService extends ComponentBase {
     if (profile.aliases) {
       this.cache.aliases = profile.aliases
     }
+    
+    console.log('[CommandChainService] Cache updated:', {
+      currentProfile: this.cache.currentProfile,
+      keysCount: Object.keys(this.cache.keys || {}).length,
+      aliasesCount: Object.keys(this.cache.aliases || {}).length
+    })
   }
 
   /**
@@ -733,7 +798,14 @@ export default class CommandChainService extends ComponentBase {
     if (sender === 'DataCoordinator' && state?.currentProfileData) {
       this.updateCacheFromProfile(state.currentProfileData)
       this.currentProfile = state.currentProfile
-      this.currentEnvironment = state.currentEnvironment
+      this.currentEnvironment = state.currentEnvironment || 'space'
+      // Ensure the cache environment is also updated
+      this.cache.currentEnvironment = this.currentEnvironment
+      
+      console.log(`[CommandChainService] Cache initialized from DataCoordinator:`, {
+        profileId: this.cache.currentProfile,
+        environment: this.cache.currentEnvironment
+      })
     }
   }
 
