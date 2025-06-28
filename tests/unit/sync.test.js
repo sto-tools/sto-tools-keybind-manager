@@ -34,7 +34,7 @@ vi.mock('../../src/js/components/services/FileSystemService.js', () => {
 })
 
 import { saveDirectoryHandle, getDirectoryHandle } from '../../src/js/components/services/FileSystemService.js'
-import STOSyncManager, { writeFile } from '../../src/js/services/sync.js'
+import SyncService, { writeFile } from '../../src/js/components/services/SyncService.js'
 
 class MockFile {
   constructor() {
@@ -75,7 +75,7 @@ class MockDirHandle {
   }
 }
 
-describe('STOSyncManager', () => {
+describe('SyncService', () => {
   let sync
   beforeEach(async () => {
     await i18next.init({ lng: 'en', resources: { en: { translation: en } } })
@@ -86,7 +86,7 @@ describe('STOSyncManager', () => {
       getSettings: vi.fn().mockReturnValue({}),
       saveSettings: vi.fn(),
     }
-    sync = new STOSyncManager(global.storageService)
+    sync = new SyncService({ storage: global.storageService })
   })
 
   afterEach(() => {

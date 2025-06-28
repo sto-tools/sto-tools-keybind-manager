@@ -7,7 +7,7 @@ export default class AutoSync extends ComponentBase {
   constructor({ eventBus, storage, syncManager, ui } = {}) {
     super(eventBus)
     this.storage     = storage
-    this.syncManager = syncManager // instance of STOSyncManager
+    this.syncManager = syncManager // instance of SyncService
     this.ui          = ui
 
     // prefs

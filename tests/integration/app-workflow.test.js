@@ -5,7 +5,7 @@ import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 // Profile functionality is now handled by the app instance
-import STOKeybindFileManager from '../../src/js/features/keybinds.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
 import STOExportManager from '../../src/js/features/export.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
@@ -35,7 +35,7 @@ describe('App Workflow Integration', () => {
     // Initialise core singletons
     await import('../../src/js/data.js')
     storageService = new StorageService()
-    stoKeybinds = new STOKeybindFileManager()
+    stoKeybinds = new KeyService()
     stoUI = new STOUIManager()
     stoExport = new STOExportManager()
     Object.assign(global, { storageService, stoKeybinds, stoUI, stoExport })

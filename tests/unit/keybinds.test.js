@@ -8,7 +8,7 @@ import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 import CommandBuilderService from '../../src/js/components/services/CommandBuilderService.js'
-import STOKeybindFileManager from '../../src/js/features/keybinds.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
 
 // Setup real global objects instead of mocks
 beforeEach(() => {
@@ -56,11 +56,11 @@ beforeEach(() => {
   global.storageService.saveProfile = vi.fn()
 })
 
-describe('STOKeybindFileManager', () => {
+describe('KeyService', () => {
   let keybindManager
 
   beforeEach(() => {
-    keybindManager = new STOKeybindFileManager()
+    keybindManager = new KeyService()
     vi.clearAllMocks()
   })
 

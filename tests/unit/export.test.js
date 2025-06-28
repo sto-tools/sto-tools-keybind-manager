@@ -8,7 +8,7 @@ import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 // Profile functionality is now handled by the app instance
-import STOKeybindFileManager from '../../src/js/features/keybinds.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 import STOExportManager from '../../src/js/features/export.js'
@@ -31,7 +31,7 @@ beforeEach(() => {
 
   storageService = new StorageService()
       // Profile functionality is now handled by the app instance
-  stoKeybinds = new STOKeybindFileManager()
+  stoKeybinds = new KeyService()
   stoUI = new STOUIManager()
       Object.assign(global, { storageService, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()

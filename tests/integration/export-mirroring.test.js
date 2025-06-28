@@ -7,7 +7,7 @@ vi.mock('../../src/js/components/services/SyncService.js', () => ({
 
 import '../../src/js/data.js'
 import { StorageService } from '../../src/js/components/services/index.js'
-import STOKeybindFileManager from '../../src/js/features/keybinds.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
 import STOExportManager from '../../src/js/features/export.js'
 import store, { resetStore } from '../../src/js/core/store.js'
 import { writeFile } from '../../src/js/components/services/SyncService.js'
@@ -56,7 +56,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     storageService = new StorageService()
-    stoKeybinds = new STOKeybindFileManager()
+    stoKeybinds = new KeyService()
     stoExport = new STOExportManager({ storage: storageService })
     stoUI = { showToast: vi.fn() }
     Object.assign(global, { storageService, stoKeybinds, stoExport, stoUI })

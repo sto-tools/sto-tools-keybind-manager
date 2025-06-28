@@ -8,7 +8,7 @@ import de from '../i18n/de.json'
 import fr from '../i18n/fr.json'
 import es from '../i18n/es.json'
 import { StorageService } from './components/services/index.js'
-import STOKeybindFileManager from './features/keybinds.js'
+import { KeyService } from './components/services/index.js'
 import STOExportManager from './features/export.js'
 import STOUIManager from './ui/ui.js'
 // import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
@@ -16,7 +16,8 @@ import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
 import { VFX_EFFECTS } from './features/vertigo_data.js'
 import STOToolsKeybindManager from './app.js'
-import './ui/version.js'
+// Version display functionality - moved inline to reduce file count
+import { DISPLAY_VERSION } from './core/constants.js'
 // Create new StorageService component
 const storageService = new StorageService({ eventBus })
 storageService.init()
@@ -80,14 +81,29 @@ const settings = storageService.getSettings()
 
   window.applyTranslations = applyTranslations
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => applyTranslations())
-  } else {
+  // Apply translations and set up version display
+  function initializeUI() {
     applyTranslations()
+    
+    // Update version in header and about modal (migrated from ui/version.js)
+    const appVersionElement = document.getElementById('appVersion')
+    if (appVersionElement) {
+      appVersionElement.textContent = DISPLAY_VERSION
+    }
+    const aboutVersionElement = document.getElementById('aboutVersion')
+    if (aboutVersionElement) {
+      aboutVersionElement.textContent = DISPLAY_VERSION
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeUI)
+  } else {
+    initializeUI()
   }
 
   // Create dependencies first
-  const stoKeybinds = new STOKeybindFileManager()
+  const stoKeybinds = new KeyService()
   const stoExport = new STOExportManager({ storage: storageService })
   const stoUI = new STOUIManager()
   const stoFileExplorer = new FileExplorerUI({ storage: storageService, exportManager: stoExport, ui: stoUI })

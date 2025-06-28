@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import '../../src/js/data.js'
-import STOSyncManager, { writeFile } from '../../src/js/services/sync.js'
+import SyncService, { writeFile } from '../../src/js/components/services/SyncService.js'
 import STOExportManager from '../../src/js/features/export.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 import eventBus from '../../src/js/core/eventBus.js'
@@ -81,7 +81,7 @@ describe('Sync workflow integration', () => {
     `
     storage = new StorageService()
     exportMgr = new STOExportManager()
-    sync = new STOSyncManager(storage)
+    sync = new SyncService({ storage })
     Object.assign(global, { storageService: storage, stoExport: exportMgr })
 
     eventBus.onDom('setSyncFolderBtn', 'click', 'set-sync-folder', () => sync.setSyncFolder())
