@@ -9,6 +9,7 @@ import fr from '../i18n/fr.json'
 import es from '../i18n/es.json'
 import { StorageService, DataCoordinator } from './components/services/index.js'
 import { KeyService } from './components/services/index.js'
+import DataService from './components/services/DataService.js'
 import ExportService from './components/services/ExportService.js'
 import { UIUtilityService } from './components/services/index.js'
 // import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
@@ -22,6 +23,13 @@ import { DISPLAY_VERSION } from './core/constants.js'
 // Create new StorageService component
 const storageService = new StorageService({ eventBus })
 storageService.init()
+
+// Create DataService first so it's available for DataCoordinator
+const dataService = new DataService({ 
+  eventBus,
+  data: typeof globalThis !== 'undefined' ? globalThis.STO_DATA : null
+})
+dataService.init()
 
 // Create DataCoordinator - the single source of truth for data operations
 const dataCoordinator = new DataCoordinator({ eventBus, storage: storageService })
@@ -126,6 +134,7 @@ const settings = storageService.getSettings()
   // Minimal global assignments - only what's absolutely necessary for legacy compatibility
   Object.assign(window, {
     storageService, // Required by some legacy components and tests
+    dataService,    // Required by app initialization
     dataCoordinator, // Required by ProfileService and other services
     stoKeybinds,    // Required by app initialization callback
     stoExport,      // Required by app initialization callback  

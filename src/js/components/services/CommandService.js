@@ -53,7 +53,7 @@ export default class CommandService extends ComponentBase {
           this.duplicateCommand(commandId)),
         respond(this.eventBus, 'command:delete', ({ commandId }) => 
           this.deleteCommand(commandId)),
-        respond(this.eventBus, 'command:add', ({ command, key, position }) => 
+        respond(this.eventBus, 'command:add', async ({ command, key, position }) => 
           this.addCommand(key, command, position)),
         respond(this.eventBus, 'command:reorder', ({ commandId, newPosition }) => 
           this.reorderCommand(commandId, newPosition)),
@@ -474,9 +474,12 @@ export default class CommandService extends ComponentBase {
     })
 
     // Listen for command addition events from UI components (broadcast pattern)
-    this.addEventListener('command:add', (data) => {
+    this.addEventListener('command:add', async (data) => {
+      console.log('[CommandService] command:add received:', data)
       const { command, key, position } = data
-      this.addCommand(key, command, position)
+      console.log('[CommandService] extracted:', { command, key, position })
+      const result = await this.addCommand(key, command, position)
+      console.log('[CommandService] addCommand result:', result)
     })
   }
 

@@ -57,7 +57,8 @@ describe('CommandChainService', () => {
     )
     
     service = new CommandChainService({
-      i18n: mockI18n
+      i18n: mockI18n,
+      eventBus: eventBus
     })
     service.selectedKey = 'test-key'
     service.currentEnvironment = 'space'

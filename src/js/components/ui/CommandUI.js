@@ -36,7 +36,7 @@ export default class CommandUI extends ComponentBase {
     this.setupUIStateEventListeners()
 
     // Listen for command:add events from CommandLibraryUI
-    this.addEventListener('command:add', async (payload = {}) => {
+    this.addEventListener('command-add', async (payload = {}) => {
       const { categoryId, commandId, commandDef } = payload
 
       if (commandDef && !categoryId && !commandId) {
@@ -55,6 +55,7 @@ export default class CommandUI extends ComponentBase {
           }
 
           // Emit event for CommandService to handle - following broadcast pattern
+          console.log('[CommandUI] emitting command:add [static]', { commandDef, key: selectedKey })
           this.eventBus.emit('command:add', { command: commandDef, key: selectedKey })
         } catch (error) {
           console.error('CommandUI: Failed to handle static command:', error)

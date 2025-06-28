@@ -658,13 +658,19 @@ export default class DataCoordinator extends ComponentBase {
     }
     
     // Set current profile to first one if none set
+    let profileActivated = false
     if (!this.state.currentProfile && Object.keys(profiles).length > 0) {
       this.state.currentProfile = Object.keys(profiles)[0]
+      profileActivated = true
       
       // Save current profile to storage
       const updatedData = this.storage.getAllData()
       updatedData.currentProfile = this.state.currentProfile
       await this.storage.saveAllData(updatedData)
+      
+      // Set current environment from the activated profile
+      const activatedProfile = this.state.profiles[this.state.currentProfile]
+      this.state.currentEnvironment = activatedProfile.currentEnvironment || 'space'
     }
     
     // Update metadata
@@ -678,6 +684,23 @@ export default class DataCoordinator extends ComponentBase {
       currentProfile: this.state.currentProfile,
       timestamp: Date.now()
     })
+    
+    // If we activated a profile for the first time, emit profile:switched event
+    if (profileActivated && this.state.currentProfile) {
+      const activatedProfile = this.state.profiles[this.state.currentProfile]
+      const virtualProfile = this.buildVirtualProfile(activatedProfile, this.state.currentEnvironment)
+      
+      console.log(`[${this.componentName}] Emitting profile:switched for initial profile activation: ${this.state.currentProfile}`)
+      
+      this.emit('profile:switched', {
+        fromProfile: null,
+        toProfile: this.state.currentProfile,
+        profileId: this.state.currentProfile,
+        profile: virtualProfile,
+        environment: this.state.currentEnvironment,
+        timestamp: Date.now()
+      })
+    }
   }
 
   /**
@@ -706,13 +729,19 @@ export default class DataCoordinator extends ComponentBase {
     }
     
     // Set current profile
+    let profileActivated = false
     if (!this.state.currentProfile) {
       this.state.currentProfile = 'default_space'
+      profileActivated = true
       
       // Save current profile to storage
       const updatedData = this.storage.getAllData()
       updatedData.currentProfile = this.state.currentProfile
       await this.storage.saveAllData(updatedData)
+      
+      // Set current environment from the activated profile
+      const activatedProfile = this.state.profiles[this.state.currentProfile]
+      this.state.currentEnvironment = activatedProfile.currentEnvironment || 'space'
     }
     
     // Update metadata
@@ -726,6 +755,23 @@ export default class DataCoordinator extends ComponentBase {
       currentProfile: this.state.currentProfile,
       timestamp: Date.now()
     })
+    
+    // If we activated a profile for the first time, emit profile:switched event
+    if (profileActivated && this.state.currentProfile) {
+      const activatedProfile = this.state.profiles[this.state.currentProfile]
+      const virtualProfile = this.buildVirtualProfile(activatedProfile, this.state.currentEnvironment)
+      
+      console.log(`[${this.componentName}] Emitting profile:switched for initial fallback profile activation: ${this.state.currentProfile}`)
+      
+      this.emit('profile:switched', {
+        fromProfile: null,
+        toProfile: this.state.currentProfile,
+        profileId: this.state.currentProfile,
+        profile: virtualProfile,
+        environment: this.state.currentEnvironment,
+        timestamp: Date.now()
+      })
+    }
   }
 
   /**

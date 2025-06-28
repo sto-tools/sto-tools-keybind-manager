@@ -104,7 +104,8 @@ describe('Command Chain Issues Regression Tests', () => {
     commandChainService = new CommandChainService({
       i18n: mockI18n,
       commandLibraryService,
-      commandService
+      commandService,
+      eventBus: eventBus
     })
 
     commandChainUI = new CommandChainUI({

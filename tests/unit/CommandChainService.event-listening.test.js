@@ -49,7 +49,8 @@ describe('CommandChainService Event Listening', () => {
 
     // Create CommandChainService
     commandChainService = new CommandChainService({
-      i18n: { t: (key) => key }
+      i18n: { t: (key) => key },
+      eventBus: eventBus
     })
     commandChainService.currentProfile = 'test-profile'
     

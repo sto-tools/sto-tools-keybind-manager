@@ -1,7 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { request, respond } from '../../core/requestResponse.js'
 import { parameterCommands } from '../ui/ParameterCommandUI.js'
-import eventBus from '../../core/eventBus.js'
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -9,7 +8,7 @@ import eventBus from '../../core/eventBus.js'
  * Fully decoupled - communicates only via event bus and request/response
  */
 export default class CommandChainService extends ComponentBase {
-  constructor ({ i18n, commandLibraryService, commandService = null } = {}) {
+  constructor ({ i18n, commandLibraryService, commandService = null, eventBus: injectedEventBus = null } = {}) {
     super(eventBus)
     this.componentName = 'CommandChainService'
     this.i18n = i18n
@@ -67,10 +66,6 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('profile:updated', (data) => {
       if (data?.profile) {
         this.updateCacheFromProfile(data.profile)
-        // Refresh commands if we have a selected key
-        if (this.selectedKey) {
-          this.refreshCommands()
-        }
       }
     })
 
@@ -101,27 +96,33 @@ export default class CommandChainService extends ComponentBase {
     // the command-chain UI always knows what it should be displaying.
     this.addEventListener('key-selected', async ({ key, name }) => {
       debugLog('key-selected', { key, name })
+      if (this.currentEnvironment === 'alias') return;
+      
       this.selectedKey = key || name || null
 
       // Refresh commands list when a new key is selected
       const cmds = await this.getCommandsForSelectedKey()
+      console.log('[CommandChainService] [key-selected] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
     })
 
     // Handle alias selections explicitly so environment switches to alias
     this.addEventListener('alias-selected', async ({ name }) => {
       if (!name) return
-      this.currentEnvironment = 'alias'
+      if (this.currentEnvironment !== 'alias') return;
+      
       this.selectedKey = name
 
       const cmds = await this.getCommandsForSelectedKey()
+      console.log('[CommandChainService] [alias-selected] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
     })
 
-    // Listen for command additions from CommandService (for static commands)
-    this.addEventListener('command-added', async ({ key, command }) => {
-      // Update chain data when a command is added
+    // Handle command additions (from CommandService)
+    this.addEventListener('command-added', async ({ command, key }) => {
+      console.log('[CommandChainService] command-added received:', { command, key })
       const cmds = await this.getCommandsForSelectedKey()
+      console.log('[CommandChainService] [command-added] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
     })
 
@@ -140,6 +141,7 @@ export default class CommandChainService extends ComponentBase {
           })
           const after = await this.getCommandsForSelectedKey()
           if (after.length !== before.length) {
+            console.log('[CommandChainService] [commandlibrary:add] emitting chain-data-changed with', after.length, 'commands')
             this.emit('chain-data-changed', { commands: after })
           }
         }
@@ -149,7 +151,7 @@ export default class CommandChainService extends ComponentBase {
     })
 
     // Handle new command:add event from refactored UI
-    this.addEventListener('command:add', (payload = {}) => {
+/*    this.addEventListener('command:add', (payload = {}) => {
       const { categoryId, commandId, commandDef } = payload
 
       // Only handle customizable commands - static commands are handled by CommandUI
@@ -162,7 +164,7 @@ export default class CommandChainService extends ComponentBase {
       // Note: Static commands are handled by CommandUI, which will emit chain-data-changed
       // when the command is actually added, so we don't need to handle them here
     })
-
+*/
     // Edit command
     this.addEventListener('commandchain:edit', async ({ index }) => {
       if (index === undefined) return
@@ -233,6 +235,7 @@ export default class CommandChainService extends ComponentBase {
           key: this.selectedKey, 
           index 
         })
+        console.log('[CommandChainService] [commandchain:delete] emitting chain-data-changed with', await this.getCommandsForSelectedKey().length, 'commands')
         this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       } catch (error) {
         console.error('Failed to delete command:', error)
@@ -250,6 +253,7 @@ export default class CommandChainService extends ComponentBase {
           fromIndex, 
           toIndex 
         })
+        console.log('[CommandChainService] [commandchain:move] emitting chain-data-changed with', await this.getCommandsForSelectedKey().length, 'commands')
         this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       } catch (error) {
         console.error('Failed to move command:', error)
@@ -704,6 +708,7 @@ export default class CommandChainService extends ComponentBase {
   async refreshCommands() {
     if (this.selectedKey) {
       const cmds = await this.getCommandsForSelectedKey()
+      console.log('[CommandChainService] [refreshCommands] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
     }
   }

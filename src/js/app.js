@@ -127,12 +127,11 @@ export default class STOToolsKeybindManager {
       // Make it available globally for components that need direct access
       const modalManager = this.modalManagerService
       
-      // REFACTORED: Create DataService first to eliminate globalThis.STO_DATA dependencies
-      this.dataService = new DataService({ 
-        eventBus,
-        data: typeof globalThis !== 'undefined' ? globalThis.STO_DATA : null
-      })
-      this.dataService.init()
+      // REFACTORED: Use DataService created in main.js to ensure it's available before DataCoordinator
+      this.dataService = window.dataService
+      if (!this.dataService) {
+        throw new Error('DataService not available - it should be initialized in main.js before app.init()')
+      }
       
 
       
@@ -289,6 +288,7 @@ export default class STOToolsKeybindManager {
       // New command-chain component (phase-1)
       // ------------------------------------------------------------------
       this.commandChainService = new CommandChainService({
+        eventBus,
         i18n: i18next,
         commandLibraryService: this.commandLibraryService,
         commandService: this.commandService,

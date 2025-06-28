@@ -75,13 +75,6 @@ export default class CommandLibraryUI extends ComponentBase {
       this._selectedKey = null
       this.updateChainActions()
     })
-
-    // Command chain updates
-    this.addEventListener('chain-data-changed', ({ commands }) => {
-      this.renderCommandChain()
-      this.updateChainActions()
-    })
-
     // Listen for stabilize execution order checkbox changes
     this.eventBus.onDom('stabilizeExecutionOrder', 'change', 'stabilize-order-change', () => {
       // Command chain rendering is now handled by CommandChainUI
@@ -89,15 +82,6 @@ export default class CommandLibraryUI extends ComponentBase {
 
     // Command lifecycle events are now handled by CommandChainUI
     // CommandLibraryUI no longer needs to listen to these events
-  }
-
-  /**
-   * Command chain rendering is now handled by CommandChainUI via events
-   * This method is deprecated and does nothing
-   */
-  async renderCommandChain() {
-    // Command chain rendering is now handled by CommandChainUI via events
-    // This method is kept for backward compatibility but does nothing
   }
 
   /**
@@ -179,6 +163,7 @@ export default class CommandLibraryUI extends ComponentBase {
           
           if (commandDef.customizable) {
             // For customizable commands, pass category/command info
+            console.log('[CommandLibraryUI] emitting command:add [customizable]', { categoryId, commandId, commandDef })
             this.eventBus.emit('command:add', { categoryId, commandId, commandDef })
           } else {
             // For static commands, pass the fully-hydrated definition
@@ -189,7 +174,8 @@ export default class CommandLibraryUI extends ComponentBase {
               text: commandDef.name,
               id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
             }
-            this.eventBus.emit('command:add', { commandDef: fullyHydratedCommand })
+            console.log('[CommandLibraryUI] emitting command:add [static]', { commandDef: fullyHydratedCommand })
+            this.eventBus.emit('command-add', { commandDef: fullyHydratedCommand })
           }
         }
       })
@@ -288,8 +274,8 @@ export default class CommandLibraryUI extends ComponentBase {
           description: alias.description,
           id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
         }
-
-        this.eventBus.emit('command:add', { commandDef: fullyHydratedAlias })
+        console.log('[CommandLibraryUI] emitting command:add [alias]', { commandDef: fullyHydratedAlias })
+        this.eventBus.emit('command-add', { commandDef: fullyHydratedAlias })
       }
     })
 

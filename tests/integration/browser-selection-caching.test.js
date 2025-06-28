@@ -137,7 +137,7 @@ describe('Browser Selection Caching Integration', () => {
     })
 
     commandChainService = new CommandChainService({
-      eventBus,
+      eventBus: eventBus,
       storage: mockStorage,
       profileService: mockProfileService,
       commandLibraryService: mockCommandLibraryService

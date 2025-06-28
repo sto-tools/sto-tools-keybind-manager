@@ -349,6 +349,7 @@ export default class ParameterCommandUI extends ComponentBase {
 
     // Emit command:add event instead of calling service directly
     const addCmd = (c) => {
+      console.log('[ParameterCommandUI] emitting command:add [parameterized]', { command: c, key: selectedKey })
       this.eventBus.emit('command:add', { command: c, key: selectedKey })
     }
 

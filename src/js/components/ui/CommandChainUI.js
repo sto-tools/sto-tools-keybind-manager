@@ -24,7 +24,10 @@ export default class CommandChainUI extends ComponentBase {
     
     // Listen for chain-data updates broadcast by service
     this._detachFunctions.push(
-      this.eventBus.on('chain-data-changed', ({ commands }) => this.render(commands))
+      this.eventBus.on('chain-data-changed', ({ commands }) => {
+        console.log('[CommandChainUI] chain-data-changed received with', commands.length, 'commands')
+        this.render(commands)
+      })
     )
 
     // Command lifecycle events are handled via chain-data-changed
@@ -76,6 +79,8 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   async render (commandsArg = null) {
+      console.log('[CommandChainUI] render() called with:', commandsArg ? `${commandsArg.length} commands` : 'no commands arg')
+      
       const container   = this.document.getElementById('commandList')
       const titleEl     = this.document.getElementById('chainTitle')
       const previewEl   = this.document.getElementById('commandPreview')
@@ -110,6 +115,8 @@ export default class CommandChainUI extends ComponentBase {
         commands = await request(this.eventBus, 'command:get-for-selected-key')
       }
 
+      console.log('[CommandChainUI] rendering with commands:', commands.length, commands)
+
       const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
       console.log('render getEmptyStateInfo', emptyStateInfo)
 
@@ -141,11 +148,14 @@ export default class CommandChainUI extends ComponentBase {
       if (emptyState) emptyState.classList.remove('show')
 
       // Render command list
+      console.log('[CommandChainUI] clearing container and rendering', commands.length, 'commands')
       container.innerHTML = ''
       for (let i=0;i<commands.length;i++) {
         const el = await this.createCommandElement(commands[i], i, commands.length)
+        console.log('[CommandChainUI] created element for command', i, commands[i])
         container.appendChild(el)
       }
+      console.log('[CommandChainUI] finished rendering, container children:', container.children.length)
   }
 
   /**
