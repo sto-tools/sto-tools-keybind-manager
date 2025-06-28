@@ -85,14 +85,10 @@ const settings = storageService.getSettings()
   function initializeUI() {
     applyTranslations()
     
-    // Update version in header and about modal (migrated from ui/version.js)
+    // Update version in header (about modal version is now handled by AboutModalUI)
     const appVersionElement = document.getElementById('appVersion')
     if (appVersionElement) {
       appVersionElement.textContent = DISPLAY_VERSION
-    }
-    const aboutVersionElement = document.getElementById('aboutVersion')
-    if (aboutVersionElement) {
-      aboutVersionElement.textContent = DISPLAY_VERSION
     }
   }
 

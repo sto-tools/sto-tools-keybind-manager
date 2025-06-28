@@ -45,6 +45,11 @@ export default class FileExplorerUI extends ComponentBase {
    * Event handling – DOM & app-bus
    * ========================================================== */
   setupEventListeners () {
+    // Listen for file-explorer:open event from HeaderMenuUI
+    this.eventBus.on('file-explorer:open', () => {
+      this.openExplorer()
+    })
+
     // Open Explorer button (toolbar)
     eventBus.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
       this.openExplorer()

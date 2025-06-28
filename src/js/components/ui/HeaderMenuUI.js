@@ -2,7 +2,7 @@ import ComponentBase from '../ComponentBase.js'
 
 /**
  * HeaderMenuUI - Handles header dropdown menu interactions
- * Manages import, backup, and language menu toggles and interactions
+ * Manages import, backup, language, and settings menu toggles and interactions
  */
 export default class HeaderMenuUI extends ComponentBase {
   constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
@@ -21,22 +21,45 @@ export default class HeaderMenuUI extends ComponentBase {
     }
     this.eventListenersSetup = true
 
-    // Header menu toggles
-    this.eventBus.onDom('importBtn', 'click', 'import-toggle', () => {
+    // Header menu toggles - using correct button IDs from HTML
+    this.eventBus.onDom('settingsBtn', 'click', 'settings-toggle', () => {
+      this.toggleSettingsMenu()
+    })
+
+    this.eventBus.onDom('importMenuBtn', 'click', 'import-toggle', () => {
       this.toggleImportMenu()
     })
 
-    this.eventBus.onDom('backupBtn', 'click', 'backup-toggle', () => {
+    this.eventBus.onDom('backupMenuBtn', 'click', 'backup-toggle', () => {
       this.toggleBackupMenu()
     })
 
-    this.eventBus.onDom('languageBtn', 'click', 'language-toggle', () => {
+    this.eventBus.onDom('languageMenuBtn', 'click', 'language-toggle', () => {
       this.toggleLanguageMenu()
     })
 
     // VFX Button (could be moved to VFXManagerUI if preferred)
     this.eventBus.onDom('vertigoBtn', 'click', 'vfx-open', () => {
       this.eventBus.emit('vfx:show-modal')
+    })
+
+    // File Explorer Button
+    this.eventBus.onDom('fileExplorerBtn', 'click', 'file-explorer-open', () => {
+      this.eventBus.emit('file-explorer:open')
+    })
+
+    // Sync Now Button
+    this.eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
+      this.eventBus.emit('sync:sync-now')
+    })
+
+    // Settings menu items
+    this.eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
+      this.eventBus.emit('preferences:show')
+    })
+
+    this.eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
+      this.eventBus.emit('about:show')
     })
 
     // Close all menus when clicking outside
@@ -95,24 +118,31 @@ export default class HeaderMenuUI extends ComponentBase {
   }
 
   /**
+   * Toggle the settings menu dropdown
+   */
+  toggleSettingsMenu() {
+    this.toggleDropdown('settingsBtn')
+  }
+
+  /**
    * Toggle the import menu dropdown
    */
   toggleImportMenu() {
-    this.toggleDropdown('importBtn')
+    this.toggleDropdown('importMenuBtn')
   }
 
   /**
    * Toggle the backup menu dropdown
    */
   toggleBackupMenu() {
-    this.toggleDropdown('backupBtn')
+    this.toggleDropdown('backupMenuBtn')
   }
 
   /**
    * Toggle the language menu dropdown
    */
   toggleLanguageMenu() {
-    this.toggleDropdown('languageBtn')
+    this.toggleDropdown('languageMenuBtn')
   }
 
   /**

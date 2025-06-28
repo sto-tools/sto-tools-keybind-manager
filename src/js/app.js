@@ -26,7 +26,7 @@ import ExportUI from './components/ui/ExportUI.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
-import { VFXManagerUI, HeaderMenuUI } from './components/ui/index.js'
+import { VFXManagerUI, HeaderMenuUI, AboutModalUI } from './components/ui/index.js'
 
 
 export default class STOToolsKeybindManager {
@@ -331,6 +331,13 @@ export default class STOToolsKeybindManager {
       })
       // dbg('HeaderMenuUI created')
       
+      // Initialize AboutModalUI to handle about modal
+      this.aboutModalUI = new AboutModalUI({
+        eventBus,
+        document
+      })
+      // dbg('AboutModalUI created')
+      
       // Initialize InterfaceModeService
       this.interfaceModeService = new InterfaceModeService({
         eventBus,
@@ -427,6 +434,14 @@ export default class STOToolsKeybindManager {
         // dbg('headerMenuUI.init completed successfully')
       } catch (error) {
         // dbg('Error in headerMenuUI.init:', error)
+        throw error // Re-throw to see the full error
+      }
+      
+      try {
+        this.aboutModalUI.init()
+        // dbg('aboutModalUI.init completed successfully')
+      } catch (error) {
+        // dbg('Error in aboutModalUI.init:', error)
         throw error // Re-throw to see the full error
       }
       

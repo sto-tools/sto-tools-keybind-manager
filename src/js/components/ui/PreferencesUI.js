@@ -35,6 +35,13 @@ export default class PreferencesUI extends ComponentBase {
    * UI helpers (adapted from legacy STOPreferencesManager)
    * ------------------------------------------------ */
   setupEventListeners() {
+    // Listen for preferences:show event from HeaderMenuUI
+    this.eventBus.on('preferences:show', () => {
+      this.showPreferences()
+    })
+
+
+
     // Category navigation buttons
     document.querySelectorAll('.category-item').forEach((item) => {
       eventBus.onDom(item, 'click', 'pref-cat', (e) => {
@@ -188,4 +195,6 @@ export default class PreferencesUI extends ComponentBase {
       dropdown.classList.toggle('active')
     }
   }
+
+
 } 

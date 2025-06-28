@@ -11,6 +11,7 @@ export { default as VFXManagerUI } from './VFXManagerUI.js'
 export { default as KeyBrowserUI } from './KeyBrowserUI.js'
 export { default as AliasBrowserUI } from './AliasBrowserUI.js'
 export { default as HeaderMenuUI } from './HeaderMenuUI.js'
+export { default as AboutModalUI } from './AboutModalUI.js'
 
 
 // UI Rendering

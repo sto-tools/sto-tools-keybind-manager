@@ -31,6 +31,8 @@ export default class ModalManagerService extends ComponentBase {
         const modalId = open.id
         if (this.regenerateCallbacks[modalId]) {
           this.regenerateCallbacks[modalId]()
+          // Emit event for components that want to handle their own regeneration
+          this.eventBus.emit('modal:regenerated', { modalId })
         } else if (typeof window.applyTranslations === 'function') {
           window.applyTranslations(open)
         }
