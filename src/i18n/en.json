@@ -984,5 +984,11 @@
     "team": "Team",
     "zone": "Zone",
     "tell": "Tell"
-  }
+  },
+  "duplicate_alias": "Duplicate Alias",
+  "enter_new_alias_name": "Enter new alias name",
+  "alias_name_in_use": "Alias name already exists",
+  "duplicate": "Duplicate",
+  "invalid_alias_name": "Invalid alias name",
+  "reserved_command_name": "Name conflicts with a STO command"
 }

@@ -397,10 +397,7 @@ describe('AliasBrowserService', () => {
 
       expect(result).toBe(true)
       expect(aliasBrowserService.selectedAliasName).toBe('TestAlias1_copy')
-      expect(aliasBrowserService.emit).toHaveBeenCalledWith('alias-duplicated', { 
-        from: 'TestAlias1', 
-        to: 'TestAlias1_copy' 
-      })
+      expect(aliasBrowserService.emit).toHaveBeenCalledWith('alias-created', { name: 'TestAlias1_copy' })
     })
 
     it('should handle duplicate alias with incremental naming', async () => {
@@ -414,6 +411,7 @@ describe('AliasBrowserService', () => {
 
       expect(result).toBe(true)
       expect(aliasBrowserService.selectedAliasName).toBe('TestAlias1_copy1')
+      expect(aliasBrowserService.emit).toHaveBeenCalledWith('alias-created', { name: 'TestAlias1_copy1' })
     })
 
     it('should handle DataCoordinator errors gracefully', async () => {
@@ -425,6 +423,14 @@ describe('AliasBrowserService', () => {
 
       expect(result).toBe(false)
       expect(mockUI.showToast).toHaveBeenCalledWith('Failed to create alias', 'error')
+    })
+
+    it('should duplicate alias through DataCoordinator with explicit new name', async () => {
+      const result = await aliasBrowserService.duplicateAlias('TestAlias1', 'ExplicitCopy')
+
+      expect(result).toBe(true)
+      expect(aliasBrowserService.selectedAliasName).toBe('ExplicitCopy')
+      expect(aliasBrowserService.emit).toHaveBeenCalledWith('alias-created', { name: 'ExplicitCopy' })
     })
   })
 

@@ -178,6 +178,7 @@ export default class STOToolsKeybindManager {
       // dbg('AliasBrowserService created')
       this.aliasBrowserUI = new AliasBrowserUI({
         eventBus,
+        modalManager,
         document,
       })
 

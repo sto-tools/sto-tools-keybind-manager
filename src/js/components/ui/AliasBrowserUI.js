@@ -2,11 +2,27 @@ import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
+import { isAliasNameAllowed, isAliasNamePatternValid } from '../../lib/aliasNameValidator.js'
+
+/** Helper to generate a non-colliding suggested alias name */
+function generateSuggestedAlias(original, existingAliases = {}) {
+  let base = `${original}_copy`
+  let suggestion = base
+  let counter = 1
+  while (existingAliases[suggestion]) {
+    suggestion = `${base}${counter}`
+    counter++
+  }
+  return suggestion
+}
 
 export default class AliasBrowserUI extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor ({ eventBus: bus = eventBus,
+                modalManager = null,
+                document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(bus)
     this.componentName = 'AliasBrowserUI'
+    this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
     this.document = document
   }
 
@@ -59,7 +75,9 @@ export default class AliasBrowserUI extends ComponentBase {
     this.eventListenersSetup = true
 
     // Alias management DOM events
-    this.eventBus.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {})
+    this.eventBus.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {
+      this.createAliasModal()
+    })
 
     this.eventBus.onDom('deleteAliasChainBtn', 'click', 'alias-chain-delete', () => {
       if (this._selectedAliasName) {
@@ -101,11 +119,57 @@ export default class AliasBrowserUI extends ComponentBase {
   }
 
   /**
-   * Duplicate the selected alias
+   * Open duplicate alias modal allowing the user to specify the target name.
    */
-  duplicateAlias(aliasName) {
-    if (!aliasName) return
-    this.eventBus.emit('alias:duplicate', { name: aliasName })
+  async duplicateAlias(aliasName) {
+    if (!aliasName || !this.modalManager) return
+
+    const aliases = await request(this.eventBus, 'alias:get-all')
+    const suggested = generateSuggestedAlias(aliasName, aliases)
+
+    // Get modal elements
+    const modal = this.document.getElementById('aliasDuplicateModal')
+    if (!modal) return
+
+    const input   = modal.querySelector('#duplicateAliasNameInput')
+    const okBtn   = modal.querySelector('#confirmDuplicateAliasBtn')
+    const warnEl  = modal.querySelector('#duplicateAliasValidation')
+
+    const validate = () => {
+      const val = (input.value || '').trim()
+      const duplicate = aliases[val]
+      let errorKey = null
+      if (!val) errorKey = 'invalid_alias_name'
+      else if (!isAliasNamePatternValid(val)) errorKey = 'invalid_alias_name'
+      else if (!isAliasNameAllowed(val)) errorKey = 'reserved_command_name'
+      else if (duplicate) errorKey = 'alias_name_in_use'
+
+      warnEl.textContent = errorKey ? i18next.t(errorKey) : ''
+      const invalid = !!errorKey
+      warnEl.style.display = invalid ? '' : 'none'
+      okBtn.disabled = invalid
+    }
+
+    // Prefill
+    input.value = suggested
+    warnEl.style.display = 'none'
+
+    // Attach event listeners once
+    const inputHandler = () => validate()
+    input.removeEventListener('input', inputHandler)
+    input.addEventListener('input', inputHandler)
+
+    okBtn.onclick = () => {
+      const target = input.value.trim()
+      if (!target || aliases[target]) return // should not happen due to validation
+      this.modalManager.hide('aliasDuplicateModal')
+      this.eventBus.emit('alias:duplicate', { from: aliasName, to: target })
+    }
+
+    // Show modal
+    this.modalManager.show('aliasDuplicateModal')
+    // Initial validation
+    validate()
   }
 
   /**
@@ -202,5 +266,50 @@ export default class AliasBrowserUI extends ComponentBase {
       console.log('[AliasBrowserUI] handleInitialState from', sender, 'environment:', env)
       this.toggleVisibility(env)
     }
+  }
+
+  /**
+   * Show create alias modal
+   */
+  async createAliasModal() {
+    if (!this.modalManager) return
+
+    const aliases = await request(this.eventBus, 'alias:get-all')
+
+    const modal = this.document.getElementById('aliasCreationModal')
+    if (!modal) return
+
+    const input = modal.querySelector('#newAliasNameInput')
+    const okBtn = modal.querySelector('#confirmCreateAliasBtn')
+    const warnEl = modal.querySelector('#createAliasValidation')
+
+    const validate = () => {
+      const val = (input.value || '').trim()
+      let errorKey = null
+      if (!val) errorKey = 'invalid_alias_name'
+      else if (!isAliasNamePatternValid(val)) errorKey = 'invalid_alias_name'
+      else if (!isAliasNameAllowed(val)) errorKey = 'reserved_command_name'
+      else if (aliases[val]) errorKey = 'alias_name_in_use'
+
+      warnEl.textContent = errorKey ? i18next.t(errorKey) : ''
+      const invalid = !!errorKey
+      warnEl.style.display = invalid ? '' : 'none'
+      okBtn.disabled = invalid
+    }
+
+    input.value = ''
+    warnEl.style.display = 'none'
+    input.removeEventListener('input', validate)
+    input.addEventListener('input', validate)
+
+    okBtn.onclick = () => {
+      const name = input.value.trim()
+      if (!name) return
+      this.modalManager.hide('aliasCreationModal')
+      this.eventBus.emit('alias:create', { name })
+    }
+
+    this.modalManager.show('aliasCreationModal')
+    validate()
   }
 } 

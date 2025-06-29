@@ -477,6 +477,50 @@
     <!-- Modals -->
     <div class="modal-overlay" id="modalOverlay"></div>
 
+    <!-- Duplicate Alias Modal -->
+    <div class="modal" id="aliasDuplicateModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="duplicate_alias">Duplicate Alias</h3>
+          <button class="modal-close" data-modal="aliasDuplicateModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="duplicateAliasNameInput" data-i18n="enter_new_alias_name"></label>
+            <input type="text" id="duplicateAliasNameInput" />
+            <div class="validation-error" id="duplicateAliasValidation" style="display:none;" data-i18n="alias_name_in_use"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmDuplicateAliasBtn" disabled data-i18n="duplicate"></button>
+          <button class="btn btn-secondary" data-modal="aliasDuplicateModal" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Alias Modal -->
+    <div class="modal" id="aliasCreationModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="create_alias">Create Alias</h3>
+          <button class="modal-close" data-modal="aliasCreationModal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="newAliasNameInput" data-i18n="alias_name"></label>
+            <input type="text" id="newAliasNameInput" />
+            <div class="validation-error" id="createAliasValidation" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmCreateAliasBtn" disabled data-i18n="create"></button>
+          <button class="btn btn-secondary" data-modal="aliasCreationModal" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
+
     <!-- Add Key Modal -->
     <div class="modal" id="addKeyModal">
       <div class="modal-content">

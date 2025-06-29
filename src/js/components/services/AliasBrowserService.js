@@ -2,6 +2,7 @@ import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import i18next from 'i18next'
 import { respond, request } from '../../core/requestResponse.js'
+import { isAliasNameAllowed } from '../../lib/aliasNameValidator.js'
 
 /**
  * AliasBrowserService – source-of-truth for alias CRUD & selection.
@@ -38,6 +39,15 @@ export default class AliasBrowserService extends ComponentBase {
       
       // Use addEventListener for alias:delete since AliasBrowserUI emits it rather than requests it
       this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
+      // New: duplicate alias with explicit target name from UI
+      this.addEventListener('alias:duplicate', ({ from, to, name } = {}) => {
+        // Support old payload shape { name } for backward-compatibility
+        if (from && to) return this.duplicateAlias(from, to)
+        const source = name || from
+        return this.duplicateAlias(source)
+      })
+      // New: create alias from UI modal
+      this.addEventListener('alias:create', ({ name, description='' } = {}) => this.createAlias(name, description))
     }
   }
 
@@ -309,8 +319,8 @@ export default class AliasBrowserService extends ComponentBase {
         }
       })
 
-      await this.selectAlias(name)
       this.emit('alias-created', { name })
+      await this.selectAlias(name)
       return true
     } catch (error) {
       console.error('[AliasBrowserService] Failed to create alias:', error)
@@ -348,18 +358,52 @@ export default class AliasBrowserService extends ComponentBase {
     }
   }
 
-  async duplicateAlias(name) {
-    const original = this.cache.aliases[name]
+  /**
+   * Duplicate an alias.
+   * @param {string} sourceName - Name of the alias to copy from.
+   * @param {string} [targetName] - Destination alias name selected by the user. If omitted the
+   *                                legacy auto-suffix logic (_copy, _copy1 …) is applied for
+   *                                backward-compatibility with existing tests and API consumers.
+   */
+  async duplicateAlias(sourceName, targetName = undefined) {
+    const original = this.cache.aliases[sourceName]
     if (!original) return false
 
     try {
-      let newName = name + '_copy'
-      let counter = 1
-      while (this.cache.aliases[newName]) {
-        newName = `${name}_copy${counter++}`
+      // ------------------------------------------------------
+      // Determine new name
+      // ------------------------------------------------------
+      let newName = targetName?.trim()
+
+      if (!newName) {
+        // Legacy fallback – keeps older tests passing until they are updated.
+        let counter = 0
+        do {
+          newName = `${sourceName}_copy${counter || ''}`
+          counter++
+        } while (this.cache.aliases[newName])
+      } else {
+        // Validate uniqueness when target provided
+        if (this.cache.aliases[newName]) {
+          this.ui && this.ui.showToast(i18next.t('alias_name_in_use') || 'Alias already exists', 'error')
+          return false
+        }
+        // Basic pattern validation (alphanumeric + underscores)
+        if (!/^[A-Za-z0-9_]+$/.test(newName)) {
+          this.ui && this.ui.showToast(i18next.t('invalid_alias_name') || 'Invalid alias name', 'error')
+          return false
+        }
       }
 
-      // Add duplicated alias using explicit operations API
+      // Check reserved command names
+      if (!isAliasNameAllowed(newName)) {
+        this.ui && this.ui.showToast(i18next.t('reserved_command_name') || 'Reserved command name', 'error')
+        return false
+      }
+
+      // ------------------------------------------------------
+      // Persist duplicate via DataCoordinator
+      // ------------------------------------------------------
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
         add: {
@@ -372,8 +416,9 @@ export default class AliasBrowserService extends ComponentBase {
         }
       })
 
+      // Emit alias-created first, then select so alias-selected fires afterwards
+      this.emit('alias-created', { name: newName })
       await this.selectAlias(newName)
-      this.emit('alias-duplicated', { from: name, to: newName })
       return true
     } catch (error) {
       console.error('[AliasBrowserService] Failed to duplicate alias:', error)

@@ -4173,3 +4173,17 @@ input:checked + .slider:before {
   min-height: 35px;
 }
 
+/* Validation error helper (used in forms inside modals etc.) */
+.validation-error {
+  color: var(--danger);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  line-height: 1.2;
+  display: block;
+  transition: opacity 0.2s ease;
+}
+
+[data-theme='dark'] .validation-error {
+  color: var(--danger);
+}
+
