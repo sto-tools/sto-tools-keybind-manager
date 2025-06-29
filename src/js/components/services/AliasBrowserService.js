@@ -8,7 +8,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * REFACTORED: Now uses DataCoordinator broadcast/cache pattern.
  */
 export default class AliasBrowserService extends ComponentBase {
-  constructor ({ storage, ui } = {}) {
+  constructor ({ storage, ui, eventBus } = {}) {
     super(eventBus)
     this.componentName = 'AliasBrowserService'
     this.storage = storage // Legacy reference (no longer used directly)
@@ -34,7 +34,7 @@ export default class AliasBrowserService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       respond(this.eventBus, 'alias:get-all', () => this.getAliases())
-      respond(this.eventBus, 'alias:select', ({ name }) => this.selectAlias(name))
+      respond(this.eventBus, 'alias:select', async ({ name }) => await this.selectAlias(name))
     }
   }
 
@@ -89,20 +89,39 @@ export default class AliasBrowserService extends ComponentBase {
     })
 
     // Listen for environment changes
-    this.addEventListener('environment:changed', (payload) => {
+    this.addEventListener('environment:changed', async (payload) => {
       const env = typeof payload === 'string' ? payload : payload?.environment
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] environment:changed received. payload:`, payload, `parsed env: ${env}`)
+      }
       if (env) {
         // Cache current selection before changing environment (only when leaving alias mode)
         if (this.currentEnvironment === 'alias' && this.selectedAliasName) {
           this._cachedAliasSelection = this.selectedAliasName
+          if (typeof window !== 'undefined') {
+            // eslint-disable-next-line no-console
+            console.log(`[AliasBrowserService] Cached alias selection before leaving alias mode: ${this.selectedAliasName}`)
+          }
         }
         
         this.currentEnvironment = env
         this.cache.currentEnvironment = env
         
-        // If switched into alias mode, restore cached or auto-select immediately
+        // If switching to alias mode, restore or auto-select immediately
         if (env === 'alias') {
-          this._restoreOrAutoSelectAlias()
+          if (typeof window !== 'undefined') {
+            // eslint-disable-next-line no-console
+            console.log(`[AliasBrowserService] Switching to alias mode, calling _restoreOrAutoSelectAlias() immediately`)
+          }
+          await this._restoreOrAutoSelectAlias()
+        } else {
+          // Clear selection when switching away from alias mode
+          this.selectedAliasName = null
+          if (typeof window !== 'undefined') {
+            // eslint-disable-next-line no-console
+            console.log(`[AliasBrowserService] Switching away from alias mode, cleared selectedAliasName`)
+          }
         }
       }
     })
@@ -122,10 +141,26 @@ export default class AliasBrowserService extends ComponentBase {
    * Update local cache from profile data
    */
   updateCacheFromProfile(profile) {
-    if (!profile) return
+    if (!profile) {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] updateCacheFromProfile called with null/undefined profile`)
+      }
+      return
+    }
+    
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[AliasBrowserService] updateCacheFromProfile called with profile:`, profile, 'aliases:', profile.aliases)
+    }
     
     this.cache.profile = profile
     this.cache.aliases = profile.aliases || {}
+    
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[AliasBrowserService] cache updated. aliases:`, this.cache.aliases, 'keys:', Object.keys(this.cache.aliases))
+    }
   }
 
   /* ============================================================
@@ -135,23 +170,56 @@ export default class AliasBrowserService extends ComponentBase {
   /**
    * Restore cached selection or auto-select first alias
    */
-  _restoreOrAutoSelectAlias() {
-    // Try to restore cached selection first
-    if (this._cachedAliasSelection) {
-      const aliases = this.getAliases()
-      if (aliases[this._cachedAliasSelection]) {
-        this.selectAlias(this._cachedAliasSelection)
-        return
+  async _restoreOrAutoSelectAlias() {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[AliasBrowserService] _restoreOrAutoSelectAlias called. selectedAliasName: ${this.selectedAliasName}`)
+    }
+    
+    // Try to restore persisted selection first
+    const profile = this.getProfile()
+    const persistedAlias = profile?.selections?.alias
+    const aliases = this.getAliases()
+    
+    if (persistedAlias && aliases[persistedAlias]) {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] Restoring persisted alias selection: ${persistedAlias}`)
+      }
+      await this.selectAlias(persistedAlias)
+      return
+    } else if (persistedAlias) {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] Persisted alias ${persistedAlias} no longer exists`)
       }
     }
     
     // Auto-select first alias if none selected and aliases exist
     if (!this.selectedAliasName) {
-      const names = Object.keys(this.getAliases())
+      const names = Object.keys(aliases)
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] Auto-selecting first alias. Available aliases: [${names.join(', ')}]`)
+      }
       if (names.length > 0) {
         // Sort names to ensure consistent first selection
         names.sort()
-        this.selectAlias(names[0])
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[AliasBrowserService] Auto-selecting first alias: ${names[0]}`)
+        }
+        await this.selectAlias(names[0])
+      } else {
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[AliasBrowserService] No aliases available to auto-select`)
+        }
+      }
+    } else {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] Alias already selected: ${this.selectedAliasName}`)
       }
     }
   }
@@ -166,12 +234,53 @@ export default class AliasBrowserService extends ComponentBase {
 
   getAliases() {
     // Return cached aliases
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[AliasBrowserService] getAliases() called. cache.aliases:`, this.cache.aliases, 'keys:', Object.keys(this.cache.aliases || {}))
+    }
     return this.cache.aliases || {}
   }
 
-  selectAlias(name) {
+  async selectAlias(name) {
     this.selectedAliasName = name
+    
+    // Persist selection to profile storage
+    await this._persistAliasSelection(name)
+    
     this.emit('alias-selected', { name })
+  }
+
+  /**
+   * Persist alias selection to profile storage
+   */
+  async _persistAliasSelection(aliasName) {
+    try {
+      const profile = this.getProfile()
+      if (!profile) {
+        return // Don't persist if no profile
+      }
+
+      // Prepare updated selections
+      const currentSelections = profile.selections || {}
+      const updatedSelections = {
+        ...currentSelections,
+        alias: aliasName
+      }
+
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] Persisting alias selection: alias -> ${aliasName}`)
+      }
+
+      // Update through DataCoordinator
+      const { request } = await import('../../core/requestResponse.js')
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.currentProfileId,
+        updates: { selections: updatedSelections }
+      })
+    } catch (error) {
+      console.error('[AliasBrowserService] Failed to persist alias selection:', error)
+    }
   }
 
   /* ============================================================
@@ -199,7 +308,7 @@ export default class AliasBrowserService extends ComponentBase {
         updates: { aliases: updatedAliases }
       })
 
-      this.selectAlias(name)
+      await this.selectAlias(name)
       this.emit('alias-created', { name })
       return true
     } catch (error) {
@@ -259,7 +368,7 @@ export default class AliasBrowserService extends ComponentBase {
         updates: { aliases: updatedAliases }
       })
 
-      this.selectAlias(newName)
+      await this.selectAlias(newName)
       this.emit('alias-duplicated', { from: name, to: newName })
       return true
     } catch (error) {
@@ -283,11 +392,21 @@ export default class AliasBrowserService extends ComponentBase {
   }
 
   handleInitialState(sender, state) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[AliasBrowserService] handleInitialState called. sender: ${sender}, state:`, state)
+    }
+    
     if (!state) return
     
     // Handle state from DataCoordinator via ComponentBase late-join
     if (sender === 'DataCoordinator' && state.currentProfileData) {
       const profile = state.currentProfileData
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserService] Processing DataCoordinator state. profile:`, profile)
+      }
+      
       this.currentProfileId = profile.id
       this.cache.currentProfile = profile.id
       this.currentEnvironment = profile.environment || 'space'

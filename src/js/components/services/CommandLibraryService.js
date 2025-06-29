@@ -103,6 +103,10 @@ export default class CommandLibraryService extends ComponentBase {
 
     // Listen for alias selection changes
     this.addEventListener('alias-selected', (data) => {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[CommandLibraryService] alias-selected event received. data:`, data, `setting selectedAlias to: ${data.name}`)
+      }
       this.selectedAlias = data.name
       this.selectedKey = null // Clear key selection when alias is selected
     })
@@ -110,12 +114,27 @@ export default class CommandLibraryService extends ComponentBase {
     // Listen for environment changes (space ↔ ground ↔ alias)
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data?.environment
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[CommandLibraryService] environment:changed event received. data:`, data, `parsed env: ${env}, current selectedAlias: ${this.selectedAlias}`)
+      }
       if (env) {
         this.currentEnvironment = env
         this.cache.currentEnvironment = env
-        // Clear selections when environment changes since they're context-specific
-        this.selectedKey = null
-        this.selectedAlias = null
+        
+        // Only clear selections when switching AWAY from the current environment
+        // Don't clear alias selection when switching TO alias mode (let auto-selection work)
+        if (env !== 'alias') {
+          this.selectedAlias = null
+        }
+        if (env === 'alias') {
+          this.selectedKey = null // Clear key selection when switching to alias mode
+        }
+        
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[CommandLibraryService] after environment change to ${env}. selectedKey: ${this.selectedKey}, selectedAlias: ${this.selectedAlias}`)
+        }
       }
     })
 

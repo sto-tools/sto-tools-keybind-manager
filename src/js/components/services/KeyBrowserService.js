@@ -97,7 +97,7 @@ export default class KeyBrowserService extends ComponentBase {
     })
 
     // Environment changed – allow either string payload or { environment }
-    this.addEventListener('environment:changed', (payload) => {
+    this.addEventListener('environment:changed', async (payload) => {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
       
@@ -113,9 +113,9 @@ export default class KeyBrowserService extends ComponentBase {
       // Update keys cache for new environment
       this.cache.keys = this.cache.builds[env]?.keys || {}
       
-      // If switching to key environment, try to restore or auto-select immediately
+      // If switching to key environment, try to restore or auto-select
       if (env !== 'alias') {
-        this._restoreOrAutoSelectKey(env)
+        await this._restoreOrAutoSelectKey(env)
       }
       
       this.emit('key:list-changed', { keys: this.getKeys() })
@@ -161,13 +161,18 @@ export default class KeyBrowserService extends ComponentBase {
    * Restore cached selection or auto-select first key for the given environment
    * @param {string} environment - The environment to restore/auto-select for
    */
-  _restoreOrAutoSelectKey(environment) {
-    // Try to restore cached selection first
-    const cachedKey = this._cachedSelections[environment]
+  async _restoreOrAutoSelectKey(environment) {
+    // Try to restore persisted selection first
+    const profile = this.getProfile()
+    const persistedKey = profile?.selections?.[environment]
     const availableKeys = this.getKeys()
     
-    if (cachedKey && availableKeys[cachedKey]) {
-      this.selectKey(cachedKey)
+    if (persistedKey && availableKeys[persistedKey]) {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[KeyBrowserService] Restoring persisted key selection for ${environment}: ${persistedKey}`)
+      }
+      this.selectKey(persistedKey)
       return
     }
     
@@ -176,6 +181,10 @@ export default class KeyBrowserService extends ComponentBase {
     if (keyNames.length > 0) {
       // Sort keys to ensure consistent first selection
       keyNames.sort()
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[KeyBrowserService] Auto-selecting first key for ${environment}: ${keyNames[0]}`)
+      }
       this.selectKey(keyNames[0])
     }
   }
@@ -196,9 +205,12 @@ export default class KeyBrowserService extends ComponentBase {
   /* ============================================================
    * Selection helpers
    * ============================================================ */
-  selectKey (name) {
+  async selectKey (name) {
     if (this.selectedKeyName === name) return name
     this.selectedKeyName = name
+
+    // Persist selection to profile storage
+    await this._persistKeySelection(name)
 
     // Emit selection event for UI components to react
     this.emit('key-selected', { key: name, name })
@@ -216,6 +228,39 @@ export default class KeyBrowserService extends ComponentBase {
     }
     
     return name
+  }
+
+  /**
+   * Persist key selection to profile storage
+   */
+  async _persistKeySelection(keyName) {
+    try {
+      const profile = this.getProfile()
+      if (!profile || !this.currentEnvironment || this.currentEnvironment === 'alias') {
+        return // Don't persist for alias mode or if no profile
+      }
+
+      // Prepare updated selections
+      const currentSelections = profile.selections || {}
+      const updatedSelections = {
+        ...currentSelections,
+        [this.currentEnvironment]: keyName
+      }
+
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[KeyBrowserService] Persisting key selection: ${this.currentEnvironment} -> ${keyName}`)
+      }
+
+      // Update through DataCoordinator
+      const { request } = await import('../../core/requestResponse.js')
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.currentProfileId,
+        updates: { selections: updatedSelections }
+      })
+    } catch (error) {
+      console.error('[KeyBrowserService] Failed to persist key selection:', error)
+    }
   }
 
   /* ============================================================

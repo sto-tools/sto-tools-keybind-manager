@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
+import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * InterfaceModeService - Handles mode switching logic and state management
@@ -15,6 +15,7 @@ export default class InterfaceModeService extends ComponentBase {
     
     // Internal state
     this._currentMode = 'space'
+    this._currentProfileId = null  // Cache profile ID from late-join state sync
     this._modeListenersSetup = false
 
     // Store handler references for proper cleanup
@@ -41,13 +42,9 @@ export default class InterfaceModeService extends ComponentBase {
   init() {
     super.init()
     this.setupEventListeners()
-    // Immediately sync current environment from profile so components get
-    // the correct mode before first render. This covers initial page loads
-    // where the profile starts in 'alias' (or any non-default) mode.
-    if (this.profileService && typeof this.profileService.getCurrentProfile === 'function') {
-      const profile = this.profileService.getCurrentProfile()
-      if (profile) this.initializeFromProfile(profile)
-    }
+    // Note: Initial environment state will be received via the late-join handshake
+    // from DataCoordinator. This replaces the old getCurrentProfile() approach
+    // which was removed during the refactoring to the broadcast/cache pattern.
   }
 
   /**
@@ -88,6 +85,15 @@ export default class InterfaceModeService extends ComponentBase {
 
     // Create handler functions and store references for cleanup
     this._profileSwitchedHandler = (data) => {
+      // Update cached profile ID when profile switches
+      if (data.profileId) {
+        this._currentProfileId = data.profileId
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[InterfaceModeService] Updated cached profile ID from profile switch: ${this._currentProfileId}`)
+        }
+      }
+      
       if (data.environment) {
         this.switchMode(data.environment)
       }
@@ -118,8 +124,10 @@ export default class InterfaceModeService extends ComponentBase {
     const oldMode = this._currentMode
     this._currentMode = mode
 
-    // Update profile data
-    this.updateProfileMode(mode)
+    // Update profile data (async, but don't wait for it to complete UI updates)
+    this.updateProfileMode(mode).catch(error => {
+      console.error('[InterfaceModeService] Failed to persist environment change:', error)
+    })
 
     // Emit plain events for state change and legacy compatibility
     this.eventBus.emit('environment:changed', {
@@ -130,23 +138,31 @@ export default class InterfaceModeService extends ComponentBase {
   /**
    * Update profile mode in storage and profile service
    */
-  updateProfileMode(mode) {
-    try {
-      // Update profile service if available
-      if (this.profileService) {
-        this.profileService.setCurrentEnvironment(mode)
-      }
+  async updateProfileMode(mode) {
+    if (!this._currentProfileId) {
+      console.warn('[InterfaceModeService] Cannot update profile mode: no current profile ID')
+      return
+    }
 
-      // Update profile data if we have a current profile
-      if (this.app?.currentProfile && this.storage) {
-        const profile = this.storage.getProfile(this.app.currentProfile)
-        if (profile) {
-          profile.currentEnvironment = mode
-          this.storage.saveProfile(this.app.currentProfile, profile)
+    console.log(`[InterfaceModeService] updateProfileMode called with mode: ${mode}`)
+    console.log(`[InterfaceModeService] Current profile ID: ${this._currentProfileId}`)
+
+    try {
+      // Update profile with new environment
+      const result = await request(this.eventBus, 'data:update-profile', {
+        profileId: this._currentProfileId,
+        updates: {
+          currentEnvironment: mode
         }
+      })
+
+      if (result?.success) {
+        console.log(`[InterfaceModeService] Environment persisted to storage: ${mode} for profile: ${this._currentProfileId}`)
+      } else {
+        console.error('[InterfaceModeService] Failed to persist environment:', result)
       }
     } catch (error) {
-      console.error('[InterfaceModeService] Failed to update profile mode:', error)
+      console.error('[InterfaceModeService] Error updating profile mode:', error)
     }
   }
 
@@ -223,8 +239,30 @@ export default class InterfaceModeService extends ComponentBase {
     if (!state) return
     
     if ((sender === 'DataCoordinator' || sender === 'ProfileService') && state.currentEnvironment) {
-      // Initialize from ProfileService environment without triggering events
+      // Cache the current profile ID for later use in persistence operations
+      if (state.currentProfile) {
+        this._currentProfileId = state.currentProfile
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[InterfaceModeService] Cached profile ID from ${sender}: ${this._currentProfileId}`)
+        }
+      }
+      
+      // Initialize from DataCoordinator environment state
+      const previousMode = this._currentMode
       this._currentMode = state.currentEnvironment
+      
+      // Always broadcast environment during initialization to ensure UI components
+      // get the correct initial state, even if it matches the default value
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[InterfaceModeService] Broadcasting initial environment: ${this._currentMode} (from ${sender} late-join handshake)`)
+      }
+      
+      this.eventBus.emit('environment:changed', {
+        environment: this._currentMode,
+        isInitialization: true
+      })
     }
   }
 } 

@@ -19,7 +19,15 @@ export default class AliasBrowserUI extends ComponentBase {
     // React to alias list or selection changes
     this.eventBus.on('aliases-changed', () => this.render())
     this.eventBus.on('alias-selected', (data) => {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserUI] alias-selected event received. data:`, data, `setting _selectedAliasName to: ${data.name}`)
+      }
       this._selectedAliasName = data.name
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[AliasBrowserUI] calling render() after alias-selected. _selectedAliasName:`, this._selectedAliasName)
+      }
       this.render()
     })
 
@@ -149,7 +157,8 @@ export default class AliasBrowserUI extends ComponentBase {
     grid.classList.remove('categorized')
     grid.innerHTML = entries.map(([name, alias]) => this.createAliasElement(name, alias)).join('')
 
-    grid.querySelectorAll('.alias-chain-item').forEach((item) => {
+    // Use the correct CSS class selector to match what createAliasElement produces
+    grid.querySelectorAll('.alias-item').forEach((item) => {
       item.addEventListener('click', () => {
         request(this.eventBus, 'alias:select', { name: item.dataset.alias })
         this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
@@ -167,8 +176,9 @@ export default class AliasBrowserUI extends ComponentBase {
     const description  = alias.description || ''
     const lengthClass  = name.length <= 8 ? 'short' : name.length <= 12 ? 'medium' : name.length <= 16 ? 'long' : 'extra-long'
 
+    // Use consistent CSS classes: 'alias-item' (to match tests) and 'active' (to match selection pattern)
     return `
-      <div class="alias-chain-item ${isSelected ? 'selected' : ''}" data-alias="${name}" data-length="${lengthClass}" title="${description}">
+      <div class="alias-item ${isSelected ? 'active' : ''}" data-alias="${name}" data-length="${lengthClass}" title="${description}">
         <div class="alias-name">${name}</div>
         <div class="alias-command-count">${commandCount} <span data-i18n="commands">${i18next.t('commands')}</span></div>
       </div>`

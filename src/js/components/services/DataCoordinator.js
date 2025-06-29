@@ -473,22 +473,16 @@ export default class DataCoordinator extends ComponentBase {
         
         for (const [env, envData] of Object.entries(value)) {
           if (typeof envData === 'object' && envData !== null) {
-            // Initialize the environment if it doesn't exist
-            if (!result.builds[env]) {
-              result.builds[env] = {}
+            result.builds[env] = {
+              ...(result.builds[env] || {}),
+              ...envData
             }
             
-            // Deep merge each property of the environment
-            for (const [envProp, envPropValue] of Object.entries(envData)) {
-              if (envProp === 'keys' && typeof envPropValue === 'object' && envPropValue !== null) {
-                // Special deep merge for keys - preserve existing keys
-                result.builds[env].keys = {
-                  ...(result.builds[env].keys || {}),
-                  ...envPropValue
-                }
-              } else {
-                // Regular property assignment for non-keys properties
-                result.builds[env][envProp] = envPropValue
+            // Special handling for keys within environments
+            if (envData.keys && typeof envData.keys === 'object') {
+              result.builds[env].keys = {
+                ...(result.builds[env].keys || {}),
+                ...envData.keys
               }
             }
           } else {

@@ -170,6 +170,7 @@ export default class STOToolsKeybindManager {
       this.aliasBrowserService = new AliasBrowserService({
         storage: storageService,
         ui: stoUI,
+        eventBus,
       })
 
       // dbg('AliasBrowserService created')
