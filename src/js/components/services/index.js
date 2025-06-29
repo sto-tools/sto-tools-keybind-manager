@@ -15,7 +15,6 @@ export { default as FileSystemService } from './FileSystemService.js'
 export { default as KeyService } from './KeyService.js'
 export { default as FileOperationsService } from './FileOperationsService.js'
 
-export { default as CommunicationCommandService } from './CommunicationCommandService.js'
 export { default as ExportService } from './ExportService.js'
 export { default as ToastService } from './ToastService.js'
 export { default as UIUtilityService } from './UIUtilityService.js'
