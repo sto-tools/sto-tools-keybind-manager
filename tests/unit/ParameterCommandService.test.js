@@ -348,4 +348,22 @@ describe('ParameterCommandService', () => {
       expect(service.editingContext).toBeNull()
     })
   })
+
+  /* ------------------------------------------------------------
+   * Regression – Communication commands should retain verb
+   * ---------------------------------------------------------- */
+
+  describe('communication builder verb retention', () => {
+    it('should default to command definition verb when verb param is missing', async () => {
+      const svc = new ParameterCommandService({ eventBus })
+      svc.init()
+
+      const commDef = { name: 'Team Message', command: 'team', icon: '💬' }
+      const params  = { message: 'Attack now!' } // no verb provided
+
+      const result = await svc.buildParameterizedCommand('communication', 'team_message', commDef, params)
+
+      expect(result.command).toBe('team "Attack now!"')
+    })
+  })
 }) 

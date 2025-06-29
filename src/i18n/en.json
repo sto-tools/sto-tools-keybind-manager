@@ -977,5 +977,11 @@
   "switch_to_key_type_view": "Switch to key type view",
   "switch_to_grid_view": "Switch to grid view",
   "switch_to_command_categories": "Switch to command categories",
-  "no_profiles_available": "No profiles available"
+  "no_profiles_available": "No profiles available",
+  "verb": {
+    "say": "Say (Local)",
+    "team": "Team",
+    "zone": "Zone",
+    "tell": "Tell"
+  }
 }

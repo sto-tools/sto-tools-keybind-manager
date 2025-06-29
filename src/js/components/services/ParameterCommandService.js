@@ -364,8 +364,18 @@ export default class ParameterCommandService extends ComponentBase {
       },
 
       communication: (p) => {
-        const verb = p.verb || 'say'
+        /*
+         * If the user is editing a predefined communication command such as
+         * "Team Message" or "Zone Message", the parameter modal only exposes
+         * the message input – the verb (team/zone/say) is implicit in the
+         * selected command definition.  When the verb parameter is therefore
+         * **missing** we should fall back to the verb contained in the
+         * command definition instead of unconditionally defaulting to "say".
+         */
+        const fallbackVerb = (commandDef && commandDef.command) ? commandDef.command : 'say'
+        const verb    = p.verb || fallbackVerb
         const message = p.message || 'Message text here'
+
         const command = `${verb} "${message}"`
         return {
           command,

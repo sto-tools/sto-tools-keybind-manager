@@ -1,6 +1,7 @@
 import eventBus from '../../core/eventBus.js'
 import ParameterCommandService from '../services/ParameterCommandService.js'
 import ComponentBase from '../ComponentBase.js'
+import { request } from '../../core/requestResponse.js'
 
 // ---------------------------------------------------------------------------
 // Singleton service instance – shared by the entire application layer
@@ -203,92 +204,61 @@ export default class ParameterCommandUI extends ComponentBase {
     if (!container || !titleElement) return
 
     titleElement.textContent = `Configure: ${commandDef.name}`
-    container.innerHTML      = ''
-
-    Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
-      const inputGroup = this.document.createElement('div')
-      inputGroup.className = 'form-group'
-
-      const label = this.document.createElement('label')
-      label.textContent = this.formatParameterName(paramName)
-      label.setAttribute('for', `param_${paramName}`)
-
-      let inputEl
-      if (paramDef.type === 'select') {
-        inputEl      = this.document.createElement('select')
-        inputEl.id   = `param_${paramName}`
-        inputEl.name = paramName
-        paramDef.options.forEach(opt => {
-          const o = this.document.createElement('option')
-          o.value       = opt
-          o.textContent = opt === 'STOTrayExecByTray'
-            ? 'STOTrayExecByTray (shows key binding on UI)'
-            : 'TrayExecByTray (no UI indication)'
-          if (opt === paramDef.default) o.selected = true
-          inputEl.appendChild(o)
-        })
-      } else {
-        inputEl      = this.document.createElement('input')
-        inputEl.type = paramDef.type === 'number' ? 'number' : 'text'
-        inputEl.id   = `param_${paramName}`
-        inputEl.name = paramName
-        inputEl.value = paramDef.default || ''
-        if (paramDef.placeholder) inputEl.placeholder = paramDef.placeholder
-        if (paramDef.type === 'number') {
-          if (paramDef.min !== undefined)  inputEl.min  = paramDef.min
-          if (paramDef.max !== undefined)  inputEl.max  = paramDef.max
-          if (paramDef.step !== undefined) inputEl.step = paramDef.step
-        }
-      }
-
-      const help = this.document.createElement('small')
-      help.textContent = this.getParameterHelp(paramName, paramDef)
-
-      inputGroup.appendChild(label)
-      inputGroup.appendChild(inputEl)
-      inputGroup.appendChild(help)
-      container.appendChild(inputGroup)
-
-      // Live preview updates
-      inputEl.addEventListener('input', () => this.updateParameterPreview())
-      if (inputEl.tagName === 'SELECT') {
-        inputEl.addEventListener('change', () => this.updateParameterPreview())
-      }
-    })
+    container.innerHTML = ''
+    this.buildParameterInputs(container, commandDef)
 
     // Initial preview
     this.updateParameterPreview()
   }
 
-  /* ----- Small pure helpers ------------------------------------------- */
-  formatParameterName (n) {
-    return n.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
+  /* ------------------------------------------------------------
+   * Edit mode
+   * ---------------------------------------------------------- */
+  editParameterizedCommand (index, command, commandDef) {
+    // Emit event for services that need editing context
+    const currentEnv = this._currentEnvironment || 'space'
+    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
+    
+    this.eventBus.emit('parameter-edit:start', {
+      index,
+      key: selectedKey,
+      command,
+      commandDef
+    })
 
-  getParameterHelp (paramName, paramDef) {
-    if (paramDef.help) return paramDef.help
-
-    const helpMap = {
-      tray:         'Tray number (0-9)',
-      slot:         'Slot number (0-9)',
-      start_tray:   'Starting tray number',
-      end_tray:     'Ending tray number',
-      start_slot:   'Starting slot number',
-      end_slot:     'Ending slot number',
-      backup_tray:  'Backup tray number',
-      backup_slot:  'Backup slot number',
-      active:       '1 to activate immediately, 0 to queue',
-      entityName:   'Name of the entity to target',
-      message:      'Message text to send',
-      distance:     'Camera distance value',
-      amount:       'Throttle adjustment amount',
-      position:     'Throttle position (0-100)',
-      filename:     'File name (without extension)',
-      state:        '1 to enable, 0 to disable',
-      alias_name:   'Name of the alias to execute',
+    this.currentParameterCommand = {
+      ...commandDef,
+      editIndex: index,
+      isEditing: true,
     }
 
-    return helpMap[paramName] || 'Parameter value'
+    if (!this.document.getElementById('parameterModal')) {
+      this.createParameterModal()
+    }
+
+    this.populateParameterModalForEdit(commandDef, command.parameters || {})
+
+    // Update button text for editing
+    const saveBtn = this.document.getElementById('saveParameterCommandBtn')
+    if (saveBtn) {
+      saveBtn.textContent = this.i18n?.t?.('update_command') || 'Update Command'
+    }
+
+    this.modalManager?.show('parameterModal')
+  }
+
+  populateParameterModalForEdit (commandDef, existingParams = {}) {
+    const container    = this.document.getElementById('parameterInputs')
+    const titleElement = this.document.getElementById('parameterModalTitle')
+
+    if (!container || !titleElement) return
+
+    titleElement.textContent = `Edit: ${commandDef.name}`
+    container.innerHTML = ''
+    this.buildParameterInputs(container, commandDef, existingParams)
+
+    // Initial preview
+    this.updateParameterPreview()
   }
 
   /* ------------------------------------------------------------
@@ -410,50 +380,111 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 
   /* ------------------------------------------------------------
-   * Edit mode
+   * Legacy facade methods – keep external API intact
    * ---------------------------------------------------------- */
-  editParameterizedCommand (index, command, commandDef) {
-    // Emit event for services that need editing context
+  async editCommand (index) {
+    // Use cached state instead of request/response
     const currentEnv = this._currentEnvironment || 'space'
     const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
     
-    this.eventBus.emit('parameter-edit:start', {
-      index,
-      key: selectedKey,
-      command,
-      commandDef
-    })
+    if (!selectedKey) return
 
-    this.currentParameterCommand = {
-      ...commandDef,
-      editIndex: index,
-      isEditing: true,
+    try {
+      // Fetch commands for the selected key via request/response layer
+      const commands = await request(this.eventBus, 'command:get-for-selected-key')
+      if (!commands || !commands[index]) return
+
+      const command = commands[index]
+      const commandDef = await svc.findCommandDefinition(command)
+      if (!commandDef) return
+
+      this.editParameterizedCommand(index, command, commandDef)
+    } catch (error) {
+      console.error('ParameterCommandUI.editCommand failed:', error)
     }
-
-    if (!this.document.getElementById('parameterModal')) {
-      this.createParameterModal()
-    }
-
-    this.populateParameterModalForEdit(commandDef, command.parameters || {})
-
-    // Update button text for editing
-    const saveBtn = this.document.getElementById('saveParameterCommandBtn')
-    if (saveBtn) {
-      saveBtn.textContent = this.i18n?.t?.('update_command') || 'Update Command'
-    }
-
-    this.modalManager?.show('parameterModal')
   }
 
-  populateParameterModalForEdit (commandDef, existingParams = {}) {
-    const container    = this.document.getElementById('parameterInputs')
-    const titleElement = this.document.getElementById('parameterModalTitle')
+  /* ------------------------------------------------------------
+   * Thin wrappers delegating to the service – keeps external API
+   * intact for legacy code/tests.
+   * ---------------------------------------------------------- */
+  generateCommandId (...args) {
+    return svc.generateCommandId(...args)
+  }
+  
+  async buildParameterizedCommand (...args) {
+    return await svc.buildParameterizedCommand(...args)
+  }
+  
+  async findCommandDefinition (...args) {
+    return await svc.findCommandDefinition(...args)
+  }
 
-    if (!container || !titleElement) return
+  /* ------------------------------------------------------------
+   * DRY helpers for parameter input generation
+   * ---------------------------------------------------------- */
 
-    titleElement.textContent = `Edit: ${commandDef.name}`
-    container.innerHTML      = ''
+  /**
+   * Convert parameter key to a nicely formatted label (e.g. start_tray → Start Tray)
+   */
+  formatParameterName (n) {
+    return n.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
 
+  /**
+   * Provide contextual help text for well-known parameters. Falls back to a
+   * generic message when the parameter is unknown.
+   */
+  getParameterHelp (paramName, paramDef) {
+    if (paramDef.help) return paramDef.help
+
+    const helpMap = {
+      tray:         'Tray number (0-9)',
+      slot:         'Slot number (0-9)',
+      start_tray:   'Starting tray number',
+      end_tray:     'Ending tray number',
+      start_slot:   'Starting slot number',
+      end_slot:     'Ending slot number',
+      backup_tray:  'Backup tray number',
+      backup_slot:  'Backup slot number',
+      active:       '1 to activate immediately, 0 to queue',
+      entityName:   'Name of the entity to target',
+      message:      'Message text to send',
+      distance:     'Camera distance value',
+      amount:       'Throttle adjustment amount',
+      position:     'Throttle position (0-100)',
+      filename:     'File name (without extension)',
+      state:        '1 to enable, 0 to disable',
+      verb:         'Communication channel (say, team, zone)',
+      alias_name:   'Name of the alias to execute',
+    }
+
+    return helpMap[paramName] || 'Parameter value'
+  }
+
+  /**
+   * Resolve option labels with i18n support and special-case tray labels
+   */
+  getOptionLabel (paramName, value) {
+    if (paramName === 'verb') {
+      return this.i18n?.t?.(`verb.${value}`) || value
+    }
+    if (value === 'STOTrayExecByTray') {
+      return 'STOTrayExecByTray (shows key binding on UI)'
+    }
+    if (value === 'TrayExecByTray') {
+      return 'TrayExecByTray (no UI indication)'
+    }
+    return value
+  }
+
+  /**
+   * Build all parameter inputs into a container element
+   * @param {HTMLElement} container  target element
+   * @param {object}       commandDef definition containing parameters map
+   * @param {object}       existingParams values to pre-select (edit mode)
+   */
+  buildParameterInputs (container, commandDef, existingParams = {}) {
     Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
       const inputGroup = this.document.createElement('div')
       inputGroup.className = 'form-group'
@@ -463,17 +494,18 @@ export default class ParameterCommandUI extends ComponentBase {
       label.setAttribute('for', `param_${paramName}`)
 
       let inputEl
+      const selectedVal = existingParams[paramName] ?? paramDef.default
+
       if (paramDef.type === 'select') {
         inputEl      = this.document.createElement('select')
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
+
         paramDef.options.forEach(opt => {
           const o = this.document.createElement('option')
           o.value       = opt
-          o.textContent = opt === 'STOTrayExecByTray'
-            ? 'STOTrayExecByTray (shows key binding on UI)'
-            : 'TrayExecByTray (no UI indication)'
-          if (opt === (existingParams[paramName] ?? paramDef.default)) o.selected = true
+          o.textContent = this.getOptionLabel(paramName, opt)
+          if (opt === selectedVal) o.selected = true
           inputEl.appendChild(o)
         })
       } else {
@@ -481,7 +513,7 @@ export default class ParameterCommandUI extends ComponentBase {
         inputEl.type = paramDef.type === 'number' ? 'number' : 'text'
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
-        inputEl.value = existingParams[paramName] ?? paramDef.default ?? ''
+        inputEl.value = selectedVal ?? ''
         if (paramDef.placeholder) inputEl.placeholder = paramDef.placeholder
         if (paramDef.type === 'number') {
           if (paramDef.min !== undefined)  inputEl.min  = paramDef.min
@@ -504,47 +536,6 @@ export default class ParameterCommandUI extends ComponentBase {
         inputEl.addEventListener('change', () => this.updateParameterPreview())
       }
     })
-
-    // Initial preview
-    this.updateParameterPreview()
-  }
-
-  /* ------------------------------------------------------------
-   * Legacy facade methods – keep external API intact
-   * ---------------------------------------------------------- */
-  async editCommand (index) {
-    // Use cached state instead of request/response
-    const currentEnv = this._currentEnvironment || 'space'
-    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
-    
-    if (!selectedKey) return
-
-    // Get profile from commandService if available
-    const profile = this.commandService?.getCurrentProfile?.()
-    const commands = profile?.keys?.[selectedKey]
-    if (!commands || !commands[index]) return
-
-    const command = commands[index]
-    const commandDef = await svc.findCommandDefinition(command)
-    if (!commandDef) return
-
-    this.editParameterizedCommand(index, command, commandDef)
-  }
-
-  /* ------------------------------------------------------------
-   * Thin wrappers delegating to the service – keeps external API
-   * intact for legacy code/tests.
-   * ---------------------------------------------------------- */
-  generateCommandId (...args) {
-    return svc.generateCommandId(...args)
-  }
-  
-  async buildParameterizedCommand (...args) {
-    return await svc.buildParameterizedCommand(...args)
-  }
-  
-  async findCommandDefinition (...args) {
-    return await svc.findCommandDefinition(...args)
   }
 }
 

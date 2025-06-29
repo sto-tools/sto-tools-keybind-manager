@@ -7,17 +7,12 @@ import { request, respond } from '../../core/requestResponse.js'
  * Fully decoupled - communicates only via event bus and request/response
  */
 export default class CommandChainService extends ComponentBase {
-  constructor ({ i18n, commandLibraryService, commandService = null, eventBus = null } = {}) {
+  constructor ({ i18n, eventBus = null } = {}) {
     super(eventBus)
     this.componentName = 'CommandChainService'
     this.i18n = i18n
 
-    // REFACTORED: Remove direct service dependencies 
-    // Legacy parameters kept temporarily for backward compatibility during migration
-    // but are no longer used - all communication goes through event bus
-    this.commandLibraryService = commandLibraryService || null
-    this.commandService = commandService
-
+    // REFACTORED: No direct service dependencies – all communication via event bus
     // Cached state - now using DataCoordinator broadcast/cache pattern
     this.selectedKey = null
     this.currentEnvironment = 'space'
@@ -178,10 +173,13 @@ export default class CommandChainService extends ComponentBase {
         ? { ...originalCmd, parameters: { ...originalCmd.parameters } }
         : { ...originalCmd }
 
-      // Derive parameters for tray execution commands when not stored
-      if (!cmd.parameters && /TrayExecByTray/.test(cmd.command)) {
+      // Derive editable parameters from the raw command string when they are
+      // not already stored on the command object.  This uses STOCommandParser
+      // so it works for **all** signature-recognised commands (tray exec,
+      // communication, targeting, etc.) instead of only tray commands.
+      if (!cmd.parameters) {
         try {
-          const parseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+          const parseResult = await request(this.eventBus, 'parser:parse-command-string', {
             commandString: cmd.command,
             options: { generateDisplayText: false }
           })
@@ -189,7 +187,7 @@ export default class CommandChainService extends ComponentBase {
             cmd.parameters = parseResult.commands[0].parameters
           }
         } catch (error) {
-          console.warn('[CommandChainService] Failed to parse tray parameters:', error)
+          console.warn('[CommandChainService] Failed to derive parameters from command:', error)
         }
       }
 

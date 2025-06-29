@@ -208,6 +208,13 @@ export default class CommandChainUI extends ComponentBase {
 
       // Parameter pretty-printing (copied from legacy)
       if (isParameterized && command.parameters) {
+        if (commandDef.categoryId === 'communication' || commandDef.commandId === 'communication') {
+          // Display as "verb: message" for communication commands
+          const params = command.parameters
+          if (params.verb && params.message) {
+            displayName = `${params.verb}: \"${params.message}\"`
+          }
+        }
         const p = command.parameters
         if (commandDef.commandId === 'tray_with_backup') {
           displayName = `${commandDef.name} (${p.active} ${p.tray} ${p.slot} ${p.backup_tray} ${p.backup_slot})`

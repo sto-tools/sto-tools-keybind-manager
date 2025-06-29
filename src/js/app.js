@@ -278,7 +278,6 @@ export default class STOToolsKeybindManager {
         i18n: i18next,
         ui: stoUI,
         modalManager,
-        commandService: this.commandService,
       })
 
       // dbg('CommandLibraryService created')
@@ -297,8 +296,6 @@ export default class STOToolsKeybindManager {
       this.commandChainService = new CommandChainService({
         eventBus,
         i18n: i18next,
-        commandLibraryService: this.commandLibraryService,
-        commandService: this.commandService,
       })
       // dbg('CommandChainService created')
       this.commandChainUI      = new CommandChainUI({
@@ -326,8 +323,6 @@ export default class STOToolsKeybindManager {
         eventBus,
         ui: stoUI,
         modalManager,
-        commandService: this.commandService,
-        commandLibraryService: this.commandLibraryService,
         parameterCommandUI: this.parameterCommandUI
       })
 

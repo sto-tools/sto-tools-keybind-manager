@@ -7,7 +7,7 @@ import { request, respond } from '../../core/requestResponse.js'
  * REFACTORED: Now uses DataCoordinator broadcast/cache pattern.
  */
 export default class CommandLibraryService extends ComponentBase {
-  constructor({ storage, eventBus, i18n, ui, modalManager, commandService = null }) {
+  constructor({ storage, eventBus, i18n, ui, modalManager }) {
     super(eventBus)
     this.componentName = 'CommandLibraryService'
     this._instanceId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -15,7 +15,6 @@ export default class CommandLibraryService extends ComponentBase {
     this.i18n           = i18n
     this.ui             = ui
     this.modalManager   = modalManager
-    this.commandService = commandService
 
     this.currentProfile = null
     this.currentEnvironment = 'space'

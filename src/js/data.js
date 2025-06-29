@@ -735,6 +735,7 @@ const STO_DATA = {
           icon: '💬',
           customizable: true,
           parameters: {
+            verb:    { type: 'select', default: 'team', options: ['say', 'team', 'zone'] },
             message: { type: 'text', default: 'Message text here' },
           },
         },
@@ -746,6 +747,7 @@ const STO_DATA = {
           icon: '📢',
           customizable: true,
           parameters: {
+            verb:    { type: 'select', default: 'say', options: ['say', 'team', 'zone'] },
             message: { type: 'text', default: 'Message text here' },
           },
         },
@@ -757,6 +759,7 @@ const STO_DATA = {
           icon: '📡',
           customizable: true,
           parameters: {
+            verb:    { type: 'select', default: 'zone', options: ['say', 'team', 'zone'] },
             message: { type: 'text', default: 'Message text here' },
           },
         },
