@@ -104,7 +104,8 @@ export default class HeaderMenuUI extends ComponentBase {
     // Language selection
     this.document.querySelectorAll('[data-lang]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const lang = e.target.getAttribute('data-lang')
+        const langButton = e.target.closest('[data-lang]')
+        const lang = langButton ? langButton.getAttribute('data-lang') : null
         if (lang) {
           this.emit('language:change', { language: lang })
         }
