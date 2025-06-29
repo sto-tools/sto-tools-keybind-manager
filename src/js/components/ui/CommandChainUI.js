@@ -64,6 +64,13 @@ export default class CommandChainUI extends ComponentBase {
       })
     )
 
+    // Listen for language changes to re-render command items with new translations
+    this._detachFunctions.push(
+      this.eventBus.on('language:changed', () => {
+        this.render()
+      })
+    )
+
     this.eventBus.onDom('stabilizeExecutionOrder', 'change', () => this.render())
 
     // Drag/drop
