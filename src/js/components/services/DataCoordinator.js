@@ -631,36 +631,36 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error('Explicit operations (add/delete/modify/properties) required')
     }
 
-    const updatedProfile = this.processUpdateOperations(currentProfile, {
-      ...updates,
-      properties: {
-        ...(updates.properties || {}),
-        lastModified: new Date().toISOString()
-      }
-    })
-    
-    // Persist to storage first
-    console.log(`[${this.componentName}] Saving profile ${profileId} to storage:`, updatedProfile)
-    await this.storage.saveProfile(profileId, updatedProfile)
-
-    // Update in-memory cache regardless of what changed
-    this.state.profiles[profileId] = updatedProfile
-    this.state.metadata.lastModified = new Date().toISOString()
-
-    // Determine if any structural collections were touched
-    const touchedCollections = !!(updates.add || updates.delete || updates.modify)
-
-    if (touchedCollections) { // || updates.properties?.currentEnvironment || updates.properties?.currentProfile) {
-      // Notify other services when aliases / builds changed // or environment/profile properties changed
-      this.emit('profile:updated', {
-        profileId,
-        profile: updatedProfile,
-        updates,
-        timestamp: Date.now()
+      const updatedProfile = this.processUpdateOperations(currentProfile, {
+        ...updates,
+        properties: {
+          ...(updates.properties || {}),
+          lastModified: new Date().toISOString()
+        }
       })
-    }
+      
+      // Persist to storage first
+      console.log(`[${this.componentName}] Saving profile ${profileId} to storage:`, updatedProfile)
+      await this.storage.saveProfile(profileId, updatedProfile)
 
-    return { success: true, profile: updatedProfile }
+      // Update in-memory cache regardless of what changed
+      this.state.profiles[profileId] = updatedProfile
+      this.state.metadata.lastModified = new Date().toISOString()
+
+      // Determine if any structural collections were touched
+      const touchedCollections = !!(updates.add || updates.delete || updates.modify)
+
+      if (touchedCollections) { // || updates.properties?.currentEnvironment || updates.properties?.currentProfile) {
+        // Notify other services when aliases / builds changed // or environment/profile properties changed
+        this.emit('profile:updated', {
+          profileId,
+          profile: updatedProfile,
+          updates,
+          timestamp: Date.now()
+        })
+      }
+
+      return { success: true, profile: updatedProfile }
   }
 
   /**
@@ -676,11 +676,11 @@ export default class DataCoordinator extends ComponentBase {
     
     // Update profile's current environment if we have one
     if (this.state.currentProfile) {
-      const updates = { currentEnvironment: environment }
+      const updates = { properties: { currentEnvironment: environment } }
       await this.updateProfile(this.state.currentProfile, updates)
     }
     
-    // Broadcast environment change
+    // Broadcast environment change after storage operation completes
     this.emit('environment:changed', {
       fromEnvironment: oldEnvironment,
       toEnvironment: environment,

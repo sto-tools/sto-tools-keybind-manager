@@ -26,9 +26,9 @@ export default class InterfaceModeService extends ComponentBase {
     // Register Request/Response handlers for environment switching
     // ---------------------------------------------------------
     if (this.eventBus) {
-      this._responseDetachFunction = this.respond('environment:switch', ({ mode } = {}) => {
+      this._responseDetachFunction = this.respond('environment:switch', async ({ mode } = {}) => {
         if (mode) {
-          this.switchMode(mode)
+          await this.switchMode(mode)
           return { success: true, mode: this._currentMode }
         }
         return { success: false, error: 'No mode provided' }
@@ -58,7 +58,9 @@ export default class InterfaceModeService extends ComponentBase {
    * Set current mode (triggers mode switch)
    */
   set currentMode(mode) {
-    this.switchMode(mode)
+    this.switchMode(mode).catch(error => {
+      console.error('[InterfaceModeService] Error in currentMode setter:', error)
+    })
   }
 
   /**
@@ -72,7 +74,9 @@ export default class InterfaceModeService extends ComponentBase {
    * Set current environment (alias for currentMode)
    */
   set currentEnvironment(mode) {
-    this.switchMode(mode)
+    this.switchMode(mode).catch(error => {
+      console.error('[InterfaceModeService] Error in currentEnvironment setter:', error)
+    })
   }
 
   /**
@@ -95,7 +99,9 @@ export default class InterfaceModeService extends ComponentBase {
       }
       
       if (data.environment) {
-        this.switchMode(data.environment)
+        this.switchMode(data.environment).catch(error => {
+          console.error('[InterfaceModeService] Error in profile switched handler:', error)
+        })
       }
     }
 
@@ -111,7 +117,7 @@ export default class InterfaceModeService extends ComponentBase {
   /**
    * Switch to a new mode
    */
-  switchMode(mode) {   
+  async switchMode(mode) {   
     if (mode === this._currentMode) {
       return
     }
@@ -124,12 +130,14 @@ export default class InterfaceModeService extends ComponentBase {
     const oldMode = this._currentMode
     this._currentMode = mode
 
-    // Update profile data (async, but don't wait for it to complete UI updates)
-    this.updateProfileMode(mode).catch(error => {
+    // Update profile data and wait for storage completion to prevent race conditions
+    try {
+      await this.updateProfileMode(mode)
+    } catch (error) {
       console.error('[InterfaceModeService] Failed to persist environment change:', error)
-    })
+    }
 
-    // Emit plain events for state change and legacy compatibility
+    // Emit environment change AFTER storage operation completes
     this.emit('environment:changed', {
       environment: mode
     })
@@ -176,8 +184,8 @@ export default class InterfaceModeService extends ComponentBase {
   /**
    * Set current mode (alias for switchMode)
    */
-  setCurrentMode(mode) {
-    this.switchMode(mode)
+  async setCurrentMode(mode) {
+    await this.switchMode(mode)
   }
 
   /**

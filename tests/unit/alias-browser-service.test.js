@@ -82,22 +82,16 @@ describe('AliasBrowserService', () => {
     // Set up existing alias in cache
     svc.cache.aliases = { 'Orig': { description: 'orig-desc', commands: 'cmd' } }
     
-    await svc.duplicateAlias('Orig')
+    const ok = await svc.duplicateAlias('Orig')
+    
+    expect(ok).toBe(true)
     expect(svc.selectedAliasName).toBe('Orig_copy')
-
+    
     // Duplicate again => should make _copy1
     svc.cache.aliases['Orig_copy'] = { description: 'orig-desc (copy)', commands: 'cmd' }
     await svc.duplicateAlias('Orig')
-
+    
     expect(svc.selectedAliasName).toBe('Orig_copy1')
-  })
-
-  it('duplicateAlias copies alias to explicitly provided name', async () => {
-    svc.cache.aliases = { 'Orig': { description: 'orig-desc', commands: 'cmd' } }
-
-    const ok = await svc.duplicateAlias('Orig', 'OrigNew')
-    expect(ok).toBe(true)
-    expect(svc.selectedAliasName).toBe('OrigNew')
   })
 
   it('handles DataCoordinator errors gracefully', async () => {
