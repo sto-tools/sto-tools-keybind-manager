@@ -486,10 +486,10 @@ export default class CommandLibraryService extends ComponentBase {
         updates.builds = updatedBuilds
       }
 
-      // Send update to DataCoordinator
+      // Send update to DataCoordinator using explicit operations API
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        modify: updates
       })
 
       if (result.success) {
@@ -555,10 +555,10 @@ export default class CommandLibraryService extends ComponentBase {
         }
       }
 
-      // Send update to DataCoordinator
+      // Send update to DataCoordinator using explicit operations API
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        modify: updates
       })
 
       if (result.success) {
@@ -619,10 +619,10 @@ export default class CommandLibraryService extends ComponentBase {
         }
       }
 
-      // Send update to DataCoordinator
+      // Send update to DataCoordinator using explicit operations API
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        modify: updates
       })
 
       if (result.success) {

@@ -108,13 +108,11 @@ export default class ProfileService extends ComponentBase {
       }
 
       // Delegate entirely to DataCoordinator - it handles the current profile state
-      const updates = {
-        currentEnvironment: this.currentEnvironment,
-      }
-
-      await request(this.eventBus, 'data:update-profile', { 
-        profileId: this.currentProfile, 
-        updates 
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.currentProfile,
+        properties: {
+          currentEnvironment: this.currentEnvironment
+        }
       })
 
       this.isModified = false
@@ -138,7 +136,7 @@ export default class ProfileService extends ComponentBase {
       
       await request(this.eventBus, 'data:update-profile', { 
         profileId, 
-        updates: profile 
+        properties: profile 
       })
 
       this.setModified(true)
@@ -340,13 +338,11 @@ export default class ProfileService extends ComponentBase {
 
       // DataCoordinator handles current build state internally
       // This method is kept for backward compatibility but delegates entirely
-      const updates = {
-        currentEnvironment: this.currentEnvironment,
-      }
-
-      await request(this.eventBus, 'data:update-profile', { 
-        profileId: this.currentProfile, 
-        updates 
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.currentProfile,
+        properties: {
+          currentEnvironment: this.currentEnvironment
+        }
       })
       
       return { success: true }

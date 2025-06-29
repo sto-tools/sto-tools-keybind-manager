@@ -252,11 +252,13 @@ export default class KeyBrowserService extends ComponentBase {
         console.log(`[KeyBrowserService] Persisting key selection: ${this.currentEnvironment} -> ${keyName}`)
       }
 
-      // Update through DataCoordinator
+      // Update through DataCoordinator using explicit operations API
       const { request } = await import('../../core/requestResponse.js')
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.currentProfileId,
-        updates: { selections: updatedSelections }
+        properties: {
+          selections: updatedSelections
+        }
       })
     } catch (error) {
       console.error('[KeyBrowserService] Failed to persist key selection:', error)

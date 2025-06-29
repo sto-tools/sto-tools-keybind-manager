@@ -148,10 +148,10 @@ export default class InterfaceModeService extends ComponentBase {
     console.log(`[InterfaceModeService] Current profile ID: ${this._currentProfileId}`)
 
     try {
-      // Update profile with new environment
+      // Update profile with new environment using explicit operations API
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this._currentProfileId,
-        updates: {
+        properties: {
           currentEnvironment: mode
         }
       })

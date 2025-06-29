@@ -266,23 +266,20 @@ export default class AliasBrowserService extends ComponentBase {
         return // Don't persist if no profile
       }
 
-      // Prepare updated selections
-      const currentSelections = profile.selections || {}
-      const updatedSelections = {
-        ...currentSelections,
-        alias: aliasName
-      }
-
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
         console.log(`[AliasBrowserService] Persisting alias selection: alias -> ${aliasName}`)
       }
 
-      // Update through DataCoordinator
-      const { request } = await import('../../core/requestResponse.js')
+      // Update through DataCoordinator using explicit operations API
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.currentProfileId,
-        updates: { selections: updatedSelections }
+        properties: {
+          selections: {
+            ...(profile.selections || {}),
+            alias: aliasName
+          }
+        }
       })
     } catch (error) {
       console.error('[AliasBrowserService] Failed to persist alias selection:', error)
@@ -302,16 +299,14 @@ export default class AliasBrowserService extends ComponentBase {
     }
 
     try {
-      // Prepare updated aliases
-      const updatedAliases = {
-        ...this.cache.aliases,
-        [name]: { description, commands: '' }
-      }
-
-      // Update through DataCoordinator
+      // Add new alias using explicit operations API
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates: { aliases: updatedAliases }
+        add: {
+          aliases: {
+            [name]: { description, commands: '' }
+          }
+        }
       })
 
       await this.selectAlias(name)
@@ -328,21 +323,18 @@ export default class AliasBrowserService extends ComponentBase {
     if (!this.cache.aliases[name]) return false
 
     try {
-      // Prepare updated aliases
-      const updatedAliases = { ...this.cache.aliases }
-      delete updatedAliases[name]
-
       if (typeof window !== 'undefined') {
         console.log(`[AliasBrowserService] deleteAlias: Deleting '${name}' from aliases`)
         console.log(`[AliasBrowserService] deleteAlias: Original aliases:`, Object.keys(this.cache.aliases))
-        console.log(`[AliasBrowserService] deleteAlias: Updated aliases:`, Object.keys(updatedAliases))
-        console.log(`[AliasBrowserService] deleteAlias: Sending update to DataCoordinator with profileId:`, this.cache.currentProfile)
+        console.log(`[AliasBrowserService] deleteAlias: Sending delete request to DataCoordinator with profileId:`, this.cache.currentProfile)
       }
 
-      // Update through DataCoordinator
+      // Delete alias using explicit operations API
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates: { aliases: updatedAliases }
+        delete: {
+          aliases: [name]
+        }
       })
 
       if (this.selectedAliasName === name) this.selectedAliasName = null
@@ -367,19 +359,17 @@ export default class AliasBrowserService extends ComponentBase {
         newName = `${name}_copy${counter++}`
       }
 
-      // Prepare updated aliases
-      const updatedAliases = {
-        ...this.cache.aliases,
-        [newName]: {
-          description: original.description + ' (copy)',
-          commands: original.commands,
-        }
-      }
-
-      // Update through DataCoordinator
+      // Add duplicated alias using explicit operations API
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates: { aliases: updatedAliases }
+        add: {
+          aliases: {
+            [newName]: {
+              description: original.description + ' (copy)',
+              commands: original.commands,
+            }
+          }
+        }
       })
 
       await this.selectAlias(newName)

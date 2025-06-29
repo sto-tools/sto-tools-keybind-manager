@@ -336,10 +336,10 @@ export default class VFXManagerService extends ComponentBase {
           
           updates.aliases = aliases
           
-          // Update profile via DataCoordinator
+          // Update profile via DataCoordinator using explicit operations API
           await request(this.eventBus, 'data:update-profile', {
             profileId: this.currentProfile,
-            updates
+            modify: updates
           })
           
           console.log(`[${this.componentName}] VFX effects and aliases saved to profile: ${this.currentProfile}`)

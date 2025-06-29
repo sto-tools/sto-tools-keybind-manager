@@ -9,6 +9,91 @@ import { respond, request } from '../../core/requestResponse.js'
  * - State changes are broadcast to all subscribers
  * - Late-join components get current state automatically
  * - No direct storage access from feature services
+ * 
+ * NEW: Explicit Operations API
+ * ===========================
+ * 
+ * Instead of requiring services to reconstruct entire objects, the DataCoordinator
+ * now supports explicit add/delete/modify operations:
+ * 
+ * Examples:
+ * 
+ * // Add new aliases without affecting existing ones
+ * await request(eventBus, 'data:update-profile', {
+ *   profileId: 'my_profile',
+ *   add: {
+ *     aliases: {
+ *       'new_alias': { commands: 'say "hello"', description: 'Greeting alias' }
+ *     }
+ *   }
+ * })
+ * 
+ * // Delete specific aliases by name
+ * await request(eventBus, 'data:update-profile', {
+ *   profileId: 'my_profile', 
+ *   delete: {
+ *     aliases: ['old_alias', 'unused_alias']
+ *   }
+ * })
+ * 
+ * // Modify existing alias commands without affecting others
+ * await request(eventBus, 'data:update-profile', {
+ *   profileId: 'my_profile',
+ *   modify: {
+ *     aliases: {
+ *       'existing_alias': { commands: 'updated_command_chain' }
+ *     }
+ *   }
+ * })
+ * 
+ * // Add new keybinds to specific environments
+ * await request(eventBus, 'data:update-profile', {
+ *   profileId: 'my_profile',
+ *   add: {
+ *     builds: {
+ *       space: {
+ *         keys: {
+ *           'F5': [{ command: 'new_space_command' }]
+ *         }
+ *       }
+ *     }
+ *   }
+ * })
+ * 
+ * // Delete specific keys
+ * await request(eventBus, 'data:update-profile', {
+ *   profileId: 'my_profile',
+ *   delete: {
+ *     builds: {
+ *       space: { keys: ['F5'] },
+ *       ground: { keys: ['F6', 'F7'] }
+ *     }
+ *   }
+ * })
+ * 
+ * // Combined operations in a single atomic update
+ * await request(eventBus, 'data:update-profile', {
+ *   profileId: 'my_profile',
+ *   add: {
+ *     aliases: { 'new_alias': { commands: 'new_command' } }
+ *   },
+ *   delete: {
+ *     aliases: ['old_alias']
+ *   },
+ *   modify: {
+ *     aliases: { 'existing_alias': { description: 'Updated description' } }
+ *   },
+ *   properties: {
+ *     description: 'Profile updated via explicit operations'
+ *   }
+ * })
+ * 
+ * // Legacy format still supported for backward compatibility
+ * await request(eventBus, 'data:update-profile', {
+ *   profileId: 'my_profile',
+ *   description: 'Updated description',
+ *   aliases: { complete_aliases_object_here... }  // Complete replacement
+ * })
  */
 export default class DataCoordinator extends ComponentBase {
   constructor({ eventBus, storage }) {
@@ -52,7 +137,8 @@ export default class DataCoordinator extends ComponentBase {
     respond(this.eventBus, 'data:clone-profile', ({ sourceId, newName }) => this.cloneProfile(sourceId, newName))
     respond(this.eventBus, 'data:delete-profile', ({ profileId }) => this.deleteProfile(profileId))
     respond(this.eventBus, 'data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
-    respond(this.eventBus, 'data:update-profile', ({ profileId, updates }) => this.updateProfile(profileId, updates))
+    respond(this.eventBus, 'data:update-profile', ({ profileId, ...operations }) =>
+      this.updateProfile(profileId, operations))
     
     // Environment operations
     respond(this.eventBus, 'data:set-environment', ({ environment }) => this.setEnvironment(environment))
@@ -451,46 +537,81 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   /**
-   * Update profile data
+   * Process explicit update operations (add/delete/modify)
+   * Handle delete before add/modify to avoid conflicts
    */
-  /**
-   * Deep merge helper for profile updates
-   * Handles nested objects like aliases and builds properly
-   */
-  deepMergeProfileUpdates(current, updates) {
-    const result = { ...current }
+  processUpdateOperations(currentProfile, operations) {
+    const result = JSON.parse(JSON.stringify(currentProfile)) // Deep clone
     
-    for (const [key, value] of Object.entries(updates)) {
-      if (key === 'aliases' && typeof value === 'object' && value !== null) {
-        // For aliases, replace entirely rather than merge
-        // This allows for proper alias deletion by sending the complete updated aliases object
-        result.aliases = value
-      } else if (key === 'builds' && typeof value === 'object' && value !== null) {
-        // Deep merge builds - environments and keys should be merged, not replaced
-        result.builds = { ...(current.builds || {}) }
-        
-        for (const [env, envData] of Object.entries(value)) {
-          if (typeof envData === 'object' && envData !== null) {
-            result.builds[env] = {
-              ...(result.builds[env] || {}),
-              ...envData
-            }
-            
-            // Special handling for keys within environments
-            if (envData.keys && typeof envData.keys === 'object') {
-              result.builds[env].keys = {
-                ...(result.builds[env].keys || {}),
-                ...envData.keys
-              }
-            }
-          } else {
-            result.builds[env] = envData
+    if (operations.delete) {
+      // Delete operations - remove specified items
+      if (operations.delete.aliases) {
+        operations.delete.aliases.forEach(aliasName => {
+          if (result.aliases) {
+            delete result.aliases[aliasName]
+          }
+        })
+      }
+      
+      if (operations.delete.builds) {
+        for (const [env, envData] of Object.entries(operations.delete.builds)) {
+          if (result.builds?.[env]?.keys && envData.keys) {
+            envData.keys.forEach(keyName => {
+              delete result.builds[env].keys[keyName]
+            })
           }
         }
-      } else {
-        // Regular shallow merge for other properties
-        result[key] = value
       }
+    }
+
+
+    if (operations.add) {
+      // Add operations - merge new items into existing collections
+      if (operations.add.aliases) {
+        result.aliases = { ...(result.aliases || {}), ...operations.add.aliases }
+      }
+      
+      if (operations.add.builds) {
+        result.builds = result.builds || { space: { keys: {} }, ground: { keys: {} } }
+        for (const [env, envData] of Object.entries(operations.add.builds)) {
+          result.builds[env] = result.builds[env] || { keys: {} }
+          if (envData.keys) {
+            result.builds[env].keys = { ...(result.builds[env].keys || {}), ...envData.keys }
+          }
+        }
+      }
+    }
+        
+    if (operations.modify) {
+      // Modify operations - update existing items
+      if (operations.modify.aliases) {
+        result.aliases = result.aliases || {}
+        for (const [aliasName, aliasData] of Object.entries(operations.modify.aliases)) {
+          if (result.aliases[aliasName]) {
+            result.aliases[aliasName] = { ...result.aliases[aliasName], ...aliasData }
+          }
+        }
+      }
+      
+      if (operations.modify.builds) {
+        result.builds = result.builds || { space: { keys: {} }, ground: { keys: {} } }
+        for (const [env, envData] of Object.entries(operations.modify.builds)) {
+          result.builds[env] = result.builds[env] || { keys: {} }
+          if (envData.keys) {
+            result.builds[env].keys = result.builds[env].keys || {}
+            for (const [keyName, keyData] of Object.entries(envData.keys)) {
+              if (result.builds[env].keys[keyName]) {
+                result.builds[env].keys[keyName] = keyData
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Handle regular property updates (non-collection fields)
+    if (operations.properties) {
+      Object.assign(result, operations.properties)
     }
     
     return result
@@ -506,10 +627,16 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(`Profile ${profileId} not found`)
     }
 
-    // Use deep merge for nested objects like aliases and builds
-    const updatedProfile = this.deepMergeProfileUpdates(currentProfile, {
+    if (!(updates.add || updates.delete || updates.modify || updates.properties)) {
+      throw new Error('Explicit operations (add/delete/modify/properties) required')
+    }
+
+    const updatedProfile = this.processUpdateOperations(currentProfile, {
       ...updates,
-      lastModified: new Date().toISOString()
+      properties: {
+        ...(updates.properties || {}),
+        lastModified: new Date().toISOString()
+      }
     })
     
     // Save to storage

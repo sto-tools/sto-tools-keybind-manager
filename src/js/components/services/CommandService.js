@@ -131,72 +131,93 @@ export default class CommandService extends ComponentBase {
       return false
     }
 
-    // Prepare profile updates
-    const updates = {}
+    // Prepare helper vars (newCommandString / newKeys) – no legacy 'updates' object
+    const currentAlias = this.cache.aliases && this.cache.aliases[key]
+    const currentCommands = currentAlias && currentAlias.commands
+      ? currentAlias.commands.split(/\s*\$\$\s*/).filter((cmd) => cmd.trim().length > 0)
+      : []
     
-    if (this.currentEnvironment === 'alias') {
-      // ----- Alias chain -----
-      const currentAlias = this.cache.aliases && this.cache.aliases[key]
-      const currentCommands = currentAlias && currentAlias.commands
-        ? currentAlias.commands.split(/\s*\$\$\s*/).filter((cmd) => cmd.trim().length > 0)
-        : []
-      
-      // Handle both single commands and arrays of commands (e.g., whole-tray execution)
-      if (Array.isArray(command)) {
-        // For arrays of commands, extract the command string from each
-        command.forEach(cmd => {
-          const commandString = cmd.command
-          if (commandString) {
-            currentCommands.push(commandString)
-          }
-        })
-      } else {
-        // For single commands, extract the command string
-        const commandString = command.command
+    // Handle both single commands and arrays of commands (e.g., whole-tray execution)
+    if (Array.isArray(command)) {
+      // For arrays of commands, extract the command string from each
+      command.forEach(cmd => {
+        const commandString = cmd.command
         if (commandString) {
           currentCommands.push(commandString)
         }
-      }
-      
-      const newCommandString = currentCommands.join(' $$ ')
-      updates.aliases = {
-        ...this.cache.aliases,
-        [key]: {
-          ...(this.cache.aliases[key] || {}),
-          commands: newCommandString
-        }
-      }
+      })
     } else {
-      // ----- Key-bind -----
-      const currentKeys = this.cache.keys[key] || []
-      
-      // Handle both single commands and arrays of commands (e.g., whole-tray execution)
-      let commandsToAdd = []
-      if (Array.isArray(command)) {
-        commandsToAdd = command
-      } else {
-        commandsToAdd = [command]
+      // For single commands, extract the command string
+      const commandString = command.command
+      if (commandString) {
+        currentCommands.push(commandString)
       }
-      
-      const newKeys = [...currentKeys, ...commandsToAdd]
-      
-      updates.builds = {
-        ...this.cache.builds,
-        [this.currentEnvironment]: {
-          ...this.cache.builds[this.currentEnvironment],
-          keys: {
-            ...this.cache.builds[this.currentEnvironment].keys,
-            [key]: newKeys
+    }
+    
+    const newCommandString = currentCommands.join(' $$ ')
+
+    // ----- Key-bind -----
+    const currentKeys = this.cache.keys[key] || []
+    
+    // Handle both single commands and arrays of commands (e.g., whole-tray execution)
+    let commandsToAdd = []
+    if (Array.isArray(command)) {
+      commandsToAdd = command
+    } else {
+      commandsToAdd = [command]
+    }
+    
+    const newKeys = [...currentKeys, ...commandsToAdd]
+    
+    try {
+      // Build explicit operations object
+      const ops = {}
+      if (this.currentEnvironment === 'alias') {
+        const aliasExists = !!profile.aliases?.[key]
+        if (aliasExists) {
+          ops.modify = {
+            aliases: {
+              [key]: {
+                ...(profile.aliases[key] || {}),
+                commands: newCommandString
+              }
+            }
+          }
+        } else {
+          ops.add = {
+            aliases: {
+              [key]: {
+                commands: newCommandString,
+                description: '',
+                type: 'alias'
+              }
+            }
+          }
+        }
+      } else {
+        const keyExists = !!profile.builds?.[this.currentEnvironment]?.keys?.[key]
+        if (keyExists) {
+          ops.modify = {
+            builds: {
+              [this.currentEnvironment]: {
+                keys: { [key]: newKeys }
+              }
+            }
+          }
+        } else {
+          ops.add = {
+            builds: {
+              [this.currentEnvironment]: {
+                keys: { [key]: newKeys }
+              }
+            }
           }
         }
       }
-    }
 
-    try {
-      // Update via DataCoordinator
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        ...ops
       })
       
       this.emit('command-added', { key, command })
@@ -213,43 +234,63 @@ export default class CommandService extends ComponentBase {
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
-    const isAliasContext =
-      this.currentEnvironment === 'alias' ||
+    if (!key || index === undefined) return false
+
+    const isAliasContext = this.currentEnvironment === 'alias' ||
       (this.cache.aliases && Object.prototype.hasOwnProperty.call(this.cache.aliases, key))
 
-    const updates = {}
+    let payload = null
 
     if (isAliasContext) {
-      const currentAlias = this.cache.aliases && this.cache.aliases[key]
-      if (!currentAlias || !currentAlias.commands) return false
+      const aliasObj = this.cache.aliases[key]
+      if (!aliasObj || !aliasObj.commands) return false
 
-      const commands = currentAlias.commands
+      const commandsArr = aliasObj.commands
         .split(/\s*\$\$\s*/)
-        .filter((cmd) => cmd.trim().length > 0)
+        .filter(c => c.trim().length > 0)
 
-      if (index >= 0 && index < commands.length) {
-        commands.splice(index, 1)
-        updates.aliases = {
-          ...this.cache.aliases,
-          [key]: {
-            ...this.cache.aliases[key],
-            commands: commands.join(' $$ ')
+      if (index < 0 || index >= commandsArr.length) return false
+
+      commandsArr.splice(index, 1)
+
+      if (commandsArr.length === 0) {
+        payload = { delete: { aliases: [key] } }
+      } else {
+        payload = {
+          modify: {
+            aliases: {
+              [key]: {
+                ...aliasObj,
+                commands: commandsArr.join(' $$ ')
+              }
+            }
           }
         }
       }
     } else {
-      const currentKeys = this.cache.keys[key] || []
-      if (currentKeys[index]) {
-        const newKeys = [...currentKeys]
-        newKeys.splice(index, 1)
-        
-        updates.builds = {
-          ...this.cache.builds,
-          [this.currentEnvironment]: {
-            ...this.cache.builds[this.currentEnvironment],
-            keys: {
-              ...this.cache.builds[this.currentEnvironment].keys,
-              [key]: newKeys
+      const keyCommands = this.cache.keys[key] || []
+      if (!keyCommands[index]) return false
+
+      const newKeyCommands = [...keyCommands]
+      newKeyCommands.splice(index, 1)
+
+      if (newKeyCommands.length === 0) {
+        payload = {
+          delete: {
+            builds: {
+              [this.currentEnvironment]: {
+                keys: [key]
+              }
+            }
+          }
+        }
+      } else {
+        payload = {
+          modify: {
+            builds: {
+              [this.currentEnvironment]: {
+                keys: { [key]: newKeyCommands }
+              }
             }
           }
         }
@@ -257,12 +298,11 @@ export default class CommandService extends ComponentBase {
     }
 
     try {
-      // Update via DataCoordinator
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        ...payload
       })
-      
+
       this.emit('command-deleted', { key, index })
       return true
     } catch (error) {
@@ -276,52 +316,50 @@ export default class CommandService extends ComponentBase {
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
-    const updates = {}
+    let payload = null
 
     if (this.currentEnvironment === 'alias') {
-      const currentAlias = this.cache.aliases && this.cache.aliases[key]
-      if (!currentAlias || !currentAlias.commands) return false
+      const aliasObj = this.cache.aliases && this.cache.aliases[key]
+      if (!aliasObj || !aliasObj.commands) return false
 
-      const commands = currentAlias.commands
+      const cmds = aliasObj.commands
         .split(/\s*\$\$\s*/)
-        .filter((cmd) => cmd.trim().length > 0)
+        .filter(c => c.trim().length > 0)
 
       if (
-        fromIndex >= 0 &&
-        fromIndex < commands.length &&
-        toIndex >= 0 &&
-        toIndex < commands.length
-      ) {
-        const [moved] = commands.splice(fromIndex, 1)
-        commands.splice(toIndex, 0, moved)
-        
-        updates.aliases = {
-          ...this.cache.aliases,
-          [key]: {
-            ...this.cache.aliases[key],
-            commands: commands.join(' $$ ')
+        fromIndex < 0 || fromIndex >= cmds.length ||
+        toIndex < 0 || toIndex >= cmds.length
+      ) return false
+
+      const [moved] = cmds.splice(fromIndex, 1)
+      cmds.splice(toIndex, 0, moved)
+
+      payload = {
+        modify: {
+          aliases: {
+            [key]: {
+              ...aliasObj,
+              commands: cmds.join(' $$ ')
+            }
           }
         }
       }
     } else {
-      const currentKeys = this.cache.keys[key] || []
+      const keyCmds = this.cache.keys[key] || []
       if (
-        fromIndex >= 0 &&
-        fromIndex < currentKeys.length &&
-        toIndex >= 0 &&
-        toIndex < currentKeys.length
-      ) {
-        const newKeys = [...currentKeys]
-        const [moved] = newKeys.splice(fromIndex, 1)
-        newKeys.splice(toIndex, 0, moved)
-        
-        updates.builds = {
-          ...this.cache.builds,
-          [this.currentEnvironment]: {
-            ...this.cache.builds[this.currentEnvironment],
-            keys: {
-              ...this.cache.builds[this.currentEnvironment].keys,
-              [key]: newKeys
+        fromIndex < 0 || fromIndex >= keyCmds.length ||
+        toIndex < 0 || toIndex >= keyCmds.length
+      ) return false
+
+      const newCmds = [...keyCmds]
+      const [moved] = newCmds.splice(fromIndex, 1)
+      newCmds.splice(toIndex, 0, moved)
+
+      payload = {
+        modify: {
+          builds: {
+            [this.currentEnvironment]: {
+              keys: { [key]: newCmds }
             }
           }
         }
@@ -329,10 +367,9 @@ export default class CommandService extends ComponentBase {
     }
 
     try {
-      // Update via DataCoordinator
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        ...payload
       })
       
       this.emit('command-moved', { key, fromIndex, toIndex })
@@ -358,57 +395,55 @@ export default class CommandService extends ComponentBase {
       return false
     }
 
-    const updates = {}
-    
+    let payload = null
+
     if (this.currentEnvironment === 'alias') {
-      // ----- Alias chain -----
-      const currentAlias = this.cache.aliases && this.cache.aliases[key]
-      if (!currentAlias || !currentAlias.commands) return false
+      const aliasObj = this.cache.aliases[key]
+      if (!aliasObj || !aliasObj.commands) return false
 
-      const commands = currentAlias.commands
+      const cmds = aliasObj.commands
         .split(/\s*\$\$\s*/)
-        .filter((cmd) => cmd.trim().length > 0)
+        .filter(c => c.trim().length > 0)
 
-      if (index >= 0 && index < commands.length) {
-        // Replace the command at the specified index
-        const commandString = updatedCommand.command || updatedCommand
-        commands[index] = commandString
-        
-        updates.aliases = {
-          ...this.cache.aliases,
-          [key]: {
-            ...this.cache.aliases[key],
-            commands: commands.join(' $$ ')
+      if (index < 0 || index >= cmds.length) return false
+
+      const commandString = updatedCommand.command || updatedCommand
+      cmds[index] = commandString
+
+      payload = {
+        modify: {
+          aliases: {
+            [key]: {
+              ...aliasObj,
+              commands: cmds.join(' $$ ')
+            }
           }
         }
       }
     } else {
-      // ----- Key-bind -----
-      const currentKeys = this.cache.keys[key] || []
-      if (index >= 0 && index < currentKeys.length) {
-        const newKeys = [...currentKeys]
-        newKeys[index] = updatedCommand
-        
-        updates.builds = {
-          ...this.cache.builds,
-          [this.currentEnvironment]: {
-            ...this.cache.builds[this.currentEnvironment],
-            keys: {
-              ...this.cache.builds[this.currentEnvironment].keys,
-              [key]: newKeys
+      const keyCmds = this.cache.keys[key] || []
+      if (index < 0 || index >= keyCmds.length) return false
+
+      const newCmds = [...keyCmds]
+      newCmds[index] = updatedCommand
+
+      payload = {
+        modify: {
+          builds: {
+            [this.currentEnvironment]: {
+              keys: { [key]: newCmds }
             }
           }
         }
       }
     }
 
-    console.log('[CommandService] editCommand updates:', updates)
+    console.log('[CommandService] editCommand updates:', payload)
     
     try {
-      // Update via DataCoordinator
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        ...payload
       })
       
       console.log('[CommandService] editCommand completed successfully')

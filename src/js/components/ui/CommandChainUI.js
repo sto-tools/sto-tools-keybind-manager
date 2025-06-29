@@ -202,11 +202,11 @@ export default class CommandChainUI extends ComponentBase {
       displayName = displayName.command || displayName.text || '[Unknown Command]'
     }
 
+    // Determine display name with proper priority handling
     if (commandDef) {
-      displayName = commandDef.name
       displayIcon = commandDef.icon
 
-      // Parameter pretty-printing (copied from legacy)
+      // For parameterized commands, check if we need special formatting
       if (isParameterized && command.parameters) {
         if (commandDef.categoryId === 'communication' || commandDef.commandId === 'communication') {
           // Display as "verb: message" for communication commands
@@ -214,22 +214,34 @@ export default class CommandChainUI extends ComponentBase {
           if (params.verb && params.message) {
             displayName = `${params.verb}: \"${params.message}\"`
           }
-        }
-        const p = command.parameters
-        if (commandDef.commandId === 'tray_with_backup') {
-          displayName = `${commandDef.name} (${p.active} ${p.tray} ${p.slot} ${p.backup_tray} ${p.backup_slot})`
-        } else if (commandDef.commandId === 'custom_tray') {
-          displayName = `${commandDef.name} (${p.tray} ${p.slot})`
-        } else if (commandDef.commandId === 'target') {
-          displayName = `${commandDef.name}: ${p.entityName}`
+        } else {
+          const p = command.parameters
+          if (commandDef.commandId === 'tray_with_backup') {
+            displayName = `${commandDef.name} (${p.active} ${p.tray} ${p.slot} ${p.backup_tray} ${p.backup_slot})`
+          } else if (commandDef.commandId === 'custom_tray') {
+            displayName = `${commandDef.name} (${p.tray} ${p.slot})`
+          } else if (commandDef.commandId === 'target') {
+            displayName = `${commandDef.name}: ${p.entityName}`
+          } else {
+            // For other parameterized commands, prefer displayText if available
+            displayName = command.displayText || commandDef.name
+          }
         }
       } else if (isParameterized && !command.parameters && commandDef.commandId === 'custom_tray') {
         // Dynamically parse tray/slot from command string when parameters are absent
         const m = command.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
         if (m) {
           displayName = `${commandDef.name} (${parseInt(m[1])} ${parseInt(m[2])})`
+        } else {
+          displayName = command.displayText || commandDef.name
         }
+      } else {
+        // For non-parameterized commands, always prefer displayText when available
+        displayName = command.displayText || commandDef.name
       }
+    } else if (command.displayText) {
+      // No command definition found, but we have displayText from parser - use it
+      displayName = command.displayText
     }
 
     if (isParameterized) {
@@ -253,9 +265,12 @@ export default class CommandChainUI extends ComponentBase {
     console.log('[CommandChainUI] command', command)
     console.log('[CommandChainUI] commandDef', commandDef)
     // Determine the actual command type from the definition, not from the parsed command
-    let commandType = command.type
+    let commandType = command.type || command.category
     // Preserve VFX alias type, don't override it with command definition categoryId
-    if (commandDef && commandDef.categoryId && command.type !== 'vfx-alias') {
+    // Also preserve other specific alias types like 'alias' or 'vfx-alias'
+    if (commandDef && commandDef.categoryId && 
+        !['vfx-alias', 'alias'].includes(command.type) && 
+        !['vfx-alias', 'alias'].includes(command.category)) {
       commandType = commandDef.categoryId
     }
 

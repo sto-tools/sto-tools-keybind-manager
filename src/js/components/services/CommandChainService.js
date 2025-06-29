@@ -366,18 +366,6 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      // Use DataCoordinator to save profile changes
-      const updates = {}
-      if (this.currentEnvironment === 'alias') {
-        updates.aliases = { [key]: profile.aliases[key] }
-      } else {
-        updates.builds = {
-          [this.currentEnvironment]: {
-            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
-          }
-        }
-      }
-
       // Ensure we have a valid profile ID before making the request
       if (!this.cache.currentProfile) {
         console.error('CommandChainService: Cannot add command - no current profile ID in cache')
@@ -400,9 +388,22 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
+      // Use DataCoordinator explicit operations API to modify specific items
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates
+        modify: this.currentEnvironment === 'alias' ? {
+          aliases: {
+            [key]: profile.aliases[key]
+          }
+        } : {
+          builds: {
+            [this.currentEnvironment]: {
+              keys: {
+                [key]: profile.builds[this.currentEnvironment].keys[key]
+              }
+            }
+          }
+        }
       })
 
       if (result?.success) {
@@ -466,18 +467,6 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      // Use DataCoordinator to save profile changes
-      const updates = {}
-      if (isAliasContext) {
-        updates.aliases = { [key]: profile.aliases[key] }
-      } else {
-        updates.builds = {
-          [this.currentEnvironment]: {
-            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
-          }
-        }
-      }
-
       // Ensure we have a valid profile ID before making the request
       const profileId = this.cache.currentProfile || this.currentProfile
       if (!profileId) {
@@ -485,9 +474,22 @@ export default class CommandChainService extends ComponentBase {
         return false
       }
 
+      // Use DataCoordinator explicit operations API to modify specific items
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: profileId,
-        updates
+        modify: isAliasContext ? {
+          aliases: {
+            [key]: profile.aliases[key]
+          }
+        } : {
+          builds: {
+            [this.currentEnvironment]: {
+              keys: {
+                [key]: profile.builds[this.currentEnvironment].keys[key]
+              }
+            }
+          }
+        }
       })
 
       if (result?.success) {
@@ -540,18 +542,6 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      // Use DataCoordinator to save profile changes
-      const updates = {}
-      if (this.currentEnvironment === 'alias') {
-        updates.aliases = { [key]: profile.aliases[key] }
-      } else {
-        updates.builds = {
-          [this.currentEnvironment]: {
-            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
-          }
-        }
-      }
-
       // Ensure we have a valid profile ID before making the request
       const profileId = this.cache.currentProfile || this.currentProfile
       if (!profileId) {
@@ -559,9 +549,22 @@ export default class CommandChainService extends ComponentBase {
         return false
       }
 
+      // Use DataCoordinator explicit operations API to modify specific items
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: profileId,
-        updates
+        modify: this.currentEnvironment === 'alias' ? {
+          aliases: {
+            [key]: profile.aliases[key]
+          }
+        } : {
+          builds: {
+            [this.currentEnvironment]: {
+              keys: {
+                [key]: profile.builds[this.currentEnvironment].keys[key]
+              }
+            }
+          }
+        }
       })
 
       if (result?.success) {
@@ -642,18 +645,6 @@ export default class CommandChainService extends ComponentBase {
         }
       }
 
-      // Use DataCoordinator to save profile changes
-      const updates = {}
-      if (this.currentEnvironment === 'alias') {
-        updates.aliases = { [key]: profile.aliases[key] }
-      } else {
-        updates.builds = {
-          [this.currentEnvironment]: {
-            keys: { [key]: profile.builds[this.currentEnvironment].keys[key] }
-          }
-        }
-      }
-
       // Ensure we have a valid profile ID before making the request
       const profileId = this.cache.currentProfile || this.currentProfile
       if (!profileId) {
@@ -661,9 +652,22 @@ export default class CommandChainService extends ComponentBase {
         return false
       }
 
+      // Use DataCoordinator explicit operations API to modify specific items
       const result = await request(this.eventBus, 'data:update-profile', {
         profileId: profileId,
-        updates
+        modify: this.currentEnvironment === 'alias' ? {
+          aliases: {
+            [key]: profile.aliases[key]
+          }
+        } : {
+          builds: {
+            [this.currentEnvironment]: {
+              keys: {
+                [key]: profile.builds[this.currentEnvironment].keys[key]
+              }
+            }
+          }
+        }
       })
 
       if (result?.success) {

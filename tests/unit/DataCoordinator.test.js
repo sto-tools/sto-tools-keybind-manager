@@ -754,4 +754,278 @@ describe('DataCoordinator', () => {
       expect(updatedProfile.builds).toEqual({ space: { keys: {} } })
     })
   })
+
+  describe('Explicit Operations API', () => {
+    test('should add new aliases without affecting existing ones', async () => {
+      const coordinator = new DataCoordinator({ eventBus, storage: mockStorage })
+      await coordinator.init()
+      
+      const profileId = 'test_profile'
+      const initialProfile = {
+        name: 'Test Profile',
+        aliases: {
+          'existing': { commands: 'existing_command', description: 'Existing alias' }
+        },
+        builds: { space: { keys: {} }, ground: { keys: {} } }
+      }
+      
+      coordinator.state.profiles[profileId] = initialProfile
+      
+      // Add new aliases using explicit operations
+      const result = await coordinator.updateProfile(profileId, {
+        add: {
+          aliases: {
+            'new_alias1': { commands: 'new_command1', description: 'New alias 1' },
+            'new_alias2': { commands: 'new_command2', description: 'New alias 2' }
+          }
+        }
+      })
+      
+      expect(result.success).toBe(true)
+      
+      const updatedProfile = coordinator.state.profiles[profileId]
+      expect(updatedProfile.aliases).toEqual({
+        'existing': { commands: 'existing_command', description: 'Existing alias' },
+        'new_alias1': { commands: 'new_command1', description: 'New alias 1' },
+        'new_alias2': { commands: 'new_command2', description: 'New alias 2' }
+      })
+    })
+
+    test('should delete specific aliases without affecting others', async () => {
+      const coordinator = new DataCoordinator({ eventBus, storage: mockStorage })
+      await coordinator.init()
+      
+      const profileId = 'test_profile'
+      const initialProfile = {
+        name: 'Test Profile',
+        aliases: {
+          'alias1': { commands: 'command1', description: 'First alias' },
+          'alias2': { commands: 'command2', description: 'Second alias' },
+          'alias3': { commands: 'command3', description: 'Third alias' }
+        },
+        builds: { space: { keys: {} }, ground: { keys: {} } }
+      }
+      
+      coordinator.state.profiles[profileId] = initialProfile
+      
+      // Delete specific aliases using explicit operations
+      const result = await coordinator.updateProfile(profileId, {
+        delete: {
+          aliases: ['alias2']
+        }
+      })
+      
+      expect(result.success).toBe(true)
+      
+      const updatedProfile = coordinator.state.profiles[profileId]
+      expect(updatedProfile.aliases).toEqual({
+        'alias1': { commands: 'command1', description: 'First alias' },
+        'alias3': { commands: 'command3', description: 'Third alias' }
+      })
+    })
+
+    test('should modify existing aliases without affecting others', async () => {
+      const coordinator = new DataCoordinator({ eventBus, storage: mockStorage })
+      await coordinator.init()
+      
+      const profileId = 'test_profile'
+      const initialProfile = {
+        name: 'Test Profile',
+        aliases: {
+          'alias1': { commands: 'command1', description: 'First alias' },
+          'alias2': { commands: 'command2', description: 'Second alias' },
+          'alias3': { commands: 'command3', description: 'Third alias' }
+        },
+        builds: { space: { keys: {} }, ground: { keys: {} } }
+      }
+      
+      coordinator.state.profiles[profileId] = initialProfile
+      
+      // Modify specific alias using explicit operations
+      const result = await coordinator.updateProfile(profileId, {
+        modify: {
+          aliases: {
+            'alias2': { commands: 'updated_command2', description: 'Updated second alias' }
+          }
+        }
+      })
+      
+      expect(result.success).toBe(true)
+      
+      const updatedProfile = coordinator.state.profiles[profileId]
+      expect(updatedProfile.aliases).toEqual({
+        'alias1': { commands: 'command1', description: 'First alias' },
+        'alias2': { commands: 'updated_command2', description: 'Updated second alias' },
+        'alias3': { commands: 'command3', description: 'Third alias' }
+      })
+    })
+
+    test('should handle combined operations (add + delete + modify)', async () => {
+      const coordinator = new DataCoordinator({ eventBus, storage: mockStorage })
+      await coordinator.init()
+      
+      const profileId = 'test_profile'
+      const initialProfile = {
+        name: 'Test Profile',
+        aliases: {
+          'keep_me': { commands: 'keep_command', description: 'Keep this' },
+          'modify_me': { commands: 'old_command', description: 'Old description' },
+          'delete_me': { commands: 'delete_command', description: 'Delete this' }
+        },
+        builds: { space: { keys: {} }, ground: { keys: {} } }
+      }
+      
+      coordinator.state.profiles[profileId] = initialProfile
+      
+      // Combined operations
+      const result = await coordinator.updateProfile(profileId, {
+        add: {
+          aliases: {
+            'new_alias': { commands: 'new_command', description: 'New alias' }
+          }
+        },
+        delete: {
+          aliases: ['delete_me']
+        },
+        modify: {
+          aliases: {
+            'modify_me': { commands: 'updated_command', description: 'Updated description' }
+          }
+        },
+        properties: {
+          description: 'Updated profile description'
+        }
+      })
+      
+      expect(result.success).toBe(true)
+      
+      const updatedProfile = coordinator.state.profiles[profileId]
+      expect(updatedProfile.aliases).toEqual({
+        'keep_me': { commands: 'keep_command', description: 'Keep this' },
+        'modify_me': { commands: 'updated_command', description: 'Updated description' },
+        'new_alias': { commands: 'new_command', description: 'New alias' }
+      })
+      expect(updatedProfile.description).toBe('Updated profile description')
+    })
+
+    test('should add new keys without affecting existing ones', async () => {
+      const coordinator = new DataCoordinator({ eventBus, storage: mockStorage })
+      await coordinator.init()
+      
+      const profileId = 'test_profile'
+      const initialProfile = {
+        name: 'Test Profile',
+        aliases: {},
+        builds: {
+          space: {
+            keys: {
+              'F1': [{ command: 'existing_f1_command' }]
+            }
+          },
+          ground: { keys: {} }
+        }
+      }
+      
+      coordinator.state.profiles[profileId] = initialProfile
+      
+      // Add new keys using explicit operations
+      const result = await coordinator.updateProfile(profileId, {
+        add: {
+          builds: {
+            space: {
+              keys: {
+                'F2': [{ command: 'new_f2_command' }],
+                'F3': [{ command: 'new_f3_command' }]
+              }
+            }
+          }
+        }
+      })
+      
+      expect(result.success).toBe(true)
+      
+      const updatedProfile = coordinator.state.profiles[profileId]
+      expect(updatedProfile.builds.space.keys).toEqual({
+        'F1': [{ command: 'existing_f1_command' }],
+        'F2': [{ command: 'new_f2_command' }],
+        'F3': [{ command: 'new_f3_command' }]
+      })
+    })
+
+    test('should delete specific keys without affecting others', async () => {
+      const coordinator = new DataCoordinator({ eventBus, storage: mockStorage })
+      await coordinator.init()
+      
+      const profileId = 'test_profile'
+      const initialProfile = {
+        name: 'Test Profile',
+        aliases: {},
+        builds: {
+          space: {
+            keys: {
+              'F1': [{ command: 'f1_command' }],
+              'F2': [{ command: 'f2_command' }],
+              'F3': [{ command: 'f3_command' }]
+            }
+          },
+          ground: { keys: {} }
+        }
+      }
+      
+      coordinator.state.profiles[profileId] = initialProfile
+      
+      // Delete specific keys using explicit operations
+      const result = await coordinator.updateProfile(profileId, {
+        delete: {
+          builds: {
+            space: {
+              keys: ['F2']
+            }
+          }
+        }
+      })
+      
+      expect(result.success).toBe(true)
+      
+      const updatedProfile = coordinator.state.profiles[profileId]
+      expect(updatedProfile.builds.space.keys).toEqual({
+        'F1': [{ command: 'f1_command' }],
+        'F3': [{ command: 'f3_command' }]
+      })
+    })
+
+    test('should maintain backward compatibility with legacy update format', async () => {
+      const coordinator = new DataCoordinator({ eventBus, storage: mockStorage })
+      await coordinator.init()
+      
+      const profileId = 'test_profile'
+      const initialProfile = {
+        name: 'Test Profile',
+        aliases: {
+          'existing': { commands: 'existing_command', description: 'Existing alias' }
+        },
+        builds: { space: { keys: {} }, ground: { keys: {} } }
+      }
+      
+      coordinator.state.profiles[profileId] = initialProfile
+      
+      // Use legacy format (should still work)
+      const result = await coordinator.updateProfile(profileId, {
+        description: 'Updated via legacy format',
+        aliases: {
+          'existing': { commands: 'existing_command', description: 'Existing alias' },
+          'new_legacy': { commands: 'legacy_command', description: 'Added via legacy' }
+        }
+      })
+      
+      expect(result.success).toBe(true)
+      
+      const updatedProfile = coordinator.state.profiles[profileId]
+      expect(updatedProfile.description).toBe('Updated via legacy format')
+      expect(updatedProfile.aliases).toEqual({
+        'existing': { commands: 'existing_command', description: 'Existing alias' },
+        'new_legacy': { commands: 'legacy_command', description: 'Added via legacy' }
+      })
+    })
+  })
 }) 

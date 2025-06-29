@@ -186,21 +186,18 @@ export default class KeyService extends ComponentBase {
     }
 
     try {
-      // Prepare updated builds structure
-      const updatedBuilds = {
-        ...this.cache.builds,
-        [this.cache.currentEnvironment]: {
-          keys: {
-            ...this.cache.keys,
-            [keyName]: []
-          }
-        }
-      }
-
-      // Update through DataCoordinator
+      // Add new key using explicit operations API
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates: { builds: updatedBuilds }
+        add: {
+          builds: {
+            [this.cache.currentEnvironment]: {
+              keys: {
+                [keyName]: []
+              }
+            }
+          }
+        }
       })
 
       this.selectedKey = keyName
@@ -224,21 +221,16 @@ export default class KeyService extends ComponentBase {
     }
 
     try {
-      // Prepare updated builds structure
-      const updatedKeys = { ...this.cache.keys }
-      delete updatedKeys[keyName]
-      
-      const updatedBuilds = {
-        ...this.cache.builds,
-        [this.cache.currentEnvironment]: {
-          keys: updatedKeys
-        }
-      }
-
-      // Update through DataCoordinator
+      // Delete key using explicit operations API
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates: { builds: updatedBuilds }
+        delete: {
+          builds: {
+            [this.cache.currentEnvironment]: {
+              keys: [keyName]
+            }
+          }
+        }
       })
 
       if (this.selectedKey === keyName) {
@@ -276,21 +268,18 @@ export default class KeyService extends ComponentBase {
       // Clone commands with new IDs
       const cloned = commands.map(cmd => ({ ...cmd, id: this.generateKeyId() }))
 
-      // Prepare updated builds structure
-      const updatedBuilds = {
-        ...this.cache.builds,
-        [this.cache.currentEnvironment]: {
-          keys: {
-            ...this.cache.keys,
-            [newKeyName]: cloned
-          }
-        }
-      }
-
-      // Update through DataCoordinator
+      // Add duplicated key using explicit operations API
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
-        updates: { builds: updatedBuilds }
+        add: {
+          builds: {
+            [this.cache.currentEnvironment]: {
+              keys: {
+                [newKeyName]: cloned
+              }
+            }
+          }
+        }
       })
 
       this.emit('key-duplicated', { from: keyName, to: newKeyName })
