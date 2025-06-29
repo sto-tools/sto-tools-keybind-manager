@@ -34,7 +34,13 @@ export default class StorageService extends ComponentBase {
   }
 
   // Get all data from storage
-  getAllData() {
+  // If forceFresh is true, bypass in-memory cache and reload from localStorage
+  getAllData(forceFresh = false) {
+    // Use cached copy unless forceFresh requested
+    if (!forceFresh && this._cachedData) {
+      return this._cachedData
+    }
+
     try {
       const data = localStorage.getItem(this.storageKey)
       const resetFlag = localStorage.getItem('sto_app_reset')
@@ -55,10 +61,14 @@ export default class StorageService extends ComponentBase {
         return this.getDefaultData()
       }
 
+      // Cache and return parsed data
+      this._cachedData = parsed
       return parsed
     } catch (error) {
       console.error('Error loading data from storage:', error)
-      return this.getDefaultData()
+      const defaults = this.getDefaultData()
+      this._cachedData = defaults
+      return defaults
     }
   }
 
@@ -78,6 +88,9 @@ export default class StorageService extends ComponentBase {
 
       localStorage.setItem(this.storageKey, JSON.stringify(dataWithMeta))
       
+      // Update cache
+      this._cachedData = dataWithMeta
+      
       // Emit data changed event
       this.emit('storage:data-changed', { data: dataWithMeta })
       
@@ -96,12 +109,14 @@ export default class StorageService extends ComponentBase {
 
   // Save specific profile
   saveProfile(profileId, profile) {
-    const data = this.getAllData()
+    // Always fetch fresh to avoid stale cache overwriting newer changes
+    const data = this.getAllData(true)
     data.profiles[profileId] = {
       ...profile,
       lastModified: new Date().toISOString(),
     }
-    return this.saveAllData(data)
+    const ok = this.saveAllData(data)
+    return ok
   }
 
   // Delete profile

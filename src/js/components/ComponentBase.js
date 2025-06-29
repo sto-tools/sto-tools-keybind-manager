@@ -2,6 +2,8 @@
  * ComponentBase - Base class for all application components
  * Provides common functionality including event bus access and lifecycle methods
  */
+import { request as _cbRequest, respond as _cbRespond } from '../core/requestResponse.js'
+
 export default class ComponentBase {
   constructor(eventBus = null) {
     this.eventBus = eventBus
@@ -135,6 +137,10 @@ export default class ComponentBase {
    * @param {*} data - Event data
    */
   emit(event, data = null) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[${this.getComponentName()}] emit → ${event}`, data)
+    }
     // Emit via event bus if available
     if (this.eventBus && typeof this.eventBus.emit === 'function') {
       this.eventBus.emit(event, data)
@@ -247,5 +253,38 @@ export default class ComponentBase {
   /* eslint-disable-next-line */
   handleInitialState(sender, state) {
     // No-op by default. Override in subclasses if needed.
+  }
+
+  /**
+   * Wrapper around requestResponse.request with component name debug logging
+   * @param {string} topic
+   * @param {*} payload
+   */
+  async request(topic, payload = {}) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[${this.getComponentName()}] request → ${topic}`, payload)
+    }
+    return await _cbRequest(this.eventBus, topic, payload)
+  }
+
+  /**
+   * Wrapper around requestResponse.respond that prefixes logs with component name
+   * Returns the detach function from respond().
+   * @param {string} topic
+   * @param {Function} handler
+   */
+  respond(topic, handler) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[${this.getComponentName()}] respond ← ${topic} (handler registered)`)
+    }
+    return _cbRespond(this.eventBus, topic, async (payload) => {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[${this.getComponentName()}] respond handler → ${topic}`, payload)
+      }
+      return await handler(payload)
+    })
   }
 } 

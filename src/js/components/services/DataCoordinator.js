@@ -640,6 +640,7 @@ export default class DataCoordinator extends ComponentBase {
     })
     
     // Persist to storage first
+    console.log(`[${this.componentName}] Saving profile ${profileId} to storage:`, updatedProfile)
     await this.storage.saveProfile(profileId, updatedProfile)
 
     // Update in-memory cache regardless of what changed
@@ -649,8 +650,8 @@ export default class DataCoordinator extends ComponentBase {
     // Determine if any structural collections were touched
     const touchedCollections = !!(updates.add || updates.delete || updates.modify)
 
-    if (touchedCollections) {
-      // Notify other services only when aliases / builds (or other collections) changed
+    if (touchedCollections) { // || updates.properties?.currentEnvironment || updates.properties?.currentProfile) {
+      // Notify other services when aliases / builds changed // or environment/profile properties changed
       this.emit('profile:updated', {
         profileId,
         profile: updatedProfile,
