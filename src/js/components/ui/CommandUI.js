@@ -116,9 +116,35 @@ export default class CommandUI extends ComponentBase {
       }
     })
 
-    // Command search
-    this.eventBus.onDom('commandSearch', 'input', 'command-search', (e) => {
-      this.filterCommands(e.target.value)
+    // Debounced command search input via eventBus helper
+    this.eventBus.onDomDebounced(
+      'commandSearch',
+      'input',
+      'command-search',
+      (e) => {
+        this.filterCommands(e.target.value)
+      },
+      250
+    )
+
+    this.eventBus.onDom('commandSearch', 'keydown', 'command-search-key', (e) => {
+      if (e.key === 'Escape') {
+        const input = e.target
+        input.value = ''
+        input.classList.remove('expanded')
+        this.eventBus.emit('command:filter', { filter: '' })
+      } else if (e.key === 'Enter') {
+        const input = e.target
+        input.classList.remove('expanded')
+        input.blur()
+      }
+    })
+
+    // show all commands button
+    this.eventBus.onDom('showAllCommandsBtn', 'click', 'command-show-all', () => {
+      const inp = this.document.getElementById('commandSearch')
+      if (inp) inp.value = ''
+      this.eventBus.emit('command:filter', { filter: '' })
     })
 
     // Command search button
@@ -260,13 +286,16 @@ export default class CommandUI extends ComponentBase {
    * Toggle command search functionality
    */
   toggleCommandSearch() {
-    const searchInput = this.document.getElementById('commandSearch')
-    if (searchInput) {
+    const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
+    if (!doc) return
+    const searchInput = doc.getElementById('commandSearch')
+    if (!searchInput) return
+
+    const expanded = searchInput.classList.toggle('expanded')
+    if (expanded) {
       searchInput.focus()
-      // If search is empty, show placeholder or help
-      if (!searchInput.value) {
-        searchInput.placeholder = 'Search commands...'
-      }
+    } else {
+      searchInput.blur()
     }
   }
 

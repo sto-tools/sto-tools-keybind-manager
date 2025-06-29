@@ -99,9 +99,25 @@ export default class KeyBrowserUI extends ComponentBase {
       }
     })
 
-    // Key filtering and view controls
-    this.eventBus.onDom('keyFilter', 'input', 'key-filter', (e) => {
+    // Debounced key search input via eventBus helper
+    this.eventBus.onDomDebounced('keyFilter', 'input', 'key-filter', (e) => {
       this.filterKeys(e.target.value)
+    }, 250)
+
+    // Escape / Enter keys within search input
+    this.eventBus.onDom('keyFilter', 'keydown', 'key-filter-key', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        const input = e.target
+        input.value = ''
+        input.classList.remove('expanded')
+        this.eventBus.emit('key:filter', { filter: '' })
+      } else if (e.key === 'Enter') {
+        const input = e.target
+        input.classList.remove('expanded')
+        // keep current filter; focus out
+        input.blur()
+      }
     })
 
     this.eventBus.onDom('showAllKeysBtn', 'click', 'show-all-keys', () => {
@@ -577,41 +593,19 @@ export default class KeyBrowserUI extends ComponentBase {
   }
 
   /**
-   * Filter keys by search term
-   */
-  filterKeys(value) {
-    this.eventBus.emit('key:filter', { filter: value })
-  }
-
-  /**
-   * Show all keys (clear filter)
-   */
-  showAllKeys() {
-    const filterInput = this.document.getElementById('keyFilter')
-    if (filterInput) {
-      filterInput.value = ''
-    }
-    this.eventBus.emit('key:filter', { filter: '' })
-  }
-
-  /**
-   * Toggle key view (compact/detailed)
-   */
-  toggleKeyView() {
-    this.eventBus.emit('key:toggle-view')
-  }
-
-  /**
    * Toggle key search functionality
    */
   toggleKeySearch() {
-    const searchInput = this.document.getElementById('keyFilter')
-    if (searchInput) {
+    const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
+    if (!doc) return
+    const searchInput = doc.getElementById('keyFilter')
+    if (!searchInput) return
+
+    const expanded = searchInput.classList.toggle('expanded')
+    if (expanded) {
       searchInput.focus()
-      // If search is empty, show placeholder or help
-      if (!searchInput.value) {
-        searchInput.placeholder = 'Search keys...'
-      }
+    } else {
+      searchInput.blur()
     }
   }
 } 

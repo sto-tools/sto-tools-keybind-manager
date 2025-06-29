@@ -142,11 +142,46 @@ function getAllListenerCounts() {
   return counts
 }
 
+// -----------------------
+// Debounce utility
+// -----------------------
+function debounce(fn, delay = 250) {
+  let timerId
+  return (...args) => {
+    clearTimeout(timerId)
+    timerId = setTimeout(() => fn.apply(this, args), delay)
+  }
+}
+
+/**
+ * Attach a DOM listener that emits through the bus, but debounced.
+ * Signature mirrors onDom with an extra optional delay param at the end.
+ *
+ * Examples:
+ *   eventBus.onDomDebounced('#search', 'input', 'search-changed', (e)=>{...}, 300)
+ */
+function onDomDebounced(target, domEvent, busEvent, handler, delay = 250) {
+  // Handle optional handler omitted case similar to onDom
+  if (typeof handler === 'number') {
+    delay = handler
+    handler = undefined
+  }
+
+  const debouncedHandler = debounce(handler || (()=>{}), delay)
+
+  // Reuse onDom for attachment, but route through debounced function
+  return onDom(target, domEvent, busEvent, (e) => {
+    debouncedHandler(e)
+  })
+}
+
 export default {
   on,
   off,
   emit,
   onDom,
+  onDomDebounced,
+  debounce,
   once,
   clear,
   getListenerCount,

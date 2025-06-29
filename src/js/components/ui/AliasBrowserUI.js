@@ -104,6 +104,36 @@ export default class AliasBrowserUI extends ComponentBase {
         this.updateAliasOptionsLabel()
       })
     })
+
+    // Debounced alias search input via eventBus helper
+    this.eventBus.onDomDebounced('aliasFilter', 'input', 'alias-filter', (e) => {
+      this.filterAliases(e.target.value)
+    }, 250)
+
+    // keydown Escape/Enter
+    this.eventBus.onDom('aliasFilter', 'keydown', 'alias-filter-key', (e) => {
+      if (e.key === 'Escape') {
+        const input = e.target
+        input.value = ''
+        input.classList.remove('expanded')
+        this.filterAliases('')
+      } else if (e.key === 'Enter') {
+        const input = e.target
+        input.classList.remove('expanded')
+        input.blur()
+      }
+    })
+
+    // show all aliases button
+    this.eventBus.onDom('showAllAliasesBtn', 'click', 'alias-show-all', () => {
+      const input = this.document.getElementById('aliasFilter')
+      if (input) input.value = ''
+      this.filterAliases('')
+    })
+
+    this.eventBus.onDom('aliasSearchBtn', 'click', 'alias-search-toggle', () => {
+      this.toggleAliasSearch()
+    })
   }
 
   /**
@@ -311,5 +341,32 @@ export default class AliasBrowserUI extends ComponentBase {
 
     this.modalManager.show('aliasCreationModal')
     validate()
+  }
+
+  /**
+   * Filter aliases by term
+   */
+  filterAliases(value='') {
+    const filter = (value||'').toString().toLowerCase()
+    const items = this.document.querySelectorAll('.alias-item')
+    items.forEach(item => {
+      const name = (item.dataset.alias||'').toLowerCase()
+      const visible = !filter || name.includes(filter)
+      item.style.display = visible ? 'flex' : 'none'
+    })
+  }
+
+  /** Toggle alias search input */
+  toggleAliasSearch() {
+    const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
+    if (!doc) return
+    const input = doc.getElementById('aliasFilter')
+    if (!input) return
+    const expanded = input.classList.toggle('expanded')
+    if (expanded) {
+      input.focus()
+    } else {
+      input.blur()
+    }
   }
 } 

@@ -130,6 +130,10 @@ export default class CommandLibraryService extends ComponentBase {
           this.selectedKey = null // Clear key selection when switching to alias mode
         }
         
+        // Re-apply environment-based filtering whenever mode changes
+        // (UI components may also re-apply text search afterwards)
+        this.filterCommandLibrary()
+        
         if (typeof window !== 'undefined') {
           // eslint-disable-next-line no-console
           console.log(`[CommandLibraryService] after environment change to ${env}. selectedKey: ${this.selectedKey}, selectedAlias: ${this.selectedAlias}`)
@@ -686,19 +690,25 @@ export default class CommandLibraryService extends ComponentBase {
       if (commandDef) {
         let isVisible
         if (this.currentEnvironment === 'alias') {
-          // In alias mode, show all commands as alias commands are not environment-specific
+          // In alias mode, show all commands (env not relevant)
           isVisible = true
         } else {
-          // Check if command has environment restriction
-          if (commandDef.environment) {
-            // If command has specific environment, only show it in that environment
-            isVisible = commandDef.environment === this.currentEnvironment
-          } else {
-            // If no environment specified, show in all environments
-            isVisible = true
-          }
+          // Respect environment property when present
+          isVisible = !commandDef.environment || commandDef.environment === this.currentEnvironment
         }
-        item.style.display = isVisible ? 'block' : 'none'
+
+        // Mark whether hidden by env filter for search logic
+        item.dataset.envHidden = (!isVisible).toString()
+
+        // Only change style if env filter dictates hiding/showing; don't un-hide items already hidden by search
+        if (isVisible) {
+          if (item.style.display === '' || item.style.display === 'none') {
+            // Use flex to preserve original layout
+            item.style.display = 'flex'
+          }
+        } else {
+          item.style.display = 'none'
+        }
       }
     })
 

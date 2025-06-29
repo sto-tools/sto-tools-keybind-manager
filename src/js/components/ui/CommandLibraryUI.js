@@ -61,6 +61,12 @@ export default class CommandLibraryUI extends ComponentBase {
     // Environment and selection changes
     this.addEventListener('environment:changed', ({ environment }) => {
       this._currentEnvironment = environment
+
+      // Re-apply environment visibility handled by service already.
+      // Re-apply current text search filter (if any)
+      const searchInput = this.document.getElementById('commandSearch')
+      const term = searchInput ? searchInput.value : ''
+      this.applySearchFilter(term)
     })
 
     this.addEventListener('key:selected', ({ key }) => {
@@ -86,6 +92,11 @@ export default class CommandLibraryUI extends ComponentBase {
 
     // Command lifecycle events are now handled by CommandChainUI
     // CommandLibraryUI no longer needs to listen to these events
+
+    // NEW: Listen for search filter events from CommandUI
+    this.addEventListener('command:filter', ({ filter = '' }) => {
+      this.applySearchFilter(filter)
+    })
   }
 
   /**
@@ -510,5 +521,53 @@ export default class CommandLibraryUI extends ComponentBase {
       this.updateCacheFromProfile(state.currentProfileData)
       this.updateCommandLibrary()
     }
+  }
+
+  /**
+   * Apply text search filter to command library items
+   * @param {string} filter - Current search term entered by user
+   */
+  async applySearchFilter(filter) {
+    // Normalize filter string
+    const term = (filter || '').trim().toLowerCase()
+
+    // Do NOT call filterCommandLibrary() here – it would reset previous search decisions.
+
+    const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
+    if (!doc) return
+
+    // ---------------------------------
+    // Item-level filtering
+    // ---------------------------------
+    doc.querySelectorAll('.command-item, .alias-item, .vertigo-alias-item').forEach((item) => {
+      // Skip if item already hidden by env filter
+      const alreadyHiddenByEnv = item.dataset.envHidden === 'true'
+
+      if (!term) {
+        // Reset visibility (if env allows)
+        if (!alreadyHiddenByEnv) {
+          item.style.display = 'flex'
+        }
+        return
+      }
+
+      const text = (item.textContent || '').toLowerCase()
+      const shouldShow = text.includes(term)
+
+      if (shouldShow && !alreadyHiddenByEnv) {
+        item.style.display = 'flex'
+      } else {
+        item.style.display = 'none'
+      }
+    })
+
+    // ---------------------------------
+    // Category-level filtering
+    // ---------------------------------
+    doc.querySelectorAll('.category').forEach((category) => {
+      const visibleItems = category.querySelectorAll('.command-item:not([style*="display: none"]), .alias-item:not([style*="display: none"]), .vertigo-alias-item:not([style*="display: none"])')
+      const categoryVisible = !term || visibleItems.length > 0
+      category.style.display = categoryVisible ? 'block' : 'none'
+    })
   }
 }
