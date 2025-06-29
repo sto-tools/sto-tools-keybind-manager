@@ -124,6 +124,7 @@
   "symbols": "Symbols",
   "mouse": "Mouse",
   "gamepad": "Gamepad",
+  "numpad": "Numpad",
   "common_keys1": "Common Keys",
   "find_other_keys": "Find other keys...",
   "select_visual_effects_to_disable_using_dynfxsetfxexlusionlist_aliases_effects_are_organized_by_environment": "Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.",

@@ -17,7 +17,10 @@ export default class AliasBrowserUI extends ComponentBase {
     this.setupEventListeners()
     
     // React to alias list or selection changes
-    this.eventBus.on('aliases-changed', () => this.render())
+    this.eventBus.on('aliases-changed', () => {
+      console.log('[AliasBrowserUI] aliases-changed event received, calling render()')
+      this.render()
+    })
     this.eventBus.on('alias-selected', (data) => {
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console

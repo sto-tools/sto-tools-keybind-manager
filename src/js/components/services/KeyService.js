@@ -51,7 +51,9 @@ export default class KeyService extends ComponentBase {
       respond(this.eventBus, 'key:get-selected', () => this.selectedKey)
       // Note: key:select is handled by KeyBrowserService to maintain consistency with alias pattern
       respond(this.eventBus, 'key:add', ({ key } = {}) => this.addKey(key))
-      respond(this.eventBus, 'key:delete', ({ key } = {}) => this.deleteKey(key))
+      
+      // Use addEventListener for key:delete since KeyBrowserUI emits it rather than requests it
+      this.addEventListener('key:delete', ({ key } = {}) => this.deleteKey(key))
     }
   }
 

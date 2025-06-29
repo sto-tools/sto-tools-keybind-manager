@@ -35,6 +35,9 @@ export default class AliasBrowserService extends ComponentBase {
     if (this.eventBus) {
       respond(this.eventBus, 'alias:get-all', () => this.getAliases())
       respond(this.eventBus, 'alias:select', async ({ name }) => await this.selectAlias(name))
+      
+      // Use addEventListener for alias:delete since AliasBrowserUI emits it rather than requests it
+      this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
     }
   }
 
@@ -58,6 +61,9 @@ export default class AliasBrowserService extends ComponentBase {
 
     // Cache profile state from DataCoordinator broadcasts
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (typeof window !== 'undefined') {
+        console.log(`[AliasBrowserService] profile:updated received. profileId: ${profileId}, cache.currentProfile: ${this.cache.currentProfile}, match: ${profileId === this.cache.currentProfile}`)
+      }
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
         this.emit('aliases-changed', { aliases: this.cache.aliases })
@@ -326,6 +332,13 @@ export default class AliasBrowserService extends ComponentBase {
       const updatedAliases = { ...this.cache.aliases }
       delete updatedAliases[name]
 
+      if (typeof window !== 'undefined') {
+        console.log(`[AliasBrowserService] deleteAlias: Deleting '${name}' from aliases`)
+        console.log(`[AliasBrowserService] deleteAlias: Original aliases:`, Object.keys(this.cache.aliases))
+        console.log(`[AliasBrowserService] deleteAlias: Updated aliases:`, Object.keys(updatedAliases))
+        console.log(`[AliasBrowserService] deleteAlias: Sending update to DataCoordinator with profileId:`, this.cache.currentProfile)
+      }
+
       // Update through DataCoordinator
       await request(this.eventBus, 'data:update-profile', {
         profileId: this.cache.currentProfile,
@@ -334,6 +347,7 @@ export default class AliasBrowserService extends ComponentBase {
 
       if (this.selectedAliasName === name) this.selectedAliasName = null
       this.emit('alias-deleted', { name })
+      // Note: aliases-changed will be emitted by profile:updated handler after cache is updated
       return true
     } catch (error) {
       console.error('[AliasBrowserService] Failed to delete alias:', error)

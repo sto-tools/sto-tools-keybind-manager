@@ -173,11 +173,15 @@ export default class STOToolsKeybindManager {
         eventBus,
       })
 
+      this.aliasBrowserService.init()
+
       // dbg('AliasBrowserService created')
       this.aliasBrowserUI = new AliasBrowserUI({
         eventBus,
         document,
       })
+
+      this.aliasBrowserUI.init()
 
       // dbg('AliasBrowserUI created')
       // ------------------------------
@@ -194,6 +198,7 @@ export default class STOToolsKeybindManager {
         service: this.keyBrowserService,
         eventBus,
         document,
+        modalManager,
       })
 
       // dbg('KeyBrowserUI created')

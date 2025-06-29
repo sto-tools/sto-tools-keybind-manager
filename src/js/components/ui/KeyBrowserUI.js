@@ -8,10 +8,14 @@ import { request } from '../../core/requestResponse.js'
  * renderKeyGrid implementation hanging off the global `app` instance.
  */
 export default class KeyBrowserUI extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus, app = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor ({ eventBus: bus = eventBus,
+                app = null,
+                modalManager = null,
+                document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(bus)
     this.componentName = 'KeyBrowserUI'
     this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
+    this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
     this.document = document
 
     // Cached state

@@ -462,11 +462,9 @@ export default class DataCoordinator extends ComponentBase {
     
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'aliases' && typeof value === 'object' && value !== null) {
-        // Deep merge aliases - individual aliases should be merged, not replaced
-        result.aliases = {
-          ...(current.aliases || {}),
-          ...value
-        }
+        // For aliases, replace entirely rather than merge
+        // This allows for proper alias deletion by sending the complete updated aliases object
+        result.aliases = value
       } else if (key === 'builds' && typeof value === 'object' && value !== null) {
         // Deep merge builds - environments and keys should be merged, not replaced
         result.builds = { ...(current.builds || {}) }
