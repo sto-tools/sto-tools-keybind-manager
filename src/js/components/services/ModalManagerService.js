@@ -199,30 +199,6 @@ export default class ModalManagerService extends ComponentBase {
       }
     })
 
-    /* Alias creation modal */
-    this.registerRegenerateCallback('aliasCreationModal', () => {
-      if (window.app?.createAliasCreationModal) {
-        const modal    = document.getElementById('aliasCreationModal')
-        if (modal) {
-          const fresh  = window.app.createAliasCreationModal()
-          modal.innerHTML = fresh.innerHTML
-          window.applyTranslations?.(modal)
-        }
-      }
-    })
-
-    /* Alias manager modal */
-    this.registerRegenerateCallback('aliasManagerModal', () => {
-      window.stoAliases?.renderAliasList?.()
-    })
-
-    /* Edit alias modal */
-    this.registerRegenerateCallback('editAliasModal', () => {
-      const modal = document.getElementById('editAliasModal')
-      const alias = modal?.getAttribute('data-alias-name')
-      if (alias) window.stoAliases?.populateEditForm?.(alias)
-    })
-
     /* Key selection modal */
     this.registerRegenerateCallback('keySelectionModal', () => {
       const modal = document.getElementById('keySelectionModal')

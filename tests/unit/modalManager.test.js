@@ -127,9 +127,6 @@ describe('ModalManagerService - Language Change Callbacks', () => {
     const expectedModals = [
       'addCommandModal',
       'parameterModal',
-      'aliasCreationModal',
-      'aliasManagerModal',
-      'editAliasModal',
       'keySelectionModal',
       'vertigoModal',
       'profileModal',

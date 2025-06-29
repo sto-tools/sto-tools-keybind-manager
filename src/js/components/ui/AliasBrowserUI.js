@@ -59,9 +59,7 @@ export default class AliasBrowserUI extends ComponentBase {
     this.eventListenersSetup = true
 
     // Alias management DOM events
-    this.eventBus.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {
-      this.showAliasCreationModal()
-    })
+    this.eventBus.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {})
 
     this.eventBus.onDom('deleteAliasChainBtn', 'click', 'alias-chain-delete', () => {
       if (this._selectedAliasName) {
@@ -88,13 +86,6 @@ export default class AliasBrowserUI extends ComponentBase {
         this.updateAliasOptionsLabel()
       })
     })
-  }
-
-  /**
-   * Show alias creation modal
-   */
-  showAliasCreationModal() {
-    this.eventBus.emit('alias:show-create-modal')
   }
 
   /**

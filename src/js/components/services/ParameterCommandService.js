@@ -103,7 +103,8 @@ export default class ParameterCommandService extends ComponentBase {
    * Helpers
    * ---------------------------------------------------------- */
   generateCommandId () {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    // Use slice to avoid deprecated String.prototype.substr
+    return `cmd_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
   }
 
   /**
@@ -117,7 +118,7 @@ export default class ParameterCommandService extends ComponentBase {
       const minSlot = (tray === startTray) ? startSlot : 0
       
       for (let slot = minSlot; slot <= maxSlot; slot++) {
-        commands.push(`${baseCommand} ${tray} ${slot}`)
+        commands.push(`+${baseCommand} ${tray} ${slot}`)
       }
     }
     
@@ -130,7 +131,7 @@ export default class ParameterCommandService extends ComponentBase {
   generateWholeTrayCommands(baseCommand, tray) {
     const commands = []
     for (let slot = 0; slot <= 9; slot++) {
-      commands.push(`${baseCommand} ${tray} ${slot}`)
+      commands.push(`+${baseCommand} ${tray} ${slot}`)
     }
     return commands
   }
