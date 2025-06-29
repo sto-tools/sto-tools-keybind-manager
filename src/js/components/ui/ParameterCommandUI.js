@@ -181,7 +181,7 @@ export default class ParameterCommandUI extends ComponentBase {
 
   cancelParameterCommand () {
     // Emit event to notify services that editing has ended
-    this.eventBus.emit('parameter-edit:end')
+    this.emit('parameter-edit:end')
     
     this.currentParameterCommand = null
 
@@ -219,7 +219,7 @@ export default class ParameterCommandUI extends ComponentBase {
     const currentEnv = this._currentEnvironment || 'space'
     const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
     
-    this.eventBus.emit('parameter-edit:start', {
+    this.emit('parameter-edit:start', {
       index,
       key: selectedKey,
       command,
@@ -343,7 +343,7 @@ export default class ParameterCommandUI extends ComponentBase {
           index: this.currentParameterCommand.editIndex, 
           updatedCommand: cmd 
         })
-        this.eventBus.emit('command:edit', { 
+        this.emit('command:edit', { 
           key: selectedKey, 
           index: this.currentParameterCommand.editIndex, 
           updatedCommand: cmd 
@@ -352,10 +352,10 @@ export default class ParameterCommandUI extends ComponentBase {
         // Adding new command - handle arrays as single batch to avoid race conditions
         if (Array.isArray(cmd)) {
           console.log('[ParameterCommandUI] emitting command:add [bulk parameterized]', { commands: cmd, key: selectedKey })
-          this.eventBus.emit('command:add', { command: cmd, key: selectedKey })
+          this.emit('command:add', { command: cmd, key: selectedKey })
         } else {
           console.log('[ParameterCommandUI] emitting command:add [single parameterized]', { command: cmd, key: selectedKey })
-          this.eventBus.emit('command:add', { command: cmd, key: selectedKey })
+          this.emit('command:add', { command: cmd, key: selectedKey })
         }
       }
     } catch (error) {
@@ -368,7 +368,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this.modalManager?.hide('parameterModal')
     
     // Emit event to notify services that editing has ended
-    this.eventBus.emit('parameter-edit:end')
+    this.emit('parameter-edit:end')
     
     this.currentParameterCommand = null
 
@@ -391,7 +391,7 @@ export default class ParameterCommandUI extends ComponentBase {
 
     try {
       // Fetch commands for the selected key via request/response layer
-      const commands = await request(this.eventBus, 'command:get-for-selected-key')
+      const commands = await this.request('command:get-for-selected-key')
       if (!commands || !commands[index]) return
 
       const command = commands[index]

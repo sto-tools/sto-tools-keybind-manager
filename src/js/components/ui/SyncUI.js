@@ -32,6 +32,6 @@ export default class SyncUI extends ComponentBase {
   async performSync() {
     this.ui?.showToast(i18next.t('syncing'), 'info')
     // Use request/response instead of direct service call
-    await request(eventBus, 'sync:sync-project')
+    await this.request('sync:sync-project')
   }
 } 

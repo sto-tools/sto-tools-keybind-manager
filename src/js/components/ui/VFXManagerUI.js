@@ -205,7 +205,7 @@ export default class VFXManagerUI extends ComponentBase {
     })
 
     this.eventBus.onDom('saveVertigoBtn', 'click', 'vfx-save', () => {
-      this.eventBus.emit('vfx:save-effects')
+      this.emit('vfx:save-effects')
     })
   }
 } 

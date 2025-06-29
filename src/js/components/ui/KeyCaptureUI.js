@@ -276,7 +276,7 @@ export default class KeyCaptureUI extends ComponentBase {
 
     try {
       // Use request/response so KeyService receives it (respond handler).
-      await request(this.eventBus, 'key:add', { key: this.selectedKey })
+      await this.request('key:add', { key: this.selectedKey })
       this.modalManager?.hide('keySelectionModal')
       // Success feedback handled by KeyService toast.
     } catch (err) {

@@ -58,11 +58,11 @@ export default class UIUtilityService extends ComponentBase {
     // Store detach functions for cleanup
     this.requestDetachers = []
     
-    this.requestDetachers.push(respond(this.eventBus, 'ui:copy-to-clipboard', this.copyToClipboard.bind(this)))
-    this.requestDetachers.push(respond(this.eventBus, 'ui:validate-form', this.validateForm.bind(this)))
-    this.requestDetachers.push(respond(this.eventBus, 'ui:validate-email', this.isValidEmail.bind(this)))
-    this.requestDetachers.push(respond(this.eventBus, 'ui:debounce', this.debounce.bind(this)))
-    this.requestDetachers.push(respond(this.eventBus, 'ui:throttle', this.throttle.bind(this)))
+    this.requestDetachers.push(this.respond('ui:copy-to-clipboard', this.copyToClipboard.bind(this)))
+    this.requestDetachers.push(this.respond('ui:validate-form', this.validateForm.bind(this)))
+    this.requestDetachers.push(this.respond('ui:validate-email', this.isValidEmail.bind(this)))
+    this.requestDetachers.push(this.respond('ui:debounce', this.debounce.bind(this)))
+    this.requestDetachers.push(this.respond('ui:throttle', this.throttle.bind(this)))
   }
 
   // ========================================================================
@@ -71,47 +71,47 @@ export default class UIUtilityService extends ComponentBase {
 
   async handleCopyToClipboard({ text }) {
     const result = await this.copyToClipboard(text)
-    this.eventBus.emit('ui:clipboard-result', { success: result, text })
+    this.emit('ui:clipboard-result', { success: result, text })
   }
 
   async handleValidateForm({ formElement, formId }) {
     const element = formElement || document.getElementById(formId)
     const result = this.validateForm(element)
-    this.eventBus.emit('ui:form-validated', { result, formId })
+    this.emit('ui:form-validated', { result, formId })
   }
 
   async handleValidateEmail({ email }) {
     const result = this.isValidEmail(email)
-    this.eventBus.emit('ui:email-validated', { email, isValid: result })
+    this.emit('ui:email-validated', { email, isValid: result })
   }
 
   async handleInitDragDrop({ container, containerId, options = {} }) {
     const element = container || document.getElementById(containerId)
     this.initDragAndDrop(element, options)
-    this.eventBus.emit('ui:drag-drop-initialized', { containerId, options })
+    this.emit('ui:drag-drop-initialized', { containerId, options })
   }
 
   async handleFadeIn({ element, elementId, duration = 300 }) {
     const el = element || document.getElementById(elementId)
     this.fadeIn(el, duration)
-    this.eventBus.emit('ui:fade-in-complete', { elementId, duration })
+    this.emit('ui:fade-in-complete', { elementId, duration })
   }
 
   async handleFadeOut({ element, elementId, duration = 300 }) {
     const el = element || document.getElementById(elementId)
     this.fadeOut(el, duration)
-    this.eventBus.emit('ui:fade-out-complete', { elementId, duration })
+    this.emit('ui:fade-out-complete', { elementId, duration })
   }
 
   async handleShowTooltip({ element, elementId, text }) {
     const el = element || document.getElementById(elementId)
     this.showTooltip(el, text)
-    this.eventBus.emit('ui:tooltip-shown', { elementId, text })
+    this.emit('ui:tooltip-shown', { elementId, text })
   }
 
   async handleHideTooltip() {
     this.hideTooltip()
-    this.eventBus.emit('ui:tooltip-hidden')
+    this.emit('ui:tooltip-hidden')
   }
 
   // ========================================================================
@@ -122,7 +122,7 @@ export default class UIUtilityService extends ComponentBase {
     try {
       await navigator.clipboard.writeText(text)
       // Emit success toast via ToastService
-      this.eventBus.emit('toast:show', {
+      this.emit('toast:show', {
         message: typeof i18next !== 'undefined' ? i18next.t('content_copied_to_clipboard') : 'Content copied to clipboard',
         type: 'success'
       })
@@ -136,13 +136,13 @@ export default class UIUtilityService extends ComponentBase {
 
       try {
         document.execCommand('copy')
-        this.eventBus.emit('toast:show', {
+        this.emit('toast:show', {
           message: typeof i18next !== 'undefined' ? i18next.t('content_copied_to_clipboard') : 'Content copied to clipboard',
           type: 'success'
         })
         return true
       } catch (fallbackErr) {
-        this.eventBus.emit('toast:show', {
+        this.emit('toast:show', {
           message: typeof i18next !== 'undefined' ? i18next.t('failed_to_copy_to_clipboard') : 'Failed to copy to clipboard',
           type: 'error'
         })

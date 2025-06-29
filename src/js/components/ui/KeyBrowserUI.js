@@ -111,7 +111,7 @@ export default class KeyBrowserUI extends ComponentBase {
         const input = e.target
         input.value = ''
         input.classList.remove('expanded')
-        this.eventBus.emit('key:filter', { filter: '' })
+        this.emit('key:filter', { filter: '' })
       } else if (e.key === 'Enter') {
         const input = e.target
         input.classList.remove('expanded')
@@ -156,13 +156,13 @@ export default class KeyBrowserUI extends ComponentBase {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
 
-    const profile = await request(eventBus, 'key:get-profile')
+    const profile = await this.request('key:get-profile')
     if (!profile) {
       grid.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><h4>${i18next.t('no_profile_selected') || 'No Profile Selected'}</h4></div>`
       return
     }
 
-    const keyMap = await request(eventBus, 'key:get-all')
+    const keyMap = await this.request('key:get-all')
 
     // Cache for child helpers
     this._currentKeyMap = keyMap
@@ -258,7 +258,7 @@ export default class KeyBrowserUI extends ComponentBase {
         } else {
           // Use STOCommandParser via event bus for command category detection
           try {
-            const result = await request(this.eventBus, 'parser:parse-command-string', { 
+            const result = await this.request('parser:parse-command-string', { 
               commandString: command.command,
               options: { generateDisplayText: false }
             })
@@ -570,7 +570,7 @@ export default class KeyBrowserUI extends ComponentBase {
     if (confirmed) {
       try {
         // Use the eventBus to request key deletion from KeyService
-        this.eventBus.emit('key:delete', { key })
+        this.emit('key:delete', { key })
         return true
       } catch (error) {
         console.error('Error deleting key:', error)
@@ -589,7 +589,7 @@ export default class KeyBrowserUI extends ComponentBase {
    */
   duplicateKey(key) {
     if (!key) return
-    this.eventBus.emit('key:duplicate', { key })
+    this.emit('key:duplicate', { key })
   }
 
   /**

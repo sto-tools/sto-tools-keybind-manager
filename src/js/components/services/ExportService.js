@@ -43,31 +43,31 @@ export default class ExportService extends ComponentBase {
   setupRequestHandlers() {
     
     // Export generation requests
-    respond(this.eventBus, 'export:generate-keybind-file', async ({ profile, options = {} }) => 
+    this.respond('export:generate-keybind-file', async ({ profile, options = {} }) => 
       await this.generateSTOKeybindFile(profile, options))
     
-    respond(this.eventBus, 'export:generate-alias-file', async ({ profile }) => 
+    this.respond('export:generate-alias-file', async ({ profile }) => 
       await this.generateAliasFile(profile))
     
-    respond(this.eventBus, 'export:generate-filename', async ({ profile, extension, environment }) => 
+    this.respond('export:generate-filename', async ({ profile, extension, environment }) => 
       await this.generateFileName(profile, extension, environment))
     
-    respond(this.eventBus, 'export:generate-alias-filename', ({ profile, extension }) => 
+    this.respond('export:generate-alias-filename', ({ profile, extension }) => 
       this.generateAliasFileName(profile, extension))
     
-    respond(this.eventBus, 'export:generate-csv-data', ({ profile }) => 
+    this.respond('export:generate-csv-data', ({ profile }) => 
       this.generateCSVData(profile))
     
-    respond(this.eventBus, 'export:generate-html-report', ({ profile }) => 
+    this.respond('export:generate-html-report', ({ profile }) => 
       this.generateHTMLReport(profile))
     
-    respond(this.eventBus, 'export:import-from-file', async ({ file }) => 
+    this.respond('export:import-from-file', async ({ file }) => 
       await this.importFromFile(file))
     
-    respond(this.eventBus, 'export:sanitize-profile', ({ profile }) => 
+    this.respond('export:sanitize-profile', ({ profile }) => 
       this.sanitizeProfileForExport(profile))
     
-    respond(this.eventBus, 'export:extract-keys', ({ profile, environment }) => 
+    this.respond('export:extract-keys', ({ profile, environment }) => 
       this.extractKeys(profile, environment))
   }
 
@@ -104,7 +104,7 @@ export default class ExportService extends ComponentBase {
     const env = profile.currentEnvironment || 'space'
     const keysForEnv = this.extractKeys(profile, env)
 
-    const stats = await request(this.eventBus, 'fileops:get-profile-stats', {
+    const stats = await this.request('fileops:get-profile-stats', {
       profile: { ...profile, keys: keysForEnv }
     }).catch(() => ({
       totalKeys: Object.keys(keysForEnv).length,
@@ -157,7 +157,7 @@ export default class ExportService extends ComponentBase {
     if (!keys || Object.keys(keys).length === 0) return '; No keybinds defined\n\n'
 
     // Use FileOperationsService to generate the keybind section
-    return await request(this.eventBus, 'fileops:generate-keybind-section', {
+    return await this.request('fileops:generate-keybind-section', {
       keys,
       options: {
         stabilizeExecutionOrder: options.stabilizeExecutionOrder,
@@ -324,7 +324,7 @@ export default class ExportService extends ComponentBase {
   }
 
   async generateFileName (profile, extension, environment = profile.currentEnvironment || 'space') {
-    return await request(this.eventBus, 'fileops:generate-filename', {
+    return await this.request('fileops:generate-filename', {
       profile,
       ext: extension,
       environment
@@ -371,7 +371,7 @@ export default class ExportService extends ComponentBase {
       return this.importJSONFile(content)
     } else if (filename.endsWith('.txt')) {
       // Use FileOperationsService for keybind file import
-      return await request(this.eventBus, 'fileops:import-keybind-file', {
+      return await this.request('fileops:import-keybind-file', {
         content,
         filename: file.name
       }).catch((error) => {
@@ -418,7 +418,7 @@ export default class ExportService extends ComponentBase {
     content += await this.generateAliasFileHeader(profile)
 
     // Generate alias content via FileOperationsService
-    const aliasContent = await request(this.eventBus, 'fileops:generate-alias-file', {
+    const aliasContent = await this.request('fileops:generate-alias-file', {
       aliases: profile.aliases || {}
     })
 

@@ -16,21 +16,21 @@ export default class FileOperationsService extends ComponentBase {
     if (!this.eventBus) return
 
     // Core parsing operations - Use STOCommandParser directly
-    respond(this.eventBus, 'fileops:parse-keybind-file', ({ content }) => 
+    this.respond('fileops:parse-keybind-file', ({ content }) => 
       this.parseKeybindFile(content))
     
     // Application-specific import operations
-    respond(this.eventBus, 'fileops:import-keybind-file', ({ content, profileId, environment, options = {} }) => 
+    this.respond('fileops:import-keybind-file', ({ content, profileId, environment, options = {} }) => 
       this.importKeybindFile(content, profileId, environment, options))
     
-    respond(this.eventBus, 'fileops:import-alias-file', ({ content, profileId, options = {} }) => 
+    this.respond('fileops:import-alias-file', ({ content, profileId, options = {} }) => 
       this.importAliasFile(content, profileId, options))
     
     // Validation operations
-    respond(this.eventBus, 'fileops:validate-keybind-file', ({ content }) => 
+    this.respond('fileops:validate-keybind-file', ({ content }) => 
       this.validateKeybindFile(content))
     
-    respond(this.eventBus, 'fileops:generate-command-preview', ({ key, commands, stabilize = false }) => 
+    this.respond('fileops:generate-command-preview', ({ key, commands, stabilize = false }) => 
       this.generateCommandPreview(key, commands, stabilize))
   }
 
@@ -56,7 +56,7 @@ export default class FileOperationsService extends ComponentBase {
         const keybindMatch = line.match(/^(\S+)\s+"([^"]+)"/)
         if (keybindMatch) {
           const [, key, commandString] = keybindMatch
-          const parseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+          const parseResult = await this.request('parser:parse-command-string', { 
             commandString 
           })
           
@@ -137,14 +137,14 @@ export default class FileOperationsService extends ComponentBase {
         const commandString = data.raw
         
         // Check for mirroring pattern using STOCommandParser
-        const parseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+        const parseResult = await this.request('parser:parse-command-string', { 
           commandString 
         })
         
         if (parseResult.isMirrored) {
           // Extract original commands from mirrored sequence
           const originalCommands = this.extractOriginalFromMirrored(commandString)
-          const unmirroredParseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+          const unmirroredParseResult = await this.request('parser:parse-command-string', { 
             commandString: originalCommands.join(' $$ ')
           })
           

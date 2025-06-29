@@ -47,17 +47,17 @@ export default class CommandService extends ComponentBase {
     // Register Request/Response endpoints for editing commands
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        respond(this.eventBus, 'command:duplicate', ({ commandId }) => 
+        this.respond('command:duplicate', ({ commandId }) => 
           this.duplicateCommand(commandId)),
-        respond(this.eventBus, 'command:delete', ({ commandId }) => 
+        this.respond('command:delete', ({ commandId }) => 
           this.deleteCommand(commandId)),
-        respond(this.eventBus, 'command:add', async ({ command, key, position }) => 
+        this.respond('command:add', async ({ command, key, position }) => 
           this.addCommand(key, command, position)),
-        respond(this.eventBus, 'command:edit', async ({ key, index, updatedCommand }) => 
+        this.respond('command:edit', async ({ key, index, updatedCommand }) => 
           this.editCommand(key, index, updatedCommand)),
-        respond(this.eventBus, 'command:reorder', ({ commandId, newPosition }) => 
+        this.respond('command:reorder', ({ commandId, newPosition }) => 
           this.reorderCommand(commandId, newPosition)),
-        respond(this.eventBus, 'command:validate', ({ command }) => 
+        this.respond('command:validate', ({ command }) => 
           this.validateCommand(command))
       )
     }
@@ -215,7 +215,7 @@ export default class CommandService extends ComponentBase {
         }
       }
 
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         ...ops
       })
@@ -298,7 +298,7 @@ export default class CommandService extends ComponentBase {
     }
 
     try {
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         ...payload
       })
@@ -367,7 +367,7 @@ export default class CommandService extends ComponentBase {
     }
 
     try {
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         ...payload
       })
@@ -441,7 +441,7 @@ export default class CommandService extends ComponentBase {
     console.log('[CommandService] editCommand updates:', payload)
     
     try {
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         ...payload
       })
@@ -461,13 +461,13 @@ export default class CommandService extends ComponentBase {
    * ------------------------------------------------------------------ */
   async findCommandDefinition (command) {
     try {
-      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return null
       
       // Special Tray logic is preserved from original implementation (copy-paste)
       const isTrayExec = command.command && command.command.includes('TrayExec')
       if (isTrayExec) {
-        const trayCategory = await request(this.eventBus, 'data:get-tray-category')
+        const trayCategory = await this.request('data:get-tray-category')
         if (trayCategory) {
           if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
             return { commandId: 'tray_range_with_backup', ...trayCategory.commands.tray_range_with_backup }
@@ -488,7 +488,7 @@ export default class CommandService extends ComponentBase {
         }
       }
 
-      const category = await request(this.eventBus, 'data:get-command-category', { categoryId: command.type })
+      const category = await this.request('data:get-command-category', { categoryId: command.type })
       if (!category) return null
 
       for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
@@ -512,10 +512,10 @@ export default class CommandService extends ComponentBase {
 
   async getCommandWarning (command) {
     try {
-      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return null
 
-      const categories = await request(this.eventBus, 'data:get-commands')
+      const categories = await this.request('data:get-commands')
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
           if (

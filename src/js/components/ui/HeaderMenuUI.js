@@ -40,26 +40,26 @@ export default class HeaderMenuUI extends ComponentBase {
 
     // VFX Button (could be moved to VFXManagerUI if preferred)
     this.eventBus.onDom('vertigoBtn', 'click', 'vfx-open', () => {
-      this.eventBus.emit('vfx:show-modal')
+      this.emit('vfx:show-modal')
     })
 
     // File Explorer Button
     this.eventBus.onDom('fileExplorerBtn', 'click', 'file-explorer-open', () => {
-      this.eventBus.emit('file-explorer:open')
+      this.emit('file-explorer:open')
     })
 
     // Sync Now Button
     this.eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
-      this.eventBus.emit('sync:sync-now')
+      this.emit('sync:sync-now')
     })
 
     // Settings menu items
     this.eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
-      this.eventBus.emit('preferences:show')
+      this.emit('preferences:show')
     })
 
     this.eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
-      this.eventBus.emit('about:show')
+      this.emit('about:show')
     })
 
     // Close all menus when clicking outside
@@ -73,28 +73,28 @@ export default class HeaderMenuUI extends ComponentBase {
 
     // File operations
     this.eventBus.onDom('openProjectBtn', 'click', 'project-open', () => {
-      this.eventBus.emit('project:open')
+      this.emit('project:open')
     })
 
     this.eventBus.onDom('saveProjectBtn', 'click', 'project-save', () => {
-      this.eventBus.emit('project:save')
+      this.emit('project:save')
     })
 
     this.eventBus.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
-      this.eventBus.emit('keybinds:export')
+      this.emit('keybinds:export')
     })
 
     // Menu-specific operations
     this.eventBus.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
-      this.eventBus.emit('keybinds:import')
+      this.emit('keybinds:import')
     })
 
     this.eventBus.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
-      this.eventBus.emit('aliases:import')
+      this.emit('aliases:import')
     })
 
     this.eventBus.onDom('loadDefaultDataBtn', 'click', 'data-load-default', () => {
-      this.eventBus.emit('data:load-default')
+      this.emit('data:load-default')
     })
 
     this.eventBus.onDom('resetAppBtn', 'click', 'app-reset', () => {
@@ -106,14 +106,14 @@ export default class HeaderMenuUI extends ComponentBase {
       btn.addEventListener('click', (e) => {
         const lang = e.target.getAttribute('data-lang')
         if (lang) {
-          this.eventBus.emit('language:change', { language: lang })
+          this.emit('language:change', { language: lang })
         }
       })
     })
 
     // Theme toggle
     this.eventBus.onDom('themeToggleBtn', 'click', 'theme-toggle', () => {
-      this.eventBus.emit('theme:toggle')
+      this.emit('theme:toggle')
     })
   }
 
@@ -181,7 +181,7 @@ export default class HeaderMenuUI extends ComponentBase {
   async confirmResetApp() {
     const message = 'Are you sure you want to reset the application? This will clear all profiles and data.'
     if (confirm(message)) {
-      this.eventBus.emit('app:reset-confirmed')
+      this.emit('app:reset-confirmed')
     }
   }
 } 

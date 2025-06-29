@@ -174,7 +174,7 @@ export default class ParameterCommandService extends ComponentBase {
   async parseCommandsToObjects(commandStrings) {
     const parsePromises = commandStrings.map(async cmdStr => {
       try {
-        const result = await request(this.eventBus, 'parser:parse-command-string', { commandString: cmdStr })
+        const result = await this.request('parser:parse-command-string', { commandString: cmdStr })
         if (result.commands && result.commands.length > 0) {
           return result.commands[0] // Take first match
         }
@@ -483,7 +483,7 @@ export default class ParameterCommandService extends ComponentBase {
       if (!normalizedCommand) return null
 
       // Use STOCommandParser to re-parse and get signature
-      const parseResult = await request(this.eventBus, 'parser:parse-command-string', {
+      const parseResult = await this.request('parser:parse-command-string', {
         commandString: normalizedCommand.command
       })
 

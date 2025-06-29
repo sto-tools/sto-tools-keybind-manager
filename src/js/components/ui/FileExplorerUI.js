@@ -90,13 +90,13 @@ export default class FileExplorerUI extends ComponentBase {
         const profile = this.storage.getProfile(profileId)
         try {
           if (type === 'build') {
-            filename = await request(this.eventBus, 'export:generate-filename', {
+            filename = await this.request('export:generate-filename', {
               profile,
               extension: 'txt',
               environment
             })
           } else if (type === 'aliases') {
-            filename = await request(this.eventBus, 'export:generate-alias-filename', {
+            filename = await this.request('export:generate-alias-filename', {
               profile,
               extension: 'txt'
             })
@@ -123,7 +123,7 @@ export default class FileExplorerUI extends ComponentBase {
     if (contentEl) {
       contentEl.textContent = i18next.t('select_an_item_on_the_left_to_preview_export')
     }
-    this.eventBus.emit('modal:show', { modalId: this.modalId })
+    this.emit('modal:show', { modalId: this.modalId })
   }
 
   buildTree () {
@@ -229,7 +229,7 @@ export default class FileExplorerUI extends ComponentBase {
       currentEnvironment: environment
     }
     
-    return await request(this.eventBus, 'export:generate-keybind-file', {
+    return await this.request('export:generate-keybind-file', {
       profile: tempProfile,
       options: { environment }
     }).catch((error) => {
@@ -253,7 +253,7 @@ export default class FileExplorerUI extends ComponentBase {
       aliases: aggregatedAliases,
     }
     
-    return await request(this.eventBus, 'export:generate-alias-file', {
+    return await this.request('export:generate-alias-file', {
       profile: tempProfile
     }).catch((error) => {
       console.error('Failed to generate alias export via ExportService:', error)

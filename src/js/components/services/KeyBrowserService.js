@@ -49,9 +49,9 @@ export default class KeyBrowserService extends ComponentBase {
     // Register Request/Response endpoints for external callers
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'key:get-all',           () => this.getKeys())
-      respond(this.eventBus, 'key:get-profile',       () => this.getProfile())
-      respond(this.eventBus, 'key:select',            ({ key }) => this.selectKey(key))
+      this.respond('key:get-all',           () => this.getKeys())
+      this.respond('key:get-profile',       () => this.getProfile())
+      this.respond('key:select',            ({ key }) => this.selectKey(key))
     }
   }
 
@@ -254,7 +254,7 @@ export default class KeyBrowserService extends ComponentBase {
 
       // Update through DataCoordinator using explicit operations API
       const { request } = await import('../../core/requestResponse.js')
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.currentProfileId,
         properties: {
           selections: updatedSelections

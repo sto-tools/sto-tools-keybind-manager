@@ -112,7 +112,7 @@ export default class InterfaceModeUI extends ComponentBase {
   async handleModeButtonClick(mode) {
     try {
       // Use request-response pattern to switch environment
-      const result = await request(this.eventBus, 'environment:switch', { mode })
+      const result = await this.request('environment:switch', { mode })
       if (!result.success) {
         console.error('[InterfaceModeUI] Failed to switch environment:', result.error)
       }
@@ -209,7 +209,7 @@ export default class InterfaceModeUI extends ComponentBase {
   async setCurrentMode(mode) {
     try {
       // Use request-response pattern to switch environment
-      const result = await request(this.eventBus, 'environment:switch', { mode })
+      const result = await this.request('environment:switch', { mode })
       if (result.success) {
         this._currentMode = result.mode
         this.updateModeUI(result.mode)

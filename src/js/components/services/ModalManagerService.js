@@ -32,7 +32,7 @@ export default class ModalManagerService extends ComponentBase {
         if (this.regenerateCallbacks[modalId]) {
           this.regenerateCallbacks[modalId]()
           // Emit event for components that want to handle their own regeneration
-          this.eventBus.emit('modal:regenerated', { modalId })
+          this.emit('modal:regenerated', { modalId })
         } else if (typeof window.applyTranslations === 'function') {
           window.applyTranslations(open)
         }
@@ -100,13 +100,13 @@ export default class ModalManagerService extends ComponentBase {
 
   async handleShowModal({ modalId }) {
     const result = this.show(modalId)
-    this.eventBus.emit('modal:shown', { modalId, success: result })
+    this.emit('modal:shown', { modalId, success: result })
     return result
   }
 
   async handleHideModal({ modalId }) {
     const result = this.hide(modalId)
-    this.eventBus.emit('modal:hidden', { modalId, success: result })
+    this.emit('modal:hidden', { modalId, success: result })
     return result
   }
 
@@ -116,7 +116,7 @@ export default class ModalManagerService extends ComponentBase {
 
     const isActive = modal.classList.contains('active')
     const result = isActive ? this.hide(modalId) : this.show(modalId)
-    this.eventBus.emit('modal:toggled', { modalId, isActive: !isActive, success: result })
+    this.emit('modal:toggled', { modalId, isActive: !isActive, success: result })
     return result
   }
 
@@ -213,7 +213,7 @@ export default class ModalManagerService extends ComponentBase {
     this.registerRegenerateCallback('vertigoModal', () => {
       // Emit event for VFX UI to handle regeneration
       if (this.eventBus) {
-        this.eventBus.emit('vfx:modal-regenerate-requested')
+        this.emit('vfx:modal-regenerate-requested')
       } else {
         // Fallback to legacy method
         window.app?.populateVertigoModal?.()

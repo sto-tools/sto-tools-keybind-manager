@@ -105,7 +105,7 @@ export default class CommandChainUI extends ComponentBase {
         const selectedKeyName = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
         if (!selectedKeyName) {
           // No selection yet - just show empty state and return
-          const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
+          const emptyStateInfo = await this.request('command:get-empty-state-info')
           titleEl.textContent   = emptyStateInfo.title
           previewEl.textContent = emptyStateInfo.preview
           if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
@@ -124,12 +124,12 @@ export default class CommandChainUI extends ComponentBase {
           return
         }
         // We have a selection, so request the commands
-        commands = await request(this.eventBus, 'command:get-for-selected-key')
+        commands = await this.request('command:get-for-selected-key')
       }
 
       console.log('[CommandChainUI] rendering with commands:', commands.length, commands)
 
-      const emptyStateInfo = await request(this.eventBus, 'command:get-empty-state-info')
+      const emptyStateInfo = await this.request('command:get-empty-state-info')
       console.log('render getEmptyStateInfo', emptyStateInfo)
 
       // Use cached selection state from event listeners
@@ -191,7 +191,7 @@ export default class CommandChainUI extends ComponentBase {
 
     // Look up definition for display helpers
     console.log('[CommandChainUI] createCommandElement command:find-definition', { command })
-    const commandDef      = await request(this.eventBus, 'command:find-definition', { command })
+    const commandDef      = await this.request('command:find-definition', { command })
     const isParameterized = commandDef && commandDef.customizable
 
     let displayName = command.text || command.command || command
@@ -254,11 +254,11 @@ export default class CommandChainUI extends ComponentBase {
           target: e.target,
           targetClass: e.target.className
         })
-        this.eventBus.emit('commandchain:edit', { index })
+        this.emit('commandchain:edit', { index })
       })
     }
 
-    const warningInfo  = await request(this.eventBus, 'command:get-warning', { command })
+    const warningInfo  = await this.request('command:get-warning', { command })
     const warningIcon  = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
     const parameterInd = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : ''
 
@@ -307,7 +307,7 @@ export default class CommandChainUI extends ComponentBase {
         })
         e.preventDefault()
         e.stopPropagation()
-        this.eventBus.emit('commandchain:edit', { index })
+        this.emit('commandchain:edit', { index })
       })
     }
 
@@ -322,19 +322,19 @@ export default class CommandChainUI extends ComponentBase {
         })
         e.preventDefault()
         e.stopPropagation()
-        this.eventBus.emit('commandchain:delete', { index })
+        this.emit('commandchain:delete', { index })
       })
     }
 
     if (upBtn) {
       upBtn.addEventListener('click', () => {
-        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
+        this.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
       })
     }
 
     if (downBtn) {
       downBtn.addEventListener('click', () => {
-        this.eventBus.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
+        this.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
       })
     }
 
@@ -363,7 +363,7 @@ export default class CommandChainUI extends ComponentBase {
           // route it to the appropriate persistence layer (CommandService or
           // CommandLibraryService).  This matches the approach used by the
           // move buttons elsewhere in the UI.
-          this.eventBus.emit('commandchain:move', {
+          this.emit('commandchain:move', {
             fromIndex,
             toIndex,
           })

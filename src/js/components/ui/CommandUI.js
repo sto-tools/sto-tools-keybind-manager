@@ -56,7 +56,7 @@ export default class CommandUI extends ComponentBase {
 
           // Emit event for CommandService to handle - following broadcast pattern
           console.log('[CommandUI] emitting command:add [static]', { commandDef, key: selectedKey })
-          this.eventBus.emit('command:add', { command: commandDef, key: selectedKey })
+          this.emit('command:add', { command: commandDef, key: selectedKey })
         } catch (error) {
           console.error('CommandUI: Failed to handle static command:', error)
         }
@@ -132,7 +132,7 @@ export default class CommandUI extends ComponentBase {
         const input = e.target
         input.value = ''
         input.classList.remove('expanded')
-        this.eventBus.emit('command:filter', { filter: '' })
+        this.emit('command:filter', { filter: '' })
       } else if (e.key === 'Enter') {
         const input = e.target
         input.classList.remove('expanded')
@@ -144,7 +144,7 @@ export default class CommandUI extends ComponentBase {
     this.eventBus.onDom('showAllCommandsBtn', 'click', 'command-show-all', () => {
       const inp = this.document.getElementById('commandSearch')
       if (inp) inp.value = ''
-      this.eventBus.emit('command:filter', { filter: '' })
+      this.emit('command:filter', { filter: '' })
     })
 
     // Command search button
@@ -215,7 +215,7 @@ export default class CommandUI extends ComponentBase {
    */
   async getI18nMessage(key, params = {}) {
     try {
-      return await request(this.eventBus, 'i18n:translate', { key, params })
+      return await this.request('i18n:translate', { key, params })
     } catch (error) {
       console.error('CommandUI: Failed to get i18n message:', error)
       return null
@@ -231,7 +231,7 @@ export default class CommandUI extends ComponentBase {
       if (this.ui?.showToast) {
         this.ui.showToast(message, type)
       } else {
-        await request(this.eventBus, 'ui:show-toast', { message, type })
+        await this.request('ui:show-toast', { message, type })
       }
     } catch (error) {
       console.error('CommandUI: Failed to show toast:', error)
@@ -251,7 +251,7 @@ export default class CommandUI extends ComponentBase {
         `Clear command chain for ${key}?`
       
       if (confirm(message)) {
-        this.eventBus.emit('command-chain:clear', { key })
+        this.emit('command-chain:clear', { key })
       }
     } catch (error) {
       console.error('CommandUI: Failed to confirm clear chain:', error)
@@ -263,7 +263,7 @@ export default class CommandUI extends ComponentBase {
    */
   async validateCurrentChain(key) {
     if (key) {
-      this.eventBus.emit('command-chain:validate', { key })
+      this.emit('command-chain:validate', { key })
       
       try {
         // Show validation success toast
@@ -279,7 +279,7 @@ export default class CommandUI extends ComponentBase {
    * Filter commands by search term
    */
   filterCommands(value) {
-    this.eventBus.emit('command:filter', { filter: value })
+    this.emit('command:filter', { filter: value })
   }
 
   /**
@@ -310,7 +310,7 @@ export default class CommandUI extends ComponentBase {
       return
     }
     
-    this.eventBus.emit('command:import-from-key', { key: selectedKey })
+    this.emit('command:import-from-key', { key: selectedKey })
   }
 
   /**
@@ -337,7 +337,7 @@ export default class CommandUI extends ComponentBase {
     }
 
     // Emit command save event
-    this.eventBus.emit('command:save', {
+    this.emit('command:save', {
       key: selectedKey,
       type: commandType,
       command: commandPreview

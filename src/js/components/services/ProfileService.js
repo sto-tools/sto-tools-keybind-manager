@@ -26,13 +26,13 @@ export default class ProfileService extends ComponentBase {
     // Register Request/Response topics for backward compatibility
     // All requests are forwarded to DataCoordinator
     if (this.eventBus) {
-      respond(this.eventBus, 'profile:switch', ({ id } = {}) => this.switchProfile(id))
-      respond(this.eventBus, 'profile:create', ({ name, description, mode } = {}) => this.createProfile(name, description, mode))
-      respond(this.eventBus, 'profile:delete', ({ id } = {}) => this.deleteProfile(id))
-      respond(this.eventBus, 'profile:list', () => this.getAllProfiles())
-      respond(this.eventBus, 'profile:clone', ({ sourceId, newName } = {}) => this.cloneProfile(sourceId, newName))
-      respond(this.eventBus, 'profile:rename', ({ id, newName, description } = {}) => this.renameProfile(id, newName, description))
-      respond(this.eventBus, 'profile:save', ({ profile } = {}) => this.saveSpecificProfile(profile))
+      this.respond('profile:switch', ({ id } = {}) => this.switchProfile(id))
+      this.respond('profile:create', ({ name, description, mode } = {}) => this.createProfile(name, description, mode))
+      this.respond('profile:delete', ({ id } = {}) => this.deleteProfile(id))
+      this.respond('profile:list', () => this.getAllProfiles())
+      this.respond('profile:clone', ({ sourceId, newName } = {}) => this.cloneProfile(sourceId, newName))
+      this.respond('profile:rename', ({ id, newName, description } = {}) => this.renameProfile(id, newName, description))
+      this.respond('profile:save', ({ profile } = {}) => this.saveSpecificProfile(profile))
     }
   }
 
@@ -108,7 +108,7 @@ export default class ProfileService extends ComponentBase {
       }
 
       // Delegate entirely to DataCoordinator - it handles the current profile state
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.currentProfile,
         properties: {
           currentEnvironment: this.currentEnvironment
@@ -134,7 +134,7 @@ export default class ProfileService extends ComponentBase {
       // Extract the profileId - assume it's current profile if not specified
       const profileId = profile.id || this.currentProfile
       
-      await request(this.eventBus, 'data:update-profile', { 
+      await this.request('data:update-profile', { 
         profileId, 
         properties: profile 
       })
@@ -204,7 +204,7 @@ export default class ProfileService extends ComponentBase {
    */
   async switchProfile(profileId) {
     try {
-      const result = await request(this.eventBus, 'data:switch-profile', { profileId })
+      const result = await this.request('data:switch-profile', { profileId })
       
       // Update local state for compatibility
       if (result.success && result.switched) {
@@ -240,7 +240,7 @@ export default class ProfileService extends ComponentBase {
    */
   async createProfile(name, description = '', mode = 'space') {
     try {
-      const result = await request(this.eventBus, 'data:create-profile', { name, description, mode })
+      const result = await this.request('data:create-profile', { name, description, mode })
       
       // Localize the message if needed
       if (result.message && this.i18n) {
@@ -266,7 +266,7 @@ export default class ProfileService extends ComponentBase {
    */
   async cloneProfile(sourceProfileId, newName) {
     try {
-      const result = await request(this.eventBus, 'data:clone-profile', { sourceId: sourceProfileId, newName })
+      const result = await this.request('data:clone-profile', { sourceId: sourceProfileId, newName })
       
       // Localize the message if needed
       if (result.message && this.i18n) {
@@ -295,11 +295,11 @@ export default class ProfileService extends ComponentBase {
    */
   async deleteProfile(profileId) {
     try {
-      const result = await request(this.eventBus, 'data:delete-profile', { profileId })
+      const result = await this.request('data:delete-profile', { profileId })
       
       // Update local state if we switched profiles
       if (result.success && result.switchedProfile) {
-        this.currentProfile = result.switchedProfile.id || Object.keys((await request(this.eventBus, 'data:get-all-profiles')))[0]
+        this.currentProfile = result.switchedProfile.id || Object.keys((await this.request('data:get-all-profiles')))[0]
         this.currentEnvironment = result.switchedProfile.environment || 'space'
         this.isModified = false
       }
@@ -338,7 +338,7 @@ export default class ProfileService extends ComponentBase {
 
       // DataCoordinator handles current build state internally
       // This method is kept for backward compatibility but delegates entirely
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.currentProfile,
         properties: {
           currentEnvironment: this.currentEnvironment
@@ -361,7 +361,7 @@ export default class ProfileService extends ComponentBase {
     let id = base
     let counter = 1
 
-    const profiles = await request(this.eventBus, 'data:get-all-profiles')
+    const profiles = await this.request('data:get-all-profiles')
     while (profiles[id]) {
       id = `${base}_${counter}`
       counter++
@@ -457,7 +457,7 @@ export default class ProfileService extends ComponentBase {
    */
   async renameProfile(profileId, newName, description = '') {
     try {
-      const result = await request(this.eventBus, 'data:rename-profile', { 
+      const result = await this.request('data:rename-profile', { 
         profileId, 
         newName, 
         description 

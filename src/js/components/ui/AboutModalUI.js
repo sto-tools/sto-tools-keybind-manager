@@ -45,7 +45,7 @@ export default class AboutModalUI extends ComponentBase {
     this.populateAboutContent()
     
     // Use the modal manager service to show the about modal
-    this.eventBus.emit('modal:show', { modalId: 'aboutModal' })
+    this.emit('modal:show', { modalId: 'aboutModal' })
   }
 
   /**

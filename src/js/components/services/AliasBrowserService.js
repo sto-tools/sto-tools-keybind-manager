@@ -34,8 +34,8 @@ export default class AliasBrowserService extends ComponentBase {
     // Register Request/Response endpoints for alias operations
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'alias:get-all', () => this.getAliases())
-      respond(this.eventBus, 'alias:select', async ({ name }) => await this.selectAlias(name))
+      this.respond('alias:get-all', () => this.getAliases())
+      this.respond('alias:select', async ({ name }) => await this.selectAlias(name))
       
       // Use addEventListener for alias:delete since AliasBrowserUI emits it rather than requests it
       this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
@@ -282,7 +282,7 @@ export default class AliasBrowserService extends ComponentBase {
       }
 
       // Update through DataCoordinator using explicit operations API
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.currentProfileId,
         properties: {
           selections: {
@@ -310,7 +310,7 @@ export default class AliasBrowserService extends ComponentBase {
 
     try {
       // Add new alias using explicit operations API
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         add: {
           aliases: {
@@ -340,7 +340,7 @@ export default class AliasBrowserService extends ComponentBase {
       }
 
       // Delete alias using explicit operations API
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         delete: {
           aliases: [name]
@@ -404,7 +404,7 @@ export default class AliasBrowserService extends ComponentBase {
       // ------------------------------------------------------
       // Persist duplicate via DataCoordinator
       // ------------------------------------------------------
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         add: {
           aliases: {

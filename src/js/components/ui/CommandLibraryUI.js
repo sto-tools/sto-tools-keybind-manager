@@ -108,7 +108,7 @@ export default class CommandLibraryUI extends ComponentBase {
 
     container.innerHTML = ''
 
-    const categories = await request(eventBus, 'command:get-categories')
+    const categories = await this.request('command:get-categories')
     Object.entries(categories).forEach(([categoryId, category]) => {
       const categoryElement = this.createCategoryElement(categoryId, category)
       container.appendChild(categoryElement)
@@ -193,7 +193,7 @@ export default class CommandLibraryUI extends ComponentBase {
           if (commandDef.customizable) {
             // For customizable commands, pass category/command info
             console.log('[CommandLibraryUI] emitting command-add [customizable]', { categoryId, commandId, commandDef })
-            this.eventBus.emit('command-add', { categoryId, commandId, commandDef })
+            this.emit('command-add', { categoryId, commandId, commandDef })
           } else {
             // For static commands, pass the fully-hydrated definition
             const fullyHydratedCommand = {
@@ -204,7 +204,7 @@ export default class CommandLibraryUI extends ComponentBase {
               id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
             }
             console.log('[CommandLibraryUI] emitting command-add [static]', { commandDef: fullyHydratedCommand })
-            this.eventBus.emit('command-add', { commandDef: fullyHydratedCommand })
+            this.emit('command-add', { commandDef: fullyHydratedCommand })
           }
         }
       })
@@ -310,7 +310,7 @@ export default class CommandLibraryUI extends ComponentBase {
           id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
         }
         console.log('[CommandLibraryUI] emitting command:add [alias]', { commandDef: fullyHydratedAlias })
-        this.eventBus.emit('command-add', { commandDef: fullyHydratedAlias })
+        this.emit('command-add', { commandDef: fullyHydratedAlias })
       }
     })
 
@@ -421,7 +421,7 @@ export default class CommandLibraryUI extends ComponentBase {
 
         if (fromIndex !== toIndex) {
           // Delegate move via commandchain event so CommandChainService handles persistence
-          this.eventBus.emit('commandchain:move', { fromIndex, toIndex })
+          this.emit('commandchain:move', { fromIndex, toIndex })
         }
       },
     })

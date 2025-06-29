@@ -226,7 +226,7 @@ export default class VFXManagerService extends ComponentBase {
     // Load state from current profile via DataCoordinator
     if (this.currentProfile) {
       try {
-        const profiles = await request(this.eventBus, 'data:get-all-profiles')
+        const profiles = await this.request('data:get-all-profiles')
         const profile = profiles[this.currentProfile]
         if (profile) {
           this.loadState(profile)
@@ -247,7 +247,7 @@ export default class VFXManagerService extends ComponentBase {
     }
 
     // Emit event to populate and show the modal
-    this.eventBus.emit('vfx:modal-populate', {
+    this.emit('vfx:modal-populate', {
       vfxManager: this // Pass the service itself as the vfxManager
     })
   }
@@ -275,7 +275,7 @@ export default class VFXManagerService extends ComponentBase {
     if (this.currentProfile) {
       try {
         // Get current profile to update
-        const profiles = await request(this.eventBus, 'data:get-all-profiles')
+        const profiles = await this.request('data:get-all-profiles')
         const profile = profiles[this.currentProfile]
         
         if (profile) {
@@ -337,7 +337,7 @@ export default class VFXManagerService extends ComponentBase {
           updates.aliases = aliases
           
           // Update profile via DataCoordinator using explicit operations API
-          await request(this.eventBus, 'data:update-profile', {
+          await this.request('data:update-profile', {
             profileId: this.currentProfile,
             modify: updates
           })
@@ -345,7 +345,7 @@ export default class VFXManagerService extends ComponentBase {
           console.log(`[${this.componentName}] VFX effects and aliases saved to profile: ${this.currentProfile}`)
           
           // Update alias browser to show new aliases
-          this.eventBus.emit('aliases-changed', { aliases })
+          this.emit('aliases-changed', { aliases })
         } else {
           console.error(`[${this.componentName}] ERROR: Could not retrieve profile: ${this.currentProfile}`)
         }
@@ -356,7 +356,7 @@ export default class VFXManagerService extends ComponentBase {
       console.error(`[${this.componentName}] ERROR: No current profile set`)
     }
 
-    this.eventBus.emit('modal:hide', { modalId: 'vertigoModal' })
+    this.emit('modal:hide', { modalId: 'vertigoModal' })
   }
 
   cancelEffects() {
@@ -369,7 +369,7 @@ export default class VFXManagerService extends ComponentBase {
       this.showPlayerSay = this.initialState.showPlayerSay
     }
 
-    this.eventBus.emit('modal:hide', { modalId: 'vertigoModal' })
+    this.emit('modal:hide', { modalId: 'vertigoModal' })
   }
 
   /**

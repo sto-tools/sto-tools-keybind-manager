@@ -19,7 +19,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * Examples:
  * 
  * // Add new aliases without affecting existing ones
- * await request(eventBus, 'data:update-profile', {
+ * await this.request('data:update-profile', {
  *   profileId: 'my_profile',
  *   add: {
  *     aliases: {
@@ -29,7 +29,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * })
  * 
  * // Delete specific aliases by name
- * await request(eventBus, 'data:update-profile', {
+ * await this.request('data:update-profile', {
  *   profileId: 'my_profile', 
  *   delete: {
  *     aliases: ['old_alias', 'unused_alias']
@@ -37,7 +37,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * })
  * 
  * // Modify existing alias commands without affecting others
- * await request(eventBus, 'data:update-profile', {
+ * await this.request('data:update-profile', {
  *   profileId: 'my_profile',
  *   modify: {
  *     aliases: {
@@ -47,7 +47,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * })
  * 
  * // Add new keybinds to specific environments
- * await request(eventBus, 'data:update-profile', {
+ * await this.request('data:update-profile', {
  *   profileId: 'my_profile',
  *   add: {
  *     builds: {
@@ -61,7 +61,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * })
  * 
  * // Delete specific keys
- * await request(eventBus, 'data:update-profile', {
+ * await this.request('data:update-profile', {
  *   profileId: 'my_profile',
  *   delete: {
  *     builds: {
@@ -72,7 +72,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * })
  * 
  * // Combined operations in a single atomic update
- * await request(eventBus, 'data:update-profile', {
+ * await this.request('data:update-profile', {
  *   profileId: 'my_profile',
  *   add: {
  *     aliases: { 'new_alias': { commands: 'new_command' } }
@@ -89,7 +89,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * })
  * 
  * // Legacy format still supported for backward compatibility
- * await request(eventBus, 'data:update-profile', {
+ * await this.request('data:update-profile', {
  *   profileId: 'my_profile',
  *   description: 'Updated description',
  *   aliases: { complete_aliases_object_here... }  // Complete replacement
@@ -131,24 +131,24 @@ export default class DataCoordinator extends ComponentBase {
 
   setupRequestHandlers() {
     // Register request/response handlers
-    respond(this.eventBus, 'data:get-all-profiles', () => this.getAllProfiles())
-    respond(this.eventBus, 'data:switch-profile', ({ profileId }) => this.switchProfile(profileId))
-    respond(this.eventBus, 'data:create-profile', ({ name, description, mode }) => this.createProfile(name, description, mode))
-    respond(this.eventBus, 'data:clone-profile', ({ sourceId, newName }) => this.cloneProfile(sourceId, newName))
-    respond(this.eventBus, 'data:delete-profile', ({ profileId }) => this.deleteProfile(profileId))
-    respond(this.eventBus, 'data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
-    respond(this.eventBus, 'data:update-profile', ({ profileId, ...operations }) =>
+    this.respond('data:get-all-profiles', () => this.getAllProfiles())
+    this.respond('data:switch-profile', ({ profileId }) => this.switchProfile(profileId))
+    this.respond('data:create-profile', ({ name, description, mode }) => this.createProfile(name, description, mode))
+    this.respond('data:clone-profile', ({ sourceId, newName }) => this.cloneProfile(sourceId, newName))
+    this.respond('data:delete-profile', ({ profileId }) => this.deleteProfile(profileId))
+    this.respond('data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
+    this.respond('data:update-profile', ({ profileId, ...operations }) =>
       this.updateProfile(profileId, operations))
     
     // Environment operations
-    respond(this.eventBus, 'data:set-environment', ({ environment }) => this.setEnvironment(environment))
+    this.respond('data:set-environment', ({ environment }) => this.setEnvironment(environment))
     
     // Settings operations
-    respond(this.eventBus, 'data:get-settings', () => this.getSettings())
-    respond(this.eventBus, 'data:update-settings', ({ settings }) => this.updateSettings(settings))
+    this.respond('data:get-settings', () => this.getSettings())
+    this.respond('data:update-settings', ({ settings }) => this.updateSettings(settings))
     
     // Default data operations
-    respond(this.eventBus, 'data:load-default-data', () => this.loadDefaultData())
+    this.respond('data:load-default-data', () => this.loadDefaultData())
     
     // Late join support is handled by ComponentBase automatically
   }
@@ -731,7 +731,7 @@ export default class DataCoordinator extends ComponentBase {
     
     try {
       // Get default profiles from DataService
-      const defaultProfilesData = await request(this.eventBus, 'data:get-default-profiles')
+      const defaultProfilesData = await this.request('data:get-default-profiles')
       
       if (!defaultProfilesData || Object.keys(defaultProfilesData).length === 0) {
         console.warn(`[${this.componentName}] No default profiles available from DataService`)
@@ -769,7 +769,7 @@ export default class DataCoordinator extends ComponentBase {
       console.log(`[${this.componentName}] Attempting to get default profiles from DataService...`)
       
       // Use request/response to get default profiles from DataService
-      const defaultProfilesData = await request(this.eventBus, 'data:get-default-profiles')
+      const defaultProfilesData = await this.request('data:get-default-profiles')
       
       if (defaultProfilesData && Object.keys(defaultProfilesData).length > 0) {
         console.log(`[${this.componentName}] Got default profiles from DataService, creating...`)

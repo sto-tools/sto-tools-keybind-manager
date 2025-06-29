@@ -38,13 +38,13 @@ export default class CommandLibraryService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        respond(this.eventBus, 'command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
-        respond(this.eventBus, 'command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
-        respond(this.eventBus, 'command:find-definition', ({ command }) => this.findCommandDefinition(command)),
-        respond(this.eventBus, 'command:get-warning', ({ command }) => this.getCommandWarning(command)),
-        respond(this.eventBus, 'command:get-categories',    () => this.getCommandCategories()),
-        respond(this.eventBus, 'command:generate-id',       () => this.generateCommandId()),
-        respond(this.eventBus, 'command:filter-library', () => {
+        this.respond('command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
+        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
+        this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
+        this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),
+        this.respond('command:get-categories',    () => this.getCommandCategories()),
+        this.respond('command:generate-id',       () => this.generateCommandId()),
+        this.respond('command:filter-library', () => {
           this.filterCommandLibrary()
           return true
         }),
@@ -179,7 +179,7 @@ export default class CommandLibraryService extends ComponentBase {
       const alias = profile.aliases && profile.aliases[selectedKey]
       if (!alias || !alias.commands) return []
 
-      const result = await request(this.eventBus, 'parser:parse-command-string', { 
+      const result = await this.request('parser:parse-command-string', { 
         commandString: alias.commands 
       })
       return result.commands.map((cmd, index) => ({
@@ -264,7 +264,7 @@ export default class CommandLibraryService extends ComponentBase {
         }
       }
       
-      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return null
 
       // --------------------------------------------------------------------
@@ -276,7 +276,7 @@ export default class CommandLibraryService extends ComponentBase {
       // correct library entry so that the UI can display the friendly name.
       // --------------------------------------------------------------------
       if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
-        const trayCategory = await request(this.eventBus, 'data:get-tray-category')
+        const trayCategory = await this.request('data:get-tray-category')
         if (trayCategory) {
           const categoryId = 'tray'
 
@@ -318,7 +318,7 @@ export default class CommandLibraryService extends ComponentBase {
       }
 
       // Generic lookup (exact match first, then containment) ------------------
-      const categories = await request(this.eventBus, 'data:get-commands')
+      const categories = await this.request('data:get-commands')
       
       // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
@@ -388,10 +388,10 @@ export default class CommandLibraryService extends ComponentBase {
    */
   async getCommandWarning(command) {
     try {
-      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return null
 
-      const categories = await request(this.eventBus, 'data:get-commands')
+      const categories = await this.request('data:get-commands')
 
       // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
@@ -491,7 +491,7 @@ export default class CommandLibraryService extends ComponentBase {
       }
 
       // Send update to DataCoordinator using explicit operations API
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         modify: updates
       })
@@ -560,7 +560,7 @@ export default class CommandLibraryService extends ComponentBase {
       }
 
       // Send update to DataCoordinator using explicit operations API
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         modify: updates
       })
@@ -624,7 +624,7 @@ export default class CommandLibraryService extends ComponentBase {
       }
 
       // Send update to DataCoordinator using explicit operations API
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         modify: updates
       })
@@ -655,9 +655,9 @@ export default class CommandLibraryService extends ComponentBase {
    */
   async getCommandCategories() {
     try {
-      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return {}
-      return await request(this.eventBus, 'data:get-commands')
+      return await this.request('data:get-commands')
     } catch (error) {
       return {}
     }
@@ -668,11 +668,11 @@ export default class CommandLibraryService extends ComponentBase {
    */
   async filterCommandLibrary() {
     try {
-      const hasCommands = await request(this.eventBus, 'data:has-commands')
+      const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return
 
       const commandItems = document.querySelectorAll('.command-item')
-      const commands = await request(this.eventBus, 'data:get-commands')
+      const commands = await this.request('data:get-commands')
       
       commandItems.forEach(item => {
         const commandId = item.dataset.command
@@ -775,7 +775,7 @@ export default class CommandLibraryService extends ComponentBase {
    * Generate mirrored command string for stabilization
    */
   async generateMirroredCommandString(commands) {
-    return await request(this.eventBus, 'fileops:generate-mirrored-commands', { commands })
+    return await this.request('fileops:generate-mirrored-commands', { commands })
   }
 
   /**
@@ -900,7 +900,7 @@ export default class CommandLibraryService extends ComponentBase {
 
     // Endpoint for getting command library data
     this._responseDetachFunctions.push(
-      respond(this.eventBus, 'command-library:get-data', () => {
+      this.respond('command-library:get-data', () => {
         return {
           commandCategories: this.commandCategories,
           userCommands: this.userCommands

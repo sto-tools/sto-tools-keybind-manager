@@ -36,16 +36,16 @@ export default class PreferencesService extends ComponentBase {
     // Register Request/Response endpoints for UI components
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'preferences:init', () => this.init())
-      respond(this.eventBus, 'preferences:load-settings', () => this.loadSettings())
-      respond(this.eventBus, 'preferences:save-settings', () => this.saveSettings())
-      respond(this.eventBus, 'preferences:get-settings', () => this.getSettings())
-      respond(this.eventBus, 'preferences:set-setting', ({ key, value }) => this.setSetting(key, value))
-      respond(this.eventBus, 'preferences:get-setting', ({ key }) => this.getSetting(key))
-      respond(this.eventBus, 'preferences:reset-settings', () => this.resetSettings())
+      this.respond('preferences:init', () => this.init())
+      this.respond('preferences:load-settings', () => this.loadSettings())
+      this.respond('preferences:save-settings', () => this.saveSettings())
+      this.respond('preferences:get-settings', () => this.getSettings())
+      this.respond('preferences:set-setting', ({ key, value }) => this.setSetting(key, value))
+      this.respond('preferences:get-setting', ({ key }) => this.getSetting(key))
+      this.respond('preferences:reset-settings', () => this.resetSettings())
       
       // Add i18n translation endpoint for UI components
-      respond(this.eventBus, 'i18n:translate', ({ key, params = {} }) => {
+      this.respond('i18n:translate', ({ key, params = {} }) => {
         if (this.i18n && this.i18n.t) {
           return this.i18n.t(key, params)
         }
@@ -201,7 +201,7 @@ export default class PreferencesService extends ComponentBase {
     const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
     if (this.i18n) {
       const message = this.i18n.t('switched_to_theme', { themeName }) || `Switched to ${themeName}`
-      this.eventBus.emit('toast:show', { message, type: 'success' })
+      this.emit('toast:show', { message, type: 'success' })
     }
   }
 
@@ -236,12 +236,12 @@ export default class PreferencesService extends ComponentBase {
     }
 
     // Emit event for other components to re-render with new language
-    this.eventBus.emit('language:changed', { language: lang })
+    this.emit('language:changed', { language: lang })
 
     // Show toast notification
     if (this.i18n) {
       const message = this.i18n.t('language_updated') || 'Language updated'
-      this.eventBus.emit('toast:show', { message, type: 'success' })
+      this.emit('toast:show', { message, type: 'success' })
     }
   }
 

@@ -26,7 +26,7 @@ export default class PreferencesUI extends ComponentBase {
 
   async init() {
     // Use request/response instead of direct service call
-    await request(eventBus, 'preferences:init')
+    await this.request('preferences:init')
     this.populatePreferencesModal()
     this.setupEventListeners()
   }
@@ -66,7 +66,7 @@ export default class PreferencesUI extends ComponentBase {
             const handle = await window.stoSync.setSyncFolder(true)
             if (handle) {
               // Reload settings (folder name/path updated by stoSync)
-              await request(eventBus, 'preferences:load-settings')
+              await this.request('preferences:load-settings')
               this.updateFolderDisplay()
             }
           } catch (err) {
@@ -136,28 +136,28 @@ export default class PreferencesUI extends ComponentBase {
       this.ui.showToast(i18next.t('preferences_saved'), 'success')
     }
     // Use event bus instead of direct modalManager call
-    this.eventBus.emit('modal:hide', { modalId: 'preferencesModal' })
+    this.emit('modal:hide', { modalId: 'preferencesModal' })
   }
 
   async showPreferences() {
     // Use request/response to get fresh settings
-    await request(eventBus, 'preferences:load-settings')
-    const settings = await request(eventBus, 'preferences:get-settings')
+    await this.request('preferences:load-settings')
+    const settings = await this.request('preferences:get-settings')
     Object.entries(settings).forEach(([k, v]) => this.updateUI(k, v))
     this.updateFolderDisplay()
     // Use event bus instead of direct modalManager call
-    this.eventBus.emit('modal:show', { modalId: 'preferencesModal' })
+    this.emit('modal:show', { modalId: 'preferencesModal' })
   }
 
   async populatePreferencesModal() {
     // Use request/response to load settings
-    await request(eventBus, 'preferences:load-settings')
+    await this.request('preferences:load-settings')
     this.updatePreferencesFromStorage()
     this.setupPreferencesEventListeners()
   }
 
   async updateFolderDisplay() {
-    const settings = await request(eventBus, 'preferences:get-settings')
+    const settings = await this.request('preferences:get-settings')
     const { syncFolderName, syncFolderPath } = settings
     
     // Update folder display UI
@@ -170,13 +170,13 @@ export default class PreferencesUI extends ComponentBase {
 
   async setSetting(key, value) {
     // Use request/response instead of direct service call
-    await request(eventBus, 'preferences:set-setting', { key, value })
+    await this.request('preferences:set-setting', { key, value })
     this.updateUI(key, value)
   }
 
   async saveSettings() {
     // Use request/response instead of direct service call
-    const ok = await request(eventBus, 'preferences:save-settings')
+    const ok = await this.request('preferences:save-settings')
     return ok
   }
 

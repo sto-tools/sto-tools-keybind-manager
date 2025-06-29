@@ -21,73 +21,73 @@ export default class DataService extends ComponentBase {
   onInit() {
     // Set up request/response handlers for data access
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-commands', () => {
+      this.respond('data:get-commands', () => {
         return this.data.commands || {}
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-command-category', ({ categoryId }) => {
+      this.respond('data:get-command-category', ({ categoryId }) => {
         return this.data.commands?.[categoryId] || null
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-command-definition', ({ categoryId, commandId }) => {
+      this.respond('data:get-command-definition', ({ categoryId, commandId }) => {
         return this.data.commands?.[categoryId]?.commands?.[commandId] || null
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-validation-patterns', () => {
+      this.respond('data:get-validation-patterns', () => {
         return this.data.validation || {}
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-key-name-pattern', () => {
+      this.respond('data:get-key-name-pattern', () => {
         return this.data.validation?.keyNamePattern || /^[A-Za-z0-9_]+$/
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-alias-name-pattern', () => {
+      this.respond('data:get-alias-name-pattern', () => {
         return this.data.validation?.aliasNamePattern || /^[A-Za-z0-9_]+$/
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:has-commands', () => {
+      this.respond('data:has-commands', () => {
         return !!(this.data && this.data.commands)
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-tray-category', () => {
+      this.respond('data:get-tray-category', () => {
         return this.data.commands?.tray || null
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-communication-category', () => {
+      this.respond('data:get-communication-category', () => {
         return this.data.commands?.communication || null
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-combat-category', () => {
+      this.respond('data:get-combat-category', () => {
         return this.data.commands?.combat || null
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-default-profiles', () => {
+      this.respond('data:get-default-profiles', () => {
         return this.data.defaultProfiles || {}
       })
     )
 
     this.responseHandlers.push(
-      respond(this.eventBus, 'data:get-default-profile', ({ profileId }) => {
+      this.respond('data:get-default-profile', ({ profileId }) => {
         return this.data.defaultProfiles?.[profileId] || null
       })
     )

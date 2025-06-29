@@ -26,7 +26,7 @@ export default class InterfaceModeService extends ComponentBase {
     // Register Request/Response handlers for environment switching
     // ---------------------------------------------------------
     if (this.eventBus) {
-      this._responseDetachFunction = respond(this.eventBus, 'environment:switch', ({ mode } = {}) => {
+      this._responseDetachFunction = this.respond('environment:switch', ({ mode } = {}) => {
         if (mode) {
           this.switchMode(mode)
           return { success: true, mode: this._currentMode }
@@ -130,7 +130,7 @@ export default class InterfaceModeService extends ComponentBase {
     })
 
     // Emit plain events for state change and legacy compatibility
-    this.eventBus.emit('environment:changed', {
+    this.emit('environment:changed', {
       environment: mode
     })
   }
@@ -149,7 +149,7 @@ export default class InterfaceModeService extends ComponentBase {
 
     try {
       // Update profile with new environment using explicit operations API
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: this._currentProfileId,
         properties: {
           currentEnvironment: mode
@@ -195,7 +195,7 @@ export default class InterfaceModeService extends ComponentBase {
         console.log(`[InterfaceModeService] Broadcasting initial environment: ${this._currentMode} (from profile initialization)`)
       }
       
-      this.eventBus.emit('environment:changed', {
+      this.emit('environment:changed', {
         environment: this._currentMode,
         isInitialization: true
       })
@@ -259,7 +259,7 @@ export default class InterfaceModeService extends ComponentBase {
         console.log(`[InterfaceModeService] Broadcasting initial environment: ${this._currentMode} (from ${sender} late-join handshake)`)
       }
       
-      this.eventBus.emit('environment:changed', {
+      this.emit('environment:changed', {
         environment: this._currentMode,
         isInitialization: true
       })

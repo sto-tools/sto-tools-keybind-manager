@@ -20,10 +20,10 @@ function off(event, callback) {
 }
 
 function emit(event, data) {
-  if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
-    console.log(`[eventBus] emit → ${event}`, data)
-  }
+  // if (typeof window !== 'undefined') {
+  //   // eslint-disable-next-line no-console
+  //   console.log(`[eventBus] emit → ${event}`, data)
+  // }
   
   const eventListeners = listeners.get(event)
   if (eventListeners) {

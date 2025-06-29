@@ -54,13 +54,13 @@ export default class ExportUI extends ComponentBase {
   /* ---------------------------------------------------------- */
   showExportOptions () {
     if (!this.currentProfile) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('no_profile_selected_to_export'), 
         type: 'warning' 
       })
       return
     }
-    this.eventBus.emit('modal:show', { modalId: 'exportModal' })
+    this.emit('modal:show', { modalId: 'exportModal' })
   }
 
   populateExportModal () {
@@ -72,7 +72,7 @@ export default class ExportUI extends ComponentBase {
 
   performExport () {
     if (!this.currentProfile) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('no_profile_selected_to_export'), 
         type: 'warning' 
       })
@@ -103,7 +103,7 @@ export default class ExportUI extends ComponentBase {
       default:
         break
     }
-    this.eventBus.emit('modal:hide', { modalId: 'exportModal' })
+    this.emit('modal:hide', { modalId: 'exportModal' })
   }
 
   /* ---------------------------------------------------------- */
@@ -111,22 +111,22 @@ export default class ExportUI extends ComponentBase {
   /* ---------------------------------------------------------- */
   async exportSTOKeybindFile (profile, env = 'space') {
     try {
-      const content = await request(this.eventBus, 'export:generate-keybind-file', {
+      const content = await this.request('export:generate-keybind-file', {
         profile, 
         options: { environment: env }
       })
-      const filename = await request(this.eventBus, 'export:generate-filename', {
+      const filename = await this.request('export:generate-filename', {
         profile, 
         extension: 'txt', 
         environment: env
       })
       this.downloadFile(content, filename, 'text/plain')
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('keybind_file_exported'), 
         type: 'success' 
       })
     } catch (err) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('failed_to_export_keybind_file', { error: err.message }), 
         type: 'error' 
       })
@@ -135,7 +135,7 @@ export default class ExportUI extends ComponentBase {
 
   async exportJSONProfile (profile, env = 'space') {
     try {
-      const sanitizedProfile = await request(this.eventBus, 'export:sanitize-profile', { profile })
+      const sanitizedProfile = await this.request('export:sanitize-profile', { profile })
       const payload = {
         version: STO_DATA.settings.version,
         exported: new Date().toISOString(),
@@ -143,18 +143,18 @@ export default class ExportUI extends ComponentBase {
         profile: sanitizedProfile,
       }
       const content = JSON.stringify(payload, null, 2)
-      const filename = await request(this.eventBus, 'export:generate-filename', {
+      const filename = await this.request('export:generate-filename', {
         profile, 
         extension: 'json', 
         environment: env
       })
       this.downloadFile(content, filename, 'application/json')
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('profile_exported_json'), 
         type: 'success' 
       })
     } catch (err) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('failed_to_export_profile', { error: err.message }), 
         type: 'error' 
       })
@@ -163,7 +163,7 @@ export default class ExportUI extends ComponentBase {
 
   async exportCompleteProject () {
     try {
-      const data = await request(this.eventBus, 'storage:get-all-data')
+      const data = await this.request('storage:get-all-data')
       const payload = {
         version: STO_DATA.settings.version,
         exported: new Date().toISOString(),
@@ -173,12 +173,12 @@ export default class ExportUI extends ComponentBase {
       const content = JSON.stringify(payload, null, 2)
       const filename = `STO_Tools_Keybinds_Project_${new Date().toISOString().split('T')[0]}.json`
       this.downloadFile(content, filename, 'application/json')
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('complete_project_exported'), 
         type: 'success' 
       })
     } catch (err) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('failed_to_export_project', { error: err.message }), 
         type: 'error' 
       })
@@ -187,19 +187,19 @@ export default class ExportUI extends ComponentBase {
 
   async exportCSVData (profile, env = 'space') {
     try {
-      const csv = await request(this.eventBus, 'export:generate-csv-data', { profile })
-      const filename = await request(this.eventBus, 'export:generate-filename', {
+      const csv = await this.request('export:generate-csv-data', { profile })
+      const filename = await this.request('export:generate-filename', {
         profile, 
         extension: 'csv', 
         environment: env
       })
       this.downloadFile(csv, filename, 'text/csv')
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('data_exported_csv'), 
         type: 'success' 
       })
     } catch (err) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('failed_to_export_csv', { error: err.message }), 
         type: 'error' 
       })
@@ -208,19 +208,19 @@ export default class ExportUI extends ComponentBase {
 
   async exportHTMLReport (profile, env = 'space') {
     try {
-      const html = await request(this.eventBus, 'export:generate-html-report', { profile })
-      const filename = await request(this.eventBus, 'export:generate-filename', {
+      const html = await this.request('export:generate-html-report', { profile })
+      const filename = await this.request('export:generate-filename', {
         profile, 
         extension: 'html', 
         environment: env
       })
       this.downloadFile(html, filename, 'text/html')
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('html_report_exported'), 
         type: 'success' 
       })
     } catch (err) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('failed_to_export_html_report', { error: err.message }), 
         type: 'error' 
       })
@@ -229,18 +229,18 @@ export default class ExportUI extends ComponentBase {
 
   async exportAliases (profile) {
     try {
-      const content = await request(this.eventBus, 'export:generate-alias-file', { profile })
-      const filename = await request(this.eventBus, 'export:generate-alias-filename', {
+      const content = await this.request('export:generate-alias-file', { profile })
+      const filename = await this.request('export:generate-alias-filename', {
         profile, 
         extension: 'txt'
       })
       this.downloadFile(content, filename, 'text/plain')
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('aliases_exported_successfully'), 
         type: 'success' 
       })
     } catch (err) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('failed_to_export_aliases', { error: err.message }), 
         type: 'error' 
       })
@@ -252,10 +252,10 @@ export default class ExportUI extends ComponentBase {
   /* ---------------------------------------------------------- */
   async exportAllProfiles () {
     try {
-      const data = await request(this.eventBus, 'storage:get-all-data')
+      const data = await this.request('storage:get-all-data')
       const profiles = data.profiles
       if (!profiles || Object.keys(profiles).length === 0) {
-        this.eventBus.emit('toast:show', { 
+        this.emit('toast:show', { 
           message: i18next.t('no_profiles_to_export'), 
           type: 'warning' 
         })
@@ -264,12 +264,12 @@ export default class ExportUI extends ComponentBase {
       Object.values(profiles).forEach((p, idx) => {
         setTimeout(() => this.exportSTOKeybindFile(p), idx * 100)
       })
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('exporting_profiles', { count: Object.keys(profiles).length }), 
         type: 'info' 
       })
     } catch (err) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('failed_to_export_profiles', { error: err.message }), 
         type: 'error' 
       })
@@ -284,7 +284,7 @@ export default class ExportUI extends ComponentBase {
     if (!preview) return
     if (!preview.textContent.trim()) {
       try {
-        const previewText = await request(this.eventBus, 'command:get-chain-preview')
+        const previewText = await this.request('command:get-chain-preview')
         if (previewText) {
           preview.textContent = previewText
         }
@@ -293,13 +293,13 @@ export default class ExportUI extends ComponentBase {
       }
     }
     if (!preview.textContent.trim()) {
-      this.eventBus.emit('toast:show', { 
+      this.emit('toast:show', { 
         message: i18next.t('no_command_to_copy'), 
         type: 'warning' 
       })
       return
     }
-    this.eventBus.emit('ui:copy-to-clipboard', { text: preview.textContent })
+    this.emit('ui:copy-to-clipboard', { text: preview.textContent })
   }
 
   downloadFile (content, filename, mimeType) {

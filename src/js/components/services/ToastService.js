@@ -27,7 +27,7 @@ export default class ToastService extends ComponentBase {
     
     // Register request/response endpoints
     if (this.eventBus) {
-      respond(this.eventBus, 'ui:show-toast', ({ message, type = 'info', duration = 3000 }) => {
+      this.respond('ui:show-toast', ({ message, type = 'info', duration = 3000 }) => {
         this.showToast(message, type, duration)
         return true
       })

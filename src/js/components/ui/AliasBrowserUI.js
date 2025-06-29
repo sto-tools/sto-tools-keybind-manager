@@ -144,7 +144,7 @@ export default class AliasBrowserUI extends ComponentBase {
     
     const message = i18next.t('confirm_delete_alias', { alias: aliasName }) || `Delete alias ${aliasName}?`
     if (confirm(message)) {
-      this.eventBus.emit('alias:delete', { name: aliasName })
+      this.emit('alias:delete', { name: aliasName })
     }
   }
 
@@ -154,7 +154,7 @@ export default class AliasBrowserUI extends ComponentBase {
   async duplicateAlias(aliasName) {
     if (!aliasName || !this.modalManager) return
 
-    const aliases = await request(this.eventBus, 'alias:get-all')
+    const aliases = await this.request('alias:get-all')
     const suggested = generateSuggestedAlias(aliasName, aliases)
 
     // Get modal elements
@@ -193,7 +193,7 @@ export default class AliasBrowserUI extends ComponentBase {
       const target = input.value.trim()
       if (!target || aliases[target]) return // should not happen due to validation
       this.modalManager.hide('aliasDuplicateModal')
-      this.eventBus.emit('alias:duplicate', { from: aliasName, to: target })
+      this.emit('alias:duplicate', { from: aliasName, to: target })
     }
 
     // Show modal
@@ -220,14 +220,14 @@ export default class AliasBrowserUI extends ComponentBase {
     const toggle = this.document.getElementById('aliasToggleOption')?.checked
     const cycle = this.document.getElementById('aliasCycleOption')?.checked
     
-    this.eventBus.emit('alias:options-changed', { stabilize, toggle, cycle })
+    this.emit('alias:options-changed', { stabilize, toggle, cycle })
   }
 
   async render () {
     const grid = this.document.getElementById('aliasGrid')
     if (!grid) return
 
-    const aliases = await request(this.eventBus, 'alias:get-all')
+    const aliases = await this.request('alias:get-all')
     // Use cached selected alias from event listeners instead of polling
 
     const entries = Object.entries(aliases)
@@ -304,7 +304,7 @@ export default class AliasBrowserUI extends ComponentBase {
   async createAliasModal() {
     if (!this.modalManager) return
 
-    const aliases = await request(this.eventBus, 'alias:get-all')
+    const aliases = await this.request('alias:get-all')
 
     const modal = this.document.getElementById('aliasCreationModal')
     if (!modal) return
@@ -336,7 +336,7 @@ export default class AliasBrowserUI extends ComponentBase {
       const name = input.value.trim()
       if (!name) return
       this.modalManager.hide('aliasCreationModal')
-      this.eventBus.emit('alias:create', { name })
+      this.emit('alias:create', { name })
     }
 
     this.modalManager.show('aliasCreationModal')

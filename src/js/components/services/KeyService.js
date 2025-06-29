@@ -48,9 +48,9 @@ export default class KeyService extends ComponentBase {
     // Register Request/Response topics for key state and actions
     // ---------------------------------------------------------
     if (this.eventBus) {
-      respond(this.eventBus, 'key:get-selected', () => this.selectedKey)
+      this.respond('key:get-selected', () => this.selectedKey)
       // Note: key:select is handled by KeyBrowserService to maintain consistency with alias pattern
-      respond(this.eventBus, 'key:add', ({ key } = {}) => this.addKey(key))
+      this.respond('key:add', ({ key } = {}) => this.addKey(key))
       
       // Use addEventListener for key:delete since KeyBrowserUI emits it rather than requests it
       this.addEventListener('key:delete', ({ key } = {}) => this.deleteKey(key))
@@ -187,7 +187,7 @@ export default class KeyService extends ComponentBase {
 
     try {
       // Add new key using explicit operations API
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         add: {
           builds: {
@@ -222,7 +222,7 @@ export default class KeyService extends ComponentBase {
 
     try {
       // Delete key using explicit operations API
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         delete: {
           builds: {
@@ -269,7 +269,7 @@ export default class KeyService extends ComponentBase {
       const cloned = commands.map(cmd => ({ ...cmd, id: this.generateKeyId() }))
 
       // Add duplicated key using explicit operations API
-      await request(this.eventBus, 'data:update-profile', {
+      await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         add: {
           builds: {
@@ -296,7 +296,7 @@ export default class KeyService extends ComponentBase {
   async isValidKeyName (keyName) {
     if (!keyName || typeof keyName !== 'string') return false
     try {
-      const pattern = await request(this.eventBus, 'data:get-key-name-pattern') || /^[A-Za-z0-9_]+$/
+      const pattern = await this.request('data:get-key-name-pattern') || /^[A-Za-z0-9_]+$/
       return pattern.test(keyName) && keyName.length <= 20
     } catch (error) {
       // Fallback to default pattern if DataService not available
@@ -307,7 +307,7 @@ export default class KeyService extends ComponentBase {
   // Alias validation used by unit tests
   async isValidAliasName (name) {
     try {
-      const pattern = await request(this.eventBus, 'data:get-alias-name-pattern') || /^[A-Za-z0-9_]+$/
+      const pattern = await this.request('data:get-alias-name-pattern') || /^[A-Za-z0-9_]+$/
       return pattern.test(name)
     } catch (error) {
       // Fallback to default pattern if DataService not available
@@ -606,7 +606,7 @@ export default class KeyService extends ComponentBase {
 
     try {
       // Use STOCommandParser directly for efficient command category detection
-      const result = await request(this.eventBus, 'parser:parse-command-string', { 
+      const result = await this.request('parser:parse-command-string', { 
         commandString: command.trim(),
         options: { generateDisplayText: false } // Skip expensive display text generation
       })

@@ -36,11 +36,11 @@ export default class CommandChainService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        respond(this.eventBus, 'command-chain:add', ({ key, command, position }) => this.addCommand(key, command, position)),
-        respond(this.eventBus, 'command-chain:delete', ({ key, index }) => this.deleteCommand(key, index)),
-        respond(this.eventBus, 'command-chain:move', ({ key, fromIndex, toIndex }) => this.moveCommand(key, fromIndex, toIndex)),
-        respond(this.eventBus, 'command-chain:get', ({ key }) => this.getCommandsForKey(key)),
-        respond(this.eventBus, 'command-chain:clear', ({ key }) => this.clearCommandChain(key))
+        this.respond('command-chain:add', ({ key, command, position }) => this.addCommand(key, command, position)),
+        this.respond('command-chain:delete', ({ key, index }) => this.deleteCommand(key, index)),
+        this.respond('command-chain:move', ({ key, fromIndex, toIndex }) => this.moveCommand(key, fromIndex, toIndex)),
+        this.respond('command-chain:get', ({ key }) => this.getCommandsForKey(key)),
+        this.respond('command-chain:clear', ({ key }) => this.clearCommandChain(key))
       )
     }
   }
@@ -141,7 +141,7 @@ export default class CommandChainService extends ComponentBase {
       try {
         if (commandObj && this.selectedKey) {
           const before = await this.getCommandsForSelectedKey()
-          await request(this.eventBus, 'command-chain:add', { 
+          await this.request('command-chain:add', { 
             command: commandObj, 
             key: this.selectedKey 
           })
@@ -179,7 +179,7 @@ export default class CommandChainService extends ComponentBase {
       // communication, targeting, etc.) instead of only tray commands.
       if (!cmd.parameters) {
         try {
-          const parseResult = await request(this.eventBus, 'parser:parse-command-string', {
+          const parseResult = await this.request('parser:parse-command-string', {
             commandString: cmd.command,
             options: { generateDisplayText: false }
           })
@@ -218,7 +218,7 @@ export default class CommandChainService extends ComponentBase {
       
       // REFACTORED: Use request/response instead of direct service access
       try {
-        await request(this.eventBus, 'command-chain:delete', { 
+        await this.request('command-chain:delete', { 
           key: this.selectedKey, 
           index 
         })
@@ -234,7 +234,7 @@ export default class CommandChainService extends ComponentBase {
       
       // REFACTORED: Use request/response instead of direct service access
       try {
-        await request(this.eventBus, 'command-chain:move', { 
+        await this.request('command-chain:move', { 
           key: this.selectedKey, 
           fromIndex, 
           toIndex 
@@ -253,7 +253,7 @@ export default class CommandChainService extends ComponentBase {
 
   async getCommandsForSelectedKey () {
     try {
-      return await request(this.eventBus, 'command:get-for-selected-key')
+      return await this.request('command:get-for-selected-key')
     } catch (error) {
       console.error('Failed to get commands for selected key:', error)
       return Array.isArray(this.commands) ? this.commands : []
@@ -262,7 +262,7 @@ export default class CommandChainService extends ComponentBase {
 
   async getEmptyStateInfo () {
     try {
-      return await request(this.eventBus, 'command:get-empty-state-info')
+      return await this.request('command:get-empty-state-info')
     } catch (error) {
       console.error('Failed to get empty state info:', error)
       return {
@@ -279,7 +279,7 @@ export default class CommandChainService extends ComponentBase {
   async findCommandDefinition (command) {
     try {
       console.log('[CommandChainService] findCommandDefinition command:find-definition', { command })
-      return await request(this.eventBus, 'command:find-definition', { command })
+      return await this.request('command:find-definition', { command })
     } catch (error) {
       console.error('Failed to find command definition:', error)
       return null
@@ -288,7 +288,7 @@ export default class CommandChainService extends ComponentBase {
 
   async getCommandWarning (command) {
     try {
-      return await request(this.eventBus, 'command:get-warning', { command })
+      return await this.request('command:get-warning', { command })
     } catch (error) {
       console.error('Failed to get command warning:', error)
       return null
@@ -371,7 +371,7 @@ export default class CommandChainService extends ComponentBase {
         console.error('CommandChainService: Cannot add command - no current profile ID in cache')
         // Try to get current profile from DataCoordinator as fallback
         try {
-          const currentState = await request(this.eventBus, 'data:get-current-state')
+          const currentState = await this.request('data:get-current-state')
           if (currentState?.currentProfile) {
             this.cache.currentProfile = currentState.currentProfile
             if (currentState.currentProfileData) {
@@ -389,7 +389,7 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Use DataCoordinator explicit operations API to modify specific items
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         modify: this.currentEnvironment === 'alias' ? {
           aliases: {
@@ -475,7 +475,7 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Use DataCoordinator explicit operations API to modify specific items
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: profileId,
         modify: isAliasContext ? {
           aliases: {
@@ -550,7 +550,7 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Use DataCoordinator explicit operations API to modify specific items
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: profileId,
         modify: this.currentEnvironment === 'alias' ? {
           aliases: {
@@ -595,7 +595,7 @@ export default class CommandChainService extends ComponentBase {
         const alias = profile.aliases && profile.aliases[key]
         if (!alias || !alias.commands) return []
 
-        const result = await request(this.eventBus, 'parser:parse-command-string', { 
+        const result = await this.request('parser:parse-command-string', { 
           commandString: alias.commands 
         })
         return result.commands.map((cmd, index) => ({
@@ -653,7 +653,7 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Use DataCoordinator explicit operations API to modify specific items
-      const result = await request(this.eventBus, 'data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: profileId,
         modify: this.currentEnvironment === 'alias' ? {
           aliases: {

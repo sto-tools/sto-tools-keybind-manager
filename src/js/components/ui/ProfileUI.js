@@ -136,7 +136,7 @@ export default class ProfileUI extends ComponentBase {
   async handleProfileSwitch(profileId) {
     try {
       // Use DataCoordinator directly for better performance
-      const result = await request(this.eventBus, 'data:switch-profile', { profileId })
+      const result = await this.request('data:switch-profile', { profileId })
       if (result?.switched) {
         this._selectedKey = null
         this.renderKeyGrid()
@@ -157,7 +157,7 @@ export default class ProfileUI extends ComponentBase {
     if (!select) return
 
     // Use DataCoordinator directly for better performance
-    const profiles = await request(this.eventBus, 'data:get-all-profiles')
+    const profiles = await this.request('data:get-all-profiles')
     select.innerHTML = ''
 
     const profileEntries = Object.entries(profiles || {})
@@ -331,9 +331,9 @@ export default class ProfileUI extends ComponentBase {
       switch (this.currentModal) {
         case 'new': {
           // Use DataCoordinator directly for better performance
-          result = await request(this.eventBus, 'data:create-profile', { name, description })
+          result = await this.request('data:create-profile', { name, description })
           if (result?.success) {
-            await request(this.eventBus, 'data:switch-profile', { profileId: result.profileId })
+            await this.request('data:switch-profile', { profileId: result.profileId })
             await this.renderProfiles()
             this.renderKeyGrid()
             this.updateProfileInfo()
@@ -343,7 +343,7 @@ export default class ProfileUI extends ComponentBase {
         }
         case 'clone': {
           // Use DataCoordinator directly for better performance
-          result = await request(this.eventBus, 'data:clone-profile', { sourceId: this._currentProfileId, newName: name })
+          result = await this.request('data:clone-profile', { sourceId: this._currentProfileId, newName: name })
           if (result?.success) {
             await this.renderProfiles()
             this.ui?.showToast?.(result.message, 'success')
@@ -352,7 +352,7 @@ export default class ProfileUI extends ComponentBase {
         }
         case 'rename': {
           // Use DataCoordinator directly for better performance
-          result = await request(this.eventBus, 'data:rename-profile', { profileId: this._currentProfileId, newName: name, description })
+          result = await this.request('data:rename-profile', { profileId: this._currentProfileId, newName: name, description })
           if (result?.success) {
             await this.renderProfiles()
             this.updateProfileInfo()
@@ -395,7 +395,7 @@ export default class ProfileUI extends ComponentBase {
   async deleteCurrentProfile() {
     try {
       // Use DataCoordinator directly for better performance
-      const result = await request(this.eventBus, 'data:delete-profile', { profileId: this._currentProfileId })
+      const result = await this.request('data:delete-profile', { profileId: this._currentProfileId })
       if (result.success) {
         if (result.switchedProfile) {
           this._selectedKey = null
