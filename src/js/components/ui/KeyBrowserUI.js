@@ -167,7 +167,7 @@ export default class KeyBrowserUI extends ComponentBase {
       this.renderSimpleGridView(grid, allKeys)
     } else {
       // command-category
-      this.renderCommandCategoryView(grid, keysWithCommands, allKeys)
+      await this.renderCommandCategoryView(grid, keysWithCommands, allKeys)
     }
   }
 
@@ -184,9 +184,9 @@ export default class KeyBrowserUI extends ComponentBase {
     })
   }
 
-  renderCommandCategoryView (grid, keysWithCommands, allKeys) {
+  async renderCommandCategoryView (grid, keysWithCommands, allKeys) {
     grid.classList.add('categorized')
-    const categories = this.categorizeKeys(keysWithCommands, allKeys)
+    const categories = await this.categorizeKeys(keysWithCommands, allKeys)
     const sorted = Object.entries(categories).sort(([aId,a],[bId,b]) => {
       if (a.priority !== b.priority) return a.priority - b.priority
       return a.name.localeCompare(b.name)
@@ -209,7 +209,7 @@ export default class KeyBrowserUI extends ComponentBase {
 
   /* ------ Categorization helpers ------ */
 
-  categorizeKeys (keysWithCommands, allKeys) {
+  async categorizeKeys (keysWithCommands, allKeys) {
     const categories = {
       unknown: { name: 'Unknown', icon: 'fas fa-question-circle', keys: new Set(), priority: 0 },
     }
@@ -218,7 +218,8 @@ export default class KeyBrowserUI extends ComponentBase {
       categories[catId] = { name: catData.name, icon: catData.icon, keys: new Set(), priority: 1 }
     })
 
-    allKeys.forEach((keyName) => {
+    // Process each key's commands async
+    await Promise.all(allKeys.map(async (keyName) => {
       const commands = keysWithCommands[keyName] || []
 
       if (!commands || commands.length === 0) {
@@ -227,13 +228,32 @@ export default class KeyBrowserUI extends ComponentBase {
       }
 
       const keyCats = new Set()
-      commands.forEach((command) => {
-        if (command.type && categories[command.type]) keyCats.add(command.type)
-        else if (window.stoCommands) {
-          const detected = window.stoCommands.detectCommandType(command.command)
-          if (categories[detected]) keyCats.add(detected)
+      
+      // Process each command async
+      await Promise.all(commands.map(async (command) => {
+        // Handle both new format (category) and legacy format (type)
+        const commandCategory = command.category || command.type
+        if (commandCategory && categories[commandCategory]) {
+          keyCats.add(commandCategory)
+        } else {
+          // Use STOCommandParser via event bus for command category detection
+          try {
+            const result = await request(this.eventBus, 'parser:parse-command-string', { 
+              commandString: command.command,
+              options: { generateDisplayText: false }
+            })
+            if (result.commands && result.commands.length > 0) {
+              const detected = result.commands[0].category
+              if (categories[detected]) keyCats.add(detected)
+            }
+          } catch (error) {
+            // Fallback to custom category if parsing fails
+            if (!categories.custom) {
+              categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
+            }
+          }
         }
-      })
+      }))
 
       if (keyCats.size > 0) {
         keyCats.forEach((cid) => categories[cid].keys.add(keyName))
@@ -241,7 +261,7 @@ export default class KeyBrowserUI extends ComponentBase {
         if (!categories.custom) categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
         categories.custom.keys.add(keyName)
       }
-    })
+    }))
 
     Object.values(categories).forEach((cat) => { cat.keys = Array.from(cat.keys).sort(this.compareKeys.bind(this)) })
     return categories

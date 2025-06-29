@@ -1,6 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
 import { request, respond } from '../../core/requestResponse.js'
-import { parameterCommands } from '../ui/ParameterCommandUI.js'
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -79,6 +78,11 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('profile:switched', (data) => {
       this.currentProfile = data.profileId || data.profile || data.id
       this.currentEnvironment = data.environment || 'space'
+      
+      // Ensure cache has the profile ID even if we don't have the full profile object
+      this.cache.currentProfile = this.currentProfile
+      this.cache.currentEnvironment = this.currentEnvironment
+      
       if (data.profile) {
         this.updateCacheFromProfile(data.profile)
       }
@@ -156,21 +160,8 @@ export default class CommandChainService extends ComponentBase {
       }
     })
 
-    // Handle new command:add event from refactored UI
-/*    this.addEventListener('command:add', (payload = {}) => {
-      const { categoryId, commandId, commandDef } = payload
-
-      // Only handle customizable commands - static commands are handled by CommandUI
-      if (categoryId && commandId && commandDef) {
-        // Customizable command - delegate directly to parameterCommands
-        if (typeof parameterCommands !== 'undefined' && parameterCommands.showParameterModal) {
-          parameterCommands.showParameterModal(categoryId, commandId, commandDef)
-        }
-      }
-      // Note: Static commands are handled by CommandUI, which will emit chain-data-changed
-      // when the command is actually added, so we don't need to handle them here
-    })
-*/
+    // Note: command:add events are now handled by CommandUI
+    // CommandChainService only handles the resulting command-added events
     // Edit command
     this.addEventListener('commandchain:edit', async ({ index }) => {
       if (index === undefined) return
@@ -189,20 +180,16 @@ export default class CommandChainService extends ComponentBase {
 
       // Derive parameters for tray execution commands when not stored
       if (!cmd.parameters && /TrayExecByTray/.test(cmd.command)) {
-        const m = cmd.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
-        if (m) {
-          cmd.parameters = { tray: parseInt(m[1]), slot: parseInt(m[2]) }
-        } else {
-          const mb = cmd.command.match(/(?:\+)?(?:STO)?TrayExecByTrayWithBackup\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/i)
-          if (mb) {
-            cmd.parameters = {
-              active: parseInt(mb[1]),
-              tray: parseInt(mb[2]),
-              slot: parseInt(mb[3]),
-              backup_tray: parseInt(mb[4]),
-              backup_slot: parseInt(mb[5]),
-            }
+        try {
+          const parseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+            commandString: cmd.command,
+            options: { generateDisplayText: false }
+          })
+          if (parseResult.commands && parseResult.commands[0] && parseResult.commands[0].parameters) {
+            cmd.parameters = parseResult.commands[0].parameters
           }
+        } catch (error) {
+          console.warn('[CommandChainService] Failed to parse tray parameters:', error)
         }
       }
 
@@ -210,18 +197,14 @@ export default class CommandChainService extends ComponentBase {
       const isCustomizable = !!(def && def.customizable)
 
       if (isCustomizable) {
-        const helper = (typeof window !== 'undefined' && window.app?.editParameterizedCommand) ||
-                       (typeof parameterCommands !== 'undefined' && parameterCommands.editParameterizedCommand)
-
-        if (helper) {
-          if (typeof window !== 'undefined' && window.app?.editParameterizedCommand) {
-            window.app.editParameterizedCommand(index, cmd, def)
-          } else {
-            helper.call(window.app || {}, index, cmd, def)
-          }
-        } else {
-          parameterCommands.showParameterModal(def.categoryId || cmd.type, def.commandId, def)
-        }
+        // Emit event for parameter command editing - handled by ParameterCommandUI
+        this.emit('parameter-command:edit', {
+          index,
+          command: cmd,
+          commandDef: def,
+          categoryId: def.categoryId || cmd.type,
+          commandId: def.commandId
+        })
         return
       }
 
@@ -498,13 +481,14 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Ensure we have a valid profile ID before making the request
-      if (!this.cache.currentProfile) {
-        console.error('CommandChainService: Cannot delete command - no current profile ID in cache')
+      const profileId = this.cache.currentProfile || this.currentProfile
+      if (!profileId) {
+        console.error('CommandChainService: Cannot delete command - no current profile ID available')
         return false
       }
 
       const result = await request(this.eventBus, 'data:update-profile', {
-        profileId: this.cache.currentProfile,
+        profileId: profileId,
         updates
       })
 
@@ -571,13 +555,14 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Ensure we have a valid profile ID before making the request
-      if (!this.cache.currentProfile) {
-        console.error('CommandChainService: Cannot move command - no current profile ID in cache')
+      const profileId = this.cache.currentProfile || this.currentProfile
+      if (!profileId) {
+        console.error('CommandChainService: Cannot move command - no current profile ID available')
         return false
       }
 
       const result = await request(this.eventBus, 'data:update-profile', {
-        profileId: this.cache.currentProfile,
+        profileId: profileId,
         updates
       })
 
@@ -609,15 +594,15 @@ export default class CommandChainService extends ComponentBase {
         const alias = profile.aliases && profile.aliases[key]
         if (!alias || !alias.commands) return []
 
-        const commands = await request(this.eventBus, 'fileops:parse-command-string', { 
+        const result = await request(this.eventBus, 'parser:parse-command-string', { 
           commandString: alias.commands 
         })
-        return commands.map((cmd, index) => ({
-          command: cmd.command,
-          text: cmd.text || cmd.command,
-          type: cmd.type || 'alias', // Use the actual detected type, fallback to 'alias'
-          icon: cmd.icon || '🎭',
+        return result.commands.map((cmd, index) => ({
+          ...cmd, // Use new format directly
           id: `alias_${index}`,
+          // Ensure backward compatibility for any legacy fields still needed
+          type: cmd.category,
+          text: cmd.displayText
         }))
       } else {
         // Handle keybind command chains
@@ -672,13 +657,14 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Ensure we have a valid profile ID before making the request
-      if (!this.cache.currentProfile) {
-        console.error('CommandChainService: Cannot clear command chain - no current profile ID in cache')
+      const profileId = this.cache.currentProfile || this.currentProfile
+      if (!profileId) {
+        console.error('CommandChainService: Cannot clear command chain - no current profile ID available')
         return false
       }
 
       const result = await request(this.eventBus, 'data:update-profile', {
-        profileId: this.cache.currentProfile,
+        profileId: profileId,
         updates
       })
 
@@ -802,6 +788,8 @@ export default class CommandChainService extends ComponentBase {
       this.currentEnvironment = state.currentEnvironment || 'space'
       // Ensure the cache environment is also updated
       this.cache.currentEnvironment = this.currentEnvironment
+      // Ensure cache has profile ID even if updateCacheFromProfile didn't set it
+      this.cache.currentProfile = this.cache.currentProfile || state.currentProfile
       
       console.log(`[CommandChainService] Cache initialized from DataCoordinator:`, {
         profileId: this.cache.currentProfile,

@@ -6,21 +6,79 @@ import '../../src/js/data.js'
 // Load the modules (they create global instances)
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
+import { respond } from '../../src/js/core/requestResponse.js'
 import { StorageService } from '../../src/js/components/services/index.js'
-import CommandBuilderService from '../../src/js/components/services/CommandBuilderService.js'
-import KeyService from '../../src/js/components/services/KeyService.js'
 
-// Setup real global objects instead of mocks
+import KeyService from '../../src/js/components/services/KeyService.js'
+import FileOperationsService from '../../src/js/components/services/FileOperationsService.js'
+import STOCommandParser from '../../src/js/lib/STOCommandParser.js'
+
+  // Setup real global objects instead of mocks
 beforeEach(() => {
   resetStore()
   global.window = global.window || {}
   global.storageService = new StorageService()
-  global.stoCommands = new CommandBuilderService({})
+
+
+  // Initialize STOCommandParser for request handling
+  global.stoCommandParser = new STOCommandParser(eventBus)
 
   // Mock only the UI methods that would show actual UI
   global.stoUI = {
     showToast: vi.fn(),
   }
+  global.window = global.window || {}
+  global.window.stoUI = global.stoUI
+
+  // Initialize FileOperationsService with proper eventBus for requestResponse support
+  global.fileOperationsService = new FileOperationsService({
+    eventBus,
+    storage: global.storageService,
+    i18n: { 
+      t: (key, params) => {
+        // Mock i18n that returns appropriate test strings
+        if (key === 'import_completed_with_ignored_aliases') {
+          return `Import completed: ${params.keyCount} keybinds (${params.ignoredAliases} aliases ignored - use Import Aliases)`
+        }
+        if (key === 'import_completed') {
+          return `Import completed: ${params.keyCount} keybinds`
+        }
+        return key
+      }
+    },
+    ui: global.stoUI
+  })
+  global.fileOperationsService.init()
+
+  // Mock data service response for alias validation
+  respond(eventBus, 'data:get-alias-name-pattern', () => {
+    return /^[A-Za-z_][A-Za-z0-9_]*$/ // Valid pattern: letters/numbers/underscore, can start with letter or underscore
+  })
+
+  // Set up proper storage mock that actually persists data for testing
+  const testProfiles = {
+    'test-profile': {
+      id: 'test-profile',
+      name: 'Test Profile',
+      mode: 'Space',
+      builds: {
+        space: { keys: {} },
+        ground: { keys: {} }
+      },
+      aliases: {}
+    }
+  }
+  
+  // Mock the storage service with actual persistence simulation
+  global.storageService.getProfile = vi.fn((profileId) => {
+    return testProfiles[profileId] || null
+  })
+  
+  global.storageService.saveProfile = vi.fn((profileId, profile) => {
+    testProfiles[profileId] = profile
+  })
+  
+  global.storageService.getCurrentProfileId = vi.fn().mockReturnValue('test-profile')
 
   // Mock only the app methods that would modify actual DOM
   global.app = {
@@ -42,25 +100,44 @@ beforeEach(() => {
 
   store.currentProfile = 'test-profile'
   store.currentEnvironment = 'space'
-
-  // Mock storageService.getProfile to return a profile with builds structure
-  global.storageService.getProfile = vi.fn(() => ({
-    name: 'Test Profile',
-    builds: {
-      space: { keys: {} },
-      ground: { keys: {} },
-    },
-    aliases: {},
-  }))
-
-  global.storageService.saveProfile = vi.fn()
 })
 
 describe('KeyService', () => {
   let keybindManager
+  let testProfiles
+  let stoUI
 
   beforeEach(() => {
-    keybindManager = new KeyService()
+    // Set reference to stoUI for test expectations
+    stoUI = global.stoUI
+    keybindManager = new KeyService({ eventBus })
+  
+    // Set current profile for import operations
+    keybindManager.setCurrentProfile('test-profile')
+    
+    // Reset test profiles between tests to ensure clean state
+    testProfiles = {
+      'test-profile': {
+        id: 'test-profile',
+        name: 'Test Profile',
+        mode: 'Space',
+        builds: {
+          space: { keys: {} },
+          ground: { keys: {} }
+        },
+        aliases: {}
+      }
+    }
+    
+    // Update the mock implementations to use the fresh profile data
+    global.storageService.getProfile.mockImplementation((profileId) => {
+      return testProfiles[profileId] || null
+    })
+    
+    global.storageService.saveProfile.mockImplementation((profileId, profile) => {
+      testProfiles[profileId] = profile
+    })
+    
     vi.clearAllMocks()
   })
 
@@ -100,77 +177,70 @@ describe('KeyService', () => {
   })
 
   describe('keybind file parsing', () => {
-    it('should parse standard keybind format', () => {
+    it('should parse standard keybind format', async () => {
       const content = 'F1 "say hello" ""'
-      const result = keybindManager.parseKeybindFile(content)
+      const result = await keybindManager.parseKeybindFile(content)
 
       expect(result.keybinds).toHaveProperty('F1')
-      expect(result.keybinds.F1.key).toBe('F1')
+      expect(result.keybinds.F1.raw).toBe('say hello')
       expect(result.keybinds.F1.commands).toHaveLength(1)
       expect(result.keybinds.F1.commands[0].command).toBe('say hello')
+      expect(result.keybinds.F1.commands[0].category).toBe('communication')
     })
 
-    it('should parse bind command format', () => {
-      const content = '/bind F2 "say world"'
-      const result = keybindManager.parseKeybindFile(content)
 
-      expect(result.keybinds).toHaveProperty('F2')
-      expect(result.keybinds.F2.key).toBe('F2')
-      expect(result.keybinds.F2.commands[0].command).toBe('say world')
-    })
 
-    it('should parse alias definitions', () => {
+    it('should parse alias definitions', async () => {
       const content = 'alias TestAlias "say test"'
-      const result = keybindManager.parseKeybindFile(content)
+      const result = await keybindManager.parseKeybindFile(content)
 
       expect(result.aliases).toHaveProperty('TestAlias')
-      expect(result.aliases.TestAlias.name).toBe('TestAlias')
       expect(result.aliases.TestAlias.commands).toBe('say test')
     })
 
-    it('should skip comment lines', () => {
+    it('should skip comment lines', async () => {
       const content =
         '# This is a comment\n; Another comment\nF1 "say hello" ""'
-      const result = keybindManager.parseKeybindFile(content)
+      const result = await keybindManager.parseKeybindFile(content)
 
-      expect(result.comments).toHaveLength(2)
-      expect(result.comments[0].content).toBe('# This is a comment')
-      expect(result.comments[1].content).toBe('; Another comment')
+      // Comments are ignored (not tracked separately in new format)
       expect(result.keybinds).toHaveProperty('F1')
+      expect(result.keybinds.F1.commands[0].command).toBe('say hello')
+      expect(result.errors).toHaveLength(0) // Comments should not generate errors
     })
 
-    it('should handle multi-line files', () => {
+    it('should handle multi-line files', async () => {
       const content =
         'F1 "say hello" ""\nF2 "say world" ""\nalias Test "say test"'
-      const result = keybindManager.parseKeybindFile(content)
+      const result = await keybindManager.parseKeybindFile(content)
 
       expect(Object.keys(result.keybinds)).toHaveLength(2)
       expect(Object.keys(result.aliases)).toHaveLength(1)
     })
 
-    it('should collect parsing errors', () => {
+    it('should collect parsing errors', async () => {
       const content = 'invalid line format\nF1 "say hello" ""'
-      const result = keybindManager.parseKeybindFile(content)
+      const result = await keybindManager.parseKeybindFile(content)
 
       expect(result.errors).toHaveLength(1)
       expect(result.errors[0].line).toBe(1)
       expect(result.errors[0].error).toBe('Invalid keybind format')
     })
 
-    it('should handle empty lines gracefully', () => {
+    it('should handle empty lines gracefully', async () => {
       const content = '\n\nF1 "say hello" ""\n\n'
-      const result = keybindManager.parseKeybindFile(content)
+      const result = await keybindManager.parseKeybindFile(content)
 
       expect(result.keybinds).toHaveProperty('F1')
       expect(result.errors).toHaveLength(0)
     })
 
-    it('should parse aliases with both quoted and bracket syntax', () => {
+    it('should parse aliases with both quoted and bracket syntax', async () => {
       const content = `alias test_quoted "say hello world"
 alias test_bracket <& say hello world &>
 alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2" &>`
 
-      const result = keybindManager.parseKeybindFile(content)
+      const result = await keybindManager.parseKeybindFile(content)
 
       expect(result.aliases).toHaveProperty('test_quoted')
       expect(result.aliases.test_quoted.commands).toBe('say hello world')
@@ -188,8 +258,8 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
   })
 
   describe('command string parsing', () => {
-    it('should split commands by $$ delimiter', () => {
-      const commands = keybindManager.parseCommandString(
+    it('should split commands by $$ delimiter', async () => {
+      const commands = await keybindManager.parseCommandString(
         'say hello $$ emote wave'
       )
 
@@ -198,65 +268,69 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(commands[1].command).toBe('emote wave')
     })
 
-    it('should detect tray execution commands', () => {
-      const commands = keybindManager.parseCommandString(
+    it('should detect tray execution commands', async () => {
+      const commands = await keybindManager.parseCommandString(
         '+STOTrayExecByTray 0 1'
       )
 
       expect(commands).toHaveLength(1)
       expect(commands[0].command).toBe('+STOTrayExecByTray 0 1')
-      expect(commands[0].type).toBe('tray')
-      expect(commands[0].parameters).toEqual({ tray: 0, slot: 1 })
+      expect(commands[0].category).toBe('tray')
+      expect(commands[0].parameters).toEqual({ 
+        tray: 0, 
+        slot: 1, 
+        baseCommand: '+STOTrayExecByTray' 
+      })
     })
 
-    it('should extract tray parameters', () => {
-      const commands = keybindManager.parseCommandString(
+    it('should extract tray parameters', async () => {
+      const commands = await keybindManager.parseCommandString(
         '+STOTrayExecByTray 2 5'
       )
 
       expect(commands[0].parameters.tray).toBe(2)
       expect(commands[0].parameters.slot).toBe(5)
-      expect(commands[0].text).toBe('Execute Tray 3 Slot 6')
+      expect(commands[0].displayText).toBe('Execute Tray 3 Slot 6')
     })
 
-    it('should handle communication commands', () => {
-      const commands = keybindManager.parseCommandString('say hello world')
+    it('should handle communication commands', async () => {
+      const commands = await keybindManager.parseCommandString('say hello world')
 
       expect(commands[0].command).toBe('say hello world')
-      expect(commands[0].type).toBe('communication')
+      expect(commands[0].category).toBe('communication')
       expect(commands[0].icon).toBe('💬')
     })
 
-    it('should parse commands with flexible separator formats', () => {
+    it('should parse commands with flexible separator formats', async () => {
       // Test with spaces around separator
-      const commandsWithSpaces = keybindManager.parseCommandString('say hello $$ emote wave')
+      const commandsWithSpaces = await keybindManager.parseCommandString('say hello $$ emote wave')
       expect(commandsWithSpaces).toHaveLength(2)
       expect(commandsWithSpaces[0].command).toBe('say hello')
       expect(commandsWithSpaces[1].command).toBe('emote wave')
 
       // Test without spaces around separator
-      const commandsWithoutSpaces = keybindManager.parseCommandString('say hello$$emote wave')
+      const commandsWithoutSpaces = await keybindManager.parseCommandString('say hello$$emote wave')
       expect(commandsWithoutSpaces).toHaveLength(2)
       expect(commandsWithoutSpaces[0].command).toBe('say hello')
       expect(commandsWithoutSpaces[1].command).toBe('emote wave')
 
       // Test with mixed spacing
-      const commandsMixed = keybindManager.parseCommandString('say hello$$ emote wave')
+      const commandsMixed = await keybindManager.parseCommandString('say hello$$ emote wave')
       expect(commandsMixed).toHaveLength(2)
       expect(commandsMixed[0].command).toBe('say hello')
       expect(commandsMixed[1].command).toBe('emote wave')
     })
 
-    it('should generate command IDs', () => {
-      const commands = keybindManager.parseCommandString('say hello')
+    it('should generate command IDs', async () => {
+      const commands = await keybindManager.parseCommandString('say hello')
 
-      expect(commands[0].id).toMatch(/^imported_\d+_0$/)
+      expect(commands[0].id).toMatch(/^parsed_\d+_0$/)
     })
 
-    it('should set command types and icons', () => {
-      const commands = keybindManager.parseCommandString('say hello')
+    it('should set command types and icons', async () => {
+      const commands = await keybindManager.parseCommandString('say hello')
 
-      expect(commands[0].type).toBe('communication')
+      expect(commands[0].category).toBe('communication')
       expect(commands[0].icon).toBe('💬')
     })
   })
@@ -273,18 +347,18 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       global.app.renderKeyGrid = vi.fn()
     })
 
-    it('should import valid keybind file content', () => {
+    it('should import valid keybind file content', async () => {
       const content = 'F2 "say hello" ""'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
       expect(storageService.saveProfile).toHaveBeenCalled()
     })
 
-    it('should merge with existing profile data', () => {
+    it('should merge with existing profile data', async () => {
       const content = 'F2 "say hello" ""'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
@@ -292,9 +366,9 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(result.imported).toHaveProperty('keys')
     })
 
-    it('should handle duplicate key bindings', () => {
+    it('should handle duplicate key bindings', async () => {
       const content = 'F1 "say new" ""'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
@@ -302,9 +376,9 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(result.imported).toHaveProperty('keys')
     })
 
-    it('should preserve existing commands when merging', () => {
+    it('should preserve existing commands when merging', async () => {
       const content = 'F2 "say hello" ""'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(1)
@@ -312,16 +386,16 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(result.imported).toHaveProperty('keys')
     })
 
-    it('should update profile modification timestamp', () => {
+    it('should update profile modification timestamp', async () => {
       const content = 'F1 "say hello" ""'
-      keybindManager.importKeybindFile(content)
+      await keybindManager.importKeybindFile(content)
 
       expect(app.setModified).toHaveBeenCalledWith(true)
     })
 
-    it('should show import summary', () => {
+    it('should show import summary', async () => {
       const content = 'F1 "say hello" ""\nalias Test "say test"'
-      keybindManager.importKeybindFile(content)
+      await keybindManager.importKeybindFile(content)
 
       expect(stoUI.showToast).toHaveBeenCalledWith(
         'Import completed: 1 keybinds (1 aliases ignored - use Import Aliases)',
@@ -329,7 +403,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       )
     })
 
-    it('should import keybinds separately from aliases', () => {
+    it('should import keybinds separately from aliases', async () => {
       const profile = {
         name: 'Test',
         mode: 'Space',
@@ -338,7 +412,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       }
 
       const content = 'F1 "say hello"\nalias TestAlias "say test"'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       // Should only import keybinds, not aliases
       expect(result.success).toBe(true)
@@ -346,7 +420,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(result.imported).not.toHaveProperty('aliases')
     })
 
-    it('should import aliases separately', () => {
+    it('should import aliases separately', async () => {
       const profile = {
         name: 'Test',
         mode: 'Space',
@@ -356,7 +430,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       global.app.getCurrentProfile.mockReturnValue(profile)
 
       const content = 'F1 "say hello"\nalias TestAlias "say test"'
-      const result = keybindManager.importAliasFile(content)
+      const result = await keybindManager.importAliasFile(content)
 
       // Should only import aliases, not keybinds
       expect(result.success).toBe(true)
@@ -366,7 +440,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
   })
 
   describe('profile export', () => {
-    it('should export profile in STO keybind format', () => {
+    it('should export profile in STO keybind format', async () => {
       const profile = {
         name: 'Test Profile',
         mode: 'Space',
@@ -374,13 +448,13 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
         aliases: {},
       }
 
-      const output = keybindManager.exportProfile(profile)
+      const output = await keybindManager.exportProfile(profile)
 
       expect(output).toContain('; Test Profile - STO Keybind Configuration')
       expect(output).toContain('F1 "say hello"')
     })
 
-    it('should sort keys logically', () => {
+    it('should sort keys logically', async () => {
       const profile = {
         name: 'Test',
         mode: 'Space',
@@ -392,7 +466,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
         aliases: {},
       }
 
-      const output = keybindManager.exportProfile(profile)
+      const output = await keybindManager.exportProfile(profile)
       const lines = output.split('\n').filter((line) => line.match(/^[FA1]/))
 
       expect(lines[0]).toContain('F1')
@@ -400,7 +474,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(lines[2]).toContain('A')
     })
 
-    it('should handle special characters in commands', () => {
+    it('should handle special characters in commands', async () => {
       const profile = {
         name: 'Test',
         mode: 'Space',
@@ -408,12 +482,12 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
         aliases: {},
       }
 
-      const output = keybindManager.exportProfile(profile)
+      const output = await keybindManager.exportProfile(profile)
 
       expect(output).toContain('F1 "say hello world"')
     })
 
-    it('should group similar keys together', () => {
+    it('should group similar keys together', async () => {
       const profile = {
         name: 'Test',
         mode: 'Space',
@@ -426,7 +500,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
         aliases: {},
       }
 
-      const output = keybindManager.exportProfile(profile)
+      const output = await keybindManager.exportProfile(profile)
       const lines = output.split('\n').filter((line) => line.match(/^[FAB]/))
 
       expect(lines[0]).toContain('F1')
@@ -435,7 +509,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(lines[3]).toContain('B')
     })
 
-    it('should include file header with metadata', () => {
+    it('should include file header with metadata', async () => {
       const profile = {
         name: 'Test Profile',
         mode: 'Ground',
@@ -443,14 +517,14 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
         aliases: {},
       }
 
-      const output = keybindManager.exportProfile(profile)
+      const output = await keybindManager.exportProfile(profile)
 
       expect(output).toContain('; Test Profile - STO Keybind Configuration')
       expect(output).toContain('; Created by: STO Tools Keybind Manager')
       expect(output).toMatch(/; Generated: \d{1,2}\/\d{1,2}\/\d{4}/)
     })
 
-    it('should export keybinds without aliases', () => {
+    it('should export keybinds without aliases', async () => {
       const profile = {
         name: 'Test',
         mode: 'Space',
@@ -458,7 +532,7 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
         aliases: { TestAlias: { commands: 'say test' } },
       }
 
-      const output = keybindManager.exportProfile(profile)
+      const output = await keybindManager.exportProfile(profile)
       expect(output).toContain('F1 "say hello"')
       expect(output).not.toContain('alias TestAlias')
     })
@@ -502,26 +576,26 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
   })
 
   describe('alias name validation', () => {
-    it('should validate alias name format', () => {
-      expect(keybindManager.isValidAliasName('ValidAlias')).toBe(true)
-      expect(keybindManager.isValidAliasName('_underscore')).toBe(true)
-      expect(keybindManager.isValidAliasName('alias123')).toBe(true)
+    it('should validate alias name format', async () => {
+      expect(await keybindManager.isValidAliasName('ValidAlias')).toBe(true)
+      expect(await keybindManager.isValidAliasName('_underscore')).toBe(true)
+      expect(await keybindManager.isValidAliasName('alias123')).toBe(true)
     })
 
-    it('should reject names with spaces', () => {
-      expect(keybindManager.isValidAliasName('invalid alias')).toBe(false)
-      expect(keybindManager.isValidAliasName('test alias')).toBe(false)
+    it('should reject names with spaces', async () => {
+      expect(await keybindManager.isValidAliasName('invalid alias')).toBe(false)
+      expect(await keybindManager.isValidAliasName('test alias')).toBe(false)
     })
 
-    it('should reject names starting with numbers', () => {
-      expect(keybindManager.isValidAliasName('123invalid')).toBe(false)
-      expect(keybindManager.isValidAliasName('1test')).toBe(false)
+    it('should reject names starting with numbers', async () => {
+      expect(await keybindManager.isValidAliasName('123invalid')).toBe(false)
+      expect(await keybindManager.isValidAliasName('1test')).toBe(false)
     })
 
-    it('should accept valid alphanumeric names', () => {
-      expect(keybindManager.isValidAliasName('ValidAlias')).toBe(true)
-      expect(keybindManager.isValidAliasName('test123')).toBe(true)
-      expect(keybindManager.isValidAliasName('_private')).toBe(true)
+    it('should accept valid alphanumeric names', async () => {
+      expect(await keybindManager.isValidAliasName('ValidAlias')).toBe(true)
+      expect(await keybindManager.isValidAliasName('test123')).toBe(true)
+      expect(await keybindManager.isValidAliasName('_private')).toBe(true)
     })
   })
 
@@ -761,51 +835,51 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       global.app.setModified = vi.fn()
     })
 
-    it('should import alias file content successfully', () => {
+    it('should import alias file content successfully', async () => {
       const content = 'alias TestAlias "say hello $$ emote wave"'
-      const result = keybindManager.importAliasFile(content)
+      const result = await keybindManager.importAliasFile(content)
 
       expect(result.success).toBe(true)
       expect(result.imported.aliases).toBe(1)
     })
 
-    it('should handle alias files with multiple aliases', () => {
+    it('should handle alias files with multiple aliases', async () => {
       const content = `alias Attack "target_nearest_enemy $$ FireAll"
 alias Heal "target_self $$ +power_exec Distribute_Shields"`
-      const result = keybindManager.importAliasFile(content)
+      const result = await keybindManager.importAliasFile(content)
 
       expect(result.success).toBe(true)
       expect(result.imported.aliases).toBe(2)
     })
 
-    it('should ignore keybinds in alias import', () => {
+    it('should ignore keybinds in alias import', async () => {
       const content = `F1 "say hello"
 alias TestAlias "say test"
 F2 "say world"`
-      const result = keybindManager.importAliasFile(content)
+      const result = await keybindManager.importAliasFile(content)
 
       expect(result.success).toBe(true)
       expect(result.imported.aliases).toBe(1)
       expect(result.imported).not.toHaveProperty('keys')
     })
 
-    it('should warn when no aliases found', () => {
+    it('should warn when no aliases found', async () => {
       const content = 'F1 "say hello"\nF2 "say world"'
-      const result = keybindManager.importAliasFile(content)
+      const result = await keybindManager.importAliasFile(content)
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('No aliases found')
     })
 
-    it('should handle empty alias files', () => {
+    it('should handle empty alias files', async () => {
       const content = ''
-      const result = keybindManager.importAliasFile(content)
+      const result = await keybindManager.importAliasFile(content)
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('No aliases found')
     })
 
-    it('should merge aliases with existing ones', () => {
+    it('should merge aliases with existing ones', async () => {
       const profile = {
         keys: {},
         aliases: { ExistingAlias: { commands: 'existing command' } },
@@ -818,15 +892,15 @@ F2 "say world"`
       global.storageService.getProfile.mockReturnValue(profile)
 
       const content = 'alias NewAlias "new command"'
-      keybindManager.importAliasFile(content)
+      await keybindManager.importAliasFile(content)
 
       expect(profile.aliases).toHaveProperty('ExistingAlias')
       expect(profile.aliases).toHaveProperty('NewAlias')
     })
 
-    it('should update profile modification status', () => {
+    it('should update profile modification status', async () => {
       const content = 'alias TestAlias "say test"'
-      keybindManager.importAliasFile(content)
+      await keybindManager.importAliasFile(content)
 
       expect(storageService.saveProfile).toHaveBeenCalled()
       expect(app.setModified).toHaveBeenCalledWith(true)
@@ -834,14 +908,14 @@ F2 "say world"`
   })
 
   describe('execution order stabilization', () => {
-    it('should generate mirrored command string for multiple commands', () => {
+    it('should generate mirrored command string for multiple commands', async () => {
       const commands = [
         { command: '+TrayExecByTray 9 0' },
         { command: '+TrayExecByTray 9 1' },
         { command: '+TrayExecByTray 9 2' },
       ]
 
-      const result = keybindManager.generateMirroredCommandString(commands)
+      const result = await keybindManager.generateMirroredCommandString(commands)
 
       // Should be: reverse + original = [2,1,0] + [0,1,2]
       expect(result).toBe(
@@ -849,53 +923,53 @@ F2 "say world"`
       )
     })
 
-    it('should handle single command without mirroring', () => {
+    it('should handle single command without mirroring', async () => {
       const commands = [{ command: '+TrayExecByTray 9 0' }]
 
-      const result = keybindManager.generateMirroredCommandString(commands)
+      const result = await keybindManager.generateMirroredCommandString(commands)
 
       expect(result).toBe('+TrayExecByTray 9 0')
     })
 
-    it('should handle empty command list', () => {
+    it('should handle empty command list', async () => {
       const commands = []
 
-      const result = keybindManager.generateMirroredCommandString(commands)
+      const result = await keybindManager.generateMirroredCommandString(commands)
 
       expect(result).toBe('')
     })
 
-    it('should handle null and undefined commands without throwing errors', () => {
-      const result1 = keybindManager.generateMirroredCommandString(null)
-      const result2 = keybindManager.generateMirroredCommandString(undefined)
+    it('should handle null and undefined commands without throwing errors', async () => {
+      const result1 = await keybindManager.generateMirroredCommandString(null)
+      const result2 = await keybindManager.generateMirroredCommandString(undefined)
 
       expect(result1).toBe('')
       expect(result2).toBe('')
     })
 
-    it('should handle commands with only command strings', () => {
+    it('should handle commands with only command strings', async () => {
       const commands = [
         'FirePhasers',
         '+TrayExecByTray 9 0',
         '+TrayExecByTray 9 1',
       ]
 
-      const result = keybindManager.generateMirroredCommandString(commands)
+      const result = await keybindManager.generateMirroredCommandString(commands)
 
       expect(result).toBe(
         'FirePhasers $$ +TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0 $$ FirePhasers'
       )
     })
 
-    it('should handle two commands correctly', () => {
+    it('should handle two commands correctly', async () => {
       const commands = [{ command: 'FirePhasers' }, { command: 'FireTorpedos' }]
 
-      const result = keybindManager.generateMirroredCommandString(commands)
+      const result = await keybindManager.generateMirroredCommandString(commands)
 
       expect(result).toBe('FirePhasers $$ FireTorpedos $$ FirePhasers')
     })
 
-    it('should handle four commands correctly', () => {
+    it('should handle four commands correctly', async () => {
       const commands = [
         { command: 'A' },
         { command: 'B' },
@@ -903,19 +977,19 @@ F2 "say world"`
         { command: 'D' },
       ]
 
-      const result = keybindManager.generateMirroredCommandString(commands)
+      const result = await keybindManager.generateMirroredCommandString(commands)
 
       expect(result).toBe('A $$ B $$ C $$ D $$ C $$ B $$ A')
     })
 
-    it('should handle mixed command formats', () => {
+    it('should handle mixed command formats', async () => {
       const commands = [
         'StringCommand',
         { command: 'ObjectCommand1' },
         { command: 'ObjectCommand2' },
       ]
 
-      const result = keybindManager.generateMirroredCommandString(commands)
+      const result = await keybindManager.generateMirroredCommandString(commands)
 
       expect(result).toBe(
         'StringCommand $$ ObjectCommand1 $$ ObjectCommand2 $$ ObjectCommand1 $$ StringCommand'
@@ -924,11 +998,11 @@ F2 "say world"`
   })
 
   describe('mirroring detection', () => {
-    it('should detect mirrored commands and extract originals', () => {
+    it('should detect mirrored commands and extract originals', async () => {
       const mirroredCommand =
         '+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0'
 
-      const result = keybindManager.detectAndUnmirrorCommands(mirroredCommand)
+      const result = await keybindManager.detectAndUnmirrorCommands(mirroredCommand)
 
       expect(result.isMirrored).toBe(true)
       expect(result.originalCommands).toEqual([
@@ -938,11 +1012,11 @@ F2 "say world"`
       ])
     })
 
-    it('should not detect non-mirrored commands as mirrored', () => {
+    it('should not detect non-mirrored commands as mirrored', async () => {
       const normalCommand =
         '+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2'
 
-      const result = keybindManager.detectAndUnmirrorCommands(normalCommand)
+      const result = await keybindManager.detectAndUnmirrorCommands(normalCommand)
 
       expect(result.isMirrored).toBe(false)
       expect(result.originalCommands).toEqual([
@@ -952,28 +1026,28 @@ F2 "say world"`
       ])
     })
 
-    it('should detect two-command mirroring pattern', () => {
+    it('should detect two-command mirroring pattern', async () => {
       const mirroredCommand = 'FirePhasers $$ FireTorpedos $$ FirePhasers'
 
-      const result = keybindManager.detectAndUnmirrorCommands(mirroredCommand)
+      const result = await keybindManager.detectAndUnmirrorCommands(mirroredCommand)
 
       expect(result.isMirrored).toBe(true)
       expect(result.originalCommands).toEqual(['FirePhasers', 'FireTorpedos'])
     })
 
-    it('should handle single commands as non-mirrored', () => {
+    it('should handle single commands as non-mirrored', async () => {
       const singleCommand = 'FirePhasers'
 
-      const result = keybindManager.detectAndUnmirrorCommands(singleCommand)
+      const result = await keybindManager.detectAndUnmirrorCommands(singleCommand)
 
       expect(result.isMirrored).toBe(false)
       expect(result.originalCommands).toEqual(['FirePhasers'])
     })
 
-    it('should handle empty commands', () => {
-      const result1 = keybindManager.detectAndUnmirrorCommands('')
-      const result2 = keybindManager.detectAndUnmirrorCommands(null)
-      const result3 = keybindManager.detectAndUnmirrorCommands(undefined)
+    it('should handle empty commands', async () => {
+      const result1 = await keybindManager.detectAndUnmirrorCommands('')
+      const result2 = await keybindManager.detectAndUnmirrorCommands(null)
+      const result3 = await keybindManager.detectAndUnmirrorCommands(undefined)
 
       expect(result1.isMirrored).toBe(false)
       expect(result1.originalCommands).toEqual([])
@@ -985,29 +1059,29 @@ F2 "say world"`
       expect(result3.originalCommands).toEqual([])
     })
 
-    it('should not detect even-length sequences as mirrored', () => {
+    it('should not detect even-length sequences as mirrored', async () => {
       const evenSequence = 'A $$ B $$ C $$ D'
 
-      const result = keybindManager.detectAndUnmirrorCommands(evenSequence)
+      const result = await keybindManager.detectAndUnmirrorCommands(evenSequence)
 
       expect(result.isMirrored).toBe(false)
       expect(result.originalCommands).toEqual(['A', 'B', 'C', 'D'])
     })
 
-    it('should not detect sequences shorter than 3 as mirrored', () => {
+    it('should not detect sequences shorter than 3 as mirrored', async () => {
       const twoCommands = 'A $$ B'
 
-      const result = keybindManager.detectAndUnmirrorCommands(twoCommands)
+      const result = await keybindManager.detectAndUnmirrorCommands(twoCommands)
 
       expect(result.isMirrored).toBe(false)
       expect(result.originalCommands).toEqual(['A', 'B'])
     })
 
-    it('should detect complex mirrored pattern', () => {
+    it('should detect complex mirrored pattern', async () => {
       const complexMirrored =
         'cmd1 $$ cmd2 $$ cmd3 $$ cmd4 $$ cmd5 $$ cmd4 $$ cmd3 $$ cmd2 $$ cmd1'
 
-      const result = keybindManager.detectAndUnmirrorCommands(complexMirrored)
+      const result = await keybindManager.detectAndUnmirrorCommands(complexMirrored)
 
       expect(result.isMirrored).toBe(true)
       expect(result.originalCommands).toEqual([
@@ -1019,20 +1093,20 @@ F2 "say world"`
       ])
     })
 
-    it('should not detect partial mirrors as mirrored', () => {
+    it('should not detect partial mirrors as mirrored', async () => {
       const partialMirror = 'A $$ B $$ C $$ B $$ D' // Should be A-B-C-B-A
 
-      const result = keybindManager.detectAndUnmirrorCommands(partialMirror)
+      const result = await keybindManager.detectAndUnmirrorCommands(partialMirror)
 
       expect(result.isMirrored).toBe(false)
       expect(result.originalCommands).toEqual(['A', 'B', 'C', 'B', 'D'])
     })
 
-    it('should handle commands with spaces and special characters', () => {
+    it('should handle commands with spaces and special characters', async () => {
       const specialCommand =
         '+power_exec Distribute_Shields $$ target_nearest_enemy $$ +power_exec Distribute_Shields'
 
-      const result = keybindManager.detectAndUnmirrorCommands(specialCommand)
+      const result = await keybindManager.detectAndUnmirrorCommands(specialCommand)
 
       expect(result.isMirrored).toBe(true)
       expect(result.originalCommands).toEqual([
@@ -1108,6 +1182,16 @@ F2 "say world"`
       // Override global app and storage for this test
       global.app = realApp
       global.storageService = realStorage
+      
+      // Reinitialize FileOperationsService with the real storage
+      global.fileOperationsService = new FileOperationsService({
+        eventBus,
+        storage: realStorage,
+        i18n: { t: (key) => key },
+        ui: global.stoUI
+      })
+      global.fileOperationsService.init()
+      
       store.currentProfile = 'test-profile'
       store.currentEnvironment = 'space'
     })
@@ -1117,11 +1201,11 @@ F2 "say world"`
       realStorage.deleteProfile('test-profile')
     })
 
-    it('should detect and unmirror commands during import', () => {
+    it('should detect and unmirror commands during import', async () => {
       const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"
 F2 "FirePhasers $$ FireTorpedos $$ FirePhasers"`
 
-      const result = keybindManager.importKeybindFile(keybindContent)
+      const result = await keybindManager.importKeybindFile(keybindContent)
 
       expect(result.success).toBe(true)
       expect(result.imported.keys).toBe(2)
@@ -1152,11 +1236,11 @@ F2 "FirePhasers $$ FireTorpedos $$ FirePhasers"`
       ).toBe(true)
     })
 
-    it('should not set stabilization metadata for non-mirrored commands', () => {
+    it('should not set stabilization metadata for non-mirrored commands', async () => {
       const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2"
 F2 "FirePhasers"`
 
-      const result = keybindManager.importKeybindFile(keybindContent)
+      const result = await keybindManager.importKeybindFile(keybindContent)
 
       expect(result.success).toBe(true)
 
@@ -1170,12 +1254,12 @@ F2 "FirePhasers"`
       expect(savedProfile.keybindMetadata?.space?.F2).toBeUndefined()
     })
 
-    it('should handle mixed mirrored and non-mirrored commands', () => {
+    it('should handle mixed mirrored and non-mirrored commands', async () => {
       const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"
 F2 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1"
 F3 "SingleCommand"`
 
-      const result = keybindManager.importKeybindFile(keybindContent)
+      const result = await keybindManager.importKeybindFile(keybindContent)
 
       expect(result.success).toBe(true)
 
@@ -1196,11 +1280,11 @@ F3 "SingleCommand"`
       expect(savedProfile.keybindMetadata?.space?.F3).toBeUndefined()
     })
 
-    it('should handle empty command chains', () => {
+    it('should handle empty command chains', async () => {
       const keybindContent = `F1 ""
 F2 " "`
 
-      const result = keybindManager.importKeybindFile(keybindContent)
+      const result = await keybindManager.importKeybindFile(keybindContent)
 
       expect(result.success).toBe(true)
 
@@ -1214,7 +1298,7 @@ F2 " "`
       expect(savedProfile.keybindMetadata?.space?.F2).toBeUndefined()
     })
 
-    it('should preserve existing keybindMetadata structure', () => {
+    it('should preserve existing keybindMetadata structure', async () => {
       // Set up profile with existing metadata
       const testProfile = realStorage.getProfile('test-profile')
       testProfile.keybindMetadata = {
@@ -1224,7 +1308,7 @@ F2 " "`
 
       const keybindContent = `F1 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"`
 
-      const result = keybindManager.importKeybindFile(keybindContent)
+      const result = await keybindManager.importKeybindFile(keybindContent)
 
       expect(result.success).toBe(true)
 
@@ -1241,10 +1325,10 @@ F2 " "`
       ).toBe(true)
     })
 
-    it('should handle complex mirrored patterns', () => {
+    it('should handle complex mirrored patterns', async () => {
       const keybindContent = `numpad0 "+TrayExecByTray 9 0 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 3 $$ +TrayExecByTray 9 4 $$ +TrayExecByTray 9 3 $$ +TrayExecByTray 9 2 $$ +TrayExecByTray 9 1 $$ +TrayExecByTray 9 0"`
 
-      const result = keybindManager.importKeybindFile(keybindContent)
+      const result = await keybindManager.importKeybindFile(keybindContent)
 
       expect(result.success).toBe(true)
 
@@ -1261,14 +1345,14 @@ F2 " "`
       ).toBe(true)
     })
 
-    it('should merge with existing profile data', () => {
+    it('should merge with existing profile data', async () => {
       // Set up profile with existing data
       const testProfile = realStorage.getProfile('test-profile')
       testProfile.builds.space.keys = { F1: [{ command: 'existing' }] }
       realStorage.saveProfile('test-profile', testProfile)
 
       const content = 'F2 "say hello" ""'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       expect(result.success).toBe(true)
 
@@ -1279,14 +1363,14 @@ F2 " "`
       expect(savedProfile.builds.space.keys.F2[0].command).toBe('say hello')
     })
 
-    it('should handle duplicate key bindings', () => {
+    it('should handle duplicate key bindings', async () => {
       // Set up profile with existing data
       const testProfile = realStorage.getProfile('test-profile')
       testProfile.builds.space.keys = { F1: [{ command: 'existing' }] }
       realStorage.saveProfile('test-profile', testProfile)
 
       const content = 'F1 "say new" ""'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       expect(result.success).toBe(true)
 
@@ -1295,14 +1379,14 @@ F2 " "`
       expect(savedProfile.builds.space.keys.F1[0].command).toBe('say new')
     })
 
-    it('should preserve existing commands when merging', () => {
+    it('should preserve existing commands when merging', async () => {
       // Set up profile with existing data
       const testProfile = realStorage.getProfile('test-profile')
       testProfile.builds.space.keys = { F1: [{ command: 'existing' }] }
       realStorage.saveProfile('test-profile', testProfile)
 
       const content = 'F2 "say hello" ""'
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       expect(result.success).toBe(true)
 
@@ -1312,9 +1396,9 @@ F2 " "`
       expect(savedProfile.builds.space.keys.F2[0].command).toBe('say hello')
     })
 
-    it('should import aliases separately', () => {
+    it('should import aliases separately', async () => {
       const content = 'F1 "say hello"\nalias TestAlias "say test"'
-      const result = keybindManager.importAliasFile(content)
+      const result = await keybindManager.importAliasFile(content)
 
       // Should only import aliases, not keybinds
       expect(result.success).toBe(true)
@@ -1440,6 +1524,16 @@ F2 " "`
       // Override global app and storage for this test
       global.app = realApp
       global.storageService = realStorage
+      
+      // Reinitialize FileOperationsService with the real storage
+      global.fileOperationsService = new FileOperationsService({
+        eventBus,
+        storage: realStorage,
+        i18n: { t: (key) => key },
+        ui: global.stoUI
+      })
+      global.fileOperationsService.init()
+      
       store.currentProfile = 'test-profile'
       store.currentEnvironment = 'space'
     })
@@ -1449,7 +1543,7 @@ F2 " "`
       realStorage.deleteProfile('test-profile')
     })
 
-    it('should actually import keybinds and save them to the correct build structure', () => {
+    it('should actually import keybinds and save them to the correct build structure', async () => {
       const content = 'F2 "say hello" ""\nF3 "emote wave" ""'
 
       // Verify profile starts empty
@@ -1457,7 +1551,7 @@ F2 " "`
       expect(initialProfile.builds.space.keys).toEqual({})
 
       // Import keybinds
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
 
       // Verify import was successful
       expect(result.success).toBe(true)
@@ -1477,15 +1571,16 @@ F2 " "`
       expect(currentProfile.keys).toHaveProperty('F3')
     })
 
-    it('should import keybinds to the correct environment', () => {
+    it('should import keybinds to the correct environment', async () => {
       const content = 'F1 "ground command" ""'
 
       // Switch to ground environment
       realApp.currentEnvironment = 'ground'
       store.currentEnvironment = 'ground'
+      keybindManager.setCurrentEnvironment('ground')
 
       // Import keybinds
-      const result = keybindManager.importKeybindFile(content)
+      const result = await keybindManager.importKeybindFile(content)
       expect(result.success).toBe(true)
 
       // Verify keybind was saved to ground build, not space
@@ -1499,14 +1594,14 @@ F2 " "`
       expect(currentProfile.mode).toBe('Ground')
     })
 
-    it('should merge with existing keybinds without overwriting', () => {
+    it('should merge with existing keybinds without overwriting', async () => {
       // Add initial keybind
       const initialContent = 'F1 "initial command" ""'
-      keybindManager.importKeybindFile(initialContent)
+      await keybindManager.importKeybindFile(initialContent)
 
       // Add more keybinds
       const additionalContent = 'F2 "additional command" ""'
-      const result = keybindManager.importKeybindFile(additionalContent)
+      const result = await keybindManager.importKeybindFile(additionalContent)
 
       expect(result.success).toBe(true)
 

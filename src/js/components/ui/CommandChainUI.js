@@ -222,7 +222,12 @@ export default class CommandChainUI extends ComponentBase {
       element.dataset.parameters = 'true'
       element.classList.add('customizable')
 
-      element.addEventListener('dblclick', () => {
+      element.addEventListener('dblclick', (e) => {
+        console.log('[CommandChainUI] DOUBLE-CLICK on command element:', {
+          index,
+          target: e.target,
+          targetClass: e.target.className
+        })
         this.eventBus.emit('commandchain:edit', { index })
       })
     }
@@ -261,14 +266,33 @@ export default class CommandChainUI extends ComponentBase {
     const upBtn     = element.querySelector('.btn-up')
     const downBtn   = element.querySelector('.btn-down')
 
+    // Add unique IDs for debugging
     if (editBtn) {
-      editBtn.addEventListener('click', () => {
+      editBtn.id = `edit-btn-${index}`
+      editBtn.addEventListener('click', (e) => {
+        console.log('[CommandChainUI] EDIT BUTTON CLICKED:', {
+          index,
+          buttonId: e.target.id,
+          buttonClass: e.target.className,
+          buttonElement: e.target
+        })
+        e.preventDefault()
+        e.stopPropagation()
         this.eventBus.emit('commandchain:edit', { index })
       })
     }
 
     if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => {
+      deleteBtn.id = `delete-btn-${index}`
+      deleteBtn.addEventListener('click', (e) => {
+        console.log('[CommandChainUI] DELETE BUTTON CLICKED:', {
+          index,
+          buttonId: e.target.id,
+          buttonClass: e.target.className,
+          buttonElement: e.target
+        })
+        e.preventDefault()
+        e.stopPropagation()
         this.eventBus.emit('commandchain:delete', { index })
       })
     }

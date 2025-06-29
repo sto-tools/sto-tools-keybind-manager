@@ -51,9 +51,9 @@ describe('Alias Command Integration', () => {
 
             return {
               command: aliasName,
-              type: 'alias',
+              category: 'alias',
               icon: '📝',
-              text: `Alias: ${aliasName}`,
+              displayText: `Alias: ${aliasName}`,
               description: 'Execute custom alias',
               parameters: { alias_name: aliasName },
             }
@@ -128,9 +128,9 @@ describe('Alias Command Integration', () => {
 
       expect(result).toEqual({
         command: 'TestAlias1',
-        type: 'alias',
+        category: 'alias',
         icon: '📝',
-        text: 'Alias: TestAlias1',
+        displayText: 'Alias: TestAlias1',
         description: 'Execute custom alias',
         parameters: { alias_name: 'TestAlias1' },
       })
@@ -206,8 +206,8 @@ describe('Alias Command Integration', () => {
       })
 
       expect(result.command).toBe('dynFxSetFXExlusionList_Space')
-      expect(result.type).toBe('alias')
-      expect(result.text).toBe('Alias: dynFxSetFXExlusionList_Space')
+      expect(result.category).toBe('alias')
+      expect(result.displayText).toBe('Alias: dynFxSetFXExlusionList_Space')
     })
   })
 

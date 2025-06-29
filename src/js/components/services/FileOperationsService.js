@@ -1,8 +1,7 @@
-// FileOperationsService.js - Bridge service for STO file format operations
-// The single component that interfaces with the external STOFileHandler library
+// FileOperationsService.js - Service for STO file format operations
+// Uses STOCommandParser for all command parsing, handles file I/O and application logic
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
-import STOFileHandler from '../../lib/fileHandler.js'
+import { respond, request } from '../../core/requestResponse.js'
 
 export default class FileOperationsService extends ComponentBase {
   constructor({ eventBus, storage, i18n, ui } = {}) {
@@ -11,50 +10,14 @@ export default class FileOperationsService extends ComponentBase {
     this.storage = storage
     this.i18n = i18n
     this.ui = ui
-    
-    // Single instance of the external STOFileHandler library
-    this.handler = new STOFileHandler()
   }
 
   setupRequestHandlers() {
     if (!this.eventBus) return
 
-    // Core parsing operations
+    // Core parsing operations - Use STOCommandParser directly
     respond(this.eventBus, 'fileops:parse-keybind-file', ({ content }) => 
-      this.handler.parseKeybindFile(content))
-    
-    respond(this.eventBus, 'fileops:parse-command-string', ({ commandString }) => 
-      this.handler.parseCommandString(commandString))
-    
-    // Command mirroring operations
-    respond(this.eventBus, 'fileops:generate-mirrored-commands', ({ commands }) => 
-      this.handler.generateMirroredCommandString(commands))
-    
-    respond(this.eventBus, 'fileops:detect-unmirror-commands', ({ commandString }) => 
-      this.handler.detectAndUnmirrorCommands(commandString))
-    
-    // File generation operations
-    respond(this.eventBus, 'fileops:generate-keybind-file', ({ profile, options = {} }) => 
-      this.handler.generateKeybindFile(profile, options))
-    
-    respond(this.eventBus, 'fileops:generate-keybind-section', ({ keys, options = {} }) => 
-      this.handler.generateKeybindSection(keys, options))
-    
-    respond(this.eventBus, 'fileops:generate-alias-file', ({ aliases }) => 
-      this.handler.generateAliasFile(aliases))
-    
-    // Utility operations
-    respond(this.eventBus, 'fileops:compare-keys', ({ keyA, keyB }) => 
-      this.handler.compareKeys(keyA, keyB))
-    
-    respond(this.eventBus, 'fileops:group-keys-by-type', ({ sortedKeys, keys }) => 
-      this.handler.groupKeysByType(sortedKeys, keys))
-    
-    respond(this.eventBus, 'fileops:get-profile-stats', ({ profile }) => 
-      this.handler.getProfileStats(profile))
-    
-    respond(this.eventBus, 'fileops:generate-filename', ({ profile, ext, environment }) => 
-      this.handler.generateFileName(profile, ext, environment))
+      this.parseKeybindFile(content))
     
     // Application-specific import operations
     respond(this.eventBus, 'fileops:import-keybind-file', ({ content, profileId, environment, options = {} }) => 
@@ -71,11 +34,76 @@ export default class FileOperationsService extends ComponentBase {
       this.generateCommandPreview(key, commands, stabilize))
   }
 
+  // Parse keybind file content into structured data
+  async parseKeybindFile(content) {
+    const keybinds = {}
+    const aliases = {}
+    const errors = []
+    
+    if (!content || typeof content !== 'string') {
+      return { keybinds, aliases, errors: ['Invalid file content'] }
+    }
+
+    const lines = content.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      // Skip empty lines and comments
+      if (!line || line.startsWith('//')) continue
+      
+      try {
+        // Match keybind pattern: Key "command1 $$ command2"
+        const keybindMatch = line.match(/^(\S+)\s+"([^"]+)"/)
+        if (keybindMatch) {
+          const [, key, commandString] = keybindMatch
+          const parseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+            commandString 
+          })
+          
+          keybinds[key] = {
+            raw: commandString,
+            commands: parseResult.commands
+          }
+          continue
+        }
+        
+        // Match alias pattern: alias aliasName "command sequence"
+        const aliasMatch = line.match(/^alias\s+(\w+)\s+"([^"]+)"/)
+        if (aliasMatch) {
+          const [, aliasName, commandString] = aliasMatch
+          aliases[aliasName] = {
+            commands: commandString
+          }
+          continue
+        }
+        
+        // Match alias pattern with bracket syntax: alias aliasName <& command sequence &>
+        const bracketAliasMatch = line.match(/^alias\s+(\w+)\s+<&\s*(.+?)\s*&>/)
+        if (bracketAliasMatch) {
+          const [, aliasName, commandString] = bracketAliasMatch
+          aliases[aliasName] = {
+            commands: commandString
+          }
+          continue
+        }
+        
+        // If line doesn't match any pattern, it might be an error
+        if (line.length > 0) {
+          errors.push(`Line ${i + 1}: Unrecognized format: ${line}`)
+        }
+      } catch (error) {
+        errors.push(`Line ${i + 1}: Parse error: ${error.message}`)
+      }
+    }
+    
+    return { keybinds, aliases, errors }
+  }
+
   // Application-specific import operations that handle storage and UI concerns
-  importKeybindFile(content, profileId, environment, options = {}) {
+  async importKeybindFile(content, profileId, environment, options = {}) {
     try {
-      // Use STOFileHandler for parsing
-      const parsed = this.handler.parseKeybindFile(content)
+      // Use new parseKeybindFile method with STOCommandParser
+      const parsed = await this.parseKeybindFile(content)
       const keyCount = Object.keys(parsed.keybinds).length
       
       if (keyCount === 0) {
@@ -104,24 +132,45 @@ export default class FileOperationsService extends ComponentBase {
       
       const dest = profile.builds[env].keys
 
-      // Apply keybinds using parsed data
-      Object.entries(parsed.keybinds).forEach(([key, data]) => {
-        dest[key] = data.commands
-
-        // Handle mirroring metadata
-        if (data.isMirrored) {
+      // Apply keybinds with mirroring detection using STOCommandParser
+      for (const [key, data] of Object.entries(parsed.keybinds)) {
+        const commandString = data.raw
+        
+        // Check for mirroring pattern using STOCommandParser
+        const parseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+          commandString 
+        })
+        
+        if (parseResult.isMirrored) {
+          // Extract original commands from mirrored sequence
+          const originalCommands = this.extractOriginalFromMirrored(commandString)
+          const unmirroredParseResult = await request(this.eventBus, 'parser:parse-command-string', { 
+            commandString: originalCommands.join(' $$ ')
+          })
+          
+          dest[key] = unmirroredParseResult.commands
+          
+          // Set stabilization metadata
           if (!profile.keybindMetadata) profile.keybindMetadata = {}
           if (!profile.keybindMetadata[env]) profile.keybindMetadata[env] = {}
           if (!profile.keybindMetadata[env][key]) profile.keybindMetadata[env][key] = {}
           profile.keybindMetadata[env][key].stabilizeExecutionOrder = true
+        } else {
+          // Use original commands as-is
+          dest[key] = data.commands
         }
-      })
+      }
 
       // Save profile
       this.storage.saveProfile(profileId, profile)
 
       // Emit profile updated event
       this.emit('profile-updated', { profileId, environment: env })
+
+      // Set app modified state if available
+      if (typeof globalThis !== 'undefined' && globalThis.app?.setModified) {
+        globalThis.app.setModified(true)
+      }
 
       // Show success notification
       const ignoredAliases = Object.keys(parsed.aliases).length
@@ -149,10 +198,19 @@ export default class FileOperationsService extends ComponentBase {
     }
   }
 
-  importAliasFile(content, profileId, options = {}) {
+  // Extract original commands from a mirrored command sequence
+  extractOriginalFromMirrored(commandString) {
+    const commands = commandString.split(/\s*\$\$\s*/)
+    if (commands.length < 3 || commands.length % 2 === 0) return commands
+    
+    const mid = Math.floor(commands.length / 2)
+    return commands.slice(0, mid + 1)
+  }
+
+  async importAliasFile(content, profileId, options = {}) {
     try {
-      // Use STOFileHandler for parsing
-      const parsed = this.handler.parseKeybindFile(content)
+      // Use new parseKeybindFile method
+      const parsed = await this.parseKeybindFile(content)
       const aliasCount = Object.keys(parsed.aliases).length
       
       if (aliasCount === 0) {
@@ -183,6 +241,11 @@ export default class FileOperationsService extends ComponentBase {
       // Emit profile updated event
       this.emit('profile-updated', { profileId })
 
+      // Set app modified state if available
+      if (typeof globalThis !== 'undefined' && globalThis.app?.setModified) {
+        globalThis.app.setModified(true)
+      }
+
       // Show success notification
       this.showToast(
         this.i18n?.t?.('aliases_imported_successfully', { aliasCount }) || 
@@ -207,16 +270,15 @@ export default class FileOperationsService extends ComponentBase {
   }
 
   // Utility methods for application layer
-  validateKeybindFile(content) {
+  async validateKeybindFile(content) {
     try {
-      const parsed = this.handler.parseKeybindFile(content)
+      const parsed = await this.parseKeybindFile(content)
       return {
         valid: true,
         stats: {
           keybinds: Object.keys(parsed.keybinds).length,
           aliases: Object.keys(parsed.aliases).length,
-          errors: parsed.errors.length,
-          comments: parsed.comments.length
+          errors: parsed.errors.length
         },
         errors: parsed.errors
       }
@@ -236,7 +298,7 @@ export default class FileOperationsService extends ComponentBase {
 
     let commandString
     if (stabilize && commands.length > 1) {
-      commandString = this.handler.generateMirroredCommandString(commands)
+      commandString = this.legacyHandler.generateMirroredCommandString(commands)
     } else {
       commandString = commands.map(c => c.command || c).join(' $$ ')
     }

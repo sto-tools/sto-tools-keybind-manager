@@ -1,5 +1,4 @@
 ﻿import ComponentBase from '../ComponentBase.js'
-import { parameterCommands } from './ParameterCommandUI.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'

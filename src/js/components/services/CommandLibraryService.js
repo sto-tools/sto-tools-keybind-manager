@@ -153,19 +153,19 @@ export default class CommandLibraryService extends ComponentBase {
     if (!profile) return []
 
     if (this.currentEnvironment === 'alias') {
-      // For aliases, parse the command string using FileOperationsService
+      // For aliases, parse the command string using STOCommandParser
       const alias = profile.aliases && profile.aliases[selectedKey]
       if (!alias || !alias.commands) return []
 
-      const commands = await request(this.eventBus, 'fileops:parse-command-string', { 
+      const result = await request(this.eventBus, 'parser:parse-command-string', { 
         commandString: alias.commands 
       })
-      return commands.map((cmd, index) => ({
-        command: cmd.command,
-        text: cmd.text || cmd.command,
-        type: cmd.type || 'alias', // Use the actual detected type, fallback to 'alias'
-        icon: cmd.icon || '🎭',
+      return result.commands.map((cmd, index) => ({
+        ...cmd, // Use new format directly
         id: `alias_${index}`,
+        // Ensure backward compatibility for any legacy fields still needed
+        type: cmd.category,
+        text: cmd.displayText
       }))
     } else {
       // For keybinds, return the command array

@@ -125,11 +125,35 @@ function once(event, callback) {
   on(event, onceCallback)
 }
 
+function clear() {
+  listeners.clear()
+}
+
+function getListenerCount(event) {
+  const eventListeners = listeners.get(event)
+  return eventListeners ? eventListeners.size : 0
+}
+
+function getAllListenerCounts() {
+  const counts = {}
+  for (const [event, listenerSet] of listeners) {
+    counts[event] = listenerSet.size
+  }
+  return counts
+}
+
 export default {
   on,
   off,
   emit,
   onDom,
-  once
+  once,
+  clear,
+  getListenerCount,
+  getAllListenerCounts,
+  // Expose listeners for debugging and testing (read-only access)
+  get listeners() {
+    return listeners
+  }
 }
 

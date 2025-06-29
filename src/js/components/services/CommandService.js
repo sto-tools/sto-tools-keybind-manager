@@ -47,14 +47,14 @@ export default class CommandService extends ComponentBase {
     // Register Request/Response endpoints for editing commands
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        respond(this.eventBus, 'command:edit', ({ commandId, updatedCommand }) => 
-          this.editCommand(commandId, updatedCommand)),
         respond(this.eventBus, 'command:duplicate', ({ commandId }) => 
           this.duplicateCommand(commandId)),
         respond(this.eventBus, 'command:delete', ({ commandId }) => 
           this.deleteCommand(commandId)),
         respond(this.eventBus, 'command:add', async ({ command, key, position }) => 
           this.addCommand(key, command, position)),
+        respond(this.eventBus, 'command:edit', async ({ key, index, updatedCommand }) => 
+          this.editCommand(key, index, updatedCommand)),
         respond(this.eventBus, 'command:reorder', ({ commandId, newPosition }) => 
           this.reorderCommand(commandId, newPosition)),
         respond(this.eventBus, 'command:validate', ({ command }) => 
@@ -169,7 +169,16 @@ export default class CommandService extends ComponentBase {
     } else {
       // ----- Key-bind -----
       const currentKeys = this.cache.keys[key] || []
-      const newKeys = [...currentKeys, command]
+      
+      // Handle both single commands and arrays of commands (e.g., whole-tray execution)
+      let commandsToAdd = []
+      if (Array.isArray(command)) {
+        commandsToAdd = command
+      } else {
+        commandsToAdd = [command]
+      }
+      
+      const newKeys = [...currentKeys, ...commandsToAdd]
       
       updates.builds = {
         ...this.cache.builds,
@@ -334,6 +343,84 @@ export default class CommandService extends ComponentBase {
     }
   }
 
+  /** Edit/Update a command at a specific index */
+  async editCommand (key, index, updatedCommand) {
+    console.log('[CommandService] editCommand called with:', { key, index, updatedCommand })
+    
+    if (!key || index === undefined || !updatedCommand) {
+      console.warn('CommandService: Cannot edit command - missing key, index, or updated command')
+      return false
+    }
+
+    const profile = this.getCurrentProfile()
+    if (!profile) {
+      this.ui?.showToast?.('No valid profile', 'error')
+      return false
+    }
+
+    const updates = {}
+    
+    if (this.currentEnvironment === 'alias') {
+      // ----- Alias chain -----
+      const currentAlias = this.cache.aliases && this.cache.aliases[key]
+      if (!currentAlias || !currentAlias.commands) return false
+
+      const commands = currentAlias.commands
+        .split(/\s*\$\$\s*/)
+        .filter((cmd) => cmd.trim().length > 0)
+
+      if (index >= 0 && index < commands.length) {
+        // Replace the command at the specified index
+        const commandString = updatedCommand.command || updatedCommand
+        commands[index] = commandString
+        
+        updates.aliases = {
+          ...this.cache.aliases,
+          [key]: {
+            ...this.cache.aliases[key],
+            commands: commands.join(' $$ ')
+          }
+        }
+      }
+    } else {
+      // ----- Key-bind -----
+      const currentKeys = this.cache.keys[key] || []
+      if (index >= 0 && index < currentKeys.length) {
+        const newKeys = [...currentKeys]
+        newKeys[index] = updatedCommand
+        
+        updates.builds = {
+          ...this.cache.builds,
+          [this.currentEnvironment]: {
+            ...this.cache.builds[this.currentEnvironment],
+            keys: {
+              ...this.cache.builds[this.currentEnvironment].keys,
+              [key]: newKeys
+            }
+          }
+        }
+      }
+    }
+
+    console.log('[CommandService] editCommand updates:', updates)
+    
+    try {
+      // Update via DataCoordinator
+      await request(this.eventBus, 'data:update-profile', {
+        profileId: this.cache.currentProfile,
+        updates
+      })
+      
+      console.log('[CommandService] editCommand completed successfully')
+      this.emit('command-edited', { key, index, updatedCommand })
+      return true
+    } catch (error) {
+      console.error('Failed to edit command:', error)
+      this.ui?.showToast?.('Failed to update command', 'error')
+      return false
+    }
+  }
+
   /* ------------------------------------------------------------------
    * Command lookup helpers (unchanged from library)
    * ------------------------------------------------------------------ */
@@ -480,6 +567,15 @@ export default class CommandService extends ComponentBase {
       console.log('[CommandService] extracted:', { command, key, position })
       const result = await this.addCommand(key, command, position)
       console.log('[CommandService] addCommand result:', result)
+    })
+
+    // Listen for command edit events from UI components (broadcast pattern)
+    this.addEventListener('command:edit', async (data) => {
+      console.log('[CommandService] command:edit received:', data)
+      const { key, index, updatedCommand } = data
+      console.log('[CommandService] extracted:', { key, index, updatedCommand })
+      const result = await this.editCommand(key, index, updatedCommand)
+      console.log('[CommandService] editCommand result:', result)
     })
   }
 

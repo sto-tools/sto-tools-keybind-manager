@@ -407,8 +407,9 @@ export default class KeyService extends ComponentBase {
 
   /** Split $$ separated string into command objects */
   parseCommandString (commandString) {
-    // Delegate to FileOperationsService for authoritative implementation
-    return request(this.eventBus, 'fileops:parse-command-string', { commandString })
+    // Use STOCommandParser directly - return new format
+    return request(this.eventBus, 'parser:parse-command-string', { commandString })
+      .then(result => result.commands)
   }
 
   /**
@@ -574,9 +575,9 @@ export default class KeyService extends ComponentBase {
         // Skip null/undefined entries that can occur from partially edited keybinds
         if (!cmdObj) return
         const cmdStr = cmdObj.command || ''
-        const type = cmdObj.type || 'unknown'
-        // Count by type
-        stats.commandTypes[type] = (stats.commandTypes[type] || 0) + 1
+        const category = cmdObj.category || cmdObj.type || 'unknown' // Support both new and legacy format
+        // Count by category
+        stats.commandTypes[category] = (stats.commandTypes[category] || 0) + 1
         // Count by command string
         if (cmdStr) {
           stats.mostUsedCommands[cmdStr] = (stats.mostUsedCommands[cmdStr] || 0) + 1
@@ -606,85 +607,27 @@ export default class KeyService extends ComponentBase {
   }
 
   /**
-   * Detect the type of a command string (tray, communication, power, movement, camera, combat, targeting, system, custom).
+   * Detect the category of a command string (tray, communication, power, movement, camera, combat, targeting, system, custom).
+   * Uses STOCommandParser directly for consistent, performance-optimized parsing.
    */
-  detectCommandType(command) {
+  async detectCommandType(command) {
     if (!command || typeof command !== 'string') return 'custom'
 
-    const cmd = command.toLowerCase().trim()
-
-    // Tray commands
-    if (cmd.includes('+stotrayexecbytray')) return 'tray'
-
-    // Communication commands
-    if (
-      cmd.startsWith('say ') ||
-      cmd.startsWith('team ') ||
-      cmd.startsWith('zone ') ||
-      cmd.startsWith('tell ') ||
-      cmd.includes('"')
-    )
-      return 'communication'
-
-    // Shield management commands
-    if (
-      cmd.includes('+power_exec') ||
-      cmd.includes('distribute_shields') ||
-      cmd.includes('reroute_shields')
-    )
-      return 'power'
-
-    // Movement commands
-    if (
-      cmd.includes('+fullimpulse') ||
-      cmd.includes('+reverse') ||
-      cmd.includes('throttle') ||
-      cmd.includes('+turn') ||
-      cmd.includes('+up') ||
-      cmd.includes('+down') ||
-      cmd.includes('+left') ||
-      cmd.includes('+right') ||
-      cmd.includes('+forward') ||
-      cmd.includes('+backward') ||
-      cmd.includes('follow')
-    )
-      return 'movement'
-
-    // Camera commands
-    if (cmd.includes('cam') || cmd.includes('look') || cmd.includes('zoom'))
-      return 'camera'
-
-    // Combat commands
-    if (
-      cmd.includes('fire') ||
-      cmd.includes('attack') ||
-      cmd === 'fireall' ||
-      cmd === 'firephasers' ||
-      cmd === 'firetorps' ||
-      cmd === 'firephaserstorps'
-    )
-      return 'combat'
-
-    // Targeting commands
-    if (
-      cmd.includes('target') ||
-      cmd === 'target_enemy_near' ||
-      cmd === 'target_self' ||
-      cmd === 'target_friend_near' ||
-      cmd === 'target_clear'
-    )
-      return 'targeting'
-
-    // System commands
-    if (
-      cmd.includes('+gentoggle') ||
-      cmd === 'screenshot' ||
-      cmd.includes('hud') ||
-      cmd === 'interactwindow'
-    )
-      return 'system'
-
-    // Default to custom for unknown commands
+    try {
+      // Use STOCommandParser directly for efficient command category detection
+      const result = await request(this.eventBus, 'parser:parse-command-string', { 
+        commandString: command.trim(),
+        options: { generateDisplayText: false } // Skip expensive display text generation
+      })
+      
+      // Return the category from the first parsed command
+      if (result.commands && result.commands.length > 0) {
+        return result.commands[0].category || 'custom'
+      }
+    } catch (error) {
+      console.warn('[KeyService] detectCommandType failed, falling back to custom:', error)
+    }
+    
     return 'custom'
   }
 

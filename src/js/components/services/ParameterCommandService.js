@@ -1,7 +1,8 @@
 import ComponentBase from '../ComponentBase.js'
 import { request } from '../../core/requestResponse.js'
 import eventBus from '../../core/eventBus.js'
-import CommandBuilderService from './CommandBuilderService.js'
+import CommandFormatAdapter from '../../lib/CommandFormatAdapter.js'
+import { getParameterDefinition, isEditableSignature } from '../../lib/CommandSignatureDefinitions.js'
 
 /**
  * ParameterCommandService – contains the heavy business logic that was
@@ -24,9 +25,6 @@ export default class ParameterCommandService extends ComponentBase {
   constructor ({ eventBus: bus = eventBus, dataService = null } = {}) {
     super(bus)
     this.componentName = 'ParameterCommandService'
-
-    // Re-use the existing builder hierarchy that already lives in the codebase
-    this.commandBuilderService = new CommandBuilderService({ eventBus: bus })
     
     // Cache selected key/alias state
     this.selectedKey = null
@@ -108,6 +106,94 @@ export default class ParameterCommandService extends ComponentBase {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
+  /**
+   * Generate range of individual command strings for bulk operations
+   */
+  generateTrayRangeCommands(baseCommand, startTray, startSlot, endTray, endSlot) {
+    const commands = []
+    
+    for (let tray = startTray; tray <= endTray; tray++) {
+      const maxSlot = (tray === endTray) ? endSlot : 9 // Assume 10 slots per tray (0-9)
+      const minSlot = (tray === startTray) ? startSlot : 0
+      
+      for (let slot = minSlot; slot <= maxSlot; slot++) {
+        commands.push(`${baseCommand} ${tray} ${slot}`)
+      }
+    }
+    
+    return commands
+  }
+
+  /**
+   * Generate whole tray command strings (all 10 slots)
+   */
+  generateWholeTrayCommands(baseCommand, tray) {
+    const commands = []
+    for (let slot = 0; slot <= 9; slot++) {
+      commands.push(`${baseCommand} ${tray} ${slot}`)
+    }
+    return commands
+  }
+
+  /**
+   * Generate backup tray range commands
+   */
+  generateTrayRangeWithBackupCommands(active, startTray, startSlot, endTray, endSlot, backupStartTray, backupStartSlot, backupEndTray, backupEndSlot) {
+    const commands = []
+    
+    for (let tray = startTray; tray <= endTray; tray++) {
+      const maxSlot = (tray === endTray) ? endSlot : 9
+      const minSlot = (tray === startTray) ? startSlot : 0
+      
+      for (let slot = minSlot; slot <= maxSlot; slot++) {
+        // Calculate corresponding backup position
+        const backupTray = backupStartTray + (tray - startTray)
+        const backupSlot = backupStartSlot + (slot - startSlot)
+        commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`)
+      }
+    }
+    
+    return commands
+  }
+
+  /**
+   * Generate whole tray with backup commands
+   */
+  generateWholeTrayWithBackupCommands(active, tray, backupTray) {
+    const commands = []
+    for (let slot = 0; slot <= 9; slot++) {
+      commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${slot}`)
+    }
+    return commands
+  }
+
+  /**
+   * Parse command strings through STOCommandParser for consistent format
+   */
+  async parseCommandsToObjects(commandStrings) {
+    const parsePromises = commandStrings.map(async cmdStr => {
+      try {
+        const result = await request(this.eventBus, 'parser:parse-command-string', { commandString: cmdStr })
+        if (result.commands && result.commands.length > 0) {
+          return result.commands[0] // Take first match
+        }
+      } catch (error) {
+        console.warn('Failed to parse command:', cmdStr, error)
+      }
+      
+      // Fallback if parser doesn't recognize command
+      return {
+        command: cmdStr,
+        category: 'tray',
+        displayText: cmdStr,
+        id: this.generateCommandId(),
+        parameters: {}
+      }
+    })
+    
+    return Promise.all(parsePromises)
+  }
+
   /* ------------------------------------------------------------
    * Core builder logic (verbatim from legacy file with minimal tweaks)
    * ---------------------------------------------------------- */
@@ -115,14 +201,12 @@ export default class ParameterCommandService extends ComponentBase {
    * Translate a command definition + user parameters into a concrete command
    * object (or array of objects for tray ranges).
    */
-  buildParameterizedCommand (categoryId, commandId, commandDef, params = {}) {
+  async buildParameterizedCommand (categoryId, commandId, commandDef, params = {}) {
     // Use the service's own cached selected key/alias state
     const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
 
-    // Per-category builder functions.  The majority of this code is lifted
-    // straight from the original `parameterCommands` module.  Apart from
-    // replacing the free variable `commandBuilderService` with the injected
-    // `this.commandBuilderService`, no functional changes were made.
+    // Per-category builder functions. Refactored to use STOCommandParser 
+    // as single source of truth instead of CommandBuilderService.
     const builders = {
       targeting: (p) => {
         if (commandId === 'target' && p.entityName) {
@@ -134,7 +218,7 @@ export default class ParameterCommandService extends ComponentBase {
         return { command: commandDef.command, text: commandDef.name }
       },
 
-      tray: (p) => {
+      tray: async (p) => {
         const tray = p.tray || 0
         const slot = p.slot || 0
 
@@ -155,35 +239,20 @@ export default class ParameterCommandService extends ComponentBase {
           const startSlot   = p.start_slot  || 0
           const endTray     = p.end_tray    || 0
           const endSlot     = p.end_slot    || 0
-          const commandType = p.command_type || 'STOTrayExecByTray'
+          
+          // Preserve original command format from baseCommand or use command_type parameter
+          let baseCommand
+          if (commandDef.baseCommand) {
+            baseCommand = commandDef.baseCommand
+          } else if (p.baseCommand) {
+            baseCommand = p.baseCommand
+          } else {
+            baseCommand = p.command_type || '+STOTrayExecByTray'
+          }
 
-          const cmds = this.commandBuilderService.build('tray', 'tray_range', {
-            start_tray: startTray,
-            start_slot: startSlot,
-            end_tray:   endTray,
-            end_slot:   endSlot,
-            command_type: commandType,
-          })
-
-          return cmds.map((cmd, idx) => {
-            let trayParam, slotParam
-            try {
-              const parts = cmd.replace('+', '').trim().split(/\s+/)
-              trayParam = parseInt(parts[1])
-              slotParam = parseInt(parts[2])
-            } catch (_) { /* swallow */ }
-
-            return {
-              command: cmd,
-              type:    categoryId,
-              icon:    commandDef.icon,
-              text:    idx === 0
-                ? `Execute Range: Tray ${startTray + 1} Slot ${startSlot + 1} to Tray ${endTray + 1} Slot ${endSlot + 1}`
-                : cmd,
-              id:         this.generateCommandId(),
-              parameters: { tray: trayParam, slot: slotParam },
-            }
-          })
+          // Generate individual command strings, then parse through STOCommandParser for consistent format
+          const commandStrings = this.generateTrayRangeCommands(baseCommand, startTray, startSlot, endTray, endSlot)
+          return await this.parseCommandsToObjects(commandStrings)
         }
 
         /* ----- Tray range WITH backup ------------------------------------ */
@@ -198,69 +267,29 @@ export default class ParameterCommandService extends ComponentBase {
           const backupEndTray     = p.backup_end_tray   || 0
           const backupEndSlot     = p.backup_end_slot   || 0
 
-          const cmds = this.commandBuilderService.build('tray', 'tray_range_with_backup', {
-            active,
-            start_tray:  startTray,
-            start_slot:  startSlot,
-            end_tray:    endTray,
-            end_slot:    endSlot,
-            backup_start_tray: backupStartTray,
-            backup_start_slot: backupStartSlot,
-            backup_end_tray:   backupEndTray,
-            backup_end_slot:   backupEndSlot,
-          })
-
-          return cmds.map((cmd, idx) => {
-            let activeParam, primaryTray, primarySlot, backupTrayParam, backupSlotParam
-            try {
-              const parts = cmd.trim().split(/\s+/)
-              activeParam     = parseInt(parts[1])
-              primaryTray     = parseInt(parts[2])
-              primarySlot     = parseInt(parts[3])
-              backupTrayParam = parseInt(parts[4])
-              backupSlotParam = parseInt(parts[5])
-            } catch (_) { /* swallow */ }
-
-            return {
-              command: cmd,
-              type:    categoryId,
-              icon:    commandDef.icon,
-              text:    idx === 0
-                ? `Execute Range with Backup: Tray ${startTray + 1}-${endTray + 1}`
-                : cmd,
-              id:         this.generateCommandId(),
-              parameters: {
-                active:      activeParam,
-                tray:        primaryTray,
-                slot:        primarySlot,
-                backup_tray: backupTrayParam,
-                backup_slot: backupSlotParam,
-              },
-            }
-          })
+          // Generate individual command strings, then parse through STOCommandParser for consistent format
+          const commandStrings = this.generateTrayRangeWithBackupCommands(
+            active, startTray, startSlot, endTray, endSlot,
+            backupStartTray, backupStartSlot, backupEndTray, backupEndSlot
+          )
+          return await this.parseCommandsToObjects(commandStrings)
         }
 
         /* ----- Whole tray ------------------------------------------------- */
         if (commandId === 'whole_tray') {
-          const commandType = p.command_type || 'STOTrayExecByTray'
-          const cmds = this.commandBuilderService.build('tray', 'whole_tray', { tray, command_type: commandType })
-
-          return cmds.map((cmd, idx) => {
-            let slotParam
-            try {
-              const parts = cmd.replace('+', '').trim().split(/\s+/)
-              slotParam = parseInt(parts[2])
-            } catch (_) { /* swallow */ }
-
-            return {
-              command: cmd,
-              type:    categoryId,
-              icon:    commandDef.icon,
-              text:    idx === 0 ? `Execute Whole Tray ${tray + 1}` : cmd,
-              id:         this.generateCommandId(),
-              parameters: { tray, slot: slotParam },
-            }
-          })
+          // Preserve original command format from baseCommand or use command_type parameter
+          let baseCommand
+          if (commandDef.baseCommand) {
+            baseCommand = commandDef.baseCommand
+          } else if (p.baseCommand) {
+            baseCommand = p.baseCommand
+          } else {
+            baseCommand = p.command_type || '+STOTrayExecByTray'
+          }
+          
+          // Generate individual command strings, then parse through STOCommandParser for consistent format
+          const commandStrings = this.generateWholeTrayCommands(baseCommand, tray)
+          return await this.parseCommandsToObjects(commandStrings)
         }
 
         /* ----- Whole tray WITH backup ------------------------------------ */
@@ -268,55 +297,48 @@ export default class ParameterCommandService extends ComponentBase {
           const active     = p.active !== undefined ? p.active : 1
           const backupTray = p.backup_tray || 0
 
-          const cmds = this.commandBuilderService.build('tray', 'whole_tray_with_backup', { active, tray, backup_tray: backupTray })
-
-          return cmds.map((cmd, idx) => {
-            let activeParam, primaryTray, primarySlot, backupTrayParam, backupSlotParam
-            try {
-              const parts = cmd.trim().split(/\s+/)
-              activeParam     = parseInt(parts[1])
-              primaryTray     = parseInt(parts[2])
-              primarySlot     = parseInt(parts[3])
-              backupTrayParam = parseInt(parts[4])
-              backupSlotParam = parseInt(parts[5])
-            } catch (_) { /* swallow */ }
-
-            return {
-              command: cmd,
-              type:    categoryId,
-              icon:    commandDef.icon,
-              text:    idx === 0
-                ? `Execute Whole Tray ${tray + 1} (with backup Tray ${backupTray + 1})`
-                : cmd,
-              id:         this.generateCommandId(),
-              parameters: {
-                active:      activeParam,
-                tray:        primaryTray,
-                slot:        primarySlot,
-                backup_tray: backupTrayParam,
-                backup_slot: backupSlotParam,
-              },
-            }
-          })
+          // Generate individual command strings, then parse through STOCommandParser for consistent format
+          const commandStrings = this.generateWholeTrayWithBackupCommands(active, tray, backupTray)
+          return await this.parseCommandsToObjects(commandStrings)
         }
 
         /* ----- Single slot / default path -------------------------------- */
         const isEditing = this.editingContext && this.editingContext.isEditing
-        const commandType = p.command_type || 'STOTrayExecByTray'
-        const prefix = '+'
+        
+        // Preserve original command format from baseCommand or use command_type parameter
+        let finalCommand
+        if (commandDef.baseCommand) {
+          // Use the original baseCommand preserved from parsing
+          finalCommand = `${commandDef.baseCommand} ${tray} ${slot}`
+        } else if (p.baseCommand) {
+          // Use baseCommand from current parameters
+          finalCommand = `${p.baseCommand} ${tray} ${slot}`
+        } else if (p.command_type) {
+          // Use explicit command_type parameter (with + prefix if it doesn't already have one)
+          const commandType = p.command_type
+          const prefix = commandType.startsWith('+') ? '' : '+'
+          finalCommand = `${prefix}${commandType} ${tray} ${slot}`
+        } else {
+          // Default fallback
+          finalCommand = `+STOTrayExecByTray ${tray} ${slot}`
+        }
 
         if (isEditing) {
           const existingCmd = this.editingContext.existingCommand
           if (existingCmd && (existingCmd.command.startsWith('TrayExecByTray') || existingCmd.command.startsWith('+TrayExecByTray'))) {
-            return {
-              command: `+TrayExecByTray ${tray} ${slot}`,
-              text:    `Execute Tray ${tray + 1} Slot ${slot + 1}`,
+            // Preserve the original command format when editing
+            if (commandDef.baseCommand) {
+              finalCommand = `${commandDef.baseCommand} ${tray} ${slot}`
+            } else if (p.baseCommand) {
+              finalCommand = `${p.baseCommand} ${tray} ${slot}`
+            } else {
+              finalCommand = `+TrayExecByTray ${tray} ${slot}`
             }
           }
         }
 
         return {
-          command: `${prefix}${commandType} ${tray} ${slot}`,
+          command: finalCommand,
           text:    `Execute Tray ${tray + 1} Slot ${slot + 1}`,
           parameters: { tray, slot },
         }
@@ -341,10 +363,60 @@ export default class ParameterCommandService extends ComponentBase {
         return { command: cmd, text: commandDef.name }
       },
 
-      communication: (p) => ({
-        command: `${commandDef.command} ${p.message || 'Message text here'}`,
-        text:    `${commandDef.name}: ${p.message || 'Message text here'}`,
-      }),
+      communication: (p) => {
+        const verb = p.verb || 'say'
+        const message = p.message || 'Message text here'
+        const command = `${verb} "${message}"`
+        return {
+          command,
+          text: `${verb}: "${message}"`
+        }
+      },
+
+      vfx: (p) => {
+        if (commandId === 'vfx_exclusion') {
+          const effects = p.effects || ''
+          return {
+            command: `dynFxSetFXExlusionList ${effects}`,
+            text: `VFX Exclude: ${effects}`
+          }
+        } else if (commandId === 'vfx_exclusion_alias') {
+          const aliasName = p.aliasName || ''
+          return {
+            command: `dynFxSetFXExlusionList_${aliasName}`,
+            text: `VFX Alias: ${aliasName}`
+          }
+        }
+        return { command: commandDef.command, text: commandDef.name }
+      },
+
+      targeting: (p) => {
+        if (commandId === 'target_entity') {
+          const entityName = p.entityName || ''
+          return {
+            command: `Target "${entityName}"`,
+            text: `Target "${entityName}"`
+          }
+        }
+        return { command: commandDef.command, text: commandDef.name }
+      },
+
+      power: (p) => {
+        if (commandId === 'power_exec') {
+          const powerName = p.powerName || ''
+          return {
+            command: `+power_exec ${powerName}`,
+            text: `Power: ${powerName}`
+          }
+        }
+        return { command: commandDef.command, text: commandDef.name }
+      },
+
+      combat: (p) => {
+        // Static combat commands don't have editable parameters
+        const commandName = p.commandName || commandDef.command
+        return { command: commandName, text: commandDef.name }
+      },
 
       system: (p) => {
         let cmd = commandDef.command
@@ -371,7 +443,7 @@ export default class ParameterCommandService extends ComponentBase {
     const builder = builders[categoryId]
     if (!builder) return null
 
-    const result = builder(params)
+    const result = await builder(params)
     if (!result) return null // invalid params (e.g. empty alias name)
 
     if (Array.isArray(result)) return result // already fully-fledged command list
@@ -380,7 +452,7 @@ export default class ParameterCommandService extends ComponentBase {
       command: result.command,
       type:    categoryId,
       icon:    commandDef.icon,
-      text:    result.text,
+      displayText: result.text,
       id:      this.generateCommandId(),
       parameters: params,
     }
@@ -390,59 +462,56 @@ export default class ParameterCommandService extends ComponentBase {
    * Auxiliary helpers
    * ---------------------------------------------------------- */
   /**
-   * Attempts to find the command definition in STO_DATA for a given concrete
-   * command string.  Needed when editing an existing command chain.
+   * Attempts to find the command definition for a given command using STOCommandParser.
+   * This replaces the old DataService-dependent logic with signature-based recognition.
    */
   async findCommandDefinition (command) {
-    // Special handling for tray execution commands
-    if (command.command.includes('TrayExec')) {
-      const trayCategory = await request(this.eventBus, 'data:get-tray-category')
-      if (trayCategory) {
-        if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
-          const trayRangeWithBackupDef = trayCategory.commands.tray_range_with_backup
-          if (trayRangeWithBackupDef) {
-            return { commandId: 'tray_range_with_backup', ...trayRangeWithBackupDef }
-          }
-        } else if ((command.command.includes('STOTrayExecByTray') || command.command.includes('TrayExecByTray')) && command.command.includes('$$') && !command.command.includes('WithBackup')) {
-          const trayRangeDef = trayCategory.commands.tray_range
-          if (trayRangeDef) {
-            return { commandId: 'tray_range', ...trayRangeDef }
-          }
-        } else if (command.command.includes('TrayExecByTrayWithBackup')) {
-          const trayWithBackupDef = trayCategory.commands.tray_with_backup
-          if (trayWithBackupDef) {
-            return { commandId: 'tray_with_backup', ...trayWithBackupDef }
-          }
-        } else if (command.command.includes('STOTrayExecByTray') || (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))) {
-          const customTrayDef = trayCategory.commands.custom_tray
-          if (customTrayDef) {
-            return { commandId: 'custom_tray', ...customTrayDef }
-          }
-        }
-      }
-    }
-
     try {
-      const category = await request(this.eventBus, 'data:get-command-category', { categoryId: command.type })
-      if (!category) return null
+      // Normalize command to consistent format
+      const normalizedCommand = CommandFormatAdapter.normalize(command)
+      if (!normalizedCommand) return null
 
-      // Exact match first (non-customisable commands)
-      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-        if (cmdDef.command === command.command) {
-          return { commandId: cmdId, ...cmdDef }
-        }
+      // Use STOCommandParser to re-parse and get signature
+      const parseResult = await request(this.eventBus, 'parser:parse-command-string', {
+        commandString: normalizedCommand.command
+      })
+
+      if (!parseResult?.commands?.[0]) {
+        return null
       }
 
-      // Fallback: match by base command string (customisable commands)
-      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-        if (cmdDef.customizable && command.command.startsWith(cmdDef.command.split(' ')[0])) {
-          return { commandId: cmdId, ...cmdDef }
-        }
+      const parsedCommand = parseResult.commands[0]
+      
+      // Check if this signature has a parameter definition
+      const parameterDefinition = getParameterDefinition(parsedCommand.signature)
+      if (!parameterDefinition) {
+        return null
       }
 
-      return null
+      // Only return definition if it has editable parameters
+      if (!isEditableSignature(parsedCommand.signature)) {
+        return null
+      }
+
+      // Merge the signature-based definition with the parsed command data
+      // Flatten extracted parameters to the top level for UI convenience
+      return {
+        commandId: parameterDefinition.commandId,
+        categoryId: parameterDefinition.category,
+        name: parameterDefinition.name,
+        description: parameterDefinition.description,
+        icon: parameterDefinition.icon,
+        category: parameterDefinition.category,
+        parameters: parameterDefinition.parameters,
+        // Include parsed metadata for context
+        signature: parsedCommand.signature,
+        baseCommand: parsedCommand.baseCommand,
+        extractedParameters: parsedCommand.parameters,
+        // Flatten extracted parameters to top level for easy access
+        ...parsedCommand.parameters
+      }
     } catch (error) {
-      // Fallback if DataService not available
+      console.warn('[ParameterCommandService] Error finding command definition:', error)
       return null
     }
   }

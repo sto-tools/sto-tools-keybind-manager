@@ -82,6 +82,13 @@ export default class ParameterCommandUI extends ComponentBase {
         this._currentEnvironment = env
       }
     })
+
+    // Handle parameter command editing requests
+    this.addEventListener('parameter-command:edit', ({ index, command, commandDef, categoryId, commandId }) => {
+      if (commandDef && categoryId && commandId) {
+        this.editParameterizedCommand(index, command, commandDef)
+      }
+    })
   }
 
   /* ------------------------------------------------------------
@@ -290,18 +297,27 @@ export default class ParameterCommandUI extends ComponentBase {
   async updateParameterPreview () {
     if (!this.currentParameterCommand) return
 
-    const { categoryId, commandId, commandDef } = this.currentParameterCommand
+    const { categoryId, commandId } = this.currentParameterCommand
+    const commandDef = this.currentParameterCommand  // The commandDef properties are spread directly
     const params = this.getParameterValues()
 
-    const cmd = svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
-    const previewEl = this.document.getElementById('parameterCommandPreview')
-    if (!previewEl || !cmd) return
+    try {
+      const cmd = await svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
+      const previewEl = this.document.getElementById('parameterCommandPreview')
+      if (!previewEl || !cmd) return
 
       if (Array.isArray(cmd)) {
-    previewEl.textContent = cmd.map(c => c.command || c).filter(c => c).join(' $$ ')
-  } else {
-    previewEl.textContent = cmd.command || cmd
-  }
+        previewEl.textContent = cmd.map(c => c.command || c).filter(c => c).join(' $$ ')
+      } else {
+        previewEl.textContent = cmd.command || cmd
+      }
+    } catch (error) {
+      console.error('Error updating parameter preview:', error)
+      const previewEl = this.document.getElementById('parameterCommandPreview')
+      if (previewEl) {
+        previewEl.textContent = 'Error generating command'
+      }
+    }
   }
 
   getParameterValues () {
@@ -341,22 +357,41 @@ export default class ParameterCommandUI extends ComponentBase {
       return
     }
 
-    const { categoryId, commandId, commandDef } = this.currentParameterCommand
+    const { categoryId, commandId } = this.currentParameterCommand
+    const commandDef = this.currentParameterCommand  // The commandDef properties are spread directly
     const params = this.getParameterValues()
 
-    const cmd = svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
-    if (!cmd) return
+    try {
+      const cmd = await svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
+      if (!cmd) return
 
-    // Emit command:add event instead of calling service directly
-    const addCmd = (c) => {
-      console.log('[ParameterCommandUI] emitting command:add [parameterized]', { command: c, key: selectedKey })
-      this.eventBus.emit('command:add', { command: c, key: selectedKey })
-    }
-
-    if (Array.isArray(cmd)) {
-      cmd.forEach(addCmd)
-    } else {
-      addCmd(cmd)
+      // Check if we're editing an existing command or adding a new one
+      if (this.currentParameterCommand.isEditing && this.currentParameterCommand.editIndex !== undefined) {
+        // Editing existing command - emit update event
+        console.log('[ParameterCommandUI] emitting command:edit [parameterized]', { 
+          key: selectedKey, 
+          index: this.currentParameterCommand.editIndex, 
+          updatedCommand: cmd 
+        })
+        this.eventBus.emit('command:edit', { 
+          key: selectedKey, 
+          index: this.currentParameterCommand.editIndex, 
+          updatedCommand: cmd 
+        })
+      } else {
+        // Adding new command - handle arrays as single batch to avoid race conditions
+        if (Array.isArray(cmd)) {
+          console.log('[ParameterCommandUI] emitting command:add [bulk parameterized]', { commands: cmd, key: selectedKey })
+          this.eventBus.emit('command:add', { command: cmd, key: selectedKey })
+        } else {
+          console.log('[ParameterCommandUI] emitting command:add [single parameterized]', { command: cmd, key: selectedKey })
+          this.eventBus.emit('command:add', { command: cmd, key: selectedKey })
+        }
+      }
+    } catch (error) {
+      console.error('Error building parameterized command:', error)
+      this.ui?.showToast?.('Error generating command', 'error')
+      return
     }
 
     // Close modal
@@ -477,7 +512,7 @@ export default class ParameterCommandUI extends ComponentBase {
   /* ------------------------------------------------------------
    * Legacy facade methods – keep external API intact
    * ---------------------------------------------------------- */
-  editCommand (index) {
+  async editCommand (index) {
     // Use cached state instead of request/response
     const currentEnv = this._currentEnvironment || 'space'
     const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
@@ -490,7 +525,7 @@ export default class ParameterCommandUI extends ComponentBase {
     if (!commands || !commands[index]) return
 
     const command = commands[index]
-    const commandDef = svc.findCommandDefinition(command)
+    const commandDef = await svc.findCommandDefinition(command)
     if (!commandDef) return
 
     this.editParameterizedCommand(index, command, commandDef)
@@ -504,14 +539,13 @@ export default class ParameterCommandUI extends ComponentBase {
     return svc.generateCommandId(...args)
   }
   
-  buildParameterizedCommand (...args) {
-    return svc.buildParameterizedCommand(...args)
+  async buildParameterizedCommand (...args) {
+    return await svc.buildParameterizedCommand(...args)
   }
   
-  findCommandDefinition (...args) {
-    return svc.findCommandDefinition(...args)
+  async findCommandDefinition (...args) {
+    return await svc.findCommandDefinition(...args)
   }
 }
 
-// Legacy singleton for backward compatibility - will be deprecated
-export const parameterCommands = new ParameterCommandUI({ eventBus }) 
+// Legacy singleton removed - now initialized in app.js with proper dependencies 

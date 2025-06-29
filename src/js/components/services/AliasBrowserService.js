@@ -108,14 +108,14 @@ export default class AliasBrowserService extends ComponentBase {
     })
 
     // Back-compat: also accept legacy topic if emitted elsewhere
-    this.addEventListener('profile:changed', (profileId) => {
+    /*this.addEventListener('profile:changed', (profileId) => {
       this.currentProfileId = profileId
       this.cache.currentProfile = profileId
       this.selectedAliasName = null
       // Clear cached selection when profile changes
       this._cachedAliasSelection = null
       this.emit('aliases-changed', { aliases: this.getAliases() })
-    })
+    })*/
   }
 
   /**

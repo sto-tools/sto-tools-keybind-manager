@@ -249,8 +249,8 @@ describe('App Workflow Integration', () => {
 
       // Verify UI reflects changes in the profile data (DOM may not be updated)
       // The profile data is the source of truth for integration tests
-      expect(updatedProfile.builds.space.keys['F2'][0].type).toBe('chat')
-      expect(updatedProfile.builds.space.keys['F2'][1].type).toBe('emote')
+      expect(updatedProfile.builds.space.keys['F2'][0].category).toBe('chat')
+      expect(updatedProfile.builds.space.keys['F2'][1].category).toBe('emote')
     })
 
     it('should delete keybind and update UI', async () => {
@@ -259,7 +259,7 @@ describe('App Workflow Integration', () => {
 
       // Create keybind
       app.selectKey('F3')
-      app.addCommand('F3', { command: 'say "to be deleted"', type: 'chat' })
+      app.addCommand('F3', { command: 'say "to be deleted"', category: 'chat' })
 
       // Verify keybind exists
       const profile = app.getCurrentProfile()
@@ -289,9 +289,9 @@ describe('App Workflow Integration', () => {
 
       // Create keybind with multiple commands
       app.selectKey('F4')
-      app.addCommand('F4', { command: 'say "first"', type: 'chat' })
-      app.addCommand('F4', { command: 'say "second"', type: 'chat' })
-      app.addCommand('F4', { command: 'say "third"', type: 'chat' })
+      app.addCommand('F4', { command: 'say "first"', category: 'chat' })
+      app.addCommand('F4', { command: 'say "second"', category: 'chat' })
+      app.addCommand('F4', { command: 'say "third"', category: 'chat' })
 
       // Simulate reordering (move first command to last)
       app.moveCommand('F4', 0, 2)
@@ -330,7 +330,7 @@ describe('App Workflow Integration', () => {
       // Add command from library
       app.addCommand('F5', {
         command: testCommand.command,
-        type: testCommand.category,
+        category: testCommand.category,
       })
 
       // Verify command added to key
@@ -405,7 +405,7 @@ describe('App Workflow Integration', () => {
       expect(builtCommand).toBeTruthy()
       expect(typeof builtCommand).toBe('object')
       expect(builtCommand.command).toBeDefined()
-      expect(builtCommand.type).toBeDefined()
+      expect(builtCommand.category).toBeDefined()
     })
   })
 
@@ -417,7 +417,7 @@ describe('App Workflow Integration', () => {
       // Create keybinds in space environment
       expect(app.currentEnvironment).toBe('space')
       app.selectKey('F6')
-      app.addCommand('F6', { command: 'say "space command"', type: 'chat' })
+      app.addCommand('F6', { command: 'say "space command"', category: 'chat' })
 
       // Switch to ground environment
       app.switchMode('ground')
@@ -429,7 +429,7 @@ describe('App Workflow Integration', () => {
 
       // Create ground-specific keybinds
       app.selectKey('F6')
-      app.addCommand('F6', { command: 'say "ground command"', type: 'chat' })
+      app.addCommand('F6', { command: 'say "ground command"', category: 'chat' })
 
       // Switch back to space environment
       app.switchMode('space')

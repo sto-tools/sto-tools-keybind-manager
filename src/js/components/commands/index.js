@@ -1,4 +1,4 @@
 // Command Management Components
-export { parameterCommands } from '../ui/ParameterCommandUI.js'
+// parameterCommands singleton removed - now initialized in app.js with proper dependencies
 export { CommandLibraryService } from '../services/index.js'
 export { CommandLibraryUI } from '../ui/index.js' 

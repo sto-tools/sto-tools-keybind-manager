@@ -453,6 +453,57 @@ export default class DataCoordinator extends ComponentBase {
   /**
    * Update profile data
    */
+  /**
+   * Deep merge helper for profile updates
+   * Handles nested objects like aliases and builds properly
+   */
+  deepMergeProfileUpdates(current, updates) {
+    const result = { ...current }
+    
+    for (const [key, value] of Object.entries(updates)) {
+      if (key === 'aliases' && typeof value === 'object' && value !== null) {
+        // Deep merge aliases - individual aliases should be merged, not replaced
+        result.aliases = {
+          ...(current.aliases || {}),
+          ...value
+        }
+      } else if (key === 'builds' && typeof value === 'object' && value !== null) {
+        // Deep merge builds - environments and keys should be merged, not replaced
+        result.builds = { ...(current.builds || {}) }
+        
+        for (const [env, envData] of Object.entries(value)) {
+          if (typeof envData === 'object' && envData !== null) {
+            // Initialize the environment if it doesn't exist
+            if (!result.builds[env]) {
+              result.builds[env] = {}
+            }
+            
+            // Deep merge each property of the environment
+            for (const [envProp, envPropValue] of Object.entries(envData)) {
+              if (envProp === 'keys' && typeof envPropValue === 'object' && envPropValue !== null) {
+                // Special deep merge for keys - preserve existing keys
+                result.builds[env].keys = {
+                  ...(result.builds[env].keys || {}),
+                  ...envPropValue
+                }
+              } else {
+                // Regular property assignment for non-keys properties
+                result.builds[env][envProp] = envPropValue
+              }
+            }
+          } else {
+            result.builds[env] = envData
+          }
+        }
+      } else {
+        // Regular shallow merge for other properties
+        result[key] = value
+      }
+    }
+    
+    return result
+  }
+
   async updateProfile(profileId, updates) {
     if (!profileId || !updates) {
       throw new Error('Profile ID and updates are required')
@@ -463,11 +514,11 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(`Profile ${profileId} not found`)
     }
 
-    const updatedProfile = {
-      ...currentProfile,
+    // Use deep merge for nested objects like aliases and builds
+    const updatedProfile = this.deepMergeProfileUpdates(currentProfile, {
       ...updates,
       lastModified: new Date().toISOString()
-    }
+    })
     
     // Save to storage
     await this.storage.saveProfile(profileId, updatedProfile)

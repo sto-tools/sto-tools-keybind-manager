@@ -27,6 +27,7 @@ import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
 import { VFXManagerUI, HeaderMenuUI, AboutModalUI } from './components/ui/index.js'
+import STOCommandParser from './lib/STOCommandParser.js'
 
 
 export default class STOToolsKeybindManager {
@@ -126,6 +127,11 @@ export default class STOToolsKeybindManager {
       
       // Make it available globally for components that need direct access
       const modalManager = this.modalManagerService
+      
+      // Initialize STOCommandParser early so other services can use it
+      this.stoCommandParser = new STOCommandParser(eventBus)
+      // Make it globally available
+      window.stoCommandParser = this.stoCommandParser
       
       // REFACTORED: Use DataService created in main.js to ensure it's available before DataCoordinator
       this.dataService = window.dataService
@@ -301,6 +307,17 @@ export default class STOToolsKeybindManager {
       })
 
       // dbg('CommandChainUI created')
+      
+      // ---------------------------------
+      // Parameter Command UI (create first as dependency for CommandUI)
+      // ---------------------------------
+      this.parameterCommandUI = new ParameterCommandUI({
+        eventBus,
+        modalManager,
+        i18n: i18next,
+        ui: stoUI
+      })
+      
       // ---------------------------------
       // Command UI (parameter modal owner)
       // ---------------------------------
@@ -310,19 +327,10 @@ export default class STOToolsKeybindManager {
         modalManager,
         commandService: this.commandService,
         commandLibraryService: this.commandLibraryService,
+        parameterCommandUI: this.parameterCommandUI
       })
 
       // dbg('CommandUI created')
-      
-      // ---------------------------------
-      // Parameter Command UI
-      // ---------------------------------
-      this.parameterCommandUI = new ParameterCommandUI({
-        eventBus,
-        modalManager,
-        i18n: i18next,
-        ui: stoUI
-      })
       
       // Initialize HeaderMenuUI to handle header dropdown menus
       this.headerMenuUI = new HeaderMenuUI({

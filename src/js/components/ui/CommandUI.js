@@ -1,7 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
-import { parameterCommands } from './ParameterCommandUI.js'
 
 /**
  * CommandUI – owns the parameter-editing modal and acts as the bridge between
@@ -19,11 +18,12 @@ import { parameterCommands } from './ParameterCommandUI.js'
  * 4. Cache UI state from broadcast events for immediate access.
  */
 export default class CommandUI extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus, ui = null, modalManager = null } = {}) {
+  constructor ({ eventBus: bus = eventBus, ui = null, modalManager = null, parameterCommandUI = null } = {}) {
     super(bus)
     this.componentName = 'CommandUI'
     this.ui           = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.modalManager = modalManager
+    this.parameterCommandUI = parameterCommandUI
 
     // REFACTORED: Cache UI state from broadcast events
     this._selectedKey = null
@@ -62,7 +62,11 @@ export default class CommandUI extends ComponentBase {
         }
       } else if (categoryId && commandId && commandDef) {
         // Customizable command - show parameter modal
-        parameterCommands.showParameterModal(categoryId, commandId, commandDef)
+        if (this.parameterCommandUI) {
+          this.parameterCommandUI.showParameterModal(categoryId, commandId, commandDef)
+        } else {
+          console.error('CommandUI: parameterCommandUI not available')
+        }
       }
     })
   }
