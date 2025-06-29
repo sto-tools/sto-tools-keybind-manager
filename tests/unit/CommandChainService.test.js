@@ -44,7 +44,7 @@ describe('CommandChainService', () => {
     vi.clearAllMocks()
     
     // Clear any existing listeners
-    eventBus.listeners = {}
+    eventBus.clear()
     
     // Mock the request/response endpoints that CommandChainService uses
     responseCleanups.push(
@@ -128,7 +128,7 @@ describe('CommandChainService', () => {
       expect(emitSpy).toHaveBeenCalledWith('chain-data-changed', { commands: [] })
     })
 
-    it('should handle customizable commands', () => {
+    it('should not handle customizable commands directly (handled by CommandUI)', () => {
       const customizableCommandDef = {
         name: 'Custom Command',
         customizable: true
@@ -140,11 +140,9 @@ describe('CommandChainService', () => {
         commandDef: customizableCommandDef
       })
 
-      expect(parameterCommands.showParameterModal).toHaveBeenCalledWith(
-        'space',
-        'custom_cmd',
-        customizableCommandDef
-      )
+      // CommandChainService no longer handles command:add events directly
+      // These are now handled by CommandUI, so parameterCommands should not be called
+      expect(parameterCommands.showParameterModal).not.toHaveBeenCalled()
     })
   })
 

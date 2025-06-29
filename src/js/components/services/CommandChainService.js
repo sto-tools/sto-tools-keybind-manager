@@ -325,11 +325,13 @@ export default class CommandChainService extends ComponentBase {
 
         // Handle both single commands and arrays of commands
         if (Array.isArray(command)) {
+          let insertPosition = position
           command.forEach(cmd => {
             const commandString = cmd.command
             if (commandString) {
-              if (position !== undefined && position >= 0 && position <= currentCommands.length) {
-                currentCommands.splice(position, 0, commandString)
+              if (insertPosition !== undefined && insertPosition >= 0 && insertPosition <= currentCommands.length) {
+                currentCommands.splice(insertPosition, 0, commandString)
+                insertPosition++ // Increment position for next command to maintain order
               } else {
                 currentCommands.push(commandString)
               }
