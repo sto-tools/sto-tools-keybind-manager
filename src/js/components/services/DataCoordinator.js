@@ -639,20 +639,25 @@ export default class DataCoordinator extends ComponentBase {
       }
     })
     
-    // Save to storage
+    // Persist to storage first
     await this.storage.saveProfile(profileId, updatedProfile)
-    
-    // Update cache
+
+    // Update in-memory cache regardless of what changed
     this.state.profiles[profileId] = updatedProfile
     this.state.metadata.lastModified = new Date().toISOString()
-    
-    // Broadcast profile update
-    this.emit('profile:updated', { 
-      profileId, 
-      profile: updatedProfile,
-      updates,
-      timestamp: Date.now()
-    })
+
+    // Determine if any structural collections were touched
+    const touchedCollections = !!(updates.add || updates.delete || updates.modify)
+
+    if (touchedCollections) {
+      // Notify other services only when aliases / builds (or other collections) changed
+      this.emit('profile:updated', {
+        profileId,
+        profile: updatedProfile,
+        updates,
+        timestamp: Date.now()
+      })
+    }
 
     return { success: true, profile: updatedProfile }
   }
