@@ -106,7 +106,7 @@ describe('VFXManagerService', () => {
 
       const result = vfxManagerService.generateAlias('space')
       expect(result).toBe(
-        'alias dynFxSetFXExlusionList_Space <& dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay VFX Supression Loaded &>'
+        'alias dynFxSetFXExlusionList_Space <& dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay VFX Suppression Loaded &>'
       )
     })
 
@@ -127,7 +127,7 @@ describe('VFXManagerService', () => {
       const result = vfxManagerService.generateAlias('space')
       // This test will fail with the current bug - should end with ' &>' not '&>'
       expect(result).toMatch(/ &>$/)
-      expect(result).toMatch(/PlayerSay VFX Supression Loaded &>$/)
+      expect(result).toMatch(/PlayerSay VFX Suppression Loaded &>$/)
     })
   })
 
@@ -330,7 +330,7 @@ describe('Vertigo UI Integration', () => {
         .replace(' &>', '')
 
       expect(commands).toBe(
-        'dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay VFX Supression Loaded'
+        'dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay VFX Suppression Loaded'
       )
     })
   })

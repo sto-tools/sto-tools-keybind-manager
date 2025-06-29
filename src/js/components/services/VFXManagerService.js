@@ -95,7 +95,7 @@ export default class VFXManagerService extends ComponentBase {
     let command = `alias ${aliasName} <& dynFxSetFXExlusionList ${effects.join(',')}`
 
     if (this.showPlayerSay) {
-      command += ' $$ PlayerSay VFX Supression Loaded'
+      command += ' $$ PlayerSay VFX Suppression Loaded'
     }
 
     command += ' &>'
@@ -114,7 +114,7 @@ export default class VFXManagerService extends ComponentBase {
     let command = `dynFxSetFXExlusionList ${effects.join(',')}`
 
     if (this.showPlayerSay) {
-      command += ' $$ PlayerSay VFX Supression Loaded'
+      command += ' $$ PlayerSay VFX Suppression Loaded'
     }
 
     return command

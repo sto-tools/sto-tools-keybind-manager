@@ -47,16 +47,10 @@ export default class CommandService extends ComponentBase {
     // Register Request/Response endpoints for editing commands
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        this.respond('command:duplicate', ({ commandId }) => 
-          this.duplicateCommand(commandId)),
-        this.respond('command:delete', ({ commandId }) => 
-          this.deleteCommand(commandId)),
         this.respond('command:add', async ({ command, key, position }) => 
           this.addCommand(key, command, position)),
         this.respond('command:edit', async ({ key, index, updatedCommand }) => 
           this.editCommand(key, index, updatedCommand)),
-        this.respond('command:reorder', ({ commandId, newPosition }) => 
-          this.reorderCommand(commandId, newPosition)),
         this.respond('command:validate', ({ command }) => 
           this.validateCommand(command))
       )
