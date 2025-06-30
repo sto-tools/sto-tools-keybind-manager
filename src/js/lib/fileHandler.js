@@ -274,9 +274,6 @@ export default class STOFileHandler {
   generateKeybindSection(keys, options = {}) {
     if (!keys || Object.keys(keys).length === 0) return '; No keybinds defined\n\n'
     let content = `; Keybind Commands\n; ================================================================\n; Each line binds a key to one or more commands.\n; Multiple commands are separated by $$`
-    if (options.stabilizeExecutionOrder) {
-      content += `\n; EXECUTION ORDER STABILIZATION: ON\n; Commands are mirrored to ensure consistent execution order\n; Phase 1: left-to-right, Phase 2: right-to-left`
-    }
     content += `\n; ================================================================\n\n`
     
     const sortedKeys = Object.keys(keys).sort(this.compareKeys.bind(this))
@@ -324,7 +321,7 @@ export default class STOFileHandler {
       }
     }
     
-    if (options.stabilizeExecutionOrder || shouldStabilize) {
+    if (shouldStabilize) {
       commandString = this.generateMirroredCommandString(cleanCommands)
     } else {
       commandString = cleanCommands.map((c) => c.command || c).join(' $$ ')
