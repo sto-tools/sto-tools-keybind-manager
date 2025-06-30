@@ -600,7 +600,12 @@ export default class DataCoordinator extends ComponentBase {
         for (const [env, envData] of Object.entries(operations.modify.keybindMetadata)) {
           result.keybindMetadata[env] = result.keybindMetadata[env] || {}
           for (const [keyName, keyData] of Object.entries(envData)) {
-            result.keybindMetadata[env][keyName] = keyData
+            // If empty object is sent, it means clear this key metadata
+            if (Object.keys(keyData).length === 0) {
+              delete result.keybindMetadata[env][keyName]
+            } else {
+              result.keybindMetadata[env][keyName] = keyData
+            }
           }
         }
       }
@@ -608,9 +613,12 @@ export default class DataCoordinator extends ComponentBase {
       if (operations.modify.aliasMetadata) {
         result.aliasMetadata = result.aliasMetadata || {}
         for (const [aliasName, aliasData] of Object.entries(operations.modify.aliasMetadata)) {
-          result.aliasMetadata[aliasName] = result.aliasMetadata[aliasName] || {}
-          for (const [keyName, keyData] of Object.entries(aliasData)) { 
-            result.aliasMetadata[aliasName][keyName] = keyData
+          // If empty object is sent, it means clear this alias metadata
+          if (Object.keys(aliasData).length === 0) {
+            delete result.aliasMetadata[aliasName]
+          } else {
+            // Alias metadata is flat - aliasData IS the metadata object
+            result.aliasMetadata[aliasName] = aliasData
           }
         }
       }

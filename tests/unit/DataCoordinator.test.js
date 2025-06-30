@@ -1028,4 +1028,90 @@ describe('DataCoordinator', () => {
       })
     })
   })
+
+  describe('metadata cleanup handling', () => {
+    it('should remove alias metadata when empty object is sent', async () => {
+      const mockProfile = {
+        id: 'test-profile',
+        name: 'Test Profile',
+        aliasMetadata: {
+          'AttackCall': { stabilizeExecutionOrder: true },
+          'HealCall': { customProperty: 'value' }
+        },
+        aliases: {},
+        builds: { space: { keys: {} }, ground: { keys: {} } }
+      }
+
+      // Mock StorageService to return our test profile
+      const mockStorageService = {
+        async getProfile(profileId) {
+          return profileId === 'test-profile' ? mockProfile : null
+        },
+        async saveProfile() {
+          return true
+        }
+      }
+
+      // Replace the storage service
+      dataCoordinator.storageService = mockStorageService
+
+      const result = await dataCoordinator.updateProfile('test-profile', {
+        modify: {
+          aliasMetadata: {
+            'AttackCall': {} // Empty object signals cleanup
+          }
+        }
+      })
+
+      expect(result.success).toBe(true)
+      expect(result.profile.aliasMetadata).toEqual({
+        'HealCall': { customProperty: 'value' } // AttackCall should be removed
+      })
+      expect(result.profile.aliasMetadata.AttackCall).toBeUndefined()
+    })
+
+    it('should remove keybind metadata when empty object is sent', async () => {
+      const mockProfile = {
+        id: 'test-profile',
+        name: 'Test Profile',
+        keybindMetadata: {
+          space: {
+            'F1': { stabilizeExecutionOrder: true },
+            'F2': { customProperty: 'value' }
+          }
+        },
+        aliases: {},
+        builds: { space: { keys: {} }, ground: { keys: {} } }
+      }
+
+      // Mock StorageService to return our test profile
+      const mockStorageService = {
+        async getProfile(profileId) {
+          return profileId === 'test-profile' ? mockProfile : null
+        },
+        async saveProfile() {
+          return true
+        }
+      }
+
+      // Replace the storage service
+      dataCoordinator.storageService = mockStorageService
+
+      const result = await dataCoordinator.updateProfile('test-profile', {
+        modify: {
+          keybindMetadata: {
+            space: {
+              'F1': {} // Empty object signals cleanup
+            }
+          }
+        }
+      })
+
+      expect(result.success).toBe(true)
+      expect(result.profile.keybindMetadata.space).toEqual({
+        'F2': { customProperty: 'value' } // F1 should be removed
+      })
+      expect(result.profile.keybindMetadata.space.F1).toBeUndefined()
+    })
+  })
 }) 

@@ -846,47 +846,66 @@ export default class CommandChainService extends ComponentBase {
     try {
       if (!name) return { success: false }
 
-      const profile = await this.getCurrentProfile()
+      // Use the cached profile directly, not the transformed profile from getCurrentProfile()
+      // This ensures we have access to the original keybindMetadata and aliasMetadata
+      const profile = this.cache.profile
       if (!profile) return { success: false }
 
       const isAlias = this.currentEnvironment === 'alias'
+      let modifyPayload
 
       if (isAlias) {
-        if (!profile.aliasMetadata) profile.aliasMetadata = {}
-        if (!profile.aliasMetadata[name]) profile.aliasMetadata[name] = {}
+        // Only send metadata for the specific alias being modified
+        const aliasMetadata = {}
+        const currentAliasMetadata = (profile.aliasMetadata && profile.aliasMetadata[name]) || {}
+        
+        // Create a copy of the current alias metadata
+        aliasMetadata[name] = { ...currentAliasMetadata }
 
         if (stabilize) {
-          profile.aliasMetadata[name].stabilizeExecutionOrder = true
+          aliasMetadata[name].stabilizeExecutionOrder = true
         } else {
-          delete profile.aliasMetadata[name].stabilizeExecutionOrder
-          if (Object.keys(profile.aliasMetadata[name]).length === 0) {
-            delete profile.aliasMetadata[name]
+          delete aliasMetadata[name].stabilizeExecutionOrder
+          // If the metadata object becomes empty, we still send it but as an empty object
+          // DataCoordinator will handle the cleanup
+          if (Object.keys(aliasMetadata[name]).length === 0) {
+            aliasMetadata[name] = {}
           }
         }
+
+        modifyPayload = { aliasMetadata }
       } else {
-        if (!profile.keybindMetadata) profile.keybindMetadata = {}
-        if (!profile.keybindMetadata[this.currentEnvironment]) profile.keybindMetadata[this.currentEnvironment] = {}
-        if (!profile.keybindMetadata[this.currentEnvironment][name]) profile.keybindMetadata[this.currentEnvironment][name] = {}
+        // Only send metadata for the specific key being modified
+        const keybindMetadata = {}
+        if (!keybindMetadata[this.currentEnvironment]) {
+          keybindMetadata[this.currentEnvironment] = {}
+        }
+        
+        const currentKeyMetadata = (profile.keybindMetadata && 
+                                   profile.keybindMetadata[this.currentEnvironment] && 
+                                   profile.keybindMetadata[this.currentEnvironment][name]) || {}
+        
+        // Create a copy of the current key metadata
+        keybindMetadata[this.currentEnvironment][name] = { ...currentKeyMetadata }
 
         if (stabilize) {
-          profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder = true
+          keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder = true
         } else {
-          delete profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder
-          if (Object.keys(profile.keybindMetadata[this.currentEnvironment][name]).length === 0) {
-            delete profile.keybindMetadata[this.currentEnvironment][name]
+          delete keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder
+          // If the metadata object becomes empty, we still send it but as an empty object
+          if (Object.keys(keybindMetadata[this.currentEnvironment][name]).length === 0) {
+            keybindMetadata[this.currentEnvironment][name] = {}
           }
         }
+
+        modifyPayload = { keybindMetadata }
       }
 
       // Persist via DataCoordinator
       const profileId = this.cache.currentProfile || this.currentProfile
       if (!profileId) return { success: false }
 
-      const modify = isAlias
-        ? { aliasMetadata: { ...profile.aliasMetadata } }
-        : { keybindMetadata: { ...profile.keybindMetadata } }
-
-      const result = await this.request('data:update-profile', { profileId, modify })
+      const result = await this.request('data:update-profile', { profileId, modify: modifyPayload })
       if (result?.success) {
         this.emit('stabilize-changed', { name, stabilize, isAlias })
         // Broadcast profile update for listeners that rely on metadata
