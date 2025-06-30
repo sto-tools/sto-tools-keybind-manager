@@ -22,6 +22,7 @@
   "download": "Télécharger",
   "vfx": "VFX",
   "dark_mode": "Mode sombre",
+  "light_mode": "Mode clair",
   "load_default_data": "Charger les données par défaut",
   "reset_application": "Réinitialiser l'application",
   "set_sync_folder": "Définir dossier de synchronisation",

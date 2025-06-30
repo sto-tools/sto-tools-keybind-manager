@@ -71,5 +71,15 @@ The application currently supports:
 - Follow the established project structure and naming conventions
 - When adding new features, consider the impact on existing functionality
 - Prioritize test coverage and code maintainability
-- Remember that the user handles translation coordination - focus on English content only
-- 'npm run build' must be run prior to 'npm test' type commands
+- Remember that the user handles translation coordination - focus on English content only 
+
+## Patterns
+
+### Component interaction
+
+The project uses a broadcast/cache pattern with late-join state sync:
+
+- Services broadcast state changes via emit()
+- UIs cache state locally and listen for broadcasts
+- Late-join handshake ensures components get initial state even if they initialize after the state was set
+- Request/response is only used for actions where a reply is required, and never for state access

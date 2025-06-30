@@ -14,18 +14,18 @@ describe('System Commands Integration', () => {
         F1: [
           {
             command: 'logout',
-            type: 'system',
+            category: 'system',
             icon: '🚪',
-            text: 'Logout',
+            displayText: 'Logout',
             id: 'cmd_1',
           },
         ],
         F2: [
           {
             command: 'CombatLog 1',
-            type: 'system',
+            category: 'system',
             icon: '📊',
-            text: 'Toggle Combat Log',
+            displayText: 'Toggle Combat Log',
             id: 'cmd_2',
           },
         ],
@@ -63,7 +63,7 @@ describe('System Commands Integration', () => {
     // Set up globals
     global.app = mockApp
     global.stoUI = mockUI
-    global.stoStorage = mockStorage
+    global.storageService = mockStorage
 
     // Clear all mocks
     vi.clearAllMocks()
@@ -72,7 +72,7 @@ describe('System Commands Integration', () => {
   afterEach(() => {
     delete global.app
     delete global.stoUI
-    delete global.stoStorage
+    delete global.storageService
   })
 
   it('should handle system command events', () => {
@@ -86,25 +86,25 @@ describe('System Commands Integration', () => {
     // Test that system commands have the required structure
     const systemCommand = {
       command: 'logout',
-      type: 'system',
+      category: 'system',
       icon: '🚪',
-      text: 'Logout',
+      displayText: 'Logout',
       description: 'Log out the current character',
     }
 
     expect(systemCommand.command).toBeDefined()
-    expect(systemCommand.type).toBe('system')
+    expect(systemCommand.category).toBe('system')
     expect(systemCommand.icon).toBeDefined()
-    expect(systemCommand.text).toBeDefined()
+    expect(systemCommand.displayText).toBeDefined()
   })
 
   it('should handle system command parameters', () => {
     // Test that system commands can have parameters
     const systemCommandWithParams = {
       command: 'CombatLog 1',
-      type: 'system',
+      category: 'system',
       icon: '📊',
-      text: 'Toggle Combat Log',
+      displayText: 'Toggle Combat Log',
       description: 'Turn combat log recording on/off (1=on, 0=off)',
       parameters: {
         state: 1,
@@ -119,20 +119,20 @@ describe('System Commands Integration', () => {
     // Test that different types of system commands are supported
     const logoutCommand = {
       command: 'logout',
-      type: 'system',
+      category: 'system',
       icon: '🚪',
-      text: 'Logout',
+      displayText: 'Logout',
     }
 
     const quitCommand = {
       command: 'quit',
-      type: 'system',
+      category: 'system',
       icon: '❌',
-      text: 'Quit Game',
+      displayText: 'Quit Game',
     }
 
-    expect(logoutCommand.type).toBe('system')
-    expect(quitCommand.type).toBe('system')
+    expect(logoutCommand.category).toBe('system')
+    expect(quitCommand.category).toBe('system')
     expect(logoutCommand.command).not.toBe(quitCommand.command)
   })
 }) 

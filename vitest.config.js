@@ -27,7 +27,8 @@ export default defineConfig({
     alias: {
       '@': './src',
       '@js': './src/js',
-      '@tests': './tests'
+      '@tests': './tests',
+      'pretty-format': './tests/browser/prettyFormatStub.js'
     }
   },
   define: {

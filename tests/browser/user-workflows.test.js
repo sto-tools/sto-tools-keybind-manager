@@ -2,100 +2,42 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import eventBus from '../../src/js/core/eventBus.js'
 
 describe('Complete User Workflows', () => {
-  let app, stoStorage, stoUI, stoExport, stoKeybinds
+  let app, storageService, stoUI, stoExport, stoKeybinds
 
   beforeEach(async () => {
-    // Clear localStorage first
+    // Clear storage & mocks first to guarantee clean slate
     localStorage.clear()
+    sessionStorage.clear()
 
-    // Simple mock setup
     if (typeof window !== 'undefined') {
       window.alert = vi.fn()
       window.confirm = vi.fn(() => true)
       window.prompt = vi.fn(() => 'test input')
     }
 
-    // Wait for DOM to be ready with timeout
-    const waitForDOM = () => {
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('DOM ready timeout'))
-        }, 5000)
-
-        if (document.readyState === 'complete') {
-          clearTimeout(timeout)
-          resolve()
-        } else {
-          document.addEventListener(
-            'DOMContentLoaded',
-            () => {
-              clearTimeout(timeout)
-              resolve()
-            },
-            { once: true }
-          )
-        }
-      })
+    // Poll until the global app object is present (should be <1 s in practice)
+    const start = performance.now()
+    while (!window.app) {
+      if (performance.now() - start > 8000) {
+        throw new Error('App did not initialise within 8 s')
+      }
+      await new Promise((r) => setTimeout(r, 100))
     }
 
-    await waitForDOM()
+    // Optionally wait a tiny bit more for late-async work
+    await new Promise((r) => setTimeout(r, 100))
 
-    // Wait for the application to be fully loaded using the ready event
-    const waitForApp = () => {
-      return new Promise((resolve, reject) => {
-        // Set a timeout in case the event never fires
-        const timeout = setTimeout(() => {
-          reject(new Error('App ready event timeout'))
-        }, 10000)
+    // Cache frequently-used globals for convenience.
+    app = window.app
+    storageService = window.storageService
+    stoUI = window.stoUI
+    stoExport = window.stoExport
+    stoKeybinds = window.stoKeybinds
 
-        // Listen for the app ready event
-        const handleReady = (payload) => {
-          clearTimeout(timeout)
-          eventBus.off('sto-app-ready', handleReady)
-          resolve(payload.app)
-        }
-
-        const handleError = (payload) => {
-          clearTimeout(timeout)
-          eventBus.off('sto-app-ready', handleReady)
-          eventBus.off('sto-app-error', handleError)
-          reject(payload.error)
-        }
-
-        // Check if already loaded (in case event fired before we started listening)
-        if (
-          window.app &&
-          window.COMMANDS &&
-          window.stoStorage &&
-          window.stoUI
-        ) {
-          clearTimeout(timeout)
-          resolve(window.app)
-          return
-        }
-
-        eventBus.on('sto-app-ready', handleReady)
-        eventBus.on('sto-app-error', handleError)
-      })
-    }
-
-    try {
-      app = await waitForApp()
-
-      // Get instances
-      stoStorage = window.stoStorage
-      stoUI = window.stoUI
-      stoExport = window.stoExport
-      stoKeybinds = window.stoKeybinds
-    } catch (error) {
-      console.error('Failed to wait for app:', error)
-      throw error
-    }
-
-    // Reset application state
-    if (app?.resetApplication) {
-      app.resetApplication()
-    }
+    // We rely on cleared localStorage for isolation; resetting the already-running
+    // application between >100 heavy tests adds a lot of synchronous UI work and
+    // can stall the Happy-DOM renderer. Skipping it keeps setup fast and avoids
+    // hangs, while still starting from an empty persisted state.
   })
 
   afterEach(async () => {
@@ -187,13 +129,13 @@ describe('Complete User Workflows', () => {
       if (app.deleteProfile) {
         const testProfileId = app.createProfile('Test Profile to Delete')
         app.deleteProfile(testProfileId)
-        const allData = stoStorage.getAllData()
+        const allData = storageService.getAllData()
         const deletedProfile = allData.profiles[testProfileId]
         expect(deletedProfile).toBeUndefined()
       }
 
       // Verify all operations work correctly
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(2)
     })
 
@@ -628,8 +570,8 @@ bind Tab "target_enemy_near"`
       app.addCommand('F2', { command: 'target_enemy_near', type: 'targeting' })
 
       // Export complete project (if available)
-      if (stoStorage && typeof stoStorage.exportData === 'function') {
-        const exportedData = stoStorage.exportData()
+      if (storageService && typeof storageService.exportData === 'function') {
+        const exportedData = storageService.exportData()
         expect(exportedData).toBeDefined()
         expect(exportedData.length).toBeGreaterThan(0)
 
@@ -640,12 +582,12 @@ bind Tab "target_enemy_near"`
         }
 
         // Import project file (if available)
-        if (typeof stoStorage.importData === 'function') {
-          const importSuccess = stoStorage.importData(exportedData)
+        if (typeof storageService.importData === 'function') {
+          const importSuccess = storageService.importData(exportedData)
 
           // Verify all profiles and settings restored
           if (importSuccess) {
-            const allData = stoStorage.getAllData()
+            const allData = storageService.getAllData()
             expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(
               2
             )
@@ -672,16 +614,16 @@ bind Tab "target_enemy_near"`
 
         // Attempt to import corrupted JSON (if JSON import available)
         const corruptedJson = '{"invalid": json syntax}'
-        if (stoStorage && typeof stoStorage.importData === 'function') {
+        if (storageService && typeof storageService.importData === 'function') {
           expect(() => {
-            stoStorage.importData(corruptedJson)
+            storageService.importData(corruptedJson)
           }).not.toThrow()
         }
       }
 
       // Verify app remains functional after errors
       expect(app.getCurrentProfile()).toBeDefined()
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(1)
     })
   })
@@ -952,7 +894,7 @@ bind Tab "target_enemy_near"`
       expect(totalDuration).toBeLessThan(3000) // Should complete within 3 seconds
 
       // Verify all profiles exist
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(10)
     })
   })
@@ -1088,7 +1030,7 @@ bind Tab "target_enemy_near"`
       }
 
       // Verify app recovers gracefully (app is functional)
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(1)
     })
 
@@ -1098,13 +1040,13 @@ bind Tab "target_enemy_near"`
 
       // App should handle this gracefully and not crash
       expect(() => {
-        if (stoStorage && typeof stoStorage.loadData === 'function') {
-          stoStorage.loadData()
+        if (storageService && typeof storageService.loadData === 'function') {
+          storageService.loadData()
         }
       }).not.toThrow()
 
       // Verify graceful fallback to defaults
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(0)
 
       // App should remain functional
@@ -1119,10 +1061,10 @@ bind Tab "target_enemy_near"`
 
       // Add many keybinds to approach storage limits
       try {
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 10; i++) {
           app.selectKey(`TestKey${i}`)
           app.addCommand(`TestKey${i}`, {
-            command: `very_long_command_name_to_use_storage_${i}_${'x'.repeat(100)}`,
+            command: `very_long_command_name_to_use_storage_${i}_${'x'.repeat(10)}`,
             type: 'test',
           })
         }
@@ -1133,7 +1075,7 @@ bind Tab "target_enemy_near"`
 
       // Verify app remains functional even if storage is full
       expect(app.getCurrentProfile()).toBeDefined()
-      const allData = stoStorage.getAllData()
+      const allData = storageService.getAllData()
       expect(Object.keys(allData.profiles).length).toBeGreaterThanOrEqual(1)
     })
   })

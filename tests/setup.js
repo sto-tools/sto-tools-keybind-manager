@@ -125,3 +125,67 @@ afterEach(() => {
   document.body.innerHTML = ''
   document.head.innerHTML = ''
 })
+
+// Mock File System Access API (directory/file handles)
+function createMockDirectoryHandle(name = 'root') {
+  const files = new Map()
+  const directories = new Map()
+
+  const dirHandle = {
+    kind: 'directory',
+    name,
+    async getDirectoryHandle(part, { create } = {}) {
+      if (!directories.has(part)) {
+        if (!create) throw new Error('Directory not found')
+        directories.set(part, createMockDirectoryHandle(part))
+      }
+      return directories.get(part)
+    },
+    async getFileHandle(fileName, { create } = {}) {
+      if (!files.has(fileName)) {
+        if (!create) throw new Error('File not found')
+        // minimal file handle
+        const fileHandle = {
+          kind: 'file',
+          name: fileName,
+          async createWritable() {
+            const writable = {
+              async write(contents) {
+                files.set(fileName, contents)
+              },
+              async close() {},
+            }
+            return writable
+          },
+          async getFile() {
+            return { text: async () => files.get(fileName) || '' }
+          },
+        }
+        files.set(fileName, '') // placeholder
+        files.set(`${fileName}__handle`, fileHandle)
+      }
+      return files.get(`${fileName}__handle`)
+    },
+    // Helper for tests to inspect created files
+    _files: files,
+    _directories: directories,
+  }
+  return dirHandle
+}
+
+global.createMockDirectoryHandle = createMockDirectoryHandle
+
+// Override setInterval to execute callback once immediately to avoid long-running loops in tests
+const _realSetInterval = global.setInterval
+const _realClearInterval = global.clearInterval
+
+global.setInterval = (callback, delay = 0, ...args) => {
+  // Execute immediately (next tick) but do NOT schedule repeated execution
+  const id = _realSetInterval(() => {}, 0) // dummy to generate id
+  Promise.resolve().then(() => callback(...args))
+  return id
+}
+
+global.clearInterval = (id) => {
+  _realClearInterval(id)
+}

@@ -1,2 +1,3 @@
 // Sync Components
-export { default as sync } from '../../services/sync.js' 
+export { default as SyncService } from '../services/SyncService.js'
+export { default as SyncUI } from '../ui/SyncUI.js' 

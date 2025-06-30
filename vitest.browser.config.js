@@ -3,9 +3,10 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     // Browser environment for UI interaction tests
-    environment: 'happy-dom', // Fallback, but browser mode will override
+    environment: 'jsdom', // Fallback, but browser mode will override
     globals: true,
     testTimeout: 30000, // Longer timeout for browser tests
+    hookTimeout: 30000,
     include: [
       'tests/browser/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
     ],
@@ -21,7 +22,8 @@ export default defineConfig({
       api: {
         host: 'localhost',
         port: 3001
-      }
+      },
+      reuseExistingServer: true,   // keep Chromium alive across runs
     },
     // Setup files for browser environment
     setupFiles: ['./tests/browser-setup.js']
@@ -30,7 +32,8 @@ export default defineConfig({
     alias: {
       '@': './src',
       '@js': './src/js',
-      '@tests': './tests'
+      '@tests': './tests',
+      'pretty-format': './tests/browser/prettyFormatStub.js'
     }
   },
   define: {

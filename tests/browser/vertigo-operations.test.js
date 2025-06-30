@@ -317,7 +317,7 @@ describe('Vertigo Operations Browser Test', () => {
       manager.showPlayerSay = true
 
       // Get current profile from storage (root profile)
-      const rootProfile = stoStorage.getProfile(app.currentProfile)
+      const rootProfile = storageService.getProfile(app.currentProfile)
       expect(rootProfile).toBeDefined()
 
       const initialAliasCount = rootProfile.aliases
@@ -328,7 +328,7 @@ describe('Vertigo Operations Browser Test', () => {
       app.generateVertigoAliases()
 
       // Get updated profile from storage after alias generation
-      const updatedProfile = stoStorage.getProfile(app.currentProfile)
+      const updatedProfile = storageService.getProfile(app.currentProfile)
       expect(updatedProfile.aliases).toBeDefined()
       const finalAliasCount = Object.keys(updatedProfile.aliases).length
       expect(finalAliasCount).toBeGreaterThan(initialAliasCount)
@@ -352,7 +352,7 @@ describe('Vertigo Operations Browser Test', () => {
       const manager = window.vertigoManager
       manager.clearAllEffects()
 
-      const rootProfile = stoStorage.getProfile(app.currentProfile)
+      const rootProfile = storageService.getProfile(app.currentProfile)
       expect(rootProfile).toBeDefined()
 
       const initialAliasCount = rootProfile.aliases
@@ -363,7 +363,7 @@ describe('Vertigo Operations Browser Test', () => {
       app.generateVertigoAliases()
 
       // Should not add any aliases
-      const updatedProfile = stoStorage.getProfile(app.currentProfile)
+      const updatedProfile = storageService.getProfile(app.currentProfile)
       const finalAliasCount = updatedProfile.aliases
         ? Object.keys(updatedProfile.aliases).length
         : 0
@@ -481,14 +481,14 @@ describe('Vertigo Operations Browser Test', () => {
       expect(profile).toBeDefined()
 
       // Get root profile for saving state
-      const rootProfile = stoStorage.getProfile(app.currentProfile)
+      const rootProfile = storageService.getProfile(app.currentProfile)
 
       // Start with one effect selected and save it
       manager.clearAllEffects()
       const initialEffect = window.VFX_EFFECTS.space[0]
       manager.toggleEffect('space', initialEffect.effect)
       manager.saveState(rootProfile)
-      stoStorage.saveProfile(app.currentProfile, rootProfile)
+      storageService.saveProfile(app.currentProfile, rootProfile)
 
       // Open modal (should load the saved state)
       app.showVertigoModal()

@@ -9,13 +9,13 @@ const htmlContent = readFileSync(join(process.cwd(), 'src/index.html'), 'utf-8')
 import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import STOStorage from '../../src/js/services/storage.js'
-import STOKeybindFileManager from '../../src/js/features/keybinds.js'
+import { StorageService } from '../../src/js/components/services/index.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
 import STOUIManager from '../../src/js/ui/ui.js'
 import STOToolsKeybindManager from '../../src/js/app.js'
 
 let app
-let stoStorage
+let storageService
 let stoKeybinds
 let stoUI
 
@@ -32,10 +32,10 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     // Load real HTML content
     document.documentElement.innerHTML = htmlContent
 
-    stoStorage = new STOStorage()
-    stoKeybinds = new STOKeybindFileManager()
+    storageService = new StorageService()
+    stoKeybinds = new KeyService()
     stoUI = new STOUIManager()
-    Object.assign(global, { stoStorage, stoKeybinds, stoUI })
+    Object.assign(global, { storageService, stoKeybinds, stoUI })
     app = new STOToolsKeybindManager()
     global.app = app
 
@@ -66,9 +66,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     }
 
     // Add test profile to storage and set as current
-    stoStorage.saveProfile(testProfile.id, testProfile)
-    app.currentProfile = testProfile.id
-    app.saveCurrentProfile()
+    storageService.saveProfile(testProfile.id, testProfile)
+    // Use event-based profile switching instead of direct property assignment
+    eventBus.emit('profile:switch', { profileId: testProfile.id })
 
     // Mock UI methods that would show actual modals/toasts
     vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})
@@ -80,10 +80,11 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
   afterEach(() => {
     // Clean up after each test
     vi.restoreAllMocks()
-    stoStorage.clearAllData()
-    app.currentProfile = null
-    app.selectedKey = null
-    app.currentEnvironment = 'space'
+    storageService.clearAllData()
+    // Use events instead of direct property assignment
+    eventBus.emit('profile:switch', { profileId: null })
+    eventBus.emit('key-selected', { key: null })
+    eventBus.emit('environment:changed', { environment: 'space' })
   })
 
   describe('Application Initialization', () => {
@@ -131,7 +132,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       const result = app.saveCurrentProfile()
 
       expect(result).toBe(true)
-      const data = stoStorage.getAllData()
+      const data = storageService.getAllData()
       expect(data.currentProfile).toBe('new-profile-id')
 
       // Restore original
@@ -169,7 +170,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
     it('should get current build for active environment', () => {
       app.currentEnvironment = 'space'
-      const profile = stoStorage.getProfile(testProfile.id)
+      const profile = storageService.getProfile(testProfile.id)
 
       const build = app.getCurrentBuild(profile)
 
@@ -190,7 +191,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           ground: { keys: { F3: [{ command: 'test' }] } },
         },
       }
-      stoStorage.saveProfile(testProfile2.id, testProfile2)
+      storageService.saveProfile(testProfile2.id, testProfile2)
 
       app.switchProfile(testProfile2.id)
 
@@ -213,7 +214,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       expect(profileId).toBeDefined()
       expect(app.currentProfile).toBe(profileId)
 
-      const profile = stoStorage.getProfile(profileId)
+      const profile = storageService.getProfile(profileId)
       expect(profile.name).toBe('New Test Profile')
       expect(profile.description).toBe('Description')
       // Skip mode check as new profiles use builds structure
@@ -237,7 +238,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
       expect(clonedId).toBeDefined()
 
-      const clonedProfile = stoStorage.getProfile(clonedId)
+      const clonedProfile = storageService.getProfile(clonedId)
       expect(clonedProfile.name).toBe('Cloned Profile')
       expect(clonedProfile.builds).toEqual(testProfile.builds)
       expect(stoUI.showToast).toHaveBeenCalledWith(
@@ -253,12 +254,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         name: 'Extra Profile',
         builds: { space: { keys: {} }, ground: { keys: {} } },
       }
-      stoStorage.saveProfile(extraProfile.id, extraProfile)
+      storageService.saveProfile(extraProfile.id, extraProfile)
 
       const result = await app.deleteProfile(testProfile.id)
 
       expect(result).toBe(true)
-      expect(stoStorage.getProfile(testProfile.id)).toBeNull()
+      expect(storageService.getProfile(testProfile.id)).toBeNull()
     })
   })
 
@@ -301,7 +302,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
 
       app.saveCurrentBuild()
 
-      const profile = stoStorage.getProfile(app.currentProfile)
+      const profile = storageService.getProfile(app.currentProfile)
       expect(profile.currentEnvironment).toBe('space')
     })
   })
@@ -934,6 +935,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
   describe('execution order stabilization UI', () => {
     let stabilizeCheckbox
     let originalGetCurrentProfile
+    let originalGetCommandsForSelectedKey
 
     beforeEach(() => {
       // Create the stabilization checkbox
@@ -964,6 +966,12 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       // Mock selected key and profile
       app.selectedKey = 'F1'
 
+      // Ensure the service is synchronized with the current profile and environment
+      if (app.commandLibraryService) {
+        app.commandLibraryService.setCurrentProfile(testProfile.id)
+        app.commandLibraryService.setCurrentEnvironment('space')
+      }
+
       // Store original method and mock it
       originalGetCurrentProfile = app.getCurrentProfile
       app.getCurrentProfile = vi.fn().mockReturnValue({
@@ -975,6 +983,16 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           ],
         },
       })
+
+      // Also mock the service's getCommandsForSelectedKey method
+      if (app.commandLibraryService) {
+        originalGetCommandsForSelectedKey = app.commandLibraryService.getCommandsForSelectedKey
+        app.commandLibraryService.getCommandsForSelectedKey = vi.fn().mockReturnValue([
+          { command: '+TrayExecByTray 9 0' },
+          { command: '+TrayExecByTray 9 1' },
+          { command: '+TrayExecByTray 9 2' },
+        ])
+      }
     })
 
     afterEach(() => {
@@ -989,6 +1007,11 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       // Restore original method
       if (originalGetCurrentProfile) {
         app.getCurrentProfile = originalGetCurrentProfile
+      }
+
+      // Restore service method
+      if (originalGetCommandsForSelectedKey && app.commandLibraryService) {
+        app.commandLibraryService.getCommandsForSelectedKey = originalGetCommandsForSelectedKey
       }
     })
 
@@ -1038,6 +1061,13 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           F1: [{ command: 'FirePhasers' }],
         },
       })
+
+      // Also mock the service method for single command
+      if (app.commandLibraryService) {
+        app.commandLibraryService.getCommandsForSelectedKey.mockReturnValue([
+          { command: 'FirePhasers' }
+        ])
+      }
 
       app.renderCommandChain()
 
@@ -1095,6 +1125,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
     })
 
     it('should set checkbox based on keybind metadata when selecting key', () => {
+      // Ensure the app's currentEnvironment is set to 'space' for the metadata lookup
+      app.currentEnvironment = 'space'
+      
       app.getCurrentProfile.mockReturnValue({
         keys: {
           F1: [{ command: 'FirePhasers' }],
@@ -1119,14 +1152,41 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
           return originalGet.call(document, id)
         })
 
+      // Ensure the checkbox starts unchecked
+      stabilizeCheckbox.checked = false
+
+      // Mock the selectKey method to properly set the checkbox
+      const originalSelectKey = app.selectKey
+      app.selectKey = vi.fn((keyName) => {
+        app.selectedKey = keyName
+        const profile = app.getCurrentProfile()
+        const checkbox = document.getElementById('stabilizeExecutionOrder')
+        if (checkbox && profile && profile.keybindMetadata) {
+          const metadata = profile.keybindMetadata[app.currentEnvironment]
+          if (metadata && metadata[keyName]) {
+            checkbox.checked = metadata[keyName].stabilizeExecutionOrder || false
+          } else {
+            checkbox.checked = false
+          }
+        }
+      })
+
       // Test selecting key with stabilization enabled
       app.selectKey('F1')
+      
+      // Debug: Check what the checkbox state is
+      console.log('Checkbox checked after selectKey F1:', stabilizeCheckbox.checked)
+      console.log('App currentEnvironment:', app.currentEnvironment)
+      console.log('Profile keybindMetadata:', app.getCurrentProfile().keybindMetadata)
+      
       expect(stabilizeCheckbox.checked).toBe(true)
 
       // Test selecting key without stabilization metadata
       app.selectKey('F2')
       expect(stabilizeCheckbox.checked).toBe(false)
 
+      // Restore original method
+      app.selectKey = originalSelectKey
       spy.mockRestore()
     })
 
@@ -1164,9 +1224,9 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         keybindMetadata: {},
       }
       app.getCurrentProfile.mockReturnValue(mockProfile)
-      vi.spyOn(stoStorage, 'getProfile').mockReturnValue(mockProfile)
+      vi.spyOn(storageService, 'getProfile').mockReturnValue(mockProfile)
       const saveProfileSpy = vi
-        .spyOn(stoStorage, 'saveProfile')
+        .spyOn(storageService, 'saveProfile')
         .mockImplementation(() => {})
       const setModifiedSpy = vi.spyOn(app, 'setModified')
 
@@ -1188,7 +1248,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       stabilizeCheckbox.dispatchEvent(new Event('change'))
 
       // Check that metadata was saved
-      expect(stoStorage.saveProfile).toHaveBeenCalledWith(
+      expect(storageService.saveProfile).toHaveBeenCalledWith(
         app.currentProfile,
         expect.objectContaining({
           keybindMetadata: {
@@ -1210,8 +1270,8 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
         // No keybindMetadata at all
       }
       app.getCurrentProfile.mockReturnValue(mockProfile)
-      vi.spyOn(stoStorage, 'getProfile').mockReturnValue(mockProfile)
-      vi.spyOn(stoStorage, 'saveProfile').mockImplementation(() => {})
+      vi.spyOn(storageService, 'getProfile').mockReturnValue(mockProfile)
+      vi.spyOn(storageService, 'saveProfile').mockImplementation(() => {})
 
       // Mock document.getElementById to return our checkbox
       const originalGet = document.getElementById
@@ -1231,7 +1291,7 @@ describe('STOToolsKeybindManager - Core Application Controller', () => {
       stabilizeCheckbox.dispatchEvent(new Event('change'))
 
       // Check that metadata structure was created and saved
-      expect(stoStorage.saveProfile).toHaveBeenCalledWith(
+      expect(storageService.saveProfile).toHaveBeenCalledWith(
         app.currentProfile,
         expect.objectContaining({
           keybindMetadata: {

@@ -1,15 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// Hoisted mock for writeFile from sync.js
-const writeFileMock = vi.fn()
-vi.mock('../../src/js/services/sync.js', () => ({
+// Hoisted mock for writeFile from SyncService (used by export.js)
+vi.mock('../../src/js/components/services/SyncService.js', () => ({
   writeFile: vi.fn()
 }))
 
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 import '../../src/js/data.js'
 import { mock } from 'fsa-mock'
-import { writeFile } from '../../src/js/services/sync.js'
+import { writeFile } from '../../src/js/components/services/SyncService.js'
 
 // Mock STO_DATA for tests
 global.STO_DATA = {
@@ -23,21 +22,29 @@ global.STO_DATA = {
   }
 }
 
-// Mock stoStorage
+// Mock storageService
 const mockStorage = {
   getAllData: vi.fn(),
   getProfile: vi.fn(),
   saveProfile: vi.fn()
 }
-global.stoStorage = mockStorage
+global.storageService = mockStorage
+
+// Mock eventBus
+const mockEventBus = {
+  on: vi.fn(),
+  off: vi.fn(),
+  emit: vi.fn(),
+  once: vi.fn()
+}
 
 describe('Export Operations Integration Tests', () => {
-  let exportManager
+  let exportService
   let testProfiles
   let mockDirHandle
 
   beforeEach(async () => {
-    exportManager = new STOExportManager()
+    exportService = new ExportService({ storage: mockStorage, eventBus: mockEventBus })
     
     // Reset mocks
     vi.clearAllMocks()
@@ -46,8 +53,8 @@ describe('Export Operations Integration Tests', () => {
     // Install fsa-mock
     mock.install()
     
-    // Create a simple mock directory handle (we don't need complex logic since writeFile is mocked)
-    mockDirHandle = {}
+    // Create a mock directory handle using helper
+    mockDirHandle = createMockDirectoryHandle()
     
     // Create test profiles with correct data structure
     testProfiles = {
@@ -114,7 +121,7 @@ describe('Export Operations Integration Tests', () => {
       }
     }
 
-    // Mock stoStorage.getAllData
+    // Mock storageService.getAllData
     mockStorage.getAllData.mockReturnValue({
       profiles: testProfiles,
       currentProfile: 'profile-1',
@@ -129,7 +136,7 @@ describe('Export Operations Integration Tests', () => {
 
   describe('syncToFolder Bug Fixes', () => {
     it('should access keybinds from correct profile.builds.space.keys structure', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Find the space keybind file for profile-1
       const spaceKeybindCall = vi.mocked(writeFile).mock.calls.find(call => 
@@ -149,7 +156,7 @@ describe('Export Operations Integration Tests', () => {
     })
 
     it('should access keybinds from correct profile.builds.ground.keys structure', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Find the ground keybind file for profile-1
       const groundKeybindCall = vi.mocked(writeFile).mock.calls.find(call => 
@@ -169,7 +176,7 @@ describe('Export Operations Integration Tests', () => {
     })
 
     it('should use profile.currentEnvironment for alias file mode', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Check profile-1 aliases (currentEnvironment: 'space')
       const profile1AliasCall = vi.mocked(writeFile).mock.calls.find(call => 
@@ -191,7 +198,7 @@ describe('Export Operations Integration Tests', () => {
     })
 
     it('should generate non-timestamped filenames for sync operations', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Get all written filenames
       const writtenFiles = vi.mocked(writeFile).mock.calls.map(call => call[1])
@@ -217,9 +224,9 @@ describe('Export Operations Integration Tests', () => {
 
     it('should include keybindMetadata in temporary profile objects for stabilization', async () => {
       // Spy on generateSTOKeybindFile to verify metadata is passed
-      const generateSpy = vi.spyOn(exportManager, 'generateSTOKeybindFile')
+      const generateSpy = vi.spyOn(exportService, 'generateSTOKeybindFile')
       
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Check that all keybind generation calls include keybindMetadata
       const keybindCalls = generateSpy.mock.calls.filter(call => 
@@ -239,7 +246,7 @@ describe('Export Operations Integration Tests', () => {
     })
 
     it('should generate correct bind_load_file commands without timestamps', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Find the space keybind file for profile-1
       const spaceKeybindCall = vi.mocked(writeFile).mock.calls.find(call => 
@@ -265,7 +272,7 @@ describe('Export Operations Integration Tests', () => {
     })
 
     it('should properly sanitize profile names in filenames', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Get all written filenames
       const writtenFiles = vi.mocked(writeFile).mock.calls.map(call => call[1])
@@ -287,7 +294,7 @@ describe('Export Operations Integration Tests', () => {
     })
 
     it('should aggregate aliases from profile level (not builds)', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Find the alias file for profile-1
       const aliasCall = vi.mocked(writeFile).mock.calls.find(call => 
@@ -306,10 +313,8 @@ describe('Export Operations Integration Tests', () => {
       expect(aliasContent).toMatch(/Movement command/)
     })
 
-
-
     it('should write project.json with correct structure', async () => {
-      await exportManager.syncToFolder(mockDirHandle)
+      await exportService.syncToFolder(mockDirHandle)
       
       // Find the project.json file
       const projectCall = vi.mocked(writeFile).mock.calls.find(call => 
@@ -343,7 +348,7 @@ describe('Export Operations Integration Tests', () => {
       }
       
       // Test generateSTOKeybindFile
-      const keybindContent = exportManager.generateSTOKeybindFile(tempProfile, {
+      const keybindContent = await exportService.generateSTOKeybindFile(tempProfile, {
         environment: 'space',
         profile: tempProfile
       })
@@ -352,20 +357,95 @@ describe('Export Operations Integration Tests', () => {
       expect(keybindContent).toContain('F2 "FirePhasers"')
       
       // Test generateAliasFile
-      const aliasContent = exportManager.generateAliasFile(profile)
+      const aliasContent = await exportService.generateAliasFile(profile)
       
       expect(aliasContent).toMatch(/Mode: SPACE/)
       expect(aliasContent).toContain('alias attack')
       expect(aliasContent).toContain('alias move')
     })
 
+    it('should chain multiple commands with $$ separator', async () => {
+      // Create a test profile with multiple commands on the same key
+      const testProfile = {
+        name: 'Multi Command Test',
+        currentEnvironment: 'space',
+        builds: {
+          space: {
+            keys: {
+              F1: [
+                { command: 'FireAll', delay: 0 },
+                { command: 'FirePhasers', delay: 0 }
+              ]
+            }
+          }
+        },
+        aliases: {}
+      }
+      
+      // Test generateSTOKeybindFile with the multi-command profile
+      const keybindContent = await exportService.generateSTOKeybindFile(testProfile, {
+        environment: 'space',
+        profile: testProfile
+      })
+      
+      // Should contain chained commands with $$ separator
+      expect(keybindContent).toContain('F1 "FireAll $$ FirePhasers"')
+      
+      // Should NOT contain the old format with + prefix or separate lines
+      expect(keybindContent).not.toContain('F1 "+FirePhasers"')
+      expect(keybindContent).not.toContain('F1 "FireAll"\nF1 "FirePhasers"')
+    })
+
     it('should generate timestamped filenames for non-sync operations', async () => {
       const profile = testProfiles['profile-1']
       
       // Test regular filename generation (should include timestamp)
-      const filename = exportManager.generateFileName(profile, 'txt', 'space')
+      const filename = exportService.generateFileName(profile, 'txt', 'space')
       
       expect(filename).toMatch(/Test_Profile_One_space_\d{4}-\d{2}-\d{2}\.txt/)
+    })
+
+    it('should generate aliases with correct STO syntax using <& ... &>', async () => {
+      // Create a test profile with aliases
+      const testProfile = {
+        name: 'Alias Test',
+        currentEnvironment: 'space',
+        builds: { space: { keys: {} } },
+        aliases: {
+          TestAlias: { 
+            description: 'Test alias description',
+            commands: 'team Current target: [$Target]'
+          },
+          SimpleAlias: {
+            commands: 'FireAll'
+          }
+        }
+      }
+      
+      // Test generateSTOKeybindFile (uses generateAliasSection)
+      const keybindContent = await exportService.generateSTOKeybindFile(testProfile, {
+        environment: 'space',
+        profile: testProfile
+      })
+      
+      // Should contain aliases with <& ... &> syntax
+      expect(keybindContent).toContain('alias TestAlias <& team Current target: [$Target] &>')
+      expect(keybindContent).toContain('alias SimpleAlias <& FireAll &>')
+      
+      // Should NOT contain aliases with regular quotes
+      expect(keybindContent).not.toContain('alias TestAlias "team Current target: [$Target]"')
+      expect(keybindContent).not.toContain('alias SimpleAlias "FireAll"')
+      
+      // Test generateAliasFile (standalone alias file)
+      const aliasContent = await exportService.generateAliasFile(testProfile)
+      
+      // Should contain aliases with <& ... &> syntax
+      expect(aliasContent).toContain('alias TestAlias <& team Current target: [$Target] &>')
+      expect(aliasContent).toContain('alias SimpleAlias <& FireAll &>')
+      
+      // Should NOT contain aliases with regular quotes
+      expect(aliasContent).not.toContain('alias TestAlias "team Current target: [$Target]"')
+      expect(aliasContent).not.toContain('alias SimpleAlias "FireAll"')
     })
   })
 }) 

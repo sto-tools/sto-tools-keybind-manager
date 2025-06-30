@@ -1,19 +1,37 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import '../../src/js/data.js'
-import STOSyncManager, { writeFile } from '../../src/js/services/sync.js'
-import STOExportManager from '../../src/js/features/export.js'
-import STOStorage from '../../src/js/services/storage.js'
+import SyncService, { writeFile } from '../../src/js/components/services/SyncService.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 import eventBus from '../../src/js/core/eventBus.js'
 
 const store = new Map()
-vi.mock('../../src/js/services/fsHandles.js', () => ({
-  saveDirectoryHandle: vi.fn((k, h) => {
-    store.set(k, h)
-    return Promise.resolve()
-  }),
-  getDirectoryHandle: vi.fn((k) => Promise.resolve(store.get(k))),
-  KEY_SYNC_FOLDER: 'sync-folder'
-}))
+vi.mock('../../src/js/components/services/FileSystemService.js', () => {
+  const saveSpy = vi.fn((k, h) => { store.set(k, h); return Promise.resolve() })
+  const getSpy = vi.fn((k) => Promise.resolve(store.get(k)))
+  const writeSpy = vi.fn(async (dirHandle, relPath, contents) => {
+    const parts = relPath.split('/')
+    const fileName = parts.pop()
+    let current = dirHandle
+    for (const p of parts) {
+      if (!current.children[p]) current.children[p] = { children: {}, name: p }
+      current = current.children[p]
+    }
+    current.children[fileName] = { contents }
+  })
+
+  return {
+    saveDirectoryHandle: saveSpy,
+    getDirectoryHandle: getSpy,
+    writeFile: writeSpy,
+    KEY_SYNC_FOLDER: 'sync-folder',
+    default: class {
+      saveDirectoryHandle (...args) { return saveSpy(...args) }
+      getDirectoryHandle (...args) { return getSpy(...args) }
+      writeFile (...args) { return writeSpy(...args) }
+    },
+  }
+})
 
 class MockFile {
   constructor() {
@@ -61,10 +79,10 @@ describe('Sync workflow integration', () => {
       <button id="setSyncFolderBtn"></button>
       <button id="syncNowBtn"></button>
     `
-    storage = new STOStorage()
+    storage = new StorageService()
     exportMgr = new STOExportManager()
-    sync = new STOSyncManager(storage)
-    Object.assign(global, { stoStorage: storage, stoExport: exportMgr })
+    sync = new SyncService({ storage })
+    Object.assign(global, { storageService: storage, stoExport: exportMgr })
 
     eventBus.onDom('setSyncFolderBtn', 'click', 'set-sync-folder', () => sync.setSyncFolder())
     eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => sync.syncProject())
