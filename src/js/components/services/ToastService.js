@@ -31,7 +31,22 @@ export default class ToastService extends ComponentBase {
         this.showToast(message, type, duration)
         return true
       })
+      
+      // Also listen for toast:show events (used by most components)
+      this.addEventListener('toast:show', ({ message, type = 'info', duration = 3000 }) => {
+        this.showToast(message, type, duration)
+      })
     }
+  }
+
+  /**
+   * HTML escape function to prevent XSS
+   * @private
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
   }
 
   /**
@@ -56,6 +71,8 @@ export default class ToastService extends ComponentBase {
       setTimeout(() => {
         this.removeToast(toast)
       }, duration)
+    } else {
+      console.warn(`ToastService: Toast container '${this.containerId}' not found in DOM`)
     }
   }
 
@@ -74,19 +91,37 @@ export default class ToastService extends ComponentBase {
       info: 'fa-info-circle',
     }
 
-    toast.innerHTML = `
-            <div class="toast-content">
-                <i class="fas ${iconMap[type] || iconMap.info}"></i>
-                <span class="toast-message">${message}</span>
-                <button class="toast-close" aria-label="close toast">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `
+    // Create toast content container
+    const toastContent = document.createElement('div')
+    toastContent.className = 'toast-content'
+
+    // Create and add icon
+    const icon = document.createElement('i')
+    icon.className = `fas ${iconMap[type] || iconMap.info}`
+    toastContent.appendChild(icon)
+
+    // Create and add message span (safely)
+    const messageSpan = document.createElement('span')
+    messageSpan.className = 'toast-message'
+    messageSpan.textContent = message // Use textContent to prevent XSS
+    toastContent.appendChild(messageSpan)
+
+    // Create and add close button
+    const closeButton = document.createElement('button')
+    closeButton.className = 'toast-close'
+    closeButton.setAttribute('aria-label', 'close toast')
+    
+    const closeIcon = document.createElement('i')
+    closeIcon.className = 'fas fa-times'
+    closeButton.appendChild(closeIcon)
+    
+    toastContent.appendChild(closeButton)
+
+    // Add content to toast
+    toast.appendChild(toastContent)
 
     // Close button behaviour
-    const closeBtn = toast.querySelector('.toast-close')
-    closeBtn.addEventListener('click', () => {
+    closeButton.addEventListener('click', () => {
       this.removeToast(toast)
     })
 

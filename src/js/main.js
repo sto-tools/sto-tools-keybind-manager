@@ -7,7 +7,7 @@ import en from '../i18n/en.json'
 import de from '../i18n/de.json'
 import fr from '../i18n/fr.json'
 import es from '../i18n/es.json'
-import { StorageService, DataCoordinator } from './components/services/index.js'
+import { StorageService, DataCoordinator, ToastService } from './components/services/index.js'
 import { KeyService } from './components/services/index.js'
 import DataService from './components/services/DataService.js'
 import ExportService from './components/services/ExportService.js'
@@ -120,6 +120,9 @@ const settings = storageService.getSettings()
   fileOpsService.init()
   // Create UI utility service
   const uiUtilityService = new UIUtilityService(eventBus)
+  
+  // Create toast service to handle notifications
+  const toastService = new ToastService({ eventBus })
   
   // Create UI compatibility facade for legacy components
   const stoUI = {

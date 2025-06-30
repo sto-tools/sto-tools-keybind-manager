@@ -231,7 +231,7 @@ export default class CommandUI extends ComponentBase {
       if (this.ui?.showToast) {
         this.ui.showToast(message, type)
       } else {
-        await this.request('ui:show-toast', { message, type })
+        await this.request('toast:show', { message, type })
       }
     } catch (error) {
       console.error('CommandUI: Failed to show toast:', error)
