@@ -554,4 +554,12 @@ describe('KeyService – Command Type Detection', () => {
       expect(keyService.detectCommandType(cmd)).toBe('custom')
     })
   })
+})
+
+describe('KeyService – import functionality integration', () => {
+  beforeEach(() => {
+    // Mock ImportService for import operations
+    fileOpsMocks.push(respond(eventBus, 'import:keybind-file', () => mockFileOpsResponse))
+    fileOpsMocks.push(respond(eventBus, 'import:alias-file', () => mockFileOpsResponse))
+  })
 }) 

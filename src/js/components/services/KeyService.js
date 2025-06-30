@@ -411,30 +411,29 @@ export default class KeyService extends ComponentBase {
     return request(this.eventBus, 'fileops:parse-keybind-file', { content })
   }
 
-  /** Import keybind file using FileOperationsService */
+  /**
+   * Import keybind file content using ImportService
+   */
   importKeybindFile (content) {
-    // REFACTORED: Use cached state instead of globalThis.app
-    // Current environment and profile should be set via events or late-join handshake
-    
     const profileId = this.currentProfile
-    const env = this.currentEnvironment || 'space'
+    const environment = this.currentEnvironment || 'space'
 
-    // Delegate to FileOperationsService for complete import handling
-    return request(this.eventBus, 'fileops:import-keybind-file', { 
+    // Delegate to ImportService for complete import handling
+    return request(this.eventBus, 'import:keybind-file', { 
       content, 
       profileId, 
-      environment: env 
+      environment 
     })
   }
 
   /**
-   * Import alias file using FileOperationsService
+   * Import alias file using ImportService
    */
   importAliasFile (content) {
     const profileId = this.currentProfile
 
-    // Delegate to FileOperationsService for complete import handling
-    return request(this.eventBus, 'fileops:import-alias-file', { 
+    // Delegate to ImportService for complete import handling
+    return request(this.eventBus, 'import:alias-file', { 
       content, 
       profileId 
     })

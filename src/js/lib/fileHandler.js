@@ -1,6 +1,7 @@
 // STO Tools - Generic file handling library for keybind and alias files
 // Provides parsing, export generation, and command utilities
 import '../data.js'
+import { formatAliasLine } from './STOFormatter.js'
 const STO_DATA = globalThis.STO_DATA || {}
 
 export default class STOFileHandler {
@@ -264,8 +265,8 @@ export default class STOFileHandler {
     let content = `; Command Aliases\n; ================================================================\n; Aliases allow you to create custom commands that execute\n; multiple commands in sequence. Use them in keybinds like any\n; other command.\n; ================================================================\n\n`
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
     sorted.forEach(([name, alias]) => {
-      if (alias.description) content += `; ${alias.description}\n`
-      content += `alias ${name} <& ${alias.commands} &>\n\n`
+      content += formatAliasLine(name, alias)
+      content += '\n'
     })
     return content
   }

@@ -14,6 +14,7 @@ export { default as SyncService } from './SyncService.js'
 export { default as FileSystemService } from './FileSystemService.js'
 export { default as KeyService } from './KeyService.js'
 export { default as FileOperationsService } from './FileOperationsService.js'
+export { default as ImportService } from './ImportService.js'
 
 export { default as ExportService } from './ExportService.js'
 export { default as ToastService } from './ToastService.js'

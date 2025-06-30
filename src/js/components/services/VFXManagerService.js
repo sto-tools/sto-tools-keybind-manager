@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { request } from '../../core/requestResponse.js'
+import { formatAliasLine } from '../../lib/STOFormatter.js'
 // VFX_EFFECTS now available globally from data.js
 
 export default class VFXManagerService extends ComponentBase {
@@ -91,15 +92,13 @@ export default class VFXManagerService extends ComponentBase {
     const effects = Array.from(this.selectedEffects[environment])
     if (effects.length === 0) return ''
 
-    let aliasName = `dynFxSetFXExlusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
-    let command = `alias ${aliasName} <& dynFxSetFXExlusionList ${effects.join(',')}`
-
+    const aliasName = `dynFxSetFXExlusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
+    let command = `dynFxSetFXExlusionList ${effects.join(',')}`
     if (this.showPlayerSay) {
       command += ' $$ PlayerSay VFX Suppression Loaded'
     }
 
-    command += ' &>'
-    return command
+    return formatAliasLine(aliasName, { commands: command }).trim()
   }
 
   // Generate just the command part (without alias definition) for storage

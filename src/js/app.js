@@ -28,6 +28,7 @@ import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
 import { VFXManagerUI, HeaderMenuUI, AboutModalUI } from './components/ui/index.js'
 import STOCommandParser from './lib/STOCommandParser.js'
+import ImportService from './components/services/ImportService.js'
 
 
 export default class STOToolsKeybindManager {
@@ -216,16 +217,16 @@ export default class STOToolsKeybindManager {
       this.keyService.init()
 
       // ------------------------------
-      // File Operations Service (STO file format bridge)
+      // Import Service (file imports)
       // ------------------------------
-      this.fileOperationsService = new FileOperationsService({
+      this.importService = new ImportService({
         storage: storageService,
         eventBus,
         i18n: i18next,
         ui: stoUI,
       })
 
-      this.fileOperationsService.init()
+      this.importService.init()
 
       // ------------------------------
       // Export Service (file generation)

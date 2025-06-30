@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { request, respond } from '../../core/requestResponse.js'
+import { formatAliasLine } from '../../lib/STOFormatter.js'
 
 /**
  * CommandLibraryService - Handles all command library business logic
@@ -745,7 +746,7 @@ export default class CommandLibraryService extends ComponentBase {
     
     if (commands.length === 0) {
       if (this.currentEnvironment === 'alias') {
-        return `alias ${selectedKey} <&  &>`
+        return formatAliasLine(selectedKey, { commands: '' }).trim()
       } else {
         return `${selectedKey} ""`
       }
@@ -754,7 +755,7 @@ export default class CommandLibraryService extends ComponentBase {
     if (this.currentEnvironment === 'alias') {
       // For aliases, show the alias command format with <& and &> delimiters
       const commandString = commands.map((cmd) => cmd.command).join(' $$ ')
-      return `alias ${selectedKey} <& ${commandString} &>`
+      return formatAliasLine(selectedKey, { commands: commandString }).trim()
     } else {
       // For keybinds, use the existing logic with optional mirroring
       const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder')
