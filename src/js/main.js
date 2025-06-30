@@ -12,6 +12,7 @@ import { KeyService } from './components/services/index.js'
 import DataService from './components/services/DataService.js'
 import ExportService from './components/services/ExportService.js'
 import { UIUtilityService } from './components/services/index.js'
+import { FileOperationsService } from './components/services/index.js'
 // import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
@@ -114,6 +115,9 @@ const settings = storageService.getSettings()
   // Create dependencies first
   const stoKeybinds = new KeyService()
   const stoExport = new ExportService({ storage: storageService, eventBus })
+  // Initialize FileOperationsService to register RPC endpoints (mirroring, parsing, etc.)
+  const fileOpsService = new FileOperationsService({ eventBus, storage: storageService })
+  fileOpsService.init()
   // Create UI utility service
   const uiUtilityService = new UIUtilityService(eventBus)
   
@@ -142,6 +146,7 @@ const settings = storageService.getSettings()
     stoFileExplorer, // Required by header file explorer button
     stoSync,        // Required by sync UI components
     eventBus,       // Required for component communication debugging
+    fileOpsService,
     // VFX_EFFECTS now available globally from data.js
   })
 

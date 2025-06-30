@@ -260,6 +260,8 @@ export default class DataCoordinator extends ComponentBase {
       ...profile,
       keys: profile.builds[environment].keys || {},
       aliases: profile.aliases || {},
+      keybindMetadata: profile.keybindMetadata || {},
+      aliasMetadata: profile.aliasMetadata || {},
       environment: environment
     }
   }
@@ -592,7 +594,27 @@ export default class DataCoordinator extends ComponentBase {
           }
         }
       }
-      
+
+      if (operations.modify.keybindMetadata) {
+        result.keybindMetadata = result.keybindMetadata || {}
+        for (const [env, envData] of Object.entries(operations.modify.keybindMetadata)) {
+          result.keybindMetadata[env] = result.keybindMetadata[env] || {}
+          for (const [keyName, keyData] of Object.entries(envData)) {
+            result.keybindMetadata[env][keyName] = keyData
+          }
+        }
+      }
+
+      if (operations.modify.aliasMetadata) {
+        result.aliasMetadata = result.aliasMetadata || {}
+        for (const [aliasName, aliasData] of Object.entries(operations.modify.aliasMetadata)) {
+          result.aliasMetadata[aliasName] = result.aliasMetadata[aliasName] || {}
+          for (const [keyName, keyData] of Object.entries(aliasData)) { 
+            result.aliasMetadata[aliasName][keyName] = keyData
+          }
+        }
+      }
+
       if (operations.modify.builds) {
         result.builds = result.builds || { space: { keys: {} }, ground: { keys: {} } }
         for (const [env, envData] of Object.entries(operations.modify.builds)) {

@@ -71,7 +71,14 @@ export default class CommandChainUI extends ComponentBase {
       })
     )
 
-    this.eventBus.onDom('stabilizeExecutionOrder', 'change', () => this.render())
+    // Setup stabilization button logic
+    const stabilizeBtn = this.document.getElementById('stabilizeExecutionOrderBtn')
+    if (stabilizeBtn && !this._stabilizeListenerAttached) {
+      stabilizeBtn.addEventListener('click', async () => {
+        await this.toggleStabilize()
+      })
+      this._stabilizeListenerAttached = true
+    }
 
     // Drag/drop
     this.setupDragAndDrop()
@@ -379,6 +386,22 @@ export default class CommandChainUI extends ComponentBase {
     // Use cached state from event listeners
     const hasSelectedKey = !!(this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey)
 
+    // Always enable stabilize button only when a chain is selected
+    const stabBtn = this.document.getElementById('stabilizeExecutionOrderBtn')
+    if (stabBtn) {
+      stabBtn.disabled = !hasSelectedKey
+      // Update active state from metadata
+      if (hasSelectedKey) {
+        const name = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+        try {
+          const isActive = await this.request('command:is-stabilized', { name })
+          stabBtn.classList.toggle('active', !!isActive)
+        } catch {}
+      } else {
+        stabBtn.classList.remove('active')
+      }
+    }
+
     if (this._currentEnvironment === 'alias') {
       // Alias mode – alias specific buttons
       const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
@@ -407,6 +430,26 @@ export default class CommandChainUI extends ComponentBase {
         const btn = this.document.getElementById(id)
         if (btn) btn.disabled = true
       })
+    }
+  }
+
+  /** Toggle stabilization flag for the current selection */
+  async toggleStabilize () {
+    const name = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+    if (!name) return
+
+    const stabBtn = this.document.getElementById('stabilizeExecutionOrderBtn')
+    const currentlyActive = stabBtn?.classList.contains('active')
+
+    try {
+      const result = await this.request('command:set-stabilize', { name, stabilize: !currentlyActive })
+      if (result && result.success && stabBtn) {
+        stabBtn.classList.toggle('active', !currentlyActive)
+        // Re-render preview after change
+        this.render()
+      }
+    } catch (err) {
+      console.error('[CommandChainUI] Failed to toggle stabilization', err)
     }
   }
 

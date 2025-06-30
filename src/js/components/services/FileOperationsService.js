@@ -32,6 +32,24 @@ export default class FileOperationsService extends ComponentBase {
     
     this.respond('fileops:generate-command-preview', ({ key, commands, stabilize = false }) => 
       this.generateCommandPreview(key, commands, stabilize))
+
+    // Utility: generate mirrored command string for execution order stabilization
+    this.respond('fileops:generate-mirrored-commands', ({ commands = [] }) => {
+      // Accept either an array of command objects or plain strings.
+      if (!Array.isArray(commands) || commands.length === 0) return ''
+
+      // Normalise to string array
+      const cmdStrings = commands.map((c) => {
+        if (typeof c === 'string') return c
+        if (c && typeof c.command === 'string') return c.command
+        return ''
+      }).filter(Boolean)
+
+      if (cmdStrings.length <= 1) return cmdStrings.join(' $$ ')
+
+      const mirrored = [...cmdStrings, ...cmdStrings.slice(0, -1).reverse()]
+      return mirrored.join(' $$ ')
+    })
   }
 
   // Parse keybind file content into structured data

@@ -40,7 +40,10 @@ export default class CommandChainService extends ComponentBase {
         this.respond('command-chain:delete', ({ key, index }) => this.deleteCommand(key, index)),
         this.respond('command-chain:move', ({ key, fromIndex, toIndex }) => this.moveCommand(key, fromIndex, toIndex)),
         this.respond('command-chain:get', ({ key }) => this.getCommandsForKey(key)),
-        this.respond('command-chain:clear', ({ key }) => this.clearCommandChain(key))
+        this.respond('command-chain:clear', ({ key }) => this.clearCommandChain(key)),
+        // New: toggle or query execution-order stabilization
+        this.respond('command:set-stabilize', ({ name, stabilize }) => this.setStabilize(name, stabilize)),
+        this.respond('command:is-stabilized', ({ name }) => this.isStabilized(name))
       )
     }
   }
@@ -813,5 +816,87 @@ export default class CommandChainService extends ComponentBase {
     }
 
     super.destroy()
+  }
+
+  /* ------------------------------------------------------------------
+   * Stabilization helpers
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Return whether the specified key/alias currently has stabilization enabled.
+   */
+  isStabilized(name) {
+    if (!name) return false
+    const profile = this.cache.profile || null
+    if (!profile) return false
+
+    if (this.currentEnvironment === 'alias') {
+      return !!(profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
+    }
+
+    return !!(profile.keybindMetadata && profile.keybindMetadata[this.currentEnvironment] &&
+      profile.keybindMetadata[this.currentEnvironment][name] &&
+      profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder)
+  }
+
+  /**
+   * Toggle or set stabilization flag for current key / alias.
+   */
+  async setStabilize(name, stabilize = true) {
+    try {
+      if (!name) return { success: false }
+
+      const profile = await this.getCurrentProfile()
+      if (!profile) return { success: false }
+
+      const isAlias = this.currentEnvironment === 'alias'
+
+      if (isAlias) {
+        if (!profile.aliasMetadata) profile.aliasMetadata = {}
+        if (!profile.aliasMetadata[name]) profile.aliasMetadata[name] = {}
+
+        if (stabilize) {
+          profile.aliasMetadata[name].stabilizeExecutionOrder = true
+        } else {
+          delete profile.aliasMetadata[name].stabilizeExecutionOrder
+          if (Object.keys(profile.aliasMetadata[name]).length === 0) {
+            delete profile.aliasMetadata[name]
+          }
+        }
+      } else {
+        if (!profile.keybindMetadata) profile.keybindMetadata = {}
+        if (!profile.keybindMetadata[this.currentEnvironment]) profile.keybindMetadata[this.currentEnvironment] = {}
+        if (!profile.keybindMetadata[this.currentEnvironment][name]) profile.keybindMetadata[this.currentEnvironment][name] = {}
+
+        if (stabilize) {
+          profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder = true
+        } else {
+          delete profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder
+          if (Object.keys(profile.keybindMetadata[this.currentEnvironment][name]).length === 0) {
+            delete profile.keybindMetadata[this.currentEnvironment][name]
+          }
+        }
+      }
+
+      // Persist via DataCoordinator
+      const profileId = this.cache.currentProfile || this.currentProfile
+      if (!profileId) return { success: false }
+
+      const modify = isAlias
+        ? { aliasMetadata: { ...profile.aliasMetadata } }
+        : { keybindMetadata: { ...profile.keybindMetadata } }
+
+      const result = await this.request('data:update-profile', { profileId, modify })
+      if (result?.success) {
+        this.emit('stabilize-changed', { name, stabilize, isAlias })
+        // Broadcast profile update for listeners that rely on metadata
+        this.emit('profile:updated', { profileId, profile: result.profile })
+        return { success: true }
+      }
+      return { success: false }
+    } catch (err) {
+      console.error('[CommandChainService] setStabilize failed', err)
+      return { success: false, error: err.message }
+    }
   }
 } 

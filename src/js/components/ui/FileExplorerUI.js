@@ -214,24 +214,12 @@ export default class FileExplorerUI extends ComponentBase {
    * Export helpers – use request/response to ExportService
    * ========================================================== */
   async generateBuildExport (profileId, environment) {
-    const rootProfile = this.storage.getProfile(profileId)
-    if (!rootProfile || !rootProfile.builds || !rootProfile.builds[environment]) return ''
-    const build = rootProfile.builds[environment]
+    const profile = this.storage.getProfile(profileId)
+    if (!profile || !profile.builds || !profile.builds[environment]) return ''
 
-    const tempProfile = {
-      name: `${rootProfile.name} ${environment}`,
-      mode: environment,
-      keybinds: {
-        [environment]: build.keys || {}
-      },
-      keybindMetadata: rootProfile.keybindMetadata || {},
-      aliases: build.aliases || {},
-      currentEnvironment: environment
-    }
-    
     return await this.request('export:generate-keybind-file', {
-      profile: tempProfile,
-      options: { environment }
+      profileId,
+      environment
     }).catch((error) => {
       console.error('Failed to generate keybind export via ExportService:', error)
       return `; Failed to generate export: ${error.message}`
@@ -251,14 +239,14 @@ export default class FileExplorerUI extends ComponentBase {
       name: rootProfile.name,
       mode: rootProfile.currentEnvironment || 'space',
       aliases: aggregatedAliases,
+      aliasMetadata: rootProfile.aliasMetadata || {},
     }
     
-    return await this.request('export:generate-alias-file', {
-      profile: tempProfile
-    }).catch((error) => {
-      console.error('Failed to generate alias export via ExportService:', error)
-      return `; Failed to generate export: ${error.message}`
-    })
+    return await this.request('export:generate-alias-file', { profileId })
+      .catch((error) => {
+        console.error('Failed to generate alias export via ExportService:', error)
+        return `; Failed to generate export: ${error.message}`
+      })
   }
 
   /* ============================================================

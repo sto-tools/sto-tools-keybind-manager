@@ -19,6 +19,11 @@ export default class ExportService extends ComponentBase {
     this.componentName = 'ExportService'
     this.storage = storage
     this.fileHandler = new STOFileHandler()
+    this.cache = {
+      profiles: {},
+      currentProfile: null,
+      currentEnvironment: 'space'
+    }
   }
 
   /* ---------------------------------------------------------- */
@@ -26,17 +31,13 @@ export default class ExportService extends ComponentBase {
   /* ---------------------------------------------------------- */
   onInit () {
     this.setupRequestHandlers()
+    this.setupEventListeners()
   }
 
   setupRequestHandlers() {
     
     // Export generation requests
-    this.respond('export:generate-keybind-file', async ({ profile, options = {} }) => 
-      await this.generateSTOKeybindFile(profile, options))
-    
-    this.respond('export:generate-alias-file', async ({ profile }) => 
-      await this.generateAliasFile(profile))
-    
+   
     this.respond('export:generate-filename', async ({ profile, extension, environment }) => 
       await this.generateFileName(profile, extension, environment))
     
@@ -57,6 +58,34 @@ export default class ExportService extends ComponentBase {
     
     this.respond('export:extract-keys', ({ profile, environment }) => 
       this.extractKeys(profile, environment))
+
+    // New: by profileId to leverage internal cache
+    this.respond('export:generate-keybind-file', async ({ profileId, environment = 'space', syncMode = false }) => {
+      const prof = this.getProfileFromCache(profileId)
+      if (!prof) throw new Error(`Profile ${profileId} not found in ExportService cache`)
+      return await this.generateSTOKeybindFile(prof, { environment, syncMode })
+    })
+
+    this.respond('export:generate-alias-file', async ({ profileId }) => {
+      const prof = this.getProfileFromCache(profileId)
+      if (!prof) throw new Error(`Profile ${profileId} not found`)
+      return await this.generateAliasFile(prof)
+    })
+  }
+
+  setupEventListeners () {
+    // Keep cache in sync when DataCoordinator broadcasts changes
+    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (profileId && profile) {
+        this.cache.profiles[profileId] = profile
+      }
+    })
+
+    this.addEventListener('profile:switched', ({ profileId, environment, profile }) => {
+      if (profileId) this.cache.currentProfile = profileId
+      if (environment) this.cache.currentEnvironment = environment
+      if (profile) this.cache.profiles[profileId] = profile
+    })
   }
 
   /* ---------------------------------------------------------- */
@@ -71,20 +100,19 @@ export default class ExportService extends ComponentBase {
     const keys = this.extractKeys(profile, environment)
     
     const hasKeys = keys && Object.keys(keys).length > 0
-    const hasAliases = profile.aliases && Object.keys(profile.aliases).length > 0
 
-    if (!hasKeys && !hasAliases) {
-      return '; No keybinds or aliases defined for this environment\n'
+    if (!hasKeys) {
+      
+      return `; No keybinds defined for this environment
+; Profile: ${JSON.stringify(profile, null, 2)}
+; Options: ${JSON.stringify(options, null, 2)}
+`
     }
 
-    const syncFilename = syncMode ? `${profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${environment}.txt` : null
-    let content = await this.generateFileHeader(profile, syncFilename)
+    const filename = `${profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${environment}.txt`
+    let content = await this.generateFileHeader(profile, filename)
     
-    // Add aliases section
-    if (profile.aliases && Object.keys(profile.aliases).length > 0) {
-      content += this.generateAliasSection(profile.aliases)
-    }
-    
+   
     // Add keybind section
     content += await this.generateKeybindSection(keys, { 
       environment, 
@@ -93,7 +121,7 @@ export default class ExportService extends ComponentBase {
     })
     
     // Add footer
-    content += this.generateFileFooter()
+    //content += this.generateFileFooter()
     
     return content
   }
@@ -113,11 +141,10 @@ export default class ExportService extends ComponentBase {
 ;
 ; Keybind Statistics:
 ; - Total keybinds: ${keyCount}
-; - Total aliases: ${aliasCount}
 ;
 ; To use this keybind file in Star Trek Online:
 ; 1. Save this file in your STO Live folder as a .txt file
-; 2. In-game, type: /bind_load_file <filename>
+; 2. In-game, type: /bind_load_file ${syncFilename}
 ; 3. Your keybinds will be applied immediately
 ;
 ; File Structure:
@@ -126,19 +153,10 @@ export default class ExportService extends ComponentBase {
 ; ================================================================
 
 `
-
-    if (syncFilename) {
-      header += `; This file is part of a synchronized profile set
-; Load file: ${syncFilename}
-; ================================================================
-
-`
-    }
-
     return header
   }
 
-  generateAliasSection (aliases) {
+  async generateAliasSection (aliases, profile = {}) {
     if (!aliases || Object.keys(aliases).length === 0) return ''
 
     let content = `; Command Aliases
@@ -151,10 +169,22 @@ export default class ExportService extends ComponentBase {
 `
 
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
-    sorted.forEach(([name, alias]) => {
-      content += formatAliasLine(name, alias)
-      content += '\n' // Extra newline for spacing between aliases
-    })
+    for (const [name, alias] of sorted) {
+      let commandsStr = alias.commands || ''
+
+      // Apply mirroring if aliasMetadata says so
+      const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
+
+      if (shouldStabilize) {
+        const cmdParts = commandsStr.split(/\s*\$\$\s*/).filter(Boolean).map(c => ({ command: c }))
+        if (cmdParts.length > 1) {
+          commandsStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
+        }
+      }
+
+      content += formatAliasLine(name, { ...alias, commands: commandsStr })
+      content += '\n'
+    }
     return content
   }
 
@@ -169,34 +199,21 @@ export default class ExportService extends ComponentBase {
     content += `; ${environment.toUpperCase()} KEYBINDS\n`
     content += `; ==============================================================================\n\n`
     
-    // Add bind_load_file command for sync mode
-    if (syncMode && profile) {
-      const sanitizedName = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
-      content += `bind_load_file ${sanitizedName}_${environment}.txt\n\n`
-    }
-    
-    // Generate keybind commands - chain multiple commands with $$
+    // Generate keybind commands – apply mirroring when profile metadata says so
     Object.entries(keys).forEach(([key, commands]) => {
-      content += formatKeybindLine(key, commands)
+      let cmds = commands
+      const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
+        profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
+
+      if (shouldStabilize && Array.isArray(commands) && commands.length > 1) {
+        cmds = this.mirrorCommands(commands)
+      }
+
+      content += formatKeybindLine(key, cmds)
     })
     
     content += '\n'
     return content
-  }
-
-  generateFileFooter () {
-    return `; ================================================================
-; End of keybind file
-; ================================================================
-; 
-; To use this keybind file:
-; 1. Copy this file to your Star Trek Online Live folder
-; 2. In-game, type: /bind_load_file <filename>
-; 3. Or place it in your STO directory and restart the game
-;
-; For more information visit: https://stowiki.net/wiki/Key_binds
-; ================================================================
-`
   }
 
   /* ---------------------------------------------------------- */
@@ -362,10 +379,22 @@ export default class ExportService extends ComponentBase {
     
     // Generate alias content directly
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
-    sorted.forEach(([name, alias]) => {
-      content += formatAliasLine(name, alias)
-      content += '\n' // Extra newline for spacing between aliases
-    })
+    for (const [name, alias] of sorted) {
+      let commandsStr = alias.commands || ''
+
+      // Apply mirroring if aliasMetadata says so
+      const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
+
+      if (shouldStabilize) {
+        const cmdParts = commandsStr.split(/\s*\$\$\s*/).filter(Boolean).map(c => ({ command: c }))
+        if (cmdParts.length > 1) {
+          commandsStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
+        }
+      }
+
+      content += formatAliasLine(name, { ...alias, commands: commandsStr })
+      content += '\n'
+    }
     
     return content
   }
@@ -533,5 +562,46 @@ export default class ExportService extends ComponentBase {
     }
     
     return {}
+  }
+
+  /* helper to mirror command objects array */
+  mirrorCommands(commands) {
+    if (!Array.isArray(commands) || commands.length <= 1) return commands
+    const clean = commands.map(c => ({ ...c }))
+    const mirrored = [...clean, ...clean.slice(0, -1).reverse()]
+    return mirrored
+  }
+
+  /* ---------------------------------------------------------- */
+  /* Late-join state sync                                       */
+  /* ---------------------------------------------------------- */
+  getCurrentState () {
+    return {
+      currentProfile: this.cache.currentProfile,
+      currentEnvironment: this.cache.currentEnvironment,
+      profiles: this.cache.profiles
+    }
+  }
+
+  handleInitialState (sender, state) {
+    if (sender === 'DataCoordinator' && state?.profiles) {
+      this.cache.profiles = state.profiles
+      this.cache.currentProfile = state.currentProfile
+      this.cache.currentEnvironment = state.currentEnvironment || 'space'
+    }
+  }
+
+  /* ---------------------------------------------------------- */
+  /* Utility                                                    */
+  /* ---------------------------------------------------------- */
+  getProfileFromCache (profileId) {
+    if (profileId && this.cache.profiles[profileId]) {
+      return this.cache.profiles[profileId]
+    }
+    // Fallback to storage if available
+    if (this.storage && typeof this.storage.getProfile === 'function') {
+      return this.storage.getProfile(profileId)
+    }
+    return null
   }
 } 

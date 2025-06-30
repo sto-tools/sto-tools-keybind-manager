@@ -85,10 +85,7 @@ export default class CommandLibraryUI extends ComponentBase {
       this.setupCommandLibrary()
     })
 
-    // Listen for stabilize execution order checkbox changes
-    this.eventBus.onDom('stabilizeExecutionOrder', 'change', 'stabilize-order-change', () => {
-      // Command chain rendering is now handled by CommandChainUI
-    })
+    // Stabilize execution order now handled via toolbar button in CommandChainUI
 
     // Command lifecycle events are now handled by CommandChainUI
     // CommandLibraryUI no longer needs to listen to these events

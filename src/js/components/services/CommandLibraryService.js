@@ -158,6 +158,9 @@ export default class CommandLibraryService extends ComponentBase {
     
     this.cache.profile = profile
     this.cache.aliases = profile.aliases || {}
+    // Preserve metadata for mirroring decisions
+    this.cache.profile.keybindMetadata = profile.keybindMetadata || {}
+    this.cache.profile.aliasMetadata   = profile.aliasMetadata   || {}
     
     // Update keys for current environment
     const currentBuild = profile.builds?.[this.cache.currentEnvironment]
@@ -230,6 +233,8 @@ export default class CommandLibraryService extends ComponentBase {
       ...profile,
       keys: profile.builds[this.currentEnvironment].keys,
       aliases: profile.aliases || {},
+      keybindMetadata: profile.keybindMetadata || {},
+      aliasMetadata: profile.aliasMetadata || {}
     }
   }
 
@@ -753,13 +758,32 @@ export default class CommandLibraryService extends ComponentBase {
     }
 
     if (this.currentEnvironment === 'alias') {
-      // For aliases, show the alias command format with <& and &> delimiters
-      const commandString = commands.map((cmd) => cmd.command).join(' $$ ')
+      // For aliases, mirror when metadata requests it
+      const profile = this.getCurrentProfile()
+      console.log('[CommandLibraryService] alias : getCommandChainPreview: profile', profile)
+      let shouldStabilize = false
+      if (profile && profile.aliasMetadata && profile.aliasMetadata[selectedKey] && profile.aliasMetadata[selectedKey].stabilizeExecutionOrder) {
+        shouldStabilize = true
+      }
+
+      let commandString
+      if (shouldStabilize && commands.length > 1) {
+        commandString = await this.generateMirroredCommandString(commands)
+      } else {
+        commandString = commands.map((cmd) => cmd.command).join(' $$ ')
+      }
+
       return formatAliasLine(selectedKey, { commands: commandString }).trim()
     } else {
-      // For keybinds, use the existing logic with optional mirroring
-      const stabilizeCheckbox = document.getElementById('stabilizeExecutionOrder')
-      const shouldStabilize = stabilizeCheckbox && stabilizeCheckbox.checked
+      // For keybinds, determine mirroring based on per-key metadata
+      const profile = this.getCurrentProfile()
+      console.log('[CommandLibraryService] keybind : getCommandChainPreview: profile', profile)
+      let shouldStabilize = false
+      if (profile && profile.keybindMetadata && profile.keybindMetadata[this.currentEnvironment] &&
+          profile.keybindMetadata[this.currentEnvironment][selectedKey] &&
+          profile.keybindMetadata[this.currentEnvironment][selectedKey].stabilizeExecutionOrder) {
+        shouldStabilize = true
+      }
 
       let commandString
       if (shouldStabilize && commands.length > 1) {
