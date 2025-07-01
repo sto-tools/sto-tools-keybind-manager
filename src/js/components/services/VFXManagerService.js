@@ -8,14 +8,12 @@ export default class VFXManagerService extends ComponentBase {
     super(eventBus)
     this.componentName = 'VFXManagerService'
     
-    // VFX Manager state (migrated from VertigoManager)
+    // Initialize VFX state
     this.selectedEffects = {
       space: new Set(),
       ground: new Set(),
     }
     this.showPlayerSay = false
-    
-    // Track current profile like other services
     this.currentProfile = null
     
     this.initialState = null
@@ -51,6 +49,7 @@ export default class VFXManagerService extends ComponentBase {
       if (state.currentProfileData) {
         this.loadState(state.currentProfileData)
         console.log(`[${this.componentName}] Loaded VFX state from current profile`)
+        // Note: autoGenerateAliases is called from loadState()
       }
     }
   }
@@ -62,19 +61,33 @@ export default class VFXManagerService extends ComponentBase {
     this.eventBus.on('vfx:cancel-effects', this.cancelEffects.bind(this))
     
     // Listen for profile changes to update current profile and reload VFX state
-    this.addEventListener('profile:switched', ({ profileId, profile }) => {
+    this.addEventListener('profile:switched', ({ profileId, profile, updateSource }) => {
+      // Don't respond to profile updates we caused ourselves
+      if (updateSource === 'VFXManagerService') {
+        console.log(`[${this.componentName}] Ignoring profile:switched event from our own update`)
+        return
+      }
+      
       this.currentProfile = profileId
       if (profile) {
         this.loadState(profile)
         console.log(`[${this.componentName}] Loaded VFX state for switched profile: ${profileId}`)
+        // Note: autoGenerateAliases is called from loadState()
       }
     })
     
     // Listen for profile updates to refresh VFX state if current profile was updated
-    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+    this.addEventListener('profile:updated', ({ profileId, profile, updateSource }) => {
+      // Don't respond to profile updates we caused ourselves
+      if (updateSource === 'VFXManagerService') {
+        console.log(`[${this.componentName}] Ignoring profile:updated event from our own update`)
+        return
+      }
+      
       if (profileId === this.currentProfile && profile) {
         this.loadState(profile)
         console.log(`[${this.componentName}] Refreshed VFX state for updated profile: ${profileId}`)
+        // Note: autoGenerateAliases is called from loadState()
       }
     })
   }
@@ -83,17 +96,13 @@ export default class VFXManagerService extends ComponentBase {
   // VFX Manager Core Methods (migrated from VertigoManager)
   // ========================================================================
 
-  // Generate the alias command for the given environment
+  // Generate alias line for display (formatted for STO)
   generateAlias(environment) {
-    if (!this.selectedEffects[environment]) {
-      throw new Error(`Invalid environment: ${environment}`)
-    }
-
     const effects = Array.from(this.selectedEffects[environment])
-    if (effects.length === 0) return ''
+    if (effects.length === 0) return 'No effects selected'
 
-    const aliasName = `dynFxSetFXExlusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
-    let command = `dynFxSetFXExlusionList ${effects.join(',')}`
+    const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
+    let command = `dynFxExcludeFX ${effects.join(',')}`
     if (this.showPlayerSay) {
       command += ' $$ PlayerSay VFX Suppression Loaded'
     }
@@ -103,14 +112,16 @@ export default class VFXManagerService extends ComponentBase {
 
   // Generate just the command part (without alias definition) for storage
   generateAliasCommand(environment) {
-    if (!this.selectedEffects[environment]) {
-      throw new Error(`Invalid environment: ${environment}`)
+    // Defensive check to ensure selectedEffects is properly initialized
+    if (!this.selectedEffects || !this.selectedEffects[environment]) {
+      console.warn(`[${this.componentName}] generateAliasCommand: selectedEffects not properly initialized for ${environment}, returning empty command`)
+      return ''
     }
 
     const effects = Array.from(this.selectedEffects[environment])
     if (effects.length === 0) return ''
 
-    let command = `dynFxSetFXExlusionList ${effects.join(',')}`
+    let command = `dynFxExcludeFX ${effects.join(',')}`
 
     if (this.showPlayerSay) {
       command += ' $$ PlayerSay VFX Suppression Loaded'
@@ -198,6 +209,15 @@ export default class VFXManagerService extends ComponentBase {
 
   // Load state from current profile
   loadState(profile) {
+    // Ensure selectedEffects is properly initialized
+    if (!this.selectedEffects) {
+      this.selectedEffects = {
+        space: new Set(),
+        ground: new Set(),
+      }
+      console.log(`[${this.componentName}] loadState: Initialized selectedEffects object`)
+    }
+    
     if (profile && profile.vertigoSettings) {
       const settings = profile.vertigoSettings
 
@@ -216,6 +236,129 @@ export default class VFXManagerService extends ComponentBase {
       this.selectedEffects.space.clear()
       this.selectedEffects.ground.clear()
       this.showPlayerSay = false
+    }
+    
+    // Auto-generate VFX aliases if there are selected effects
+    this.autoGenerateAliases()
+  }
+
+  /**
+   * Automatically generate VFX aliases if there are selected effects
+   * This ensures VFX aliases appear in Command Library and Alias Browser at startup
+   */
+  async autoGenerateAliases() {
+    // Only auto-generate if we have selected effects and a current profile
+    if (!this.currentProfile) {
+      console.log(`[${this.componentName}] autoGenerateAliases: No current profile, skipping`)
+      return
+    }
+    
+    // Defensive check to ensure selectedEffects is properly initialized
+    if (!this.selectedEffects) {
+      console.error(`[${this.componentName}] autoGenerateAliases: selectedEffects not initialized, skipping`)
+      return
+    }
+    
+    // Check each environment individually and only process those that are properly initialized
+    const environments = []
+    if (this.selectedEffects.space && this.selectedEffects.space.size > 0) {
+      environments.push('space')
+    }
+    if (this.selectedEffects.ground && this.selectedEffects.ground.size > 0) {
+      environments.push('ground')
+    }
+    
+    if (environments.length === 0) {
+      console.log(`[${this.componentName}] autoGenerateAliases: No effects selected in any environment, skipping`)
+      return
+    }
+    
+    console.log(`[${this.componentName}] autoGenerateAliases: Generating VFX aliases automatically for environments: ${environments.join(', ')}`)
+    
+    try {
+      // Get current profile to update
+      const profiles = await this.request('data:get-all-profiles')
+      const profile = profiles[this.currentProfile]
+      
+      if (profile) {
+        console.log(`[${this.componentName}] autoGenerateAliases: Retrieved profile via DataCoordinator`)
+        
+        // Generate and save VFX aliases
+        console.log(`[${this.componentName}] Generating VFX aliases`)
+        
+        // Collect existing VFX aliases to delete
+        const existingVfxAliases = []
+        const currentAliases = profile.aliases || {}
+        Object.keys(currentAliases).forEach(aliasName => {
+          if (aliasName.startsWith('dynFxSetFXExclusionList_') || aliasName === 'dynFxSetFXExclusionList') {
+            existingVfxAliases.push(aliasName)
+          }
+        })
+        
+        // Generate new VFX aliases
+        const newVfxAliases = {}
+        const generatedAliases = []
+        environments.forEach(environment => {
+          const aliasCommand = this.generateAliasCommand(environment)
+          
+          if (aliasCommand) {
+            const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
+            newVfxAliases[aliasName] = {
+              commands: aliasCommand,
+              description: `VFX suppression for ${environment} environment`,
+              type: 'vfx-alias'
+            }
+            generatedAliases.push(aliasName)
+            console.log(`[${this.componentName}] autoGenerateAliases: Generated VFX alias: ${aliasName}`)
+          }
+        })
+        
+        // Create master alias that executes both space and ground aliases if any were generated
+        if (generatedAliases.length > 0) {
+          const masterAliasCommand = generatedAliases.join(' $$ ')
+          newVfxAliases['dynFxSetFXExclusionList'] = {
+            commands: masterAliasCommand,
+            description: 'VFX suppression for all environments',
+            type: 'vfx-alias'
+          }
+          console.log(`[${this.componentName}] autoGenerateAliases: Generated master VFX alias: dynFxSetFXExclusionList = ${masterAliasCommand}`)
+        }
+        
+        // Update profile via DataCoordinator using explicit operations API
+        try {
+          const updateOperations = {
+            profileId: this.currentProfile,
+            updateSource: 'VFXManagerService'
+          }
+          
+          // Add delete operation if there are existing VFX aliases to remove
+          if (existingVfxAliases.length > 0) {
+            updateOperations.delete = {
+              aliases: existingVfxAliases
+            }
+          }
+          
+          // Add new VFX aliases if any were generated
+          if (Object.keys(newVfxAliases).length > 0) {
+            updateOperations.add = {
+              aliases: newVfxAliases
+            }
+          }
+          
+          await this.request('data:update-profile', updateOperations)
+          
+          console.log(`[${this.componentName}] autoGenerateAliases: VFX aliases saved to profile: ${this.currentProfile}`)
+          
+          // Emit aliases-changed event so Command Library and Alias Browser update
+          this.emit('aliases-changed', { aliases: { ...currentAliases, ...newVfxAliases } })
+        } catch (error) {
+          console.error(`[${this.componentName}] autoGenerateAliases: Failed to update profile:`, error)
+        }
+      } else {
+        console.error(`[${this.componentName}] autoGenerateAliases: Could not retrieve profile: ${this.currentProfile}`)
+      }
+    } catch (error) {
+      console.error(`[${this.componentName}] autoGenerateAliases: Failed to auto-generate VFX aliases:`, error)
     }
   }
 
@@ -264,12 +407,6 @@ export default class VFXManagerService extends ComponentBase {
     console.log(`[${this.componentName}] Show player say:`, this.showPlayerSay)
     console.log(`[${this.componentName}] Current profile:`, this.currentProfile)
     
-    // Ensure service is initialized
-    if (!this.isInitialized) {
-      console.error(`[${this.componentName}] ERROR: Service not initialized`)
-      return
-    }
-    
     // Save to current profile via DataCoordinator
     if (this.currentProfile) {
       try {
@@ -280,71 +417,97 @@ export default class VFXManagerService extends ComponentBase {
         if (profile) {
           console.log(`[${this.componentName}] Retrieved profile via DataCoordinator`)
           
-          // Prepare updates object
-          const updates = {}
-          
           // Save VFX state
-          if (!profile.vertigoSettings) {
-            profile.vertigoSettings = {}
-          }
-          
-          profile.vertigoSettings = {
+          const vertigoSettings = {
             selectedEffects: {
               space: Array.from(this.selectedEffects.space),
               ground: Array.from(this.selectedEffects.ground),
             },
             showPlayerSay: this.showPlayerSay,
           }
-          updates.vertigoSettings = profile.vertigoSettings
           
           // Generate and save VFX aliases
           console.log(`[${this.componentName}] Generating VFX aliases`)
-          const aliases = { ...(profile.aliases || {}) }
           
-          // Remove existing VFX aliases - ensure aliases is valid
-          if (aliases && typeof aliases === 'object') {
-            Object.keys(aliases).forEach(aliasName => {
-              if (aliasName.startsWith('dynFxSetFXExlusionList_')) {
-                delete aliases[aliasName]
-              }
-            })
-          } else {
-            console.error(`[${this.componentName}] ERROR: aliases is not a valid object:`, aliases)
-          }
+          // Collect existing VFX aliases to delete
+          const existingVfxAliases = []
+          const currentAliases = profile.aliases || {}
+          Object.keys(currentAliases).forEach(aliasName => {
+            if (aliasName.startsWith('dynFxSetFXExclusionList_') || aliasName === 'dynFxSetFXExclusionList') {
+              existingVfxAliases.push(aliasName)
+            }
+          })
           
-          // Generate and save new VFX aliases
-          ['space', 'ground'].forEach(environment => {
+          // Generate new VFX aliases
+          const newVfxAliases = {}
+          const generatedAliases = []
+          const environments = ['space', 'ground']
+          for (let i = 0; i < environments.length; i++) {
+            const environment = environments[i]
             console.log(`[${this.componentName}] Processing environment: ${environment}`)
-            console.log(`[${this.componentName}] Selected effects for ${environment}:`, Array.from(this.selectedEffects[environment]))
+            console.log(`[${this.componentName}] Selected effects for ${environment}:`, this.selectedEffects[environment] ? Array.from(this.selectedEffects[environment]) : [])
             
             const aliasCommand = this.generateAliasCommand(environment)
             console.log(`[${this.componentName}] Generated command for ${environment}: ${aliasCommand}`)
             
             if (aliasCommand) {
-              const aliasName = `dynFxSetFXExlusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
-              aliases[aliasName] = {
-                command: aliasCommand,
+              const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
+              newVfxAliases[aliasName] = {
+                commands: aliasCommand,
                 description: `VFX suppression for ${environment} environment`,
                 type: 'vfx-alias'
               }
+              generatedAliases.push(aliasName)
               console.log(`[${this.componentName}] Generated VFX alias: ${aliasName} = ${aliasCommand}`)
             } else {
               console.log(`[${this.componentName}] No command generated for ${environment} (no effects selected)`)
             }
-          })
+          }
           
-          updates.aliases = aliases
+          // Create master alias that executes both space and ground aliases if any were generated
+          if (generatedAliases.length > 0) {
+            const masterAliasCommand = generatedAliases.join(' $$ ')
+            newVfxAliases['dynFxSetFXExclusionList'] = {
+              commands: masterAliasCommand,
+              description: 'VFX suppression for all environments',
+              type: 'vfx-alias'
+            }
+            console.log(`[${this.componentName}] Generated master VFX alias: dynFxSetFXExclusionList = ${masterAliasCommand}`)
+          }
           
           // Update profile via DataCoordinator using explicit operations API
-          await this.request('data:update-profile', {
-            profileId: this.currentProfile,
-            modify: updates
-          })
-          
-          console.log(`[${this.componentName}] VFX effects and aliases saved to profile: ${this.currentProfile}`)
-          
-          // Update alias browser to show new aliases
-          this.emit('aliases-changed', { aliases })
+          try {
+            const updateOperations = {
+              profileId: this.currentProfile,
+              properties: {
+                vertigoSettings: vertigoSettings
+              },
+              updateSource: 'VFXManagerService'
+            }
+            
+            // Add delete operation if there are existing VFX aliases to remove
+            if (existingVfxAliases.length > 0) {
+              updateOperations.delete = {
+                aliases: existingVfxAliases
+              }
+            }
+            
+            // Add new VFX aliases if any were generated
+            if (Object.keys(newVfxAliases).length > 0) {
+              updateOperations.add = {
+                aliases: newVfxAliases
+              }
+            }
+            
+            await this.request('data:update-profile', updateOperations)
+            
+            console.log(`[${this.componentName}] VFX effects and aliases saved to profile: ${this.currentProfile}`)
+            
+            // Update alias browser to show new aliases
+            this.emit('aliases-changed', { aliases: { ...currentAliases, ...newVfxAliases } })
+          } catch (error) {
+            console.error(`[${this.componentName}] ERROR: Failed to update profile:`, error)
+          }
         } else {
           console.error(`[${this.componentName}] ERROR: Could not retrieve profile: ${this.currentProfile}`)
         }

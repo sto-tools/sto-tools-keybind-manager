@@ -194,8 +194,44 @@ export default class CommandLibraryService extends ComponentBase {
         text: cmd.displayText
       }))
     } else {
-      // For keybinds, return the command array
-      return profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
+      // For keybinds, return command array, enriching each entry via parser so display matches alias behaviour
+      const keyCmds = profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
+      const enriched = []
+      for (const cmdObj of keyCmds) {
+        if (cmdObj && typeof cmdObj === 'object' && cmdObj.displayText && cmdObj.icon) {
+          // Already enriched (likely freshly added this session)
+          enriched.push(cmdObj)
+          continue
+        }
+
+        const cmdStr = (typeof cmdObj === 'string') ? cmdObj : cmdObj.command
+        if (!cmdStr) {
+          enriched.push(cmdObj)
+          continue
+        }
+
+        try {
+          const parseResult = await this.request('parser:parse-command-string', {
+            commandString: cmdStr,
+            options: { generateDisplayText: true }
+          })
+          const first = parseResult?.commands?.[0]
+          if (first) {
+            enriched.push({
+              ...cmdObj,
+              displayText: first.displayText,
+              icon: first.icon,
+              category: first.category,
+              text: first.displayText,
+            })
+          } else {
+            enriched.push(cmdObj)
+          }
+        } catch {
+          enriched.push(cmdObj)
+        }
+      }
+      return enriched
     }
   }
 
@@ -244,7 +280,7 @@ export default class CommandLibraryService extends ComponentBase {
   async findCommandDefinition(command) {
     try {
       // Special handling for user-defined alias commands - don't try to match them against command definitions
-      if (command && command.isUserAlias) {
+      if (command && command.isUserAlias && !command.isVfxAlias) {
         return {
           name: command.text || command.command,
           description: command.description || `User-defined alias: ${command.command}`,
@@ -257,18 +293,18 @@ export default class CommandLibraryService extends ComponentBase {
       }
       
       // Special handling for VFX aliases - don't try to match them against command definitions
-      console.log('[CommandLibraryService] findCommandDefinition', { command })
-      if (command && typeof command.command === 'string' && command.command.startsWith('dynFxSetFXExlusionList_')) {
-        return {
-          name: command.text || command.command,
-          description: command.description || `VFX alias: ${command.command}`,
-          command: command.command,
-          type: 'vfx-alias',
-          icon: '🎭️',
-          commandId: command.command,
-          categoryId: 'vfx-alias'
-        }
-      }
+      // console.log('[CommandLibraryService] findCommandDefinition', { command })
+      // if (command && command.isVfxAlias) {
+      //   return {
+      //     name: command.text || command.command,
+      //     description: command.description || `VFX alias: ${command.command}`,
+      //     command: command.command,
+      //     type: 'vfx-alias',
+      //     icon: '🎭️',
+      //     commandId: command.command,
+      //     categoryId: 'vfx-alias'
+      //   }
+      // }
       
       const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return null
@@ -320,6 +356,27 @@ export default class CommandLibraryService extends ComponentBase {
               return { ...def, commandId: 'custom_tray', categoryId }
             }
           }
+        }
+      }
+
+      // Detect references to other user-defined aliases when the command
+      // string exactly matches an alias name in the current profile.
+      if (
+        command &&
+        typeof command.command === 'string' &&
+        this.cache.aliases &&
+        Object.prototype.hasOwnProperty.call(this.cache.aliases, command.command)
+      ) {
+        const aliasObj = this.cache.aliases[command.command] || {}
+        const isVfxAlias = aliasObj.type === 'vfx-alias'
+        return {
+          name: command.command,
+          description: aliasObj.description || `Alias: ${command.command}`,
+          command: command.command,
+          type: isVfxAlias ? 'vfx-alias' : 'alias',
+          icon: isVfxAlias ? '👁️' : '🎭',
+          commandId: command.command,
+          categoryId: isVfxAlias ? 'vfx-alias' : 'aliases'
         }
       }
 

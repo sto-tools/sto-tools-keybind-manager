@@ -657,19 +657,22 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(`Profile ${profileId} not found`)
     }
 
-    if (!(updates.add || updates.delete || updates.modify || updates.properties)) {
+    // Extract updateSource for broadcast but don't persist it
+    const { updateSource, ...persistableUpdates } = updates
+
+    if (!(persistableUpdates.add || persistableUpdates.delete || persistableUpdates.modify || persistableUpdates.properties)) {
       throw new Error('Explicit operations (add/delete/modify/properties) required')
     }
 
       const updatedProfile = this.processUpdateOperations(currentProfile, {
-        ...updates,
+        ...persistableUpdates,
         properties: {
-          ...(updates.properties || {}),
+          ...(persistableUpdates.properties || {}),
           lastModified: new Date().toISOString()
         }
       })
       
-      // Persist to storage first
+      // Persist to storage first (without updateSource)
       console.log(`[${this.componentName}] Saving profile ${profileId} to storage:`, updatedProfile)
       await this.storage.saveProfile(profileId, updatedProfile)
 
@@ -678,14 +681,16 @@ export default class DataCoordinator extends ComponentBase {
       this.state.metadata.lastModified = new Date().toISOString()
 
       // Determine if any structural collections were touched
-      const touchedCollections = !!(updates.add || updates.delete || updates.modify)
+      const touchedCollections = !!(persistableUpdates.add || persistableUpdates.delete || persistableUpdates.modify)
 
       if (touchedCollections) { // || updates.properties?.currentEnvironment || updates.properties?.currentProfile) {
         // Notify other services when aliases / builds changed // or environment/profile properties changed
+        // Include updateSource in broadcast but it was not persisted
         this.emit('profile:updated', {
           profileId,
           profile: updatedProfile,
-          updates,
+          updates: persistableUpdates,
+          updateSource, // Include for event filtering but not persisted
           timestamp: Date.now()
         })
       }

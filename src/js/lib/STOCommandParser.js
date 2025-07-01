@@ -138,23 +138,31 @@ export class STOCommandParser {
       'VFXCommands': {
         patterns: [
           {
-            regex: /^dynFxSetFXExlusionList\s+(.+)$/i,
+            regex: /^dynFxExcludeFX\s+(.+)$/i,
             weight: 50,
             signature: 'VFXExclusion(effects: string)',
             extractParams: (match) => ({ effects: match[1] }),
             generateDisplayText: (params) => `VFX Exclude: ${params.effects}`
-          },
+          },          
           {
-            regex: /^dynFxSetFXExlusionList_(.+)$/i,
+            regex: /^dynFxSetFXExclusionList_(.+)$/i,
             weight: 49,
             signature: 'VFXExclusionAlias(aliasName: string)',
             extractParams: (match) => ({ aliasName: match[1] }),
             generateDisplayText: (params) => `VFX Alias: ${params.aliasName}`
+          },
+          {
+            regex: /^dynFxSetFXExclusionList$/i,
+            weight: 49,
+            signature: 'VFXExclusionAlias(aliasName: string)',
+            extractParams: (match) => ({ aliasName: match[1] }),
+            generateDisplayText: (params) => `VFX Alias: Combined Space/Ground`
           }
+
         ],
         category: 'vfx',
         baseCommand: 'VFXControl',
-        icon: '✨'
+        icon: '👁️'
       },
 
       'StaticCombat': {

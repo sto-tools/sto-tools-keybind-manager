@@ -85,6 +85,14 @@ export default class CommandLibraryUI extends ComponentBase {
       this.setupCommandLibrary()
     })
 
+    // Listen for alias changes to update command library with new aliases
+    this.addEventListener('aliases-changed', ({ aliases }) => {
+      if (aliases) {
+        this.cache.aliases = aliases
+        this.updateCommandLibrary()
+      }
+    })
+
     // Stabilize execution order now handled via toolbar button in CommandChainUI
 
     // Command lifecycle events are now handled by CommandChainUI
@@ -299,7 +307,7 @@ export default class CommandLibraryUI extends ComponentBase {
         const fullyHydratedAlias = {
           command: aliasName,
           type: alias.type,
-          icon: '🎭',
+          icon: isVfxAlias ? '👁️' : '🎭',
           text: `${aliasName}`,
           description: alias.description,
           isUserAlias: true,  // Flag to identify this as a user-defined alias
@@ -359,8 +367,8 @@ export default class CommandLibraryUI extends ComponentBase {
     }
 
     const allAliases = Object.entries(this.cache.aliases)
-    const regularAliases = allAliases.filter(([name]) => !name.startsWith('dynFxSetFXExlusionList_'))
-    const vertigoAliases = allAliases.filter(([name]) => name.startsWith('dynFxSetFXExlusionList_'))
+    const regularAliases = allAliases.filter(([name, alias]) => alias.type !== 'vfx-alias')
+    const vertigoAliases = allAliases.filter(([name, alias]) => alias.type === 'vfx-alias')
 
     // Only create regular aliases category if there are regular aliases
     if (regularAliases.length > 0) {
