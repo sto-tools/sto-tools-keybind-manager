@@ -259,37 +259,16 @@ export default class ParameterCommandService extends ComponentBase {
     // as single source of truth instead of CommandBuilderService.
     const builders = {
       targeting: (p) => {
-        // Always use commandId 'target_entity' for this builder
-        if (commandId === 'target_entity') {
-          const entity = p.entityName || ''
-          const cmdStr = `${commandDef.command || 'Target'} "${entity}"`
+        // Handle both legacy data.js format (commandId: 'target') and signature-based format (commandId: 'target_entity')
+        if ((commandId === 'target' || commandId === 'target_entity') && p.entityName) {
           return {
-            command: cmdStr,
-            text: `Target "${entity}"`,
+            command: `Target "${p.entityName}"`,
+            text: `Target: ${p.entityName}`,
           }
         }
-        // Generic handling for other targeting commands (e.g. Assist)
-        if (commandDef.customizable && commandDef.parameters) {
-          const paramVals = []
-          Object.keys(commandDef.parameters).forEach(key => {
-            const val = p[key]
-            if (val !== undefined && val !== '') {
-              if (typeof val === 'string') {
-                paramVals.push(`"${val}"`)
-              } else {
-                paramVals.push(val)
-              }
-            }
-          })
-          const cmdStr = [commandDef.command, ...paramVals].join(' ').trim()
-          return {
-            command: cmdStr,
-            text: `${commandDef.name}: ${paramVals.join(' ')}`.trim(),
-          }
-        }
-
-        // Fallback – return base command string if available
-        return { command: commandDef.command, text: commandDef.name }
+        // Ensure command is always a string, even if commandDef.command is malformed
+        const commandString = typeof commandDef.command === 'string' ? commandDef.command : 'Target'
+        return { command: commandString, text: commandDef.name }
       },
 
       tray: async (p) => {
@@ -434,19 +413,29 @@ export default class ParameterCommandService extends ComponentBase {
       movement: (p) => {
         let cmd = commandDef.command
         if (commandId === 'throttle_adjust' && p.amount !== undefined) {
-          cmd = `${commandDef.command} ${p.amount}`
+          // Handle case where commandDef.command might be undefined
+          const baseCmd = cmd || 'ThrottleAdjust'
+          cmd = `${baseCmd} ${p.amount}`
         } else if (commandId === 'throttle_set' && p.position !== undefined) {
-          cmd = `${commandDef.command} ${p.position}`
+          // Handle case where commandDef.command might be undefined
+          const baseCmd = cmd || 'ThrottleSet'
+          cmd = `${baseCmd} ${p.position}`
         }
-        return { command: cmd, text: commandDef.name }
+        // Ensure cmd is always a string, even if commandDef.command was undefined
+        const finalCmd = cmd || commandDef.name || 'Movement Command'
+        return { command: finalCmd, text: commandDef.name }
       },
 
       camera: (p) => {
         let cmd = commandDef.command
         if (commandId === 'cam_distance' && p.distance !== undefined) {
-          cmd = `${commandDef.command} ${p.distance}`
+          // Handle case where commandDef.command might be undefined
+          const baseCmd = cmd || 'camdist'
+          cmd = `${baseCmd} ${p.distance}`
         }
-        return { command: cmd, text: commandDef.name }
+        // Ensure cmd is always a string, even if commandDef.command was undefined
+        const finalCmd = cmd || commandDef.name || 'Camera Command'
+        return { command: finalCmd, text: commandDef.name }
       },
 
       communication: (p) => {
@@ -507,21 +496,62 @@ export default class ParameterCommandService extends ComponentBase {
 
       system: (p) => {
         let cmd = commandDef.command
-
-        // Generic parameter concatenation for customizable system commands
-        if (commandDef.customizable && commandDef.parameters) {
-          const paramVals = []
-          Object.keys(commandDef.parameters).forEach(key => {
-            const val = p[key]
-            if (val !== undefined && val !== '') paramVals.push(val)
-          })
-          if (paramVals.length) cmd = `${commandDef.command} ${paramVals.join(' ')}`
-        } else if ((commandId === 'bind_save_file' || commandId === 'bind_load_file') && p.filename) {
-          cmd = `${commandDef.command} ${p.filename}`
+        if ((commandId === 'bind_save_file' || commandId === 'bind_load_file') && p.filename) {
+          // Handle case where commandDef.command might be undefined
+          const baseCmd = cmd || (commandId === 'bind_save_file' ? 'bind_save_file' : 'bind_load_file')
+          cmd = `${baseCmd} ${p.filename}`
         } else if (commandId === 'combat_log' && p.state !== undefined) {
-          cmd = `${commandDef.command} ${p.state}`
+          // Handle case where commandDef.command might be undefined
+          const baseCmd = cmd || 'CombatLog'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'ui_remember_positions' && p.state !== undefined) {
+          // Handle Remember UI Positions command
+          const baseCmd = cmd || 'UIRememberPositions'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'chat_log' && p.state !== undefined) {
+          // Handle Chat Log command
+          const baseCmd = cmd || 'ChatLog'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'ui_tooltip_delay' && p.seconds !== undefined) {
+          // Handle UI Tooltip Delay command
+          const baseCmd = cmd || 'ui_TooltipDelay'
+          cmd = `${baseCmd} ${p.seconds}`
+        } else if (commandId === 'remember_ui_lists' && p.state !== undefined) {
+          // Handle Remember UI Lists command
+          const baseCmd = cmd || 'RememberUILists'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'safe_login' && p.state !== undefined) {
+          // Handle Safe Login command
+          const baseCmd = cmd || 'SafeLogin'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'net_timing_graph' && p.state !== undefined) {
+          // Handle Net Timing Graph command
+          const baseCmd = cmd || 'netTimingGraph'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'net_timing_graph_alpha' && p.alpha !== undefined) {
+          // Handle Net Timing Graph Alpha command
+          const baseCmd = cmd || 'netTimingGraphAlpha'
+          cmd = `${baseCmd} ${p.alpha}`
+        } else if (commandId === 'net_timing_graph_paused' && p.state !== undefined) {
+          // Handle Net Timing Graph Paused command
+          const baseCmd = cmd || 'netTimingGraphPaused'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'netgraph' && p.state !== undefined) {
+          // Handle Net Graph command
+          const baseCmd = cmd || 'netgraph'
+          cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'ui_load_file' && p.filename) {
+          // Handle UI Load File command
+          const baseCmd = cmd || 'ui_load_file'
+          cmd = `${baseCmd} ${p.filename}`
+        } else if (commandId === 'ui_save_file' && p.filename) {
+          // Handle UI Save File command
+          const baseCmd = cmd || 'ui_save_file'
+          cmd = `${baseCmd} ${p.filename}`
         }
-        return { command: cmd, text: commandDef.name }
+        // Ensure cmd is always a string, even if commandDef.command was undefined
+        const finalCmd = cmd || commandDef.name || 'System Command'
+        return { command: finalCmd, text: commandDef.name }
       },
 
       /*
@@ -534,34 +564,54 @@ export default class ParameterCommandService extends ComponentBase {
         if (!aliasName) return null // caller handles validation feedback
         return { command: aliasName, text: `Alias: ${aliasName}` }
       },
-    }
 
-    const builder = builders[categoryId] || (() => ({ command: commandDef.command }))
-    let result = await builder(params)
-
-    // -------- Generic fallback ----------
-    if (commandDef.customizable) {
-      const ensureString = (res) => {
-        if (!res) return res
-        if (Array.isArray(res)) return res.map(ensureString)
-        if (typeof res === 'string') return { command: res }
-        if (typeof res.command === 'string' && res.command.trim() !== '') return res
-
-        // Build command string from params if missing
-        const parts = [commandDef.command]
-        Object.keys(commandDef.parameters || {}).forEach(key => {
-          const val = params[key]
-          if (val !== undefined && val !== '') {
-            parts.push(typeof val === 'string' ? `"${val}"` : val)
+      // Bridge officer commands (previously missing)
+      bridge_officer: (p) => {
+        if (commandId === 'assist' && p.name) {
+          return {
+            command: `Assist "${p.name}"`,
+            text: `Assist: ${p.name}`
           }
-        })
-        res.command = parts.join(' ').trim()
-        return res
-      }
-      result = ensureString(result)
+        } else if (commandId === 'assist') {
+          // Assist without a name targets current selection
+          return {
+            command: 'Assist',
+            text: 'Assist Current Target'
+          }
+        }
+        // For other bridge officer commands, use the base command
+        return { command: commandDef.command, text: commandDef.name }
+      },
+
+      // Cosmetic commands (previously missing)  
+      cosmetic: (p) => {
+        if (commandId === 'setactivecostume' && p.modifier1 && p.modifier2) {
+          return {
+            command: `${commandDef.command} ${p.modifier1} ${p.modifier2}`,
+            text: `Set Costume: ${p.modifier1} ${p.modifier2}`
+          }
+        }
+        // For other cosmetic commands, use the base command
+        return { command: commandDef.command, text: commandDef.name }
+      },
     }
 
-    return result
+    const builder = builders[categoryId]
+    if (!builder) return null
+
+    const result = await builder(params)
+    if (!result) return null // invalid params (e.g. empty alias name)
+
+    if (Array.isArray(result)) return result // already fully-fledged command list
+
+    return {
+      command: result.command,
+      type:    categoryId,
+      icon:    commandDef.icon,
+      displayText: result.text,
+      id:      this.generateCommandId(),
+      parameters: result.parameters || params, // Use builder's parameters if available, otherwise fall back to input params
+    }
   }
 
   /* ------------------------------------------------------------

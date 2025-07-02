@@ -276,19 +276,20 @@ export default class ParameterCommandUI extends ComponentBase {
       const previewEl = this.document.getElementById('parameterCommandPreview')
       if (!previewEl || !cmd) return
 
-      const toStr = (entry) => {
-        if (!entry) return ''
-        if (typeof entry === 'string') return entry
-        if (typeof entry.command === 'string') return entry.command
-        if (typeof entry.command === 'object') return toStr(entry.command) // unwrap nested
-        if (typeof entry.displayText === 'string') return entry.displayText
-        return JSON.stringify(entry)
-      }
-
       if (Array.isArray(cmd)) {
-        previewEl.textContent = cmd.map(toStr).filter(Boolean).join(' $$ ')
+        previewEl.textContent = cmd.map(c => c.command || c).filter(c => c).join(' $$ ')
       } else {
-        previewEl.textContent = toStr(cmd)
+        // Handle both string commands and command objects
+        let commandText = ''
+        if (typeof cmd === 'string') {
+          commandText = cmd
+        } else if (cmd.command) {
+          commandText = cmd.command
+        } else {
+          // Fallback for malformed command objects
+          commandText = 'Error: Invalid command format'
+        }
+        previewEl.textContent = commandText
       }
     } catch (error) {
       console.error('Error updating parameter preview:', error)

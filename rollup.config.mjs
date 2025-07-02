@@ -2,6 +2,8 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import json from '@rollup/plugin-json';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export default {
   input: 'src/js/main.js',
   output: {
@@ -14,7 +16,7 @@ export default {
     json(),
     terser({
       compress: {
-        drop_console: false, // Keep console logs for debugging
+        drop_console: isProduction, // Strip console logs in production
         drop_debugger: true,
         pure_funcs: ['console.debug'],
         passes: 2
