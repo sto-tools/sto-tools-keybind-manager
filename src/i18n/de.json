@@ -960,5 +960,12 @@
   "vfx_aliases": "VFX-Aliase",
   "delete_selected_key": "Ausgewählte Taste löschen",
   "duplicate_selected_key": "Ausgewählte Taste duplizieren",
-  "show_all_keys": "Alle Tasten anzeigen"
+  "show_all_keys": "Alle Tasten anzeigen",
+  "duplicate": "Duplizieren",
+  "invalid_alias_name": "Ungültiger Alias-Name",
+  "reserved_command_name": "Name steht im Konflikt mit einem STO-Befehl",
+  "backup_created_successfully": "Anwendungsbackup erfolgreich erstellt",
+  "failed_to_create_backup": "Backup erstellen fehlgeschlagen: {{error}}",
+  "backup_restored_successfully": "Anwendungsstatus erfolgreich wiederhergestellt",
+  "failed_to_restore_backup": "Backup wiederherstellen fehlgeschlagen: {{error}}"
 }

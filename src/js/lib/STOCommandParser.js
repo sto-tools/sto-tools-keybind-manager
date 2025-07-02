@@ -61,13 +61,30 @@ export class STOCommandParser {
       'TrayExecution': {
         patterns: [
           { 
-            regex: /^(\+?(?:STO)?TrayExecByTray)\s+(\d+)\s+(\d+)$/i,
+            // Handle + form: +TrayExecByTray <tray> <slot> (active=1 implicit)
+            regex: /^(\+(?:STO)?TrayExecByTray)\s+(\d+)\s+(\d+)$/i,
             weight: 100, // Highest priority - most frequent command
-            signature: 'TrayExecByTray(tray: number, slot: number)',
+            signature: 'TrayExecByTray(active: number, tray: number, slot: number)',
             extractParams: (match) => ({ 
+              active: 1, // + form implies active=1
               tray: parseInt(match[2]), 
               slot: parseInt(match[3]),
-              baseCommand: match[1]
+              baseCommand: match[1],
+              isShorthand: true
+            }),
+            generateDisplayText: (params) => `Execute Tray ${params.tray + 1} Slot ${params.slot + 1}`
+          },
+          { 
+            // Handle standard form: TrayExecByTray <active> <tray> <slot>
+            regex: /^((?:STO)?TrayExecByTray)\s+(\d+)\s+(\d+)\s+(\d+)$/i,
+            weight: 99, // Slightly lower priority than + form
+            signature: 'TrayExecByTray(active: number, tray: number, slot: number)',
+            extractParams: (match) => ({ 
+              active: parseInt(match[2]),
+              tray: parseInt(match[3]), 
+              slot: parseInt(match[4]),
+              baseCommand: match[1],
+              isShorthand: false
             }),
             generateDisplayText: (params) => `Execute Tray ${params.tray + 1} Slot ${params.slot + 1}`
           }
@@ -80,15 +97,34 @@ export class STOCommandParser {
       'TrayWithBackup': {
         patterns: [
           {
-            regex: /^TrayExecByTrayWithBackup\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/i,
+            // Handle + form: +TrayExecByTrayWithBackup <tray> <slot> <backup_tray> <backup_slot> (active=1 implicit)
+            regex: /^(\+TrayExecByTrayWithBackup)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/i,
             weight: 90,
             signature: 'TrayExecByTrayWithBackup(active: number, tray: number, slot: number, backup_tray: number, backup_slot: number)',
             extractParams: (match) => ({ 
-              active: parseInt(match[1]),
+              active: 1, // + form implies active=1
               tray: parseInt(match[2]), 
               slot: parseInt(match[3]),
               backup_tray: parseInt(match[4]), 
-              backup_slot: parseInt(match[5])
+              backup_slot: parseInt(match[5]),
+              baseCommand: match[1],
+              isShorthand: true
+            }),
+            generateDisplayText: (params) => `Tray Backup (${params.tray + 1}.${params.slot + 1} → ${params.backup_tray + 1}.${params.backup_slot + 1})`
+          },
+          {
+            // Handle standard form: TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>
+            regex: /^(TrayExecByTrayWithBackup)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/i,
+            weight: 89,
+            signature: 'TrayExecByTrayWithBackup(active: number, tray: number, slot: number, backup_tray: number, backup_slot: number)',
+            extractParams: (match) => ({ 
+              active: parseInt(match[2]),
+              tray: parseInt(match[3]), 
+              slot: parseInt(match[4]),
+              backup_tray: parseInt(match[5]), 
+              backup_slot: parseInt(match[6]),
+              baseCommand: match[1],
+              isShorthand: false
             }),
             generateDisplayText: (params) => `Tray Backup (${params.tray + 1}.${params.slot + 1} → ${params.backup_tray + 1}.${params.backup_slot + 1})`
           }
@@ -138,31 +174,23 @@ export class STOCommandParser {
       'VFXCommands': {
         patterns: [
           {
-            regex: /^dynFxExcludeFX\s+(.+)$/i,
+            regex: /^dynFxSetFXExlusionList\s+(.+)$/i,
             weight: 50,
             signature: 'VFXExclusion(effects: string)',
             extractParams: (match) => ({ effects: match[1] }),
             generateDisplayText: (params) => `VFX Exclude: ${params.effects}`
           },          
           {
-            regex: /^dynFxSetFXExclusionList_(.+)$/i,
+            regex: /^dynFxSetFXExlusionList_(.+)$/i,
             weight: 49,
             signature: 'VFXExclusionAlias(aliasName: string)',
             extractParams: (match) => ({ aliasName: match[1] }),
             generateDisplayText: (params) => `VFX Alias: ${params.aliasName}`
-          },
-          {
-            regex: /^dynFxSetFXExclusionList$/i,
-            weight: 49,
-            signature: 'VFXExclusionAlias(aliasName: string)',
-            extractParams: (match) => ({ aliasName: match[1] }),
-            generateDisplayText: (params) => `VFX Alias: Combined Space/Ground`
           }
-
         ],
         category: 'vfx',
         baseCommand: 'VFXControl',
-        icon: '👁️'
+        icon: '✨'
       },
 
       'StaticCombat': {

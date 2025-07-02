@@ -19,7 +19,7 @@ export default class PreferencesUI extends ComponentBase {
       language: { type: 'select', element: 'languageSelect' },
       autoSave: { type: 'boolean', element: 'autoSaveCheckbox' },
       compactView: { type: 'boolean', element: 'compactViewCheckbox' },
-      autoSync: { type: 'boolean', element: 'autoSyncCheckbox' },
+      autoSync: { type: 'boolean', element: 'autoSync' },
       autoSyncInterval: { type: 'select', element: 'autoSyncInterval' },
     }
   }
@@ -40,7 +40,17 @@ export default class PreferencesUI extends ComponentBase {
       this.showPreferences()
     })
 
+    // Listen for sync folder changes
+    this.eventBus.on('sync:folder-set', () => {
+      this.updateFolderDisplay()
+    })
 
+    // Listen for settings changes that should update AutoSync
+    this.eventBus.on('preferences:changed', (data) => {
+      if (data.key === 'autoSync' || data.key === 'autoSyncInterval') {
+        this.notifyAutoSyncSettingsChanged()
+      }
+    })
 
     // Category navigation buttons
     document.querySelectorAll('.category-item').forEach((item) => {
@@ -114,6 +124,8 @@ export default class PreferencesUI extends ComponentBase {
     if (key === 'syncFolderName' || key === 'syncFolderPath') {
       this.updateFolderDisplay()
     }
+
+    // PreferencesService already emits 'preferences:changed' when setting is updated
   }
 
   updateUI(key, value) {
@@ -135,6 +147,10 @@ export default class PreferencesUI extends ComponentBase {
     if (ok && manual && this.ui?.showToast) {
       this.ui.showToast(i18next.t('preferences_saved'), 'success')
     }
+    
+    // Notify AutoSync of setting changes
+    this.notifyAutoSyncSettingsChanged()
+    
     // Use event bus instead of direct modalManager call
     this.emit('modal:hide', { modalId: 'preferencesModal' })
   }
@@ -160,12 +176,24 @@ export default class PreferencesUI extends ComponentBase {
     const settings = await this.request('preferences:get-settings')
     const { syncFolderName, syncFolderPath } = settings
     
-    // Update folder display UI
-    const folderNameEl = this.document.getElementById('syncFolderName')
-    const folderPathEl = this.document.getElementById('syncFolderPath')
+    // Update folder display UI - use correct element ID from HTML
+    const folderDisplayEl = this.document.getElementById('currentSyncFolder')
     
-    if (folderNameEl) folderNameEl.textContent = syncFolderName || 'No folder selected'
-    if (folderPathEl) folderPathEl.textContent = syncFolderPath || ''
+    if (folderDisplayEl) {
+      if (syncFolderName) {
+        folderDisplayEl.textContent = syncFolderName
+        // Remove the data-i18n attribute when showing actual folder name
+        folderDisplayEl.removeAttribute('data-i18n')
+      } else {
+        folderDisplayEl.textContent = i18next.t('no_folder_selected')
+        folderDisplayEl.setAttribute('data-i18n', 'no_folder_selected')
+      }
+    }
+  }
+
+  async notifyAutoSyncSettingsChanged() {
+    // Emit event for AutoSync service to listen to
+    this.emit('preferences:autosync-settings-changed')
   }
 
   async setSetting(key, value) {

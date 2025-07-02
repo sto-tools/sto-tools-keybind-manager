@@ -27,6 +27,7 @@ import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
 import { VFXManagerUI, HeaderMenuUI, AboutModalUI } from './components/ui/index.js'
+import { SyncUI } from './components/sync/index.js'
 import STOCommandParser from './lib/STOCommandParser.js'
 import ImportService from './components/services/ImportService.js'
 
@@ -342,6 +343,12 @@ export default class STOToolsKeybindManager {
       })
       // dbg('HeaderMenuUI created')
       
+      // Initialize SyncUI to handle sync operations
+      this.syncUI = new SyncUI({
+        ui: stoUI
+      })
+      // dbg('SyncUI created')
+      
       // Initialize AboutModalUI to handle about modal
       this.aboutModalUI = new AboutModalUI({
         eventBus,
@@ -441,7 +448,7 @@ export default class STOToolsKeybindManager {
       await new Promise(resolve => setTimeout(resolve, 10))
 
       try {
-        this.headerMenuUI.init()
+        this.headerMenuUI.onInit()
         // dbg('headerMenuUI.init completed successfully')
       } catch (error) {
         // dbg('Error in headerMenuUI.init:', error)
@@ -449,7 +456,15 @@ export default class STOToolsKeybindManager {
       }
       
       try {
-        this.aboutModalUI.init()
+        this.syncUI.init()
+        // dbg('syncUI.init completed successfully')
+      } catch (error) {
+        // dbg('Error in syncUI.init:', error)
+        throw error // Re-throw to see the full error
+      }
+      
+      try {
+        this.aboutModalUI.onInit()
         // dbg('aboutModalUI.init completed successfully')
       } catch (error) {
         // dbg('Error in aboutModalUI.init:', error)

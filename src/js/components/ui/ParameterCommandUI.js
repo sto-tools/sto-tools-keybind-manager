@@ -447,7 +447,7 @@ export default class ParameterCommandUI extends ComponentBase {
       end_slot:     'Ending slot number',
       backup_tray:  'Backup tray number',
       backup_slot:  'Backup slot number',
-      active:       '1 to activate immediately, 0 to queue',
+      active:       '0: Disabled, 1: Enabled',
       entityName:   'Name of the entity to target',
       message:      'Message text to send',
       distance:     'Camera distance value',

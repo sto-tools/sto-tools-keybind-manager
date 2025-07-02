@@ -130,31 +130,20 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   setupRequestHandlers() {
-    // Register request/response handlers
+    this.respond('data:get-current-state', () => this.getCurrentState())
     this.respond('data:get-all-profiles', () => this.getAllProfiles())
+    this.respond('data:get-current-profile', () => this.getCurrentProfile())
     this.respond('data:switch-profile', ({ profileId }) => this.switchProfile(profileId))
     this.respond('data:create-profile', ({ name, description, mode }) => this.createProfile(name, description, mode))
     this.respond('data:clone-profile', ({ sourceId, newName }) => this.cloneProfile(sourceId, newName))
-    this.respond('data:delete-profile', ({ profileId }) => this.deleteProfile(profileId))
     this.respond('data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
-    this.respond('data:update-profile', ({ profileId, ...operations }) =>
-      this.updateProfile(profileId, operations))
-    
-    // Environment operations
+    this.respond('data:delete-profile', ({ profileId }) => this.deleteProfile(profileId))
+    this.respond('data:update-profile', ({ profileId, updates }) => this.updateProfile(profileId, updates))
     this.respond('data:set-environment', ({ environment }) => this.setEnvironment(environment))
-    
-    // Key and command operations
-    this.respond('data:get-keys', ({ environment }) => this.getKeys(environment))
-    this.respond('data:get-key-commands', ({ environment, key }) => this.getKeyCommands(environment, key))
-    
-    // Settings operations
     this.respond('data:get-settings', () => this.getSettings())
     this.respond('data:update-settings', ({ settings }) => this.updateSettings(settings))
-    
-    // Default data operations
     this.respond('data:load-default-data', () => this.loadDefaultData())
-    
-    // Late join support is handled by ComponentBase automatically
+    this.respond('data:reload-state', () => this.reloadState())
   }
 
   /**
@@ -1022,5 +1011,87 @@ export default class DataCoordinator extends ComponentBase {
       .replace(/[^a-z0-9\s]/g, '')
       .replace(/\s+/g, '_')
       .substring(0, 50)
+  }
+
+  /**
+   * Reload state from storage (used after data import/restore)
+   */
+  async reloadState() {
+    console.log(`[${this.componentName}] Reloading state from storage...`)
+    
+    try {
+      // Get fresh data from storage
+      const allData = this.storage.getAllData()
+      
+      // Update our state
+      this.state.profiles = allData.profiles || {}
+      this.state.currentProfile = allData.currentProfile || null
+      this.state.settings = allData.settings || {}
+      
+      // Set current environment from current profile if available
+      if (this.state.currentProfile && this.state.profiles[this.state.currentProfile]) {
+        const currentProfile = this.state.profiles[this.state.currentProfile]
+        this.state.currentEnvironment = currentProfile.currentEnvironment || 'space'
+      } else {
+        this.state.currentEnvironment = 'space'
+      }
+      
+      // Update metadata
+      this.state.metadata.lastModified = new Date().toISOString()
+      
+      console.log(`[${this.componentName}] State reloaded. Current profile: ${this.state.currentProfile}, Environment: ${this.state.currentEnvironment}`)
+      
+      // Emit events to refresh UI components
+      
+      // 1. Emit profiles:initialized to refresh profile lists
+      this.emit('profiles:initialized', {
+        profiles: this.state.profiles,
+        currentProfile: this.state.currentProfile,
+        timestamp: Date.now()
+      })
+      
+      // 2. If we have a current profile, emit profile:switched to refresh profile-specific UI
+      if (this.state.currentProfile && this.state.profiles[this.state.currentProfile]) {
+        const currentProfile = this.state.profiles[this.state.currentProfile]
+        const virtualProfile = this.buildVirtualProfile(currentProfile, this.state.currentEnvironment)
+        
+        this.emit('profile:switched', {
+          fromProfile: null, // We don't know the previous profile after reload
+          toProfile: this.state.currentProfile,
+          profileId: this.state.currentProfile,
+          profile: virtualProfile,
+          environment: this.state.currentEnvironment,
+          timestamp: Date.now()
+        })
+      }
+      
+      // 3. Emit environment change to refresh environment-specific UI
+      this.emit('environment:changed', {
+        fromEnvironment: null, // We don't know the previous environment after reload
+        toEnvironment: this.state.currentEnvironment,
+        environment: this.state.currentEnvironment,
+        timestamp: Date.now()
+      })
+      
+      // 4. Emit settings change to refresh settings UI
+      this.emit('settings:changed', {
+        settings: this.state.settings,
+        updates: this.state.settings, // All settings are "new" after reload
+        timestamp: Date.now()
+      })
+      
+      console.log(`[${this.componentName}] Emitted refresh events after state reload`)
+      
+      return {
+        success: true,
+        profiles: Object.keys(this.state.profiles).length,
+        currentProfile: this.state.currentProfile,
+        environment: this.state.currentEnvironment
+      }
+      
+    } catch (error) {
+      console.error(`[${this.componentName}] Failed to reload state:`, error)
+      return { success: false, error: error.message }
+    }
   }
 } 

@@ -333,6 +333,7 @@ const STO_DATA = {
           icon: '⚡',
           customizable: true,
           parameters: {
+            active: { type: 'number', min: 0, max: 1, default: 1 },
             tray: { type: 'number', min: 0, max: 9, default: 0 },
             slot: { type: 'number', min: 0, max: 9, default: 0 },
             command_type: {
@@ -366,6 +367,7 @@ const STO_DATA = {
           icon: '⚡',
           customizable: true,
           parameters: {
+            active: { type: 'number', min: 0, max: 1, default: 1 },
             start_tray: { type: 'number', min: 0, max: 9, default: 0 },
             start_slot: { type: 'number', min: 0, max: 9, default: 0 },
             end_tray: { type: 'number', min: 0, max: 9, default: 0 },
@@ -405,6 +407,7 @@ const STO_DATA = {
           icon: '⚡',
           customizable: true,
           parameters: {
+            active: { type: 'number', min: 0, max: 1, default: 1 },
             tray: { type: 'number', min: 0, max: 9, default: 0 },
             command_type: {
               type: 'select',

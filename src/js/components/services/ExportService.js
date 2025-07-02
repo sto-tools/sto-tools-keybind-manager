@@ -44,11 +44,11 @@ export default class ExportService extends ComponentBase {
     this.respond('export:generate-alias-filename', ({ profile, extension }) => 
       this.generateAliasFileName(profile, extension))
     
-    this.respond('export:generate-csv-data', ({ profile }) => 
-      this.generateCSVData(profile))
+    this.respond('export:generate-csv-data', async ({ profile }) => 
+      await this.generateCSVData(profile))
     
-    this.respond('export:generate-html-report', ({ profile }) => 
-      this.generateHTMLReport(profile))
+    this.respond('export:generate-html-report', async ({ profile }) => 
+      await this.generateHTMLReport(profile))
     
     this.respond('export:import-from-file', async ({ file }) => 
       await this.importFromFile(file))
@@ -172,6 +172,13 @@ export default class ExportService extends ComponentBase {
     for (const [name, alias] of sorted) {
       let commandsStr = alias.commands || ''
 
+      // Apply normalization to individual commands within the alias
+      if (commandsStr) {
+        const cmdParts = commandsStr.split(/\s*\$\$\s*/).filter(Boolean).map(c => ({ command: c }))
+        const normalizedParts = await this.normalizeCommandsForExport(cmdParts)
+        commandsStr = normalizedParts.map(c => typeof c === 'string' ? c : c.command).join(' $$ ')
+      }
+
       // Apply mirroring if aliasMetadata says so
       const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
 
@@ -199,18 +206,24 @@ export default class ExportService extends ComponentBase {
     content += `; ${environment.toUpperCase()} KEYBINDS\n`
     content += `; ==============================================================================\n\n`
     
-    // Generate keybind commands – apply mirroring when profile metadata says so
-    Object.entries(keys).forEach(([key, commands]) => {
+    // Generate keybind commands – apply normalization and mirroring when profile metadata says so
+    for (const [key, commands] of Object.entries(keys)) {
       let cmds = commands
       const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
         profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
 
-      if (shouldStabilize && Array.isArray(commands) && commands.length > 1) {
-        cmds = this.mirrorCommands(commands)
+      // Apply normalization first
+      cmds = await this.normalizeCommandsForExport(cmds)
+
+      // Then apply mirroring if needed
+      if (shouldStabilize && Array.isArray(cmds) && cmds.length > 1) {
+        const cmdObjects = cmds.map(c => typeof c === 'string' ? { command: c } : c)
+        const mirroredString = await this.request('fileops:generate-mirrored-commands', { commands: cmdObjects })
+        cmds = mirroredString.split(/\s*\$\$\s*/).map(cmd => ({ command: cmd.trim() }))
       }
 
       content += formatKeybindLine(key, cmds)
-    })
+    }
     
     content += '\n'
     return content
@@ -219,15 +232,17 @@ export default class ExportService extends ComponentBase {
   /* ---------------------------------------------------------- */
   /* CSV helpers                                                */
   /* ---------------------------------------------------------- */
-  generateCSVData (profile) {
+  async generateCSVData (profile) {
     const rows = []
     const env = profile.currentEnvironment || 'space'
     const keys = this.extractKeys(profile, env)
 
     const getCmdStr = (c) => typeof c === 'string' ? c : c.command
 
-    Object.entries(keys).forEach(([key, commands]) => {
-      commands.forEach((cmdObj, idx) => {
+    // Process each key's commands with normalization
+    for (const [key, commands] of Object.entries(keys)) {
+      const normalizedCommands = await this.normalizeCommandsForExport(commands)
+      normalizedCommands.forEach((cmdObj, idx) => {
         const cmdStr = getCmdStr(cmdObj)
         rows.push({
           key,
@@ -237,7 +252,7 @@ export default class ExportService extends ComponentBase {
           description: (cmdObj && cmdObj.text) || '',
         })
       })
-    })
+    }
 
     // Aliases
     if (profile.aliases) {
@@ -277,10 +292,13 @@ export default class ExportService extends ComponentBase {
   /* ---------------------------------------------------------- */
   /* HTML helpers                                               */
   /* ---------------------------------------------------------- */
-  generateHTMLReport (profile) {
+  async generateHTMLReport (profile) {
     const env = profile.currentEnvironment || 'space'
     const keys = this.extractKeys(profile, env)
     const title = `${profile.name} – ${i18next.t('html_report_title')}`
+
+    const keybindSection = await this.generateHTMLKeybindSection(keys)
+    const aliasSection = this.generateHTMLAliasSection(profile.aliases)
 
     return `<!DOCTYPE html>
 <html lang="${i18next.language}">
@@ -304,28 +322,31 @@ export default class ExportService extends ComponentBase {
   <h1>${title}</h1>
 
   <h2>${i18next.t('keybinds')}</h2>
-  ${this.generateHTMLKeybindSection(keys)}
+  ${keybindSection}
 
   <h2>${i18next.t('aliases')}</h2>
-  ${this.generateHTMLAliasSection(profile.aliases)}
+  ${aliasSection}
 </body>
 </html>`
   }
 
-  generateHTMLKeybindSection (keys) {
+  async generateHTMLKeybindSection (keys) {
     if (!keys || Object.keys(keys).length === 0) return '<p>No keybinds defined</p>'
 
     const getCmdStr = (c) => typeof c === 'string' ? c : c.command
 
     let html = '<table><thead><tr><th>Key</th><th>Commands</th></tr></thead><tbody>'
-    Object.entries(keys).forEach(([key, commands]) => {
-      const commandList = commands
+    
+    for (const [key, commands] of Object.entries(keys)) {
+      const normalizedCommands = await this.normalizeCommandsForExport(commands)
+      const commandList = normalizedCommands
         .map(getCmdStr)
         .filter(Boolean)
         .map((c) => `<span class="command">${c}</span>`)
         .join(' ')
       html += `<tr><td><code>${key}</code></td><td>${commandList}</td></tr>`
-    })
+    }
+    
     html += '</tbody></table>'
     return html
   }
@@ -383,10 +404,17 @@ export default class ExportService extends ComponentBase {
 
     let content = await this.generateAliasFileHeader(profile)
     
-    // Generate alias content directly
+    // Generate alias content directly with normalization
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
     for (const [name, alias] of sorted) {
       let commandsStr = alias.commands || ''
+
+      // Apply normalization to individual commands within the alias
+      if (commandsStr) {
+        const cmdParts = commandsStr.split(/\s*\$\$\s*/).filter(Boolean).map(c => ({ command: c }))
+        const normalizedParts = await this.normalizeCommandsForExport(cmdParts)
+        commandsStr = normalizedParts.map(c => typeof c === 'string' ? c : c.command).join(' $$ ')
+      }
 
       // Apply mirroring if aliasMetadata says so
       const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
@@ -489,15 +517,10 @@ export default class ExportService extends ComponentBase {
       }
       await writeFile(dirHandle, 'project.json', JSON.stringify(projectData, null, 2))
 
-      this.emit('toast:show', { 
-        message: i18next.t('sync_completed'), 
-        type: 'success' 
-      })
+      // Do not show toast here - this is an internal method called by SyncService
+      // SyncService will show the appropriate internationalized toast
     } catch (error) {
-      this.emit('toast:show', { 
-        message: i18next.t('sync_failed', { error: error.message }), 
-        type: 'error' 
-      })
+      // Still throw error so calling service can handle it properly
       throw error
     }
   }
@@ -579,6 +602,101 @@ export default class ExportService extends ComponentBase {
     const clean = commands.map(toObj)
     const mirrored = [...clean, ...clean.slice(0, -1).reverse()]
     return mirrored
+  }
+
+  /**
+   * Normalize commands for export by applying tray execution normalization
+   */
+  async normalizeCommandsForExport(commands) {
+    if (!Array.isArray(commands) || commands.length === 0) return []
+
+    const normalizedCommands = []
+
+    for (const cmd of commands) {
+      try {
+        const cmdString = typeof cmd === 'string' ? cmd : (cmd && cmd.command) || ''
+        if (!cmdString) continue
+
+        // Quick check if this is likely a tray execution command before making parser request
+        if (cmdString.includes('TrayExecByTray')) {
+          try {
+            // Parse the command to check if it's a tray execution command
+            const parseResult = await this.request('parser:parse-command-string', {
+              commandString: cmdString,
+              options: { generateDisplayText: false }
+            })
+
+            if (parseResult.commands && parseResult.commands[0]) {
+              const parsedCmd = parseResult.commands[0]
+              
+              // Check if it's a tray execution command that needs normalization
+              if (parsedCmd.signature && 
+                  (parsedCmd.signature.includes('TrayExecByTray') || 
+                   parsedCmd.signature.includes('TrayExecByTrayWithBackup')) &&
+                  parsedCmd.parameters) {
+                
+                const params = parsedCmd.parameters
+                const active = params.active !== undefined ? params.active : 1
+
+                let normalizedCmd
+                if (parsedCmd.signature.includes('TrayExecByTrayWithBackup')) {
+                  // Handle TrayExecByTrayWithBackup normalization
+                  if (active === 1) {
+                    // Use + form
+                    const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+                    const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                    normalizedCmd = `+${commandType} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`
+                  } else {
+                    // Use explicit form
+                    const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+                    const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                    normalizedCmd = `${commandType} ${active} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`
+                  }
+                } else {
+                  // Handle regular TrayExecByTray normalization
+                  if (active === 1) {
+                    // Use + form
+                    const baseCommand = params.baseCommand || 'TrayExecByTray'
+                    const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                    normalizedCmd = `+${commandType} ${params.tray} ${params.slot}`
+                  } else {
+                    // Use explicit form
+                    const baseCommand = params.baseCommand || 'TrayExecByTray'
+                    const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                    normalizedCmd = `${commandType} ${active} ${params.tray} ${params.slot}`
+                  }
+                }
+                
+                // Preserve other properties of the command object
+                if (typeof cmd === 'string') {
+                  normalizedCommands.push(normalizedCmd)
+                } else {
+                  normalizedCommands.push({ ...cmd, command: normalizedCmd })
+                }
+              } else {
+                // Not a tray execution command, use original
+                normalizedCommands.push(cmd)
+              }
+            } else {
+              // Failed to parse, use original
+              normalizedCommands.push(cmd)
+            }
+          } catch (parserError) {
+            // Parser not available or request failed, use original command
+            normalizedCommands.push(cmd)
+          }
+        } else {
+          // Not a tray execution command (doesn't contain TrayExecByTray), use original
+          normalizedCommands.push(cmd)
+        }
+      } catch (error) {
+        console.warn('[ExportService] Failed to normalize command for export:', cmd, error)
+        // Fallback to original command on error
+        normalizedCommands.push(cmd)
+      }
+    }
+
+    return normalizedCommands
   }
 
   /* ---------------------------------------------------------- */

@@ -34,20 +34,25 @@ export default class FileOperationsService extends ComponentBase {
       this.generateCommandPreview(key, commands, stabilize))
 
     // Utility: generate mirrored command string for execution order stabilization
-    this.respond('fileops:generate-mirrored-commands', ({ commands = [] }) => {
+    this.respond('fileops:generate-mirrored-commands', async ({ commands = [] }) => {
       // Accept either an array of command objects or plain strings.
       if (!Array.isArray(commands) || commands.length === 0) return ''
 
-      // Normalise to string array
-      const cmdStrings = commands.map((c) => {
-        if (typeof c === 'string') return c
-        if (c && typeof c.command === 'string') return c.command
-        return ''
+      // Normalise to command objects first
+      const cmdObjects = commands.map((c) => {
+        if (typeof c === 'string') return { command: c }
+        if (c && typeof c.command === 'string') return c
+        return null
       }).filter(Boolean)
 
-      if (cmdStrings.length <= 1) return cmdStrings.join(' $$ ')
+      if (cmdObjects.length <= 1) {
+        const normalized = await this.normalizeCommandsForDisplay(cmdObjects)
+        return normalized.join(' $$ ')
+      }
 
-      const mirrored = [...cmdStrings, ...cmdStrings.slice(0, -1).reverse()]
+      // Apply normalization before mirroring
+      const normalizedStrings = await this.normalizeCommandsForDisplay(cmdObjects)
+      const mirrored = [...normalizedStrings, ...normalizedStrings.slice(0, -1).reverse()]
       return mirrored.join(' $$ ')
     })
   }
@@ -223,6 +228,77 @@ export default class FileOperationsService extends ComponentBase {
     
     const mid = Math.floor(commands.length / 2)
     return commands.slice(0, mid + 1)
+  }
+
+  /**
+   * Normalize commands for display by applying tray execution normalization
+   */
+  async normalizeCommandsForDisplay(commands) {
+    const normalizedCommands = []
+
+    for (const cmd of commands) {
+      try {
+        // Parse the command to check if it's a tray execution command
+        const parseResult = await this.request('parser:parse-command-string', {
+          commandString: cmd.command,
+          options: { generateDisplayText: false }
+        })
+
+        if (parseResult.commands && parseResult.commands[0]) {
+          const parsedCmd = parseResult.commands[0]
+          
+          // Check if it's a tray execution command that needs normalization
+          if (parsedCmd.signature && 
+              (parsedCmd.signature.includes('TrayExecByTray') || 
+               parsedCmd.signature.includes('TrayExecByTrayWithBackup')) &&
+              parsedCmd.parameters) {
+            
+            const params = parsedCmd.parameters
+            const active = params.active !== undefined ? params.active : 1
+
+            if (parsedCmd.signature.includes('TrayExecByTrayWithBackup')) {
+              // Handle TrayExecByTrayWithBackup normalization
+              if (active === 1) {
+                // Use + form
+                const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
+              } else {
+                // Use explicit form
+                const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
+              }
+            } else {
+              // Handle regular TrayExecByTray normalization
+              if (active === 1) {
+                // Use + form
+                const baseCommand = params.baseCommand || 'TrayExecByTray'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot}`)
+              } else {
+                // Use explicit form
+                const baseCommand = params.baseCommand || 'TrayExecByTray'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot}`)
+              }
+            }
+          } else {
+            // Not a tray execution command, use original
+            normalizedCommands.push(cmd.command)
+          }
+        } else {
+          // Failed to parse, use original
+          normalizedCommands.push(cmd.command)
+        }
+      } catch (error) {
+        console.warn('[FileOperationsService] Failed to normalize command for display:', cmd.command, error)
+        // Fallback to original command on error
+        normalizedCommands.push(cmd.command)
+      }
+    }
+
+    return normalizedCommands
   }
 
   async importAliasFile(content, profileId, options = {}) {

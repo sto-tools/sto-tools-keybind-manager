@@ -969,5 +969,12 @@
   "pause_state": "Estado de Pausa",
   "delete_selected_key": "Eliminar tecla seleccionada",
   "duplicate_selected_key": "Duplicar tecla seleccionada",
-  "show_all_keys": "Mostrar todas las teclas"
+  "show_all_keys": "Mostrar todas las teclas",
+  "duplicate": "Duplicar",
+  "invalid_alias_name": "Nombre de alias inválido",
+  "reserved_command_name": "El nombre entra en conflicto con un comando STO",
+  "backup_created_successfully": "Copia de seguridad de la aplicación creada exitosamente",
+  "failed_to_create_backup": "Falló al crear copia de seguridad: {{error}}",
+  "backup_restored_successfully": "Estado de la aplicación restaurado exitosamente",
+  "failed_to_restore_backup": "Falló al restaurar copia de seguridad: {{error}}"
 }

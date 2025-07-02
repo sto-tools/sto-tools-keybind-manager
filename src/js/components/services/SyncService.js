@@ -33,7 +33,7 @@ export default class SyncService extends ComponentBase {
     // Register Request/Response endpoints for UI components
     // ---------------------------------------------------------
     if (this.eventBus) {
-      this.respond('sync:sync-project', () => this.syncProject())
+      this.respond('sync:sync-project', ({ source } = {}) => this.syncProject(source))
       this.respond('sync:set-sync-folder', ({ autoSync } = {}) => this.setSyncFolder(autoSync))
       this.respond('sync:get-sync-folder-handle', () => this.getSyncFolderHandle())
     }
@@ -87,7 +87,7 @@ export default class SyncService extends ComponentBase {
     }
   }
 
-  async syncProject() {
+  async syncProject(source = 'auto') {
     const handle = await this.getSyncFolderHandle()
     if (!handle) {
       this.ui?.showToast(i18next.t('no_sync_folder_selected'), 'warning')
@@ -101,10 +101,17 @@ export default class SyncService extends ComponentBase {
     try {
       await window.stoExport?.syncToFolder(handle)
 
-      // toast only if not change-based auto sync
-      const autoSyncMgr = window.app?.autoSyncManager
-      const isChange = autoSyncMgr?.isEnabled && autoSyncMgr?.interval === 'change'
-      if (!isChange) {
+      // Determine when to show success toast:
+      // - Always show on manual sync (sync now button)
+      // - Show on time-based auto sync (e.g., "every 30 seconds")  
+      // - Don't show on change-based auto sync ("after every change")
+      const settings = this.storage?.getSettings() || {}
+      const isAutoSyncEnabled = settings.autoSync
+      const autoSyncInterval = settings.autoSyncInterval || 'change'
+      const isChangeBasedAutoSync = isAutoSyncEnabled && autoSyncInterval === 'change'
+      const shouldShowToast = source === 'manual' || !isChangeBasedAutoSync
+      
+      if (shouldShowToast) {
         this.ui?.showToast(i18next.t('project_synced_successfully'), 'success')
       }
 

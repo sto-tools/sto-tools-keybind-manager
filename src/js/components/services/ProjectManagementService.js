@@ -1,5 +1,9 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
+import { respond } from '../../core/requestResponse.js'
+import i18next from 'i18next'
+
+const STO_DATA = globalThis.STO_DATA || {}
 
 /**
  * ProjectManagementService – Handles import / export of complete project data and
@@ -22,8 +26,161 @@ export default class ProjectManagementService extends ComponentBase {
     this.storage = storage
     this.ui = ui
     this.exportManager = exportManager
-    this.i18n = i18n
+    this.i18n = typeof i18next !== 'undefined' ? i18next : null
     this.app = app
+
+    // Only setup event handlers if eventBus is available
+    if (this.eventBus) {
+      this.setupEventHandlers()
+    }
+  }
+
+  onInit() {
+    // Service is ready
+  }
+
+  setupEventHandlers() {
+    // Listen for backup/restore application state events from HeaderMenuUI
+    this.eventBus.on('project:save', () => {
+      this.backupApplicationState()
+    })
+    
+    this.eventBus.on('project:open', () => {
+      this.restoreApplicationState()
+    })
+  }
+
+  /* --------------------------------------------------
+   *  Backup & Restore Application State (same format as sync folder)
+   * ------------------------------------------------ */
+  async backupApplicationState() {
+    try {
+      const data = this.storage.getAllData()
+      
+      // Use the same project.json format as sync folder
+      const projectData = {
+        version: STO_DATA?.settings?.version || '1.0.0',
+        exported: new Date().toISOString(),
+        type: 'project',
+        data: {
+          profiles: data.profiles || {},
+          settings: data.settings || {},
+          currentProfile: data.currentProfile
+        }
+      }
+
+      const jsonContent = JSON.stringify(projectData, null, 2)
+      const blob = new Blob([jsonContent], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      
+      const timestamp = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+      const filename = `STO_Tools_Backup_${timestamp}.json`
+      
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      this.ui?.showToast(
+        this.i18n?.t?.('backup_created_successfully') || 'Application backup created successfully',
+        'success'
+      )
+      
+      this.emit('project-backup-created', { filename, data: projectData })
+      return { success: true, filename }
+    } catch (error) {
+      console.error('[ProjectManagementService] backupApplicationState failed', error)
+      this.ui?.showToast(
+        this.i18n?.t?.('failed_to_create_backup', { error: error.message }) || 
+        `Failed to create backup: ${error.message}`,
+        'error'
+      )
+      this.emit('project-backup-failed', { error })
+      return { success: false, error: error.message }
+    }
+  }
+
+  async restoreApplicationState() {
+    try {
+      // Create file input element
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.json,application/json'
+      
+      return new Promise((resolve, reject) => {
+        input.onchange = async (event) => {
+          try {
+            const file = event.target.files[0]
+            if (!file) {
+              resolve({ success: false, cancelled: true })
+              return
+            }
+
+            const text = await file.text()
+            const projectData = JSON.parse(text)
+
+            // Validate project.json format (same as sync folder)
+            if (!projectData || projectData.type !== 'project' || !projectData.data) {
+              throw new Error('Invalid project file format. Expected project.json from backup or sync folder.')
+            }
+
+            // Import the data using ImportService
+            const result = await this.request('import:project-file', { content: text })
+            
+            if (result.success) {
+              // Force DataCoordinator to reload its state from storage
+              await this.request('data:reload-state')
+              
+              // If there's a currentProfile in the imported data, switch to it
+              if (projectData.data.currentProfile) {
+                try {
+                  await this.request('data:switch-profile', { 
+                    profileId: projectData.data.currentProfile 
+                  })
+                } catch (error) {
+                  console.warn('Could not switch to imported current profile:', error.message)
+                }
+              }
+              
+              this.ui?.showToast(
+                this.i18n?.t?.('backup_restored_successfully') || 'Application state restored successfully',
+                'success'
+              )
+              
+              this.emit('project-backup-restored', { 
+                filename: file.name, 
+                data: projectData,
+                imported: result.imported 
+              })
+              
+              resolve({ success: true, data: projectData, imported: result.imported })
+            } else {
+              throw new Error(result.error || 'Import failed')
+            }
+          } catch (error) {
+            console.error('[ProjectManagementService] restoreApplicationState failed:', error)
+            this.ui?.showToast(
+              this.i18n?.t?.('backup_restore_failed', { error: error.message }) || 
+              `Failed to restore backup: ${error.message}`,
+              'error'
+            )
+            resolve({ success: false, error: error.message })
+          }
+        }
+
+        input.oncancel = () => {
+          resolve({ success: false, cancelled: true })
+        }
+
+        input.click()
+      })
+    } catch (error) {
+      console.error('[ProjectManagementService] restoreApplicationState failed:', error)
+      return { success: false, error: error.message }
+    }
   }
 
   /* --------------------------------------------------

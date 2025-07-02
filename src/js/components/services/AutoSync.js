@@ -16,8 +16,15 @@ export default class AutoSync extends ComponentBase {
     this._intervalId = null
     this.lastSync    = null
 
+    // Debouncing for change-based sync to prevent multiple rapid syncs
+    this._syncDebounceTimeout = null
+    this._syncDebounceDelay = 500 // 500ms debounce delay
+
     // Bind for off()
-    this._onStorageChange = () => this.sync()
+    this._onStorageChange = () => this.debouncedSync()
+    
+    // Listen for preferences changes
+    this.setupPreferencesListeners()
   }
 
   onInit() {
@@ -27,11 +34,27 @@ export default class AutoSync extends ComponentBase {
   /* --------------------------------------------------
    * Setup helpers
    * ------------------------------------------------ */
+  setupPreferencesListeners() {
+    // Listen for AutoSync settings changes from PreferencesUI
+    this.eventBus.on('preferences:autosync-settings-changed', () => {
+      this.setupFromSettings()
+    })
+    
+    // Listen for individual setting changes
+    this.eventBus.on('preferences:changed', (data) => {
+      if (data.key === 'autoSync' || data.key === 'autoSyncInterval') {
+        this.setupFromSettings()
+      }
+    })
+  }
+
   setupFromSettings() {
     if (!this.storage) return
     const settings = this.storage.getSettings()
     if (settings.autoSync) {
       this.enable(settings.autoSyncInterval || 'change')
+    } else {
+      this.disable()
     }
   }
 
@@ -58,8 +81,8 @@ export default class AutoSync extends ComponentBase {
       }
     }
 
-    // Persist
-    this._persistSettings(true)
+    // Don't persist here to avoid circular updates
+    console.log(`[AutoSync] Enabled with interval: ${this.interval}`)
   }
 
   disable() {
@@ -69,8 +92,14 @@ export default class AutoSync extends ComponentBase {
       clearInterval(this._intervalId)
       this._intervalId = null
     }
-
-    this._persistSettings(false)
+    
+    // Clear any pending debounced sync
+    if (this._syncDebounceTimeout) {
+      clearTimeout(this._syncDebounceTimeout)
+      this._syncDebounceTimeout = null
+    }
+    
+    console.log('[AutoSync] Disabled')
   }
 
   _persistSettings(enabled) {
@@ -82,12 +111,28 @@ export default class AutoSync extends ComponentBase {
   }
 
   /* --------------------------------------------------
+   * Debounced sync for change-based mode
+   * ------------------------------------------------ */
+  debouncedSync() {
+    // Clear any existing timeout
+    if (this._syncDebounceTimeout) {
+      clearTimeout(this._syncDebounceTimeout)
+    }
+
+    // Set a new timeout to trigger sync after debounce delay
+    this._syncDebounceTimeout = setTimeout(() => {
+      this._syncDebounceTimeout = null
+      this.sync()
+    }, this._syncDebounceDelay)
+  }
+
+  /* --------------------------------------------------
    * Sync
    * ------------------------------------------------ */
   async sync() {
     if (!this.isEnabled || !this.syncManager) return
     try {
-      await this.syncManager.syncProject()
+      await this.syncManager.syncProject('auto')
       this.lastSync = new Date()
       this._updateIndicator('synced')
     } catch (err) {

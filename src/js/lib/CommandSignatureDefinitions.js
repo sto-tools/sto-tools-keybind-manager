@@ -10,13 +10,21 @@ export const SIGNATURE_DEFINITIONS = {
   // =============================================================================
   // TRAY COMMANDS
   // =============================================================================
-  'TrayExecByTray(tray: number, slot: number)': {
+  'TrayExecByTray(active: number, tray: number, slot: number)': {
     commandId: 'custom_tray',
     name: 'Execute Tray Slot',
     category: 'tray',
     icon: '⚡',
     description: 'Execute a specific tray slot',
     parameters: {
+      active: {
+        type: 'number',
+        min: 0,
+        max: 1,
+        default: 1,
+        label: 'Active',
+        help: 'Set to 1 to enable, 0 to disable (temporarily disable without removing)'
+      },
       tray: {
         type: 'number',
         min: 0,

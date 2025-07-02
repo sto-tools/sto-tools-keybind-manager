@@ -1001,5 +1001,9 @@
   "alias_name_in_use": "Alias name already exists",
   "duplicate": "Duplicate",
   "invalid_alias_name": "Invalid alias name",
-  "reserved_command_name": "Name conflicts with a STO command"
+  "reserved_command_name": "Name conflicts with a STO command",
+  "backup_created_successfully": "Application backup created successfully",
+  "failed_to_create_backup": "Failed to create backup: {{error}}",
+  "backup_restored_successfully": "Application state restored successfully",
+  "failed_to_restore_backup": "Failed to restore backup: {{error}}"
 }

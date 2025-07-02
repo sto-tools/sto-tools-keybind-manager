@@ -851,7 +851,9 @@ export default class CommandLibraryService extends ComponentBase {
       if (shouldStabilize && commands.length > 1) {
         commandString = await this.generateMirroredCommandString(commands)
       } else {
-        commandString = commands.map((cmd) => cmd.command).join(' $$ ')
+        // Normalize commands before joining
+        const normalizedCommands = await this.normalizeCommandsForDisplay(commands)
+        commandString = normalizedCommands.join(' $$ ')
       }
 
       return formatAliasLine(selectedKey, { commands: commandString }).trim()
@@ -870,7 +872,9 @@ export default class CommandLibraryService extends ComponentBase {
       if (shouldStabilize && commands.length > 1) {
         commandString = await this.generateMirroredCommandString(commands)
       } else {
-        commandString = commands.map((cmd) => cmd.command).join(' $$ ')
+        // Normalize commands before joining
+        const normalizedCommands = await this.normalizeCommandsForDisplay(commands)
+        commandString = normalizedCommands.join(' $$ ')
       }
 
       return `${selectedKey} "${commandString}"`
@@ -882,6 +886,77 @@ export default class CommandLibraryService extends ComponentBase {
    */
   async generateMirroredCommandString(commands) {
     return await this.request('fileops:generate-mirrored-commands', { commands })
+  }
+
+  /**
+   * Normalize commands for display by applying tray execution normalization
+   */
+  async normalizeCommandsForDisplay(commands) {
+    const normalizedCommands = []
+
+    for (const cmd of commands) {
+      try {
+        // Parse the command to check if it's a tray execution command
+        const parseResult = await this.request('parser:parse-command-string', {
+          commandString: cmd.command,
+          options: { generateDisplayText: false }
+        })
+
+        if (parseResult.commands && parseResult.commands[0]) {
+          const parsedCmd = parseResult.commands[0]
+          
+          // Check if it's a tray execution command that needs normalization
+          if (parsedCmd.signature && 
+              (parsedCmd.signature.includes('TrayExecByTray') || 
+               parsedCmd.signature.includes('TrayExecByTrayWithBackup')) &&
+              parsedCmd.parameters) {
+            
+            const params = parsedCmd.parameters
+            const active = params.active !== undefined ? params.active : 1
+
+            if (parsedCmd.signature.includes('TrayExecByTrayWithBackup')) {
+              // Handle TrayExecByTrayWithBackup normalization
+              if (active === 1) {
+                // Use + form
+                const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
+              } else {
+                // Use explicit form
+                const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
+              }
+            } else {
+              // Handle regular TrayExecByTray normalization
+              if (active === 1) {
+                // Use + form
+                const baseCommand = params.baseCommand || 'TrayExecByTray'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot}`)
+              } else {
+                // Use explicit form
+                const baseCommand = params.baseCommand || 'TrayExecByTray'
+                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
+                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot}`)
+              }
+            }
+          } else {
+            // Not a tray execution command, use original
+            normalizedCommands.push(cmd.command)
+          }
+        } else {
+          // Failed to parse, use original
+          normalizedCommands.push(cmd.command)
+        }
+      } catch (error) {
+        console.warn('[CommandLibraryService] Failed to normalize command for display:', cmd.command, error)
+        // Fallback to original command on error
+        normalizedCommands.push(cmd.command)
+      }
+    }
+
+    return normalizedCommands
   }
 
   /**

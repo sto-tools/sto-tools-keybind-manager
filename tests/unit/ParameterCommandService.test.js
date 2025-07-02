@@ -106,7 +106,7 @@ describe('ParameterCommandService', () => {
       )
       
       expect(result).toBeDefined()
-      expect(result.command).toBe('+TrayExecByTray 1 2')
+      expect(result.command).toBe('+STOTrayExecByTray 1 2')
     })
   })
 
@@ -217,7 +217,7 @@ describe('ParameterCommandService', () => {
             backup_tray: 3,
             backup_slot: 4
           })
-          expect(result.command).toBe('TrayExecByTrayWithBackup 1 1 2 3 4')
+          expect(result.command).toBe('+TrayExecByTrayWithBackup 1 2 3 4')
         } else {
           // Mock parser for bulk commands
           request.mockImplementation((bus, event, data) => {

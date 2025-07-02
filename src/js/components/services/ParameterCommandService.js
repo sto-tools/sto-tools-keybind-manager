@@ -110,15 +110,36 @@ export default class ParameterCommandService extends ComponentBase {
   /**
    * Generate range of individual command strings for bulk operations
    */
-  generateTrayRangeCommands(baseCommand, startTray, startSlot, endTray, endSlot) {
+  generateTrayRangeCommands(baseCommand, startTray, startSlot, endTray, endSlot, active = 1) {
     const commands = []
     
-    for (let tray = startTray; tray <= endTray; tray++) {
-      const maxSlot = (tray === endTray) ? endSlot : 9 // Assume 10 slots per tray (0-9)
-      const minSlot = (tray === startTray) ? startSlot : 0
-      
-      for (let slot = minSlot; slot <= maxSlot; slot++) {
-        commands.push(`+${baseCommand} ${tray} ${slot}`)
+    // Handle single tray case
+    if (startTray === endTray) {
+      for (let slot = startSlot; slot <= endSlot; slot++) {
+        if (active === 1 && !baseCommand.startsWith('+')) {
+          // Use + form when active=1 and baseCommand doesn't already have +
+          commands.push(`+${baseCommand} ${startTray} ${slot}`)
+        } else if (active === 1 && baseCommand.startsWith('+')) {
+          // baseCommand already has +, use as-is
+          commands.push(`${baseCommand} ${startTray} ${slot}`)
+        } else {
+          // Use explicit form when active=0
+          const cleanCommand = baseCommand.replace(/^\+/, '')
+          commands.push(`${cleanCommand} ${active} ${startTray} ${slot}`)
+        }
+      }
+    } else {
+      // Handle cross-tray range
+      // Same slot on each tray from startTray to endTray
+      for (let tray = startTray; tray <= endTray; tray++) {
+        if (active === 1 && !baseCommand.startsWith('+')) {
+          commands.push(`+${baseCommand} ${tray} ${startSlot}`)
+        } else if (active === 1 && baseCommand.startsWith('+')) {
+          commands.push(`${baseCommand} ${tray} ${startSlot}`)
+        } else {
+          const cleanCommand = baseCommand.replace(/^\+/, '')
+          commands.push(`${cleanCommand} ${active} ${tray} ${startSlot}`)
+        }
       }
     }
     
@@ -128,29 +149,51 @@ export default class ParameterCommandService extends ComponentBase {
   /**
    * Generate whole tray command strings (all 10 slots)
    */
-  generateWholeTrayCommands(baseCommand, tray) {
+  generateWholeTrayCommands(baseCommand, tray, active = 1) {
     const commands = []
     for (let slot = 0; slot <= 9; slot++) {
-      commands.push(`+${baseCommand} ${tray} ${slot}`)
+      if (active === 1 && !baseCommand.startsWith('+')) {
+        // Use + form when active=1 and baseCommand doesn't already have +
+        commands.push(`+${baseCommand} ${tray} ${slot}`)
+      } else if (active === 1 && baseCommand.startsWith('+')) {
+        // baseCommand already has +, use as-is
+        commands.push(`${baseCommand} ${tray} ${slot}`)
+      } else {
+        // Use explicit form when active=0
+        const cleanCommand = baseCommand.replace(/^\+/, '')
+        commands.push(`${cleanCommand} ${active} ${tray} ${slot}`)
+      }
     }
     return commands
   }
 
   /**
-   * Generate backup tray range commands
+   * Generate range with backup commands
    */
   generateTrayRangeWithBackupCommands(active, startTray, startSlot, endTray, endSlot, backupStartTray, backupStartSlot, backupEndTray, backupEndSlot) {
     const commands = []
     
-    for (let tray = startTray; tray <= endTray; tray++) {
-      const maxSlot = (tray === endTray) ? endSlot : 9
-      const minSlot = (tray === startTray) ? startSlot : 0
-      
-      for (let slot = minSlot; slot <= maxSlot; slot++) {
-        // Calculate corresponding backup position
-        const backupTray = backupStartTray + (tray - startTray)
+    // Handle single tray case
+    if (startTray === endTray) {
+      for (let slot = startSlot; slot <= endSlot; slot++) {
         const backupSlot = backupStartSlot + (slot - startSlot)
-        commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`)
+        if (active === 1) {
+          // Use + form when active=1
+          commands.push(`+TrayExecByTrayWithBackup ${startTray} ${slot} ${backupStartTray} ${backupSlot}`)
+        } else {
+          // Use explicit form when active=0
+          commands.push(`TrayExecByTrayWithBackup ${active} ${startTray} ${slot} ${backupStartTray} ${backupSlot}`)
+        }
+      }
+    } else {
+      // Handle cross-tray range (same slot on each tray)
+      for (let tray = startTray; tray <= endTray; tray++) {
+        const backupTray = backupStartTray + (tray - startTray)
+        if (active === 1) {
+          commands.push(`+TrayExecByTrayWithBackup ${tray} ${startSlot} ${backupTray} ${backupStartSlot}`)
+        } else {
+          commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${startSlot} ${backupTray} ${backupStartSlot}`)
+        }
       }
     }
     
@@ -163,7 +206,13 @@ export default class ParameterCommandService extends ComponentBase {
   generateWholeTrayWithBackupCommands(active, tray, backupTray) {
     const commands = []
     for (let slot = 0; slot <= 9; slot++) {
-      commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${slot}`)
+      if (active === 1) {
+        // Use + form when active=1
+        commands.push(`+TrayExecByTrayWithBackup ${tray} ${slot} ${backupTray} ${slot}`)
+      } else {
+        // Use explicit form when active=0
+        commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${slot}`)
+      }
     }
     return commands
   }
@@ -222,15 +271,25 @@ export default class ParameterCommandService extends ComponentBase {
       tray: async (p) => {
         const tray = p.tray || 0
         const slot = p.slot || 0
+        const active = p.active !== undefined ? p.active : 1 // Default to active=1
 
         if (commandId === 'tray_with_backup') {
-          const active     = p.active !== undefined ? p.active : 1
           const backupTray = p.backup_tray || 0
           const backupSlot = p.backup_slot || 0
 
-          return {
-            command: `TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`,
-            text:    `Execute Tray ${tray + 1} Slot ${slot + 1} (backup: Tray ${backupTray + 1} Slot ${backupSlot + 1})`,
+          // Normalize based on active parameter
+          if (active === 1) {
+            // Use + form when active=1
+            return {
+              command: `+TrayExecByTrayWithBackup ${tray} ${slot} ${backupTray} ${backupSlot}`,
+              text:    `Execute Tray ${tray + 1} Slot ${slot + 1} (backup: Tray ${backupTray + 1} Slot ${backupSlot + 1})`,
+            }
+          } else {
+            // Use explicit form when active=0
+            return {
+              command: `TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`,
+              text:    `Execute Tray ${tray + 1} Slot ${slot + 1} (backup: Tray ${backupTray + 1} Slot ${backupSlot + 1})`,
+            }
           }
         }
 
@@ -248,17 +307,22 @@ export default class ParameterCommandService extends ComponentBase {
           } else if (p.baseCommand) {
             baseCommand = p.baseCommand
           } else {
-            baseCommand = p.command_type || '+STOTrayExecByTray'
+            const commandType = p.command_type || 'STOTrayExecByTray'
+            // Normalize based on active parameter
+            if (active === 1) {
+              baseCommand = `+${commandType}`
+            } else {
+              baseCommand = commandType
+            }
           }
 
           // Generate individual command strings, then parse through STOCommandParser for consistent format
-          const commandStrings = this.generateTrayRangeCommands(baseCommand, startTray, startSlot, endTray, endSlot)
+          const commandStrings = this.generateTrayRangeCommands(baseCommand, startTray, startSlot, endTray, endSlot, active)
           return await this.parseCommandsToObjects(commandStrings)
         }
 
         /* ----- Tray range WITH backup ------------------------------------ */
         if (commandId === 'tray_range_with_backup') {
-          const active            = p.active !== undefined ? p.active : 1
           const startTray         = p.start_tray        || 0
           const startSlot         = p.start_slot        || 0
           const endTray           = p.end_tray          || 0
@@ -285,17 +349,22 @@ export default class ParameterCommandService extends ComponentBase {
           } else if (p.baseCommand) {
             baseCommand = p.baseCommand
           } else {
-            baseCommand = p.command_type || '+STOTrayExecByTray'
+            const commandType = p.command_type || 'STOTrayExecByTray'
+            // Normalize based on active parameter
+            if (active === 1) {
+              baseCommand = `+${commandType}`
+            } else {
+              baseCommand = commandType
+            }
           }
           
           // Generate individual command strings, then parse through STOCommandParser for consistent format
-          const commandStrings = this.generateWholeTrayCommands(baseCommand, tray)
+          const commandStrings = this.generateWholeTrayCommands(baseCommand, tray, active)
           return await this.parseCommandsToObjects(commandStrings)
         }
 
         /* ----- Whole tray WITH backup ------------------------------------ */
         if (commandId === 'whole_tray_with_backup') {
-          const active     = p.active !== undefined ? p.active : 1
           const backupTray = p.backup_tray || 0
 
           // Generate individual command strings, then parse through STOCommandParser for consistent format
@@ -306,42 +375,34 @@ export default class ParameterCommandService extends ComponentBase {
         /* ----- Single slot / default path -------------------------------- */
         const isEditing = this.editingContext && this.editingContext.isEditing
         
-        // Preserve original command format from baseCommand or use command_type parameter
-        let finalCommand
+        // Determine command type
+        let commandType
         if (commandDef.baseCommand) {
-          // Use the original baseCommand preserved from parsing
-          finalCommand = `${commandDef.baseCommand} ${tray} ${slot}`
+          // Extract command type from baseCommand (remove + if present)
+          commandType = commandDef.baseCommand.replace(/^\+/, '')
         } else if (p.baseCommand) {
-          // Use baseCommand from current parameters
-          finalCommand = `${p.baseCommand} ${tray} ${slot}`
+          // Extract command type from baseCommand parameter
+          commandType = p.baseCommand.replace(/^\+/, '')
         } else if (p.command_type) {
-          // Use explicit command_type parameter (with + prefix if it doesn't already have one)
-          const commandType = p.command_type
-          const prefix = commandType.startsWith('+') ? '' : '+'
-          finalCommand = `${prefix}${commandType} ${tray} ${slot}`
+          commandType = p.command_type
         } else {
-          // Default fallback
-          finalCommand = `+STOTrayExecByTray ${tray} ${slot}`
+          commandType = 'STOTrayExecByTray' // Default fallback
         }
 
-        if (isEditing) {
-          const existingCmd = this.editingContext.existingCommand
-          if (existingCmd && (existingCmd.command.startsWith('TrayExecByTray') || existingCmd.command.startsWith('+TrayExecByTray'))) {
-            // Preserve the original command format when editing
-            if (commandDef.baseCommand) {
-              finalCommand = `${commandDef.baseCommand} ${tray} ${slot}`
-            } else if (p.baseCommand) {
-              finalCommand = `${p.baseCommand} ${tray} ${slot}`
-            } else {
-              finalCommand = `+TrayExecByTray ${tray} ${slot}`
-            }
-          }
+        // Normalize output based on active parameter
+        let finalCommand
+        if (active === 1) {
+          // Use + form when active=1
+          finalCommand = `+${commandType} ${tray} ${slot}`
+        } else {
+          // Use explicit form when active=0
+          finalCommand = `${commandType} ${active} ${tray} ${slot}`
         }
 
         return {
           command: finalCommand,
           text:    `Execute Tray ${tray + 1} Slot ${slot + 1}`,
-          parameters: { tray, slot },
+          parameters: { active, tray, slot },
         }
       },
 
@@ -465,7 +526,7 @@ export default class ParameterCommandService extends ComponentBase {
       icon:    commandDef.icon,
       displayText: result.text,
       id:      this.generateCommandId(),
-      parameters: params,
+      parameters: result.parameters || params, // Use builder's parameters if available, otherwise fall back to input params
     }
   }
 

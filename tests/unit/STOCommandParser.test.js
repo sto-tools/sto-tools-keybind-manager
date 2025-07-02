@@ -21,10 +21,11 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
       expect(result.commands).toHaveLength(1)
       expect(result.commands[0]).toMatchObject({
         command: '+STOTrayExecByTray 2 5',
-        signature: 'TrayExecByTray(tray: number, slot: number)',
+        signature: 'TrayExecByTray(active: number, tray: number, slot: number)',
         category: 'tray',
         icon: '⚡',
         parameters: {
+          active: 1,
           tray: 2,
           slot: 5,
           baseCommand: '+STOTrayExecByTray'
@@ -34,18 +35,18 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
     })
 
     it('should handle TrayExec variants correctly', () => {
-      const variants = [
-        'TrayExecByTray 0 0',
-        '+TrayExecByTray 1 2', 
-        'STOTrayExecByTray 3 7',
-        '+STOTrayExecByTray 4 9'
+      const testCases = [
+        { command: 'TrayExecByTray 1 0 0', expectedWeight: 99 }, // standard form
+        { command: '+TrayExecByTray 1 2', expectedWeight: 100 }, // + form
+        { command: 'STOTrayExecByTray 0 3 7', expectedWeight: 99 }, // standard form  
+        { command: '+STOTrayExecByTray 4 9', expectedWeight: 100 } // + form
       ]
 
-      variants.forEach(command => {
+      testCases.forEach(({ command, expectedWeight }) => {
         const result = parser.parseCommandString(command)
         expect(result.commands[0].category).toBe('tray')
-        expect(result.commands[0].signature).toBe('TrayExecByTray(tray: number, slot: number)')
-        expect(result.commands[0].parseMetadata.patternWeight).toBe(100)
+        expect(result.commands[0].signature).toBe('TrayExecByTray(active: number, tray: number, slot: number)')
+        expect(result.commands[0].parseMetadata.patternWeight).toBe(expectedWeight)
       })
     })
 
@@ -145,7 +146,7 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
 
   describe('Command Chain Parsing', () => {
     it('should parse multi-command strings', () => {
-      const result = parser.parseCommandString('say "Ready" $$ TrayExecByTray 1 2 $$ FireAll')
+      const result = parser.parseCommandString('say "Ready" $$ +TrayExecByTray 1 2 $$ FireAll')
       
       expect(result.commands).toHaveLength(3)
       expect(result.commands[0].category).toBe('communication')
@@ -222,8 +223,8 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
   describe('API Methods', () => {
     it('should validate commands against signatures', () => {
       const isValid = parser.validateCommand(
-        'TrayExecByTray(tray: number, slot: number)',
-        'TrayExecByTray 1 2'
+        'TrayExecByTray(active: number, tray: number, slot: number)',
+        '+TrayExecByTray 1 2'
       )
       
       expect(isValid).toBe(true)
@@ -240,14 +241,16 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
 
     it('should extract parameters for specific signatures', () => {
       const params = parser.extractParameters(
-        'TrayExecByTray(tray: number, slot: number)',
-        'TrayExecByTray 3 7'
+        'TrayExecByTray(active: number, tray: number, slot: number)',
+        '+TrayExecByTray 3 7'
       )
       
       expect(params).toEqual({
+        active: 1,
         tray: 3,
         slot: 7,
-        baseCommand: 'TrayExecByTray'
+        baseCommand: '+TrayExecByTray',
+        isShorthand: true
       })
     })
   })
@@ -268,7 +271,7 @@ describe('STOCommandParser - RequestResponse Integration', () => {
 
   it('should respond to parser:parse-command-string requests', async () => {
     const result = await request(eventBus, 'parser:parse-command-string', {
-      commandString: 'TrayExecByTray 1 2',
+      commandString: '+TrayExecByTray 1 2',
       options: { generateDisplayText: true }
     })
 
@@ -279,8 +282,8 @@ describe('STOCommandParser - RequestResponse Integration', () => {
 
   it('should respond to parser:validate-command requests', async () => {
     const isValid = await request(eventBus, 'parser:validate-command', {
-      signature: 'TrayExecByTray(tray: number, slot: number)',
-      commandString: 'TrayExecByTray 1 2'
+      signature: 'TrayExecByTray(active: number, tray: number, slot: number)',
+      commandString: '+TrayExecByTray 1 2'
     })
 
     expect(isValid).toBe(true)

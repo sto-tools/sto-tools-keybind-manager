@@ -948,5 +948,12 @@
   "netgraph": "Graphique réseau",
   "delete_selected_key": "Supprimer la touche sélectionnée",
   "duplicate_selected_key": "Dupliquer la touche sélectionnée",
-  "show_all_keys": "Afficher toutes les touches"
+  "show_all_keys": "Afficher toutes les touches",
+  "duplicate": "Dupliquer",
+  "invalid_alias_name": "Nom d'alias invalide",
+  "reserved_command_name": "Le nom entre en conflit avec une commande STO",
+  "backup_created_successfully": "Sauvegarde de l'application créée avec succès",
+  "failed_to_create_backup": "Échec de la création de la sauvegarde : {{error}}",
+  "backup_restored_successfully": "État de l'application restauré avec succès",
+  "failed_to_restore_backup": "Échec de la restauration de la sauvegarde : {{error}}"
 }

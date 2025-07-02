@@ -15,23 +15,18 @@ export default class SyncUI extends ComponentBase {
   }
 
   setupEventListeners() {
-    // Listen for sync:sync-now event from HeaderMenuUI
+    // Listen for sync:sync-now event from HeaderMenuUI (manual sync)
     this.eventBus.on('sync:sync-now', () => {
-      this.performSync()
+      this.performSync('manual')
     })
 
-    // Direct button click handler (keeping for backward compatibility)
-    const btn = document.getElementById('syncNowBtn')
-    if (btn) {
-      btn.addEventListener('click', () => {
-        this.performSync()
-      })
-    }
+    // Note: Direct button click handler removed to avoid duplicate syncs
+    // HeaderMenuUI now handles the button click and emits sync:sync-now
   }
 
-  async performSync() {
+  async performSync(source = 'manual') {
     this.ui?.showToast(i18next.t('syncing'), 'info')
-    // Use request/response instead of direct service call
-    await this.request('sync:sync-project')
+    // Pass the source context to sync service
+    await this.request('sync:sync-project', { source })
   }
 } 
