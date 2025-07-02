@@ -516,7 +516,7 @@ describe('CommandLibraryUI', () => {
       ui.updateChainActions()
       
       expect(mockDocument.getElementById).toHaveBeenCalledWith('addCommandBtn')
-      expect(mockDocument.getElementById).toHaveBeenCalledWith('importFromKeyBtn')
+      expect(mockDocument.getElementById).toHaveBeenCalledWith('importFromKeyOrAliasBtn')
       expect(mockDocument.getElementById).toHaveBeenCalledWith('deleteKeyBtn')
       expect(mockDocument.getElementById).toHaveBeenCalledWith('duplicateKeyBtn')
     })

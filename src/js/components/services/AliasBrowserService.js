@@ -254,7 +254,7 @@ export default class AliasBrowserService extends ComponentBase {
       // eslint-disable-next-line no-console
       console.log(`[AliasBrowserService] getAliases() called. cache.aliases:`, this.cache.aliases, 'keys:', Object.keys(this.cache.aliases || {}))
     }
-    return this.cache.aliases || {}
+    return Object.fromEntries(Object.entries(this.cache.aliases || {}).filter(([key, value]) => value.type !== 'vfx-alias')) 
   }
 
   async selectAlias(name) {

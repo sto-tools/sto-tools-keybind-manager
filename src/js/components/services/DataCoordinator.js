@@ -143,6 +143,10 @@ export default class DataCoordinator extends ComponentBase {
     // Environment operations
     this.respond('data:set-environment', ({ environment }) => this.setEnvironment(environment))
     
+    // Key and command operations
+    this.respond('data:get-keys', ({ environment }) => this.getKeys(environment))
+    this.respond('data:get-key-commands', ({ environment, key }) => this.getKeyCommands(environment, key))
+    
     // Settings operations
     this.respond('data:get-settings', () => this.getSettings())
     this.respond('data:update-settings', ({ settings }) => this.updateSettings(settings))
@@ -724,6 +728,30 @@ export default class DataCoordinator extends ComponentBase {
     })
 
     return { success: true, environment }
+  }
+
+  /**
+   * Get keys for a specific environment from the current profile
+   */
+  getKeys(environment) {
+    if (!this.state.currentProfile) {
+      return {}
+    }
+    
+    const profile = this.state.profiles[this.state.currentProfile]
+    if (!profile || !profile.builds || !profile.builds[environment]) {
+      return {}
+    }
+    
+    return profile.builds[environment].keys || {}
+  }
+
+  /**
+   * Get commands for a specific key in a specific environment
+   */
+  getKeyCommands(environment, key) {
+    const keys = this.getKeys(environment)
+    return keys[key] || []
   }
 
   /**

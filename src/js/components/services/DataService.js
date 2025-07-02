@@ -39,6 +39,40 @@ export default class DataService extends ComponentBase {
     )
 
     this.responseHandlers.push(
+      this.respond('data:find-command-by-name', ({ command }) => {
+        if (!this.data.commands || !command) return null
+        
+        // Special debug logging for Holster commands
+        if (command.toLowerCase().includes('holster')) {
+          console.log(`[DEBUG] DataService searching for command: "${command}"`)
+        }
+        
+        // Search through all categories to find the command
+        for (const [categoryId, category] of Object.entries(this.data.commands)) {
+          if (category.commands) {
+            for (const [commandId, commandDef] of Object.entries(category.commands)) {
+              if (commandDef.command === command) {
+                if (command.toLowerCase().includes('holster')) {
+                  console.log(`[DEBUG] DataService found command "${command}" in ${categoryId}.${commandId}:`, commandDef)
+                }
+                return {
+                  ...commandDef,
+                  categoryId,
+                  commandId
+                }
+              }
+            }
+          }
+        }
+        
+        if (command.toLowerCase().includes('holster')) {
+          console.log(`[DEBUG] DataService command "${command}" NOT FOUND in library`)
+        }
+        return null
+      })
+    )
+
+    this.responseHandlers.push(
       this.respond('data:get-validation-patterns', () => {
         return this.data.validation || {}
       })

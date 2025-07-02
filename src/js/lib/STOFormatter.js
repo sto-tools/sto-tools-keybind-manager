@@ -29,8 +29,8 @@ export function formatKeybindLine(key, commands = []) {
   if (!commands || commands.length === 0) return ''
 
   const valid = commands
-    .filter((c) => c && typeof c.command === 'string' && c.command.trim().length)
-    .map((c) => c.command.trim())
+    .map((c) => typeof c === 'string' ? c.trim() : (c && typeof c.command === 'string' ? c.command.trim() : ''))
+    .filter((s) => s.length > 0)
 
   if (valid.length === 0) return ''
 

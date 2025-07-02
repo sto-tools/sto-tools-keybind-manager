@@ -156,6 +156,9 @@ export default class CommandLibraryService extends ComponentBase {
   updateCacheFromProfile(profile) {
     if (!profile) return
     
+    // Auto-migrate any legacy rich command objects to plain strings
+    this.normalizeKeyArrays(profile)
+    
     this.cache.profile = profile
     this.cache.aliases = profile.aliases || {}
     // Preserve metadata for mirroring decisions
@@ -217,13 +220,23 @@ export default class CommandLibraryService extends ComponentBase {
           })
           const first = parseResult?.commands?.[0]
           if (first) {
-            enriched.push({
-              ...cmdObj,
-              displayText: first.displayText,
-              icon: first.icon,
-              category: first.category,
-              text: first.displayText,
-            })
+            if (typeof cmdObj === 'string') {
+              enriched.push({
+                command: cmdStr,
+                displayText: first.displayText,
+                icon: first.icon,
+                category: first.category,
+                text: first.displayText,
+              })
+            } else {
+              enriched.push({
+                ...cmdObj,
+                displayText: first.displayText,
+                icon: first.icon,
+                category: first.category,
+                text: first.displayText,
+              })
+            }
           } else {
             enriched.push(cmdObj)
           }
@@ -547,7 +560,18 @@ export default class CommandLibraryService extends ComponentBase {
         
         const updatedKeys = { ...updatedBuilds[this.currentEnvironment].keys }
         if (!updatedKeys[key]) updatedKeys[key] = []
-        updatedKeys[key] = [...updatedKeys[key], command]
+        // Persist only raw command strings (no rich objects)
+        let newCommands = []
+
+        // Accept single command object/string or an array
+        if (Array.isArray(command)) {
+          newCommands = command.map((c) => typeof c === 'string' ? c : c.command).filter(Boolean)
+        } else {
+          const cmdStr = typeof command === 'string' ? command : command.command
+          if (cmdStr) newCommands.push(cmdStr)
+        }
+
+        updatedKeys[key] = [...updatedKeys[key], ...newCommands]
         
         updatedBuilds[this.currentEnvironment].keys = updatedKeys
         updates.builds = updatedBuilds
@@ -989,5 +1013,22 @@ export default class CommandLibraryService extends ComponentBase {
         }
       })
     )
+  }
+
+  // New method to normalize key arrays
+  normalizeKeyArrays(profile) {
+    if (!profile || !profile.builds) return
+
+    ['space', 'ground'].forEach(env => {
+      const envBuild = profile.builds[env]
+      if (!envBuild || !envBuild.keys) return
+
+      Object.entries(envBuild.keys).forEach(([k, arr]) => {
+        if (!Array.isArray(arr)) return
+        envBuild.keys[k] = arr
+          .map(entry => typeof entry === 'string' ? entry : (entry && entry.command) || '')
+          .filter(Boolean)
+      })
+    })
   }
 }

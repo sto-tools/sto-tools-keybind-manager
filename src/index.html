@@ -368,7 +368,7 @@
                 <button class="toolbar-btn toolbar-btn-primary" id="addCommandBtn" disabled data-i18n-title="add_command">
                   <i class="fas fa-plus"></i>
                 </button>
-                <button class="toolbar-btn" id="importFromKeyBtn" disabled data-i18n-title="copy_from_key">
+                <button class="toolbar-btn" id="importFromKeyOrAliasBtn" disabled data-i18n-title="import_from_key_or_alias">
                   <i class="fas fa-copy"></i>
                 </button>
                 <button class="toolbar-btn" id="validateChainBtn" data-i18n-title="validate_command_chain">
@@ -467,7 +467,10 @@
 
           <div class="library-content" id="libraryContent">
             <div class="command-categories" id="commandCategories">
-              <!-- Categories populated by JavaScript -->
+              <!-- Non-alias command categories populated by JavaScript -->
+              <div id="commandCategoriesList"></div>
+              <!-- Alias and Vertigo alias categories will be injected here so they share styling/scrollbar -->
+              <div id="aliasCategoriesList"></div>
             </div>
           </div>
         </div>
@@ -1102,6 +1105,37 @@
         </div>
     </div>
   </div>
+
+    <!-- Import from Key or Alias Modal -->
+    <div class="modal" id="importFromKeyOrAliasModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="import_from_key_or_alias"></h3>
+          <button class="modal-close" data-modal="importFromKeyOrAliasModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label data-i18n="select_source_to_import_from"></label>
+            <select id="importSourceSelect">
+              <!-- Options populated by JavaScript -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="clearDestinationBeforeImport" />
+              <span class="checkmark"></span>
+              <span data-i18n="clear_destination_chain_prior_to_import"></span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmImportBtn" data-i18n="import"></button>
+          <button class="btn btn-secondary" data-modal="importFromKeyOrAliasModal" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
 
     <!-- Export Options Modal -->
     <div class="modal" id="exportModal">

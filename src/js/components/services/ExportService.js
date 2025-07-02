@@ -224,14 +224,17 @@ export default class ExportService extends ComponentBase {
     const env = profile.currentEnvironment || 'space'
     const keys = this.extractKeys(profile, env)
 
+    const getCmdStr = (c) => typeof c === 'string' ? c : c.command
+
     Object.entries(keys).forEach(([key, commands]) => {
       commands.forEach((cmdObj, idx) => {
+        const cmdStr = getCmdStr(cmdObj)
         rows.push({
           key,
           order: idx + 1,
-          command: cmdObj.command,
-          type: cmdObj.type || '',
-          description: cmdObj.text || '',
+          command: cmdStr,
+          type: (cmdObj && cmdObj.type) || '',
+          description: (cmdObj && cmdObj.text) || '',
         })
       })
     })
@@ -312,11 +315,14 @@ export default class ExportService extends ComponentBase {
   generateHTMLKeybindSection (keys) {
     if (!keys || Object.keys(keys).length === 0) return '<p>No keybinds defined</p>'
 
+    const getCmdStr = (c) => typeof c === 'string' ? c : c.command
+
     let html = '<table><thead><tr><th>Key</th><th>Commands</th></tr></thead><tbody>'
     Object.entries(keys).forEach(([key, commands]) => {
       const commandList = commands
-        .filter((c) => c && c.command)
-        .map((c) => `<span class="command">${c.command}</span>`)
+        .map(getCmdStr)
+        .filter(Boolean)
+        .map((c) => `<span class="command">${c}</span>`)
         .join(' ')
       html += `<tr><td><code>${key}</code></td><td>${commandList}</td></tr>`
     })
@@ -567,7 +573,10 @@ export default class ExportService extends ComponentBase {
   /* helper to mirror command objects array */
   mirrorCommands(commands) {
     if (!Array.isArray(commands) || commands.length <= 1) return commands
-    const clean = commands.map(c => ({ ...c }))
+
+    const toObj = (c) => (typeof c === 'string' ? { command: c } : { ...c })
+
+    const clean = commands.map(toObj)
     const mirrored = [...clean, ...clean.slice(0, -1).reverse()]
     return mirrored
   }

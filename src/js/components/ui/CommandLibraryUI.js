@@ -108,7 +108,8 @@ export default class CommandLibraryUI extends ComponentBase {
    * Setup the command library UI
    */
   async setupCommandLibrary() {
-    const container = this.document.getElementById('commandCategories')
+    // Build non-alias command categories into dedicated list container
+    const container = this.document.getElementById('commandCategoriesList') || this.document.getElementById('commandCategories')
     if (!container) return
 
     container.innerHTML = ''
@@ -123,8 +124,8 @@ export default class CommandLibraryUI extends ComponentBase {
     this.filterCommandLibrary()
     
     // Re-add aliases after rebuilding the command library
-    // This ensures aliases are preserved when the library is rebuilt (e.g., on language change)
-    this.updateCommandLibrary()
+    // Await to avoid race-conditions creating duplicates
+    await this.updateCommandLibrary()
   }
 
   /**
@@ -276,7 +277,7 @@ export default class CommandLibraryUI extends ComponentBase {
                   .map(
                     ([name, alias]) => `
                     <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
-                        ${itemIcon} ${name}
+                        ${itemIcon} ${(alias._displayName || name)}
                     </div>
                 `
                   )
@@ -349,48 +350,54 @@ export default class CommandLibraryUI extends ComponentBase {
   /**
    * Update the command library using cached profile data
    */
-  updateCommandLibrary() {
+  async updateCommandLibrary() {
     // Use cached profile data instead of making requests
     const profile = this.cache.profile
     if (!profile) return
 
-    const categories = this.document.getElementById('commandCategories')
-    if (!categories) return
+    // Alias containers lives inside dedicated list under commandCategories
+    const aliasContainer = this.document.getElementById('aliasCategoriesList') || this.document.getElementById('commandCategories')
+    if (!aliasContainer) return
 
-    const existingAliasCategory = categories.querySelector('[data-category="aliases"]')
-    if (existingAliasCategory) {
-      existingAliasCategory.remove()
-    }
-    const existingVertigoCategory = categories.querySelector('[data-category="vertigo-aliases"]')
-    if (existingVertigoCategory) {
-      existingVertigoCategory.remove()
-    }
+    const allAliasesRaw = Object.entries(this.cache.aliases)
 
-    const allAliases = Object.entries(this.cache.aliases)
-    const regularAliases = allAliases.filter(([name, alias]) => alias.type !== 'vfx-alias')
-    const vertigoAliases = allAliases.filter(([name, alias]) => alias.type === 'vfx-alias')
+    // Resolve display names for VFX aliases async
+    const allAliases = await Promise.all(allAliasesRaw.map(async ([name, alias]) => {
+      if (alias.type === 'vfx-alias' && !alias._displayName) {
+        alias._displayName = await this._getAliasDisplayName(name, alias)
+      }
+      return [name, alias]
+    }))
 
-    // Only create regular aliases category if there are regular aliases
+    const regularAliases = allAliases.filter(([, alias]) => alias.type !== 'vfx-alias')
+    const vertigoAliases = allAliases.filter(([, alias]) => alias.type === 'vfx-alias')
+
+    // Build DOM in a detached fragment then atomically replace
+    const fragment = this.document.createDocumentFragment()
+
     if (regularAliases.length > 0) {
-      const aliasCategory = this.createAliasCategoryElement(
-        regularAliases,
-        'aliases',
-        'command_aliases',
-        'fas fa-mask'
+      fragment.appendChild(
+        this.createAliasCategoryElement(
+          regularAliases,
+          'aliases',
+          'command_aliases',
+          'fas fa-mask'
+        )
       )
-      categories.appendChild(aliasCategory)
     }
 
-    // Only create VERTIGO category if there are VERTIGO aliases
     if (vertigoAliases.length > 0) {
-      const vertigoCategory = this.createAliasCategoryElement(
-        vertigoAliases,
-        'vertigo-aliases',
-        'vfx_aliases',
-        'fas fa-eye-slash'
+      fragment.appendChild(
+        this.createAliasCategoryElement(
+          vertigoAliases,
+          'vertigo-aliases',
+          'vfx_aliases',
+          'fas fa-eye-slash'
+        )
       )
-      categories.appendChild(vertigoCategory)
     }
+
+    aliasContainer.replaceChildren(fragment)
   }
 
   /**
@@ -453,12 +460,14 @@ export default class CommandLibraryUI extends ComponentBase {
         })
         const addCmdBtn = doc.getElementById('addCommandBtn')
         if (addCmdBtn) addCmdBtn.disabled = !hasSelectedKey
-        ['importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+        const importBtn = doc.getElementById('importFromKeyOrAliasBtn')
+        if (importBtn) importBtn.disabled = !hasSelectedKey
+        ['deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = true
         })
       } else {
-        ['addCommandBtn', 'importFromKeyBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+        ['addCommandBtn', 'importFromKeyOrAliasBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = !hasSelectedKey
         })
@@ -574,5 +583,25 @@ export default class CommandLibraryUI extends ComponentBase {
       const categoryVisible = !term || visibleItems.length > 0
       category.style.display = categoryVisible ? 'block' : 'none'
     })
+  }
+
+  /**
+   * Derive human-readable display text for an alias item.
+   * VFX aliases get prettified ("VFX Alias: Space", etc.).
+   */
+  async _getAliasDisplayName (name, alias) {
+    if (alias.type === 'vfx-alias') {
+      try {
+        const res = await request(this.eventBus, 'parser:parse-command-string', {
+          commandString: name,
+          options: { generateDisplayText: true }
+        })
+        const first = res?.commands?.[0]
+        if (first?.displayText) return first.displayText
+      } catch {
+        /* ignore parse errors */
+      }
+    }
+    return name
   }
 }
