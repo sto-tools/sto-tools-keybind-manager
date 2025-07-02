@@ -55,7 +55,7 @@ export const SIGNATURE_DEFINITIONS = {
     commandId: 'tray_with_backup',
     name: 'Execute Tray with Backup',
     category: 'tray',
-    icon: '🔄',
+    icon: '⚡',
     description: 'Execute tray slot with backup fallback',
     parameters: {
       active: {
@@ -183,6 +183,16 @@ export const SIGNATURE_DEFINITIONS = {
         help: 'Name of predefined VFX exclusion alias'
       }
     }
+  },
+
+  // Master alias – combined space/ground
+  'VFXExclusionMaster()': {
+    commandId: 'vfx_exclusion_master',
+    name: 'VFX Exclusion Master Alias',
+    category: 'vfx',
+    icon: '✨',
+    description: 'Combined space and ground VFX suppression alias',
+    parameters: {}
   },
 
   // =============================================================================

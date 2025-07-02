@@ -26,7 +26,7 @@ import ExportUI from './components/ui/ExportUI.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
-import { VFXManagerUI, HeaderMenuUI, AboutModalUI } from './components/ui/index.js'
+import { VFXManagerUI, HeaderMenuUI, AboutModalUI, ImportUI } from './components/ui/index.js'
 import { SyncUI } from './components/sync/index.js'
 import STOCommandParser from './lib/STOCommandParser.js'
 import ImportService from './components/services/ImportService.js'
@@ -55,6 +55,7 @@ export default class STOToolsKeybindManager {
     this.fileOperationsService = null
     this.keyCaptureService = null
     this.keyCaptureUI = null
+    this.importUI = null
 
     // Project management service (export/import operations)
     this.projectManagementService = null
@@ -543,6 +544,13 @@ export default class STOToolsKeybindManager {
       // ------------------------------
 
       // ---------------------------------
+
+      // Import UI – handles file selection for import menu
+      this.importUI = new ImportUI({
+        eventBus,
+        document,
+      })
+      this.importUI.init()
 
     } catch (error) {
       // dbg('Failed to initialize application:', error)

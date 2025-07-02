@@ -72,7 +72,7 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: true
             }),
-            generateDisplayText: (params) => `Execute Tray ${params.tray + 1} Slot ${params.slot + 1}`
+            generateDisplayText: (params) => `Tray Execution (${params.tray} ${params.slot})`
           },
           { 
             // Handle standard form: TrayExecByTray <active> <tray> <slot>
@@ -86,7 +86,7 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: false
             }),
-            generateDisplayText: (params) => `Execute Tray ${params.tray + 1} Slot ${params.slot + 1}`
+            generateDisplayText: (params) => `Tray Execution (${params.tray} ${params.slot})`
           }
         ],
         category: 'tray',
@@ -110,7 +110,7 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: true
             }),
-            generateDisplayText: (params) => `Tray Backup (${params.tray + 1}.${params.slot + 1} → ${params.backup_tray + 1}.${params.backup_slot + 1})`
+            generateDisplayText: (params) => `Tray Execution with Backup (${params.tray} ${params.slot} -> ${params.backup_tray} ${params.backup_slot})`
           },
           {
             // Handle standard form: TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>
@@ -126,12 +126,12 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: false
             }),
-            generateDisplayText: (params) => `Tray Backup (${params.tray + 1}.${params.slot + 1} → ${params.backup_tray + 1}.${params.backup_slot + 1})`
+            generateDisplayText: (params) => `Tray Execution with Backup (${params.tray} ${params.slot} -> ${params.backup_tray} ${params.backup_slot})`
           }
         ],
         category: 'tray',
         baseCommand: 'TrayExecByTrayWithBackup',
-        icon: '🔄'
+        icon: '⚡'
       },
 
       'Communication': {
@@ -174,18 +174,28 @@ export class STOCommandParser {
       'VFXCommands': {
         patterns: [
           {
-            regex: /^dynFxSetFXExlusionList\s+(.+)$/i,
-            weight: 50,
+            // Correct spelling – effects list form
+            regex: /^dynFxSetFXExclusionList\s+(.+)$/i,
+            weight: 51,
             signature: 'VFXExclusion(effects: string)',
             extractParams: (match) => ({ effects: match[1] }),
             generateDisplayText: (params) => `VFX Exclude: ${params.effects}`
-          },          
+          },
           {
-            regex: /^dynFxSetFXExlusionList_(.+)$/i,
+            // Correct spelling – alias form
+            regex: /^dynFxSetFXExclusionList_(.+)$/i,
             weight: 49,
             signature: 'VFXExclusionAlias(aliasName: string)',
             extractParams: (match) => ({ aliasName: match[1] }),
             generateDisplayText: (params) => `VFX Alias: ${params.aliasName}`
+          },
+          {
+            // Master alias that combines both space & ground aliases
+            regex: /^dynFxSetFXExclusionList$/i,
+            weight: 48,
+            signature: 'VFXExclusionMaster()',
+            extractParams: () => ({}),
+            generateDisplayText: () => 'VFX Alias: Combined Space/Ground'
           }
         ],
         category: 'vfx',

@@ -170,8 +170,8 @@ export default class ImportService extends ComponentBase {
       // Save profile
       this.storage.saveProfile(profileId, profile)
 
-      // Emit profile updated event
-      this.emit('profile-updated', { profileId, environment: env })
+      // Emit profile updated event (standard eventBus topic)
+      this.emit('profile:updated', { profileId, profile, environment: env })
 
       // Set app modified state if available
       if (typeof globalThis !== 'undefined' && globalThis.app?.setModified) {
@@ -235,8 +235,8 @@ export default class ImportService extends ComponentBase {
       // Save profile
       this.storage.saveProfile(profileId, profile)
 
-      // Emit profile updated event
-      this.emit('profile-updated', { profileId })
+      // Emit profile updated event so UIs refresh
+      this.emit('profile:updated', { profileId, profile })
 
       // Set app modified state if available
       if (typeof globalThis !== 'undefined' && globalThis.app?.setModified) {

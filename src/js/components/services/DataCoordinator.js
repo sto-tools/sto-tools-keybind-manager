@@ -138,7 +138,27 @@ export default class DataCoordinator extends ComponentBase {
     this.respond('data:clone-profile', ({ sourceId, newName }) => this.cloneProfile(sourceId, newName))
     this.respond('data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
     this.respond('data:delete-profile', ({ profileId }) => this.deleteProfile(profileId))
-    this.respond('data:update-profile', ({ profileId, updates }) => this.updateProfile(profileId, updates))
+    this.respond('data:update-profile', (payload = {}) => {
+      const { profileId, updates } = payload || {}
+
+      // If caller used legacy shape without "updates" wrapper, treat the remaining
+      // keys (add/delete/modify/properties) as the updates object.
+      let normalizedUpdates = updates
+      if (!normalizedUpdates) {
+        const { add, delete: del, modify, properties } = payload
+        if (add || del || modify || properties) {
+          normalizedUpdates = { add, delete: del, modify, properties }
+        }
+      }
+
+      // Forward updateSource if caller included it (used for loop-suppression in some services)
+      if (payload.updateSource && (!normalizedUpdates || !normalizedUpdates.updateSource)) {
+        if (!normalizedUpdates) normalizedUpdates = {}
+        normalizedUpdates.updateSource = payload.updateSource
+      }
+
+      return this.updateProfile(profileId, normalizedUpdates)
+    })
     this.respond('data:set-environment', ({ environment }) => this.setEnvironment(environment))
     this.respond('data:get-settings', () => this.getSettings())
     this.respond('data:update-settings', ({ settings }) => this.updateSettings(settings))

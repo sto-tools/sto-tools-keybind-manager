@@ -92,7 +92,7 @@ export default class AutoSync extends ComponentBase {
       clearInterval(this._intervalId)
       this._intervalId = null
     }
-    
+
     // Clear any pending debounced sync
     if (this._syncDebounceTimeout) {
       clearTimeout(this._syncDebounceTimeout)

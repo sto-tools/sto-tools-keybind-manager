@@ -259,12 +259,36 @@ export default class ParameterCommandService extends ComponentBase {
     // as single source of truth instead of CommandBuilderService.
     const builders = {
       targeting: (p) => {
-        if (commandId === 'target' && p.entityName) {
+        // Always use commandId 'target_entity' for this builder
+        if (commandId === 'target_entity') {
+          const entity = p.entityName || ''
+          const cmdStr = `${commandDef.command || 'Target'} "${entity}"`
           return {
-            command: `${commandDef.command} "${p.entityName}"`,
-            text: `Target: ${p.entityName}`,
+            command: cmdStr,
+            text: `Target "${entity}"`,
           }
         }
+        // Generic handling for other targeting commands (e.g. Assist)
+        if (commandDef.customizable && commandDef.parameters) {
+          const paramVals = []
+          Object.keys(commandDef.parameters).forEach(key => {
+            const val = p[key]
+            if (val !== undefined && val !== '') {
+              if (typeof val === 'string') {
+                paramVals.push(`"${val}"`)
+              } else {
+                paramVals.push(val)
+              }
+            }
+          })
+          const cmdStr = [commandDef.command, ...paramVals].join(' ').trim()
+          return {
+            command: cmdStr,
+            text: `${commandDef.name}: ${paramVals.join(' ')}`.trim(),
+          }
+        }
+
+        // Fallback – return base command string if available
         return { command: commandDef.command, text: commandDef.name }
       },
 
@@ -449,25 +473,16 @@ export default class ParameterCommandService extends ComponentBase {
         if (commandId === 'vfx_exclusion') {
           const effects = p.effects || ''
           return {
-            command: `dynFxSetFXExlusionList ${effects}`,
+            // Use correct spelling first
+            command: `dynFxSetFXExclusionList ${effects}`,
             text: `VFX Exclude: ${effects}`
           }
         } else if (commandId === 'vfx_exclusion_alias') {
           const aliasName = p.aliasName || ''
           return {
-            command: `dynFxSetFXExlusionList_${aliasName}`,
+            // Use correct spelling for alias command
+            command: `dynFxSetFXExclusionList_${aliasName}`,
             text: `VFX Alias: ${aliasName}`
-          }
-        }
-        return { command: commandDef.command, text: commandDef.name }
-      },
-
-      targeting: (p) => {
-        if (commandId === 'target_entity') {
-          const entityName = p.entityName || ''
-          return {
-            command: `Target "${entityName}"`,
-            text: `Target "${entityName}"`
           }
         }
         return { command: commandDef.command, text: commandDef.name }
@@ -492,7 +507,16 @@ export default class ParameterCommandService extends ComponentBase {
 
       system: (p) => {
         let cmd = commandDef.command
-        if ((commandId === 'bind_save_file' || commandId === 'bind_load_file') && p.filename) {
+
+        // Generic parameter concatenation for customizable system commands
+        if (commandDef.customizable && commandDef.parameters) {
+          const paramVals = []
+          Object.keys(commandDef.parameters).forEach(key => {
+            const val = p[key]
+            if (val !== undefined && val !== '') paramVals.push(val)
+          })
+          if (paramVals.length) cmd = `${commandDef.command} ${paramVals.join(' ')}`
+        } else if ((commandId === 'bind_save_file' || commandId === 'bind_load_file') && p.filename) {
           cmd = `${commandDef.command} ${p.filename}`
         } else if (commandId === 'combat_log' && p.state !== undefined) {
           cmd = `${commandDef.command} ${p.state}`
@@ -512,22 +536,32 @@ export default class ParameterCommandService extends ComponentBase {
       },
     }
 
-    const builder = builders[categoryId]
-    if (!builder) return null
+    const builder = builders[categoryId] || (() => ({ command: commandDef.command }))
+    let result = await builder(params)
 
-    const result = await builder(params)
-    if (!result) return null // invalid params (e.g. empty alias name)
+    // -------- Generic fallback ----------
+    if (commandDef.customizable) {
+      const ensureString = (res) => {
+        if (!res) return res
+        if (Array.isArray(res)) return res.map(ensureString)
+        if (typeof res === 'string') return { command: res }
+        if (typeof res.command === 'string' && res.command.trim() !== '') return res
 
-    if (Array.isArray(result)) return result // already fully-fledged command list
-
-    return {
-      command: result.command,
-      type:    categoryId,
-      icon:    commandDef.icon,
-      displayText: result.text,
-      id:      this.generateCommandId(),
-      parameters: result.parameters || params, // Use builder's parameters if available, otherwise fall back to input params
+        // Build command string from params if missing
+        const parts = [commandDef.command]
+        Object.keys(commandDef.parameters || {}).forEach(key => {
+          const val = params[key]
+          if (val !== undefined && val !== '') {
+            parts.push(typeof val === 'string' ? `"${val}"` : val)
+          }
+        })
+        res.command = parts.join(' ').trim()
+        return res
+      }
+      result = ensureString(result)
     }
+
+    return result
   }
 
   /* ------------------------------------------------------------

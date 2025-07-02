@@ -330,7 +330,7 @@ export default class CommandLibraryService extends ComponentBase {
       // We therefore detect them heuristically and map them back to the
       // correct library entry so that the UI can display the friendly name.
       // --------------------------------------------------------------------
-      if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
+  /*    if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
         const trayCategory = await this.request('data:get-tray-category')
         if (trayCategory) {
           const categoryId = 'tray'
@@ -370,7 +370,7 @@ export default class CommandLibraryService extends ComponentBase {
             }
           }
         }
-      }
+      }*/
 
       // Detect references to other user-defined aliases when the command
       // string exactly matches an alias name in the current profile.
