@@ -1506,7 +1506,7 @@ const STO_DATA = {
     },
   },
 
-  // VFX Effects data for disabling via dynFxSetFXExlusionList (migrated from vertigo_data.js)
+  // VFX Effects data for disabling via dynFxSetFXExclusionList (migrated from vertigo_data.js)
   vfxEffects: {
     space: [
       {

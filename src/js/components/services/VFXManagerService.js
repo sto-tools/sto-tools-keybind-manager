@@ -102,7 +102,7 @@ export default class VFXManagerService extends ComponentBase {
     if (effects.length === 0) return 'No effects selected'
 
     const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
-    let command = `dynFxExcludeFX ${effects.join(',')}`
+    let command = `dynFxSetFXExclusionList  ${effects.join(',')}`
     if (this.showPlayerSay) {
       command += ' $$ PlayerSay VFX Suppression Loaded'
     }
@@ -121,13 +121,49 @@ export default class VFXManagerService extends ComponentBase {
     const effects = Array.from(this.selectedEffects[environment])
     if (effects.length === 0) return ''
 
-    let command = `dynFxExcludeFX ${effects.join(',')}`
+    let command = `dynFxSetFXExclusionList ${effects.join(',')}`
 
     if (this.showPlayerSay) {
       command += ' $$ PlayerSay VFX Suppression Loaded'
     }
 
     return command
+  }
+
+  // Generate just the command part (without alias definition) for storage
+  generateCombinedAliasCommand(environments) {
+    // Ensure environments is an array
+    const envArray = Array.isArray(environments) ? environments : [environments]
+    
+    // Defensive check to ensure selectedEffects is properly initialized
+    if (!this.selectedEffects) {
+      console.warn(`[${this.componentName}] generateCombinedAliasCommand: selectedEffects not properly initialized, returning empty command`)
+      return ''
+    }
+
+    const allEffects = []
+    
+    for (const environment of envArray) {
+      if (!this.selectedEffects[environment]) {
+        console.warn(`[${this.componentName}] generateCombinedAliasCommand: selectedEffects not properly initialized for ${environment}, skipping`)
+        continue
+      }
+
+      const environmentEffects = Array.from(this.selectedEffects[environment])
+      if (environmentEffects.length === 0) continue
+
+      allEffects.push(...environmentEffects)
+    }
+
+    if (allEffects.length === 0) return ''
+
+    let finalCommand = `dynFxSetFXExclusionList ${allEffects.join(',')}`
+
+    if (this.showPlayerSay) {
+      finalCommand += ' $$ PlayerSay VFX Suppression Loaded'
+    }
+
+    return finalCommand
   }
 
   // Get selected effects for an environment
@@ -315,13 +351,15 @@ export default class VFXManagerService extends ComponentBase {
         
         // Create master alias that executes both space and ground aliases if any were generated
         if (generatedAliases.length > 0) {
-          const masterAliasCommand = generatedAliases.join(' $$ ')
-          newVfxAliases['dynFxSetFXExclusionList'] = {
+          // Get the actual command content from each generated alias
+          const masterAliasCommand = this.generateCombinedAliasCommand(environments)
+
+          newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
             commands: masterAliasCommand,
             description: 'VFX suppression for all environments',
             type: 'vfx-alias'
           }
-          console.log(`[${this.componentName}] autoGenerateAliases: Generated master VFX alias: dynFxSetFXExclusionList = ${masterAliasCommand}`)
+          console.log(`[${this.componentName}] autoGenerateAliases: Generated combined VFX alias: dynFxSetFXExclusionList_Combined = ${masterAliasCommand}`)
         }
         
         // Update profile via DataCoordinator using explicit operations API
@@ -466,13 +504,13 @@ export default class VFXManagerService extends ComponentBase {
           
           // Create master alias that executes both space and ground aliases if any were generated
           if (generatedAliases.length > 0) {
-            const masterAliasCommand = generatedAliases.join(' $$ ')
-            newVfxAliases['dynFxSetFXExclusionList'] = {
+            const masterAliasCommand = this.generateCombinedAliasCommand(environments)
+            newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
               commands: masterAliasCommand,
               description: 'VFX suppression for all environments',
               type: 'vfx-alias'
             }
-            console.log(`[${this.componentName}] Generated master VFX alias: dynFxSetFXExclusionList = ${masterAliasCommand}`)
+            console.log(`[${this.componentName}] Generated combined VFX alias: dynFxSetFXExclusionList = ${masterAliasCommand}`)
           }
           
           // Update profile via DataCoordinator using explicit operations API

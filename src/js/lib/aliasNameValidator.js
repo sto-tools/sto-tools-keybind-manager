@@ -1,7 +1,7 @@
 /*
  * aliasNameValidator.js – reusable helpers for validating alias names.
  * Ensures a proposed alias name does not collide with real STO commands
- * (excluding VFX-specific dynFxSetFXExlusionList aliases which are virtual).
+ * (excluding VFX-specific dynFxSetFXExclusionList aliases which are virtual).
  */
 import { STOCommandParser } from './STOCommandParser.js'
 import { SIGNATURE_DEFINITIONS } from './CommandSignatureDefinitions.js'

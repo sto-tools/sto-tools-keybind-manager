@@ -200,6 +200,14 @@ export class STOCommandParser {
       'VFXCommands': {
         patterns: [
           {
+            // Master alias that combines both space & ground aliases
+            regex: /^dynFxSetFXExclusionList_combined$/i,
+            weight: 48,
+            signature: 'VFXExclusionMaster()',
+            extractParams: () => ({}),
+            generateDisplayText: () => 'VFX Alias: Combined Space/Ground'
+          },
+          {
             // Correct spelling – effects list form
             regex: /^dynFxSetFXExclusionList\s+(.+)$/i,
             weight: 51,
@@ -214,14 +222,6 @@ export class STOCommandParser {
             signature: 'VFXExclusionAlias(aliasName: string)',
             extractParams: (match) => ({ aliasName: match[1] }),
             generateDisplayText: (params) => `VFX Alias: ${params.aliasName}`
-          },
-          {
-            // Master alias that combines both space & ground aliases
-            regex: /^dynFxSetFXExclusionList$/i,
-            weight: 48,
-            signature: 'VFXExclusionMaster()',
-            extractParams: () => ({}),
-            generateDisplayText: () => 'VFX Alias: Combined Space/Ground'
           }
         ],
         category: 'vfx',
