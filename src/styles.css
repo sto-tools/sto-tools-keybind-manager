@@ -247,11 +247,11 @@ body {
 
 /* Debug styles */
 .dropdown.active {
-  outline: 2px solid red; /* Debug outline */
+  /*outline: 2px solid red; */
 }
 
 .dropdown.active .dropdown-menu {
-  outline: 2px solid blue; /* Debug outline */
+  /*outline: 2px solid blue; */
 }
 
 .dropdown-item {

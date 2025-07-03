@@ -60,6 +60,24 @@ export default class KeyCaptureUI extends ComponentBase {
 
     // Build modifier buttons from authoritative list
     this.populateModifierButtons()
+
+    // Setup left/right modifier distinction toggle if present
+    const sideToggle = this.document?.getElementById('distinguishModifierSide')
+    if (sideToggle) {
+      // Initialise with current state
+      this.emit('keycapture:set-location-specific', { value: sideToggle.checked })
+
+      // Watch for changes
+      sideToggle.addEventListener('change', (e) => {
+        const checked = e.target.checked
+        // Notify service via event bus
+        this.emit('keycapture:set-location-specific', { value: checked })
+        // Fallback direct call if service reference is available
+        if (this.service && typeof this.service.setLocationSpecific === 'function') {
+          this.service.setLocationSpecific(checked)
+        }
+      })
+    }
   }
 
   setupEventListeners() {
@@ -293,7 +311,6 @@ export default class KeyCaptureUI extends ComponentBase {
   /** Build and populate key grids the first time the modal is opened */
   populateKeySelectionModal () {
     if (this._keySelectionPopulated) return
-    this._keySelectionPopulated = true
 
     const MODIFIERS = new Set(['ALT','LALT','RALT','CONTROL','LCTRL','RCTRL','SHIFT'])
 
@@ -333,6 +350,38 @@ export default class KeyCaptureUI extends ComponentBase {
     Object.keys(categories).forEach(cat => {
       categories[cat] = Array.from(categories[cat])
     })
+
+    // Map category to grid element IDs defined in the modal template
+    const gridIds = {
+      common  : 'commonKeyGrid',
+      letters : 'lettersKeyGrid',
+      numbers : 'numbersKeyGrid',
+      function: 'functionKeyGrid',
+      arrows  : 'arrowsKeyGrid',
+      symbols : 'symbolsKeyGrid',
+      numpad  : 'numpadKeyGrid',
+      mouse   : 'mouseKeyGrid',
+      gamepad : 'gamepadKeyGrid'
+    }
+
+    // Populate each grid with key items
+    Object.entries(categories).forEach(([cat, keys]) => {
+      const gridEl = this.document.getElementById(gridIds[cat])
+      if (!gridEl) return
+
+      // Sort keys for predictable ordering
+      keys.sort((a, b) => a.localeCompare(b))
+
+      keys.forEach(k => {
+        const item = this.document.createElement('div')
+        item.className = 'key-item'
+        item.dataset.key = k
+        item.textContent = k
+        gridEl.appendChild(item)
+      })
+    })
+
+    this._keySelectionPopulated = true
   }
 
   /** Update preview display and confirm button based on current selections */

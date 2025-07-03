@@ -27,6 +27,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.pressedCodes         = new Set()
     this.currentContext       = 'keySelectionModal'
     this.hasCapturedValidKey  = false
+    this.locationSpecific     = false
 
     // Bindings --------------------------------------------------------------
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
@@ -35,6 +36,9 @@ export default class KeyCaptureService extends ComponentBase {
     // Listen for start/stop requests emitted by UI components
     this.addEventListener('keycapture:start', ({ context } = {}) => this.startCapture(context))
     this.addEventListener('keycapture:stop',  () => this.stopCapture())
+    this.addEventListener('keycapture:set-location-specific', ({ value } = {}) => {
+      this.setLocationSpecific(value)
+    })
   }
 
   /* ---------------------------------------------------------------------- */
@@ -71,6 +75,14 @@ export default class KeyCaptureService extends ComponentBase {
 
     this.emit('capture-stop', { context: this.currentContext })
     this.currentContext = 'keySelectionModal'
+  }
+
+  /**
+   * Enable / disable left- vs right-modifier distinction.
+   * @param {boolean} value
+   */
+  setLocationSpecific (value) {
+    this.locationSpecific = !!value
   }
 
   /* ---------------------------------------------------------------------- */
@@ -140,12 +152,20 @@ export default class KeyCaptureService extends ComponentBase {
    * @returns {string}
    */
   chordToString (codes) {
+    const locationSpecific = this.locationSpecific
+
     return [...codes]
       .sort()
       .map((code) => {
         // Modifiers --------------------------------------------------------
-        if (code.startsWith('Control')) return 'Ctrl'
-        if (code.startsWith('Alt'))     return 'Alt'
+        if (code.startsWith('Control')) {
+          if (locationSpecific) return code.endsWith('Left') ? 'LCTRL' : 'RCTRL'
+          return 'Ctrl'
+        }
+        if (code.startsWith('Alt')) {
+          if (locationSpecific) return code.endsWith('Left') ? 'LALT' : 'RALT'
+          return 'Alt'
+        }
         if (code.startsWith('Shift'))   return 'Shift'
         if (code.startsWith('Meta'))    return 'Meta'
 
