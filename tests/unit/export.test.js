@@ -6,14 +6,14 @@ import { join } from 'path'
 import '../../src/js/data.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import STOStorage from '../../src/js/services/storage.js'
+import { StorageService } from '../../src/js/components/services/index.js'
 // Profile functionality is now handled by the app instance
-import STOKeybindFileManager from '../../src/js/features/keybinds.js'
-import STOUIManager from '../../src/js/ui/ui.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
+// STOUIManager removed - using event bus for UI interactions
 import STOToolsKeybindManager from '../../src/js/app.js'
-import STOExportManager from '../../src/js/features/export.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 
-let stoStorage
+let storageService
 // stoProfiles removed - profile functionality is now in app
 let stoKeybinds
 let stoUI
@@ -29,21 +29,44 @@ beforeEach(() => {
   // Set up the real DOM
   document.documentElement.innerHTML = htmlContent
 
-  stoStorage = new STOStorage()
+  storageService = new StorageService()
       // Profile functionality is now handled by the app instance
-  stoKeybinds = new STOKeybindFileManager()
-  stoUI = new STOUIManager()
-      Object.assign(global, { stoStorage, stoKeybinds, stoUI })
+  stoKeybinds = new KeyService()
+  // Create mock UI for legacy test compatibility
+  stoUI = {
+    showToast: vi.fn(),
+    copyToClipboard: vi.fn(),
+    showModal: vi.fn(),
+    hideModal: vi.fn()
+  }
+  Object.assign(global, { storageService, stoKeybinds, stoUI })
   app = new STOToolsKeybindManager()
-  exportManager = new STOExportManager()
+  exportManager = new ExportService({ storage: storageService, eventBus })
   exportManager.init() // Initialize after i18next is ready
   Object.assign(global, { app, exportManager })
+
+  // Minimal stub for profileService to satisfy export/import methods in unit tests
+  app.profileService = {
+    getCurrentProfile () {
+      const id = store.currentProfile
+      const profile = storageService.getProfile(id)
+      if (!profile) return null
+      if (!profile.keys) {
+        const env = profile.currentEnvironment || store.currentEnvironment || 'space'
+        if (profile.builds && profile.builds[env] && profile.builds[env].keys) {
+          profile.keys = profile.builds[env].keys
+        }
+      }
+      return profile
+    },
+    generateProfileId: vi.fn((name) => `imported_${name.replace(/\s+/g, '_')}`),
+    createProfile: vi.fn(() => ({ success: true, profileId: 'imported_profile' })),
+  }
+
   store.currentProfile = 'test-profile'
   store.currentEnvironment = 'space'
 
-  // Mock only the UI methods that would show actual modals or toasts
-  vi.spyOn(stoUI, 'showToast').mockImplementation(() => {})
-  vi.spyOn(stoUI, 'copyToClipboard').mockImplementation(() => {})
+  // UI methods are already mocked in the stoUI object above
 
   // Create a test profile in the real storage system
   const testProfile = {
@@ -90,7 +113,7 @@ beforeEach(() => {
   }
 
   // Add the test profile to real storage and set as current
-  stoStorage.saveProfile(testProfile.id, testProfile)
+  storageService.saveProfile(testProfile.id, testProfile)
   app.currentProfile = testProfile.id
   app.saveCurrentProfile()
 
@@ -107,15 +130,15 @@ beforeEach(() => {
 afterEach(() => {
   // Clean up after each test
   vi.restoreAllMocks()
-  stoStorage.clearAllData()
+  storageService.clearAllData()
   app.currentProfile = null
   app.selectedKey = null
   resetStore()
 })
 
-describe('STOExportManager', () => {
+describe('ExportService', () => {
   beforeEach(() => {
-    exportManager = new STOExportManager()
+    exportManager = new ExportService({ storage: storageService, eventBus })
     exportManager.init() // Initialize after i18next is ready
   })
 
@@ -856,7 +879,7 @@ describe('STOExportManager', () => {
         name: 'Test Profile 2',
         keys: { F1: [{ command: 'test' }] },
       }
-      stoStorage.saveProfile(testProfile2.id, testProfile2)
+      storageService.saveProfile(testProfile2.id, testProfile2)
 
       const mockAnchor = {
         click: vi.fn(),
@@ -878,7 +901,7 @@ describe('STOExportManager', () => {
     it('should handle export progress indication', () => {
       // Mock the getAllData method to return empty profiles
       const mockGetAllData = vi
-        .spyOn(stoStorage, 'getAllData')
+        .spyOn(storageService, 'getAllData')
         .mockReturnValue({
           profiles: {},
           currentProfile: null,

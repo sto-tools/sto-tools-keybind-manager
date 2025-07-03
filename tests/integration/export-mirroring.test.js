@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// Mock writeFile from sync.js
-vi.mock('../../src/js/services/sync.js', () => ({
+// Mock writeFile from SyncService (used by export.js)
+vi.mock('../../src/js/components/services/SyncService.js', () => ({
   writeFile: vi.fn()
 }))
 
 import '../../src/js/data.js'
-import STOStorage from '../../src/js/services/storage.js'
-import STOKeybindFileManager from '../../src/js/features/keybinds.js'
-import STOExportManager from '../../src/js/features/export.js'
+import { StorageService } from '../../src/js/components/services/index.js'
+import KeyService from '../../src/js/components/services/KeyService.js'
+import ExportService from '../../src/js/components/services/ExportService.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import { writeFile } from '../../src/js/services/sync.js'
+import { writeFile } from '../../src/js/components/services/SyncService.js'
 
 describe('Export Mirroring Integration', () => {
-  let app, stoStorage, stoKeybinds, stoExport, stoUI
+  let app, storageService, stoKeybinds, stoExport, stoUI
 
   beforeEach(() => {
     resetStore()
@@ -55,11 +55,11 @@ describe('Export Mirroring Integration', () => {
         : {}
     })
 
-    stoStorage = new STOStorage()
-    stoKeybinds = new STOKeybindFileManager()
-    stoExport = new STOExportManager()
+    storageService = new StorageService()
+    stoKeybinds = new KeyService()
+    stoExport = new STOExportManager({ storage: storageService })
     stoUI = { showToast: vi.fn() }
-    Object.assign(global, { stoStorage, stoKeybinds, stoExport, stoUI })
+    Object.assign(global, { storageService, stoKeybinds, stoExport, stoUI })
 
     // Create minimal app-like object for testing
     app = {
@@ -81,7 +81,7 @@ describe('Export Mirroring Integration', () => {
           lastModified: new Date().toISOString(),
           currentEnvironment: 'space',
         }
-        stoStorage.saveProfile(profileId, profile)
+        storageService.saveProfile(profileId, profile)
         this.currentProfile = profileId
         store.currentProfile = profileId
         store.currentEnvironment = 'space'
@@ -91,7 +91,7 @@ describe('Export Mirroring Integration', () => {
       switchProfile(profileId) {
         this.currentProfile = profileId
         store.currentProfile = profileId
-        const profile = stoStorage.getProfile(profileId)
+        const profile = storageService.getProfile(profileId)
         if (profile) {
           this.currentEnvironment = profile.currentEnvironment || 'space'
         }
@@ -99,7 +99,7 @@ describe('Export Mirroring Integration', () => {
       },
 
       getCurrentProfile() {
-        const profile = stoStorage.getProfile(this.currentProfile)
+        const profile = storageService.getProfile(this.currentProfile)
         if (!profile) return null
 
         // Return a profile-like object with current build data
@@ -113,10 +113,10 @@ describe('Export Mirroring Integration', () => {
 
       saveCurrentProfile() {
         // For testing, just save the profile as-is
-        const profile = stoStorage.getProfile(this.currentProfile)
+        const profile = storageService.getProfile(this.currentProfile)
         if (profile) {
           profile.lastModified = new Date().toISOString()
-          stoStorage.saveProfile(this.currentProfile, profile)
+          storageService.saveProfile(this.currentProfile, profile)
         }
       },
 
@@ -189,7 +189,7 @@ describe('Export Mirroring Integration', () => {
       app.switchProfile(testProfileId)
 
       // Get the actual profile from storage to modify it
-      const actualProfile = stoStorage.getProfile(testProfileId)
+      const actualProfile = storageService.getProfile(testProfileId)
 
       // Add mirrored tray sequence
       actualProfile.builds.space.keys['F1'] = [
@@ -230,7 +230,7 @@ describe('Export Mirroring Integration', () => {
       }
 
       // Save the modified profile back to storage
-      stoStorage.saveProfile(testProfileId, actualProfile)
+      storageService.saveProfile(testProfileId, actualProfile)
     })
 
     it('should export with global stabilization disabled but respect per-key metadata', () => {
@@ -402,7 +402,7 @@ describe('Export Mirroring Integration', () => {
       )
 
       // Stabilization metadata should be set
-      const actualProfile = stoStorage.getProfile(importProfileId)
+      const actualProfile = storageService.getProfile(importProfileId)
       expect(
         actualProfile.keybindMetadata.space.F1.stabilizeExecutionOrder
       ).toBe(true)
@@ -453,10 +453,10 @@ describe('Export Mirroring Integration', () => {
       }
 
       // Save the test profile
-      stoStorage.saveProfile('bug-test-profile', testProfile)
+      storageService.saveProfile('bug-test-profile', testProfile)
       
-      // Mock stoStorage.getAllData to return our test profile
-      vi.spyOn(stoStorage, 'getAllData').mockReturnValue({
+      // Mock storageService.getAllData to return our test profile
+      vi.spyOn(storageService, 'getAllData').mockReturnValue({
         profiles: {
           'bug-test-profile': testProfile
         },
@@ -469,7 +469,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should correctly export keybinds from profile.builds structure', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       
@@ -498,7 +498,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should use profile.currentEnvironment for alias file mode', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       
@@ -515,7 +515,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should generate non-timestamped filenames for sync operations', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       
@@ -535,7 +535,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should include keybindMetadata in exported keybind files', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       // Spy on generateSTOKeybindFile to check metadata inclusion
       const generateSpy = vi.spyOn(stoExport, 'generateSTOKeybindFile')
@@ -562,7 +562,7 @@ describe('Export Mirroring Integration', () => {
     })
 
     it('should generate correct bind_load_file commands without timestamps', async () => {
-      const mockDirHandle = {}
+      const mockDirHandle = createMockDirectoryHandle()
       
       await stoExport.syncToFolder(mockDirHandle)
       

@@ -21,17 +21,46 @@ describe('Alias list scrolling', () => {
     expect(aliasModeBtn).toBeTruthy()
     aliasModeBtn.click()
 
-    // Populate the profile with many aliases to require scrolling
-    const aliasCount = 40
-    for (let i = 0; i < aliasCount; i++) {
-      window.app.createAliasChain(`Alias${i}`)
+    // Wait for the alias view to be shown and ensure the container is visible
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    
+    // Ensure the alias selector container is visible
+    const aliasContainer = document.getElementById('aliasSelectorContainer')
+    if (aliasContainer) {
+      aliasContainer.style.display = 'block'
     }
 
-    // Re-render the alias grid to reflect added aliases (createAliasChain may handle this, but ensure)
-    window.app.renderAliasGrid()
+    // Populate the profile with many aliases to require scrolling
+    const aliasCount = 100 // Increased count to ensure scrolling
+    for (let i = 0; i < aliasCount; i++) {
+      window.app.createAliasChain(`Alias${i}`, `command${i}_1 command${i}_2 command${i}_3`)
+    }
 
-    // Locate the scroll container for aliases
-    const scrollContainer = await testUtils.waitForElement('.alias-grid')
+    // Wait for aliases to be created
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Check if aliases were created in the profile
+    console.log('Profile aliases after creation:', window.app.currentProfile?.aliases)
+    console.log('Alias count:', Object.keys(window.app.currentProfile?.aliases || {}).length)
+
+    // Re-render the alias grid to reflect added aliases (createAliasChain may handle this, but ensure)
+    if (window.app.renderAliasGrid) {
+      window.app.renderAliasGrid()
+    }
+
+    // Wait for the alias grid to be populated
+    await new Promise((resolve) => setTimeout(resolve, 200))
+
+    // Locate the scroll container for aliases - use the correct selector
+    const scrollContainer = await testUtils.waitForElement('#aliasGrid')
+
+    // Debug: Check what's in the grid
+    console.log('Grid children count:', scrollContainer.children.length)
+    console.log('Grid innerHTML length:', scrollContainer.innerHTML.length)
+
+    // Ensure the grid has content and is scrollable
+    expect(scrollContainer.children.length).toBeGreaterThan(0)
+    expect(scrollContainer.scrollHeight).toBeGreaterThan(scrollContainer.clientHeight)
 
     // Record initial scroll position (should be 0)
     const initialTop = scrollContainer.scrollTop
@@ -58,16 +87,25 @@ describe('Alias list scrolling', () => {
     expect(aliasModeBtn).toBeTruthy()
     aliasModeBtn.click()
 
+    // Wait for the alias view to be shown and ensure the container is visible
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    
+    // Ensure the alias selector container is visible
+    const aliasContainer = document.getElementById('aliasSelectorContainer')
+    if (aliasContainer) {
+      aliasContainer.style.display = 'block'
+    }
+
     // Generate many aliases to force scrolling
-    for (let i = 1; i <= 50; i++) {
-      window.app.createAliasChain(`TestAlias${i}`, [`command${i}_1`, `command${i}_2`])
+    for (let i = 1; i <= 100; i++) {
+      window.app.createAliasChain(`TestAlias${i}`, `command${i}_1 command${i}_2 command${i}_3 command${i}_4 command${i}_5`)
     }
 
     // Wait for UI to update
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 200))
 
-    // Locate the scroll container and header toolbar buttons
-    const scrollContainer = await testUtils.waitForElement('.alias-grid')
+    // Locate the scroll container and header toolbar buttons - use correct selectors
+    const scrollContainer = await testUtils.waitForElement('#aliasGrid')
     const headerToolbar = await testUtils.waitForElement('.alias-selector-header .header-toolbar')
     const addButton = document.getElementById('addAliasChainBtn')
     const deleteButton = document.getElementById('deleteAliasChainBtn')
@@ -76,6 +114,10 @@ describe('Alias list scrolling', () => {
     expect(headerToolbar).toBeTruthy()
     expect(addButton).toBeTruthy()
     expect(deleteButton).toBeTruthy()
+
+    // Ensure the grid has content and is scrollable
+    expect(scrollContainer.children.length).toBeGreaterThan(0)
+    expect(scrollContainer.scrollHeight).toBeGreaterThan(scrollContainer.clientHeight)
 
     // Reset scroll position to top for consistent test
     scrollContainer.scrollTop = 0

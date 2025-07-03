@@ -3,19 +3,38 @@ import i18next from 'i18next'
 import en from '../../src/i18n/en.json'
 
 const handleStore = new Map()
-vi.mock('../../src/js/services/fsHandles.js', () => {
+vi.mock('../../src/js/components/services/FileSystemService.js', () => {
+  const stubWriteFile = vi.fn(async (dirHandle, relPath, contents) => {
+    const parts = relPath.split('/')
+    const fileName = parts.pop()
+    let current = dirHandle
+    for (const p of parts) {
+      if (!current.children[p]) current.children[p] = { children: {}, name: p }
+      current = current.children[p]
+    }
+    current.children[fileName] = { contents }
+  })
+
+  const saveDirectoryHandleSpy = vi.fn((key, handle) => { handleStore.set(key, handle); return Promise.resolve() })
+  const getDirectoryHandleSpy = vi.fn((key) => Promise.resolve(handleStore.get(key)))
+
+  const defaultCls = class {
+    saveDirectoryHandle (...args) { return saveDirectoryHandleSpy(...args) }
+    getDirectoryHandle (...args) { return getDirectoryHandleSpy(...args) }
+    writeFile (...args) { return stubWriteFile(...args) }
+  }
+
   return {
-    saveDirectoryHandle: vi.fn((key, handle) => {
-      handleStore.set(key, handle)
-      return Promise.resolve()
-    }),
-    getDirectoryHandle: vi.fn((key) => Promise.resolve(handleStore.get(key))),
+    saveDirectoryHandle: saveDirectoryHandleSpy,
+    getDirectoryHandle: getDirectoryHandleSpy,
+    writeFile: stubWriteFile,
     KEY_SYNC_FOLDER: 'sync-folder',
+    default: defaultCls,
   }
 })
 
-import { saveDirectoryHandle, getDirectoryHandle } from '../../src/js/services/fsHandles.js'
-import STOSyncManager, { writeFile } from '../../src/js/services/sync.js'
+import { saveDirectoryHandle, getDirectoryHandle } from '../../src/js/components/services/FileSystemService.js'
+import SyncService, { writeFile } from '../../src/js/components/services/SyncService.js'
 
 class MockFile {
   constructor() {
@@ -56,23 +75,23 @@ class MockDirHandle {
   }
 }
 
-describe('STOSyncManager', () => {
+describe('SyncService', () => {
   let sync
   beforeEach(async () => {
     await i18next.init({ lng: 'en', resources: { en: { translation: en } } })
     window.i18next = i18next
     global.stoUI = { showToast: vi.fn() }
     global.stoExport = { syncToFolder: vi.fn() }
-    global.stoStorage = {
+    global.storageService = {
       getSettings: vi.fn().mockReturnValue({}),
       saveSettings: vi.fn(),
     }
-    sync = new STOSyncManager(global.stoStorage)
+    sync = new SyncService({ storage: global.storageService })
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    delete global.stoStorage
+    delete global.storageService
   })
 
   it('setSyncFolder stores selected handle', async () => {
@@ -82,7 +101,7 @@ describe('STOSyncManager', () => {
     expect(showDirectoryPicker).toHaveBeenCalled()
     expect(saveDirectoryHandle).toHaveBeenCalledWith('sync-folder', handle)
     expect(stoUI.showToast).toHaveBeenCalled()
-    expect(stoStorage.saveSettings).toHaveBeenCalledWith({
+    expect(storageService.saveSettings).toHaveBeenCalledWith({
       syncFolderName: handle.name,
       syncFolderPath: `Selected folder: ${handle.name}`,
       autoSync: false,
@@ -95,7 +114,7 @@ describe('STOSyncManager', () => {
     const handle = new MockDirHandle()
     global.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
     await sync.setSyncFolder(true)
-    expect(stoStorage.saveSettings).toHaveBeenCalledWith({
+    expect(storageService.saveSettings).toHaveBeenCalledWith({
       syncFolderName: handle.name,
       syncFolderPath: `Selected folder: ${handle.name}`,
       autoSync: true,

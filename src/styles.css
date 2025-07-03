@@ -217,6 +217,7 @@ body {
 /* Dropdown component */
 .dropdown {
   position: relative;
+  display: inline-block;
 }
 
 .dropdown-toggle {
@@ -229,22 +230,28 @@ body {
   position: absolute;
   top: 100%;
   right: 0;
-  background: var(--surface);
+  z-index: 1000;
+  display: none;
+  min-width: 200px;
+  padding: 0.5rem 0;
+  margin: 0.125rem 0 0;
+  background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  min-width: 200px;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-10px);
-  transition: var(--transition);
-  z-index: 1000;
 }
 
 .dropdown.active .dropdown-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+  display: block !important; /* Force display when active */
+}
+
+/* Debug styles */
+.dropdown.active {
+  /*outline: 2px solid red; */
+}
+
+.dropdown.active .dropdown-menu {
+  /*outline: 2px solid blue; */
 }
 
 .dropdown-item {
@@ -1269,6 +1276,9 @@ input:checked + .slider:before {
 }
 .command-type.alias {
   background: linear-gradient(135deg, var(--accent), #fbbf24);
+}
+.command-type.vfx-alias {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
 }
 
 /* Command builder styles */
@@ -2538,7 +2548,7 @@ input:checked + .slider:before {
   box-sizing: border-box;
 }
 
-.alias-chain-item {
+.alias-selector-container .alias-item {
   display: flex;
   flex-direction: column;
   padding: 0.75rem;
@@ -2551,14 +2561,20 @@ input:checked + .slider:before {
   min-height: 80px;
 }
 
-.alias-chain-item:hover {
+.alias-selector-container .alias-item:hover {
   border-color: var(--primary-light);
   background: var(--surface-dark);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
-.alias-chain-item.selected {
+.alias-selector-container .alias-item.selected {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+  box-shadow: var(--shadow-md);
+}
+
+.alias-selector-container .alias-item.active {
   border-color: var(--primary);
   background: rgba(37, 99, 235, 0.05);
   box-shadow: var(--shadow-md);
@@ -2577,19 +2593,19 @@ input:checked + .slider:before {
 }
 
 /* Dynamic font sizing for alias names based on length */
-.alias-chain-item[data-length='short'] .alias-name {
+.alias-selector-container .alias-item[data-length='short'] .alias-name {
   font-size: 0.9rem;
 }
 
-.alias-chain-item[data-length='medium'] .alias-name {
+.alias-selector-container .alias-item[data-length='medium'] .alias-name {
   font-size: 0.8rem;
 }
 
-.alias-chain-item[data-length='long'] .alias-name {
+.alias-selector-container .alias-item[data-length='long'] .alias-name {
   font-size: 0.7rem;
 }
 
-.alias-chain-item[data-length='extra-long'] .alias-name {
+.alias-selector-container .alias-item[data-length='extra-long'] .alias-name {
   font-size: 0.6rem;
 }
 
@@ -3028,43 +3044,7 @@ input:checked + .slider:before {
   opacity: 0.7;
 }
 
-/* Toolbar button tooltips enhancement */
-.toolbar-btn:hover::before {
-  content: attr(data-i18n-title);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--surface-dark);
-  color: var(--text);
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius);
-  font-size: 0.75rem;
-  white-space: nowrap;
-  z-index: 1000;
-  border: 1px solid var(--border);
-  margin-bottom: 0.25rem;
-  opacity: 0;
-  animation: tooltipFadeIn 0.2s ease-in-out forwards;
-}
-
-@keyframes tooltipFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-/* Hide tooltips on mobile */
-@media (max-width: 768px) {
-  .toolbar-btn:hover::before {
-    display: none;
-  }
-}
+/* CSS-based tooltips removed - using UIUtilityService tooltips instead */
 
 [data-theme='dark'] .toolbar-search-input {
   background: #1f2937;
@@ -3513,6 +3493,12 @@ input:checked + .slider:before {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
+}
+
+.key-item.active {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+  box-shadow: var(--shadow-md);
 }
 
 .key-item .activity-bar {
@@ -4033,6 +4019,12 @@ input:checked + .slider:before {
   text-align: center;
   padding: 3rem 2rem;
   color: var(--text-muted);
+  display: none; /* Hidden by default to prevent flicker */
+}
+
+/* Show empty state only when explicitly needed */
+.empty-state.show {
+  display: block;
 }
 
 .empty-state i {
@@ -4143,5 +4135,19 @@ input:checked + .slider:before {
 #keySelectionModal .key-item {
   padding: 0.25rem;
   min-height: 35px;
+}
+
+/* Validation error helper (used in forms inside modals etc.) */
+.validation-error {
+  color: var(--danger);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  line-height: 1.2;
+  display: block;
+  transition: opacity 0.2s ease;
+}
+
+[data-theme='dark'] .validation-error {
+  color: var(--danger);
 }
 

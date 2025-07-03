@@ -1,6 +1,7 @@
 // STO Tools - Generic file handling library for keybind and alias files
 // Provides parsing, export generation, and command utilities
 import '../data.js'
+import { formatAliasLine } from './STOFormatter.js'
 const STO_DATA = globalThis.STO_DATA || {}
 
 export default class STOFileHandler {
@@ -104,7 +105,7 @@ export default class STOFileHandler {
       return (commands || []).map(c => c.command || c).join(' $$ ')
     }
     const commandStrings = commands.map(c => c.command || c)
-    const reversed = [...commandStrings].reverse().slice(1)
+    const reversed = [...commandStrings].slice(0, -1).reverse()
     const mirrored = [...commandStrings, ...reversed]
     return mirrored.join(' $$ ')
   }
@@ -139,11 +140,14 @@ export default class STOFileHandler {
         text: this.getCommandText(command),
         id: `imported_${Date.now()}_${index}`,
       }
-      if (command.includes('+STOTrayExecByTray')) {
-        const match = command.match(/\+STOTrayExecByTray\s+(\d+)\s+(\d+)/)
+      // Detect tray-exec commands for friendly display --------------------
+      if (/TrayExecByTray/.test(command)) {
+        const match = command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
         if (match) {
-          obj.parameters = { tray: parseInt(match[1]), slot: parseInt(match[2]) }
-          obj.text = `Execute Tray ${parseInt(match[1]) + 1} Slot ${parseInt(match[2]) + 1}`
+          const trayIdx = parseInt(match[1])
+          const slotIdx = parseInt(match[2])
+          obj.parameters = { tray: trayIdx, slot: slotIdx }
+          obj.text = `Execute Tray ${trayIdx + 1} Slot ${slotIdx + 1}`
         }
       } else if (command.includes('"')) {
         const match = command.match(/^(\w+)\s+"([^"]+)"$/)
@@ -261,8 +265,8 @@ export default class STOFileHandler {
     let content = `; Command Aliases\n; ================================================================\n; Aliases allow you to create custom commands that execute\n; multiple commands in sequence. Use them in keybinds like any\n; other command.\n; ================================================================\n\n`
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
     sorted.forEach(([name, alias]) => {
-      if (alias.description) content += `; ${alias.description}\n`
-      content += `alias ${name} <& ${alias.commands} &>\n\n`
+      content += formatAliasLine(name, alias)
+      content += '\n'
     })
     return content
   }
@@ -270,36 +274,109 @@ export default class STOFileHandler {
   generateKeybindSection(keys, options = {}) {
     if (!keys || Object.keys(keys).length === 0) return '; No keybinds defined\n\n'
     let content = `; Keybind Commands\n; ================================================================\n; Each line binds a key to one or more commands.\n; Multiple commands are separated by $$`
-    if (options.stabilizeExecutionOrder) {
-      content += `\n; EXECUTION ORDER STABILIZATION: ON\n; Commands are mirrored to ensure consistent execution order\n; Phase 1: left-to-right, Phase 2: right-to-left`
-    }
     content += `\n; ================================================================\n\n`
+    
     const sortedKeys = Object.keys(keys).sort(this.compareKeys.bind(this))
-    sortedKeys.forEach((key) => {
-      const commands = keys[key]
-      if (commands && commands.length > 0) {
-        let commandString
-        let shouldStabilize = false
-        if (options.profile && options.profile.keybindMetadata) {
-          if (options.environment && options.profile.keybindMetadata[options.environment]) {
-            const envMeta = options.profile.keybindMetadata[options.environment]
-            shouldStabilize = !!(envMeta && envMeta[key] && envMeta[key].stabilizeExecutionOrder)
-          }
-        }
-        if (options.stabilizeExecutionOrder || shouldStabilize) {
-          commandString = this.generateMirroredCommandString(commands)
-        } else {
-          commandString = commands.map((c) => c.command).join('$$')
-        }
-        content += `${key} "${commandString}"\n`
-      }
-    })
+    
+    // Add key grouping if requested
+    if (options.groupByType) {
+      const keyGroups = this.groupKeysByType(sortedKeys, keys)
+      Object.entries(keyGroups).forEach(([groupName, groupKeys]) => {
+        if (groupKeys.length === 0) return
+        content += `; ${groupName}\n; ${'-'.repeat(groupName.length)}\n`
+        groupKeys.forEach((key) => {
+          content += this._generateKeybindLine(key, keys[key], options)
+        })
+        content += '\n'
+      })
+    } else {
+      // Original flat layout
+      sortedKeys.forEach((key) => {
+        content += this._generateKeybindLine(key, keys[key], options)
+      })
+    }
+    
     content += '\n'
     return content
   }
 
+  _generateKeybindLine(key, commands, options = {}) {
+    if (!commands || commands.length === 0) return ''
+    
+    // Filter out null/undefined commands that may remain after incomplete edits
+    const cleanCommands = Array.isArray(commands)
+      ? commands.filter((c) => c && (typeof c.command === 'string' || typeof c === 'string'))
+      : []
+    
+    if (cleanCommands.length === 0) return ''
+    
+    let commandString
+    let shouldStabilize = false
+    
+    // Check for per-key stabilization settings
+    if (options.profile && options.profile.keybindMetadata) {
+      if (options.environment && options.profile.keybindMetadata[options.environment]) {
+        const envMeta = options.profile.keybindMetadata[options.environment]
+        shouldStabilize = !!(envMeta && envMeta[key] && envMeta[key].stabilizeExecutionOrder)
+      }
+    }
+    
+    if (shouldStabilize) {
+      commandString = this.generateMirroredCommandString(cleanCommands)
+    } else {
+      commandString = cleanCommands.map((c) => c.command || c).join(' $$ ')
+    }
+    
+    return `${key} "${commandString}"\n`
+  }
+
+  groupKeysByType(sortedKeys, keys) {
+    const groups = {
+      'Function Keys': [],
+      'Number Keys': [],
+      'Letter Keys': [],
+      'Special Keys': [],
+      'Modifier Combinations': [],
+    }
+
+    sortedKeys.forEach((key) => {
+      if (/^F\d+$/.test(key)) groups['Function Keys'].push(key)
+      else if (/^\d+$/.test(key)) groups['Number Keys'].push(key)
+      else if (/^[A-Z]$/.test(key)) groups['Letter Keys'].push(key)
+      else if (key.includes('+')) groups['Modifier Combinations'].push(key)
+      else groups['Special Keys'].push(key)
+    })
+    return groups
+  }
+
   generateFileFooter() {
-    return `; ================================================================\n; End of keybind file\n; ================================================================\n;\n; Additional STO Commands Reference:\n;\n; Targeting:\n;   target_nearest_enemy    - Target closest hostile\n;   target_nearest_friend   - Target closest friendly\n;   target_self            - Target your own ship\n;\n; Combat:\n;   FireAll               - Fire all weapons\n;   FirePhasers          - Fire beam weapons only\n;   FireTorps            - Fire torpedo weapons only\n;\n; Shield Management:\n;   +power_exec <ability> - Execute bridge officer ability\n;   Examples: +power_exec Distribute_Shields\n;\n; Tray Execution:\n;   +STOTrayExecByTray <tray> <slot> - Execute ability from tray\n;   Example: +STOTrayExecByTray 0 0  (Tray 1, Slot 1)\n;\n; For more commands and help, visit the STO Wiki or community forums.\n; ================================================================\n`
+    return `; ================================================================
+; End of keybind file
+; ================================================================
+;
+; Additional STO Commands Reference:
+;
+; Targeting:
+;   target_nearest_enemy    - Target closest hostile
+;   target_nearest_friend   - Target closest friendly
+;   target_self            - Target your own ship
+;
+; Combat:
+;   FireAll               - Fire all weapons
+;   FirePhasers          - Fire beam weapons only
+;   FireTorps            - Fire torpedo weapons only
+;
+; Shield Management:
+;   +power_exec <ability> - Execute bridge officer ability
+;   Examples: +power_exec Distribute_Shields
+;
+; Tray Execution:
+;   +STOTrayExecByTray <tray> <slot> - Execute ability from tray
+;   Example: +STOTrayExecByTray 0 0  (Tray 1, Slot 1)
+;
+; For more commands and help, visit the STO Wiki or community forums.
+; ================================================================
+`
   }
 
   generateFileName(profile, ext, environment) {

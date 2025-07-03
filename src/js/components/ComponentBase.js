@@ -2,12 +2,16 @@
  * ComponentBase - Base class for all application components
  * Provides common functionality including event bus access and lifecycle methods
  */
+import { request as _cbRequest, respond as _cbRespond } from '../core/requestResponse.js'
+
 export default class ComponentBase {
   constructor(eventBus = null) {
     this.eventBus = eventBus
     this.initialized = false
     this.destroyed = false
     this.eventListeners = new Map() // Track event listeners for cleanup
+    // Set componentName explicitly to avoid minification issues with constructor.name
+    this.componentName = this.constructor.name
   }
 
   /**
@@ -16,14 +20,34 @@ export default class ComponentBase {
    */
   init() {
     if (this.initialized) {
-      console.warn(`${this.constructor.name} is already initialized`)
       return
     }
     
     this.initialized = true
     this.destroyed = false
     
-    // Setup component-specific initialization in subclasses
+    // ---------------------------------------------------------
+    // Late-Join State Registration handshake setup
+    // ---------------------------------------------------------
+    // 1) Listen for other components registering so we can
+    //    respond with our current state.
+    this.addEventListener('component:register', this._onComponentRegister.bind(this))
+
+    // 2) Prepare a unique reply topic for this component instance
+    this._myReplyTopic = `component:registered:reply:${this.getComponentName()}:${Date.now()}`
+    this.addEventListener(this._myReplyTopic, this._onInitialState.bind(this))
+
+    // 3) Announce our readiness so existing components can reply
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
+    }
+    this.emit('component:register', {
+      name: this.getComponentName(),
+      replyTopic: this._myReplyTopic
+    })
+
+    // 4) Continue with component-specific initialization
     this.onInit()
   }
 
@@ -71,7 +95,7 @@ export default class ComponentBase {
    */
   addEventListener(event, handler, context = null) {
     if (!this.eventBus) {
-      console.warn(`${this.constructor.name}: No eventBus available for addEventListener`)
+      // Silently ignore if no event bus is available – useful during unit tests
       return
     }
 
@@ -91,7 +115,7 @@ export default class ComponentBase {
    */
   removeEventListener(event, handler) {
     if (!this.eventBus) {
-      console.warn(`${this.constructor.name}: No eventBus available for removeEventListener`)
+      // Silently ignore if no event bus is available – useful during unit tests
       return
     }
 
@@ -113,12 +137,30 @@ export default class ComponentBase {
    * @param {*} data - Event data
    */
   emit(event, data = null) {
-    if (!this.eventBus) {
-      console.warn(`${this.constructor.name}: No eventBus available for emit`)
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[${this.getComponentName()}] emit → ${event}`, data)
+    }
+    // Emit via event bus if available
+    if (this.eventBus && typeof this.eventBus.emit === 'function') {
+      this.eventBus.emit(event, data)
+    } else if (!this.eventBus) {
+      // No event bus – skip routing
       return
     }
 
-    this.eventBus.emit(event, data)
+    // Also call any listeners registered through this component in cases where
+    // the provided eventBus is a mock that doesn\'t route events (common in tests)
+    const listeners = this.eventListeners.get(event)
+    if (listeners && listeners.length > 0) {
+      listeners.forEach(({ handler, context }) => {
+        try {
+          handler.call(context || this, data)
+        } catch (err) {
+          console.error('ComponentBase emit handler error', err)
+        }
+      })
+    }
   }
 
   /**
@@ -157,6 +199,92 @@ export default class ComponentBase {
    * @returns {string}
    */
   getComponentName() {
-    return this.constructor.name
+    return this.componentName || this.constructor.name
+  }
+
+  // ---------------------------------------------------------
+  // Late-Join State Registration internal handlers
+  // ---------------------------------------------------------
+  _onComponentRegister({ name, replyTopic } = {}) {
+    // Ignore our own registration messages
+    if (name === this.getComponentName()) return
+
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
+    }
+
+    // If we are active, provide our current state to the requester
+    if (this.initialized && !this.destroyed) {
+      this.emit(replyTopic, {
+        sender: this.getComponentName(),
+        state: this.getCurrentState()
+      })
+    }
+  }
+
+  _onInitialState({ sender, state } = {}) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`, state)
+    }
+
+    if (typeof this.handleInitialState === 'function') {
+      this.handleInitialState(sender, state)
+    }
+  }
+
+  /**
+   * Retrieve a serialisable snapshot representing the component's current state.
+   * Stateful subclasses MUST override this to provide meaningful data.
+   * @returns {*}
+   */
+  getCurrentState() {
+    return null // Default: no state – subclasses should override
+  }
+
+  /**
+   * Optional hook invoked when another component sends its initial state
+   * during the late-join handshake. Subclasses can override to merge or
+   * process the provided state.
+   * @param {string} sender - Name of the component that sent the state
+   * @param {*} state - Serializable state snapshot
+   */
+  /* eslint-disable-next-line */
+  handleInitialState(sender, state) {
+    // No-op by default. Override in subclasses if needed.
+  }
+
+  /**
+   * Wrapper around requestResponse.request with component name debug logging
+   * @param {string} topic
+   * @param {*} payload
+   */
+  async request(topic, payload = {}) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[${this.getComponentName()}] request → ${topic}`, payload)
+    }
+    return await _cbRequest(this.eventBus, topic, payload)
+  }
+
+  /**
+   * Wrapper around requestResponse.respond that prefixes logs with component name
+   * Returns the detach function from respond().
+   * @param {string} topic
+   * @param {Function} handler
+   */
+  respond(topic, handler) {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.log(`[${this.getComponentName()}] respond ← ${topic} (handler registered)`)
+    }
+    return _cbRespond(this.eventBus, topic, async (payload) => {
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[${this.getComponentName()}] respond handler → ${topic}`, payload)
+      }
+      return await handler(payload)
+    })
   }
 } 

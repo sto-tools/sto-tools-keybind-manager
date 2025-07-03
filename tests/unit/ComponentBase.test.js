@@ -51,16 +51,14 @@ describe('ComponentBase', () => {
     })
 
     it('should not initialize twice', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       const onInitSpy = vi.spyOn(component, 'onInit')
       
       component.init()
       component.init() // Second call
       
-      expect(consoleSpy).toHaveBeenCalledWith('ComponentBase is already initialized')
       expect(onInitSpy).toHaveBeenCalledOnce()
-      
-      consoleSpy.mockRestore()
+      expect(component.isInitialized()).toBe(true)
+      expect(component.isDestroyed()).toBe(false)
     })
 
     it('should destroy component correctly', () => {
@@ -124,14 +122,15 @@ describe('ComponentBase', () => {
 
     it('should handle missing eventBus gracefully', () => {
       const componentWithoutEventBus = new ComponentBase()
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      
-      componentWithoutEventBus.addEventListener('test', vi.fn())
-      componentWithoutEventBus.removeEventListener('test', vi.fn())
-      componentWithoutEventBus.emit('test')
-      
-      expect(consoleSpy).toHaveBeenCalledTimes(3)
-      consoleSpy.mockRestore()
+
+      // Methods should not throw even when eventBus is absent
+      expect(() => componentWithoutEventBus.addEventListener('test', vi.fn())).not.toThrow()
+      expect(componentWithoutEventBus.eventListeners.size).toBe(0)
+
+      expect(() => componentWithoutEventBus.removeEventListener('test', vi.fn())).not.toThrow()
+
+      // Emit should also be a no-op without throwing
+      expect(() => componentWithoutEventBus.emit('test')).not.toThrow()
     })
 
     it('should cleanup event listeners on destroy', () => {

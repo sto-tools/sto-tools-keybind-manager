@@ -1,12 +1,21 @@
 // UI Components
-export { default as ui } from '../../ui/ui.js'
-export { default as uiRendering } from '../../ui/uiRendering.js'
-export { default as modalManager } from '../../ui/modalManager.js'
-export { default as keyCapture } from '../../ui/keyCapture.js'
-export { default as eventHandlers } from '../../ui/eventHandlers.js'
-export { default as viewManagement } from '../../ui/viewManagement.js'
-export { default as modeManagement } from '../../ui/modeManagement.js'
-export { default as aliasView } from '../../ui/aliasView.js'
-export { default as fileexplorer } from '../../ui/fileexplorer.js'
-export { default as welcome } from '../../ui/welcome.js'
-export { default as version } from '../../ui/version.js' 
+export { default as ProfileUI } from './ProfileUI.js'
+export { default as CommandLibraryUI } from './CommandLibraryUI.js'
+export { default as CommandUI } from './CommandUI.js'
+export { default as InterfaceModeUI } from './InterfaceModeUI.js'
+export { default as CommandBuilderUI } from './CommandBuilderUI.js'
+export { default as ConfirmDialogUI } from './ConfirmDialogUI.js'
+export { default as KeyCaptureUI } from './KeyCaptureUI.js'
+export { default as VFXManagerUI } from './VFXManagerUI.js'
+
+export { default as KeyBrowserUI } from './KeyBrowserUI.js'
+export { default as AliasBrowserUI } from './AliasBrowserUI.js'
+export { default as HeaderMenuUI } from './HeaderMenuUI.js'
+export { default as AboutModalUI } from './AboutModalUI.js'
+
+
+// UI Rendering
+export { default as FileExplorerUI } from './FileExplorerUI.js'
+//export { welcome } from '../../ui/welcome.js' 
+
+export { default as ImportUI } from './ImportUI.js' 

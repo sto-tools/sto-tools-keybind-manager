@@ -1,9 +1,11 @@
-// STO Tools Keybind Manager - Vertigo VFX Manager Tests
+// STO Tools Keybind Manager - VFX Manager Tests
 // Tests for the visual effects management functionality
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import VFXManagerService from '../../src/js/components/services/VFXManagerService.js'
+import eventBus from '../../src/js/core/eventBus.js'
 
-// Mock the VFX_EFFECTS and vertigoManager since they're loaded in a different file
+// Mock the VFX_EFFECTS data for tests
 const VFX_EFFECTS = {
   space: [
     { label: 'Test Space Effect 1', effect: 'Fx_Test_Space_Effect_1' },
@@ -15,57 +17,7 @@ const VFX_EFFECTS = {
   ],
 }
 
-class MockVertigoManager {
-  constructor() {
-    this.selectedEffects = {
-      space: new Set(),
-      ground: new Set(),
-    }
-    this.showPlayerSay = false
-  }
-
-  generateAlias(environment) {
-    const effects = Array.from(this.selectedEffects[environment])
-    if (effects.length === 0) return ''
-
-    let aliasName = `dynFxSetFXExlusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
-    let command = `alias ${aliasName} <& dynFxSetFXExlusionList ${effects.join(',')}`
-
-    if (this.showPlayerSay) {
-      command += ' $$ PlayerSay Vertigo VFX Loaded'
-    }
-
-    command += ' &>'
-    return command
-  }
-
-  toggleEffect(environment, effectName) {
-    if (this.selectedEffects[environment].has(effectName)) {
-      this.selectedEffects[environment].delete(effectName)
-    } else {
-      this.selectedEffects[environment].add(effectName)
-    }
-  }
-
-  clearAllEffects() {
-    this.selectedEffects.space.clear()
-    this.selectedEffects.ground.clear()
-  }
-
-  selectAllEffects(environment) {
-    VFX_EFFECTS[environment].forEach((effect) => {
-      this.selectedEffects[environment].add(effect.effect)
-    })
-  }
-
-  getEffectCount(environment) {
-    return this.selectedEffects[environment].size
-  }
-
-  isEffectSelected(environment, effectName) {
-    return this.selectedEffects[environment].has(effectName)
-  }
-}
+// VFX_EFFECTS is now available globally from data.js (no mock needed)
 
 // Mock DOM and global objects
 const mockProfile = {
@@ -87,8 +39,8 @@ const mockApp = {
 
 // Global setup
 beforeEach(() => {
+  global.vfxManagerService = new VFXManagerService(eventBus)
   global.VFX_EFFECTS = VFX_EFFECTS
-  global.vertigoManager = new MockVertigoManager()
   global.stoUI = mockUI
   global.app = mockApp
 
@@ -116,81 +68,81 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = ''
+  delete global.vfxManagerService
   delete global.VFX_EFFECTS
-  delete global.vertigoManager
   delete global.stoUI
   delete global.app
 })
 
-describe('VertigoManager', () => {
+describe('VFXManagerService', () => {
   describe('generateAlias', () => {
     it('should return empty string when no effects selected', () => {
-      const result = vertigoManager.generateAlias('space')
+      const result = vfxManagerService.generateAlias('space')
       expect(result).toBe('')
     })
 
     it('should generate correct alias format for space effects', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect_1')
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect_2')
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect_1')
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect_2')
 
-      const result = vertigoManager.generateAlias('space')
+      const result = vfxManagerService.generateAlias('space')
       expect(result).toBe(
         'alias dynFxSetFXExlusionList_Space <& dynFxSetFXExlusionList Fx_Test_Effect_1,Fx_Test_Effect_2 &>'
       )
     })
 
     it('should generate correct alias format for ground effects', () => {
-      vertigoManager.selectedEffects.ground.add('Fx_Test_Effect_Ground')
+      vfxManagerService.selectedEffects.ground.add('Fx_Test_Effect_Ground')
 
-      const result = vertigoManager.generateAlias('ground')
+      const result = vfxManagerService.generateAlias('ground')
       expect(result).toBe(
         'alias dynFxSetFXExlusionList_Ground <& dynFxSetFXExlusionList Fx_Test_Effect_Ground &>'
       )
     })
 
     it('should include PlayerSay when showPlayerSay is enabled', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect')
-      vertigoManager.showPlayerSay = true
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect')
+      vfxManagerService.showPlayerSay = true
 
-      const result = vertigoManager.generateAlias('space')
+      const result = vfxManagerService.generateAlias('space')
       expect(result).toBe(
-        'alias dynFxSetFXExlusionList_Space <& dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay Vertigo VFX Loaded &>'
+        'alias dynFxSetFXExlusionList_Space <& dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay VFX Suppression Loaded &>'
       )
     })
 
     it('should have proper spacing before closing bracket', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect')
-      vertigoManager.showPlayerSay = false
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect')
+      vfxManagerService.showPlayerSay = false
 
-      const result = vertigoManager.generateAlias('space')
+      const result = vfxManagerService.generateAlias('space')
       // This test will fail with the current bug - should end with ' &>' not '&>'
       expect(result).toMatch(/ &>$/)
       expect(result).not.toMatch(/[^ ]&>$/)
     })
 
     it('should have proper spacing before PlayerSay and closing bracket', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect')
-      vertigoManager.showPlayerSay = true
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect')
+      vfxManagerService.showPlayerSay = true
 
-      const result = vertigoManager.generateAlias('space')
+      const result = vfxManagerService.generateAlias('space')
       // This test will fail with the current bug - should end with ' &>' not '&>'
       expect(result).toMatch(/ &>$/)
-      expect(result).toMatch(/PlayerSay Vertigo VFX Loaded &>$/)
+      expect(result).toMatch(/PlayerSay VFX Suppression Loaded &>$/)
     })
   })
 
   describe('toggleEffect', () => {
     it('should add effect when not selected', () => {
-      vertigoManager.toggleEffect('space', 'Fx_Test_Effect')
-      expect(vertigoManager.isEffectSelected('space', 'Fx_Test_Effect')).toBe(
+      vfxManagerService.toggleEffect('space', 'Fx_Test_Effect')
+      expect(vfxManagerService.isEffectSelected('space', 'Fx_Test_Effect')).toBe(
         true
       )
     })
 
     it('should remove effect when already selected', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect')
-      vertigoManager.toggleEffect('space', 'Fx_Test_Effect')
-      expect(vertigoManager.isEffectSelected('space', 'Fx_Test_Effect')).toBe(
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect')
+      vfxManagerService.toggleEffect('space', 'Fx_Test_Effect')
+      expect(vfxManagerService.isEffectSelected('space', 'Fx_Test_Effect')).toBe(
         false
       )
     })
@@ -198,37 +150,37 @@ describe('VertigoManager', () => {
 
   describe('selectAllEffects', () => {
     it('should select all space effects', () => {
-      vertigoManager.selectAllEffects('space')
-      expect(vertigoManager.getEffectCount('space')).toBe(2)
+      vfxManagerService.selectAllEffects('space')
+      expect(vfxManagerService.getEffectCount('space')).toBe(2)
       expect(
-        vertigoManager.isEffectSelected('space', 'Fx_Test_Space_Effect_1')
+        vfxManagerService.isEffectSelected('space', 'Fx_Test_Space_Effect_1')
       ).toBe(true)
       expect(
-        vertigoManager.isEffectSelected('space', 'Fx_Test_Space_Effect_2')
+        vfxManagerService.isEffectSelected('space', 'Fx_Test_Space_Effect_2')
       ).toBe(true)
     })
 
     it('should select all ground effects', () => {
-      vertigoManager.selectAllEffects('ground')
-      expect(vertigoManager.getEffectCount('ground')).toBe(2)
+      vfxManagerService.selectAllEffects('ground')
+      expect(vfxManagerService.getEffectCount('ground')).toBe(2)
       expect(
-        vertigoManager.isEffectSelected('ground', 'Fx_Test_Ground_Effect_1')
+        vfxManagerService.isEffectSelected('ground', 'Fx_Test_Ground_Effect_1')
       ).toBe(true)
       expect(
-        vertigoManager.isEffectSelected('ground', 'Fx_Test_Ground_Effect_2')
+        vfxManagerService.isEffectSelected('ground', 'Fx_Test_Ground_Effect_2')
       ).toBe(true)
     })
   })
 
   describe('clearAllEffects', () => {
     it('should clear all selected effects', () => {
-      vertigoManager.selectAllEffects('space')
-      vertigoManager.selectAllEffects('ground')
+      vfxManagerService.selectAllEffects('space')
+      vfxManagerService.selectAllEffects('ground')
 
-      vertigoManager.clearAllEffects()
+      vfxManagerService.clearAllEffects()
 
-      expect(vertigoManager.getEffectCount('space')).toBe(0)
-      expect(vertigoManager.getEffectCount('ground')).toBe(0)
+      expect(vfxManagerService.getEffectCount('space')).toBe(0)
+      expect(vfxManagerService.getEffectCount('ground')).toBe(0)
     })
   })
 })
@@ -291,10 +243,10 @@ describe('Vertigo UI Integration', () => {
 
   describe('Effect Count Updates', () => {
     it('should update effect count display', () => {
-      vertigoManager.selectAllEffects('space')
+      vfxManagerService.selectAllEffects('space')
 
       const spaceCount = document.getElementById('spaceEffectCount')
-      spaceCount.textContent = `${vertigoManager.getEffectCount('space')} selected`
+      spaceCount.textContent = `${vfxManagerService.getEffectCount('space')} selected`
 
       expect(spaceCount.textContent).toBe('2 selected')
     })
@@ -302,10 +254,10 @@ describe('Vertigo UI Integration', () => {
 
   describe('Preview Updates', () => {
     it('should update alias preview for space', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect')
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect')
 
       const spacePreview = document.getElementById('spaceAliasCommand')
-      const spaceAlias = vertigoManager.generateAlias('space')
+      const spaceAlias = vfxManagerService.generateAlias('space')
       spacePreview.textContent = spaceAlias
 
       expect(spacePreview.textContent).toBe(
@@ -315,7 +267,7 @@ describe('Vertigo UI Integration', () => {
 
     it('should show no effects message when none selected', () => {
       const spacePreview = document.getElementById('spaceAliasCommand')
-      const spaceAlias = vertigoManager.generateAlias('space')
+      const spaceAlias = vfxManagerService.generateAlias('space')
       spacePreview.textContent = spaceAlias || 'No space effects selected'
 
       expect(spacePreview.textContent).toBe('No space effects selected')
@@ -328,10 +280,10 @@ describe('Vertigo UI Integration', () => {
     })
 
     it('should generate space alias correctly', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect_1')
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect_2')
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect_1')
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect_2')
 
-      const spaceAlias = vertigoManager.generateAlias('space')
+      const spaceAlias = vfxManagerService.generateAlias('space')
       const commands = spaceAlias
         .replace('alias dynFxSetFXExlusionList_Space <& ', '')
         .replace(' &>', '')
@@ -349,9 +301,9 @@ describe('Vertigo UI Integration', () => {
     })
 
     it('should generate ground alias correctly', () => {
-      vertigoManager.selectedEffects.ground.add('Fx_Test_Ground_Effect')
+      vfxManagerService.selectedEffects.ground.add('Fx_Test_Ground_Effect')
 
-      const groundAlias = vertigoManager.generateAlias('ground')
+      const groundAlias = vfxManagerService.generateAlias('ground')
       const commands = groundAlias
         .replace('alias dynFxSetFXExlusionList_Ground <& ', '')
         .replace(' &>', '')
@@ -369,16 +321,16 @@ describe('Vertigo UI Integration', () => {
     })
 
     it('should include PlayerSay in alias when enabled', () => {
-      vertigoManager.selectedEffects.space.add('Fx_Test_Effect')
-      vertigoManager.showPlayerSay = true
+      vfxManagerService.selectedEffects.space.add('Fx_Test_Effect')
+      vfxManagerService.showPlayerSay = true
 
-      const spaceAlias = vertigoManager.generateAlias('space')
+      const spaceAlias = vfxManagerService.generateAlias('space')
       const commands = spaceAlias
         .replace('alias dynFxSetFXExlusionList_Space <& ', '')
         .replace(' &>', '')
 
       expect(commands).toBe(
-        'dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay Vertigo VFX Loaded'
+        'dynFxSetFXExlusionList Fx_Test_Effect $$ PlayerSay VFX Suppression Loaded'
       )
     })
   })
@@ -414,8 +366,8 @@ describe('Vertigo Data Validation', () => {
   })
 
   it('should generate valid STO command format', () => {
-    vertigoManager.selectedEffects.space.add('Fx_Test_Effect')
-    const alias = vertigoManager.generateAlias('space')
+    vfxManagerService.selectedEffects.space.add('Fx_Test_Effect')
+    const alias = vfxManagerService.generateAlias('space')
 
     // Validate alias format
     expect(alias).toMatch(/^alias\s+\w+\s+<&\s+.+\s+&>$/)

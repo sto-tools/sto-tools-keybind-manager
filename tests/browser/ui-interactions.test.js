@@ -1,93 +1,33 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import eventBus from '../../src/js/core/eventBus.js'
 
 describe('UI Interactions', () => {
-  let app, stoStorage, stoUI
+  let app, storageService, stoUI
 
-  beforeEach(async () => {
-    // Clear localStorage first
+  // Heavy bootstrap ONCE – the application is already loaded by browser-setup
+  beforeAll(() => {
+    // Mock browser dialogs immediately
+    window.alert = vi.fn()
+    window.confirm = vi.fn(() => true)
+    window.prompt = vi.fn(() => 'test input')
+
+    // Grab references prepared in global browser setup
+    app = window.app
+    storageService = window.storageService
+    stoUI = window.stoUI
+
+    if (!app || !app.initialized) {
+      throw new Error('STO app not initialised – ensure browser-setup loaded the application before tests')
+    }
+  })
+
+  // Lightweight per-spec reset
+  beforeEach(() => {
     localStorage.clear()
-
-    // Simple mock setup
-    if (typeof window !== 'undefined') {
-      window.alert = vi.fn()
-      window.confirm = vi.fn(() => true)
-      window.prompt = vi.fn(() => 'test input')
-    }
-
-    // Wait for DOM to be ready with timeout
-    const waitForDOM = () => {
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('DOM ready timeout'))
-        }, 5000)
-
-        if (document.readyState === 'complete') {
-          clearTimeout(timeout)
-          resolve()
-        } else {
-          document.addEventListener(
-            'DOMContentLoaded',
-            () => {
-              clearTimeout(timeout)
-              resolve()
-            },
-            { once: true }
-          )
-        }
-      })
-    }
-
-    await waitForDOM()
-
-    // Wait for the application to be fully loaded using the ready event
-    const waitForApp = () => {
-      return new Promise((resolve, reject) => {
-        // Set a timeout in case the event never fires
-        const timeout = setTimeout(() => {
-          reject(new Error('App ready event timeout'))
-        }, 10000)
-
-        // Listen for the app ready event
-        const handleReady = (payload) => {
-          clearTimeout(timeout)
-          eventBus.off('sto-app-ready', handleReady)
-          resolve(payload.app)
-        }
-
-        const handleError = (payload) => {
-          clearTimeout(timeout)
-          eventBus.off('sto-app-ready', handleReady)
-          eventBus.off('sto-app-error', handleError)
-          reject(payload.error)
-        }
-
-        // Check if already loaded (in case event fired before we started listening)
-        if (
-          window.app &&
-          window.COMMANDS &&
-          window.stoStorage &&
-          window.stoUI
-        ) {
-          clearTimeout(timeout)
-          resolve(window.app)
-          return
-        }
-
-        eventBus.on('sto-app-ready', handleReady)
-        eventBus.on('sto-app-error', handleError)
-      })
-    }
-
-    try {
-      app = await waitForApp()
-
-      // Get instances
-      stoStorage = window.stoStorage
-      stoUI = window.stoUI
-    } catch (error) {
-      console.error('Failed to wait for app:', error)
-      throw error
+    storageService?.clearAllData?.()
+    // reset app state
+    if (app?.profileService?.reset) {
+      app.profileService.reset()
     }
   })
 
@@ -518,7 +458,7 @@ describe('UI Interactions', () => {
 
       // Attempt deletion (should be cancelled)
       const profilesBefore = Object.keys(
-        stoStorage.getAllData().profiles
+        storageService.getAllData().profiles
       ).length
 
       // Reset confirm to return true
@@ -528,7 +468,7 @@ describe('UI Interactions', () => {
       app.deleteProfile(deleteProfileId)
 
       // Verify deletion occurred
-      const profilesAfter = Object.keys(stoStorage.getAllData().profiles).length
+      const profilesAfter = Object.keys(storageService.getAllData().profiles).length
       expect(profilesAfter).toBeLessThan(profilesBefore)
     })
   })

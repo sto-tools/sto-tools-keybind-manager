@@ -341,7 +341,7 @@
         <div class="command-chain-container">
           <div class="chain-header">
             <div class="chain-header-left">
-              <h3 id="chainTitle" data-i18n="select_a_key_to_edit"></h3>
+              <h3 id="chainTitle"></h3>
             </div>
             <div class="header-toolbar">
               <!-- Options -->
@@ -368,7 +368,7 @@
                 <button class="toolbar-btn toolbar-btn-primary" id="addCommandBtn" disabled data-i18n-title="add_command">
                   <i class="fas fa-plus"></i>
                 </button>
-                <button class="toolbar-btn" id="importFromKeyBtn" disabled data-i18n-title="copy_from_key">
+                <button class="toolbar-btn" id="importFromKeyOrAliasBtn" disabled data-i18n-title="import_from_key_or_alias">
                   <i class="fas fa-copy"></i>
                 </button>
                 <button class="toolbar-btn" id="validateChainBtn" data-i18n-title="validate_command_chain">
@@ -432,7 +432,7 @@
                 <i class="fas fa-copy"></i>
               </button>
             </div>
-            <div class="command-preview" id="commandPreview" data-i18n="select_a_key_to_see_the_generated_command"></div>
+            <div class="command-preview" id="commandPreview"></div>
           </div>
 
 
@@ -458,13 +458,19 @@
                     <i class="fas fa-search"></i>
                   </button>
                 </div>
+                <button class="toolbar-btn" id="showAllCommandsBtn" data-i18n-title="show_all_commands">
+                  <i class="fas fa-eye"></i>
+                </button>
               </div>
             </div>
           </div>
 
           <div class="library-content" id="libraryContent">
             <div class="command-categories" id="commandCategories">
-              <!-- Categories populated by JavaScript -->
+              <!-- Non-alias command categories populated by JavaScript -->
+              <div id="commandCategoriesList"></div>
+              <!-- Alias and Vertigo alias categories will be injected here so they share styling/scrollbar -->
+              <div id="aliasCategoriesList"></div>
             </div>
           </div>
         </div>
@@ -476,6 +482,50 @@
 
     <!-- Modals -->
     <div class="modal-overlay" id="modalOverlay"></div>
+
+    <!-- Duplicate Alias Modal -->
+    <div class="modal" id="aliasDuplicateModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="duplicate_alias">Duplicate Alias</h3>
+          <button class="modal-close" data-modal="aliasDuplicateModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="duplicateAliasNameInput" data-i18n="enter_new_alias_name"></label>
+            <input type="text" id="duplicateAliasNameInput" />
+            <div class="validation-error" id="duplicateAliasValidation" style="display:none;" data-i18n="alias_name_in_use"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmDuplicateAliasBtn" disabled data-i18n="duplicate"></button>
+          <button class="btn btn-secondary" data-modal="aliasDuplicateModal" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Alias Modal -->
+    <div class="modal" id="aliasCreationModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="create_alias">Create Alias</h3>
+          <button class="modal-close" data-modal="aliasCreationModal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="newAliasNameInput" data-i18n="alias_name"></label>
+            <input type="text" id="newAliasNameInput" />
+            <div class="validation-error" id="createAliasValidation" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmCreateAliasBtn" disabled data-i18n="create"></button>
+          <button class="btn btn-secondary" data-modal="aliasCreationModal" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
 
     <!-- Add Key Modal -->
     <div class="modal" id="addKeyModal">
@@ -632,92 +682,7 @@
       </div>
     </div>
 
-    <!-- Alias Manager Modal -->
-    <div class="modal large-modal" id="aliasManagerModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 data-i18n="command_alias_manager"></h3>
-          <button class="modal-close" data-modal="aliasManagerModal">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="alias-manager-content">
-            <div class="alias-list" id="aliasList">
-              <!-- Aliases populated by JavaScript -->
-            </div>
-            <div class="alias-actions">
-              <button class="btn btn-primary" id="newAliasBtn">
-                <i class="fas fa-plus"></i>
-                <span data-i18n="new_alias"></span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Edit Alias Modal -->
-    <div class="modal" id="editAliasModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="editAliasTitle" data-i18n="edit_alias"></h3>
-          <button class="modal-close" data-modal="editAliasModal">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="aliasName" data-i18n="alias_name"></label>
-            <input
-              type="text"
-              id="aliasName"
-              data-i18n-placeholder="myalias"
-              autocomplete="off"
-            />
-            <small data-i18n="use_alphanumeric_characters_only_no_spaces"></small>
-          </div>
-          <div class="form-group">
-            <label for="aliasDescription" data-i18n="description"></label>
-            <input
-              type="text"
-              id="aliasDescription"
-              data-i18n-placeholder="brief_description_of_what_this_alias_does"
-              autocomplete="off"
-            />
-          </div>
-          <div class="form-group">
-            <label for="aliasCommands" data-i18n="commands"></label>
-            <div class="textarea-with-button">
-              <textarea
-                id="aliasCommands"
-                data-i18n-placeholder="enter_command_sequence_use_to_separate_commands"
-                rows="4"
-              ></textarea>
-              <button
-                type="button"
-                class="btn btn-small insert-target-btn"
-                data-i18n-title="insert_target_variable"
-              >
-                <i class="fas fa-crosshairs"></i> <span data-i18n="target"></span>
-              </button>
-            </div>
-            <small data-i18n="example_target_self_power_exec_science_team_team_healing_target"></small>
-            <div class="variable-help">
-              <strong>$Target</strong> <span data-i18n="use_in_communication_commands_to_include_target_name"></span>
-            </div>
-          </div>
-          <div class="alias-preview">
-            <label data-i18n="preview"></label>
-            <div class="command-preview" id="aliasPreview" data-i18n="alias_myalias_command_sequence"></div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" id="saveAliasBtn" data-i18n="save_alias"></button>
-          <button class="btn btn-secondary" data-modal="editAliasModal" data-i18n="cancel"></button>
-        </div>
-      </div>
-    </div>
 
     <!-- Key Selection Modal -->
     <div class="modal large-modal" id="keySelectionModal">
@@ -748,6 +713,12 @@
                 <button class="btn btn-primary" id="confirmKeySelection" disabled data-i18n="select_this_key">
                   Select This Key
                 </button>
+
+                <!-- Left/Right modifier distinction toggle -->
+                <label class="modifier-side-toggle">
+                  <input type="checkbox" id="distinguishModifierSide" />
+                  <span data-i18n="distinguish_left_right_modifiers">Distinguish left/right modifiers</span>
+                </label>
               </div>
               
               <!-- Key Capture Status Popup -->
@@ -790,6 +761,7 @@
                   <button class="tab-btn" data-tab="function" data-i18n="function">Function</button>
                   <button class="tab-btn" data-tab="arrows" data-i18n="arrows">Arrows</button>
                   <button class="tab-btn" data-tab="symbols" data-i18n="symbols">Symbols</button>
+                  <button class="tab-btn" data-tab="numpad" data-i18n="numpad">Numpad</button>
                   <button class="tab-btn" data-tab="mouse" data-i18n="mouse">Mouse</button>
                   <button class="tab-btn" data-tab="gamepad" data-i18n="gamepad">Gamepad</button>
                 </div>
@@ -823,6 +795,11 @@
                   <div class="key-tab" id="symbols-tab">
                     <div class="key-grid" id="symbolsKeyGrid">
                       <!-- Symbol keys populated by JavaScript -->
+                    </div>
+                  </div>
+                  <div class="key-tab" id="numpad-tab">
+                    <div class="key-grid" id="numpadKeyGrid">
+                      <!-- Numpad keys populated by JavaScript -->
                     </div>
                   </div>
                   <div class="key-tab" id="mouse-tab">
@@ -1134,6 +1111,37 @@
         </div>
     </div>
   </div>
+
+    <!-- Import from Key or Alias Modal -->
+    <div class="modal" id="importFromKeyOrAliasModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="import_from_key_or_alias"></h3>
+          <button class="modal-close" data-modal="importFromKeyOrAliasModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label data-i18n="select_source_to_import_from"></label>
+            <select id="importSourceSelect">
+              <!-- Options populated by JavaScript -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="clearDestinationBeforeImport" />
+              <span class="checkmark"></span>
+              <span data-i18n="clear_destination_chain_prior_to_import"></span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="confirmImportBtn" data-i18n="import"></button>
+          <button class="btn btn-secondary" data-modal="importFromKeyOrAliasModal" data-i18n="cancel"></button>
+        </div>
+      </div>
+    </div>
 
     <!-- Export Options Modal -->
     <div class="modal" id="exportModal">

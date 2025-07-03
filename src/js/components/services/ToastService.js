@@ -1,0 +1,156 @@
+import ComponentBase from '../ComponentBase.js'
+import { respond } from '../../core/requestResponse.js'
+
+/**
+ * ToastService – handles creation and life-cycle of toast notifications.
+ * This was previously part of STOUIManager and has been extracted so the
+ * logic can be reused without pulling in the entire UI manager facade.
+ */
+export default class ToastService extends ComponentBase {
+  /**
+   * @param {Object} opts
+   * @param {import('../../core/eventBus.js').default} [opts.eventBus]
+   * @param {Object} [opts.i18n] – i18next instance or compatible (optional)
+   * @param {string} [opts.containerId='toastContainer'] – DOM id for toast container
+   */
+  constructor({ eventBus = null, i18n = null, containerId = 'toastContainer' } = {}) {
+    super(eventBus)
+    this.componentName = 'ToastService'
+    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+
+    // Currently not used by logic but kept for backward-compatibility
+    // as tests verify the property exists on STOUIManager (which will
+    // proxy to this value).
+    this.toastQueue = []
+
+    this.containerId = containerId
+    
+    // Register request/response endpoints
+    if (this.eventBus) {
+      this.respond('ui:show-toast', ({ message, type = 'info', duration = 3000 }) => {
+        this.showToast(message, type, duration)
+        return true
+      })
+      
+      // Also listen for toast:show events (used by most components)
+      this.addEventListener('toast:show', ({ message, type = 'info', duration = 3000 }) => {
+        this.showToast(message, type, duration)
+      })
+    }
+  }
+
+  /**
+   * HTML escape function to prevent XSS
+   * @private
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
+  }
+
+  /**
+   * Show a toast message.
+   * @param {string} message – Message to display (already translated).
+   * @param {'success'|'error'|'warning'|'info'} [type='info'] – Toast style.
+   * @param {number} [duration=3000] – How long the toast should remain visible in ms.
+   */
+  showToast(message, type = 'info', duration = 3000) {
+    const toast = this.createToast(message, type, duration)
+    const container = document.getElementById(this.containerId)
+
+    if (container) {
+      container.appendChild(toast)
+
+      // Trigger the CSS animation frame so the toast slides/fades in
+      requestAnimationFrame(() => {
+        toast.classList.add('show')
+      })
+
+      // Auto-remove after the configured duration
+      setTimeout(() => {
+        this.removeToast(toast)
+      }, duration)
+    } else {
+      console.warn(`ToastService: Toast container '${this.containerId}' not found in DOM`)
+    }
+  }
+
+  /**
+   * Create the DOM structure for a toast.
+   * @private
+   */
+  createToast(message, type, duration) {
+    const toast = document.createElement('div')
+    toast.className = `toast toast-${type}`
+
+    const iconMap = {
+      success: 'fa-check-circle',
+      error: 'fa-exclamation-circle',
+      warning: 'fa-exclamation-triangle',
+      info: 'fa-info-circle',
+    }
+
+    // Create toast content container
+    const toastContent = document.createElement('div')
+    toastContent.className = 'toast-content'
+
+    // Create and add icon
+    const icon = document.createElement('i')
+    icon.className = `fas ${iconMap[type] || iconMap.info}`
+    toastContent.appendChild(icon)
+
+    // Create and add message span (safely)
+    const messageSpan = document.createElement('span')
+    messageSpan.className = 'toast-message'
+    messageSpan.textContent = message // Use textContent to prevent XSS
+    toastContent.appendChild(messageSpan)
+
+    // Create and add close button
+    const closeButton = document.createElement('button')
+    closeButton.className = 'toast-close'
+    closeButton.setAttribute('aria-label', 'close toast')
+    
+    const closeIcon = document.createElement('i')
+    closeIcon.className = 'fas fa-times'
+    closeButton.appendChild(closeIcon)
+    
+    toastContent.appendChild(closeButton)
+
+    // Add content to toast
+    toast.appendChild(toastContent)
+
+    // Close button behaviour
+    closeButton.addEventListener('click', () => {
+      this.removeToast(toast)
+    })
+
+    return toast
+  }
+
+  /**
+   * Public helper to hide a toast immediately.
+   * @param {HTMLElement} toast
+   */
+  hideToast(toast) {
+    if (toast && toast.parentNode) {
+      this.removeToast(toast)
+    }
+  }
+
+  /**
+   * Internal helper that adds the removal animation and cleans up the DOM.
+   * @param {HTMLElement} toast
+   * @private
+   */
+  removeToast(toast) {
+    if (!toast) return
+
+    toast.classList.add('removing')
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast)
+      }
+    }, 300)
+  }
+} 

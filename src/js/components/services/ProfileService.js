@@ -1,43 +1,97 @@
 import ComponentBase from '../ComponentBase.js'
+import { respond, request } from '../../core/requestResponse.js'
 
 /**
- * ProfileService - Handles all profile data operations
- * Manages profile creation, deletion, switching, and data persistence
+ * ProfileService - Compatibility layer for DataCoordinator
+ * 
+ * REFACTORED: Now a thin wrapper around DataCoordinator that maintains
+ * backward compatibility for existing components while delegating all
+ * actual data operations to the DataCoordinator.
  */
 export default class ProfileService extends ComponentBase {
-  constructor({ storage, eventBus, i18n }) {
+  constructor({ storage, eventBus, i18n, dataCoordinator }) {
     super(eventBus)
-    this.storage = storage
+    this.componentName = 'ProfileService'
     this.i18n = i18n
+    this.dataCoordinator = dataCoordinator
+    
+    // Legacy state tracking for compatibility - will be removed in future
     this.currentProfile = null
     this.currentEnvironment = 'space'
     this.isModified = false
+
+    // Cache for profiles list from DataCoordinator broadcasts
+    this.profilesCache = {}
+
+    // Register Request/Response topics for backward compatibility
+    // All requests are forwarded to DataCoordinator
+    if (this.eventBus) {
+      this.respond('profile:switch', ({ id } = {}) => this.switchProfile(id))
+      this.respond('profile:create', ({ name, description, mode } = {}) => this.createProfile(name, description, mode))
+      this.respond('profile:delete', ({ id } = {}) => this.deleteProfile(id))
+      this.respond('profile:list', () => this.getAllProfiles())
+      this.respond('profile:clone', ({ sourceId, newName } = {}) => this.cloneProfile(sourceId, newName))
+      this.respond('profile:rename', ({ id, newName, description } = {}) => this.renameProfile(id, newName, description))
+      this.respond('profile:save', ({ profile } = {}) => this.saveSpecificProfile(profile))
+    }
+  }
+
+  async init() {
+    super.init()
+    
+    this.setupEventListeners()
+  }
+
+  setupEventListeners() {
+    // Listen for DataCoordinator state updates to maintain legacy state
+    this.addEventListener('profile:switched', ({ profileId, environment }) => {
+      this.currentProfile = profileId
+      this.currentEnvironment = environment
+      this.isModified = false
+    })
+
+    this.addEventListener('environment:changed', ({ environment }) => {
+      this.currentEnvironment = environment
+    })
+
+    // Cache profiles list when DataCoordinator broadcasts updates
+    this.addEventListener('profile:created', ({ profile }) => {
+      if (profile && profile.id) {
+        this.profilesCache[profile.id] = profile
+      }
+    })
+
+    this.addEventListener('profile:deleted', ({ profileId }) => {
+      if (this.profilesCache[profileId]) {
+        delete this.profilesCache[profileId]
+      }
+    })
+
+    this.addEventListener('profile:updated', ({ profile }) => {
+      if (profile && profile.id) {
+        this.profilesCache[profile.id] = profile
+      }
+    })
   }
 
   /**
-   * Load profile data from storage
+   * Load profile data - now uses cached state from DataCoordinator broadcasts
    */
   async loadData() {
     try {
-      const data = this.storage.getAllData()
-      this.currentProfile = data.currentProfile
-
-      const profileData = data.profiles[this.currentProfile]
-      if (profileData) {
-        this.currentEnvironment = profileData.currentEnvironment || 'space'
-      } else {
-        this.currentEnvironment = 'space'
-      }
-
-      if (!data.profiles[this.currentProfile]) {
-        this.currentProfile = Object.keys(data.profiles)[0]
-        this.saveCurrentProfile()
+      // Maintain backward compatibility by emitting legacy event
+      if (this.currentProfile) {
+        this.emit('profile-switched', {
+          profileId: this.currentProfile,
+          profile: this.currentProfile,
+          environment: this.currentEnvironment,
+        })
       }
 
       return { 
         currentProfile: this.currentProfile, 
         currentEnvironment: this.currentEnvironment,
-        profiles: data.profiles
+        profiles: this.profilesCache
       }
     } catch (error) {
       throw new Error(this.i18n.t('failed_to_load_profile_data') || 'Failed to load profile data')
@@ -45,42 +99,23 @@ export default class ProfileService extends ComponentBase {
   }
 
   /**
-   * Save the current profile data
+   * Save the current profile data - delegated to DataCoordinator
    */
-  saveProfile() {
+  async saveProfile() {
     try {
-      const virtualProfile = this.getCurrentProfile()
-
-      if (!virtualProfile) {
+      if (!this.currentProfile) {
         throw new Error(this.i18n.t('no_profile_to_save') || 'No profile to save')
       }
 
-      // Save current build data to the proper structure
-      this.saveCurrentBuild()
+      // Delegate entirely to DataCoordinator - it handles the current profile state
+      await this.request('data:update-profile', {
+        profileId: this.currentProfile,
+        properties: {
+          currentEnvironment: this.currentEnvironment
+        }
+      })
 
-      // Get the actual stored profile structure AFTER saveCurrentBuild
-      const actualProfile = this.storage.getProfile(this.currentProfile)
-      if (!actualProfile) {
-        throw new Error(this.i18n.t('profile_not_found') || 'Profile not found')
-      }
-
-      // Update profile-level data (aliases, metadata, etc.) from virtual profile
-      // but preserve the builds structure that was just saved
-      const updatedProfile = {
-        ...actualProfile, // Keep the actual structure with builds (now includes saved keybinds)
-        // Update profile-level fields from virtual profile
-        name: virtualProfile.name,
-        description: virtualProfile.description || actualProfile.description,
-        aliases: virtualProfile.aliases || {},
-        keybindMetadata:
-          virtualProfile.keybindMetadata || actualProfile.keybindMetadata,
-        // Preserve existing profile fields
-        created: actualProfile.created,
-        lastModified: new Date().toISOString(),
-        currentEnvironment: this.currentEnvironment,
-      }
-
-      this.storage.saveProfile(this.currentProfile, updatedProfile)
+      this.isModified = false
       return { success: true, message: this.i18n.t('profile_saved') || 'Profile saved' }
     } catch (error) {
       throw new Error(this.i18n.t('failed_to_save_profile') || 'Failed to save profile')
@@ -88,35 +123,51 @@ export default class ProfileService extends ComponentBase {
   }
 
   /**
-   * Save all application data
+   * Save a specific profile - delegated to DataCoordinator
    */
-  saveData() {
+  async saveSpecificProfile(profile) {
     try {
-      const data = this.storage.getAllData()
-      data.currentProfile = this.currentProfile
-      data.lastModified = new Date().toISOString()
-
-      if (this.storage.saveAllData(data)) {
-        this.setModified(false)
-        return { success: true, message: this.i18n.t('data_saved') || 'Data saved' }
+      if (!profile) {
+        throw new Error(this.i18n.t('no_profile_to_save') || 'No profile to save')
       }
-      throw new Error(this.i18n.t('failed_to_save_data') || 'Failed to save data')
+
+      // Extract the profileId - assume it's current profile if not specified
+      const profileId = profile.id || this.currentProfile
+      
+      await this.request('data:update-profile', { 
+        profileId, 
+        properties: profile 
+      })
+
+      this.setModified(true)
+      return { success: true, message: this.i18n.t('profile_saved') || 'Profile saved' }
+    } catch (error) {
+      console.error('Failed to save specific profile:', error)
+      throw new Error(this.i18n.t('failed_to_save_profile') || 'Failed to save profile')
+    }
+  }
+
+  /**
+   * Save all application data - delegated to DataCoordinator
+   */
+  async saveData() {
+    try {
+      // In the new architecture, this is handled by DataCoordinator automatically
+      // Just mark as not modified for compatibility
+      this.setModified(false)
+      return { success: true, message: this.i18n.t('data_saved') || 'Data saved' }
     } catch (error) {
       throw error
     }
   }
 
   /**
-   * Save the current profile ID
+   * Save the current profile ID - now handled automatically by DataCoordinator
    */
-  saveCurrentProfile() {
+  async saveCurrentProfile() {
     try {
-      const data = this.storage.getAllData()
-      data.currentProfile = this.currentProfile
-      const result = this.storage.saveAllData(data)
-      if (!result) {
-        throw new Error(this.i18n.t('failed_to_save_current_profile') || 'Failed to save current profile')
-      }
+      // In the new architecture, this is handled automatically by DataCoordinator
+      // when switching profiles, so this is a no-op for compatibility
       return { success: true }
     } catch (error) {
       throw error
@@ -136,223 +187,182 @@ export default class ProfileService extends ComponentBase {
     return { modified, success: true }
   }
 
-  /**
-   * Get the current profile with build-specific data
-   */
-  getCurrentProfile() {
-    const profile = this.storage.getProfile(this.currentProfile)
-    if (!profile) return null
-
-    return this.getCurrentBuild(profile)
-  }
+  // getCurrentProfile method removed - components should use broadcast/cache pattern instead
 
   /**
-   * Get the current build for a profile
+   * Get the current build for a profile - now handled by DataCoordinator
+   * @deprecated Use getCurrentProfile() instead
    */
   getCurrentBuild(profile) {
-    if (!profile) return null
+    // This method is deprecated - DataCoordinator handles virtual profile building
+    console.warn('[ProfileService] getCurrentBuild is deprecated - use getCurrentProfile() instead')
+    return profile
+  }
 
-    if (!profile.builds) {
-      profile.builds = {
-        space: { keys: {} },
-        ground: { keys: {} },
+  /**
+   * Switch to a different profile - delegated to DataCoordinator
+   */
+  async switchProfile(profileId) {
+    try {
+      const result = await this.request('data:switch-profile', { profileId })
+      
+      // Update local state for compatibility
+      if (result.success && result.switched) {
+        this.currentProfile = profileId
+        this.currentEnvironment = result.profile?.environment || 'space'
+        this.isModified = false
       }
-    }
+      
+      // Localize the message if needed
+      if (result.message && this.i18n) {
+        if (result.switched) {
+          result.message = this.i18n.t('switched_to_profile', { 
+            name: result.profile?.name, 
+            environment: this.currentEnvironment 
+          }) || result.message
+        } else {
+          result.message = this.i18n.t('already_on_profile') || result.message
+        }
+      }
 
-    if (!profile.builds[this.currentEnvironment]) {
-      profile.builds[this.currentEnvironment] = { keys: {} }
-    }
-
-    if (!profile.builds[this.currentEnvironment].keys) {
-      profile.builds[this.currentEnvironment].keys = {}
-    }
-
-    return {
-      ...profile,
-      keys: profile.builds[this.currentEnvironment].keys,
-      aliases: profile.aliases || {},
+      return result
+    } catch (error) {
+      // Localize error message if needed
+      if (error.message.includes('not found') && this.i18n) {
+        throw new Error(this.i18n.t('profile_not_found') || error.message)
+      }
+      throw error
     }
   }
 
   /**
-   * Switch to a different profile
+   * Create a new profile - delegated to DataCoordinator
    */
-  switchProfile(profileId) {
+  async createProfile(name, description = '', mode = 'space') {
     try {
-      if (profileId === this.currentProfile) {
-        return { success: true, switched: false, message: this.i18n.t('already_on_profile') || 'Already on this profile' }
+      const result = await this.request('data:create-profile', { name, description, mode })
+      
+      // Localize the message if needed
+      if (result.message && this.i18n) {
+        result.message = this.i18n.t('profile_created', { name }) || result.message
+      }
+      
+      return result
+    } catch (error) {
+      // Localize error message if needed
+      if (this.i18n) {
+        if (error.message.includes('already exists')) {
+          throw new Error(this.i18n.t('profile_already_exists', { name }) || error.message)
+        } else {
+          throw new Error(this.i18n.t('failed_to_create_profile') || error.message)
+        }
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Clone an existing profile - delegated to DataCoordinator
+   */
+  async cloneProfile(sourceProfileId, newName) {
+    try {
+      const result = await this.request('data:clone-profile', { sourceId: sourceProfileId, newName })
+      
+      // Localize the message if needed
+      if (result.message && this.i18n) {
+        result.message = this.i18n.t('profile_created_from', { 
+          newName, 
+          sourceProfile: sourceProfileId // Use ID instead of name since we don't have cached profile data
+        }) || result.message
+      }
+      
+      return result
+    } catch (error) {
+      // Localize error message if needed
+      if (this.i18n) {
+        if (error.message.includes('not found')) {
+          throw new Error(this.i18n.t('source_profile_not_found') || error.message)
+        } else {
+          throw new Error(this.i18n.t('failed_to_clone_profile') || error.message)
+        }
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Delete a profile - delegated to DataCoordinator
+   */
+  async deleteProfile(profileId) {
+    try {
+      const result = await this.request('data:delete-profile', { profileId })
+      
+      // Update local state if we switched profiles
+      if (result.success && result.switchedProfile) {
+        this.currentProfile = result.switchedProfile.id || Object.keys((await this.request('data:get-all-profiles')))[0]
+        this.currentEnvironment = result.switchedProfile.environment || 'space'
+        this.isModified = false
+      }
+      
+      // Localize the message if needed
+      if (result.message && this.i18n) {
+        result.message = this.i18n.t('profile_deleted', { 
+          profileName: result.deletedProfile?.name || 'Unknown'
+        }) || result.message
+      }
+      
+      return result
+    } catch (error) {
+      // Localize error message if needed
+      if (this.i18n) {
+        if (error.message.includes('not found')) {
+          throw new Error(this.i18n.t('profile_not_found') || error.message)
+        } else if (error.message.includes('last profile')) {
+          throw new Error(this.i18n.t('cannot_delete_the_last_profile') || error.message)
+        } else {
+          throw new Error(this.i18n.t('failed_to_delete_profile') || error.message)
+        }
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Save the current build data - delegated to DataCoordinator
+   */
+  async saveCurrentBuild() {
+    try {
+      if (!this.currentProfile) {
+        throw new Error(this.i18n.t('no_profile_or_build_data') || 'No profile or build data')
       }
 
-      const profile = this.storage.getProfile(profileId)
-      if (!profile) {
-        throw new Error(this.i18n.t('profile_not_found') || 'Profile not found')
-      }
-
-      this.currentProfile = profileId
-      this.currentEnvironment = profile.currentEnvironment || 'space'
-
-      this.saveCurrentProfile()
-
-      const currentBuild = this.getCurrentProfile()
-      return { 
-        success: true, 
-        switched: true, 
-        profile: currentBuild,
-        message: this.i18n.t('switched_to_profile', { name: currentBuild.name, environment: this.currentEnvironment }) || `Switched to ${currentBuild.name} (${this.currentEnvironment})`
-      }
+      // DataCoordinator handles current build state internally
+      // This method is kept for backward compatibility but delegates entirely
+      await this.request('data:update-profile', {
+        profileId: this.currentProfile,
+        properties: {
+          currentEnvironment: this.currentEnvironment
+        }
+      })
+      
+      return { success: true }
     } catch (error) {
       throw error
     }
   }
 
   /**
-   * Create a new profile
+   * Generate a unique profile ID - now delegated to DataCoordinator
    */
-  createProfile(name, description = '', mode = 'space') {
-    try {
-      const profileId = this.generateProfileId(name)
-      const profile = {
-        name,
-        description,
-        currentEnvironment: mode,
-        builds: {
-          space: { keys: {} },
-          ground: { keys: {} },
-        },
-        aliases: {},
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-      }
-
-      if (this.storage.saveProfile(profileId, profile)) {
-        return { 
-          success: true, 
-          profileId, 
-          profile,
-          message: this.i18n.t('profile_created', { name }) || `Profile "${name}" created`
-        }
-      }
-
-      throw new Error(this.i18n.t('failed_to_create_profile') || 'Failed to create profile')
-    } catch (error) {
-      throw error
-    }
-  }
-
-  /**
-   * Clone an existing profile
-   */
-  cloneProfile(sourceProfileId, newName) {
-    try {
-      const sourceProfile = this.storage.getProfile(sourceProfileId)
-      if (!sourceProfile) {
-        throw new Error(this.i18n.t('source_profile_not_found') || 'Source profile not found')
-      }
-
-      const profileId = this.generateProfileId(newName)
-      const clonedProfile = {
-        ...JSON.parse(JSON.stringify(sourceProfile)),
-        name: newName,
-        description: `Copy of ${sourceProfile.name}`,
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-      }
-
-      if (this.storage.saveProfile(profileId, clonedProfile)) {
-        return { 
-          success: true, 
-          profileId, 
-          profile: clonedProfile,
-          message: this.i18n.t('profile_created_from', { newName, sourceProfile: sourceProfile.name }) || `Profile "${newName}" created from "${sourceProfile.name}"`
-        }
-      }
-
-      throw new Error(this.i18n.t('failed_to_clone_profile') || 'Failed to clone profile')
-    } catch (error) {
-      throw error
-    }
-  }
-
-  /**
-   * Delete a profile
-   */
-  deleteProfile(profileId) {
-    try {
-      const profile = this.storage.getProfile(profileId)
-      if (!profile) {
-        throw new Error(this.i18n.t('profile_not_found') || 'Profile not found')
-      }
-
-      const data = this.storage.getAllData()
-      const profileCount = Object.keys(data.profiles).length
-
-      if (profileCount <= 1) {
-        throw new Error(this.i18n.t('cannot_delete_the_last_profile') || 'Cannot delete the last profile')
-      }
-
-      if (this.storage.deleteProfile(profileId)) {
-        let switchedProfile = null
-        if (this.currentProfile === profileId) {
-          const remaining = Object.keys(this.storage.getAllData().profiles)
-          this.currentProfile = remaining[0]
-          this.saveCurrentProfile()
-          switchedProfile = this.getCurrentProfile()
-        }
-
-        return { 
-          success: true, 
-          deletedProfile: profile,
-          switchedProfile,
-          message: this.i18n.t('profile_deleted', { profileName: profile.name }) || `Profile "${profile.name}" deleted`
-        }
-      }
-
-      throw new Error(this.i18n.t('failed_to_delete_profile') || 'Failed to delete profile')
-    } catch (error) {
-      throw error
-    }
-  }
-
-  /**
-   * Save the current build data
-   */
-  saveCurrentBuild() {
-    try {
-      const profile = this.storage.getProfile(this.currentProfile)
-      const currentBuild = this.getCurrentProfile()
-
-      if (profile && currentBuild) {
-        if (!profile.builds) {
-          profile.builds = {
-            space: { keys: {} },
-            ground: { keys: {} },
-          }
-        }
-
-        profile.builds[this.currentEnvironment] = {
-          keys: currentBuild.keys || {},
-        }
-
-        this.storage.saveProfile(this.currentProfile, profile)
-        return { success: true }
-      }
-
-      throw new Error(this.i18n.t('no_profile_or_build_data') || 'No profile or build data')
-    } catch (error) {
-      throw error
-    }
-  }
-
-  /**
-   * Generate a unique profile ID
-   */
-  generateProfileId(name) {
+  async generateProfileId(name) {
+    // DataCoordinator has its own generateProfileId method
+    // This is kept for backward compatibility but delegates the logic
     const base = name.toLowerCase().replace(/[^a-z0-9]/g, '_')
     let id = base
     let counter = 1
 
-    const data = this.storage.getAllData()
-    while (data.profiles[id]) {
+    const profiles = await this.request('data:get-all-profiles')
+    while (profiles[id]) {
       id = `${base}_${counter}`
       counter++
     }
@@ -379,7 +389,8 @@ export default class ProfileService extends ComponentBase {
    */
   setCurrentEnvironment(environment) {
     this.currentEnvironment = environment
-    return { success: true, environment }
+    // Note: No longer emitting environment:changed to prevent circular dependency.
+    // InterfaceModeService is now the single source of truth for environment changes.
   }
 
   /**
@@ -387,5 +398,89 @@ export default class ProfileService extends ComponentBase {
    */
   getModified() {
     return this.isModified
+  }
+
+  /**
+   * Provide serialisable snapshot for late-join handshake
+   */
+  async getCurrentState() {
+    return {
+      currentProfile: this.currentProfile,
+      currentEnvironment: this.currentEnvironment,
+      profiles: { ...this.profilesCache },
+      modified: this.isModified,
+    }
+  }
+
+  /**
+   * ComponentBase late-join support - handle initial state from other instances
+   */
+  async handleInitialState(state, senderName) {
+    if (senderName === 'DataCoordinator' && state.currentProfileData) {
+      this.currentProfile = state.currentProfile || state.currentProfileData?.id
+      this.currentEnvironment = state.currentEnvironment || 'space'
+      this.isModified = false
+      
+      // Cache the profiles list from DataCoordinator
+      if (state.profiles) {
+        this.profilesCache = { ...state.profiles }
+      }
+
+      // Trigger loadData to complete initialization with the synced state
+      try {
+        await this.loadData()
+      } catch (error) {
+        console.error(`[${this.componentName}] loadData failed after late-join:`, error)
+      }
+
+    } else if (state.currentProfile) {
+      this.currentProfile = state.currentProfile
+      this.currentEnvironment = state.currentEnvironment || 'space'
+      this.isModified = state.modified || false
+      
+      // Cache profiles if provided
+      if (state.profiles) {
+        this.profilesCache = { ...state.profiles }
+      }
+    }
+  }
+
+  /**
+   * Return cached profiles instead of making requests
+   */
+  async getAllProfiles() {
+    return { ...this.profilesCache }
+  }
+
+  /**
+   * Rename a profile - delegated to DataCoordinator
+   */
+  async renameProfile(profileId, newName, description = '') {
+    try {
+      const result = await this.request('data:rename-profile', { 
+        profileId, 
+        newName, 
+        description 
+      })
+
+      // Localize the message if needed
+      if (result.message && this.i18n) {
+        result.message = this.i18n.t('profile_renamed', { name: newName }) || result.message
+      }
+
+      return result
+    } catch (error) {
+      // Localize error message if needed
+      if (this.i18n) {
+        if (error.message.includes('required')) {
+          throw new Error(this.i18n.t('profile_id_required') || error.message)
+        } else if (error.message.includes('not found')) {
+          throw new Error(this.i18n.t('profile_not_found') || error.message)
+        } else {
+          throw new Error(this.i18n.t('failed_to_rename_profile') || error.message)
+        }
+      }
+      throw error
+    }
   }
 } 
