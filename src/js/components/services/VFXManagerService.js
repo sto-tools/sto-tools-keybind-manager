@@ -349,17 +349,23 @@ export default class VFXManagerService extends ComponentBase {
           }
         })
         
-        // Create master alias that executes both space and ground aliases if any were generated
+        // Create master alias that executes a single command covering all selected effects across environments
+        // This avoids one environment's exclusions overwriting the other when executed sequentially.
         if (generatedAliases.length > 0) {
-          // Get the actual command content from each generated alias
+          // Reuse helper that merges effects from all relevant environments into one command string
           const masterAliasCommand = this.generateCombinedAliasCommand(environments)
 
-          newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
-            commands: masterAliasCommand,
-            description: 'VFX suppression for all environments',
-            type: 'vfx-alias'
+          // Only create the alias if we actually have effects selected across the environments
+          if (masterAliasCommand) {
+            newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
+              commands: masterAliasCommand,
+              description: 'VFX suppression for all environments',
+              type: 'vfx-alias'
+            }
+            console.log(`[${this.componentName}] Generated combined VFX alias: dynFxSetFXExclusionList_Combined = ${masterAliasCommand}`)
+          } else {
+            console.log(`[${this.componentName}] No combined alias generated because no effects were selected across environments`)
           }
-          console.log(`[${this.componentName}] autoGenerateAliases: Generated combined VFX alias: dynFxSetFXExclusionList_Combined = ${masterAliasCommand}`)
         }
         
         // Update profile via DataCoordinator using explicit operations API
@@ -502,15 +508,23 @@ export default class VFXManagerService extends ComponentBase {
             }
           }
           
-          // Create master alias that executes both space and ground aliases if any were generated
+          // Create master alias that executes a single command covering all selected effects across environments
+          // This avoids one environment's exclusions overwriting the other when executed sequentially.
           if (generatedAliases.length > 0) {
+            // Reuse helper that merges effects from all relevant environments into one command string
             const masterAliasCommand = this.generateCombinedAliasCommand(environments)
-            newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
-              commands: masterAliasCommand,
-              description: 'VFX suppression for all environments',
-              type: 'vfx-alias'
+
+            // Only create the alias if we actually have effects selected across the environments
+            if (masterAliasCommand) {
+              newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
+                commands: masterAliasCommand,
+                description: 'VFX suppression for all environments',
+                type: 'vfx-alias'
+              }
+              console.log(`[${this.componentName}] Generated combined VFX alias: dynFxSetFXExclusionList_Combined = ${masterAliasCommand}`)
+            } else {
+              console.log(`[${this.componentName}] No combined alias generated because no effects were selected across environments`)
             }
-            console.log(`[${this.componentName}] Generated combined VFX alias: dynFxSetFXExclusionList = ${masterAliasCommand}`)
           }
           
           // Update profile via DataCoordinator using explicit operations API
