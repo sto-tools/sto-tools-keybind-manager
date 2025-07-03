@@ -230,8 +230,9 @@ export default class CommandChainUI extends ComponentBase {
           } else if (commandDef.commandId === 'target') {
             displayName = `${commandDef.name}: ${p.entityName}`
           } else {
-            // For other parameterized commands, prefer displayText if available
-            displayName = command.displayText || commandDef.name
+            // For other parameterized commands, prefer the (translated) definition name first.
+            // Fall back to stored displayText only if no translation is available.
+            displayName = commandDef.name || command.displayText || displayName
           }
         }
       } else if (isParameterized && !command.parameters && commandDef.commandId === 'custom_tray') {
@@ -242,9 +243,17 @@ export default class CommandChainUI extends ComponentBase {
         } else {
           displayName = command.displayText || commandDef.name
         }
+      } else if (isParameterized && !command.parameters && commandDef.commandId === 'tray_with_backup') {
+        // Dynamically parse tray/slot/backup from command string when parameters are absent
+        const m = command.command.match(/TrayExecByTrayWithBackup\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/i)
+        if (m) {
+          displayName = `${commandDef.name} (${parseInt(m[2])} ${parseInt(m[3])} ${parseInt(m[4])} ${parseInt(m[5])})`
+        } else {
+          displayName = command.displayText || commandDef.name
+        }
       } else {
-        // For non-parameterized commands, always prefer displayText when available
-        displayName = command.displayText || commandDef.name
+        // Prefer translated definition; fallback to stored displayText
+        displayName = commandDef.name || command.displayText || displayName
       }
     } else if (command.displayText) {
       // No command definition found, but we have displayText from parser - use it

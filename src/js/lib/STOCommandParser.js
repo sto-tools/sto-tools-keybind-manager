@@ -72,7 +72,11 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: true
             }),
-            generateDisplayText: (params) => `Tray Execution (${params.tray} ${params.slot})`
+            generateDisplayText: (params) => ({
+              key: 'command_definitions.custom_tray.name',
+              params: { tray: params.tray, slot: params.slot },
+              fallback: `Tray Execution (${params.tray} ${params.slot})`
+            })
           },
           { 
             // Handle standard form: TrayExecByTray <active> <tray> <slot>
@@ -86,7 +90,11 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: false
             }),
-            generateDisplayText: (params) => `Tray Execution (${params.tray} ${params.slot})`
+            generateDisplayText: (params) => ({
+              key: 'command_definitions.custom_tray.name',
+              params: { tray: params.tray, slot: params.slot },
+              fallback: `Tray Execution (${params.tray} ${params.slot})`
+            })
           }
         ],
         category: 'tray',
@@ -110,7 +118,16 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: true
             }),
-            generateDisplayText: (params) => `Tray Execution with Backup (${params.tray} ${params.slot} -> ${params.backup_tray} ${params.backup_slot})`
+            generateDisplayText: (params) => ({
+              key: 'command_definitions.tray_with_backup.name',
+              params: { 
+                tray: params.tray, 
+                slot: params.slot, 
+                backup_tray: params.backup_tray, 
+                backup_slot: params.backup_slot 
+              },
+              fallback: `Tray Execution with Backup (${params.tray} ${params.slot} -> ${params.backup_tray} ${params.backup_slot})`
+            })
           },
           {
             // Handle standard form: TrayExecByTrayWithBackup <active> <tray> <slot> <backup_tray> <backup_slot>
@@ -126,7 +143,16 @@ export class STOCommandParser {
               baseCommand: match[1],
               isShorthand: false
             }),
-            generateDisplayText: (params) => `Tray Execution with Backup (${params.tray} ${params.slot} -> ${params.backup_tray} ${params.backup_slot})`
+            generateDisplayText: (params) => ({
+              key: 'command_definitions.tray_with_backup.name',
+              params: { 
+                tray: params.tray, 
+                slot: params.slot, 
+                backup_tray: params.backup_tray, 
+                backup_slot: params.backup_slot 
+              },
+              fallback: `Tray Execution with Backup (${params.tray} ${params.slot} -> ${params.backup_tray} ${params.backup_slot})`
+            })
           }
         ],
         category: 'tray',

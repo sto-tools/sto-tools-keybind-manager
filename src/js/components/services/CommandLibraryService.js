@@ -142,11 +142,12 @@ export default class CommandLibraryService extends ComponentBase {
       }
     })
 
-    // Listen for language changes - no specific action needed as translateCommandDefinition
-    // will automatically use the new language on next call
+    // Listen for language changes and update i18n instance
     this.addEventListener('language:changed', () => {
-      // The translateCommandDefinition method will automatically use the new language
-      // when called, so no specific action is needed here
+      // Update the i18n instance to use the latest language
+      if (typeof window !== 'undefined' && window.i18next) {
+        this.i18n = window.i18next
+      }
     })
   }
 
@@ -220,21 +221,24 @@ export default class CommandLibraryService extends ComponentBase {
           })
           const first = parseResult?.commands?.[0]
           if (first) {
+            // Handle new i18n-compatible displayText format
+            const displayText = this.formatDisplayText(first.displayText)
+            
             if (typeof cmdObj === 'string') {
               enriched.push({
                 command: cmdStr,
-                displayText: first.displayText,
+                displayText: displayText,
                 icon: first.icon,
                 category: first.category,
-                text: first.displayText,
+                text: displayText,
               })
             } else {
               enriched.push({
                 ...cmdObj,
-                displayText: first.displayText,
+                displayText: displayText,
                 icon: first.icon,
                 category: first.category,
-                text: first.displayText,
+                text: displayText,
               })
             }
           } else {
@@ -288,120 +292,25 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   /**
-   * Find a command definition by command object
+   * Find command definition and apply i18n translations
    */
   async findCommandDefinition(command) {
     try {
-      // Special handling for user-defined alias commands - don't try to match them against command definitions
-      if (command && command.isUserAlias && !command.isVfxAlias) {
-        return {
-          name: command.text || command.command,
-          description: command.description || `User-defined alias: ${command.command}`,
-          command: command.command,
-          type: 'alias',
-          icon: '🎭',
-          commandId: command.command,
-          categoryId: 'aliases'
-        }
-      }
-      
-      // Special handling for VFX aliases - don't try to match them against command definitions
-      // console.log('[CommandLibraryService] findCommandDefinition', { command })
-      // if (command && command.isVfxAlias) {
-      //   return {
-      //     name: command.text || command.command,
-      //     description: command.description || `VFX alias: ${command.command}`,
-      //     command: command.command,
-      //     type: 'vfx-alias',
-      //     icon: '🎭️',
-      //     commandId: command.command,
-      //     categoryId: 'vfx-alias'
-      //   }
-      // }
-      
       const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return null
 
-      // --------------------------------------------------------------------
-      // Special handling for Tray Execution style commands
-      // These commands embed tray/slot parameters, so the literal match used
-      // for most commands (which compares against a sample command string)
-      // will fail (e.g. "+STOTrayExecByTray 1 1" vs sample "+STOTrayExecByTray 0 0").
-      // We therefore detect them heuristically and map them back to the
-      // correct library entry so that the UI can display the friendly name.
-      // --------------------------------------------------------------------
-  /*    if (command && typeof command.command === 'string' && command.command.includes('TrayExec')) {
-        const trayCategory = await this.request('data:get-tray-category')
-        if (trayCategory) {
-          const categoryId = 'tray'
-
-          // 1. TrayExecByTrayWithBackup variants --------------------------------
-          if (command.command.includes('TrayExecByTrayWithBackup')) {
-            // a) Range with backup (multiple commands separated by $$)
-            if (command.command.includes('$$')) {
-              const def = trayCategory.commands.tray_range_with_backup
-              if (def) {
-                return { ...def, commandId: 'tray_range_with_backup', categoryId }
-              }
-            }
-            // b) Single tray slot with backup
-            const def = trayCategory.commands.tray_with_backup
-            if (def) {
-              return { ...def, commandId: 'tray_with_backup', categoryId }
-            }
-          }
-
-          // 2. STOTrayExecByTray / TrayExecByTray variants ----------------------
-          if (
-            command.command.includes('STOTrayExecByTray') ||
-            (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))
-          ) {
-            // a) Range across many slots (command chain using $$)
-            if (command.command.includes('$$')) {
-              const def = trayCategory.commands.tray_range
-              if (def) {
-                return { ...def, commandId: 'tray_range', categoryId }
-              }
-            }
-            // b) Single tray slot (custom tray execution)
-            const def = trayCategory.commands.custom_tray
-            if (def) {
-              return { ...def, commandId: 'custom_tray', categoryId }
-            }
-          }
-        }
-      }*/
-
-      // Detect references to other user-defined aliases when the command
-      // string exactly matches an alias name in the current profile.
-      if (
-        command &&
-        typeof command.command === 'string' &&
-        this.cache.aliases &&
-        Object.prototype.hasOwnProperty.call(this.cache.aliases, command.command)
-      ) {
-        const aliasObj = this.cache.aliases[command.command] || {}
-        const isVfxAlias = aliasObj.type === 'vfx-alias'
-        return {
-          name: command.command,
-          description: aliasObj.description || `Alias: ${command.command}`,
-          command: command.command,
-          type: isVfxAlias ? 'vfx-alias' : 'alias',
-          icon: isVfxAlias ? '👁️' : '🎭',
-          commandId: command.command,
-          categoryId: isVfxAlias ? 'vfx-alias' : 'aliases'
-        }
-      }
-
-      // Generic lookup (exact match first, then containment) ------------------
       const categories = await this.request('data:get-commands')
+
+      // Support both rich command objects and raw command strings
+      const cmdString = (typeof command === 'string') ? command.trim() : (command?.command || '').trim()
+      const cmdDisplay = (typeof command === 'string') ? command.trim() : (command?.text || '').trim()
       
       // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
           if (
-            cmdData.command === command.command ||
-            cmdData.name === command.text
+            cmdData.command === cmdString ||
+            cmdData.name === cmdDisplay
           ) {
             // Apply i18n translation to the command definition
             const translatedDef = this.translateCommandDefinition(cmdData, cmdId)
@@ -413,14 +322,19 @@ export default class CommandLibraryService extends ComponentBase {
       // Second pass: containment matches (only for specific known cases like tray commands)
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-          if (command.command && command.command.includes(cmdData.command)) {
+          if (cmdString) {
+            // Build a base pattern (command keyword only, no parameters)
+            const basePattern = cmdData.command.split(/\s+/)[0]  // e.g. '+STOTrayExecByTray'
+
+            const containsExact = cmdString.includes(cmdData.command)
+            const startsWithBase = cmdString.startsWith(basePattern)
+
             // Only allow partial matching for specific cases:
             // 1. Tray execution commands (contain "TrayExec")
             // 2. Commands that start with the definition command (for parameterized commands)
-            const isTrayCommand = command.command.includes('TrayExec')
-            const startsWithDefinition = command.command.startsWith(cmdData.command)
+            const isTrayCommand = cmdString.includes('TrayExec') || cmdString.includes('Trayexec')
             
-            if (isTrayCommand || startsWithDefinition) {
+            if ((isTrayCommand && startsWithBase) || containsExact) {
               // Apply i18n translation to the command definition
               const translatedDef = this.translateCommandDefinition(cmdData, cmdId)
               return { ...translatedDef, commandId: cmdId, categoryId }
@@ -444,19 +358,48 @@ export default class CommandLibraryService extends ComponentBase {
 
     const translatedDef = { ...cmdData }
     
-    // Translate name
+    // Translate name – fall back to original if no translation available
     const nameKey = `command_definitions.${cmdId}.name`
-    if (this.i18n.exists && this.i18n.exists(nameKey)) {
-      translatedDef.name = this.i18n.t(nameKey)
-    }
+    translatedDef.name = this.i18n.t(nameKey, { defaultValue: cmdData.name })
     
-    // Translate description
+    // Translate description – fall back to original if no translation available
     const descKey = `command_definitions.${cmdId}.description`
-    if (this.i18n.exists && this.i18n.exists(descKey)) {
-      translatedDef.description = this.i18n.t(descKey)
-    }
+    translatedDef.description = this.i18n.t(descKey, { defaultValue: cmdData.description })
     
     return translatedDef
+  }
+
+  /**
+   * Format display text from parser, handling i18n-compatible objects
+   */
+  formatDisplayText(displayText) {
+    if (typeof displayText === 'string') {
+      return displayText
+    }
+    
+    if (typeof displayText === 'object' && displayText.key) {
+      if (!this.i18n) return displayText.fallback
+      
+      // Get the base translated name
+      const baseName = this.i18n.t(displayText.key, { defaultValue: displayText.fallback })
+      
+      // Add parameters if present
+      if (displayText.params) {
+        const { tray, slot, backup_tray, backup_slot } = displayText.params
+        
+        if (backup_tray !== undefined && backup_slot !== undefined) {
+          // Tray with backup format
+          return `${baseName} (${tray} ${slot} -> ${backup_tray} ${backup_slot})`
+        } else if (tray !== undefined && slot !== undefined) {
+          // Simple tray format
+          return `${baseName} (${tray} ${slot})`
+        }
+      }
+      
+      return baseName
+    }
+    
+    return displayText
   }
 
   /**
