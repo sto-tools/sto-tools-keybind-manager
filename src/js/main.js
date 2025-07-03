@@ -167,10 +167,14 @@ const settings = storageService.getSettings()
       if (initPromise && typeof initPromise.catch === 'function') {
         await initPromise
       } else {
-        console.error('TEST: app.init() did not return a Promise')
+        // DEBUG: This message is used exclusively for test diagnostics and will be stripped
+        // from production builds by Rollup's console.log removal plugin.
+        console.log('TEST: app.init() did not return a Promise')
       }
     } catch (error) {
-      console.error('TEST: app.init() failed:', error)
+      // DEBUG: This message is used exclusively for test diagnostics and will be stripped
+      // from production builds by Rollup's console.log removal plugin.
+      console.log('TEST: app.init() failed:', error)
     }
   }
 
@@ -184,7 +188,9 @@ const settings = storageService.getSettings()
       stoFileExplorer.init()
     }
 
-    // Debug Settings button functionality
+    // DEBUG: The following block logs detailed UI state for debugging purposes.
+    // Rollup is configured to strip console.log statements from production builds,
+    // ensuring no debug output ships to users.
     console.log('=== Settings Button Debug ===')
     const settingsBtn = document.getElementById('settingsBtn')
     const settingsMenu = document.getElementById('settingsMenu')
