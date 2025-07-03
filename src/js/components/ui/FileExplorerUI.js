@@ -235,12 +235,6 @@ export default class FileExplorerUI extends ComponentBase {
       ...(rootProfile.builds?.space?.aliases  || {}),
       ...(rootProfile.builds?.ground?.aliases || {}),
     }
-    const tempProfile = {
-      name: rootProfile.name,
-      mode: rootProfile.currentEnvironment || 'space',
-      aliases: aggregatedAliases,
-      aliasMetadata: rootProfile.aliasMetadata || {},
-    }
     
     return await this.request('export:generate-alias-file', { profileId })
       .catch((error) => {
