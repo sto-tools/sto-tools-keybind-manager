@@ -15,8 +15,56 @@ describe('CommandService mutations', () => {
     fixture.addKey('space', 'F1', ['FireAll', 'FirePhasers'])
     profile = { id: 'profile1', ...fixture.profile }
 
-    // Stub DataCoordinator update-profile
-    detachUpdate = respond(eventBus, 'data:update-profile', () => ({ success: true }))
+    // Mock DataCoordinator update-profile to actually update the profile object
+    detachUpdate = respond(eventBus, 'data:update-profile', ({ profileId, add, modify, delete: del }) => {
+      // Apply the actual updates to the profile object like DataCoordinator would
+      if (add) {
+        if (add.builds) {
+          Object.entries(add.builds).forEach(([env, envData]) => {
+            if (!profile.builds[env]) profile.builds[env] = { keys: {} }
+            if (envData.keys) {
+              Object.assign(profile.builds[env].keys, envData.keys)
+            }
+          })
+        }
+        if (add.aliases) {
+          Object.assign(profile.aliases, add.aliases)
+        }
+      }
+      
+      if (modify) {
+        if (modify.builds) {
+          Object.entries(modify.builds).forEach(([env, envData]) => {
+            if (!profile.builds[env]) profile.builds[env] = { keys: {} }
+            if (envData.keys) {
+              Object.assign(profile.builds[env].keys, envData.keys)
+            }
+          })
+        }
+        if (modify.aliases) {
+          Object.assign(profile.aliases, modify.aliases)
+        }
+      }
+      
+      if (del) {
+        if (del.builds) {
+          Object.entries(del.builds).forEach(([env, envData]) => {
+            if (profile.builds[env] && envData.keys) {
+              envData.keys.forEach(key => {
+                delete profile.builds[env].keys[key]
+              })
+            }
+          })
+        }
+        if (del.aliases) {
+          del.aliases.forEach(aliasName => {
+            delete profile.aliases[aliasName]
+          })
+        }
+      }
+      
+      return { success: true }
+    })
 
     const i18nStub = { t: (k) => k }
     const uiStub = { showToast: vi.fn() }
