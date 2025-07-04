@@ -21,7 +21,8 @@ export {
 
 export {
   createStorageFixture,
-  createRealLocalStorageFixture
+  createRealLocalStorageFixture,
+  createLocalStorageFixture
 } from './storage.js'
 
 export {

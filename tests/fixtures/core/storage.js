@@ -391,4 +391,45 @@ export function createRealLocalStorageFixture() {
   registerFixture(fixtureId, fixture.destroy)
   
   return fixture
+}
+
+export function createLocalStorageFixture(options = {}) {
+  const {
+    initialData = {},
+    quotaError = false
+  } = options
+
+  const fixtureId = generateFixtureId('localStorage')
+  const originalLocalStorage = globalThis.localStorage
+
+  // Simple in-memory store
+  const store = new Map()
+  for (const [k, v] of Object.entries(initialData)) {
+    store.set(k, typeof v === 'string' ? v : JSON.stringify(v))
+  }
+
+  const mock = {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => {
+      if (quotaError) throw new Error('quota exceeded')
+      store.set(key, String(value))
+    },
+    removeItem: (key) => { store.delete(key) },
+    clear: () => { store.clear() },
+    key: (i) => Array.from(store.keys())[i] ?? null,
+    get length() { return store.size }
+  }
+
+  Object.defineProperty(globalThis, 'localStorage', { value: mock, configurable: true })
+
+  const destroy = () => {
+    Object.defineProperty(globalThis, 'localStorage', { value: originalLocalStorage, configurable: true })
+  }
+
+  registerFixture(fixtureId, destroy)
+
+  return {
+    localStorage: mock,
+    destroy
+  }
 } 
