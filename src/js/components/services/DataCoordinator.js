@@ -165,6 +165,8 @@ export default class DataCoordinator extends ComponentBase {
     this.respond('data:update-settings', ({ settings }) => this.updateSettings(settings))
     this.respond('data:load-default-data', () => this.loadDefaultData())
     this.respond('data:reload-state', () => this.reloadState())
+    this.respond('data:get-keys', ({ environment } = {}) => this.getKeys(environment))
+    this.respond('data:get-key-commands', ({ environment, key } = {}) => this.getKeyCommands(environment, key))
   }
 
   /**

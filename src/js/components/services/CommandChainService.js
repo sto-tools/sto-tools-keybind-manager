@@ -39,7 +39,18 @@ export default class CommandChainService extends ComponentBase {
         // Removed deprecated command-chain:* request endpoints – callers should now use command:* APIs directly.
         // New: toggle or query execution-order stabilization
         this.respond('command:set-stabilize', ({ name, stabilize }) => this.setStabilize(name, stabilize)),
-        this.respond('command:is-stabilized', ({ name }) => this.isStabilized(name))
+        this.respond('command:is-stabilized', ({ name }) => this.isStabilized(name)),
+        // New: allow UI workflows (e.g., Import modal) to clear the destination
+        // command chain synchronously via request/response.
+        // Returns boolean success flag so caller can detect failures.
+        this.respond('command-chain:clear', async ({ key }) => {
+          try {
+            return await this.clearCommandChain(key)
+          } catch (err) {
+            // Propagate error so request() caller receives it and can show details
+            throw err
+          }
+        })
       )
     }
   }

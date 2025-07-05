@@ -620,7 +620,7 @@ export default class CommandUI extends ComponentBase {
 
     } catch (error) {
       console.error('CommandUI: Failed to import commands:', error)
-      const message = await this.getI18nMessage('import_failed') || 'Import failed'
+      const message = await this.getI18nMessage('import_failed', { error: error?.message || error }) || `Import failed: ${error?.message || error}`
       await this.showToast(message, 'error')
     }
   }
