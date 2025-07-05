@@ -3496,6 +3496,18 @@ input:checked + .slider:before {
   border-color: var(--primary);
 }
 
+.key-item.active:hover {
+  background: var(--secondary);
+  color: white;
+  border-color: var(--primary);
+}
+
+[data-theme='dark'] .key-item.active:hover {
+  background: var(--secondary);
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
 .key-item.active {
   border-color: var(--primary);
   background: rgba(37, 99, 235, 0.05);
@@ -3787,15 +3799,17 @@ input:checked + .slider:before {
   }
 }
 
-.generated-command {
+/*.generated-command {
   margin-bottom: 1rem;
-}
+}*/
 
 .command-preview-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
 }
 
 .command-preview-header label {
