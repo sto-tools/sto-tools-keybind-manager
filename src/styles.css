@@ -4151,3 +4151,19 @@ input:checked + .slider:before {
   color: var(--danger);
 }
 
+/* Active state for generic toolbar buttons (used by search/filter) */
+.toolbar-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.toolbar-btn.active:hover {
+  background: var(--primary-hover);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .toolbar-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+}
+

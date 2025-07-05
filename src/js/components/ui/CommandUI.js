@@ -18,7 +18,11 @@ import { request } from '../../core/requestResponse.js'
  * 4. Cache UI state from broadcast events for immediate access.
  */
 export default class CommandUI extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus, ui = null, modalManager = null, parameterCommandUI = null } = {}) {
+  constructor ({ eventBus: bus = eventBus,
+                ui = null,
+                modalManager = null,
+                parameterCommandUI = null,
+                document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(bus)
     this.componentName = 'CommandUI'
     this.ui           = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
@@ -29,6 +33,9 @@ export default class CommandUI extends ComponentBase {
     this._selectedKey = null
     this._selectedAlias = null
     this._currentEnvironment = 'space'
+
+    // Provide DOM access consistent with other UI components
+    this.document = document
   }
 
   onInit () {
@@ -140,11 +147,21 @@ export default class CommandUI extends ComponentBase {
       }
     })
 
-    // show all commands button
-    this.eventBus.onDom('showAllCommandsBtn', 'click', 'command-show-all', () => {
+    // Clear Filter button – resets only Command Library search
+    this.eventBus.onDom('showAllCommandsBtn', 'click', 'command-clear-filter', () => {
       const inp = this.document.getElementById('commandSearch')
-      if (inp) inp.value = ''
-      this.emit('command:filter', { filter: '' })
+      if (inp) {
+        // Clear the input value
+        inp.value = ''
+
+        // Dispatch synthetic input event so the debounced handler resets and
+        // any pending timer from the previous keystrokes is cancelled.
+        const event = new Event('input', { bubbles: true })
+        inp.dispatchEvent(event)
+      }
+
+      // Immediately clear the filter via direct call so UI updates without delay
+      this.filterCommands('')
     })
 
     // Command search button
@@ -252,7 +269,7 @@ export default class CommandUI extends ComponentBase {
     if (!key) return
     
     try {
-      const message = await this.getI18nMessage('confirm_clear_chain', { key }) || 
+      const message = await this.getI18nMessage('confirm_clear_commands', { keyName: key }) || 
         `Clear command chain for ${key}?`
       
       if (confirm(message)) {
@@ -285,6 +302,14 @@ export default class CommandUI extends ComponentBase {
    */
   filterCommands(value) {
     this.emit('command:filter', { filter: value })
+
+    // Update search button active state for accessibility
+    const searchBtn = this.document.getElementById('commandSearchBtn')
+    if (searchBtn) {
+      const active = !!(value && value.trim())
+      searchBtn.classList.toggle('active', active)
+      searchBtn.setAttribute('aria-pressed', active)
+    }
   }
 
   /**
@@ -509,10 +534,22 @@ export default class CommandUI extends ComponentBase {
         const aliases = await this.request('alias:get-all') || {}
         const alias = aliases[sourceName]
         if (alias && alias.commands) {
-          const result = await this.request('parser:parse-command-string', { 
-            commandString: alias.commands 
-          })
-          sourceCommands = result.commands || []
+          // Handle both legacy string format and new canonical array format
+          let commandString
+          if (Array.isArray(alias.commands)) {
+            // New canonical array format - join with $$
+            commandString = alias.commands.join(' $$ ')
+          } else {
+            // Legacy string format
+            commandString = alias.commands
+          }
+
+          if (commandString && commandString.trim()) {
+            const result = await this.request('parser:parse-command-string', { 
+              commandString 
+            })
+            sourceCommands = result.commands || []
+          }
         }
       } else {
         // Get commands from key
@@ -585,7 +622,9 @@ export default class CommandUI extends ComponentBase {
 
       // Import commands
       for (const cmd of filteredCommands) {
-        await this.request('command-chain:add', {
+        // Use CommandService endpoint so both broadcast and synchronous
+        // paths share the same underlying implementation.
+        await this.request('command:add', {
           key: targetKey,
           command: cmd
         })
@@ -606,7 +645,7 @@ export default class CommandUI extends ComponentBase {
 
     } catch (error) {
       console.error('CommandUI: Failed to import commands:', error)
-      const message = await this.getI18nMessage('import_failed') || 'Import failed'
+      const message = await this.getI18nMessage('import_failed', { error: error?.message || error }) || `Import failed: ${error?.message || error}`
       await this.showToast(message, 'error')
     }
   }

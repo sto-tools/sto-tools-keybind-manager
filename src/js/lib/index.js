@@ -4,6 +4,24 @@ export { STOCommandParser } from './STOCommandParser.js'
 export { respond, request, handleCommand, command } from '../core/requestResponse.js'
 export { default as eventBus } from '../core/eventBus.js'
 
+// Command display and normalization utilities
+export {
+  enrichForDisplay,
+  enrichArrayForDisplay,
+  normalizeToString,
+  normalizeToStringArray,
+  normalizeToOptimizedString,
+  isRichObject,
+  countRichObjects
+} from './commandDisplayAdapter.js'
+
+export {
+  normalizeProfile,
+  needsNormalization,
+  getMigrationReport,
+  batchNormalizeProfiles
+} from './profileNormalizer.js'
+
 // Default configuration for external use
 export const defaultParserConfig = {
   enableCache: true,

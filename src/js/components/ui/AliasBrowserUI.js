@@ -255,9 +255,15 @@ export default class AliasBrowserUI extends ComponentBase {
   }
 
   createAliasElement (name, alias) {
-    const commandCount = typeof alias.commands === 'string' && alias.commands.trim() 
-      ? alias.commands.trim().split(/\s*\$\$/).length 
-      : 0
+    // Handle both legacy string format and new canonical string array format
+    let commandCount = 0
+    if (Array.isArray(alias.commands)) {
+      // New canonical array format
+      commandCount = alias.commands.filter(cmd => cmd && cmd.trim()).length
+    } else if (typeof alias.commands === 'string' && alias.commands.trim()) {
+      // Legacy string format - split by $$
+      commandCount = alias.commands.trim().split(/\s*\$\$/).length
+    }
 
     const selectedName = this._selectedAliasName || null
     const isSelected   = selectedName === name
@@ -348,12 +354,23 @@ export default class AliasBrowserUI extends ComponentBase {
    */
   filterAliases(value='') {
     const filter = (value||'').toString().toLowerCase()
-    const items = this.document.querySelectorAll('.alias-item')
+    const grid = this.document.getElementById('aliasGrid')
+    if (!grid) return
+
+    const items = grid.querySelectorAll('.alias-item')
     items.forEach(item => {
       const name = (item.dataset.alias||'').toLowerCase()
       const visible = !filter || name.includes(filter)
       item.style.display = visible ? 'flex' : 'none'
     })
+
+    // Update search button active state for accessibility
+    const searchBtn = this.document.getElementById('aliasSearchBtn')
+    if (searchBtn) {
+      const active = !!filter
+      searchBtn.classList.toggle('active', active)
+      searchBtn.setAttribute('aria-pressed', active)
+    }
   }
 
   /** Toggle alias search input */

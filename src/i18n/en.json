@@ -1006,5 +1006,6 @@
   "failed_to_create_backup": "Failed to create backup: {{error}}",
   "backup_restored_successfully": "Application state restored successfully",
   "failed_to_restore_backup": "Failed to restore backup: {{error}}",
-  "distinguish_left_right_modifiers": "Distinguish left/right modifiers"
+  "distinguish_left_right_modifiers": "Distinguish left/right modifiers",
+  "clear_filter": "Clear filter"
 }

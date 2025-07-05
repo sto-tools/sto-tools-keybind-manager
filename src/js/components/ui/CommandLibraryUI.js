@@ -550,10 +550,12 @@ export default class CommandLibraryUI extends ComponentBase {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
 
-    // ---------------------------------
-    // Item-level filtering
-    // ---------------------------------
-    doc.querySelectorAll('.command-item, .alias-item, .vertigo-alias-item').forEach((item) => {
+    // Restrict search filtering to the Command Library container only so alias/key browsers are untouched
+    const libraryContainer = doc.getElementById('commandCategories') || doc.querySelector('.command-categories')
+    if (!libraryContainer) return
+
+    // Item-level filtering within library only
+    libraryContainer.querySelectorAll('.command-item, .alias-item, .vertigo-alias-item').forEach((item) => {
       // Skip if item already hidden by env filter
       const alreadyHiddenByEnv = item.dataset.envHidden === 'true'
 
@@ -578,11 +580,18 @@ export default class CommandLibraryUI extends ComponentBase {
     // ---------------------------------
     // Category-level filtering
     // ---------------------------------
-    doc.querySelectorAll('.category').forEach((category) => {
+    libraryContainer.querySelectorAll('.category').forEach((category) => {
       const visibleItems = category.querySelectorAll('.command-item:not([style*="display: none"]), .alias-item:not([style*="display: none"]), .vertigo-alias-item:not([style*="display: none"])')
       const categoryVisible = !term || visibleItems.length > 0
       category.style.display = categoryVisible ? 'block' : 'none'
     })
+
+    // Update search button active state for accessibility / UX
+    const searchBtn = doc.getElementById('commandSearchBtn')
+    if (searchBtn) {
+      searchBtn.classList.toggle('active', !!term)
+      searchBtn.setAttribute('aria-pressed', !!term)
+    }
   }
 
   /**

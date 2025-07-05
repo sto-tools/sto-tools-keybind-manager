@@ -456,6 +456,8 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_rear',
           environment: 'space',
           icon: '🛡️',
+          warning:
+            'Not recommended on spam bars as it interferes with firing cycles',
         },
         reroute_shields_left: {
           name: 'Reroute Shields Left',
@@ -464,6 +466,8 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_left',
           environment: 'space',
           icon: '🛡️',
+          warning:
+            'Not recommended on spam bars as it interferes with firing cycles',
         },
         reroute_shields_right: {
           name: 'Reroute Shields Right',
@@ -472,6 +476,8 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_right',
           environment: 'space',
           icon: '🛡️',
+          warning:
+            'Not recommended on spam bars as it interferes with firing cycles',
         },
         reroute_shields_forward: {
           name: 'Reroute Shields Forward',
@@ -480,6 +486,8 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_forward',
           environment: 'space',
           icon: '🛡️',
+          warning:
+            'Not recommended on spam bars as it interferes with firing cycles',
         },
       },
     },

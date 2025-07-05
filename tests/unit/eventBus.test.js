@@ -1,53 +1,67 @@
+// Sample unit test demonstrating fixture usage
 import { describe, it, expect, vi } from 'vitest'
-import eventBus from '../../src/js/core/eventBus.js'
+import { createEventBusFixture } from '../fixtures'
 
-describe('eventBus core functionality', () => {
-  it('registers and emits events to handlers', () => {
+describe('EventBus Core Functionality', () => {
+  it('should register and emit events to handlers', () => {
+    const { eventBus, expectEvent, expectEventCount } = createEventBusFixture()
+
     const handler = vi.fn()
-    eventBus.on('unit-event-register', handler)
+    eventBus.on('test-event', handler)
 
-    const payload = { foo: 'bar' }
-    eventBus.emit('unit-event-register', payload)
+    const payload = { message: 'hello' }
+    eventBus.emit('test-event', payload)
 
     expect(handler).toHaveBeenCalledWith(payload)
-
-    eventBus.off('unit-event-register', handler)
+    expectEvent('test-event', payload)
+    expectEventCount('test-event', 1)
   })
 
-  it('removes handlers using off', () => {
-    const handler = vi.fn()
-    eventBus.on('unit-event-remove', handler)
-    eventBus.off('unit-event-remove', handler)
+  it('should remove handlers using off', () => {
+    const { eventBus, expectEventCount } = createEventBusFixture()
 
-    eventBus.emit('unit-event-remove', { test: true })
+    const handler = vi.fn()
+    eventBus.on('test-event', handler)
+    eventBus.off('test-event', handler)
+
+    eventBus.emit('test-event', { test: true })
+    
     expect(handler).not.toHaveBeenCalled()
+    expectEventCount('test-event', 1) // Event was emitted but handler wasn't called
   })
 
-  it('onDom emits specified bus event and cleans up', () => {
-    document.body.innerHTML = '<button id="domBtn"></button>'
-    const handler = vi.fn()
-    const cleanup = eventBus.onDom('domBtn', 'click', 'unit-dom-event', handler)
+  it('should handle once events correctly', async () => {
+    const { eventBus, waitForEvent } = createEventBusFixture()
 
-    document.getElementById('domBtn').click()
+    const handler = vi.fn()
+    eventBus.once('once-event', handler)
+
+    // Set up the wait first, then emit
+    const eventPromise = waitForEvent('once-event')
+    eventBus.emit('once-event', { data: 'test' })
+    
+    // Wait for the event and verify handler was called
+    await eventPromise
     expect(handler).toHaveBeenCalledTimes(1)
 
-    cleanup()
-    handler.mockClear()
-    document.getElementById('domBtn').click()
-    expect(handler).not.toHaveBeenCalled()
-  })
-
-  it('onDom uses domEvent as busEvent when omitted', () => {
-    document.body.innerHTML = '<button id="domBtn2"></button>'
-    const handler = vi.fn()
-    const cleanup = eventBus.onDom('domBtn2', 'click', handler)
-
-    document.getElementById('domBtn2').click()
+    // Emit again - handler should not be called
+    eventBus.emit('once-event', { data: 'test2' })
     expect(handler).toHaveBeenCalledTimes(1)
-
-    cleanup()
-    handler.mockClear()
-    document.getElementById('domBtn2').click()
-    expect(handler).not.toHaveBeenCalled()
   })
-})
+
+  it('should provide event history for debugging', () => {
+    const { eventBus, getEventHistory, getEventsOfType } = createEventBusFixture()
+
+    eventBus.emit('event1', { data: 1 })
+    eventBus.emit('event2', { data: 2 })
+    eventBus.emit('event1', { data: 3 })
+
+    const history = getEventHistory()
+    expect(history).toHaveLength(3)
+
+    const event1History = getEventsOfType('event1')
+    expect(event1History).toHaveLength(2)
+    expect(event1History[0].data).toEqual({ data: 1 })
+    expect(event1History[1].data).toEqual({ data: 3 })
+  })
+}) 

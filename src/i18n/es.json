@@ -1036,5 +1036,6 @@
   "search_aliases": "Buscar alias...",
   "show_all_aliases": "Mostrar Todos los Alias",
   "show_all_commands": "Mostrar Todos los Comandos",
-  "enter_key_name": "Ingresar nombre de tecla..."
+  "enter_key_name": "Ingresar nombre de tecla...",
+  "clear_filter": "Limpiar filtro"
 }

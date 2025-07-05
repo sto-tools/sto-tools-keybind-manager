@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
+import { normalizeToString, normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -52,7 +53,13 @@ export default class CommandService extends ComponentBase {
         this.respond('command:edit', async ({ key, index, updatedCommand }) => 
           this.editCommand(key, index, updatedCommand)),
         this.respond('command:validate', ({ command }) => 
-          this.validateCommand(command))
+          this.validateCommand(command)),
+        this.respond('command:delete', async ({ key, index }) =>
+          this.deleteCommand(key, index)
+        ),
+        this.respond('command:move', async ({ key, fromIndex, toIndex }) =>
+          this.moveCommand(key, fromIndex, toIndex)
+        )
       )
     }
   }
@@ -125,55 +132,46 @@ export default class CommandService extends ComponentBase {
       return false
     }
 
-    // Prepare helper vars (newCommandString / newKeys) – no legacy 'updates' object
+    // Get current alias commands (handle both legacy string and new array format)
     const currentAlias = this.cache.aliases && this.cache.aliases[key]
-    const currentCommands = currentAlias && currentAlias.commands
-      ? currentAlias.commands.split(/\s*\$\$\s*/).filter((cmd) => cmd.trim().length > 0)
-      : []
-    
-    // Handle both single commands and arrays of commands (e.g., whole-tray execution)
-    if (Array.isArray(command)) {
-      // For arrays of commands, extract the command string from each
-      command.forEach(cmd => {
-        const commandString = cmd.command
-        if (commandString) {
-          currentCommands.push(commandString)
-        }
-      })
-    } else {
-      // For single commands, extract the command string
-      const commandString = command.command
-      if (commandString) {
-        currentCommands.push(commandString)
-      }
+    let currentCommands = []
+    if (currentAlias && Array.isArray(currentAlias.commands)) {
+      currentCommands = [...currentAlias.commands]
     }
     
-    const newCommandString = currentCommands.join(' $$ ')
+    // Normalize commands to canonical strings
+    const commandsToAdd = Array.isArray(command) 
+      ? normalizeToStringArray(command)
+      : [normalizeToString(command)]
+    
+    // Filter out empty commands
+    const validCommands = commandsToAdd.filter(cmd => cmd.length > 0)
+    if (validCommands.length === 0) {
+      console.warn('CommandService: No valid commands to add')
+      return false
+    }
+    
+    // Add normalized commands to current list  
+    currentCommands.push(...validCommands)
 
     // ----- Key-bind -----
     const currentKeys = this.cache.keys[key] || []
     
-    // Handle both single commands and arrays of commands (e.g., whole-tray execution)
-    let commandsToAdd = []
-    if (Array.isArray(command)) {
-      commandsToAdd = command
-    } else {
-      commandsToAdd = [command]
-    }
-    
-    const newKeys = [...currentKeys, ...commandsToAdd]
+    // Use the same normalized commands for keybinds
+    const newKeys = [...currentKeys, ...validCommands]
     
     try {
       // Build explicit operations object
       const ops = {}
       if (this.currentEnvironment === 'alias') {
+        console.log('[CommandService] addCommand: alias')
         const aliasExists = !!profile.aliases?.[key]
         if (aliasExists) {
           ops.modify = {
             aliases: {
               [key]: {
                 ...(profile.aliases[key] || {}),
-                commands: newCommandString
+                commands: currentCommands // Use array format
               }
             }
           }
@@ -181,7 +179,7 @@ export default class CommandService extends ComponentBase {
           ops.add = {
             aliases: {
               [key]: {
-                commands: newCommandString,
+                commands: currentCommands,
                 description: '',
                 type: 'alias'
               }
@@ -237,11 +235,9 @@ export default class CommandService extends ComponentBase {
 
     if (isAliasContext) {
       const aliasObj = this.cache.aliases[key]
-      if (!aliasObj || !aliasObj.commands) return false
+      if (!aliasObj || !Array.isArray(aliasObj.commands)) return false
 
-      const commandsArr = aliasObj.commands
-        .split(/\s*\$\$\s*/)
-        .filter(c => c.trim().length > 0)
+      const commandsArr = [...aliasObj.commands]
 
       if (index < 0 || index >= commandsArr.length) return false
 
@@ -255,7 +251,7 @@ export default class CommandService extends ComponentBase {
             aliases: {
               [key]: {
                 ...aliasObj,
-                commands: commandsArr.join(' $$ ')
+                commands: commandsArr // Keep as array in new format
               }
             }
           }
@@ -314,26 +310,24 @@ export default class CommandService extends ComponentBase {
 
     if (this.currentEnvironment === 'alias') {
       const aliasObj = this.cache.aliases && this.cache.aliases[key]
-      if (!aliasObj || !aliasObj.commands) return false
+      if (!aliasObj || !Array.isArray(aliasObj.commands)) return false
 
-      const cmds = aliasObj.commands
-        .split(/\s*\$\$\s*/)
-        .filter(c => c.trim().length > 0)
+      const commandsArr = [...aliasObj.commands]
 
       if (
-        fromIndex < 0 || fromIndex >= cmds.length ||
-        toIndex < 0 || toIndex >= cmds.length
+        fromIndex < 0 || fromIndex >= commandsArr.length ||
+        toIndex < 0 || toIndex >= commandsArr.length
       ) return false
 
-      const [moved] = cmds.splice(fromIndex, 1)
-      cmds.splice(toIndex, 0, moved)
+      const [moved] = commandsArr.splice(fromIndex, 1)
+      commandsArr.splice(toIndex, 0, moved)
 
       payload = {
         modify: {
           aliases: {
             [key]: {
               ...aliasObj,
-              commands: cmds.join(' $$ ')
+              commands: commandsArr // Keep as array in new format
             }
           }
         }
@@ -393,23 +387,22 @@ export default class CommandService extends ComponentBase {
 
     if (this.currentEnvironment === 'alias') {
       const aliasObj = this.cache.aliases[key]
-      if (!aliasObj || !aliasObj.commands) return false
+      if (!aliasObj || !Array.isArray(aliasObj.commands)) return false
 
-      const cmds = aliasObj.commands
-        .split(/\s*\$\$\s*/)
-        .filter(c => c.trim().length > 0)
+      const commandsArr = [...aliasObj.commands]
 
-      if (index < 0 || index >= cmds.length) return false
+      if (index < 0 || index >= commandsArr.length) return false
 
-      const commandString = updatedCommand.command || updatedCommand
-      cmds[index] = commandString
+      // Normalize updated command to string
+      const commandString = normalizeToString(updatedCommand)
+      commandsArr[index] = commandString
 
       payload = {
         modify: {
           aliases: {
             [key]: {
               ...aliasObj,
-              commands: cmds.join(' $$ ')
+              commands: commandsArr // Keep as array in new format
             }
           }
         }
@@ -419,7 +412,8 @@ export default class CommandService extends ComponentBase {
       if (index < 0 || index >= keyCmds.length) return false
 
       const newCmds = [...keyCmds]
-      newCmds[index] = updatedCommand
+      // Normalize updated command to string for keybinds too
+      newCmds[index] = normalizeToString(updatedCommand)
 
       payload = {
         modify: {
@@ -631,14 +625,15 @@ export default class CommandService extends ComponentBase {
 
   /**
    * Return all commands associated with a key for the current environment.
-   * Alias environment returns the split command string array.
-   * REFACTORED: Now uses cached data
+   * Alias environment returns the command array (now normalized to string[]).
+   * REFACTORED: Now uses cached data and handles normalized string arrays
    */
   getCommandsForKey (key) {
     if (this.currentEnvironment === 'alias') {
       const alias = this.cache.aliases && this.cache.aliases[key]
-      if (!alias || !alias.commands) return []
-      return alias.commands.split(/\s*\$\$\s*/).filter(c => c.trim().length > 0)
+      if (!alias || !Array.isArray(alias.commands)) return []
+      
+      return Array.isArray(alias.commands) ? alias.commands : []
     }
     return this.cache.keys[key] || []
   }

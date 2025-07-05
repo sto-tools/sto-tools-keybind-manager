@@ -1,36 +1,35 @@
-// Vitest global setup file
+// Test setup file for unit and integration tests (jsdom environment)
 import { beforeEach, afterEach, vi } from 'vitest'
 import i18next from 'i18next'
 import en from '../src/i18n/en.json' assert { type: 'json' }
 
-// Initialize i18next with English resources so modules relying on translations
-// behave consistently in the test environment
+// Initialize i18next with English resources
 await i18next.init({
   lng: 'en',
   fallbackLng: 'en',
   resources: { en: { translation: en } },
 })
 
-// Make i18next available globally for all modules
+// Make i18next available globally
 global.i18next = i18next
 window.i18next = i18next
 
-// Mock browser APIs that aren't available in jsdom
+// Mock browser APIs
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
 })
 
-// Mock File and FileReader APIs
+// Mock File APIs
 global.File = class File {
   constructor(chunks, filename, options = {}) {
     this.chunks = chunks
@@ -65,7 +64,7 @@ global.FileReader = class FileReader {
   }
 }
 
-// Mock URL.createObjectURL and revokeObjectURL
+// Mock URL APIs
 global.URL.createObjectURL = vi.fn(() => 'mock-object-url')
 global.URL.revokeObjectURL = vi.fn()
 
@@ -77,61 +76,12 @@ global.Blob = class Blob {
   }
 }
 
-// Mock stoUI for global availability in tests
-global.stoUI = {
-  showToast: vi.fn(),
-  showModal: vi.fn(),
-  hideModal: vi.fn(),
-  confirm: vi.fn().mockResolvedValue(true),
-}
-
-// Provide a minimal modalManager for modules that expect it
-global.modalManager = {
-  show: vi.fn((id) => {
-    const modal = typeof id === 'string' ? document.getElementById(id) : id
-    const overlay = document.getElementById('modalOverlay')
-    if (modal && overlay) {
-      overlay.classList.add('active')
-      modal.classList.add('active')
-      document.body.classList.add('modal-open')
-
-      const firstInput = modal.querySelector('input, textarea, select')
-      if (firstInput) setTimeout(() => firstInput.focus(), 0)
-      return true
-    }
-    return false
-  }),
-  hide: vi.fn((id) => {
-    const modal = typeof id === 'string' ? document.getElementById(id) : id
-    const overlay = document.getElementById('modalOverlay')
-    if (modal && overlay) {
-      modal.classList.remove('active')
-      overlay.classList.remove('active')
-      document.body.classList.remove('modal-open')
-      return true
-    }
-    return false
-  }),
-}
-
-// Clean up after each test
-beforeEach(() => {
-  // Clear all mocks
-  vi.clearAllMocks()
-})
-
-afterEach(() => {
-  // Clean up DOM after each test
-  document.body.innerHTML = ''
-  document.head.innerHTML = ''
-})
-
-// Mock File System Access API (directory/file handles)
+// Mock File System Access API
 function createMockDirectoryHandle(name = 'root') {
   const files = new Map()
   const directories = new Map()
 
-  const dirHandle = {
+  return {
     kind: 'directory',
     name,
     async getDirectoryHandle(part, { create } = {}) {
@@ -144,48 +94,109 @@ function createMockDirectoryHandle(name = 'root') {
     async getFileHandle(fileName, { create } = {}) {
       if (!files.has(fileName)) {
         if (!create) throw new Error('File not found')
-        // minimal file handle
         const fileHandle = {
           kind: 'file',
           name: fileName,
           async createWritable() {
-            const writable = {
+            return {
               async write(contents) {
                 files.set(fileName, contents)
               },
               async close() {},
             }
-            return writable
           },
           async getFile() {
             return { text: async () => files.get(fileName) || '' }
           },
         }
-        files.set(fileName, '') // placeholder
+        files.set(fileName, '')
         files.set(`${fileName}__handle`, fileHandle)
       }
       return files.get(`${fileName}__handle`)
     },
-    // Helper for tests to inspect created files
     _files: files,
     _directories: directories,
   }
-  return dirHandle
 }
 
 global.createMockDirectoryHandle = createMockDirectoryHandle
 
-// Override setInterval to execute callback once immediately to avoid long-running loops in tests
-const _realSetInterval = global.setInterval
-const _realClearInterval = global.clearInterval
+// Import fixture cleanup system
+import { cleanupFixtures } from './fixtures/core/cleanup.js'
 
-global.setInterval = (callback, delay = 0, ...args) => {
-  // Execute immediately (next tick) but do NOT schedule repeated execution
-  const id = _realSetInterval(() => {}, 0) // dummy to generate id
-  Promise.resolve().then(() => callback(...args))
-  return id
-}
+// Global test lifecycle
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
-global.clearInterval = (id) => {
-  _realClearInterval(id)
-}
+afterEach(() => {
+  // Clean up DOM
+  document.body.innerHTML = ''
+  document.head.innerHTML = ''
+  
+  // Clean up fixtures
+  cleanupFixtures()
+})
+
+// --------------------------------------------------
+// Minimal IndexedDB in-memory stub for FileSystemService unit tests
+// --------------------------------------------------
+const _dbStore = new Map()
+
+global.indexedDB = {
+  open(name, version) {
+    const dbKey = `${name}`
+    const dbObj = _dbStore.get(dbKey) || { stores: new Map() }
+    _dbStore.set(dbKey, dbObj)
+
+    const request = {}
+    // Prepare result object representing the DB connection
+    const dbConnection = {
+      createObjectStore(storeName) {
+        if (!dbObj.stores.has(storeName)) dbObj.stores.set(storeName, new Map())
+      },
+      transaction(storeName, mode) {
+        if (!dbObj.stores.has(storeName)) dbObj.stores.set(storeName, new Map())
+        const store = dbObj.stores.get(storeName)
+        const tx = {
+          objectStore() {
+            return {
+              put(value, key) { store.set(key, value) },
+              get(key) {
+                const req = { result: undefined, onsuccess: null, onerror: null }
+                setTimeout(() => {
+                  req.result = store.get(key)
+                  if (req.onsuccess) req.onsuccess({ target: req })
+                }, 0)
+                return req
+              }
+            }
+          },
+          oncomplete: null,
+          onerror: null,
+          onabort: null,
+        }
+
+        // Auto-complete async next tick for simple operations
+        setTimeout(() => {
+          if (tx.oncomplete) tx.oncomplete()
+        }, 0)
+
+        return tx
+      },
+      close() {}
+    }
+
+    setTimeout(() => {
+      // onupgradeneeded when new
+      if (!dbObj.initialized) {
+        dbObj.initialized = true
+        request.result = dbConnection
+        if (request.onupgradeneeded) request.onupgradeneeded({ target: { result: dbConnection } })
+      }
+      request.result = dbConnection
+      if (request.onsuccess) request.onsuccess({ target: request })
+    }, 0)
+    return request
+  }
+} 

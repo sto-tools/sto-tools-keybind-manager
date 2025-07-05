@@ -183,73 +183,15 @@ export default class CommandLibraryService extends ComponentBase {
     if (!profile) return []
 
     if (this.currentEnvironment === 'alias') {
-      // For aliases, parse the command string using STOCommandParser
       const alias = profile.aliases && profile.aliases[selectedKey]
-      if (!alias || !alias.commands) return []
-
-      const result = await this.request('parser:parse-command-string', { 
-        commandString: alias.commands 
-      })
-      return result.commands.map((cmd, index) => ({
-        ...cmd, // Use new format directly
-        id: `alias_${index}`,
-        // Ensure backward compatibility for any legacy fields still needed
-        type: cmd.category,
-        text: cmd.displayText
-      }))
-    } else {
-      // For keybinds, return command array, enriching each entry via parser so display matches alias behaviour
-      const keyCmds = profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
-      const enriched = []
-      for (const cmdObj of keyCmds) {
-        if (cmdObj && typeof cmdObj === 'object' && cmdObj.displayText && cmdObj.icon) {
-          // Already enriched (likely freshly added this session)
-          enriched.push(cmdObj)
-          continue
-        }
-
-        const cmdStr = (typeof cmdObj === 'string') ? cmdObj : cmdObj.command
-        if (!cmdStr) {
-          enriched.push(cmdObj)
-          continue
-        }
-
-        try {
-          const parseResult = await this.request('parser:parse-command-string', {
-            commandString: cmdStr,
-            options: { generateDisplayText: true }
-          })
-          const first = parseResult?.commands?.[0]
-          if (first) {
-            // Handle new i18n-compatible displayText format
-            const displayText = this.formatDisplayText(first.displayText)
-            
-            if (typeof cmdObj === 'string') {
-              enriched.push({
-                command: cmdStr,
-                displayText: displayText,
-                icon: first.icon,
-                category: first.category,
-                text: displayText,
-              })
-            } else {
-              enriched.push({
-                ...cmdObj,
-                displayText: displayText,
-                icon: first.icon,
-                category: first.category,
-                text: displayText,
-              })
-            }
-          } else {
-            enriched.push(cmdObj)
-          }
-        } catch {
-          enriched.push(cmdObj)
-        }
-      }
-      return enriched
+      if (!alias || !Array.isArray(alias.commands)) return []
+      // Return shallow copy to avoid external mutation
+      return [...alias.commands]
     }
+
+    // Keybinds path – keys arrays are already canonical string[]
+    const keyCommands = profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
+    return Array.isArray(keyCommands) ? [...keyCommands] : []
   }
 
   /**
@@ -301,7 +243,7 @@ export default class CommandLibraryService extends ComponentBase {
 
       const categories = await this.request('data:get-commands')
 
-      // Support both rich command objects and raw command strings
+      // Support rich command objects or canonical strings (arrays already normalized)
       const cmdString = (typeof command === 'string') ? command.trim() : (command?.command || '').trim()
       const cmdDisplay = (typeof command === 'string') ? command.trim() : (command?.text || '').trim()
       
@@ -324,17 +266,37 @@ export default class CommandLibraryService extends ComponentBase {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
           if (cmdString) {
             // Build a base pattern (command keyword only, no parameters)
-            const basePattern = cmdData.command.split(/\s+/)[0]  // e.g. '+STOTrayExecByTray'
+            const basePatternRaw = cmdData.command.split(/\s+/)[0]  // e.g. '+STOTrayExecByTray'
+            // Build relaxed patterns – remove leading '+STO' or '+' so that
+            // '+TrayExecByTray', 'TrayExecByTray', '+STOTrayExecByTray' all match
+            const basePatternNoPlus     = basePatternRaw.replace(/^\+/, '')
+            const basePatternNoStoPlus  = basePatternRaw.replace(/^\+?STO/, '')
+            const basePatternPlusNoSto  = basePatternRaw.replace(/^\+?STO/, '+') // keeps leading '+' but drops STO
 
-            const containsExact = cmdString.includes(cmdData.command)
-            const startsWithBase = cmdString.startsWith(basePattern)
+            const variants = new Set([
+              basePatternRaw,
+              basePatternNoPlus,
+              basePatternNoStoPlus,
+              basePatternPlusNoSto,
+            ])
+
+            // Escape regex special characters to avoid errors (e.g. leading '+')
+            const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+            const wordBoundaryRegexes = Array.from(variants)
+              .filter(Boolean)
+              .map(v => new RegExp(`^${escapeRegex(v)}(\\s|$)`, 'i'))
+
+            // Also test against cmdString without leading '+' so +Command matches definitions without plus.
+            const cmdStringNoPlus = cmdString.replace(/^\+/, '')
+            const startsWithBase = wordBoundaryRegexes.some(r => r.test(cmdString) || r.test(cmdStringNoPlus))
 
             // Only allow partial matching for specific cases:
             // 1. Tray execution commands (contain "TrayExec")
             // 2. Commands that start with the definition command (for parameterized commands)
-            const isTrayCommand = cmdString.includes('TrayExec') || cmdString.includes('Trayexec')
+            const isTrayCommand = /TrayExec/i.test(cmdString)
             
-            if ((isTrayCommand && startsWithBase) || containsExact) {
+            if ((isTrayCommand && startsWithBase) || startsWithBase) {
               // Apply i18n translation to the command definition
               const translatedDef = this.translateCommandDefinition(cmdData, cmdId)
               return { ...translatedDef, commandId: cmdId, categoryId }
@@ -412,12 +374,15 @@ export default class CommandLibraryService extends ComponentBase {
 
       const categories = await this.request('data:get-commands')
 
+      // Normalize input – support canonical string or rich object
+      const cmdStr = typeof command === 'string' ? command.trim() : (command?.command || '').trim()
+
       // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
           if (
-            cmdData.command === command.command ||
-            cmdData.name === command.text
+            (cmdStr && cmdData.command === cmdStr) ||
+            (typeof command === 'object' && (cmdData.command === command.command || cmdData.name === command.text))
           ) {
             return cmdData.warning || null
           }
@@ -427,12 +392,13 @@ export default class CommandLibraryService extends ComponentBase {
       // Second pass: containment matches (only for specific known cases like tray commands)
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-          if (command.command && command.command.includes(cmdData.command)) {
+          const target = cmdStr || command.command
+          if (target && target.includes(cmdData.command)) {
             // Only allow partial matching for specific cases:
             // 1. Tray execution commands (contain "TrayExec")
             // 2. Commands that start with the definition command (for parameterized commands)
-            const isTrayCommand = command.command.includes('TrayExec')
-            const startsWithDefinition = command.command.startsWith(cmdData.command)
+            const isTrayCommand = target.includes('TrayExec')
+            const startsWithDefinition = target.startsWith(cmdData.command)
             
             if (isTrayCommand || startsWithDefinition) {
               return cmdData.warning || null
@@ -445,231 +411,6 @@ export default class CommandLibraryService extends ComponentBase {
     } catch (error) {
       // Fallback if DataService not available
       return null
-    }
-  }
-
-  /**
-   * Add a command to the selected key using DataCoordinator
-   */
-  async addCommand(key, command) {
-    if (!this.selectedKey) {
-      this.ui.showToast(this.i18n.t('please_select_a_key_first'), 'warning')
-      return false
-    }
-
-    const profile = this.getCurrentProfile()
-    if (!profile) {
-      this.ui.showToast(this.i18n.t('no_valid_profile'), 'error')
-      return false
-    }
-
-    try {
-      let updates = {}
-
-      if (this.currentEnvironment === 'alias') {
-        // For aliases, we need to update the alias command string
-        const currentAlias = profile.aliases && profile.aliases[key]
-        const currentCommands = currentAlias && currentAlias.commands ? currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0) : []
-        
-        // Handle both single commands and arrays of commands (e.g., whole-tray execution)
-        if (Array.isArray(command)) {
-          // For arrays of commands, extract the command string from each
-          command.forEach(cmd => {
-            const commandString = cmd.command
-            if (commandString) {
-              currentCommands.push(commandString)
-            }
-          })
-        } else {
-          // For single commands, extract the command string
-          const commandString = command.command
-          if (commandString) {
-            currentCommands.push(commandString)
-          }
-        }
-        
-        const newCommandString = currentCommands.join(' $$ ')
-        
-        const updatedAliases = { ...profile.aliases }
-        if (!updatedAliases[key]) updatedAliases[key] = {}
-        updatedAliases[key].commands = newCommandString
-        
-        updates.aliases = updatedAliases
-      } else {
-        // For keybinds, add to the keys array in the current environment
-        const updatedBuilds = { ...profile.builds }
-        if (!updatedBuilds[this.currentEnvironment]) updatedBuilds[this.currentEnvironment] = { keys: {} }
-        if (!updatedBuilds[this.currentEnvironment].keys) updatedBuilds[this.currentEnvironment].keys = {}
-        
-        const updatedKeys = { ...updatedBuilds[this.currentEnvironment].keys }
-        if (!updatedKeys[key]) updatedKeys[key] = []
-        // Persist only raw command strings (no rich objects)
-        let newCommands = []
-
-        // Accept single command object/string or an array
-        if (Array.isArray(command)) {
-          newCommands = command.map((c) => typeof c === 'string' ? c : c.command).filter(Boolean)
-        } else {
-          const cmdStr = typeof command === 'string' ? command : command.command
-          if (cmdStr) newCommands.push(cmdStr)
-        }
-
-        updatedKeys[key] = [...updatedKeys[key], ...newCommands]
-        
-        updatedBuilds[this.currentEnvironment].keys = updatedKeys
-        updates.builds = updatedBuilds
-      }
-
-      // Send update to DataCoordinator using explicit operations API
-      const result = await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        modify: updates
-      })
-
-      if (result.success) {
-        this.emit('command-added', { key, command })
-        return true
-      } else {
-        this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
-        return false
-      }
-    } catch (error) {
-      console.error('Error adding command:', error)
-      this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
-      return false
-    }
-  }
-
-  /**
-   * Delete a command from the selected key using DataCoordinator
-   */
-  async deleteCommand(key, index) {
-    const profile = this.getCurrentProfile()
-    if (!profile) return false
-
-    try {
-      // Robustly determine if we're dealing with an alias chain. This covers
-      // cases where `currentEnvironment` might have fallen out-of-sync yet the
-      // key exists in the profile's `aliases` map (observed bug #ALIAS-DEL-1).
-      const isAliasContext = this.currentEnvironment === 'alias' ||
-        (profile.aliases && Object.prototype.hasOwnProperty.call(profile.aliases, key))
-
-      console.log('isAliasContext', isAliasContext)
-      
-      let updates = {}
-
-      if (isAliasContext) {
-        // ----- Alias chain deletion -----
-        const currentAlias = profile.aliases && profile.aliases[key]
-        if (!currentAlias || !currentAlias.commands) return false
-
-        const commands = currentAlias.commands
-          .split(/\s*\$\$\s*/)
-          .filter(cmd => cmd.trim().length > 0)
-
-        if (index >= 0 && index < commands.length) {
-          commands.splice(index, 1)
-          
-          const updatedAliases = { ...profile.aliases }
-          updatedAliases[key].commands = commands.join(' $$ ')
-          updates.aliases = updatedAliases
-        }
-      } else {
-        // ----- Key-bind deletion -----
-        if (profile.keys[key] && profile.keys[key][index]) {
-          const updatedBuilds = { ...profile.builds }
-          if (!updatedBuilds[this.currentEnvironment]) updatedBuilds[this.currentEnvironment] = { keys: {} }
-          
-          const updatedKeys = { ...updatedBuilds[this.currentEnvironment].keys }
-          updatedKeys[key] = [...updatedKeys[key]]
-          updatedKeys[key].splice(index, 1)
-          
-          updatedBuilds[this.currentEnvironment].keys = updatedKeys
-          updates.builds = updatedBuilds
-        }
-      }
-
-      // Send update to DataCoordinator using explicit operations API
-      const result = await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        modify: updates
-      })
-
-      if (result.success) {
-        this.emit('command-deleted', { key, index })
-        return true
-      } else {
-        this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
-        return false
-      }
-    } catch (error) {
-      console.error('Error deleting command:', error)
-      this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
-      return false
-    }
-  }
-
-  /**
-   * Move a command to a new position using DataCoordinator
-   */
-  async moveCommand(key, fromIndex, toIndex) {
-    const profile = this.getCurrentProfile()
-    if (!profile) return false
-
-    try {
-      let updates = {}
-
-      if (this.currentEnvironment === 'alias') {
-        // For aliases, reorder the command string
-        const currentAlias = profile.aliases && profile.aliases[key]
-        if (!currentAlias || !currentAlias.commands) return false
-
-        const commands = currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0)
-        if (fromIndex >= 0 && fromIndex < commands.length && toIndex >= 0 && toIndex < commands.length) {
-          const [movedCommand] = commands.splice(fromIndex, 1)
-          commands.splice(toIndex, 0, movedCommand)
-          const newCommandString = commands.join(' $$ ')
-          
-          const updatedAliases = { ...profile.aliases }
-          updatedAliases[key].commands = newCommandString
-          updates.aliases = updatedAliases
-        }
-      } else {
-        // For keybinds, reorder the array
-        if (profile.keys[key] && fromIndex >= 0 && fromIndex < profile.keys[key].length && 
-            toIndex >= 0 && toIndex < profile.keys[key].length) {
-          
-          const updatedBuilds = { ...profile.builds }
-          if (!updatedBuilds[this.currentEnvironment]) updatedBuilds[this.currentEnvironment] = { keys: {} }
-          
-          const updatedKeys = { ...updatedBuilds[this.currentEnvironment].keys }
-          updatedKeys[key] = [...updatedKeys[key]]
-          
-          const [movedCommand] = updatedKeys[key].splice(fromIndex, 1)
-          updatedKeys[key].splice(toIndex, 0, movedCommand)
-          
-          updatedBuilds[this.currentEnvironment].keys = updatedKeys
-          updates.builds = updatedBuilds
-        }
-      }
-
-      // Send update to DataCoordinator using explicit operations API
-      const result = await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        modify: updates
-      })
-
-      if (result.success) {
-        this.emit('command-moved', { key, fromIndex, toIndex })
-        return true
-      } else {
-        this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
-        return false
-      }
-    } catch (error) {
-      console.error('Error moving command:', error)
-      this.ui.showToast(this.i18n.t('failed_to_save_profile'), 'error')
-      return false
     }
   }
 
@@ -838,64 +579,55 @@ export default class CommandLibraryService extends ComponentBase {
     const normalizedCommands = []
 
     for (const cmd of commands) {
+      // Support both canonical string and rich object formats
+      const cmdStr = typeof cmd === 'string' ? cmd : (cmd && cmd.command) || ''
+      if (!cmdStr) {
+        continue
+      }
       try {
         // Parse the command to check if it's a tray execution command
         const parseResult = await this.request('parser:parse-command-string', {
-          commandString: cmd.command,
+          commandString: cmdStr,
           options: { generateDisplayText: false }
         })
 
         if (parseResult.commands && parseResult.commands[0]) {
           const parsedCmd = parseResult.commands[0]
-          
           // Check if it's a tray execution command that needs normalization
-          if (parsedCmd.signature && 
-              (parsedCmd.signature.includes('TrayExecByTray') || 
+          if (parsedCmd.signature &&
+              (parsedCmd.signature.includes('TrayExecByTray') ||
                parsedCmd.signature.includes('TrayExecByTrayWithBackup')) &&
               parsedCmd.parameters) {
-            
             const params = parsedCmd.parameters
             const active = params.active !== undefined ? params.active : 1
-
             if (parsedCmd.signature.includes('TrayExecByTrayWithBackup')) {
               // Handle TrayExecByTrayWithBackup normalization
+              const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+              const commandType = baseCommand.replace(/^\+/, '')
               if (active === 1) {
-                // Use + form
-                const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
-                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
                 normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
               } else {
-                // Use explicit form
-                const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
-                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
                 normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
               }
             } else {
-              // Handle regular TrayExecByTray normalization
+              // Regular TrayExecByTray normalization
+              const baseCommand = params.baseCommand || 'TrayExecByTray'
+              const commandType = baseCommand.replace(/^\+/, '')
               if (active === 1) {
-                // Use + form
-                const baseCommand = params.baseCommand || 'TrayExecByTray'
-                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
                 normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot}`)
               } else {
-                // Use explicit form
-                const baseCommand = params.baseCommand || 'TrayExecByTray'
-                const commandType = baseCommand.replace(/^\+/, '') // Remove + if present
                 normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot}`)
               }
             }
           } else {
-            // Not a tray execution command, use original
-            normalizedCommands.push(cmd.command)
+            normalizedCommands.push(cmdStr)
           }
         } else {
-          // Failed to parse, use original
-          normalizedCommands.push(cmd.command)
+          normalizedCommands.push(cmdStr)
         }
       } catch (error) {
-        console.warn('[CommandLibraryService] Failed to normalize command for display:', cmd.command, error)
-        // Fallback to original command on error
-        normalizedCommands.push(cmd.command)
+        console.warn('[CommandLibraryService] Failed to normalize command for display:', cmdStr, error)
+        normalizedCommands.push(cmdStr)
       }
     }
 
