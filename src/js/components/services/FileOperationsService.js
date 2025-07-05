@@ -427,7 +427,13 @@ export default class FileOperationsService extends ComponentBase {
 
     let commandString
     if (stabilize && commands.length > 1) {
-      commandString = this.legacyHandler.generateMirroredCommandString(commands)
+      if (this.legacyHandler && typeof this.legacyHandler.generateMirroredCommandString === 'function') {
+        commandString = this.legacyHandler.generateMirroredCommandString(commands)
+      } else {
+        // Local fallback – mirror array manually
+        const strs = commands.map(c => (typeof c === 'string' ? c : c.command))
+        commandString = [...strs, ...strs.slice(0, -1).reverse()].join(' $$ ')
+      }
     } else {
       commandString = commands.map(c => c.command || c).join(' $$ ')
     }

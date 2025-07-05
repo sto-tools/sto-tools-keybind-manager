@@ -50,7 +50,13 @@ export default class CommandChainService extends ComponentBase {
             // Propagate error so request() caller receives it and can show details
             throw err
           }
-        })
+        }),
+        // New: expose stabilization state for validator service (unique)
+        this.respond('command-chain:is-stabilized', ({ name }) => this.isStabilized(name)),
+        /*this.respond('command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
+        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
+        this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
+        this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),*/
       )
     }
   }

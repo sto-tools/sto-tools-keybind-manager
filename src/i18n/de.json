@@ -1028,5 +1028,11 @@
   "show_all_aliases": "Alle Aliase anzeigen",
   "show_all_commands": "Alle Befehle anzeigen",
   "enter_key_name": "Tastenname eingeben...",
-  "clear_filter": "Filter löschen"
+  "clear_filter": "Filter löschen",
+  "warning": "Warnung",
+  "error": "Fehler",
+  "validation_details": "Validierungsdetails",
+  "ok": "OK",
+  "command_chain_near_limit": "Befehlsfolge ist fast zu lang ({{length}} Zeichen). Überschreiten von 999 kann zu Fehlern führen.",
+  "command_chain_too_long": "Befehlsfolge ist zu lang ({{length}} Zeichen) und kann im Spiel fehlschlagen."
 }

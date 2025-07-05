@@ -20,6 +20,7 @@ import { SyncService } from './components/services/index.js'
 import STOToolsKeybindManager from './app.js'
 // Version display functionality - moved inline to reduce file count
 import { DISPLAY_VERSION } from './core/constants.js'
+import { CommandChainValidatorService } from './components/services/index.js'
 
 // Create new StorageService component
 const storageService = new StorageService({ eventBus })
@@ -144,6 +145,10 @@ const settings = storageService.getSettings()
     // New: expose drag-and-drop helper for components
     initDragAndDrop: initDragAndDropBridge
   }
+  
+  // Initialize command chain validator service (after stoUI is defined)
+  const chainValidatorService = new CommandChainValidatorService({ eventBus, i18n: i18next, ui: stoUI })
+  chainValidatorService.init()
   
   const stoFileExplorer = new FileExplorerUI({ eventBus, storage: storageService, exportManager: stoExport, ui: stoUI })
   // Init immediately so header Explorer button works without waiting for sto-app-ready

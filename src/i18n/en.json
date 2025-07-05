@@ -75,7 +75,6 @@
   "commands_imported_successfully": "Imported {{count}} commands from {{source}}",
   "cross_environment_import_warning": "Warning: {{dropped}} {{sourceEnv}}-specific commands were dropped when importing to {{targetEnv}}",
   "no_compatible_commands_to_import": "No compatible commands to import after filtering",
-  "import_failed": "Import failed",
   "command_library": "Command Library",
   "add_new_key": "Add New Key",
   "key_name": "Key Name:",
@@ -1007,5 +1006,11 @@
   "backup_restored_successfully": "Application state restored successfully",
   "failed_to_restore_backup": "Failed to restore backup: {{error}}",
   "distinguish_left_right_modifiers": "Distinguish left/right modifiers",
-  "clear_filter": "Clear filter"
+  "clear_filter": "Clear filter",
+  "warning": "Warning",
+  "error": "Error",
+  "validation_details": "Validation Details",
+  "ok": "OK",
+  "command_chain_near_limit": "Command chain is getting long ({{length}} characters). Exceeding 999 may break.",
+  "command_chain_too_long": "Command chain is too long ({{length}} characters) and may fail in game."
 }

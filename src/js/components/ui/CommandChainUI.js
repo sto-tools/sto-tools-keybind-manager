@@ -183,6 +183,14 @@ export default class CommandChainUI extends ComponentBase {
       // Atomic replacement - this is the only DOM mutation that affects the command list
       container.replaceChildren(...newCommandElements)
       console.log('[CommandChainUI] finished atomic render, container children:', container.children.length)
+
+      // After rendering, automatically validate current chain so the status beacon stays up-to-date
+      try {
+        const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName })
+        this.emit('command-chain:validate', { key: selectedKeyName, stabilized })
+      } catch (_) {
+        // best-effort – ignore if service not available yet
+      }
   }
 
   /**

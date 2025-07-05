@@ -4182,3 +4182,13 @@ input:checked + .slider:before {
   color: #ffffff;
 }
 
+/* Validation status colors */
+.status-success { color: var(--success); }
+.status-warning { color: var(--warning); }
+.status-error   { color: var(--danger); }
+.status-indicator.clickable { cursor: pointer; text-decoration: underline; }
+
+.modal-body ul { list-style: none; padding-left: 0; }
+.error-item { color: var(--danger); }
+.warning-item { color: var(--warning); }
+

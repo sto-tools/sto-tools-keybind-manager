@@ -1037,5 +1037,11 @@
   "show_all_aliases": "Mostrar Todos los Alias",
   "show_all_commands": "Mostrar Todos los Comandos",
   "enter_key_name": "Ingresar nombre de tecla...",
-  "clear_filter": "Limpiar filtro"
+  "clear_filter": "Limpiar filtro",
+  "warning": "Advertencia",
+  "error": "Error",
+  "validation_details": "Detalles de validación",
+  "ok": "Aceptar",
+  "command_chain_near_limit": "La cadena de comandos es demasiado larga ({{length}} caracteres). Superar 999 puede fallar.",
+  "command_chain_too_long": "La cadena de comandos es demasiado larga ({{length}} caracteres) y puede fallar en el juego."
 }

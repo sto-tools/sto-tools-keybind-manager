@@ -34,6 +34,9 @@ export default class CommandUI extends ComponentBase {
     this._selectedAlias = null
     this._currentEnvironment = 'space'
 
+    // Store last validation issues
+    this._lastValidation = { warnings: [], errors: [] }
+
     // Provide DOM access consistent with other UI components
     this.document = document
   }
@@ -74,6 +77,51 @@ export default class CommandUI extends ComponentBase {
         } else {
           console.error('CommandUI: parameterCommandUI not available')
         }
+      }
+    })
+
+    // Listen for validation results to update status indicator
+    this.addEventListener('command-chain:validation-result', async ({ severity, warnings = [], errors = [] }) => {
+      const ind = this.document.getElementById('statusIndicator')
+      if (!ind) return
+      const iconEl = ind.querySelector('i')
+      const textEl = ind.querySelector('span')
+      if (!iconEl || !textEl) return
+
+      const mapping = {
+        success: { icon: 'fa-check-circle', textKey: 'valid', textDefault: 'Valid', color: 'status-success' },
+        warning: { icon: 'fa-exclamation-triangle', textKey: 'warning', textDefault: 'Warning', color: 'status-warning' },
+        error:   { icon: 'fa-exclamation-circle',  textKey: 'error',  textDefault: 'Error',  color: 'status-error' }
+      }
+      const cfg = mapping[severity] || mapping.success
+
+      // Update icon class and colour
+      iconEl.className = `fas ${cfg.icon}`
+
+      try {
+        const translated = await this.request('i18n:translate', { key: cfg.textKey })
+        const finalText = (translated && translated !== cfg.textKey) ? translated : cfg.textDefault
+        // Update both content and data-i18n attribute so other i18n refreshes keep the correct label
+        textEl.textContent = finalText
+        textEl.setAttribute('data-i18n', cfg.textKey)
+      } catch {
+        textEl.textContent = cfg.textDefault
+        textEl.setAttribute('data-i18n', cfg.textKey)
+      }
+
+      // Update color classes
+      ind.classList.remove('status-success', 'status-warning', 'status-error')
+      ind.classList.add(cfg.color)
+
+      // Store issues for modal display
+      this._lastValidation = { warnings, errors }
+
+      if (severity !== 'success' && (warnings.length || errors.length)) {
+        ind.classList.add('clickable')
+        ind.onclick = () => this.showValidationDetails()
+      } else {
+        ind.classList.remove('clickable')
+        ind.onclick = null
       }
     })
   }
@@ -285,15 +333,14 @@ export default class CommandUI extends ComponentBase {
    */
   async validateCurrentChain(key) {
     if (key) {
-      this.emit('command-chain:validate', { key })
-      
+      // Determine whether Stabilize Execution Order is enabled for this key/alias
+      let stabilized = false
       try {
-        // Show validation success toast
-        const message = await this.getI18nMessage('command_chain_is_valid') || 'Command chain is valid'
-        await this.showToast(message, 'success')
-      } catch (error) {
-        console.error('CommandUI: Failed to show validation toast:', error)
-      }
+        stabilized = await this.request('command-chain:is-stabilized', { name: key })
+      } catch (_) {}
+
+      // Delegate actual validation & user feedback to CommandChainValidatorService
+      this.emit('command-chain:validate', { key, stabilized })
     }
   }
 
@@ -682,6 +729,77 @@ export default class CommandUI extends ComponentBase {
     // Close modal
     if (this.modalManager) {
       this.modalManager.hide('addCommandModal')
+    }
+  }
+
+  /**
+   * Show modal with validation details (warnings/errors)
+   */
+  async showValidationDetails() {
+    const { warnings = [], errors = [] } = this._lastValidation || {}
+    if (!warnings.length && !errors.length) return
+
+    const translateEntry = async (entry) => {
+      if (typeof entry === 'string') {
+        return this.request('i18n:translate', { key: entry }).catch(()=>entry)
+      }
+      if (entry && entry.key) {
+        return this.request('i18n:translate', { key: entry.key, params: entry.params || {} }).catch(()=>entry.key)
+      }
+      return ''
+    }
+
+    const translatedErrors = await Promise.all(errors.map(translateEntry))
+    const translatedWarnings = await Promise.all(warnings.map(translateEntry))
+
+    // Build grouped sections
+    const errorLabel = await translateEntry('error')
+    const warningLabel = await translateEntry('warning')
+
+    let sectionsHtml = ''
+    if (translatedErrors.length) {
+      const errLis = translatedErrors.map(e=>`<li class=\"error-item\">${e}</li>`).join('')
+      sectionsHtml += `<h4>${errorLabel}</h4><ul>${errLis}</ul>`
+    }
+    if (translatedWarnings.length) {
+      const warnLis = translatedWarnings.map(w=>`<li class=\"warning-item\">${w}</li>`).join('')
+      sectionsHtml += `<h4>${warningLabel}</h4><ul>${warnLis}</ul>`
+    }
+
+    const i18nTranslate = (k) => this.request('i18n:translate', { key: k })
+
+    const title = await i18nTranslate('validation_details') || 'Validation Details'
+    const okText = await i18nTranslate('ok') || 'OK'
+
+    const modalId = 'validationDetailsModal'
+    const existing = this.document.getElementById(modalId)
+    if (existing) existing.remove()
+
+    const modal = this.document.createElement('div')
+    modal.id = modalId
+    modal.className = 'modal'
+
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header"><h3>${title}</h3></div>
+        <div class="modal-body">${sectionsHtml}</div>
+        <div class="modal-footer"><button class="btn btn-primary" id="validationOkBtn">${okText}</button></div>
+      </div>`
+
+    this.document.body.appendChild(modal)
+
+    const close = () => {
+      if (this.modalManager) {
+        this.modalManager.hide(modalId)
+      }
+      modal.remove()
+    }
+    modal.querySelector('#validationOkBtn').addEventListener('click', close)
+
+    if (this.modalManager) {
+      this.modalManager.show(modalId)
+    } else {
+      requestAnimationFrame(()=> modal.classList.add('active'))
     }
   }
 }

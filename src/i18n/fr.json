@@ -1028,5 +1028,11 @@
   "show_all_aliases": "Afficher Tous les Alias",
   "show_all_commands": "Afficher Toutes les Commandes",
   "enter_key_name": "Entrer le nom de la touche...",
-  "clear_filter": "Effacer le filtre"
+  "clear_filter": "Effacer le filtre",
+  "warning": "Avertissement",
+  "error": "Erreur",
+  "validation_details": "Détails de la validation",
+  "ok": "OK",
+  "command_chain_near_limit": "La chaîne de commandes devient longue ({{length}} caractères). Dépasser 999 peut échouer.",
+  "command_chain_too_long": "La chaîne de commandes est trop longue ({{length}} caractères) et peut échouer dans le jeu."
 }
