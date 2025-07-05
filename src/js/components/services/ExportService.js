@@ -4,7 +4,7 @@ import STOFileHandler from '../../lib/fileHandler.js'
 import { writeFile } from './SyncService.js'
 import i18next from 'i18next'
 import { formatAliasLine, formatKeybindLine } from '../../lib/STOFormatter.js'
-import { normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
+import { normalizeToStringArray, normalizeToOptimizedString } from '../../lib/commandDisplayAdapter.js'
 
 const STO_DATA = globalThis.STO_DATA || {}
 
@@ -182,8 +182,18 @@ export default class ExportService extends ComponentBase {
         commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
       }
 
+      // Optimise each command (e.g., TrayExecByTray / TrayExecByTrayWithBackup)
+      const optimisedCommands = []
+      for (const cmd of commandsArray) {
+        // normalise + optimise each command string
+        /* eslint-disable no-await-in-loop */
+        const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
+        /* eslint-enable no-await-in-loop */
+        optimisedCommands.push(opt)
+      }
+
       // Join array back to string for STO format
-      const commandsStr = commandsArray.join(' $$ ')
+      const commandsStr = optimisedCommands.join(' $$ ')
       content += formatAliasLine(name, { ...alias, commands: commandsStr })
       content += '\n'
     }
@@ -202,7 +212,7 @@ export default class ExportService extends ComponentBase {
     content += `; ==============================================================================\n\n`
     
     // Generate keybind commands – apply mirroring when profile metadata says so
-    Object.entries(keys).forEach(([key, commands]) => {
+    for (const [key, commands] of Object.entries(keys)) {
       let cmds = commands
       const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
         profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
@@ -211,8 +221,17 @@ export default class ExportService extends ComponentBase {
         cmds = this.mirrorCommands(commands)
       }
 
-      content += formatKeybindLine(key, cmds)
-    })
+      // Optimise each command string
+      const optimisedCmds = []
+      for (const cmd of cmds) {
+        /* eslint-disable no-await-in-loop */
+        const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
+        /* eslint-enable no-await-in-loop */
+        optimisedCmds.push(opt)
+      }
+
+      content += formatKeybindLine(key, optimisedCmds)
+    }
     
     content += '\n'
     return content
@@ -402,8 +421,18 @@ export default class ExportService extends ComponentBase {
         commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
       }
 
+      // Optimise each command (e.g., TrayExecByTray / TrayExecByTrayWithBackup)
+      const optimisedCommands = []
+      for (const cmd of commandsArray) {
+        // normalise + optimise each command string
+        /* eslint-disable no-await-in-loop */
+        const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
+        /* eslint-enable no-await-in-loop */
+        optimisedCommands.push(opt)
+      }
+
       // Join array back to string for STO format
-      const commandsStr = commandsArray.join(' $$ ')
+      const commandsStr = optimisedCommands.join(' $$ ')
       content += formatAliasLine(name, { ...alias, commands: commandsStr })
       content += '\n'
     }

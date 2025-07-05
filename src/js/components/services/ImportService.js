@@ -3,7 +3,7 @@
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
 import STOFileHandler from '../../lib/fileHandler.js'
-import { normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
+import { normalizeToStringArray, normalizeToOptimizedString } from '../../lib/commandDisplayAdapter.js'
 
 export default class ImportService extends ComponentBase {
   constructor({ eventBus, storage, i18n, ui } = {}) {
@@ -155,8 +155,16 @@ export default class ImportService extends ComponentBase {
             commandString: originalCommands.join(' $$ ')
           })
           
-          // Convert rich objects to canonical string array
-          dest[key] = normalizeToStringArray(unmirroredParseResult.commands)
+          // Convert rich objects to canonical string array and optimise each command
+          const rawArray = normalizeToStringArray(unmirroredParseResult.commands)
+          const optimised = []
+          for (const cmd of rawArray) {
+            /* eslint-disable no-await-in-loop */
+            const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
+            /* eslint-enable no-await-in-loop */
+            optimised.push(opt)
+          }
+          dest[key] = optimised
           
           // Set stabilization metadata
           if (!profile.keybindMetadata) profile.keybindMetadata = {}
@@ -164,8 +172,16 @@ export default class ImportService extends ComponentBase {
           if (!profile.keybindMetadata[env][key]) profile.keybindMetadata[env][key] = {}
           profile.keybindMetadata[env][key].stabilizeExecutionOrder = true
         } else {
-          // Convert rich objects to canonical string array
-          dest[key] = normalizeToStringArray(data.commands)
+          // Convert rich objects to canonical string array and optimise each command
+          const rawArray = normalizeToStringArray(data.commands)
+          const optimised = []
+          for (const cmd of rawArray) {
+            /* eslint-disable no-await-in-loop */
+            const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
+            /* eslint-enable no-await-in-loop */
+            optimised.push(opt)
+          }
+          dest[key] = optimised
         }
       }
 
@@ -227,18 +243,27 @@ export default class ImportService extends ComponentBase {
       if (!profile.aliases) profile.aliases = {}
 
       // Apply aliases using parsed data - convert to canonical string array format
-      Object.entries(parsed.aliases).forEach(([name, data]) => {
+      for (const [name, data] of Object.entries(parsed.aliases)) {
         // Split command string by $$ and convert to canonical string array
         const commandString = data.commands || ''
         const commandArray = commandString.trim() 
           ? commandString.trim().split(/\s*\$\$\s*/).filter(cmd => cmd.trim())
           : []
         
+        // Optimise each command string
+        const optimisedArray = []
+        for (const cmd of commandArray) {
+          /* eslint-disable no-await-in-loop */
+          const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
+          /* eslint-enable no-await-in-loop */
+          optimisedArray.push(opt)
+        }
+
         profile.aliases[name] = { 
-          commands: commandArray, // Store as canonical string array
+          commands: optimisedArray, // Store as canonical string array (optimised)
           description: data.description || '' 
         }
-      })
+      }
 
       // Save profile
       this.storage.saveProfile(profileId, profile)
