@@ -121,6 +121,16 @@ const settings = storageService.getSettings()
   // Create UI utility service
   const uiUtilityService = new UIUtilityService(eventBus)
   
+  // Helper to bridge legacy UI components with the new utility service
+  const initDragAndDropBridge = (container, options = {}) => {
+    if (uiUtilityService && typeof uiUtilityService.initDragAndDrop === 'function') {
+      uiUtilityService.initDragAndDrop(container, options)
+    } else {
+      // Fallback via eventBus so a remote service instance can handle it (test env)
+      eventBus.emit('ui:init-drag-drop', { container, options })
+    }
+  }
+  
   // Create toast service to handle notifications
   const toastService = new ToastService({ eventBus })
   
@@ -130,7 +140,9 @@ const settings = storageService.getSettings()
     confirm: (message, callback) => eventBus.emit('confirm:show', { message, callback }),
     showModal: (modalId) => eventBus.emit('modal:show', { modalId }),
           hideModal: (modalId) => eventBus.emit('modal:hide', { modalId }),
-    copyToClipboard: (text) => eventBus.emit('ui:copy-to-clipboard', { text })
+    copyToClipboard: (text) => eventBus.emit('ui:copy-to-clipboard', { text }),
+    // New: expose drag-and-drop helper for components
+    initDragAndDrop: initDragAndDropBridge
   }
   
   const stoFileExplorer = new FileExplorerUI({ eventBus, storage: storageService, exportManager: stoExport, ui: stoUI })

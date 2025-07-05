@@ -185,26 +185,31 @@ export default class UIUtilityService extends ComponentBase {
 
     const {
       draggableSelector = '.draggable',
+      dropZoneSelector = draggableSelector,
       onDragStart = null,
       onDragEnd = null,
       onDrop = null,
     } = options
 
     container.addEventListener('dragstart', (e) => {
-      if (e.target.matches(draggableSelector)) {
+      const dragEl = e.target.closest(draggableSelector)
+      if (dragEl) {
+        //
         this.dragState.isDragging = true
-        this.dragState.dragElement = e.target
-        this.dragState.dragData = e.target.dataset
+        this.dragState.dragElement = dragEl
+        this.dragState.dragData = dragEl.dataset
 
         e.dataTransfer.effectAllowed = 'move'
-        e.dataTransfer.setData('text/html', e.target.outerHTML)
+        e.dataTransfer.setData('text/html', dragEl.outerHTML)
 
         if (onDragStart) onDragStart(e, this.dragState)
       }
     })
 
     container.addEventListener('dragend', (e) => {
-      if (e.target.matches(draggableSelector)) {
+      const dragEl = e.target.closest(draggableSelector)
+      if (dragEl) {
+        //
         this.dragState.isDragging = false
         this.dragState.dragElement = null
         this.dragState.dragData = null
@@ -213,13 +218,44 @@ export default class UIUtilityService extends ComponentBase {
       }
     })
 
+    // Allow dropping and keep track of the current row we are hovering over
+    let lastHoverDropZone = null
     container.addEventListener('dragover', (e) => {
       e.preventDefault()
+      if (!dropZoneSelector) return
+
+      const hoverEl = e.target.closest ? e.target.closest(dropZoneSelector) : null
+      if (hoverEl && hoverEl !== lastHoverDropZone) {
+        lastHoverDropZone = hoverEl
+      }
     })
 
     container.addEventListener('drop', (e) => {
       e.preventDefault()
-      if (onDrop) onDrop(e, this.dragState)
+
+      // Identify the element that should be treated as the drop target based on selector
+      let dropZone = null
+      if (dropZoneSelector) {
+        // Use closest to find ancestor matching selector (works even if event.target is a child)
+        if (typeof e.target.closest === 'function') {
+          dropZone = e.target.closest(dropZoneSelector)
+        }
+        //
+        if (!dropZone && typeof document !== 'undefined' && document.elementFromPoint) {
+          const pointEl = document.elementFromPoint(e.clientX, e.clientY)
+          dropZone = pointEl?.closest ? pointEl.closest(dropZoneSelector) : null
+        }
+
+        // Final fallback to the last row we hovered over
+        if (!dropZone) {
+          dropZone = lastHoverDropZone
+        }
+      }
+
+      if (dropZone) {
+        //
+        if (dropZone && onDrop) onDrop(e, this.dragState, dropZone)
+      }
     })
   }
 

@@ -358,23 +358,20 @@ export default class CommandChainUI extends ComponentBase {
    */
   setupDragAndDrop () {
     if (!this.ui || typeof this.ui.initDragAndDrop !== 'function') return
+
     const commandList = this.document.getElementById('commandList')
     if (!commandList) return
 
     this.ui.initDragAndDrop(commandList, {
-      dragSelector: '.command-item-row',
+      draggableSelector: '.command-item-row',
       dropZoneSelector: '.command-item-row',
       onDrop: (e, dragState, dropZone) => {
-        if (!this._selectedKey) return
+        if (!dragState?.dragElement || !dropZone) return
 
         const fromIndex = parseInt(dragState.dragElement.dataset.index)
         const toIndex   = parseInt(dropZone.dataset.index)
 
-        if (fromIndex !== toIndex) {
-          // Delegate actual move logic via event so CommandChainService can
-          // route it to the appropriate persistence layer (CommandService or
-          // CommandLibraryService).  This matches the approach used by the
-          // move buttons elsewhere in the UI.
+        if (fromIndex !== toIndex && !Number.isNaN(fromIndex) && !Number.isNaN(toIndex)) {
           this.emit('commandchain:move', {
             fromIndex,
             toIndex,

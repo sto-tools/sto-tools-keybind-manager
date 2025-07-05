@@ -407,37 +407,6 @@ export default class CommandLibraryUI extends ComponentBase {
     // Delegate actual filtering logic to CommandLibraryService via request-response
     request(this.eventBus, 'command:filter-library').catch(()=>{})
   }  
-  /**
-   * Setup drag and drop for command reordering
-   */
-  setupDragAndDrop() {
-    if (window.commandChainUI && typeof window.commandChainUI.setupDragAndDrop === 'function') {
-      window.commandChainUI.setupDragAndDrop()
-      return
-    }
-
-    // Fallback (test environment)
-    const commandList = this.document.getElementById('commandList')
-    if (!commandList || !this.ui || typeof this.ui.initDragAndDrop !== 'function') return
-
-    this.ui.initDragAndDrop(commandList, {
-      dragSelector: '.command-item-row',
-      dropZoneSelector: '.command-item-row',
-      onDrop: async (e, dragState, dropZone) => {
-        // Use cached state from event listeners
-        const selectedKey = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
-        if (!selectedKey) return
-
-        const fromIndex = parseInt(dragState.dragElement.dataset.index)
-        const toIndex   = parseInt(dropZone.dataset.index)
-
-        if (fromIndex !== toIndex) {
-          // Delegate move via commandchain event so CommandChainService handles persistence
-          this.emit('commandchain:move', { fromIndex, toIndex })
-        }
-      },
-    })
-  }
 
   /**
    * Update chain action buttons state
