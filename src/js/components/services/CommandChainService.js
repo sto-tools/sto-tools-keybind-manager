@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { request, respond } from '../../core/requestResponse.js'
+import { normalizeToOptimizedString } from '../../lib/commandDisplayAdapter.js'
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -165,28 +166,28 @@ export default class CommandChainService extends ComponentBase {
       if (index === undefined) return
 
       const cmds = await this.getCommandsForSelectedKey()
-      const originalCmd  = cmds[index]
-      if (!originalCmd) return
+      const originalEntry = cmds[index]
+      if (!originalEntry) return
 
-      // -------------------------------------------------------------------
-      // Create a copy of the command to avoid mutating the original profile
-      // data during edit. Any derived parameters are applied only to this copy.
-      // -------------------------------------------------------------------
-      const cmd = originalCmd.parameters
-        ? { ...originalCmd, parameters: { ...originalCmd.parameters } }
-        : { ...originalCmd }
+      // Ensure we have a rich object representation for editing.
+      let cmd
+      if (typeof originalEntry === 'string') {
+        // Wrap canonical string into minimal rich object for downstream logic
+        cmd = { command: originalEntry }
+      } else {
+        cmd = originalEntry.parameters
+          ? { ...originalEntry, parameters: { ...originalEntry.parameters } }
+          : { ...originalEntry }
+      }
 
-      // Derive editable parameters from the raw command string when they are
-      // not already stored on the command object.  This uses STOCommandParser
-      // so it works for **all** signature-recognised commands (tray exec,
-      // communication, targeting, etc.) instead of only tray commands.
+      // Derive editable parameters when absent
       if (!cmd.parameters) {
         try {
           const parseResult = await this.request('parser:parse-command-string', {
             commandString: cmd.command,
             options: { generateDisplayText: false }
           })
-          if (parseResult.commands && parseResult.commands[0] && parseResult.commands[0].parameters) {
+          if (parseResult.commands && parseResult.commands[0]?.parameters) {
             cmd.parameters = parseResult.commands[0].parameters
           }
         } catch (error) {
@@ -198,7 +199,6 @@ export default class CommandChainService extends ComponentBase {
       const isCustomizable = !!(def && def.customizable)
 
       if (isCustomizable) {
-        // Emit event for parameter command editing - handled by ParameterCommandUI
         this.emit('parameter-command:edit', {
           index,
           command: cmd,
@@ -209,9 +209,9 @@ export default class CommandChainService extends ComponentBase {
         return
       }
 
-      // Non-customizable command – info only
+      // Non-customizable – inform UI
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
-        stoUI.showToast(originalCmd.command, 'info')
+        stoUI.showToast(cmd.command || originalEntry, 'info')
       }
     })
 
@@ -322,15 +322,34 @@ export default class CommandChainService extends ComponentBase {
       if (this.currentEnvironment === 'alias') {
         // Handle alias command chains
         const currentAlias = profile.aliases && profile.aliases[key]
-        const currentCommands = currentAlias && currentAlias.commands
-          ? currentAlias.commands.split(/\s*\$\$\s*/).filter((cmd) => cmd.trim().length > 0)
+        
+        // Alias commands are expected to be canonical string[]
+        const currentCommands = (currentAlias && Array.isArray(currentAlias.commands))
+          ? [...currentAlias.commands]
           : []
+
+        // Helper function to extract command string from various formats
+        const extractCommandString = async (cmd) => {
+          if (typeof cmd === 'string') {
+            return await normalizeToOptimizedString(cmd.trim(), { eventBus: this.eventBus })
+          }
+          if (cmd && typeof cmd === 'object') {
+            // For alias commands, the command string is the alias name
+            if (cmd.isUserAlias || cmd.type === 'alias' || cmd.isVfxAlias) {
+              return cmd.command || cmd.text || ''
+            }
+            // For regular commands, extract from command property and optimize
+            const commandString = cmd.command || cmd.text || ''
+            return await normalizeToOptimizedString(commandString, { eventBus: this.eventBus })
+          }
+          return ''
+        }
 
         // Handle both single commands and arrays of commands
         if (Array.isArray(command)) {
           let insertPosition = position
-          command.forEach(cmd => {
-            const commandString = cmd.command
+          for (const cmd of command) {
+            const commandString = await extractCommandString(cmd)
             if (commandString) {
               if (insertPosition !== undefined && insertPosition >= 0 && insertPosition <= currentCommands.length) {
                 currentCommands.splice(insertPosition, 0, commandString)
@@ -339,9 +358,9 @@ export default class CommandChainService extends ComponentBase {
                 currentCommands.push(commandString)
               }
             }
-          })
+          }
         } else {
-          const commandString = command.command
+          const commandString = await extractCommandString(command)
           if (commandString) {
             if (position !== undefined && position >= 0 && position <= currentCommands.length) {
               currentCommands.splice(position, 0, commandString)
@@ -354,7 +373,8 @@ export default class CommandChainService extends ComponentBase {
         const newCommandString = currentCommands.join(' $$ ')
         if (!profile.aliases) profile.aliases = {}
         if (!profile.aliases[key]) profile.aliases[key] = {}
-        profile.aliases[key].commands = newCommandString
+        // Store in canonical array format instead of string
+        profile.aliases[key].commands = currentCommands
       } else {
         // Handle keybind command chains
         // Ensure proper profile structure exists
@@ -456,13 +476,12 @@ export default class CommandChainService extends ComponentBase {
         const currentAlias = profile.aliases && profile.aliases[key]
         if (!currentAlias || !currentAlias.commands) return false
 
-        const commands = currentAlias.commands
-          .split(/\s*\$\$\s*/)
-          .filter(cmd => cmd.trim().length > 0)
+        const commands = Array.isArray(currentAlias.commands) ? [...currentAlias.commands] : []
 
         if (index >= 0 && index < commands.length) {
           commands.splice(index, 1)
-          profile.aliases[key].commands = commands.join(' $$ ')
+          // Store back in canonical array format
+          profile.aliases[key].commands = commands
         }
       } else {
         // Handle keybind command chains
@@ -531,11 +550,13 @@ export default class CommandChainService extends ComponentBase {
         const currentAlias = profile.aliases && profile.aliases[key]
         if (!currentAlias || !currentAlias.commands) return false
 
-        const commands = currentAlias.commands.split(/\s*\$\$\s*/).filter(cmd => cmd.trim().length > 0)
+        const commands = Array.isArray(currentAlias.commands) ? [...currentAlias.commands] : []
+
         if (fromIndex >= 0 && fromIndex < commands.length && toIndex >= 0 && toIndex < commands.length) {
           const [movedCommand] = commands.splice(fromIndex, 1)
           commands.splice(toIndex, 0, movedCommand)
-          profile.aliases[key].commands = commands.join(' $$ ')
+          // Store back in canonical array format
+          profile.aliases[key].commands = commands
         }
       } else {
         // Handle keybind command chains
@@ -596,24 +617,17 @@ export default class CommandChainService extends ComponentBase {
       if (!profile) return []
 
       if (this.currentEnvironment === 'alias') {
-        // Handle alias command chains
+        // -----------------------------------------------------------------
+        // Alias command chains – canonical string[] only (no legacy "$$" strings)
+        // -----------------------------------------------------------------
         const alias = profile.aliases && profile.aliases[key]
-        if (!alias || !alias.commands) return []
-
-        const result = await this.request('parser:parse-command-string', { 
-          commandString: alias.commands 
-        })
-        return result.commands.map((cmd, index) => ({
-          ...cmd, // Use new format directly
-          id: `alias_${index}`,
-          // Ensure backward compatibility for any legacy fields still needed
-          type: cmd.category,
-          text: cmd.displayText
-        }))
+        if (!alias || !Array.isArray(alias.commands)) return []
+        // Return a shallow copy to avoid accidental mutation by callers
+        return [...alias.commands]
       } else {
-        // Handle keybind command chains
+        // Keybind command chains (already canonical string[])
         const commands = profile.builds?.[this.currentEnvironment]?.keys?.[key]
-        return commands || []
+        return Array.isArray(commands) ? [...commands] : []
       }
     } catch (error) {
       console.error('CommandChainService: Failed to get commands for key:', error)
@@ -638,9 +652,9 @@ export default class CommandChainService extends ComponentBase {
       }
 
       if (this.currentEnvironment === 'alias') {
-        // Clear alias command chain
+        // Clear alias command chain - use canonical array format
         if (profile.aliases && profile.aliases[key]) {
-          profile.aliases[key].commands = ''
+          profile.aliases[key].commands = []
         }
       } else {
         // Clear keybind command chain

@@ -4,6 +4,7 @@ import STOFileHandler from '../../lib/fileHandler.js'
 import { writeFile } from './SyncService.js'
 import i18next from 'i18next'
 import { formatAliasLine, formatKeybindLine } from '../../lib/STOFormatter.js'
+import { normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
 
 const STO_DATA = globalThis.STO_DATA || {}
 
@@ -170,18 +171,19 @@ export default class ExportService extends ComponentBase {
 
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
     for (const [name, alias] of sorted) {
-      let commandsStr = alias.commands || ''
+      const commandsArray = Array.isArray(alias.commands) ? alias.commands : []
 
       // Apply mirroring if aliasMetadata says so
       const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
 
-      if (shouldStabilize) {
-        const cmdParts = commandsStr.split(/\s*\$\$\s*/).filter(Boolean).map(c => ({ command: c }))
-        if (cmdParts.length > 1) {
-          commandsStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
-        }
+      if (shouldStabilize && commandsArray.length > 1) {
+        const cmdParts = commandsArray.map(c => ({ command: c }))
+        const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
+        commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
       }
 
+      // Join array back to string for STO format
+      const commandsStr = commandsArray.join(' $$ ')
       content += formatAliasLine(name, { ...alias, commands: commandsStr })
       content += '\n'
     }
@@ -335,9 +337,12 @@ export default class ExportService extends ComponentBase {
 
     let html = '<table><thead><tr><th>Alias</th><th>Commands</th><th>Description</th></tr></thead><tbody>'
     Object.values(aliases).forEach((alias) => {
+      const commandsArray = Array.isArray(alias.commands) ? alias.commands : []
+      const commandsDisplay = commandsArray.join(' $$ ')
+      
       html += `<tr>
         <td><code>${alias.name}</code></td>
-        <td><code>${alias.commands}</code></td>
+        <td><code>${commandsDisplay}</code></td>
         <td>${alias.description || ''}</td>
       </tr>`
     })
@@ -386,18 +391,19 @@ export default class ExportService extends ComponentBase {
     // Generate alias content directly
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
     for (const [name, alias] of sorted) {
-      let commandsStr = alias.commands || ''
+      const commandsArray = Array.isArray(alias.commands) ? alias.commands : []
 
       // Apply mirroring if aliasMetadata says so
       const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
 
-      if (shouldStabilize) {
-        const cmdParts = commandsStr.split(/\s*\$\$\s*/).filter(Boolean).map(c => ({ command: c }))
-        if (cmdParts.length > 1) {
-          commandsStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
-        }
+      if (shouldStabilize && commandsArray.length > 1) {
+        const cmdParts = commandsArray.map(c => ({ command: c }))
+        const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
+        commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
       }
 
+      // Join array back to string for STO format
+      const commandsStr = commandsArray.join(' $$ ')
       content += formatAliasLine(name, { ...alias, commands: commandsStr })
       content += '\n'
     }
@@ -517,13 +523,10 @@ export default class ExportService extends ComponentBase {
     // Deep clone to avoid mutating original
     const sanitized = JSON.parse(JSON.stringify(profile))
 
-    // Strip internal IDs from commands to prevent bloat in exported files
+    // Commands are now canonical strings, so no need to strip IDs
+    // This function is kept for backward compatibility but is essentially a no-op
     const stripIds = (commands=[]) => {
-      return commands.map(cmd => {
-        if (!cmd || typeof cmd !== 'object') return cmd
-        const { id, ...rest } = cmd
-        return rest
-      })
+      return normalizeToStringArray(commands)
     }
 
     // Strip IDs from all environments
@@ -570,13 +573,12 @@ export default class ExportService extends ComponentBase {
     return {}
   }
 
-  /* helper to mirror command objects array */
+  /* helper to mirror command strings array */
   mirrorCommands(commands) {
     if (!Array.isArray(commands) || commands.length <= 1) return commands
 
-    const toObj = (c) => (typeof c === 'string' ? { command: c } : { ...c })
-
-    const clean = commands.map(toObj)
+    // Commands are now canonical strings, so just mirror the strings directly
+    const clean = normalizeToStringArray(commands)
     const mirrored = [...clean, ...clean.slice(0, -1).reverse()]
     return mirrored
   }

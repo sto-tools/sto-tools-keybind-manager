@@ -1,6 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
+import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
 
 export default class CommandChainUI extends ComponentBase {
   constructor ({ eventBus: bus = eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
@@ -196,69 +197,58 @@ export default class CommandChainUI extends ComponentBase {
     element.dataset.index = index
     element.draggable = true
 
+    // Convert canonical string command to rich object for display
+    const commandString = typeof command === 'string' ? command : normalizeToString(command)
+    console.log('[CommandChainUI] createCommandElement enriching:', commandString)
+    
+    // Get i18n object for translations
+    const i18n = typeof i18next !== 'undefined' ? i18next : null
+    
+    // Enrich command for display
+    const richCommand = await enrichForDisplay(commandString, i18n, { eventBus: this.eventBus })
+    console.log('[CommandChainUI] enriched command:', richCommand)
+
     // Look up definition for display helpers
-    console.log('[CommandChainUI] createCommandElement command:find-definition', { command })
-    const commandDef      = await this.request('command:find-definition', { command })
+    const commandDef = await this.request('command:find-definition', { command: commandString })
     const isParameterized = commandDef && commandDef.customizable
 
-    let displayName = command.text || command.command || command
-    let displayIcon = command.icon
-
-    // Ensure displayName is always a string
-    if (typeof displayName === 'object') {
-      displayName = displayName.command || displayName.text || '[Unknown Command]'
-    }
-
-    // Determine display name with proper priority handling
-    if (commandDef) {
-      displayIcon = commandDef.icon
-
-      // For parameterized commands, check if we need special formatting
-      if (isParameterized && command.parameters) {
-        if (commandDef.categoryId === 'communication' || commandDef.commandId === 'communication') {
-          // Display as "verb: message" for communication commands
-          const params = command.parameters
-          if (params.verb && params.message) {
-            displayName = `${params.verb}: \"${params.message}\"`
-          }
-        } else {
-          const p = command.parameters
-          if (commandDef.commandId === 'tray_with_backup') {
-            displayName = `${commandDef.name} (${p.active} ${p.tray} ${p.slot} ${p.backup_tray} ${p.backup_slot})`
-          } else if (commandDef.commandId === 'custom_tray') {
-            displayName = `${commandDef.name} (${p.tray} ${p.slot})`
-          } else if (commandDef.commandId === 'target') {
-            displayName = `${commandDef.name}: ${p.entityName}`
-          } else {
-            // For other parameterized commands, prefer the (translated) definition name first.
-            // Fall back to stored displayText only if no translation is available.
-            displayName = commandDef.name || command.displayText || displayName
-          }
-        }
-      } else if (isParameterized && !command.parameters && commandDef.commandId === 'custom_tray') {
-        // Dynamically parse tray/slot from command string when parameters are absent
-        const m = command.command.match(/(?:\+)?(?:STO)?TrayExecByTray\s+(\d+)\s+(\d+)/i)
-        if (m) {
-          displayName = `${commandDef.name} (${parseInt(m[1])} ${parseInt(m[2])})`
-        } else {
-          displayName = command.displayText || commandDef.name
-        }
-      } else if (isParameterized && !command.parameters && commandDef.commandId === 'tray_with_backup') {
-        // Dynamically parse tray/slot/backup from command string when parameters are absent
-        const m = command.command.match(/TrayExecByTrayWithBackup\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/i)
-        if (m) {
-          displayName = `${commandDef.name} (${parseInt(m[2])} ${parseInt(m[3])} ${parseInt(m[4])} ${parseInt(m[5])})`
-        } else {
-          displayName = command.displayText || commandDef.name
-        }
-      } else {
-        // Prefer translated definition; fallback to stored displayText
-        displayName = commandDef.name || command.displayText || displayName
+    // Helper function to format display text from i18n objects
+    const formatDisplayText = (displayText) => {
+      if (typeof displayText === 'string') {
+        return displayText
       }
-    } else if (command.displayText) {
-      // No command definition found, but we have displayText from parser - use it
-      displayName = command.displayText
+      if (typeof displayText === 'object' && displayText) {
+        // Handle i18n structure with key/params/fallback
+        if (displayText.key && displayText.fallback) {
+          // Try to get i18n translation if available
+          if (typeof i18next !== 'undefined' && i18next.t) {
+            const translated = i18next.t(displayText.key, displayText.params || {})
+            if (translated && translated !== displayText.key) {
+              return translated
+            }
+          }
+          // Fall back to the fallback text
+          return displayText.fallback
+        }
+        // Handle simple fallback structure
+        if (displayText.fallback) {
+          return displayText.fallback
+        }
+        // Handle direct object with text properties
+        if (displayText.text) {
+          return displayText.text
+        }
+        // Handle object that might be a direct string value
+        const baseName = displayText.name || displayText.displayText
+        if (baseName) {
+          return baseName
+        }
+      }
+      return commandString // Fallback to command string
     }
+
+    let displayName = formatDisplayText(richCommand.displayText) || richCommand.text || commandString
+    let displayIcon = richCommand.icon
 
     if (isParameterized) {
       element.dataset.parameters = 'true'
@@ -274,19 +264,20 @@ export default class CommandChainUI extends ComponentBase {
       })
     }
 
-    const warningInfo  = await this.request('command:get-warning', { command })
+    // Pass the command string (not object) to get-warning
+    const warningInfo  = await this.request('command:get-warning', { command: commandString })
     const warningIcon  = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
     const parameterInd = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : ''
 
     console.log('[CommandChainUI] command', command)
     console.log('[CommandChainUI] commandDef', commandDef)
     // Determine the actual command type from the definition, not from the parsed command
-    let commandType = command.type || command.category
+    let commandType = richCommand.type || richCommand.category
     // Preserve VFX alias type, don't override it with command definition categoryId
     // Also preserve other specific alias types like 'alias' or 'vfx-alias'
     if (commandDef && commandDef.categoryId && 
-        !['vfx-alias', 'alias'].includes(command.type) && 
-        !['vfx-alias', 'alias'].includes(command.category)) {
+        !['vfx-alias', 'alias'].includes(richCommand.type) && 
+        !['vfx-alias', 'alias'].includes(richCommand.category)) {
       commandType = commandDef.categoryId
     }
 

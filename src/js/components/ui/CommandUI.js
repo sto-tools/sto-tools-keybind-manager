@@ -509,10 +509,22 @@ export default class CommandUI extends ComponentBase {
         const aliases = await this.request('alias:get-all') || {}
         const alias = aliases[sourceName]
         if (alias && alias.commands) {
-          const result = await this.request('parser:parse-command-string', { 
-            commandString: alias.commands 
-          })
-          sourceCommands = result.commands || []
+          // Handle both legacy string format and new canonical array format
+          let commandString
+          if (Array.isArray(alias.commands)) {
+            // New canonical array format - join with $$
+            commandString = alias.commands.join(' $$ ')
+          } else {
+            // Legacy string format
+            commandString = alias.commands
+          }
+
+          if (commandString && commandString.trim()) {
+            const result = await this.request('parser:parse-command-string', { 
+              commandString 
+            })
+            sourceCommands = result.commands || []
+          }
         }
       } else {
         // Get commands from key

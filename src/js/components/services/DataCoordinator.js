@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
+import { normalizeProfile, needsNormalization } from '../../lib/profileNormalizer.js'
 
 /**
  * DataCoordinator - Single source of truth for all data operations
@@ -176,6 +177,9 @@ export default class DataCoordinator extends ComponentBase {
       this.state.currentProfile = data.currentProfile
       this.state.profiles = data.profiles || {}
       this.state.settings = data.settings || {}
+      
+      // Normalize all profiles to use canonical string commands
+      await this.normalizeAllProfiles()
       
       // If no profiles exist, we need to create default profiles
       if (Object.keys(this.state.profiles).length === 0) {
@@ -885,7 +889,7 @@ export default class DataCoordinator extends ComponentBase {
     // Convert STO_DATA format to our storage format
     const profiles = {}
     for (const [profileId, sourceProfile] of Object.entries(defaultProfilesData)) {
-      profiles[profileId] = {
+      const rawProfile = {
         name: sourceProfile.name,
         description: sourceProfile.description || '',
         currentEnvironment: sourceProfile.currentEnvironment || 'space',
@@ -897,6 +901,9 @@ export default class DataCoordinator extends ComponentBase {
         created: new Date().toISOString(),
         lastModified: new Date().toISOString()
       }
+      // Normalize to canonical command arrays (keys and aliases)
+      normalizeProfile(rawProfile)
+      profiles[profileId] = rawProfile
     }
     
     // Save each profile to storage and cache
@@ -972,6 +979,7 @@ export default class DataCoordinator extends ComponentBase {
     
     // Save fallback profile to storage and cache
     for (const [profileId, profile] of Object.entries(fallbackProfiles)) {
+      normalizeProfile(profile)
       await this.storage.saveProfile(profileId, profile)
       this.state.profiles[profileId] = profile
     }
@@ -1034,6 +1042,28 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   /**
+   * Normalize all profiles to use canonical string commands
+   */
+  async normalizeAllProfiles() {
+    let profilesNormalized = 0
+    
+    for (const [profileId, profile] of Object.entries(this.state.profiles)) {
+      if (needsNormalization(profile)) {
+        console.log(`[${this.componentName}] Normalizing profile: ${profileId}`)
+        normalizeProfile(profile)
+        
+        // Save normalized profile back to storage
+        await this.storage.saveProfile(profileId, profile)
+        profilesNormalized++
+      }
+    }
+    
+    if (profilesNormalized > 0) {
+      console.log(`[${this.componentName}] Normalized ${profilesNormalized} profiles to use canonical string commands`)
+    }
+  }
+
+  /**
    * Reload state from storage (used after data import/restore)
    */
   async reloadState() {
@@ -1047,6 +1077,9 @@ export default class DataCoordinator extends ComponentBase {
       this.state.profiles = allData.profiles || {}
       this.state.currentProfile = allData.currentProfile || null
       this.state.settings = allData.settings || {}
+      
+      // Normalize any newly imported profiles
+      await this.normalizeAllProfiles()
       
       // Set current environment from current profile if available
       if (this.state.currentProfile && this.state.profiles[this.state.currentProfile]) {

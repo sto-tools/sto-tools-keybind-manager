@@ -360,8 +360,11 @@ export default class KeyBrowserUI extends ComponentBase {
 
     const isSelected = keyName === this._selectedKeyName
 
+    // After canonical string refactoring, commands should be an array of strings
+    // During transition, handle both legacy rich objects and canonical strings
     const nonBlank = commands.filter((cmd) => {
       if (typeof cmd === 'string') return cmd.trim() !== ''
+      // Legacy support: rich objects with command property
       if (cmd && typeof cmd.command === 'string') return cmd.command.trim() !== ''
       return false
     })

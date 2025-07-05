@@ -2,6 +2,7 @@
 // Uses STOCommandParser for all command parsing, handles file I/O and application logic
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
+import { normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
 
 export default class FileOperationsService extends ComponentBase {
   constructor({ eventBus, storage, i18n, ui } = {}) {
@@ -171,7 +172,8 @@ export default class FileOperationsService extends ComponentBase {
             commandString: originalCommands.join(' $$ ')
           })
           
-          dest[key] = unmirroredParseResult.commands
+          // Convert rich objects to canonical string array
+          dest[key] = normalizeToStringArray(unmirroredParseResult.commands)
           
           // Set stabilization metadata
           if (!profile.keybindMetadata) profile.keybindMetadata = {}
@@ -179,8 +181,8 @@ export default class FileOperationsService extends ComponentBase {
           if (!profile.keybindMetadata[env][key]) profile.keybindMetadata[env][key] = {}
           profile.keybindMetadata[env][key].stabilizeExecutionOrder = true
         } else {
-          // Use original commands as-is
-          dest[key] = data.commands
+          // Convert rich objects to canonical string array
+          dest[key] = normalizeToStringArray(data.commands)
         }
       }
 
@@ -321,10 +323,16 @@ export default class FileOperationsService extends ComponentBase {
       const profile = this.storage.getProfile(profileId) || { aliases: {} }
       if (!profile.aliases) profile.aliases = {}
 
-      // Apply aliases using parsed data
+      // Apply aliases using parsed data - convert to canonical string array format
       Object.entries(parsed.aliases).forEach(([name, data]) => {
+        // Split command string by $$ and convert to canonical string array
+        const commandString = data.commands || ''
+        const commandArray = commandString.trim() 
+          ? commandString.trim().split(/\s*\$\$\s*/).filter(cmd => cmd.trim())
+          : []
+        
         profile.aliases[name] = { 
-          commands: data.commands, 
+          commands: commandArray, // Store as canonical string array
           description: data.description || '' 
         }
       })

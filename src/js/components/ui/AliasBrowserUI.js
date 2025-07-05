@@ -255,9 +255,15 @@ export default class AliasBrowserUI extends ComponentBase {
   }
 
   createAliasElement (name, alias) {
-    const commandCount = typeof alias.commands === 'string' && alias.commands.trim() 
-      ? alias.commands.trim().split(/\s*\$\$/).length 
-      : 0
+    // Handle both legacy string format and new canonical string array format
+    let commandCount = 0
+    if (Array.isArray(alias.commands)) {
+      // New canonical array format
+      commandCount = alias.commands.filter(cmd => cmd && cmd.trim()).length
+    } else if (typeof alias.commands === 'string' && alias.commands.trim()) {
+      // Legacy string format - split by $$
+      commandCount = alias.commands.trim().split(/\s*\$\$/).length
+    }
 
     const selectedName = this._selectedAliasName || null
     const isSelected   = selectedName === name

@@ -383,6 +383,7 @@ export class STOCommandParser {
             ? pattern.generateDisplayText(parameters)
             : command
 
+          
           return {
             command,
             signature: pattern.signature,

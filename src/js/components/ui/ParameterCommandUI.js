@@ -2,6 +2,7 @@ import eventBus from '../../core/eventBus.js'
 import ParameterCommandService from '../services/ParameterCommandService.js'
 import ComponentBase from '../ComponentBase.js'
 import { request } from '../../core/requestResponse.js'
+import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
 
 // ---------------------------------------------------------------------------
 // Singleton service instance – shared by the entire application layer
@@ -215,36 +216,59 @@ export default class ParameterCommandUI extends ComponentBase {
    * Edit mode
    * ---------------------------------------------------------- */
   editParameterizedCommand (index, command, commandDef) {
-    // Emit event for services that need editing context
-    const currentEnv = this._currentEnvironment || 'space'
-    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
+    // Convert canonical string command to rich object for editing
+    const commandString = normalizeToString(command)
     
-    this.emit('parameter-edit:start', {
-      index,
-      key: selectedKey,
-      command,
-      commandDef
-    })
-
-    this.currentParameterCommand = {
-      ...commandDef,
+    // Set up for editing mode
+    this.currentParameterCommand = { 
+      categoryId: commandDef.categoryId, 
+      commandId: commandDef.commandId, 
+      commandDef,
       editIndex: index,
-      isEditing: true,
+      originalCommand: command
     }
 
+    // Create modal lazily
     if (!this.document.getElementById('parameterModal')) {
       this.createParameterModal()
     }
 
-    this.populateParameterModalForEdit(commandDef, command.parameters || {})
-
-    // Update button text for editing
-    const saveBtn = this.document.getElementById('saveParameterCommandBtn')
-    if (saveBtn) {
-      saveBtn.textContent = this.i18n?.t?.('update_command') || 'Update Command'
+    // Persist command definition on the modal so it can be rebuilt on i18n
+    const modal = this.document.getElementById('parameterModal')
+    if (modal) {
+      modal.setAttribute('data-command-def', JSON.stringify(commandDef))
     }
 
-    this.modalManager?.show('parameterModal')
+    // For editing, we need to extract existing parameters from the command
+    const enrichCommand = async () => {
+      try {
+        // Get i18n object for translations
+        const i18n = typeof i18next !== 'undefined' ? i18next : null
+        
+        // Enrich the command to get its parameters
+        const richCommand = await enrichForDisplay(commandString, i18n, { eventBus: this.eventBus })
+        const existingParams = richCommand.parameters || {}
+        
+        // Populate modal with existing parameters
+        this.populateParameterModalForEdit(commandDef, existingParams)
+        
+        // Update button text for editing
+        const saveBtn = this.document.getElementById('saveParameterCommandBtn')
+        if (saveBtn) {
+          saveBtn.textContent = this.i18n?.t?.('save_changes') || 'Save Changes'
+        }
+
+        // Use injected modal manager
+        this.modalManager?.show('parameterModal')
+      } catch (error) {
+        console.error('[ParameterCommandUI] Error enriching command for editing:', error)
+        // Fallback: populate without existing parameters
+        this.populateParameterModalForEdit(commandDef, {})
+        this.modalManager?.show('parameterModal')
+      }
+    }
+    
+    enrichCommand()
   }
 
   populateParameterModalForEdit (commandDef, existingParams = {}) {
