@@ -266,7 +266,12 @@ export default class CommandChainUI extends ComponentBase {
 
     // Pass the command string (not object) to get-warning
     const warningInfo  = await this.request('command:get-warning', { command: commandString })
-    const warningIcon  = warningInfo ? `<span class="command-warning-icon" title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
+    let warningText = warningInfo
+    if (warningInfo && i18n && typeof i18n.t === 'function') {
+      const translated = i18n.t(warningInfo)
+      warningText = translated && translated !== warningInfo ? translated : warningInfo
+    }
+    const warningIcon  = warningText ? `<span class="command-warning-icon" title="${warningText}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
     const parameterInd = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : ''
 
     console.log('[CommandChainUI] command', command)

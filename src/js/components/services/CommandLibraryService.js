@@ -374,12 +374,15 @@ export default class CommandLibraryService extends ComponentBase {
 
       const categories = await this.request('data:get-commands')
 
+      // Normalize input – support canonical string or rich object
+      const cmdStr = typeof command === 'string' ? command.trim() : (command?.command || '').trim()
+
       // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
           if (
-            cmdData.command === command.command ||
-            cmdData.name === command.text
+            (cmdStr && cmdData.command === cmdStr) ||
+            (typeof command === 'object' && (cmdData.command === command.command || cmdData.name === command.text))
           ) {
             return cmdData.warning || null
           }
@@ -389,12 +392,13 @@ export default class CommandLibraryService extends ComponentBase {
       // Second pass: containment matches (only for specific known cases like tray commands)
       for (const [categoryId, category] of Object.entries(categories)) {
         for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-          if (command.command && command.command.includes(cmdData.command)) {
+          const target = cmdStr || command.command
+          if (target && target.includes(cmdData.command)) {
             // Only allow partial matching for specific cases:
             // 1. Tray execution commands (contain "TrayExec")
             // 2. Commands that start with the definition command (for parameterized commands)
-            const isTrayCommand = command.command.includes('TrayExec')
-            const startsWithDefinition = command.command.startsWith(cmdData.command)
+            const isTrayCommand = target.includes('TrayExec')
+            const startsWithDefinition = target.startsWith(cmdData.command)
             
             if (isTrayCommand || startsWithDefinition) {
               return cmdData.warning || null
