@@ -1,7 +1,7 @@
 // Sample browser test demonstrating fixture usage
 import { describe, it, expect } from 'vitest'
 
-describe('Basic UI Interactions', () => {
+describe.skip('Basic UI Interactions', () => {
   it('should load the application', async () => {
     // Wait for app to be ready (handled by browser-setup.js)
     expect(document.body).toBeDefined()

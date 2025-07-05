@@ -39,11 +39,12 @@ describe('CommandDisplayAdapter – tray execution display text', () => {
 
     results.forEach((rich, idx) => {
       expect(rich).toBeTruthy()
-      expect(typeof rich.displayText).toBe('string')
+      const text = typeof rich.displayText === 'object' ? rich.displayText.fallback : rich.displayText
+      expect(typeof text).toBe('string')
       // Should convert to a friendly label rather than echoing raw command
       // e.g. "Tray Execution (3 0)" or similar
-      expect(rich.displayText).not.toBe(TRAY_COMMANDS[idx])
-      expect(rich.displayText).toMatch(/Tray Execution/i)
+      expect(text).not.toBe(TRAY_COMMANDS[idx])
+      expect(text).toMatch(/Tray Execution/i)
     })
   })
 }) 

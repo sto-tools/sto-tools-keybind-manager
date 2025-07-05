@@ -1,15 +1,14 @@
 // Sample integration test demonstrating fixture usage
 import { describe, it, expect } from 'vitest'
 import { 
-  createEventBusFixture, 
-  createStorageFixture, 
+  createServiceFixture, 
   createProfileDataFixture,
   createRequestResponseFixture 
 } from '../fixtures'
 
 describe('Profile Management Integration', () => {
   it('should save and load profiles through storage service', () => {
-    const { storageService, expectOperation } = createStorageFixture()
+    const { storageService, expectOperation, destroy } = createServiceFixture()
     const { profile } = createProfileDataFixture('basic')
 
     // Save the profile
@@ -25,8 +24,7 @@ describe('Profile Management Integration', () => {
   })
 
   it('should handle profile switching with event notifications', async () => {
-    const { eventBus, expectEvent } = createEventBusFixture()
-    const { storageService } = createStorageFixture()
+    const { eventBus, expectEvent, storageService, destroy } = createServiceFixture()
     const { request, respond } = createRequestResponseFixture(eventBus)
 
     // Set up multiple profiles
@@ -55,7 +53,7 @@ describe('Profile Management Integration', () => {
   })
 
   it('should maintain profile data integrity across operations', () => {
-    const { storageService } = createStorageFixture()
+    const { storageService, destroy } = createServiceFixture()
     const profileData = createProfileDataFixture('complex')
 
     // Save original profile
@@ -81,8 +79,7 @@ describe('Profile Management Integration', () => {
   })
 
   it('should handle concurrent profile operations', async () => {
-    const { eventBus } = createEventBusFixture()
-    const { storageService } = createStorageFixture()
+    const { eventBus, storageService, destroy } = createServiceFixture()
     const { request, respond } = createRequestResponseFixture(eventBus)
 
     // Set up profiles

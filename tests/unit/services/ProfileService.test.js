@@ -1,21 +1,20 @@
 // Unit tests for ProfileService
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { 
-  createEventBusFixture, 
+  createServiceFixture,
   createRequestResponseFixture,
-  createProfileDataFixture,
-  createStorageFixture 
+  createProfileDataFixture
 } from '../../fixtures'
 
 describe('ProfileService', () => {
-  let eventBus, requestResponse, profileService, storageFixture, profileFixtures
+  let fixture, eventBus, requestResponse, profileService, storageFixture, profileFixtures
 
   beforeEach(() => {
     // Set up fixtures
-    const eventBusFixture = createEventBusFixture()
-    eventBus = eventBusFixture.eventBus
+    fixture = createServiceFixture()
+    eventBus = fixture.eventBus
     requestResponse = createRequestResponseFixture(eventBus)
-    storageFixture = createStorageFixture()
+    storageFixture = fixture.storageFixture
     
     // Create multiple profile fixtures for testing
     profileFixtures = {
@@ -240,6 +239,7 @@ describe('ProfileService', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    fixture.destroy()
   })
 
   describe('Initialization', () => {
@@ -461,35 +461,7 @@ describe('ProfileService', () => {
 
   describe('Event Integration', () => {
     it('should emit profile:switched when switching profiles', async () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
-      
-      // Update profileService to use test eventBus
-      profileService.eventBus = testEventBus
-      
-      // Update switchProfile mock to use test eventBus
-      profileService.switchProfile = vi.fn(async (profileId) => {
-        if (!profileService.profilesCache[profileId]) {
-          throw new Error(`Profile ${profileId} not found`)
-        }
-        
-        const profile = profileService.profilesCache[profileId]
-        profileService.currentProfile = profileId
-        profileService.currentEnvironment = profile.currentEnvironment || 'space'
-        profileService.isModified = false
-        
-        testEventBus.emit('profile:switched', { 
-          profileId, 
-          profile,
-          environment: profileService.currentEnvironment 
-        })
-        testEventBus.emit('profile-switched', { 
-          profileId, 
-          profile, 
-          environment: profileService.currentEnvironment 
-        })
-        
-        return { success: true, profile, environment: profileService.currentEnvironment }
-      })
+      const { expectEvent } = fixture
       
       const profileId = 'test-complex-profile'
       
@@ -500,37 +472,7 @@ describe('ProfileService', () => {
     })
 
     it('should emit profile:created when creating profiles', async () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
-      
-      // Update profileService to use test eventBus
-      profileService.eventBus = testEventBus
-      
-      // Update createProfile mock to use test eventBus
-      profileService.createProfile = vi.fn(async (name, description = '', mode = 'space') => {
-        if (!name) {
-          throw new Error('Profile name is required')
-        }
-        
-        const profileId = `profile_${Date.now()}`
-        const profile = {
-          id: profileId,
-          name,
-          description,
-          currentEnvironment: mode,
-          builds: {
-            space: { keys: {} },
-            ground: { keys: {} }
-          },
-          aliases: {},
-          created: new Date().toISOString(),
-          lastModified: new Date().toISOString()
-        }
-        
-        profileService.profilesCache[profileId] = profile
-        testEventBus.emit('profile:created', { profile })
-        
-        return { success: true, profile, profileId }
-      })
+      const { expectEvent } = fixture
       
       await profileService.createProfile('New Test Profile')
       
@@ -538,27 +480,7 @@ describe('ProfileService', () => {
     })
 
     it('should emit profile:deleted when deleting profiles', async () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
-      
-      // Update profileService to use test eventBus
-      profileService.eventBus = testEventBus
-      
-      // Update deleteProfile mock to use test eventBus
-      profileService.deleteProfile = vi.fn(async (profileId) => {
-        if (!profileService.profilesCache[profileId]) {
-          throw new Error(`Profile ${profileId} not found`)
-        }
-        
-        delete profileService.profilesCache[profileId]
-        
-        if (profileService.currentProfile === profileId) {
-          profileService.currentProfile = null
-        }
-        
-        testEventBus.emit('profile:deleted', { profileId })
-        
-        return { success: true }
-      })
+      const { expectEvent } = fixture
       
       const profileId = 'test-basic-profile'
       
@@ -568,16 +490,7 @@ describe('ProfileService', () => {
     })
 
     it('should emit environment:changed when setting environment', () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
-      
-      // Update profileService to use test eventBus
-      profileService.eventBus = testEventBus
-      
-      // Update setCurrentEnvironment mock to use test eventBus
-      profileService.setCurrentEnvironment = vi.fn((environment) => {
-        profileService.currentEnvironment = environment
-        testEventBus.emit('environment:changed', { environment })
-      })
+      const { expectEvent } = fixture
       
       profileService.setCurrentEnvironment('ground')
       
@@ -585,19 +498,7 @@ describe('ProfileService', () => {
     })
 
     it('should set modified state and emit event', () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
-      
-      // Update profileService to use test eventBus  
-      profileService.eventBus = testEventBus
-      
-      // Update setModified mock to use test eventBus
-      profileService.setModified = vi.fn((modified = true) => {
-        profileService.isModified = modified
-        if (modified) {
-          testEventBus.emit('profile-modified')
-        }
-        return { modified, success: true }
-      })
+      const { expectEvent } = fixture
       
       const result = profileService.setModified(true)
       

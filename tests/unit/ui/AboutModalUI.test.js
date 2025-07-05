@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import AboutModalUI from '../../../src/js/components/ui/AboutModalUI.js'
 import { DISPLAY_VERSION } from '../../../src/js/core/constants.js'
 
@@ -16,11 +16,12 @@ function createDomFixture () {
 }
 
 describe('AboutModalUI', () => {
-  let dom, eventBusFixture, ui
+  let dom, fixture, eventBusFixture, ui
 
   beforeEach(() => {
     dom = createDomFixture()
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
 
     ui = new AboutModalUI({ eventBus: eventBusFixture.eventBus, document })
     ui.init()
@@ -28,7 +29,7 @@ describe('AboutModalUI', () => {
 
   afterEach(() => {
     dom.cleanup()
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('should populate version element with DISPLAY_VERSION', () => {

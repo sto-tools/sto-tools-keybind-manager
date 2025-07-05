@@ -1,16 +1,17 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import ToastService from '../../../src/js/components/services/ToastService.js'
 
 
 describe('ToastService', () => {
-  let service, eventBusFixture
+  let fixture, service, eventBusFixture
 
   beforeEach(() => {
     // Provide a container element in the JSDOM
     document.body.innerHTML = '<div id="toastContainer"></div>'
 
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
     service = new ToastService({ eventBus: eventBusFixture.eventBus })
 
     vi.useFakeTimers()
@@ -20,7 +21,7 @@ describe('ToastService', () => {
     vi.runOnlyPendingTimers()
     vi.useRealTimers()
     document.body.innerHTML = ''
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('should create and display a toast in the container', () => {

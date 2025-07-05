@@ -7,6 +7,9 @@ export * from './core/index.js'
 // Data fixtures  
 export * from './data/index.js'
 
+// Service fixtures
+export * from './services/index.js'
+
 // Convenience factory functions for common test scenarios
 
 /**

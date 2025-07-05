@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/core/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import { respond } from '../../../src/js/core/requestResponse.js'
 import CommandUI from '../../../src/js/components/ui/CommandUI.js'
 
@@ -10,11 +10,12 @@ function createStubUI() {
 }
 
 describe('CommandUI', () => {
-  let busFixture, eventBus, uiStub, commandUI
+  let fixture, busFixture, eventBus, uiStub, commandUI
 
   beforeEach(async () => {
-    busFixture = createEventBusFixture()
-    eventBus = busFixture.eventBus
+    fixture = createServiceFixture()
+    busFixture = fixture.eventBusFixture
+    eventBus = fixture.eventBus
     uiStub = createStubUI()
     commandUI = new CommandUI({ eventBus, ui: uiStub, modalManager: { show: vi.fn() } })
     commandUI.init()
@@ -28,7 +29,7 @@ describe('CommandUI', () => {
   })
 
   afterEach(() => {
-    busFixture.destroy()
+    fixture.destroy()
     vi.restoreAllMocks()
   })
 

@@ -1,13 +1,14 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import CommandLibraryService from '../../../src/js/components/services/CommandLibraryService.js'
 
 
 describe('CommandLibraryService', () => {
-  let service, eventBusFixture
+  let fixture, service, eventBusFixture
 
   beforeEach(() => {
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
 
     // Simple i18n stub that returns the default value
     const i18nStub = { t: (_key, { defaultValue }) => defaultValue }
@@ -36,7 +37,7 @@ describe('CommandLibraryService', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('should return command categories via getCommandCategories', async () => {

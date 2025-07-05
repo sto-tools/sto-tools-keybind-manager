@@ -1,14 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/core/eventBus.js'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { createServiceFixture } from '../../fixtures/index.js'
 import CommandLibraryService from '../../../src/js/components/services/CommandLibraryService.js'
 import { respond } from '../../../src/js/core/requestResponse.js'
 
-let eventBus
-let cmdLib
+let fixture, eventBus, cmdLib
 
 beforeEach(async () => {
-  const busFix = createEventBusFixture()
-  eventBus = busFix.eventBus
+  fixture = createServiceFixture()
+  eventBus = fixture.eventBus
 
   // Stub data:has-commands & data:get-commands
   respond(eventBus, 'data:has-commands', () => true)
@@ -36,6 +35,10 @@ beforeEach(async () => {
   }))
 
   cmdLib = new CommandLibraryService({ eventBus, i18n: null })
+})
+
+afterEach(() => {
+  fixture.destroy()
 })
 
 describe('CommandLibraryService.findCommandDefinition – Communication vs Target', () => {

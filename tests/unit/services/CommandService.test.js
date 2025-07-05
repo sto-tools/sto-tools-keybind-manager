@@ -1,19 +1,20 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/core/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import { respond } from '../../../src/js/core/requestResponse.js'
 import CommandService from '../../../src/js/components/services/CommandService.js'
 import { createProfileDataFixture } from '../../fixtures/data/profiles.js'
 
 describe('CommandService mutations', () => {
-  let busFixture, eventBus, service, profile, detachUpdate
+  let fixture, busFixture, eventBus, service, profile, detachUpdate
 
   beforeEach(() => {
-    busFixture = createEventBusFixture()
-    eventBus = busFixture.eventBus
+    fixture = createServiceFixture()
+    busFixture = fixture.eventBusFixture
+    eventBus = fixture.eventBus
 
-    const fixture = createProfileDataFixture('basic')
-    fixture.addKey('space', 'F1', ['FireAll', 'FirePhasers'])
-    profile = { id: 'profile1', ...fixture.profile }
+    const profileFixture = createProfileDataFixture('basic')
+    profileFixture.addKey('space', 'F1', ['FireAll', 'FirePhasers'])
+    profile = { id: 'profile1', ...profileFixture.profile }
 
     // Mock DataCoordinator update-profile to actually update the profile object
     detachUpdate = respond(eventBus, 'data:update-profile', ({ profileId, add, modify, delete: del }) => {
@@ -78,7 +79,7 @@ describe('CommandService mutations', () => {
 
   afterEach(() => {
     detachUpdate()
-    busFixture.destroy()
+    fixture.destroy()
   })
 
   it('addCommand should append to existing key and emit event', async () => {

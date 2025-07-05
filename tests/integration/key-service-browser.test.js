@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createRealEventBusFixture } from '../fixtures/core/eventBus.js'
+import { createRealServiceFixture } from '../fixtures'
 import KeyService from '../../src/js/components/services/KeyService.js'
 import KeyBrowserService from '../../src/js/components/services/KeyBrowserService.js'
 import { respond } from '../../src/js/core/requestResponse.js'
@@ -8,12 +8,11 @@ import { respond } from '../../src/js/core/requestResponse.js'
 const deepClone = (obj) => JSON.parse(JSON.stringify(obj))
 
 describe('Integration: KeyService ↔ KeyBrowserService', () => {
-  let busFixture, eventBus, keyService, keyBrowserService, profile, detachUpdateProfile
+  let fixture, eventBus, keyService, keyBrowserService, profile, detachUpdateProfile
 
   beforeEach(async () => {
-    // Use the real singleton eventBus so both services share the same bus
-    busFixture = await createRealEventBusFixture()
-    eventBus = busFixture.eventBus
+    fixture = await createRealServiceFixture()
+    eventBus = fixture.eventBus
 
     // Base profile with two keys
     profile = {
@@ -70,7 +69,7 @@ describe('Integration: KeyService ↔ KeyBrowserService', () => {
 
   afterEach(() => {
     detachUpdateProfile && detachUpdateProfile()
-    busFixture.destroy()
+    fixture.destroy()
   })
 
   it('deleteKey should remove key and KeyBrowserService reflects change', async () => {

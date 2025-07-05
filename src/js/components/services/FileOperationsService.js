@@ -91,29 +91,10 @@ export default class FileOperationsService extends ComponentBase {
           continue
         }
         
-        // Match alias pattern: alias aliasName "command sequence"
-        const aliasMatch = line.match(/^alias\s+(\w+)\s+"([^"]+)"/)
-        if (aliasMatch) {
-          const [, aliasName, commandString] = aliasMatch
-          aliases[aliasName] = {
-            commands: commandString
-          }
+        // Aliases are NOT allowed inside keybind files – treat as error
+        if (line.startsWith('alias ')) {
+          errors.push(`Line ${i + 1}: Alias definitions are not permitted in keybind files`)
           continue
-        }
-        
-        // Match alias pattern with bracket syntax: alias aliasName <& command sequence &>
-        const bracketAliasMatch = line.match(/^alias\s+(\w+)\s+<&\s*(.+?)\s*&>/)
-        if (bracketAliasMatch) {
-          const [, aliasName, commandString] = bracketAliasMatch
-          aliases[aliasName] = {
-            commands: commandString
-          }
-          continue
-        }
-        
-        // If line doesn't match any pattern, it might be an error
-        if (line.length > 0) {
-          errors.push(`Line ${i + 1}: Unrecognized format: ${line}`)
         }
       } catch (error) {
         errors.push(`Line ${i + 1}: Parse error: ${error.message}`)
@@ -121,6 +102,52 @@ export default class FileOperationsService extends ComponentBase {
     }
     
     return { keybinds, aliases, errors }
+  }
+
+  /**
+   * Parse an alias-only file. Keybind lines are considered errors.
+   * @param {string} content
+   * @returns {{ aliases: Object, errors: string[] }}
+   */
+  async parseAliasFile(content) {
+    const aliases = {}
+    const errors = []
+
+    if (!content || typeof content !== 'string') {
+      return { aliases, errors: ['Invalid file content'] }
+    }
+
+    const lines = content.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+
+      if (!line || line.startsWith('//')) continue
+
+      try {
+        // Handle quoted alias syntax
+        const aliasMatch = line.match(/^alias\s+(\w+)\s+"([^"]+)"/)
+        if (aliasMatch) {
+          const [, aliasName, commandString] = aliasMatch
+          aliases[aliasName] = { commands: commandString }
+          continue
+        }
+
+        // Handle bracket syntax
+        const bracketMatch = line.match(/^alias\s+(\w+)\s+<&\s*(.+?)\s*&>/)
+        if (bracketMatch) {
+          const [, aliasName, commandString] = bracketMatch
+          aliases[aliasName] = { commands: commandString }
+          continue
+        }
+
+        // Any non-alias line is an error in alias file
+        errors.push(`Line ${i + 1}: Non-alias content found: ${line}`)
+      } catch (err) {
+        errors.push(`Line ${i + 1}: Parse error: ${err.message}`)
+      }
+    }
+
+    return { aliases, errors }
   }
 
   // Application-specific import operations that handle storage and UI concerns
@@ -305,8 +332,8 @@ export default class FileOperationsService extends ComponentBase {
 
   async importAliasFile(content, profileId, options = {}) {
     try {
-      // Use new parseKeybindFile method
-      const parsed = await this.parseKeybindFile(content)
+      // Parse aliases only
+      const parsed = await this.parseAliasFile(content)
       const aliasCount = Object.keys(parsed.aliases).length
       
       if (aliasCount === 0) {

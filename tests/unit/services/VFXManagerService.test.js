@@ -1,19 +1,20 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import VFXManagerService from '../../../src/js/components/services/VFXManagerService.js'
 
 
 describe('VFXManagerService', () => {
-  let service, eventBusFixture
+  let fixture, service, eventBusFixture
 
   beforeEach(() => {
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
     service = new VFXManagerService(eventBusFixture.eventBus)
     service.init()
   })
 
   afterEach(() => {
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('should toggle effect selection', () => {

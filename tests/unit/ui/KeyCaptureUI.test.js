@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import KeyCaptureUI from '../../../src/js/components/ui/KeyCaptureUI.js'
 
 function createDomFixture () {
@@ -16,18 +16,19 @@ function createDomFixture () {
 }
 
 describe('KeyCaptureUI', () => {
-  let eventBusFixture, ui, dom
+  let fixture, eventBusFixture, ui, dom
 
   beforeEach(() => {
     dom = createDomFixture()
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
     ui = new KeyCaptureUI({ eventBus: eventBusFixture.eventBus, document })
     ui.init()
   })
 
   afterEach(() => {
     dom.cleanup()
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('startCapture should prepare UI and emit keycapture:start', () => {

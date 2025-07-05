@@ -136,4 +136,67 @@ afterEach(() => {
   
   // Clean up fixtures
   cleanupFixtures()
-}) 
+})
+
+// --------------------------------------------------
+// Minimal IndexedDB in-memory stub for FileSystemService unit tests
+// --------------------------------------------------
+const _dbStore = new Map()
+
+global.indexedDB = {
+  open(name, version) {
+    const dbKey = `${name}`
+    const dbObj = _dbStore.get(dbKey) || { stores: new Map() }
+    _dbStore.set(dbKey, dbObj)
+
+    const request = {}
+    // Prepare result object representing the DB connection
+    const dbConnection = {
+      createObjectStore(storeName) {
+        if (!dbObj.stores.has(storeName)) dbObj.stores.set(storeName, new Map())
+      },
+      transaction(storeName, mode) {
+        if (!dbObj.stores.has(storeName)) dbObj.stores.set(storeName, new Map())
+        const store = dbObj.stores.get(storeName)
+        const tx = {
+          objectStore() {
+            return {
+              put(value, key) { store.set(key, value) },
+              get(key) {
+                const req = { result: undefined, onsuccess: null, onerror: null }
+                setTimeout(() => {
+                  req.result = store.get(key)
+                  if (req.onsuccess) req.onsuccess({ target: req })
+                }, 0)
+                return req
+              }
+            }
+          },
+          oncomplete: null,
+          onerror: null,
+          onabort: null,
+        }
+
+        // Auto-complete async next tick for simple operations
+        setTimeout(() => {
+          if (tx.oncomplete) tx.oncomplete()
+        }, 0)
+
+        return tx
+      },
+      close() {}
+    }
+
+    setTimeout(() => {
+      // onupgradeneeded when new
+      if (!dbObj.initialized) {
+        dbObj.initialized = true
+        request.result = dbConnection
+        if (request.onupgradeneeded) request.onupgradeneeded({ target: { result: dbConnection } })
+      }
+      request.result = dbConnection
+      if (request.onsuccess) request.onsuccess({ target: request })
+    }, 0)
+    return request
+  }
+} 

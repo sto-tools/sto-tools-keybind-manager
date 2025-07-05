@@ -1,5 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { createServiceFixture } from '../../fixtures/index.js'
 import CommandBuilderUI from '../../../src/js/components/ui/CommandBuilderUI.js'
+
+let fixture
+
+beforeEach(() => {
+  fixture = createServiceFixture()
+})
+
+afterEach(() => {
+  fixture.destroy()
+})
 
 describe('CommandBuilderUI', () => {
   it('should generate targeting UI markup', () => {

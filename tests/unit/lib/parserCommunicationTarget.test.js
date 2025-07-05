@@ -1,15 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/core/eventBus.js'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { createServiceFixture } from '../../fixtures/index.js'
 import { STOCommandParser } from '../../../src/js/lib/STOCommandParser.js'
 
-let eventBus
-let parser
+let fixture, eventBus, parser
 
 beforeEach(() => {
-  const busFixture = createEventBusFixture()
-  eventBus = busFixture.eventBus
+  fixture = createServiceFixture()
+  eventBus = fixture.eventBus
   // Stand-alone parser that does not register responders (unit level)
   parser = new STOCommandParser(eventBus, { enableCache: false })
+})
+
+afterEach(() => {
+  fixture.destroy()
 })
 
 describe('STOCommandParser – Communication vs Target parsing', () => {

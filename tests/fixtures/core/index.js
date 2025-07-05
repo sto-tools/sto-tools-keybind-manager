@@ -28,4 +28,6 @@ export {
 export {
   createRequestResponseFixture,
   createRealRequestResponseFixture
-} from './requestResponse.js' 
+} from './requestResponse.js'
+
+export { createFSFixture } from './fs.js' 

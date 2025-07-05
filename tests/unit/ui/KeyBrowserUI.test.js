@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture, createLocalStorageFixture } from '../../fixtures/index.js'
+import { createServiceFixture, createLocalStorageFixture } from '../../fixtures/index.js'
 import KeyBrowserUI from '../../../src/js/components/ui/KeyBrowserUI.js'
 
 function createDomFixture () {
@@ -13,11 +13,12 @@ function createDomFixture () {
 }
 
 describe('KeyBrowserUI', () => {
-  let eventBusFixture, ui, dom, storageFixture
+  let fixture, eventBusFixture, ui, dom, storageFixture
 
   beforeEach(() => {
     dom = createDomFixture()
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
     storageFixture = createLocalStorageFixture()
 
     vi.stubGlobal('requestAnimationFrame', (cb) => cb())
@@ -28,7 +29,7 @@ describe('KeyBrowserUI', () => {
 
   afterEach(() => {
     dom.cleanup()
-    eventBusFixture.destroy()
+    fixture.destroy()
     storageFixture.destroy()
     vi.restoreAllMocks()
   })

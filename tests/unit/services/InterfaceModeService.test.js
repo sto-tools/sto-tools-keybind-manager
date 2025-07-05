@@ -1,13 +1,14 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import InterfaceModeService from '../../../src/js/components/services/InterfaceModeService.js'
 
 
 describe('InterfaceModeService', () => {
-  let service, eventBusFixture
+  let fixture, service, eventBusFixture
 
   beforeEach(() => {
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
 
     service = new InterfaceModeService({ eventBus: eventBusFixture.eventBus })
 
@@ -25,7 +26,7 @@ describe('InterfaceModeService', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('should switch to a new mode and emit environment:changed', async () => {

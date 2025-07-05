@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import HeaderMenuUI from '../../../src/js/components/ui/HeaderMenuUI.js'
 
 function createDomFixture () {
@@ -25,12 +25,13 @@ function createDomFixture () {
 }
 
 describe('HeaderMenuUI', () => {
-  let eventBusFixture, ui, dom
+  let fixture, eventBusFixture, ui, dom
 
   beforeEach(() => {
     // DOM & eventBus
     dom = createDomFixture()
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
 
     ui = new HeaderMenuUI({ eventBus: eventBusFixture.eventBus, document })
     ui.init()
@@ -38,7 +39,7 @@ describe('HeaderMenuUI', () => {
 
   afterEach(() => {
     dom.cleanup()
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('should toggle dropdown active state', () => {

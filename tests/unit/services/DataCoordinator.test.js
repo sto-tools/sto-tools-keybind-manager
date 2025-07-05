@@ -1,19 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createEventBusFixture, createStorageFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import DataCoordinator from '../../../src/js/components/services/DataCoordinator.js'
 
 describe('DataCoordinator Service', () => {
   let dataCoordinator
-  let mockStorage, mockEventBus
-  let eventBusFixture, storageFixture
+  let fixture, mockStorage, mockEventBus, eventBusFixture, storageFixture
 
   beforeEach(() => {
-    // Create fixtures
-    eventBusFixture = createEventBusFixture()
-    storageFixture = createStorageFixture()
-    
-    mockEventBus = eventBusFixture.eventBus
-    mockStorage = storageFixture.storageService
+    // Create aggregated fixture
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
+    storageFixture = fixture.storageFixture
+    mockEventBus = fixture.eventBus
+    mockStorage = fixture.storage
     
     // Setup default storage responses
     mockStorage.getAllData.mockReturnValue({
@@ -31,13 +30,7 @@ describe('DataCoordinator Service', () => {
   })
 
   afterEach(() => {
-    // Clean up fixtures
-    if (eventBusFixture) {
-      eventBusFixture.destroy()
-    }
-    if (storageFixture) {
-      storageFixture.destroy()
-    }
+    fixture.destroy()
     vi.clearAllMocks()
   })
 

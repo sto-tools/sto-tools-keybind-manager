@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import ModalManagerService from '../../../src/js/components/services/ModalManagerService.js'
 
 function createDomFixture () {
@@ -22,18 +22,19 @@ function createDomFixture () {
 }
 
 describe('ModalManagerService', () => {
-  let eventBusFixture, service, dom
+  let fixture, eventBusFixture, service, dom
 
   beforeEach(() => {
     dom = createDomFixture()
-    eventBusFixture = createEventBusFixture()
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
     service = new ModalManagerService(eventBusFixture.eventBus)
     service.init()
   })
 
   afterEach(() => {
     dom.cleanup()
-    eventBusFixture.destroy()
+    fixture.destroy()
   })
 
   it('should show and hide modal via event bus', () => {

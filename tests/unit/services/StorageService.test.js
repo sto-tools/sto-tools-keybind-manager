@@ -1,16 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import StorageService from '../../../src/js/components/services/StorageService.js'
 
 
 describe('StorageService', () => {
-  let storageService, eventBusFixture, mockEventBus
+  let fixture, storageService, eventBusFixture, mockEventBus
 
   beforeEach(() => {
     // Ensure a clean slate before each test
     localStorage.clear()
-    eventBusFixture = createEventBusFixture()
-    mockEventBus = eventBusFixture.eventBus
+    fixture = createServiceFixture()
+    eventBusFixture = fixture.eventBusFixture
+    mockEventBus = fixture.eventBus
 
     storageService = new StorageService({ eventBus: mockEventBus, version: 'test-1.0.0' })
     // Trigger onInit via ComponentBase.init()
@@ -20,9 +21,7 @@ describe('StorageService', () => {
   afterEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
-    if (eventBusFixture) {
-      eventBusFixture.destroy()
-    }
+    fixture.destroy()
   })
 
   describe('Initialization', () => {

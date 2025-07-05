@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/core/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import { respond } from '../../../src/js/core/requestResponse.js'
 import CommandChainService from '../../../src/js/components/services/CommandChainService.js'
 
@@ -21,11 +21,12 @@ function baseProfile() {
 }
 
 describe('CommandChainService', () => {
-  let busFixture, eventBus, service
+  let fixture, busFixture, eventBus, service
 
   beforeEach(() => {
-    busFixture = createEventBusFixture()
-    eventBus = busFixture.eventBus
+    fixture = createServiceFixture()
+    busFixture = fixture.eventBusFixture
+    eventBus = fixture.eventBus
 
     // stub request endpoints used internally
     respond(eventBus, 'command:get-for-selected-key', () => [])
@@ -42,7 +43,7 @@ describe('CommandChainService', () => {
   })
 
   afterEach(() => {
-    busFixture.destroy()
+    fixture.destroy()
   })
 
   it('should emit chain-data-changed when key-selected', async () => {

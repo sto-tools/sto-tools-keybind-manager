@@ -1,10 +1,11 @@
 // Unit tests for KeyService
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { 
-  createEventBusFixture, 
+  createServiceFixture, 
   createRequestResponseFixture,
   createProfileDataFixture,
-  createComponentFixture 
+  createComponentFixture,
+  createEventBusFixture
 } from '../../fixtures'
 
 // Mock the KeyService since we need to import it
@@ -28,12 +29,13 @@ const mockKeyService = {
 }
 
 describe('KeyService', () => {
-  let eventBus, requestResponse, keyService, profileFixture
+  let fixture, eventBus, requestResponse, keyService, profileFixture
 
   beforeEach(() => {
     // Set up fixtures
-    const eventBusFixture = createEventBusFixture()
-    eventBus = eventBusFixture.eventBus
+    fixture = createServiceFixture()
+    const eventBusFixture = fixture.eventBusFixture
+    eventBus = fixture.eventBus
     requestResponse = createRequestResponseFixture(eventBus)
     
     // Create profile fixture
@@ -183,6 +185,7 @@ describe('KeyService', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    fixture.destroy()
   })
 
   describe('Initialization', () => {

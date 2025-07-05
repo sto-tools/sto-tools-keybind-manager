@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
-import { createEventBusFixture } from '../../fixtures/core/index.js'
+import { createServiceFixture } from '../../fixtures/index.js'
 import { respond } from '../../../src/js/core/requestResponse.js'
 import { 
   enrichForDisplay, 
@@ -11,11 +11,11 @@ import {
 } from '../../../src/js/lib/commandDisplayAdapter.js'
 
 describe('Command Display Adapter', () => {
-  let busFixture, eventBus, detachParserHandler, detachCommandDefHandler, mockI18n
+  let fixture, eventBus, detachParserHandler, detachCommandDefHandler, mockI18n
 
   beforeEach(() => {
-    busFixture = createEventBusFixture()
-    eventBus = busFixture.eventBus
+    fixture = createServiceFixture()
+    eventBus = fixture.eventBus
 
     // Mock STOCommandParser
     detachParserHandler = respond(eventBus, 'parser:parse-command-string', ({ commandString, options }) => {
@@ -151,7 +151,7 @@ describe('Command Display Adapter', () => {
   afterEach(() => {
     detachParserHandler()
     detachCommandDefHandler()
-    busFixture.destroy()
+    fixture.destroy()
   })
 
   describe('enrichForDisplay', () => {
