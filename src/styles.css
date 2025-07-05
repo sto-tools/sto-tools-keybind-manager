@@ -411,8 +411,9 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: max(300px, calc(100vh - 180px)); /* Use all available space within the grid cell */
-  min-height: 300px;
+  /*height: max(300px, calc(100vh - 180px));*/ /* Use all available space within the grid cell */
+  /*min-height: 300px;*/
+  height: 100%;
 }
 
 .key-selector-header {

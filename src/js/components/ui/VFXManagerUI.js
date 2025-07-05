@@ -34,6 +34,8 @@ export default class VFXManagerUI extends ComponentBase {
     this.vfxManager = vfxManager
     this.populateModal()
     this.modalManager.show('vertigoModal')
+    // Ensure the preview reflects current selections after translations may have reset text content
+    this.updatePreview()
   }
 
   populateModal() {
