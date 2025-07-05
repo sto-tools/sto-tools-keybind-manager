@@ -597,7 +597,9 @@ export default class CommandUI extends ComponentBase {
 
       // Import commands
       for (const cmd of filteredCommands) {
-        await this.request('command-chain:add', {
+        // Use CommandService endpoint so both broadcast and synchronous
+        // paths share the same underlying implementation.
+        await this.request('command:add', {
           key: targetKey,
           command: cmd
         })

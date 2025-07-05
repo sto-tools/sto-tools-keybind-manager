@@ -53,7 +53,13 @@ export default class CommandService extends ComponentBase {
         this.respond('command:edit', async ({ key, index, updatedCommand }) => 
           this.editCommand(key, index, updatedCommand)),
         this.respond('command:validate', ({ command }) => 
-          this.validateCommand(command))
+          this.validateCommand(command)),
+        this.respond('command:delete', async ({ key, index }) =>
+          this.deleteCommand(key, index)
+        ),
+        this.respond('command:move', async ({ key, fromIndex, toIndex }) =>
+          this.moveCommand(key, fromIndex, toIndex)
+        )
       )
     }
   }
@@ -158,6 +164,7 @@ export default class CommandService extends ComponentBase {
       // Build explicit operations object
       const ops = {}
       if (this.currentEnvironment === 'alias') {
+        console.log('[CommandService] addCommand: alias')
         const aliasExists = !!profile.aliases?.[key]
         if (aliasExists) {
           ops.modify = {

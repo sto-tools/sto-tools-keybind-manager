@@ -1,6 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
 import { request, respond } from '../../core/requestResponse.js'
-import { normalizeToOptimizedString } from '../../lib/commandDisplayAdapter.js'
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -37,11 +36,7 @@ export default class CommandChainService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        this.respond('command-chain:add', ({ key, command, position }) => this.addCommand(key, command, position)),
-        this.respond('command-chain:delete', ({ key, index }) => this.deleteCommand(key, index)),
-        this.respond('command-chain:move', ({ key, fromIndex, toIndex }) => this.moveCommand(key, fromIndex, toIndex)),
-        this.respond('command-chain:get', ({ key }) => this.getCommandsForKey(key)),
-        this.respond('command-chain:clear', ({ key }) => this.clearCommandChain(key)),
+        // Removed deprecated command-chain:* request endpoints – callers should now use command:* APIs directly.
         // New: toggle or query execution-order stabilization
         this.respond('command:set-stabilize', ({ name, stabilize }) => this.setStabilize(name, stabilize)),
         this.respond('command:is-stabilized', ({ name }) => this.isStabilized(name))
@@ -136,28 +131,6 @@ export default class CommandChainService extends ComponentBase {
       this.emit('chain-data-changed', { commands: cmds })
     })
 
-    // Handle add-command requests from AliasModalService (legacy support)
-    this.addEventListener('commandlibrary:add', async (payload = {}) => {
-      const { categoryId, commandId, commandObj } = payload
-      if (!categoryId || !commandId) return
-
-      // REFACTORED: Use request/response instead of direct service access
-      try {
-        if (commandObj && this.selectedKey) {
-          const before = await this.getCommandsForSelectedKey()
-          await this.request('command-chain:add', { 
-            command: commandObj, 
-            key: this.selectedKey 
-          })
-          const after = await this.getCommandsForSelectedKey()
-          if (after.length !== before.length) {
-            this.emit('chain-data-changed', { commands: after })
-          }
-        }
-      } catch (error) {
-        console.error('Failed to add command:', error)
-      }
-    })
 
     // Note: command:add events are now handled by CommandUI
     // CommandChainService only handles the resulting command-added events
@@ -221,7 +194,7 @@ export default class CommandChainService extends ComponentBase {
       
       // REFACTORED: Use request/response instead of direct service access
       try {
-        await this.request('command-chain:delete', { 
+        await this.request('command:delete', { 
           key: this.selectedKey, 
           index 
         })
@@ -237,7 +210,7 @@ export default class CommandChainService extends ComponentBase {
       
       // REFACTORED: Use request/response instead of direct service access
       try {
-        await this.request('command-chain:move', { 
+        await this.request('command:move', { 
           key: this.selectedKey, 
           fromIndex, 
           toIndex 
@@ -302,309 +275,6 @@ export default class CommandChainService extends ComponentBase {
    * Command Chain Management - Core Implementation
    * Handles adding, deleting, and reordering commands within chains
    * ------------------------------------------------------------------ */
-
-  /**
-   * Add a command to a key's command chain
-   */
-  async addCommand(key, command, position) {
-    try {
-      if (!key) {
-        console.warn('CommandChainService: Cannot add command - no key specified')
-        return false
-      }
-
-      const profile = await this.getCurrentProfile()
-      if (!profile) {
-        console.warn('CommandChainService: Cannot add command - no active profile')
-        return false
-      }
-
-      if (this.currentEnvironment === 'alias') {
-        // Handle alias command chains
-        const currentAlias = profile.aliases && profile.aliases[key]
-        
-        // Alias commands are expected to be canonical string[]
-        const currentCommands = (currentAlias && Array.isArray(currentAlias.commands))
-          ? [...currentAlias.commands]
-          : []
-
-        // Helper function to extract command string from various formats
-        const extractCommandString = async (cmd) => {
-          if (typeof cmd === 'string') {
-            return await normalizeToOptimizedString(cmd.trim(), { eventBus: this.eventBus })
-          }
-          if (cmd && typeof cmd === 'object') {
-            // For alias commands, the command string is the alias name
-            if (cmd.isUserAlias || cmd.type === 'alias' || cmd.isVfxAlias) {
-              return cmd.command || cmd.text || ''
-            }
-            // For regular commands, extract from command property and optimize
-            const commandString = cmd.command || cmd.text || ''
-            return await normalizeToOptimizedString(commandString, { eventBus: this.eventBus })
-          }
-          return ''
-        }
-
-        // Handle both single commands and arrays of commands
-        if (Array.isArray(command)) {
-          let insertPosition = position
-          for (const cmd of command) {
-            const commandString = await extractCommandString(cmd)
-            if (commandString) {
-              if (insertPosition !== undefined && insertPosition >= 0 && insertPosition <= currentCommands.length) {
-                currentCommands.splice(insertPosition, 0, commandString)
-                insertPosition++ // Increment position for next command to maintain order
-              } else {
-                currentCommands.push(commandString)
-              }
-            }
-          }
-        } else {
-          const commandString = await extractCommandString(command)
-          if (commandString) {
-            if (position !== undefined && position >= 0 && position <= currentCommands.length) {
-              currentCommands.splice(position, 0, commandString)
-            } else {
-              currentCommands.push(commandString)
-            }
-          }
-        }
-
-        const newCommandString = currentCommands.join(' $$ ')
-        if (!profile.aliases) profile.aliases = {}
-        if (!profile.aliases[key]) profile.aliases[key] = {}
-        // Store in canonical array format instead of string
-        profile.aliases[key].commands = currentCommands
-      } else {
-        // Handle keybind command chains
-        // Ensure proper profile structure exists
-        if (!profile.builds) profile.builds = {}
-        if (!profile.builds[this.currentEnvironment]) profile.builds[this.currentEnvironment] = {}
-        if (!profile.builds[this.currentEnvironment].keys) profile.builds[this.currentEnvironment].keys = {}
-        if (!profile.builds[this.currentEnvironment].keys[key]) profile.builds[this.currentEnvironment].keys[key] = []
-        
-        const commands = profile.builds[this.currentEnvironment].keys[key]
-        if (position !== undefined && position >= 0 && position <= commands.length) {
-          commands.splice(position, 0, command)
-        } else {
-          commands.push(command)
-        }
-      }
-
-      // Ensure we have a valid profile ID before making the request
-      if (!this.cache.currentProfile) {
-        console.error('CommandChainService: Cannot add command - no current profile ID in cache')
-        // Try to get current profile from DataCoordinator as fallback
-        try {
-          const currentState = await this.request('data:get-current-state')
-          if (currentState?.currentProfile) {
-            this.cache.currentProfile = currentState.currentProfile
-            if (currentState.currentProfileData) {
-              this.updateCacheFromProfile(currentState.currentProfileData)
-            }
-            console.log('[CommandChainService] Retrieved current profile from DataCoordinator as fallback:', this.cache.currentProfile)
-          } else {
-            console.error('CommandChainService: No current profile available from DataCoordinator')
-            return false
-          }
-        } catch (error) {
-          console.error('CommandChainService: Failed to get current profile from DataCoordinator:', error)
-          return false
-        }
-      }
-
-      // Use DataCoordinator explicit operations API to modify specific items
-      const result = await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        modify: this.currentEnvironment === 'alias' ? {
-          aliases: {
-            [key]: profile.aliases[key]
-          }
-        } : {
-          builds: {
-            [this.currentEnvironment]: {
-              keys: {
-                [key]: profile.builds[this.currentEnvironment].keys[key]
-              }
-            }
-          }
-        }
-      })
-
-      if (result?.success) {
-        this.emit('command-added', { key, command })
-        return true
-      } else {
-        console.error('CommandChainService: Failed to save profile via DataCoordinator')
-        return false
-      }
-    } catch (error) {
-      console.error('CommandChainService: Failed to add command:', error)
-      return false
-    }
-  }
-
-  /**
-   * Delete a command from a key's command chain
-   */
-  async deleteCommand(key, index) {
-    try {
-      console.log('[CommandChainService] deleteCommand called:', {
-        key,
-        index,
-        cacheCurrentProfile: this.cache.currentProfile,
-        currentProfile: this.currentProfile,
-        currentEnvironment: this.currentEnvironment
-      })
-      
-      if (!key || index === undefined) {
-        console.warn('CommandChainService: Cannot delete command - invalid parameters')
-        return false
-      }
-
-      const profile = await this.getCurrentProfile()
-      if (!profile) {
-        console.warn('CommandChainService: Cannot delete command - no active profile')
-        return false
-      }
-
-      const isAliasContext = this.currentEnvironment === 'alias' ||
-        (profile.aliases && Object.prototype.hasOwnProperty.call(profile.aliases, key))
-
-      if (isAliasContext) {
-        // Handle alias command chains
-        const currentAlias = profile.aliases && profile.aliases[key]
-        if (!currentAlias || !currentAlias.commands) return false
-
-        const commands = Array.isArray(currentAlias.commands) ? [...currentAlias.commands] : []
-
-        if (index >= 0 && index < commands.length) {
-          commands.splice(index, 1)
-          // Store back in canonical array format
-          profile.aliases[key].commands = commands
-        }
-      } else {
-        // Handle keybind command chains
-        const commands = profile.builds?.[this.currentEnvironment]?.keys?.[key]
-        if (commands && commands[index]) {
-          commands.splice(index, 1)
-        }
-      }
-
-      // Ensure we have a valid profile ID before making the request
-      const profileId = this.cache.currentProfile || this.currentProfile
-      if (!profileId) {
-        console.error('CommandChainService: Cannot delete command - no current profile ID available')
-        return false
-      }
-
-      // Use DataCoordinator explicit operations API to modify specific items
-      const result = await this.request('data:update-profile', {
-        profileId: profileId,
-        modify: isAliasContext ? {
-          aliases: {
-            [key]: profile.aliases[key]
-          }
-        } : {
-          builds: {
-            [this.currentEnvironment]: {
-              keys: {
-                [key]: profile.builds[this.currentEnvironment].keys[key]
-              }
-            }
-          }
-        }
-      })
-
-      if (result?.success) {
-        this.emit('command-deleted', { key, index })
-        return true
-      } else {
-        console.error('CommandChainService: Failed to save profile via DataCoordinator')
-        return false
-      }
-    } catch (error) {
-      console.error('CommandChainService: Failed to delete command:', error)
-      return false
-    }
-  }
-
-  /**
-   * Move a command to a new position within a key's command chain
-   */
-  async moveCommand(key, fromIndex, toIndex) {
-    try {
-      if (!key || fromIndex === undefined || toIndex === undefined) {
-        console.warn('CommandChainService: Cannot move command - invalid parameters')
-        return false
-      }
-
-      const profile = await this.getCurrentProfile()
-      if (!profile) {
-        console.warn('CommandChainService: Cannot move command - no active profile')
-        return false
-      }
-
-      if (this.currentEnvironment === 'alias') {
-        // Handle alias command chains
-        const currentAlias = profile.aliases && profile.aliases[key]
-        if (!currentAlias || !currentAlias.commands) return false
-
-        const commands = Array.isArray(currentAlias.commands) ? [...currentAlias.commands] : []
-
-        if (fromIndex >= 0 && fromIndex < commands.length && toIndex >= 0 && toIndex < commands.length) {
-          const [movedCommand] = commands.splice(fromIndex, 1)
-          commands.splice(toIndex, 0, movedCommand)
-          // Store back in canonical array format
-          profile.aliases[key].commands = commands
-        }
-      } else {
-        // Handle keybind command chains
-        const commands = profile.builds?.[this.currentEnvironment]?.keys?.[key]
-        if (commands && fromIndex >= 0 && fromIndex < commands.length && 
-            toIndex >= 0 && toIndex < commands.length) {
-          const [movedCommand] = commands.splice(fromIndex, 1)
-          commands.splice(toIndex, 0, movedCommand)
-        }
-      }
-
-      // Ensure we have a valid profile ID before making the request
-      const profileId = this.cache.currentProfile || this.currentProfile
-      if (!profileId) {
-        console.error('CommandChainService: Cannot move command - no current profile ID available')
-        return false
-      }
-
-      // Use DataCoordinator explicit operations API to modify specific items
-      const result = await this.request('data:update-profile', {
-        profileId: profileId,
-        modify: this.currentEnvironment === 'alias' ? {
-          aliases: {
-            [key]: profile.aliases[key]
-          }
-        } : {
-          builds: {
-            [this.currentEnvironment]: {
-              keys: {
-                [key]: profile.builds[this.currentEnvironment].keys[key]
-              }
-            }
-          }
-        }
-      })
-
-      if (result?.success) {
-        this.emit('command-moved', { key, fromIndex, toIndex })
-        return true
-      } else {
-        console.error('CommandChainService: Failed to save profile via DataCoordinator')
-        return false
-      }
-    } catch (error) {
-      console.error('CommandChainService: Failed to move command:', error)
-      return false
-    }
-  }
 
   /**
    * Get commands for a specific key

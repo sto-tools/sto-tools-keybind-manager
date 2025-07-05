@@ -279,8 +279,9 @@ function formatParameterizedCommand(commandDef, parameters, i18n) {
       return `${parameters.verb}: "${parameters.message}"`
     }
   } else if (commandId === 'tray_with_backup') {
-    if (parameters.active && parameters.tray !== undefined && parameters.slot !== undefined) {
-      return `${commandDef.name} (${parameters.tray} ${parameters.slot} ${parameters.backup_tray || ''} ${parameters.backup_slot || ''})`
+    // Show parameters even when active is 0 (disabled) since they still convey meaning.
+    if (parameters.tray !== undefined && parameters.slot !== undefined) {
+      return `${commandDef.name} (${parameters.tray} ${parameters.slot} ${parameters.backup_tray ?? ''} ${parameters.backup_slot ?? ''})`
     }
   } else if (commandId === 'custom_tray') {
     if (parameters.tray !== undefined && parameters.slot !== undefined) {
