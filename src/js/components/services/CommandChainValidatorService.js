@@ -25,15 +25,15 @@ export default class CommandChainValidatorService extends ComponentBase {
    * ---------------------------------------------------------- */
   onInit() {
     // Listen for validate events coming from the UI
-    this.addEventListener('command-chain:validate', async ({ key, stabilized }) => {
-      await this.validateChain(key, stabilized)
+    this.addEventListener('command-chain:validate', async ({ key, stabilized, isAlias }) => {
+      await this.validateChain(key, stabilized, isAlias)
     })
   }
 
   /* ------------------------------------------------------------
    * Public validation entry
    * ---------------------------------------------------------- */
-  async validateChain(key, stabilizedFlag = undefined) {
+  async validateChain(key, stabilizedFlag = undefined, aliasFlag = undefined) {
     if (this._busy) return
     this._busy = true
     try {
@@ -54,6 +54,7 @@ export default class CommandChainValidatorService extends ComponentBase {
 
       // Determine if stabilization (mirroring) is enabled for this key
       const stabilized = stabilizedFlag !== undefined ? stabilizedFlag : false
+      const isAlias    = aliasFlag !== undefined ? aliasFlag : false
 
       let length
       if (stabilized && commands.length > 1) {
@@ -69,7 +70,7 @@ export default class CommandChainValidatorService extends ComponentBase {
 
       // ------------------------------------
       // Run modular validators
-      const ctx = { key, commands, length, stabilized }
+      const ctx = { key, commands, length, stabilized, isAlias }
       const issues = RULES.map(r => r.run(ctx)).filter(Boolean)
 
       const errors   = issues.filter(i => i.severity === 'error')
@@ -79,10 +80,16 @@ export default class CommandChainValidatorService extends ComponentBase {
 
       this.emit('command-chain:validation-result', { key, length, severity, warnings, errors })
 
-      // Show toast(s)
-      if (issues.length === 0) {
-        const okMsg = await this.getI18nMessage('command_chain_is_valid', { length }) || `Command chain is valid (${length}/999)`
-        await this.showToast(okMsg, 'success')
+      // Initialize cache for previous severities per key
+      if (!this._severityCache) this._severityCache = {}
+      const prevSeverity = this._severityCache[key]
+      this._severityCache[key] = severity
+
+      if (severity === 'success') {
+        if (prevSeverity !== 'success') {
+          const okMsg = await this.getI18nMessage('command_chain_is_valid', { length }) || `Command chain is valid (${length}/999)`
+          await this.showToast(okMsg, 'success')
+        }
       } else {
         for (const issue of issues) {
           const msg = await this.getI18nMessage(issue.key, issue.params) || issue.defaultMessage || issue.key

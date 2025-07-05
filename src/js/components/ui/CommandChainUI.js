@@ -187,7 +187,8 @@ export default class CommandChainUI extends ComponentBase {
       // After rendering, automatically validate current chain so the status beacon stays up-to-date
       try {
         const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName })
-        this.emit('command-chain:validate', { key: selectedKeyName, stabilized })
+        const isAlias = this._currentEnvironment === 'alias'
+        this.emit('command-chain:validate', { key: selectedKeyName, stabilized, isAlias })
       } catch (_) {
         // best-effort – ignore if service not available yet
       }

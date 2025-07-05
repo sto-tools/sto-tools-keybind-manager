@@ -339,8 +339,8 @@ export default class CommandUI extends ComponentBase {
         stabilized = await this.request('command-chain:is-stabilized', { name: key })
       } catch (_) {}
 
-      // Delegate actual validation & user feedback to CommandChainValidatorService
-      this.emit('command-chain:validate', { key, stabilized })
+      const isAlias = this.getCurrentEnvironment() === 'alias'
+      this.emit('command-chain:validate', { key, stabilized, isAlias })
     }
   }
 
