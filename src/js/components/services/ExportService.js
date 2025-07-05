@@ -171,7 +171,7 @@ export default class ExportService extends ComponentBase {
 
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
     for (const [name, alias] of sorted) {
-      const commandsArray = Array.isArray(alias.commands) ? alias.commands : []
+      let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
 
       // Apply mirroring if aliasMetadata says so
       const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
@@ -337,7 +337,7 @@ export default class ExportService extends ComponentBase {
 
     let html = '<table><thead><tr><th>Alias</th><th>Commands</th><th>Description</th></tr></thead><tbody>'
     Object.values(aliases).forEach((alias) => {
-      const commandsArray = Array.isArray(alias.commands) ? alias.commands : []
+      let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
       const commandsDisplay = commandsArray.join(' $$ ')
       
       html += `<tr>
@@ -391,7 +391,7 @@ export default class ExportService extends ComponentBase {
     // Generate alias content directly
     const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
     for (const [name, alias] of sorted) {
-      const commandsArray = Array.isArray(alias.commands) ? alias.commands : []
+      let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
 
       // Apply mirroring if aliasMetadata says so
       const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)

@@ -9,6 +9,7 @@
  */
 
 import { request } from '../core/requestResponse.js'
+import eventBus from '../core/eventBus.js'
 
 /**
  * Convert a canonical command string to a rich object for UI display
@@ -23,10 +24,13 @@ export async function enrichForDisplay(commandString, i18n, options = {}) {
     return createFallbackRichObject(commandString, i18n)
   }
 
+  // Resolve the event bus to use (caller provided → global → default import)
+  const bus = options.eventBus || globalThis.eventBus || eventBus
+
   try {
     // Use STOCommandParser to get base parsing information
     const parseResult = await request(
-      globalThis.eventBus || options.eventBus,
+      bus,
       'parser:parse-command-string',
       {
         commandString,
@@ -45,7 +49,7 @@ export async function enrichForDisplay(commandString, i18n, options = {}) {
     // Try to get command definition for additional metadata
     let commandDef = null
     try {
-      commandDef = await request(globalThis.eventBus || options.eventBus, 'command:find-definition', { 
+      commandDef = await request(bus, 'command:find-definition', { 
         command: commandString 
       })
     } catch (error) {
@@ -163,9 +167,12 @@ export async function normalizeToOptimizedString(cmdOrObj, options = {}) {
     return ''
   }
   
+  // Resolve the event bus to use (caller provided → global → default import)
+  const bus = options.eventBus || globalThis.eventBus || eventBus
+
   try {
     // Parse the command to check if it can be optimized
-    const parseResult = await request(options.eventBus || globalThis.eventBus, 'parser:parse-command-string', {
+    const parseResult = await request(bus, 'parser:parse-command-string', {
       commandString,
       options: { generateDisplayText: false }
     })
