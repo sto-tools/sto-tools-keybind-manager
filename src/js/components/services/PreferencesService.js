@@ -215,9 +215,11 @@ export default class PreferencesService extends ComponentBase {
     if (themeToggleBtn && themeToggleText && themeIcon) {
       if (theme === 'dark') {
         themeIcon.className = 'fas fa-sun'
+        themeToggleText.setAttribute('data-i18n', 'light_mode')
         themeToggleText.textContent = this.i18n?.t('light_mode') || 'Light Mode'
       } else {
         themeIcon.className = 'fas fa-moon'
+        themeToggleText.setAttribute('data-i18n', 'dark_mode')
         themeToggleText.textContent = this.i18n?.t('dark_mode') || 'Dark Mode'
       }
     }
