@@ -231,6 +231,12 @@ export default class CommandChainService extends ComponentBase {
         console.error('Failed to move command:', error)
       }
     })
+
+    // Clear entire chain when broadcast event received (Button in UI)
+    this.addEventListener('command-chain:clear', async ({ key }) => {
+      if (!key) return
+      await this.clearCommandChain(key)
+    })
   }
 
   /* ------------------------------------------------------------------

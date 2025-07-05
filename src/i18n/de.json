@@ -1027,5 +1027,6 @@
   "search_aliases": "Aliase suchen...",
   "show_all_aliases": "Alle Aliase anzeigen",
   "show_all_commands": "Alle Befehle anzeigen",
-  "enter_key_name": "Tastenname eingeben..."
+  "enter_key_name": "Tastenname eingeben...",
+  "clear_filter": "Filter löschen"
 }

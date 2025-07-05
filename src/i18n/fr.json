@@ -1027,5 +1027,6 @@
   "search_aliases": "Rechercher des alias...",
   "show_all_aliases": "Afficher Tous les Alias",
   "show_all_commands": "Afficher Toutes les Commandes",
-  "enter_key_name": "Entrer le nom de la touche..."
+  "enter_key_name": "Entrer le nom de la touche...",
+  "clear_filter": "Effacer le filtre"
 }

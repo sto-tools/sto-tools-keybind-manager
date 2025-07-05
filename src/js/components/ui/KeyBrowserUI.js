@@ -464,23 +464,34 @@ export default class KeyBrowserUI extends ComponentBase {
   filterKeys (filter = '') {
     const filterLower = (filter || '').toString().toLowerCase()
 
-    this.document.querySelectorAll('.key-item').forEach((item) => {
+    const grid = this.document.getElementById('keyGrid')
+    if (!grid) return
+
+    grid.querySelectorAll('.key-item').forEach((item) => {
       const keyName = (item.dataset.key || '').toLowerCase()
       const visible = !filterLower || keyName.includes(filterLower)
       item.style.display = visible ? 'flex' : 'none'
     })
 
-    this.document.querySelectorAll('.command-item[data-key]').forEach((item) => {
+    grid.querySelectorAll('.command-item[data-key]').forEach((item) => {
       const keyName = (item.dataset.key || '').toLowerCase()
       const visible = !filterLower || keyName.includes(filterLower)
       item.style.display = visible ? 'flex' : 'none'
     })
 
-    this.document.querySelectorAll('.category').forEach((category) => {
+    grid.querySelectorAll('.category').forEach((category) => {
       const visibleKeys = category.querySelectorAll('.command-item[data-key]:not([style*="display: none"])')
       const categoryVisible = !filterLower || visibleKeys.length > 0
       category.style.display = categoryVisible ? 'block' : 'none'
     })
+
+    // After category display update, update search button active state
+    const searchBtn = this.document.getElementById('keySearchBtn')
+    if (searchBtn) {
+      const active = !!filterLower
+      searchBtn.classList.toggle('active', active)
+      searchBtn.setAttribute('aria-pressed', active)
+    }
   }
 
   filterCommands (filter = '') {
@@ -500,12 +511,22 @@ export default class KeyBrowserUI extends ComponentBase {
   }
 
   showAllKeys () {
-    this.document.querySelectorAll('.key-item').forEach((item) => { item.style.display = 'flex' })
-    this.document.querySelectorAll('.command-item[data-key]').forEach((item) => { item.style.display = 'flex' })
-    this.document.querySelectorAll('.category').forEach((category) => { category.style.display = 'block' })
+    const grid = this.document.getElementById('keyGrid')
+    if (!grid) return
+
+    grid.querySelectorAll('.key-item').forEach((item) => { item.style.display = 'flex' })
+    grid.querySelectorAll('.command-item[data-key]').forEach((item) => { item.style.display = 'flex' })
+    grid.querySelectorAll('.category').forEach((category) => { category.style.display = 'block' })
 
     const filterInput = this.document.getElementById('keyFilter')
     if (filterInput) filterInput.value = ''
+
+    // Ensure search button no longer active
+    const searchBtn = this.document.getElementById('keySearchBtn')
+    if (searchBtn) {
+      searchBtn.classList.remove('active')
+      searchBtn.setAttribute('aria-pressed', 'false')
+    }
   }
 
   toggleVisibility (env) {

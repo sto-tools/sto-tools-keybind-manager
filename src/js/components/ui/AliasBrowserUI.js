@@ -354,12 +354,23 @@ export default class AliasBrowserUI extends ComponentBase {
    */
   filterAliases(value='') {
     const filter = (value||'').toString().toLowerCase()
-    const items = this.document.querySelectorAll('.alias-item')
+    const grid = this.document.getElementById('aliasGrid')
+    if (!grid) return
+
+    const items = grid.querySelectorAll('.alias-item')
     items.forEach(item => {
       const name = (item.dataset.alias||'').toLowerCase()
       const visible = !filter || name.includes(filter)
       item.style.display = visible ? 'flex' : 'none'
     })
+
+    // Update search button active state for accessibility
+    const searchBtn = this.document.getElementById('aliasSearchBtn')
+    if (searchBtn) {
+      const active = !!filter
+      searchBtn.classList.toggle('active', active)
+      searchBtn.setAttribute('aria-pressed', active)
+    }
   }
 
   /** Toggle alias search input */
