@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import RULES from './validators/index.js'
 
 /**
  * CommandChainValidatorService
@@ -66,40 +67,28 @@ export default class CommandChainValidatorService extends ComponentBase {
         length = previewUnstabilized.length
       }
 
-      let severity = 'success'
-      let i18nKey = 'command_chain_is_valid'
+      // ------------------------------------
+      // Run modular validators
+      const ctx = { key, commands, length, stabilized }
+      const issues = RULES.map(r => r.run(ctx)).filter(Boolean)
 
-      if (length >= 990) {
-        severity = 'error'
-        i18nKey = 'command_chain_too_long'
-      } else if (length >= 900) {
-        severity = 'warning'
-        i18nKey = 'command_chain_near_limit'
-      }
+      const errors   = issues.filter(i => i.severity === 'error')
+      const warnings = issues.filter(i => i.severity === 'warning')
 
-      // Build warnings/errors arrays
-      const warnings = []
-      const errors   = []
+      const severity = errors.length ? 'error' : warnings.length ? 'warning' : 'success'
 
-      if (stabilized && commands.length > 1 && length >= 900 && length < 990) {
-        warnings.push({ key: 'command_chain_near_limit', params: { length } })
-      }
-      if (length >= 990) {
-        errors.push({ key: 'command_chain_too_long', params: { length } })
-      }
-
-      // Emit structured result so UI components can react if needed
       this.emit('command-chain:validation-result', { key, length, severity, warnings, errors })
 
-      // Show toast if UI is available – do not block execution flow
-      const defaultMessages = {
-        success: `Command chain is valid (${length}/999)`,
-        warning: `Command chain is ${length} characters; consider shortening (limit 999).`,
-        error: `Command chain exceeds safe length (${length}/999). It may fail in game.`
+      // Show toast(s)
+      if (issues.length === 0) {
+        const okMsg = await this.getI18nMessage('command_chain_is_valid', { length }) || `Command chain is valid (${length}/999)`
+        await this.showToast(okMsg, 'success')
+      } else {
+        for (const issue of issues) {
+          const msg = await this.getI18nMessage(issue.key, issue.params) || issue.defaultMessage || issue.key
+          await this.showToast(msg, issue.severity)
+        }
       }
-
-      const message = await this.getI18nMessage(i18nKey, { length }) || defaultMessages[severity]
-      await this.showToast(message, severity)
     } catch (error) {
       console.error('[CommandChainValidatorService] validateChain failed:', error)
     } finally {
