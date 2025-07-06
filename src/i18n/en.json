@@ -1017,5 +1017,21 @@
   "too_many_commands_on_key": "Binding {{count}} commands to one key may fail in game (max recommended 20).",
   "alias_mixed_environment_warning": "Alias contains both space-only and ground-only commands; this is not recommended.",
   "commands_with_internal_warnings": "{{list}}",
-  "spam_bar_warning": "Not recommended on spam bars as it interferes with firing cycles"
+  "spam_bar_warning": "Not recommended on spam bars as it interferes with firing cycles",
+  "press_any_key_combination": "Press any key combination...",
+  "capture_instructions": "Use your keyboard or mouse, or switch to manual to click keys below",
+  "switch_to_manual": "Switch to Manual",
+  "start_capture": "Start Capture",
+  "selected_key": "Selected Key",
+  "confirm_selection": "Confirm Selection",
+  "quick_suggestions": "Quick Suggestions",
+  "modifiers": "Modifiers",
+  "keyboard_layout": "Keyboard Layout",
+  "mouse_gestures": "Mouse Gestures",
+  "suggestion_common": "Common Keys",
+  "suggestion_movement": "Movement",
+  "suggestion_abilities": "Abilities",
+  "suggestion_quickslots": "Quick Slots",
+  "suggestion_mouse": "Mouse Actions",
+  "key_selection_failed": "Failed to select key"
 }

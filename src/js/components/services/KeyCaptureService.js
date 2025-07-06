@@ -32,6 +32,21 @@ export default class KeyCaptureService extends ComponentBase {
     // Bindings --------------------------------------------------------------
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
     this.boundHandleKeyUp   = this.handleKeyUp.bind(this)
+    this.boundHandleMouseDown = this.handleMouseDown.bind(this)
+    this.boundHandleMouseUp = this.handleMouseUp.bind(this)
+    this.boundHandleMouseMove = this.handleMouseMove.bind(this)
+    this.boundHandleWheel = this.handleWheel.bind(this)
+
+    // Mouse state tracking
+    this.mouseState = {
+      isDown: false,
+      button: null,
+      startX: 0,
+      startY: 0,
+      pressTimer: null,
+      dragThreshold: 5,
+      pressTimeout: 200
+    }
 
     // Listen for start/stop requests emitted by UI components
     this.addEventListener('keycapture:start', ({ context } = {}) => this.startCapture(context))
@@ -55,8 +70,15 @@ export default class KeyCaptureService extends ComponentBase {
     this.currentContext = context
     this.isCapturing    = true
 
+    // Add keyboard listeners
     this.document.addEventListener('keydown', this.boundHandleKeyDown)
     this.document.addEventListener('keyup',   this.boundHandleKeyUp)
+    
+    // Add mouse listeners
+    this.document.addEventListener('mousedown', this.boundHandleMouseDown)
+    this.document.addEventListener('mouseup', this.boundHandleMouseUp)
+    this.document.addEventListener('mousemove', this.boundHandleMouseMove)
+    this.document.addEventListener('wheel', this.boundHandleWheel)
 
     this.emit('capture-start', { context })
   }
@@ -68,10 +90,22 @@ export default class KeyCaptureService extends ComponentBase {
     if (!this.isCapturing) return
 
     this.isCapturing = false
+    
+    // Remove keyboard listeners
     this.document.removeEventListener('keydown', this.boundHandleKeyDown)
     this.document.removeEventListener('keyup',   this.boundHandleKeyUp)
+    
+    // Remove mouse listeners
+    this.document.removeEventListener('mousedown', this.boundHandleMouseDown)
+    this.document.removeEventListener('mouseup', this.boundHandleMouseUp)
+    this.document.removeEventListener('mousemove', this.boundHandleMouseMove)
+    this.document.removeEventListener('wheel', this.boundHandleWheel)
+    
     this.pressedCodes.clear()
     this.hasCapturedValidKey = false
+    
+    // Clear mouse state
+    this.resetMouseState()
 
     this.emit('capture-stop', { context: this.currentContext })
     this.currentContext = 'keySelectionModal'
@@ -91,6 +125,18 @@ export default class KeyCaptureService extends ComponentBase {
   resetState () {
     this.pressedCodes.clear()
     this.hasCapturedValidKey = false
+    this.resetMouseState()
+  }
+
+  resetMouseState () {
+    if (this.mouseState.pressTimer) {
+      clearTimeout(this.mouseState.pressTimer)
+      this.mouseState.pressTimer = null
+    }
+    this.mouseState.isDown = false
+    this.mouseState.button = null
+    this.mouseState.startX = 0
+    this.mouseState.startY = 0
   }
 
   /* ----------------------------- event handlers ------------------------- */
@@ -135,6 +181,103 @@ export default class KeyCaptureService extends ComponentBase {
     }
   }
 
+  handleMouseDown (event) {
+    if (!this.isCapturing) return
+    
+    // Prevent default behavior
+    event.preventDefault()
+    
+    this.mouseState.isDown = true
+    this.mouseState.button = event.button
+    this.mouseState.startX = event.clientX
+    this.mouseState.startY = event.clientY
+    
+    // Start press timer for press gestures
+    this.mouseState.pressTimer = setTimeout(() => {
+      if (this.mouseState.isDown) {
+        const gesture = this.getButtonGesture(event.button, 'press')
+        this.captureMouseGesture(gesture)
+      }
+    }, this.mouseState.pressTimeout)
+  }
+
+  handleMouseUp (event) {
+    if (!this.isCapturing) return
+    
+    event.preventDefault()
+    
+    if (this.mouseState.pressTimer) {
+      clearTimeout(this.mouseState.pressTimer)
+      this.mouseState.pressTimer = null
+    }
+    
+    if (this.mouseState.isDown && this.mouseState.button === event.button) {
+      const deltaX = Math.abs(event.clientX - this.mouseState.startX)
+      const deltaY = Math.abs(event.clientY - this.mouseState.startY)
+      const hasMoved = deltaX > this.mouseState.dragThreshold || deltaY > this.mouseState.dragThreshold
+      
+      if (hasMoved) {
+        // This was a drag gesture
+        const gesture = this.getButtonGesture(event.button, 'drag')
+        this.captureMouseGesture(gesture)
+      } else {
+        // This was a click gesture
+        const gesture = this.getButtonGesture(event.button, 'click')
+        this.captureMouseGesture(gesture)
+      }
+    }
+    
+    this.resetMouseState()
+  }
+
+  handleMouseMove (event) {
+    if (!this.isCapturing || !this.mouseState.isDown) return
+    
+    // Check if we've moved enough to cancel the press timer
+    const deltaX = Math.abs(event.clientX - this.mouseState.startX)
+    const deltaY = Math.abs(event.clientY - this.mouseState.startY)
+    
+    if ((deltaX > this.mouseState.dragThreshold || deltaY > this.mouseState.dragThreshold) && this.mouseState.pressTimer) {
+      clearTimeout(this.mouseState.pressTimer)
+      this.mouseState.pressTimer = null
+    }
+  }
+
+  handleWheel (event) {
+    if (!this.isCapturing) return
+    
+    event.preventDefault()
+    
+    const gesture = event.deltaY > 0 ? 'wheeldown' : 'wheelup'
+    this.captureMouseGesture(gesture)
+  }
+
+  getButtonGesture (button, type) {
+    const buttonMap = {
+      0: 'l', // Left button
+      1: 'm', // Middle button  
+      2: 'r'  // Right button
+    }
+    
+    const buttonPrefix = buttonMap[button] || 'l'
+    return `${buttonPrefix}${type}`
+  }
+
+  captureMouseGesture (gesture) {
+    // Combine with any currently pressed keyboard modifiers
+    const modifiers = [...this.pressedCodes].filter(code => this.isPureModifier(code))
+    const allCodes = [...modifiers, gesture]
+    
+    const chord = this.chordToString(new Set(allCodes))
+    
+    this.emit('chord-captured', {
+      chord,
+      context: this.currentContext,
+    })
+    
+    this.hasCapturedValidKey = true
+  }
+
   /* ----------------------------- utils ---------------------------------- */
   isPureModifier (code) {
     return [
@@ -157,6 +300,14 @@ export default class KeyCaptureService extends ComponentBase {
     return [...codes]
       .sort()
       .map((code) => {
+        // Mouse gestures --------------------------------------------------
+        if (typeof code === 'string' && (
+          code.startsWith('l') || code.startsWith('r') || code.startsWith('m') ||
+          code === 'wheelup' || code === 'wheeldown'
+        )) {
+          return code
+        }
+
         // Modifiers --------------------------------------------------------
         if (code.startsWith('Control')) {
           if (locationSpecific) return code.endsWith('Left') ? 'LCTRL' : 'RCTRL'

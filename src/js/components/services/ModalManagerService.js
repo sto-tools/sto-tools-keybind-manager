@@ -150,6 +150,11 @@ export default class ModalManagerService extends ComponentBase {
 
     const firstInput = modal.querySelector('input, textarea, select')
     if (firstInput) setTimeout(() => firstInput.focus(), 100)
+    
+    // Emit modal:shown event for components that need to respond to modal opening
+    const modalId = typeof id === 'string' ? id : modal.id
+    this.emit('modal:shown', { modalId, success: true })
+    
     return true
   }
 

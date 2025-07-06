@@ -1039,5 +1039,21 @@
   "too_many_commands_on_key": "Associer {{count}} commandes à une seule touche peut échouer en jeu (maximum recommandé 20).",
   "alias_mixed_environment_warning": "L'alias contient des commandes exclusives espace et sol ; ceci n'est pas recommandé.",
   "commands_with_internal_warnings": "{{list}}",
-  "spam_bar_warning": "Non recommandé sur les barres de spam car cela perturbe les cycles de tir"
+  "spam_bar_warning": "Non recommandé sur les barres de spam car cela perturbe les cycles de tir",
+  "press_any_key_combination": "Appuyez sur n'importe quelle combinaison de touches...",
+  "capture_instructions": "Utilisez votre clavier ou votre souris, ou passez en mode manuel pour cliquer sur les touches ci-dessous",
+  "switch_to_manual": "Basculer en manuel",
+  "start_capture": "Démarrer la capture",
+  "selected_key": "Touche sélectionnée",
+  "confirm_selection": "Confirmer la sélection",
+  "quick_suggestions": "Suggestions rapides",
+  "modifiers": "Modificateurs",
+  "keyboard_layout": "Disposition du clavier",
+  "mouse_gestures": "Gestes de souris",
+  "suggestion_common": "Touches courantes",
+  "suggestion_movement": "Mouvement",
+  "suggestion_abilities": "Compétences",
+  "suggestion_quickslots": "Raccourcis",
+  "suggestion_mouse": "Actions de souris",
+  "key_selection_failed": "Échec de la sélection de la touche"
 }

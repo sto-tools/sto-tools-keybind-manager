@@ -1048,5 +1048,21 @@
   "too_many_commands_on_key": "Asignar {{count}} comandos a una tecla puede fallar en el juego (máximo recomendado 20).",
   "alias_mixed_environment_warning": "El alias contiene comandos exclusivos de espacio y de tierra; esto no se recomienda.",
   "commands_with_internal_warnings": "{{list}}",
-  "spam_bar_warning": "No se recomienda en barras de spam porque interfiere con los ciclos de disparo"
+  "spam_bar_warning": "No se recomienda en barras de spam ya que interfiere con los ciclos de disparo",
+  "press_any_key_combination": "Presione cualquier combinación de teclas...",
+  "capture_instructions": "Utiliza tu teclado o ratón, o cambia a modo manual para hacer clic en las teclas de abajo",
+  "switch_to_manual": "Cambiar a Manual",
+  "start_capture": "Iniciar captura",
+  "selected_key": "Tecla seleccionada",
+  "confirm_selection": "Confirmar selección",
+  "quick_suggestions": "Sugerencias rápidas",
+  "modifiers": "Modificadores",
+  "keyboard_layout": "Distribución de teclado",
+  "mouse_gestures": "Gestos de ratón",
+  "suggestion_common": "Teclas comunes",
+  "suggestion_movement": "Movimiento",
+  "suggestion_abilities": "Habilidades",
+  "suggestion_quickslots": "Accesos rápidos",
+  "suggestion_mouse": "Acciones de ratón",
+  "key_selection_failed": "Error al seleccionar la tecla"
 }

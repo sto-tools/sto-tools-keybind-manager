@@ -296,11 +296,11 @@ export default class KeyService extends ComponentBase {
   async isValidKeyName (keyName) {
     if (!keyName || typeof keyName !== 'string') return false
     try {
-      const pattern = await this.request('data:get-key-name-pattern') || /^[A-Za-z0-9_]+$/
+      const pattern = await this.request('data:get-key-name-pattern') || /^[A-Za-z0-9_+]+$/
       return pattern.test(keyName) && keyName.length <= 20
     } catch (error) {
       // Fallback to default pattern if DataService not available
-      return /^[A-Za-z0-9_]+$/.test(keyName) && keyName.length <= 20
+      return /^[A-Za-z0-9_+]+$/.test(keyName) && keyName.length <= 20
     }
   }
 

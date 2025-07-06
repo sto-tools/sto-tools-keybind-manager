@@ -1039,5 +1039,21 @@
   "too_many_commands_on_key": "Die Zuordnung von {{count}} Befehlen zu einer Taste kann im Spiel fehlschlagen (empfohlene Obergrenze 20).",
   "alias_mixed_environment_warning": "Alias enthält sowohl weltraum- als auch bodenspezifische Befehle; dies ist nicht empfohlen.",
   "commands_with_internal_warnings": "{{list}}",
-  "spam_bar_warning": "Nicht für Spam-Leisten empfohlen, da es die Feuerzyklen stört"
+  "spam_bar_warning": "Nicht für Spam-Leisten empfohlen, da es die Feuerzyklen stört",
+  "press_any_key_combination": "Drücken Sie eine beliebige Tastenkombination...",
+  "capture_instructions": "Verwende deine Tastatur oder Maus, oder wechsle in den manuellen Modus, um unten Tasten anzuklicken",
+  "switch_to_manual": "Manuelle Auswahl",
+  "start_capture": "Aufnahme starten",
+  "selected_key": "Ausgewählte Taste",
+  "confirm_selection": "Auswahl bestätigen",
+  "quick_suggestions": "Schnelle Vorschläge",
+  "modifiers": "Modifikatoren",
+  "keyboard_layout": "Tastaturbelegung",
+  "mouse_gestures": "Mausgesten",
+  "suggestion_common": "Häufige Tasten",
+  "suggestion_movement": "Bewegung",
+  "suggestion_abilities": "Fähigkeiten",
+  "suggestion_quickslots": "Schnellzugriffe",
+  "suggestion_mouse": "Mausaktionen",
+  "key_selection_failed": "Tastenauswahl fehlgeschlagen"
 }
