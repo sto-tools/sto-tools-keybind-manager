@@ -1037,5 +1037,5 @@
   "command_chain_too_long": "La chaîne de commandes est trop longue ({{length}} caractères) et peut échouer dans le jeu.",
   "stabilized_non_tray_warning": "L'exécution stabilisée ne doit être utilisée qu'avec des capacités d'exécution de barre.",
   "too_many_commands_on_key": "Associer {{count}} commandes à une seule touche peut échouer en jeu (maximum recommandé 20).",
-  "alias_mixed_environment_warning": "L'alias contient des commandes exclusives espace et sol ; envisagez de les séparer pour plus de fiabilité."
+  "alias_mixed_environment_warning": "L'alias contient des commandes exclusives espace et sol ; ceci n'est pas recommandé."
 }

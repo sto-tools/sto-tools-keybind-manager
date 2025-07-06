@@ -1013,7 +1013,7 @@
   "ok": "OK",
   "command_chain_near_limit": "Command chain is getting long ({{length}} characters). Exceeding 999 may break.",
   "command_chain_too_long": "Command chain is too long ({{length}} characters) and may fail in game.",
-  "stabilized_non_tray_warning": "Stabilized execution should only be used with tray execution abilities.",
+  "stabilized_non_tray_warning": "Stabilized execution should be used with tray execution abilities only.",
   "too_many_commands_on_key": "Binding {{count}} commands to one key may fail in game (max recommended 20).",
-  "alias_mixed_environment_warning": "Alias contains both space-only and ground-only commands; consider splitting for reliability."
+  "alias_mixed_environment_warning": "Alias contains both space-only and ground-only commands; this is not recommended."
 }

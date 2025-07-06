@@ -1037,5 +1037,5 @@
   "command_chain_too_long": "Befehlsfolge ist zu lang ({{length}} Zeichen) und kann im Spiel fehlschlagen.",
   "stabilized_non_tray_warning": "Stabilisierte Ausführung sollte nur mit Tray-Ausführungsfähigkeiten verwendet werden.",
   "too_many_commands_on_key": "Die Zuordnung von {{count}} Befehlen zu einer Taste kann im Spiel fehlschlagen (empfohlene Obergrenze 20).",
-  "alias_mixed_environment_warning": "Alias enthält sowohl weltraum- als auch bodenspezifische Befehle; für bessere Zuverlässigkeit aufteilen."
+  "alias_mixed_environment_warning": "Alias enthält sowohl weltraum- als auch bodenspezifische Befehle; dies ist nicht empfohlen."
 }
