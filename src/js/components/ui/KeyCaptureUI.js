@@ -635,7 +635,6 @@ export default class KeyCaptureUI extends ComponentBase {
           <!-- Virtual Keyboard Section -->
           <div class="virtual-keyboard-section">
             <div class="section-header">
-              <h4><i class="fas fa-keyboard"></i> <span data-i18n="keyboard_layout">${i18next?.t('keyboard_layout') || 'Keyboard Layout'}</span></h4>
               <select id="keyboardLayoutSelector" class="form-select">
                 <option value="en">QWERTY (English)</option>
                 <option value="de">QWERTZ (German)</option>
