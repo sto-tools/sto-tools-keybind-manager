@@ -50,6 +50,7 @@ export default class KeyCaptureUI extends ComponentBase {
     this.ignoreNextChord = false
     // Remember the last side (L/R) used for each modifier to restore when toggling distinguish option
     this.lastModifierSide = { ctrl: 'L', alt: 'L', shift: 'L' }
+    this.selectedLayout = 'en'
     
     // Legacy compatibility
     this.service = service
@@ -147,6 +148,9 @@ export default class KeyCaptureUI extends ComponentBase {
   initializeModal() {
     console.log('[KeyCaptureUI] initializeModal called')
     this.buildModalContent()
+    // Ensure dropdown reflects current layout
+    const selector = this.document.getElementById('keyboardLayoutSelector')
+    if (selector) selector.value = this.selectedLayout
     this.updateKeyboardLayout()
     
     // Ensure location-specific flag in service matches initial checkbox (default false)
@@ -664,8 +668,8 @@ export default class KeyCaptureUI extends ComponentBase {
    * Update keyboard layout based on language
    */
   updateKeyboardLayout() {
-    const currentLang = i18next?.language || 'en'
-    this.currentKeyboard = getKeyboardLayout(currentLang)
+    // Use the user-selected layout rather than UI language
+    this.currentKeyboard = JSON.parse(JSON.stringify(getKeyboardLayout(this.selectedLayout)))
     this.renderVirtualKeyboard()
   }
 
@@ -673,7 +677,8 @@ export default class KeyCaptureUI extends ComponentBase {
    * Change keyboard layout
    */
   changeKeyboardLayout(language) {
-    this.currentKeyboard = getKeyboardLayout(language)
+    this.selectedLayout = language || 'en'
+    this.currentKeyboard = JSON.parse(JSON.stringify(getKeyboardLayout(this.selectedLayout)))
     this.renderVirtualKeyboard()
     
     // Update layout indicator

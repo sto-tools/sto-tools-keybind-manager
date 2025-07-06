@@ -214,7 +214,7 @@ const QWERTZ_LAYOUT = {
     KeyE: { primary: 'E', secondary: '' },
     KeyR: { primary: 'R', secondary: '' },
     KeyT: { primary: 'T', secondary: '' },
-    KeyZ: { primary: 'Z', secondary: '' }, // Z and Y swapped in QWERTZ
+    KeyZ: { primary: 'Y', secondary: '' }, // Position of Y in QWERTZ
     KeyU: { primary: 'U', secondary: '' },
     KeyI: { primary: 'I', secondary: '' },
     KeyO: { primary: 'O', secondary: '' },
@@ -228,7 +228,7 @@ const QWERTZ_LAYOUT = {
     KeyJ: { primary: 'J', secondary: '' },
     KeyK: { primary: 'K', secondary: '' },
     KeyL: { primary: 'L', secondary: '' },
-    KeyY: { primary: 'Y', secondary: '' }, // Y and Z swapped in QWERTZ
+    KeyY: { primary: 'Z', secondary: '' }, // Position of Z in QWERTZ
     KeyX: { primary: 'X', secondary: '' },
     KeyC: { primary: 'C', secondary: '' },
     KeyV: { primary: 'V', secondary: '' },
@@ -303,8 +303,10 @@ const AZERTY_LAYOUT = {
     Digit0: { primary: '0', secondary: '' },
     
     // Letters (uppercase only, AZERTY layout)
-    KeyA: { primary: 'A', secondary: '' }, // A and Q swapped in AZERTY
-    KeyZ: { primary: 'Z', secondary: '' }, // Z and W swapped in AZERTY
+    KeyA: { primary: 'Q', secondary: '' }, // Physical A key shows Q
+    KeyQ: { primary: 'A', secondary: '' }, // Physical Q key shows A
+    KeyZ: { primary: 'W', secondary: '' }, // Physical Z key shows W
+    KeyW: { primary: 'Z', secondary: '' }, // Physical W key shows Z
     KeyE: { primary: 'E', secondary: '' },
     KeyR: { primary: 'R', secondary: '' },
     KeyT: { primary: 'T', secondary: '' },
@@ -313,7 +315,6 @@ const AZERTY_LAYOUT = {
     KeyI: { primary: 'I', secondary: '' },
     KeyO: { primary: 'O', secondary: '' },
     KeyP: { primary: 'P', secondary: '' },
-    KeyQ: { primary: 'Q', secondary: '' }, // Q and A swapped in AZERTY
     KeyS: { primary: 'S', secondary: '' },
     KeyD: { primary: 'D', secondary: '' },
     KeyF: { primary: 'F', secondary: '' },
@@ -322,7 +323,6 @@ const AZERTY_LAYOUT = {
     KeyJ: { primary: 'J', secondary: '' },
     KeyK: { primary: 'K', secondary: '' },
     KeyL: { primary: 'L', secondary: '' },
-    KeyW: { primary: 'W', secondary: '' }, // W and Z swapped in AZERTY
     KeyX: { primary: 'X', secondary: '' },
     KeyC: { primary: 'C', secondary: '' },
     KeyV: { primary: 'V', secondary: '' },

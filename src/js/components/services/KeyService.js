@@ -54,6 +54,7 @@ export default class KeyService extends ComponentBase {
       
       // Use addEventListener for key:delete since KeyBrowserUI emits it rather than requests it
       this.addEventListener('key:delete', ({ key } = {}) => this.deleteKey(key))
+      this.respond('key:duplicate-with-name', ({ sourceKey, newKey } = {}) => this.duplicateKeyWithName(sourceKey, newKey))
     }
   }
 
@@ -286,6 +287,44 @@ export default class KeyService extends ComponentBase {
       return true
     } catch (error) {
       console.error('[KeyService] Failed to duplicate key:', error)
+      return false
+    }
+  }
+
+  /** Duplicate an existing key to an explicit new key name */
+  async duplicateKeyWithName (sourceKey, newKey) {
+    if (!sourceKey || !newKey) return false
+
+    // Validate source exists
+    if (!this.cache.keys[sourceKey]) return false
+
+    // Validate new key name and not duplicate
+    if (!await this.isValidKeyName(newKey)) return false
+    if (this.cache.keys[newKey]) return false
+
+    const commands = this.cache.keys[sourceKey]
+
+    try {
+      await this.request('data:update-profile', {
+        profileId: this.cache.currentProfile,
+        add: {
+          builds: {
+            [this.cache.currentEnvironment]: {
+              keys: {
+                [newKey]: JSON.parse(JSON.stringify(commands))
+              }
+            }
+          }
+        }
+      })
+
+      // Update local cache
+      this.cache.keys[newKey] = JSON.parse(JSON.stringify(commands))
+      this.emit('keys:changed', { keys: this.cache.keys })
+      this.emit('key-duplicated', { from: sourceKey, to: newKey })
+      return true
+    } catch (error) {
+      console.error('[KeyService] Failed to duplicate key with name:', error)
       return false
     }
   }
