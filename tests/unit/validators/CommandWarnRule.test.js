@@ -22,18 +22,20 @@ describe('CommandWarnRule', () => {
     }
   })
 
-  it('returns aggregated warning with correct translation key and params', async () => {
+  it('returns one warning issue per command with warning', async () => {
     const { default: CommandWarnRule } = await import('../../../src/js/components/services/validators/CommandWarnRule.js')
     const rule = new CommandWarnRule()
+
     const ctx = { commands: ['FireAll'] }
 
-    const result = rule.run(ctx)
+    const issues = rule.run(ctx)
 
-    expect(result).not.toBeNull()
-    expect(result.key).toBe('commands_with_internal_warnings')
-    expect(result.params).toBeDefined()
-    expect(result.params.list).toContain('Fire All Weapons')
-    expect(result.params.list).toContain('Translated warning')
+    expect(Array.isArray(issues)).toBe(true)
+    expect(issues.length).toBe(1)
+    issues.forEach(issue => {
+      expect(issue.severity).toBe('warning')
+      expect(issue.defaultMessage).toMatch(/Translated warning/)
+    })
   })
 
   afterEach(() => {
