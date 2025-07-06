@@ -82,19 +82,45 @@ const KEY_POSITIONS = {
   AltRight: { row: 5, col: 9, width: 1.5 },
   ControlRight: { row: 5, col: 10.5, width: 1.5 },
   
-  // Arrow keys
-  ArrowUp: { row: 4, col: 15, width: 1 },
-  ArrowLeft: { row: 5, col: 14, width: 1 },
-  ArrowDown: { row: 5, col: 15, width: 1 },
-  ArrowRight: { row: 5, col: 16, width: 1 },
+  // Navigation cluster (realign to start at function key row)
+  Insert: { row: 0, col: 14.5, width: 1 },
+  Delete: { row: 0, col: 15.5, width: 1 },
+  Home: { row: 1, col: 14.5, width: 1 },
+  End: { row: 1, col: 15.5, width: 1 },
+  PageUp: { row: 2, col: 14.5, width: 1 },
+  PageDown: { row: 2, col: 15.5, width: 1 },
   
-  // Navigation cluster
-  Insert: { row: 2, col: 14.5, width: 1 },
-  Delete: { row: 2, col: 15.5, width: 1 },
-  Home: { row: 3, col: 14.5, width: 1 },
-  End: { row: 3, col: 15.5, width: 1 },
-  PageUp: { row: 4, col: 14.5, width: 1 },
-  PageDown: { row: 4, col: 15.5, width: 1 }
+  // Arrow keys (shifted up one row)
+  ArrowUp: { row: 3, col: 15, width: 1 },
+  ArrowLeft: { row: 4, col: 14, width: 1 },
+  ArrowDown: { row: 4, col: 15, width: 1 },
+  ArrowRight: { row: 4, col: 16, width: 1 },
+  
+  // Numeric keypad (row 0 top of numpad)
+  NumpadDivide:   { row: 0, col: 17, width: 1 },
+  NumpadMultiply: { row: 0, col: 18, width: 1 },
+  NumpadSubtract: { row: 0, col: 19, width: 1 },
+
+  // Numeric keypad row with 7 8 9 +
+  Numpad7: { row: 1, col: 17, width: 1 },
+  Numpad8: { row: 1, col: 18, width: 1 },
+  Numpad9: { row: 1, col: 19, width: 1 },
+  NumpadAdd: { row: 1, col: 20, width: 1 },
+
+  // Numeric keypad row with 4 5 6
+  Numpad4: { row: 2, col: 17, width: 1 },
+  Numpad5: { row: 2, col: 18, width: 1 },
+  Numpad6: { row: 2, col: 19, width: 1 },
+
+  // Numeric keypad row with 1 2 3 Enter
+  Numpad1: { row: 3, col: 17, width: 1 },
+  Numpad2: { row: 3, col: 18, width: 1 },
+  Numpad3: { row: 3, col: 19, width: 1 },
+  NumpadEnter: { row: 3, col: 20, width: 1 },
+
+  // Numeric keypad bottom row 0 .
+  Numpad0: { row: 4, col: 17, width: 2 },
+  NumpadDecimal: { row: 4, col: 19, width: 1 },
 }
 
 // QWERTY layout (English, Spanish)
@@ -187,7 +213,25 @@ const QWERTY_LAYOUT = {
     F9: { primary: 'F9', secondary: '' },
     F10: { primary: 'F10', secondary: '' },
     F11: { primary: 'F11', secondary: '' },
-    F12: { primary: 'F12', secondary: '' }
+    F12: { primary: 'F12', secondary: '' },
+    
+    // ---------------- Numpad ----------------
+    NumpadDivide: { primary: '/', secondary: '' },
+    NumpadMultiply: { primary: '*', secondary: '' },
+    NumpadSubtract: { primary: '-', secondary: '' },
+    NumpadAdd: { primary: '+', secondary: '' },
+    NumpadEnter: { primary: 'Enter', secondary: '' },
+    NumpadDecimal: { primary: '.', secondary: '' },
+    Numpad0: { primary: '0', secondary: '' },
+    Numpad1: { primary: '1', secondary: '' },
+    Numpad2: { primary: '2', secondary: '' },
+    Numpad3: { primary: '3', secondary: '' },
+    Numpad4: { primary: '4', secondary: '' },
+    Numpad5: { primary: '5', secondary: '' },
+    Numpad6: { primary: '6', secondary: '' },
+    Numpad7: { primary: '7', secondary: '' },
+    Numpad8: { primary: '8', secondary: '' },
+    Numpad9: { primary: '9', secondary: '' },
   }
 }
 

@@ -333,6 +333,21 @@ export default class KeyCaptureService extends ComponentBase {
           return code
         }
 
+        // Numpad digits ----------------------------------------------------
+        const numpadDigit = code.match(/^Numpad(\d)$/)
+        if (numpadDigit) return `numpad${numpadDigit[1]}`
+
+        // Numpad operations / misc ----------------------------------------
+        const numpadMap = {
+          NumpadAdd     : 'Add',
+          NumpadSubtract: 'Subtract',
+          NumpadMultiply: 'Multiply',
+          NumpadDivide  : 'Divide',
+          NumpadDecimal : 'Decimal',
+          NumpadEnter   : 'numpadenter'
+        }
+        if (numpadMap[code]) return numpadMap[code]
+
         // Special keys ----------------------------------------------------
         const specialMap = {
           Space       : 'Space',

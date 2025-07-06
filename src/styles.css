@@ -33,6 +33,7 @@
   --radius: 0.375rem;
   --radius-lg: 0.5rem;
   --transition: all 0.2s ease-in-out;
+  --text-primary: var(--text);
 }
 
 /* Dark theme variables */
@@ -67,6 +68,7 @@
     0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
   --shadow-xl:
     0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  --text-primary: var(--text);
 }
 
 /* Improved dark mode styles */
@@ -4751,5 +4753,96 @@ input:checked + .slider:before {
   color: white !important;
   border-color: var(--warning, #f59e0b) !important;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2) !important;
+}
+
+/* ... existing code ...
+@media (prefers-color-scheme: dark) {}
+
+/* Dark theme overrides for Key Selection virtual keyboard */
+[data-theme='dark'] .virtual-keyboard .vkey {
+  background: #424242;
+  color: #f5f5f5;
+  border-color: #6b7280;
+}
+
+[data-theme='dark'] .virtual-keyboard .vkey:hover {
+  background: #4f4f4f;
+  border-color: #9ca3af;
+}
+
+/* Selected (blue) in dark mode – keep readable */
+[data-theme='dark'] .virtual-keyboard .vkey.selected,
+[data-theme='dark'] .virtual-keyboard .vkey.pressed {
+  background: var(--primary, #3b82f6) !important;
+  color: #ffffff !important;
+  border-color: var(--primary, #3b82f6) !important;
+}
+
+/* Modifier-active (gold) in dark mode */
+[data-theme='dark'] .virtual-keyboard .vkey.modifier-active,
+[data-theme='dark'] .virtual-keyboard .vkey.modifier-active.selected {
+  background: var(--warning, #f59e0b) !important;
+  color: #ffffff !important;
+  border-color: var(--warning, #f59e0b) !important;
+}
+
+/* Key labels inside the key */
+[data-theme='dark'] .virtual-keyboard .vkey .key-primary,
+[data-theme='dark'] .virtual-keyboard .vkey .key-secondary {
+  color: inherit;
+}
+
+/* ... existing code ... */
+
+/* Dark theme enhancements for Key Capture modal */
+[data-theme='dark'] .key-preview-display {
+  background: var(--surface-dark);
+  border-color: var(--border-dark);
+}
+
+[data-theme='dark'] .key-preview-display .no-selection {
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .key-combination .plus {
+  color: var(--text-light);
+}
+
+/* Dark theme virtual keyboard container adjustments */
+[data-theme='dark'] .virtual-keyboard-container,
+[data-theme='dark'] .virtual-keyboard {
+  background: var(--surface-dark);
+  border-color: var(--border-dark);
+}
+
+/* Key clusters within virtual keyboard rows */
+.key-cluster {
+  display: flex;
+  gap: 0.25rem;
+}
+.key-cluster.nav {
+  margin: 0 1.5rem; /* space between main and numpad */
+}
+.key-cluster.numpad {
+  margin-left: 1.5rem;
+}
+
+/* New three-column virtual keyboard layout */
+.keyboard-columns {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 2rem;
+}
+.keyboard-column {
+  display: grid;
+  grid-template-rows: repeat(7, auto);
+  gap: 0.25rem;
+}
+.keyboard-row { display: flex; gap: 0.25rem; }
+/* remove previous grid definitions if present */
+
+.vkey.placeholder {
+  visibility: hidden;
+  pointer-events: none;
 }
 

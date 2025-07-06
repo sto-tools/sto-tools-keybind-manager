@@ -695,41 +695,57 @@ export default class KeyCaptureUI extends ComponentBase {
     const container = this.document.getElementById('virtualKeyboard')
     if (!container || !this.currentKeyboard) return
 
-    let html = ''
-    const rows = {}
-    
-    // Group keys by row
-    Object.entries(KEY_POSITIONS).forEach(([keyCode, position]) => {
-      if (!rows[position.row]) {
-        rows[position.row] = []
-      }
-      rows[position.row].push({ keyCode, ...position })
+    const mainRows = {}
+    const navRows = {}
+    const numRows = {}
+
+    const pushRow = (dict, row, keyData) => {
+      if (!dict[row]) dict[row] = []
+      dict[row].push(keyData)
+    }
+
+    // Distribute keys into row dictionaries
+    Object.entries(KEY_POSITIONS).forEach(([keyCode, pos]) => {
+      const target = pos.col >= 17 ? numRows : (pos.col >= 14 ? navRows : mainRows)
+      pushRow(target, pos.row, { keyCode, ...pos })
     })
 
-    // Render each row
-    Object.entries(rows)
-      .sort(([a], [b]) => parseInt(a) - parseInt(b))
-      .forEach(([rowNum, keys]) => {
-        html += `<div class="keyboard-row" data-row="${rowNum}">`
-        
-        keys.sort((a, b) => a.col - b.col).forEach(key => {
-          const keyInfo = this.currentKeyboard.keys[key.keyCode] || 
-                         { primary: key.keyCode, secondary: '' }
-          
-          html += `
-            <button class="vkey" 
-                    data-key-code="${key.keyCode}" 
-                    data-row="${key.row}" 
-                    data-col="${key.col}"
-                    style="grid-column: span ${key.width}">
-              <span class="key-primary">${keyInfo.primary}</span>
-              ${keyInfo.secondary ? `<span class="key-secondary">${keyInfo.secondary}</span>` : ''}
-            </button>
-          `
-        })
-        
-        html += '</div>'
-      })
+    const renderKey = (key) => {
+      const info = this.currentKeyboard.keys[key.keyCode] || { primary: key.keyCode, secondary: '' }
+      return `<button class="vkey" data-key-code="${key.keyCode}"><span class="key-primary">${info.primary}</span>${info.secondary ? `<span class="key-secondary">${info.secondary}</span>` : ''}</button>`
+    }
+
+    const maxRow = Math.max(...Object.values(KEY_POSITIONS).map(p => p.row))
+
+    const renderColumn = (rowsDict, isNumpad = false) => {
+      const expectedNumCols = [17, 18, 19, 20]
+      let html = ''
+      for (let rowIdx = 0; rowIdx <= maxRow; rowIdx++) {
+        const keys = (rowsDict[rowIdx] || []).sort((a,b)=>a.col-b.col)
+        let rowHtml = ''
+        if (isNumpad) {
+          rowHtml = expectedNumCols.map(col => {
+            const k = keys.find(k => k.col === col)
+            return k ? renderKey(k) : '<div class="vkey placeholder"></div>'
+          }).join('')
+        } else {
+          rowHtml = keys.map(renderKey).join('')
+        }
+        html += `<div class="keyboard-row" style="grid-row:${rowIdx+1}">${rowHtml}</div>`
+      }
+      return html
+    }
+
+    const mainColHtml = renderColumn(mainRows)
+    const navColHtml  = renderColumn(navRows)
+    const numColHtml  = renderColumn(numRows, true)
+
+    const html = `
+      <div class="keyboard-columns">
+        <div class="keyboard-column main">${mainColHtml}</div>
+        <div class="keyboard-column nav">${navColHtml}</div>
+        <div class="keyboard-column numpad">${numColHtml}</div>
+      </div>`
 
     container.innerHTML = html
   }
@@ -768,11 +784,31 @@ export default class KeyCaptureUI extends ComponentBase {
    * Convert key code to display name
    */
   keyCodeToDisplayName(keyCode) {
+    // Treat numeric keypad specially so we can distinguish them from top-row digits
+    if (keyCode.startsWith('Numpad')) {
+      // Handle digits
+      const digitMatch = keyCode.match(/^Numpad(\d)$/)
+      if (digitMatch) {
+        return `numpad${digitMatch[1]}`
+      }
+      // Handle operation / misc keys
+      const npMap = {
+        'Add'     : 'Add',
+        'Subtract': 'Subtract',
+        'Multiply': 'Multiply',
+        'Divide'  : 'Divide',
+        'Decimal' : 'Decimal',
+        'Enter'   : 'numpadenter'
+      }
+      const suffix = keyCode.replace('Numpad', '')
+      return npMap[suffix] || keyCode
+    }
+
     const keyInfo = this.currentKeyboard?.keys[keyCode]
     if (keyInfo) {
       return keyInfo.primary
     }
-    
+
     // Fallback to simplified name
     return keyCode.replace(/^Key|^Digit/, '')
   }
@@ -937,6 +973,24 @@ export default class KeyCaptureUI extends ComponentBase {
         targetCode = 'ShiftLeft'
       } else if (this.currentKeyboard) {
         // Handle regular keys by searching through the keyboard layout
+        const commonMappings = {
+          '1': 'Digit1', '2': 'Digit2', '3': 'Digit3', '4': 'Digit4', '5': 'Digit5',
+          '6': 'Digit6', '7': 'Digit7', '8': 'Digit8', '9': 'Digit9', '0': 'Digit0',
+          // Numpad digits / operations
+          'numpad0': 'Numpad0', 'numpad1': 'Numpad1', 'numpad2': 'Numpad2', 'numpad3': 'Numpad3', 'numpad4': 'Numpad4',
+          'numpad5': 'Numpad5', 'numpad6': 'Numpad6', 'numpad7': 'Numpad7', 'numpad8': 'Numpad8', 'numpad9': 'Numpad9',
+          'Add': 'NumpadAdd', 'Subtract': 'NumpadSubtract', 'Multiply': 'NumpadMultiply', 'Divide': 'NumpadDivide',
+          'Decimal': 'NumpadDecimal', 'numpadenter': 'NumpadEnter',
+          'A': 'KeyA', 'B': 'KeyB', 'C': 'KeyC', 'D': 'KeyD', 'E': 'KeyE',
+          'F': 'KeyF', 'G': 'KeyG', 'H': 'KeyH', 'I': 'KeyI', 'J': 'KeyJ',
+          'K': 'KeyK', 'L': 'KeyL', 'M': 'KeyM', 'N': 'KeyN', 'O': 'KeyO',
+          'P': 'KeyP', 'Q': 'KeyQ', 'R': 'KeyR', 'S': 'KeyS', 'T': 'KeyT',
+          'U': 'KeyU', 'V': 'KeyV', 'W': 'KeyW', 'X': 'KeyX', 'Y': 'KeyY',
+          'Z': 'KeyZ', 'Space': 'Space', 'Tab': 'Tab',
+          'Escape': 'Escape', 'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
+          'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8', 'F9': 'F9',
+          'F10': 'F10', 'F11': 'F11', 'F12': 'F12'
+        }
         for (const [code, keyInfo] of Object.entries(this.currentKeyboard.keys)) {
           if (keyInfo.primary === key || keyInfo.secondary === key) {
             targetCode = code
@@ -946,19 +1000,6 @@ export default class KeyCaptureUI extends ComponentBase {
         
         // If not found in keyboard layout, try common mappings
         if (!targetCode) {
-          const commonMappings = {
-            '1': 'Digit1', '2': 'Digit2', '3': 'Digit3', '4': 'Digit4', '5': 'Digit5',
-            '6': 'Digit6', '7': 'Digit7', '8': 'Digit8', '9': 'Digit9', '0': 'Digit0',
-            'A': 'KeyA', 'B': 'KeyB', 'C': 'KeyC', 'D': 'KeyD', 'E': 'KeyE',
-            'F': 'KeyF', 'G': 'KeyG', 'H': 'KeyH', 'I': 'KeyI', 'J': 'KeyJ',
-            'K': 'KeyK', 'L': 'KeyL', 'M': 'KeyM', 'N': 'KeyN', 'O': 'KeyO',
-            'P': 'KeyP', 'Q': 'KeyQ', 'R': 'KeyR', 'S': 'KeyS', 'T': 'KeyT',
-            'U': 'KeyU', 'V': 'KeyV', 'W': 'KeyW', 'X': 'KeyX', 'Y': 'KeyY',
-            'Z': 'KeyZ', 'Space': 'Space', 'Tab': 'Tab',
-            'Escape': 'Escape', 'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
-            'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8', 'F9': 'F9',
-            'F10': 'F10', 'F11': 'F11', 'F12': 'F12'
-          }
           targetCode = commonMappings[key]
         }
       }
