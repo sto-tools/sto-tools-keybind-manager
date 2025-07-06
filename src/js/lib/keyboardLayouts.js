@@ -6,22 +6,22 @@
 // Base key positions (independent of layout)
 const KEY_POSITIONS = {
   // Function keys row
-  F1: { row: 0, col: 0, width: 1 },
-  F2: { row: 0, col: 1, width: 1 },
-  F3: { row: 0, col: 2, width: 1 },
-  F4: { row: 0, col: 3, width: 1 },
+  F1: { row: 0, col: 1, width: 1 },
+  F2: { row: 0, col: 2, width: 1 },
+  F3: { row: 0, col: 3, width: 1 },
+  F4: { row: 0, col: 4, width: 1 },
   F5: { row: 0, col: 5, width: 1 },
   F6: { row: 0, col: 6, width: 1 },
   F7: { row: 0, col: 7, width: 1 },
   F8: { row: 0, col: 8, width: 1 },
-  F9: { row: 0, col: 10, width: 1 },
-  F10: { row: 0, col: 11, width: 1 },
-  F11: { row: 0, col: 12, width: 1 },
-  F12: { row: 0, col: 13, width: 1 },
+  F9: { row: 0, col: 9, width: 1 },
+  F10: { row: 0, col: 10, width: 1 },
+  F11: { row: 0, col: 11, width: 1 },
+  F12: { row: 0, col: 12, width: 1 },
   
   // Number row
   Backquote: { row: 1, col: 0, width: 1 },
-  Escape: { row: 0, col: -1, width: 1 },
+  Escape: { row: 0, col: 0, width: 1 },
   Digit1: { row: 1, col: 1, width: 1 },
   Digit2: { row: 1, col: 2, width: 1 },
   Digit3: { row: 1, col: 3, width: 1 },
@@ -74,14 +74,17 @@ const KEY_POSITIONS = {
   KeyM: { row: 4, col: 8.25, width: 1 },
   Comma: { row: 4, col: 9.25, width: 1 },
   Period: { row: 4, col: 10.25, width: 1 },
-  ShiftRight: { row: 4, col: 11.25, width: 2.75 },
+  ShiftRight: { row: 4, col: 11.25, width: 2.25 },
   
   // Bottom modifier row
-  ControlLeft: { row: 5, col: 0, width: 1.5 },
-  AltLeft: { row: 5, col: 1.5, width: 1.5 },
-  Space: { row: 5, col: 3, width: 6 },
-  AltRight: { row: 5, col: 9, width: 1.5 },
-  ControlRight: { row: 5, col: 10.5, width: 1.5 },
+  ControlLeft: { row: 5, col: 0, width: 1.25 },
+  // gap after Ctrl-L; Alt-L right edge must butt Space
+  AltLeft: { row: 5, col: 2.75, width: 1.25 },
+  // Spacebar spans 5.5u, exact overhangs per spec
+  Space: { row: 5, col: 4, width: 5.5 },
+  AltRight: { row: 5, col: 9.5, width: 1.25 },
+  // Gap between AltRight and ControlRight ensures Ctrl right-edge aligns with ShiftRight
+  ControlRight: { row: 5, col: 12.25, width: 1.25 },
   
   // Navigation cluster (realign to start at function key row)
   Insert: { row: 0, col: 14.5, width: 1 },
@@ -98,9 +101,9 @@ const KEY_POSITIONS = {
   ArrowRight: { row: 4, col: 16, width: 1 },
   
   // Numeric keypad (row 0 top of numpad)
-  NumpadDivide:   { row: 0, col: 17, width: 1 },
-  NumpadMultiply: { row: 0, col: 18, width: 1 },
-  NumpadSubtract: { row: 0, col: 19, width: 1 },
+  NumpadDivide:   { row: 0, col: 18, width: 1 },
+  NumpadMultiply: { row: 0, col: 19, width: 1 },
+  NumpadSubtract: { row: 0, col: 20, width: 1 },
 
   // Numeric keypad row with 7 8 9 +
   Numpad7: { row: 1, col: 17, width: 1 },
@@ -346,7 +349,25 @@ const QWERTZ_LAYOUT = {
     F9: { primary: 'F9', secondary: '' },
     F10: { primary: 'F10', secondary: '' },
     F11: { primary: 'F11', secondary: '' },
-    F12: { primary: 'F12', secondary: '' }
+    F12: { primary: 'F12', secondary: '' },
+    
+    // ---------------- Numpad ----------------
+    NumpadDivide: { primary: '/', secondary: '' },
+    NumpadMultiply: { primary: '*', secondary: '' },
+    NumpadSubtract: { primary: '-', secondary: '' },
+    NumpadAdd: { primary: '+', secondary: '' },
+    NumpadEnter: { primary: 'Enter', secondary: '' },
+    NumpadDecimal: { primary: '.', secondary: '' },
+    Numpad0: { primary: '0', secondary: '' },
+    Numpad1: { primary: '1', secondary: '' },
+    Numpad2: { primary: '2', secondary: '' },
+    Numpad3: { primary: '3', secondary: '' },
+    Numpad4: { primary: '4', secondary: '' },
+    Numpad5: { primary: '5', secondary: '' },
+    Numpad6: { primary: '6', secondary: '' },
+    Numpad7: { primary: '7', secondary: '' },
+    Numpad8: { primary: '8', secondary: '' },
+    Numpad9: { primary: '9', secondary: '' },
   }
 }
 
@@ -441,7 +462,25 @@ const AZERTY_LAYOUT = {
     F9: { primary: 'F9', secondary: '' },
     F10: { primary: 'F10', secondary: '' },
     F11: { primary: 'F11', secondary: '' },
-    F12: { primary: 'F12', secondary: '' }
+    F12: { primary: 'F12', secondary: '' },
+    
+    // ---------------- Numpad ----------------
+    NumpadDivide: { primary: '/', secondary: '' },
+    NumpadMultiply: { primary: '*', secondary: '' },
+    NumpadSubtract: { primary: '-', secondary: '' },
+    NumpadAdd: { primary: '+', secondary: '' },
+    NumpadEnter: { primary: 'Enter', secondary: '' },
+    NumpadDecimal: { primary: '.', secondary: '' },
+    Numpad0: { primary: '0', secondary: '' },
+    Numpad1: { primary: '1', secondary: '' },
+    Numpad2: { primary: '2', secondary: '' },
+    Numpad3: { primary: '3', secondary: '' },
+    Numpad4: { primary: '4', secondary: '' },
+    Numpad5: { primary: '5', secondary: '' },
+    Numpad6: { primary: '6', secondary: '' },
+    Numpad7: { primary: '7', secondary: '' },
+    Numpad8: { primary: '8', secondary: '' },
+    Numpad9: { primary: '9', secondary: '' },
   }
 }
 

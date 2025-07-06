@@ -730,30 +730,85 @@ export default class KeyCaptureUI extends ComponentBase {
     const renderColumn = (rowsDict, type = 'main') => {
       const expectedNumCols = [17, 18, 19, 20]
       const expectedMouseCols = [22, 23]
+      const keyUnit = 2.5 // rem, base key width
       let html = ''
       for (let rowIdx = 0; rowIdx <= maxRow; rowIdx++) {
-        const keys = (rowsDict[rowIdx] || []).sort((a,b)=>a.col-b.col)
+        const keys = (rowsDict[rowIdx] || []).sort((a, b) => a.col - b.col)
         let rowHtml = ''
+
         if (type === 'numpad') {
-          rowHtml = expectedNumCols.map(col => {
-            const k = keys.find(k => k.col === col)
-            return k ? renderKey(k) : '<div class="vkey placeholder"></div>'
-          }).join('')
+          // Handle numpad with variable width keys and special alignment
+          if (rowIdx === 0) {
+            // Special handling for row 0: add gap before divide to align it over 8 key
+            rowHtml += '<div class="vkey placeholder" style="flex:0 0 2.5rem; height:2.5rem;"></div>'
+            // Then render the actual keys in order
+            keys.forEach(k => {
+              rowHtml += renderKey(k)
+            })
+          } else {
+            // Normal handling for other rows
+            const minCol = 17
+            const maxCol = 20
+            
+            for (let currentCol = minCol; currentCol <= maxCol; currentCol++) {
+              const k = keys.find(k => k.col === currentCol)
+              if (k) {
+                rowHtml += renderKey(k)
+                // Skip ahead if this is a wide key
+                if (k.width && k.width > 1) {
+                  currentCol += (k.width - 1)
+                }
+              } else {
+                // Add placeholder for missing key positions
+                rowHtml += '<div class="vkey placeholder"></div>'
+              }
+            }
+          }
         } else if (type === 'mouse') {
           rowHtml = expectedMouseCols.map(col => {
             const k = keys.find(k => k.col === col)
             return k ? renderKey(k) : '<div class="vkey placeholder"></div>'
           }).join('')
-        } else {
-          rowHtml = keys.map(renderKey).join('')
+        } else if (type === 'nav') {
+          if (rowIdx === 3) {
+            rowHtml += '<div class="vkey placeholder" style="flex:0 0 2.5rem; height:2.5rem;"></div>'
+          }
+          keys.forEach(k => {
+            rowHtml += renderKey(k)
+          })
         }
-        html += `<div class="keyboard-row" style="grid-row:${rowIdx+1}">${rowHtml}</div>`
+        else {
+          if (keys.length) {
+            // Special handling for specific alignment cases
+            let startCol = keys[0].col
+            
+            // Navigation section: ArrowUp should align with ArrowDown (both at col 15)
+            if (type === 'nav' && rowIdx === 3 && keys.some(k => k.col === 15)) {
+              rowHtml += '<div class="vkey placeholder" style="flex:0 0 2.5rem; height:2.5rem;"></div>'
+
+              startCol = 14.5 // Start from Insert column to create gap before ArrowUp
+            }
+            
+            let current = startCol
+            keys.forEach(k => {
+              if (k.col > current) {
+                const gap = k.col - current
+                const gapWidthRem = gap * keyUnit
+                rowHtml += `<div class="vkey placeholder" style="flex:0 0 ${gapWidthRem}rem; height:2.5rem;"></div>`
+              }
+              rowHtml += renderKey(k)
+              current = k.col + (k.width || 1)
+            })
+          }
+        }
+
+        html += `<div class="keyboard-row">${rowHtml}</div>`
       }
       return html
     }
 
     const mainColHtml  = renderColumn(mainRows)
-    const navColHtml   = renderColumn(navRows)
+    const navColHtml   = renderColumn(navRows, 'nav')
     const numColHtml   = renderColumn(numRows, 'numpad')
     const mouseColHtml = renderColumn(mouseRows, 'mouse')
 
