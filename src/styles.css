@@ -3616,9 +3616,27 @@ input:checked + .slider:before {
 .hybrid-key-capture {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem;
+  gap: 0.5rem;
+  /*padding: 1rem;*/
   min-height: 500px;
+  height: 100%; /* occupy full modal height */
+}
+
+/* Make main content scrollable while header/footer remain fixed */
+.capture-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.capture-footer {
+  margin-top: auto; /* stick to bottom of flex container */
+  padding-top: 0.25rem;
+  background: var(--surface, #fff);
+}
+
+/* In case virtual keyboard gets too wide, allow horizontal scroll */
+.virtual-keyboard {
+  overflow: auto;
 }
 
 /* Capture Header */
@@ -3912,7 +3930,7 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 1rem;
+  padding: 0.25rem;
   background: var(--surface-light, #f8fafc);
   border: 1px solid var(--border, #d1d5db);
   border-radius: var(--radius, 8px);
@@ -4830,7 +4848,7 @@ input:checked + .slider:before {
 /* New three-column virtual keyboard layout */
 .keyboard-columns {
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-template-columns: auto auto auto auto;
   gap: 2rem;
 }
 .keyboard-column {

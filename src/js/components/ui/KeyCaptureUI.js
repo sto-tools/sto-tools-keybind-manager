@@ -695,8 +695,9 @@ export default class KeyCaptureUI extends ComponentBase {
     if (!container || !this.currentKeyboard) return
 
     const mainRows = {}
-    const navRows = {}
-    const numRows = {}
+    const navRows  = {}
+    const numRows  = {}
+    const mouseRows= {}
 
     const pushRow = (dict, row, keyData) => {
       if (!dict[row]) dict[row] = []
@@ -705,25 +706,41 @@ export default class KeyCaptureUI extends ComponentBase {
 
     // Distribute keys into row dictionaries
     Object.entries(KEY_POSITIONS).forEach(([keyCode, pos]) => {
-      const target = pos.col >= 17 ? numRows : (pos.col >= 14 ? navRows : mainRows)
+      const target = pos.col >= 22 ? mouseRows : (pos.col >= 17 ? numRows : (pos.col >= 14 ? navRows : mainRows))
       pushRow(target, pos.row, { keyCode, ...pos })
     })
 
     const renderKey = (key) => {
-      const info = this.currentKeyboard.keys[key.keyCode] || { primary: key.keyCode, secondary: '' }
-      return `<button class="vkey" data-key-code="${key.keyCode}"><span class="key-primary">${info.primary}</span>${info.secondary ? `<span class="key-secondary">${info.secondary}</span>` : ''}</button>`
+      // Determine primary label based on keyboard layout or mouse gestures
+      let keyInfo = this.currentKeyboard.keys[key.keyCode]
+      if (!keyInfo && MOUSE_GESTURES[key.keyCode]) {
+        keyInfo = { primary: MOUSE_GESTURES[key.keyCode].name, secondary: '' }
+      }
+      if (!keyInfo) keyInfo = { primary: key.keyCode, secondary: '' }
+      return `
+        <button class="vkey" data-key-code="${key.keyCode}" data-row="${key.row}" data-col="${key.col}">
+          <span class="key-primary">${keyInfo.primary}</span>
+          ${keyInfo.secondary ? `<span class="key-secondary">${keyInfo.secondary}</span>` : ''}
+        </button>
+      `
     }
 
     const maxRow = Math.max(...Object.values(KEY_POSITIONS).map(p => p.row))
 
-    const renderColumn = (rowsDict, isNumpad = false) => {
+    const renderColumn = (rowsDict, type = 'main') => {
       const expectedNumCols = [17, 18, 19, 20]
+      const expectedMouseCols = [22, 23]
       let html = ''
       for (let rowIdx = 0; rowIdx <= maxRow; rowIdx++) {
         const keys = (rowsDict[rowIdx] || []).sort((a,b)=>a.col-b.col)
         let rowHtml = ''
-        if (isNumpad) {
+        if (type === 'numpad') {
           rowHtml = expectedNumCols.map(col => {
+            const k = keys.find(k => k.col === col)
+            return k ? renderKey(k) : '<div class="vkey placeholder"></div>'
+          }).join('')
+        } else if (type === 'mouse') {
+          rowHtml = expectedMouseCols.map(col => {
             const k = keys.find(k => k.col === col)
             return k ? renderKey(k) : '<div class="vkey placeholder"></div>'
           }).join('')
@@ -735,15 +752,17 @@ export default class KeyCaptureUI extends ComponentBase {
       return html
     }
 
-    const mainColHtml = renderColumn(mainRows)
-    const navColHtml  = renderColumn(navRows)
-    const numColHtml  = renderColumn(numRows, true)
+    const mainColHtml  = renderColumn(mainRows)
+    const navColHtml   = renderColumn(navRows)
+    const numColHtml   = renderColumn(numRows, 'numpad')
+    const mouseColHtml = renderColumn(mouseRows, 'mouse')
 
     const html = `
       <div class="keyboard-columns">
         <div class="keyboard-column main">${mainColHtml}</div>
         <div class="keyboard-column nav">${navColHtml}</div>
         <div class="keyboard-column numpad">${numColHtml}</div>
+        <div class="keyboard-column mouse">${mouseColHtml}</div>
       </div>`
 
     container.innerHTML = html

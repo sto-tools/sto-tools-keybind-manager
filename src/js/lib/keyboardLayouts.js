@@ -20,7 +20,8 @@ const KEY_POSITIONS = {
   F12: { row: 0, col: 13, width: 1 },
   
   // Number row
-  Escape: { row: 1, col: 0, width: 1 },
+  Backquote: { row: 1, col: 0, width: 1 },
+  Escape: { row: 0, col: -1, width: 1 },
   Digit1: { row: 1, col: 1, width: 1 },
   Digit2: { row: 1, col: 2, width: 1 },
   Digit3: { row: 1, col: 3, width: 1 },
@@ -121,6 +122,24 @@ const KEY_POSITIONS = {
   // Numeric keypad bottom row 0 .
   Numpad0: { row: 4, col: 17, width: 2 },
   NumpadDecimal: { row: 4, col: 19, width: 1 },
+
+  // ---------------- Mouse gesture block ----------------
+  wheelup:   { row: 0, col: 22, width: 1 },
+  wheeldown: { row: 0, col: 23, width: 1 },
+  lclick:  { row: 1, col: 22, width: 1 },
+  rclick:  { row: 1, col: 23, width: 1 },
+  lpress:  { row: 2, col: 22, width: 1 },
+  rpress:  { row: 2, col: 23, width: 1 },
+  ldrag:   { row: 3, col: 22, width: 1 },
+  rdrag:   { row: 3, col: 23, width: 1 },
+  mclick:  { row: 4, col: 22, width: 1 },
+  Button4: { row: 4, col: 23, width: 1 },
+  Button5: { row: 5, col: 22, width: 1 },
+  Button6: { row: 5, col: 23, width: 1 },
+  Button7: { row: 6, col: 22, width: 1 },
+  Button8: { row: 6, col: 23, width: 1 },
+  Button9: { row: 7, col: 22, width: 1 },
+  Button10: { row: 7, col: 23, width: 1 },
 }
 
 // QWERTY layout (English, Spanish)
@@ -176,6 +195,7 @@ const QWERTY_LAYOUT = {
     Quote: { primary: "'", secondary: '' },
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
+    Backquote: { primary: '`', secondary: '~' },
     
     // Special keys
     Space: { primary: 'Space', secondary: '' },
@@ -288,6 +308,7 @@ const QWERTZ_LAYOUT = {
     Quote: { primary: "'", secondary: '' },
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
+    Backquote: { primary: '`', secondary: '~' },
     
     // Special keys
     Space: { primary: 'Space', secondary: '' },
@@ -382,6 +403,7 @@ const AZERTY_LAYOUT = {
     Quote: { primary: "'", secondary: '' },
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
+    Backquote: { primary: '`', secondary: '~' },
     
     // Special keys
     Space: { primary: 'Space', secondary: '' },
@@ -433,7 +455,17 @@ const MOUSE_GESTURES = {
   ldrag: { name: 'Left Drag', description: 'Left click and drag' },
   rdrag: { name: 'Right Drag', description: 'Right click and drag' },
   wheelup: { name: 'Scroll Up', description: 'Mouse wheel scroll up' },
-  wheeldown: { name: 'Scroll Down', description: 'Mouse wheel scroll down' }
+  wheeldown: { name: 'Scroll Down', description: 'Mouse wheel scroll down' },
+  Button1: { name: 'Button1', description: 'Standard left button' },
+  Button2: { name: 'Button2', description: 'Standard right button' },
+  Button3: { name: 'Button3', description: 'Middle button' },
+  Button4: { name: 'Button4', description: 'Extra mouse button 4' },
+  Button5: { name: 'Button5', description: 'Extra mouse button 5' },
+  Button6: { name: 'Button6', description: 'Extra mouse button 6' },
+  Button7: { name: 'Button7', description: 'Extra mouse button 7' },
+  Button8: { name: 'Button8', description: 'Extra mouse button 8' },
+  Button9: { name: 'Button9', description: 'Extra mouse button 9' },
+  Button10: { name: 'Button10', description: 'Extra mouse button 10' },
 }
 
 // Smart key suggestions based on usage patterns

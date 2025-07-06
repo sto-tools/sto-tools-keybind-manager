@@ -78,7 +78,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.document.addEventListener('mousedown', this.boundHandleMouseDown)
     this.document.addEventListener('mouseup', this.boundHandleMouseUp)
     this.document.addEventListener('mousemove', this.boundHandleMouseMove)
-    this.document.addEventListener('wheel', this.boundHandleWheel)
+    this.document.addEventListener('wheel', this.boundHandleWheel, { passive: false })
 
     this.emit('capture-start', { context })
   }
@@ -99,7 +99,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.document.removeEventListener('mousedown', this.boundHandleMouseDown)
     this.document.removeEventListener('mouseup', this.boundHandleMouseUp)
     this.document.removeEventListener('mousemove', this.boundHandleMouseMove)
-    this.document.removeEventListener('wheel', this.boundHandleWheel)
+    this.document.removeEventListener('wheel', this.boundHandleWheel, { passive: false })
     
     this.pressedCodes.clear()
     this.hasCapturedValidKey = false
@@ -253,14 +253,27 @@ export default class KeyCaptureService extends ComponentBase {
   }
 
   getButtonGesture (button, type) {
-    const buttonMap = {
-      0: 'l', // Left button
-      1: 'm', // Middle button  
-      2: 'r'  // Right button
+    // Standard buttons use l/m/r prefixes
+    const stdMap = {
+      0: 'l', // Left
+      1: 'm', // Middle
+      2: 'r', // Right
     }
-    
-    const buttonPrefix = buttonMap[button] || 'l'
-    return `${buttonPrefix}${type}`
+
+    if (button <= 2) {
+      const prefix = stdMap[button] || 'l'
+      if (type === 'click') return `${prefix}click`
+      if (type === 'press') return `${prefix}press`
+      if (type === 'drag')  return `${prefix}drag`
+      return `${prefix}click`
+    }
+
+    // Extended buttons (Button4+)
+    const btnLabel = `Button${button + 1}`
+    if (type === 'click') return btnLabel
+    if (type === 'press') return `${btnLabel}press`
+    if (type === 'drag')  return `${btnLabel}drag`
+    return btnLabel
   }
 
   captureMouseGesture (gesture) {
@@ -300,6 +313,11 @@ export default class KeyCaptureService extends ComponentBase {
     return [...codes]
       .sort()
       .map((code) => {
+        // Raw ButtonX strings should pass through unchanged
+        if (/^Button\d+/.test(code)) {
+          return code
+        }
+
         // Mouse gestures --------------------------------------------------
         if (typeof code === 'string' && (
           code.startsWith('l') || code.startsWith('r') || code.startsWith('m') ||
