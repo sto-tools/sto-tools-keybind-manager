@@ -744,7 +744,10 @@ export default class CommandUI extends ComponentBase {
         return this.request('i18n:translate', { key: entry }).catch(()=>entry)
       }
       if (entry && entry.key) {
-        return this.request('i18n:translate', { key: entry.key, params: entry.params || {} }).catch(()=>entry.key)
+        return this.request('i18n:translate', { key: entry.key, params: entry.params || {} }).catch(()=> (entry.defaultMessage || entry.key))
+      }
+      if (entry && entry.defaultMessage) {
+        return entry.defaultMessage
       }
       return ''
     }

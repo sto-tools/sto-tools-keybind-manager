@@ -95,8 +95,7 @@ const STO_DATA = {
           syntax: 'FireAll',
           environment: 'space',
           icon: '🔥',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         fire_phasers: {
           name: 'Fire Energy Weapons',
@@ -105,8 +104,7 @@ const STO_DATA = {
           syntax: 'FirePhasers',
           environment: 'space',
           icon: '⚡',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         fire_torps: {
           name: 'Fire Torpedoes',
@@ -115,8 +113,7 @@ const STO_DATA = {
           syntax: 'FireTorps',
           environment: 'space',
           icon: '🚀',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         fire_mines: {
           name: 'Fire Mines',
@@ -125,8 +122,7 @@ const STO_DATA = {
           syntax: 'FireMines',
           environment: 'space',
           icon: '💣',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         fire_phasers_torps: {
           name: 'Fire Phasers & Torpedoes',
@@ -135,8 +131,7 @@ const STO_DATA = {
           syntax: 'FirePhasersTorps',
           environment: 'space',
           icon: '💥',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         fire_projectiles: {
           name: 'Fire Projectiles',
@@ -145,8 +140,7 @@ const STO_DATA = {
           syntax: 'FireProjectiles',
           environment: 'space',
           icon: '🎯',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         aim: {
           name: 'Aim/Scope',
@@ -446,8 +440,7 @@ const STO_DATA = {
           syntax: '+power_exec Distribute_Shields',
           environment: 'space',
           icon: '🛡️',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         reroute_shields_rear: {
           name: 'Reroute Shields Rear',
@@ -456,8 +449,7 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_rear',
           environment: 'space',
           icon: '🛡️',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         reroute_shields_left: {
           name: 'Reroute Shields Left',
@@ -466,8 +458,7 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_left',
           environment: 'space',
           icon: '🛡️',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         reroute_shields_right: {
           name: 'Reroute Shields Right',
@@ -476,8 +467,7 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_right',
           environment: 'space',
           icon: '🛡️',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
         reroute_shields_forward: {
           name: 'Reroute Shields Forward',
@@ -486,8 +476,7 @@ const STO_DATA = {
           syntax: '+power_exec reroute_shields_forward',
           environment: 'space',
           icon: '🛡️',
-          warning:
-            'Not recommended on spam bars as it interferes with firing cycles',
+          warning: 'spam_bar_warning',
         },
       },
     },

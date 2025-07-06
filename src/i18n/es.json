@@ -1047,5 +1047,6 @@
   "stabilized_non_tray_warning": "La ejecución estabilizada solo debe usarse con habilidades de ejecución de barra.",
   "too_many_commands_on_key": "Asignar {{count}} comandos a una tecla puede fallar en el juego (máximo recomendado 20).",
   "alias_mixed_environment_warning": "El alias contiene comandos exclusivos de espacio y de tierra; esto no se recomienda.",
-  "commands_with_internal_warnings": "Los siguientes comandos tienen advertencias: {{list}}"
+  "commands_with_internal_warnings": "{{list}}",
+  "spam_bar_warning": "No se recomienda en barras de spam porque interfiere con los ciclos de disparo"
 }

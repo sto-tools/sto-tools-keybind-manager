@@ -1038,5 +1038,6 @@
   "stabilized_non_tray_warning": "Stabilisierte Ausführung sollte nur mit Tray-Ausführungsfähigkeiten verwendet werden.",
   "too_many_commands_on_key": "Die Zuordnung von {{count}} Befehlen zu einer Taste kann im Spiel fehlschlagen (empfohlene Obergrenze 20).",
   "alias_mixed_environment_warning": "Alias enthält sowohl weltraum- als auch bodenspezifische Befehle; dies ist nicht empfohlen.",
-  "commands_with_internal_warnings": "Folgende Befehle haben Warnungen: {{list}}"
+  "commands_with_internal_warnings": "{{list}}",
+  "spam_bar_warning": "Nicht für Spam-Leisten empfohlen, da es die Feuerzyklen stört"
 }

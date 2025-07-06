@@ -69,9 +69,13 @@ export default class CommandChainValidatorService extends ComponentBase {
       }
 
       // ------------------------------------
-      // Run modular validators
+      // Run modular validators (a rule may return a single issue or an array)
       const ctx = { key, commands, length, stabilized, isAlias }
-      const issues = RULES.map(r => r.run(ctx)).filter(Boolean)
+      const issues = RULES.flatMap(r => {
+        const res = r.run(ctx)
+        if (!res) return []
+        return Array.isArray(res) ? res : [res]
+      })
 
       const errors   = issues.filter(i => i.severity === 'error')
       const warnings = issues.filter(i => i.severity === 'warning')
@@ -92,7 +96,12 @@ export default class CommandChainValidatorService extends ComponentBase {
         }
       } else {
         for (const issue of issues) {
-          const msg = await this.getI18nMessage(issue.key, issue.params) || issue.defaultMessage || issue.key
+          let msg
+          if (issue.key) {
+            msg = await this.getI18nMessage(issue.key, issue.params) || issue.defaultMessage || issue.key
+          } else {
+            msg = issue.defaultMessage
+          }
           await this.showToast(msg, issue.severity)
         }
       }

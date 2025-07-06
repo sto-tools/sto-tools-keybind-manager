@@ -274,13 +274,23 @@ export default class CommandChainUI extends ComponentBase {
     }
 
     // Pass the command string (not object) to get-warning
-    const warningInfo  = await this.request('command:get-warning', { command: commandString })
-    let warningText = warningInfo
-    if (warningInfo && i18n && typeof i18n.t === 'function') {
-      const translated = i18n.t(warningInfo)
-      warningText = translated && translated !== warningInfo ? translated : warningInfo
+    const warningInfo = await this.request('command:get-warning', { command: commandString })
+
+    // Resolve tooltip text using the central i18n service so that dynamic language switching works
+    let warningText = null
+    if (warningInfo) {
+      try {
+        const translated = await this.request('i18n:translate', { key: warningInfo })
+        // Use translated value if available; otherwise fall back to original (may already be natural language)
+        warningText = translated && translated !== warningInfo ? translated : warningInfo
+      } catch {
+        warningText = warningInfo
+      }
     }
-    const warningIcon  = warningText ? `<span class="command-warning-icon" title="${warningText}"><i class="fas fa-exclamation-triangle"></i></span>` : ''
+
+    const warningIcon = warningText
+      ? `<span class="command-warning-icon" title="${warningText}" data-i18n-title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>`
+      : ''
     const parameterInd = isParameterized ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>' : ''
 
     console.log('[CommandChainUI] command', command)
