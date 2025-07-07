@@ -314,10 +314,10 @@ export default class CommandChainUI extends ComponentBase {
       </div>
       <span class="command-type ${commandType}">${commandType}</span>
       <div class="command-actions">
-        <button class="btn btn-small-icon btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>
-        <button class="btn btn-small-icon btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
-        <button class="btn btn-small-icon btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
-        <button class="btn btn-small-icon btn-down" title="Move Down" ${index === total - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
+        ${isParameterized ? `<button class="command-action-btn btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>` : `<button class="command-action-btn btn-edit btn-placeholder" disabled aria-hidden="true" style="visibility:hidden"><i class="fas fa-edit"></i></button>`}
+        <button class="command-action-btn command-action-btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
+        <button class="command-action-btn btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
+        <button class="command-action-btn btn-down" title="Move Down" ${index === total - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
       </div>`
 
     // Wire up action buttons via event bus
@@ -327,7 +327,7 @@ export default class CommandChainUI extends ComponentBase {
     const downBtn   = element.querySelector('.btn-down')
 
     // Add unique IDs for debugging
-    if (editBtn) {
+    if (isParameterized && editBtn) {
       editBtn.id = `edit-btn-${index}`
       editBtn.addEventListener('click', (e) => {
         console.log('[CommandChainUI] EDIT BUTTON CLICKED:', {

@@ -1587,9 +1587,7 @@ input:checked + .slider:before {
     gap: 0.5rem;
   }
 
-  .command-actions {
-    flex-direction: column;
-  }
+  /* Remove flex-direction: column - command-actions should stay horizontal like toolbar-group */
 
   .chain-bottom-actions {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -4298,7 +4296,101 @@ input:checked + .slider:before {
 
 .command-actions {
   display: flex;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.125rem;
+  background: var(--surface-light);
+  border-radius: var(--radius);
+  padding: 0.125rem;
+  border: 1px solid var(--border);
+}
+
+/* Command Action Buttons - Match toolbar-btn styling */
+.command-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 0.75rem;
+  position: relative;
+}
+
+.command-action-btn:hover:not(:disabled) {
+  background: var(--surface-dark);
+  color: var(--primary);
+}
+
+.command-action-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.command-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Command Action Button Variants */
+.command-action-btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.command-action-btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  color: white;
+}
+
+.command-action-btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.command-action-btn-danger:hover:not(:disabled) {
+  background: var(--danger-dark);
+  color: white;
+}
+
+/* Dark Mode Adjustments for Command Actions */
+[data-theme='dark'] .command-actions {
+  background: var(--surface-dark);
+  border-color: var(--border-dark);
+}
+
+[data-theme='dark'] .command-action-btn {
+  color: var(--text);
+}
+
+[data-theme='dark'] .command-action-btn:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--primary);
+}
+
+/* Responsive Command Actions */
+@media (max-width: 768px) {
+  .command-actions {
+    gap: 0.0625rem;
+    padding: 0.0625rem;
+  }
+  
+  .command-action-btn {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .command-action-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+  }
 }
 
 .command-warning-icon {
