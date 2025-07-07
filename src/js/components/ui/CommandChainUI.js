@@ -219,7 +219,9 @@ export default class CommandChainUI extends ComponentBase {
 
     // Look up definition for display helpers
     const commandDef = await this.request('command:find-definition', { command: commandString })
-    const isParameterized = commandDef && commandDef.customizable
+    // Determine if this command should expose parameter editing
+    const isCustomCmd = richCommand.type === 'custom' || richCommand.category === 'custom'
+    const isParameterized = (commandDef && commandDef.customizable) || isCustomCmd
 
     // Helper function to format display text from i18n objects
     const formatDisplayText = (displayText) => {

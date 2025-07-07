@@ -1055,5 +1055,7 @@
   "suggestion_abilities": "Compétences",
   "suggestion_quickslots": "Raccourcis",
   "suggestion_mouse": "Actions de souris",
-  "key_selection_failed": "Échec de la sélection de la touche"
+  "key_selection_failed": "Échec de la sélection de la touche",
+  "error_generating_command": "Erreur lors de la génération de la commande",
+  "please_enter_a_raw_command": "Veuillez saisir une commande"
 }

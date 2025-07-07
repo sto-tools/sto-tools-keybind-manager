@@ -98,7 +98,13 @@
   "camera": "Camera",
   "communication": "Communication",
   "system": "System",
+  "custom": "Custom",
   "custom_command": "Custom Command",
+  "add_custom_command": "Add Custom Command",
+  "edit_custom_command": "Edit Custom Command",
+  "custom_command_description": "Add any STO command as raw text",
+  "enter_any_sto_command": "Enter any STO command",
+  "raw_command_placeholder": "Enter any STO command (e.g., Target_Enemy_Near, +power_exec Science_Team)",
   "select_a_command_type_to_see_preview": "Select a command type to see preview",
   "profile": "Profile",
   "profile_name": "Profile Name:",
@@ -230,9 +236,14 @@
     "movement": "Movement",
     "camera": "Camera",
     "communication": "Communication",
-    "system": "System"
+    "system": "System",
+    "custom": "Custom"
   },
   "command_definitions": {
+    "add_custom_command": {
+      "name": "Add Custom Command",
+      "description": "Add any STO command as raw text"
+    },
     "target": {
       "name": "Target by Name",
       "description": "Target entity by name (requires quotes)"
@@ -678,7 +689,8 @@
     "movement": "Ship movement and navigation",
     "camera": "Camera control and view management",
     "communication": "Chat and team communication",
-    "system": "UI and system commands"
+    "system": "UI and system commands",
+    "custom": "Custom commands"
   },
   "no_aliases": "No Aliases",
   "no_aliases_defined": "No aliases defined",
@@ -1033,5 +1045,7 @@
   "suggestion_abilities": "Abilities",
   "suggestion_quickslots": "Quick Slots",
   "suggestion_mouse": "Mouse Actions",
-  "key_selection_failed": "Failed to select key"
+  "key_selection_failed": "Failed to select key",
+  "error_generating_command": "Error generating command",
+  "please_enter_a_raw_command": "Please enter a raw command"
 }

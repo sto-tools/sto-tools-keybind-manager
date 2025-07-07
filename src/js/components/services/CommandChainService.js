@@ -188,6 +188,10 @@ export default class CommandChainService extends ComponentBase {
       const def = await this.findCommandDefinition(cmd)
       const isCustomizable = !!(def && def.customizable)
 
+      // Check if this is a custom command that should be editable
+      const isCustomCommand = cmd.type === 'custom' || cmd.category === 'custom' || 
+                              (cmd.command && await this.isCustomCommand(cmd.command))
+
       if (isCustomizable) {
         this.emit('parameter-command:edit', {
           index,
@@ -195,6 +199,31 @@ export default class CommandChainService extends ComponentBase {
           commandDef: def,
           categoryId: def.categoryId || cmd.type,
           commandId: def.commandId
+        })
+        return
+      } else if (isCustomCommand) {
+        // Handle custom commands using the custom command editor
+        const customDef = {
+          name: 'Edit Custom Command',
+          customizable: true,
+          categoryId: 'custom',
+          commandId: 'add_custom_command',
+          parameters: {
+            rawCommand: {
+              type: 'text',
+              default: cmd.command || '',
+              placeholder: 'Enter any STO command',
+              label: 'Command:'
+            }
+          }
+        }
+        
+        this.emit('parameter-command:edit', {
+          index,
+          command: cmd,
+          commandDef: customDef,
+          categoryId: 'custom',
+          commandId: 'add_custom_command'
         })
         return
       }
@@ -291,6 +320,27 @@ export default class CommandChainService extends ComponentBase {
     } catch (error) {
       console.error('Failed to get command warning:', error)
       return null
+    }
+  }
+
+  async isCustomCommand (command) {
+    try {
+      // Try to parse the command to determine its category
+      const parseResult = await this.request('parser:parse-command-string', {
+        commandString: command,
+        options: { generateDisplayText: false }
+      })
+      
+      if (parseResult.commands && parseResult.commands[0]) {
+        const category = parseResult.commands[0].category
+        return category === 'custom'
+      }
+      
+      // If parsing fails, consider it a custom command
+      return true
+    } catch (error) {
+      // If parsing fails, treat as custom command
+      return true
     }
   }
 

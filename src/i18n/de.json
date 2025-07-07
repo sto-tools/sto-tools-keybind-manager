@@ -1055,5 +1055,7 @@
   "suggestion_abilities": "Fähigkeiten",
   "suggestion_quickslots": "Schnellzugriffe",
   "suggestion_mouse": "Mausaktionen",
-  "key_selection_failed": "Tastenauswahl fehlgeschlagen"
+  "key_selection_failed": "Tastenauswahl fehlgeschlagen",
+  "error_generating_command": "Fehler beim Generieren des Befehls",
+  "please_enter_a_raw_command": "Bitte geben Sie einen Befehl ein"
 }

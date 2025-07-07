@@ -4,6 +4,33 @@
 const STO_DATA = {
   // Command categories and definitions
   commands: {
+   // -------------------------------------------------------------
+    // Custom – Raw command input category
+    // -------------------------------------------------------------
+    custom: {
+      name: 'Custom',
+      icon: 'fas fa-plus',
+      description: 'Create commands from raw STO command strings',
+      commands: {
+        add_custom_command: {
+          name: 'Add Custom Command',
+          command: '', // Raw input – no predefined command string
+          description: 'Add any STO command as raw text',
+          syntax: '<raw command>',
+          icon: '➕',
+          customizable: true,
+          parameters: {
+            rawCommand: {
+              type: 'text',
+              default: '',
+              placeholder: 'Enter any STO command (e.g., Target_Enemy_Near)',
+              label: 'Command:'
+            }
+          }
+        }
+      }
+    },
+
     targeting: {
       name: 'Targeting',
       icon: 'fas fa-crosshairs',
@@ -768,7 +795,7 @@ const STO_DATA = {
 
     system: {
       name: 'System',
-      icon: 'fas fa-cog',
+      icon: 'fas fa-cogs',
       description: 'UI and system commands',
       commands: {
         toggle_hud: {
@@ -1060,7 +1087,10 @@ const STO_DATA = {
         },
       },
     },
-  },
+
+ 
+
+  }, // <-- closes STO_DATA.commands object
 
   // Command templates for common scenarios
   templates: {

@@ -438,6 +438,22 @@ export default class ParameterCommandService extends ComponentBase {
         return { command: finalCmd, text: commandDef.name }
       },
 
+      custom: (p) => {
+        // Handle custom raw command input
+        const rawCommand = p.rawCommand || ''
+        if (!rawCommand.trim()) {
+          // Throw a translation key so UI layers can translate appropriately
+          throw new Error('please_enter_a_raw_command')
+        }
+        
+        return {
+          command: rawCommand.trim(),
+          text: `Custom: ${rawCommand.trim()}`,
+          type: 'custom',
+          category: 'custom'
+        }
+      },
+
       communication: (p) => {
         /*
          * If the user is editing a predefined communication command such as

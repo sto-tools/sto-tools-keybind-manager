@@ -319,7 +319,13 @@ export default class ParameterCommandUI extends ComponentBase {
       console.error('Error updating parameter preview:', error)
       const previewEl = this.document.getElementById('parameterCommandPreview')
       if (previewEl) {
-        previewEl.textContent = 'Error generating command'
+        if (error.message === 'please_enter_a_raw_command') {
+          const msg = this.i18n?.t?.('please_enter_a_raw_command') || 'Please enter a raw command'
+          previewEl.textContent = msg
+        } else {
+          const errMsg = this.i18n?.t?.('error_generating_command') || 'Error generating command'
+          previewEl.textContent = errMsg
+        }
       }
     }
   }
@@ -394,7 +400,13 @@ export default class ParameterCommandUI extends ComponentBase {
       }
     } catch (error) {
       console.error('Error building parameterized command:', error)
-      this.ui?.showToast?.('Error generating command', 'error')
+      if (error.message === 'please_enter_a_raw_command') {
+        const msg = this.i18n?.t?.('please_enter_a_raw_command') || 'Please enter a raw command'
+        this.ui?.showToast?.(msg, 'warning')
+      } else {
+        const errMsg = this.i18n?.t?.('error_generating_command') || 'Error generating command'
+        this.ui?.showToast?.(errMsg, 'error')
+      }
       return
     }
 
