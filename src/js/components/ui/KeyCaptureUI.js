@@ -729,7 +729,7 @@ export default class KeyCaptureUI extends ComponentBase {
 
     const renderColumn = (rowsDict, type = 'main') => {
       const expectedNumCols = [17, 18, 19, 20]
-      const expectedMouseCols = [22, 23]
+      const expectedMouseCols = [22, 23, 24]
       const keyUnit = 2.5 // rem, base key width
       let html = ''
       for (let rowIdx = 0; rowIdx <= maxRow; rowIdx++) {
@@ -738,7 +738,7 @@ export default class KeyCaptureUI extends ComponentBase {
 
         if (type === 'numpad') {
           // Handle numpad with variable width keys and special alignment
-          if (rowIdx === 0) {
+          if (rowIdx === 1) {
             // Special handling for row 0: add gap before divide to align it over 8 key
             rowHtml += '<div class="vkey placeholder" style="flex:0 0 2.5rem; height:2.5rem;"></div>'
             // Then render the actual keys in order
@@ -770,7 +770,7 @@ export default class KeyCaptureUI extends ComponentBase {
             return k ? renderKey(k) : '<div class="vkey placeholder"></div>'
           }).join('')
         } else if (type === 'nav') {
-          if (rowIdx === 3) {
+          if (rowIdx === 4) {
             rowHtml += '<div class="vkey placeholder" style="flex:0 0 2.5rem; height:2.5rem;"></div>'
           }
           keys.forEach(k => {
@@ -783,7 +783,7 @@ export default class KeyCaptureUI extends ComponentBase {
             let startCol = keys[0].col
             
             // Navigation section: ArrowUp should align with ArrowDown (both at col 15)
-            if (type === 'nav' && rowIdx === 3 && keys.some(k => k.col === 15)) {
+            if (type === 'nav' && rowIdx === 4 && keys.some(k => k.col === 15)) {
               rowHtml += '<div class="vkey placeholder" style="flex:0 0 2.5rem; height:2.5rem;"></div>'
 
               startCol = 14.5 // Start from Insert column to create gap before ArrowUp

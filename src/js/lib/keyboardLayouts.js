@@ -87,62 +87,60 @@ const KEY_POSITIONS = {
   ControlRight: { row: 5, col: 12.25, width: 1.25 },
   
   // Navigation cluster (realign to start at function key row)
-  Insert: { row: 0, col: 14.5, width: 1 },
-  Delete: { row: 0, col: 15.5, width: 1 },
-  Home: { row: 1, col: 14.5, width: 1 },
-  End: { row: 1, col: 15.5, width: 1 },
-  PageUp: { row: 2, col: 14.5, width: 1 },
-  PageDown: { row: 2, col: 15.5, width: 1 },
+  Insert: { row: 1, col: 14.5, width: 1 },
+  Delete: { row: 2, col: 14.5, width: 1 },
+  Home: { row: 1, col: 15.5, width: 1 },
+  End: { row: 2, col: 15.5, width: 1 },
+  PageUp: { row: 1, col: 16.5, width: 1 },
+  PageDown: { row: 2, col: 16.5, width: 1 },
   
   // Arrow keys (shifted up one row)
-  ArrowUp: { row: 3, col: 15, width: 1 },
-  ArrowLeft: { row: 4, col: 14, width: 1 },
-  ArrowDown: { row: 4, col: 15, width: 1 },
-  ArrowRight: { row: 4, col: 16, width: 1 },
+  ArrowUp: { row: 4, col: 15, width: 1 },
+  ArrowLeft: { row: 5, col: 14, width: 1 },
+  ArrowDown: { row: 5, col: 15, width: 1 },
+  ArrowRight: { row: 5, col: 16, width: 1 },
   
-  // Numeric keypad (row 0 top of numpad)
-  NumpadDivide:   { row: 0, col: 18, width: 1 },
-  NumpadMultiply: { row: 0, col: 19, width: 1 },
-  NumpadSubtract: { row: 0, col: 20, width: 1 },
+  // Numeric keypad (row 1 top of numpad)
+  NumpadDivide:   { row: 1, col: 18, width: 1 },
+  NumpadMultiply: { row: 1, col: 19, width: 1 },
+  NumpadSubtract: { row: 1, col: 20, width: 1 },
 
   // Numeric keypad row with 7 8 9 +
-  Numpad7: { row: 1, col: 17, width: 1 },
-  Numpad8: { row: 1, col: 18, width: 1 },
-  Numpad9: { row: 1, col: 19, width: 1 },
-  NumpadAdd: { row: 1, col: 20, width: 1 },
+  Numpad7: { row: 2, col: 17, width: 1 },
+  Numpad8: { row: 2, col: 18, width: 1 },
+  Numpad9: { row: 2, col: 19, width: 1 },
+  NumpadAdd: { row: 2, col: 20, width: 1 },
 
   // Numeric keypad row with 4 5 6
-  Numpad4: { row: 2, col: 17, width: 1 },
-  Numpad5: { row: 2, col: 18, width: 1 },
-  Numpad6: { row: 2, col: 19, width: 1 },
+  Numpad4: { row: 3, col: 17, width: 1 },
+  Numpad5: { row: 3, col: 18, width: 1 },
+  Numpad6: { row: 3, col: 19, width: 1 },
 
   // Numeric keypad row with 1 2 3 Enter
-  Numpad1: { row: 3, col: 17, width: 1 },
-  Numpad2: { row: 3, col: 18, width: 1 },
-  Numpad3: { row: 3, col: 19, width: 1 },
-  NumpadEnter: { row: 3, col: 20, width: 1 },
+  Numpad1: { row: 4, col: 17, width: 1 },
+  Numpad2: { row: 4, col: 18, width: 1 },
+  Numpad3: { row: 4, col: 19, width: 1 },
+  NumpadEnter: { row: 4, col: 20, width: 1 },
 
   // Numeric keypad bottom row 0 .
-  Numpad0: { row: 4, col: 17, width: 2 },
-  NumpadDecimal: { row: 4, col: 19, width: 1 },
+  Numpad0: { row: 5, col: 17, width: 2 },
+  NumpadDecimal: { row: 5, col: 19, width: 1 },
 
   // ---------------- Mouse gesture block ----------------
-  wheelup:   { row: 0, col: 22, width: 1 },
-  wheeldown: { row: 0, col: 23, width: 1 },
-  lclick:  { row: 1, col: 22, width: 1 },
-  rclick:  { row: 1, col: 23, width: 1 },
-  lpress:  { row: 2, col: 22, width: 1 },
-  rpress:  { row: 2, col: 23, width: 1 },
-  ldrag:   { row: 3, col: 22, width: 1 },
-  rdrag:   { row: 3, col: 23, width: 1 },
-  mclick:  { row: 4, col: 22, width: 1 },
-  Button4: { row: 4, col: 23, width: 1 },
-  Button5: { row: 5, col: 22, width: 1 },
-  Button6: { row: 5, col: 23, width: 1 },
-  Button7: { row: 6, col: 22, width: 1 },
-  Button8: { row: 6, col: 23, width: 1 },
-  Button9: { row: 7, col: 22, width: 1 },
-  Button10: { row: 7, col: 23, width: 1 },
+  lclick:   { row: 0, col: 22, width: 1 },
+  mclick: { row: 0, col: 23, width: 1 },
+  rclick: { row: 0, col: 24, width: 1 },
+  lpress:  { row: 1, col: 22, width: 1 },
+  rpress: { row: 1, col: 23, width: 1 },
+  ldrag: { row: 2, col: 22, width: 1 },
+  rdrag: { row: 2, col: 23, width: 1 },
+  Button4:  { row: 3, col: 22, width: 1 },
+  Button5:  { row: 3, col: 23, width: 1 },
+  Button6: { row: 3, col: 24, width: 1 },
+  Button7:  { row: 4, col: 22, width: 1 },
+  Button8:  { row: 4, col: 23, width: 1 },
+  Button9: { row: 4, col: 24, width: 1 },
+  Button10:   { row: 5, col: 22, width: 1 },
 }
 
 // QWERTY layout (English, Spanish)

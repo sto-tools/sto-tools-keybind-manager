@@ -4855,7 +4855,7 @@ input:checked + .slider:before {
   flex-direction: column;
   gap: 0.25rem;
 }
-.keyboard-row { display: flex; gap: 0.25rem; }
+.keyboard-row { display: flex; gap: 0.25rem; height: 2.5rem;}
 /* remove previous grid definitions if present */
 
 .vkey.placeholder {
