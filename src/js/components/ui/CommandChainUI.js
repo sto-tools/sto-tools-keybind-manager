@@ -504,7 +504,7 @@ export default class CommandChainUI extends ComponentBase {
           typeof cmd === 'string' ? cmd : (cmd.command || cmd)
         ).filter(Boolean)
         const aliasCommandString = commandStrings.join(' $$ ')
-        aliasPreviewEl.textContent = `alias ${aliasName} "${aliasCommandString}"`
+        aliasPreviewEl.textContent = `alias ${aliasName} <& ${aliasCommandString} &>`
         
         // Update main preview to show keybind that calls the alias
         previewEl.textContent = `${selectedKeyName} "${aliasName}"`
