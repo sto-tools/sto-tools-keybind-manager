@@ -3995,7 +3995,7 @@ input:checked + .slider:before {
 }
 
 /* Special key styling */
-.vkey[data-key-code*="Shift"],
+/*.vkey[data-key-code*="Shift"],
 .vkey[data-key-code*="Control"],
 .vkey[data-key-code*="Alt"],
 .vkey[data-key-code="Space"],
@@ -4005,7 +4005,7 @@ input:checked + .slider:before {
 .vkey[data-key-code="Backspace"] {
   background: var(--surface-secondary, #f1f5f9);
   font-weight: 600;
-}
+}*/
 
 .vkey[data-key-code="Space"] {
   min-width: 13.75rem; /* 5.5u */
