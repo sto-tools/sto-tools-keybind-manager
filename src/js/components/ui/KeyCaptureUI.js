@@ -483,10 +483,30 @@ export default class KeyCaptureUI extends ComponentBase {
   updatePreviewWithCurrentModifiers() {
     const activeModifiers = this.getActiveVirtualModifiers()
     if (activeModifiers.length > 0) {
-      const chordPreview = activeModifiers.join('+') + '+'
+      // If a non-modifier key was already selected, include it in the preview so users
+      // get immediate feedback such as "Ctrl+G". Otherwise show the partial chord
+      // (e.g. "Ctrl+") so they know a main key is still required.
+      let chordPreview = activeModifiers.join('+')
+      if (this.selectedKey) {
+        // Avoid duplicating modifiers if selectedKey already contains them.
+        // Only append when selectedKey represents a non-modifier portion.
+        const modPattern = /^(Ctrl|Alt|Shift|LCTRL|RCTRL|LALT|RALT|LSHIFT|RSHIFT)(\+|$)/i
+        const isOnlyModifiers = this.selectedKey.split('+').every(p => modPattern.test(p))
+        if (!isOnlyModifiers) {
+          chordPreview += '+' + this.selectedKey
+        }
+      } else {
+        chordPreview += '+'
+      }
       this.updatePreviewDisplay(chordPreview)
     } else {
-      this.updatePreviewDisplay('')
+      // No active modifiers – keep any already selected key visible instead of
+      // reverting to "No key selected" which caused an inconsistent UI state
+      if (this.selectedKey) {
+        this.updatePreviewDisplay(this.selectedKey)
+      } else {
+        this.updatePreviewDisplay('')
+      }
     }
   }
 
