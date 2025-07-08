@@ -115,11 +115,7 @@ export default class ExportService extends ComponentBase {
     const hasKeys = keys && Object.keys(keys).length > 0
 
     if (!hasKeys) {
-      
-      return `; No keybinds defined for this environment
-; Profile: ${JSON.stringify(profile, null, 2)}
-; Options: ${JSON.stringify(options, null, 2)}
-`
+      return `; No keybinds defined for this environment\n`
     }
 
     const filename = `${profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${environment}.txt`
