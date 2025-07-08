@@ -1058,5 +1058,8 @@
   "key_selection_failed": "Échec de la sélection de la touche",
   "error_generating_command": "Erreur lors de la génération de la commande",
   "please_enter_a_raw_command": "Veuillez saisir une commande",
-  "unsafe_keybind": "Combinaison de touches dangereuse : {{key}} n'est pas autorisée"
+  "unsafe_keybind": "Combinaison de touches dangereuse : {{key}} n'est pas autorisée",
+  "generated_alias": "Alias généré :",
+  "bind_to_alias_mode": "Créer des chaînes de commandes comme alias",
+  "bind_to_alias_mode_description": "Lorsqu'elle est activée, les chaînes de commandes sont générées sous forme d'alias nommés selon l'environnement et la touche (par ex. \"space_q\"), et les touches sont liées pour appeler ces alias. Cela permet une gestion indirecte des keybinds tout en conservant la même expérience d'édition."
 }

@@ -93,6 +93,18 @@ export default class ExportService extends ComponentBase {
   /* Core generators - single source of truth                  */
   /* ---------------------------------------------------------- */
   
+  /**
+   * Check if bind-to-alias mode is enabled from preferences
+   */
+  async getBindToAliasMode() {
+    try {
+      return await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
+    } catch (error) {
+      console.warn('[ExportService] Failed to get bindToAliasMode setting:', error)
+      return false // Default to disabled if we can't get the setting
+    }
+  }
+  
   /* ---------------------------------------------------------- */
   /* Keybind file generation                                    */
   /* ---------------------------------------------------------- */
@@ -207,30 +219,53 @@ export default class ExportService extends ComponentBase {
       return '; No keybinds defined\n'
     }
 
+    // Check if bind-to-alias mode is enabled
+    const bindToAliasMode = await this.getBindToAliasMode()
+
     let content = `; ==============================================================================\n`
     content += `; ${environment.toUpperCase()} KEYBINDS\n`
     content += `; ==============================================================================\n\n`
     
-    // Generate keybind commands – apply mirroring when profile metadata says so
-    for (const [key, commands] of Object.entries(keys)) {
-      let cmds = commands
-      const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
-        profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
-
-      if (shouldStabilize && Array.isArray(commands) && commands.length > 1) {
-        cmds = this.mirrorCommands(commands)
+    if (bindToAliasMode) {
+      // In bind-to-alias mode, only generate keybind lines that call the aliases
+      // The actual alias definitions should be handled in generateAliasFile
+      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
+      
+      content += `; Keybind lines that call generated aliases\n`
+      content += `; (Alias definitions are in the alias file)\n`
+      content += `; ------------------------------------------------------------------------------\n`
+      
+      // Generate keybind lines that call the aliases
+      for (const [key, commands] of Object.entries(keys)) {
+        if (!commands || commands.length === 0) continue
+        
+        const aliasName = generateBindToAliasName(environment, key)
+        if (!aliasName) continue
+        
+        content += `${key} "${aliasName}"\n`
       }
+    } else {
+      // Original behavior - generate keybind commands directly
+      for (const [key, commands] of Object.entries(keys)) {
+        let cmds = commands
+        const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
+          profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
 
-      // Optimise each command string
-      const optimisedCmds = []
-      for (const cmd of cmds) {
-        /* eslint-disable no-await-in-loop */
-        const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
-        /* eslint-enable no-await-in-loop */
-        optimisedCmds.push(opt)
+        if (shouldStabilize && Array.isArray(commands) && commands.length > 1) {
+          cmds = this.mirrorCommands(commands)
+        }
+
+        // Optimise each command string
+        const optimisedCmds = []
+        for (const cmd of cmds) {
+          /* eslint-disable no-await-in-loop */
+          const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
+          /* eslint-enable no-await-in-loop */
+          optimisedCmds.push(opt)
+        }
+
+        content += formatKeybindLine(key, optimisedCmds)
       }
-
-      content += formatKeybindLine(key, optimisedCmds)
     }
     
     content += '\n'
@@ -401,19 +436,68 @@ export default class ExportService extends ComponentBase {
   async generateAliasFile (profile) {
     const aliases = profile.aliases || {}
     
-    if (Object.keys(aliases).length === 0) {
+    // Check if bind-to-alias mode is enabled and add generated aliases
+    const bindToAliasMode = await this.getBindToAliasMode()
+    const generatedAliases = {}
+    
+    if (bindToAliasMode) {
+      // Generate aliases from keybinds when bind-to-alias mode is enabled
+      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
+      
+      // Process all environments to generate aliases
+      const environments = ['space', 'ground']
+      for (const environment of environments) {
+        const keys = this.extractKeys(profile, environment)
+        if (!keys || Object.keys(keys).length === 0) continue
+        
+        for (const [key, commands] of Object.entries(keys)) {
+          if (!commands || commands.length === 0) continue
+          
+          const aliasName = generateBindToAliasName(environment, key)
+          if (!aliasName) continue
+          
+          let cmds = commands
+          const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
+            profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
+
+          if (shouldStabilize && Array.isArray(commands) && commands.length > 1) {
+            cmds = this.mirrorCommands(commands)
+          }
+
+          // Store as generated alias
+          generatedAliases[aliasName] = {
+            name: aliasName,
+            commands: cmds,
+            description: `Generated alias for ${environment} key: ${key}`,
+            isGenerated: true
+          }
+        }
+      }
+    }
+    
+    // Combine regular aliases and generated aliases
+    const allAliases = { ...aliases, ...generatedAliases }
+    
+    if (Object.keys(allAliases).length === 0) {
       return '; No aliases defined\n'
     }
 
     let content = await this.generateAliasFileHeader(profile)
     
+    // Add note about generated aliases if any exist
+    if (Object.keys(generatedAliases).length > 0) {
+      content += `; This file contains both user-created aliases and generated aliases\n`
+      content += `; from bind-to-alias mode (${Object.keys(generatedAliases).length} generated aliases)\n`
+      content += `; ================================================================\n\n`
+    }
+    
     // Generate alias content directly
-    const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
+    const sorted = Object.entries(allAliases).sort(([a], [b]) => a.localeCompare(b))
     for (const [name, alias] of sorted) {
       let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
 
-      // Apply mirroring if aliasMetadata says so
-      const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
+      // Apply mirroring if aliasMetadata says so (but not for generated aliases, they're already processed)
+      const shouldStabilize = !alias.isGenerated && (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
 
       if (shouldStabilize && commandsArray.length > 1) {
         const cmdParts = commandsArray.map(c => ({ command: c }))

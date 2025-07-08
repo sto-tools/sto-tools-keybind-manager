@@ -746,6 +746,8 @@
   "every_15_minutes": "Alle 15 Minuten",
   "every_30_minutes": "Alle 30 Minuten",
   "every_hour": "Jede Stunde",
+  "bind_to_alias_mode": "Keybind-Ketten als Aliase erstellen",
+  "bind_to_alias_mode_description": "Wenn aktiviert, werden Keybind-Ketten als Aliase generiert, benannt nach Umgebung und Taste (z.B. 'space_q'), und die Tasten werden so gebunden, dass sie diese Aliase aufrufen. Dies ermöglicht eine indirekte Verwaltung von Keybinds bei gleichbleibendem Bearbeitungserlebnis.",
   "preferences_saved": "Einstellungen erfolgreich gespeichert",
   "failed_to_save_preferences": "Einstellungen konnten nicht gespeichert werden",
   "vfx_manager_description": "Wählen Sie visuelle Effekte aus, die mit dynFxSetFXExlusionList-Aliasen deaktiviert werden sollen. Effekte sind nach Umgebung organisiert.",
@@ -1058,5 +1060,6 @@
   "key_selection_failed": "Tastenauswahl fehlgeschlagen",
   "error_generating_command": "Fehler beim Generieren des Befehls",
   "please_enter_a_raw_command": "Bitte geben Sie einen Befehl ein",
-  "unsafe_keybind": "Unsichere Tastenkombination: {{key}} ist nicht zulässig"
+  "unsafe_keybind": "Unsichere Tastenkombination: {{key}} ist nicht zulässig",
+  "generated_alias": "Generierter Alias:"
 }

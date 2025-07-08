@@ -418,6 +418,24 @@
             </div>
           </div>
 
+          <!-- Generated Alias (shown when bind-to-alias mode is active) -->
+          <div class="generated-alias" id="generatedAlias" style="display: none;">
+            <div class="command-preview-header">
+              <label data-i18n="generated_alias"></label>
+              <span class="command-count-display" id="aliasCommandCountDisplay" style="display: none;">
+                (<span id="aliasCommandCount">0</span> <span data-i18n="commands"></span> in chain)
+              </span>
+              <button
+                class="btn btn-small"
+                id="copyAliasBtn"
+                data-i18n-title="copy_to_clipboard"
+              >
+                <i class="fas fa-copy"></i>
+              </button>
+            </div>
+            <div class="command-preview" id="aliasPreview"></div>
+          </div>
+
           <div class="generated-command">
             <div class="command-preview-header">
               <label data-i18n="generated_command"></label>
@@ -886,6 +904,10 @@
                   <i class="fas fa-sync-alt"></i>
                   <span data-i18n="synchronization"></span>
                 </div>
+                <div class="category-item" data-category="advanced">
+                  <i class="fas fa-cogs"></i>
+                  <span data-i18n="advanced"></span>
+                </div>
               </div>
             </div>
             
@@ -933,6 +955,22 @@
                   </div>
                 </div>
 
+                <!-- Advanced Settings -->
+                <div class="settings-panel" id="advanced-settings">
+                  <h4 data-i18n="advanced_settings"></h4>
+                  <div class="settings-group">
+                    <div class="setting-item">
+                      <label data-i18n="bind_to_alias_mode"></label>
+                      <div class="setting-control">
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="bindToAliasModeCheckbox">
+                          <span class="slider"></span>
+                        </label>
+                        <span class="setting-description" data-i18n="bind_to_alias_mode_description"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
             </div>
           </div>

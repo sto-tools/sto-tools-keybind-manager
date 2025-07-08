@@ -27,6 +27,7 @@ export default class PreferencesService extends ComponentBase {
       syncFolderPath: null,
       autoSync: false,
       autoSyncInterval: 'change',
+      bindToAliasMode: false,
     }
 
     // Runtime copy

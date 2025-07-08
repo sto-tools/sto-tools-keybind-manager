@@ -21,7 +21,11 @@ export default class PreferencesUI extends ComponentBase {
       compactView: { type: 'boolean', element: 'compactViewCheckbox' },
       autoSync: { type: 'boolean', element: 'autoSync' },
       autoSyncInterval: { type: 'select', element: 'autoSyncInterval' },
+      bindToAliasMode: { type: 'boolean', element: 'bindToAliasModeCheckbox' },
     }
+
+    // Holds settings that should only be applied when the user clicks the Save button
+    this.pendingSettings = {}
   }
 
   async init() {
@@ -95,12 +99,12 @@ export default class PreferencesUI extends ComponentBase {
       switch (def.type) {
         case 'boolean':
           eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
-            this.updateSetting(key, e.target.checked)
+            this.handleSettingChange(key, e.target.checked)
           })
           break
         case 'select':
           eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
-            this.updateSetting(key, e.target.value)
+            this.handleSettingChange(key, e.target.value)
           })
           break
       }
@@ -142,6 +146,13 @@ export default class PreferencesUI extends ComponentBase {
   }
 
   async saveAllSettings(manual = true) {
+    // First, apply any pending settings (e.g., bindToAliasMode)
+    for (const [k, v] of Object.entries(this.pendingSettings)) {
+      await this.setSetting(k, v)
+    }
+    // Clear pending settings now that they have been applied
+    this.pendingSettings = {}
+
     // Use request/response instead of direct service call
     const ok = await this.saveSettings()
     if (ok && manual && this.ui?.showToast) {
@@ -158,6 +169,8 @@ export default class PreferencesUI extends ComponentBase {
   async showPreferences() {
     // Use request/response to get fresh settings
     await this.request('preferences:load-settings')
+    // Discard any unsaved changes from previous session
+    this.pendingSettings = {}
     const settings = await this.request('preferences:get-settings')
     Object.entries(settings).forEach(([k, v]) => this.updateUI(k, v))
     this.updateFolderDisplay()
@@ -224,5 +237,15 @@ export default class PreferencesUI extends ComponentBase {
     }
   }
 
-
+  handleSettingChange(key, value) {
+    // Defer applying bindToAliasMode until user presses Save.
+    if (key === 'bindToAliasMode') {
+      this.pendingSettings[key] = value
+      // Reflect change in UI immediately but do not persist
+      this.updateUI(key, value)
+    } else {
+      // Apply other settings immediately as before
+      this.updateSetting(key, value)
+    }
+  }
 } 

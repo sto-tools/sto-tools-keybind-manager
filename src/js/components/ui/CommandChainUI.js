@@ -72,6 +72,16 @@ export default class CommandChainUI extends ComponentBase {
       })
     )
 
+    // Listen for preference changes to re-render when bind-to-alias mode is toggled
+    this._detachFunctions.push(
+      this.eventBus.on('preferences:changed', (data) => {
+        if (data.key === 'bindToAliasMode') {
+          console.log('[CommandChainUI] bind-to-alias mode changed, re-rendering')
+          this.render()
+        }
+      })
+    )
+
     // Setup stabilization button logic
     const stabilizeBtn = this.document.getElementById('stabilizeExecutionOrderBtn')
     if (stabilizeBtn && !this._stabilizeListenerAttached) {
@@ -79,6 +89,28 @@ export default class CommandChainUI extends ComponentBase {
         await this.toggleStabilize()
       })
       this._stabilizeListenerAttached = true
+    }
+
+    // Setup copy alias button logic  
+    const copyAliasBtn = this.document.getElementById('copyAliasBtn')
+    if (copyAliasBtn && !this._copyAliasListenerAttached) {
+      copyAliasBtn.addEventListener('click', async () => {
+        const aliasPreviewEl = this.document.getElementById('aliasPreview')
+        if (aliasPreviewEl && aliasPreviewEl.textContent) {
+          try {
+            await navigator.clipboard.writeText(aliasPreviewEl.textContent)
+            if (this.ui?.showToast) {
+              this.ui.showToast('Alias copied to clipboard', 'success')
+            }
+          } catch (error) {
+            console.error('Failed to copy alias to clipboard:', error)
+            if (this.ui?.showToast) {
+              this.ui.showToast('Failed to copy to clipboard', 'error')
+            }
+          }
+        }
+      })
+      this._copyAliasListenerAttached = true
     }
 
     // Drag/drop
@@ -101,8 +133,13 @@ export default class CommandChainUI extends ComponentBase {
       const previewEl   = this.document.getElementById('commandPreview')
       const countSpanEl = this.document.getElementById('commandCount')
       const emptyState  = this.document.getElementById('emptyState')
+      const generatedAlias = this.document.getElementById('generatedAlias')
+      const aliasPreviewEl = this.document.getElementById('aliasPreview')
 
       if (!container || !titleEl || !previewEl) return
+
+      // Check if bind-to-alias mode is enabled
+      const bindToAliasMode = await this.getBindToAliasMode()
 
       // When render is called with explicit commands (from chain-data-changed),
       // use those. When called without commands (from environment:changed),
@@ -146,8 +183,10 @@ export default class CommandChainUI extends ComponentBase {
       if (!selectedKeyName || commands.length === 0) {
         // Empty state - use empty state info for title and preview
         titleEl.textContent   = emptyStateInfo.title
-        previewEl.textContent = emptyStateInfo.preview
         if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+
+        // Update previews for bind-to-alias mode (handles empty commands case)
+        await this.updateBindToAliasMode(bindToAliasMode, selectedKeyName, commands)
 
         // Create new container content atomically
         const newContent = this.document.createElement('div')
@@ -174,8 +213,26 @@ export default class CommandChainUI extends ComponentBase {
 
       // Non-empty state - use emptyStateInfo which actually contains the correct title/preview for selected keys
       titleEl.textContent   = emptyStateInfo.title
-      previewEl.textContent = emptyStateInfo.preview
-      if (countSpanEl) countSpanEl.textContent = commands.length.toString()
+      
+      // Update command counts based on bind-to-alias mode
+      const aliasCountSpanEl = this.document.getElementById('aliasCommandCount')
+      const commandCountDisplay = this.document.getElementById('commandCountDisplay')
+      const aliasCommandCountDisplay = this.document.getElementById('aliasCommandCountDisplay')
+      
+      if (bindToAliasMode && selectedKeyName && this._currentEnvironment !== 'alias') {
+        // Show count on Generated Alias section
+        if (aliasCountSpanEl) aliasCountSpanEl.textContent = commands.length.toString()
+        if (aliasCommandCountDisplay) aliasCommandCountDisplay.style.display = ''
+        if (commandCountDisplay) commandCountDisplay.style.display = 'none'
+      } else {
+        // Show count on Generated Command section (normal mode)
+        if (countSpanEl) countSpanEl.textContent = commands.length.toString()
+        if (commandCountDisplay) commandCountDisplay.style.display = ''
+        if (aliasCommandCountDisplay) aliasCommandCountDisplay.style.display = 'none'
+      }
+
+      // Update previews based on bind-to-alias mode
+      await this.updateBindToAliasMode(bindToAliasMode, selectedKeyName, commands)
 
       // Hide any existing empty state
       if (emptyState) emptyState.classList.remove('show')
@@ -409,6 +466,64 @@ export default class CommandChainUI extends ComponentBase {
         }
       },
     })
+  }
+
+  /**
+   * Check if bind-to-alias mode is enabled from preferences
+   */
+  async getBindToAliasMode() {
+    try {
+      return await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
+    } catch (error) {
+      console.warn('[CommandChainUI] Failed to get bindToAliasMode setting:', error)
+      return false // Default to disabled if we can't get the setting
+    }
+  }
+
+  /**
+   * Update previews for bind-to-alias mode
+   */
+  async updateBindToAliasMode(bindToAliasMode, selectedKeyName, commands) {
+    const generatedAlias = this.document.getElementById('generatedAlias')
+    const aliasPreviewEl = this.document.getElementById('aliasPreview')
+    const previewEl = this.document.getElementById('commandPreview')
+
+    if (!generatedAlias || !aliasPreviewEl || !previewEl) return
+
+    if (bindToAliasMode && selectedKeyName && this._currentEnvironment !== 'alias') {
+      // Show generated alias section
+      generatedAlias.style.display = ''
+      
+      // Generate alias name and preview
+      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
+      const aliasName = generateBindToAliasName(this._currentEnvironment, selectedKeyName)
+      
+      if (aliasName) {
+        // Show alias definition
+        const commandStrings = commands.map(cmd => 
+          typeof cmd === 'string' ? cmd : (cmd.command || cmd)
+        ).filter(Boolean)
+        const aliasCommandString = commandStrings.join(' $$ ')
+        aliasPreviewEl.textContent = `alias ${aliasName} "${aliasCommandString}"`
+        
+        // Update main preview to show keybind that calls the alias
+        previewEl.textContent = `${selectedKeyName} "${aliasName}"`
+      } else {
+        aliasPreviewEl.textContent = 'Invalid key name for alias generation'
+        previewEl.textContent = `${selectedKeyName} "..."`
+      }
+    } else {
+      // Hide generated alias section
+      generatedAlias.style.display = 'none'
+      
+      // Show normal command preview
+      const commandStrings = commands.map(cmd => 
+        typeof cmd === 'string' ? cmd : (cmd.command || cmd)
+      ).filter(Boolean)
+      previewEl.textContent = commandStrings.length > 0 
+        ? `${selectedKeyName} "${commandStrings.join(' $$ ')}"` 
+        : ''
+    }
   }
 
   /**
