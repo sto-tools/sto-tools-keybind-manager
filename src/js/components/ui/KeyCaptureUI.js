@@ -8,6 +8,7 @@ import {
   MOUSE_GESTURES, 
   SMART_SUGGESTIONS 
 } from '../../lib/keyboardLayouts.js'
+import { UNSAFE_KEYBINDS } from '../../core/constants.js'
 
 /**
  * Enhanced KeyCaptureUI with hybrid capture-first interface.
@@ -54,6 +55,9 @@ export default class KeyCaptureUI extends ComponentBase {
     
     // Legacy compatibility
     this.service = service
+
+    // Pre-compute unsafe keybind set for quick lookup
+    this._unsafeSet = new Set(UNSAFE_KEYBINDS.map(k => k.toUpperCase()))
   }
 
   /* ------------------------------------------------------------ lifecycle */
@@ -294,6 +298,12 @@ export default class KeyCaptureUI extends ComponentBase {
    * Select a key (from any source: capture, virtual keyboard, suggestions)
    */
   selectKey(keyChord) {
+    // Reject unsafe key combinations chosen via virtual keyboard or suggestions
+    if (this.isUnsafeChord(keyChord)) {
+      this.handleUnsafeChord(keyChord)
+      return
+    }
+
     this.selectedKey = keyChord
     this.updateLastModifierSideFromChord(keyChord)
     this.updatePreviewDisplay(keyChord)
@@ -1213,5 +1223,35 @@ export default class KeyCaptureUI extends ComponentBase {
   populateKeySelectionModal() {
     // Legacy method - now handled by initializeModal
     this.initializeModal()
+  }
+
+  /**
+   * Determine if chord is in UNSAFE list (case-insensitive)
+   * @param {string} chord
+   * @returns {boolean}
+   */
+  isUnsafeChord (chord) {
+    if (!chord) return false
+    return this._unsafeSet.has(chord.toUpperCase())
+  }
+
+  /**
+   * Show toast error and reset preview/selection when unsafe chord selected
+   * @param {string} chord
+   */
+  async handleUnsafeChord (chord) {
+    // Build message via i18n if available
+    let message = `Unsafe keybind combination: ${chord} is not allowed`
+    try {
+      const translated = await this.request('i18n:translate', { key: 'unsafe_keybind', params: { key: chord } })
+      if (translated) message = translated
+    } catch (_) {}
+
+    this.emit('toast:show', { message, type: 'error' })
+
+    // Clear any preview and disable confirm
+    this.selectedKey = null
+    this.updatePreviewDisplay('')
+    this.disableConfirmButton()
   }
 } 

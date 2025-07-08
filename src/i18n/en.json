@@ -1047,5 +1047,6 @@
   "suggestion_mouse": "Mouse Actions",
   "key_selection_failed": "Failed to select key",
   "error_generating_command": "Error generating command",
-  "please_enter_a_raw_command": "Please enter a raw command"
+  "please_enter_a_raw_command": "Please enter a raw command",
+  "unsafe_keybind": "Unsafe keybind combination: {{key}} is not allowed"
 }

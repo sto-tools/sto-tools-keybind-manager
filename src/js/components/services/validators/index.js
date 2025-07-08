@@ -6,13 +6,15 @@ import StabilizedTrayOnlyRule from './StabilizedTrayOnly.js'
 import KeyCommandCountRule from './KeyCommandCount.js'
 import AliasMixedEnvironmentRule from './AliasMixedEnvironment.js'
 import CommandWarnRule from './CommandWarnRule.js'
+import UnsafeKeybindRule from './UnsafeKeybindRule.js'
 
 const rules = [
   new MaxLengthRule(),
   new StabilizedTrayOnlyRule(),
   new KeyCommandCountRule(),
   new AliasMixedEnvironmentRule(),
-  new CommandWarnRule()
+  new CommandWarnRule(),
+  new UnsafeKeybindRule()
 ]
 
 // Helper to allow runtime registration of additional validators

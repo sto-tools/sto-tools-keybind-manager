@@ -1066,5 +1066,6 @@
   "suggestion_mouse": "Acciones de ratón",
   "key_selection_failed": "Error al seleccionar la tecla",
   "error_generating_command": "Error al generar el comando",
-  "please_enter_a_raw_command": "Por favor, introduzca un comando"
+  "please_enter_a_raw_command": "Por favor, introduzca un comando",
+  "unsafe_keybind": "Combinación de teclas insegura: {{key}} no está permitida"
 }

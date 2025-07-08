@@ -160,6 +160,15 @@ export default class CommandChainUI extends ComponentBase {
         
         // Atomic replacement
         container.replaceChildren(...newContent.children)
+
+        try {
+          const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName })
+          const isAlias = this._currentEnvironment === 'alias'
+          this.emit('command-chain:validate', { key: selectedKeyName, stabilized, isAlias })
+        } catch (_) {
+          // best-effort – ignore if service not available yet
+        }
+  
         return
       }
 

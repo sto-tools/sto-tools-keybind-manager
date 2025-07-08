@@ -40,15 +40,16 @@ export default class CommandChainValidatorService extends ComponentBase {
       // Retrieve the command list for the CURRENTLY SELECTED key via existing RPC
       // Note: CommandUI ensures key is selected before emitting validate.
       const commands = await this.request('command:get-for-selected-key')
+      // Normalize commands – even an empty/null response should allow validation rules
       if (!Array.isArray(commands)) {
-        console.warn('[CommandChainValidatorService] No commands returned for validation')
-        return
+        console.warn('[CommandChainValidatorService] No commands array returned – proceeding with empty list')
       }
+      const safeCommands = Array.isArray(commands) ? commands : []
 
       // Generate the exact preview line used in the command-chain editor
       const previewUnstabilized = await this.request('fileops:generate-command-preview', {
         key,
-        commands,
+        commands: safeCommands,
         stabilize: false
       })
 
@@ -57,10 +58,10 @@ export default class CommandChainValidatorService extends ComponentBase {
       const isAlias    = aliasFlag !== undefined ? aliasFlag : false
 
       let length
-      if (stabilized && commands.length > 1) {
+      if (stabilized && safeCommands.length > 1) {
         const previewStabilized = await this.request('fileops:generate-command-preview', {
           key,
-          commands,
+          commands: safeCommands,
           stabilize: true
         })
         length = previewStabilized.length
@@ -70,7 +71,7 @@ export default class CommandChainValidatorService extends ComponentBase {
 
       // ------------------------------------
       // Run modular validators (a rule may return a single issue or an array)
-      const ctx = { key, commands, length, stabilized, isAlias }
+      const ctx = { key, commands: safeCommands, length, stabilized, isAlias }
       const issues = RULES.flatMap(r => {
         const res = r.run(ctx)
         if (!res) return []

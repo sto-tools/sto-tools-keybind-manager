@@ -1057,5 +1057,6 @@
   "suggestion_mouse": "Mausaktionen",
   "key_selection_failed": "Tastenauswahl fehlgeschlagen",
   "error_generating_command": "Fehler beim Generieren des Befehls",
-  "please_enter_a_raw_command": "Bitte geben Sie einen Befehl ein"
+  "please_enter_a_raw_command": "Bitte geben Sie einen Befehl ein",
+  "unsafe_keybind": "Unsichere Tastenkombination: {{key}} ist nicht zulässig"
 }

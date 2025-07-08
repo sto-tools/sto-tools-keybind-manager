@@ -1,4 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
+import { UNSAFE_KEYBINDS } from '../../core/constants.js'
 
 /**
  * KeyCaptureService – centralised key-capture logic (keyboard listeners,
@@ -140,7 +141,11 @@ export default class KeyCaptureService extends ComponentBase {
   }
 
   /* ----------------------------- event handlers ------------------------- */
-  handleKeyDown (event) {
+  /**
+   * Keyboard down handler – now async so we can await i18n translations when
+   * displaying toast notifications. The signature is otherwise unchanged.
+   */
+  async handleKeyDown (event) {
     if (!this.isCapturing) return
 
     // Ignore pure modifier presses – update UI with current pressed set.
@@ -158,6 +163,33 @@ export default class KeyCaptureService extends ComponentBase {
     this.pressedCodes.add(event.code)
     const chord = this.chordToString(this.pressedCodes)
 
+    // ------------------------------------------------------------------
+    // Reject unsafe keybind combinations
+    // ------------------------------------------------------------------
+    if (this.isRejectedChord(chord)) {
+      // Try to fetch i18n translation via request/response pattern – fall back
+      // to the raw English string if translation service is not available.
+      let message = `Unsafe keybind combination: ${chord} is not allowed`
+      try {
+        const translated = await this.request('i18n:translate', {
+          key: 'unsafe_keybind',
+          params: { key: chord }
+        })
+        if (translated) message = translated
+      } catch (_) {
+        // No-op – keep fallback string
+      }
+
+      // Inform the user via toast notification.
+      this.emit('toast:show', { message, type: 'error' })
+
+      // Reset state so the rejected chord is not considered captured.
+      this.resetState()
+      event.preventDefault()
+      return // Do not propagate chord-captured event
+    }
+
+    // Normal flow – announce captured chord
     this.emit('chord-captured', {
       chord,
       context: this.currentContext,
@@ -401,5 +433,15 @@ export default class KeyCaptureService extends ComponentBase {
         return code.replace(/^Key/, '')
       })
       .join('+')
+  }
+
+  /**
+   * Check chord string against UNSAFE_KEYBINDS list.
+   * @param {string} chord
+   * @returns {boolean}
+   */
+  isRejectedChord (chord) {
+    if (!chord) return false
+    return UNSAFE_KEYBINDS.some(k => k.toUpperCase() === chord.toUpperCase())
   }
 } 
