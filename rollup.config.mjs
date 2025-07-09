@@ -10,6 +10,7 @@ export default {
     file: 'src/dist/bundle.js',
     format: 'esm',
     sourcemap: true,
+    inlineDynamicImports: true,
   },
   plugins: [
     nodeResolve(),

@@ -28,6 +28,8 @@ export default class CommandLibraryUI extends ComponentBase {
     this._currentEnvironment = 'space'
     this._selectedKey = null
     this._selectedAlias = null
+    this._rebuilding = false
+    this._rebuildQueued = false
   }
 
   /**
@@ -102,30 +104,54 @@ export default class CommandLibraryUI extends ComponentBase {
     this.addEventListener('command:filter', ({ filter = '' }) => {
       this.applySearchFilter(filter)
     })
+
+    // Listen for preferences saved to refresh command library (e.g., bindsets toggled)
+    this.addEventListener('preferences:saved', () => {
+      // Re-setup the library to reflect new preference-dependent commands
+      this.setupCommandLibrary()
+    })
   }
 
   /**
    * Setup the command library UI
    */
   async setupCommandLibrary() {
-    // Build non-alias command categories into dedicated list container
-    const container = this.document.getElementById('commandCategoriesList') || this.document.getElementById('commandCategories')
-    if (!container) return
+    // Avoid concurrent rebuilds; queue the latest request.
+    if (this._rebuilding) {
+      this._rebuildQueued = true
+      return
+    }
+    this._rebuilding = true
 
-    container.innerHTML = ''
+    try {
+      // Build non-alias command categories into dedicated list container
+      const container = this.document.getElementById('commandCategoriesList') || this.document.getElementById('commandCategories')
+      if (!container) return
 
-    const categories = await this.request('command:get-categories')
-    Object.entries(categories).forEach(([categoryId, category]) => {
-      const categoryElement = this.createCategoryElement(categoryId, category)
-      container.appendChild(categoryElement)
-    })
+      const fragment = this.document.createDocumentFragment()
 
-    // Apply environment filtering after creating elements
-    this.filterCommandLibrary()
-    
-    // Re-add aliases after rebuilding the command library
-    // Await to avoid race-conditions creating duplicates
-    await this.updateCommandLibrary()
+      const categories = await this.request('command:get-categories')
+      Object.entries(categories).forEach(([categoryId, category]) => {
+        const categoryElement = this.createCategoryElement(categoryId, category)
+        fragment.appendChild(categoryElement)
+      })
+
+      // Atomic replacement
+      container.replaceChildren(fragment)
+
+      // Apply environment filtering after replacing elements
+      this.filterCommandLibrary()
+
+      // Re-add aliases after rebuilding the command library
+      await this.updateCommandLibrary()
+    } finally {
+      this._rebuilding = false
+      if (this._rebuildQueued) {
+        this._rebuildQueued = false
+        // Run queued rebuild once current completes
+        this.setupCommandLibrary()
+      }
+    }
   }
 
   /**
@@ -372,6 +398,42 @@ export default class CommandLibraryUI extends ComponentBase {
     const regularAliases = allAliases.filter(([, alias]) => alias.type !== 'vfx-alias')
     const vertigoAliases = allAliases.filter(([, alias]) => alias.type === 'vfx-alias')
 
+    // ---------------- Bindset activation aliases -----------------
+    // Only include when preferences allow (bindsetsEnabled && bindToAliasMode)
+    let bindsetAliasItems = []
+    try {
+      const bindsetsEnabled = await this.request('preferences:get-setting', { key: 'bindsetsEnabled' })
+      const aliasMode       = await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
+
+      const toBool = (v)=> v===true||v==='true'||v===1||v==='1'
+      if (toBool(bindsetsEnabled) && toBool(aliasMode)) {
+        const profile = this.cache.profile || {}
+        const bindsets = profile.bindsets || {}
+        const envs = ['space','ground']
+
+        const sanitizeName = (n='') => {
+          let s = n.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/_+/g,'_').replace(/^_+|_+$/g,'')
+          if (/^[0-9]/.test(s)) s = `bs_${s}`
+          return s
+        }
+
+        for (const env of envs) {
+          const allBs = ['Primary Bindset', ...Object.keys(bindsets)]
+          allBs.forEach(bsName => {
+            const loaderAlias = `bindset_enable_${env}_${sanitizeName(bsName)}`
+            bindsetAliasItems.push([
+              loaderAlias,
+              {
+                type: 'bindset-alias',
+                description: `Enable ${bsName} (${env})`,
+                commands: loaderAlias
+              }
+            ])
+          })
+        }
+      }
+    } catch { /* ignore */ }
+
     // Build DOM in a detached fragment then atomically replace
     const fragment = this.document.createDocumentFragment()
 
@@ -393,6 +455,17 @@ export default class CommandLibraryUI extends ComponentBase {
           'vertigo-aliases',
           'vfx_aliases',
           'fas fa-eye-slash'
+        )
+      )
+    }
+
+    if (bindsetAliasItems.length > 0) {
+      fragment.appendChild(
+        this.createAliasCategoryElement(
+          bindsetAliasItems,
+          'bindset-aliases',
+          'bindsets',
+          'fas fa-tags'
         )
       )
     }

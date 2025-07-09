@@ -117,6 +117,8 @@ export default class DataCoordinator extends ComponentBase {
     // Late-join support is handled by ComponentBase automatically
     
     this.setupRequestHandlers()
+
+
   }
 
   async init() {
@@ -274,10 +276,13 @@ export default class DataCoordinator extends ComponentBase {
       profile.builds[environment] = { keys: {} }
     }
     
+    // Just return the primary build keys - UI components will handle bindset overlaying
+    let mergedKeys = { ...(profile.builds[environment].keys || {}) }
+    
     // Return virtual profile with flattened keys for current environment
     return {
       ...profile,
-      keys: profile.builds[environment].keys || {},
+      keys: mergedKeys,
       aliases: profile.aliases || {},
       keybindMetadata: profile.keybindMetadata || {},
       aliasMetadata: profile.aliasMetadata || {},
@@ -583,8 +588,16 @@ export default class DataCoordinator extends ComponentBase {
           }
         }
       }
-    }
 
+      // Delete bindsets
+      if (operations.delete.bindsets && Array.isArray(operations.delete.bindsets)) {
+        operations.delete.bindsets.forEach(bsName => {
+          if (result.bindsets) {
+            delete result.bindsets[bsName]
+          }
+        })
+      }
+    }
 
     if (operations.add) {
       // Add operations - merge new items into existing collections
@@ -600,6 +613,10 @@ export default class DataCoordinator extends ComponentBase {
             result.builds[env].keys = { ...(result.builds[env].keys || {}), ...envData.keys }
           }
         }
+      }
+
+      if (operations.add.bindsets) {
+        result.bindsets = { ...(result.bindsets || {}), ...operations.add.bindsets }
       }
     }
         
@@ -651,6 +668,56 @@ export default class DataCoordinator extends ComponentBase {
             for (const [keyName, keyData] of Object.entries(envData.keys)) {
               if (result.builds[env].keys[keyName]) {
                 result.builds[env].keys[keyName] = keyData
+              }
+            }
+          }
+        }
+      }
+
+      // ---------------- Bindsets (modify) ------------------
+      if (operations.modify.bindsets) {
+        result.bindsets = result.bindsets || {}
+        for (const [bsName, bsData] of Object.entries(operations.modify.bindsets)) {
+          // Ensure existing bindset structure
+          result.bindsets[bsName] = result.bindsets[bsName] || { space: { keys: {} }, ground: { keys: {} } }
+
+          for (const [env, envData] of Object.entries(bsData)) {
+            result.bindsets[bsName][env] = result.bindsets[bsName][env] || { keys: {} }
+
+            if (envData.keys) {
+              result.bindsets[bsName][env].keys = result.bindsets[bsName][env].keys || {}
+              console.log('[DataCoordinator] Incoming envData.keys for bindset', bsName, env, JSON.stringify(envData.keys));
+              for (const [keyName, keyData] of Object.entries(envData.keys)) {
+                if (keyData === null) {
+                  // Delete the key if value is null
+                  delete result.bindsets[bsName][env].keys[keyName]
+                } else {
+                  // Merge: set/replace the key with the provided value (including empty array)
+                  result.bindsets[bsName][env].keys[keyName] = keyData
+                }
+              }
+              console.log('[DataCoordinator] Resulting keys for bindset', bsName, env, JSON.stringify(result.bindsets[bsName][env].keys));
+            }
+          }
+        }
+      }
+
+      // ----------- Bindset key metadata (stabilization etc.) ------------
+      if (operations.modify.bindsetMetadata) {
+        result.bindsetMetadata = result.bindsetMetadata || {}
+        for (const [bsName, bsData] of Object.entries(operations.modify.bindsetMetadata)) {
+          result.bindsetMetadata[bsName] = result.bindsetMetadata[bsName] || {}
+          for (const [env, envData] of Object.entries(bsData)) {
+            result.bindsetMetadata[bsName][env] = result.bindsetMetadata[bsName][env] || {}
+            for (const [keyName, keyMeta] of Object.entries(envData)) {
+              if (Object.keys(keyMeta).length === 0) {
+                // Clear metadata entry
+                delete result.bindsetMetadata[bsName][env][keyName]
+              } else {
+                result.bindsetMetadata[bsName][env][keyName] = {
+                  ...(result.bindsetMetadata[bsName][env][keyName] || {}),
+                  ...keyMeta,
+                }
               }
             }
           }
@@ -758,7 +825,16 @@ export default class DataCoordinator extends ComponentBase {
       return {}
     }
     
-    return profile.builds[environment].keys || {}
+    const primaryKeys = profile.builds[environment].keys || {}
+
+    // Overlay active bindset keys
+    const activeBindset = this.state.currentBindset || 'Primary Bindset'
+    if (activeBindset === 'Primary Bindset') {
+      return primaryKeys
+    }
+
+    const bsKeys = profile.bindsets?.[activeBindset]?.[environment]?.keys || {}
+    return { ...primaryKeys, ...bsKeys }
   }
 
   /**
@@ -766,7 +842,9 @@ export default class DataCoordinator extends ComponentBase {
    */
   getKeyCommands(environment, key) {
     const keys = this.getKeys(environment)
-    return keys[key] || []
+    const cmds = keys[key] || []
+    // Return shallow copy to avoid accidental mutation of state
+    return Array.isArray(cmds) ? [...cmds] : cmds
   }
 
   /**

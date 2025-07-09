@@ -172,6 +172,11 @@
               <i class="fas fa-trash"></i>
             </button>
           </div>
+          <div class="toolbar-group">
+            <button class="toolbar-btn" id="bindsetManagerBtn" style="display:none" data-i18n-title="bindset_manager">
+              <i class="fas fa-tags"></i>
+            </button>
+          </div>
         </div>
         <div class="status-indicators">
           <span
@@ -195,7 +200,7 @@
             0 keys
           </span>
         </div>
-      <div class="profile-info">
+        <div class="profile-info">
           <div class="mode-toggle">
             <button
               class="mode-btn active"
@@ -328,6 +333,12 @@
               <h3 id="chainTitle"></h3>
             </div>
             <div class="header-toolbar">
+              <!-- Bindset dropdown icon -->
+              <div class="toolbar-group">
+                <button class="toolbar-btn" id="bindsetDropdownBtn" style="display:none" data-i18n-title="select_bindset">
+                  <i class="fas fa-tags"></i>
+                </button>
+              </div>
               <!-- Options -->
               <div class="toolbar-group">
                 <button
@@ -337,14 +348,7 @@
                 >
                   <i class="fas fa-balance-scale"></i>
                 </button>
-                <button
-                  class="toolbar-btn toolbar-toggle"
-                  id="aliasOptionsBtn"
-                  data-i18n-title="alias_options"
-                  style="display: none;"
-                >
-                  <i class="fas fa-cog"></i>
-                </button>
+                <select id="bindsetSelect" class="bindset-select" style="display:none; position:absolute; z-index:1000;"></select>
               </div>
               
               <!-- Chain Actions -->
@@ -953,6 +957,16 @@
                         <span class="setting-description" data-i18n="bind_to_alias_mode_description"></span>
                       </div>
                     </div>
+                    <div class="setting-item">
+                      <label data-i18n="bindsets_enabled"></label>
+                      <div class="setting-control">
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="bindsetsEnabledCheckbox" disabled>
+                          <span class="slider"></span>
+                        </label>
+                        <span class="setting-description" data-i18n="bindsets_enabled_description"></span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1082,6 +1096,32 @@
       accept=".json,.txt"
       style="display: none"
     />
+
+    <!-- Bindset Manager Modal -->
+    <div class="modal" id="bindsetManagerModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 data-i18n="bindset_manager"></h3>
+          <button class="modal-close" data-modal="bindsetManagerModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="bindset-list-container">
+            <ul id="bindsetList" class="bindset-list"></ul>
+          </div>
+          <div class="bindset-actions">
+            <button class="btn btn-small" id="createBindsetBtn" data-i18n="create"></button>
+            <button class="btn btn-small" id="renameBindsetBtn" data-i18n="rename" disabled></button>
+            <button class="btn btn-small btn-danger" id="deleteBindsetBtn" data-i18n="delete" disabled></button>
+          </div>
+          <span id="bindsetError" class="error-text" style="display:none"></span>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" data-modal="bindsetManagerModal" data-i18n="close"></button>
+        </div>
+      </div>
+    </div>
 
     <!-- Scripts -->
     <script src="dist/bundle.js"></script>

@@ -394,7 +394,16 @@ export default class VFXManagerService extends ComponentBase {
           console.log(`[${this.componentName}] autoGenerateAliases: VFX aliases saved to profile: ${this.currentProfile}`)
           
           // Emit aliases-changed event so Command Library and Alias Browser update
-          this.emit('aliases-changed', { aliases: { ...currentAliases, ...newVfxAliases } })
+          // Fetch the latest aliases from the updated profile
+          try {
+            const updatedProfiles = await this.request('data:get-all-profiles')
+            const updatedProfile = updatedProfiles[this.currentProfile]
+            if (updatedProfile && updatedProfile.aliases) {
+              this.emit('aliases-changed', { aliases: updatedProfile.aliases })
+            }
+          } catch (e) {
+            console.error(`[${this.componentName}] Failed to fetch updated profile for aliases-changed emit:`, e)
+          }
         } catch (error) {
           console.error(`[${this.componentName}] autoGenerateAliases: Failed to update profile:`, error)
         }
@@ -556,7 +565,16 @@ export default class VFXManagerService extends ComponentBase {
             console.log(`[${this.componentName}] VFX effects and aliases saved to profile: ${this.currentProfile}`)
             
             // Update alias browser to show new aliases
-            this.emit('aliases-changed', { aliases: { ...currentAliases, ...newVfxAliases } })
+            // Fetch the latest aliases from the updated profile
+            try {
+              const updatedProfiles = await this.request('data:get-all-profiles')
+              const updatedProfile = updatedProfiles[this.currentProfile]
+              if (updatedProfile && updatedProfile.aliases) {
+                this.emit('aliases-changed', { aliases: updatedProfile.aliases })
+              }
+            } catch (e) {
+              console.error(`[${this.componentName}] Failed to fetch updated profile for aliases-changed emit:`, e)
+            }
           } catch (error) {
             console.error(`[${this.componentName}] ERROR: Failed to update profile:`, error)
           }

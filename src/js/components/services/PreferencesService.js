@@ -28,6 +28,7 @@ export default class PreferencesService extends ComponentBase {
       autoSync: false,
       autoSyncInterval: 'change',
       bindToAliasMode: false,
+      bindsetsEnabled: false,
     }
 
     // Runtime copy
@@ -131,6 +132,19 @@ export default class PreferencesService extends ComponentBase {
     this.settings = { ...this.defaultSettings }
     this.saveSettings()
     this.applySettings()
+  }
+
+  /* --------------------------------------------------
+   * Late-join state sharing
+   * ------------------------------------------------ */
+  /**
+   * Provide current settings so late-joining components can use them without
+   * making explicit RPC requests that may race the service startup.
+   */
+  getCurrentState() {
+    return {
+      settings: { ...this.settings }
+    }
   }
 
   /* --------------------------------------------------

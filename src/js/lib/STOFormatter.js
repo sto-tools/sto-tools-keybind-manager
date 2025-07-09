@@ -26,13 +26,22 @@ export function formatAliasLine(name, alias = {}, includeDescription = true) {
  * @returns {string} Formatted keybind string (including trailing newline) or empty string if no valid commands.
  */
 export function formatKeybindLine(key, commands = []) {
-  if (!commands || commands.length === 0) return ''
+  // If there are no commands we still output the key followed by an empty quoted
+  // string so that downstream export files (and the game) recognise that the
+  // keybind exists but intentionally runs no commands (e.g. `F4 ""`).
+  if (Array.isArray(commands) && commands.length === 0) {
+    return `${key} ""\n`
+  }
 
   const valid = commands
     .map((c) => typeof c === 'string' ? c.trim() : (c && typeof c.command === 'string' ? c.command.trim() : ''))
     .filter((s) => s.length > 0)
 
-  if (valid.length === 0) return ''
+  // After filtering we might still end up with an empty list (e.g. all commands
+  // were null/empty). Generate an empty quoted string in that case as well.
+  if (valid.length === 0) {
+    return `${key} ""\n`
+  }
 
   const chained = valid.join(' $$ ')
   return `${key} "${chained}"\n`

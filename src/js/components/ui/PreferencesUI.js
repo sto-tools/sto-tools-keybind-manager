@@ -22,6 +22,7 @@ export default class PreferencesUI extends ComponentBase {
       autoSync: { type: 'boolean', element: 'autoSync' },
       autoSyncInterval: { type: 'select', element: 'autoSyncInterval' },
       bindToAliasMode: { type: 'boolean', element: 'bindToAliasModeCheckbox' },
+      bindsetsEnabled: { type: 'boolean', element: 'bindsetsEnabledCheckbox' },
     }
 
     // Holds settings that should only be applied when the user clicks the Save button
@@ -96,6 +97,12 @@ export default class PreferencesUI extends ComponentBase {
       const el = document.getElementById(def.element)
       if (!el) return
 
+      // If this is the bindsetsEnabled control, ensure it's disabled until bindToAliasMode is true
+      if (key === 'bindsetsEnabled') {
+        // Initial state – will be updated again after load
+        el.disabled = !(this.pendingSettings.bindToAliasMode || el.checked)
+      }
+
       switch (def.type) {
         case 'boolean':
           eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
@@ -142,6 +149,10 @@ export default class PreferencesUI extends ComponentBase {
       el.checked = !!value
     } else if (def.type === 'select') {
       el.value = value
+    }
+
+    if (key === 'bindToAliasMode') {
+      this.updateBindsetsCheckboxState(value)
     }
   }
 
@@ -238,14 +249,45 @@ export default class PreferencesUI extends ComponentBase {
   }
 
   handleSettingChange(key, value) {
-    // Defer applying bindToAliasMode until user presses Save.
-    if (key === 'bindToAliasMode') {
+    if (key === 'bindToAliasMode' || key === 'bindsetsEnabled') {
+      // Defer applying until user presses Save
       this.pendingSettings[key] = value
-      // Reflect change in UI immediately but do not persist
+
+      // Reflect change in UI but do not persist yet
       this.updateUI(key, value)
+
+      if (key === 'bindToAliasMode') {
+        // Update dependency for bindsets checkbox immediately for UX feedback
+        this.updateBindsetsCheckboxState(value)
+        // If alias mode disabled, ensure pending bindsetsEnabled is also false
+        if (!value) {
+          this.pendingSettings.bindsetsEnabled = false
+        }
+      }
     } else {
       // Apply other settings immediately as before
       this.updateSetting(key, value)
+    }
+  }
+
+  /**
+   * Enable/disable bindsetsEnabled checkbox depending on bindToAliasMode
+   */
+  updateBindsetsCheckboxState(bindToAliasMode = null) {
+    const checkbox = document.getElementById('bindsetsEnabledCheckbox')
+    if (!checkbox) return
+    // Determine state if param not provided
+    let enabled = bindToAliasMode
+    if (enabled === null) {
+      const pending = this.pendingSettings.bindToAliasMode
+      if (typeof pending !== 'undefined') enabled = pending
+      else enabled = checkbox.checked // fallback
+    }
+    checkbox.disabled = !enabled
+    if (!enabled) {
+      checkbox.checked = false
+      // Reflect in pendingSettings so Save applies correct value
+      this.pendingSettings.bindsetsEnabled = false
     }
   }
 } 

@@ -747,7 +747,7 @@
   "every_30_minutes": "Alle 30 Minuten",
   "every_hour": "Jede Stunde",
   "bind_to_alias_mode": "Keybind-Ketten als Aliase erstellen",
-  "bind_to_alias_mode_description": "Wenn aktiviert, werden Keybind-Ketten als Aliase generiert, benannt nach Umgebung und Taste (z.B. 'space_q'), und die Tasten werden so gebunden, dass sie diese Aliase aufrufen. Dies ermöglicht eine indirekte Verwaltung von Keybinds bei gleichbleibendem Bearbeitungserlebnis.",
+  "bind_to_alias_mode_description": "Wenn aktiviert, werden Keybind-Ketten als Aliase generiert, benannt nach Umgebung und Taste (z.B. 'space_q'), und die Tasten werden so gebunden, dass sie diese Aliase aufrufen.",
   "preferences_saved": "Einstellungen erfolgreich gespeichert",
   "failed_to_save_preferences": "Einstellungen konnten nicht gespeichert werden",
   "vfx_manager_description": "Wählen Sie visuelle Effekte aus, die mit dynFxSetFXExlusionList-Aliasen deaktiviert werden sollen. Effekte sind nach Umgebung organisiert.",
@@ -1006,7 +1006,7 @@
   },
   "duplicate_alias": "Alias duplizieren",
   "enter_new_alias_name": "Neuen Alias-Namen eingeben",
-  "alias_name_in_use": "Alias-Name bereits vorhanden",
+  "alias_name_in_use": "Alias-Name bereits vergeben",
   "failed_to_export_profiles": "Fehler beim Exportieren der Profile: {{error}}",
   "failed_to_rename_profile": "Fehler beim Umbenennen des Profils: {{error}}",
   "failed_to_save_file": "Fehler beim Speichern der Datei: {{error}}",
@@ -1061,5 +1061,12 @@
   "error_generating_command": "Fehler beim Generieren des Befehls",
   "please_enter_a_raw_command": "Bitte geben Sie einen Befehl ein",
   "unsafe_keybind": "Unsichere Tastenkombination: {{key}} ist nicht zulässig",
-  "generated_alias": "Generierter Alias:"
+  "generated_alias": "Generierter Alias:",
+  "bindsets_enabled": "Bindsets aktivieren",
+  "bindsets_enabled_description": "Ermöglicht die Erstellung und das Laden von Bindsets (erfordert 'Keybind-Ketten als Aliase erstellen').",
+  "bindsets": "Bindsets",
+  "bindset_manager": "Bindset-Manager",
+  "bindset_name_in_use": "Bindset-Name bereits vergeben",
+  "bindset_not_empty": "Bindset enthält Keybinds und kann nicht gelöscht werden",
+  "invalid_name": "Ungültiger Name"
 }

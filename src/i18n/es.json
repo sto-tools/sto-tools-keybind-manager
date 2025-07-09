@@ -764,7 +764,7 @@
   "every_30_minutes": "Cada 30 minutos",
   "every_hour": "Cada hora",
   "bind_to_alias_mode": "Crear cadenas de keybind como alias",
-  "bind_to_alias_mode_description": "Cuando está activado, las cadenas de keybind se generan como alias nombrados por entorno y tecla (por ejemplo, 'space_q'), y las teclas se vinculan para llamar a dichos alias. Esto permite la gestión indirecta de keybinds manteniendo la misma experiencia de edición.",
+  "bind_to_alias_mode_description": "Cuando está activado, las cadenas de keybind se generan como alias nombrados por entorno y tecla (por ejemplo, 'space_q'), y las teclas se vinculan para llamar a dichos alias.",
   "preferences_saved": "Preferencias guardadas exitosamente",
   "failed_to_save_preferences": "Falló al guardar las preferencias",
   "vfx_manager_description": "Selecciona efectos visuales para desactivar usando alias de dynFxSetFXExlusionList. Los efectos están organizados por entorno.",
@@ -1070,5 +1070,12 @@
   "key_selection_failed": "Error al seleccionar la tecla",
   "error_generating_command": "Error al generar el comando",
   "please_enter_a_raw_command": "Por favor, introduzca un comando",
-  "unsafe_keybind": "Combinación de teclas insegura: {{key}} no está permitida"
+  "unsafe_keybind": "Combinación de teclas insegura: {{key}} no está permitida",
+  "bindsets_enabled": "Habilitar conjuntos de enlaces",
+  "bindsets_enabled_description": "Permite la creación y carga de conjuntos de enlaces (requiere 'Crear cadenas de keybind como alias').",
+  "bindsets": "Conjuntos de enlaces",
+  "bindset_manager": "Administrador de conjuntos de enlaces",
+  "bindset_name_in_use": "El nombre del conjunto de enlaces ya está en uso",
+  "bindset_not_empty": "El conjunto de enlaces tiene keybinds y no se puede eliminar",
+  "invalid_name": "Nombre inválido"
 }

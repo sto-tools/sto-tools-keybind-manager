@@ -42,6 +42,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this._selectedKey = null
     this._selectedAlias = null
     this._currentEnvironment = 'space'
+    this._activeBindset = 'Primary Bindset' // Default to primary bindset
     
     // REFACTORED: Remove direct service references
     // All service interactions now use request/response pattern
@@ -83,6 +84,10 @@ export default class ParameterCommandUI extends ComponentBase {
       if (env) {
         this._currentEnvironment = env
       }
+    })
+
+    this.addEventListener('bindset:active-changed', (data) => {
+      this._activeBindset = data.bindset || 'Primary Bindset'
     })
 
     // Handle parameter command editing requests
@@ -225,7 +230,9 @@ export default class ParameterCommandUI extends ComponentBase {
       commandId: commandDef.commandId, 
       commandDef,
       editIndex: index,
-      originalCommand: command
+      originalCommand: command,
+      // Flag to indicate we are editing an existing item instead of adding new
+      isEditing: true
     }
 
     // Create modal lazily
@@ -378,24 +385,29 @@ export default class ParameterCommandUI extends ComponentBase {
       // Check if we're editing an existing command or adding a new one
       if (this.currentParameterCommand.isEditing && this.currentParameterCommand.editIndex !== undefined) {
         // Editing existing command - emit update event
+        const bindset = this._currentEnvironment === 'alias' ? null : this._activeBindset
         console.log('[ParameterCommandUI] emitting command:edit [parameterized]', { 
           key: selectedKey, 
           index: this.currentParameterCommand.editIndex, 
-          updatedCommand: cmd 
+          updatedCommand: cmd, 
+          bindset 
         })
         this.emit('command:edit', { 
           key: selectedKey, 
           index: this.currentParameterCommand.editIndex, 
-          updatedCommand: cmd 
+          updatedCommand: cmd, 
+          bindset 
         })
       } else {
         // Adding new command - handle arrays as single batch to avoid race conditions
+        // Include active bindset when not in alias mode
+        const bindset = this._currentEnvironment === 'alias' ? null : this._activeBindset
         if (Array.isArray(cmd)) {
           console.log('[ParameterCommandUI] emitting command:add [bulk parameterized]', { commands: cmd, key: selectedKey })
-          this.emit('command:add', { command: cmd, key: selectedKey })
+          this.emit('command:add', { command: cmd, key: selectedKey, bindset })
         } else {
           console.log('[ParameterCommandUI] emitting command:add [single parameterized]', { command: cmd, key: selectedKey })
-          this.emit('command:add', { command: cmd, key: selectedKey })
+          this.emit('command:add', { command: cmd, key: selectedKey, bindset })
         }
       }
     } catch (error) {

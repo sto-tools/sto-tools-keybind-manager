@@ -781,7 +781,7 @@
   "every_30_minutes": "Every 30 minutes",
   "every_hour": "Every hour",
   "bind_to_alias_mode": "Create keybind chains as aliases",
-  "bind_to_alias_mode_description": "When enabled, keybind chains are generated as aliases named by environment and key (e.g., 'space_q'), with keys bound to call the aliases. This provides indirect keybind management while maintaining the same editing experience.",
+  "bind_to_alias_mode_description": "When enabled, keybind chains are generated as aliases named by environment and key (e.g., 'space_q'), with keys bound to call the aliases.",
   "preferences_saved": "Preferences saved successfully",
   "failed_to_save_preferences": "Failed to save preferences",
   "vfx_manager_description": "Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.",
@@ -1051,5 +1051,12 @@
   "key_selection_failed": "Failed to select key",
   "error_generating_command": "Error generating command",
   "please_enter_a_raw_command": "Please enter a raw command",
-  "unsafe_keybind": "Unsafe keybind combination: {{key}} is not allowed"
+  "unsafe_keybind": "Unsafe keybind combination: {{key}} is not allowed",
+  "bindsets_enabled": "Enable Bindsets",
+  "bindsets_enabled_description": "When enabled, allows creation and loading of bindsets (requires 'Create keybind chains as aliases').",
+  "bindsets": "Bindsets",
+  "bindset_manager": "Bindset Manager",
+  "bindset_name_in_use": "Bindset name already in use",
+  "bindset_not_empty": "Bindset has keybinds and cannot be deleted",
+  "invalid_name": "Invalid name"
 }

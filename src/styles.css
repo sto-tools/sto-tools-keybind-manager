@@ -314,7 +314,6 @@ body {
 }
 
 .profile-selector i {
-  color: var(--primary);
   font-size: 1.1rem;
 }
 
@@ -1627,7 +1626,7 @@ input:checked + .slider:before {
   .chain-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
 }
 
@@ -4145,13 +4144,13 @@ input:checked + .slider:before {
   padding: 1rem 1rem 0.5rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface-dark);
-  gap: 1rem;
+  gap: 0.25rem;
 }
 
 .chain-header-left {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
   flex: 1;
 }
 
@@ -4990,3 +4989,37 @@ input:checked + .slider:before {
   margin-right: 0.625rem; /* 0.25u gap before CtrlR */
 }
 
+/* Bindset Select & Manager */
+.bindset-select {
+  margin-left: 1rem;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+.bindset-list-container {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+.bindset-list li {
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.bindset-list li.selected {
+  background: var(--primary);
+  color: #fff;
+}
+.bindset-actions { display:flex; gap:0.5rem; margin-top:0.5rem; }
+.error-text { color: var(--danger); font-size: 0.8rem; }
+
+/* Bindset select overlay */
+.bindset-select {
+  min-width: 180px;
+  padding: 4px;
+}
+
+#bindsetDropdownBtn {
+  margin-left: 6px;
+}

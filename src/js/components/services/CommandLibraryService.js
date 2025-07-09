@@ -167,8 +167,12 @@ export default class CommandLibraryService extends ComponentBase {
     this.cache.profile.aliasMetadata   = profile.aliasMetadata   || {}
     
     // Update keys for current environment
-    const currentBuild = profile.builds?.[this.cache.currentEnvironment]
-    this.cache.keys = currentBuild?.keys || {}
+    if (profile.keys) {
+      this.cache.keys = profile.keys
+    } else {
+      const currentBuild = profile.builds?.[this.cache.currentEnvironment]
+      this.cache.keys = currentBuild?.keys || {}
+    }
   }
 
   /**
@@ -428,7 +432,16 @@ export default class CommandLibraryService extends ComponentBase {
     try {
       const hasCommands = await this.request('data:has-commands')
       if (!hasCommands) return {}
-      return await this.request('data:get-commands')
+
+      // Deep-clone commands so we do NOT mutate the shared STO_DATA structure
+      const baseCategories = await this.request('data:get-commands')
+      const categories = (typeof structuredClone === 'function')
+        ? structuredClone(baseCategories)
+        : JSON.parse(JSON.stringify(baseCategories))
+
+
+
+      return categories
     } catch (error) {
       return {}
     }

@@ -1061,5 +1061,12 @@
   "unsafe_keybind": "Combinaison de touches dangereuse : {{key}} n'est pas autorisée",
   "generated_alias": "Alias généré :",
   "bind_to_alias_mode": "Créer des chaînes de commandes comme alias",
-  "bind_to_alias_mode_description": "Lorsqu'elle est activée, les chaînes de commandes sont générées sous forme d'alias nommés selon l'environnement et la touche (par ex. \"space_q\"), et les touches sont liées pour appeler ces alias. Cela permet une gestion indirecte des keybinds tout en conservant la même expérience d'édition."
+  "bind_to_alias_mode_description": "Lorsqu'elle est activée, les chaînes de commandes sont générées sous forme d'alias nommés selon l'environnement et la touche (par ex. \"space_q\"), et les touches sont liées pour appeler ces alias.",
+  "bindsets_enabled": "Activer les ensembles de liens",
+  "bindsets_enabled_description": "Permet la création et le chargement d'ensembles de liens (nécessite 'Créer des chaînes de keybinds en tant qu'alias').",
+  "bindsets": "Ensembles de liens",
+  "bindset_manager": "Gestionnaire d'ensembles de liens",
+  "bindset_name_in_use": "Le nom de l'ensemble de liens est déjà utilisé",
+  "bindset_not_empty": "L'ensemble de liens contient des keybinds et ne peut pas être supprimé",
+  "invalid_name": "Nom invalide"
 }

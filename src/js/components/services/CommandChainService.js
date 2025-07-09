@@ -19,6 +19,9 @@ export default class CommandChainService extends ComponentBase {
     this.commands = []
     this.currentProfile = null
     
+    // Track active bindset (default to primary)
+    this.activeBindset = 'Primary Bindset'
+
     // DataCoordinator cache
     this.cache = {
       profile: null,
@@ -38,21 +41,21 @@ export default class CommandChainService extends ComponentBase {
       this._responseDetachFunctions.push(
         // Removed deprecated command-chain:* request endpoints – callers should now use command:* APIs directly.
         // New: toggle or query execution-order stabilization
-        this.respond('command:set-stabilize', ({ name, stabilize }) => this.setStabilize(name, stabilize)),
-        this.respond('command:is-stabilized', ({ name }) => this.isStabilized(name)),
+        this.respond('command:set-stabilize', ({ name, stabilize, bindset }) => this.setStabilize(name, stabilize, bindset)),
+        this.respond('command:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
         // New: allow UI workflows (e.g., Import modal) to clear the destination
         // command chain synchronously via request/response.
         // Returns boolean success flag so caller can detect failures.
-        this.respond('command-chain:clear', async ({ key }) => {
+        this.respond('command-chain:clear', async ({ key, bindset }) => {
           try {
-            return await this.clearCommandChain(key)
+            return await this.clearCommandChain(key, bindset)
           } catch (err) {
             // Propagate error so request() caller receives it and can show details
             throw err
           }
         }),
         // New: expose stabilization state for validator service (unique)
-        this.respond('command-chain:is-stabilized', ({ name }) => this.isStabilized(name)),
+        this.respond('command-chain:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
         /*this.respond('command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
         this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
         this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
@@ -114,6 +117,14 @@ export default class CommandChainService extends ComponentBase {
       }
     })
 
+    // Listen for bindset changes to keep activeBindset synced
+    this.addEventListener('bindset:active-changed', ({ bindset, name }) => {
+      const newName = bindset || name
+      if (newName) {
+        this.activeBindset = newName
+      }
+    })
+
     // Directly emit chain data changes whenever key/alias selection changes so
     // the command-chain UI always knows what it should be displaying.
     this.addEventListener('key-selected', async ({ key, name }) => {
@@ -148,6 +159,24 @@ export default class CommandChainService extends ComponentBase {
       this.emit('chain-data-changed', { commands: cmds })
     })
 
+    const refreshAfterChange = async (label, payload) => {
+      console.log(`[CommandChainService] ${label} received:`, payload)
+      let cmds = Array.isArray(payload?.commands) ? payload.commands : null
+      if (!cmds) {
+        cmds = await this.getCommandsForSelectedKey()
+      }
+      this.emit('chain-data-changed', { commands: cmds })
+    }
+
+    this.addEventListener('command-edited', async (data) => {
+      await refreshAfterChange('command-edited', data)
+    })
+    this.addEventListener('command-deleted', async (data) => {
+      await refreshAfterChange('command-deleted', data)
+    })
+    this.addEventListener('command-moved', async (data) => {
+      await refreshAfterChange('command-moved', data)
+    })
 
     // Note: command:add events are now handled by CommandUI
     // CommandChainService only handles the resulting command-added events
@@ -237,12 +266,16 @@ export default class CommandChainService extends ComponentBase {
     // Delete command
     this.addEventListener('commandchain:delete', async ({ index }) => {
       if (index === undefined || !this.selectedKey) return
-      
-      // REFACTORED: Use request/response instead of direct service access
+
+      // Determine bindset context
+      const bindsetParam = (this.currentEnvironment === 'alias' || this.activeBindset === 'Primary Bindset')
+        ? null
+        : this.activeBindset
       try {
-        await this.request('command:delete', { 
-          key: this.selectedKey, 
-          index 
+        await this.request('command:delete', {
+          key: this.selectedKey,
+          index,
+          bindset: bindsetParam
         })
         this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       } catch (error) {
@@ -253,13 +286,16 @@ export default class CommandChainService extends ComponentBase {
     // Move command
     this.addEventListener('commandchain:move', async ({ fromIndex, toIndex }) => {
       if (!this.selectedKey) return
-      
-      // REFACTORED: Use request/response instead of direct service access
+
+      const bindsetParam = (this.currentEnvironment === 'alias' || this.activeBindset === 'Primary Bindset')
+        ? null
+        : this.activeBindset
       try {
-        await this.request('command:move', { 
-          key: this.selectedKey, 
-          fromIndex, 
-          toIndex 
+        await this.request('command:move', {
+          key: this.selectedKey,
+          fromIndex,
+          toIndex,
+          bindset: bindsetParam
         })
         this.emit('chain-data-changed', { commands: await this.getCommandsForSelectedKey() })
       } catch (error) {
@@ -281,6 +317,23 @@ export default class CommandChainService extends ComponentBase {
 
   async getCommandsForSelectedKey () {
     try {
+      // Alias environment handled directly
+      if (this.currentEnvironment === 'alias') {
+        return await this.request('command:get-for-selected-key')
+      }
+
+      const activeBindset = this.activeBindset || 'Primary Bindset'
+
+      if (activeBindset !== 'Primary Bindset') {
+        const cmds = await this.request('bindset:get-key-commands', {
+          bindset: activeBindset,
+          environment: this.currentEnvironment,
+          key: this.selectedKey,
+        })
+        return Array.isArray(cmds) ? cmds : []
+      }
+
+      // Primary bindset path
       return await this.request('command:get-for-selected-key')
     } catch (error) {
       console.error('Failed to get commands for selected key:', error)
@@ -381,7 +434,7 @@ export default class CommandChainService extends ComponentBase {
   /**
    * Clear all commands from a key's command chain
    */
-  async clearCommandChain(key) {
+  async clearCommandChain(key, bindset = null) {
     try {
       if (!key) {
         console.warn('CommandChainService: Cannot clear chain - no key specified')
@@ -394,16 +447,29 @@ export default class CommandChainService extends ComponentBase {
         return false
       }
 
+      const useBindset = (bindset && bindset !== 'Primary Bindset' && this.currentEnvironment !== 'alias')
+
       if (this.currentEnvironment === 'alias') {
         // Clear alias command chain - use canonical array format
         if (profile.aliases && profile.aliases[key]) {
           profile.aliases[key].commands = []
         }
       } else {
-        // Clear keybind command chain
-        const commands = profile.builds?.[this.currentEnvironment]?.keys?.[key]
-        if (commands) {
-          profile.builds[this.currentEnvironment].keys[key] = []
+        if (useBindset) {
+          // Clear commands within the active bindset
+          if (!profile.bindsets?.[bindset]) {
+            profile.bindsets = { ...(profile.bindsets || {}), [bindset]: { space: { keys: {} }, ground: { keys: {} } } }
+          }
+          if (!profile.bindsets[bindset][this.currentEnvironment]) {
+            profile.bindsets[bindset][this.currentEnvironment] = { keys: {} }
+          }
+          profile.bindsets[bindset][this.currentEnvironment].keys[key] = []
+        } else {
+          // Clear keybind command chain in primary build
+          const commands = profile.builds?.[this.currentEnvironment]?.keys?.[key]
+          if (commands) {
+            profile.builds[this.currentEnvironment].keys[key] = []
+          }
         }
       }
 
@@ -414,22 +480,46 @@ export default class CommandChainService extends ComponentBase {
         return false
       }
 
-      // Use DataCoordinator explicit operations API to modify specific items
-      const result = await this.request('data:update-profile', {
-        profileId: profileId,
-        modify: this.currentEnvironment === 'alias' ? {
-          aliases: {
-            [key]: profile.aliases[key]
+      let updatePayload
+      if (this.currentEnvironment === 'alias') {
+        updatePayload = {
+          modify: {
+            aliases: {
+              [key]: profile.aliases[key]
+            }
           }
-        } : {
-          builds: {
-            [this.currentEnvironment]: {
-              keys: {
-                [key]: profile.builds[this.currentEnvironment].keys[key]
+        }
+      } else if (useBindset) {
+        updatePayload = {
+          modify: {
+            bindsets: {
+              [bindset]: {
+                [this.currentEnvironment]: {
+                  keys: {
+                    [key]: []
+                  }
+                }
               }
             }
           }
         }
+      } else {
+        updatePayload = {
+          modify: {
+            builds: {
+              [this.currentEnvironment]: {
+                keys: {
+                  [key]: []
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const result = await this.request('data:update-profile', {
+        profileId: profileId,
+        ...updatePayload
       })
 
       if (result?.success) {
@@ -468,7 +558,9 @@ export default class CommandChainService extends ComponentBase {
     this.cache.currentProfile = profile.id
 
     // Cache environment-specific data
-    if (profile.builds && profile.builds[this.currentEnvironment]) {
+    if (profile.keys) {
+      this.cache.keys = profile.keys
+    } else if (profile.builds && profile.builds[this.currentEnvironment]) {
       this.cache.keys = profile.builds[this.currentEnvironment].keys || {}
     }
 
@@ -581,25 +673,45 @@ export default class CommandChainService extends ComponentBase {
 
   /**
    * Return whether the specified key/alias currently has stabilization enabled.
+   * @param {string} name - The key or alias name
+   * @param {string} [bindset] - Optional bindset name (for bindset-specific stabilization)
    */
-  isStabilized(name) {
+  isStabilized(name, bindset = null) {
     if (!name) return false
     const profile = this.cache.profile || null
     if (!profile) return false
 
-    if (this.currentEnvironment === 'alias') {
-      return !!(profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
+    // Always check alias metadata first, regardless of current environment or bindset
+    if (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder === true) {
+      return true
     }
 
+    // If we're in alias mode, only check alias metadata
+    if (this.currentEnvironment === 'alias') {
+      return false
+    }
+
+    // If bindset is specified, check bindset metadata
+    if (bindset && bindset !== 'Primary Bindset') {
+      return !!(profile.bindsetMetadata && profile.bindsetMetadata[bindset] &&
+        profile.bindsetMetadata[bindset][this.currentEnvironment] &&
+        profile.bindsetMetadata[bindset][this.currentEnvironment][name] &&
+        profile.bindsetMetadata[bindset][this.currentEnvironment][name].stabilizeExecutionOrder === true)
+    }
+
+    // Default to primary bindset (keybindMetadata)
     return !!(profile.keybindMetadata && profile.keybindMetadata[this.currentEnvironment] &&
       profile.keybindMetadata[this.currentEnvironment][name] &&
-      profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder)
+      profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder === true)
   }
 
   /**
    * Toggle or set stabilization flag for current key / alias.
+   * @param {string} name - The key or alias name
+   * @param {boolean} [stabilize=true] - Whether to enable stabilization
+   * @param {string} [bindset] - Optional bindset name (for bindset-specific stabilization)
    */
-  async setStabilize(name, stabilize = true) {
+  async setStabilize(name, stabilize = true, bindset = null) {
     try {
       if (!name) return { success: false }
 
@@ -608,7 +720,8 @@ export default class CommandChainService extends ComponentBase {
       const profile = this.cache.profile
       if (!profile) return { success: false }
 
-      const isAlias = this.currentEnvironment === 'alias'
+      // Check if this is an alias by looking in the profile's aliases
+      const isAlias = this.currentEnvironment === 'alias' || !!(profile.aliases && profile.aliases[name])
       let modifyPayload
 
       if (isAlias) {
@@ -622,17 +735,12 @@ export default class CommandChainService extends ComponentBase {
         if (stabilize) {
           aliasMetadata[name].stabilizeExecutionOrder = true
         } else {
-          delete aliasMetadata[name].stabilizeExecutionOrder
-          // If the metadata object becomes empty, we still send it but as an empty object
-          // DataCoordinator will handle the cleanup
-          if (Object.keys(aliasMetadata[name]).length === 0) {
-            aliasMetadata[name] = {}
-          }
+          aliasMetadata[name].stabilizeExecutionOrder = false
         }
 
         modifyPayload = { aliasMetadata }
-      } else {
-        // Only send metadata for the specific key being modified
+      } else if (!bindset || bindset === 'Primary Bindset') {
+        // Primary bindset - use keybindMetadata
         const keybindMetadata = {}
         if (!keybindMetadata[this.currentEnvironment]) {
           keybindMetadata[this.currentEnvironment] = {}
@@ -648,14 +756,30 @@ export default class CommandChainService extends ComponentBase {
         if (stabilize) {
           keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder = true
         } else {
-          delete keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder
-          // If the metadata object becomes empty, we still send it but as an empty object
-          if (Object.keys(keybindMetadata[this.currentEnvironment][name]).length === 0) {
-            keybindMetadata[this.currentEnvironment][name] = {}
-          }
+          keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder = false
         }
 
         modifyPayload = { keybindMetadata }
+      } else {
+        // Bindset-specific metadata
+        const bsMeta = {}
+        bsMeta[bindset] = {}
+        bsMeta[bindset][this.currentEnvironment] = {}
+
+        const currentKeyMeta = (profile.bindsetMetadata && profile.bindsetMetadata[bindset] &&
+          profile.bindsetMetadata[bindset][this.currentEnvironment] &&
+          profile.bindsetMetadata[bindset][this.currentEnvironment][name]) || {}
+
+        const newMeta = { ...currentKeyMeta }
+        if (stabilize) {
+          newMeta.stabilizeExecutionOrder = true
+        } else {
+          newMeta.stabilizeExecutionOrder = false
+        }
+
+        bsMeta[bindset][this.currentEnvironment][name] = newMeta
+
+        modifyPayload = { bindsetMetadata: bsMeta }
       }
 
       // Persist via DataCoordinator
@@ -664,7 +788,13 @@ export default class CommandChainService extends ComponentBase {
 
       const result = await this.request('data:update-profile', { profileId, modify: modifyPayload })
       if (result?.success) {
-        this.emit('stabilize-changed', { name, stabilize, isAlias })
+        // CRITICAL: Update local cache immediately to prevent race conditions
+        // The profile:updated event will also trigger cache update, but that's async
+        if (result.profile) {
+          this.updateCacheFromProfile({ ...result.profile, id: profileId })
+        }
+        
+        this.emit('stabilize-changed', { name, stabilize, isAlias, bindset })
         // Broadcast profile update for listeners that rely on metadata
         this.emit('profile:updated', { profileId, profile: result.profile })
         return { success: true }

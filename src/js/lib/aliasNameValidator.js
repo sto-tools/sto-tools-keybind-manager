@@ -73,7 +73,7 @@ export function getAliasNameError (name = '') {
  * Follows the pattern: environment_key (e.g., "space_q", "ground_f1")
  * Ensures the result is a valid alias name by converting invalid characters.
  */
-export function generateBindToAliasName (environment, keyName) {
+export function generateBindToAliasName (environment, keyName, bindsetName = null) {
   // Sanitize environment name (should already be clean, but just in case)
   const cleanEnv = (environment || 'space').toLowerCase().replace(/[^a-z0-9]/g, '')
   
@@ -135,7 +135,19 @@ export function generateBindToAliasName (environment, keyName) {
     cleanKey = `k${cleanKey}`
   }
   
-  const aliasName = `${cleanEnv}_${cleanKey}`
+  // Optional bindset part (omit when primary or blank)
+  let bindsetPart = ''
+  if (bindsetName && bindsetName !== 'Primary Bindset') {
+    // Sanitize bindset similar to key – spaces/invalid chars to underscores
+    bindsetPart = bindsetName.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .replace(/_+/g, '_')
+  }
+  
+  const aliasName = bindsetPart
+    ? `${cleanEnv}_${bindsetPart}_${cleanKey}`
+    : `${cleanEnv}_${cleanKey}`
   
   return isAliasNamePatternValid(aliasName) ? aliasName : null
 }

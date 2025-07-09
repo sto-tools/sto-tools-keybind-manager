@@ -33,6 +33,7 @@ export default class CommandUI extends ComponentBase {
     this._selectedKey = null
     this._selectedAlias = null
     this._currentEnvironment = 'space'
+    this._activeBindset = 'Primary Bindset' // Default to primary bindset
 
     // Store last validation issues
     this._lastValidation = { warnings: [], errors: [] }
@@ -64,9 +65,9 @@ export default class CommandUI extends ComponentBase {
             return
           }
 
-          // Emit event for CommandService to handle - following broadcast pattern
-          console.log('[CommandUI] emitting command:add [static]', { commandDef, key: selectedKey })
-          this.emit('command:add', { command: commandDef, key: selectedKey })
+          // Include active bindset when not in alias mode
+          const bindset = this._currentEnvironment === 'alias' ? null : this._activeBindset
+          this.emit('command:add', { command: commandDef, key: selectedKey, bindset })
         } catch (error) {
           console.error('CommandUI: Failed to handle static command:', error)
         }
@@ -143,6 +144,10 @@ export default class CommandUI extends ComponentBase {
       if (env) {
         this._currentEnvironment = env
       }
+    })
+
+    this.addEventListener('bindset:active-changed', (data) => {
+      this._activeBindset = data.bindset || 'Primary Bindset'
     })
   }
 

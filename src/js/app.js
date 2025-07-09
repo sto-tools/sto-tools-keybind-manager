@@ -552,6 +552,46 @@ export default class STOToolsKeybindManager {
       })
       this.importUI.init()
 
+      // Bindset manager button visibility control
+      this.updateBindsetButtonVisibility = () => {
+        try {
+          const aliasMode = this.preferencesService?.getSetting?.('bindToAliasMode') ?? false
+          const bindsets  = this.preferencesService?.getSetting?.('bindsetsEnabled') ?? false
+          const btn = document.getElementById('bindsetManagerBtn')
+          if (btn) {
+            const show = aliasMode && bindsets
+            btn.style.display = show ? '' : 'none'
+
+            // Hide parent toolbar-group if empty
+            const group = btn.closest('.toolbar-group')
+            if (group) {
+              group.style.display = show ? '' : 'none'
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to update Bindset button visibility', e)
+        }
+      }
+
+      // Initial state
+      this.updateBindsetButtonVisibility()
+
+      // Update when preference changes
+      eventBus.on('preferences:changed', (data) => {
+        if (data.key === 'bindsetsEnabled' || data.key === 'bindToAliasMode') {
+          this.updateBindsetButtonVisibility()
+        }
+      })
+
+      // Initialize bindset service & UI
+      const { default: BindsetService }      = await import('./components/services/BindsetService.js')
+      const { default: BindsetManagerUI }    = await import('./components/ui/BindsetManagerUI.js')
+
+      this.bindsetService  = new BindsetService({ eventBus })
+      this.bindsetManagerUI = new BindsetManagerUI({ eventBus })
+      this.bindsetService.init()
+      this.bindsetManagerUI.init()
+
     } catch (error) {
       // dbg('Failed to initialize application:', error)
       // dbg('Error stack:', error.stack)
