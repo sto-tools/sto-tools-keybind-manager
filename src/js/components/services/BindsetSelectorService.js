@@ -106,6 +106,10 @@ export default class BindsetSelectorService extends ComponentBase {
       if (env) {
         this.currentEnvironment = env
         this.updateKeyMembership()
+        // Update visibility based on new environment
+        const shouldDisplay = this.shouldDisplay()
+        console.log('[BindsetSelectorService] environment changed to:', env, 'shouldDisplay:', shouldDisplay)
+        this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
       }
     })
   }
@@ -312,7 +316,7 @@ export default class BindsetSelectorService extends ComponentBase {
   /* ------------------------------------------------------------ */
 
   shouldDisplay() {
-    return this.preferences.bindsetsEnabled && this.preferences.bindToAliasMode
+    return this.preferences.bindsetsEnabled && this.preferences.bindToAliasMode && this.currentEnvironment !== 'alias'
   }
 
   /* ------------------------------------------------------------ */
