@@ -166,6 +166,12 @@ export default class CommandChainService extends ComponentBase {
       
       this.selectedKey = key || name || null
 
+      // Reset to Primary Bindset when selecting a different key (same logic as CommandChainUI)
+      if (this.selectedKey && this.activeBindset !== 'Primary Bindset') {
+        console.log(`[CommandChainService] Resetting activeBindset from ${this.activeBindset} to Primary Bindset for key selection`)
+        this.activeBindset = 'Primary Bindset'
+      }
+
       // Refresh commands list when a new key is selected
       const cmds = await this.getCommandsForSelectedKey()
       console.log('[CommandChainService] [key-selected] emitting chain-data-changed with', cmds.length, 'commands')

@@ -65,16 +65,24 @@ export default class CommandChainUI extends ComponentBase {
           // Update label if preview is currently visible (fixes race condition on initial load)
           this.updatePreviewLabel()
           
+          // Update bindset selector visibility based on new environment
+          this.setupBindsetDropdown().catch(() => {})
+          
           // Don't render immediately - wait for key-selected or alias-selected event
           // which will be emitted by KeyBrowserService after it finishes its selection logic
         }
       })
     )
     this._detachFunctions.push(
-      this.eventBus.on('key-selected', (data) => {
+      this.eventBus.on('key-selected', async (data) => {
         this._selectedKey = data.key || data.name
         this._selectedAlias = null
         this.updateChainActions()
+        
+        // Update bindset selector with selected key first (can be null)
+        if (this.bindsetSelectorService) {
+          this.bindsetSelectorService.setSelectedKey(this._selectedKey)
+        }
         
         // Reset to Primary Bindset when selecting a different key (unless already on Primary)
         // Only do this if a key was actually selected (not null)
@@ -84,11 +92,6 @@ export default class CommandChainUI extends ComponentBase {
             this.bindsetSelectorService.setActiveBindset('Primary Bindset')
           }
           this.updateBindsetBanner()
-        }
-        
-        // Update bindset selector with selected key (can be null)
-        if (this.bindsetSelectorService) {
-          this.bindsetSelectorService.setSelectedKey(this._selectedKey)
         }
         
         // Render to show the newly selected key's command chain
@@ -916,7 +919,8 @@ export default class CommandChainUI extends ComponentBase {
     const bindToAliasMode = this.getBindToAliasMode()
     const container = this.document.getElementById('bindsetSelectorContainer')
     
-    if (!this._bindsetsEnabled || !bindToAliasMode) {
+    // Hide bindset selector in alias mode since bindsets don't apply to aliases
+    if (this._currentEnvironment === 'alias' || !this._bindsetsEnabled || !bindToAliasMode) {
       if (container) container.style.display = 'none'
       return
     }

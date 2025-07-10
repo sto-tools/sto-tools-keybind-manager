@@ -3,7 +3,7 @@
  */
 
 // Current application version
-export const APP_VERSION = '2025.07.08-beta6'
+export const APP_VERSION = '2025.07.11-beta7'
 
 // Display version with 'v' prefix for UI
 export const DISPLAY_VERSION = `v${APP_VERSION}`

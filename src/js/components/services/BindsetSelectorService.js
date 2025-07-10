@@ -213,7 +213,7 @@ export default class BindsetSelectorService extends ComponentBase {
       }
 
       const updates = {
-        add: {
+        modify: {
           bindsets: {
             [bindsetName]: {
               [this.currentEnvironment]: {
