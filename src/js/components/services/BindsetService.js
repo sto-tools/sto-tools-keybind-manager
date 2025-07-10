@@ -185,21 +185,39 @@ export default class BindsetService extends ComponentBase {
   }
 
   async getKeyCommands(bindset, environment = 'space', key) {
-    if (!key) return []
+    console.log(`[BindsetService] *** getKeyCommands called: bindset=${bindset}, environment=${environment}, key=${key} ***`)
+    
+    if (!key) {
+      console.log(`[BindsetService] *** No key provided, returning empty array ***`)
+      return []
+    }
 
     // Always fetch the latest profile snapshot from DataCoordinator to avoid
     // stale cache issues when bindsets are modified by other services.
-    const state = await this.request('data:get-current-state').catch(() => null)
+    console.log(`[BindsetService] *** Requesting data:get-current-state ***`)
+    const state = await this.request('data:get-current-state').catch((error) => {
+      console.error(`[BindsetService] *** Failed to get current state: ***`, error)
+      return null
+    })
+    
     const profileId = state?.currentProfile
     const profile   = profileId && state?.profiles ? state.profiles[profileId] : null
-    if (!profile) return []
+    
+    console.log(`[BindsetService] *** Profile data retrieved: profileId=${profileId}, hasProfile=${!!profile} ***`)
+    
+    if (!profile) {
+      console.log(`[BindsetService] *** No profile data, returning empty array ***`)
+      return []
+    }
 
     if (!bindset || bindset === 'Primary Bindset') {
       const cmds = profile.builds?.[environment]?.keys?.[key] || []
+      console.log(`[BindsetService] *** Primary bindset commands for key ${key}:`, cmds)
       return Array.isArray(cmds) ? [...cmds] : []
     }
 
     const cmds = profile.bindsets?.[bindset]?.[environment]?.keys?.[key] || []
+    console.log(`[BindsetService] *** Bindset "${bindset}" commands for key ${key}:`, cmds)
     return Array.isArray(cmds) ? [...cmds] : []
   }
 

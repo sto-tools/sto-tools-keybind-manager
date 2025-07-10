@@ -5023,3 +5023,123 @@ input:checked + .slider:before {
 #bindsetDropdownBtn {
   margin-left: 6px;
 }
+
+/* Bindset Selector Dropdown */
+.bindset-dropdown-menu {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  min-width: 250px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.bindset-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.bindset-option:hover {
+  background: var(--surface-hover);
+}
+
+.bindset-option.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.bindset-option.greyed-out {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bindset-option.greyed-out .bindset-name {
+  color: var(--text-muted);
+}
+
+.bindset-option.greyed-out:hover {
+  background: var(--surface);
+  opacity: 0.5;
+}
+
+.bindset-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 4px;
+  opacity: 0.7;
+}
+
+.bindset-option:hover .toolbar-group {
+  opacity: 1;
+}
+
+.toolbar-btn-small {
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-btn-small:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.toolbar-btn-small:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: var(--surface);
+}
+
+.toolbar-btn-small.add-key-btn:hover:not(:disabled) {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.toolbar-btn-small.remove-key-btn:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.bindset-dropdown-footer {
+  border-top: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: center;
+  background: var(--surface-alt);
+}
+
+.text-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+}
+
+/* Ensure proper positioning for the dropdown container */
+#bindsetSelectorContainer {
+  position: relative;
+  display: inline-block;
+}

@@ -2,6 +2,8 @@ import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
+import BindsetSelectorService from '../services/BindsetSelectorService.js'
+import BindsetSelectorUI from './BindsetSelectorUI.js'
 
 export default class CommandChainUI extends ComponentBase {
   constructor ({ eventBus: bus = eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
@@ -12,6 +14,10 @@ export default class CommandChainUI extends ComponentBase {
     this._selectedKey = null
     this._currentEnvironment = 'space'
 
+    // Initialize bindset selector components
+    this.bindsetSelectorService = null
+    this.bindsetSelectorUI = null
+    this.activeBindset = 'Primary Bindset'
   }
 
   async onInit () {
@@ -22,6 +28,9 @@ export default class CommandChainUI extends ComponentBase {
     
     // Store detach functions for cleanup
     this._detachFunctions = []
+    
+    // Initialize bindset selector components
+    await this.initializeBindsetSelector()
     
     // Listen for chain-data updates broadcast by service
     this._detachFunctions.push(
@@ -53,6 +62,20 @@ export default class CommandChainUI extends ComponentBase {
         this._selectedKey = data.key || data.name
         this._selectedAlias = null
         this.updateChainActions()
+        
+        // Reset to Primary Bindset when selecting a different key (unless already on Primary)
+        if (this.activeBindset !== 'Primary Bindset') {
+          this.activeBindset = 'Primary Bindset'
+          if (this.bindsetSelectorService) {
+            this.bindsetSelectorService.setActiveBindset('Primary Bindset')
+          }
+          this.updateBindsetBanner()
+        }
+        
+        // Update bindset selector with selected key
+        if (this.bindsetSelectorService) {
+          this.bindsetSelectorService.setSelectedKey(this._selectedKey)
+        }
         //setTimeout(() => this.render().catch(() => {}), 0)
       })
     )
@@ -79,6 +102,49 @@ export default class CommandChainUI extends ComponentBase {
           console.log('[CommandChainUI] bind-to-alias mode changed, re-rendering')
           // Re-evaluate dropdown visibility when bind-to-alias toggles
           await this.setupBindsetDropdown().catch(()=>{})
+          this.render()
+        }
+      })
+    )
+
+    // Listen for bindset selector active changes
+    this._detachFunctions.push(
+      this.eventBus.on('bindset-selector:active-changed', ({ bindset }) => {
+        this.activeBindset = bindset
+        this.updateBindsetBanner()
+        this.updateChainActions()
+        this.render()
+      })
+    )
+
+    // Listen for key added to bindset - should switch to that bindset and show empty chain
+    console.log('[CommandChainUI] Setting up bindset-selector:key-added event listener')
+    this._detachFunctions.push(
+      this.eventBus.on('bindset-selector:key-added', ({ key, bindset }) => {
+        console.log(`[CommandChainUI] *** bindset-selector:key-added received: key=${key}, bindset=${bindset}, selectedKey=${this._selectedKey} ***`)
+        if (key === this._selectedKey) {
+          console.log(`[CommandChainUI] *** Key added to bindset: ${bindset} (bindset switching already handled) ***`)
+          // NOTE: The BindsetSelectorService now switches to the bindset immediately when adding the key
+          // So we don't need to call setActiveBindset again here - it's already done
+          // The bindset-selector:active-changed event will have already fired
+        } else {
+          console.log(`[CommandChainUI] *** Event key ${key} does not match selectedKey ${this._selectedKey}, ignoring ***`)
+        }
+      })
+    )
+    console.log('[CommandChainUI] bindset-selector:key-added event listener registered')
+
+    // Listen for key removed from bindset - switch to Primary if it was the active bindset
+    this._detachFunctions.push(
+      this.eventBus.on('bindset-selector:key-removed', ({ key, bindset }) => {
+        if (key === this._selectedKey && this.activeBindset === bindset) {
+          // Switch to Primary Bindset since the key was removed from the active bindset
+          this.activeBindset = 'Primary Bindset'
+          if (this.bindsetSelectorService) {
+            this.bindsetSelectorService.setActiveBindset('Primary Bindset')
+          }
+          this.updateBindsetBanner()
+          this.updateChainActions()
           this.render()
         }
       })
@@ -763,128 +829,60 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   /* ------------------------------------------------------------ */
+  /* Bindset Selector Initialization                             */
+  /* ------------------------------------------------------------ */
+
+  async initializeBindsetSelector() {
+    try {
+      // Initialize bindset selector service - it will handle its own service interactions via eventBus
+      this.bindsetSelectorService = new BindsetSelectorService({
+        eventBus: this.eventBus
+      })
+      
+      // Initialize bindset selector UI
+      this.bindsetSelectorUI = new BindsetSelectorUI({
+        eventBus: this.eventBus,
+        document: this.document
+      })
+      
+      // Initialize components
+      await this.bindsetSelectorService.init()
+      await this.bindsetSelectorUI.init()
+      
+      console.log('[CommandChainUI] Bindset selector components initialized')
+    } catch (error) {
+      console.error('[CommandChainUI] Error initializing bindset selector:', error)
+    }
+  }
+
+  /* ------------------------------------------------------------ */
   /* Bindset helpers                                              */
   /* ------------------------------------------------------------ */
 
   async setupBindsetDropdown() {
-    // Only show the dropdown when the bindsets feature is enabled via preferences
+    // This method is now simplified - the new BindsetSelector components handle the UI
     const bindToAliasMode = await this.getBindToAliasMode().catch(()=>false)
+    const container = this.document.getElementById('bindsetSelectorContainer')
+    
     if (!this._bindsetsEnabled || !bindToAliasMode) {
-      const btn = this.document.getElementById('bindsetDropdownBtn')
-      const sel = this.document.getElementById('bindsetSelect')
-      if (btn) btn.style.display = 'none'
-      if (sel) sel.style.display = 'none'
+      if (container) container.style.display = 'none'
       return
     }
-    if (this._bindsetDropdownReady) return
-
-    const btnEl = this.document.getElementById('bindsetDropdownBtn')
-    if (!btnEl) return
-
-    // Hide the native select completely – we'll build a custom menu
-    const nativeSelect = this.document.getElementById('bindsetSelect')
-    if (nativeSelect) {
-      nativeSelect.style.display = 'none'
-    }
-
-    // Default selection
-    this.activeBindset = this.activeBindset || 'Primary Bindset'
     
-    // Broadcast initial active bindset so other components know the current state
-    this.emit('bindset:active-changed', { bindset: this.activeBindset })
-
-    // Create / get the custom options container
-    let menu = this.document.getElementById('bindsetOptionsMenu')
-    if (!menu) {
-      menu = this.document.createElement('div')
-      menu.id = 'bindsetOptionsMenu'
-      menu.className = 'bindset-options-menu'
-      // Basic inline styles – projects styles.css can refine
-      Object.assign(menu.style, {
-        display: 'none',
-        position: 'fixed',
-        background: '#202225',
-        border: '1px solid #555',
-        padding: '4px 0',
-        borderRadius: '4px',
-        zIndex: 1000,
-        minWidth: '160px',
-      })
-      this.document.body.appendChild(menu)
+    // Show the bindset selector container
+    if (container) {
+      container.style.display = 'block'
     }
-
-    const renderOptions = () => {
-      if (!Array.isArray(this._bindsetNames)) return
-      menu.innerHTML = ''
-      this._bindsetNames.forEach(name => {
-        const opt = this.document.createElement('div')
-        opt.className = 'bindset-option-item'
-        opt.textContent = name
-        Object.assign(opt.style, {
-          padding: '6px 12px',
-          cursor: 'pointer',
-          background: name === this.activeBindset ? '#3a3d42' : 'transparent',
-        })
-        opt.addEventListener('mouseenter', () => {
-          opt.style.background = '#3a3d42'
-        })
-        opt.addEventListener('mouseleave', () => {
-          opt.style.background = name === this.activeBindset ? '#3a3d42' : 'transparent'
-        })
-        opt.addEventListener('click', (e) => {
-          e.stopPropagation()
-          menu.style.display = 'none'
-          if (name !== this.activeBindset) {
-            this.activeBindset = name
-            // Broadcast active bindset change so CommandUI knows which bindset to use
-            this.emit('bindset:active-changed', { bindset: this.activeBindset })
-            this.updateBindsetBanner()
-            renderOptions()
-            // Update button states (including stabilization) for the new bindset
-            this.updateChainActions()
-            this.render()
-          }
-        })
-        menu.appendChild(opt)
-      })
-    }
-
-    // Ensure dropdown button is visible once feature is active
-    btnEl.style.display = ''
-
-    const toggleMenu = (e) => {
-      e.stopPropagation()
-      if (menu.style.display === 'none' || menu.style.display === '') {
-        const rect = btnEl.getBoundingClientRect()
-        menu.style.left = `${rect.left}px`
-        menu.style.top = `${rect.bottom + 4}px`
-        menu.style.display = 'block'
-        renderOptions()
-      } else {
-        menu.style.display = 'none'
-      }
-    }
-
-    btnEl.addEventListener('click', toggleMenu)
-
-    // Hide menu when clicking elsewhere
-    this.document.addEventListener('click', (ev) => {
-      if (ev.target !== btnEl && !menu.contains(ev.target)) {
-        menu.style.display = 'none'
-      }
-    })
-
-    // React to external bindset list updates
-    this.eventBus.on('bindsets:changed', ({ names } = {}) => {
-      if (Array.isArray(names)) {
-        this._bindsetNames = names
-        renderOptions()
-      }
-    })
-
-    // Also update banner when enabled toggles
+    
+    // Update bindset banner when enabled
     this.updateBindsetBanner()
-
+    
+    // Set initial active bindset if not already set
+    if (!this.activeBindset) {
+      this.activeBindset = 'Primary Bindset'
+      this.emit('bindset:active-changed', { bindset: this.activeBindset })
+    }
+    
     this._bindsetDropdownReady = true
   }
 

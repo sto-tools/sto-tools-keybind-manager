@@ -21,6 +21,10 @@ export default class CommandChainService extends ComponentBase {
     
     // Track active bindset (default to primary)
     this.activeBindset = 'Primary Bindset'
+    
+    // Flag to prevent race conditions during bindset switching
+    this._bindsetSwitchInProgress = false
+    this._bindsetOperationInProgress = false
 
     // DataCoordinator cache
     this.cache = {
@@ -83,8 +87,14 @@ export default class CommandChainService extends ComponentBase {
         this.updateCacheFromProfile(profileWithId)
         // Refresh commands if we have a selected key
         // disabled due to command chain rendering not being atomic
-        if (this.selectedKey) {
+        // RACE CONDITION FIX: Don't refresh during bindset operations or switching
+        if (this.selectedKey && !this._bindsetSwitchInProgress && !this._bindsetOperationInProgress) {
+          console.log(`[CommandChainService] refreshCommands() after profile:updated - activeBindset: ${this.activeBindset}`)
           this.refreshCommands()
+        } else if (this._bindsetSwitchInProgress) {
+          console.log(`[CommandChainService] Skipping refreshCommands() - bindset switch in progress`)
+        } else if (this._bindsetOperationInProgress) {
+          console.log(`[CommandChainService] Skipping refreshCommands() - bindset operation in progress`)
         }
       }
     })
@@ -118,11 +128,34 @@ export default class CommandChainService extends ComponentBase {
     })
 
     // Listen for bindset changes to keep activeBindset synced
-    this.addEventListener('bindset:active-changed', ({ bindset, name }) => {
+    console.log('[CommandChainService] Setting up bindset-selector:active-changed listener')
+    this.addEventListener('bindset-selector:active-changed', ({ bindset, name }) => {
       const newName = bindset || name
+      console.log(`[CommandChainService] *** bindset-selector:active-changed received: ${this.activeBindset} -> ${newName} ***`)
       if (newName) {
+        // Set flag to prevent race conditions
+        this._bindsetSwitchInProgress = true
         this.activeBindset = newName
+        console.log(`[CommandChainService] Calling refreshCommands() for bindset: ${newName}`)
+        // Refresh commands to show the chain for the new bindset
+        this.refreshCommands()
+        // Clear flag after a short delay
+        setTimeout(() => {
+          this._bindsetSwitchInProgress = false
+          console.log(`[CommandChainService] Bindset switch completed for: ${newName}`)
+        }, 100)
       }
+    })
+
+    // Listen for bindset operations to prevent race conditions
+    this.addEventListener('bindset-operation:started', ({ type, bindset, key }) => {
+      console.log(`[CommandChainService] Bindset operation started: ${type} key=${key} bindset=${bindset}`)
+      this._bindsetOperationInProgress = true
+    })
+
+    this.addEventListener('bindset-operation:completed', ({ type, bindset, key }) => {
+      console.log(`[CommandChainService] Bindset operation completed: ${type} key=${key} bindset=${bindset}`)
+      this._bindsetOperationInProgress = false
     })
 
     // Directly emit chain data changes whenever key/alias selection changes so
@@ -317,24 +350,52 @@ export default class CommandChainService extends ComponentBase {
 
   async getCommandsForSelectedKey () {
     try {
+      console.log(`[CommandChainService] getCommandsForSelectedKey called - activeBindset: ${this.activeBindset}, selectedKey: ${this.selectedKey}, environment: ${this.currentEnvironment}`)
+      
       // Alias environment handled directly
       if (this.currentEnvironment === 'alias') {
         return await this.request('command:get-for-selected-key')
       }
 
       const activeBindset = this.activeBindset || 'Primary Bindset'
+      console.log(`[CommandChainService] Using activeBindset: ${activeBindset}`)
 
       if (activeBindset !== 'Primary Bindset') {
-        const cmds = await this.request('bindset:get-key-commands', {
-          bindset: activeBindset,
-          environment: this.currentEnvironment,
-          key: this.selectedKey,
+        console.log(`[CommandChainService] Requesting commands from bindset: ${activeBindset}`)
+        const startTime = Date.now()
+        
+        // Add a timeout to detect hanging requests
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout after 5 seconds')), 5000)
         })
-        return Array.isArray(cmds) ? cmds : []
+        
+        try {
+          const requestPromise = this.request('bindset:get-key-commands', {
+            bindset: activeBindset,
+            environment: this.currentEnvironment,
+            key: this.selectedKey,
+          })
+          
+          const cmds = await Promise.race([requestPromise, timeoutPromise])
+          const duration = Date.now() - startTime
+          console.log(`[CommandChainService] Received ${cmds?.length || 0} commands from bindset in ${duration}ms:`, cmds)
+          return Array.isArray(cmds) ? cmds : []
+        } catch (error) {
+          const duration = Date.now() - startTime
+          console.error(`[CommandChainService] bindset:get-key-commands failed after ${duration}ms:`, error)
+          console.error(`[CommandChainService] This suggests BindsetService is not responding. Check if BindsetService is initialized.`)
+          
+          // Fallback to empty array for now to prevent UI from being stuck
+          console.warn(`[CommandChainService] Falling back to empty commands array for bindset: ${activeBindset}`)
+          return []
+        }
       }
 
       // Primary bindset path
-      return await this.request('command:get-for-selected-key')
+      console.log(`[CommandChainService] Requesting commands from Primary Bindset`)
+      const cmds = await this.request('command:get-for-selected-key')
+      console.log(`[CommandChainService] Received ${cmds?.length || 0} commands from Primary:`, cmds)
+      return cmds
     } catch (error) {
       console.error('Failed to get commands for selected key:', error)
       return Array.isArray(this.commands) ? this.commands : []

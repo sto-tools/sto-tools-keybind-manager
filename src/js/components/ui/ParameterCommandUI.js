@@ -86,7 +86,7 @@ export default class ParameterCommandUI extends ComponentBase {
       }
     })
 
-    this.addEventListener('bindset:active-changed', (data) => {
+    this.addEventListener('bindset-selector:active-changed', (data) => {
       this._activeBindset = data.bindset || 'Primary Bindset'
     })
 
