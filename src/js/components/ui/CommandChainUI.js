@@ -4,6 +4,7 @@ import { request } from '../../core/requestResponse.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
 import BindsetSelectorService from '../services/BindsetSelectorService.js'
 import BindsetSelectorUI from './BindsetSelectorUI.js'
+import i18next from 'i18next'
 
 export default class CommandChainUI extends ComponentBase {
   constructor ({ eventBus: bus = eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
@@ -21,10 +22,13 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   async onInit () {
-    // Initialize cached selection state
+    // Initialize cached selection state (but preserve environment from late-join)
     this._selectedKey = null
     this._selectedAlias = null
-    this._currentEnvironment = 'space'
+    // Don't reset _currentEnvironment as it may have been set by late-join handshake
+    
+    // Initialize cached preferences (will be populated by late-join handshake)
+    this._bindToAliasMode = false
     
     // Store detach functions for cleanup
     this._detachFunctions = []
@@ -57,6 +61,10 @@ export default class CommandChainUI extends ComponentBase {
           this._selectedAlias = null
           
           this.updateChainActions()
+          
+          // Update label if preview is currently visible (fixes race condition on initial load)
+          this.updatePreviewLabel()
+          
           // Don't render immediately - wait for key-selected or alias-selected event
           // which will be emitted by KeyBrowserService after it finishes its selection logic
         }
@@ -242,6 +250,8 @@ export default class CommandChainUI extends ComponentBase {
             if (btn) btn.style.display = 'none'
             if (sel) sel.style.display = 'none'
           }
+        } else if (key === 'bindToAliasMode') {
+          this._bindToAliasMode = !!value
         }
       })
     )
@@ -254,7 +264,6 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   async render (commandsArg = null) {
-      console.log('[CommandChainUI] render() called with:', commandsArg ? `${commandsArg.length} commands` : 'no commands arg')
       
       const container   = this.document.getElementById('commandList')
       const titleEl     = this.document.getElementById('chainTitle')
@@ -267,7 +276,7 @@ export default class CommandChainUI extends ComponentBase {
       if (!container || !titleEl || !previewEl) return
 
       // Check if bind-to-alias mode is enabled
-      const bindToAliasMode = await this.getBindToAliasMode().catch(()=>false)
+      const bindToAliasMode = this.getBindToAliasMode()
 
       // When render is called with explicit commands (from chain-data-changed),
       // use those. When called without commands (from environment:changed),
@@ -300,10 +309,7 @@ export default class CommandChainUI extends ComponentBase {
         commands = await this.getCommandsForCurrentSelection()
       }
 
-      console.log('[CommandChainUI] rendering with commands:', commands.length, commands)
-
       const emptyStateInfo = await this.request('command:get-empty-state-info')
-      console.log('render getEmptyStateInfo', emptyStateInfo)
 
       // Use cached selection state from event listeners
       const selectedKeyName = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
@@ -384,17 +390,14 @@ export default class CommandChainUI extends ComponentBase {
       if (emptyState) emptyState.classList.remove('show')
 
       // Build the complete new command list structure atomically
-      console.log('[CommandChainUI] building new command list with', commands.length, 'commands')
       const newCommandElements = []
       for (let i = 0; i < commands.length; i++) {
         const el = await this.createCommandElement(commands[i], i, commands.length)
-        console.log('[CommandChainUI] created element for command', i, commands[i])
         newCommandElements.push(el)
       }
 
       // Atomic replacement - this is the only DOM mutation that affects the command list
       container.replaceChildren(...newCommandElements)
-      console.log('[CommandChainUI] finished atomic render, container children:', container.children.length)
 
       // After rendering, automatically validate current chain so the status beacon stays up-to-date
       try {
@@ -424,7 +427,6 @@ export default class CommandChainUI extends ComponentBase {
 
     // Convert canonical string command to rich object for display
     const commandString = typeof command === 'string' ? command : normalizeToString(command)
-    console.log('[CommandChainUI] createCommandElement enriching:', commandString)
     
     // Get i18n object for translations
     const i18n = typeof i18next !== 'undefined' ? i18next : null
@@ -619,20 +621,38 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   /**
-   * Check if bind-to-alias mode is enabled from preferences
+   * Get the current bind-to-alias mode setting from cached preferences
    */
-  async getBindToAliasMode() {
-    try {
-      return await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
-    } catch (error) {
-      console.warn('[CommandChainUI] Failed to get bindToAliasMode setting:', error)
-      return false // Default to disabled if we can't get the setting
-    }
+  getBindToAliasMode() {
+    return this._bindToAliasMode
   }
 
   /**
    * Update previews for bind-to-alias mode
    */
+  /**
+   * Updates the preview label based on current environment
+   * Called when environment changes to fix race condition on initial load
+   */
+  updatePreviewLabel() {
+    const labelEl = this.document.querySelector('.generated-command label[data-i18n]')
+    if (labelEl) {
+      const newKey = this._currentEnvironment === 'alias' ? 'generated_alias' : 'generated_command'
+      labelEl.setAttribute('data-i18n', newKey)
+      
+      // Apply translation immediately using multiple fallback methods
+      if (typeof window !== 'undefined' && window.applyTranslations) {
+        window.applyTranslations(labelEl.parentElement)
+      } else if (typeof i18next !== 'undefined' && i18next.t) {
+        // Fallback: apply translation directly
+        labelEl.textContent = i18next.t(newKey)
+      } else {
+        // Last resort: use English fallback
+        labelEl.textContent = newKey === 'generated_alias' ? 'Generated Alias:' : 'Generated Command:'
+      }
+    }
+  }
+
   async updateBindToAliasMode(bindToAliasMode, selectedKeyName, commands) {
     const generatedAlias = this.document.getElementById('generatedAlias')
     const aliasPreviewEl = this.document.getElementById('aliasPreview')
@@ -682,6 +702,9 @@ export default class CommandChainUI extends ComponentBase {
       // Hide generated alias section
       generatedAlias.style.display = 'none'
       
+      // Update label based on current environment
+      this.updatePreviewLabel()
+      
       // Show normal command preview
       const commandStrings = commands.map(cmd => 
         typeof cmd === 'string' ? cmd : (cmd.command || cmd)
@@ -698,12 +721,18 @@ export default class CommandChainUI extends ComponentBase {
         }
       } catch {}
 
-      // Always show the selected key name when available. If there are no commands yet,
-      // we still render an empty quoted string so that users can clearly see that the key
-      // is defined but has no commands (e.g.  F4 ""). If no key is selected we keep it blank.
-      previewEl.textContent = selectedKeyName
-        ? `${selectedKeyName} "${previewString}"`
-        : ''
+      // Format preview based on current environment
+      if (selectedKeyName) {
+        if (this._currentEnvironment === 'alias') {
+          // In alias mode, show alias format: alias aliasName <& commands &>
+          previewEl.textContent = `alias ${selectedKeyName} <& ${previewString} &>`
+        } else {
+          // In key mode, show keybind format: keyName "commands"
+          previewEl.textContent = `${selectedKeyName} "${previewString}"`
+        }
+      } else {
+        previewEl.textContent = ''
+      }
     }
   }
 
@@ -823,7 +852,11 @@ export default class CommandChainUI extends ComponentBase {
    * ---------------------------------------------------------- */
   handleInitialState (sender, state) {
     if (!state) return
-    if (state.environment || state.currentEnvironment) {
+    
+    // Only accept environment updates from authoritative sources
+    const canUpdateEnvironment = sender === 'InterfaceModeService' || sender === 'ProfileService' || sender === 'DataCoordinator'
+    
+    if ((state.environment || state.currentEnvironment) && canUpdateEnvironment) {
       const env = state.environment || state.currentEnvironment
       this._currentEnvironment = env
       this.updateChainActions()
@@ -839,6 +872,7 @@ export default class CommandChainUI extends ComponentBase {
     // Pick up preferences settings from late-join broadcast
     if (sender === 'PreferencesService' && state.settings) {
       this._bindsetsEnabled = !!state.settings.bindsetsEnabled
+      this._bindToAliasMode = !!state.settings.bindToAliasMode
       if (this._bindsetsEnabled && !this._bindsetDropdownReady) {
         // preferences arrive before onInit resolved
         this.setupBindsetDropdown().catch(()=>{})
@@ -879,7 +913,7 @@ export default class CommandChainUI extends ComponentBase {
 
   async setupBindsetDropdown() {
     // This method is now simplified - the new BindsetSelector components handle the UI
-    const bindToAliasMode = await this.getBindToAliasMode().catch(()=>false)
+    const bindToAliasMode = this.getBindToAliasMode()
     const container = this.document.getElementById('bindsetSelectorContainer')
     
     if (!this._bindsetsEnabled || !bindToAliasMode) {
@@ -907,7 +941,10 @@ export default class CommandChainUI extends ComponentBase {
   async getCommandsForCurrentSelection() {
     const hasAliasEnv = this._currentEnvironment === 'alias'
     if (hasAliasEnv) {
-      return await this.request('command:get-for-selected-key')
+      return await this.request('command:get-for-selected-key', {
+        key: this._selectedAlias,
+        environment: this._currentEnvironment
+      })
     }
 
     const keyName = this._selectedKey

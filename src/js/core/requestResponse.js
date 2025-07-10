@@ -83,7 +83,7 @@ function respond(bus = eventBus, topic, handler) {
       const result = await handler(payload)
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
-       // console.log(`[requestResponse] respond ← ${topic}`, result)
+       //console.log(`[requestResponse] respond ← ${topic}`, result)
       }
       bus.emit(replyTopic, { requestId, data: result })
     } catch (err) {

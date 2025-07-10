@@ -39,7 +39,7 @@ export default class CommandLibraryService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        this.respond('command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
+        this.respond('command:get-for-selected-key', async (params) => await this.getCommandsForSelectedKey(params)),
         this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
         this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
         this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),
@@ -178,15 +178,17 @@ export default class CommandLibraryService extends ComponentBase {
   /**
    * Get commands for the currently selected key/alias using cached data
    */
-  async getCommandsForSelectedKey() {
-    // Use the appropriate cached selection based on current environment
-    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+  async getCommandsForSelectedKey(params = {}) {
+    // Use explicit parameters if provided, otherwise fall back to cached selection
+    const environment = params.environment || this.currentEnvironment
+    const selectedKey = params.key || (environment === 'alias' ? this.selectedAlias : this.selectedKey)
+    
     if (!selectedKey) return []
 
     const profile = this.getCurrentProfile()
     if (!profile) return []
 
-    if (this.currentEnvironment === 'alias') {
+    if (environment === 'alias') {
       const alias = profile.aliases && profile.aliases[selectedKey]
       if (!alias || !Array.isArray(alias.commands)) return []
       // Return shallow copy to avoid external mutation

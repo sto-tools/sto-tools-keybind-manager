@@ -484,7 +484,7 @@ export default class AliasBrowserService extends ComponentBase {
       
       this.currentProfileId = profile.id
       this.cache.currentProfile = profile.id
-      this.currentEnvironment = profile.environment || 'space'
+      this.currentEnvironment = profile.currentEnvironment || profile.environment || 'space'
       this.cache.currentEnvironment = this.currentEnvironment
       
       // Clear cached selection when profile changes
@@ -492,6 +492,16 @@ export default class AliasBrowserService extends ComponentBase {
       
       this.updateCacheFromProfile(profile)
       this.emit('aliases-changed', { aliases: this.cache.aliases })
+      
+      // Auto-select alias if we're in alias environment during initialization
+      if (this.currentEnvironment === 'alias' && !this.selectedAliasName) {
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[AliasBrowserService] Initial state: environment is 'alias', calling _restoreOrAutoSelectAlias()`)
+        }
+        // Use setTimeout to ensure this runs after the current event loop
+        setTimeout(() => this._restoreOrAutoSelectAlias(), 0)
+      }
       
       console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
     }

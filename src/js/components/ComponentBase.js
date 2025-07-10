@@ -40,7 +40,7 @@ export default class ComponentBase {
     // 3) Announce our readiness so existing components can reply
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
+      //console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
     }
     this.emit('component:register', {
       name: this.getComponentName(),
@@ -139,7 +139,7 @@ export default class ComponentBase {
   emit(event, data = null) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      // console.log(`[${this.getComponentName()}] emit → ${event}`, data)
+      //console.log(`[${this.getComponentName()}] emit → ${event}`, data)
     }
     // Emit via event bus if available
     if (this.eventBus && typeof this.eventBus.emit === 'function') {
@@ -211,7 +211,7 @@ export default class ComponentBase {
 
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-     // console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
+     //console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
     }
 
     // If we are active, provide our current state to the requester
@@ -226,7 +226,7 @@ export default class ComponentBase {
   _onInitialState({ sender, state } = {}) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      // console.log(`[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`, state)
+      //console.log(`[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`, state)
     }
 
     if (typeof this.handleInitialState === 'function') {
