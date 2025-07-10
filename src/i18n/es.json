@@ -1039,7 +1039,6 @@
   "search_aliases": "Buscar alias...",
   "show_all_aliases": "Mostrar Todos los Alias",
   "show_all_commands": "Mostrar Todos los Comandos",
-  "enter_key_name": "Ingresar nombre de tecla...",
   "clear_filter": "Limpiar filtro",
   "warning": "Advertencia",
   "error": "Error",
@@ -1077,5 +1076,12 @@
   "bindset_manager": "Administrador de conjuntos de enlaces",
   "bindset_name_in_use": "El nombre del conjunto de enlaces ya está en uso",
   "bindset_not_empty": "El conjunto de enlaces tiene keybinds y no se puede eliminar",
-  "invalid_name": "Nombre inválido"
+  "invalid_name": "Nombre inválido",
+  "add_key_to_bindset": "Agregar tecla al conjunto de enlaces",
+  "add_key_to_bindset_confirm": "¿Agregar la tecla \"{{key}}\" al conjunto de enlaces \"{{bindset}}\"?",
+  "manage_bindsets": "Administrar Conjuntos de Enlaces",
+  "primary_bindset": "Conjunto de Enlaces Principal",
+  "remove_key_from_bindset": "Quitar tecla del conjunto de enlaces",
+  "remove_key_from_bindset_confirm": "¿Quitar la tecla \"{{key}}\" del conjunto de enlaces \"{{bindset}}\"?",
+  "select_bindset": "Seleccionar Conjunto de Enlaces"
 }

@@ -184,12 +184,6 @@ export default class ModalManagerService extends ComponentBase {
   registerAllModalCallbacks () {
     // (Full callback list ported as-is from legacy implementation)
 
-    /* Command modal – regenerate command builder content */
-    this.registerRegenerateCallback('addCommandModal', () => {
-      if (window.stoCommands?.regenerateModalContent) {
-        window.stoCommands.regenerateModalContent()
-      }
-    })
 
     /* Parameter modal */
     this.registerRegenerateCallback('parameterModal', () => {
@@ -252,9 +246,5 @@ export default class ModalManagerService extends ComponentBase {
       window.applyTranslations?.(modal)
     })
 
-    /* Add key modal */
-    this.registerRegenerateCallback('addKeyModal', () => {
-      window.app?.setupKeyCaptureModal?.()
-    })
   }
 } 

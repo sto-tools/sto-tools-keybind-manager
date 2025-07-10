@@ -1058,5 +1058,16 @@
   "bindset_manager": "Bindset Manager",
   "bindset_name_in_use": "Bindset name already in use",
   "bindset_not_empty": "Bindset has keybinds and cannot be deleted",
-  "invalid_name": "Invalid name"
+  "invalid_name": "Invalid name",
+  "add_new_alias": "Add New Alias",
+  "add_key_to_bindset": "Add key to bindset",
+  "duplicate_selected_alias": "Duplicate selected alias",
+  "delete_selected_alias": "Delete selected alias",
+  "search_aliases": "Search aliases...",
+  "add_key_to_bindset_confirm": "Add key \"{{key}}\" to bindset \"{{bindset}}\"?",
+  "manage_bindsets": "Manage Bindsets",
+  "primary_bindset": "Primary Bindset",
+  "remove_key_from_bindset": "Remove key from bindset",
+  "remove_key_from_bindset_confirm": "Remove key \"{{key}}\" from bindset \"{{bindset}}\"?",
+  "select_bindset": "Select Bindset"
 }

@@ -49,11 +49,16 @@ export default class CommandChainUI extends ComponentBase {
         const env = typeof data === 'string' ? data : data?.environment
         if (env) {
           this._currentEnvironment = env
+          
+          // Clear cached selections when switching environments
+          // The KeyBrowserService will handle restoring/auto-selecting the appropriate key/alias
+          // and fire key-selected or alias-selected event which will trigger our render
+          this._selectedKey = null
+          this._selectedAlias = null
+          
           this.updateChainActions()
-          // Defer render slightly so data services have time to process the
-          // environment change first. This avoids race-conditions that left
-          // the header stuck in key-mode when starting in alias mode.
-          this.render()
+          // Don't render immediately - wait for key-selected or alias-selected event
+          // which will be emitted by KeyBrowserService after it finishes its selection logic
         }
       })
     )
@@ -64,7 +69,8 @@ export default class CommandChainUI extends ComponentBase {
         this.updateChainActions()
         
         // Reset to Primary Bindset when selecting a different key (unless already on Primary)
-        if (this.activeBindset !== 'Primary Bindset') {
+        // Only do this if a key was actually selected (not null)
+        if (this._selectedKey && this.activeBindset !== 'Primary Bindset') {
           this.activeBindset = 'Primary Bindset'
           if (this.bindsetSelectorService) {
             this.bindsetSelectorService.setActiveBindset('Primary Bindset')
@@ -72,11 +78,13 @@ export default class CommandChainUI extends ComponentBase {
           this.updateBindsetBanner()
         }
         
-        // Update bindset selector with selected key
+        // Update bindset selector with selected key (can be null)
         if (this.bindsetSelectorService) {
           this.bindsetSelectorService.setSelectedKey(this._selectedKey)
         }
-        //setTimeout(() => this.render().catch(() => {}), 0)
+        
+        // Render to show the newly selected key's command chain
+        this.render().catch(() => {})
       })
     )
     this._detachFunctions.push(
@@ -84,7 +92,9 @@ export default class CommandChainUI extends ComponentBase {
         this._selectedAlias = data.name
         this._selectedKey = null
         this.updateChainActions()
-        //setTimeout(() => this.render().catch(() => {}), 0)
+        
+        // Render to show the newly selected alias's command chain
+        this.render().catch(() => {})
       })
     )
 
@@ -211,6 +221,12 @@ export default class CommandChainUI extends ComponentBase {
     // the necessary state and explicitly calls `this.render()`.
 
     this.updateChainActions()
+    
+    // Schedule an initial render to show empty state when no keys/aliases exist
+    // This ensures the command chain window is not blank on initial load
+    setTimeout(() => {
+      this.render().catch(() => {})
+    }, 100)
 
     // Listen for preference changes that toggle bindsets at runtime (or when
     // bindsetsEnabled itself flips)
@@ -811,6 +827,8 @@ export default class CommandChainUI extends ComponentBase {
       const env = state.environment || state.currentEnvironment
       this._currentEnvironment = env
       this.updateChainActions()
+      // Render to show appropriate empty state for the environment
+      this.render().catch(() => {})
     }
 
     // Pick up bindset info from late-join broadcasts

@@ -227,10 +227,13 @@ export default class AliasBrowserService extends ComponentBase {
         }
         await this.selectAlias(names[0])
       } else {
+        // No aliases available - emit alias-selected with null to indicate no selection
         if (typeof window !== 'undefined') {
           // eslint-disable-next-line no-console
-          console.log(`[AliasBrowserService] No aliases available to auto-select`)
+          console.log(`[AliasBrowserService] No aliases available, emitting null selection`)
         }
+        this.selectedAliasName = null
+        this.emit('alias-selected', { name: null })
       }
     } else {
       if (typeof window !== 'undefined') {
@@ -273,7 +276,16 @@ export default class AliasBrowserService extends ComponentBase {
     try {
       const profile = this.getProfile()
       if (!profile) {
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[AliasBrowserService] Skipping persistence: no profile available`)
+        }
         return // Don't persist if no profile
+      }
+
+      if (!this.currentProfileId) {
+        console.error('[AliasBrowserService] Cannot persist selection: currentProfileId is null')
+        return
       }
 
       if (typeof window !== 'undefined') {
@@ -281,16 +293,30 @@ export default class AliasBrowserService extends ComponentBase {
         console.log(`[AliasBrowserService] Persisting alias selection: alias -> ${aliasName}`)
       }
 
+      // Prepare updated selections
+      const updatedSelections = {
+        ...(profile.selections || {}),
+        alias: aliasName
+      }
+
       // Update through DataCoordinator using explicit operations API
-      await this.request('data:update-profile', {
+      const result = await this.request('data:update-profile', {
         profileId: this.currentProfileId,
         properties: {
-          selections: {
-            ...(profile.selections || {}),
-            alias: aliasName
-          }
+          selections: updatedSelections
         }
       })
+
+      // Update local cache immediately to avoid race conditions
+      if (result?.success && this.cache.profile) {
+        this.cache.profile.selections = updatedSelections
+        if (typeof window !== 'undefined') {
+          // eslint-disable-next-line no-console
+          console.log(`[AliasBrowserService] Updated local cache with selections:`, updatedSelections)
+        }
+      } else if (!result?.success) {
+        console.error('[AliasBrowserService] Failed to persist selection, result:', result)
+      }
     } catch (error) {
       console.error('[AliasBrowserService] Failed to persist alias selection:', error)
     }

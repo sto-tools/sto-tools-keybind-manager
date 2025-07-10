@@ -351,9 +351,6 @@
               
               <!-- Chain Actions -->
               <div class="toolbar-group">
-                <button class="toolbar-btn toolbar-btn-primary" id="addCommandBtn" disabled data-i18n-title="add_command">
-                  <i class="fas fa-plus"></i>
-                </button>
                 <button class="toolbar-btn" id="importFromKeyOrAliasBtn" disabled data-i18n-title="import_from_key_or_alias">
                   <i class="fas fa-copy"></i>
                 </button>
@@ -531,125 +528,7 @@
       </div>
     </div>
 
-    <!-- Add Key Modal -->
-    <div class="modal" id="addKeyModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 data-i18n="add_new_key"></h3>
-          <button class="modal-close" data-modal="addKeyModal">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="newKeyName" data-i18n="key_name"></label>
-            <input
-              type="text"
-              id="newKeyName"
-              data-i18n-placeholder="enter_key_name"
-              autocomplete="off"
-            />
-            <small data-i18n="use_alphanumeric_characters_only_no_spaces"></small>
-          </div>
-          
-          <!-- Key Capture Section -->
-          <div class="form-group">
-            <label data-i18n="or_capture_keys">Or capture keys:</label>
-            <div class="key-capture-section">
-              <button 
-                type="button" 
-                class="btn btn-primary" 
-                id="addKeyCaptureBtn"
-                data-i18n="click_here_then_press_keys"
-              >
-                <i class="fas fa-keyboard"></i>
-                <span data-i18n="click_here_then_press_keys">Click here, then press the key combination</span>
-              </button>
-              <div class="key-capture-status" id="addKeyCaptureStatus" style="display: none;">
-                <div class="capture-indicator">
-                  <i class="fas fa-circle-notch fa-spin"></i>
-                  <span data-i18n="press_key_combination_now">Press the key combination now...</span>
-                </div>
-                <div class="captured-keys" id="addKeyCapturedKeys"></div>
-                <div class="key-capture-confirm" id="addKeyConfirmSection" style="display: none;">
-                  <span id="addKeyConfirmText"></span>
-                  <div class="confirm-btns">
-                    <button type="button" class="btn btn-success" id="addKeyConfirmYesBtn" data-i18n="yes">Yes</button>
-                    <button type="button" class="btn btn-secondary" id="addKeyConfirmNoBtn" data-i18n="no">No</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <small data-i18n="supports_single_modifier_plus_key_combinations">Supports single modifier + key combinations (e.g., Ctrl+A, Alt+1, Shift+Space)</small>
-          </div>
-          
-          <div class="common-keys">
-            <h4 data-i18n="common_keys"></h4>
-            <div class="key-suggestions">
-              <button class="key-suggestion" data-key="F5">F5</button>
-              <button class="key-suggestion" data-key="F6">F6</button>
-              <button class="key-suggestion" data-key="F7">F7</button>
-              <button class="key-suggestion" data-key="F8">F8</button>
-              <button class="key-suggestion" data-key="Ctrl+1">Ctrl+1</button>
-              <button class="key-suggestion" data-key="Ctrl+2">Ctrl+2</button>
-              <button class="key-suggestion" data-key="Alt+1">Alt+1</button>
-              <button class="key-suggestion" data-key="Shift+Space">
-                Shift+Space
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" id="confirmAddKeyBtn" data-i18n="add_key"></button>
-          <button class="btn btn-secondary" data-modal="addKeyModal" data-i18n="cancel"></button>
-        </div>
-      </div>
-    </div>
 
-    <!-- Add Command Modal -->
-    <div class="modal" id="addCommandModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 data-i18n="add_command"></h3>
-          <button class="modal-close" data-modal="addCommandModal">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="commandType" data-i18n="command_type"></label>
-            <select id="commandType">
-              <option value="" data-i18n="select_command_type"></option>
-              <option value="targeting" data-i18n="targeting"></option>
-              <option value="combat" data-i18n="combat"></option>
-              <option value="cosmetic" data-i18n="cosmetic"></option>
-              <option value="bridge_officer" data-i18n="bridge_officer"></option>
-              <option value="tray" data-i18n="tray_execution"></option>
-              <option value="power" data-i18n="shield_management"></option>
-              <option value="movement" data-i18n="movement"></option>
-              <option value="camera" data-i18n="camera"></option>
-              <option value="communication" data-i18n="communication"></option>
-              <option value="system" data-i18n="system"></option>
-              <option value="alias" data-i18n="alias"></option>
-              <option value="custom" data-i18n="custom_command"></option>
-            </select>
-          </div>
-
-          <div class="command-builder" id="commandBuilder">
-            <!-- Command builder content populated by JavaScript -->
-          </div>
-
-          <div class="command-preview-modal">
-            <label data-i18n="generated_command"></label>
-            <div class="command-preview" id="modalCommandPreview" data-i18n="select_a_command_type_to_see_preview"></div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" id="saveCommandBtn" disabled data-i18n="add_command"></button>
-          <button class="btn btn-secondary" data-modal="addCommandModal" data-i18n="cancel"></button>
-        </div>
-      </div>
-    </div>
 
     <!-- Profile Modal -->
     <div class="modal" id="profileModal">

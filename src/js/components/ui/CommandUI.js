@@ -157,10 +157,6 @@ export default class CommandUI extends ComponentBase {
     }
     this.eventListenersSetup = true
 
-    // Command management DOM events
-    this.eventBus.onDom('addCommandBtn', 'click', 'command-add-modal', () => {
-      this.modalManager.show('addCommandModal')
-    })
 
     this.eventBus.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
       const selectedKey = this.getSelectedKey()
@@ -731,10 +727,6 @@ export default class CommandUI extends ComponentBase {
       command: commandPreview
     })
 
-    // Close modal
-    if (this.modalManager) {
-      this.modalManager.hide('addCommandModal')
-    }
   }
 
   /**

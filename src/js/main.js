@@ -21,6 +21,7 @@ import STOToolsKeybindManager from './app.js'
 // Version display functionality - moved inline to reduce file count
 import { DISPLAY_VERSION } from './core/constants.js'
 import { CommandChainValidatorService } from './components/services/index.js'
+import devMonitor from './dev/DevMonitor.js'
 
 // Create new StorageService component
 const storageService = new StorageService({ eventBus })
@@ -54,6 +55,11 @@ const settings = storageService.getSettings()
 
   // Make i18next available globally for data.js and other modules that need it
   window.i18next = i18next
+  
+  // Initialize DevMonitor after i18next is available
+  if (devMonitor.isDevelopment) {
+    console.log('🔧 DevMonitor: Development mode detected, monitoring tools available')
+  }
 
   if (window.localizeCommandData) {
     window.localizeCommandData()

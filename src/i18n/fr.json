@@ -1027,7 +1027,6 @@
   "search_aliases": "Rechercher des alias...",
   "show_all_aliases": "Afficher Tous les Alias",
   "show_all_commands": "Afficher Toutes les Commandes",
-  "enter_key_name": "Entrer le nom de la touche...",
   "clear_filter": "Effacer le filtre",
   "warning": "Avertissement",
   "error": "Erreur",
@@ -1068,5 +1067,12 @@
   "bindset_manager": "Gestionnaire d'ensembles de liens",
   "bindset_name_in_use": "Le nom de l'ensemble de liens est déjà utilisé",
   "bindset_not_empty": "L'ensemble de liens contient des keybinds et ne peut pas être supprimé",
-  "invalid_name": "Nom invalide"
+  "invalid_name": "Nom invalide",
+  "add_key_to_bindset": "Ajouter la touche à l'ensemble de liens",
+  "add_key_to_bindset_confirm": "Ajouter la touche \"{{key}}\" à l'ensemble de liens \"{{bindset}}\" ?",
+  "manage_bindsets": "Gérer les Ensembles de Liens",
+  "primary_bindset": "Ensemble de Liens Principal",
+  "remove_key_from_bindset": "Retirer la touche de l'ensemble de liens",
+  "remove_key_from_bindset_confirm": "Retirer la touche \"{{key}}\" de l'ensemble de liens \"{{bindset}}\" ?",
+  "select_bindset": "Sélectionner un Ensemble de Liens"
 }

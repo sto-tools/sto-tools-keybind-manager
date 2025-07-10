@@ -1029,7 +1029,6 @@
   "search_aliases": "Aliase suchen...",
   "show_all_aliases": "Alle Aliase anzeigen",
   "show_all_commands": "Alle Befehle anzeigen",
-  "enter_key_name": "Tastenname eingeben...",
   "clear_filter": "Filter löschen",
   "warning": "Warnung",
   "error": "Fehler",
@@ -1068,5 +1067,12 @@
   "bindset_manager": "Bindset-Manager",
   "bindset_name_in_use": "Bindset-Name bereits vergeben",
   "bindset_not_empty": "Bindset enthält Keybinds und kann nicht gelöscht werden",
-  "invalid_name": "Ungültiger Name"
+  "invalid_name": "Ungültiger Name",
+  "add_key_to_bindset": "Taste zu Bindset hinzufügen",
+  "add_key_to_bindset_confirm": "Taste \"{{key}}\" zu Bindset \"{{bindset}}\" hinzufügen?",
+  "manage_bindsets": "Bindsets verwalten",
+  "primary_bindset": "Primäres Bindset",
+  "remove_key_from_bindset": "Taste aus Bindset entfernen",
+  "remove_key_from_bindset_confirm": "Taste \"{{key}}\" aus Bindset \"{{bindset}}\" entfernen?",
+  "select_bindset": "Bindset auswählen"
 }
