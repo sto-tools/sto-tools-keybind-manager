@@ -1027,8 +1027,6 @@
   "delete_selected_alias": "Ausgewählten Alias löschen",
   "duplicate_selected_alias": "Ausgewählten Alias duplizieren",
   "search_aliases": "Aliase suchen...",
-  "show_all_aliases": "Alle Aliase anzeigen",
-  "show_all_commands": "Alle Befehle anzeigen",
   "clear_filter": "Filter löschen",
   "warning": "Warnung",
   "error": "Fehler",
@@ -1074,5 +1072,8 @@
   "primary_bindset": "Primäres Bindset",
   "remove_key_from_bindset": "Taste aus Bindset entfernen",
   "remove_key_from_bindset_confirm": "Taste \"{{key}}\" aus Bindset \"{{bindset}}\" entfernen?",
-  "select_bindset": "Bindset auswählen"
+  "select_bindset": "Bindset auswählen",
+  "confirm_delete": "Sind Sie sicher, dass Sie löschen möchten?",
+  "enter_name": "Name eingeben:",
+  "enter_new_name": "Neuen Namen eingeben:"
 }

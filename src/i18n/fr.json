@@ -1025,8 +1025,6 @@
   "delete_selected_alias": "Supprimer l'Alias Sélectionné",
   "duplicate_selected_alias": "Dupliquer l'Alias Sélectionné",
   "search_aliases": "Rechercher des alias...",
-  "show_all_aliases": "Afficher Tous les Alias",
-  "show_all_commands": "Afficher Toutes les Commandes",
   "clear_filter": "Effacer le filtre",
   "warning": "Avertissement",
   "error": "Erreur",
@@ -1074,5 +1072,8 @@
   "primary_bindset": "Ensemble de Liens Principal",
   "remove_key_from_bindset": "Retirer la touche de l'ensemble de liens",
   "remove_key_from_bindset_confirm": "Retirer la touche \"{{key}}\" de l'ensemble de liens \"{{bindset}}\" ?",
-  "select_bindset": "Sélectionner un Ensemble de Liens"
+  "select_bindset": "Sélectionner un Ensemble de Liens",
+  "confirm_delete": "Êtes-vous sûr de vouloir supprimer ?",
+  "enter_name": "Entrer le nom :",
+  "enter_new_name": "Entrer le nouveau nom :"
 }
