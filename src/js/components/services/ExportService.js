@@ -276,7 +276,10 @@ export default class ExportService extends ComponentBase {
         // preserved in exported files.
         const aliasName = generateBindToAliasName(environment, key)
         if (!aliasName) continue
-        content += `${key} "${aliasName}"\n`
+        // Encode the key for export (e.g., backtick becomes 0x29)
+        const { encodeKeyForExport } = await import('../../lib/keyEncoding.js')
+        const encodedKey = encodeKeyForExport(key)
+        content += `${encodedKey} "${aliasName}"\n`
       }
     } else {
       // Original behavior - generate keybind commands directly
@@ -600,7 +603,10 @@ export default class ExportService extends ComponentBase {
             }
             
             if (targetAliasName) {
-              bindCmds.push(`bind ${key} \"${targetAliasName}\"`)
+              // Encode the key for export (e.g., backtick becomes 0x29)
+              const { encodeKeyForExport } = await import('../../lib/keyEncoding.js')
+              const encodedKey = encodeKeyForExport(key)
+              bindCmds.push(`bind ${encodedKey} \"${targetAliasName}\"`)
             }
           }
 
