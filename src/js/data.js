@@ -1381,6 +1381,9 @@ const STO_DATA = {
           },
           "T": {
             "stabilizeExecutionOrder": true
+          },
+          "Y": {
+            "stabilizeExecutionOrder": true
           }
         }
       },
