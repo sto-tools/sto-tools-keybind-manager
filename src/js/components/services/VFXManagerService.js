@@ -114,20 +114,27 @@ export default class VFXManagerService extends ComponentBase {
   generateAliasCommand(environment) {
     // Defensive check to ensure selectedEffects is properly initialized
     if (!this.selectedEffects || !this.selectedEffects[environment]) {
-      console.warn(`[${this.componentName}] generateAliasCommand: selectedEffects not properly initialized for ${environment}, returning empty command`)
-      return ''
+      console.warn(`[${this.componentName}] generateAliasCommand: selectedEffects not properly initialized for ${environment}`)
+      console.warn(`[${this.componentName}] selectedEffects state:`, this.selectedEffects)
+      return []
     }
 
     const effects = Array.from(this.selectedEffects[environment])
-    if (effects.length === 0) return ''
-
-    let command = `dynFxSetFXExclusionList ${effects.join(',')}`
-
-    if (this.showPlayerSay) {
-      command += ' $$ PlayerSay VFX Suppression Loaded'
+    console.log(`[${this.componentName}] generateAliasCommand(${environment}): found ${effects.length} effects:`, effects)
+    
+    if (effects.length === 0) {
+      console.log(`[${this.componentName}] generateAliasCommand(${environment}): No effects selected, returning empty command`)
+      return []
     }
 
-    return command
+    const commands = [`dynFxSetFXExclusionList ${effects.join(',')}`]
+
+    if (this.showPlayerSay) {
+      commands.push('PlayerSay VFX Suppression Loaded')
+    }
+
+    console.log(`[${this.componentName}] generateAliasCommand(${environment}): generated commands:`, commands)
+    return commands
   }
 
   // Generate just the command part (without alias definition) for storage
@@ -138,7 +145,7 @@ export default class VFXManagerService extends ComponentBase {
     // Defensive check to ensure selectedEffects is properly initialized
     if (!this.selectedEffects) {
       console.warn(`[${this.componentName}] generateCombinedAliasCommand: selectedEffects not properly initialized, returning empty command`)
-      return ''
+      return []
     }
 
     const allEffects = []
@@ -155,15 +162,15 @@ export default class VFXManagerService extends ComponentBase {
       allEffects.push(...environmentEffects)
     }
 
-    if (allEffects.length === 0) return ''
+    if (allEffects.length === 0) return []
 
-    let finalCommand = `dynFxSetFXExclusionList ${allEffects.join(',')}`
+    const commands = [`dynFxSetFXExclusionList ${allEffects.join(',')}`]
 
     if (this.showPlayerSay) {
-      finalCommand += ' $$ PlayerSay VFX Suppression Loaded'
+      commands.push('PlayerSay VFX Suppression Loaded')
     }
 
-    return finalCommand
+    return commands
   }
 
   // Get selected effects for an environment
@@ -256,6 +263,7 @@ export default class VFXManagerService extends ComponentBase {
     
     if (profile && profile.vertigoSettings) {
       const settings = profile.vertigoSettings
+      console.log(`[${this.componentName}] loadState: Found vertigoSettings in profile:`, settings)
 
       // Restore selected effects
       this.selectedEffects.space = new Set(
@@ -265,9 +273,14 @@ export default class VFXManagerService extends ComponentBase {
         settings.selectedEffects?.ground || []
       )
 
+      console.log(`[${this.componentName}] loadState: Loaded space effects:`, Array.from(this.selectedEffects.space))
+      console.log(`[${this.componentName}] loadState: Loaded ground effects:`, Array.from(this.selectedEffects.ground))
+
       // Restore PlayerSay setting
       this.showPlayerSay = settings.showPlayerSay || false
     } else {
+      console.log(`[${this.componentName}] loadState: No vertigoSettings found in profile, resetting to defaults`)
+      console.log(`[${this.componentName}] loadState: Profile structure:`, profile)
       // Reset to defaults if no saved state
       this.selectedEffects.space.clear()
       this.selectedEffects.ground.clear()
@@ -295,19 +308,9 @@ export default class VFXManagerService extends ComponentBase {
       return
     }
     
-    // Check each environment individually and only process those that are properly initialized
-    const environments = []
-    if (this.selectedEffects.space && this.selectedEffects.space.size > 0) {
-      environments.push('space')
-    }
-    if (this.selectedEffects.ground && this.selectedEffects.ground.size > 0) {
-      environments.push('ground')
-    }
-    
-    if (environments.length === 0) {
-      console.log(`[${this.componentName}] autoGenerateAliases: No effects selected in any environment, skipping`)
-      return
-    }
+    // Always process both environments to ensure VFX aliases exist even if empty
+    // This prevents errors when F9 is pressed without any effects selected
+    const environments = ['space', 'ground']
     
     console.log(`[${this.componentName}] autoGenerateAliases: Generating VFX aliases automatically for environments: ${environments.join(', ')}`)
     
@@ -503,37 +506,28 @@ export default class VFXManagerService extends ComponentBase {
             const aliasCommand = this.generateAliasCommand(environment)
             console.log(`[${this.componentName}] Generated command for ${environment}: ${aliasCommand}`)
             
-            if (aliasCommand) {
-              const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
-              newVfxAliases[aliasName] = {
-                commands: aliasCommand,
-                description: `VFX suppression for ${environment} environment`,
-                type: 'vfx-alias'
-              }
-              generatedAliases.push(aliasName)
-              console.log(`[${this.componentName}] Generated VFX alias: ${aliasName} = ${aliasCommand}`)
-            } else {
-              console.log(`[${this.componentName}] No command generated for ${environment} (no effects selected)`)
+            // Always generate VFX aliases, even if empty, to prevent errors when F9 is pressed
+            const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
+            newVfxAliases[aliasName] = {
+              commands: aliasCommand,
+              description: `VFX suppression for ${environment} environment`,
+              type: 'vfx-alias'
             }
+            generatedAliases.push(aliasName)
+            console.log(`[${this.componentName}] Generated VFX alias: ${aliasName} = ${aliasCommand}`)
           }
           
           // Create master alias that executes a single command covering all selected effects across environments
           // This avoids one environment's exclusions overwriting the other when executed sequentially.
+          // Always generate the combined alias, even if empty, to prevent errors when F9 is pressed
           if (generatedAliases.length > 0) {
-            // Reuse helper that merges effects from all relevant environments into one command string
             const masterAliasCommand = this.generateCombinedAliasCommand(environments)
-
-            // Only create the alias if we actually have effects selected across the environments
-            if (masterAliasCommand) {
-              newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
-                commands: masterAliasCommand,
-                description: 'VFX suppression for all environments',
-                type: 'vfx-alias'
-              }
-              console.log(`[${this.componentName}] Generated combined VFX alias: dynFxSetFXExclusionList_Combined = ${masterAliasCommand}`)
-            } else {
-              console.log(`[${this.componentName}] No combined alias generated because no effects were selected across environments`)
+            newVfxAliases['dynFxSetFXExclusionList_Combined'] = {
+              commands: masterAliasCommand,
+              description: 'VFX suppression for all environments',
+              type: 'vfx-alias'
             }
+            console.log(`[${this.componentName}] Generated combined VFX alias: dynFxSetFXExclusionList_Combined = ${masterAliasCommand}`)
           }
           
           // Update profile via DataCoordinator using explicit operations API

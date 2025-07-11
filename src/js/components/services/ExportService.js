@@ -473,6 +473,7 @@ export default class ExportService extends ComponentBase {
   async generateAliasFile (profile) {
     const aliases = profile.aliases || {}
     
+    
     // Check if bind-to-alias mode is enabled and add generated aliases
     const bindToAliasMode = await this.getBindToAliasMode()
     const generatedAliases = {}
@@ -642,6 +643,7 @@ export default class ExportService extends ComponentBase {
     
     // Generate alias content directly (sorted)
     const sorted = Object.entries(allAliases).sort(([a], [b]) => a.localeCompare(b))
+    
     for (const [name, alias] of sorted) {
       let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
 
