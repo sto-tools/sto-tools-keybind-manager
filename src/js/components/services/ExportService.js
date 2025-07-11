@@ -759,10 +759,7 @@ export default class ExportService extends ComponentBase {
       }
       await writeFile(dirHandle, 'project.json', JSON.stringify(projectData, null, 2))
 
-      this.emit('toast:show', { 
-        message: i18next.t('sync_completed'), 
-        type: 'success' 
-      })
+      // Toast is handled by SyncService to respect autosync settings
     } catch (error) {
       this.emit('toast:show', { 
         message: i18next.t('sync_failed', { error: error.message }), 
