@@ -111,6 +111,29 @@ export default class CommandChainUI extends ComponentBase {
       })
     )
 
+    // Listen for profile switching to clear cached state and show empty state
+    this._detachFunctions.push(
+      this.eventBus.on('profile:switched', (data) => {
+        console.log('[CommandChainUI] Profile switched, clearing cached state')
+        // Clear cached selections when switching profiles
+        // The KeyBrowserService will handle restoring/auto-selecting appropriate key/alias
+        // and fire key-selected or alias-selected event which will trigger our render
+        this._selectedKey = null
+        this._selectedAlias = null
+        
+        // Reset to Primary Bindset when switching profiles
+        this.activeBindset = 'Primary Bindset'
+        if (this.bindsetSelectorService) {
+          this.bindsetSelectorService.setActiveBindset('Primary Bindset')
+        }
+        this.updateBindsetBanner()
+        this.updateChainActions()
+        
+        // Render immediately to show empty state (don't wait for key selection)
+        this.render().catch(() => {})
+      })
+    )
+
     // Listen for language changes to re-render command items with new translations
     this._detachFunctions.push(
       this.eventBus.on('language:changed', () => {
