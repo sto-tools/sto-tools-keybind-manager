@@ -978,6 +978,10 @@ export default class DataCoordinator extends ComponentBase {
           ground: { keys: {} }
         },
         aliases: sourceProfile.aliases || {},
+        // Preserve metadata fields for stabilizeExecutionOrder and other settings
+        keybindMetadata: sourceProfile.keybindMetadata || {},
+        aliasMetadata: sourceProfile.aliasMetadata || {},
+        bindsetMetadata: sourceProfile.bindsetMetadata || {},
         created: new Date().toISOString(),
         lastModified: new Date().toISOString()
       }
@@ -1043,8 +1047,8 @@ export default class DataCoordinator extends ComponentBase {
    */
   async createFallbackProfiles() {
     const fallbackProfiles = {
-      'default_space': {
-        name: 'Default Space',
+      'default': {
+        name: 'Default',
         description: 'Basic space build profile',
         currentEnvironment: 'space',
         builds: {
@@ -1067,7 +1071,7 @@ export default class DataCoordinator extends ComponentBase {
     // Set current profile
     let profileActivated = false
     if (!this.state.currentProfile) {
-      this.state.currentProfile = 'default_space'
+      this.state.currentProfile = 'default'
       profileActivated = true
       
       // Save current profile to storage

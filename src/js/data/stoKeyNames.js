@@ -13,7 +13,9 @@ export const STO_KEY_NAMES = [
   'numpad0','numpad1','numpad2','numpad3','numpad4','numpad5','numpad6','numpad7','numpad8','numpad9',
   'Decimal','Divide','numpadenter','Subtract','Add',
   'PageDown','PageUp','.',
-  'Shift','Space','Tab','`',
+  'Shift','LSHIFT','RSHIFT','Space','Tab','`',
+  // Encoded keys (display name format) - these are automatically accepted during validation
+  // since the decoding happens during import and encoding happens during export
   // Gamepad/xbox style
   'Joy1','Joy2','Joy3','Joy4','Joy5','Joy6','Joy7','Joy8','Joy9','Joy10','Joy11','Joy12',
   'Lstick_down','Lstick_left','Lstick_right','Lstick_up',

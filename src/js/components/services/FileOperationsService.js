@@ -3,6 +3,7 @@
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
 import { normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
+import { decodeKeyFromImport } from '../../lib/keyEncoding.js'
 
 export default class FileOperationsService extends ComponentBase {
   constructor({ eventBus, storage, i18n, ui } = {}) {
@@ -79,7 +80,9 @@ export default class FileOperationsService extends ComponentBase {
         // Match keybind pattern: Key "command1 $$ command2"
         const keybindMatch = line.match(/^(\S+)\s+"([^"]+)"/)
         if (keybindMatch) {
-          const [, key, commandString] = keybindMatch
+          const [, rawKey, commandString] = keybindMatch
+          // Decode the key from import format (e.g., 0x29 becomes `)
+          const key = decodeKeyFromImport(rawKey)
           const parseResult = await this.request('parser:parse-command-string', { 
             commandString 
           })

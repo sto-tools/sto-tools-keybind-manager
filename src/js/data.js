@@ -1127,179 +1127,277 @@ const STO_DATA = {
 
   // Default profiles
   defaultProfiles: {
-    default_space: {
-      name: 'Default Space',
-      description: 'Basic space combat configuration',
-      currentEnvironment: 'space',
-      builds: {
-        space: {
-          keys: {
-            Space: [
-              {
-                command: 'Target_Enemy_Near',
-                type: 'targeting',
-                icon: '🎯',
-                text: 'Target nearest enemy',
-                id: 'cmd_1',
-              },
-              {
-                command: 'FireAll',
-                type: 'combat',
-                icon: '🔥',
-                text: 'Fire all weapons',
-                id: 'cmd_2',
-              },
+    default: {
+      "name": "Default",
+      "description": "Default keybind configuration",
+      "currentEnvironment": "space",
+      "builds": {
+        "space": {
+          "keys": {
+            "Space": [
+              "+TrayExecByTray 8 0",
+              "+TrayExecByTray 8 1",
+              "+TrayExecByTray 8 2",
+              "+TrayExecByTray 8 3",
+              "+TrayExecByTray 8 4",
+              "+TrayExecByTray 8 5",
+              "+TrayExecByTray 8 6",
+              "+TrayExecByTray 8 7",
+              "+TrayExecByTray 8 8",
+              "+TrayExecByTray 8 9"
             ],
-          },
-        },
-        ground: {
-          keys: {
-            Space: [
-              {
-                command: 'Target_Enemy_Near',
-                type: 'targeting',
-                icon: '🎯',
-                text: 'Target nearest enemy',
-                id: 'cmd_g1',
-              },
-              {
-                command: '+STOTrayExecByTray 0 0',
-                type: 'tray',
-                icon: '⚡',
-                text: 'Primary attack',
-                id: 'cmd_g2',
-              },
+            "F1": [
+              "+TrayExecByTray 9 0",
+              "+TrayExecByTray 9 1",
+              "+TrayExecByTray 9 2",
+              "+TrayExecByTray 9 3",
+              "+TrayExecByTray 9 4",
+              "+TrayExecByTray 9 5",
+              "+TrayExecByTray 9 6",
+              "+TrayExecByTray 9 7",
+              "+TrayExecByTray 9 8",
+              "+TrayExecByTray 9 9"
             ],
-          },
+            "F2": [
+              "+TrayExecByTray 3 0",
+              "+TrayExecByTray 3 1",
+              "+TrayExecByTray 3 2",
+              "+TrayExecByTray 3 3",
+              "+TrayExecByTray 3 4"
+            ],
+            "F3": [
+              "+TrayExecByTray 3 5",
+              "+TrayExecByTray 3 6",
+              "+TrayExecByTray 3 7",
+              "+TrayExecByTray 3 8",
+              "+TrayExecByTray 3 9"
+            ],
+            "F4": [
+              "+TrayExecByTray 4 0",
+              "+TrayExecByTray 4 1",
+              "+TrayExecByTray 4 2",
+              "+TrayExecByTray 4 3",
+              "+TrayExecByTray 4 4"
+            ],
+            "F5": [
+              "+TrayExecByTray 4 5",
+              "+TrayExecByTray 4 6",
+              "+TrayExecByTray 4 7",
+              "+TrayExecByTray 4 8",
+              "+TrayExecByTray 4 9"
+            ],
+            "Z": [
+              "+TrayExecByTray 6 0",
+              "+TrayExecByTray 6 1",
+              "+TrayExecByTray 6 2",
+              "+TrayExecByTray 6 3",
+              "+TrayExecByTray 6 4"
+            ],
+            "C": [
+              "+TrayExecByTray 6 5",
+              "+TrayExecByTray 6 6",
+              "+TrayExecByTray 6 7",
+              "+TrayExecByTray 6 8",
+              "+TrayExecByTray 6 9"
+            ],
+            "`": [
+              "Target_Enemy_Near_ForArc 90",
+              "PlayerSay Target Arc=90"
+            ],
+            "Alt+`": [
+              "Target_Enemy_Near_ForArc 180",
+              "PlayerSay Target Arc=180"
+            ],
+            "LSHIFT": [
+              "FireAll"
+            ],
+            "F9": [
+              "dynFxSetFXExclusionList_Space"
+            ],
+            "F10": [
+              "toggle_combatlog"
+            ],
+            "F11": [
+              "bind_load_file Default_space.txt"
+            ],
+            "numpad0": [
+              "toggle_default_auto_attack_off"
+            ],
+            "numpad1": [
+              "toggle_default_auto_attack_on"
+            ]
+          }
         },
+        "ground": {
+          "keys": {
+            "X": [
+              "+TrayExecByTray 7 0",
+              "+TrayExecByTray 7 1",
+              "+TrayExecByTray 7 2",
+              "+TrayExecByTray 7 3",
+              "+TrayExecByTray 7 4",
+              "+TrayExecByTray 7 5",
+              "+TrayExecByTray 7 6",
+              "+TrayExecByTray 7 7",
+              "+TrayExecByTray 7 8",
+              "+TrayExecByTray 7 9"
+            ],
+            "F1": [
+              "+TrayExecByTray 6 0",
+              "+TrayExecByTray 6 1",
+              "+TrayExecByTray 6 2"
+            ],
+            "F2": [
+              "+TrayExecByTray 6 3",
+              "+TrayExecByTray 6 4",
+              "+TrayExecByTray 6 5"
+            ],
+            "F3": [
+              "+TrayExecByTray 6 6",
+              "+TrayExecByTray 6 7",
+              "+TrayExecByTray 6 8",
+              "+TrayExecByTray 6 9"
+            ],
+            "T": [
+              "+TrayExecByTray 5 0",
+              "+TrayExecByTray 5 1",
+              "+TrayExecByTray 5 2",
+              "+TrayExecByTray 5 3",
+              "+TrayExecByTray 5 4"
+            ],
+            "Y": [
+              "+TrayExecByTray 5 5",
+              "+TrayExecByTray 5 6",
+              "+TrayExecByTray 5 7",
+              "+TrayExecByTray 5 8",
+              "+TrayExecByTray 5 9"
+            ],
+            "F9": [
+              "dynFxSetFXExclusionList_Ground"
+            ],
+            "F10": [
+              "toggle_combatlog"
+            ],
+            "F11": [
+              "bind_load_file Default_ground.txt"
+            ]
+          }
+        },
+        "alias": {
+          "keys": {}
+        }
       },
-      aliases: {
-        AttackCall: {
-          description: 'Call out attack target to team',
-          commands: 'team Attacking [$Target] - focus fire!',
+      "aliases": {
+        "toggle_combatlog": {
+          "commands": [
+            "toggle_combatlog_on"
+          ],
+          "description": ""
         },
-        TargetReport: {
-          description: 'Report current target to team',
-          commands: 'team Current target: [$Target]',
+        "toggle_combatlog_off": {
+          "commands": [
+            "combatlog 0",
+            "PlayerSay Toggle Combat Log: Off",
+            "alias toggle_combatlog \"toggle_combatlog_on\"",
+            "combatlog"
+          ],
+          "description": ""
         },
-        HealCall: {
-          description: 'Request healing for target',
-          commands: 'team Need healing on [$Target]!',
+        "toggle_combatlog_on": {
+          "commands": [
+            "combatlog 1",
+            "PlayerSay Toggle Combat Log: On",
+            "alias toggle_combatlog \"toggle_combatlog_off\"",
+            "combatlog"
+          ],
+          "description": ""
         },
+        "toggle_default_auto_attack": {
+          "commands": [
+            "toggle_default_auto_attack_on"
+          ],
+          "description": ""
+        },
+        "toggle_default_auto_attack_off": {
+          "commands": [
+            "defaultautoattack 0",
+            "PlayerSay Toggle Default Auto Attack: Off",
+            "alias toggle_default_auto_attack \"toggle_default_auto_attack_on\""
+          ],
+          "description": ""
+        },
+        "toggle_default_auto_attack_on": {
+          "commands": [
+            "defaultautoattack 1",
+            "PlayerSay Toggle Default Auto Attack: On",
+            "alias toggle_default_auto_attack \"toggle_default_auto_attack_off\""
+          ],
+          "description": ""
+        }
       },
-    },
-    tactical_space: {
-      name: 'Tactical Space',
-      description: 'Aggressive DPS-focused space build',
-      currentEnvironment: 'space',
-      builds: {
-        space: {
-          keys: {
-            Space: [
-              {
-                command: 'Target_Enemy_Near',
-                type: 'targeting',
-                icon: '🎯',
-                text: 'Target nearest enemy',
-                id: 'cmd_1',
-              },
-              {
-                command: '+STOTrayExecByTray 0 0',
-                type: 'tray',
-                icon: '⚡',
-                text: 'Execute Tray 1 Slot 1',
-                id: 'cmd_2',
-              },
-              {
-                command: 'FireAll',
-                type: 'combat',
-                icon: '🔥',
-                text: 'Fire all weapons',
-                id: 'cmd_3',
-              },
-              {
-                command: '+power_exec Distribute_Shields',
-                type: 'power',
-                icon: '🛡️',
-                text: 'Distribute shields',
-                id: 'cmd_4',
-              },
-            ],
-            1: [
-              {
-                command: '+STOTrayExecByTray 1 0',
-                type: 'tray',
-                icon: '⚡',
-                text: 'Execute Tray 2 Slot 1',
-                id: 'cmd_5',
-              },
-            ],
-            F1: [
-              {
-                command: 'Target_Self',
-                type: 'targeting',
-                icon: '👤',
-                text: 'Target self',
-                id: 'cmd_6',
-              },
-              {
-                command: '+STOTrayExecByTray 2 0',
-                type: 'tray',
-                icon: '⚡',
-                text: 'Execute Tray 3 Slot 1',
-                id: 'cmd_7',
-              },
-            ],
+      "created": "2025-07-11T00:19:39.458Z",
+      "lastModified": "2025-07-11T02:01:08.466Z",
+      "migrationVersion": "2.0.0",
+      "id": "default_space",
+      "keybindMetadata": {
+        "space": {
+          "Space": {
+            "stabilizeExecutionOrder": true
           },
-        },
-        ground: {
-          keys: {
-            Space: [
-              {
-                command: 'Target_Enemy_Near',
-                type: 'targeting',
-                icon: '🎯',
-                text: 'Target nearest enemy',
-                id: 'cmd_g1',
-              },
-              {
-                command: '+STOTrayExecByTray 0 0',
-                type: 'tray',
-                icon: '⚡',
-                text: 'Primary attack',
-                id: 'cmd_g2',
-              },
-            ],
-            1: [
-              {
-                command: '+STOTrayExecByTray 0 1',
-                type: 'tray',
-                icon: '⚡',
-                text: 'Secondary attack',
-                id: 'cmd_g3',
-              },
-            ],
-            F1: [
-              {
-                command: 'Target_Self',
-                type: 'targeting',
-                icon: '👤',
-                text: 'Target self',
-                id: 'cmd_g4',
-              },
-              {
-                command: '+STOTrayExecByTray 1 0',
-                type: 'tray',
-                icon: '💊',
-                text: 'Heal self',
-                id: 'cmd_g5',
-              },
-            ],
+          "F1": {
+            "stabilizeExecutionOrder": true
           },
+          "F2": {
+            "stabilizeExecutionOrder": true
+          },
+          "F3": {
+            "stabilizeExecutionOrder": true
+          },
+          "F4": {
+            "stabilizeExecutionOrder": true
+          },
+          "F5": {
+            "stabilizeExecutionOrder": true
+          },
+          "Z": {
+            "stabilizeExecutionOrder": true
+          },
+          "C": {
+            "stabilizeExecutionOrder": true
+          }
         },
+        "ground": {
+          "X": {
+            "stabilizeExecutionOrder": true
+          },
+          "F3": {
+            "stabilizeExecutionOrder": true
+          },
+          "F2": {
+            "stabilizeExecutionOrder": true
+          },
+          "F1": {
+            "stabilizeExecutionOrder": true
+          },
+          "T": {
+            "stabilizeExecutionOrder": true
+          }
+        }
       },
-      aliases: {},
-    },
+      "aliasMetadata": {},
+      "selections": {
+        "space": "F1",
+        "alias": "toggle_combatlog",
+        "ground": "F1"
+      },
+      "vertigoSettings": {
+        "selectedEffects": {
+          "space": [],
+          "ground": []
+        },
+        "showPlayerSay": true
+      }
+    }, 
   },
 
   // Comprehensive key definitions organized by category
@@ -1506,7 +1604,7 @@ const STO_DATA = {
 
   // Validation rules
   validation: {
-    keyNamePattern: /^[a-zA-Z0-9_+\-\s]+$/,
+    keyNamePattern: 'USE_STO_KEY_NAMES', // Use STO_KEY_NAMES list for validation
     aliasNamePattern: /^[a-zA-Z_][a-zA-Z0-9_]*$/,
     maxCommandsPerKey: 20,
     maxKeysPerProfile: 100,

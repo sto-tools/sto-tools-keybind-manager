@@ -2,13 +2,14 @@
 // Provides parsing, export generation, and command utilities
 import '../data.js'
 import { formatAliasLine } from './STOFormatter.js'
+import { decodeKeyFromImport } from './keyEncoding.js'
 const STO_DATA = globalThis.STO_DATA || {}
 
 export default class STOFileHandler {
   constructor() {
     this.keybindPatterns = {
-      standard: /^([a-zA-Z0-9_+\-\s\[\]]+)\s+"([^"]*)"(?:\s+"([^"]*)")?$/,
-      bind: /^\/bind\s+([a-zA-Z0-9_+\-\s\[\]]+)\s+(.+)$/,
+      standard: /^([a-zA-Z0-9_+\-\s\[\]x]+)\s+"([^"]*)"(?:\s+"([^"]*)")?$/,
+      bind: /^\/bind\s+([a-zA-Z0-9_+\-\s\[\]x]+)\s+(.+)$/,
       alias: /^alias\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(?:"([^"]+)"|<&\s+(.+?)\s+&>)$/,
       comment: /^[#;].*$/,
     }
@@ -67,7 +68,9 @@ export default class STOFileHandler {
         } else if (this.keybindPatterns.standard.test(trimmed)) {
           const m = trimmed.match(this.keybindPatterns.standard)
           if (m) {
-            const [, key, cmdString, opt] = m
+            const [, rawKey, cmdString, opt] = m
+            // Decode the key from import format (e.g., 0x29 becomes `)
+            const key = decodeKeyFromImport(rawKey)
             const commands = this.parseCommandString(cmdString)
             result.keybinds[key] = {
               key,

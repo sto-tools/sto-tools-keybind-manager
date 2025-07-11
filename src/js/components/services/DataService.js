@@ -80,8 +80,8 @@ export default class DataService extends ComponentBase {
 
     this.responseHandlers.push(
       this.respond('data:get-key-name-pattern', () => {
-        // Default pattern allows letters, digits, underscore and plus (for chords like Alt+S)
-        return this.data.validation?.keyNamePattern || /^[A-Za-z0-9_+]+$/
+        // Use STO_KEY_NAMES list for validation instead of regex pattern
+        return this.data.validation?.keyNamePattern || 'USE_STO_KEY_NAMES'
       })
     )
 

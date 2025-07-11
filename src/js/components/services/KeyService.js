@@ -336,11 +336,71 @@ export default class KeyService extends ComponentBase {
     if (!keyName || typeof keyName !== 'string') return false
     try {
       const pattern = await this.request('data:get-key-name-pattern') || /^[A-Za-z0-9_+]+$/
+      
+      // Special case: if pattern is 'USE_STO_KEY_NAMES', use the STO key names list
+      if (pattern === 'USE_STO_KEY_NAMES') {
+        const { STO_KEY_NAMES } = await import('../../data/stoKeyNames.js')
+        
+        // Check for chord combinations (e.g., "ALT+`", "CTRL+Space")
+        if (keyName.includes('+')) {
+          return this.isValidChordCombination(keyName, STO_KEY_NAMES)
+        }
+        
+        // Single key validation
+        return STO_KEY_NAMES.includes(keyName) && keyName.length <= 20
+      }
+      
       return pattern.test(keyName) && keyName.length <= 20
     } catch (error) {
       // Fallback to default pattern if DataService not available
       return /^[A-Za-z0-9_+]+$/.test(keyName) && keyName.length <= 20
     }
+  }
+
+  /**
+   * Validate chord combinations like "ALT+`", "CTRL+Space", etc.
+   */
+  isValidChordCombination(keyName, stoKeyNames) {
+    const parts = keyName.split('+')
+    
+    // Must have at least 2 parts (modifier + key)
+    if (parts.length < 2) {
+      return false
+    }
+    
+    // All parts must be valid STO key names (with case normalization)
+    const validParts = parts.map(part => {
+      const trimmedPart = part.trim()
+      const normalizedPart = this.normalizeKeyName(trimmedPart, stoKeyNames)
+      return stoKeyNames.includes(normalizedPart)
+    })
+    
+    return validParts.every(valid => valid) && keyName.length <= 20
+  }
+
+  /**
+   * Normalize key names to match STO_KEY_NAMES case conventions
+   */
+  normalizeKeyName(keyName, stoKeyNames) {
+    // Create a case-insensitive lookup map
+    const lowerCaseMap = new Map()
+    stoKeyNames.forEach(stoKey => {
+      lowerCaseMap.set(stoKey.toLowerCase(), stoKey)
+    })
+    
+    // Try to find exact match first
+    if (stoKeyNames.includes(keyName)) {
+      return keyName
+    }
+    
+    // Try case-insensitive match
+    const lowerKey = keyName.toLowerCase()
+    if (lowerCaseMap.has(lowerKey)) {
+      return lowerCaseMap.get(lowerKey)
+    }
+    
+    // Return original if no match found
+    return keyName
   }
 
   // Alias validation used by unit tests

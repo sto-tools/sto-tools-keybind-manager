@@ -4,6 +4,7 @@ import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
 import STOFileHandler from '../../lib/fileHandler.js'
 import { normalizeToStringArray, normalizeToOptimizedString } from '../../lib/commandDisplayAdapter.js'
+import { decodeKeyFromImport } from '../../lib/keyEncoding.js'
 
 export default class ImportService extends ComponentBase {
   constructor({ eventBus, storage, i18n, ui } = {}) {
@@ -63,7 +64,9 @@ export default class ImportService extends ComponentBase {
         // Match keybind pattern: Key "command1 $$ command2"
         const keybindMatch = line.match(/^(\S+)\s+"([^"]+)"/)
         if (keybindMatch) {
-          const [, key, commandString] = keybindMatch
+          const [, rawKey, commandString] = keybindMatch
+          // Decode the key from import format (e.g., 0x29 becomes `)
+          const key = decodeKeyFromImport(rawKey)
           const parseResult = await this.request('parser:parse-command-string', { 
             commandString 
           })
@@ -499,7 +502,9 @@ export default class ImportService extends ComponentBase {
         ground: { keys: {}, aliases: {} }
       },
       aliases: {},
-      keybindMetadata: {}
+      keybindMetadata: {},
+      aliasMetadata: {},
+      bindsetMetadata: {}
     }
 
     // Handle different profile formats
@@ -531,6 +536,12 @@ export default class ImportService extends ComponentBase {
     // Handle metadata
     if (profileData.keybindMetadata) {
       sanitized.keybindMetadata = profileData.keybindMetadata
+    }
+    if (profileData.aliasMetadata) {
+      sanitized.aliasMetadata = profileData.aliasMetadata
+    }
+    if (profileData.bindsetMetadata) {
+      sanitized.bindsetMetadata = profileData.bindsetMetadata
     }
 
     return sanitized
