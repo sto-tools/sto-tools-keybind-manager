@@ -109,7 +109,7 @@ export default class SyncService extends ComponentBase {
       const isAutoSyncEnabled = settings.autoSync
       const autoSyncInterval = settings.autoSyncInterval || 'change'
       const isChangeBasedAutoSync = isAutoSyncEnabled && autoSyncInterval === 'change'
-      const shouldShowToast = source === 'manual' || !isChangeBasedAutoSync
+      const shouldShowToast = source === 'manual' || (source === 'auto' && !isChangeBasedAutoSync)
       
       if (shouldShowToast) {
         this.ui?.showToast(i18next.t('project_synced_successfully'), 'success')
