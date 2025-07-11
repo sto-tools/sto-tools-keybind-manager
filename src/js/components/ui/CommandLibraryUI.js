@@ -420,7 +420,7 @@ export default class CommandLibraryUI extends ComponentBase {
         for (const env of envs) {
           const allBs = ['Primary Bindset', ...Object.keys(bindsets)]
           allBs.forEach(bsName => {
-            const loaderAlias = `bindset_enable_${env}_${sanitizeName(bsName)}`
+            const loaderAlias = `sto_kb_bindset_enable_${env}_${sanitizeName(bsName)}`
             bindsetAliasItems.push([
               loaderAlias,
               {

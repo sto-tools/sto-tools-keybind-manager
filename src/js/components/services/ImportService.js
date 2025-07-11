@@ -229,7 +229,9 @@ export default class ImportService extends ComponentBase {
   async importAliasFile(content, profileId, options = {}) {
     try {
       const parsed = await this.parseKeybindFile(content)
-      const aliasCount = Object.keys(parsed.aliases).length
+      // Count only non-generated aliases (exclude sto_kb_ prefix)
+      const importableAliases = Object.keys(parsed.aliases).filter(name => !name.startsWith('sto_kb_'))
+      const aliasCount = importableAliases.length
       
       if (aliasCount === 0) {
         this.showToast(this.i18n?.t?.('no_aliases_found_in_file') || 'No aliases found', 'warning')
@@ -246,7 +248,12 @@ export default class ImportService extends ComponentBase {
       if (!profile.aliases) profile.aliases = {}
 
       // Apply aliases using parsed data - convert to canonical string array format
+      // Skip generated keybind/bindset aliases (those with sto_kb_ prefix)
       for (const [name, data] of Object.entries(parsed.aliases)) {
+        if (name.startsWith('sto_kb_')) {
+          console.log(`[ImportService] Skipping generated alias: ${name}`)
+          continue
+        }
         // Split command string by $$ and convert to canonical string array
         const commandString = data.commands || ''
         const commandArray = commandString.trim() 

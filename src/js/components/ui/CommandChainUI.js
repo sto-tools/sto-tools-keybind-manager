@@ -19,9 +19,7 @@ export default class CommandChainUI extends ComponentBase {
     this.bindsetSelectorService = null
     this.bindsetSelectorUI = null
     this.activeBindset = 'Primary Bindset'
-  }
 
-  async onInit () {
     // Initialize cached selection state (but preserve environment from late-join)
     this._selectedKey = null
     this._selectedAlias = null
@@ -29,6 +27,10 @@ export default class CommandChainUI extends ComponentBase {
     
     // Initialize cached preferences (will be populated by late-join handshake)
     this._bindToAliasMode = false
+
+  }
+
+  async onInit () {
     
     // Store detach functions for cleanup
     this._detachFunctions = []
@@ -116,17 +118,7 @@ export default class CommandChainUI extends ComponentBase {
       })
     )
 
-    // Listen for preference changes to re-render when bind-to-alias mode is toggled
-    this._detachFunctions.push(
-      this.eventBus.on('preferences:changed', async (data) => {
-        if (data.key === 'bindToAliasMode') {
-          console.log('[CommandChainUI] bind-to-alias mode changed, re-rendering')
-          // Re-evaluate dropdown visibility when bind-to-alias toggles
-          await this.setupBindsetDropdown().catch(()=>{})
-          this.render()
-        }
-      })
-    )
+    // Note: Preference changes are now handled by the main preferences:changed listener below
 
     // Listen for bindset selector active changes
     this._detachFunctions.push(
@@ -242,19 +234,39 @@ export default class CommandChainUI extends ComponentBase {
     // Listen for preference changes that toggle bindsets at runtime (or when
     // bindsetsEnabled itself flips)
     this._detachFunctions.push(
-      this.eventBus.on('preferences:changed', async ({ key, value }) => {
-        if (key === 'bindsetsEnabled') {
-          this._bindsetsEnabled = !!value
-          if (value && !this._bindsetDropdownReady) {
-            await this.setupBindsetDropdown()
-          } else if (!value && this._bindsetDropdownReady) {
-            const btn = this.document.getElementById('bindsetDropdownBtn')
-            const sel = this.document.getElementById('bindsetSelect')
-            if (btn) btn.style.display = 'none'
-            if (sel) sel.style.display = 'none'
+      this.eventBus.on('preferences:changed', async (data) => {
+        // Handle both single-setting changes and bulk changes
+        const changes = data.changes || { [data.key]: data.value }
+        let needsDropdownUpdate = false
+        let needsRender = false
+        
+        for (const [key, value] of Object.entries(changes)) {
+          if (key === 'bindsetsEnabled') {
+            this._bindsetsEnabled = !!value
+            needsDropdownUpdate = true
+            if (!value && this._bindsetDropdownReady) {
+              const btn = this.document.getElementById('bindsetDropdownBtn')
+              const sel = this.document.getElementById('bindsetSelect')
+              if (btn) btn.style.display = 'none'
+              if (sel) sel.style.display = 'none'
+            }
+          } else if (key === 'bindToAliasMode') {
+            console.log(`[CommandChainUI] Preference changed: bindToAliasMode = ${value}`)
+            this._bindToAliasMode = !!value
+            console.log(`[CommandChainUI] After preference change: _bindToAliasMode = ${this._bindToAliasMode}`)
+            needsDropdownUpdate = true
+            needsRender = true
           }
-        } else if (key === 'bindToAliasMode') {
-          this._bindToAliasMode = !!value
+        }
+        
+        // Update dropdown once after processing all changes
+        if (needsDropdownUpdate) {
+          await this.setupBindsetDropdown()
+        }
+        
+        // Re-render once after processing all changes
+        if (needsRender) {
+          this.render().catch(() => {})
         }
       })
     )
@@ -627,6 +639,7 @@ export default class CommandChainUI extends ComponentBase {
    * Get the current bind-to-alias mode setting from cached preferences
    */
   getBindToAliasMode() {
+    console.log(`[CommandChainUI] getBindToAliasMode() returning: ${this._bindToAliasMode}`)
     return this._bindToAliasMode
   }
 
@@ -661,7 +674,12 @@ export default class CommandChainUI extends ComponentBase {
     const aliasPreviewEl = this.document.getElementById('aliasPreview')
     const previewEl = this.document.getElementById('commandPreview')
 
-    if (!generatedAlias || !aliasPreviewEl || !previewEl) return
+    console.log(`[CommandChainUI] updateBindToAliasMode: bindToAliasMode=${bindToAliasMode}, selectedKeyName=${selectedKeyName}, environment=${this._currentEnvironment}, activeBindset=${this.activeBindset}`)
+    
+    if (!generatedAlias || !aliasPreviewEl || !previewEl) {
+      console.log(`[CommandChainUI] Missing UI elements: generatedAlias=${!!generatedAlias}, aliasPreviewEl=${!!aliasPreviewEl}, previewEl=${!!previewEl}`)
+      return
+    }
 
     if (bindToAliasMode && selectedKeyName && this._currentEnvironment !== 'alias') {
       // Show generated alias section
@@ -855,7 +873,8 @@ export default class CommandChainUI extends ComponentBase {
    * ---------------------------------------------------------- */
   handleInitialState (sender, state) {
     if (!state) return
-    
+   
+
     // Only accept environment updates from authoritative sources
     const canUpdateEnvironment = sender === 'InterfaceModeService' || sender === 'ProfileService' || sender === 'DataCoordinator'
     
@@ -874,13 +893,16 @@ export default class CommandChainUI extends ComponentBase {
 
     // Pick up preferences settings from late-join broadcast
     if (sender === 'PreferencesService' && state.settings) {
+      console.log(`[CommandChainUI] Late-join state from PreferencesService:`, state.settings)
       this._bindsetsEnabled = !!state.settings.bindsetsEnabled
       this._bindToAliasMode = !!state.settings.bindToAliasMode
+      console.log(`[CommandChainUI] Set bindToAliasMode = ${this._bindToAliasMode} from late-join`)
       if (this._bindsetsEnabled && !this._bindsetDropdownReady) {
         // preferences arrive before onInit resolved
         this.setupBindsetDropdown().catch(()=>{})
       }
     }
+    
   }
 
   /* ------------------------------------------------------------ */

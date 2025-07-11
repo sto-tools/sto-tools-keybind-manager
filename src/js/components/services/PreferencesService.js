@@ -43,6 +43,7 @@ export default class PreferencesService extends ComponentBase {
       this.respond('preferences:save-settings', () => this.saveSettings())
       this.respond('preferences:get-settings', () => this.getSettings())
       this.respond('preferences:set-setting', ({ key, value }) => this.setSetting(key, value))
+      this.respond('preferences:set-settings', (newSettings) => this.setSettings(newSettings))
       this.respond('preferences:get-setting', ({ key }) => this.getSetting(key))
       this.respond('preferences:reset-settings', () => this.resetSettings())
       
@@ -84,6 +85,8 @@ export default class PreferencesService extends ComponentBase {
   init() {
     this.loadSettings()
     this.applySettings()
+
+    super.init()
   }
 
   /* --------------------------------------------------
@@ -123,9 +126,22 @@ export default class PreferencesService extends ComponentBase {
   }
 
   setSettings(newSettings = {}) {
+    const oldSettings = { ...this.settings }
     this.settings = { ...this.defaultSettings, ...newSettings }
     this.saveSettings()
     this.applySettings()
+    
+    // Emit a single event with all the changes
+    const changes = {}
+    for (const [key, value] of Object.entries(newSettings)) {
+      if (oldSettings[key] !== value) {
+        changes[key] = value
+      }
+    }
+    
+    if (Object.keys(changes).length > 0) {
+      this.emit('preferences:changed', { changes })
+    }
   }
 
   resetSettings() {

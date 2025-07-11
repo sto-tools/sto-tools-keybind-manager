@@ -146,8 +146,8 @@ export function generateBindToAliasName (environment, keyName, bindsetName = nul
   }
   
   const aliasName = bindsetPart
-    ? `${cleanEnv}_${bindsetPart}_${cleanKey}`
-    : `${cleanEnv}_${cleanKey}`
+    ? `sto_kb_${cleanEnv}_${bindsetPart}_${cleanKey}`
+    : `sto_kb_${cleanEnv}_${cleanKey}`
   
   return isAliasNamePatternValid(aliasName) ? aliasName : null
 }
@@ -159,7 +159,8 @@ export function generateBindToAliasName (environment, keyName, bindsetName = nul
 export function parseBindToAliasName (aliasName) {
   if (!aliasName || typeof aliasName !== 'string') return null
   
-  const match = aliasName.match(/^([a-z]+)_(.+)$/)
+  // Check for the new sto_kb_ prefix
+  const match = aliasName.match(/^sto_kb_([a-z]+)_(.+)$/)
   if (!match) return null
   
   const [, environment, keyPart] = match

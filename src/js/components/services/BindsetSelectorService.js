@@ -67,11 +67,22 @@ export default class BindsetSelectorService extends ComponentBase {
     })
 
     // Listen for preferences changes
-    this.addEventListener('preferences:changed', ({ key, value }) => {
-      if (key === 'bindsetsEnabled' || key === 'bindToAliasMode') {
-        this.preferences[key] = value
+    this.addEventListener('preferences:changed', (data) => {
+      // Handle both single-setting changes and bulk changes
+      const changes = data.changes || { [data.key]: data.value }
+      let needsUpdate = false
+      
+      for (const [key, value] of Object.entries(changes)) {
+        if (key === 'bindsetsEnabled' || key === 'bindToAliasMode') {
+          this.preferences[key] = value
+          needsUpdate = true
+          console.log('[BindsetSelectorService] preference changed:', key, '=', value)
+        }
+      }
+      
+      if (needsUpdate) {
         const shouldDisplay = this.shouldDisplay()
-        console.log('[BindsetSelectorService] preference changed:', key, '=', value, 'shouldDisplay:', shouldDisplay)
+        console.log('[BindsetSelectorService] shouldDisplay:', shouldDisplay)
         this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
       }
     })

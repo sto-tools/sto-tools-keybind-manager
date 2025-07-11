@@ -28,7 +28,7 @@ function makeRequestId() {
 function request(bus = eventBus, topic, payload, timeout = 5000) {
   if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-console
-    //console.log(`[requestResponse] request → ${topic}`, payload)
+    console.log(`[requestResponse] request → ${topic}`, payload)
   }
   const requestId = makeRequestId()
   const replyTopic = `${topic}::reply::${requestId}`
@@ -83,7 +83,7 @@ function respond(bus = eventBus, topic, handler) {
       const result = await handler(payload)
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
-       //console.log(`[requestResponse] respond ← ${topic}`, result)
+       console.log(`[requestResponse] respond ← ${topic}`, result)
       }
       bus.emit(replyTopic, { requestId, data: result })
     } catch (err) {

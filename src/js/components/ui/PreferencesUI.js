@@ -52,7 +52,10 @@ export default class PreferencesUI extends ComponentBase {
 
     // Listen for settings changes that should update AutoSync
     this.eventBus.on('preferences:changed', (data) => {
-      if (data.key === 'autoSync' || data.key === 'autoSyncInterval') {
+      // Handle both single-setting changes and bulk changes
+      const changes = data.changes || { [data.key]: data.value }
+      
+      if (changes.autoSync !== undefined || changes.autoSyncInterval !== undefined) {
         this.notifyAutoSyncSettingsChanged()
       }
     })
@@ -157,12 +160,16 @@ export default class PreferencesUI extends ComponentBase {
   }
 
   async saveAllSettings(manual = true) {
-    // First, apply any pending settings (e.g., bindToAliasMode)
-    for (const [k, v] of Object.entries(this.pendingSettings)) {
-      await this.setSetting(k, v)
+    // First, apply any pending settings (e.g., bindToAliasMode) in bulk
+    if (Object.keys(this.pendingSettings).length > 0) {
+      // Get current settings and merge with pending changes
+      const currentSettings = await this.request('preferences:get-settings')
+      const newSettings = { ...currentSettings, ...this.pendingSettings }
+      await this.request('preferences:set-settings', newSettings)
+      
+      // Clear pending settings now that they have been applied
+      this.pendingSettings = {}
     }
-    // Clear pending settings now that they have been applied
-    this.pendingSettings = {}
 
     // Use request/response instead of direct service call
     const ok = await this.saveSettings()

@@ -42,7 +42,10 @@ export default class AutoSync extends ComponentBase {
     
     // Listen for individual setting changes
     this.eventBus.on('preferences:changed', (data) => {
-      if (data.key === 'autoSync' || data.key === 'autoSyncInterval') {
+      // Handle both single-setting changes and bulk changes
+      const changes = data.changes || { [data.key]: data.value }
+      
+      if (changes.autoSync !== undefined || changes.autoSyncInterval !== undefined) {
         this.setupFromSettings()
       }
     })

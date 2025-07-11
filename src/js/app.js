@@ -381,6 +381,14 @@ export default class STOToolsKeybindManager {
       // Load profile data
       await this.profileService.loadData()
 
+      // Initialize preferences service & UI
+      this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
+      this.preferencesUI = new PreferencesUI({ service: this.preferencesService, ui: stoUI })
+      this.preferencesManager = this.preferencesUI
+      this.preferencesService.init()
+      this.preferencesUI.init()
+
+
       // dbg('Profile data loaded')
       // Ensure command library service is synced with the loaded profile/environment
       if (this.commandLibraryService && this.profileService) {
@@ -390,6 +398,8 @@ export default class STOToolsKeybindManager {
       // dbg('Command library synced')
       // Legacy global reference kept for backward compatibility (now points to alias browser UI)
       window.stoAliases = this.aliasBrowserUI
+
+
 
       // Initialize UI components and services
       // These need to be initialized BEFORE sto-app-ready is emitted so they can participate in late join handshake
@@ -411,12 +421,6 @@ export default class STOToolsKeybindManager {
       // REMOVED: Theme and language application moved to dedicated services
 
       // dbg('Language applied')
-      // Initialize preferences service & UI
-      this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
-      this.preferencesUI = new PreferencesUI({ service: this.preferencesService, ui: stoUI })
-      this.preferencesManager = this.preferencesUI
-      this.preferencesService.init()
-      this.preferencesUI.init()
 
       // dbg('Preferences service & UI initialized')
       // Initialize VFX Manager service & UI

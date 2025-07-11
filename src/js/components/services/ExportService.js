@@ -133,14 +133,14 @@ export default class ExportService extends ComponentBase {
    */
   async generateBindsetAliasName(environment, bindsetName, keyName) {
     const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
-    const base = generateBindToAliasName(environment, keyName)
-    if (!base) return null
-    if (!bindsetName || bindsetName === 'Primary Bindset') return base // primary
-
-    const envPrefix = `${environment.toLowerCase()}_`
-    const keyPart = base.substring(envPrefix.length)
-    const bsPart = this.sanitizeBindsetName(bindsetName)
-    return `${envPrefix}${bsPart}_${keyPart}`
+    
+    // For primary bindset, use the standard bind-to-alias name (already has sto_kb_ prefix)
+    if (!bindsetName || bindsetName === 'Primary Bindset') {
+      return generateBindToAliasName(environment, keyName)
+    }
+    
+    // For custom bindsets, use the generateBindToAliasName with bindsetName parameter
+    return generateBindToAliasName(environment, keyName, bindsetName)
   }
   
   /* ---------------------------------------------------------- */
@@ -568,7 +568,7 @@ export default class ExportService extends ComponentBase {
         // Build loader aliases for EACH bindset (including Primary Bindset)
         const allBindsetForLoaders = ['Primary Bindset', ...bindsetNames]
         for (const bsName of allBindsetForLoaders) {
-          const loaderAliasName = `bindset_enable_${environment}_${this.sanitizeBindsetName(bsName)}`
+          const loaderAliasName = `sto_kb_bindset_enable_${environment}_${this.sanitizeBindsetName(bsName)}`
 
           // Build command string for loader alias: series of bind commands separated by $$
           const bindCmds = []
