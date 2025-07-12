@@ -35,6 +35,13 @@ export default class CommandUI extends ComponentBase {
     this._currentEnvironment = 'space'
     this._activeBindset = 'Primary Bindset' // Default to primary bindset
 
+    // Cache for DataCoordinator data
+
+    this.cache = {
+      currentProfile: null,
+      currentEnvironment: 'space',
+    }
+
     // Store last validation issues
     this._lastValidation = { warnings: [], errors: [] }
 
@@ -266,7 +273,7 @@ export default class CommandUI extends ComponentBase {
   handleInitialState(sender, state) {
     if (!state) return
     
-    if (state.selectedKey !== undefined) {
+  /*  if (state.selectedKey !== undefined) {
       this._selectedKey = state.selectedKey
     }
     if (state.selectedAlias !== undefined) {
@@ -274,6 +281,27 @@ export default class CommandUI extends ComponentBase {
     }
     if (state.currentEnvironment !== undefined) {
       this._currentEnvironment = state.currentEnvironment
+    */
+    // Handle state from DataCoordinator via ComponentBase late-join
+    if (sender === 'DataCoordinator' && state.currentProfileData) {
+      const profile = state.currentProfileData
+      //this.currentProfile = profile.id
+      this.cache.currentProfile = profile.id
+      this.currentEnvironment = profile.environment || 'space'
+      this.cache.currentEnvironment = this.currentEnvironment
+    }
+    
+    if (sender === 'SelectionService') {
+      if (state.selectedKey) {
+        // Call the same logic as the key-selected event handler
+        this._selectedKey = state.selectedKey
+        this._selectedAlias = null
+      } else if (state.selectedAlias) {
+        // Call the same logic as the alias-selected event handler
+        this._selectedAlias = state.selectedAlias
+        this._selectedKey = null
+      }
+      return
     }
   }
 

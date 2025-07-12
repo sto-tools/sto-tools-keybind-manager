@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
+//import eventBus from '../../core/eventBus.js'
 import { respond, request } from '../../core/requestResponse.js'
 
 /**
@@ -15,7 +15,7 @@ import { respond, request } from '../../core/requestResponse.js'
  * - Maintains all existing selection caching and auto-selection logic
  */
 export default class KeyBrowserService extends ComponentBase {
-  constructor ({ storage, profileService, ui } = {}) {
+  constructor ({ eventBus, storage, profileService, ui } = {}) {
     super(eventBus)
     this.componentName = 'KeyBrowserService'
     // Legacy parameters kept for backward compatibility but not used
@@ -128,11 +128,12 @@ export default class KeyBrowserService extends ComponentBase {
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
-    // Listen for key changes from KeyService
-    this.addEventListener('keys:changed', ({ keys }) => {
-      this.cache.keys = keys || {}
-      this.emit('key:list-changed', { keys: this.getKeys() })
-    })
+    // REMOVED: Redundant keys:changed listener
+    // KeyBrowserService already receives key updates via profile:updated directly from DataCoordinator
+    // this.addEventListener('keys:changed', ({ keys }) => {
+    //   this.cache.keys = keys || {}
+    //   this.emit('key:list-changed', { keys: this.getKeys() })
+    // })
   }
 
   /**

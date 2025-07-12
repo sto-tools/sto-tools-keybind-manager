@@ -200,6 +200,7 @@ export default class STOToolsKeybindManager {
       // Key Browser (key grid)
       // ------------------------------
       this.keyBrowserService = new KeyBrowserService({
+        eventBus,
         storage: storageService,
         profileService: this.profileService,
         ui: stoUI,

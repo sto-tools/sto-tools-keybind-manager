@@ -103,7 +103,8 @@ export default class KeyService extends ComponentBase {
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
-        this.emit('keys:changed', { keys: this.cache.keys })
+        // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
+        // KeyBrowserService already listens to profile:updated directly
       }
     })
 
@@ -116,7 +117,8 @@ export default class KeyService extends ComponentBase {
       // this.selectedKey = null
       
       this.updateCacheFromProfile(profile)
-      this.emit('keys:changed', { keys: this.cache.keys })
+      // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
+      // KeyBrowserService already listens to profile:switched directly
     })
 
     this.addEventListener('environment:changed', ({ environment }) => {
@@ -124,7 +126,8 @@ export default class KeyService extends ComponentBase {
         this.cache.currentEnvironment = environment
         this.currentEnvironment = environment
         this.cache.keys = this.cache.builds[environment]?.keys || {}
-        this.emit('keys:changed', { keys: this.cache.keys })
+        // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
+        // KeyBrowserService already listens to environment:changed directly
       }
     })
 
@@ -327,7 +330,8 @@ export default class KeyService extends ComponentBase {
 
       // Update local cache
       this.cache.keys[newKey] = JSON.parse(JSON.stringify(commands))
-      this.emit('keys:changed', { keys: this.cache.keys })
+      // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
+      // KeyBrowserService will receive updates via profile:updated from DataCoordinator
       this.emit('key-duplicated', { from: sourceKey, to: newKey })
       return true
     } catch (error) {
@@ -759,7 +763,8 @@ export default class KeyService extends ComponentBase {
       this.currentEnvironment = this.cache.currentEnvironment
       
       this.updateCacheFromProfile(profile)
-      this.emit('keys:changed', { keys: this.cache.keys })
+      // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
+      // KeyBrowserService already receives profile updates via late-join handshake
       
       console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
     }

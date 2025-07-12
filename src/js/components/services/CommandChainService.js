@@ -719,6 +719,19 @@ export default class CommandChainService extends ComponentBase {
         environment: this.cache.currentEnvironment
       })
     }
+
+    if (sender === 'SelectionService') {
+      if (state.selectedKey) {
+        // Call the same logic as the key-selected event handler
+        this.selectedKey = state.selectedKey
+        this.selectedAlias = null
+      } else if (state.selectedAlias) {
+        // Call the same logic as the alias-selected event handler
+        this.selectedAlias = state.selectedAlias
+        this.selectedKey = null
+      }
+      return
+    }
   }
 
   /**
