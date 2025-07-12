@@ -26,8 +26,9 @@ export default class CommandService extends ComponentBase {
 
     this.currentProfile  = null
     this.currentEnvironment = 'space'
-    this.selectedKey = null
-    this.selectedAlias = null
+    // REMOVED: Selection state now managed by SelectionService
+    // this.selectedKey = null
+    // this.selectedAlias = null
 
     // REFACTORED: Cache profile state from DataCoordinator broadcasts
     this.cache = {
@@ -663,17 +664,17 @@ export default class CommandService extends ComponentBase {
 
     // Late-join support now handled by ComponentBase automatically
 
-    // Listen for key selection changes
-    this.addEventListener('key-selected', (data) => {
-      this.selectedKey = data.key
-      this.selectedAlias = null // Clear alias selection when key is selected
-    })
-
-    // Listen for alias selection changes
-    this.addEventListener('alias-selected', (data) => {
-      this.selectedAlias = data.name
-      this.selectedKey = null // Clear key selection when alias is selected
-    })
+    // REMOVED: Selection state management now delegated to SelectionService
+    // CommandService no longer owns selection state - it gets current selection via request when needed
+    // this.addEventListener('key-selected', (data) => {
+    //   this.selectedKey = data.key
+    //   this.selectedAlias = null // Clear alias selection when key is selected
+    // })
+    // 
+    // this.addEventListener('alias-selected', (data) => {
+    //   this.selectedAlias = data.name
+    //   this.selectedKey = null // Clear key selection when alias is selected
+    // })
 
     // Listen for environment changes (space ↔ ground ↔ alias)
     this.addEventListener('environment:changed', (data) => {
@@ -685,9 +686,9 @@ export default class CommandService extends ComponentBase {
         // Update keys cache for new environment
         this.cache.keys = this.cache.builds[env]?.keys || {}
         
-        // Clear selections when environment changes since they're context-specific
-        this.selectedKey = null
-        this.selectedAlias = null
+        // REMOVED: Selection clearing now handled by SelectionService
+        // this.selectedKey = null
+        // this.selectedAlias = null
       }
     })
 
@@ -764,8 +765,10 @@ export default class CommandService extends ComponentBase {
    * ------------------------------------------------------------------ */
   getCurrentState() {
     return {
-      selectedKey: this.selectedKey,
-      selectedAlias: this.selectedAlias
+      // REMOVED: Selection state now managed by SelectionService
+      // selectedKey: this.selectedKey,
+      // selectedAlias: this.selectedAlias
+      // 
       // REMOVED: currentEnvironment, currentProfile - not owned by CommandService
       // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
@@ -787,16 +790,16 @@ export default class CommandService extends ComponentBase {
       console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
     }
     
-    // Handle state from other CommandService instances
-    if (sender === 'CommandService') {
-      this.selectedKey = state.selectedKey ?? this.selectedKey
-      this.selectedAlias = state.selectedAlias ?? this.selectedAlias
-    }
-    
-    // Handle state from KeyService
-    if (sender === 'KeyService' && state.selectedKey) {
-      this.selectedKey = state.selectedKey
-    }
+    // REMOVED: Selection state handling - now delegated to SelectionService
+    // CommandService no longer participates in selection late-join handshake
+    // if (sender === 'CommandService') {
+    //   this.selectedKey = state.selectedKey ?? this.selectedKey
+    //   this.selectedAlias = state.selectedAlias ?? this.selectedAlias
+    // }
+    // 
+    // if (sender === 'KeyService' && state.selectedKey) {
+    //   this.selectedKey = state.selectedKey
+    // }
   }
 
   /**

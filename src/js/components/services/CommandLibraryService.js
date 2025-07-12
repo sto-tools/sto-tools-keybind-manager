@@ -733,14 +733,28 @@ export default class CommandLibraryService extends ComponentBase {
       this.updateCacheFromProfile(profile)
     }
     
+    if (sender === 'SelectionService') {
+      if (state.selectedKey) {
+        // Call the same logic as the key-selected event handler
+        this.selectedKey = state.selectedKey
+        this.selectedAlias = null
+      } else if (state.selectedAlias) {
+        // Call the same logic as the alias-selected event handler
+        this.selectedAlias = state.selectedAlias
+        this.selectedKey = null
+      }
+      return
+    }
+
+
     // Handle state from other services
-    if (sender === 'KeyService' && state.selectedKey) {
+/*    if (sender === 'KeyService' && state.selectedKey) {
       this.selectedKey = state.selectedKey
     }
     
     if (sender === 'AliasBrowserService' && state.selectedAliasName) {
       this.selectedAlias = state.selectedAliasName
-    }
+    }*/
   }
 
   /**

@@ -25,6 +25,7 @@ import ExportService from './components/services/ExportService.js'
 import ExportUI from './components/ui/ExportUI.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
+import SelectionService from './components/services/SelectionService.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
 import { VFXManagerUI, HeaderMenuUI, AboutModalUI, ImportUI } from './components/ui/index.js'
 import { SyncUI } from './components/sync/index.js'
@@ -151,7 +152,14 @@ export default class STOToolsKeybindManager {
         i18n: i18next 
       })
       // dbg('ProfileService created')
-      
+
+      // ------------------------------
+      // Selection Service (centralized selection management)
+      // ------------------------------
+      this.selectionService = new SelectionService({ eventBus })
+      this.selectionService.init()
+
+    
       // dbg('About to create ProfileUI')
       try {
         this.profileUI = new ProfileUI({
@@ -204,6 +212,8 @@ export default class STOToolsKeybindManager {
         document,
         modalManager,
       })
+
+      //this.keyBrowserUI.init()
 
       // dbg('KeyBrowserUI created')
       // ------------------------------
@@ -263,6 +273,7 @@ export default class STOToolsKeybindManager {
         document,
       })
       this.keyCaptureUI.init()
+
 
       // dbg('KeyService created & initialized')
       // ------------------------------
@@ -374,7 +385,7 @@ export default class STOToolsKeybindManager {
         document
       })
       // dbg('InterfaceModeUI created')
-      
+
       // Initialize ProfileService so it participates in late join handshake
       this.profileService.init()
       

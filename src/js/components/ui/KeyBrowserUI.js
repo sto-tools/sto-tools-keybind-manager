@@ -19,6 +19,10 @@ export default class KeyBrowserUI extends ComponentBase {
     this.document = document
 
     // Cached state
+
+    // Initialize cached selected key
+    this._selectedKeyName = null
+
     this._currentEnvironment = 'space'
   }
 
@@ -26,12 +30,6 @@ export default class KeyBrowserUI extends ComponentBase {
    * Lifecycle
    * ========================================================== */
   onInit () {
-    // Initialize cached selected key
-    this._selectedKeyName = null
-
-    // Environment will be determined from initial state - don't hardcode
-    this._currentEnvironment = null
-
     // Re-render whenever key list changes or selection updates.
     this.eventBus.on('key:list-changed', () => this.render())
     this.eventBus.on('key-selected', (data) => {
@@ -383,7 +381,7 @@ export default class KeyBrowserUI extends ComponentBase {
 
     el.addEventListener('click', () => {
       // Fire select request; no need to await
-      request(eventBus, 'key:select', { key: keyName })
+      request(eventBus, 'key:select', { keyName })
     })
     return el
   }
@@ -559,12 +557,21 @@ export default class KeyBrowserUI extends ComponentBase {
   handleInitialState (sender, state) {
     if (!state) return
     
+    // Restore selection from SelectionService late-join
+    if (sender === 'SelectionService') {
+      if (state.selectedKey) {
+        // Call the same logic as the key-selected event handler
+        this._selectedKeyName = state.selectedKey
+        this.render()
+      }
+      // Optionally handle selectedAlias if needed for future alias mode
+      return
+    }
     // Handle environment state from various sources
     const env = state.environment || state.currentEnvironment
     if (env) {
       this._currentEnvironment = env
       this.toggleVisibility(env)
-      
       // Render if not in alias mode
       if (env !== 'alias') {
         this.render()

@@ -40,7 +40,7 @@ export default class ComponentBase {
     // 3) Announce our readiness so existing components can reply
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
+      //console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
     }
     this.emit('component:register', {
       name: this.getComponentName(),
@@ -211,7 +211,7 @@ export default class ComponentBase {
 
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-     console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
+     //console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
     }
 
     // If we are active, provide our current state to the requester
@@ -277,7 +277,7 @@ export default class ComponentBase {
   respond(topic, handler) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log(`[${this.getComponentName()}] respond ← ${topic} (handler registered)`)
+      //console.log(`[${this.getComponentName()}] respond ← ${topic} (handler registered)`)
     }
     return _cbRespond(this.eventBus, topic, async (payload) => {
       if (typeof window !== 'undefined') {

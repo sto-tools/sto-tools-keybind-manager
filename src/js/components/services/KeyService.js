@@ -22,7 +22,8 @@ export default class KeyService extends ComponentBase {
     this.i18n = i18n
     this.ui = ui
 
-    this.selectedKey = null
+    // REMOVED: Selection state now managed by SelectionService
+    // this.selectedKey = null
     this.currentEnvironment = 'space'
     this.currentProfile = null
 
@@ -48,8 +49,9 @@ export default class KeyService extends ComponentBase {
     // Register Request/Response topics for key state and actions
     // ---------------------------------------------------------
     if (this.eventBus) {
-      this.respond('key:get-selected', () => this.selectedKey)
-      // Note: key:select is handled by KeyBrowserService to maintain consistency with alias pattern
+      // REMOVED: key:get-selected now handled by SelectionService
+      // this.respond('key:get-selected', () => this.selectedKey)
+      // Note: key:select is handled by SelectionService
       this.respond('key:add', ({ key } = {}) => this.addKey(key))
       
       // Use addEventListener for key:delete since KeyBrowserUI emits it rather than requests it
@@ -69,9 +71,10 @@ export default class KeyService extends ComponentBase {
   /* ------------------------------------------------------------------
    * State setters - Updated to use cached state
    * ------------------------------------------------------------------ */
-  setSelectedKey (key) {
-    this.selectedKey = key
-  }
+  // REMOVED: Selection state now managed by SelectionService
+  // setSelectedKey (key) {
+  //   this.selectedKey = key
+  // }
 
   setCurrentEnvironment (environment) {
     this.currentEnvironment = environment
@@ -109,7 +112,8 @@ export default class KeyService extends ComponentBase {
       this.currentProfile = profileId
       this.cache.currentEnvironment = environment || 'space'
       this.currentEnvironment = this.cache.currentEnvironment
-      this.selectedKey = null
+      // REMOVED: Selection clearing now handled by SelectionService
+      // this.selectedKey = null
       
       this.updateCacheFromProfile(profile)
       this.emit('keys:changed', { keys: this.cache.keys })
@@ -126,10 +130,10 @@ export default class KeyService extends ComponentBase {
 
     // Late-join support now handled by ComponentBase automatically
 
-    // Legacy event compatibility
-    this.addEventListener('key-selected', ({ key, name } = {}) => {
-      this.selectedKey = key || name || null
-    })
+    // REMOVED: Legacy event compatibility now handled by SelectionService
+    // this.addEventListener('key-selected', ({ key, name } = {}) => {
+    //   this.selectedKey = key || name || null
+    // })
   }
 
   /**
@@ -201,7 +205,8 @@ export default class KeyService extends ComponentBase {
         }
       })
 
-      this.selectedKey = keyName
+      // CHANGED: Delegate selection to SelectionService
+      await this.request('selection:select-key', { keyName, environment: this.cache.currentEnvironment })
       this.emit('key-added', { key: keyName })
       
       // Show success toast (legacy behavior from keyHandling.js)
@@ -234,8 +239,10 @@ export default class KeyService extends ComponentBase {
         }
       })
 
-      if (this.selectedKey === keyName) {
-        this.selectedKey = null
+      // CHANGED: Delegate selection clearing to SelectionService
+      const selectedKey = await this.request('selection:get-selected', { environment: this.cache.currentEnvironment })
+      if (selectedKey === keyName) {
+        await this.request('selection:clear', { type: 'key' })
       }
 
       this.emit('key-deleted', { key: keyName })
@@ -725,9 +732,11 @@ export default class KeyService extends ComponentBase {
    * ------------------------------------------------------------------ */
   getCurrentState () {
     return {
-      selectedKey: this.selectedKey
-      // REMOVED: currentProfile, currentEnvironment, keys - not owned by KeyService
-      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
+      // REMOVED: selectedKey now managed by SelectionService
+      // All state ownership transferred to appropriate services:
+      // - Selection state: SelectionService
+      // - Profile state: DataCoordinator
+      // KeyService owns only key operations, not state
     }
   }
 
@@ -755,9 +764,10 @@ export default class KeyService extends ComponentBase {
       console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
     }
     
-    // Handle state from other KeyService instances
+    // REMOVED: Selection state handling now delegated to SelectionService
+    // Handle state from other KeyService instances - no selection state to sync
     if (sender === 'KeyService') {
-      this.selectedKey = state.selectedKey ?? this.selectedKey
+      // KeyService no longer owns selection state
     }
   }
 } 

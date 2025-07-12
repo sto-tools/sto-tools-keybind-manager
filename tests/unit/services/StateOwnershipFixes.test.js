@@ -22,7 +22,7 @@ describe('Phase 1a: State Ownership Fixes', () => {
   })
 
   describe('KeyService getCurrentState()', () => {
-    it('should only return owned state (selectedKey)', async () => {
+    it('should return empty state (no longer owns selection)', async () => {
       const service = new KeyService({ 
         storage: harness.storage, 
         eventBus: harness.eventBus,
@@ -33,18 +33,19 @@ describe('Phase 1a: State Ownership Fixes', () => {
 
       const state = service.getCurrentState()
       
-      // Should only contain owned state
-      expect(state).toHaveProperty('selectedKey')
-      
-      // Should NOT contain non-owned state
+      // Should NOT contain any state (selection delegated to SelectionService)
+      expect(state).not.toHaveProperty('selectedKey')
       expect(state).not.toHaveProperty('currentProfile')
       expect(state).not.toHaveProperty('currentEnvironment')
       expect(state).not.toHaveProperty('keys')
+      
+      // Should be an empty object or minimal state
+      expect(Object.keys(state)).toHaveLength(0)
     })
   })
 
   describe('KeyBrowserService getCurrentState()', () => {
-    it('should only return owned state (selection and cache)', async () => {
+    it('should return empty state (no longer owns selection)', async () => {
       const service = new KeyBrowserService({ 
         storage: harness.storage, 
         eventBus: harness.eventBus,
@@ -54,19 +55,20 @@ describe('Phase 1a: State Ownership Fixes', () => {
 
       const state = service.getCurrentState()
       
-      // Should only contain owned state
-      expect(state).toHaveProperty('selectedKeyName')
-      expect(state).toHaveProperty('cachedSelections')
-      
-      // Should NOT contain non-owned state
+      // Should NOT contain any state (selection delegated to SelectionService)
+      expect(state).not.toHaveProperty('selectedKeyName')
+      expect(state).not.toHaveProperty('cachedSelections')
       expect(state).not.toHaveProperty('currentProfileId')
       expect(state).not.toHaveProperty('currentEnvironment')
       expect(state).not.toHaveProperty('keys')
+      
+      // Should be an empty object or minimal state  
+      expect(Object.keys(state)).toHaveLength(0)
     })
   })
 
   describe('CommandService getCurrentState()', () => {
-    it('should only return owned state (selection)', async () => {
+    it('should return empty state (no longer owns selection)', async () => {
       const service = new CommandService({ 
         storage: harness.storage, 
         eventBus: harness.eventBus,
@@ -76,13 +78,14 @@ describe('Phase 1a: State Ownership Fixes', () => {
 
       const state = service.getCurrentState()
       
-      // Should only contain owned state
-      expect(state).toHaveProperty('selectedKey')
-      expect(state).toHaveProperty('selectedAlias')
-      
-      // Should NOT contain non-owned state
+      // Should NOT contain any state (selection delegated to SelectionService)
+      expect(state).not.toHaveProperty('selectedKey')
+      expect(state).not.toHaveProperty('selectedAlias')
       expect(state).not.toHaveProperty('currentEnvironment')
       expect(state).not.toHaveProperty('currentProfile')
+      
+      // Should be an empty object or minimal state
+      expect(Object.keys(state)).toHaveLength(0)
     })
   })
 

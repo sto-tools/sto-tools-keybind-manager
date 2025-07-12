@@ -302,7 +302,7 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   async render (commandsArg = null) {
-      
+     
       const container   = this.document.getElementById('commandList')
       const titleEl     = this.document.getElementById('chainTitle')
       const previewEl   = this.document.getElementById('commandPreview')
@@ -897,7 +897,21 @@ export default class CommandChainUI extends ComponentBase {
   handleInitialState (sender, state) {
     if (!state) return
    
-
+    // Restore selection from SelectionService late-join
+    if (sender === 'SelectionService') {
+      if (state.selectedKey) {
+        // Call the same logic as the key-selected event handler
+        this._selectedKey = state.selectedKey
+        this._selectedAlias = null
+        this.render().catch(() => {})
+      } else if (state.selectedAlias) {
+        // Call the same logic as the alias-selected event handler
+        this._selectedAlias = state.selectedAlias
+        this._selectedKey = null
+        this.render().catch(() => {})
+      }
+      return
+    }
     // Only accept environment updates from authoritative sources
     const canUpdateEnvironment = sender === 'InterfaceModeService' || sender === 'ProfileService' || sender === 'DataCoordinator'
     

@@ -25,13 +25,9 @@ export default class KeyBrowserService extends ComponentBase {
 
     this.currentProfileId   = null
     this.currentEnvironment = 'space'
-    this.selectedKeyName    = null
-
-    // Selection caching for environment switches
-    this._cachedSelections = {
-      space: null,
-      ground: null
-    }
+    // REMOVED: Selection state now managed by SelectionService
+    // this.selectedKeyName    = null
+    // this._cachedSelections = { space: null, ground: null }
 
     // REFACTORED: Cache profile state from DataCoordinator broadcasts
     this.cache = {
@@ -51,7 +47,8 @@ export default class KeyBrowserService extends ComponentBase {
     if (this.eventBus) {
       this.respond('key:get-all',           () => this.getKeys())
       this.respond('key:get-profile',       () => this.getProfile())
-      this.respond('key:select',            ({ key }) => this.selectKey(key))
+      // REMOVED: key:select now handled by SelectionService
+      // this.respond('key:select',            ({ key }) => this.selectKey(key))
     }
   }
 
@@ -88,9 +85,9 @@ export default class KeyBrowserService extends ComponentBase {
         this.cache.currentEnvironment = environment
       }
       
-      this.selectedKeyName = null
-      // Clear cached selections when profile changes
-      this._cachedSelections = { space: null, ground: null }
+      // REMOVED: Selection clearing now handled by SelectionService
+      // this.selectedKeyName = null
+      // this._cachedSelections = { space: null, ground: null }
       
       this.updateCacheFromProfile(profile)
       this.emit('key:list-changed', { keys: this.getKeys() })
@@ -101,22 +98,25 @@ export default class KeyBrowserService extends ComponentBase {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
       
+      // REMOVED: Selection caching now handled by SelectionService
       // Cache current selection before changing environment (only for key environments)
-      if (this.currentEnvironment !== 'alias' && this.selectedKeyName) {
-        this._cachedSelections[this.currentEnvironment] = this.selectedKeyName
-      }
+      // if (this.currentEnvironment !== 'alias' && this.selectedKeyName) {
+      //   this._cachedSelections[this.currentEnvironment] = this.selectedKeyName
+      // }
       
       this.currentEnvironment = env
       this.cache.currentEnvironment = env
-      this.selectedKeyName = null
+      // REMOVED: Selection clearing now handled by SelectionService
+      // this.selectedKeyName = null
       
       // Update keys cache for new environment
       this.cache.keys = this.cache.builds[env]?.keys || {}
       
+      // REMOVED: Auto-selection now handled by SelectionService
       // If switching to key environment, try to restore or auto-select
-      if (env !== 'alias') {
-        await this._restoreOrAutoSelectKey(env)
-      }
+      // if (env !== 'alias') {
+      //   await this._restoreOrAutoSelectKey(env)
+      // }
       
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
@@ -161,7 +161,10 @@ export default class KeyBrowserService extends ComponentBase {
    * Restore cached selection or auto-select first key for the given environment
    * @param {string} environment - The environment to restore/auto-select for
    */
+  // TODO: Remove this method - auto-selection handled by SelectionService  
   async _restoreOrAutoSelectKey(environment) {
+    // DEPRECATED: SelectionService handles auto-selection
+    return
     // Try to restore persisted selection first
     const profile = this.getProfile()
     const persistedKey = profile?.selections?.[environment]
@@ -213,17 +216,16 @@ export default class KeyBrowserService extends ComponentBase {
   /* ============================================================
    * Selection helpers
    * ============================================================ */
+  // DEPRECATED: Selection logic moved to SelectionService
+  // This method kept for legacy UI integration but delegates to SelectionService
   async selectKey (name) {
-    if (this.selectedKeyName === name) return name
-    this.selectedKeyName = name
-
-    // Persist selection to profile storage
-    await this._persistKeySelection(name)
-
-    // Emit selection event for UI components to react
-    this.emit('key-selected', { key: name, name })
+    // Delegate to SelectionService for actual selection
+    const result = await this.request('selection:select-key', { 
+      keyName: name, 
+      environment: this.currentEnvironment 
+    })
     
-    // Trigger UI updates that legacy code expects (moved from KeyService)
+    // Keep legacy UI integration logic
     if (typeof window !== 'undefined' && window.app) {
       // Trigger key grid refresh
       if (window.app.renderKeyGrid) {
@@ -235,13 +237,17 @@ export default class KeyBrowserService extends ComponentBase {
       }
     }
     
-    return name
+    return result
   }
 
+  // REMOVED: Persistence now handled by SelectionService
   /**
    * Persist key selection to profile storage
    */
+  // TODO: Remove this method - persistence handled by SelectionService
   async _persistKeySelection(keyName) {
+    // DEPRECATED: SelectionService handles persistence
+    return // No-op 
     try {
       const profile = this.getProfile()
       if (!profile || !this.currentEnvironment || this.currentEnvironment === 'alias') {
@@ -331,10 +337,9 @@ export default class KeyBrowserService extends ComponentBase {
    * ============================================================ */
   getCurrentState() {
     return {
-      selectedKeyName: this.selectedKeyName,
-      cachedSelections: { ...this._cachedSelections }
-      // REMOVED: currentProfileId, currentEnvironment, keys - not owned by KeyBrowserService
-      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
+      // REMOVED: selectedKeyName and cachedSelections now managed by SelectionService
+      // All selection state ownership transferred to SelectionService
+      // KeyBrowserService owns only key listing and caching logic
     }
   }
 
@@ -349,8 +354,8 @@ export default class KeyBrowserService extends ComponentBase {
       this.currentEnvironment = profile.environment || 'space'
       this.cache.currentEnvironment = this.currentEnvironment
       
-      // Clear cached selections when profile changes
-      this._cachedSelections = { space: null, ground: null }
+      // REMOVED: Selection clearing now handled by SelectionService
+      // this._cachedSelections = { space: null, ground: null }
       
       this.updateCacheFromProfile(profile)
       this.emit('key:list-changed', { keys: this.getKeys() })
@@ -358,10 +363,10 @@ export default class KeyBrowserService extends ComponentBase {
       console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
     }
     
-    // Handle state from other KeyBrowserService instances
+    // REMOVED: Selection state handling now delegated to SelectionService
+    // Handle state from other KeyBrowserService instances - no selection state to sync
     if (sender === 'KeyBrowserService') {
-      this.selectedKeyName = state.selectedKeyName ?? this.selectedKeyName
-      this._cachedSelections = { ...this._cachedSelections, ...state.cachedSelections }
+      // KeyBrowserService no longer owns selection state
     }
   }
 } 
