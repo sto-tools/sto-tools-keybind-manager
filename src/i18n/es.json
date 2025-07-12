@@ -1044,6 +1044,7 @@
   "ok": "Aceptar",
   "command_chain_near_limit": "La cadena de comandos es demasiado larga ({{length}} caracteres). Superar 999 puede fallar.",
   "command_chain_too_long": "La cadena de comandos es demasiado larga ({{length}} caracteres) y puede fallar en el juego.",
+  "sto_tray_exec_optimization_suggestion": "La cadena de comandos tiene {{currentLength}} caracteres. Reemplazar {{count}} instancia(s) de STOTrayExecByTray por TrayExecByTray ahorraría {{potentialSavings}} caracteres (nueva longitud: {{newLength}}).",
   "stabilized_non_tray_warning": "La ejecución estabilizada solo debe usarse con habilidades de ejecución de barra.",
   "too_many_commands_on_key": "Asignar {{count}} comandos a una tecla puede fallar en el juego (máximo recomendado 20).",
   "alias_mixed_environment_warning": "El alias contiene comandos exclusivos de espacio y de tierra; esto no se recomienda.",

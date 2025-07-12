@@ -57,7 +57,7 @@ export default class CommandChainValidatorService extends ComponentBase {
       const stabilized = stabilizedFlag !== undefined ? stabilizedFlag : false
       const isAlias    = aliasFlag !== undefined ? aliasFlag : false
 
-      let length
+      let length, generatedCommand
       if (stabilized && safeCommands.length > 1) {
         const previewStabilized = await this.request('fileops:generate-command-preview', {
           key,
@@ -65,13 +65,15 @@ export default class CommandChainValidatorService extends ComponentBase {
           stabilize: true
         })
         length = previewStabilized.length
+        generatedCommand = previewStabilized
       } else {
         length = previewUnstabilized.length
+        generatedCommand = previewUnstabilized
       }
 
       // ------------------------------------
       // Run modular validators (a rule may return a single issue or an array)
-      const ctx = { key, commands: safeCommands, length, stabilized, isAlias }
+      const ctx = { key, commands: safeCommands, length, stabilized, isAlias, generatedCommand }
       const issues = RULES.flatMap(r => {
         const res = r.run(ctx)
         if (!res) return []

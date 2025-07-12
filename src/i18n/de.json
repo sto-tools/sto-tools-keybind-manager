@@ -1034,6 +1034,7 @@
   "ok": "OK",
   "command_chain_near_limit": "Befehlsfolge ist fast zu lang ({{length}} Zeichen). Überschreiten von 999 kann zu Fehlern führen.",
   "command_chain_too_long": "Befehlsfolge ist zu lang ({{length}} Zeichen) und kann im Spiel fehlschlagen.",
+  "sto_tray_exec_optimization_suggestion": "Befehlsfolge ist {{currentLength}} Zeichen lang. Das Ersetzen von {{count}} Vorkommen von STOTrayExecByTray durch TrayExecByTray würde {{potentialSavings}} Zeichen sparen (neue Länge: {{newLength}}).",
   "stabilized_non_tray_warning": "Stabilisierte Ausführung sollte nur mit Tray-Ausführungsfähigkeiten verwendet werden.",
   "too_many_commands_on_key": "Die Zuordnung von {{count}} Befehlen zu einer Taste kann im Spiel fehlschlagen (empfohlene Obergrenze 20).",
   "alias_mixed_environment_warning": "Alias enthält sowohl weltraum- als auch bodenspezifische Befehle; dies ist nicht empfohlen.",
