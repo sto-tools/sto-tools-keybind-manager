@@ -1028,6 +1028,7 @@
   "ok": "OK",
   "command_chain_near_limit": "Command chain is getting long ({{length}} characters). Exceeding 999 may break.",
   "command_chain_too_long": "Command chain is too long ({{length}} characters) and may fail in game.",
+  "sto_tray_exec_optimization_suggestion": "Command chain is {{currentLength}} characters. Replacing {{count}} instance(s) of STOTrayExecByTray with TrayExecByTray would save {{potentialSavings}} characters (new length: {{newLength}}).",
   "stabilized_non_tray_warning": "Stabilized execution should be used with tray execution abilities only.",
   "too_many_commands_on_key": "Binding {{count}} commands to one key may fail in game (max recommended 20).",
   "alias_mixed_environment_warning": "Alias contains both space-only and ground-only commands; this is not recommended.",

@@ -262,7 +262,7 @@ export default class ParameterCommandUI extends ComponentBase {
         // Update button text for editing
         const saveBtn = this.document.getElementById('saveParameterCommandBtn')
         if (saveBtn) {
-          saveBtn.textContent = this.i18n?.t?.('save_changes') || 'Save Changes'
+          saveBtn.textContent = this.i18n?.t?.('save') || 'Save'
         }
 
         // Use injected modal manager

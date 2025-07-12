@@ -7,6 +7,7 @@ import KeyCommandCountRule from './KeyCommandCount.js'
 import AliasMixedEnvironmentRule from './AliasMixedEnvironment.js'
 import CommandWarnRule from './CommandWarnRule.js'
 import UnsafeKeybindRule from './UnsafeKeybindRule.js'
+import STOTrayExecOptimizationRule from './STOTrayExecOptimization.js'
 
 const rules = [
   new MaxLengthRule(),
@@ -14,7 +15,8 @@ const rules = [
   new KeyCommandCountRule(),
   new AliasMixedEnvironmentRule(),
   new CommandWarnRule(),
-  new UnsafeKeybindRule()
+  new UnsafeKeybindRule(),
+  new STOTrayExecOptimizationRule()
 ]
 
 // Helper to allow runtime registration of additional validators

@@ -360,7 +360,7 @@ const STO_DATA = {
             command_type: {
               type: 'select',
               options: ['STOTrayExecByTray', 'TrayExecByTray'],
-              default: 'STOTrayExecByTray',
+              default: 'TrayExecByTray',
             },
           },
         },
@@ -396,7 +396,7 @@ const STO_DATA = {
             command_type: {
               type: 'select',
               options: ['STOTrayExecByTray', 'TrayExecByTray'],
-              default: 'STOTrayExecByTray',
+              default: 'TrayExecByTray',
             },
           },
         },
@@ -433,7 +433,7 @@ const STO_DATA = {
             command_type: {
               type: 'select',
               options: ['STOTrayExecByTray', 'TrayExecByTray'],
-              default: 'STOTrayExecByTray',
+              default: 'TrayExecByTray',
             },
           },
         },
