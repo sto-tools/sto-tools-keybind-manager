@@ -349,9 +349,10 @@ export default class BindsetSelectorService extends ComponentBase {
       activeBindset: this.activeBindset,
       bindsetNames: [...this.bindsetNames],
       keyBindsetMembership: new Map(this.keyBindsetMembership),
-      currentEnvironment: this.currentEnvironment,
       shouldDisplay: this.shouldDisplay(),
       preferences: { ...this.preferences }
+      // REMOVED: currentEnvironment - not owned by BindsetSelectorService
+      // This will be managed by SelectionService (selection) and DataCoordinator (environment)
     }
   }
 

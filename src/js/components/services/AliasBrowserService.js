@@ -459,10 +459,9 @@ export default class AliasBrowserService extends ComponentBase {
   getCurrentState() {
     return {
       selectedAliasName: this.selectedAliasName,
-      currentProfileId: this.currentProfileId,
-      currentEnvironment: this.currentEnvironment,
-      cachedAliasSelection: this._cachedAliasSelection,
-      aliases: this.getAliases()
+      cachedAliasSelection: this._cachedAliasSelection
+      // REMOVED: currentProfileId, currentEnvironment, aliases - not owned by AliasBrowserService
+      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 

@@ -59,4 +59,56 @@ describe('CommandUI', () => {
     const match = events.find(e => e.data?.key === 'F1' && e.data?.command?.command === 'FireAll')
     expect(match).toBeDefined()
   })
+
+  describe('bindset integration', () => {
+    it('should include active bindset when adding commands to non-primary bindset', async () => {
+      const mockCommand = { command: 'FireAll', type: 'basic' }
+      
+      // Set up UI state
+      commandUI._selectedKey = 'F1'
+      commandUI._currentEnvironment = 'space'
+      commandUI._activeBindset = 'Custom Bindset'
+      
+      // Trigger command add
+      eventBus.emit('command-add', { commandDef: mockCommand })
+      
+      // Wait for async processing
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
+      // Verify command:add emitted with correct payload including bindset
+      const events = busFixture.getEventsOfType('command:add')
+      const match = events.find(e => e.data?.key === 'F1' && e.data?.bindset === 'Custom Bindset')
+      expect(match).toBeDefined()
+      expect(match.data.command).toEqual(mockCommand)
+    })
+
+    it('should not include bindset when in alias mode', async () => {
+      const mockCommand = { command: 'FireAll', type: 'basic' }
+      
+      // Set up UI state for alias mode
+      commandUI._selectedAlias = 'myalias'
+      commandUI._currentEnvironment = 'alias'
+      commandUI._activeBindset = 'Custom Bindset'
+      
+      // Trigger command add
+      eventBus.emit('command-add', { commandDef: mockCommand })
+      
+      // Wait for async processing
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
+      // Verify command:add emitted with null bindset for alias mode
+      const events = busFixture.getEventsOfType('command:add')
+      const match = events.find(e => e.data?.key === 'myalias' && e.data?.bindset === null)
+      expect(match).toBeDefined()
+      expect(match.data.command).toEqual(mockCommand)
+    })
+
+    it('should cache active bindset from bindset:active-changed events', () => {
+      expect(commandUI._activeBindset).toBe('Primary Bindset') // default
+      
+      eventBus.emit('bindset:active-changed', { bindset: 'Test Bindset' })
+      
+      expect(commandUI._activeBindset).toBe('Test Bindset')
+    })
+  })
 }) 

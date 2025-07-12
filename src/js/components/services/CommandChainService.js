@@ -695,9 +695,9 @@ export default class CommandChainService extends ComponentBase {
   getCurrentState() {
     return {
       selectedKey: this.selectedKey,
-      currentEnvironment: this.currentEnvironment,
-      currentProfile: this.currentProfile,
       commands: this.commands
+      // REMOVED: currentEnvironment, currentProfile - not owned by CommandChainService
+      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 

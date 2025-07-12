@@ -713,9 +713,9 @@ export default class CommandLibraryService extends ComponentBase {
   getCurrentState() {
     return {
       selectedKey: this.selectedKey,
-      selectedAlias: this.selectedAlias,
-      currentEnvironment: this.currentEnvironment,
-      currentProfile: this.currentProfile
+      selectedAlias: this.selectedAlias
+      // REMOVED: currentEnvironment, currentProfile - not owned by CommandLibraryService
+      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 

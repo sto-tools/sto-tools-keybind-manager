@@ -725,10 +725,9 @@ export default class KeyService extends ComponentBase {
    * ------------------------------------------------------------------ */
   getCurrentState () {
     return {
-      selectedKey: this.selectedKey,
-      currentProfile: this.cache.currentProfile,
-      currentEnvironment: this.cache.currentEnvironment,
-      keys: this.getKeys()
+      selectedKey: this.selectedKey
+      // REMOVED: currentProfile, currentEnvironment, keys - not owned by KeyService
+      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 

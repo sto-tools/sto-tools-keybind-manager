@@ -405,10 +405,9 @@ export default class ProfileService extends ComponentBase {
    */
   async getCurrentState() {
     return {
-      currentProfile: this.currentProfile,
-      currentEnvironment: this.currentEnvironment,
-      profiles: { ...this.profilesCache },
-      modified: this.isModified,
+      modified: this.isModified
+      // REMOVED: currentProfile, currentEnvironment, profiles - not owned by ProfileService
+      // These are owned by DataCoordinator and should be accessed through it
     }
   }
 

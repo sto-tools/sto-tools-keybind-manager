@@ -603,12 +603,13 @@ export default class VFXManagerService extends ComponentBase {
    */
   getCurrentState() {
     return {
-      currentProfile: this.currentProfile,
       selectedEffects: {
         space: Array.from(this.selectedEffects.space),
         ground: Array.from(this.selectedEffects.ground)
       },
       showPlayerSay: this.showPlayerSay
+      // REMOVED: currentProfile - not owned by VFXManagerService
+      // This will be managed by DataCoordinator
     }
   }
 

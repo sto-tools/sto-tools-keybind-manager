@@ -332,10 +332,9 @@ export default class KeyBrowserService extends ComponentBase {
   getCurrentState() {
     return {
       selectedKeyName: this.selectedKeyName,
-      currentProfileId: this.currentProfileId,
-      currentEnvironment: this.currentEnvironment,
-      cachedSelections: { ...this._cachedSelections },
-      keys: this.getKeys()
+      cachedSelections: { ...this._cachedSelections }
+      // REMOVED: currentProfileId, currentEnvironment, keys - not owned by KeyBrowserService
+      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 

@@ -148,7 +148,7 @@ export default class KeyCaptureService extends ComponentBase {
   async handleKeyDown (event) {
     if (!this.isCapturing) return
 
-    // Handle modifier keys (including SHIFT)
+    // Handle modifier keys (all modifiers can be standalone or part of chords)
     if (this.isModifier(event.code)) {
       this.pressedCodes.add(event.code)
       this.emit('update', {
@@ -156,7 +156,7 @@ export default class KeyCaptureService extends ComponentBase {
         codes  : [...this.pressedCodes],
         context: this.currentContext,
       })
-      return // Wait for either another key (chord) or release (standalone)
+      return // Wait for either another key (chord) or release (standalone modifier)
     }
 
     // Non-modifier key pressed – this creates a chord if modifiers are held
@@ -206,27 +206,15 @@ export default class KeyCaptureService extends ComponentBase {
     if (!this.hasCapturedValidKey) {
       // Check if this was a standalone modifier release
       if (this.isModifier(event.code) && this.pressedCodes.has(event.code) && this.pressedCodes.size === 1) {
-        // Only SHIFT can be standalone - Ctrl/Alt cannot
-        if (event.code.startsWith('Shift')) {
-          // This was a standalone SHIFT press - capture it
-          const chord = this.chordToString(this.pressedCodes)
-          this.emit('chord-captured', {
-            chord,
-            context: this.currentContext,
-          })
-          this.hasCapturedValidKey = true
-          event.preventDefault()
-          return
-        } else {
-          // Ctrl/Alt released without chord - just reset
-          this.pressedCodes.delete(event.code)
-          this.emit('update', {
-            chord  : this.chordToString(this.pressedCodes),
-            codes  : [...this.pressedCodes],
-            context: this.currentContext,
-          })
-          return
-        }
+        // Allow all modifier keys to be used standalone
+        const chord = this.chordToString(this.pressedCodes)
+        this.emit('chord-captured', {
+          chord,
+          context: this.currentContext,
+        })
+        this.hasCapturedValidKey = true
+        event.preventDefault()
+        return
       }
 
       // Normal modifier release when other keys are still pressed
@@ -350,11 +338,6 @@ export default class KeyCaptureService extends ComponentBase {
   }
 
   /* ----------------------------- utils ---------------------------------- */
-  isPureModifier (code) {
-    // This method is no longer used - keeping for backward compatibility
-    // All modifiers now use the same state transition logic
-    return this.isModifier(code) && !code.startsWith('Shift')
-  }
 
   isModifier (code) {
     // All modifier keys including Shift

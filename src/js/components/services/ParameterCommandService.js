@@ -76,8 +76,9 @@ export default class ParameterCommandService extends ComponentBase {
     return {
       selectedKey: this.selectedKey,
       selectedAlias: this.selectedAlias,
-      currentEnvironment: this.currentEnvironment,
       editingContext: this.editingContext
+      // REMOVED: currentEnvironment - not owned by ParameterCommandService
+      // This will be managed by SelectionService (selection) and DataCoordinator (environment)
     }
   }
 
