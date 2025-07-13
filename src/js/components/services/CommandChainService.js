@@ -684,7 +684,7 @@ export default class CommandChainService extends ComponentBase {
    */
   async refreshCommands() {
     if (this.selectedKey) {
-      const cmds = await this.getCommandsForSelectedKey()
+      const cmds = await this.request('command:get-for-selected-key', { key: this.selectedKey })
       this.emit('chain-data-changed', { commands: cmds })
     }
   }
@@ -705,33 +705,8 @@ export default class CommandChainService extends ComponentBase {
    * Handle initial state from ComponentBase late-join system
    */
   handleInitialState(sender, state) {
-    if (sender === 'DataCoordinator' && state?.currentProfileData) {
-      this.updateCacheFromProfile(state.currentProfileData)
-      this.currentProfile = state.currentProfile
-      this.currentEnvironment = state.currentEnvironment || 'space'
-      // Ensure the cache environment is also updated
-      this.cache.currentEnvironment = this.currentEnvironment
-      // Ensure cache has profile ID even if updateCacheFromProfile didn't set it
-      this.cache.currentProfile = this.cache.currentProfile || state.currentProfile
-      
-      console.log(`[CommandChainService] Cache initialized from DataCoordinator:`, {
-        profileId: this.cache.currentProfile,
-        environment: this.cache.currentEnvironment
-      })
-    }
-
-    if (sender === 'SelectionService') {
-      if (state.selectedKey) {
-        // Call the same logic as the key-selected event handler
-        this.selectedKey = state.selectedKey
-        this.selectedAlias = null
-      } else if (state.selectedAlias) {
-        // Call the same logic as the alias-selected event handler
-        this.selectedAlias = state.selectedAlias
-        this.selectedKey = null
-      }
-      return
-    }
+    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
+    // Component-specific initialization can be added here if needed
   }
 
   /**

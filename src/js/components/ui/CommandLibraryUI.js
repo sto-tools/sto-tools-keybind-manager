@@ -51,12 +51,12 @@ export default class CommandLibraryUI extends ComponentBase {
 
     // DataCoordinator profile state synchronization
     this.addEventListener('profile:updated', ({ profile }) => {
-      this.updateCacheFromProfile(profile)
+      // ComponentBase handles caching automatically
       this.updateCommandLibrary()
     })
 
     this.addEventListener('profile:switched', ({ profile }) => {
-      this.updateCacheFromProfile(profile)
+      // ComponentBase handles caching automatically  
       this.updateCommandLibrary()
     })
 
@@ -548,13 +548,7 @@ export default class CommandLibraryUI extends ComponentBase {
   /**
    * Update local cache from profile data received from DataCoordinator
    */
-  updateCacheFromProfile(profile) {
-    if (!profile) return
-
-    this.cache.profile = profile
-    this.cache.currentProfile = profile.id
-    this.cache.aliases = profile.aliases || {}
-  }
+  // REMOVED: updateCacheFromProfile - ComponentBase handles caching automatically
 
   /**
    * ComponentBase late-join support - provide current state
@@ -574,7 +568,7 @@ export default class CommandLibraryUI extends ComponentBase {
    */
   handleInitialState(state, senderName) {
     if (senderName === 'DataCoordinator' && state.currentProfileData) {
-      this.updateCacheFromProfile(state.currentProfileData)
+      // ComponentBase already handles caching, just update the UI
       this.updateCommandLibrary()
     }
   }

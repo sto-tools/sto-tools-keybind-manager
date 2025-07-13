@@ -78,7 +78,6 @@ export default class SelectionService extends ComponentBase {
       this.currentEnvironment = environment || 'space'
       
       this.updateCacheFromProfile(profile)
-      this.restoreSelectionsFromProfile(profile)
     })
     
     // Listen for environment changes
@@ -86,6 +85,54 @@ export default class SelectionService extends ComponentBase {
       const env = typeof data === 'string' ? data : data?.environment
       if (env && env !== this.currentEnvironment) {
         this.switchEnvironment(env)
+      }
+    })
+    
+    // Listen for alias deletions to handle auto-selection when selected alias is deleted
+    this.addEventListener('alias-deleted', async ({ name }) => {
+      if (this.selectedAlias === name) {
+        this.selectedAlias = null
+        this.cachedSelections.alias = null
+        
+        // Emit clear event for immediate UI update
+        this.emit('alias-selected', { name: null, source: 'SelectionService' })
+        
+        // Auto-select another alias if we're in alias environment
+        if (this.currentEnvironment === 'alias') {
+          await this.autoSelectFirst('alias')
+        }
+      }
+    })
+    
+    // Listen for key deletions to handle auto-selection when selected key is deleted  
+    this.addEventListener('key-deleted', async ({ keyName }) => {
+      
+      if (this.selectedKey === keyName) {
+        this.selectedKey = null
+        
+        // Update cache to remove the deleted key from all locations
+        if (this.cache?.builds) {
+          for (const [env, build] of Object.entries(this.cache.builds)) {
+            if (build.keys && build.keys[keyName]) {
+              delete build.keys[keyName]
+              this.cachedSelections[env] = null
+            }
+          }
+        }
+        if (this.cache?.keys && this.cache.keys[keyName]) {
+          delete this.cache.keys[keyName]
+          this.cachedSelections[this.currentEnvironment] = null
+        }
+        
+        
+        // Auto-select another key if we're in key environment (space/ground) BEFORE emitting clear event
+        if (this.currentEnvironment !== 'alias') {
+          const autoSelectedKey = await this.autoSelectFirst(this.currentEnvironment)
+        } else {
+          // Only emit clear event if we're not doing auto-selection
+          this.emit('key-selected', { key: null, source: 'SelectionService' })
+        }
+      } else {
       }
     })
   }
@@ -247,27 +294,23 @@ export default class SelectionService extends ComponentBase {
     const previousEnv = this.currentEnvironment
     this.currentEnvironment = newEnvironment
     
-    // Auto-restore cached selection for the new environment
+    // Auto-restore cached selection for the new environment with validation
     const cachedSelection = this.cachedSelections[newEnvironment]
     
     if (newEnvironment === 'alias') {
-      // Switching to alias mode
-      if (cachedSelection) {
-        await this.selectAlias(cachedSelection)
-      } else {
-        // Clear key selection, will auto-select first alias if needed
-        this.selectedKey = null
-        this.emit('key-selected', { key: null, source: 'SelectionService' })
-      }
+      // Switching to alias mode - clear key selection first
+      this.selectedKey = null
+      this.emit('key-selected', { key: null, source: 'SelectionService' })
+      
+      // Validate and restore alias selection
+      await this.validateAndRestoreSelection('alias', cachedSelection)
     } else {
-      // Switching to key mode (space/ground)
-      if (cachedSelection) {
-        await this.selectKey(cachedSelection, newEnvironment)
-      } else {
-        // Clear alias selection, will auto-select first key if needed
-        this.selectedAlias = null
-        this.emit('alias-selected', { name: null, source: 'SelectionService' })
-      }
+      // Switching to key mode (space/ground) - clear alias selection first
+      this.selectedAlias = null
+      this.emit('alias-selected', { name: null, source: 'SelectionService' })
+      
+      // Validate and restore key selection
+      await this.validateAndRestoreSelection(newEnvironment, cachedSelection)
     }
     
     this.emit('environment:switched', { 
@@ -283,29 +326,124 @@ export default class SelectionService extends ComponentBase {
   async autoSelectFirst(environment = null) {
     const env = environment || this.currentEnvironment
     
-    try {
-      if (env === 'alias') {
-        // Auto-select first alias
-        const aliases = await this.request('data:get-aliases')
-        if (aliases && Object.keys(aliases).length > 0) {
-          const firstAlias = Object.keys(aliases)[0]
-          await this.selectAlias(firstAlias)
-          return firstAlias
-        }
-      } else {
-        // Auto-select first key for space/ground
-        const keys = await this.request('data:get-keys', { environment: env })
-        if (keys && Object.keys(keys).length > 0) {
-          const firstKey = Object.keys(keys)[0]
-          await this.selectKey(firstKey, env)
-          return firstKey
+    if (env === 'alias') {
+      // Try cached aliases first
+      let aliases = this.cache?.aliases || {}
+      
+      // If cache is empty, try to get from DataCoordinator
+      if (Object.keys(aliases).length === 0) {
+        try {
+          aliases = await this.request('data:get-aliases') || {}
+        } catch (error) {
+          console.warn('[SelectionService] Failed to get aliases for auto-selection:', error)
+          return null
         }
       }
-    } catch (error) {
-      console.warn(`[SelectionService] Failed to auto-select first item for ${env}:`, error)
+      
+      // Auto-select first user-created alias (filter out VFX Manager system aliases)
+      const userAliases = Object.entries(aliases).filter(([key, value]) => value.type !== 'vfx-alias')
+      
+      if (userAliases.length > 0) {
+        const firstAlias = userAliases[0][0] // Get the key (alias name)
+        await this.selectAlias(firstAlias)
+        return firstAlias
+      }
+    } else {
+      // Auto-select first key for space/ground using cached data
+      
+      // Use current environment keys if available, otherwise try to get from builds
+      let keys = this.cache?.keys || {}
+      
+      // If we're switching environments or current keys are empty, look at builds data
+      if ((env !== this.currentEnvironment || Object.keys(keys).length === 0) && this.cache?.builds) {
+        keys = this.cache.builds[env]?.keys || {}
+      }
+      
+      // If cache is still empty, try to get from DataCoordinator
+      if (Object.keys(keys).length === 0) {
+        try {
+          keys = await this.request('data:get-keys', { environment: env }) || {}
+        } catch (error) {
+          return null
+        }
+      }
+      
+      const keyNames = Object.keys(keys)
+      
+      if (keyNames.length > 0) {
+        const firstKey = keyNames[0]
+        await this.selectKey(firstKey, env)
+        return firstKey
+      } else {
+        return null
+      }
     }
     
     return null
+  }
+  
+  /**
+   * Validate that a key still exists using cached data
+   */
+  validateKeyExists(keyName, environment = null) {
+    if (!keyName) return false
+    
+    const env = environment || this.currentEnvironment
+    
+    // Use cached data from ComponentBase
+    let keys = this.cache?.keys || {}
+    
+    // If checking different environment, look in builds data
+    if (env !== this.currentEnvironment && this.cache?.builds) {
+      keys = this.cache.builds[env]?.keys || {}
+    }
+    
+    const exists = keys.hasOwnProperty(keyName)
+    return exists
+  }
+  
+  /**
+   * Validate that an alias still exists using cached data
+   * Only considers user-created aliases (filters out VFX Manager system aliases)
+   */
+  validateAliasExists(aliasName) {
+    if (!aliasName) return false
+    
+    // Use cached data from ComponentBase, filter out VFX aliases like AliasBrowserService does
+    const aliases = this.cache?.aliases || {}
+    const userAliases = Object.fromEntries(Object.entries(aliases).filter(([key, value]) => value.type !== 'vfx-alias'))
+    return userAliases.hasOwnProperty(aliasName)
+  }
+  
+  /**
+   * Validate and restore selection, with auto-selection fallback if invalid
+   */
+  async validateAndRestoreSelection(environment, cachedSelection) {
+    
+    if (!cachedSelection) {
+      await this.autoSelectFirst(environment)
+      return
+    }
+    
+    let isValid = false
+    
+    if (environment === 'alias') {
+      isValid = this.validateAliasExists(cachedSelection)
+      if (isValid) {
+        await this.selectAlias(cachedSelection)
+      } else {
+        this.cachedSelections.alias = null
+        await this.autoSelectFirst('alias')
+      }
+    } else {
+      isValid = this.validateKeyExists(cachedSelection, environment)
+      if (isValid) {
+        await this.selectKey(cachedSelection, environment)
+      } else {
+        this.cachedSelections[environment] = null
+        await this.autoSelectFirst(environment)
+      }
+    }
   }
   
   /**
@@ -315,37 +453,11 @@ export default class SelectionService extends ComponentBase {
     if (!profile) return
     
     this.cache.profile = profile
+    this.cache.builds = profile.builds || { space: { keys: {} }, ground: { keys: {} } }
+    this.cache.keys = profile.keys || {}
+    this.cache.aliases = profile.aliases || {}
   }
   
-  /**
-   * Restore selections from profile data
-   */
-  restoreSelectionsFromProfile(profile) {
-    if (!profile || !profile.selections) return
-    
-    // Restore cached selections
-    if (profile.selections.space) {
-      this.cachedSelections.space = profile.selections.space
-    }
-    if (profile.selections.ground) {
-      this.cachedSelections.ground = profile.selections.ground
-    }
-    if (profile.selections.alias) {
-      this.cachedSelections.alias = profile.selections.alias
-    }
-    
-    // Restore active selection based on current environment
-    const envSelection = profile.selections[this.currentEnvironment]
-    if (envSelection) {
-      if (this.currentEnvironment === 'alias') {
-        this.selectedAlias = envSelection
-        this.selectedKey = null
-      } else {
-        this.selectedKey = envSelection
-        this.selectedAlias = null
-      }
-    }
-  }
   
   /**
    * Persist selection to profile via DataCoordinator
@@ -392,35 +504,50 @@ export default class SelectionService extends ComponentBase {
   /**
    * Handle initial state from other components during late-join
    */
-  handleInitialState(sender, state) {
+  async handleInitialState(sender, state) {
     if (!state) return
+    
     
     // Handle state from DataCoordinator
     if (sender === 'DataCoordinator' && state.currentProfileData) {
       const profile = state.currentProfileData
+      
       this.cache.currentProfile = profile.id
       this.currentEnvironment = profile.environment || 'space'
       
       this.updateCacheFromProfile(profile)
-      this.restoreSelectionsFromProfile(profile)
       
-      // Emit events to notify UI components of restored selection
-      if (this.currentEnvironment === 'alias') {
-        if (this.selectedAlias) {
-          this.emit('alias-selected', { 
-            name: this.selectedAlias,
-            source: 'SelectionService'
-          })
+      // Restore cached selections but NOT active selections (avoid showing invalid state during late-join)
+      if (profile.selections) {
+        if (profile.selections.space) {
+          this.cachedSelections.space = profile.selections.space
         }
-      } else {
-        if (this.selectedKey) {
-          this.emit('key-selected', { 
-            key: this.selectedKey, 
-            environment: this.currentEnvironment,
-            source: 'SelectionService'
-          })
+        if (profile.selections.ground) {
+          this.cachedSelections.ground = profile.selections.ground
+        }
+        if (profile.selections.alias) {
+          this.cachedSelections.alias = profile.selections.alias
         }
       }
+      
+      // Validate and restore selection for current environment with fallback
+      const cachedSelection = this.cachedSelections[this.currentEnvironment]
+      
+      // Set initial selection state immediately to prevent UI flicker
+      if (cachedSelection) {
+        if (this.currentEnvironment === 'alias') {
+          this.selectedAlias = cachedSelection
+          this.selectedKey = null
+        } else {
+          this.selectedKey = cachedSelection  
+          this.selectedAlias = null
+        }
+      }
+      
+      // Then validate and properly restore with timeout for cache synchronization
+      setTimeout(async () => {
+        await this.validateAndRestoreSelection(this.currentEnvironment, cachedSelection)
+      }, 0)
     }
   }
   

@@ -47,8 +47,89 @@ export default class ComponentBase {
       replyTopic: this._myReplyTopic
     })
 
-    // 4) Continue with component-specific initialization
+    // 4) Set up standardized event listeners for common state
+    this._setupStandardizedEventListeners()
+
+    // 5) Continue with component-specific initialization
     this.onInit()
+  }
+
+  /**
+   * Set up standardized event listeners for common state changes
+   * This eliminates repetitive event listener setup in individual components
+   */
+  _setupStandardizedEventListeners() {
+    // Cache selection state from SelectionService broadcasts
+    this.addEventListener('key-selected', (data) => {
+      this.selectedKey = data.key
+      this._selectedKey = data.key
+      this.selectedAlias = null // Clear alias when key selected
+      this._selectedAlias = null
+    })
+
+    this.addEventListener('alias-selected', (data) => {
+      this.selectedAlias = data.name
+      this._selectedAlias = data.name
+      this.selectedKey = null // Clear key when alias selected
+      this._selectedKey = null
+    })
+
+    // Cache environment changes
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) {
+        this.currentEnvironment = env
+        this._currentEnvironment = env
+        if (this.cache) {
+          this.cache.currentEnvironment = env
+          // Update keys cache for new environment if we have builds data
+          if (this.cache.builds && this.cache.builds[env]) {
+            this.cache.keys = this.cache.builds[env].keys || {}
+          }
+        }
+      }
+    })
+
+    // Cache profile updates from DataCoordinator
+    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (this.cache && profileId === this.cache.currentProfile) {
+        this.cache.profile = profile
+        // Update keys for current environment
+        if (profile.builds) {
+          this.cache.builds = profile.builds
+          const currentBuild = profile.builds[this.cache.currentEnvironment]
+          this.cache.keys = currentBuild?.keys || {}
+        } else if (profile.keys) {
+          this.cache.keys = profile.keys
+        }
+        // Update aliases
+        this.cache.aliases = profile.aliases || {}
+      }
+    })
+
+    // Handle profile switches
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
+      if (!this.cache) this.cache = {}
+      
+      this.cache.currentProfile = profileId
+      this.cache.profile = profile
+      this.currentProfile = profileId
+      this.currentEnvironment = environment || 'space'
+      // Backward compatibility for components expecting underscore names
+      this._currentEnvironment = this.currentEnvironment
+      this._currentProfileId = profileId
+      this.cache.currentEnvironment = this.currentEnvironment
+      
+      // Update cached data
+      if (profile.builds) {
+        this.cache.builds = profile.builds
+        const currentBuild = profile.builds[this.cache.currentEnvironment]
+        this.cache.keys = currentBuild?.keys || {}
+      } else if (profile.keys) {
+        this.cache.keys = profile.keys
+      }
+      this.cache.aliases = profile.aliases || {}
+    })
   }
 
   /**
@@ -223,12 +304,113 @@ export default class ComponentBase {
     }
   }
 
+  /**
+   * Centralized handling of common state from DataCoordinator and SelectionService
+   * This eliminates repetitive caching code in individual components
+   */
+  _handleInitialState(sender, state) {
+    if (!state) return
+
+    // Initialize cache if it doesn't exist
+    if (!this.cache) {
+      this.cache = {}
+    }
+
+    // Handle DataCoordinator state
+    if (sender === 'DataCoordinator') {
+      // Handle profile ID from both sources
+      const profileId = state.currentProfile || (state.currentProfileData && state.currentProfileData.id)
+      const profile = state.currentProfileData
+      
+      if (profileId) {
+        // Cache profile ID
+        this.cache.currentProfile = profileId
+        this.currentProfile = profileId
+        this._currentProfileId = profileId
+      }
+      
+      if (profile) {
+        // Cache profile data
+        this.cache.profile = profile
+        this.cache.currentEnvironment = profile.environment || 'space'
+        
+        // Update environment on component (standardized properties)
+        this.currentEnvironment = profile.environment || 'space'
+        this._currentEnvironment = this.currentEnvironment
+      } else if (state.currentEnvironment) {
+        // Handle environment without profile data
+        this.currentEnvironment = state.currentEnvironment
+        this._currentEnvironment = state.currentEnvironment
+        if (this.cache) {
+          this.cache.currentEnvironment = state.currentEnvironment
+        }
+      }
+      
+      // Cache build-specific data if profile exists
+      if (profile) {
+        if (profile.builds) {
+          this.cache.builds = profile.builds
+          // Cache keys for current environment
+          const currentBuild = profile.builds[this.cache.currentEnvironment]
+          this.cache.keys = currentBuild?.keys || {}
+        } else if (profile.keys) {
+          // Legacy format support
+          this.cache.keys = profile.keys
+        }
+        
+        // Cache aliases
+        this.cache.aliases = profile.aliases || {}
+      }
+      
+      console.log(`[ComponentBase] ${this.getComponentName()} cached DataCoordinator state:`, {
+        currentProfile: this.cache.currentProfile,
+        currentEnvironment: this.cache.currentEnvironment
+      })
+    }
+
+    // Handle SelectionService state
+    if (sender === 'SelectionService' && state) {
+      // Standardized selection properties
+      if (state.selectedKey !== undefined) {
+        this.selectedKey = state.selectedKey
+        this._selectedKey = state.selectedKey
+      }
+      if (state.selectedAlias !== undefined) {
+        this.selectedAlias = state.selectedAlias
+        this._selectedAlias = state.selectedAlias
+      }
+      if (state.currentEnvironment !== undefined) {
+        this.currentEnvironment = state.currentEnvironment
+        this._currentEnvironment = state.currentEnvironment
+        if (this.cache) {
+          this.cache.currentEnvironment = state.currentEnvironment
+        }
+      }
+      if (state.editingContext !== undefined) {
+        this.editingContext = state.editingContext
+      }
+      if (state.cachedSelections !== undefined && this.cache) {
+        this.cache.cachedSelections = state.cachedSelections
+      }
+      
+      console.log(`[ComponentBase] ${this.getComponentName()} cached SelectionService state:`, {
+        selectedKey: this.selectedKey,
+        selectedAlias: this.selectedAlias,
+        currentEnvironment: this.currentEnvironment
+      })
+    }
+  }
+
   _onInitialState({ sender, state } = {}) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
       console.log(`[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`, state)
     }
 
+    // Handle common state first
+    this._handleInitialState(sender, state)
+
+    // Then call component-specific handler
     if (typeof this.handleInitialState === 'function') {
       this.handleInitialState(sender, state)
     }

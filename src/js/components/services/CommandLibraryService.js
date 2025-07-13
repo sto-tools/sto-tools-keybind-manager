@@ -19,8 +19,7 @@ export default class CommandLibraryService extends ComponentBase {
 
     this.currentProfile = null
     this.currentEnvironment = 'space'
-    this.selectedKey = null
-    this.selectedAlias = null
+    // REMOVED: Selection state now managed by SelectionService
 
     // Cache for DataCoordinator data
     this.cache = {
@@ -39,8 +38,8 @@ export default class CommandLibraryService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        this.respond('command:get-for-selected-key', async (params) => await this.getCommandsForSelectedKey(params)),
-        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
+        // MOVED: command:get-for-selected-key moved to CommandService
+        //this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
         this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
         this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),
         this.respond('command:get-categories',    () => this.getCommandCategories()),
@@ -74,62 +73,23 @@ export default class CommandLibraryService extends ComponentBase {
    * Set up event listeners for DataCoordinator integration
    */
   setupEventListeners() {
-    // Listen for DataCoordinator profile updates
-    this.addEventListener('profile:updated', ({ profileId, profile }) => {
-      if (profileId === this.cache.currentProfile) {
-        this.updateCacheFromProfile(profile)
-      }
-    })
+    // REMOVED: Profile event handling now in ComponentBase
 
-    // Listen for DataCoordinator profile switches
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.currentProfile = profileId
-      this.cache.currentProfile = profileId
-      this.currentEnvironment = environment
-      this.cache.currentEnvironment = environment
-      
-      this.updateCacheFromProfile(profile)
-      
-      // Clear selections when profile changes since they're context-specific
-      this.selectedKey = null
-      this.selectedAlias = null
-    })
-
-    // Listen for key selection changes
-    this.addEventListener('key-selected', (data) => {
-      this.selectedKey = data.key
-      this.selectedAlias = null // Clear alias selection when key is selected
-    })
-
-    // Listen for alias selection changes
-    this.addEventListener('alias-selected', (data) => {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[CommandLibraryService] alias-selected event received. data:`, data, `setting selectedAlias to: ${data.name}`)
-      }
-      this.selectedAlias = data.name
-      this.selectedKey = null // Clear key selection when alias is selected
-    })
+    // REMOVED: Selection state management now handled by SelectionService
+    // CommandLibraryService gets current selection via request when needed
 
     // Listen for environment changes (space ↔ ground ↔ alias)
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data?.environment
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
-        console.log(`[CommandLibraryService] environment:changed event received. data:`, data, `parsed env: ${env}, current selectedAlias: ${this.selectedAlias}`)
+        console.log(`[CommandLibraryService] environment:changed event received. data:`, data, `parsed env: ${env}`)
       }
       if (env) {
         this.currentEnvironment = env
         this.cache.currentEnvironment = env
         
-        // Only clear selections when switching AWAY from the current environment
-        // Don't clear alias selection when switching TO alias mode (let auto-selection work)
-        if (env !== 'alias') {
-          this.selectedAlias = null
-        }
-        if (env === 'alias') {
-          this.selectedKey = null // Clear key selection when switching to alias mode
-        }
+        // REMOVED: Selection clearing now handled by SelectionService
         
         // Re-apply environment-based filtering whenever mode changes
         // (UI components may also re-apply text search afterwards)
@@ -137,7 +97,7 @@ export default class CommandLibraryService extends ComponentBase {
         
         if (typeof window !== 'undefined') {
           // eslint-disable-next-line no-console
-          console.log(`[CommandLibraryService] after environment change to ${env}. selectedKey: ${this.selectedKey}, selectedAlias: ${this.selectedAlias}`)
+          console.log(`[CommandLibraryService] after environment change to ${env}`)
         }
       }
     })
@@ -175,30 +135,7 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  /**
-   * Get commands for the currently selected key/alias using cached data
-   */
-  async getCommandsForSelectedKey(params = {}) {
-    // Use explicit parameters if provided, otherwise fall back to cached selection
-    const environment = params.environment || this.currentEnvironment
-    const selectedKey = params.key || (environment === 'alias' ? this.selectedAlias : this.selectedKey)
-    
-    if (!selectedKey) return []
-
-    const profile = this.getCurrentProfile()
-    if (!profile) return []
-
-    if (environment === 'alias') {
-      const alias = profile.aliases && profile.aliases[selectedKey]
-      if (!alias || !Array.isArray(alias.commands)) return []
-      // Return shallow copy to avoid external mutation
-      return [...alias.commands]
-    }
-
-    // Keybinds path – keys arrays are already canonical string[]
-    const keyCommands = profile.keys && profile.keys[selectedKey] ? profile.keys[selectedKey] : []
-    return Array.isArray(keyCommands) ? [...keyCommands] : []
-  }
+  // REMOVED: getCommandsForSelectedKey moved to CommandService where it belongs
 
   /**
    * Get the current profile with build-specific data from cache
@@ -513,248 +450,22 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  /**
-   * Get command chain preview text
-   */
-  async getCommandChainPreview() {
-    // Use the appropriate cached selection based on current environment
-    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
 
-    if (!selectedKey) {
-      const selectText = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_an_alias_to_see_the_generated_command') : 
-        this.i18n.t('select_a_key_to_see_the_generated_command')
-      return selectText
-    }
-
-    const commands = await this.getCommandsForSelectedKey()
-    
-    if (commands.length === 0) {
-      if (this.currentEnvironment === 'alias') {
-        return formatAliasLine(selectedKey, { commands: '' }).trim()
-      } else {
-        return `${selectedKey} ""`
-      }
-    }
-
-    if (this.currentEnvironment === 'alias') {
-      // For aliases, mirror when metadata requests it
-      const profile = this.getCurrentProfile()
-      console.log('[CommandLibraryService] alias : getCommandChainPreview: profile', profile)
-      let shouldStabilize = false
-      if (profile && profile.aliasMetadata && profile.aliasMetadata[selectedKey] && profile.aliasMetadata[selectedKey].stabilizeExecutionOrder) {
-        shouldStabilize = true
-      }
-
-      let commandString
-      if (shouldStabilize && commands.length > 1) {
-        commandString = await this.generateMirroredCommandString(commands)
-      } else {
-        // Normalize commands before joining
-        const normalizedCommands = await this.normalizeCommandsForDisplay(commands)
-        commandString = normalizedCommands.join(' $$ ')
-      }
-
-      return formatAliasLine(selectedKey, { commands: commandString }).trim()
-    } else {
-      // For keybinds, determine mirroring based on per-key metadata
-      const profile = this.getCurrentProfile()
-      console.log('[CommandLibraryService] keybind : getCommandChainPreview: profile', profile)
-      let shouldStabilize = false
-      if (profile && profile.keybindMetadata && profile.keybindMetadata[this.currentEnvironment] &&
-          profile.keybindMetadata[this.currentEnvironment][selectedKey] &&
-          profile.keybindMetadata[this.currentEnvironment][selectedKey].stabilizeExecutionOrder) {
-        shouldStabilize = true
-      }
-
-      let commandString
-      if (shouldStabilize && commands.length > 1) {
-        commandString = await this.generateMirroredCommandString(commands)
-      } else {
-        // Normalize commands before joining
-        const normalizedCommands = await this.normalizeCommandsForDisplay(commands)
-        commandString = normalizedCommands.join(' $$ ')
-      }
-
-      return `${selectedKey} "${commandString}"`
-    }
-  }
-
-  /**
-   * Generate mirrored command string for stabilization
-   */
-  async generateMirroredCommandString(commands) {
-    return await this.request('fileops:generate-mirrored-commands', { commands })
-  }
-
-  /**
-   * Normalize commands for display by applying tray execution normalization
-   */
-  async normalizeCommandsForDisplay(commands) {
-    const normalizedCommands = []
-
-    for (const cmd of commands) {
-      // Support both canonical string and rich object formats
-      const cmdStr = typeof cmd === 'string' ? cmd : (cmd && cmd.command) || ''
-      if (!cmdStr) {
-        continue
-      }
-      try {
-        // Parse the command to check if it's a tray execution command
-        const parseResult = await this.request('parser:parse-command-string', {
-          commandString: cmdStr,
-          options: { generateDisplayText: false }
-        })
-
-        if (parseResult.commands && parseResult.commands[0]) {
-          const parsedCmd = parseResult.commands[0]
-          // Check if it's a tray execution command that needs normalization
-          if (parsedCmd.signature &&
-              (parsedCmd.signature.includes('TrayExecByTray') ||
-               parsedCmd.signature.includes('TrayExecByTrayWithBackup')) &&
-              parsedCmd.parameters) {
-            const params = parsedCmd.parameters
-            const active = params.active !== undefined ? params.active : 1
-            if (parsedCmd.signature.includes('TrayExecByTrayWithBackup')) {
-              // Handle TrayExecByTrayWithBackup normalization
-              const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
-              const commandType = baseCommand.replace(/^\+/, '')
-              if (active === 1) {
-                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
-              } else {
-                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
-              }
-            } else {
-              // Regular TrayExecByTray normalization
-              const baseCommand = params.baseCommand || 'TrayExecByTray'
-              const commandType = baseCommand.replace(/^\+/, '')
-              if (active === 1) {
-                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot}`)
-              } else {
-                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot}`)
-              }
-            }
-          } else {
-            normalizedCommands.push(cmdStr)
-          }
-        } else {
-          normalizedCommands.push(cmdStr)
-        }
-      } catch (error) {
-        console.warn('[CommandLibraryService] Failed to normalize command for display:', cmdStr, error)
-        normalizedCommands.push(cmdStr)
-      }
-    }
-
-    return normalizedCommands
-  }
-
-  /**
-   * Get empty state information
-   */
-  async getEmptyStateInfo() {
-    // Use the appropriate cached selection based on current environment
-    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
-
-    if (!selectedKey) {
-      const selectText = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_an_alias_to_edit') || 'Select an alias to edit' : 
-        this.i18n.t('select_a_key_to_edit') || 'Select a key to edit'
-      const previewText = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' : 
-        this.i18n.t('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
-      
-      const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
-      const emptyTitle = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('no_alias_selected') || 'No Alias Selected' : 
-        this.i18n.t('no_key_selected') || 'No Key Selected'
-      const emptyDesc = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' : 
-        this.i18n.t('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
-      
-        return {
-        title: selectText,
-        preview: previewText,
-        icon: emptyIcon,
-        emptyTitle,
-        emptyDesc,
-        commandCount: '0'
-      }
-    }
-
-    const commands = await this.getCommandsForSelectedKey()
-    const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
-
-    if (commands.length === 0) {
-      const emptyMessage = this.currentEnvironment === 'alias' ? 
-        `${this.i18n.t('click_add_command_to_start_building_your_alias_chain') || 'Click "Add Command" to start building your alias chain for'} ${selectedKey}.` :
-        `${this.i18n.t('click_add_command_to_start_building_your_command_chain') || 'Click "Add Command" to start building your command chain for'} ${selectedKey}.`
-      
-      return {
-        title: `${chainType} for ${selectedKey}`,
-        preview: await this.getCommandChainPreview(),
-        icon: 'fas fa-plus-circle',
-        emptyTitle: this.i18n.t('no_commands') || 'No Commands',
-        emptyDesc: emptyMessage,
-        commandCount: '0'
-      }
-    }
-
-    return {
-      title: `${chainType} for ${selectedKey}`,
-      preview: await this.getCommandChainPreview(),
-      commandCount: commands.length.toString()
-    }
-  }
 
   /* ------------------------------------------------------------------
    * ComponentBase late-join support for DataCoordinator integration
    * ------------------------------------------------------------------ */
   getCurrentState() {
     return {
-      selectedKey: this.selectedKey,
-      selectedAlias: this.selectedAlias
+      // REMOVED: Selection state now managed by SelectionService
       // REMOVED: currentEnvironment, currentProfile - not owned by CommandLibraryService
       // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 
   handleInitialState(sender, state) {
-    if (!state) return
-    
-    // Handle state from DataCoordinator via ComponentBase late-join
-    if (sender === 'DataCoordinator' && state.currentProfileData) {
-      const profile = state.currentProfileData
-      this.currentProfile = profile.id
-      this.cache.currentProfile = profile.id
-      this.currentEnvironment = profile.environment || 'space'
-      this.cache.currentEnvironment = this.currentEnvironment
-      
-      this.updateCacheFromProfile(profile)
-    }
-    
-    if (sender === 'SelectionService') {
-      if (state.selectedKey) {
-        // Call the same logic as the key-selected event handler
-        this.selectedKey = state.selectedKey
-        this.selectedAlias = null
-      } else if (state.selectedAlias) {
-        // Call the same logic as the alias-selected event handler
-        this.selectedAlias = state.selectedAlias
-        this.selectedKey = null
-      }
-      return
-    }
-
-
-    // Handle state from other services
-/*    if (sender === 'KeyService' && state.selectedKey) {
-      this.selectedKey = state.selectedKey
-    }
-    
-    if (sender === 'AliasBrowserService' && state.selectedAliasName) {
-      this.selectedAlias = state.selectedAliasName
-    }*/
+    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
+    // Component-specific initialization can be added here if needed
   }
 
   /**

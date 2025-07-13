@@ -103,8 +103,7 @@ export default class KeyService extends ComponentBase {
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
-        // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
-        // KeyBrowserService already listens to profile:updated directly
+        // KeyBrowserService receives updates via ComponentBase automatic caching
       }
     })
 
@@ -117,8 +116,7 @@ export default class KeyService extends ComponentBase {
       // this.selectedKey = null
       
       this.updateCacheFromProfile(profile)
-      // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
-      // KeyBrowserService already listens to profile:switched directly
+      // KeyBrowserService receives updates via ComponentBase automatic caching
     })
 
     this.addEventListener('environment:changed', ({ environment }) => {
@@ -126,7 +124,6 @@ export default class KeyService extends ComponentBase {
         this.cache.currentEnvironment = environment
         this.currentEnvironment = environment
         this.cache.keys = this.cache.builds[environment]?.keys || {}
-        // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
         // KeyBrowserService already listens to environment:changed directly
       }
     })
@@ -242,13 +239,8 @@ export default class KeyService extends ComponentBase {
         }
       })
 
-      // CHANGED: Delegate selection clearing to SelectionService
-      const selectedKey = await this.request('selection:get-selected', { environment: this.cache.currentEnvironment })
-      if (selectedKey === keyName) {
-        await this.request('selection:clear', { type: 'key' })
-      }
-
-      this.emit('key-deleted', { key: keyName })
+      // SelectionService handles selection clearing automatically via key-deleted event
+      this.emit('key-deleted', { keyName })
       return true
     } catch (error) {
       console.error('[KeyService] Failed to delete key:', error)
@@ -330,8 +322,7 @@ export default class KeyService extends ComponentBase {
 
       // Update local cache
       this.cache.keys[newKey] = JSON.parse(JSON.stringify(commands))
-      // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
-      // KeyBrowserService will receive updates via profile:updated from DataCoordinator
+      // KeyBrowserService receives updates via ComponentBase automatic caching
       this.emit('key-duplicated', { from: sourceKey, to: newKey })
       return true
     } catch (error) {
@@ -754,25 +745,5 @@ export default class KeyService extends ComponentBase {
   handleInitialState (sender, state) {
     if (!state) return
     
-    // Handle state from DataCoordinator via ComponentBase late-join
-    if (sender === 'DataCoordinator' && state.currentProfileData) {
-      const profile = state.currentProfileData
-      this.cache.currentProfile = profile.id
-      this.currentProfile = profile.id
-      this.cache.currentEnvironment = profile.environment || 'space'
-      this.currentEnvironment = this.cache.currentEnvironment
-      
-      this.updateCacheFromProfile(profile)
-      // REMOVED: this.emit('keys:changed', { keys: this.cache.keys })
-      // KeyBrowserService already receives profile updates via late-join handshake
-      
-      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
-    }
-    
-    // REMOVED: Selection state handling now delegated to SelectionService
-    // Handle state from other KeyService instances - no selection state to sync
-    if (sender === 'KeyService') {
-      // KeyService no longer owns selection state
-    }
   }
 } 

@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { request } from '../../core/requestResponse.js'
+import { request, respond } from '../../core/requestResponse.js'
 import eventBus from '../../core/eventBus.js'
 import CommandFormatAdapter from '../../lib/CommandFormatAdapter.js'
 import { getParameterDefinition, isEditableSignature } from '../../lib/CommandSignatureDefinitions.js'
@@ -26,28 +26,38 @@ export default class ParameterCommandService extends ComponentBase {
     super(bus)
     this.componentName = 'ParameterCommandService'
     
-    // Cache selected key/alias state
-    this.selectedKey = null
-    this.selectedAlias = null
+    // REMOVED: Selection state now managed by SelectionService
     this.currentEnvironment = 'space'
 
-    // Cache editing state from UI events
+    // Cache editing state from UI events (appropriate for parameter editing)
     this.editingContext = null
 
-    // Note: No request/response handlers for state access - we follow broadcast/cache pattern
+    // Store detach functions for cleanup
+    this._responseDetachFunctions = []
+
+    // Register Request/Response endpoints for parameterized command operations
+    if (this.eventBus) {
+      this._responseDetachFunctions.push(
+        this.respond('parameter-command:build', async ({ categoryId, commandId, commandDef, params }) => 
+          this.buildParameterizedCommand(categoryId, commandId, commandDef, params)),
+        this.respond('parameter-command:find-definition', ({ commandString }) => 
+          this.findCommandDefinition(commandString)),
+        this.respond('parameter-command:generate-id', () => this.generateCommandId())
+      )
+    }
+  }
+
+  async init() {
+    super.init() // ComponentBase handles late-join automatically
+    this.setupEventListeners()
   }
 
   onInit() {
-    // Listen for key/alias selection events to maintain our own state
-    this.addEventListener('key-selected', (data) => {
-      this.selectedKey = data.key || data.name
-      this.selectedAlias = null // Clear alias when key is selected
-    })
-    
-    this.addEventListener('alias-selected', (data) => {
-      this.selectedAlias = data.name
-      this.selectedKey = null // Clear key when alias is selected
-    })
+    // Legacy method - now handled by init()
+  }
+
+  setupEventListeners() {
+    // REMOVED: Selection state management now handled by SelectionService
     
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data.environment
@@ -59,7 +69,7 @@ export default class ParameterCommandService extends ComponentBase {
       this.editingContext = {
         isEditing: true,
         editIndex: data.index,
-        selectedKey: data.key,
+        // REMOVED: selectedKey now managed by SelectionService
         existingCommand: data.command
       }
     })
@@ -74,8 +84,7 @@ export default class ParameterCommandService extends ComponentBase {
    * ---------------------------------------------------------- */
   getCurrentState() {
     return {
-      selectedKey: this.selectedKey,
-      selectedAlias: this.selectedAlias,
+      // REMOVED: Selection state now managed by SelectionService
       editingContext: this.editingContext
       // REMOVED: currentEnvironment - not owned by ParameterCommandService
       // This will be managed by SelectionService (selection) and DataCoordinator (environment)
@@ -85,18 +94,24 @@ export default class ParameterCommandService extends ComponentBase {
   handleInitialState(sender, state) {
     if (!state) return
     
-    // Sync with other services that manage selection state
-    if (state.selectedKey !== undefined) {
-      this.selectedKey = state.selectedKey
+  }
+
+  /**
+   * Cleanup method to detach all request/response handlers
+   */
+  destroy() {
+    if (this._responseDetachFunctions) {
+      this._responseDetachFunctions.forEach(detach => {
+        if (typeof detach === 'function') {
+          detach()
+        }
+      })
+      this._responseDetachFunctions = []
     }
-    if (state.selectedAlias !== undefined) {
-      this.selectedAlias = state.selectedAlias  
-    }
-    if (state.currentEnvironment !== undefined) {
-      this.currentEnvironment = state.currentEnvironment
-    }
-    if (state.editingContext !== undefined) {
-      this.editingContext = state.editingContext
+    
+    // Call parent destroy if it exists
+    if (super.destroy && typeof super.destroy === 'function') {
+      super.destroy()
     }
   }
 
@@ -253,9 +268,6 @@ export default class ParameterCommandService extends ComponentBase {
    * object (or array of objects for tray ranges).
    */
   async buildParameterizedCommand (categoryId, commandId, commandDef, params = {}) {
-    // Use the service's own cached selected key/alias state
-    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
-
     // Per-category builder functions. Refactored to use STOCommandParser 
     // as single source of truth instead of CommandBuilderService.
     const builders = {

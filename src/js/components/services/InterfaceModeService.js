@@ -15,7 +15,6 @@ export default class InterfaceModeService extends ComponentBase {
     
     // Internal state
     this._currentMode = 'space'
-    this._currentProfileId = null  // Cache profile ID from late-join state sync
     this._modeListenersSetup = false
 
     // Store handler references for proper cleanup
@@ -89,13 +88,10 @@ export default class InterfaceModeService extends ComponentBase {
 
     // Create handler functions and store references for cleanup
     this._profileSwitchedHandler = (data) => {
-      // Update cached profile ID when profile switches
-      if (data.profileId) {
-        this._currentProfileId = data.profileId
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[InterfaceModeService] Updated cached profile ID from profile switch: ${this._currentProfileId}`)
-        }
+      // ComponentBase handles profile ID caching automatically
+      if (data.profileId && typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log(`[InterfaceModeService] Profile switched to: ${data.profileId}`)
       }
       
       if (data.environment) {
@@ -147,25 +143,25 @@ export default class InterfaceModeService extends ComponentBase {
    * Update profile mode in storage and profile service
    */
   async updateProfileMode(mode) {
-    if (!this._currentProfileId) {
+    if (!this.currentProfile) {
       console.warn('[InterfaceModeService] Cannot update profile mode: no current profile ID')
       return
     }
 
     console.log(`[InterfaceModeService] updateProfileMode called with mode: ${mode}`)
-    console.log(`[InterfaceModeService] Current profile ID: ${this._currentProfileId}`)
+    console.log(`[InterfaceModeService] Current profile ID: ${this.currentProfile}`)
 
     try {
       // Update profile with new environment using explicit operations API
       const result = await this.request('data:update-profile', {
-        profileId: this._currentProfileId,
+        profileId: this.currentProfile,
         properties: {
           currentEnvironment: mode
         }
       })
 
       if (result?.success) {
-        console.log(`[InterfaceModeService] Environment persisted to storage: ${mode} for profile: ${this._currentProfileId}`)
+        console.log(`[InterfaceModeService] Environment persisted to storage: ${mode} for profile: ${this.currentProfile}`)
       } else {
         console.error('[InterfaceModeService] Failed to persist environment:', result)
       }
@@ -246,31 +242,22 @@ export default class InterfaceModeService extends ComponentBase {
   handleInitialState(sender, state) {
     if (!state) return
     
-    if ((sender === 'DataCoordinator' || sender === 'ProfileService') && state.currentEnvironment) {
-      // Cache the current profile ID for later use in persistence operations
-      if (state.currentProfile) {
-        this._currentProfileId = state.currentProfile
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[InterfaceModeService] Cached profile ID from ${sender}: ${this._currentProfileId}`)
+    // Initialize mode from DataCoordinator environment data
+    if (sender === 'DataCoordinator') {
+      // Extract environment from profile data or state
+      const env = state.currentEnvironment || (state.currentProfileData && state.currentProfileData.currentEnvironment)
+      if (env) {
+        const previousMode = this._currentMode
+        this._currentMode = env
+        
+        // Emit environment change if mode actually changed
+        if (previousMode !== this._currentMode) {
+          this.emit('environment:changed', {
+            environment: this._currentMode,
+            isInitialization: true
+          })
         }
       }
-      
-      // Initialize from DataCoordinator environment state
-      const previousMode = this._currentMode
-      this._currentMode = state.currentEnvironment
-      
-      // Always broadcast environment during initialization to ensure UI components
-      // get the correct initial state, even if it matches the default value
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[InterfaceModeService] Broadcasting initial environment: ${this._currentMode} (from ${sender} late-join handshake)`)
-      }
-      
-      this.emit('environment:changed', {
-        environment: this._currentMode,
-        isInitialization: true
-      })
     }
   }
 } 

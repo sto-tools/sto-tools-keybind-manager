@@ -128,12 +128,7 @@ export default class KeyBrowserService extends ComponentBase {
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
-    // REMOVED: Redundant keys:changed listener
-    // KeyBrowserService already receives key updates via profile:updated directly from DataCoordinator
-    // this.addEventListener('keys:changed', ({ keys }) => {
-    //   this.cache.keys = keys || {}
-    //   this.emit('key:list-changed', { keys: this.getKeys() })
-    // })
+    // KeyBrowserService receives key updates via ComponentBase automatic caching from DataCoordinator
   }
 
   /**
@@ -345,26 +340,8 @@ export default class KeyBrowserService extends ComponentBase {
   }
 
   handleInitialState(sender, state) {
-    if (!state) return
-    
-    // Handle state from DataCoordinator via ComponentBase late-join
-    if (sender === 'DataCoordinator' && state.currentProfileData) {
-      const profile = state.currentProfileData
-      this.currentProfileId = profile.id
-      this.cache.currentProfile = profile.id
-      this.currentEnvironment = profile.environment || 'space'
-      this.cache.currentEnvironment = this.currentEnvironment
-      
-      // REMOVED: Selection clearing now handled by SelectionService
-      // this._cachedSelections = { space: null, ground: null }
-      
-      this.updateCacheFromProfile(profile)
-      this.emit('key:list-changed', { keys: this.getKeys() })
-      
-      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
-    }
-    
-    // REMOVED: Selection state handling now delegated to SelectionService
+    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
+    // Component-specific initialization can be added here if needed
     // Handle state from other KeyBrowserService instances - no selection state to sync
     if (sender === 'KeyBrowserService') {
       // KeyBrowserService no longer owns selection state

@@ -856,11 +856,6 @@ export default class ExportService extends ComponentBase {
   }
 
   handleInitialState (sender, state) {
-    if (sender === 'DataCoordinator' && state?.profiles) {
-      this.cache.profiles = state.profiles
-      this.cache.currentProfile = state.currentProfile
-      this.cache.currentEnvironment = state.currentEnvironment || 'space'
-    }
   }
 
   /* ---------------------------------------------------------- */

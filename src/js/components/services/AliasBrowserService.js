@@ -227,13 +227,13 @@ export default class AliasBrowserService extends ComponentBase {
         }
         await this.selectAlias(names[0])
       } else {
-        // No aliases available - emit alias-selected with null to indicate no selection
+        // No aliases available - delegate to SelectionService to clear selection
         if (typeof window !== 'undefined') {
           // eslint-disable-next-line no-console
-          console.log(`[AliasBrowserService] No aliases available, emitting null selection`)
+          console.log(`[AliasBrowserService] No aliases available, clearing selection via SelectionService`)
         }
         this.selectedAliasName = null
-        this.emit('alias-selected', { name: null })
+        await this.request('selection:select-alias', { aliasName: null })
       }
     } else {
       if (typeof window !== 'undefined') {
@@ -261,18 +261,24 @@ export default class AliasBrowserService extends ComponentBase {
   }
 
   async selectAlias(name) {
+    // REFACTORED: Delegate to SelectionService for centralized selection management
+    const result = await this.request('selection:select-alias', { 
+      aliasName: name
+    })
+    
+    // Keep legacy selection state for backward compatibility
     this.selectedAliasName = name
     
-    // Persist selection to profile storage
-    await this._persistAliasSelection(name)
-    
-    this.emit('alias-selected', { name })
+    return result
   }
 
   /**
-   * Persist alias selection to profile storage
+   * DEPRECATED: Persist alias selection to profile storage
+   * SelectionService now handles persistence centrally
    */
   async _persistAliasSelection(aliasName) {
+    // DEPRECATED: SelectionService handles persistence
+    return // No-op
     try {
       const profile = this.getProfile()
       if (!profile) {
@@ -466,46 +472,9 @@ export default class AliasBrowserService extends ComponentBase {
   }
 
   handleInitialState(sender, state) {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[AliasBrowserService] handleInitialState called. sender: ${sender}, state:`, state)
-    }
+    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
     
-    if (!state) return
-    
-    // Handle state from DataCoordinator via ComponentBase late-join
-    if (sender === 'DataCoordinator' && state.currentProfileData) {
-      const profile = state.currentProfileData
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserService] Processing DataCoordinator state. profile:`, profile)
-      }
-      
-      this.currentProfileId = profile.id
-      this.cache.currentProfile = profile.id
-      this.currentEnvironment = profile.currentEnvironment || profile.environment || 'space'
-      this.cache.currentEnvironment = this.currentEnvironment
-      
-      // Clear cached selection when profile changes
-      this._cachedAliasSelection = null
-      
-      this.updateCacheFromProfile(profile)
-      this.emit('aliases-changed', { aliases: this.cache.aliases })
-      
-      // Auto-select alias if we're in alias environment during initialization
-      if (this.currentEnvironment === 'alias' && !this.selectedAliasName) {
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[AliasBrowserService] Initial state: environment is 'alias', calling _restoreOrAutoSelectAlias()`)
-        }
-        // Use setTimeout to ensure this runs after the current event loop
-        setTimeout(() => this._restoreOrAutoSelectAlias(), 0)
-      }
-      
-      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
-    }
-    
-    // Handle state from other AliasBrowserService instances
+    // Handle state from other AliasBrowserService instances (peer-to-peer sync)
     if (sender === 'AliasBrowserService') {
       this.selectedAliasName = state.selectedAliasName ?? this.selectedAliasName
       this._cachedAliasSelection = state.cachedAliasSelection ?? this._cachedAliasSelection

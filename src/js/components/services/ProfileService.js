@@ -415,33 +415,8 @@ export default class ProfileService extends ComponentBase {
    * ComponentBase late-join support - handle initial state from other instances
    */
   async handleInitialState(state, senderName) {
-    if (senderName === 'DataCoordinator' && state.currentProfileData) {
-      this.currentProfile = state.currentProfile || state.currentProfileData?.id
-      this.currentEnvironment = state.currentEnvironment || 'space'
-      this.isModified = false
-      
-      // Cache the profiles list from DataCoordinator
-      if (state.profiles) {
-        this.profilesCache = { ...state.profiles }
-      }
-
-      // Trigger loadData to complete initialization with the synced state
-      try {
-        await this.loadData()
-      } catch (error) {
-        console.error(`[${this.componentName}] loadData failed after late-join:`, error)
-      }
-
-    } else if (state.currentProfile) {
-      this.currentProfile = state.currentProfile
-      this.currentEnvironment = state.currentEnvironment || 'space'
-      this.isModified = state.modified || false
-      
-      // Cache profiles if provided
-      if (state.profiles) {
-        this.profilesCache = { ...state.profiles }
-      }
-    }
+    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
+    // Component-specific initialization can be added here if needed
   }
 
   /**

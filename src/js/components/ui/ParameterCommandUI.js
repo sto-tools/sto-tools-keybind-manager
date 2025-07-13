@@ -1,15 +1,7 @@
 import eventBus from '../../core/eventBus.js'
-import ParameterCommandService from '../services/ParameterCommandService.js'
 import ComponentBase from '../ComponentBase.js'
 import { request } from '../../core/requestResponse.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
-
-// ---------------------------------------------------------------------------
-// Singleton service instance – shared by the entire application layer
-// ---------------------------------------------------------------------------
-const svc = new ParameterCommandService({ eventBus })
-// Initialize the service to start listening for events
-svc.init()
 
 
 
@@ -303,7 +295,7 @@ export default class ParameterCommandUI extends ComponentBase {
     const params = this.getParameterValues()
 
     try {
-      const cmd = await svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
+      const cmd = await this.request('parameter-command:build', { categoryId, commandId, commandDef, params })
       const previewEl = this.document.getElementById('parameterCommandPreview')
       if (!previewEl || !cmd) return
 
@@ -379,7 +371,7 @@ export default class ParameterCommandUI extends ComponentBase {
     const params = this.getParameterValues()
 
     try {
-      const cmd = await svc.buildParameterizedCommand(categoryId, commandId, commandDef, params)
+      const cmd = await this.request('parameter-command:build', { categoryId, commandId, commandDef, params })
       if (!cmd) return
 
       // Check if we're editing an existing command or adding a new one
@@ -453,7 +445,7 @@ export default class ParameterCommandUI extends ComponentBase {
       if (!commands || !commands[index]) return
 
       const command = commands[index]
-      const commandDef = await svc.findCommandDefinition(command)
+      const commandDef = await this.request('parameter-command:find-definition', { commandString: command })
       if (!commandDef) return
 
       this.editParameterizedCommand(index, command, commandDef)
@@ -467,15 +459,15 @@ export default class ParameterCommandUI extends ComponentBase {
    * intact for legacy code/tests.
    * ---------------------------------------------------------- */
   generateCommandId (...args) {
-    return svc.generateCommandId(...args)
+    return this.request('parameter-command:generate-id')
   }
   
-  async buildParameterizedCommand (...args) {
-    return await svc.buildParameterizedCommand(...args)
+  async buildParameterizedCommand (categoryId, commandId, commandDef, params) {
+    return await this.request('parameter-command:build', { categoryId, commandId, commandDef, params })
   }
   
-  async findCommandDefinition (...args) {
-    return await svc.findCommandDefinition(...args)
+  async findCommandDefinition (commandString) {
+    return await this.request('parameter-command:find-definition', { commandString })
   }
 
   /* ------------------------------------------------------------

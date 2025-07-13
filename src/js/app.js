@@ -31,6 +31,7 @@ import { VFXManagerUI, HeaderMenuUI, AboutModalUI, ImportUI } from './components
 import { SyncUI } from './components/sync/index.js'
 import STOCommandParser from './lib/STOCommandParser.js'
 import ImportService from './components/services/ImportService.js'
+import ParameterCommandService from './components/services/ParameterCommandService.js'
 
 
 export default class STOToolsKeybindManager {
@@ -328,6 +329,13 @@ export default class STOToolsKeybindManager {
       // dbg('CommandChainUI created')
       
       // ---------------------------------
+      // Parameter Command Service (business logic for parameterized commands)
+      // ---------------------------------
+      this.parameterCommandService = new ParameterCommandService({
+        eventBus
+      })
+      
+      // ---------------------------------
       // Parameter Command UI (create first as dependency for CommandUI)
       // ---------------------------------
       this.parameterCommandUI = new ParameterCommandUI({
@@ -426,6 +434,7 @@ export default class STOToolsKeybindManager {
       this.commandChainUI.init()
       this.keyBrowserService.init()
       this.keyBrowserUI.init()
+      this.parameterCommandService.init()
       this.commandUI.init()
       this.parameterCommandUI.init()
 

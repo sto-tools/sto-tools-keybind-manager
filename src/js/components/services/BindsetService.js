@@ -231,16 +231,6 @@ export default class BindsetService extends ComponentBase {
    * @override ComponentBase.handleInitialState
    */
   handleInitialState(sender, state) {
-    if (sender === 'DataCoordinator' && state) {
-      if (state.currentProfile) {
-        this.cache.currentProfile = state.currentProfile
-      }
-      if (state.currentEnvironment) {
-        this.cache.currentEnvironment = state.currentEnvironment
-      }
-      if (state.currentProfile && state.profiles && state.profiles[state.currentProfile]) {
-        this.updateCacheFromProfile(state.profiles[state.currentProfile])
-      }
-    }
+    
   }
 } 

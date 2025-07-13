@@ -1,6 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
 import { normalizeToString, normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
+import { formatAliasLine } from '../../lib/STOFormatter.js'
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -27,8 +28,6 @@ export default class CommandService extends ComponentBase {
     this.currentProfile  = null
     this.currentEnvironment = 'space'
     // REMOVED: Selection state now managed by SelectionService
-    // this.selectedKey = null
-    // this.selectedAlias = null
 
     // REFACTORED: Cache profile state from DataCoordinator broadcasts
     this.cache = {
@@ -58,7 +57,10 @@ export default class CommandService extends ComponentBase {
         this.respond('command:delete', async ({ key, index, bindset }) =>
           this.deleteCommand(key, index, bindset)),
         this.respond('command:move', async ({ key, fromIndex, toIndex, bindset }) =>
-          this.moveCommand(key, fromIndex, toIndex, bindset))
+          this.moveCommand(key, fromIndex, toIndex, bindset)),
+        // MOVED: from CommandLibraryService - now implemented directly here
+        this.respond('command:get-for-selected-key', this.getCommandsForSelectedKey.bind(this)),
+        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo())
       )
     }
   }
@@ -286,16 +288,13 @@ export default class CommandService extends ComponentBase {
       // Store for later emission
       updatedCommands = [...commandsArr]
 
-      if (commandsArr.length === 0) {
-        payload = { delete: { aliases: [key] } }
-      } else {
-        payload = {
-          modify: {
-            aliases: {
-              [key]: {
-                ...aliasObj,
-                commands: commandsArr // Keep as array in new format
-              }
+      // Always use modify to preserve empty aliases - don't auto-delete when commands become empty
+      payload = {
+        modify: {
+          aliases: {
+            [key]: {
+              ...aliasObj,
+              commands: commandsArr // Preserve empty array instead of deleting alias
             }
           }
         }
@@ -328,23 +327,12 @@ export default class CommandService extends ComponentBase {
           }
         }
       } else {
-        if (newKeyCommands.length === 0) {
-          payload = {
-            delete: {
-              builds: {
-                [this.currentEnvironment]: {
-                  keys: [key]
-                }
-              }
-            }
-          }
-        } else {
-          payload = {
-            modify: {
-              builds: {
-                [this.currentEnvironment]: {
-                  keys: { [key]: newKeyCommands }
-                }
+        // Always use modify to preserve empty keys - don't auto-delete when commands become empty
+        payload = {
+          modify: {
+            builds: {
+              [this.currentEnvironment]: {
+                keys: { [key]: newKeyCommands } // Preserve empty array instead of deleting key
               }
             }
           }
@@ -640,57 +628,13 @@ export default class CommandService extends ComponentBase {
    * REFACTORED: Set up event listeners for DataCoordinator integration
    */
   setupEventListeners() {
-    // REFACTORED: Listen to DataCoordinator broadcasts instead of direct storage access
-    
-    // Cache profile state from DataCoordinator broadcasts
-    this.addEventListener('profile:updated', ({ profileId, profile }) => {
-      if (profileId === this.cache.currentProfile) {
-        this.updateCacheFromProfile(profile)
-      }
-    })
-
-    // Profile switched (new modular event)
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.currentProfile = profileId
-      this.cache.currentProfile = profileId
-      
-      if (environment) {
-        this.currentEnvironment = environment
-        this.cache.currentEnvironment = environment
-      }
-      
-      this.updateCacheFromProfile(profile)
-    })
+    // REMOVED: Profile state caching now handled by ComponentBase
 
     // Late-join support now handled by ComponentBase automatically
 
-    // REMOVED: Selection state management now delegated to SelectionService
-    // CommandService no longer owns selection state - it gets current selection via request when needed
-    // this.addEventListener('key-selected', (data) => {
-    //   this.selectedKey = data.key
-    //   this.selectedAlias = null // Clear alias selection when key is selected
-    // })
-    // 
-    // this.addEventListener('alias-selected', (data) => {
-    //   this.selectedAlias = data.name
-    //   this.selectedKey = null // Clear key selection when alias is selected
-    // })
+    // REMOVED: Selection state caching now handled by ComponentBase
 
-    // Listen for environment changes (space ↔ ground ↔ alias)
-    this.addEventListener('environment:changed', (data) => {
-      const env = typeof data === 'string' ? data : data?.environment
-      if (env) {
-        this.currentEnvironment = env
-        this.cache.currentEnvironment = env
-        
-        // Update keys cache for new environment
-        this.cache.keys = this.cache.builds[env]?.keys || {}
-        
-        // REMOVED: Selection clearing now handled by SelectionService
-        // this.selectedKey = null
-        // this.selectedAlias = null
-      }
-    })
+    // REMOVED: Environment change handling now in ComponentBase
 
     // Listen for command addition events from UI components (broadcast pattern)
     this.addEventListener('command:add', async (data) => {
@@ -766,40 +710,14 @@ export default class CommandService extends ComponentBase {
   getCurrentState() {
     return {
       // REMOVED: Selection state now managed by SelectionService
-      // selectedKey: this.selectedKey,
-      // selectedAlias: this.selectedAlias
-      // 
       // REMOVED: currentEnvironment, currentProfile - not owned by CommandService
       // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 
   handleInitialState (sender, state) {
-    if (!state) return
-    
-    // Handle state from DataCoordinator via ComponentBase late-join
-    if (sender === 'DataCoordinator' && state.currentProfileData) {
-      const profile = state.currentProfileData
-      this.currentProfile = profile.id
-      this.cache.currentProfile = profile.id
-      this.currentEnvironment = profile.environment || 'space'
-      this.cache.currentEnvironment = this.currentEnvironment
-      
-      this.updateCacheFromProfile(profile)
-      
-      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
-    }
-    
-    // REMOVED: Selection state handling - now delegated to SelectionService
-    // CommandService no longer participates in selection late-join handshake
-    // if (sender === 'CommandService') {
-    //   this.selectedKey = state.selectedKey ?? this.selectedKey
-    //   this.selectedAlias = state.selectedAlias ?? this.selectedAlias
-    // }
-    // 
-    // if (sender === 'KeyService' && state.selectedKey) {
-    //   this.selectedKey = state.selectedKey
-    // }
+    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
+    // Component-specific initialization can be added here if needed
   }
 
   /**
@@ -826,7 +744,7 @@ export default class CommandService extends ComponentBase {
   async fetchCommandsForKey (key, bindset = null) {
     try {
       if (this.currentEnvironment === 'alias') {
-        return await this.request('command:get-for-selected-key')
+        return this.getCommandsForSelectedKey({ key })
       }
       const useBindset = (bindset && bindset !== 'Primary Bindset')
       if (useBindset) {
@@ -844,5 +762,251 @@ export default class CommandService extends ComponentBase {
     } catch {
       return []
     }
+  }
+
+  /**
+   * Get empty state information
+   */
+  async getEmptyStateInfo() {
+    // Use cached selection state from SelectionService broadcasts
+    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+
+    if (!selectedKey) {
+      const selectText = this.currentEnvironment === 'alias' ? 
+        this.i18n.t('select_an_alias_to_edit') || 'Select an alias to edit' : 
+        this.i18n.t('select_a_key_to_edit') || 'Select a key to edit'
+      const previewText = this.currentEnvironment === 'alias' ? 
+        this.i18n.t('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' : 
+        this.i18n.t('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
+      
+      const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
+      const emptyTitle = this.currentEnvironment === 'alias' ? 
+        this.i18n.t('no_alias_selected') || 'No Alias Selected' : 
+        this.i18n.t('no_key_selected') || 'No Key Selected'
+      const emptyDesc = this.currentEnvironment === 'alias' ? 
+        this.i18n.t('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' : 
+        this.i18n.t('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
+      
+        return {
+        title: selectText,
+        preview: previewText,
+        icon: emptyIcon,
+        emptyTitle,
+        emptyDesc,
+        commandCount: '0'
+      }
+    }
+
+    const commands = await this.getCommandsForSelectedKey()
+    const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
+
+    if (commands.length === 0) {
+      const emptyMessage = this.currentEnvironment === 'alias' ? 
+        `${this.i18n.t('click_add_command_to_start_building_your_alias_chain') || 'Click "Add Command" to start building your alias chain for'} ${selectedKey}.` :
+        `${this.i18n.t('click_add_command_to_start_building_your_command_chain') || 'Click "Add Command" to start building your command chain for'} ${selectedKey}.`
+      
+      return {
+        title: `${chainType} for ${selectedKey}`,
+        preview: await this.getCommandChainPreview(),
+        icon: 'fas fa-plus-circle',
+        emptyTitle: this.i18n.t('no_commands') || 'No Commands',
+        emptyDesc: emptyMessage,
+        commandCount: '0'
+      }
+    }
+
+    return {
+      title: `${chainType} for ${selectedKey}`,
+      preview: await this.getCommandChainPreview(),
+      commandCount: commands.length.toString()
+    }
+  }
+
+  /**
+   * Get commands for the currently selected key/alias using cached data
+   * MOVED from CommandLibraryService - this belongs in CommandService since it accesses command data
+   */
+  getCommandsForSelectedKey(params = {}) {
+    console.log('[CommandService] getCommandsForSelectedKey called with params:', params)
+    console.log('[CommandService] Current state:', {
+      currentEnvironment: this.currentEnvironment,
+      selectedKey: this.selectedKey,
+      selectedAlias: this.selectedAlias,
+      cache: this.cache
+    })
+    
+    // Initialize cache if it doesn't exist (fallback safety)
+    if (!this.cache) {
+      console.warn('[CommandService] Cache not initialized, initializing empty cache')
+      this.cache = {}
+    }
+    
+    // Use explicit parameters if provided, otherwise use cached selection state
+    const environment = params.environment || this.currentEnvironment || 'space'
+    let selectedKey = params.key
+    
+    if (!selectedKey) {
+      // Use cached selection state from broadcast events
+      selectedKey = environment === 'alias' ? this.selectedAlias : this.selectedKey
+      if (!selectedKey) {
+        console.warn('[CommandService] No key/alias selected for environment:', environment)
+        return []
+      }
+    }
+    
+    if (!selectedKey) return []
+
+    const profile = this.cache.profile
+    if (!profile) {
+      console.warn('[CommandService] No profile in cache')
+      return []
+    }
+
+    if (environment === 'alias') {
+      const alias = profile.aliases && profile.aliases[selectedKey]
+      if (!alias || !Array.isArray(alias.commands)) return []
+      // Return shallow copy to avoid external mutation
+      return [...alias.commands]
+    }
+
+    // Keybinds path – keys arrays are already canonical string[]
+    const keyCommands = this.cache.keys && this.cache.keys[selectedKey] ? this.cache.keys[selectedKey] : []
+    return Array.isArray(keyCommands) ? [...keyCommands] : []
+  }
+
+  /**
+ * Get command chain preview text
+ */
+  async getCommandChainPreview() {
+    // Use cached selection state from SelectionService broadcasts
+    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+
+    if (!selectedKey) {
+      const selectText = this.currentEnvironment === 'alias' ? 
+        this.i18n.t('select_an_alias_to_see_the_generated_command') : 
+        this.i18n.t('select_a_key_to_see_the_generated_command')
+      return selectText
+    }
+
+    const commands = await this.getCommandsForSelectedKey()
+    
+    if (commands.length === 0) {
+      if (this.currentEnvironment === 'alias') {
+        return formatAliasLine(selectedKey, { commands: '' }).trim()
+      } else {
+        return `${selectedKey} ""`
+      }
+    }
+
+    if (this.currentEnvironment === 'alias') {
+      // For aliases, mirror when metadata requests it
+      const profile = this.getCurrentProfile()
+      console.log('[CommandLibraryService] alias : getCommandChainPreview: profile', profile)
+      let shouldStabilize = false
+      if (profile && profile.aliasMetadata && profile.aliasMetadata[selectedKey] && profile.aliasMetadata[selectedKey].stabilizeExecutionOrder) {
+        shouldStabilize = true
+      }
+
+      let commandString
+      if (shouldStabilize && commands.length > 1) {
+        commandString = await this.generateMirroredCommandString(commands)
+      } else {
+        // Normalize commands before joining
+        const normalizedCommands = await this.normalizeCommandsForDisplay(commands)
+        commandString = normalizedCommands.join(' $$ ')
+      }
+
+      return formatAliasLine(selectedKey, { commands: commandString }).trim()
+    } else {
+      // For keybinds, determine mirroring based on per-key metadata
+      const profile = this.getCurrentProfile()
+      console.log('[CommandLibraryService] keybind : getCommandChainPreview: profile', profile)
+      let shouldStabilize = false
+      if (profile && profile.keybindMetadata && profile.keybindMetadata[this.currentEnvironment] &&
+          profile.keybindMetadata[this.currentEnvironment][selectedKey] &&
+          profile.keybindMetadata[this.currentEnvironment][selectedKey].stabilizeExecutionOrder) {
+        shouldStabilize = true
+      }
+
+      let commandString
+      if (shouldStabilize && commands.length > 1) {
+        commandString = await this.generateMirroredCommandString(commands)
+      } else {
+        // Normalize commands before joining
+        const normalizedCommands = await this.normalizeCommandsForDisplay(commands)
+        commandString = normalizedCommands.join(' $$ ')
+      }
+
+      return `${selectedKey} "${commandString}"`
+    }
+  }
+
+  /**
+ * Normalize commands for display by applying tray execution normalization
+ */
+  async normalizeCommandsForDisplay(commands) {
+    const normalizedCommands = []
+
+    for (const cmd of commands) {
+      // Support both canonical string and rich object formats
+      const cmdStr = typeof cmd === 'string' ? cmd : (cmd && cmd.command) || ''
+      if (!cmdStr) {
+        continue
+      }
+      try {
+        // Parse the command to check if it's a tray execution command
+        const parseResult = await this.request('parser:parse-command-string', {
+          commandString: cmdStr,
+          options: { generateDisplayText: false }
+        })
+
+        if (parseResult.commands && parseResult.commands[0]) {
+          const parsedCmd = parseResult.commands[0]
+          // Check if it's a tray execution command that needs normalization
+          if (parsedCmd.signature &&
+              (parsedCmd.signature.includes('TrayExecByTray') ||
+                parsedCmd.signature.includes('TrayExecByTrayWithBackup')) &&
+              parsedCmd.parameters) {
+            const params = parsedCmd.parameters
+            const active = params.active !== undefined ? params.active : 1
+            if (parsedCmd.signature.includes('TrayExecByTrayWithBackup')) {
+              // Handle TrayExecByTrayWithBackup normalization
+              const baseCommand = params.baseCommand || 'TrayExecByTrayWithBackup'
+              const commandType = baseCommand.replace(/^\+/, '')
+              if (active === 1) {
+                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
+              } else {
+                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`)
+              }
+            } else {
+              // Regular TrayExecByTray normalization
+              const baseCommand = params.baseCommand || 'TrayExecByTray'
+              const commandType = baseCommand.replace(/^\+/, '')
+              if (active === 1) {
+                normalizedCommands.push(`+${commandType} ${params.tray} ${params.slot}`)
+              } else {
+                normalizedCommands.push(`${commandType} ${active} ${params.tray} ${params.slot}`)
+              }
+            }
+          } else {
+            normalizedCommands.push(cmdStr)
+          }
+        } else {
+          normalizedCommands.push(cmdStr)
+        }
+      } catch (error) {
+        console.warn('[CommandLibraryService] Failed to normalize command for display:', cmdStr, error)
+        normalizedCommands.push(cmdStr)
+      }
+    }
+
+    return normalizedCommands
+  }
+
+  /**
+ * Generate mirrored command string for stabilization
+ */
+  async generateMirroredCommandString(commands) {
+    return await this.request('fileops:generate-mirrored-commands', { commands })
   }
 } 

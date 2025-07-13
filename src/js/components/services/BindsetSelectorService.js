@@ -373,27 +373,5 @@ export default class BindsetSelectorService extends ComponentBase {
       this.updatePreferences(state.settings || state)
     }
 
-    // Handle DataCoordinator late-join sync
-    if (sender === 'DataCoordinator' && state) {
-      console.log('[BindsetSelectorService] DataCoordinator late-join sync:', state)
-      if (state.currentProfile) {
-        this.cache.currentProfile = state.currentProfile
-      }
-      if (state.currentEnvironment) {
-        this.currentEnvironment = state.currentEnvironment
-      }
-      if (state.currentProfile && state.profiles && state.profiles[state.currentProfile]) {
-        this.cache.profile = state.profiles[state.currentProfile]
-        console.log('[BindsetSelectorService] Profile loaded from late-join:', this.cache.profile.id)
-      } else {
-        console.log('[BindsetSelectorService] No profile data in DataCoordinator state')
-      }
-    }
-
-    // Handle environment from late-join sync
-    if (state && (state.environment || state.currentEnvironment)) {
-      const env = state.environment || state.currentEnvironment
-      this.currentEnvironment = env
-    }
   }
 }

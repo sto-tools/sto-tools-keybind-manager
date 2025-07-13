@@ -119,7 +119,7 @@ describe('KeyService', () => {
 
       // Simulate successful addition
       keyService.cache.keys[keyName] = []
-      eventBus.emit('keys:changed', { keys: keyService.cache.keys })
+      // NO LONGER EMITS: keys:changed (Phase 2.2 - eliminated redundant events)
       return true
     })
 
@@ -129,7 +129,7 @@ describe('KeyService', () => {
       }
 
       delete keyService.cache.keys[keyName]
-      eventBus.emit('keys:changed', { keys: keyService.cache.keys })
+      // NO LONGER EMITS: keys:changed (Phase 2.2 - eliminated redundant events)
       return true
     })
 
@@ -148,7 +148,7 @@ describe('KeyService', () => {
 
       // Copy the key
       keyService.cache.keys[newKeyName] = [...keyService.cache.keys[sourceKey]]
-      eventBus.emit('keys:changed', { keys: keyService.cache.keys })
+      // NO LONGER EMITS: keys:changed (Phase 2.2 - eliminated redundant events)
       return newKeyName
     })
 
@@ -429,13 +429,13 @@ describe('KeyService', () => {
   })
 
   describe('Event Integration', () => {
-    it('should emit keys:changed when adding keys', async () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
+    it('should NOT emit keys:changed when adding keys (Phase 2.2)', async () => {
+      const { expectNoEvent, eventBus: testEventBus } = createEventBusFixture()
       
       // Update keyService to use the test eventBus
       keyService.eventBus = testEventBus
       
-      // Update addKey mock to use the test eventBus
+      // Update addKey mock to reflect new behavior (no keys:changed emission)
       keyService.addKey = vi.fn(async (keyName) => {
         if (!await keyService.isValidKeyName(keyName)) {
           return false
@@ -450,7 +450,7 @@ describe('KeyService', () => {
         }
 
         keyService.cache.keys[keyName] = []
-        testEventBus.emit('keys:changed', { keys: keyService.cache.keys })
+        // NO LONGER EMITS: keys:changed - ComponentBase handles caching
         return true
       })
       
@@ -458,23 +458,23 @@ describe('KeyService', () => {
       
       await keyService.addKey('F5')
       
-      expectEvent('keys:changed')
+      expectNoEvent('keys:changed')
     })
 
-    it('should emit keys:changed when deleting keys', async () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
+    it('should NOT emit keys:changed when deleting keys (Phase 2.2)', async () => {
+      const { expectNoEvent, eventBus: testEventBus } = createEventBusFixture()
       
       // Update keyService to use the test eventBus
       keyService.eventBus = testEventBus
       
-      // Update deleteKey mock to use the test eventBus
+      // Update deleteKey mock to reflect new behavior (no keys:changed emission)
       keyService.deleteKey = vi.fn(async (keyName) => {
         if (!keyService.cache.currentProfile || !keyService.cache.keys[keyName]) {
           return false
         }
 
         delete keyService.cache.keys[keyName]
-        testEventBus.emit('keys:changed', { keys: keyService.cache.keys })
+        // NO LONGER EMITS: keys:changed - ComponentBase handles caching
         return true
       })
       
@@ -483,7 +483,7 @@ describe('KeyService', () => {
       
       await keyService.deleteKey('Space')
       
-      expectEvent('keys:changed')
+      expectNoEvent('keys:changed')
     })
 
     it('should handle profile switching events', () => {

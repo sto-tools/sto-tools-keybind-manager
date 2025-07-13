@@ -18,11 +18,8 @@ export default class ProfileUI extends ComponentBase {
     // I18n handle
     this.i18n = i18n
 
-    // Cached state - following broadcast/cache pattern
-    this._currentProfileId   = null
-    this._currentEnvironment = 'space'
-    this._isModified         = false
-    this._currentProfile     = null  // Cache current profile data to avoid request/response calls
+    // UI-specific state (ComponentBase handles common caching)
+    this._isModified = false
 
     this.currentModal = null
     this.eventListenersSetup = false
@@ -95,19 +92,15 @@ export default class ProfileUI extends ComponentBase {
     // Listen for global events to keep caches sync - broadcast/cache pattern
     // -------------------------------------------
     this.addEventListener('profile:switched', ({ profileId, environment, profile } = {}) => {
-      if (profileId) this._currentProfileId = profileId
-      if (environment) this._currentEnvironment = environment
-      if (profile) this._currentProfile = profile  // Cache profile data
+      // ComponentBase handles caching automatically
       this._isModified = false // new profile starts clean
       this.renderProfiles()
       this.updateProfileInfo()
     })
 
     this.addEventListener('environment:changed', ({ environment } = {}) => {
-      if (environment) {
-        this._currentEnvironment = environment
-        this.updateProfileInfo()
-      }
+      // ComponentBase handles caching automatically
+      this.updateProfileInfo()
     })
 
     this.addEventListener('profile-modified', () => {
@@ -117,10 +110,8 @@ export default class ProfileUI extends ComponentBase {
 
     // Listen for profile updates to keep cached data fresh
     this.addEventListener('current-profile:updated', ({ profile }) => {
-      if (profile) {
-        this._currentProfile = profile
-        this.updateProfileInfo()
-      }
+      // ComponentBase handles caching automatically
+      this.updateProfileInfo()
     })
 
     // Profile UI no longer handles global menu events - moved to EventHandlerService
@@ -172,7 +163,7 @@ export default class ProfileUI extends ComponentBase {
         const option = this.document.createElement('option')
         option.value = id
         option.textContent = profile.name
-        if (id === this._currentProfileId) {
+        if (id === this.currentProfile) {
           option.selected = true
         }
         select.appendChild(option)
@@ -189,14 +180,14 @@ export default class ProfileUI extends ComponentBase {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     const modeBtns = this.document.querySelectorAll('.mode-btn')
     modeBtns.forEach((btn) => {
-      btn.classList.toggle('active', this._currentProfile && btn.dataset.mode === this._currentEnvironment)
-      btn.disabled = !this._currentProfileId
+      btn.classList.toggle('active', this.cache?.profile && btn.dataset.mode === this.currentEnvironment)
+      btn.disabled = !this.currentProfile
     })
 
     const keyCount = this.document.getElementById('keyCount')
     if (keyCount) {
-      if (this._currentProfile) {
-        const currentBuild = this._currentProfile.builds?.[this._currentEnvironment]
+      if (this.cache?.profile) {
+        const currentBuild = this.cache.profile.builds?.[this.currentEnvironment]
         const count = Object.keys(currentBuild?.keys || {}).length
         const keyText = count === 1 ? this._t('key') : this._t('keys')
         keyCount.textContent = `${count} ${keyText}`
@@ -258,7 +249,7 @@ export default class ProfileUI extends ComponentBase {
    */
   showCloneProfileModal() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
-    if (!this._currentProfile) {
+    if (!this.cache?.profile) {
       this.ui?.showToast?.(this._t('no_profile_selected_to_clone'), 'warning')
       return
     }
@@ -270,11 +261,11 @@ export default class ProfileUI extends ComponentBase {
 
     if (title) title.textContent = this._t('clone_profile')
     if (nameInput) {
-      nameInput.value = `${this._currentProfile.name} Copy`
+      nameInput.value = `${this.cache?.profile.name} Copy`
       nameInput.placeholder = 'Enter new profile name'
     }
     if (descInput) {
-      descInput.value = `Copy of ${this._currentProfile.name}`
+      descInput.value = `Copy of ${this.cache?.profile.name}`
     }
 
     this.currentModal = 'clone'
@@ -286,7 +277,7 @@ export default class ProfileUI extends ComponentBase {
    */
   showRenameProfileModal() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
-    if (!this._currentProfile) {
+    if (!this.cache?.profile) {
       this.ui?.showToast?.(this._t('no_profile_selected_to_rename'), 'warning')
       return
     }
@@ -298,11 +289,11 @@ export default class ProfileUI extends ComponentBase {
 
     if (title) title.textContent = this._t('rename_profile')
     if (nameInput) {
-      nameInput.value = this._currentProfile.name
+      nameInput.value = this.cache?.profile.name
       nameInput.placeholder = 'Enter profile name'
     }
     if (descInput) {
-      descInput.value = this._currentProfile.description || ''
+      descInput.value = this.cache?.profile.description || ''
     }
 
     this.currentModal = 'rename'
@@ -343,7 +334,7 @@ export default class ProfileUI extends ComponentBase {
         }
         case 'clone': {
           // Use DataCoordinator directly for better performance
-          result = await this.request('data:clone-profile', { sourceId: this._currentProfileId, newName: name })
+          result = await this.request('data:clone-profile', { sourceId: this.currentProfile, newName: name })
           if (result?.success) {
             await this.renderProfiles()
             this.ui?.showToast?.(result.message, 'success')
@@ -352,7 +343,7 @@ export default class ProfileUI extends ComponentBase {
         }
         case 'rename': {
           // Use DataCoordinator directly for better performance
-          result = await this.request('data:rename-profile', { profileId: this._currentProfileId, newName: name, description })
+          result = await this.request('data:rename-profile', { profileId: this.currentProfile, newName: name, description })
           if (result?.success) {
             await this.renderProfiles()
             this.updateProfileInfo()
@@ -374,14 +365,14 @@ export default class ProfileUI extends ComponentBase {
    */
   confirmDeleteProfile() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
-    if (!this._currentProfile) {
+    if (!this.cache?.profile) {
       this.ui?.showToast?.(this._t('no_profile_selected_to_delete'), 'warning')
       return
     }
 
     const confirmed = confirm(
-      this._t('confirm_delete_profile', { name: this._currentProfile.name }) ||
-      `Are you sure you want to delete the profile "${this._currentProfile.name}"? This action cannot be undone.`
+      this._t('confirm_delete_profile', { name: this.cache?.profile.name }) ||
+      `Are you sure you want to delete the profile "${this.cache?.profile.name}"? This action cannot be undone.`
     )
 
     if (confirmed) {
@@ -395,7 +386,7 @@ export default class ProfileUI extends ComponentBase {
   async deleteCurrentProfile() {
     try {
       // Use DataCoordinator directly for better performance
-      const result = await this.request('data:delete-profile', { profileId: this._currentProfileId })
+      const result = await this.request('data:delete-profile', { profileId: this.currentProfile })
       if (result.success) {
         if (result.switchedProfile) {
           this._selectedKey = null
@@ -433,17 +424,8 @@ export default class ProfileUI extends ComponentBase {
    handleInitialState (sender, state) {
      if (!state) return
 
-     // Profiles now come from DataCoordinator (single source of truth)
-     if ((sender === 'DataCoordinator' || sender === 'ProfileService' || state.currentProfile)) {
-       if (state.currentProfile) this._currentProfileId = state.currentProfile
-       if (state.currentEnvironment) this._currentEnvironment = state.currentEnvironment
-       if (typeof state.modified === 'boolean') this._isModified = state.modified
-       
-       // Cache current profile data to avoid request/response calls
-       if (state.profiles && state.currentProfile && state.profiles[state.currentProfile]) {
-         this._currentProfile = state.profiles[state.currentProfile]
-       }
-
+     // ComponentBase handles caching, we just need to update the UI
+     if ((sender === 'DataCoordinator' || sender === 'ProfileService')) {
        // UI hydration
        this.renderProfiles()
        this.updateProfileInfo()
@@ -455,8 +437,8 @@ export default class ProfileUI extends ComponentBase {
     */
    getCurrentState () {
      return {
-       currentProfile: this._currentProfileId,
-       currentEnvironment: this._currentEnvironment,
+       currentProfile: this.currentProfile,
+       currentEnvironment: this.currentEnvironment,
        modified: this._isModified
      }
    }

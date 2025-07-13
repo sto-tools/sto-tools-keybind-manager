@@ -38,20 +38,6 @@ export default class VFXManagerService extends ComponentBase {
   handleInitialState(sender, state) {
     if (!state) return
     
-    // Handle state from DataCoordinator via ComponentBase late-join
-    if (sender === 'DataCoordinator') {
-      if (state.currentProfile) {
-        this.currentProfile = state.currentProfile
-        console.log(`[${this.componentName}] Received current profile from DataCoordinator: ${this.currentProfile}`)
-      }
-      
-      // Load VFX state from current profile data if available
-      if (state.currentProfileData) {
-        this.loadState(state.currentProfileData)
-        console.log(`[${this.componentName}] Loaded VFX state from current profile`)
-        // Note: autoGenerateAliases is called from loadState()
-      }
-    }
   }
 
   setupEventListeners() {
