@@ -390,15 +390,13 @@ export default class SelectionService extends ComponentBase {
     
     const env = environment || this.currentEnvironment
     
-    // Use cached data from ComponentBase
-    let keys = this.cache?.keys || {}
+    // Use the same validation logic as BindsetService - check Primary Bindset
+    // This ensures compatibility with bindset-enabled profiles
+    const profile = this.cache?.profile
+    if (!profile) return false
     
-    // If checking different environment, look in builds data
-    if (env !== this.currentEnvironment && this.cache?.builds) {
-      keys = this.cache.builds[env]?.keys || {}
-    }
-    
-    const exists = keys.hasOwnProperty(keyName)
+    const keyData = profile.builds?.[env]?.keys?.[keyName]
+    const exists = keyData !== undefined && Array.isArray(keyData)
     return exists
   }
   
