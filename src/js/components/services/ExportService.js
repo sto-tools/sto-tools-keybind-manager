@@ -193,7 +193,6 @@ export default class ExportService extends ComponentBase {
 ; 1. Save this file in your STO Live folder as a .txt file
 ; 2. In-game, type: /bind_load_file ${syncFilename}
 ; 3. Your keybinds will be applied immediately
-
 ; ================================================================
 
 `
