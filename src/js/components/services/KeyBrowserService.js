@@ -179,48 +179,7 @@ export default class KeyBrowserService extends ComponentBase {
    * Selection caching and auto-selection
    * ============================================================ */
   
-  /**
-   * Restore cached selection or auto-select first key for the given environment
-   * @param {string} environment - The environment to restore/auto-select for
-   */
-  // TODO: Remove this method - auto-selection handled by SelectionService  
-  async _restoreOrAutoSelectKey(environment) {
-    // DEPRECATED: SelectionService handles auto-selection
-    return
-    // Try to restore persisted selection first
-    const profile = this.getProfile()
-    const persistedKey = profile?.selections?.[environment]
-    const availableKeys = this.getKeys()
-    
-    if (persistedKey && availableKeys[persistedKey]) {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] Restoring persisted key selection for ${environment}: ${persistedKey}`)
-      }
-      this.selectKey(persistedKey)
-      return
-    }
-    
-    // Auto-select first key if none selected and keys exist
-    const keyNames = Object.keys(availableKeys)
-    if (keyNames.length > 0) {
-      // Sort keys to ensure consistent first selection
-      keyNames.sort()
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] Auto-selecting first key for ${environment}: ${keyNames[0]}`)
-      }
-      this.selectKey(keyNames[0])
-    } else {
-      // No keys available - emit key-selected with null to indicate no selection
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] No keys available for ${environment}, emitting null selection`)
-      }
-      this.selectedKeyName = null
-      this.emit('key-selected', { key: null, name: null })
-    }
-  }
+  /* REMOVED: Auto-selection now handled by SelectionService */
 
   /* ============================================================
    * REFACTORED: Data helpers now use cached data
@@ -262,64 +221,7 @@ export default class KeyBrowserService extends ComponentBase {
     return result
   }
 
-  // REMOVED: Persistence now handled by SelectionService
-  /**
-   * Persist key selection to profile storage
-   */
-  // TODO: Remove this method - persistence handled by SelectionService
-  async _persistKeySelection(keyName) {
-    // DEPRECATED: SelectionService handles persistence
-    return // No-op 
-    try {
-      const profile = this.getProfile()
-      if (!profile || !this.currentEnvironment || this.currentEnvironment === 'alias') {
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[KeyBrowserService] Skipping persistence: profile=${!!profile}, env=${this.currentEnvironment}`)
-        }
-        return // Don't persist for alias mode or if no profile
-      }
-
-      if (!this.currentProfileId) {
-        console.error('[KeyBrowserService] Cannot persist selection: currentProfileId is null')
-        return
-      }
-
-      // Prepare updated selections
-      const currentSelections = profile.selections || {}
-      const updatedSelections = {
-        ...currentSelections,
-        [this.currentEnvironment]: keyName
-      }
-
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] Persisting key selection: ${this.currentEnvironment} -> ${keyName}`)
-      }
-
-      // Update through DataCoordinator using explicit operations API
-      const { request } = await import('../../core/requestResponse.js')
-      const result = await this.request('data:update-profile', {
-        profileId: this.currentProfileId,
-        properties: {
-          selections: updatedSelections
-        }
-      })
-
-      // Update local cache immediately to avoid race conditions
-      if (result?.success && this.cache.profile) {
-        this.cache.profile.selections = updatedSelections
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[KeyBrowserService] Updated local cache with selections:`, updatedSelections)
-        }
-      } else if (!result?.success) {
-        console.error('[KeyBrowserService] Failed to persist selection, result:', result)
-      }
-    } catch (error) {
-      console.error('[KeyBrowserService] Failed to persist key selection:', error)
-    }
-  }
+  /* REMOVED: Persistence now handled by SelectionService */
 
   /* ============================================================
    * Internal helpers
