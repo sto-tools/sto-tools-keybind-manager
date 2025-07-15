@@ -248,7 +248,8 @@ export default class AliasBrowserUI extends ComponentBase {
     // Use the correct CSS class selector to match what createAliasElement produces
     grid.querySelectorAll('.alias-item').forEach((item) => {
       item.addEventListener('click', () => {
-        request(this.eventBus, 'alias:select', { name: item.dataset.alias })
+        // Use correct parameter name for SelectionService
+        request(this.eventBus, 'alias:select', { aliasName: item.dataset.alias })
         this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
       })
     })

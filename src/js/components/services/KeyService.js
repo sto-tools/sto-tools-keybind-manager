@@ -405,16 +405,6 @@ export default class KeyService extends ComponentBase {
     return keyName
   }
 
-  // Alias validation used by unit tests
-  async isValidAliasName (name) {
-    try {
-      const pattern = await this.request('data:get-alias-name-pattern') || /^[A-Za-z0-9_]+$/
-      return pattern.test(name)
-    } catch (error) {
-      // Fallback to default pattern if DataService not available
-      return /^[A-Za-z0-9_]+$/.test(name)
-    }
-  }
 
   /* Legacy helper used by keybinds tests */
   isValidKey (key) {
@@ -482,63 +472,6 @@ export default class KeyService extends ComponentBase {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  /* ------------------------------------------------------------------
-   * Mirroring helpers (legacy compatibility for stoKeybinds)
-   * ------------------------------------------------------------------ */
-  /** Mirror command array forward and then reverse (excluding last) */
-  generateMirroredCommandString (commands) {
-    // Delegate to FileOperationsService for authoritative implementation
-    return request(this.eventBus, 'fileops:generate-mirrored-commands', { commands })
-  }
-
-  /** Detect simple mirrored sequences produced by above method */
-  detectAndUnmirrorCommands (commandString) {
-    // Delegate to FileOperationsService for authoritative implementation
-    return request(this.eventBus, 'fileops:detect-unmirror-commands', { commandString })
-  }
-
-  /** Split $$ separated string into command objects */
-  parseCommandString (commandString) {
-    // Use STOCommandParser directly - return new format
-    return request(this.eventBus, 'parser:parse-command-string', { commandString })
-      .then(result => result.commands)
-  }
-
-  /**
-   * Parse keybind file content using FileOperationsService
-   */
-  parseKeybindFile (content) {
-    // Delegate to FileOperationsService for authoritative implementation
-    return request(this.eventBus, 'fileops:parse-keybind-file', { content })
-  }
-
-  /**
-   * Import keybind file content using ImportService
-   */
-  importKeybindFile (content) {
-    const profileId = this.currentProfile
-    const environment = this.currentEnvironment || 'space'
-
-    // Delegate to ImportService for complete import handling
-    return request(this.eventBus, 'import:keybind-file', { 
-      content, 
-      profileId, 
-      environment 
-    })
-  }
-
-  /**
-   * Import alias file using ImportService
-   */
-  importAliasFile (content) {
-    const profileId = this.currentProfile
-
-    // Delegate to ImportService for complete import handling
-    return request(this.eventBus, 'import:alias-file', { 
-      content, 
-      profileId 
-    })
-  }
 
   /* ------------------------------------------------------------------
    * Profile export helpers (simplified for unit-test expectations)
@@ -569,158 +502,14 @@ export default class KeyService extends ComponentBase {
     return a.localeCompare(b)
   }
 
-  exportProfile (profile) {
-    // Delegate to FileOperationsService for authoritative implementation
-    return request(this.eventBus, 'fileops:generate-keybind-file', { profile })
-  }
 
   /* ------------------------------------------------------------------
    * Legacy validation helpers expected by unit-tests
    * ------------------------------------------------------------------ */
-  /**
-   * Validate a keybind consisting of a key name and an array of command objects.
-   * Returns an object { valid: boolean, errors: string[] }
-   */
-  validateKeybind (keyName, commands = []) {
-    const errors = []
 
-    // Validate key name
-    if (!this.isValidKey(keyName)) {
-      errors.push(`Invalid key name: ${keyName}`)
-    }
 
-    // Validate command array existence
-    if (!Array.isArray(commands) || commands.length === 0) {
-      errors.push('At least one command is required')
-    } else {
-      // Command count limit (arbitrary 20 – matches historical stoKeybinds limit)
-      if (commands.length > 20) {
-        errors.push('Too many commands (max 20)')
-      }
 
-      // Validate each individual command
-      commands.forEach((cmd, idx) => {
-        const str = (cmd && typeof cmd.command === 'string') ? cmd.command.trim() : ''
-        if (!str) {
-          errors.push(`Command ${idx + 1} is empty`)
-        }
-      })
-    }
 
-    return { valid: errors.length === 0, errors }
-  }
-
-  /**
-   * Suggest up to 20 key names from the full valid key list that match a filter.
-   * Filtering is case-insensitive and suggestions are sorted according to compareKeys.
-   */
-  suggestKeys (filter = '') {
-    if (!Array.isArray(this.validKeys) || this.validKeys.length === 0) return []
-    const lower = filter.toLowerCase()
-    const matches = this.validKeys.filter(k => k.toLowerCase().includes(lower))
-    const sorted = matches.sort(this.compareKeys.bind(this))
-    return sorted.slice(0, 20)
-  }
-
-  /**
-   * Return a list of commonly used keys for quick selection in UI components.
-   * The list is ordered according to compareKeys so tests get deterministic output.
-   */
-  getCommonKeys () {
-    const preferred = ['Space', 'Tab', 'Enter', 'Escape', 'F1', 'F2', 'F3', 'Ctrl+1', 'Ctrl+2', 'Ctrl+3']
-    const available = preferred.filter(k => this.validKeys.includes(k))
-    return available.sort(this.compareKeys.bind(this))
-  }
-
-  /**
-   * Generate a unique keybind id (different from command/key ids) used by legacy tests.
-   */
-  generateKeybindId () {
-    return `keybind_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
-
-  /** Deep-clone a keybind object so mutations on the clone do not affect the original. */
-  cloneKeybind (keybind) {
-    return JSON.parse(JSON.stringify(keybind))
-  }
-
-  /**
-   * Produce aggregate statistics for a profile used by analytics UI and unit-tests.
-   */
-  getProfileStats (profile = {}) {
-    const keys = profile.keys || {}
-    const aliases = profile.aliases || {}
-
-    const stats = {
-      totalKeys: Object.keys(keys).length,
-      totalCommands: 0,
-      totalAliases: Object.keys(aliases).length,
-      commandTypes: {},
-      mostUsedCommands: {},
-    }
-
-    Object.values(keys).forEach(cmdArray => {
-      if (!Array.isArray(cmdArray)) return
-      stats.totalCommands += cmdArray.length
-      cmdArray.forEach(cmdObj => {
-        // Skip null/undefined entries that can occur from partially edited keybinds
-        if (!cmdObj) return
-        const cmdStr = cmdObj.command || ''
-        const category = cmdObj.category || cmdObj.type || 'unknown' // Support both new and legacy format
-        // Count by category
-        stats.commandTypes[category] = (stats.commandTypes[category] || 0) + 1
-        // Count by command string
-        if (cmdStr) {
-          stats.mostUsedCommands[cmdStr] = (stats.mostUsedCommands[cmdStr] || 0) + 1
-        }
-      })
-    })
-
-    return stats
-  }
-
-  /**
-   * Legacy file-input handler used by tests – simply reads the first file as text and
-   * forwards content to importKeybindFile().
-   */
-  handleKeybindFileImport (event) {
-    if (!event || !event.target || !event.target.files || event.target.files.length === 0) return
-    const file = event.target.files[0]
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const content = e.target.result
-      this.importKeybindFile(content)
-    }
-    reader.readAsText(file)
-
-    // Reset input so the same file can be chosen again if needed
-    event.target.value = ''
-  }
-
-  /**
-   * Detect the category of a command string (tray, communication, power, movement, camera, combat, targeting, system, custom).
-   * Uses STOCommandParser directly for consistent, performance-optimized parsing.
-   */
-  async detectCommandType(command) {
-    if (!command || typeof command !== 'string') return 'custom'
-
-    try {
-      // Use STOCommandParser directly for efficient command category detection
-      const result = await this.request('parser:parse-command-string', { 
-        commandString: command.trim(),
-        options: { generateDisplayText: false } // Skip expensive display text generation
-      })
-      
-      // Return the category from the first parsed command
-      if (result.commands && result.commands.length > 0) {
-        return result.commands[0].category || 'custom'
-      }
-    } catch (error) {
-      console.warn('[KeyService] detectCommandType failed, falling back to custom:', error)
-    }
-    
-    return 'custom'
-  }
 
   /* ------------------------------------------------------------------
    * REFACTORED: Late-join state sharing using cached data

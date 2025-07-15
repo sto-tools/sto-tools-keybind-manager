@@ -35,7 +35,7 @@ export default class AliasBrowserService extends ComponentBase {
     // ---------------------------------------------------------
     if (this.eventBus) {
       this.respond('alias:get-all', () => this.getAliases())
-      this.respond('alias:select', async ({ name }) => await this.selectAlias(name))
+      // REMOVED: alias:select - SelectionService handles this for centralized selection management
       
       // Use addEventListener for alias:delete since AliasBrowserUI emits it rather than requests it
       this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
@@ -90,18 +90,14 @@ export default class AliasBrowserService extends ComponentBase {
         this.cache.currentEnvironment = environment
       }
       
+      // Clear legacy selection state when profile changes
       this.selectedAliasName = null
-      // Clear cached selection when profile changes
       this._cachedAliasSelection = null
       
       this.updateCacheFromProfile(profile)
       this.emit('aliases-changed', { aliases: this.cache.aliases })
 
-      // Auto-select first alias if we are in alias mode and none is selected
-      if (this.currentEnvironment === 'alias' && !this.selectedAliasName) {
-        const names = Object.keys(this.cache.aliases)
-        if (names.length) this.selectAlias(names[0])
-      }
+      // SelectionService now handles all auto-selection logic
     })
 
     // Listen for environment changes
@@ -112,33 +108,11 @@ export default class AliasBrowserService extends ComponentBase {
         console.log(`[AliasBrowserService] environment:changed received. payload:`, payload, `parsed env: ${env}`)
       }
       if (env) {
-        // Cache current selection before changing environment (only when leaving alias mode)
-        if (this.currentEnvironment === 'alias' && this.selectedAliasName) {
-          this._cachedAliasSelection = this.selectedAliasName
-          if (typeof window !== 'undefined') {
-            // eslint-disable-next-line no-console
-            console.log(`[AliasBrowserService] Cached alias selection before leaving alias mode: ${this.selectedAliasName}`)
-          }
-        }
-        
         this.currentEnvironment = env
         this.cache.currentEnvironment = env
         
-        // If switching to alias mode, restore or auto-select immediately
-        if (env === 'alias') {
-          if (typeof window !== 'undefined') {
-            // eslint-disable-next-line no-console
-            console.log(`[AliasBrowserService] Switching to alias mode, calling _restoreOrAutoSelectAlias() immediately`)
-          }
-          await this._restoreOrAutoSelectAlias()
-        } else {
-          // Clear selection when switching away from alias mode
-          this.selectedAliasName = null
-          if (typeof window !== 'undefined') {
-            // eslint-disable-next-line no-console
-            console.log(`[AliasBrowserService] Switching away from alias mode, cleared selectedAliasName`)
-          }
-        }
+        // SelectionService now handles all selection caching and restoration
+        // AliasBrowserService just needs to track the current environment for data operations
       }
     })
 
@@ -183,65 +157,7 @@ export default class AliasBrowserService extends ComponentBase {
    * Selection caching and auto-selection
    * ============================================================ */
   
-  /**
-   * Restore cached selection or auto-select first alias
-   */
-  async _restoreOrAutoSelectAlias() {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[AliasBrowserService] _restoreOrAutoSelectAlias called. selectedAliasName: ${this.selectedAliasName}`)
-    }
-    
-    // Try to restore persisted selection first
-    const profile = this.getProfile()
-    const persistedAlias = profile?.selections?.alias
-    const aliases = this.getAliases()
-    
-    if (persistedAlias && aliases[persistedAlias]) {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserService] Restoring persisted alias selection: ${persistedAlias}`)
-      }
-      await this.selectAlias(persistedAlias)
-      return
-    } else if (persistedAlias) {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserService] Persisted alias ${persistedAlias} no longer exists`)
-      }
-    }
-    
-    // Auto-select first alias if none selected and aliases exist
-    if (!this.selectedAliasName) {
-      const names = Object.keys(aliases)
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserService] Auto-selecting first alias. Available aliases: [${names.join(', ')}]`)
-      }
-      if (names.length > 0) {
-        // Sort names to ensure consistent first selection
-        names.sort()
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[AliasBrowserService] Auto-selecting first alias: ${names[0]}`)
-        }
-        await this.selectAlias(names[0])
-      } else {
-        // No aliases available - delegate to SelectionService to clear selection
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[AliasBrowserService] No aliases available, clearing selection via SelectionService`)
-        }
-        this.selectedAliasName = null
-        await this.request('selection:select-alias', { aliasName: null })
-      }
-    } else {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserService] Alias already selected: ${this.selectedAliasName}`)
-      }
-    }
-  }
+  // REMOVED: _restoreOrAutoSelectAlias() - SelectionService now handles all selection restoration and auto-selection
 
   /* ============================================================
    * REFACTORED: Data helpers now use cached data
@@ -265,9 +181,6 @@ export default class AliasBrowserService extends ComponentBase {
     const result = await this.request('selection:select-alias', { 
       aliasName: name
     })
-    
-    // Keep legacy selection state for backward compatibility
-    this.selectedAliasName = name
     
     return result
   }
@@ -332,62 +245,27 @@ export default class AliasBrowserService extends ComponentBase {
    * REFACTORED: CRUD operations now use DataCoordinator
    * ============================================================ */
   async createAlias(name, description = '') {
-    const profile = this.getProfile()
-    if (!profile) return false
-
-    if (this.cache.aliases[name]) {
-      this.ui && this.ui.showToast(i18next.t('alias_already_exists', { name }), 'error')
-      return false
-    }
-
-    try {
-      // Add new alias using explicit operations API
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        add: {
-          aliases: {
-            [name]: { description, commands: '' }
-          }
-        }
-      })
-
-      this.emit('alias-created', { name })
+    // Delegate CRUD operation to AliasService
+    const result = await this.request('alias:add', { name, description })
+    
+    if (result) {
+      // Auto-select the newly created alias
       await this.selectAlias(name)
-      return true
-    } catch (error) {
-      console.error('[AliasBrowserService] Failed to create alias:', error)
-      this.ui && this.ui.showToast('Failed to create alias', 'error')
-      return false
     }
+    
+    return result
   }
 
   async deleteAlias(name) {
     if (!this.cache.aliases[name]) return false
 
-    try {
-      if (typeof window !== 'undefined') {
-        console.log(`[AliasBrowserService] deleteAlias: Deleting '${name}' from aliases`)
-        console.log(`[AliasBrowserService] deleteAlias: Original aliases:`, Object.keys(this.cache.aliases))
-        console.log(`[AliasBrowserService] deleteAlias: Sending delete request to DataCoordinator with profileId:`, this.cache.currentProfile)
-      }
-
-      // Delete alias using explicit operations API
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        delete: {
-          aliases: [name]
-        }
-      })
-
-      if (this.selectedAliasName === name) this.selectedAliasName = null
-      this.emit('alias-deleted', { name })
-      // Note: aliases-changed will be emitted by profile:updated handler after cache is updated
-      return true
-    } catch (error) {
-      console.error('[AliasBrowserService] Failed to delete alias:', error)
-      this.ui && this.ui.showToast('Failed to delete alias', 'error')
-      return false
+    // Clear selection if deleting the currently selected alias
+    if (this.selectedAliasName === name) {
+      this.selectedAliasName = null
     }
+
+    // Delegate CRUD operation to AliasService
+    return await this.request('alias:delete', { name })
   }
 
   /**
@@ -398,65 +276,24 @@ export default class AliasBrowserService extends ComponentBase {
    *                                backward-compatibility with existing tests and API consumers.
    */
   async duplicateAlias(sourceName, targetName = undefined) {
-    const original = this.cache.aliases[sourceName]
-    if (!original) return false
+    if (!this.cache.aliases[sourceName]) return false
 
-    try {
-      // ------------------------------------------------------
-      // Determine new name
-      // ------------------------------------------------------
-      let newName = targetName?.trim()
-
-      if (!newName) {
-        // Legacy fallback – keeps older tests passing until they are updated.
-        let counter = 0
-        do {
-          newName = `${sourceName}_copy${counter || ''}`
-          counter++
-        } while (this.cache.aliases[newName])
-      } else {
-        // Validate uniqueness when target provided
-        if (this.cache.aliases[newName]) {
-          this.ui && this.ui.showToast(i18next.t('alias_name_in_use') || 'Alias already exists', 'error')
-          return false
-        }
-        // Basic pattern validation (alphanumeric + underscores)
-        if (!/^[A-Za-z0-9_]+$/.test(newName)) {
-          this.ui && this.ui.showToast(i18next.t('invalid_alias_name') || 'Invalid alias name', 'error')
-          return false
-        }
-      }
-
-      // Check reserved command names
-      if (!isAliasNameAllowed(newName)) {
-        this.ui && this.ui.showToast(i18next.t('reserved_command_name') || 'Reserved command name', 'error')
-        return false
-      }
-
-      // ------------------------------------------------------
-      // Persist duplicate via DataCoordinator
-      // ------------------------------------------------------
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        add: {
-          aliases: {
-            [newName]: {
-              description: original.description + ' (copy)',
-              commands: original.commands,
-            }
-          }
-        }
-      })
-
-      // Emit alias-created first, then select so alias-selected fires afterwards
-      this.emit('alias-created', { name: newName })
-      await this.selectAlias(newName)
-      return true
-    } catch (error) {
-      console.error('[AliasBrowserService] Failed to duplicate alias:', error)
-      this.ui && this.ui.showToast('Failed to duplicate alias', 'error')
-      return false
+    let result
+    if (targetName) {
+      // Delegate to AliasService with explicit target name
+      result = await this.request('alias:duplicate-with-name', { sourceName, newName: targetName })
+    } else {
+      // Delegate to AliasService for auto-generated name
+      result = await this.request('alias:duplicate', { sourceName })
     }
+
+    if (result?.success) {
+      // Auto-select the newly duplicated alias
+      await this.selectAlias(result.newName)
+      return true
+    }
+
+    return false
   }
 
   /* ============================================================
@@ -464,8 +301,7 @@ export default class AliasBrowserService extends ComponentBase {
    * ============================================================ */
   getCurrentState() {
     return {
-      selectedAliasName: this.selectedAliasName,
-      cachedAliasSelection: this._cachedAliasSelection
+      // REMOVED: All selection state - now managed by SelectionService
       // REMOVED: currentProfileId, currentEnvironment, aliases - not owned by AliasBrowserService
       // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
@@ -473,11 +309,6 @@ export default class AliasBrowserService extends ComponentBase {
 
   handleInitialState(sender, state) {
     // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
-    
-    // Handle state from other AliasBrowserService instances (peer-to-peer sync)
-    if (sender === 'AliasBrowserService') {
-      this.selectedAliasName = state.selectedAliasName ?? this.selectedAliasName
-      this._cachedAliasSelection = state.cachedAliasSelection ?? this._cachedAliasSelection
-    }
+    // REMOVED: Selection state handling - now managed by SelectionService
   }
 } 

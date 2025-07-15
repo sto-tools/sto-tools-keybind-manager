@@ -292,10 +292,21 @@ export default class SelectionService extends ComponentBase {
    */
   async switchEnvironment(newEnvironment) {
     const previousEnv = this.currentEnvironment
+    
+    // CRITICAL: Cache current selection BEFORE switching environments
+    if (previousEnv === 'alias' && this.selectedAlias) {
+      this.cachedSelections.alias = this.selectedAlias
+      console.log(`[SelectionService] Cached alias selection "${this.selectedAlias}" before switching from ${previousEnv} to ${newEnvironment}`)
+    } else if (previousEnv !== 'alias' && this.selectedKey) {
+      this.cachedSelections[previousEnv] = this.selectedKey
+      console.log(`[SelectionService] Cached key selection "${this.selectedKey}" for env "${previousEnv}" before switching to ${newEnvironment}`)
+    }
+    
     this.currentEnvironment = newEnvironment
     
     // Auto-restore cached selection for the new environment with validation
     const cachedSelection = this.cachedSelections[newEnvironment]
+    console.log(`[SelectionService] Switching to ${newEnvironment}, cached selection: "${cachedSelection}"`)
     
     if (newEnvironment === 'alias') {
       // Switching to alias mode - clear key selection first
@@ -417,8 +428,10 @@ export default class SelectionService extends ComponentBase {
    * Validate and restore selection, with auto-selection fallback if invalid
    */
   async validateAndRestoreSelection(environment, cachedSelection) {
+    console.log(`[SelectionService] validateAndRestoreSelection: env="${environment}", cached="${cachedSelection}"`)
     
     if (!cachedSelection) {
+      console.log(`[SelectionService] No cached selection for ${environment}, auto-selecting first available`)
       await this.autoSelectFirst(environment)
       return
     }
@@ -428,16 +441,20 @@ export default class SelectionService extends ComponentBase {
     if (environment === 'alias') {
       isValid = this.validateAliasExists(cachedSelection)
       if (isValid) {
+        console.log(`[SelectionService] Restoring cached alias: "${cachedSelection}"`)
         await this.selectAlias(cachedSelection)
       } else {
+        console.log(`[SelectionService] Cached alias "${cachedSelection}" no longer exists, auto-selecting`)
         this.cachedSelections.alias = null
         await this.autoSelectFirst('alias')
       }
     } else {
       isValid = this.validateKeyExists(cachedSelection, environment)
       if (isValid) {
+        console.log(`[SelectionService] Restoring cached key: "${cachedSelection}" for env "${environment}"`)
         await this.selectKey(cachedSelection, environment)
       } else {
+        console.log(`[SelectionService] Cached key "${cachedSelection}" no longer exists in ${environment}, auto-selecting`)
         this.cachedSelections[environment] = null
         await this.autoSelectFirst(environment)
       }

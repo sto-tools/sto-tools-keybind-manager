@@ -20,6 +20,8 @@ import { KeyBrowserService, KeyBrowserUI } from './components/keybinds/index.js'
 import { PreferencesService } from './components/services/index.js'
 import PreferencesUI from './components/ui/PreferencesUI.js'
 import KeyService from './components/services/KeyService.js'
+import AliasService from './components/services/AliasService.js'
+import AnalyticsService from './components/services/AnalyticsService.js'
 import FileOperationsService from './components/services/FileOperationsService.js'
 import ExportService from './components/services/ExportService.js'
 import ExportUI from './components/ui/ExportUI.js'
@@ -175,6 +177,27 @@ export default class STOToolsKeybindManager {
         // dbg('TEST: Error creating ProfileUI:', error)
         throw error
       }
+
+      // ------------------------------
+      // Alias Service (CRUD operations)
+      // ------------------------------
+      this.aliasService = new AliasService({
+        storage: storageService,
+        eventBus,
+        i18n: i18next,
+        ui: stoUI,
+      })
+
+      await this.aliasService.init()
+
+      // ------------------------------
+      // Analytics Service (profile statistics)
+      // ------------------------------
+      this.analyticsService = new AnalyticsService({
+        eventBus,
+      })
+
+      await this.analyticsService.init()
 
       // ------------------------------
       // Alias Browser (grid selector)
