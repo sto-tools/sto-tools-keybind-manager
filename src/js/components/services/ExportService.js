@@ -442,30 +442,12 @@ export default class ExportService extends ComponentBase {
   }
 
   /* ---------------------------------------------------------- */
-  /* Import delegation to ImportService                         */
+  /* Import delegation methods removed - use ImportService directly */
+  /* Use: await this.request('import:from-file', { file })          */
+  /* Use: await this.request('import:project-file', { content })    */
+  /* Use: await this.request('import:profile-file', { content })    */
   /* ---------------------------------------------------------- */
-  async importFromFile (file) {
-    // Delegate to ImportService
-    return await this.request('import:from-file', { file })
-  }
 
-  importJSONFile (content) {
-    try {
-      const data = JSON.parse(content)
-      
-      if (data.type === 'project') {
-        // Delegate to ImportService
-        return this.request('import:project-file', { content })
-      } else if (data.name) {
-        // Delegate to ImportService  
-        return this.request('import:profile-file', { content })
-      } else {
-        throw new Error(i18next.t('import_failed_invalid_format'))
-      }
-    } catch (error) {
-      throw new Error(i18next.t('import_failed_invalid_json'))
-    }
-  }
 
   /* ---------------------------------------------------------- */
   /* Alias file generation                                      */
@@ -473,6 +455,14 @@ export default class ExportService extends ComponentBase {
   async generateAliasFile (profile) {
     const aliases = profile.aliases || {}
     
+    // Get current virtual VFX aliases from VFXManagerService
+    let vfxAliases = {}
+    try {
+      vfxAliases = await this.request('vfx:get-virtual-aliases') || {}
+    } catch (error) {
+      // VFXManagerService might not be available - continue without VFX aliases
+      console.log('[ExportService] VFXManagerService not available, skipping VFX aliases')
+    }
     
     // Check if bind-to-alias mode is enabled and add generated aliases
     const bindToAliasMode = await this.getBindToAliasMode()
@@ -625,8 +615,8 @@ export default class ExportService extends ComponentBase {
       }
     }
 
-    // Combine all aliases: user aliases, generated bind-to-alias, bindset key aliases and loader aliases
-    const allAliases = { ...aliases, ...generatedAliases, ...bindsetAliases, ...loaderAliases }
+    // Combine all aliases: user aliases, VFX aliases, generated bind-to-alias, bindset key aliases and loader aliases
+    const allAliases = { ...aliases, ...vfxAliases, ...generatedAliases, ...bindsetAliases, ...loaderAliases }
     
     if (Object.keys(allAliases).length === 0) {
       return '; No aliases defined\n'

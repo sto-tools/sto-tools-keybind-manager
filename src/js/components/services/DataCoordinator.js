@@ -1133,17 +1133,21 @@ export default class DataCoordinator extends ComponentBase {
     
     for (const [profileId, profile] of Object.entries(this.state.profiles)) {
       if (needsNormalization(profile)) {
-        console.log(`[${this.componentName}] Normalizing profile: ${profileId}`)
+        console.log(`[${this.componentName}] Migrating profile: ${profileId}`)
+        const originalVersion = profile.migrationVersion || '2.0.0'
         normalizeProfile(profile)
+        const newVersion = profile.migrationVersion
         
         // Save normalized profile back to storage
         await this.storage.saveProfile(profileId, profile)
         profilesNormalized++
+        
+        console.log(`[${this.componentName}] Profile ${profileId} migrated from ${originalVersion} to ${newVersion}`)
       }
     }
     
     if (profilesNormalized > 0) {
-      console.log(`[${this.componentName}] Normalized ${profilesNormalized} profiles to use canonical string commands`)
+      console.log(`[${this.componentName}] Migrated ${profilesNormalized} profiles`)
     }
   }
 

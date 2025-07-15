@@ -186,34 +186,40 @@ export default class AnalyticsService extends ComponentBase {
   calculateKeyStats(profile = {}) {
     // Handle both legacy format (profile.keys) and new format (profile.builds)
     let keys = {}
+    let spaceKeyCount = 0
+    let groundKeyCount = 0
     
     if (profile.builds) {
       // New format: extract keys from all environments
       const spaceKeys = profile.builds.space?.keys || {}
       const groundKeys = profile.builds.ground?.keys || {}
+      spaceKeyCount = Object.keys(spaceKeys).length
+      groundKeyCount = Object.keys(groundKeys).length
+      // For command analysis, merge all keys (duplicates will overwrite)
       keys = { ...spaceKeys, ...groundKeys }
     } else {
-      // Legacy format
+      // Legacy format - assume space environment
       keys = profile.keys || {}
+      spaceKeyCount = Object.keys(keys).length
     }
 
     const stats = {
-      totalKeys: Object.keys(keys).length,
+      totalKeys: spaceKeyCount + groundKeyCount, // Sum of environment keys
       totalCommands: 0,
       commandTypes: {},
       mostUsedCommands: {},
       environmentBreakdown: {
-        space: Object.keys(profile.builds?.space?.keys || {}).length,
-        ground: Object.keys(profile.builds?.ground?.keys || {}).length
+        space: spaceKeyCount,
+        ground: groundKeyCount
       }
     }
 
     Object.values(keys).forEach(cmdArray => {
       if (!Array.isArray(cmdArray)) return
-      stats.totalCommands += cmdArray.length
       cmdArray.forEach(cmdObj => {
         // Skip null/undefined entries that can occur from partially edited keybinds
         if (!cmdObj) return
+        stats.totalCommands += 1 // Count only valid commands
         const cmdStr = cmdObj.command || ''
         const category = cmdObj.category || cmdObj.type || 'unknown' // Support both new and legacy format
         // Count by category
@@ -248,18 +254,26 @@ export default class AnalyticsService extends ComponentBase {
     let totalAliasCommands = 0
 
     Object.values(aliases).forEach(aliasObj => {
-      if (!aliasObj) return
+      let type, commands
       
-      const type = aliasObj.type || 'unknown'
+      if (!aliasObj) {
+        // Handle null/undefined aliases
+        type = 'unknown'
+        commands = ''
+      } else {
+        type = aliasObj.type || 'unknown'
+        commands = aliasObj.commands || ''
+      }
+      
       stats.aliasTypes[type] = (stats.aliasTypes[type] || 0) + 1
       
-      // Count commands in alias
-      const commands = aliasObj.commands || ''
-      if (commands && commands.trim()) {
-        stats.aliasesWithCommands++
-        // Estimate command count (split by $$ delimiter)
-        const commandCount = commands.split('$$').filter(cmd => cmd.trim()).length
-        totalAliasCommands += commandCount
+      // Count commands in alias - only array format used internally
+      if (commands && Array.isArray(commands)) {
+        const commandCount = commands.filter(cmd => cmd && cmd.trim()).length
+        if (commandCount > 0) {
+          stats.aliasesWithCommands++
+          totalAliasCommands += commandCount
+        }
       }
     })
 

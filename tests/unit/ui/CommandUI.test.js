@@ -103,10 +103,10 @@ describe('CommandUI', () => {
       expect(match.data.command).toEqual(mockCommand)
     })
 
-    it('should cache active bindset from bindset:active-changed events', () => {
+    it('should cache active bindset from bindset-selector:active-changed events', () => {
       expect(commandUI._activeBindset).toBe('Primary Bindset') // default
       
-      eventBus.emit('bindset:active-changed', { bindset: 'Test Bindset' })
+      eventBus.emit('bindset-selector:active-changed', { bindset: 'Test Bindset' })
       
       expect(commandUI._activeBindset).toBe('Test Bindset')
     })

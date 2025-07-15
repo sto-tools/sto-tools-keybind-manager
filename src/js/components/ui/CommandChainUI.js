@@ -2,8 +2,7 @@ import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
-import BindsetSelectorService from '../services/BindsetSelectorService.js'
-import BindsetSelectorUI from './BindsetSelectorUI.js'
+// Note: BindsetSelectorService and BindsetSelectorUI are now initialized in app.js
 import i18next from 'i18next'
 
 export default class CommandChainUI extends ComponentBase {
@@ -15,9 +14,7 @@ export default class CommandChainUI extends ComponentBase {
     this._selectedKey = null
     this._currentEnvironment = 'space'
 
-    // Initialize bindset selector components
-    this.bindsetSelectorService = null
-    this.bindsetSelectorUI = null
+    // Note: bindset selector components are now initialized in app.js
     this.activeBindset = 'Primary Bindset'
 
     // Initialize cached selection state (but preserve environment from late-join)
@@ -26,7 +23,7 @@ export default class CommandChainUI extends ComponentBase {
     // Don't reset _currentEnvironment as it may have been set by late-join handshake
     
     // Initialize cached preferences (will be populated by late-join handshake)
-    this._bindToAliasMode = false
+    // Note: _bindToAliasMode is now handled by CommandChainService
 
   }
 
@@ -35,8 +32,7 @@ export default class CommandChainUI extends ComponentBase {
     // Store detach functions for cleanup
     this._detachFunctions = []
     
-    // Initialize bindset selector components
-    await this.initializeBindsetSelector()
+    // Note: bindset selector components are now initialized in app.js
     
     // Listen for chain-data updates broadcast by service
     this._detachFunctions.push(
@@ -82,17 +78,13 @@ export default class CommandChainUI extends ComponentBase {
         this.updateChainActions()
         
         // Update bindset selector with selected key first (can be null)
-        if (this.bindsetSelectorService) {
-          this.bindsetSelectorService.setSelectedKey(this._selectedKey)
-        }
+        this.emit('bindset-selector:set-selected-key', { key: this._selectedKey })
         
         // Reset to Primary Bindset when selecting a different key (unless already on Primary)
         // Only do this if a key was actually selected (not null)
         if (this._selectedKey && this.activeBindset !== 'Primary Bindset') {
           this.activeBindset = 'Primary Bindset'
-          if (this.bindsetSelectorService) {
-            this.bindsetSelectorService.setActiveBindset('Primary Bindset')
-          }
+          this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
           this.updateBindsetBanner()
         }
         
@@ -123,9 +115,7 @@ export default class CommandChainUI extends ComponentBase {
         
         // Reset to Primary Bindset when switching profiles
         this.activeBindset = 'Primary Bindset'
-        if (this.bindsetSelectorService) {
-          this.bindsetSelectorService.setActiveBindset('Primary Bindset')
-        }
+        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
         this.updateBindsetBanner()
         this.updateChainActions()
         
@@ -176,9 +166,7 @@ export default class CommandChainUI extends ComponentBase {
         if (key === this._selectedKey && this.activeBindset === bindset) {
           // Switch to Primary Bindset since the key was removed from the active bindset
           this.activeBindset = 'Primary Bindset'
-          if (this.bindsetSelectorService) {
-            this.bindsetSelectorService.setActiveBindset('Primary Bindset')
-          }
+          this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
           this.updateBindsetBanner()
           this.updateChainActions()
           this.render()
@@ -275,8 +263,7 @@ export default class CommandChainUI extends ComponentBase {
             }
           } else if (key === 'bindToAliasMode') {
             console.log(`[CommandChainUI] Preference changed: bindToAliasMode = ${value}`)
-            this._bindToAliasMode = !!value
-            console.log(`[CommandChainUI] After preference change: _bindToAliasMode = ${this._bindToAliasMode}`)
+            // Note: bindToAliasMode is now handled by CommandChainService
             needsDropdownUpdate = true
             needsRender = true
           }
@@ -314,7 +301,7 @@ export default class CommandChainUI extends ComponentBase {
       if (!container || !titleEl || !previewEl) return
 
       // Check if bind-to-alias mode is enabled
-      const bindToAliasMode = this.getBindToAliasMode()
+      const bindToAliasMode = await this.getBindToAliasMode()
 
       // When render is called with explicit commands (from chain-data-changed),
       // use those. When called without commands (from environment:changed),
@@ -660,10 +647,17 @@ export default class CommandChainUI extends ComponentBase {
 
   /**
    * Get the current bind-to-alias mode setting from cached preferences
+   * Now delegates to CommandChainService for business logic
    */
-  getBindToAliasMode() {
-    console.log(`[CommandChainUI] getBindToAliasMode() returning: ${this._bindToAliasMode}`)
-    return this._bindToAliasMode
+  async getBindToAliasMode() {
+    try {
+      const mode = await this.request('command-chain:get-bind-to-alias-mode')
+      console.log(`[CommandChainUI] getBindToAliasMode() returning: ${mode}`)
+      return mode
+    } catch (error) {
+      console.error('[CommandChainUI] Failed to get bind-to-alias mode:', error)
+      return false // fallback to disabled
+    }
   }
 
   /**
@@ -708,38 +702,50 @@ export default class CommandChainUI extends ComponentBase {
       // Show generated alias section
       generatedAlias.style.display = ''
       
-      // Generate alias name and preview
-      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
-      const aliasName = generateBindToAliasName(this._currentEnvironment, selectedKeyName, this.activeBindset)
-      
-      if (aliasName) {
-        // Show alias definition
-        const commandStrings = commands.map(cmd => 
-          typeof cmd === 'string' ? cmd : (cmd.command || cmd)
-        ).filter(Boolean)
-        let aliasCommandString = commandStrings.join(' $$ ')
-
-        // Apply mirroring when stabilized
-        try {
-          const bindset = this._currentEnvironment === 'alias' ? null : this.activeBindset
-          // TEMPORARY DEBUG: Log the actual values being used
-          if (selectedKeyName && bindset && bindset !== 'Primary Bindset') {
-            console.log(`[DEBUG] Checking stabilization for key "${selectedKeyName}" in bindset "${bindset}"`)
-          }
-          const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
-          if (stabilized && commandStrings.length > 1) {
-            const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
-            if (mirroredStr) aliasCommandString = mirroredStr
-          }
-        } catch {}
+      try {
+        // Generate alias name using CommandChainService
+        const aliasName = await this.request('command-chain:generate-alias-name', {
+          environment: this._currentEnvironment,
+          keyName: selectedKeyName,
+          bindsetName: this.activeBindset
+        })
         
-        // Update alias preview to show the generated alias definition
-        aliasPreviewEl.textContent = `alias ${aliasName} <& ${aliasCommandString} &>`
-        
-        // Update main preview to show keybind that calls the alias
-        previewEl.textContent = `${selectedKeyName} "${aliasName}"`
-      } else {
-        aliasPreviewEl.textContent = 'Invalid key name for alias generation'
+        if (aliasName) {
+          // Generate alias preview using CommandChainService (with mirroring support)
+          let aliasPreview = await this.request('command-chain:generate-alias-preview', {
+            aliasName,
+            commands
+          })
+          
+          // Apply mirroring when stabilized
+          try {
+            const bindset = this._currentEnvironment === 'alias' ? null : this.activeBindset
+            const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
+            if (stabilized && commands.length > 1) {
+              const commandStrings = commands.map(cmd => 
+                typeof cmd === 'string' ? cmd : (cmd.command || cmd)
+              ).filter(Boolean)
+              const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
+              if (mirroredStr) {
+                aliasPreview = `alias ${aliasName} <& ${mirroredStr} &>`
+              }
+            }
+          } catch (error) {
+            console.warn('[CommandChainUI] Failed to apply mirroring:', error)
+          }
+          
+          // Update alias preview to show the generated alias definition
+          aliasPreviewEl.textContent = aliasPreview
+          
+          // Update main preview to show keybind that calls the alias
+          previewEl.textContent = `${selectedKeyName} "${aliasName}"`
+        } else {
+          aliasPreviewEl.textContent = 'Invalid key name for alias generation'
+          previewEl.textContent = `${selectedKeyName} "..."`
+        }
+      } catch (error) {
+        console.error('[CommandChainUI] Failed to generate alias preview:', error)
+        aliasPreviewEl.textContent = 'Error generating alias preview'
         previewEl.textContent = `${selectedKeyName} "..."`
       }
     } else {
@@ -932,8 +938,8 @@ export default class CommandChainUI extends ComponentBase {
     if (sender === 'PreferencesService' && state.settings) {
       console.log(`[CommandChainUI] Late-join state from PreferencesService:`, state.settings)
       this._bindsetsEnabled = !!state.settings.bindsetsEnabled
-      this._bindToAliasMode = !!state.settings.bindToAliasMode
-      console.log(`[CommandChainUI] Set bindToAliasMode = ${this._bindToAliasMode} from late-join`)
+      // Note: bindToAliasMode is now handled by CommandChainService
+      console.log(`[CommandChainUI] Set bindsetsEnabled = ${this._bindsetsEnabled} from late-join`)
       if (this._bindsetsEnabled && !this._bindsetDropdownReady) {
         // preferences arrive before onInit resolved
         this.setupBindsetDropdown().catch(()=>{})
@@ -943,31 +949,8 @@ export default class CommandChainUI extends ComponentBase {
   }
 
   /* ------------------------------------------------------------ */
-  /* Bindset Selector Initialization                             */
+  /* Note: Bindset Selector Initialization moved to app.js       */
   /* ------------------------------------------------------------ */
-
-  async initializeBindsetSelector() {
-    try {
-      // Initialize bindset selector service - it will handle its own service interactions via eventBus
-      this.bindsetSelectorService = new BindsetSelectorService({
-        eventBus: this.eventBus
-      })
-      
-      // Initialize bindset selector UI
-      this.bindsetSelectorUI = new BindsetSelectorUI({
-        eventBus: this.eventBus,
-        document: this.document
-      })
-      
-      // Initialize components
-      await this.bindsetSelectorService.init()
-      await this.bindsetSelectorUI.init()
-      
-      console.log('[CommandChainUI] Bindset selector components initialized')
-    } catch (error) {
-      console.error('[CommandChainUI] Error initializing bindset selector:', error)
-    }
-  }
 
   /* ------------------------------------------------------------ */
   /* Bindset helpers                                              */
@@ -975,7 +958,7 @@ export default class CommandChainUI extends ComponentBase {
 
   async setupBindsetDropdown() {
     // This method is now simplified - the new BindsetSelector components handle the UI
-    const bindToAliasMode = this.getBindToAliasMode()
+    const bindToAliasMode = await this.getBindToAliasMode()
     const container = this.document.getElementById('bindsetSelectorContainer')
     
     // Hide bindset selector in alias mode since bindsets don't apply to aliases

@@ -180,9 +180,9 @@ export default class KeyBrowserUI extends ComponentBase {
     const viewMode = localStorage.getItem('keyViewMode') || 'grid'
 
     if (viewMode === 'key-types') {
-      this.renderKeyTypeView(grid, profile, allKeys)
+      await this.renderKeyTypeView(grid, profile, allKeys)
     } else if (viewMode === 'grid') {
-      this.renderSimpleGridView(grid, allKeys)
+      await this.renderSimpleGridView(grid, allKeys)
     } else {
       // command-category
       await this.renderCommandCategoryView(grid, keysWithCommands, allKeys)
@@ -193,9 +193,12 @@ export default class KeyBrowserUI extends ComponentBase {
    * Rendering helpers (migrated from legacy uiRendering)
    * ========================================================== */
 
-  renderSimpleGridView (grid, allKeys) {
+  async renderSimpleGridView (grid, allKeys) {
     grid.classList.remove('categorized')
-    const sortedKeys = allKeys.sort(this.compareKeys.bind(this))
+    
+    // Sort keys using the service's sort function
+    const sortedKeys = await this.request('key:sort', { keys: allKeys })
+    
     sortedKeys.forEach((keyName) => {
       const keyElement = this.createKeyElement(keyName)
       grid.appendChild(keyElement)
@@ -209,143 +212,38 @@ export default class KeyBrowserUI extends ComponentBase {
       if (a.priority !== b.priority) return a.priority - b.priority
       return a.name.localeCompare(b.name)
     })
-    sorted.forEach(([catId,catData]) => {
-      const el = this.createKeyCategoryElement(catId, catData)
+    for (const [catId, catData] of sorted) {
+      const el = await this.createKeyCategoryElement(catId, catData)
       grid.appendChild(el)
-    })
+    }
   }
 
-  renderKeyTypeView (grid, profile, allKeys) {
+  async renderKeyTypeView (grid, profile, allKeys) {
     grid.classList.add('categorized')
-    const cats = this.categorizeKeysByType(this._currentKeyMap, allKeys)
+    const cats = await this.categorizeKeysByType(this._currentKeyMap, allKeys)
     const sorted = Object.entries(cats).sort(([,a],[,b]) => a.priority - b.priority)
-    sorted.forEach(([id,data]) => {
-      const el = this.createKeyCategoryElement(id, data, 'key-type')
+    for (const [id, data] of sorted) {
+      const el = await this.createKeyCategoryElement(id, data, 'key-type')
       grid.appendChild(el)
-    })
+    }
   }
 
   /* ------ Categorization helpers ------ */
 
   async categorizeKeys (keysWithCommands, allKeys) {
-    const categories = {
-      unknown: { name: 'Unknown', icon: 'fas fa-question-circle', keys: new Set(), priority: 0 },
-    }
-
-    Object.entries(STO_DATA.commands).forEach(([catId,catData]) => {
-      categories[catId] = { name: catData.name, icon: catData.icon, keys: new Set(), priority: 1 }
-    })
-
-    // Process each key's commands async
-    await Promise.all(allKeys.map(async (keyName) => {
-      const commands = keysWithCommands[keyName] || []
-
-      if (!commands || commands.length === 0) {
-        categories.unknown.keys.add(keyName)
-        return
-      }
-
-      const keyCats = new Set()
-      
-      // Process each command async
-      await Promise.all(commands.map(async (command) => {
-        // Handle both new format (category) and legacy format (type)
-        const commandCategory = command.category || command.type
-        if (commandCategory && categories[commandCategory]) {
-          keyCats.add(commandCategory)
-        } else {
-          // Use STOCommandParser via event bus for command category detection
-          try {
-            const result = await this.request('parser:parse-command-string', { 
-              commandString: command.command,
-              options: { generateDisplayText: false }
-            })
-            if (result.commands && result.commands.length > 0) {
-              const detected = result.commands[0].category
-              if (categories[detected]) keyCats.add(detected)
-            }
-          } catch (error) {
-            // Fallback to custom category if parsing fails
-            if (!categories.custom) {
-              categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
-            }
-          }
-        }
-      }))
-
-      if (keyCats.size > 0) {
-        keyCats.forEach((cid) => categories[cid].keys.add(keyName))
-      } else {
-        if (!categories.custom) categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
-        categories.custom.keys.add(keyName)
-      }
-    }))
-
-    Object.values(categories).forEach((cat) => { cat.keys = Array.from(cat.keys).sort(this.compareKeys.bind(this)) })
-    return categories
+    return await this.request('key:categorize-by-command', { keysWithCommands, allKeys })
   }
 
-  detectKeyTypes (keyName) {
-    const types = []
-    if (/^F[0-9]+$/.test(keyName)) types.push('function')
-    if (/^[A-Z0-9]$/.test(keyName)) types.push('alphanumeric')
-    if (/^NUMPAD/.test(keyName)) types.push('numberpad')
-    if (/(Ctrl|Alt|Shift)/.test(keyName)) types.push('modifiers')
-    if (/(UP|DOWN|LEFT|RIGHT|HOME|END|PGUP|PGDN)/.test(keyName)) types.push('navigation')
-    if (/(ESC|TAB|CAPS|PRINT|SCROLL|PAUSE|Space|Enter|Escape)/.test(keyName)) types.push('system')
-    if (/MOUSE|WHEEL/.test(keyName)) types.push('mouse')
-    // Only consider it a symbol if it contains actual punctuation/symbols and isn't already categorized
-    if (types.length === 0 && /[^A-Za-z0-9]/.test(keyName)) types.push('symbols')
-    if (types.length === 0) types.push('other')
-    return types
+  async detectKeyTypes (keyName) {
+    return await this.request('key:detect-types', { keyName })
   }
 
-  categorizeKeysByType (keysWithCommands, allKeys) {
-    const categories = {
-      function:   { name: 'Function Keys',        icon: 'fas fa-keyboard',     keys: new Set(), priority: 1 },
-      alphanumeric:{ name: 'Letters & Numbers',   icon: 'fas fa-font',         keys: new Set(), priority: 2 },
-      numberpad:  { name: 'Numberpad',            icon: 'fas fa-calculator',   keys: new Set(), priority: 3 },
-      modifiers:  { name: 'Modifier Keys',        icon: 'fas fa-hand-paper',   keys: new Set(), priority: 4 },
-      navigation: { name: 'Navigation',           icon: 'fas fa-arrows-alt',   keys: new Set(), priority: 5 },
-      system:     { name: 'System Keys',          icon: 'fas fa-cogs',         keys: new Set(), priority: 6 },
-      mouse:      { name: 'Mouse & Wheel',        icon: 'fas fa-mouse',        keys: new Set(), priority: 7 },
-      symbols:    { name: 'Symbols & Punctuation',icon: 'fas fa-at',           keys: new Set(), priority: 8 },
-      other:      { name: 'Other Keys',           icon: 'fas fa-question-circle',keys: new Set(),priority: 9 },
-    }
-
-    allKeys.forEach((keyName) => {
-      const types = this.detectKeyTypes(keyName)
-      types.forEach((t) => (categories[t] || categories.other).keys.add(keyName))
-    })
-
-    Object.values(categories).forEach((c) => { c.keys = Array.from(c.keys).sort(this.compareKeys.bind(this)) })
-    return categories
+  async categorizeKeysByType (keysWithCommands, allKeys) {
+    return await this.request('key:categorize-by-type', { keysWithCommands, allKeys })
   }
 
-  compareKeys (a, b) {
-    // Embedded synchronous key comparison logic (from stoFileHandler)
-    const aIsF = a.match(/^F(\d+)$/)
-    const bIsF = b.match(/^F(\d+)$/)
-    if (aIsF && bIsF) return parseInt(aIsF[1]) - parseInt(bIsF[1])
-    if (aIsF && !bIsF) return -1
-    if (!aIsF && bIsF) return 1
-    const aIsNum = /^\d+$/.test(a)
-    const bIsNum = /^\d+$/.test(b)
-    if (aIsNum && bIsNum) return parseInt(a) - parseInt(b)
-    if (aIsNum && !bIsNum) return -1
-    if (!aIsNum && bIsNum) return 1
-    const aIsLetter = /^[A-Z]$/.test(a)
-    const bIsLetter = /^[A-Z]$/.test(b)
-    if (aIsLetter && bIsLetter) return a.localeCompare(b)
-    if (aIsLetter && !bIsLetter) return -1
-    if (!aIsLetter && bIsLetter) return 1
-    const specialOrder = ['Space', 'Tab', 'Enter', 'Escape']
-    const aSpecial = specialOrder.indexOf(a)
-    const bSpecial = specialOrder.indexOf(b)
-    if (aSpecial !== -1 && bSpecial !== -1) return aSpecial - bSpecial
-    if (aSpecial !== -1 && bSpecial === -1) return -1
-    if (aSpecial === -1 && bSpecial !== -1) return 1
-    return a.localeCompare(b)
+  async compareKeys (a, b) {
+    return await this.request('key:compare', { keyA: a, keyB: b })
   }
 
   formatKeyName (keyName) {
@@ -386,13 +284,13 @@ export default class KeyBrowserUI extends ComponentBase {
     return el
   }
 
-  createKeyCategoryElement (categoryId, categoryData, mode='command') {
+  async createKeyCategoryElement (categoryId, categoryData, mode='command') {
     const element = this.document.createElement('div')
     element.className = 'category'
     element.dataset.category = categoryId
 
-    const storageKey = mode==='key-type'?`keyTypeCategory_${categoryId}_collapsed`:`keyCategory_${categoryId}_collapsed`
-    const isCollapsed = localStorage.getItem(storageKey)==='true'
+    // Get collapsed state from service
+    const isCollapsed = await this.request('key:get-category-state', { categoryId, mode })
 
     element.innerHTML = `<h4 class="${isCollapsed?'collapsed':''}" data-category="${categoryId}" data-mode="${mode}"><i class="fas fa-chevron-right category-chevron"></i><i class="${categoryData.icon}"></i>${categoryData.name}<span class="key-count">(${categoryData.keys.length})</span></h4><div class="category-commands ${isCollapsed?'collapsed':''}">${categoryData.keys.map((k)=>this.createKeyElement(k).outerHTML).join('')}</div>`
 
@@ -408,11 +306,21 @@ export default class KeyBrowserUI extends ComponentBase {
     return element
   }
 
-  toggleKeyCategory (categoryId, element, mode='command') {
-    const storageKey = mode==='key-type'?`keyTypeCategory_${categoryId}_collapsed`:`keyCategory_${categoryId}_collapsed`
-    const isCollapsed = element.querySelector('h4').classList.toggle('collapsed')
-    element.querySelector('.category-commands').classList.toggle('collapsed')
-    localStorage.setItem(storageKey, isCollapsed)
+  async toggleKeyCategory (categoryId, element, mode='command') {
+    // Use service to handle business logic
+    const isCollapsed = await this.request('key:toggle-category', { categoryId, mode })
+    
+    // Update DOM to reflect new state
+    const header = element.querySelector('h4')
+    const commands = element.querySelector('.category-commands')
+    
+    if (isCollapsed) {
+      header.classList.add('collapsed')
+      commands.classList.add('collapsed')
+    } else {
+      header.classList.remove('collapsed')
+      commands.classList.remove('collapsed')
+    }
   }
 
   /* ============================================================
@@ -465,15 +373,25 @@ export default class KeyBrowserUI extends ComponentBase {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
 
+    // Use service for business logic - determine which keys should be visible
+    const allKeys = Array.from(grid.querySelectorAll('.key-item')).map(item => item.dataset.key)
+    const visibleKeys = new Set()
+    
+    allKeys.forEach(keyName => {
+      const shouldShow = !filterLower || keyName.toLowerCase().includes(filterLower)
+      if (shouldShow) visibleKeys.add(keyName)
+    })
+
+    // Apply visibility to DOM elements
     grid.querySelectorAll('.key-item').forEach((item) => {
-      const keyName = (item.dataset.key || '').toLowerCase()
-      const visible = !filterLower || keyName.includes(filterLower)
+      const keyName = item.dataset.key
+      const visible = visibleKeys.has(keyName)
       item.style.display = visible ? 'flex' : 'none'
     })
 
     grid.querySelectorAll('.command-item[data-key]').forEach((item) => {
-      const keyName = (item.dataset.key || '').toLowerCase()
-      const visible = !filterLower || keyName.includes(filterLower)
+      const keyName = item.dataset.key
+      const visible = visibleKeys.has(keyName)
       item.style.display = visible ? 'flex' : 'none'
     })
 
@@ -512,6 +430,7 @@ export default class KeyBrowserUI extends ComponentBase {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
 
+    // Show all elements (no filtering)
     grid.querySelectorAll('.key-item').forEach((item) => { item.style.display = 'flex' })
     grid.querySelectorAll('.command-item[data-key]').forEach((item) => { item.style.display = 'flex' })
     grid.querySelectorAll('.category').forEach((category) => { category.style.display = 'block' })

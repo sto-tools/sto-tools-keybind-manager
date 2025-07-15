@@ -400,6 +400,7 @@ export default class CommandUI extends ComponentBase {
 
   /**
    * Populate the import sources dropdown based on current environment
+   * Delegates to CommandService for data, handles UI rendering
    */
   async populateImportSources() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
@@ -415,82 +416,22 @@ export default class CommandUI extends ComponentBase {
     const currentKey = this.getSelectedKey()
     
     try {
-      if (currentEnv === 'alias') {
-        // In alias mode, show keys from all environments and other aliases
-        
-        // Add space keys
-        const spaceKeys = await this.request('data:get-keys', { environment: 'space' }) || {}
-        Object.keys(spaceKeys).forEach(key => {
-          if (Object.keys(spaceKeys[key] || {}).length > 0) { // Only show keys with commands
-            const option = doc.createElement('option')
-            option.value = `space:${key}`
-            option.textContent = `Space: ${key}`
-            select.appendChild(option)
-          }
-        })
-        
-        // Add ground keys
-        const groundKeys = await this.request('data:get-keys', { environment: 'ground' }) || {}
-        Object.keys(groundKeys).forEach(key => {
-          if (Object.keys(groundKeys[key] || {}).length > 0) { // Only show keys with commands
-            const option = doc.createElement('option')
-            option.value = `ground:${key}`
-            option.textContent = `Ground: ${key}`
-            select.appendChild(option)
-          }
-        })
-        
-        // Add other aliases
-        const aliases = await this.request('alias:get-all') || {}
-        Object.keys(aliases).forEach(aliasName => {
-          if (aliasName !== currentKey && aliases[aliasName]?.commands) { // Exclude current alias and empty aliases
-            const option = doc.createElement('option')
-            option.value = `alias:${aliasName}`
-            option.textContent = `Alias: ${aliasName}`
-            select.appendChild(option)
-          }
-        })
-      } else {
-        // In key mode, show keys from both environments and aliases
-        
-        // Add space keys  
-        const spaceKeys = await this.request('data:get-keys', { environment: 'space' }) || {}
-        Object.keys(spaceKeys).forEach(key => {
-          const isCurrentKey = (currentEnv === 'space' && key === currentKey)
-          if (!isCurrentKey && Object.keys(spaceKeys[key] || {}).length > 0) { // Exclude current key and empty keys
-            const option = doc.createElement('option')
-            option.value = `space:${key}`
-            option.textContent = `Space: ${key}`
-            select.appendChild(option)
-          }
-        })
-        
-        // Add ground keys
-        const groundKeys = await this.request('data:get-keys', { environment: 'ground' }) || {}
-        Object.keys(groundKeys).forEach(key => {
-          const isCurrentKey = (currentEnv === 'ground' && key === currentKey)
-          if (!isCurrentKey && Object.keys(groundKeys[key] || {}).length > 0) { // Exclude current key and empty keys
-            const option = doc.createElement('option')
-            option.value = `ground:${key}`
-            option.textContent = `Ground: ${key}`
-            select.appendChild(option)
-          }
-        })
-        
-        // Add aliases
-        const aliases = await this.request('alias:get-all') || {}
-        Object.keys(aliases).forEach(aliasName => {
-          if (aliases[aliasName]?.commands) { // Only show aliases with commands
-            const option = doc.createElement('option')
-            option.value = `alias:${aliasName}`
-            option.textContent = `Alias: ${aliasName}`
-            select.appendChild(option)
-          }
-        })
-      }
+      // Get import sources from CommandService
+      const sources = await this.request('command:get-import-sources', { 
+        environment: currentEnv, 
+        currentKey: currentKey 
+      })
+      
+      // Populate the dropdown with sources
+      sources.forEach(source => {
+        const option = doc.createElement('option')
+        option.value = source.value
+        option.textContent = source.label
+        select.appendChild(option)
+      })
       
       // Add default option if no sources available
-      if (select.children.length === 0) {
+      if (sources.length === 0) {
         const option = doc.createElement('option')
         option.value = ''
         option.textContent = await this.getI18nMessage('no_sources_available') || 'No sources available'
@@ -510,45 +451,18 @@ export default class CommandUI extends ComponentBase {
 
   /**
    * Check if a command is compatible with the target environment
+   * Delegates to CommandService for business logic
    */
   async isCommandCompatible(commandName, targetEnvironment) {
-    if (!commandName) {
-      console.warn('isCommandCompatible called with undefined commandName')
-      return true // treat as universal so we don't block import pipeline
-    }
-
-    try {
-      const commandData = await this.request('data:find-command-by-name', { command: commandName })
-      
-      // Special debug logging for Holster commands
-      if (commandName.toLowerCase().includes('holster')) {
-        console.log(`[DEBUG] Holster command "${commandName}" lookup result:`, commandData)
-        console.log(`[DEBUG] Target environment: ${targetEnvironment}`)
-      }
-      
-      if (!commandData || !commandData.environment) {
-        // Command has no environment restriction, so it's universal
-        if (commandName.toLowerCase().includes('holster')) {
-          console.log(`[DEBUG] Holster command "${commandName}" treated as universal (no environment found)`)
-        }
-        return true
-      }
-      
-      // Command has environment restriction - check compatibility
-      const compatible = commandData.environment === targetEnvironment
-      if (commandName.toLowerCase().includes('holster')) {
-        console.log(`[DEBUG] Holster command "${commandName}" environment: ${commandData.environment}, compatible: ${compatible}`)
-      }
-      return compatible
-    } catch (error) {
-      // If we can't determine compatibility, assume it's universal
-      console.warn(`CommandUI: Could not check compatibility for command "${commandName}":`, error)
-      return true
-    }
+    return await this.request('command:check-environment-compatibility', { 
+      command: commandName, 
+      environment: targetEnvironment 
+    })
   }
 
   /**
    * Perform the import from the selected source
+   * Delegates to CommandService for business logic
    */
   async performImport() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
@@ -562,6 +476,7 @@ export default class CommandUI extends ComponentBase {
     const sourceValue = select.value
     const clearDestination = clearCheckbox.checked
     const targetKey = this.getSelectedKey()
+    const currentEnv = this.getCurrentEnvironment()
     
     if (!sourceValue || !targetKey) {
       const message = await this.getI18nMessage('please_select_a_source') || 'Please select a source'
@@ -570,128 +485,55 @@ export default class CommandUI extends ComponentBase {
     }
     
     try {
-      // Parse source value (format: "environment:key" or "alias:aliasName")
-      const [sourceType, sourceName] = sourceValue.split(':')
+      // Delegate to CommandService for business logic
+      const result = await this.request('command:import-from-source', {
+        sourceValue,
+        targetKey,
+        clearDestination,
+        currentEnvironment: currentEnv
+      })
       
-      let sourceCommands = []
-      
-      if (sourceType === 'alias') {
-        // Get commands from alias
-        const aliases = await this.request('alias:get-all') || {}
-        const alias = aliases[sourceName]
-        if (alias && alias.commands) {
-          // Handle both legacy string format and new canonical array format
-          let commandString
-          if (Array.isArray(alias.commands)) {
-            // New canonical array format - join with $$
-            commandString = alias.commands.join(' $$ ')
-          } else {
-            // Legacy string format
-            commandString = alias.commands
-          }
-
-          if (commandString && commandString.trim()) {
-            const result = await this.request('parser:parse-command-string', { 
-              commandString 
-            })
-            sourceCommands = result.commands || []
-          }
+      // Handle success response
+      if (result.success) {
+        // Show warning for dropped commands if any
+        if (result.droppedCount > 0) {
+          const sourceEnvName = result.sourceType.charAt(0).toUpperCase() + result.sourceType.slice(1)
+          const targetEnvName = currentEnv.charAt(0).toUpperCase() + currentEnv.slice(1)
+          const message = await this.getI18nMessage('cross_environment_import_warning', {
+            dropped: result.droppedCount,
+            sourceEnv: sourceEnvName,
+            targetEnv: targetEnvName
+          }) || `Warning: ${result.droppedCount} ${sourceEnvName}-specific commands were dropped when importing to ${targetEnvName}`
+          await this.showToast(message, 'warning')
         }
-      } else {
-        // Get commands from key
-        sourceCommands = await this.request('data:get-key-commands', { 
-          environment: sourceType, 
-          key: sourceName 
-        }) || []
-      }
-      
-      if (sourceCommands.length === 0) {
-        const message = await this.getI18nMessage('source_has_no_commands') || 'Source has no commands to import'
-        await this.showToast(message, 'warning')
-        return
-      }
-      
-      // Check for cross-environment import and filter commands
-      const currentEnv = this.getCurrentEnvironment()
-      let filteredCommands = sourceCommands
-      let droppedCount = 0
-      
-      if (currentEnv !== 'alias' && sourceType !== 'alias') {
-        // Key-to-key import: check for cross-environment issues
-        if (sourceType !== currentEnv) {
-          // Cross-environment import: filter out environment-specific commands
-          console.log(`[DEBUG] Cross-environment import: ${sourceType} -> ${currentEnv}`)
-          console.log('[DEBUG] Source commands:', sourceCommands)
-          
-          const originalCount = sourceCommands.length
-          const compatibilityPromises = sourceCommands.map(async (cmdString) => {
-            const isCompatible = await this.isCommandCompatible(cmdString, currentEnv)
-            return { command: cmdString, isCompatible }
-          })
-          
-          const compatibilityResults = await Promise.all(compatibilityPromises)
-          console.log('[DEBUG] Compatibility results:', compatibilityResults.map(r => ({ command: r.command, compatible: r.isCompatible })))
-
-          // Drop incompatible commands
-          filteredCommands = compatibilityResults
-            .filter(result => result.isCompatible)
-            .map(result => result.command)
-
-          droppedCount = originalCount - filteredCommands.length
-
-          console.log('[DEBUG] Filtered commands:', filteredCommands)
-          console.log(`[DEBUG] Dropped ${droppedCount} commands`)
-
-          if (droppedCount > 0) {
-            const sourceEnvName = sourceType.charAt(0).toUpperCase() + sourceType.slice(1)
-            const targetEnvName = currentEnv.charAt(0).toUpperCase() + currentEnv.slice(1)
-            const message = await this.getI18nMessage('cross_environment_import_warning', {
-              dropped: droppedCount,
-              sourceEnv: sourceEnvName,
-              targetEnv: targetEnvName
-            }) || `Warning: ${droppedCount} ${sourceEnvName}-specific commands were dropped when importing to ${targetEnvName}`
-            await this.showToast(message, 'warning')
-          }
+        
+        // Success toast
+        const successMsg = await this.getI18nMessage('commands_imported_successfully', {
+          count: result.importedCount,
+          source: result.sourceName
+        }) || `Imported ${result.importedCount} commands from ${result.sourceName}`
+        
+        await this.showToast(successMsg, 'success')
+        
+        // Close modal
+        if (this.modalManager) {
+          this.modalManager.hide('importFromKeyOrAliasModal')
         }
       }
-
-      if (filteredCommands.length === 0) {
-        const message = await this.getI18nMessage('no_compatible_commands_to_import') || 'No compatible commands to import after filtering'
-        await this.showToast(message, 'warning')
-        return
-      }
-
-      // Clear destination if requested
-      if (clearDestination) {
-        await this.request('command-chain:clear', { key: targetKey })
-      }
-
-      // Import commands
-      for (const cmd of filteredCommands) {
-        // Use CommandService endpoint so both broadcast and synchronous
-        // paths share the same underlying implementation.
-        await this.request('command:add', {
-          key: targetKey,
-          command: cmd
-        })
-      }
-
-      // Success toast
-      const successMsg = await this.getI18nMessage('commands_imported_successfully', {
-        count: filteredCommands.length,
-        source: sourceName
-      }) || `Imported ${filteredCommands.length} commands from ${sourceName}`
-
-      await this.showToast(successMsg, 'success')
-
-      // Close modal
-      if (this.modalManager) {
-        this.modalManager.hide('importFromKeyOrAliasModal')
-      }
-
+      
     } catch (error) {
       console.error('CommandUI: Failed to import commands:', error)
-      const message = await this.getI18nMessage('import_failed', { error: error?.message || error }) || `Import failed: ${error?.message || error}`
+      
+      // Handle specific error messages
+      let message
+      if (error.message === 'Source has no commands to import') {
+        message = await this.getI18nMessage('source_has_no_commands') || 'Source has no commands to import'
+      } else if (error.message === 'No compatible commands found for import') {
+        message = await this.getI18nMessage('no_compatible_commands_to_import') || 'No compatible commands to import after filtering'
+      } else {
+        message = await this.getI18nMessage('import_failed', { error: error?.message || error }) || `Import failed: ${error?.message || error}`
+      }
+      
       await this.showToast(message, 'error')
     }
   }

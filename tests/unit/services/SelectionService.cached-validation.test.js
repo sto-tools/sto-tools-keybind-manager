@@ -22,6 +22,20 @@ describe('SelectionService Cached Selection Validation', () => {
           space: 'F1',
           ground: 'F2', 
           alias: 'TestAlias'
+        },
+        builds: {
+          space: {
+            keys: {
+              'F1': ['FireAll'],
+              'F3': ['Shield']
+            }
+          },
+          ground: {
+            keys: {
+              'F2': ['Sprint'],
+              'F4': ['Jump']
+            }
+          }
         }
       },
       builds: {

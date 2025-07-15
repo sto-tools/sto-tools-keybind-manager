@@ -154,6 +154,14 @@ export default class STOToolsKeybindManager {
         eventBus, 
         i18n: i18next 
       })
+
+      // Initialize ProfileService so it participates in late join handshake
+      this.profileService.init()
+      
+      // Load profile data
+      await this.profileService.loadData()
+
+
       // dbg('ProfileService created')
 
       // ------------------------------
@@ -418,11 +426,13 @@ export default class STOToolsKeybindManager {
       })
       // dbg('InterfaceModeUI created')
 
-      // Initialize ProfileService so it participates in late join handshake
-      this.profileService.init()
-      
-      // Load profile data
-      await this.profileService.loadData()
+      // Initialize VFX Manager service & UI
+      this.vfxManagerService = new VFXManagerService(eventBus)
+      this.vfxManagerUI = new VFXManagerUI(eventBus, modalManager)
+      this.vfxManagerService.init()
+      this.vfxManagerUI.init()
+
+
 
       // Initialize preferences service & UI
       this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
@@ -467,11 +477,6 @@ export default class STOToolsKeybindManager {
       // dbg('Language applied')
 
       // dbg('Preferences service & UI initialized')
-      // Initialize VFX Manager service & UI
-      this.vfxManagerService = new VFXManagerService(eventBus)
-      this.vfxManagerUI = new VFXManagerUI(eventBus, modalManager)
-      this.vfxManagerService.init()
-      this.vfxManagerUI.init()
 
       // dbg('VFX Manager service & UI initialized')
       // Initialize auto-sync manager
@@ -634,11 +639,19 @@ export default class STOToolsKeybindManager {
       // Initialize bindset service & UI
       const { default: BindsetService }      = await import('./components/services/BindsetService.js')
       const { default: BindsetManagerUI }    = await import('./components/ui/BindsetManagerUI.js')
+      const { default: BindsetSelectorService } = await import('./components/services/BindsetSelectorService.js')
+      const { default: BindsetSelectorUI }   = await import('./components/ui/BindsetSelectorUI.js')
 
       this.bindsetService  = new BindsetService({ eventBus })
       this.bindsetManagerUI = new BindsetManagerUI({ eventBus })
       this.bindsetService.init()
       this.bindsetManagerUI.init()
+
+      // Initialize bindset selector service & UI (used by CommandChainUI)
+      this.bindsetSelectorService = new BindsetSelectorService({ eventBus })
+      this.bindsetSelectorUI = new BindsetSelectorUI({ eventBus, document })
+      this.bindsetSelectorService.init()
+      this.bindsetSelectorUI.init()
 
     } catch (error) {
       // dbg('Failed to initialize application:', error)

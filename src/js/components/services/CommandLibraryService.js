@@ -109,6 +109,13 @@ export default class CommandLibraryService extends ComponentBase {
         this.i18n = window.i18next
       }
     })
+
+    // Listen for VFX settings changes to update virtual aliases
+    this.addEventListener('vfx:settings-changed', async () => {
+      await this.updateCombinedAliases()
+      // Emit event to notify UI components that aliases have changed
+      this.emit('aliases-changed', { aliases: this.cache.combinedAliases })
+    })
   }
 
   /**
@@ -133,6 +140,38 @@ export default class CommandLibraryService extends ComponentBase {
       const currentBuild = profile.builds?.[this.cache.currentEnvironment]
       this.cache.keys = currentBuild?.keys || {}
     }
+    
+    // Update combined aliases (real + virtual VFX)
+    this.updateCombinedAliases().then(() => {
+      // Emit event to notify UI components that aliases have changed (including virtual VFX aliases)
+      this.emit('aliases-changed', { aliases: this.cache.combinedAliases })
+    }).catch(error => {
+      console.error('[CommandLibraryService] Failed to update combined aliases:', error)
+    })
+  }
+
+  /**
+   * Get combined aliases (real profile aliases + virtual VFX aliases)
+   */
+  async getCombinedAliases() {
+    const realAliases = { ...this.cache.aliases }
+    
+    // Get virtual VFX aliases from VFXManagerService
+    try {
+      const virtualVFXAliases = await this.request('vfx:get-virtual-aliases') || {}
+      return { ...realAliases, ...virtualVFXAliases }
+    } catch (error) {
+      // VFXManagerService might not be available - just return real aliases
+      return realAliases
+    }
+  }
+
+  /**
+   * Update the combined aliases cache
+   */
+  async updateCombinedAliases() {
+    // This will be called whenever profile changes or VFX settings change
+    this.cache.combinedAliases = await this.getCombinedAliases()
   }
 
   // REMOVED: getCommandsForSelectedKey moved to CommandService where it belongs
@@ -170,7 +209,7 @@ export default class CommandLibraryService extends ComponentBase {
     return {
       ...profile,
       keys: profile.builds[this.currentEnvironment].keys,
-      aliases: profile.aliases || {},
+      aliases: this.cache.combinedAliases || profile.aliases || {},
       keybindMetadata: profile.keybindMetadata || {},
       aliasMetadata: profile.aliasMetadata || {}
     }
@@ -466,6 +505,18 @@ export default class CommandLibraryService extends ComponentBase {
   handleInitialState(sender, state) {
     // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
     // Component-specific initialization can be added here if needed
+    
+    // Handle VFX state from VFXManagerService
+    if (sender === 'VFXManagerService' && state) {
+      console.log(`[CommandLibraryService] Received VFX state via late-join:`, state)
+      // Update combined aliases when VFX state is received
+      this.updateCombinedAliases().then(() => {
+        console.log(`[CommandLibraryService] Updated combined aliases after VFX late-join`)
+        this.emit('aliases-changed', { aliases: this.cache.combinedAliases })
+      }).catch(error => {
+        console.error('[CommandLibraryService] Failed to update combined aliases after VFX late-join:', error)
+      })
+    }
   }
 
   /**

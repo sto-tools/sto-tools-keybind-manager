@@ -60,7 +60,18 @@ export default class CommandService extends ComponentBase {
           this.moveCommand(key, fromIndex, toIndex, bindset)),
         // MOVED: from CommandLibraryService - now implemented directly here
         this.respond('command:get-for-selected-key', this.getCommandsForSelectedKey.bind(this)),
-        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo())
+        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
+        
+        // Command validation and import operations (moved from CommandUI)
+        this.respond('command:check-environment-compatibility', ({ command, environment }) => 
+          this.isCommandCompatible(command, environment)
+        ),
+        this.respond('command:get-import-sources', ({ environment, currentKey }) => 
+          this.getImportSources(environment, currentKey)
+        ),
+        this.respond('command:import-from-source', ({ sourceValue, targetKey, clearDestination, currentEnvironment }) => 
+          this.importFromSource(sourceValue, targetKey, clearDestination, currentEnvironment)
+        )
       )
     }
   }
@@ -542,82 +553,11 @@ export default class CommandService extends ComponentBase {
   }
 
   /* ------------------------------------------------------------------
-   * Command lookup helpers (unchanged from library)
+   * Command lookup helpers moved to CommandLibraryService
+   * Use: await this.request('command:find-definition', { command })
+   * Use: await this.request('command:get-warning', { command })
    * ------------------------------------------------------------------ */
-  async findCommandDefinition (command) {
-    try {
-      const hasCommands = await this.request('data:has-commands')
-      if (!hasCommands) return null
-      
-      // Special Tray logic is preserved from original implementation (copy-paste)
-      const isTrayExec = command.command && command.command.includes('TrayExec')
-      if (isTrayExec) {
-        const trayCategory = await this.request('data:get-tray-category')
-        if (trayCategory) {
-          if (command.command.includes('TrayExecByTrayWithBackup') && command.command.includes('$$')) {
-            return { commandId: 'tray_range_with_backup', ...trayCategory.commands.tray_range_with_backup }
-          } else if (
-            (command.command.includes('STOTrayExecByTray') || command.command.includes('TrayExecByTray')) &&
-            command.command.includes('$$') &&
-            !command.command.includes('WithBackup')
-          ) {
-            return { commandId: 'tray_range', ...trayCategory.commands.tray_range }
-          } else if (command.command.includes('TrayExecByTrayWithBackup')) {
-            return { commandId: 'tray_with_backup', ...trayCategory.commands.tray_with_backup }
-          } else if (
-            command.command.includes('STOTrayExecByTray') ||
-            (command.command.includes('TrayExecByTray') && !command.command.includes('WithBackup'))
-          ) {
-            return { commandId: 'custom_tray', ...trayCategory.commands.custom_tray }
-          }
-        }
-      }
 
-      const category = await this.request('data:get-command-category', { categoryId: command.type })
-      if (!category) return null
-
-      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-        if (cmdDef.command === command.command) {
-          return { commandId: cmdId, ...cmdDef }
-        }
-      }
-
-      for (const [cmdId, cmdDef] of Object.entries(category.commands)) {
-        if (cmdDef.customizable && command.command.startsWith(cmdDef.command.split(' ')[0])) {
-          return { commandId: cmdId, ...cmdDef }
-        }
-      }
-
-      return null
-    } catch (error) {
-      // Fallback if DataService not available
-      return null
-    }
-  }
-
-  async getCommandWarning (command) {
-    try {
-      const hasCommands = await this.request('data:has-commands')
-      if (!hasCommands) return null
-
-      const categories = await this.request('data:get-commands')
-      for (const [categoryId, category] of Object.entries(categories)) {
-        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-          if (
-            cmdData.command === command.command ||
-            cmdData.name === command.text ||
-            (command.command && command.command.includes(cmdData.command))
-          ) {
-            return cmdData.warning || null
-          }
-        }
-      }
-      return null
-    } catch (error) {
-      // Fallback if DataService not available
-      return null
-    }
-  }
 
   /* ------------------------------------------------------------------ */
   generateCommandId () {
@@ -1008,5 +948,256 @@ export default class CommandService extends ComponentBase {
  */
   async generateMirroredCommandString(commands) {
     return await this.request('fileops:generate-mirrored-commands', { commands })
+  }
+
+  // ========================================================================
+  // Command Validation and Import Operations (moved from CommandUI)
+  // ========================================================================
+
+  /**
+   * Check if a command is compatible with the target environment
+   * Moved from CommandUI.js for better separation of concerns
+   */
+  async isCommandCompatible(commandName, targetEnvironment) {
+    if (!commandName) {
+      console.warn('isCommandCompatible called with undefined commandName')
+      return true // treat as universal so we don't block import pipeline
+    }
+
+    try {
+      const commandData = await this.request('data:find-command-by-name', { command: commandName })
+      
+      // Special debug logging for Holster commands
+      if (commandName.toLowerCase().includes('holster')) {
+        console.log(`[DEBUG] Holster command "${commandName}" lookup result:`, commandData)
+        console.log(`[DEBUG] Target environment: ${targetEnvironment}`)
+      }
+      
+      if (!commandData || !commandData.environment) {
+        // Command has no environment restriction, so it's universal
+        if (commandName.toLowerCase().includes('holster')) {
+          console.log(`[DEBUG] Holster command "${commandName}" treated as universal (no environment found)`)
+        }
+        return true
+      }
+      
+      // Command has environment restriction - check compatibility
+      const compatible = commandData.environment === targetEnvironment
+      if (commandName.toLowerCase().includes('holster')) {
+        console.log(`[DEBUG] Holster command "${commandName}" environment: ${commandData.environment}, compatible: ${compatible}`)
+      }
+      return compatible
+    } catch (error) {
+      // If we can't determine compatibility, assume it's universal
+      console.warn(`CommandService: Could not check compatibility for command "${commandName}":`, error)
+      return true
+    }
+  }
+
+  /**
+   * Get available import sources for command import
+   * Moved from CommandUI.js for better separation of concerns
+   */
+  async getImportSources(currentEnvironment, currentKey) {
+    const sources = []
+    
+    try {
+      if (currentEnvironment === 'alias') {
+        // In alias mode, show keys from all environments and other aliases
+        
+        // Add space keys
+        const spaceKeys = await this.request('data:get-keys', { environment: 'space' }) || {}
+        Object.keys(spaceKeys).forEach(key => {
+          if (Object.keys(spaceKeys[key] || {}).length > 0) { // Only show keys with commands
+            sources.push({
+              value: `space:${key}`,
+              label: `Space: ${key}`,
+              type: 'key'
+            })
+          }
+        })
+        
+        // Add ground keys
+        const groundKeys = await this.request('data:get-keys', { environment: 'ground' }) || {}
+        Object.keys(groundKeys).forEach(key => {
+          if (Object.keys(groundKeys[key] || {}).length > 0) { // Only show keys with commands
+            sources.push({
+              value: `ground:${key}`,
+              label: `Ground: ${key}`,
+              type: 'key'
+            })
+          }
+        })
+        
+        // Add other aliases
+        const aliases = await this.request('alias:get-all') || {}
+        Object.keys(aliases).forEach(aliasName => {
+          if (aliasName !== currentKey && aliases[aliasName]?.commands) { // Exclude current alias and empty aliases
+            sources.push({
+              value: `alias:${aliasName}`,
+              label: `Alias: ${aliasName}`,
+              type: 'alias'
+            })
+          }
+        })
+      } else {
+        // In key mode, show keys from both environments and aliases
+        
+        // Add space keys  
+        const spaceKeys = await this.request('data:get-keys', { environment: 'space' }) || {}
+        Object.keys(spaceKeys).forEach(key => {
+          const isCurrentKey = (currentEnvironment === 'space' && key === currentKey)
+          if (!isCurrentKey && Object.keys(spaceKeys[key] || {}).length > 0) { // Exclude current key and empty keys
+            sources.push({
+              value: `space:${key}`,
+              label: `Space: ${key}`,
+              type: 'key'
+            })
+          }
+        })
+        
+        // Add ground keys
+        const groundKeys = await this.request('data:get-keys', { environment: 'ground' }) || {}
+        Object.keys(groundKeys).forEach(key => {
+          const isCurrentKey = (currentEnvironment === 'ground' && key === currentKey)
+          if (!isCurrentKey && Object.keys(groundKeys[key] || {}).length > 0) { // Exclude current key and empty keys
+            sources.push({
+              value: `ground:${key}`,
+              label: `Ground: ${key}`,
+              type: 'key'
+            })
+          }
+        })
+        
+        // Add aliases
+        const aliases = await this.request('alias:get-all') || {}
+        Object.keys(aliases).forEach(aliasName => {
+          if (aliases[aliasName]?.commands) { // Only show aliases with commands
+            sources.push({
+              value: `alias:${aliasName}`,
+              label: `Alias: ${aliasName}`,
+              type: 'alias'
+            })
+          }
+        })
+      }
+      
+      return sources
+    } catch (error) {
+      console.error('CommandService: Failed to get import sources:', error)
+      return []
+    }
+  }
+
+  /**
+   * Import commands from a source to a target key
+   * Moved from CommandUI.js for better separation of concerns
+   */
+  async importFromSource(sourceValue, targetKey, clearDestination, currentEnvironment) {
+    if (!sourceValue || !targetKey) {
+      throw new Error('Source and target are required for import')
+    }
+    
+    try {
+      // Parse source value (format: "environment:key" or "alias:aliasName")
+      const [sourceType, sourceName] = sourceValue.split(':')
+      
+      let sourceCommands = []
+      
+      if (sourceType === 'alias') {
+        // Get commands from alias
+        const aliases = await this.request('alias:get-all') || {}
+        const alias = aliases[sourceName]
+        if (alias && alias.commands) {
+          // Handle both legacy string format and new canonical array format
+          let commandString
+          if (Array.isArray(alias.commands)) {
+            // New canonical array format - join with $$
+            commandString = alias.commands.join(' $$ ')
+          } else {
+            // Legacy string format
+            commandString = alias.commands
+          }
+
+          if (commandString && commandString.trim()) {
+            const result = await this.request('parser:parse-command-string', { 
+              commandString 
+            })
+            sourceCommands = result.commands || []
+          }
+        }
+      } else {
+        // Get commands from key
+        sourceCommands = await this.request('data:get-key-commands', { 
+          environment: sourceType, 
+          key: sourceName 
+        }) || []
+      }
+      
+      if (sourceCommands.length === 0) {
+        throw new Error('Source has no commands to import')
+      }
+      
+      // Check for cross-environment import and filter commands
+      let filteredCommands = sourceCommands
+      let droppedCount = 0
+      
+      if (currentEnvironment !== 'alias' && sourceType !== 'alias') {
+        // Key-to-key import: check for cross-environment issues
+        if (sourceType !== currentEnvironment) {
+          // Cross-environment import: filter out environment-specific commands
+          console.log(`[DEBUG] Cross-environment import: ${sourceType} -> ${currentEnvironment}`)
+          console.log('[DEBUG] Source commands:', sourceCommands)
+          
+          const originalCount = sourceCommands.length
+          const compatibilityPromises = sourceCommands.map(async (cmdString) => {
+            const isCompatible = await this.isCommandCompatible(cmdString, currentEnvironment)
+            return { command: cmdString, isCompatible }
+          })
+          
+          const compatibilityResults = await Promise.all(compatibilityPromises)
+          console.log('[DEBUG] Compatibility results:', compatibilityResults.map(r => ({ command: r.command, compatible: r.isCompatible })))
+
+          // Drop incompatible commands
+          filteredCommands = compatibilityResults
+            .filter(result => result.isCompatible)
+            .map(result => result.command)
+
+          droppedCount = originalCount - filteredCommands.length
+          console.log('[DEBUG] Filtered commands:', filteredCommands)
+          console.log(`[DEBUG] Dropped ${droppedCount} commands`)
+        }
+      }
+      
+      if (filteredCommands.length === 0) {
+        throw new Error('No compatible commands found for import')
+      }
+      
+      // Perform the import
+      if (clearDestination) {
+        // Clear existing commands first
+        await this.request('data:clear-key-commands', { 
+          environment: currentEnvironment, 
+          key: targetKey 
+        })
+      }
+      
+      // Add the filtered commands
+      for (const command of filteredCommands) {
+        await this.addCommand(targetKey, command)
+      }
+      
+      return {
+        success: true,
+        importedCount: filteredCommands.length,
+        droppedCount: droppedCount,
+        sourceType: sourceType,
+        sourceName: sourceName
+      }
+      
+    } catch (error) {
+      console.error('CommandService: Failed to import from source:', error)
+      throw error
+    }
   }
 } 

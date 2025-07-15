@@ -151,20 +151,38 @@ describe('Phase 2.2: Centralized Selection Events', () => {
   })
 
   describe('Request/Response Pattern Usage', () => {
-    it('should use request/response for getting current selection in CommandLibraryService', async () => {
-      // Mock SelectionService request for current selection
-      const mockSelection = {
-        selectedKey: 'F1',
-        selectedAlias: null
+    it('should use cached selection state from ComponentBase in CommandService', async () => {
+      // Set up mock profile data for CommandService
+      const mockProfile = {
+        id: 'test-profile',
+        builds: {
+          space: { keys: { 'F1': ['Target_Enemy_Near'] } },
+          ground: { keys: {} }
+        },
+        aliases: {}
       }
       
-      commandLibraryService.request = vi.fn().mockResolvedValue(mockSelection)
+      // Set up spy on request method
+      const requestSpy = vi.fn()
+      commandService.request = requestSpy
+      
+      // Set cached state directly on CommandService (simulating ComponentBase caching)
+      commandService.selectedKey = 'F1'
+      commandService.currentEnvironment = 'space' 
+      commandService.cache = {
+        profile: mockProfile,
+        keys: { 'F1': ['Target_Enemy_Near'] },
+        aliases: {}
+      }
 
-      // Call a method that should get current selection
-      await commandLibraryService.getCommandsForSelectedKey()
+      // Call the method and verify it returns cached commands
+      const commands = commandService.getCommandsForSelectedKey()
 
-      // Verify that it requested current selection from SelectionService
-      expect(commandLibraryService.request).toHaveBeenCalledWith('selection:get-current')
+      // Verify that it used cached data without making requests
+      expect(commands).toEqual(['Target_Enemy_Near'])
+      
+      // Verify it didn't make any selection requests (uses cached state instead)
+      expect(requestSpy).not.toHaveBeenCalled()
     })
 
     it('should use request/response for parameterized command operations in ParameterCommandService', async () => {

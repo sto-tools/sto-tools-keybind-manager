@@ -25,6 +25,9 @@ export default class CommandChainService extends ComponentBase {
     // Flag to prevent race conditions during bindset switching
     this._bindsetSwitchInProgress = false
     this._bindsetOperationInProgress = false
+    
+    // Cache bind-to-alias mode setting from preferences
+    this._bindToAliasMode = false
 
     // DataCoordinator cache
     this.cache = {
@@ -60,6 +63,13 @@ export default class CommandChainService extends ComponentBase {
         }),
         // New: expose stabilization state for validator service (unique)
         this.respond('command-chain:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
+        
+        // Bind-to-alias mode support (moved from CommandChainUI)
+        this.respond('command-chain:get-bind-to-alias-mode', () => this.getBindToAliasMode()),
+        this.respond('command-chain:generate-alias-name', ({ environment, keyName, bindsetName }) => 
+          this.generateBindToAliasName(environment, keyName, bindsetName)),
+        this.respond('command-chain:generate-alias-preview', ({ aliasName, commands }) => 
+          this.generateAliasPreview(aliasName, commands)),
         /*this.respond('command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
         this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
         this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
@@ -346,6 +356,14 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('command-chain:clear', async ({ key }) => {
       if (!key) return
       await this.clearCommandChain(key)
+    })
+    
+    // Handle preferences changes for bind-to-alias mode
+    this.addEventListener('preferences:changed', ({ key, value }) => {
+      if (key === 'bindToAliasMode') {
+        console.log(`[CommandChainService] Preference changed: bindToAliasMode = ${value}`)
+        this._bindToAliasMode = !!value
+      }
     })
   }
 
@@ -858,6 +876,78 @@ export default class CommandChainService extends ComponentBase {
     } catch (err) {
       console.error('[CommandChainService] setStabilize failed', err)
       return { success: false, error: err.message }
+    }
+  }
+  
+  /* ------------------------------------------------------------------
+   * Bind-to-alias mode support (moved from CommandChainUI)
+   * ------------------------------------------------------------------ */
+  
+  /**
+   * Get the current bind-to-alias mode setting from cached preferences
+   */
+  getBindToAliasMode() {
+    return this._bindToAliasMode
+  }
+  
+  /**
+   * Generate alias name for bind-to-alias mode
+   * Uses the same logic as CommandChainUI but as a service operation
+   */
+  async generateBindToAliasName(environment, keyName, bindsetName = null) {
+    try {
+      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
+      return generateBindToAliasName(environment, keyName, bindsetName)
+    } catch (error) {
+      console.error('[CommandChainService] Failed to generate alias name:', error)
+      return null
+    }
+  }
+  
+  /**
+   * Generate alias preview for bind-to-alias mode
+   * Formats the alias command string for display
+   */
+  generateAliasPreview(aliasName, commands) {
+    if (!aliasName) {
+      return ''
+    }
+    
+    try {
+      // Handle null or non-array commands
+      if (!Array.isArray(commands)) {
+        return `alias ${aliasName} <&  &>`
+      }
+      
+      // Convert commands to strings for alias generation, filtering out null/empty values
+      const commandStrings = commands.map(cmd => {
+        if (cmd === null || cmd === undefined) return ''
+        return typeof cmd === 'string' ? cmd : (cmd.command || '')
+      }).filter(Boolean)
+      
+      if (commandStrings.length === 0) {
+        return `alias ${aliasName} <&  &>`
+      }
+      
+      // Join commands with $$ separator for STO alias format
+      const commandChain = commandStrings.join(' $$ ')
+      return `alias ${aliasName} <& ${commandChain} &>`
+    } catch (error) {
+      console.error('[CommandChainService] Failed to generate alias preview:', error)
+      return `alias ${aliasName} <&  &>`
+    }
+  }
+  
+  /**
+   * Handle initial state for bind-to-alias mode preferences
+   */
+  handleInitialState(sender, state) {
+    super.handleInitialState(sender, state)
+    
+    // Handle preferences state from PreferencesService
+    if (sender === 'PreferencesService' && state?.settings) {
+      this._bindToAliasMode = !!state.settings.bindToAliasMode
+      console.log(`[CommandChainService] Set bindToAliasMode = ${this._bindToAliasMode} from late-join`)
     }
   }
 } 
