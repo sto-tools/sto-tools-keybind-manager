@@ -802,12 +802,9 @@ export default class CommandChainUI extends ComponentBase {
         const name = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
         try {
           const bindset = this._currentEnvironment === 'alias' ? null : this.activeBindset
-          // TEMPORARY DEBUG: Log the button state check
-          if (name && bindset && bindset !== 'Primary Bindset') {
-            console.log(`[DEBUG] Button state check for key "${name}" in bindset "${bindset}"`)
-          }
+          // Check button state for stabilization
           const isActive = await this.request('command:is-stabilized', { name, bindset })
-          console.log(`[DEBUG] Button state result for "${name}": ${isActive}`)
+          // Update button visual state
           stabBtn.classList.toggle('active', !!isActive)
         } catch {}
       } else {
@@ -860,17 +857,17 @@ export default class CommandChainUI extends ComponentBase {
     try {
       // Pass the current bindset when not in alias mode
       const bindset = this._currentEnvironment === 'alias' ? null : this.activeBindset
-      console.log(`[DEBUG] Toggling stabilization for "${name}" in bindset "${bindset}" from ${currentlyActive} to ${!currentlyActive}`)
+      // Toggle stabilization state
       const result = await this.request('command:set-stabilize', { name, stabilize: !currentlyActive, bindset })
       if (result && result.success) {
-        console.log(`[DEBUG] Stabilization toggle successful, refreshing button state`)
+        // Stabilization toggled successfully
         // Don't manually toggle the button - let updateChainActions set the correct state
         // from the actual backend data to avoid race conditions
         await this.updateChainActions()
         // Re-render preview after change
         this.render()
       } else {
-        console.log(`[DEBUG] Stabilization toggle failed:`, result)
+        // Stabilization toggle failed
       }
     } catch (err) {
       console.error('[CommandChainUI] Failed to toggle stabilization', err)

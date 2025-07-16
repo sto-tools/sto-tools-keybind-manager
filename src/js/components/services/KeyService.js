@@ -71,10 +71,6 @@ export default class KeyService extends ComponentBase {
   /* ------------------------------------------------------------------
    * State setters - Updated to use cached state
    * ------------------------------------------------------------------ */
-  // REMOVED: Selection state now managed by SelectionService
-  // setSelectedKey (key) {
-  //   this.selectedKey = key
-  // }
 
   setCurrentEnvironment (environment) {
     this.currentEnvironment = environment

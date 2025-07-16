@@ -189,15 +189,6 @@ export default class ProfileService extends ComponentBase {
 
   // getCurrentProfile method removed - components should use broadcast/cache pattern instead
 
-  /**
-   * Get the current build for a profile - now handled by DataCoordinator
-   * @deprecated Use getCurrentProfile() instead
-   */
-  getCurrentBuild(profile) {
-    // This method is deprecated - DataCoordinator handles virtual profile building
-    console.warn('[ProfileService] getCurrentBuild is deprecated - use getCurrentProfile() instead')
-    return profile
-  }
 
   /**
    * Switch to a different profile - delegated to DataCoordinator

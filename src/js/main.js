@@ -13,7 +13,6 @@ import DataService from './components/services/DataService.js'
 import ExportService from './components/services/ExportService.js'
 import { UIUtilityService } from './components/services/index.js'
 import { FileOperationsService } from './components/services/index.js'
-// import STOCommandManager from './features/commands.js' // DEPRECATED: see CommandBuilderService
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
 // VFX_EFFECTS now available globally from data.js

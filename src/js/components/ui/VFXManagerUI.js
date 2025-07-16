@@ -12,13 +12,13 @@ export default class VFXManagerUI extends ComponentBase {
 
   async init() {
     if (this.isInitialized) {
-      console.log(`[${this.componentName}] Already initialized`)
+      // Component already initialized
       return
     }
 
     this.setupEventListeners()
     this.isInitialized = true
-    console.log(`[${this.componentName}] Initialized`)
+    // VFXManagerUI initialized successfully
   }
 
   setupEventListeners() {
@@ -30,7 +30,7 @@ export default class VFXManagerUI extends ComponentBase {
   }
 
   handleModalPopulate({ vfxManager }) {
-    console.log(`[${this.componentName}] Populating VFX modal`)
+    // Populating VFX modal with effects
     this.vfxManager = vfxManager
     this.populateModal()
     this.modalManager.show('vertigoModal')

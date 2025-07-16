@@ -42,19 +42,14 @@ export default class DataService extends ComponentBase {
       this.respond('data:find-command-by-name', ({ command }) => {
         if (!this.data.commands || !command) return null
         
-        // Special debug logging for Holster commands
-        if (command.toLowerCase().includes('holster')) {
-          console.log(`[DEBUG] DataService searching for command: "${command}"`)
-        }
+        // Search for command in library
         
         // Search through all categories to find the command
         for (const [categoryId, category] of Object.entries(this.data.commands)) {
           if (category.commands) {
             for (const [commandId, commandDef] of Object.entries(category.commands)) {
               if (commandDef.command === command) {
-                if (command.toLowerCase().includes('holster')) {
-                  console.log(`[DEBUG] DataService found command "${command}" in ${categoryId}.${commandId}:`, commandDef)
-                }
+                // Command found in library
                 return {
                   ...commandDef,
                   categoryId,
@@ -65,9 +60,7 @@ export default class DataService extends ComponentBase {
           }
         }
         
-        if (command.toLowerCase().includes('holster')) {
-          console.log(`[DEBUG] DataService command "${command}" NOT FOUND in library`)
-        }
+        // Command not found in library
         return null
       })
     )

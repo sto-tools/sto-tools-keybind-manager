@@ -25,9 +25,6 @@ export default class KeyBrowserService extends ComponentBase {
 
     this.currentProfileId   = null
     this.currentEnvironment = 'space'
-    // REMOVED: Selection state now managed by SelectionService
-    // this.selectedKeyName    = null
-    // this._cachedSelections = { space: null, ground: null }
 
     // REFACTORED: Cache profile state from DataCoordinator broadcasts
     this.cache = {
@@ -47,7 +44,6 @@ export default class KeyBrowserService extends ComponentBase {
     if (this.eventBus) {
       this.respond('key:get-all',           () => this.getKeys())
       this.respond('key:get-profile',       () => this.getProfile())
-      // REMOVED: key:select now handled by SelectionService
       // this.respond('key:select',            ({ key }) => this.selectKey(key))
       
       // Data processing endpoints (moved from KeyBrowserUI)
@@ -111,7 +107,6 @@ export default class KeyBrowserService extends ComponentBase {
         this.cache.currentEnvironment = environment
       }
       
-      // REMOVED: Selection clearing now handled by SelectionService
       // this.selectedKeyName = null
       // this._cachedSelections = { space: null, ground: null }
       
@@ -124,7 +119,6 @@ export default class KeyBrowserService extends ComponentBase {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
       
-      // REMOVED: Selection caching now handled by SelectionService
       // Cache current selection before changing environment (only for key environments)
       // if (this.currentEnvironment !== 'alias' && this.selectedKeyName) {
       //   this._cachedSelections[this.currentEnvironment] = this.selectedKeyName
@@ -132,13 +126,11 @@ export default class KeyBrowserService extends ComponentBase {
       
       this.currentEnvironment = env
       this.cache.currentEnvironment = env
-      // REMOVED: Selection clearing now handled by SelectionService
       // this.selectedKeyName = null
       
       // Update keys cache for new environment
       this.cache.keys = this.cache.builds[env]?.keys || {}
       
-      // REMOVED: Auto-selection now handled by SelectionService
       // If switching to key environment, try to restore or auto-select
       // if (env !== 'alias') {
       //   await this._restoreOrAutoSelectKey(env)

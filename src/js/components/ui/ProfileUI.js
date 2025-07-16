@@ -129,8 +129,7 @@ export default class ProfileUI extends ComponentBase {
       // Use DataCoordinator directly for better performance
       const result = await this.request('data:switch-profile', { profileId })
       if (result?.switched) {
-        this._selectedKey = null
-        this.renderKeyGrid()
+        // Key grid will be updated automatically via events
         // Command chain handled elsewhere – just refresh our info UI
         this.updateProfileInfo()
         this.ui?.showToast?.(result.message, 'success')
@@ -203,24 +202,6 @@ export default class ProfileUI extends ComponentBase {
     }
   }
 
-  /**
-   * Render the key grid (delegated to existing uiRendering)
-   * TODO: Target for removal like renderCommandChain()
-   */
-  renderKeyGrid() {
-    if (typeof app !== 'undefined' && app.renderKeyGrid) {
-      app.renderKeyGrid()
-    }
-  }
-
-  /**
-   * Render the command chain - now handled by CommandChainUI
-   * This method is deprecated and does nothing
-   */
-  renderCommandChain() {
-    // Command chain rendering is now handled by CommandChainUI
-    // This method is kept for backward compatibility but does nothing
-  }
 
   /**
    * Show new profile modal
@@ -326,7 +307,7 @@ export default class ProfileUI extends ComponentBase {
           if (result?.success) {
             await this.request('data:switch-profile', { profileId: result.profileId })
             await this.renderProfiles()
-            this.renderKeyGrid()
+            // Key grid will be updated automatically via events
             this.updateProfileInfo()
             this.ui?.showToast?.(result.message, 'success')
           }
@@ -389,8 +370,7 @@ export default class ProfileUI extends ComponentBase {
       const result = await this.request('data:delete-profile', { profileId: this.currentProfile })
       if (result.success) {
         if (result.switchedProfile) {
-          this._selectedKey = null
-          this.renderKeyGrid()
+          // Key grid will be updated automatically via events
           // Command chain rendering is now handled by CommandChainUI via events
           this.updateProfileInfo()
         }
@@ -402,21 +382,6 @@ export default class ProfileUI extends ComponentBase {
     }
   }
 
-  /**
-   * Set the selected key (for UI state management)
-   * TODO: Target for removal like renderCommandChain()
-   */
-  setSelectedKey(key) {
-    this._selectedKey = key
-  }
-
-  /**
-   * Get the selected key
-   * TODO: Target for removal like renderCommandChain()
-   */
-  getSelectedKey() {
-    return this._selectedKey
-  }
 
   /** ------------------------------------------------------------
    * Late-join handshake – receive initial snapshot from services

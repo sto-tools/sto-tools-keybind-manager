@@ -185,61 +185,6 @@ export default class AliasBrowserService extends ComponentBase {
     return result
   }
 
-  /**
-   * DEPRECATED: Persist alias selection to profile storage
-   * SelectionService now handles persistence centrally
-   */
-  async _persistAliasSelection(aliasName) {
-    // DEPRECATED: SelectionService handles persistence
-    return // No-op
-    try {
-      const profile = this.getProfile()
-      if (!profile) {
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[AliasBrowserService] Skipping persistence: no profile available`)
-        }
-        return // Don't persist if no profile
-      }
-
-      if (!this.currentProfileId) {
-        console.error('[AliasBrowserService] Cannot persist selection: currentProfileId is null')
-        return
-      }
-
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserService] Persisting alias selection: alias -> ${aliasName}`)
-      }
-
-      // Prepare updated selections
-      const updatedSelections = {
-        ...(profile.selections || {}),
-        alias: aliasName
-      }
-
-      // Update through DataCoordinator using explicit operations API
-      const result = await this.request('data:update-profile', {
-        profileId: this.currentProfileId,
-        properties: {
-          selections: updatedSelections
-        }
-      })
-
-      // Update local cache immediately to avoid race conditions
-      if (result?.success && this.cache.profile) {
-        this.cache.profile.selections = updatedSelections
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[AliasBrowserService] Updated local cache with selections:`, updatedSelections)
-        }
-      } else if (!result?.success) {
-        console.error('[AliasBrowserService] Failed to persist selection, result:', result)
-      }
-    } catch (error) {
-      console.error('[AliasBrowserService] Failed to persist alias selection:', error)
-    }
-  }
 
   /* ============================================================
    * REFACTORED: CRUD operations now use DataCoordinator

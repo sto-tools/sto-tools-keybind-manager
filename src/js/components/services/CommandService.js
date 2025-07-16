@@ -967,25 +967,17 @@ export default class CommandService extends ComponentBase {
     try {
       const commandData = await this.request('data:find-command-by-name', { command: commandName })
       
-      // Special debug logging for Holster commands
-      if (commandName.toLowerCase().includes('holster')) {
-        console.log(`[DEBUG] Holster command "${commandName}" lookup result:`, commandData)
-        console.log(`[DEBUG] Target environment: ${targetEnvironment}`)
-      }
+      // Check command environment compatibility
       
       if (!commandData || !commandData.environment) {
         // Command has no environment restriction, so it's universal
-        if (commandName.toLowerCase().includes('holster')) {
-          console.log(`[DEBUG] Holster command "${commandName}" treated as universal (no environment found)`)
-        }
+        // Command has no environment restriction (universal)
         return true
       }
       
       // Command has environment restriction - check compatibility
       const compatible = commandData.environment === targetEnvironment
-      if (commandName.toLowerCase().includes('holster')) {
-        console.log(`[DEBUG] Holster command "${commandName}" environment: ${commandData.environment}, compatible: ${compatible}`)
-      }
+      // Check environment compatibility
       return compatible
     } catch (error) {
       // If we can't determine compatibility, assume it's universal
@@ -1146,8 +1138,7 @@ export default class CommandService extends ComponentBase {
         // Key-to-key import: check for cross-environment issues
         if (sourceType !== currentEnvironment) {
           // Cross-environment import: filter out environment-specific commands
-          console.log(`[DEBUG] Cross-environment import: ${sourceType} -> ${currentEnvironment}`)
-          console.log('[DEBUG] Source commands:', sourceCommands)
+          // Cross-environment import detected, filtering commands
           
           const originalCount = sourceCommands.length
           const compatibilityPromises = sourceCommands.map(async (cmdString) => {
@@ -1156,7 +1147,7 @@ export default class CommandService extends ComponentBase {
           })
           
           const compatibilityResults = await Promise.all(compatibilityPromises)
-          console.log('[DEBUG] Compatibility results:', compatibilityResults.map(r => ({ command: r.command, compatible: r.isCompatible })))
+          // Compatibility check completed
 
           // Drop incompatible commands
           filteredCommands = compatibilityResults
@@ -1164,8 +1155,7 @@ export default class CommandService extends ComponentBase {
             .map(result => result.command)
 
           droppedCount = originalCount - filteredCommands.length
-          console.log('[DEBUG] Filtered commands:', filteredCommands)
-          console.log(`[DEBUG] Dropped ${droppedCount} commands`)
+          // Command filtering completed
         }
       }
       

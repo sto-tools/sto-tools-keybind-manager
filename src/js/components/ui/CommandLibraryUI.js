@@ -548,7 +548,6 @@ export default class CommandLibraryUI extends ComponentBase {
   /**
    * Update local cache from profile data received from DataCoordinator
    */
-  // REMOVED: updateCacheFromProfile - ComponentBase handles caching automatically
 
   /**
    * ComponentBase late-join support - provide current state

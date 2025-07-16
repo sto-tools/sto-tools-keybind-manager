@@ -451,8 +451,6 @@ export default class VFXManagerService extends ComponentBase {
         ground: Array.from(this.selectedEffects.ground)
       },
       showPlayerSay: this.showPlayerSay
-      // REMOVED: currentProfile - not owned by VFXManagerService
-      // This will be managed by DataCoordinator
     }
   }
 

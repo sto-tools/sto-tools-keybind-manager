@@ -34,18 +34,18 @@ export default class AliasBrowserUI extends ComponentBase {
     
     // React to alias list or selection changes
     this.eventBus.on('aliases-changed', () => {
-      console.log('[AliasBrowserUI] aliases-changed event received, calling render()')
+      // Aliases changed, updating display
       this.render()
     })
     this.eventBus.on('alias-selected', (data) => {
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserUI] alias-selected event received. data:`, data, `setting _selectedAliasName to: ${data.name}`)
+        // Alias selected, updating selection
       }
       this._selectedAliasName = data.name
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserUI] calling render() after alias-selected. _selectedAliasName:`, this._selectedAliasName)
+        // Rendering after alias selection
       }
       this.render()
     })
@@ -59,7 +59,7 @@ export default class AliasBrowserUI extends ComponentBase {
     // Toggle visibility based on current environment
     this.eventBus.on('environment:changed', (d = {}) => {
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
-      console.log('[AliasBrowserUI] environment:changed event received:', d, 'parsed env:', env)
+      // Environment changed, updating visibility
       this.toggleVisibility(env)
     })
 
@@ -284,7 +284,7 @@ export default class AliasBrowserUI extends ComponentBase {
     if (!container) return
     
     const shouldShow = (env === 'alias')
-    console.log('[AliasBrowserUI] toggleVisibility called with env:', env, 'shouldShow:', shouldShow, 'container exists:', !!container)
+    // Toggling alias browser visibility
     
     container.style.display = shouldShow ? '' : 'none'
   }

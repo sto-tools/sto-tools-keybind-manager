@@ -271,7 +271,6 @@ export default class CommandUI extends ComponentBase {
   }
 
   handleInitialState(sender, state) {
-    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
     // Component-specific initialization can be added here if needed
   }
 
