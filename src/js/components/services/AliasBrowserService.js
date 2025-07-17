@@ -6,23 +6,18 @@ import { isAliasNameAllowed } from '../../lib/aliasNameValidator.js'
 
 /**
  * AliasBrowserService – source-of-truth for alias CRUD & selection.
- * REFACTORED: Now uses DataCoordinator broadcast/cache pattern.
+ * Uses DataCoordinator broadcast/cache pattern.
  */
 export default class AliasBrowserService extends ComponentBase {
-  constructor ({ storage, ui, eventBus } = {}) {
+  constructor ({ ui, eventBus } = {}) {
     super(eventBus)
     this.componentName = 'AliasBrowserService'
-    this.storage = storage // Legacy reference (no longer used directly)
     this.ui = ui
 
     this.currentProfileId = null
     this.currentEnvironment = 'space'
-    this.selectedAliasName = null
-
-    // Selection caching for environment switches
-    this._cachedAliasSelection = null
-
-    // REFACTORED: Local cache for DataCoordinator integration
+    
+    // Local cache for DataCoordinator integration
     this.cache = {
       currentProfile: null,
       currentEnvironment: 'space',
@@ -30,46 +25,23 @@ export default class AliasBrowserService extends ComponentBase {
       profile: null
     }
 
-    // ---------------------------------------------------------
-    // Register Request/Response endpoints for alias operations
-    // ---------------------------------------------------------
     if (this.eventBus) {
+      // Register request/response endpoints for alias operations
       this.respond('alias:get-all', () => this.getAliases())
-      // REMOVED: alias:select - SelectionService handles this for centralized selection management
-      
-      // Use addEventListener for alias:delete since AliasBrowserUI emits it rather than requests it
-      this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
-      // New: duplicate alias with explicit target name from UI
-      this.addEventListener('alias:duplicate', ({ from, to, name } = {}) => {
-        // Support old payload shape { name } for backward-compatibility
-        if (from && to) return this.duplicateAlias(from, to)
-        const source = name || from
-        return this.duplicateAlias(source)
-      })
-      // New: create alias from UI modal
-      this.addEventListener('alias:create', ({ name, description='' } = {}) => this.createAlias(name, description))
+
     }
   }
 
-  /* ============================================================
-   * Lifecycle
-   * ============================================================ */
   async init() {
-    super.init() // ComponentBase handles late-join automatically
+    super.init() 
     this.setupEventListeners()
   }
 
   onInit() {
-    // Legacy method - now handled by init()
   }
 
-  /* ============================================================
-   * REFACTORED: Event listeners for DataCoordinator integration
-   * ============================================================ */
   setupEventListeners() {
-    // REFACTORED: Listen to DataCoordinator broadcasts instead of direct storage access
-
-    // Cache profile state from DataCoordinator broadcasts
+    // Listen for profile updates
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (typeof window !== 'undefined') {
         console.log(`[AliasBrowserService] profile:updated received. profileId: ${profileId}, cache.currentProfile: ${this.cache.currentProfile}, match: ${profileId === this.cache.currentProfile}`)
@@ -80,7 +52,7 @@ export default class AliasBrowserService extends ComponentBase {
       }
     })
 
-    // Profile switched (DataCoordinator event)
+    // Listen for profile switched
     this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
       this.currentProfileId = profileId
       this.cache.currentProfile = profileId
@@ -90,14 +62,8 @@ export default class AliasBrowserService extends ComponentBase {
         this.cache.currentEnvironment = environment
       }
       
-      // Clear legacy selection state when profile changes
-      this.selectedAliasName = null
-      this._cachedAliasSelection = null
-      
       this.updateCacheFromProfile(profile)
       this.emit('aliases-changed', { aliases: this.cache.aliases })
-
-      // SelectionService now handles all auto-selection logic
     })
 
     // Listen for environment changes
@@ -110,74 +76,38 @@ export default class AliasBrowserService extends ComponentBase {
       if (env) {
         this.currentEnvironment = env
         this.cache.currentEnvironment = env
-        
-        // SelectionService now handles all selection caching and restoration
-        // AliasBrowserService just needs to track the current environment for data operations
       }
     })
 
-    // Back-compat: also accept legacy topic if emitted elsewhere
-    /*this.addEventListener('profile:changed', (profileId) => {
-      this.currentProfileId = profileId
-      this.cache.currentProfile = profileId
-      this.selectedAliasName = null
-      // Clear cached selection when profile changes
-      this._cachedAliasSelection = null
-      this.emit('aliases-changed', { aliases: this.getAliases() })
-    })*/
+    // Listen for alias operationss
+    this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
+    this.addEventListener('alias:duplicate', ({ from, to, name } = {}) => {
+      if (from && to) return this.duplicateAlias(from, to)
+      const source = name || from
+      return this.duplicateAlias(source)
+    })
+    this.addEventListener('alias:create', ({ name, description='' } = {}) => this.createAlias(name, description))
+    
   }
 
-  /**
-   * Update local cache from profile data
-   */
   updateCacheFromProfile(profile) {
     if (!profile) {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserService] updateCacheFromProfile called with null/undefined profile`)
-      }
       return
     }
-    
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[AliasBrowserService] updateCacheFromProfile called with profile:`, profile, 'aliases:', profile.aliases)
-    }
-    
+        
     this.cache.profile = profile
     this.cache.aliases = profile.aliases || {}
-    
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[AliasBrowserService] cache updated. aliases:`, this.cache.aliases, 'keys:', Object.keys(this.cache.aliases))
-    }
   }
 
-  /* ============================================================
-   * Selection caching and auto-selection
-   * ============================================================ */
-  
-  // REMOVED: _restoreOrAutoSelectAlias() - SelectionService now handles all selection restoration and auto-selection
-
-  /* ============================================================
-   * REFACTORED: Data helpers now use cached data
-   * ============================================================ */
   getProfile() {
-    // Return cached profile instead of accessing storage directly
     return this.cache.profile
   }
 
   getAliases() {
-    // Return cached aliases
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[AliasBrowserService] getAliases() called. cache.aliases:`, this.cache.aliases, 'keys:', Object.keys(this.cache.aliases || {}))
-    }
     return Object.fromEntries(Object.entries(this.cache.aliases || {}).filter(([key, value]) => value.type !== 'vfx-alias')) 
   }
 
   async selectAlias(name) {
-    // REFACTORED: Delegate to SelectionService for centralized selection management
     const result = await this.request('selection:select-alias', { 
       aliasName: name
     })
@@ -185,12 +115,7 @@ export default class AliasBrowserService extends ComponentBase {
     return result
   }
 
-
-  /* ============================================================
-   * REFACTORED: CRUD operations now use DataCoordinator
-   * ============================================================ */
   async createAlias(name, description = '') {
-    // Delegate CRUD operation to AliasService
     const result = await this.request('alias:add', { name, description })
     
     if (result) {
@@ -202,14 +127,13 @@ export default class AliasBrowserService extends ComponentBase {
   }
 
   async deleteAlias(name) {
-    if (!this.cache.aliases[name]) return false
+    if (!this.cache.aliases || !this.cache.aliases[name]) return false
 
     // Clear selection if deleting the currently selected alias
-    if (this.selectedAliasName === name) {
-      this.selectedAliasName = null
-    }
+    // if (this.selectedAliasName === name) {
+    //   this.selectedAliasName = null
+    // }
 
-    // Delegate CRUD operation to AliasService
     return await this.request('alias:delete', { name })
   }
 
@@ -221,14 +145,12 @@ export default class AliasBrowserService extends ComponentBase {
    *                                backward-compatibility with existing tests and API consumers.
    */
   async duplicateAlias(sourceName, targetName = undefined) {
-    if (!this.cache.aliases[sourceName]) return false
+    if (!this.cache.aliases || !this.cache.aliases[sourceName]) return false
 
     let result
     if (targetName) {
-      // Delegate to AliasService with explicit target name
       result = await this.request('alias:duplicate-with-name', { sourceName, newName: targetName })
     } else {
-      // Delegate to AliasService for auto-generated name
       result = await this.request('alias:duplicate', { sourceName })
     }
 
@@ -239,21 +161,5 @@ export default class AliasBrowserService extends ComponentBase {
     }
 
     return false
-  }
-
-  /* ============================================================
-   * ComponentBase late-join support
-   * ============================================================ */
-  getCurrentState() {
-    return {
-      // REMOVED: All selection state - now managed by SelectionService
-      // REMOVED: currentProfileId, currentEnvironment, aliases - not owned by AliasBrowserService
-      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
-    }
-  }
-
-  handleInitialState(sender, state) {
-    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
-    // REMOVED: Selection state handling - now managed by SelectionService
   }
 } 
