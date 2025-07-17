@@ -7,59 +7,43 @@ import { respond, request } from '../../core/requestResponse.js'
  * exclusively on alias level operations so other components (AliasBrowser,
  * UI components, etc.) can delegate all alias data mutations here.
  * 
- * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
- * - Caches profile state locally from DataCoordinator broadcasts
- * - Uses DataCoordinator request/response for all profile updates
- * - Implements late-join support for dynamic initialization
- * - No direct storage access - all data operations go through DataCoordinator
+ * Uses DataCoordinator broadcast/cache pattern.
  */
 export default class AliasService extends ComponentBase {
-  constructor ({ storage, eventBus, i18n, ui } = {}) {
+  constructor ({ eventBus, i18n, ui } = {}) {
     super(eventBus)
     this.componentName = 'AliasService'
-    // Legacy storage parameter kept for backward compatibility but not used
-    this.storage = storage
     this.i18n = i18n
     this.ui = ui
 
     this.currentEnvironment = 'space'
     this.currentProfile = null
 
-    // REFACTORED: Cache profile state from DataCoordinator broadcasts
+    // Local cache for DataCoordinator integration
     this.cache = {
       currentProfile: null,
       currentEnvironment: 'space',
-      aliases: {}, // Current profile's aliases
-      profile: null // Full profile object
+      aliases: {}, 
+      profile: null
     }
 
-    // ---------------------------------------------------------
-    // Register Request/Response topics for alias state and actions
-    // ---------------------------------------------------------
+ 
     if (this.eventBus) {
+      // Register request/response endpoints for alias operations
       this.respond('alias:add', ({ name, description } = {}) => this.addAlias(name, description))
-      
-      // Use addEventListener for alias:delete since AliasBrowserUI emits it rather than requests it
-      this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
       this.respond('alias:duplicate-with-name', ({ sourceName, newName } = {}) => this.duplicateAliasWithName(sourceName, newName))
       this.respond('alias:duplicate', ({ sourceName } = {}) => this.duplicateAlias(sourceName))
-      this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))
-      // REMOVED: alias:get-all - let AliasBrowserService handle this to avoid conflicts
+      this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))      
       this.respond('alias:import-file', ({ content } = {}) => this.importAliasFile(content))
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Lifecycle
-   * ------------------------------------------------------------------ */
   async init() {
-    super.init() // ComponentBase handles late-join automatically
+    super.init() 
     this.setupEventListeners()
   }
 
-  /* ------------------------------------------------------------------
-   * State setters - Updated to use cached state
-   * ------------------------------------------------------------------ */
+  // State setters - Updated to use cached state
   setCurrentEnvironment (environment) {
     this.currentEnvironment = environment
     this.cache.currentEnvironment = environment
@@ -70,18 +54,16 @@ export default class AliasService extends ComponentBase {
     this.cache.currentProfile = profileId
   }
 
-  /** Convenience getter */
+  // Convenience getter
   getCurrentProfileId () {
     return this.currentProfile
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Event listeners for DataCoordinator integration
-   * ------------------------------------------------------------------ */
+  // Event listeners for DataCoordinator integration
   setupEventListeners () {
     if (!this.eventBus) return
 
-    // Cache profile state from DataCoordinator broadcasts
+    // Listen for profile updates
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
@@ -97,17 +79,20 @@ export default class AliasService extends ComponentBase {
       this.updateCacheFromProfile(profile)
     })
 
+    // Listen for environment changes
     this.addEventListener('environment:changed', ({ environment }) => {
       if (environment) {
         this.cache.currentEnvironment = environment
         this.currentEnvironment = environment
       }
     })
+
+    // Listen for alias operations
+    this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
+
   }
 
-  /**
-   * Update local cache from profile data
-   */
+  // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
     
@@ -115,9 +100,7 @@ export default class AliasService extends ComponentBase {
     this.cache.profile = profile
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Profile access now uses cached state
-   * ------------------------------------------------------------------ */
+  // Profile access now uses cached state
   getCurrentProfile () {
     if (!this.cache.currentProfile) return null
     
@@ -129,10 +112,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Core alias operations now use DataCoordinator
-   * ------------------------------------------------------------------ */
-  /** Add a new alias to the current profile */
+  // Core alias operations now use DataCoordinator
   async addAlias (name, description = '') {
     if (!await this.isValidAliasName(name)) {
       this.ui?.showToast?.(this.i18n?.t?.('invalid_alias_name') || 'Invalid alias name', 'error')
@@ -178,7 +158,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  /** Delete an alias from the current profile */
+  // Delete an alias from the current profile
   async deleteAlias (name) {
     if (!this.cache.currentProfile || !this.cache.aliases[name]) {
       return false
@@ -201,7 +181,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  /** Duplicate an existing alias (clone with new auto-generated name) */
+  // Duplicate an existing alias (clone with new auto-generated name)
   async duplicateAlias (sourceName) {
     if (!this.cache.currentProfile || !this.cache.aliases[sourceName]) {
       return false
@@ -241,7 +221,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  /** Duplicate an existing alias to an explicit new alias name */
+  // Duplicate an existing alias to an explicit new alias name
   async duplicateAliasWithName (sourceName, newName) {
     if (!sourceName || !newName) return false
 
@@ -284,9 +264,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Validation helpers
-   * ------------------------------------------------------------------ */
+  // Validation helpers
   async isValidAliasName (name) {
     if (!name || typeof name !== 'string') return false
     
@@ -301,12 +279,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Import operations
-   * ------------------------------------------------------------------ */
-  /**
-   * Import alias file using ImportService
-   */
+  // Import operations
   importAliasFile (content) {
     const profileId = this.currentProfile
 
@@ -317,30 +290,8 @@ export default class AliasService extends ComponentBase {
     })
   }
 
-  /* ------------------------------------------------------------------
-   * Utility helpers
-   * ------------------------------------------------------------------ */
+  // Utility helpers
   generateAliasId () {
     return `alias_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
-
-  /* ------------------------------------------------------------------
-   * REFACTORED: Late-join state sharing using cached data
-   * ------------------------------------------------------------------ */
-  getCurrentState () {
-    return {
-      // AliasService owns only alias operations, not state
-      // All state ownership transferred to appropriate services:
-      // - Selection state: SelectionService
-      // - Profile state: DataCoordinator
-      // AliasService owns only alias operations, not state
-    }
-  }
-
-  // REMOVED: getAliases() method - AliasBrowserService handles alias:get-all requests
-
-  handleInitialState (sender, state) {
-    if (!state) return
-    // ComponentBase handles DataCoordinator and SelectionService state automatically
   }
 }
