@@ -2,14 +2,9 @@ import ComponentBase from '../ComponentBase.js'
 
 /**
  * LoadingService – handles showing/hiding loading indicators on DOM elements.
- * Extracted from STOUIManager so it can be reused independently of the UI facade.
  */
 export default class LoadingService extends ComponentBase {
-  /**
-   * Show a loading spinner on the supplied element (or element id).
-   * @param {string|HTMLElement} element – DOM element or its id.
-   * @param {string} [text='Loading...'] – Optional text to display.
-   */
+  // Show a loading spinner on the supplied element (or element id).
   showLoading(element, text = 'Loading...') {
     if (typeof element === 'string') {
       element = document.getElementById(element)
@@ -32,10 +27,7 @@ export default class LoadingService extends ComponentBase {
     }
   }
 
-  /**
-   * Hide the loading spinner and restore original element content.
-   * @param {string|HTMLElement} element – DOM element or its id.
-   */
+  // Hide the loading spinner and restore original element content.
   hideLoading(element) {
     if (typeof element === 'string') {
       element = document.getElementById(element)

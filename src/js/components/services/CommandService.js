@@ -1,5 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond, request } from '../../core/requestResponse.js'
 import { normalizeToString, normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
 import { formatAliasLine } from '../../lib/STOFormatter.js'
 
@@ -8,39 +7,18 @@ import { formatAliasLine } from '../../lib/STOFormatter.js'
  * rearranging commands in a profile.  It owns no UI concerns whatsoever.  A
  * higher-level feature (CommandLibraryService / future templates) can call
  * this service to persist changes and broadcast events.
- * 
- * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
- * - Caches profile state locally from DataCoordinator broadcasts
- * - Uses DataCoordinator request/response for all profile updates
- * - Implements late-join support for dynamic initialization
- * - Maintains all existing command operations and events
  */
 export default class CommandService extends ComponentBase {
   constructor({ storage, eventBus, i18n, profileService = null, modalManager = null }) {
     super(eventBus)
     this.componentName = 'CommandService'
-    // Legacy parameters kept for backward compatibility but not used directly
-    this.storage         = storage
-    this.i18n            = i18n
-    this.profileService  = profileService
-    this.modalManager    = modalManager
+    this.i18n = i18n
 
-    this.currentProfile  = null
-    this.currentEnvironment = 'space'
-    // REMOVED: Selection state now managed by SelectionService
+    // Initialize cache for DataCoordinator integration
+    this.initializeCache()
 
-    // REFACTORED: Cache profile state from DataCoordinator broadcasts
-    this.cache = {
-      currentProfile: null,
-      currentEnvironment: 'space',
-      profile: null, // Full profile object
-      builds: { // Current profile's builds
-        space: { keys: {} },
-        ground: { keys: {} }
-      },
-      aliases: {}, // Current profile's aliases
-      keys: {} // Current environment's keys
-    }
+    // Track active bindset (default to primary)
+    this.activeBindset = 'Primary Bindset'
 
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
@@ -58,11 +36,8 @@ export default class CommandService extends ComponentBase {
           this.deleteCommand(key, index, bindset)),
         this.respond('command:move', async ({ key, fromIndex, toIndex, bindset }) =>
           this.moveCommand(key, fromIndex, toIndex, bindset)),
-        // MOVED: from CommandLibraryService - now implemented directly here
         this.respond('command:get-for-selected-key', this.getCommandsForSelectedKey.bind(this)),
         this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
-        
-        // Command validation and import operations (moved from CommandUI)
         this.respond('command:check-environment-compatibility', ({ command, environment }) => 
           this.isCommandCompatible(command, environment)
         ),
@@ -76,9 +51,7 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /* ============================================================
-   * Lifecycle
-   * ============================================================ */
+  // Lifecycle
   async init() {
     super.init() // ComponentBase handles late-join automatically
     this.setupEventListeners()
@@ -88,14 +61,12 @@ export default class CommandService extends ComponentBase {
     // Legacy method - now handled by init()
   }
 
-  /** Convenience getter */
+  // Convenience getter
   getCurrentProfileId () {
-    return this.currentProfile
+    return this.cache.currentProfile
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Profile helpers now use cached data
-   * ------------------------------------------------------------------ */
+  // Profile helpers now use cached data
   getCurrentProfile () {
     if (!this.cache.currentProfile) return null
     return this.getCurrentBuild(this.cache.profile)
@@ -110,25 +81,22 @@ export default class CommandService extends ComponentBase {
       ground: { keys: {} }
     }
 
-    if (!builds[this.currentEnvironment]) {
-      builds[this.currentEnvironment] = { keys: {} }
+    if (!builds[this.cache.currentEnvironment]) {
+      builds[this.cache.currentEnvironment] = { keys: {} }
     }
 
-    if (!builds[this.currentEnvironment].keys) {
-      builds[this.currentEnvironment].keys = {}
+    if (!builds[this.cache.currentEnvironment].keys) {
+      builds[this.cache.currentEnvironment].keys = {}
     }
 
     return {
       ...profile,
-      keys: builds[this.currentEnvironment].keys,
+      keys: builds[this.cache.currentEnvironment].keys,
       aliases: this.cache.aliases || {},
     }
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Core command operations now use DataCoordinator
-   * ------------------------------------------------------------------ */
-  /** Add command to key or alias */
+  // Core command operations now use DataCoordinator
   async addCommand (key, command, bindset = null) {
     const profile = this.getCurrentProfile()
     if (!profile) {
@@ -137,7 +105,7 @@ export default class CommandService extends ComponentBase {
     }
 
     // Determine if we should use a bindset (when bindset is specified and not in alias mode)
-    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.currentEnvironment !== 'alias')
+    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.cache.currentEnvironment !== 'alias')
 
     // Get current alias commands (handle both legacy string and new array format)
     const currentAlias = this.cache.aliases && this.cache.aliases[key]
@@ -164,7 +132,7 @@ export default class CommandService extends ComponentBase {
     // ----- Key-bind -----
     let currentKeys = []
     if (useBindset) {
-      currentKeys = (profile.bindsets?.[bindset]?.[this.currentEnvironment]?.keys?.[key]) || []
+      currentKeys = (profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[key]) || []
     } else {
       currentKeys = this.cache.keys[key] || []
     }
@@ -175,7 +143,7 @@ export default class CommandService extends ComponentBase {
     try {
       // Build explicit operations object
       const ops = {}
-      if (this.currentEnvironment === 'alias') {
+      if (this.cache.currentEnvironment === 'alias') {
         console.log('[CommandService] addCommand: alias')
         const aliasExists = !!profile.aliases?.[key]
         if (aliasExists) {
@@ -199,11 +167,11 @@ export default class CommandService extends ComponentBase {
           }
         }
       } else if (!useBindset) {
-        const keyExists = !!profile.builds?.[this.currentEnvironment]?.keys?.[key]
+        const keyExists = !!profile.builds?.[this.cache.currentEnvironment]?.keys?.[key]
         if (keyExists) {
           ops.modify = {
             builds: {
-              [this.currentEnvironment]: {
+              [this.cache.currentEnvironment]: {
                 keys: { [key]: newKeys }
               }
             }
@@ -211,7 +179,7 @@ export default class CommandService extends ComponentBase {
         } else {
           ops.add = {
             builds: {
-              [this.currentEnvironment]: {
+              [this.cache.currentEnvironment]: {
                 keys: { [key]: newKeys }
               }
             }
@@ -220,14 +188,14 @@ export default class CommandService extends ComponentBase {
       } else {
         // Bindset path
         const bindsetExists = !!profile.bindsets?.[bindset]
-        const envExists = !!profile.bindsets?.[bindset]?.[this.currentEnvironment]
-        const bsSection = profile.bindsets?.[bindset]?.[this.currentEnvironment]?.keys || {}
+        const envExists = !!profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]
+        const bsSection = profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys || {}
         // If bindset or environment does not exist, use add; otherwise always use modify
         if (!bindsetExists || !envExists) {
           ops.add = {
             bindsets: {
               [bindset]: {
-                [this.currentEnvironment]: {
+                [this.cache.currentEnvironment]: {
                   keys: { [key]: newKeys }
                 }
               }
@@ -237,7 +205,7 @@ export default class CommandService extends ComponentBase {
           ops.modify = {
             bindsets: {
               [bindset]: {
-                [this.currentEnvironment]: {
+                [this.cache.currentEnvironment]: {
                   keys: { [key]: newKeys }
                 }
               }
@@ -246,13 +214,13 @@ export default class CommandService extends ComponentBase {
         }
         console.log('[CommandService] addCommand: bindset update', {
           bindset,
-          environment: this.currentEnvironment,
+          environment: this.cache.currentEnvironment,
           key,
           bindsetExists,
           envExists,
           ops,
           currentKeys: bsSection,
-          profileBindsets: profile.bindsets?.[bindset]?.[this.currentEnvironment]?.keys
+          profileBindsets: profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys
         })
       }
 
@@ -270,17 +238,17 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /** Delete command */
+  // Delete command
   async deleteCommand (key, index, bindset = null) {
     // Determine if we should use a bindset (when bindset is specified and not in alias mode)
-    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.currentEnvironment !== 'alias')
+    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.cache.currentEnvironment !== 'alias')
 
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
     if (!key || index === undefined) return false
 
-    const isAliasContext = this.currentEnvironment === 'alias' ||
+    const isAliasContext = this.cache.currentEnvironment === 'alias' ||
       (this.cache.aliases && Object.prototype.hasOwnProperty.call(this.cache.aliases, key))
 
     let payload = null
@@ -313,7 +281,7 @@ export default class CommandService extends ComponentBase {
     } else {
       // Fetch commands from appropriate location depending on active bindset
       const keyCommands = useBindset
-        ? (profile.bindsets?.[bindset]?.[this.currentEnvironment]?.keys?.[key] || [])
+        ? (profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[key] || [])
         : (this.cache.keys[key] || [])
 
       if (!keyCommands[index]) return false
@@ -330,7 +298,7 @@ export default class CommandService extends ComponentBase {
           modify: {
             bindsets: {
               [bindset]: {
-                [this.currentEnvironment]: {
+                [this.cache.currentEnvironment]: {
                   keys: { [key]: newKeyCommands }
                 }
               }
@@ -342,7 +310,7 @@ export default class CommandService extends ComponentBase {
         payload = {
           modify: {
             builds: {
-              [this.currentEnvironment]: {
+              [this.cache.currentEnvironment]: {
                 keys: { [key]: newKeyCommands } // Preserve empty array instead of deleting key
               }
             }
@@ -369,16 +337,16 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /** Move command */
+  // Move command
   async moveCommand (key, fromIndex, toIndex, bindset = null) {
-    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.currentEnvironment !== 'alias')
+    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.cache.currentEnvironment !== 'alias')
 
     const profile = this.getCurrentProfile()
     if (!profile) return false
 
     let payload = null
 
-    if (this.currentEnvironment === 'alias') {
+    if (this.cache.currentEnvironment === 'alias') {
       const aliasObj = this.cache.aliases && this.cache.aliases[key]
       if (!aliasObj || !Array.isArray(aliasObj.commands)) return false
 
@@ -404,7 +372,7 @@ export default class CommandService extends ComponentBase {
       }
     } else {
       const keyCmds = useBindset
-        ? (profile.bindsets?.[bindset]?.[this.currentEnvironment]?.keys?.[key] || [])
+        ? (profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[key] || [])
         : (this.cache.keys[key] || [])
 
       if (
@@ -421,7 +389,7 @@ export default class CommandService extends ComponentBase {
           modify: {
             bindsets: {
               [bindset]: {
-                [this.currentEnvironment]: {
+                [this.cache.currentEnvironment]: {
                   keys: { [key]: newCmds }
                 }
               }
@@ -432,7 +400,7 @@ export default class CommandService extends ComponentBase {
         payload = {
           modify: {
             builds: {
-              [this.currentEnvironment]: {
+              [this.cache.currentEnvironment]: {
                 keys: { [key]: newCmds }
               }
             }
@@ -456,7 +424,7 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /** Edit/Update a command at a specific index */
+  // Edit/Update a command at a specific index
   async editCommand (key, index, updatedCommand, bindset = null) {
     console.log('[CommandService] editCommand called with:', { key, index, updatedCommand })
     
@@ -465,7 +433,7 @@ export default class CommandService extends ComponentBase {
       return false
     }
 
-    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.currentEnvironment !== 'alias')
+    const useBindset = (bindset && bindset !== 'Primary Bindset' && this.cache.currentEnvironment !== 'alias')
 
     const profile = this.getCurrentProfile()
     if (!profile) {
@@ -475,7 +443,7 @@ export default class CommandService extends ComponentBase {
 
     let payload = null
 
-    if (this.currentEnvironment === 'alias') {
+    if (this.cache.currentEnvironment === 'alias') {
       const aliasObj = this.cache.aliases[key]
       if (!aliasObj || !Array.isArray(aliasObj.commands)) return false
 
@@ -499,7 +467,7 @@ export default class CommandService extends ComponentBase {
       }
     } else {
       const keyCmds = useBindset
-        ? (profile.bindsets?.[bindset]?.[this.currentEnvironment]?.keys?.[key] || [])
+        ? (profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[key] || [])
         : (this.cache.keys[key] || [])
 
       if (index < 0 || index >= keyCmds.length) return false
@@ -513,7 +481,7 @@ export default class CommandService extends ComponentBase {
           modify: {
             bindsets: {
               [bindset]: {
-                [this.currentEnvironment]: {
+                [this.cache.currentEnvironment]: {
                   keys: { [key]: newCmds }
                 }
               }
@@ -524,7 +492,7 @@ export default class CommandService extends ComponentBase {
         payload = {
           modify: {
             builds: {
-              [this.currentEnvironment]: {
+              [this.cache.currentEnvironment]: {
                 keys: { [key]: newCmds }
               }
             }
@@ -552,30 +520,12 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Command lookup helpers moved to CommandLibraryService
-   * Use: await this.request('command:find-definition', { command })
-   * Use: await this.request('command:get-warning', { command })
-   * ------------------------------------------------------------------ */
-
-
-  /* ------------------------------------------------------------------ */
   generateCommandId () {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  /**
-   * REFACTORED: Set up event listeners for DataCoordinator integration
-   */
+  // Set up event listeners for DataCoordinator integration
   setupEventListeners() {
-    // REMOVED: Profile state caching now handled by ComponentBase
-
-    // Late-join support now handled by ComponentBase automatically
-
-    // REMOVED: Selection state caching now handled by ComponentBase
-
-    // REMOVED: Environment change handling now in ComponentBase
-
     // Listen for command addition events from UI components (broadcast pattern)
     this.addEventListener('command:add', async (data) => {
       console.log('[CommandService] command:add received:', data)
@@ -593,11 +543,25 @@ export default class CommandService extends ComponentBase {
       const result = await this.editCommand(key, index, updatedCommand, bindset)
       console.log('[CommandService] editCommand result:', result)
     })
+
+    // Listen for active bindset changes from BindsetSelectorService
+    this.addEventListener('bindset-selector:active-changed', ({ bindset }) => {
+      console.log('[CommandService] bindset-selector:active-changed received:', bindset)
+      this.activeBindset = bindset || 'Primary Bindset'
+    })
+
+    // Listen for key selection changes - reset to Primary Bindset when new key selected
+    this.addEventListener('key-selected', ({ key, name }) => {
+      const selectedKey = key || name
+      console.log('[CommandService] key-selected received:', selectedKey)
+      if (selectedKey && this.activeBindset !== 'Primary Bindset') {
+        console.log('[CommandService] Resetting active bindset to Primary Bindset for new key selection')
+        this.activeBindset = 'Primary Bindset'
+      }
+    })
   }
 
-  /**
-   * Update local cache from profile data
-   */
+  // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
     
@@ -620,13 +584,10 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /**
-   * Return all commands associated with a key for the current environment.
-   * Alias environment returns the command array (now normalized to string[]).
-   * REFACTORED: Now uses cached data and handles normalized string arrays
-   */
+  // Return all commands associated with a key for the current environment.
+  // Alias environment returns the command array (now normalized to string[]).
   getCommandsForKey (key) {
-    if (this.currentEnvironment === 'alias') {
+    if (this.cache.currentEnvironment === 'alias') {
       const alias = this.cache.aliases && this.cache.aliases[key]
       if (!alias || !Array.isArray(alias.commands)) return []
       
@@ -635,34 +596,14 @@ export default class CommandService extends ComponentBase {
     return this.cache.keys[key] || []
   }
 
-  /**
-   * Placeholder command validator – always returns true.
-   * Can be expanded later with proper validation logic.
-   */
+  // Placeholder command validator – always returns true.
+  // Can be expanded later with proper validation logic.
   validateCommand (command) {
     if (!command) return { valid: false, reason: 'empty' }
     return { valid: true }
   }
 
-  /* ------------------------------------------------------------------
-   * Late-join state sharing
-   * ------------------------------------------------------------------ */
-  getCurrentState() {
-    return {
-      // REMOVED: Selection state now managed by SelectionService
-      // REMOVED: currentEnvironment, currentProfile - not owned by CommandService
-      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
-    }
-  }
-
-  handleInitialState (sender, state) {
-    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
-    // Component-specific initialization can be added here if needed
-  }
-
-  /**
-   * Cleanup method to detach all request/response handlers
-   */
+  // Cleanup method to detach all request/response handlers
   destroy() {
     
     if (this._responseDetachFunctions) {
@@ -680,23 +621,23 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /** Helper: fetch latest commands for a key taking bindset into account */
+  // Helper: fetch latest commands for a key taking bindset into account
   async fetchCommandsForKey (key, bindset = null) {
     try {
-      if (this.currentEnvironment === 'alias') {
+      if (this.cache.currentEnvironment === 'alias') {
         return this.getCommandsForSelectedKey({ key })
       }
       const useBindset = (bindset && bindset !== 'Primary Bindset')
       if (useBindset) {
         const cmds = await this.request('bindset:get-key-commands', {
           bindset,
-          environment: this.currentEnvironment,
+          environment: this.cache.currentEnvironment,
           key
         })
         return Array.isArray(cmds) ? cmds : []
       }
       return await this.request('data:get-key-commands', {
-        environment: this.currentEnvironment,
+        environment: this.cache.currentEnvironment,
         key
       })
     } catch {
@@ -704,28 +645,33 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /**
-   * Get empty state information
-   */
+  // Get empty state information
   async getEmptyStateInfo() {
-    // Use cached selection state from SelectionService broadcasts
-    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+    // Use cached selection state from ComponentBase (SelectionService broadcasts)
+    const selectedKey = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+    
+    console.log('[CommandService] getEmptyStateInfo DEBUG:', {
+      currentEnvironment: this.cache.currentEnvironment,
+      selectedKey: this.cache.selectedKey,
+      selectedAlias: this.cache.selectedAlias,
+      resolvedSelectedKey: selectedKey
+    })
 
     if (!selectedKey) {
-      const selectText = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_an_alias_to_edit') || 'Select an alias to edit' : 
-        this.i18n.t('select_a_key_to_edit') || 'Select a key to edit'
-      const previewText = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' : 
-        this.i18n.t('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
+      const selectText = this.cache.currentEnvironment === 'alias' ? 
+        this.i18n?.t?.('select_an_alias_to_edit') || 'Select an alias to edit' : 
+        this.i18n?.t?.('select_a_key_to_edit') || 'Select a key to edit'
+      const previewText = this.cache.currentEnvironment === 'alias' ? 
+        this.i18n?.t?.('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' : 
+        this.i18n?.t?.('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
       
-      const emptyIcon = this.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
-      const emptyTitle = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('no_alias_selected') || 'No Alias Selected' : 
-        this.i18n.t('no_key_selected') || 'No Key Selected'
-      const emptyDesc = this.currentEnvironment === 'alias' ? 
-        this.i18n.t('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' : 
-        this.i18n.t('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
+      const emptyIcon = this.cache.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
+      const emptyTitle = this.cache.currentEnvironment === 'alias' ? 
+        this.i18n?.t?.('no_alias_selected') || 'No Alias Selected' : 
+        this.i18n?.t?.('no_key_selected') || 'No Key Selected'
+      const emptyDesc = this.cache.currentEnvironment === 'alias' ? 
+        this.i18n?.t?.('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' : 
+        this.i18n?.t?.('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
       
         return {
         title: selectText,
@@ -738,18 +684,18 @@ export default class CommandService extends ComponentBase {
     }
 
     const commands = await this.getCommandsForSelectedKey()
-    const chainType = this.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
+    const chainType = this.cache.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
 
     if (commands.length === 0) {
-      const emptyMessage = this.currentEnvironment === 'alias' ? 
-        `${this.i18n.t('click_add_command_to_start_building_your_alias_chain') || 'Click "Add Command" to start building your alias chain for'} ${selectedKey}.` :
-        `${this.i18n.t('click_add_command_to_start_building_your_command_chain') || 'Click "Add Command" to start building your command chain for'} ${selectedKey}.`
+      const emptyMessage = this.cache.currentEnvironment === 'alias' ? 
+        `${this.i18n?.t?.('click_add_command_to_start_building_your_alias_chain') || 'Click "Add Command" to start building your alias chain for'} ${selectedKey}.` :
+        `${this.i18n?.t?.('click_add_command_to_start_building_your_command_chain') || 'Click "Add Command" to start building your command chain for'} ${selectedKey}.`
       
       return {
         title: `${chainType} for ${selectedKey}`,
         preview: await this.getCommandChainPreview(),
         icon: 'fas fa-plus-circle',
-        emptyTitle: this.i18n.t('no_commands') || 'No Commands',
+        emptyTitle: this.i18n?.t?.('no_commands') || 'No Commands',
         emptyDesc: emptyMessage,
         commandCount: '0'
       }
@@ -762,16 +708,13 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /**
-   * Get commands for the currently selected key/alias using cached data
-   * MOVED from CommandLibraryService - this belongs in CommandService since it accesses command data
-   */
+  // Get commands for the currently selected key/alias using cached data
   getCommandsForSelectedKey(params = {}) {
     console.log('[CommandService] getCommandsForSelectedKey called with params:', params)
     console.log('[CommandService] Current state:', {
-      currentEnvironment: this.currentEnvironment,
-      selectedKey: this.selectedKey,
-      selectedAlias: this.selectedAlias,
+      currentEnvironment: this.cache.currentEnvironment,
+      selectedKey: this.cache.selectedKey,  // From ComponentBase
+      selectedAlias: this.cache.selectedAlias,  // From ComponentBase
       cache: this.cache
     })
     
@@ -782,12 +725,12 @@ export default class CommandService extends ComponentBase {
     }
     
     // Use explicit parameters if provided, otherwise use cached selection state
-    const environment = params.environment || this.currentEnvironment || 'space'
+    const environment = params.environment || this.cache.currentEnvironment || 'space'
     let selectedKey = params.key
     
     if (!selectedKey) {
-      // Use cached selection state from broadcast events
-      selectedKey = environment === 'alias' ? this.selectedAlias : this.selectedKey
+      // Use cached selection state from ComponentBase (SelectionService broadcasts)
+      selectedKey = environment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
       if (!selectedKey) {
         console.warn('[CommandService] No key/alias selected for environment:', environment)
         return []
@@ -809,20 +752,33 @@ export default class CommandService extends ComponentBase {
       return [...alias.commands]
     }
 
-    // Keybinds path – keys arrays are already canonical string[]
+    // Keybinds path – check if we're using a non-primary bindset
+    if (this.activeBindset && this.activeBindset !== 'Primary Bindset') {
+      // Get commands from the active bindset
+      const bindsetCommands = profile.bindsets?.[this.activeBindset]?.[environment]?.keys?.[selectedKey]
+      console.log('[CommandService] Using active bindset:', this.activeBindset, 'commands:', bindsetCommands)
+      return Array.isArray(bindsetCommands) ? [...bindsetCommands] : []
+    }
+    
+    // Primary bindset path – keys arrays are already canonical string[]
     const keyCommands = this.cache.keys && this.cache.keys[selectedKey] ? this.cache.keys[selectedKey] : []
     return Array.isArray(keyCommands) ? [...keyCommands] : []
   }
 
-  /**
- * Get command chain preview text
- */
+  // Get command chain preview text
   async getCommandChainPreview() {
-    // Use cached selection state from SelectionService broadcasts
-    const selectedKey = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+    // Use cached selection state from ComponentBase (SelectionService broadcasts)
+    const selectedKey = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+    
+    console.log('[CommandService] getCommandChainPreview DEBUG:', {
+      currentEnvironment: this.cache.currentEnvironment,
+      selectedKey: this.cache.selectedKey,
+      selectedAlias: this.cache.selectedAlias,
+      resolvedSelectedKey: selectedKey
+    })
 
     if (!selectedKey) {
-      const selectText = this.currentEnvironment === 'alias' ? 
+      const selectText = this.cache.currentEnvironment === 'alias' ? 
         this.i18n.t('select_an_alias_to_see_the_generated_command') : 
         this.i18n.t('select_a_key_to_see_the_generated_command')
       return selectText
@@ -831,14 +787,14 @@ export default class CommandService extends ComponentBase {
     const commands = await this.getCommandsForSelectedKey()
     
     if (commands.length === 0) {
-      if (this.currentEnvironment === 'alias') {
+      if (this.cache.currentEnvironment === 'alias') {
         return formatAliasLine(selectedKey, { commands: '' }).trim()
       } else {
         return `${selectedKey} ""`
       }
     }
 
-    if (this.currentEnvironment === 'alias') {
+    if (this.cache.currentEnvironment === 'alias') {
       // For aliases, mirror when metadata requests it
       const profile = this.getCurrentProfile()
       console.log('[CommandLibraryService] alias : getCommandChainPreview: profile', profile)
@@ -862,9 +818,9 @@ export default class CommandService extends ComponentBase {
       const profile = this.getCurrentProfile()
       console.log('[CommandLibraryService] keybind : getCommandChainPreview: profile', profile)
       let shouldStabilize = false
-      if (profile && profile.keybindMetadata && profile.keybindMetadata[this.currentEnvironment] &&
-          profile.keybindMetadata[this.currentEnvironment][selectedKey] &&
-          profile.keybindMetadata[this.currentEnvironment][selectedKey].stabilizeExecutionOrder) {
+      if (profile && profile.keybindMetadata && profile.keybindMetadata[this.cache.currentEnvironment] &&
+          profile.keybindMetadata[this.cache.currentEnvironment][selectedKey] &&
+          profile.keybindMetadata[this.cache.currentEnvironment][selectedKey].stabilizeExecutionOrder) {
         shouldStabilize = true
       }
 
@@ -881,9 +837,7 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /**
- * Normalize commands for display by applying tray execution normalization
- */
+  // Normalize commands for display by applying tray execution normalization
   async normalizeCommandsForDisplay(commands) {
     const normalizedCommands = []
 
@@ -943,21 +897,12 @@ export default class CommandService extends ComponentBase {
     return normalizedCommands
   }
 
-  /**
- * Generate mirrored command string for stabilization
- */
+  // Generate mirrored command string for stabilization
   async generateMirroredCommandString(commands) {
     return await this.request('fileops:generate-mirrored-commands', { commands })
   }
 
-  // ========================================================================
-  // Command Validation and Import Operations (moved from CommandUI)
-  // ========================================================================
-
-  /**
-   * Check if a command is compatible with the target environment
-   * Moved from CommandUI.js for better separation of concerns
-   */
+  // Check if a command is compatible with the target environment
   async isCommandCompatible(commandName, targetEnvironment) {
     if (!commandName) {
       console.warn('isCommandCompatible called with undefined commandName')
@@ -986,10 +931,7 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /**
-   * Get available import sources for command import
-   * Moved from CommandUI.js for better separation of concerns
-   */
+  // Get available import sources for command import
   async getImportSources(currentEnvironment, currentKey) {
     const sources = []
     
@@ -1081,10 +1023,7 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  /**
-   * Import commands from a source to a target key
-   * Moved from CommandUI.js for better separation of concerns
-   */
+  // Import commands from a source to a target key
   async importFromSource(sourceValue, targetKey, clearDestination, currentEnvironment) {
     if (!sourceValue || !targetKey) {
       throw new Error('Source and target are required for import')

@@ -1,7 +1,6 @@
 // FileOperationsService.js - Service for STO file format operations
 // Uses STOCommandParser for all command parsing, handles file I/O and application logic
 import ComponentBase from '../ComponentBase.js'
-import { respond, request } from '../../core/requestResponse.js'
 import { normalizeToStringArray } from '../../lib/commandDisplayAdapter.js'
 import { decodeKeyFromImport } from '../../lib/keyEncoding.js'
 
@@ -107,11 +106,7 @@ export default class FileOperationsService extends ComponentBase {
     return { keybinds, aliases, errors }
   }
 
-  /**
-   * Parse an alias-only file. Keybind lines are considered errors.
-   * @param {string} content
-   * @returns {{ aliases: Object, errors: string[] }}
-   */
+  // Parse an alias-only file. Keybind lines are considered errors.
   async parseAliasFile(content) {
     const aliases = {}
     const errors = []
@@ -262,9 +257,7 @@ export default class FileOperationsService extends ComponentBase {
     return commands.slice(0, mid + 1)
   }
 
-  /**
-   * Normalize commands for display by applying tray execution normalization
-   */
+  // Normalize commands for display by applying tray execution normalization
   async normalizeCommandsForDisplay(commands) {
     const normalizedCommands = []
 

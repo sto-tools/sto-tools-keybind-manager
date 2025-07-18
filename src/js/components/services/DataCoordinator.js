@@ -11,8 +11,8 @@ import { normalizeProfile, needsNormalization } from '../../lib/profileNormalize
  * - Late-join components get current state automatically
  * - No direct storage access from feature services
  * 
- * NEW: Explicit Operations API
- * ===========================
+ * Explicit Operations API
+ * =======================
  * 
  * Instead of requiring services to reconstruct entire objects, the DataCoordinator
  * now supports explicit add/delete/modify operations:
@@ -88,13 +88,6 @@ import { normalizeProfile, needsNormalization } from '../../lib/profileNormalize
  *     description: 'Profile updated via explicit operations'
  *   }
  * })
- * 
- * // Legacy format still supported for backward compatibility
- * await this.request('data:update-profile', {
- *   profileId: 'my_profile',
- *   description: 'Updated description',
- *   aliases: { complete_aliases_object_here... }  // Complete replacement
- * })
  */
 export default class DataCoordinator extends ComponentBase {
   constructor({ eventBus, storage }) {
@@ -117,8 +110,6 @@ export default class DataCoordinator extends ComponentBase {
     // Late-join support is handled by ComponentBase automatically
     
     this.setupRequestHandlers()
-
-
   }
 
   async init() {
@@ -769,14 +760,13 @@ export default class DataCoordinator extends ComponentBase {
       // Determine if any structural collections were touched
       const touchedCollections = !!(persistableUpdates.add || persistableUpdates.delete || persistableUpdates.modify)
 
-      if (touchedCollections) { // || updates.properties?.currentEnvironment || updates.properties?.currentProfile) {
-        // Notify other services when aliases / builds changed // or environment/profile properties changed
-        // Include updateSource in broadcast but it was not persisted
+      if (touchedCollections) {
+        // Notify other services when aliases / builds changed
         this.emit('profile:updated', {
           profileId,
           profile: updatedProfile,
           updates: persistableUpdates,
-          updateSource, // Include for event filtering but not persisted
+          updateSource,
           timestamp: Date.now()
         })
       }
@@ -784,9 +774,7 @@ export default class DataCoordinator extends ComponentBase {
       return { success: true, profile: updatedProfile }
   }
 
-  /**
-   * Set current environment
-   */
+  // Set current environment
   async setEnvironment(environment) {
     if (!environment || !['space', 'ground', 'alias'].includes(environment)) {
       throw new Error('Invalid environment')
@@ -812,9 +800,7 @@ export default class DataCoordinator extends ComponentBase {
     return { success: true, environment }
   }
 
-  /**
-   * Get keys for a specific environment from the current profile
-   */
+  // Get keys for a specific environment from the current profile
   getKeys(environment) {
     if (!this.state.currentProfile) {
       return {}
@@ -837,9 +823,7 @@ export default class DataCoordinator extends ComponentBase {
     return { ...primaryKeys, ...bsKeys }
   }
 
-  /**
-   * Get commands for a specific key in a specific environment
-   */
+  // Get commands for a specific key in a specific environment
   getKeyCommands(environment, key) {
     const keys = this.getKeys(environment)
     const cmds = keys[key] || []
@@ -847,16 +831,12 @@ export default class DataCoordinator extends ComponentBase {
     return Array.isArray(cmds) ? [...cmds] : cmds
   }
 
-  /**
-   * Get application settings
-   */
+  // Get application settings
   async getSettings() {
     return { ...this.state.settings }
   }
 
-  /**
-   * Update application settings
-   */
+  // Update application settings
   async updateSettings(settings) {
     if (!settings) {
       throw new Error('Settings are required')
@@ -879,9 +859,7 @@ export default class DataCoordinator extends ComponentBase {
     return { success: true, settings: this.state.settings }
   }
 
-  /**
-   * Load default data (called explicitly by user via "Load Default Data" button)
-   */
+  // Load default data (called explicitly by user via "Load Default Data" button)
   async loadDefaultData() {
     console.log(`[${this.componentName}] Explicitly loading default data...`)
     
@@ -911,11 +889,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  // registerSubscriber method removed - ComponentBase handles late-join automatically
-
-  /**
-   * Try to create default profiles using DataService
-   */
+  // Try to create default profiles using DataService
   async tryCreateDefaultProfiles() {
     if (!this.needsDefaultProfiles) {
       return
@@ -942,9 +916,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  /**
-   * Handle initial state from other components during late-join handshake
-   */
+  // Handle initial state from other components during late-join handshake
   async handleInitialState(sender, state) {
     console.log(`[${this.componentName}] handleInitialState called - sender: "${sender}", needsDefaultProfiles: ${this.needsDefaultProfiles}`)
     console.log(`[${this.componentName}] Received state from ${sender}:`, state)
@@ -956,9 +928,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  /**
-   * Create default profiles from DataService data
-   */
+  // Create default profiles from DataService data
   async createDefaultProfilesFromData(defaultProfilesData) {
     if (!defaultProfilesData || Object.keys(defaultProfilesData).length === 0) {
       console.warn(`[${this.componentName}] No default profiles data available, creating minimal fallback`)
@@ -1042,9 +1012,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  /**
-   * Create minimal fallback profiles when DataService is not available
-   */
+  // Create minimal fallback profiles when DataService is not available
   async createFallbackProfiles() {
     const fallbackProfiles = {
       'default': {
@@ -1114,9 +1082,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  /**
-   * Generate profile ID from name
-   */
+  // Generate profile ID from name
   generateProfileId(name) {
     return name
       .toLowerCase()
@@ -1125,9 +1091,7 @@ export default class DataCoordinator extends ComponentBase {
       .substring(0, 50)
   }
 
-  /**
-   * Normalize all profiles to use canonical string commands
-   */
+  // Normalize all profiles to use canonical string commands
   async normalizeAllProfiles() {
     let profilesNormalized = 0
     
@@ -1151,9 +1115,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  /**
-   * Reload state from storage (used after data import/restore)
-   */
+  // Reload state from storage (used after data import/restore)
   async reloadState() {
     console.log(`[${this.componentName}] Reloading state from storage...`)
     

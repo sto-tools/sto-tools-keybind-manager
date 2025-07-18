@@ -1,11 +1,13 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
+/*
+ * BindsetManagerUI - Handles the bindset manager modal
+ * Manages the bindset manager modal and its interactions
+ */
 export default class BindsetManagerUI extends ComponentBase {
-  constructor({ eventBus: bus = eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(bus)
+  constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(eventBus)
     this.componentName = 'BindsetManagerUI'
     this.document = document
     this.selectedBindset = null
@@ -94,10 +96,7 @@ export default class BindsetManagerUI extends ComponentBase {
     if (deleteBtn) deleteBtn.disabled = !valid
   }
 
-  /* ------------------------------------------------------------ */
-  /* Late-join support                                            */
-  /* ------------------------------------------------------------ */
-
+  // Late-join support
   handleInitialState(sender, state) {
     if (state && state.bindsets) {
       this._bindsetNames = Array.isArray(state.bindsets) ? state.bindsets : [...state.bindsets]

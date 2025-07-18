@@ -1,69 +1,47 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * AnalyticsService – the authoritative service for generating profile
  * statistics and analytics. This service extracts statistics generation
  * from KeyService to create a focused analytics service that can analyze
  * both keys and aliases comprehensively.
- * 
- * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
- * - Caches profile state locally from DataCoordinator broadcasts
- * - Uses DataCoordinator request/response for all profile data access
- * - Implements late-join support for dynamic initialization
- * - No direct storage access - all data operations go through DataCoordinator
  */
 export default class AnalyticsService extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
     this.componentName = 'AnalyticsService'
 
-    this.currentProfile = null
+    // Local cache for DataCoordinator integration
+    this.initializeCache()
 
-    // REFACTORED: Cache profile state from DataCoordinator broadcasts
-    this.cache = {
-      currentProfile: null,
-      profile: null // Full profile object
-    }
-
-    // ---------------------------------------------------------
-    // Register Request/Response topics for analytics operations
-    // ---------------------------------------------------------
     if (this.eventBus) {
+      // Register request/response endpoints for analytics operations
       this.respond('analytics:get-profile-stats', ({ profileId } = {}) => this.getProfileStats(profileId))
       this.respond('analytics:get-key-stats', ({ profileId } = {}) => this.getKeyStats(profileId))
       this.respond('analytics:get-alias-stats', ({ profileId } = {}) => this.getAliasStats(profileId))
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Lifecycle
-   * ------------------------------------------------------------------ */
   async init() {
-    super.init() // ComponentBase handles late-join automatically
+    super.init() 
     this.setupEventListeners()
   }
 
-  /* ------------------------------------------------------------------
-   * State setters - Updated to use cached state
-   * ------------------------------------------------------------------ */
+  // State setters - Updated to use cached state
   setCurrentProfile (profileId) {
-    this.currentProfile = profileId
     this.cache.currentProfile = profileId
   }
 
-  /** Convenience getter */
+  // Convenience getter
   getCurrentProfileId () {
-    return this.currentProfile
+    return this.cache.currentProfile
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Event listeners for DataCoordinator integration
-   * ------------------------------------------------------------------ */
+  // Event listeners for DataCoordinator integration
   setupEventListeners () {
     if (!this.eventBus) return
 
-    // Cache profile state from DataCoordinator broadcasts
+    // Listen for profile updates
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
@@ -72,24 +50,19 @@ export default class AnalyticsService extends ComponentBase {
 
     this.addEventListener('profile:switched', ({ profileId, profile }) => {
       this.cache.currentProfile = profileId
-      this.currentProfile = profileId
       
       this.updateCacheFromProfile(profile)
     })
   }
 
-  /**
-   * Update local cache from profile data
-   */
+  // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
     
     this.cache.profile = profile
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Profile access now uses cached state or DataCoordinator
-   * ------------------------------------------------------------------ */
+  // Profile access now uses cached state or DataCoordinator
   async getCurrentProfile () {
     if (this.cache.profile) {
       return this.cache.profile
@@ -108,10 +81,7 @@ export default class AnalyticsService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Analytics operations for comprehensive profile statistics
-   * ------------------------------------------------------------------ */
-  /** Get comprehensive profile statistics (moved from KeyService.getProfileStats) */
+  // Analytics operations for comprehensive profile statistics
   async getProfileStats (profileId = null) {
     let profile
     
@@ -136,7 +106,7 @@ export default class AnalyticsService extends ComponentBase {
     return this.combineStats(keyStats, aliasStats)
   }
 
-  /** Get key-specific statistics */
+  // Get key-specific statistics
   async getKeyStats (profileId = null) {
     let profile
     
@@ -156,7 +126,7 @@ export default class AnalyticsService extends ComponentBase {
     return this.calculateKeyStats(profile)
   }
 
-  /** Get alias-specific statistics */
+  // Get alias-specific statistics
   async getAliasStats (profileId = null) {
     let profile
     
@@ -176,13 +146,7 @@ export default class AnalyticsService extends ComponentBase {
     return this.calculateAliasStats(profile)
   }
 
-  /* ------------------------------------------------------------------
-   * Statistics calculation methods (moved from KeyService)
-   * ------------------------------------------------------------------ */
-  /**
-   * Calculate key-related statistics from profile data
-   * (Implementation moved from KeyService.getProfileStats)
-   */
+  // Statistics calculation methods
   calculateKeyStats(profile = {}) {
     // Handle both legacy format (profile.keys) and new format (profile.builds)
     let keys = {}
@@ -234,9 +198,7 @@ export default class AnalyticsService extends ComponentBase {
     return stats
   }
 
-  /**
-   * Calculate alias-related statistics from profile data
-   */
+  // Calculate alias-related statistics from profile data
   calculateAliasStats(profile = {}) {
     const aliases = profile.aliases || {}
 
@@ -284,9 +246,7 @@ export default class AnalyticsService extends ComponentBase {
     return stats
   }
 
-  /**
-   * Combine key and alias statistics into comprehensive profile stats
-   */
+  // Combine key and alias statistics into comprehensive profile stats
   combineStats(keyStats, aliasStats) {
     return {
       // Key statistics
@@ -306,22 +266,5 @@ export default class AnalyticsService extends ComponentBase {
       totalItems: keyStats.totalKeys + aliasStats.totalAliases,
       totalExecutableItems: keyStats.totalKeys + aliasStats.aliasesWithCommands
     }
-  }
-
-  /* ------------------------------------------------------------------
-   * REFACTORED: Late-join state sharing using cached data
-   * ------------------------------------------------------------------ */
-  getCurrentState () {
-    return {
-      // AnalyticsService owns only analytics operations, not state
-      // All state ownership transferred to appropriate services:
-      // - Profile state: DataCoordinator
-      // AnalyticsService owns only analytics calculations, not state
-    }
-  }
-
-  handleInitialState (sender, state) {
-    if (!state) return
-    // ComponentBase handles DataCoordinator state automatically
   }
 }

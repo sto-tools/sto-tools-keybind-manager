@@ -17,10 +17,7 @@ export default class ImportUI extends ComponentBase {
     this.addEventListener('aliases:import', () => this.openFileDialog('aliases'))
   }
 
-  /**
-   * Opens a hidden file input, waits for selection and forwards content to ImportService.
-   * @param {'keybinds'|'aliases'} type
-   */
+  // Opens a hidden file input, waits for selection and forwards content to ImportService.
   async openFileDialog (type) {
     const input = this.document.createElement('input')
     input.type = 'file'
@@ -68,10 +65,8 @@ export default class ImportUI extends ComponentBase {
     input.click()
   }
 
-  /**
-   * Show a simple modal asking user whether the import is for Space or Ground.
-   * Returns chosen environment string or null if cancelled.
-   */
+  // Show a simple modal asking user whether the import is for Space or Ground.
+  // Returns chosen environment string or null if cancelled.
   promptEnvironment (defaultEnv = 'space') {
     return new Promise((resolve) => {
       // Create overlay

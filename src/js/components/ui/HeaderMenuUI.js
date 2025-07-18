@@ -118,37 +118,27 @@ export default class HeaderMenuUI extends ComponentBase {
     })
   }
 
-  /**
-   * Toggle the settings menu dropdown
-   */
+  // Toggle the settings menu dropdown
   toggleSettingsMenu() {
     this.toggleDropdown('settingsBtn')
   }
 
-  /**
-   * Toggle the import menu dropdown
-   */
+  // Toggle the import menu dropdown
   toggleImportMenu() {
     this.toggleDropdown('importMenuBtn')
   }
 
-  /**
-   * Toggle the backup menu dropdown
-   */
+  // Toggle the backup menu dropdown
   toggleBackupMenu() {
     this.toggleDropdown('backupMenuBtn')
   }
 
-  /**
-   * Toggle the language menu dropdown
-   */
+  // Toggle the language menu dropdown
   toggleLanguageMenu() {
     this.toggleDropdown('languageMenuBtn')
   }
 
-  /**
-   * Generic dropdown toggle helper
-   */
+  // Generic dropdown toggle helper
   toggleDropdown(buttonId) {
     const button = this.document.getElementById(buttonId)
     if (!button) return
@@ -167,18 +157,14 @@ export default class HeaderMenuUI extends ComponentBase {
     dropdown.classList.toggle('active')
   }
 
-  /**
-   * Close all dropdowns
-   */
+  // Close all dropdowns
   closeAllMenus() {
     this.document.querySelectorAll('.dropdown.active').forEach(dropdown => {
       dropdown.classList.remove('active')
     })
   }
 
-  /**
-   * Confirm app reset with user
-   */
+  // Confirm app reset with user
   async confirmResetApp() {
     const message = 'Are you sure you want to reset the application? This will clear all profiles and data.'
     if (confirm(message)) {

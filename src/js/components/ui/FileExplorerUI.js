@@ -1,50 +1,45 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
 import FileSystemService, { KEY_SYNC_FOLDER } from '../services/FileSystemService.js'
-import { request } from '../../core/requestResponse.js'
 
-// NOTE: The FileExplorerUI is a refactor of the legacy src/js/ui/fileexplorer.js implementation.
-// It follows the modern Component pattern:  
-//   * Extends ComponentBase for a unified lifecycle & event-bus handling  
-//   * Receives its dependencies via the constructor (with sane fallbacks for legacy globals)  
-//   * Contains ONLY presentation / DOM logic – all persistence is delegated to FileSystemService.
+/*
+* FileExplorerUI – a UI component for managing file operations in the browser's file system.
+*
+* Responsibilities:
+* 1. Provide a file explorer interface for users to navigate and preview files.
+* 2. Provide a preview of the selected file's content.
+* 3. Provide a download button for the selected file.
+*/
 
 export default class FileExplorerUI extends ComponentBase {
   constructor ({
     eventBus,
-    storage,          // StorageService (profile data)
-    ui,               // STOUIManager (toast, modal helpers)
-    fileSystem,       // FileSystemService (FS-API helpers)
+    storage,
+    ui,
+    fileSystem,
     document = window.document,
   } = {}) {
     super(eventBus)
     this.componentName = 'FileExplorerUI'
 
-    // ----- Dependencies & fallbacks (for tests/legacy code) -----
     this.storage       = storage       || window.storageService || null
     this.ui            = ui            || window.stoUI          || null
     this.fileSystem    = fileSystem    || FileSystemService._getInstance()
     this.document      = document
 
-    // ----- UI element ids -----
     this.modalId   = 'fileExplorerModal'
     this.treeId    = 'fileTree'
     this.contentId = 'fileContent'
 
     this.selectedNode       = null
-    this.currentDirectory   = null  // Handle to user-chosen folder (sync-dir or manual)
+    this.currentDirectory   = null
   }
 
-  /* ============================================================
-   * Lifecycle hooks
-   * ========================================================== */
+  // Lifecycle hooks
   onInit () {
     this.setupEventListeners()
   }
 
-  /* ============================================================
-   * Event handling – DOM & app-bus
-   * ========================================================== */
+  // Event handling – DOM & app-bus
   setupEventListeners () {
     // Listen for file-explorer:open event from HeaderMenuUI
     this.eventBus.on('file-explorer:open', () => {
@@ -113,9 +108,7 @@ export default class FileExplorerUI extends ComponentBase {
     this.addEventListener('file-explorer:save', (data) => this.saveFile(data.path, data.content))
   }
 
-  /* ============================================================
-   * UI actions
-   * ========================================================== */
+  // UI actions
   openExplorer () {
     this.buildTree()
     // Reset preview
@@ -210,9 +203,7 @@ export default class FileExplorerUI extends ComponentBase {
     }
   }
 
-  /* ============================================================
-   * Export helpers – use request/response to ExportService
-   * ========================================================== */
+  // Export helpers – use request/response to ExportService
   async generateBuildExport (profileId, environment) {
     const profile = this.storage.getProfile(profileId)
     if (!profile || !profile.builds || !profile.builds[environment]) return ''
@@ -243,9 +234,7 @@ export default class FileExplorerUI extends ComponentBase {
       })
   }
 
-  /* ============================================================
-   * File operations – via FileSystemService
-   * ========================================================== */
+  // File operations – via FileSystemService
   async ensureDirectoryHandle () {
     if (this.currentDirectory) return this.currentDirectory
     // Attempt to load previously saved user-selected dir

@@ -5,29 +5,18 @@ import CommandFormatAdapter from '../../lib/CommandFormatAdapter.js'
 import { getParameterDefinition, isEditableSignature } from '../../lib/CommandSignatureDefinitions.js'
 
 /**
- * ParameterCommandService – contains the heavy business logic that was
- * previously mixed into the large `parameterCommands` feature module.
- *
- * Responsibilities (initial extraction):
- * • generateCommandId – centralised id helper (pure logic)
- * • buildParameterizedCommand – creates concrete command objects/arrays
- *   from a command definition + parameter set.
- * • findCommandDefinition – attempts to resolve a command definition from
- *   an existing command string for editing purposes.
- *
- * This service follows the project's broadcast/cache pattern:
- * • Listens for state changes via events (key-selected, alias-selected, environment:changed)
- * • Caches state locally for business logic use
- * • Provides late-join state sync for components that initialize after state is set
- * • Only uses request/response for actions, not state access
+/**
+ * ParameterCommandService – handles building, validating, and editing parameterized commands for keybinds.
+ * Provides request/response endpoints for command construction, definition lookup,
+ * and ID generation. Caches editing context for UI parameter modals.
  */
 export default class ParameterCommandService extends ComponentBase {
   constructor ({ eventBus: bus = eventBus, dataService = null } = {}) {
     super(bus)
     this.componentName = 'ParameterCommandService'
     
-    // REMOVED: Selection state now managed by SelectionService
-    this.currentEnvironment = 'space'
+    // Initialize cache
+    this.initializeCache()
 
     // Cache editing state from UI events (appropriate for parameter editing)
     this.editingContext = null
@@ -61,7 +50,7 @@ export default class ParameterCommandService extends ComponentBase {
     
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data.environment
-      if (env) this.currentEnvironment = env
+      if (env) this.cache.currentEnvironment = env
     })
 
     // Listen for parameter editing events from UI
@@ -69,7 +58,6 @@ export default class ParameterCommandService extends ComponentBase {
       this.editingContext = {
         isEditing: true,
         editIndex: data.index,
-        // REMOVED: selectedKey now managed by SelectionService
         existingCommand: data.command
       }
     })
@@ -79,26 +67,14 @@ export default class ParameterCommandService extends ComponentBase {
     })
   }
 
-  /* ------------------------------------------------------------
-   * Late-join state sync
-   * ---------------------------------------------------------- */
+  // Late-join state sync
   getCurrentState() {
     return {
-      // REMOVED: Selection state now managed by SelectionService
       editingContext: this.editingContext
-      // REMOVED: currentEnvironment - not owned by ParameterCommandService
-      // This will be managed by SelectionService (selection) and DataCoordinator (environment)
     }
   }
 
-  handleInitialState(sender, state) {
-    if (!state) return
-    
-  }
-
-  /**
-   * Cleanup method to detach all request/response handlers
-   */
+  // Cleanup method to detach all request/response handlers
   destroy() {
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach(detach => {
@@ -115,17 +91,13 @@ export default class ParameterCommandService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------
-   * Helpers
-   * ---------------------------------------------------------- */
+  // Helpers
   generateCommandId () {
     // Use slice to avoid deprecated String.prototype.substr
     return `cmd_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
   }
 
-  /**
-   * Generate range of individual command strings for bulk operations
-   */
+  // Generate range of individual command strings for bulk operations
   generateTrayRangeCommands(baseCommand, startTray, startSlot, endTray, endSlot, active = 1) {
     const commands = []
     
@@ -162,9 +134,7 @@ export default class ParameterCommandService extends ComponentBase {
     return commands
   }
 
-  /**
-   * Generate whole tray command strings (all 10 slots)
-   */
+  // Generate whole tray command strings (all 10 slots)
   generateWholeTrayCommands(baseCommand, tray, active = 1) {
     const commands = []
     for (let slot = 0; slot <= 9; slot++) {
@@ -183,9 +153,7 @@ export default class ParameterCommandService extends ComponentBase {
     return commands
   }
 
-  /**
-   * Generate range with backup commands
-   */
+  // Generate range with backup commands
   generateTrayRangeWithBackupCommands(active, startTray, startSlot, endTray, endSlot, backupStartTray, backupStartSlot, backupEndTray, backupEndSlot) {
     const commands = []
     
@@ -216,9 +184,7 @@ export default class ParameterCommandService extends ComponentBase {
     return commands
   }
 
-  /**
-   * Generate whole tray with backup commands
-   */
+  // Generate whole tray with backup commands
   generateWholeTrayWithBackupCommands(active, tray, backupTray) {
     const commands = []
     for (let slot = 0; slot <= 9; slot++) {
@@ -233,9 +199,7 @@ export default class ParameterCommandService extends ComponentBase {
     return commands
   }
 
-  /**
-   * Parse command strings through STOCommandParser for consistent format
-   */
+  // Parse command strings through STOCommandParser for consistent format
   async parseCommandsToObjects(commandStrings) {
     const parsePromises = commandStrings.map(async cmdStr => {
       try {
@@ -260,13 +224,9 @@ export default class ParameterCommandService extends ComponentBase {
     return Promise.all(parsePromises)
   }
 
-  /* ------------------------------------------------------------
-   * Core builder logic (verbatim from legacy file with minimal tweaks)
-   * ---------------------------------------------------------- */
-  /**
-   * Translate a command definition + user parameters into a concrete command
-   * object (or array of objects for tray ranges).
-   */
+  // Core builder logic (verbatim from legacy file with minimal tweaks)
+  // Translate a command definition + user parameters into a concrete command
+  // object (or array of objects for tray ranges).
   async buildParameterizedCommand (categoryId, commandId, commandDef, params = {}) {
     // Per-category builder functions. Refactored to use STOCommandParser 
     // as single source of truth instead of CommandBuilderService.
@@ -643,13 +603,9 @@ export default class ParameterCommandService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------
-   * Auxiliary helpers
-   * ---------------------------------------------------------- */
-  /**
-   * Attempts to find the command definition for a given command using STOCommandParser.
-   * This replaces the old DataService-dependent logic with signature-based recognition.
-   */
+  // Auxiliary helpers
+  // Attempts to find the command definition for a given command using STOCommandParser.
+  // This replaces the old DataService-dependent logic with signature-based recognition.
   async findCommandDefinition (command) {
     try {
       // Normalize command to consistent format

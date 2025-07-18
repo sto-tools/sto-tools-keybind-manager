@@ -1,10 +1,8 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
 
-/**
+/*
  * UIUtilityService - Handles miscellaneous UI utility functions
  * All operations are accessible via eventBus events or requestResponse
- * Replaces utility functions that were previously in STOUIManager
  */
 export default class UIUtilityService extends ComponentBase {
   constructor(eventBus) {
@@ -65,10 +63,7 @@ export default class UIUtilityService extends ComponentBase {
     this.requestDetachers.push(this.respond('ui:throttle', this.throttle.bind(this)))
   }
 
-  // ========================================================================
   // Event Handlers
-  // ========================================================================
-
   async handleCopyToClipboard({ text }) {
     const result = await this.copyToClipboard(text)
     this.emit('ui:clipboard-result', { success: result, text })
@@ -114,10 +109,7 @@ export default class UIUtilityService extends ComponentBase {
     this.emit('ui:tooltip-hidden')
   }
 
-  // ========================================================================
   // Core Utility Methods
-  // ========================================================================
-
   async copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text)

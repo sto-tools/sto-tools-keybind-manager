@@ -1,17 +1,17 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond, request } from '../../core/requestResponse.js'
 
 export default class BindsetSelectorService extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
     this.componentName = 'BindsetSelectorService'
     
+    // Initialize cache
+    this.initializeCache()
+    
     // Internal state
-    this.selectedKey = null
     this.activeBindset = 'Primary Bindset'
     this.bindsetNames = ['Primary Bindset']
     this.keyBindsetMembership = new Map() // bindset -> has key boolean
-    this.currentEnvironment = 'space'
     
     // Cache for preferences
     this.preferences = {
@@ -19,11 +19,6 @@ export default class BindsetSelectorService extends ComponentBase {
       bindToAliasMode: false
     }
 
-    // Cache for profile data (similar to other services)
-    this.cache = {
-      currentProfile: null,
-      profile: null
-    }
 
     if (this.eventBus) {
       this.respond('bindset-selector:set-key', ({ key }) => this.setSelectedKey(key))
@@ -51,10 +46,7 @@ export default class BindsetSelectorService extends ComponentBase {
     }, 1000)
   }
 
-  /* ------------------------------------------------------------ */
-  /* Event Listeners                                             */
-  /* ------------------------------------------------------------ */
-
+  // Event Listeners
   setupEventListeners() {
     if (this._listenersSetup) return
     this._listenersSetup = true
@@ -97,7 +89,7 @@ export default class BindsetSelectorService extends ComponentBase {
       this.cache.currentProfile = profileId
       this.cache.profile = profile
       if (environment) {
-        this.currentEnvironment = environment
+        this.cache.currentEnvironment = environment
       }
       this.updateKeyMembership()
     })
@@ -115,12 +107,29 @@ export default class BindsetSelectorService extends ComponentBase {
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data?.environment
       if (env) {
-        this.currentEnvironment = env
+        this.cache.currentEnvironment = env
         this.updateKeyMembership()
         // Update visibility based on new environment
         const shouldDisplay = this.shouldDisplay()
         console.log('[BindsetSelectorService] environment changed to:', env, 'shouldDisplay:', shouldDisplay)
         this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
+      }
+    })
+
+    // Listen for key selection changes - update membership when user selects different key
+    this.addEventListener('key-selected', ({ key, name }) => {
+      const selectedKey = key || name
+      console.log('[BindsetSelectorService] key-selected received:', selectedKey)
+      if (selectedKey !== this.cache.selectedKey) {
+        // ComponentBase will automatically update this.cache.selectedKey
+        // But we need to update the key membership for the new key
+        this.updateKeyMembership()
+        
+        // Reset to Primary Bindset when new key selected
+        if (this.activeBindset !== 'Primary Bindset') {
+          console.log('[BindsetSelectorService] Resetting active bindset to Primary Bindset for new key selection')
+          this.setActiveBindset('Primary Bindset')
+        }
       }
     })
   }
@@ -134,13 +143,9 @@ export default class BindsetSelectorService extends ComponentBase {
     this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
   }
 
-  /* ------------------------------------------------------------ */
-  /* State Management                                            */
-  /* ------------------------------------------------------------ */
-
-
+  // State Management
   setSelectedKey(key) {
-    this.selectedKey = key
+    this.cache.selectedKey = key
     this.updateKeyMembership()
   }
 
@@ -153,29 +158,26 @@ export default class BindsetSelectorService extends ComponentBase {
     console.log(`[BindsetSelectorService] Successfully emitted bindset-selector:active-changed with bindset:`, bindsetName)
   }
 
-  /* ------------------------------------------------------------ */
-  /* Key Membership Management                                   */
-  /* ------------------------------------------------------------ */
-
+  // Key Membership Management
   async updateKeyMembership() {
-    if (!this.selectedKey) return
+    if (!this.cache.selectedKey) return
 
     this.keyBindsetMembership.clear()
     
     for (const bindsetName of this.bindsetNames) {
       const hasKey = await this.keyExistsInBindset(bindsetName)
       this.keyBindsetMembership.set(bindsetName, hasKey)
-      console.log(`[BindsetSelectorService] updateKeyMembership: ${bindsetName} -> ${hasKey} (key: ${this.selectedKey})`)
+      console.log(`[BindsetSelectorService] updateKeyMembership: ${bindsetName} -> ${hasKey} (key: ${this.cache.selectedKey})`)
     }
     
     this.emit('bindset-selector:membership-updated', { 
-      key: this.selectedKey, 
+      key: this.cache.selectedKey, 
       membership: new Map(this.keyBindsetMembership) 
     })
   }
 
   async keyExistsInBindset(bindsetName) {
-    if (!this.selectedKey) {
+    if (!this.cache.selectedKey) {
       console.log(`[BindsetSelectorService] keyExistsInBindset early return: no selectedKey`)
       return false
     }
@@ -188,15 +190,15 @@ export default class BindsetSelectorService extends ComponentBase {
     try {
       if (bindsetName === 'Primary Bindset') {
         // Check primary bindset (builds)
-        const commands = this.cache.profile.builds?.[this.currentEnvironment]?.keys?.[this.selectedKey]
+        const commands = this.cache.profile.builds?.[this.cache.currentEnvironment]?.keys?.[this.cache.selectedKey]
         const exists = commands !== undefined && Array.isArray(commands)
-        console.log(`[BindsetSelectorService] Primary bindset check: ${this.selectedKey} in ${this.currentEnvironment} -> ${exists}`, commands)
+        console.log(`[BindsetSelectorService] Primary bindset check: ${this.cache.selectedKey} in ${this.cache.currentEnvironment} -> ${exists}`, commands)
         return exists
       } else {
         // Check user-defined bindset
-        const commands = this.cache.profile.bindsets?.[bindsetName]?.[this.currentEnvironment]?.keys?.[this.selectedKey]
+        const commands = this.cache.profile.bindsets?.[bindsetName]?.[this.cache.currentEnvironment]?.keys?.[this.cache.selectedKey]
         const exists = commands !== undefined && Array.isArray(commands)
-        console.log(`[BindsetSelectorService] ${bindsetName} bindset check: ${this.selectedKey} in ${this.currentEnvironment} -> ${exists}`, commands)
+        console.log(`[BindsetSelectorService] ${bindsetName} bindset check: ${this.cache.selectedKey} in ${this.cache.currentEnvironment} -> ${exists}`, commands)
         return exists
       }
     } catch (error) {
@@ -209,18 +211,15 @@ export default class BindsetSelectorService extends ComponentBase {
     return this.keyBindsetMembership.get(bindsetName) || false
   }
 
-  /* ------------------------------------------------------------ */
-  /* Key Addition/Removal                                       */
-  /* ------------------------------------------------------------ */
-
+  // Key Addition/Removal
   async addKeyToBindset(bindsetName) {
-    if (!this.selectedKey || bindsetName === 'Primary Bindset') {
+    if (!this.cache.selectedKey || bindsetName === 'Primary Bindset') {
       return { success: false, error: 'invalid_operation' }
     }
 
     try {
       // Set flag to indicate we're performing a bindset operation
-      this.emit('bindset-operation:started', { type: 'add-key', bindset: bindsetName, key: this.selectedKey })
+      this.emit('bindset-operation:started', { type: 'add-key', bindset: bindsetName, key: this.cache.selectedKey })
       // Add empty command chain to the bindset using cached profile data
       const profile = this.cache.profile
       if (!profile || !profile.id) {
@@ -231,9 +230,9 @@ export default class BindsetSelectorService extends ComponentBase {
         modify: {
           bindsets: {
             [bindsetName]: {
-              [this.currentEnvironment]: {
+              [this.cache.currentEnvironment]: {
                 keys: {
-                  [this.selectedKey]: []
+                  [this.cache.selectedKey]: []
                 }
               }
             }
@@ -253,17 +252,17 @@ export default class BindsetSelectorService extends ComponentBase {
         console.log(`[BindsetSelectorService] *** Switching to bindset ${bindsetName} immediately ***`)
         this.setActiveBindset(bindsetName)
         
-        console.log(`[BindsetSelectorService] *** EMITTING bindset-selector:key-added: key=${this.selectedKey}, bindset=${bindsetName} ***`)
+        console.log(`[BindsetSelectorService] *** EMITTING bindset-selector:key-added: key=${this.cache.selectedKey}, bindset=${bindsetName} ***`)
         this.emit('bindset-selector:key-added', { 
-          key: this.selectedKey, 
+          key: this.cache.selectedKey, 
           bindset: bindsetName,
-          environment: this.currentEnvironment
+          environment: this.cache.currentEnvironment
         })
         console.log(`[BindsetSelectorService] *** bindset-selector:key-added event emitted successfully ***`)
         
         // Clear the operation flag after a short delay
         setTimeout(() => {
-          this.emit('bindset-operation:completed', { type: 'add-key', bindset: bindsetName, key: this.selectedKey })
+          this.emit('bindset-operation:completed', { type: 'add-key', bindset: bindsetName, key: this.cache.selectedKey })
         }, 200)
       }
 
@@ -275,7 +274,7 @@ export default class BindsetSelectorService extends ComponentBase {
   }
 
   async removeKeyFromBindset(bindsetName) {
-    if (!this.selectedKey || bindsetName === 'Primary Bindset') {
+    if (!this.cache.selectedKey || bindsetName === 'Primary Bindset') {
       return { success: false, error: 'invalid_operation' }
     }
 
@@ -290,9 +289,9 @@ export default class BindsetSelectorService extends ComponentBase {
         modify: {
           bindsets: {
             [bindsetName]: {
-              [this.currentEnvironment]: {
+              [this.cache.currentEnvironment]: {
                 keys: {
-                  [this.selectedKey]: null
+                  [this.cache.selectedKey]: null
                 }
               }
             }
@@ -309,9 +308,9 @@ export default class BindsetSelectorService extends ComponentBase {
         this.keyBindsetMembership.set(bindsetName, false)
         
         this.emit('bindset-selector:key-removed', { 
-          key: this.selectedKey, 
+          key: this.cache.selectedKey, 
           bindset: bindsetName,
-          environment: this.currentEnvironment
+          environment: this.cache.currentEnvironment
         })
       }
 
@@ -322,50 +321,38 @@ export default class BindsetSelectorService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------ */
-  /* Display Logic                                              */
-  /* ------------------------------------------------------------ */
-
+  // Display Logic
   shouldDisplay() {
-    return this.preferences.bindsetsEnabled && this.preferences.bindToAliasMode && this.currentEnvironment !== 'alias'
+    return this.preferences.bindsetsEnabled && this.preferences.bindToAliasMode && this.cache.currentEnvironment !== 'alias'
   }
 
-  /* ------------------------------------------------------------ */
-  /* External Actions                                           */
-  /* ------------------------------------------------------------ */
-
+  // External Actions
   openBindsetManager() {
     this.emit('bindset-manager:open')
   }
 
-  /* ------------------------------------------------------------ */
-  /* Late-join state sharing                                    */
-  /* ------------------------------------------------------------ */
-
-  /** Return current state for late-join components to sync. */
+  // Late-join state sharing
   getCurrentState() {
     return {
-      selectedKey: this.selectedKey,
+      selectedKey: this.cache.selectedKey,
       activeBindset: this.activeBindset,
       bindsetNames: [...this.bindsetNames],
       keyBindsetMembership: new Map(this.keyBindsetMembership),
       shouldDisplay: this.shouldDisplay(),
       preferences: { ...this.preferences }
-      // REMOVED: currentEnvironment - not owned by BindsetSelectorService
-      // This will be managed by SelectionService (selection) and DataCoordinator (environment)
     }
   }
 
-  /* ------------------------------------------------------------ */
-  /* Late-join state handler                                    */
-  /* ------------------------------------------------------------ */
-
+  // Late-join state handler
   handleInitialState(sender, state) {
     console.log('[BindsetSelectorService] handleInitialState called:', sender, !!state)
     
     if (sender === 'BindsetService' && state) {
       if (state.bindsets) {
         this.bindsetNames = state.bindsets
+        console.log('[BindsetSelectorService] Updated bindsetNames from BindsetService:', this.bindsetNames)
+        // Update key membership after getting bindset names
+        this.updateKeyMembership()
       }
     }
     
@@ -373,5 +360,13 @@ export default class BindsetSelectorService extends ComponentBase {
       this.updatePreferences(state.settings || state)
     }
 
+    // ComponentBase already handles DataCoordinator and SelectionService state automatically
+    // but we need to update key membership when we get that state
+    if (sender === 'SelectionService' || sender === 'DataCoordinator') {
+      console.log('[BindsetSelectorService] Received state from', sender, '- updating key membership')
+      // ComponentBase has already cached the data (selectedKey, profile, etc.)
+      // Now we just need to update the key membership
+      this.updateKeyMembership()
+    }
   }
 }

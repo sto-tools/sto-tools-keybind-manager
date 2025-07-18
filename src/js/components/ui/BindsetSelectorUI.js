@@ -1,11 +1,13 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
+/*
+ * BindsetSelectorUI - Handles the bindset selector UI
+ * Manages the bindset selector UI and its interactions
+ */
 export default class BindsetSelectorUI extends ComponentBase {
-  constructor({ eventBus: bus = eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(bus)
+  constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(eventBus)
     this.componentName = 'BindsetSelectorUI'
     this.document = document
     
@@ -13,8 +15,9 @@ export default class BindsetSelectorUI extends ComponentBase {
     this.isOpen = false
     this.service = null
     
-    // Internal state
-    this.selectedKey = null
+    // Initialize cache and internal state
+    this.initializeCache()
+    
     this.activeBindset = 'Primary Bindset'
     this.bindsetNames = ['Primary Bindset']
     this.keyBindsetMembership = new Map()
@@ -37,7 +40,7 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
 
     this.addEventListener('bindset-selector:membership-updated', ({ key, membership }) => {
-      this.selectedKey = key
+      this.cache.selectedKey = key
       this.keyBindsetMembership = membership
       this.render()
     })
@@ -56,7 +59,7 @@ export default class BindsetSelectorUI extends ComponentBase {
     // Listen for key selection changes
     this.addEventListener('key:selected', ({ key }) => {
       console.log('[BindsetSelectorUI] key:selected received:', key)
-      this.selectedKey = key
+      this.cache.selectedKey = key
       this.request('bindset-selector:set-key', { key })
     })
 
@@ -131,7 +134,7 @@ export default class BindsetSelectorUI extends ComponentBase {
       const hasKey = this.keyBindsetMembership.get(bindset) || false
       const greyedOut = !hasKey ? 'greyed-out' : ''
       
-      console.log(`[BindsetSelectorUI] Bindset: ${bindset}, hasKey: ${hasKey}, selectedKey: ${this.selectedKey}`)
+      console.log(`[BindsetSelectorUI] Bindset: ${bindset}, hasKey: ${hasKey}, selectedKey: ${this.cache.selectedKey}`)
       
       html += `
         <div class="bindset-option ${isActive ? 'active' : ''} ${greyedOut}" data-bindset="${bindset}">
@@ -260,9 +263,9 @@ export default class BindsetSelectorUI extends ComponentBase {
 
   showAddKeyConfirmation(bindsetName) {
     const message = i18next.t('add_key_to_bindset_confirm', { 
-      key: this.selectedKey, 
+      key: this.cache.selectedKey, 
       bindset: bindsetName 
-    }) || `Add key "${this.selectedKey}" to bindset "${bindsetName}"?`
+    }) || `Add key "${this.cache.selectedKey}" to bindset "${bindsetName}"?`
     
     if (confirm(message)) {
       this.request('bindset-selector:add-key-to-bindset', { bindset: bindsetName })
@@ -281,9 +284,9 @@ export default class BindsetSelectorUI extends ComponentBase {
 
   showRemoveKeyConfirmation(bindsetName) {
     const message = i18next.t('remove_key_from_bindset_confirm', { 
-      key: this.selectedKey, 
+      key: this.cache.selectedKey, 
       bindset: bindsetName 
-    }) || `Remove key "${this.selectedKey}" from bindset "${bindsetName}"?`
+    }) || `Remove key "${this.cache.selectedKey}" from bindset "${bindsetName}"?`
     
     if (confirm(message)) {
       this.request('bindset-selector:remove-key-from-bindset', { bindset: bindsetName })
@@ -363,14 +366,11 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
   }
 
-  /* ------------------------------------------------------------ */
-  /* Late-join state handler                                    */
-  /* ------------------------------------------------------------ */
-
+  // Late-join state handler
   handleInitialState(sender, state) {
     if (sender === 'BindsetSelectorService' && state) {
       console.log('[BindsetSelectorUI] handleInitialState from BindsetSelectorService:', state)
-      this.selectedKey = state.selectedKey
+      this.cache.selectedKey = state.selectedKey
       this.activeBindset = state.activeBindset
       this.bindsetNames = state.bindsetNames || ['Primary Bindset']
       this.keyBindsetMembership = state.keyBindsetMembership || new Map()

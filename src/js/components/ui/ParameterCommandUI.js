@@ -1,22 +1,17 @@
-import eventBus from '../../core/eventBus.js'
 import ComponentBase from '../ComponentBase.js'
-import { request } from '../../core/requestResponse.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
 
-
-
-/**
- * ParameterCommandUI – refactored UI component that owns the parameter editing
- * modal while delegating heavy business logic to `ParameterCommandService`.
- *
- * Now follows the project's broadcast/cache pattern:
- * • Extends ComponentBase for proper architecture
- * • Caches state locally from broadcast events
- * • Uses late-join state sync for components that initialize after state is set
- * • Emits events for actions instead of using request/response
- */
+/*
+* ParameterCommandUI – a UI component for editing parameterized commands.
+*
+* Responsibilities:
+* 1. Provide a modal for editing parameterized commands.
+* 2. Provide a preview of the generated command.
+* 3. Provide a way to save the command.
+*/
 export default class ParameterCommandUI extends ComponentBase {
   constructor({
+    eventBus,
     modalManager = null,
     i18n = null,
     ui = null,
@@ -30,14 +25,8 @@ export default class ParameterCommandUI extends ComponentBase {
     this.ui = ui
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
     
-    // State cache
-    this._selectedKey = null
-    this._selectedAlias = null
-    this._currentEnvironment = 'space'
     this._activeBindset = 'Primary Bindset' // Default to primary bindset
     
-    // REFACTORED: Remove direct service references
-    // All service interactions now use request/response pattern
     this.currentParameterCommand = null
   }
 
@@ -45,39 +34,8 @@ export default class ParameterCommandUI extends ComponentBase {
     this.setupEventListeners()
   }
 
-  // Legacy properties for backward compatibility
-  get selectedKey() { return this._selectedKey }
-  set selectedKey(val) { this._selectedKey = val }
-  
-  get selectedAlias() { return this._selectedAlias }
-  set selectedAlias(val) { this._selectedAlias = val }
-  
-  get currentEnvironment() { return this._currentEnvironment }
-  set currentEnvironment(val) { this._currentEnvironment = val }
-
   setupEventListeners() {
-    // Cache state from broadcast events
-    this.addEventListener('key-selected', (data) => {
-      this._selectedKey = data.key || data.name
-      this._selectedAlias = null
-      // Update legacy selectedKey for backward compatibility
-      this.selectedKey = this._selectedKey
-    })
-
-    this.addEventListener('alias-selected', (data) => {
-      this._selectedAlias = data.name
-      this._selectedKey = null
-      // Update legacy selectedKey for backward compatibility  
-      this.selectedKey = this._selectedAlias
-    })
-
-    this.addEventListener('environment:changed', (data) => {
-      const env = typeof data === 'string' ? data : data?.environment
-      if (env) {
-        this._currentEnvironment = env
-      }
-    })
-
+    // Listen for bindset changes
     this.addEventListener('bindset-selector:active-changed', (data) => {
       this._activeBindset = data.bindset || 'Primary Bindset'
     })
@@ -90,36 +48,7 @@ export default class ParameterCommandUI extends ComponentBase {
     })
   }
 
-  /* ------------------------------------------------------------
-   * Late-join state sync
-   * ---------------------------------------------------------- */
-  getCurrentState() {
-    return {
-      selectedKey: this._selectedKey,
-      selectedAlias: this._selectedAlias,
-      currentEnvironment: this._currentEnvironment
-    }
-  }
-
-  handleInitialState(sender, state) {
-    if (!state) return
-    
-    if (state.selectedKey !== undefined) {
-      this._selectedKey = state.selectedKey
-      this.selectedKey = state.selectedKey
-    }
-    if (state.selectedAlias !== undefined) {
-      this._selectedAlias = state.selectedAlias
-      this.selectedKey = state.selectedAlias
-    }
-    if (state.currentEnvironment !== undefined) {
-      this._currentEnvironment = state.currentEnvironment
-    }
-  }
-
-  /* ------------------------------------------------------------
-   * UI – Modal lifecycle
-   * ---------------------------------------------------------- */
+  // UI – Modal lifecycle
   showParameterModal (categoryId, commandId, commandDef) {
     this.currentParameterCommand = { categoryId, commandId, commandDef }
 
@@ -192,9 +121,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this.modalManager?.hide('parameterModal')
   }
 
-  /* ------------------------------------------------------------
-   * Modal content helpers
-   * ---------------------------------------------------------- */
+  // Modal content helpers
   populateParameterModal (commandDef) {
     const container    = this.document.getElementById('parameterInputs')
     const titleElement = this.document.getElementById('parameterModalTitle')
@@ -209,9 +136,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this.updateParameterPreview()
   }
 
-  /* ------------------------------------------------------------
-   * Edit mode
-   * ---------------------------------------------------------- */
+  // Edit mode
   editParameterizedCommand (index, command, commandDef) {
     // Convert canonical string command to rich object for editing
     const commandString = normalizeToString(command)
@@ -284,9 +209,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this.updateParameterPreview()
   }
 
-  /* ------------------------------------------------------------
-   * Live preview / param collection
-   * ---------------------------------------------------------- */
+  // Live preview / param collection
   async updateParameterPreview () {
     if (!this.currentParameterCommand) return
 
@@ -348,13 +271,11 @@ export default class ParameterCommandUI extends ComponentBase {
     return values
   }
 
-  /* ------------------------------------------------------------
-   * Saving / Editing
-   * ---------------------------------------------------------- */
+  // Saving / Editing
   async saveParameterCommand (...args) {
-    // Use cached state instead of request/response
-    const currentEnv = this._currentEnvironment || 'space'
-    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
+    // Use ComponentBase cached state
+    const currentEnv = this.cache.currentEnvironment || 'space'
+    const selectedKey = currentEnv === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
     
 
     
@@ -377,7 +298,7 @@ export default class ParameterCommandUI extends ComponentBase {
       // Check if we're editing an existing command or adding a new one
       if (this.currentParameterCommand.isEditing && this.currentParameterCommand.editIndex !== undefined) {
         // Editing existing command - emit update event
-        const bindset = this._currentEnvironment === 'alias' ? null : this._activeBindset
+        const bindset = this.cache.currentEnvironment === 'alias' ? null : this._activeBindset
         console.log('[ParameterCommandUI] emitting command:edit [parameterized]', { 
           key: selectedKey, 
           index: this.currentParameterCommand.editIndex, 
@@ -393,7 +314,7 @@ export default class ParameterCommandUI extends ComponentBase {
       } else {
         // Adding new command - handle arrays as single batch to avoid race conditions
         // Include active bindset when not in alias mode
-        const bindset = this._currentEnvironment === 'alias' ? null : this._activeBindset
+        const bindset = this.cache.currentEnvironment === 'alias' ? null : this._activeBindset
         if (Array.isArray(cmd)) {
           console.log('[ParameterCommandUI] emitting command:add [bulk parameterized]', { commands: cmd, key: selectedKey })
           this.emit('command:add', { command: cmd, key: selectedKey, bindset })
@@ -429,13 +350,11 @@ export default class ParameterCommandUI extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------
-   * Legacy facade methods – keep external API intact
-   * ---------------------------------------------------------- */
+  // Legacy facade methods – keep external API intact
   async editCommand (index) {
-    // Use cached state instead of request/response
-    const currentEnv = this._currentEnvironment || 'space'
-    const selectedKey = currentEnv === 'alias' ? this._selectedAlias : this._selectedKey
+    // Use ComponentBase cached state
+    const currentEnv = this.cache.currentEnvironment || 'space'
+    const selectedKey = currentEnv === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
     
     if (!selectedKey) return
 
@@ -454,10 +373,8 @@ export default class ParameterCommandUI extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------
-   * Thin wrappers delegating to the service – keeps external API
-   * intact for legacy code/tests.
-   * ---------------------------------------------------------- */
+  // Thin wrappers delegating to the service – keeps external API
+  // intact for legacy code/tests.
   generateCommandId (...args) {
     return this.request('parameter-command:generate-id')
   }
@@ -470,21 +387,13 @@ export default class ParameterCommandUI extends ComponentBase {
     return await this.request('parameter-command:find-definition', { commandString })
   }
 
-  /* ------------------------------------------------------------
-   * DRY helpers for parameter input generation
-   * ---------------------------------------------------------- */
-
-  /**
-   * Convert parameter key to a nicely formatted label (e.g. start_tray → Start Tray)
-   */
+  // DRY helpers for parameter input generation
   formatParameterName (n) {
     return n.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  /**
-   * Provide contextual help text for well-known parameters. Falls back to a
-   * generic message when the parameter is unknown.
-   */
+  // Provide contextual help text for well-known parameters. Falls back to a
+  // generic message when the parameter is unknown.
   getParameterHelp (paramName, paramDef) {
     if (paramDef.help) return paramDef.help
 
@@ -512,9 +421,7 @@ export default class ParameterCommandUI extends ComponentBase {
     return helpMap[paramName] || 'Parameter value'
   }
 
-  /**
-   * Resolve option labels with i18n support and special-case tray labels
-   */
+  // Resolve option labels with i18n support and special-case tray labels
   getOptionLabel (paramName, value) {
     if (paramName === 'verb') {
       return this.i18n?.t?.(`verb.${value}`) || value
@@ -528,12 +435,7 @@ export default class ParameterCommandUI extends ComponentBase {
     return value
   }
 
-  /**
-   * Build all parameter inputs into a container element
-   * @param {HTMLElement} container  target element
-   * @param {object}       commandDef definition containing parameters map
-   * @param {object}       existingParams values to pre-select (edit mode)
-   */
+  // Build all parameter inputs into a container element
   buildParameterInputs (container, commandDef, existingParams = {}) {
     Object.entries(commandDef.parameters).forEach(([paramName, paramDef]) => {
       const inputGroup = this.document.createElement('div')
@@ -588,5 +490,3 @@ export default class ParameterCommandUI extends ComponentBase {
     })
   }
 }
-
-// Legacy singleton removed - now initialized in app.js with proper dependencies 

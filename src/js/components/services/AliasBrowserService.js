@@ -1,8 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import i18next from 'i18next'
-import { respond, request } from '../../core/requestResponse.js'
-import { isAliasNameAllowed } from '../../lib/aliasNameValidator.js'
 
 /**
  * AliasBrowserService – source-of-truth for alias CRUD & selection.
@@ -13,22 +9,13 @@ export default class AliasBrowserService extends ComponentBase {
     super(eventBus)
     this.componentName = 'AliasBrowserService'
     this.ui = ui
-
-    this.currentProfileId = null
-    this.currentEnvironment = 'space'
     
     // Local cache for DataCoordinator integration
-    this.cache = {
-      currentProfile: null,
-      currentEnvironment: 'space',
-      aliases: {},
-      profile: null
-    }
+    this.initializeCache()
 
     if (this.eventBus) {
       // Register request/response endpoints for alias operations
       this.respond('alias:get-all', () => this.getAliases())
-
     }
   }
 
@@ -54,11 +41,9 @@ export default class AliasBrowserService extends ComponentBase {
 
     // Listen for profile switched
     this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.currentProfileId = profileId
       this.cache.currentProfile = profileId
       
       if (environment) {
-        this.currentEnvironment = environment
         this.cache.currentEnvironment = environment
       }
       
@@ -74,7 +59,6 @@ export default class AliasBrowserService extends ComponentBase {
         console.log(`[AliasBrowserService] environment:changed received. payload:`, payload, `parsed env: ${env}`)
       }
       if (env) {
-        this.currentEnvironment = env
         this.cache.currentEnvironment = env
       }
     })
@@ -128,11 +112,6 @@ export default class AliasBrowserService extends ComponentBase {
 
   async deleteAlias(name) {
     if (!this.cache.aliases || !this.cache.aliases[name]) return false
-
-    // Clear selection if deleting the currently selected alias
-    // if (this.selectedAliasName === name) {
-    //   this.selectedAliasName = null
-    // }
 
     return await this.request('alias:delete', { name })
   }

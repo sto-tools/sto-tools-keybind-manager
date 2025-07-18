@@ -1,20 +1,19 @@
 import ComponentBase from '../ComponentBase.js'
-import { request } from '../../core/requestResponse.js'
 import { formatAliasLine } from '../../lib/STOFormatter.js'
-// VFX_EFFECTS now available globally from data.js
 
 export default class VFXManagerService extends ComponentBase {
   constructor(eventBus) {
     super(eventBus)
     this.componentName = 'VFXManagerService'
     
-    // Initialize VFX state
+    // Initialize cache and VFX state
+    this.initializeCache()
+    
     this.selectedEffects = {
       space: new Set(),
       ground: new Set(),
     }
     this.showPlayerSay = false
-    this.currentProfile = null
     
     this.initialState = null
     this.isInitialized = false
@@ -45,7 +44,7 @@ export default class VFXManagerService extends ComponentBase {
     
     // Load VFX settings from DataCoordinator profile data
     if (sender === 'DataCoordinator' && state.currentProfileData) {
-      this.currentProfile = state.currentProfileData.id
+      this.cache.currentProfile = state.currentProfileData.id
       this.loadState(state.currentProfileData)
       console.log(`[${this.componentName}] Loaded initial VFX state from DataCoordinator via late-join`)
     }
@@ -65,7 +64,7 @@ export default class VFXManagerService extends ComponentBase {
         return
       }
       
-      this.currentProfile = profileId
+      this.cache.currentProfile = profileId
       if (profile) {
         this.loadState(profile)
         console.log(`[${this.componentName}] Loaded VFX state for switched profile: ${profileId}`)
@@ -80,16 +79,12 @@ export default class VFXManagerService extends ComponentBase {
         return
       }
       
-      if (profileId === this.currentProfile && profile) {
+      if (profileId === this.cache.currentProfile && profile) {
         this.loadState(profile)
         console.log(`[${this.componentName}] Refreshed VFX state for updated profile: ${profileId}`)
       }
     })
   }
-
-  // ========================================================================
-  // VFX Manager Core Methods (migrated from VertigoManager)
-  // ========================================================================
 
   // Generate alias line for display (formatted for STO export only)
   generateAlias(environment) {
@@ -291,10 +286,8 @@ export default class VFXManagerService extends ComponentBase {
     })
   }
 
-  /**
-   * Get virtual VFX aliases for CommandLibrary display
-   * These are NOT stored in profile - only generated dynamically
-   */
+  // Get virtual VFX aliases for CommandLibrary display
+  // These are NOT stored in profile - only generated dynamically
   getVirtualVFXAliases() {
     const virtualAliases = {}
     
@@ -333,10 +326,10 @@ export default class VFXManagerService extends ComponentBase {
     console.log(`[${this.componentName}] Showing VFX modal`)
     
     // Load state from current profile via DataCoordinator
-    if (this.currentProfile) {
+    if (this.cache.currentProfile) {
       try {
         const profiles = await this.request('data:get-all-profiles')
-        const profile = profiles[this.currentProfile]
+        const profile = profiles[this.cache.currentProfile]
         if (profile) {
           this.loadState(profile)
           console.log(`[${this.componentName}] Loaded VFX state from profile via DataCoordinator`)
@@ -372,14 +365,14 @@ export default class VFXManagerService extends ComponentBase {
     
     console.log(`[${this.componentName}] Current selected effects:`, this.selectedEffects)
     console.log(`[${this.componentName}] Show player say:`, this.showPlayerSay)
-    console.log(`[${this.componentName}] Current profile:`, this.currentProfile)
+    console.log(`[${this.componentName}] Current profile:`, this.cache.currentProfile)
     
     // Save to current profile via DataCoordinator
-    if (this.currentProfile) {
+    if (this.cache.currentProfile) {
       try {
         // Get current profile to update
         const profiles = await this.request('data:get-all-profiles')
-        const profile = profiles[this.currentProfile]
+        const profile = profiles[this.cache.currentProfile]
         
         if (profile) {
           console.log(`[${this.componentName}] Retrieved profile via DataCoordinator`)
@@ -393,19 +386,17 @@ export default class VFXManagerService extends ComponentBase {
             showPlayerSay: this.showPlayerSay,
           }
           
-          // VFX aliases are now virtual - no longer saved to profile
-          
-          // Update profile via DataCoordinator - only save VFX settings
+          // Update profile via DataCoordinator - save VFX settings
           try {
             await this.request('data:update-profile', {
-              profileId: this.currentProfile,
+              profileId: this.cache.currentProfile,
               properties: {
                 vertigoSettings: vertigoSettings
               },
               updateSource: 'VFXManagerService'
             })
             
-            console.log(`[${this.componentName}] VFX settings saved to profile: ${this.currentProfile}`)
+            console.log(`[${this.componentName}] VFX settings saved to profile: ${this.cache.currentProfile}`)
             
             // Emit VFX state change for CommandLibrary to regenerate virtual aliases
             this.emit('vfx:settings-changed', {
@@ -416,7 +407,7 @@ export default class VFXManagerService extends ComponentBase {
             console.error(`[${this.componentName}] ERROR: Failed to update profile:`, error)
           }
         } else {
-          console.error(`[${this.componentName}] ERROR: Could not retrieve profile: ${this.currentProfile}`)
+          console.error(`[${this.componentName}] ERROR: Could not retrieve profile: ${this.cache.currentProfile}`)
         }
       } catch (error) {
         console.error(`[${this.componentName}] ERROR: Failed to save VFX effects:`, error)
@@ -441,9 +432,7 @@ export default class VFXManagerService extends ComponentBase {
     this.emit('modal:hide', { modalId: 'vertigoModal' })
   }
 
-  /**
-   * Get current state for late-join support
-   */
+  // Get current state for late-join support
   getCurrentState() {
     return {
       selectedEffects: {

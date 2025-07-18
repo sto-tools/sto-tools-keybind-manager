@@ -11,7 +11,6 @@ export default class DataService extends ComponentBase {
     super(eventBus)
     this.componentName = 'DataService'
     
-    // REFACTORED: Strict dependency injection - no global fallbacks
     this.data = data || {}
     
     // Track response handlers for cleanup
@@ -131,17 +130,13 @@ export default class DataService extends ComponentBase {
     this.responseHandlers = []
   }
 
-  /**
-   * Update the data source (for testing or dynamic updates)
-   */
+  // Update the data source (for testing or dynamic updates)
   updateData(newData) {
     this.data = newData || {}
     this.emit('data:updated', { data: this.data })
   }
 
-  /**
-   * Provide current state for late-join handshake
-   */
+  // Provide current state for late-join handshake
   getCurrentState() {
     return {
       defaultProfiles: this.data.defaultProfiles || {},

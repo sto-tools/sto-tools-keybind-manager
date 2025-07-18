@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
+
 import i18next from 'i18next'
 import eventBus from '../../core/eventBus.js'
 import FileSystemService, {
@@ -11,27 +11,18 @@ import FileSystemService, {
 export const writeFile = fsWriteFile
 
 export default class SyncService extends ComponentBase {
-  constructor(opts = {}) {
+  constructor({ eventBus, storage, ui, fs } = {}) {
     super(eventBus)
     this.componentName = 'SyncService'
 
-    // Support legacy signature: new SyncService(storage)
-    if (opts && typeof opts.getSettings === 'function') {
-      this.storage = opts
-      this.ui = global.stoUI // fallback to global mock in tests
-    } else {
-      const { storage, ui, fs } = opts
-      this.storage = storage
-      this.ui = ui
-      this.fs = fs || new FileSystemService({ eventBus })
-    }
+    this.storage = storage
+    this.ui = ui
+    this.fs = fs || new FileSystemService({ eventBus })
 
     // Ensure FileSystemService instance
     if (!this.fs) this.fs = new FileSystemService({ eventBus })
 
-    // ---------------------------------------------------------
     // Register Request/Response endpoints for UI components
-    // ---------------------------------------------------------
     if (this.eventBus) {
       this.respond('sync:sync-project', ({ source } = {}) => this.syncProject(source))
       this.respond('sync:set-sync-folder', ({ autoSync } = {}) => this.setSyncFolder(autoSync))
@@ -39,7 +30,7 @@ export default class SyncService extends ComponentBase {
     }
   }
 
-  /* Set sync folder and optionally enable auto-sync */
+  // Set sync folder and optionally enable auto-sync
   async setSyncFolder(autoSync = false) {
     try {
       const handle = await window.showDirectoryPicker()

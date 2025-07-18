@@ -1,97 +1,53 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * KeyService – the authoritative service for creating, deleting and duplicating
  * key-bind rows in a profile. This service mirrors CommandService but focuses
  * exclusively on key level operations so other components (KeyBrowser,
  * CommandChain, etc.) can delegate all key data mutations here.
- * 
- * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
- * - Caches profile state locally from DataCoordinator broadcasts
- * - Uses DataCoordinator request/response for all profile updates
- * - Implements late-join support for dynamic initialization
- * - No direct storage access - all data operations go through DataCoordinator
  */
 export default class KeyService extends ComponentBase {
-  constructor ({ storage, eventBus, i18n, ui } = {}) {
+  constructor ({ eventBus, i18n, ui } = {}) {
     super(eventBus)
     this.componentName = 'KeyService'
-    // Legacy storage parameter kept for backward compatibility but not used
-    this.storage = storage
     this.i18n = i18n
     this.ui = ui
 
-    // REMOVED: Selection state now managed by SelectionService
-    // this.selectedKey = null
-    this.currentEnvironment = 'space'
-    this.currentProfile = null
+    // Local cache for DataCoordinator broadcasts
+    this.initializeCache()
 
-    // REFACTORED: Cache profile state from DataCoordinator broadcasts
-    this.cache = {
-      currentProfile: null,
-      currentEnvironment: 'space',
-      keys: {}, // Current environment's keys
-      builds: { // Full builds structure for profile
-        space: { keys: {} },
-        ground: { keys: {} }
-      },
-      aliases: {}
-    }
-
-    /* ------------------------------------------------------------------
-     * Legacy STOKeybindFileManager fields expected by unit tests
-     * ------------------------------------------------------------------ */
     // Generate valid key list once
     this.validKeys = this.generateValidKeys()
 
-    // ---------------------------------------------------------
     // Register Request/Response topics for key state and actions
-    // ---------------------------------------------------------
     if (this.eventBus) {
-      // REMOVED: key:get-selected now handled by SelectionService
-      // this.respond('key:get-selected', () => this.selectedKey)
-      // Note: key:select is handled by SelectionService
       this.respond('key:add', ({ key } = {}) => this.addKey(key))
-      
-      // Use addEventListener for key:delete since KeyBrowserUI emits it rather than requests it
-      this.addEventListener('key:delete', ({ key } = {}) => this.deleteKey(key))
       this.respond('key:duplicate-with-name', ({ sourceKey, newKey } = {}) => this.duplicateKeyWithName(sourceKey, newKey))
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Lifecycle
-   * ------------------------------------------------------------------ */
+  // Lifecycle
   async init() {
     super.init() // ComponentBase handles late-join automatically
     this.setupEventListeners()
   }
 
-  /* ------------------------------------------------------------------
-   * State setters - Updated to use cached state
-   * ------------------------------------------------------------------ */
-
+  // State setters - Updated to use cached state
   setCurrentEnvironment (environment) {
-    this.currentEnvironment = environment
     this.cache.currentEnvironment = environment
-    // Update keys cache for current environment
     this.cache.keys = this.cache.builds[environment]?.keys || {}
   }
 
   setCurrentProfile (profileId) {
-    this.currentProfile = profileId
     this.cache.currentProfile = profileId
   }
 
   /** Convenience getter */
   getCurrentProfileId () {
-    return this.currentProfile
+    return this.cache.currentProfile
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Event listeners for DataCoordinator integration
-   * ------------------------------------------------------------------ */
+  // Event listeners for DataCoordinator integration
   setupEventListeners () {
     if (!this.eventBus) return
 
@@ -99,76 +55,53 @@ export default class KeyService extends ComponentBase {
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
-        // KeyBrowserService receives updates via ComponentBase automatic caching
       }
     })
 
     this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
       this.cache.currentProfile = profileId
-      this.currentProfile = profileId
       this.cache.currentEnvironment = environment || 'space'
-      this.currentEnvironment = this.cache.currentEnvironment
-      // REMOVED: Selection clearing now handled by SelectionService
-      // this.selectedKey = null
       
       this.updateCacheFromProfile(profile)
-      // KeyBrowserService receives updates via ComponentBase automatic caching
     })
 
     this.addEventListener('environment:changed', ({ environment }) => {
       if (environment) {
         this.cache.currentEnvironment = environment
-        this.currentEnvironment = environment
         this.cache.keys = this.cache.builds[environment]?.keys || {}
-        // KeyBrowserService already listens to environment:changed directly
       }
     })
 
-    // Late-join support now handled by ComponentBase automatically
-
-    // REMOVED: Legacy event compatibility now handled by SelectionService
-    // this.addEventListener('key-selected', ({ key, name } = {}) => {
-    //   this.selectedKey = key || name || null
-    // })
+    this.addEventListener('key:delete', ({ key } = {}) => this.deleteKey(key))
   }
 
-  /**
-   * Update local cache from profile data
-   */
+  // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
     
-    // Ensure builds structure exists
     this.cache.builds = profile.builds || {
       space: { keys: {} },
       ground: { keys: {} }
     }
     
-    // Update keys for current environment
     this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
     this.cache.aliases = profile.aliases || {}
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Profile access now uses cached state
-   * ------------------------------------------------------------------ */
+  // Profile access now uses cached state
   getCurrentProfile () {
     if (!this.cache.currentProfile) return null
     
-    // Return virtual profile with current environment's keys
     return {
       id: this.cache.currentProfile,
       builds: this.cache.builds,
-      keys: this.cache.keys, // Current environment's keys
+      keys: this.cache.keys,
       aliases: this.cache.aliases,
       environment: this.cache.currentEnvironment
     }
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Core key operations now use DataCoordinator
-   * ------------------------------------------------------------------ */
-  /** Add a new empty key row to the current profile */
+  // Core key operations now use DataCoordinator
   async addKey (keyName) {
     if (!await this.isValidKeyName(keyName)) {
       this.ui?.showToast?.(this.i18n?.t?.('invalid_key_name') || 'Invalid key name', 'error')
@@ -216,7 +149,7 @@ export default class KeyService extends ComponentBase {
     }
   }
 
-  /** Delete a key row from the current profile */
+  // Delete a key row from the current profile
   async deleteKey (keyName) {
     if (!this.cache.currentProfile || !this.cache.keys[keyName]) {
       return false
@@ -244,7 +177,7 @@ export default class KeyService extends ComponentBase {
     }
   }
 
-  /** Duplicate an existing key row (clone commands with new ids) */
+  // Duplicate an existing key row (clone commands with new ids)
   async duplicateKey (keyName) {
     if (!this.cache.currentProfile || !this.cache.keys[keyName]) {
       return false
@@ -289,7 +222,7 @@ export default class KeyService extends ComponentBase {
     }
   }
 
-  /** Duplicate an existing key to an explicit new key name */
+  // Duplicate an existing key to an explicit new key name
   async duplicateKeyWithName (sourceKey, newKey) {
     if (!sourceKey || !newKey) return false
 
@@ -327,9 +260,7 @@ export default class KeyService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Validation helpers
-   * ------------------------------------------------------------------ */
+  // Validation helpers
   async isValidKeyName (keyName) {
     if (!keyName || typeof keyName !== 'string') return false
     try {
@@ -355,9 +286,7 @@ export default class KeyService extends ComponentBase {
     }
   }
 
-  /**
-   * Validate chord combinations like "ALT+`", "CTRL+Space", etc.
-   */
+  // Validate chord combinations like "ALT+`", "CTRL+Space", etc.
   isValidChordCombination(keyName, stoKeyNames) {
     const parts = keyName.split('+')
     
@@ -376,9 +305,7 @@ export default class KeyService extends ComponentBase {
     return validParts.every(valid => valid) && keyName.length <= 20
   }
 
-  /**
-   * Normalize key names to match STO_KEY_NAMES case conventions
-   */
+  // Normalize key names to match STO_KEY_NAMES case conventions
   normalizeKeyName(keyName, stoKeyNames) {
     // Create a case-insensitive lookup map
     const lowerCaseMap = new Map()
@@ -442,36 +369,26 @@ export default class KeyService extends ComponentBase {
     return list
   }
 
-  /* ------------------------------------------------------------------
-   * Utility helpers
-   * ------------------------------------------------------------------ */
+  // Utility helpers
   generateKeyId () {
     return `key_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  /* ------------------------------------------------------------------
-   * Legacy lifecycle hooks (kept for compatibility)
-   * ------------------------------------------------------------------ */
+  // Legacy lifecycle hooks (kept for compatibility)
   onInit () {
     // Now handled by init() method
   }
 
-  // REMOVED: selectKey method - this should be handled by KeyBrowserService
-  // Use request(eventBus, 'key:select', { key: keyName }) instead
-
-  /**
-   * Historically the UI expected a command-id generator utility on the
-   * keyHandling helper.  We expose the same helper here so the singleton stub
-   * continues to satisfy older tests without modification.
-   */
+  // Historically the UI expected a command-id generator utility on the
+  // keyHandling helper.  We expose the same helper here so the singleton stub
+  // continues to satisfy older tests without modification.
+  // TODO: Remove this 
   generateCommandId () {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-
-  /* ------------------------------------------------------------------
-   * Profile export helpers (simplified for unit-test expectations)
-   * ------------------------------------------------------------------ */
+  // Profile export helpers (simplified for unit-test expectations)
+  // TODO: Remove this
   compareKeys (a, b) {
     // Embedded synchronous key comparison logic (from stoFileHandler)
     const aIsF = a.match(/^F(\d+)$/)
@@ -498,37 +415,8 @@ export default class KeyService extends ComponentBase {
     return a.localeCompare(b)
   }
 
-
-  /* ------------------------------------------------------------------
-   * Legacy validation helpers expected by unit-tests
-   * ------------------------------------------------------------------ */
-
-
-
-
-
-  /* ------------------------------------------------------------------
-   * REFACTORED: Late-join state sharing using cached data
-   * ------------------------------------------------------------------ */
-  getCurrentState () {
-    return {
-      // REMOVED: selectedKey now managed by SelectionService
-      // All state ownership transferred to appropriate services:
-      // - Selection state: SelectionService
-      // - Profile state: DataCoordinator
-      // KeyService owns only key operations, not state
-    }
-  }
-
-  /**
-   * Helper: return array of key names in current environment from cache.
-   */
+  // Helper: return array of key names in current environment from cache.
   getKeys () {
     return Object.keys(this.cache.keys)
-  }
-
-  handleInitialState (sender, state) {
-    if (!state) return
-    
   }
 } 

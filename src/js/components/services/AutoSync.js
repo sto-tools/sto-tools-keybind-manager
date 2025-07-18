@@ -6,11 +6,10 @@ import ComponentBase from '../ComponentBase.js'
 export default class AutoSync extends ComponentBase {
   constructor({ eventBus, storage, syncManager, ui } = {}) {
     super(eventBus)
+    this.componentName = 'AutoSync'
     this.storage     = storage
     this.syncManager = syncManager // instance of SyncService
     this.ui          = ui
-
-    // prefs
     this.isEnabled   = false
     this.interval    = 'change' // 'change' or seconds string
     this._intervalId = null
@@ -31,9 +30,7 @@ export default class AutoSync extends ComponentBase {
     this.setupFromSettings()
   }
 
-  /* --------------------------------------------------
-   * Setup helpers
-   * ------------------------------------------------ */
+  // Setup helpers
   setupPreferencesListeners() {
     // Listen for AutoSync settings changes from PreferencesUI
     this.eventBus.on('preferences:autosync-settings-changed', () => {
@@ -61,9 +58,7 @@ export default class AutoSync extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   * Enable / disable
-   * ------------------------------------------------ */
+  // Enable / disable
   enable(interval = 'change') {
     this.disable()
     this.isEnabled = true
@@ -113,9 +108,7 @@ export default class AutoSync extends ComponentBase {
     this.storage.saveSettings(s)
   }
 
-  /* --------------------------------------------------
-   * Debounced sync for change-based mode
-   * ------------------------------------------------ */
+  // Debounced sync for change-based mode
   debouncedSync() {
     // Clear any existing timeout
     if (this._syncDebounceTimeout) {
@@ -129,9 +122,7 @@ export default class AutoSync extends ComponentBase {
     }, this._syncDebounceDelay)
   }
 
-  /* --------------------------------------------------
-   * Sync
-   * ------------------------------------------------ */
+  // Sync
   async sync() {
     if (!this.isEnabled || !this.syncManager) return
     try {
@@ -144,9 +135,7 @@ export default class AutoSync extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   * Status helpers
-   * ------------------------------------------------ */
+  // Status helpers
   getStatus() {
     return {
       enabled: this.isEnabled,
@@ -155,9 +144,7 @@ export default class AutoSync extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   * UI indicator (optional)
-   * ------------------------------------------------ */
+  // UI indicator (optional)
   _updateIndicator(state) {
     if (!this.ui || typeof document === 'undefined') return
     const indicator = document.getElementById('modifiedIndicator')

@@ -22,7 +22,6 @@ export default class ProjectManagementService extends ComponentBase {
     super(eventBus)
     this.componentName = 'ProjectManagementService'
     
-    // REFACTORED: Strict dependency injection - no global fallbacks
     this.storage = storage
     this.ui = ui
     this.exportManager = exportManager
@@ -50,9 +49,7 @@ export default class ProjectManagementService extends ComponentBase {
     })
   }
 
-  /* --------------------------------------------------
-   *  Backup & Restore Application State (same format as sync folder)
-   * ------------------------------------------------ */
+  // Backup & Restore Application State (same format as sync folder)
   async backupApplicationState() {
     try {
       const data = this.storage.getAllData()
@@ -183,9 +180,7 @@ export default class ProjectManagementService extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   *  High-level helpers
-   * ------------------------------------------------ */
+  // High-level helpers
   async exportProject() {
     try {
       const data = this.storage.exportData()
@@ -297,9 +292,7 @@ export default class ProjectManagementService extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   *  UI-centric helpers – depend on injected `app`, `ui`, `i18n`
-   * ------------------------------------------------ */
+  // UI-centric helpers – depend on injected `app`, `ui`, `i18n`
   openProject() {
     const input = document.getElementById('fileInput') || document.createElement('input')
     if (!input.id) input.id = 'fileInput'
@@ -317,7 +310,8 @@ export default class ProjectManagementService extends ComponentBase {
           if (success) {
             this.app?.loadData?.()
             this.app?.renderProfiles?.()
-            this.app?.renderKeyGrid?.()
+            // Use event-driven approach instead of direct method calls
+            this.emit('key:list-changed')
             // Command chain rendering is now handled by CommandChainUI via events
             this.ui?.showToast(this.i18n?.t('project_loaded_successfully') ?? 'Project loaded', 'success')
           } else {
@@ -373,16 +367,5 @@ export default class ProjectManagementService extends ComponentBase {
       this.i18n?.t('keybinds_exported_successfully', { environment: env }) ?? 'Keybinds exported',
       'success',
     )
-  }
-
-  /* --------------------------------------------------
-   *  Optional singleton helper – keeps pattern consistent with other services
-   *  but no longer exposes legacy mix-in API.
-   * ------------------------------------------------ */
-  static #singleton = null
-
-  static getInstance() {
-    if (!this.#singleton) this.#singleton = new ProjectManagementService()
-    return this.#singleton
   }
 } 

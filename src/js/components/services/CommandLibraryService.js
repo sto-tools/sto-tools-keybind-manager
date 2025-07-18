@@ -1,45 +1,33 @@
 import ComponentBase from '../ComponentBase.js'
-import { request, respond } from '../../core/requestResponse.js'
-import { formatAliasLine } from '../../lib/STOFormatter.js'
 
 /**
  * CommandLibraryService - Handles all command library business logic
  * Manages command definitions, command chains, and command operations
- * REFACTORED: Now uses DataCoordinator broadcast/cache pattern.
  */
 export default class CommandLibraryService extends ComponentBase {
-  constructor({ storage, eventBus, i18n, ui, modalManager }) {
+  constructor({ eventBus, i18n, ui, modalManager }) {
     super(eventBus)
     this.componentName = 'CommandLibraryService'
     this._instanceId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    this.storage        = storage // Legacy reference (no longer used directly)
     this.i18n           = i18n
     this.ui             = ui
     this.modalManager   = modalManager
 
-    this.currentProfile = null
-    this.currentEnvironment = 'space'
-    // REMOVED: Selection state now managed by SelectionService
-
-    // Cache for DataCoordinator data
-    this.cache = {
+    // Initialize cache for DataCoordinator data
+    this.initializeCache({
       currentProfile: null,
       currentEnvironment: 'space',
       profile: null,
       keys: {},
       aliases: {}
-    }
+    })
 
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
 
-    // ---------------------------------------------------------
     // Register Request/Response endpoints for external callers
-    // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        // MOVED: command:get-for-selected-key moved to CommandService
-        //this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
         this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
         this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),
         this.respond('command:get-categories',    () => this.getCommandCategories()),
@@ -50,34 +38,17 @@ export default class CommandLibraryService extends ComponentBase {
         }),
       )
     }
-
-    // In test environments (Vitest/Jest), automatically make `emit` a spy so
-    // expectations like `expect(service.emit).toHaveBeenCalled()` work without
-    // the test needing to explicitly spy on it.
-    if (typeof vi !== 'undefined' && typeof vi.fn === 'function' && !vi.isMockFunction?.(this.emit)) {
-      const originalEmit = this.emit.bind(this)
-      this.emit = vi.fn((...args) => originalEmit(...args))
-    }
   }
 
-  /**
-   * Initialize the service
-   */
+  // Initialize the service
   async init() {
     super.init() // ComponentBase handles late-join automatically
     this.setupEventListeners()
     this.setupRequestResponseEndpoints()
   }
 
-  /**
-   * Set up event listeners for DataCoordinator integration
-   */
+  // Event Listeners
   setupEventListeners() {
-    // REMOVED: Profile event handling now in ComponentBase
-
-    // REMOVED: Selection state management now handled by SelectionService
-    // CommandLibraryService gets current selection via request when needed
-
     // Listen for environment changes (space ↔ ground ↔ alias)
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data?.environment
@@ -86,7 +57,7 @@ export default class CommandLibraryService extends ComponentBase {
         console.log(`[CommandLibraryService] environment:changed event received. data:`, data, `parsed env: ${env}`)
       }
       if (env) {
-        this.currentEnvironment = env
+        this.cache.currentEnvironment = env
         this.cache.currentEnvironment = env
         
         // REMOVED: Selection clearing now handled by SelectionService
@@ -118,9 +89,7 @@ export default class CommandLibraryService extends ComponentBase {
     })
   }
 
-  /**
-   * Update cache from profile data (DataCoordinator integration)
-   */
+  // Update cache from profile data (DataCoordinator integration)
   updateCacheFromProfile(profile) {
     if (!profile) return
     
@@ -150,9 +119,7 @@ export default class CommandLibraryService extends ComponentBase {
     })
   }
 
-  /**
-   * Get combined aliases (real profile aliases + virtual VFX aliases)
-   */
+  // Get combined aliases (real profile aliases + virtual VFX aliases)
   async getCombinedAliases() {
     const realAliases = { ...this.cache.aliases }
     
@@ -166,28 +133,20 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  /**
-   * Update the combined aliases cache
-   */
+  // Update the combined aliases cache
   async updateCombinedAliases() {
     // This will be called whenever profile changes or VFX settings change
     this.cache.combinedAliases = await this.getCombinedAliases()
   }
 
-  // REMOVED: getCommandsForSelectedKey moved to CommandService where it belongs
-
-  /**
-   * Get the current profile with build-specific data from cache
-   */
+  // Get the current profile with build-specific data from cache
   getCurrentProfile() {
     if (!this.cache.profile) return null
 
     return this.getCurrentBuild(this.cache.profile)
   }
 
-  /**
-   * Get the current build for a profile using cached data
-   */
+  // Get the current build for a profile using cached data
   getCurrentBuild(profile) {
     if (!profile) return null
 
@@ -198,26 +157,24 @@ export default class CommandLibraryService extends ComponentBase {
       }
     }
 
-    if (!profile.builds[this.currentEnvironment]) {
-      profile.builds[this.currentEnvironment] = { keys: {} }
+    if (!profile.builds[this.cache.currentEnvironment]) {
+      profile.builds[this.cache.currentEnvironment] = { keys: {} }
     }
 
-    if (!profile.builds[this.currentEnvironment].keys) {
-      profile.builds[this.currentEnvironment].keys = {}
+    if (!profile.builds[this.cache.currentEnvironment].keys) {
+      profile.builds[this.cache.currentEnvironment].keys = {}
     }
 
     return {
       ...profile,
-      keys: profile.builds[this.currentEnvironment].keys,
+      keys: profile.builds[this.cache.currentEnvironment].keys,
       aliases: this.cache.combinedAliases || profile.aliases || {},
       keybindMetadata: profile.keybindMetadata || {},
       aliasMetadata: profile.aliasMetadata || {}
     }
   }
 
-  /**
-   * Find command definition and apply i18n translations
-   */
+  // Find command definition and apply i18n translations
   async findCommandDefinition(command) {
     try {
       const hasCommands = await this.request('data:has-commands')
@@ -294,9 +251,7 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  /**
-   * Translate a command definition using i18n
-   */
+  // Translate a command definition using i18n
   translateCommandDefinition(cmdData, cmdId) {
     if (!this.i18n) return cmdData
 
@@ -313,9 +268,7 @@ export default class CommandLibraryService extends ComponentBase {
     return translatedDef
   }
 
-  /**
-   * Format display text from parser, handling i18n-compatible objects
-   */
+  // Format display text from parser, handling i18n-compatible objects
   formatDisplayText(displayText) {
     if (typeof displayText === 'string') {
       return displayText
@@ -346,9 +299,7 @@ export default class CommandLibraryService extends ComponentBase {
     return displayText
   }
 
-  /**
-   * Get command warning information
-   */
+  // Get command warning information
   async getCommandWarning(command) {
     try {
       const hasCommands = await this.request('data:has-commands')
@@ -396,16 +347,12 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  /**
-   * Generate a unique command ID
-   */
+  // Generate a unique command ID
   generateCommandId() {
     return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  /**
-   * Get command categories for the library
-   */
+  // Get command categories for the library
   async getCommandCategories() {
     try {
       const hasCommands = await this.request('data:has-commands')
@@ -425,9 +372,7 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  /**
-   * Filter command library based on current environment
-   */
+  // Filter command library based on current environment
   async filterCommandLibrary() {
     try {
       const hasCommands = await this.request('data:has-commands')
@@ -451,12 +396,12 @@ export default class CommandLibraryService extends ComponentBase {
 
       if (commandDef) {
         let isVisible
-        if (this.currentEnvironment === 'alias') {
+        if (this.cache.currentEnvironment === 'alias') {
           // In alias mode, show all commands (env not relevant)
           isVisible = true
         } else {
           // Respect environment property when present
-          isVisible = !commandDef.environment || commandDef.environment === this.currentEnvironment
+          isVisible = !commandDef.environment || commandDef.environment === this.cache.currentEnvironment
         }
 
         // Mark whether hidden by env filter for search logic
@@ -491,24 +436,12 @@ export default class CommandLibraryService extends ComponentBase {
 
 
 
-  /* ------------------------------------------------------------------
-   * ComponentBase late-join support for DataCoordinator integration
-   * ------------------------------------------------------------------ */
-  getCurrentState() {
-    return {
-      // REMOVED: Selection state now managed by SelectionService
-      // REMOVED: currentEnvironment, currentProfile - not owned by CommandLibraryService
-      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
-    }
-  }
-
+  // ComponentBase late-join support for DataCoordinator integration
   handleInitialState(sender, state) {
-    // REMOVED: DataCoordinator and SelectionService handling now in ComponentBase._handleInitialState
-    // Component-specific initialization can be added here if needed
-    
     // Handle VFX state from VFXManagerService
     if (sender === 'VFXManagerService' && state) {
       console.log(`[CommandLibraryService] Received VFX state via late-join:`, state)
+
       // Update combined aliases when VFX state is received
       this.updateCombinedAliases().then(() => {
         console.log(`[CommandLibraryService] Updated combined aliases after VFX late-join`)
@@ -519,11 +452,8 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  /**
-   * Cleanup method to detach all request/response handlers
-   */
+  // Cleanup method to detach all request/response handlers
   destroy() {
-    
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach(detach => {
         if (typeof detach === 'function') {

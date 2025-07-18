@@ -1,5 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * AliasService – the authoritative service for creating, deleting and duplicating
@@ -16,16 +15,8 @@ export default class AliasService extends ComponentBase {
     this.i18n = i18n
     this.ui = ui
 
-    this.currentEnvironment = 'space'
-    this.currentProfile = null
-
     // Local cache for DataCoordinator integration
-    this.cache = {
-      currentProfile: null,
-      currentEnvironment: 'space',
-      aliases: {}, 
-      profile: null
-    }
+    this.initializeCache()
 
  
     if (this.eventBus) {
@@ -45,18 +36,16 @@ export default class AliasService extends ComponentBase {
 
   // State setters - Updated to use cached state
   setCurrentEnvironment (environment) {
-    this.currentEnvironment = environment
     this.cache.currentEnvironment = environment
   }
 
   setCurrentProfile (profileId) {
-    this.currentProfile = profileId
     this.cache.currentProfile = profileId
   }
 
   // Convenience getter
   getCurrentProfileId () {
-    return this.currentProfile
+    return this.cache.currentProfile
   }
 
   // Event listeners for DataCoordinator integration
@@ -72,9 +61,7 @@ export default class AliasService extends ComponentBase {
 
     this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
       this.cache.currentProfile = profileId
-      this.currentProfile = profileId
       this.cache.currentEnvironment = environment || 'space'
-      this.currentEnvironment = this.cache.currentEnvironment
       
       this.updateCacheFromProfile(profile)
     })
@@ -82,8 +69,7 @@ export default class AliasService extends ComponentBase {
     // Listen for environment changes
     this.addEventListener('environment:changed', ({ environment }) => {
       if (environment) {
-        this.cache.currentEnvironment = environment
-        this.currentEnvironment = environment
+        this.cache.currentEnvironment = environment || 'space'
       }
     })
 
@@ -281,7 +267,7 @@ export default class AliasService extends ComponentBase {
 
   // Import operations
   importAliasFile (content) {
-    const profileId = this.currentProfile
+    const profileId = this.cache.currentProfile
 
     // Delegate to ImportService for complete import handling
     return request(this.eventBus, 'import:alias-file', { 

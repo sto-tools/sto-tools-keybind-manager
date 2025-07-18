@@ -1,6 +1,21 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 
+/*
+ * StorageService
+ * 
+ * Manages all data storage for the application.
+ * 
+ * This service is responsible for:
+ * - Storing and retrieving data from localStorage
+ * - Creating and restoring backups
+ * - Exporting and importing data
+ * - Clearing all data
+ * - Getting storage usage info
+ * - Migrating data from old formats to new formats
+ * - Ensuring storage structure is valid
+ * - Detecting browser language
+ */
 export default class StorageService extends ComponentBase {
   constructor({ 
     eventBus: bus = eventBus, 

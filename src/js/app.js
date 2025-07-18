@@ -4,7 +4,6 @@ import store from './core/store.js'
 import eventBus from './core/eventBus.js'
 import DataService from './components/services/DataService.js'
 import { AutoSync } from './components/services/index.js'
-import ProfileService from './components/services/ProfileService.js'
 import ProfileUI from './components/ui/ProfileUI.js'
 
 import ParameterCommandUI from './components/ui/ParameterCommandUI.js'
@@ -46,7 +45,6 @@ export default class STOToolsKeybindManager {
     this.dataService = null
 
     // Initialize profile service and UI when dependencies are available
-    this.profileService = null
     this.profileUI = null
     this.aliasService = null
     this.aliasUI = null
@@ -148,20 +146,6 @@ export default class STOToolsKeybindManager {
       
 
       
-      // dbg('About to create ProfileService')
-      this.profileService = new ProfileService({ 
-        storage: storageService, 
-        eventBus, 
-        i18n: i18next 
-      })
-
-      // Initialize ProfileService so it participates in late join handshake
-      this.profileService.init()
-      
-      // Load profile data
-      await this.profileService.loadData()
-
-
       // dbg('ProfileService created')
 
       // ------------------------------
@@ -174,7 +158,6 @@ export default class STOToolsKeybindManager {
       // dbg('About to create ProfileUI')
       try {
         this.profileUI = new ProfileUI({
-          service: this.profileService,
           eventBus,
           ui: stoUI,
           modalManager,
@@ -216,16 +199,12 @@ export default class STOToolsKeybindManager {
         eventBus,
       })
 
-      this.aliasBrowserService.init()
-
       // dbg('AliasBrowserService created')
       this.aliasBrowserUI = new AliasBrowserUI({
         eventBus,
         modalManager,
         document,
       })
-
-      this.aliasBrowserUI.init()
 
       // dbg('AliasBrowserUI created')
       // ------------------------------
@@ -397,6 +376,7 @@ export default class STOToolsKeybindManager {
       
       // Initialize SyncUI to handle sync operations
       this.syncUI = new SyncUI({
+        eventBus,
         ui: stoUI
       })
       // dbg('SyncUI created')
@@ -428,7 +408,7 @@ export default class STOToolsKeybindManager {
 
       // Initialize VFX Manager service & UI
       this.vfxManagerService = new VFXManagerService(eventBus)
-      this.vfxManagerUI = new VFXManagerUI(eventBus, modalManager)
+      this.vfxManagerUI = new VFXManagerUI({eventBus, modalManager})
       this.vfxManagerService.init()
       this.vfxManagerUI.init()
 
@@ -436,7 +416,7 @@ export default class STOToolsKeybindManager {
 
       // Initialize preferences service & UI
       this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
-      this.preferencesUI = new PreferencesUI({ service: this.preferencesService, ui: stoUI })
+      this.preferencesUI = new PreferencesUI({ eventBus, service: this.preferencesService, ui: stoUI })
       this.preferencesManager = this.preferencesUI
       this.preferencesService.init()
       this.preferencesUI.init()

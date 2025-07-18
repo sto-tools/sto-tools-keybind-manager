@@ -1,13 +1,8 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 
 /**
  * CommandUI – owns the parameter-editing modal and acts as the bridge between
  * UI interactions (coming from CommandLibraryUI) and CommandService.
- *
- * REFACTORED: Now fully decoupled from direct service dependencies
- * Uses broadcast/cache pattern for UI state and request/response for actions
  *
  * Responsibilities:
  * 1. Listen for `command:add` events emitted by CommandLibraryUI when the user
@@ -18,42 +13,121 @@ import { request } from '../../core/requestResponse.js'
  * 4. Cache UI state from broadcast events for immediate access.
  */
 export default class CommandUI extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus,
+  constructor ({ eventBus,
                 ui = null,
                 modalManager = null,
                 parameterCommandUI = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(bus)
+    super(eventBus)
     this.componentName = 'CommandUI'
     this.ui           = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.modalManager = modalManager
     this.parameterCommandUI = parameterCommandUI
 
-    // REFACTORED: Cache UI state from broadcast events
-    this._selectedKey = null
-    this._selectedAlias = null
-    this._currentEnvironment = 'space'
-    this._activeBindset = 'Primary Bindset' // Default to primary bindset
-
-    // Cache for DataCoordinator data
-
-    this.cache = {
-      currentProfile: null,
-      currentEnvironment: 'space',
-    }
+    this._activeBindset = 'Primary Bindset'
 
     // Store last validation issues
     this._lastValidation = { warnings: [], errors: [] }
 
-    // Provide DOM access consistent with other UI components
     this.document = document
   }
 
   onInit () {
     this.setupEventListeners()
     this.setupUIStateEventListeners()
+  }
 
-    // Listen for command:add events from CommandLibraryUI
+  setupUIStateEventListeners() {
+    this.addEventListener('bindset-selector:active-changed', (data) => {
+      this._activeBindset = data.bindset || 'Primary Bindset'
+    })
+  }
+
+  setupEventListeners() {
+    if (this.eventListenersSetup) {
+      return
+    }
+    this.eventListenersSetup = true
+
+    // Clear command chain button
+    this.eventBus.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
+      const selectedKey = this.getSelectedKey()
+      if (selectedKey) {
+        this.confirmClearChain(selectedKey)
+      }
+    })
+
+    // Validate command chain button
+    this.eventBus.onDom('validateChainBtn', 'click', 'command-chain-validate', () => {
+      const selectedKey = this.getSelectedKey()
+      if (selectedKey) {
+        this.validateCurrentChain(selectedKey)
+      }
+    })
+
+    // Debounced command search input
+    this.eventBus.onDomDebounced(
+      'commandSearch',
+      'input',
+      'command-search',
+      (e) => {
+        this.filterCommands(e.target.value)
+      },
+      250
+    )
+
+    // Command search keydown
+    this.eventBus.onDom('commandSearch', 'keydown', 'command-search-key', (e) => {
+      if (e.key === 'Escape') {
+        const input = e.target
+        input.value = ''
+        input.classList.remove('expanded')
+        this.emit('command:filter', { filter: '' })
+      } else if (e.key === 'Enter') {
+        const input = e.target
+        input.classList.remove('expanded')
+        input.blur()
+      }
+    })
+
+    // Clear Filter button
+    this.eventBus.onDom('showAllCommandsBtn', 'click', 'command-clear-filter', () => {
+      const inp = this.document.getElementById('commandSearch')
+      if (inp) {
+        // Clear the input value
+        inp.value = ''
+
+        // Dispatch synthetic input event so the debounced handler resets and
+        // any pending timer from the previous keystrokes is cancelled.
+        const event = new Event('input', { bubbles: true })
+        inp.dispatchEvent(event)
+      }
+
+      // Immediately clear the filter via direct call so UI updates without delay
+      this.filterCommands('')
+    })
+
+    // Command search button - toggle command search functionality
+    this.eventBus.onDom('commandSearchBtn', 'click', 'command-search-toggle', () => {
+      this.toggleCommandSearch()
+    })
+
+    // Import from key or alias button - show import from key or alias modal
+    this.eventBus.onDom('importFromKeyOrAliasBtn', 'click', 'import-from-key-or-alias', () => {
+      this.showImportFromKeyOrAliasModal()
+    })
+
+    // Save command button - save command from add-command modal
+    this.eventBus.onDom('saveCommandBtn', 'click', 'save-command', () => {
+      this.saveCommand()
+    })
+
+    // Confirm import button - perform import from selected source
+    this.eventBus.onDom('confirmImportBtn', 'click', 'confirm-import', () => {
+      this.performImport()
+    })
+
+
     this.addEventListener('command-add', async (payload = {}) => {
       const { categoryId, commandId, commandDef } = payload
 
@@ -73,7 +147,7 @@ export default class CommandUI extends ComponentBase {
           }
 
           // Include active bindset when not in alias mode
-          const bindset = this._currentEnvironment === 'alias' ? null : this._activeBindset
+          const bindset = this.cache.currentEnvironment === 'alias' ? null : this._activeBindset
           this.emit('command:add', { command: commandDef, key: selectedKey, bindset })
         } catch (error) {
           console.error('CommandUI: Failed to handle static command:', error)
@@ -134,153 +208,18 @@ export default class CommandUI extends ComponentBase {
     })
   }
 
-  setupUIStateEventListeners() {
-    // Cache state from broadcast events - same pattern as other UI components
-    this.addEventListener('key-selected', (data) => {
-      this._selectedKey = data.key || data.name
-      this._selectedAlias = null
-    })
-
-    this.addEventListener('alias-selected', (data) => {
-      this._selectedAlias = data.name
-      this._selectedKey = null
-    })
-
-    this.addEventListener('environment:changed', (data) => {
-      const env = typeof data === 'string' ? data : data?.environment
-      if (env) {
-        this._currentEnvironment = env
-      }
-    })
-
-    this.addEventListener('bindset-selector:active-changed', (data) => {
-      this._activeBindset = data.bindset || 'Primary Bindset'
-    })
-  }
-
-  setupEventListeners() {
-    if (this.eventListenersSetup) {
-      return
-    }
-    this.eventListenersSetup = true
-
-
-    this.eventBus.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
-      const selectedKey = this.getSelectedKey()
-      if (selectedKey) {
-        this.confirmClearChain(selectedKey)
-      }
-    })
-
-    this.eventBus.onDom('validateChainBtn', 'click', 'command-chain-validate', () => {
-      const selectedKey = this.getSelectedKey()
-      if (selectedKey) {
-        this.validateCurrentChain(selectedKey)
-      }
-    })
-
-    // Debounced command search input via eventBus helper
-    this.eventBus.onDomDebounced(
-      'commandSearch',
-      'input',
-      'command-search',
-      (e) => {
-        this.filterCommands(e.target.value)
-      },
-      250
-    )
-
-    this.eventBus.onDom('commandSearch', 'keydown', 'command-search-key', (e) => {
-      if (e.key === 'Escape') {
-        const input = e.target
-        input.value = ''
-        input.classList.remove('expanded')
-        this.emit('command:filter', { filter: '' })
-      } else if (e.key === 'Enter') {
-        const input = e.target
-        input.classList.remove('expanded')
-        input.blur()
-      }
-    })
-
-    // Clear Filter button – resets only Command Library search
-    this.eventBus.onDom('showAllCommandsBtn', 'click', 'command-clear-filter', () => {
-      const inp = this.document.getElementById('commandSearch')
-      if (inp) {
-        // Clear the input value
-        inp.value = ''
-
-        // Dispatch synthetic input event so the debounced handler resets and
-        // any pending timer from the previous keystrokes is cancelled.
-        const event = new Event('input', { bubbles: true })
-        inp.dispatchEvent(event)
-      }
-
-      // Immediately clear the filter via direct call so UI updates without delay
-      this.filterCommands('')
-    })
-
-    // Command search button
-    this.eventBus.onDom('commandSearchBtn', 'click', 'command-search-toggle', () => {
-      this.toggleCommandSearch()
-    })
-
-    // Import from key or alias button
-    this.eventBus.onDom('importFromKeyOrAliasBtn', 'click', 'import-from-key-or-alias', () => {
-      this.showImportFromKeyOrAliasModal()
-    })
-
-    // Save command button
-    this.eventBus.onDom('saveCommandBtn', 'click', 'save-command', () => {
-      this.saveCommand()
-    })
-
-    // Confirm import button
-    this.eventBus.onDom('confirmImportBtn', 'click', 'confirm-import', () => {
-      this.performImport()
-    })
-  }
-
-  /* ------------------------------------------------------------
-   * State Access - Use cached values from broadcast events
-   * ---------------------------------------------------------- */
-
-  /**
-   * Get the currently selected key from cached state
-   */
+  // Get the currently selected key from cached state
   getSelectedKey() {
-    return this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+    const env = this.cache.currentEnvironment || 'space'
+    return env === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
   }
 
-  /**
-   * Get the current environment from cached state
-   */
+  // Get the current environment from cached state
   getCurrentEnvironment() {
-    return this._currentEnvironment
+    return this.cache.currentEnvironment || 'space'
   }
 
-  /* ------------------------------------------------------------
-   * Late-join state sync
-   * ---------------------------------------------------------- */
-  getCurrentState() {
-    return {
-      selectedKey: this._selectedKey,
-      selectedAlias: this._selectedAlias,
-      currentEnvironment: this._currentEnvironment
-    }
-  }
-
-  handleInitialState(sender, state) {
-    // Component-specific initialization can be added here if needed
-  }
-
-  /* ------------------------------------------------------------
-   * Action Methods - Use request/response for i18n and actions
-   * ---------------------------------------------------------- */
-
-  /**
-   * Get i18n message using request/response
-   */
+  // Get i18n message using request/response
   async getI18nMessage(key, params = {}) {
     try {
       return await this.request('i18n:translate', { key, params })
@@ -290,9 +229,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Show toast using request/response
-   */
+  // Show toast using request/response
   async showToast(message, type = 'info') {
     try {
       // Use UI service if available, otherwise fallback to direct UI
@@ -308,9 +245,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Confirm clearing the command chain for a key
-   */
+  // Confirm clearing the command chain for a key
   async confirmClearChain(key) {
     if (!key) return
     
@@ -326,9 +261,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Validate the current command chain
-   */
+  // Validate the current command chain
   async validateCurrentChain(key) {
     if (key) {
       // Determine whether Stabilize Execution Order is enabled for this key/alias
@@ -342,9 +275,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Filter commands by search term
-   */
+  // Filter commands by search term
   filterCommands(value) {
     this.emit('command:filter', { filter: value })
 
@@ -357,9 +288,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Toggle command search functionality
-   */
+  // Toggle command search functionality
   toggleCommandSearch() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
@@ -374,9 +303,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Show the import from key or alias modal
-   */
+  // Show the import from key or alias modal
   async showImportFromKeyOrAliasModal() {
     const selectedKey = this.getSelectedKey()
     if (!selectedKey) {
@@ -397,10 +324,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Populate the import sources dropdown based on current environment
-   * Delegates to CommandService for data, handles UI rendering
-   */
+  // Populate the import sources dropdown based on current environment
   async populateImportSources() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
@@ -448,10 +372,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Check if a command is compatible with the target environment
-   * Delegates to CommandService for business logic
-   */
+  // Check if a command is compatible with the target environment
   async isCommandCompatible(commandName, targetEnvironment) {
     return await this.request('command:check-environment-compatibility', { 
       command: commandName, 
@@ -459,10 +380,7 @@ export default class CommandUI extends ComponentBase {
     })
   }
 
-  /**
-   * Perform the import from the selected source
-   * Delegates to CommandService for business logic
-   */
+  // Perform the import from the selected source
   async performImport() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
@@ -537,9 +455,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  /**
-   * Save the command from the add-command modal
-   */
+  // Save the command from the add-command modal
   async saveCommand() {
     const commandType = this.document.getElementById('commandType')?.value
     const commandPreview = this.document.getElementById('modalCommandPreview')?.textContent
@@ -568,9 +484,7 @@ export default class CommandUI extends ComponentBase {
 
   }
 
-  /**
-   * Show modal with validation details (warnings/errors)
-   */
+  // Show modal with validation details (warnings/errors)
   async showValidationDetails() {
     const { warnings = [], errors = [] } = this._lastValidation || {}
     if (!warnings.length && !errors.length) return

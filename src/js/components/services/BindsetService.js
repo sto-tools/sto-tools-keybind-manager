@@ -1,17 +1,12 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond, request } from '../../core/requestResponse.js'
 
 export default class BindsetService extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
     this.componentName = 'BindsetService'
 
-    // Internal cache similar to other services
-    this.cache = {
-      currentProfile: null,
-      profile: null,
-      currentEnvironment: 'space'
-    }
+    // Local cache for DataCoordinator integration
+    this.initializeCache()
 
     if (this.eventBus) {
       this.respond('bindset:list',          () => this.listBindsets())
@@ -28,21 +23,35 @@ export default class BindsetService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  /* ------------------------------------------------------------ */
-  /* Late-join state sharing                                       */
-  /* ------------------------------------------------------------ */
-
-  /** Return current bindset names for late-join components to sync. */
+  // Late-join state sharing
   getCurrentState () {
     return {
       bindsets: [...this._bindsetNames]
     }
   }
 
-  /* ------------------------------------------------------------ */
-  /* Broadcast / Cache integration                                */
-  /* ------------------------------------------------------------ */
+  // Initialize service and register with ComponentBase system
+  async init() {
+    console.log('[BindsetService] Initializing...')
+    
+    // Register with ComponentBase for late-join state synchronization
+    super.init()
+    
+    console.log('[BindsetService] Initialized successfully')
+  }
 
+  // Handle initial state from DataCoordinator
+  handleInitialState(sender, state) {
+    console.log('[BindsetService] handleInitialState called:', sender, !!state)
+    
+    if (sender === 'DataCoordinator' && state?.currentProfileData) {
+      console.log('[BindsetService] Received initial profile data from DataCoordinator')
+      this.cache.currentProfile = state.currentProfileData.id
+      this.updateCacheFromProfile(state.currentProfileData)
+    }
+  }
+
+  // Broadcast / Cache integration
   setupEventListeners() {
     // Prevent double registration in case constructor called twice in tests
     if (this._listenersSetup) return
@@ -74,9 +83,7 @@ export default class BindsetService extends ComponentBase {
     this.emit('bindsets:changed', { names: [...this._bindsetNames] })
   }
 
-  /**
-   * Return cached profile when available; fallback to request on first call
-   */
+  // Return cached profile when available; fallback to request on first call
   async getProfile() {
     if (this.cache.profile) return this.cache.profile
     // Fallback: ask DataCoordinator for current state (includes profile data)
@@ -89,7 +96,7 @@ export default class BindsetService extends ComponentBase {
     return prof
   }
 
-  /* ------------------------------- helpers ------------------------------ */
+  // Helpers
   async listBindsets () {
     const profile = await this.getProfile()
     //const bindsets = profile?.bindsets || {}
@@ -219,18 +226,5 @@ export default class BindsetService extends ComponentBase {
     const cmds = profile.bindsets?.[bindset]?.[environment]?.keys?.[key] || []
     console.log(`[BindsetService] *** Bindset "${bindset}" commands for key ${key}:`, cmds)
     return Array.isArray(cmds) ? [...cmds] : []
-  }
-
-  /* ------------------------------------------------------------ */
-  /* Late-join state handler (ComponentBase hook)                 */
-  /* ------------------------------------------------------------ */
-
-  /**
-   * Capture DataCoordinator snapshot on late-join so we have the current
-   * profile data immediately without an RPC round-trip.
-   * @override ComponentBase.handleInitialState
-   */
-  handleInitialState(sender, state) {
-    
   }
 } 

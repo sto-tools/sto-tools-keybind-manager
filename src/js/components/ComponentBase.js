@@ -54,38 +54,50 @@ export default class ComponentBase {
     this.onInit()
   }
 
+  // Initialize cache in constructor if needed
+  initializeCache(additionalCacheData = {}) {
+    if (!this.cache) {
+      this.cache = {
+        selectedKey: null,
+        selectedAlias: null,
+        currentEnvironment: 'space',
+        currentProfile: null,
+        profile: null,
+        keys: {},
+        aliases: {},
+        builds: {},
+        ...additionalCacheData
+      }
+    }
+  }
+
   /**
    * Set up standardized event listeners for common state changes
    * This eliminates repetitive event listener setup in individual components
    */
   _setupStandardizedEventListeners() {
+    // Initialize cache
+    this.initializeCache()
+
     // Cache selection state from SelectionService broadcasts
     this.addEventListener('key-selected', (data) => {
-      this.selectedKey = data.key
-      this._selectedKey = data.key
-      this.selectedAlias = null // Clear alias when key selected
-      this._selectedAlias = null
+      this.cache.selectedKey = data.key
+      this.cache.selectedAlias = null // Clear alias when key selected
     })
 
     this.addEventListener('alias-selected', (data) => {
-      this.selectedAlias = data.name
-      this._selectedAlias = data.name
-      this.selectedKey = null // Clear key when alias selected
-      this._selectedKey = null
+      this.cache.selectedAlias = data.name
+      this.cache.selectedKey = null // Clear key when alias selected
     })
 
     // Cache environment changes
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data?.environment
       if (env) {
-        this.currentEnvironment = env
-        this._currentEnvironment = env
-        if (this.cache) {
-          this.cache.currentEnvironment = env
-          // Update keys cache for new environment if we have builds data
-          if (this.cache.builds && this.cache.builds[env]) {
-            this.cache.keys = this.cache.builds[env].keys || {}
-          }
+        this.cache.currentEnvironment = env
+        // Update keys cache for new environment if we have builds data
+        if (this.cache.builds && this.cache.builds[env]) {
+          this.cache.keys = this.cache.builds[env].keys || {}
         }
       }
     })
@@ -109,16 +121,12 @@ export default class ComponentBase {
 
     // Handle profile switches
     this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      if (!this.cache) this.cache = {}
-      
       this.cache.currentProfile = profileId
       this.cache.profile = profile
-      this.currentProfile = profileId
-      this.currentEnvironment = environment || 'space'
+      this.cache.currentEnvironment = environment || 'space'
       // Backward compatibility for components expecting underscore names
-      this._currentEnvironment = this.currentEnvironment
+      this._currentEnvironment = this.cache.currentEnvironment
       this._currentProfileId = profileId
-      this.cache.currentEnvironment = this.currentEnvironment
       
       // Update cached data
       if (profile.builds) {
@@ -325,25 +333,15 @@ export default class ComponentBase {
       if (profileId) {
         // Cache profile ID
         this.cache.currentProfile = profileId
-        this.currentProfile = profileId
-        this._currentProfileId = profileId
       }
       
       if (profile) {
         // Cache profile data
         this.cache.profile = profile
         this.cache.currentEnvironment = profile.environment || 'space'
-        
-        // Update environment on component (standardized properties)
-        this.currentEnvironment = profile.environment || 'space'
-        this._currentEnvironment = this.currentEnvironment
       } else if (state.currentEnvironment) {
         // Handle environment without profile data
-        this.currentEnvironment = state.currentEnvironment
-        this._currentEnvironment = state.currentEnvironment
-        if (this.cache) {
-          this.cache.currentEnvironment = state.currentEnvironment
-        }
+        this.cache.currentEnvironment = state.currentEnvironment
       }
       
       // Cache build-specific data if profile exists
@@ -370,33 +368,27 @@ export default class ComponentBase {
 
     // Handle SelectionService state
     if (sender === 'SelectionService' && state) {
-      // Standardized selection properties
+      // Cache selection properties
       if (state.selectedKey !== undefined) {
-        this.selectedKey = state.selectedKey
-        this._selectedKey = state.selectedKey
+        this.cache.selectedKey = state.selectedKey
       }
       if (state.selectedAlias !== undefined) {
-        this.selectedAlias = state.selectedAlias
-        this._selectedAlias = state.selectedAlias
+        this.cache.selectedAlias = state.selectedAlias
       }
       if (state.currentEnvironment !== undefined) {
-        this.currentEnvironment = state.currentEnvironment
-        this._currentEnvironment = state.currentEnvironment
-        if (this.cache) {
-          this.cache.currentEnvironment = state.currentEnvironment
-        }
+        this.cache.currentEnvironment = state.currentEnvironment
       }
       if (state.editingContext !== undefined) {
-        this.editingContext = state.editingContext
+        this.cache.editingContext = state.editingContext
       }
-      if (state.cachedSelections !== undefined && this.cache) {
+      if (state.cachedSelections !== undefined) {
         this.cache.cachedSelections = state.cachedSelections
       }
       
       console.log(`[ComponentBase] ${this.getComponentName()} cached SelectionService state:`, {
-        selectedKey: this.selectedKey,
-        selectedAlias: this.selectedAlias,
-        currentEnvironment: this.currentEnvironment
+        selectedKey: this.cache.selectedKey,
+        selectedAlias: this.cache.selectedAlias,
+        currentEnvironment: this.cache.currentEnvironment
       })
     }
   }

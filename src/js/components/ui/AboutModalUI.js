@@ -1,7 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
 import { DISPLAY_VERSION } from '../../core/constants.js'
 
-/**
+/*
  * AboutModalUI - Handles the about modal display and interactions
  * Responsible for showing application information, version, credits, etc.
  * Manages about-specific content while leaving generic modal behavior to ModalManagerService
@@ -37,9 +37,7 @@ export default class AboutModalUI extends ComponentBase {
     })
   }
 
-  /**
-   * Show the about modal
-   */
+  // Show the about modal
   showAboutModal() {
     // Ensure content is up-to-date before showing
     this.populateAboutContent()
@@ -48,21 +46,13 @@ export default class AboutModalUI extends ComponentBase {
     this.emit('modal:show', { modalId: 'aboutModal' })
   }
 
-  /**
-   * Populate about modal with dynamic content (version, etc.)
-   * This handles about-specific content while ModalManagerService handles generic behavior
-   */
+  // Populate about modal with dynamic content (version, etc.)
+  // This handles about-specific content while ModalManagerService handles generic behavior
   populateAboutContent() {
     // Update version display
     const aboutVersionElement = this.document.getElementById('aboutVersion')
     if (aboutVersionElement) {
       aboutVersionElement.textContent = ` v${DISPLAY_VERSION}`
     }
-
-    // Could add other dynamic content here in the future:
-    // - Build date
-    // - Feature flags
-    // - System information
-    // - etc.
   }
 } 

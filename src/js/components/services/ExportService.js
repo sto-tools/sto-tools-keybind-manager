@@ -1,5 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
 import STOFileHandler from '../../lib/fileHandler.js'
 import { writeFile } from './SyncService.js'
 import i18next from 'i18next'
@@ -10,9 +9,7 @@ const STO_DATA = globalThis.STO_DATA || {}
 
 /**
  * ExportService – encapsulates all business-logic for exporting / importing
- * profiles, keybind data and project archives.  It is intentionally free of
- * DOM manipulation so that it can be re-used from unit tests, other services
- * and even a CLI context.
+ * profiles, keybind data and project archives.  
  */
 export default class ExportService extends ComponentBase {
   constructor ({ eventBus, storage } = {}) {
@@ -27,46 +24,34 @@ export default class ExportService extends ComponentBase {
     }
   }
 
-  /* ---------------------------------------------------------- */
-  /* Lifecycle                                                  */
-  /* ---------------------------------------------------------- */
+  // Lifecycle
   onInit () {
     this.setupRequestHandlers()
     this.setupEventListeners()
   }
 
   setupRequestHandlers() {
-    
     // Export generation requests
    
     this.respond('export:generate-filename', async ({ profile, extension, environment }) => 
       await this.generateFileName(profile, extension, environment))
-    
     this.respond('export:generate-alias-filename', ({ profile, extension }) => 
       this.generateAliasFileName(profile, extension))
-    
     this.respond('export:generate-csv-data', ({ profile }) => 
       this.generateCSVData(profile))
-    
     this.respond('export:generate-html-report', ({ profile }) => 
       this.generateHTMLReport(profile))
-    
     this.respond('export:import-from-file', async ({ file }) => 
       await this.importFromFile(file))
-    
     this.respond('export:sanitize-profile', ({ profile }) => 
       this.sanitizeProfileForExport(profile))
-    
     this.respond('export:extract-keys', ({ profile, environment }) => 
       this.extractKeys(profile, environment))
-
-    // New: by profileId to leverage internal cache
     this.respond('export:generate-keybind-file', async ({ profileId, environment = 'space', syncMode = false }) => {
       const prof = this.getProfileFromCache(profileId)
       if (!prof) throw new Error(`Profile ${profileId} not found in ExportService cache`)
       return await this.generateSTOKeybindFile(prof, { environment, syncMode })
     })
-
     this.respond('export:generate-alias-file', async ({ profileId }) => {
       const prof = this.getProfileFromCache(profileId)
       if (!prof) throw new Error(`Profile ${profileId} not found`)
@@ -89,13 +74,7 @@ export default class ExportService extends ComponentBase {
     })
   }
 
-  /* ---------------------------------------------------------- */
-  /* Core generators - single source of truth                  */
-  /* ---------------------------------------------------------- */
-  
-  /**
-   * Check if bind-to-alias mode is enabled from preferences
-   */
+  // Check if bind-to-alias mode is enabled from preferences
   async getBindToAliasMode() {
     try {
       return await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
@@ -105,9 +84,7 @@ export default class ExportService extends ComponentBase {
     }
   }
   
-  /**
-   * Check if bindsets feature is enabled in preferences
-   */
+  // Check if bindsets feature is enabled in preferences
   async getBindsetsEnabled() {
     try {
       return await this.request('preferences:get-setting', { key: 'bindsetsEnabled' })
@@ -117,9 +94,7 @@ export default class ExportService extends ComponentBase {
     }
   }
 
-  /**
-   * Sanitize a bindset name into a valid alias component (lower snake)
-   */
+  // Sanitize a bindset name into a valid alias component (lower snake)
   sanitizeBindsetName(name = '') {
     if (!name) return ''
     let s = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '')
@@ -127,10 +102,8 @@ export default class ExportService extends ComponentBase {
     return s
   }
 
-  /**
-   * Generate alias name for a key within a specific bindset
-   * Primary bindset returns same as generateBindToAliasName()
-   */
+  // Generate alias name for a key within a specific bindset
+  // Primary bindset returns same as generateBindToAliasName()
   async generateBindsetAliasName(environment, bindsetName, keyName) {
     const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
     
@@ -143,9 +116,7 @@ export default class ExportService extends ComponentBase {
     return generateBindToAliasName(environment, keyName, bindsetName)
   }
   
-  /* ---------------------------------------------------------- */
-  /* Keybind file generation                                    */
-  /* ---------------------------------------------------------- */
+  // Keybind file generation
   async generateSTOKeybindFile (profile, options = {}) {
     const { environment = 'space', syncMode = false } = options
     const keys = this.extractKeys(profile, environment)
@@ -309,9 +280,7 @@ export default class ExportService extends ComponentBase {
     return content
   }
 
-  /* ---------------------------------------------------------- */
-  /* CSV helpers                                                */
-  /* ---------------------------------------------------------- */
+  // CSV helpers
   generateCSVData (profile) {
     const rows = []
     const env = profile.currentEnvironment || 'space'
@@ -367,9 +336,7 @@ export default class ExportService extends ComponentBase {
     return str
   }
 
-  /* ---------------------------------------------------------- */
-  /* HTML helpers                                               */
-  /* ---------------------------------------------------------- */
+  // HTML helpers
   generateHTMLReport (profile) {
     const env = profile.currentEnvironment || 'space'
     const keys = this.extractKeys(profile, env)
@@ -834,9 +801,7 @@ export default class ExportService extends ComponentBase {
     return mirrored
   }
 
-  /* ---------------------------------------------------------- */
-  /* Late-join state sync                                       */
-  /* ---------------------------------------------------------- */
+  // Late-join state sync
   getCurrentState () {
     return {
       currentProfile: this.cache.currentProfile,
@@ -848,9 +813,7 @@ export default class ExportService extends ComponentBase {
   handleInitialState (sender, state) {
   }
 
-  /* ---------------------------------------------------------- */
-  /* Utility                                                    */
-  /* ---------------------------------------------------------- */
+  // Utility
   getProfileFromCache (profileId) {
     if (profileId && this.cache.profiles[profileId]) {
       return this.cache.profiles[profileId]

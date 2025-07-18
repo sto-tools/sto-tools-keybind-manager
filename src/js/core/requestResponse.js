@@ -26,6 +26,10 @@ function makeRequestId() {
  * @returns {Promise<TResponse>}
  */
 function request(bus = eventBus, topic, payload, timeout = 5000) {
+  if (!bus) {
+    throw new Error(`Request failed: eventBus is null/undefined for topic "${topic}". Component may not be properly initialized.`)
+  }
+  
   if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-console
     //console.log(`[requestResponse] request → ${topic}`, payload)

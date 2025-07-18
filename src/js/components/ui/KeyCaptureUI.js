@@ -1,6 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 import { 
   getKeyboardLayout, 
   getLayoutName, 
@@ -11,7 +9,7 @@ import {
 import { UNSAFE_KEYBINDS } from '../../core/constants.js'
 
 /**
- * Enhanced KeyCaptureUI with hybrid capture-first interface.
+ * KeyCaptureUI – a UI component for capturing key combinations.
  * Features:
  * - Visual keyboard with international layout support
  * - Real-time sync between physical keys and visual highlighting
@@ -20,72 +18,54 @@ import { UNSAFE_KEYBINDS } from '../../core/constants.js'
  * - Capture-first workflow with manual fallback
  */
 export default class KeyCaptureUI extends ComponentBase {
-  /**
-   * @param {Object}                   opts
-   * @param {import('../services/KeyCaptureService.js').default} opts.service
-   * @param {Object}                   [opts.modalManager] – instance of ModalManagerService
-   * @param {STOToolsKeybindManager}   [opts.app]          – main application reference (for addKey())
-   * @param {Document}                 [opts.document]
-   * @param {Object}                   [opts.ui]           – instance of stoUI
-   */
-  constructor ({ eventBus: bus = eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), ui = null, service = null } = {}) {
-    // Phase-2: UI components require only an eventBus reference. Accept optional
-    // `service` for backward-compatibility but do NOT rely on it.
-    super(bus)
+
+  constructor ({ eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), ui = null } = {}) {
+    super(eventBus)
     this.componentName = 'KeyCaptureUI'
 
-    this.eventBus     = bus
     this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
     this.app          = app || (typeof window !== 'undefined' ? window.app : null)
     this.document     = document
     this.ui           = ui || (typeof window !== 'undefined' ? window.stoUI : null)
 
-    // State management
+    // Local cache for DataCoordinator broadcasted events
+    this.initializeCache()
+    
     this.currentKeyboard = null
-    this.selectedKey = null
     this.highlightedKeys = new Set()
     this.isDuplicationMode = false
     this.sourceKeyForDuplication = null
     this.isCapturing = false
+
     // When switching modes, we may get an immediate residual chord (e.g. "lclick") – ignore it once.
     this.ignoreNextChord = false
+
     // Remember the last side (L/R) used for each modifier to restore when toggling distinguish option
     this.lastModifierSide = { ctrl: 'L', alt: 'L', shift: 'L' }
+
     this.selectedLayout = 'en'
     
-    // Legacy compatibility
-    this.service = service
-
     // Pre-compute unsafe keybind set for quick lookup
     this._unsafeSet = new Set(UNSAFE_KEYBINDS.map(k => k.toUpperCase()))
   }
 
-  /* ------------------------------------------------------------ lifecycle */
+  // Lifecycle
   onInit () {
-    console.log('[KeyCaptureUI] onInit called')
-    console.log('[KeyCaptureUI] eventBus:', !!this.eventBus)
-    console.log('[KeyCaptureUI] modalManager:', !!this.modalManager)
-    
-    // Listen for capture lifecycle events
+    // Listen for capture lifecycle events  
     this.addEventListener('capture-start', (d) => this.handleCaptureStart(d))
     this.addEventListener('update', (d) => this.updateCapturedKeysDisplay(d))
     this.addEventListener('chord-captured', (d) => this.handleChordCaptured(d))
     this.addEventListener('capture-stop', (d) => this.handleCaptureStop(d))
 
     // Listen for key duplication requests
-    console.log('[KeyCaptureUI] Setting up key:duplicate event listener')
     this.addEventListener('key:duplicate', ({ key } = {}) => {
-      console.log('[KeyCaptureUI] key:duplicate event listener called with:', { key })
       this.handleKeyDuplication(key)
     })
 
     // Setup modal shown event
     if (this.eventBus) {
-      console.log('[KeyCaptureUI] Setting up modal:shown event listener')
       this.eventBus.on('modal:shown', ({ modalId }) => {
-        console.log('[KeyCaptureUI] modal:shown event received:', modalId)
         if (modalId === 'keySelectionModal') {
-          console.log('[KeyCaptureUI] Initializing key selection modal')
           this.initializeModal()
         }
       })
@@ -136,7 +116,7 @@ export default class KeyCaptureUI extends ComponentBase {
     this.eventBus.onDom('distinguishModifierSide', 'change', 'location-specific-toggle', (e) => {
       this.emit('keycapture:set-location-specific', { value: e.target.checked })
       // Update current selection if there is one
-      if (this.selectedKey) {
+      if (this.cache.selectedKey) {
         this.updateChordWithLocationSpecific(e.target.checked)
       }
       // Update modifier highlighting when the setting changes
@@ -144,11 +124,7 @@ export default class KeyCaptureUI extends ComponentBase {
     })
   }
 
-  /* -------------------------------------------------------- modal management */
-  
-  /**
-   * Initialize the modal when shown
-   */
+  // Initialize the modal when shown
   initializeModal() {
     console.log('[KeyCaptureUI] initializeModal called')
     this.buildModalContent()
@@ -166,52 +142,33 @@ export default class KeyCaptureUI extends ComponentBase {
     this.startCaptureMode()
   }
 
-  /**
-   * Handle key duplication request
-   */
+  // Handle key duplication request
   handleKeyDuplication(sourceKey) {
-    console.log('[KeyCaptureUI] handleKeyDuplication called with key:', sourceKey)
     this.isDuplicationMode = true
     this.sourceKeyForDuplication = sourceKey
-    console.log('[KeyCaptureUI] Duplication mode set, calling showKeySelectionModal')
     this.showKeySelectionModal()
   }
 
-  /**
-   * Show the key selection modal
-   */
+  // Show the key selection modal
   showKeySelectionModal() {
-    console.log('[KeyCaptureUI] showKeySelectionModal called')
-    console.log('[KeyCaptureUI] modalManager:', !!this.modalManager)
     if (this.modalManager) {
-      console.log('[KeyCaptureUI] Calling modalManager.show')
       this.modalManager.show('keySelectionModal')
-    } else {
-      console.error('[KeyCaptureUI] modalManager is null/undefined')
     }
   }
 
-  /* -------------------------------------------------------- capture management */
-  
-  /**
-   * Start capture mode
-   */
+  // Start capture mode
   startCaptureMode() {
     this.updateCaptureState(true)
     this.emit('keycapture:start', { context: 'keySelectionModal' })
   }
 
-  /**
-   * Stop capture mode
-   */
+  // Stop capture mode
   stopCaptureMode() {
     this.updateCaptureState(false)
     this.emit('keycapture:stop')
   }
 
-  /**
-   * Toggle between capture and manual mode
-   */
+  // Toggle between capture and manual mode
   toggleCaptureMode() {
     const captureIndicator = this.document.getElementById('captureIndicator')
     const isCapturing = captureIndicator?.classList.contains('active')
@@ -222,7 +179,7 @@ export default class KeyCaptureUI extends ComponentBase {
       this.stopCaptureMode()
 
       // Clear any accidental selection made by the toggle click
-      this.selectedKey = null
+      this.cache.selectedKey = null
       this.clearVirtualModifiers()
       this.updatePreviewDisplay('')
       this.disableConfirmButton()
@@ -231,9 +188,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Update UI to reflect capture state
-   */
+  // Update UI to reflect capture state
   updateCaptureState(isCapturing) {
     const captureIndicator = this.document.getElementById('captureIndicator')
     const captureToggle = this.document.getElementById('toggleCaptureMode')
@@ -263,8 +218,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /* -------------------------------------------------------- event handlers */
-
+  // Event handlers
   handleCaptureStart({ context }) {
     this.updateCaptureState(true)
   }
@@ -292,11 +246,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }, 100)
   }
 
-  /* -------------------------------------------------------- key selection */
-
-  /**
-   * Select a key (from any source: capture, virtual keyboard, suggestions)
-   */
+  // Key selection
   selectKey(keyChord) {
     // Reject unsafe key combinations chosen via virtual keyboard or suggestions
     if (this.isUnsafeChord(keyChord)) {
@@ -304,7 +254,7 @@ export default class KeyCaptureUI extends ComponentBase {
       return
     }
 
-    this.selectedKey = keyChord
+    this.cache.selectedKey = keyChord
     this.updateLastModifierSideFromChord(keyChord)
     this.updatePreviewDisplay(keyChord)
     this.enableConfirmButton()
@@ -313,9 +263,7 @@ export default class KeyCaptureUI extends ComponentBase {
     this.highlightSelectedKeyOnKeyboard(keyChord)
   }
 
-  /**
-   * Select key from virtual keyboard click
-   */
+  // Select key from virtual keyboard click
   selectKeyFromVirtualKeyboard(keyCode) {
     // Check if this is a modifier key
     const isModifier = ['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight'].includes(keyCode)
@@ -346,9 +294,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Toggle virtual modifier state (using virtual keyboard keys)
-   */
+  // Toggle virtual modifier state (using virtual keyboard keys)
   toggleVirtualModifier(keyCode) {
     const distinguishSides = this.document.getElementById('distinguishModifierSide')?.checked || false
     
@@ -392,7 +338,7 @@ export default class KeyCaptureUI extends ComponentBase {
 
     // Only refresh preview if we don't already have a chord that includes a non-modifier key
     const modNames = ['Ctrl','Alt','Shift','LCTRL','RCTRL','LALT','RALT','LSHIFT','RSHIFT']
-    const hasNonModifierKey = this.selectedKey && this.selectedKey.split('+').some(p => p && !modNames.includes(p))
+    const hasNonModifierKey = this.cache.selectedKey && this.cache.selectedKey.split('+').some(p => p && !modNames.includes(p))
     if (!hasNonModifierKey) {
       this.updatePreviewWithCurrentModifiers()
     }
@@ -403,9 +349,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Get modifier type from key code
-   */
+  // Get modifier type from key code
   getModifierType(keyCode) {
     if (keyCode.includes('Control')) return 'ctrl'
     if (keyCode.includes('Alt')) return 'alt'
@@ -413,9 +357,7 @@ export default class KeyCaptureUI extends ComponentBase {
     return null
   }
 
-  /**
-   * Get currently active virtual modifiers of a specific type
-   */
+  // Get currently active virtual modifiers of a specific type
   getActiveVirtualModifiersOfType(modifierType, distinguishSides) {
     const leftKey = modifierType === 'ctrl' ? 'ControlLeft' : 
                    modifierType === 'alt' ? 'AltLeft' : 'ShiftLeft'
@@ -437,9 +379,7 @@ export default class KeyCaptureUI extends ComponentBase {
     return [...new Set(active)]
   }
 
-  /**
-   * Get currently active virtual modifiers
-   */
+  // Get currently active virtual modifiers
   getActiveVirtualModifiers() {
     const distinguishSides = this.document.getElementById('distinguishModifierSide')?.checked || false
     const modifiers = []
@@ -471,9 +411,7 @@ export default class KeyCaptureUI extends ComponentBase {
     return modifiers
   }
 
-  /**
-   * Clear all virtual modifiers
-   */
+  // Clear all virtual modifiers
   clearVirtualModifiers(skipPreviewUpdate = false) {
     const modifierKeys = ['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight']
     modifierKeys.forEach(keyCode => {
@@ -487,9 +425,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Update preview with current modifiers (for partial chord display)
-   */
+  // Update preview with current modifiers (for partial chord display)
   updatePreviewWithCurrentModifiers() {
     const activeModifiers = this.getActiveVirtualModifiers()
     if (activeModifiers.length > 0) {
@@ -497,13 +433,13 @@ export default class KeyCaptureUI extends ComponentBase {
       // get immediate feedback such as "Ctrl+G". Otherwise show the partial chord
       // (e.g. "Ctrl+") so they know a main key is still required.
       let chordPreview = activeModifiers.join('+')
-      if (this.selectedKey) {
+      if (this.cache.selectedKey) {
         // Avoid duplicating modifiers if selectedKey already contains them.
         // Only append when selectedKey represents a non-modifier portion.
         const modPattern = /^(Ctrl|Alt|Shift|LCTRL|RCTRL|LALT|RALT|LSHIFT|RSHIFT)(\+|$)/i
-        const isOnlyModifiers = this.selectedKey.split('+').every(p => modPattern.test(p))
+        const isOnlyModifiers = this.cache.selectedKey.split('+').every(p => modPattern.test(p))
         if (!isOnlyModifiers) {
-          chordPreview += '+' + this.selectedKey
+          chordPreview += '+' + this.cache.selectedKey
         }
       } else {
         chordPreview += '+'
@@ -512,24 +448,20 @@ export default class KeyCaptureUI extends ComponentBase {
     } else {
       // No active modifiers – keep any already selected key visible instead of
       // reverting to "No key selected" which caused an inconsistent UI state
-      if (this.selectedKey) {
-        this.updatePreviewDisplay(this.selectedKey)
+      if (this.cache.selectedKey) {
+        this.updatePreviewDisplay(this.cache.selectedKey)
       } else {
         this.updatePreviewDisplay('')
       }
     }
   }
 
-  /**
-   * Get currently active modifiers (legacy method for compatibility)
-   */
+  // Get currently active modifiers (legacy method for compatibility)
   getActiveModifiers() {
     return this.getActiveVirtualModifiers()
   }
 
-  /**
-   * Toggle modifier state (legacy method for compatibility)
-   */
+  // Toggle modifier state (legacy method for compatibility)
   toggleModifier(modifier) {
     // This method is now handled by toggleVirtualModifier
     // Keep for compatibility but redirect to virtual keyboard handling
@@ -538,24 +470,22 @@ export default class KeyCaptureUI extends ComponentBase {
     this.toggleVirtualModifier(keyCode)
   }
 
-  /**
-   * Confirm the current selection
-   */
+  // Confirm the current selection
   async confirmSelection() {
-    if (!this.selectedKey) return
+    if (!this.cache.selectedKey) return
 
     try {
       if (this.isDuplicationMode) {
         // Handle key duplication with new name
         await this.request('key:duplicate-with-name', { 
           sourceKey: this.sourceKeyForDuplication,
-          newKey: this.selectedKey
+          newKey: this.cache.selectedKey
         })
         this.isDuplicationMode = false
         this.sourceKeyForDuplication = null
       } else {
         // Handle regular key addition
-      await this.request('key:add', { key: this.selectedKey })
+        await this.request('key:add', { key: this.cache.selectedKey })
       }
       
       this.modalManager?.hide('keySelectionModal')
@@ -568,19 +498,15 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Cancel the selection
-   */
+  // Cancel the selection
   cancelSelection() {
     this.modalManager?.hide('keySelectionModal')
     this.resetState()
   }
 
-  /**
-   * Reset internal state
-   */
+  // Reset internal state
   resetState() {
-    this.selectedKey = null
+    this.cache.selectedKey = null
     this.highlightedKeys.clear()
     this.isDuplicationMode = false
     this.sourceKeyForDuplication = null
@@ -596,34 +522,21 @@ export default class KeyCaptureUI extends ComponentBase {
     this.emit('keycapture:set-location-specific', { value: false })
   }
 
-  /* -------------------------------------------------------- UI rendering */
-
-  /**
-   * Build the complete modal content
-   */
+  // UI rendering
   buildModalContent() {
-    console.log('[KeyCaptureUI] buildModalContent called')
     const modal = this.document.getElementById('keySelectionModal')
-    console.log('[KeyCaptureUI] Modal element found:', !!modal)
     if (!modal) return
 
     const modalBody = modal.querySelector('.modal-body')
-    console.log('[KeyCaptureUI] Modal body found:', !!modalBody)
     if (!modalBody) return
 
-    console.log('[KeyCaptureUI] Setting modal body innerHTML')
     modalBody.innerHTML = this.generateModalHTML()
-    console.log('[KeyCaptureUI] Modal content set, innerHTML length:', modalBody.innerHTML.length)
   }
 
-  /**
-   * Generate the complete modal HTML
-   */
+  // Generate the complete modal HTML
   generateModalHTML() {
-    console.log('[KeyCaptureUI] generateModalHTML called')
     const currentLang = i18next?.language || 'en'
     const layoutName = getLayoutName(currentLang)
-    console.log('[KeyCaptureUI] Current language:', currentLang, 'Layout name:', layoutName)
 
     return `
       <div class="hybrid-key-capture">
@@ -693,18 +606,14 @@ export default class KeyCaptureUI extends ComponentBase {
     `
   }
 
-  /**
-   * Update keyboard layout based on language
-   */
+  // Update keyboard layout based on language
   updateKeyboardLayout() {
     // Use the user-selected layout rather than UI language
     this.currentKeyboard = JSON.parse(JSON.stringify(getKeyboardLayout(this.selectedLayout)))
     this.renderVirtualKeyboard()
   }
 
-  /**
-   * Change keyboard layout
-   */
+  // Change keyboard layout
   changeKeyboardLayout(language) {
     this.selectedLayout = language || 'en'
     this.currentKeyboard = JSON.parse(JSON.stringify(getKeyboardLayout(this.selectedLayout)))
@@ -717,9 +626,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Render the visual keyboard
-   */
+  // Render the visual keyboard
   renderVirtualKeyboard() {
     const container = this.document.getElementById('virtualKeyboard')
     if (!container || !this.currentKeyboard) return
@@ -853,11 +760,7 @@ export default class KeyCaptureUI extends ComponentBase {
     container.innerHTML = html
   }
 
-  /* -------------------------------------------------------- UI helpers */
-
-  /**
-   * Update the preview display
-   */
+  // UI helpers
   updatePreviewDisplay(chord) {
     const preview = this.document.getElementById('keyPreviewDisplay')
     if (!preview) return
@@ -870,9 +773,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Format key chord for display
-   */
+  // Format key chord for display
   formatKeyForDisplay(chord) {
     if (!chord) return ''
     
@@ -883,9 +784,7 @@ export default class KeyCaptureUI extends ComponentBase {
                 .join('<span class="plus">+</span>')
   }
 
-  /**
-   * Convert key code to display name
-   */
+  // Convert key code to display name
   keyCodeToDisplayName(keyCode) {
     // Treat numeric keypad specially so we can distinguish them from top-row digits
     if (keyCode.startsWith('Numpad')) {
@@ -916,9 +815,7 @@ export default class KeyCaptureUI extends ComponentBase {
     return keyCode.replace(/^Key|^Digit/, '')
   }
 
-  /**
-   * Highlight keys on virtual keyboard
-   */
+  // Highlight keys on virtual keyboard
   highlightKeysOnVirtualKeyboard(codes) {
     // Clear previous highlights
     this.clearKeyboardHighlights()
@@ -934,9 +831,7 @@ export default class KeyCaptureUI extends ComponentBase {
     })
   }
 
-  /**
-   * Update modifier highlighting when the distinguish setting changes
-   */
+  // Update modifier highlighting when the distinguish setting changes
   updateModifierHighlighting() {
     const distinguishSides = this.document.getElementById('distinguishModifierSide')?.checked || false
     
@@ -1014,15 +909,13 @@ export default class KeyCaptureUI extends ComponentBase {
     
     // Only refresh preview if we don't already have a chord that includes a non-modifier key
     const modNames = ['Ctrl','Alt','Shift','LCTRL','RCTRL','LALT','RALT','LSHIFT','RSHIFT']
-    const hasNonModifierKey = this.selectedKey && this.selectedKey.split('+').some(p => p && !modNames.includes(p))
+    const hasNonModifierKey = this.cache.selectedKey && this.cache.selectedKey.split('+').some(p => p && !modNames.includes(p))
     if (!hasNonModifierKey) {
       this.updatePreviewWithCurrentModifiers()
     }
   }
 
-  /**
-   * Highlight selected key on keyboard
-   */
+  // Highlight selected key on keyboard
   highlightSelectedKeyOnKeyboard(chord) {
     this.clearKeyboardHighlights()
     
@@ -1114,9 +1007,7 @@ export default class KeyCaptureUI extends ComponentBase {
     })
   }
 
-  /**
-   * Helper method to highlight a single key
-   */
+  // Helper method to highlight a single key
   highlightKey(keyCode) {
     const keyElement = this.document.querySelector(`[data-key-code="${keyCode}"]`)
     if (keyElement) {
@@ -1125,9 +1016,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Clear keyboard highlights
-   */
+  // Clear keyboard highlights
   clearKeyboardHighlights() {
     this.highlightedKeys.forEach(keyCode => {
       const keyElement = this.document.querySelector(`[data-key-code="${keyCode}"]`)
@@ -1138,9 +1027,7 @@ export default class KeyCaptureUI extends ComponentBase {
     this.highlightedKeys.clear()
   }
 
-  /**
-   * Enable confirm button
-   */
+  // Enable confirm button
   enableConfirmButton() {
     const btn = this.document.getElementById('confirm-key-selection')
     if (btn) {
@@ -1148,9 +1035,7 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Disable confirm button
-   */
+  // Disable confirm button
   disableConfirmButton() {
     const btn = this.document.getElementById('confirm-key-selection')
     if (btn) {
@@ -1158,13 +1043,11 @@ export default class KeyCaptureUI extends ComponentBase {
     }
   }
 
-  /**
-   * Update current chord with location-specific modifiers
-   */
+  // Update current chord with location-specific modifiers
   updateChordWithLocationSpecific(useLocationSpecific) {
-    if (!this.selectedKey) return
+    if (!this.cache.selectedKey) return
     
-    let updatedChord = this.selectedKey
+    let updatedChord = this.cache.selectedKey
     
     if (useLocationSpecific) {
       // Convert generic modifiers to location-specific
@@ -1184,14 +1067,12 @@ export default class KeyCaptureUI extends ComponentBase {
     }
     
     // Update the selection if it changed
-    if (updatedChord !== this.selectedKey) {
+    if (updatedChord !== this.cache.selectedKey) {
       this.selectKey(updatedChord)
     }
   }
 
-  /**
-   * Update cached modifier side information from a chord string.
-   */
+  // Update cached modifier side information from a chord string.
   updateLastModifierSideFromChord(chord) {
     if (!chord) return
     const parts = chord.split('+')
@@ -1205,9 +1086,7 @@ export default class KeyCaptureUI extends ComponentBase {
     })
   }
 
-  /* -------------------------------------------------------- legacy compatibility */
-
-  // Keep these methods for backward compatibility
+  // Legacy compatibility
   startCapture(context = 'keySelectionModal') {
     this.startCaptureMode()
   }
@@ -1225,20 +1104,13 @@ export default class KeyCaptureUI extends ComponentBase {
     this.initializeModal()
   }
 
-  /**
-   * Determine if chord is in UNSAFE list (case-insensitive)
-   * @param {string} chord
-   * @returns {boolean}
-   */
+  // Determine if chord is in UNSAFE list (case-insensitive)
   isUnsafeChord (chord) {
     if (!chord) return false
     return this._unsafeSet.has(chord.toUpperCase())
   }
 
-  /**
-   * Show toast error and reset preview/selection when unsafe chord selected
-   * @param {string} chord
-   */
+  // Show toast error and reset preview/selection when unsafe chord selected
   async handleUnsafeChord (chord) {
     // Build message via i18n if available
     let message = `Unsafe keybind combination: ${chord} is not allowed`
@@ -1250,7 +1122,7 @@ export default class KeyCaptureUI extends ComponentBase {
     this.emit('toast:show', { message, type: 'error' })
 
     // Clear any preview and disable confirm
-    this.selectedKey = null
+    this.cache.selectedKey = null
     this.updatePreviewDisplay('')
     this.disableConfirmButton()
   }

@@ -1,8 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
-// VFX_EFFECTS now available globally from data.js
 
 export default class VFXManagerUI extends ComponentBase {
-  constructor(eventBus, modalManager) {
+  constructor({ eventBus, modalManager } = {}) {
     super(eventBus)
     this.componentName = 'VFXManagerUI'
     this.modalManager = modalManager
