@@ -478,8 +478,7 @@ export default class STOToolsKeybindManager {
         throw error // Re-throw to see the full error
       }
 
-      // Small delay to ensure environment state is broadcast before UI components initialize
-      await new Promise(resolve => setTimeout(resolve, 10))
+      // Environment state is now broadcast synchronously - no delay needed
 
       try {
         this.headerMenuUI.onInit()

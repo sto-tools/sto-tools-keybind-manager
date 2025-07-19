@@ -1,8 +1,8 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
 import i18next from 'i18next'
 
-export default class CommandChainUI extends ComponentBase {
+export default class CommandChainUI extends UIComponentBase {
   constructor ({ eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'CommandChainUI'
@@ -176,10 +176,7 @@ export default class CommandChainUI extends ComponentBase {
 
     this.updateChainActions()
     
-    // Schedule an initial render to show empty state when no keys/aliases exist
-    setTimeout(() => {
-      this.render().catch(() => {})
-    }, 100)
+    // UIComponentBase will handle initial render when data dependencies are ready
 
     // Listen for preference changes that toggle bindsets at runtime
     this._detachFunctions.push(
@@ -950,5 +947,25 @@ export default class CommandChainUI extends ComponentBase {
     } catch (err) {
       console.error('[CommandChainUI] Failed to update bindset banner', err)
     }
+  }
+
+  /**
+   * UIComponentBase: Check if component has required data for rendering
+   * CommandChainUI needs basic cache data to render properly
+   */
+  hasRequiredData() {
+    // We need at least some basic environment data to render
+    // The component can render empty state without specific key/alias selection
+    return this.cache && this.cache.currentEnvironment
+  }
+
+  /**
+   * UIComponentBase: Perform initial render when data dependencies are ready
+   * This replaces the setTimeout pattern
+   */
+  performInitialRender() {
+    this.render().catch((error) => {
+      console.error('[CommandChainUI] Initial render failed:', error)
+    })
   }
 } 

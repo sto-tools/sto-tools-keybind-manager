@@ -109,10 +109,10 @@ export default class InterfaceModeService extends ComponentBase {
       console.error('[InterfaceModeService] Failed to persist environment change:', error)
     }
 
-    // Emit environment change AFTER storage operation completes
+    // Emit environment change synchronously AFTER storage operation completes
     this.emit('environment:changed', {
       environment: mode
-    })
+    }, { synchronous: true })
   }
 
   // Update profile mode in storage and profile service
@@ -170,7 +170,7 @@ export default class InterfaceModeService extends ComponentBase {
       this.emit('environment:changed', {
         environment: this._currentMode,
         isInitialization: true
-      })
+      }, { synchronous: true })
     }
   }
 
@@ -212,12 +212,12 @@ export default class InterfaceModeService extends ComponentBase {
         const previousMode = this._currentMode
         this._currentMode = env
         
-        // Emit environment change if mode actually changed
+        // Emit environment change synchronously if mode actually changed
         if (previousMode !== this._currentMode) {
           this.emit('environment:changed', {
             environment: this._currentMode,
             isInitialization: true
-          })
+          }, { synchronous: true })
         }
       }
     }

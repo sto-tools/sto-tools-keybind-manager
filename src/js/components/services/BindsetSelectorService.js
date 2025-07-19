@@ -260,10 +260,8 @@ export default class BindsetSelectorService extends ComponentBase {
         })
         console.log(`[BindsetSelectorService] *** bindset-selector:key-added event emitted successfully ***`)
         
-        // Clear the operation flag after a short delay
-        setTimeout(() => {
-          this.emit('bindset-operation:completed', { type: 'add-key', bindset: bindsetName, key: this.cache.selectedKey })
-        }, 200)
+        // Clear the operation flag synchronously
+        this.emit('bindset-operation:completed', { type: 'add-key', bindset: bindsetName, key: this.cache.selectedKey }, { synchronous: true })
       }
 
       return result

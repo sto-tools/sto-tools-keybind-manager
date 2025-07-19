@@ -155,15 +155,11 @@ export default class CommandChainService extends ComponentBase {
       if (key === this.cache.selectedKey) {
         console.log(`[CommandChainService] Key added to bindset ${bindset} - refreshing command chain to show empty state`)
         
-        // Wait a small amount of time to ensure the active bindset has been updated
-        // The BindsetSelectorService calls setActiveBindset() which triggers bindset-selector:active-changed
-        // which updates this.activeBindset, but we need to make sure that happens first
-        //setTimeout(async () => {
+        // Using synchronous events ensures proper coordination without setTimeout
         console.log(`[CommandChainService] About to refresh commands - activeBindset: ${this.activeBindset}, expected: ${bindset}`)
         const cmds = await this.getCommandsForSelectedKey()
         console.log(`[CommandChainService] Refreshed commands for new bindset ${bindset}: ${cmds.length} commands`)
         this.emit('chain-data-changed', { commands: cmds })
-        //}, 100)
       }
     })
 

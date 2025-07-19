@@ -1,11 +1,11 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * KeyBrowserUI – responsible for rendering the key grid (#keyGrid).
  * For the initial migration it simply delegates to the legacy
  * renderKeyGrid implementation hanging off the global `app` instance.
  */
-export default class KeyBrowserUI extends ComponentBase {
+export default class KeyBrowserUI extends UIComponentBase {
   constructor ({ eventBus,
                 app = null,
                 modalManager = null,
@@ -422,8 +422,8 @@ export default class KeyBrowserUI extends ComponentBase {
     const applyVisibility = () => {
       const container = this.document.querySelector('.key-selector-container')
       if (!container) {
-        // If container doesn't exist yet, try again after a short delay
-        setTimeout(applyVisibility, 10)
+        // Container doesn't exist yet - DOM may not be ready
+        console.warn('[KeyBrowserUI] Key selector container not found in DOM')
         return
       }
       
@@ -518,5 +518,28 @@ export default class KeyBrowserUI extends ComponentBase {
     } else {
       searchInput.blur()
     }
+  }
+
+  /**
+   * UIComponentBase: Check if component has required data for rendering
+   * KeyBrowserUI needs profile and environment data to render the key grid
+   */
+  hasRequiredData() {
+    // We need both profile and environment data to render keys properly
+    return this.cache && 
+           this.cache.currentProfile && 
+           this.cache.currentEnvironment &&
+           this.cache.keys !== undefined
+  }
+
+  /**
+   * UIComponentBase: Perform initial render when data dependencies are ready
+   * This replaces the setTimeout retry pattern for DOM availability
+   */
+  performInitialRender() {
+    // Render the key grid when data is available
+    this.render().catch((error) => {
+      console.error('[KeyBrowserUI] Initial render failed:', error)
+    })
   }
 } 

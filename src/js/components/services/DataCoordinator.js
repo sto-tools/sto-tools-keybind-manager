@@ -789,13 +789,13 @@ export default class DataCoordinator extends ComponentBase {
       await this.updateProfile(this.state.currentProfile, updates)
     }
     
-    // Broadcast environment change after storage operation completes
+    // Broadcast environment change synchronously after storage operation completes
     this.emit('environment:changed', {
       fromEnvironment: oldEnvironment,
       toEnvironment: environment,
       environment: environment,
       timestamp: Date.now()
-    })
+    }, { synchronous: true })
 
     return { success: true, environment }
   }
@@ -909,10 +909,10 @@ export default class DataCoordinator extends ComponentBase {
         console.log(`[${this.componentName}] No default profiles from DataService, will try again later`)
       }
     } catch (error) {
-      console.log(`[${this.componentName}] DataService not ready yet, will try again later:`, error.message)
-      
-      // Schedule retry in 100ms
-      setTimeout(() => this.tryCreateDefaultProfiles(), 100)
+      console.error(`[${this.componentName}] Failed to create default profiles:`, error.message)
+      // For storage failures, we should not retry indefinitely
+      // The application can function without default profiles if storage is broken
+      this.emit('profiles:creation-failed', { error: error.message })
     }
   }
 
@@ -1168,13 +1168,13 @@ export default class DataCoordinator extends ComponentBase {
         })
       }
       
-      // 3. Emit environment change to refresh environment-specific UI
+      // 3. Emit environment change synchronously to refresh environment-specific UI
       this.emit('environment:changed', {
         fromEnvironment: null, // We don't know the previous environment after reload
         toEnvironment: this.state.currentEnvironment,
         environment: this.state.currentEnvironment,
         timestamp: Date.now()
-      })
+      }, { synchronous: true })
       
       // 4. Emit settings change to refresh settings UI
       this.emit('settings:changed', {
