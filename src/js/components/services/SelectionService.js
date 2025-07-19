@@ -56,19 +56,42 @@ export default class SelectionService extends ComponentBase {
     })
     
     // Listen for DataCoordinator profile switches
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
+    this.addEventListener('profile:switched', async ({ profileId, profile, environment }) => {
+      console.log(`[SelectionService] profile:switched: profileId="${profileId}", env="${environment}"`)
+      
       this.cache.currentProfile = profileId
       this.cache.profile = profile
       this.cache.currentEnvironment = environment || 'space'
       
       this.updateCacheFromProfile(profile)
+      
+      // Restore cached selections from the new profile
+      if (profile.selections) {
+        if (profile.selections.space) {
+          this.cachedSelections.space = profile.selections.space
+        }
+        if (profile.selections.ground) {
+          this.cachedSelections.ground = profile.selections.ground
+        }
+        if (profile.selections.alias) {
+          this.cachedSelections.alias = profile.selections.alias
+        }
+        
+        console.log(`[SelectionService] Restored cached selections from profile:`, this.cachedSelections)
+      }
+      
+      // Restore selection for current environment
+      const cachedSelection = this.cachedSelections[this.cache.currentEnvironment]
+      console.log(`[SelectionService] Validating and restoring selection for "${this.cache.currentEnvironment}": "${cachedSelection}"`)
+      
+      await this.validateAndRestoreSelection(this.cache.currentEnvironment, cachedSelection)
     })
     
     // Listen for environment changes
-    this.addEventListener('environment:changed', (data) => {
+    this.addEventListener('environment:changed', async (data) => {
       const env = typeof data === 'string' ? data : data?.environment
       if (env && env !== this.cache.currentEnvironment) {
-        this.switchEnvironment(env)
+        await this.switchEnvironment(env)
       }
     })
     

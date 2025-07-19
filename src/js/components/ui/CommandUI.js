@@ -245,15 +245,21 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  // Confirm clearing the command chain for a key
+  // Confirm clearing the command chain for a key or alias
   async confirmClearChain(key) {
     if (!key) return
     
+    const currentEnv = this.getCurrentEnvironment()
+    const isAliasMode = currentEnv === 'alias'
+    const itemType = isAliasMode ? 'alias' : 'key'
+    
     try {
       const message = await this.getI18nMessage('confirm_clear_commands', { keyName: key }) || 
-        `Clear command chain for ${key}?`
+        `Clear command chain for ${itemType} ${key}?`
       
       if (confirm(message)) {
+        console.log(`[CommandUI] Requesting clear command chain for ${itemType}: "${key}" in env: "${currentEnv}"`)
+        
         this.emit('command-chain:clear', { key })
       }
     } catch (error) {

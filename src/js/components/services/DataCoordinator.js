@@ -321,7 +321,7 @@ export default class DataCoordinator extends ComponentBase {
     // Build virtual profile for response
     const virtualProfile = this.buildVirtualProfile(profile, this.state.currentEnvironment)
     
-    // Broadcast profile switch
+    // Broadcast profile switch synchronously
     this.emit('profile:switched', {
       fromProfile: oldProfileId,
       toProfile: profileId,
@@ -329,7 +329,7 @@ export default class DataCoordinator extends ComponentBase {
       profile: virtualProfile,
       environment: this.state.currentEnvironment,
       timestamp: Date.now()
-    })
+    }, { synchronous: true })
 
     return { 
       success: true, 
@@ -523,7 +523,7 @@ export default class DataCoordinator extends ComponentBase {
       
       switchedProfile = this.buildVirtualProfile(newProfile, this.state.currentEnvironment)
       
-      // Broadcast profile switch
+      // Broadcast profile switch synchronously
       this.emit('profile:switched', {
         fromProfile: profileId,
         toProfile: this.state.currentProfile,
@@ -531,7 +531,7 @@ export default class DataCoordinator extends ComponentBase {
         profile: switchedProfile,
         environment: this.state.currentEnvironment,
         timestamp: Date.now()
-      })
+      }, { synchronous: true })
 
     }
     
@@ -1008,7 +1008,7 @@ export default class DataCoordinator extends ComponentBase {
         profile: virtualProfile,
         environment: this.state.currentEnvironment,
         timestamp: Date.now()
-      })
+      }, { synchronous: true })
     }
   }
 
@@ -1078,7 +1078,7 @@ export default class DataCoordinator extends ComponentBase {
         profile: virtualProfile,
         environment: this.state.currentEnvironment,
         timestamp: Date.now()
-      })
+      }, { synchronous: true })
     }
   }
 
@@ -1165,7 +1165,7 @@ export default class DataCoordinator extends ComponentBase {
           profile: virtualProfile,
           environment: this.state.currentEnvironment,
           timestamp: Date.now()
-        })
+        }, { synchronous: true })
       }
       
       // 3. Emit environment change synchronously to refresh environment-specific UI
