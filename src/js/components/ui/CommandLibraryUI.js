@@ -249,10 +249,19 @@ export default class CommandLibraryUI extends ComponentBase {
     const isCollapsed = localStorage.getItem(storageKey) === 'true'
 
     const isVertigo = categoryType === 'vertigo-aliases'
-    const itemIcon = isVertigo ? '👁️' : '🎭'
-    const itemClass = isVertigo
-      ? 'command-item vertigo-alias-item'
-      : 'command-item alias-item'
+    const isBindset = categoryType === 'bindset-aliases'
+    
+    let itemIcon, itemClass
+    if (isVertigo) {
+      itemIcon = '👁️'
+      itemClass = 'command-item vertigo-alias-item'
+    } else if (isBindset) {
+      itemIcon = '🔧'
+      itemClass = 'command-item bindset-alias-item'
+    } else {
+      itemIcon = '🎭'
+      itemClass = 'command-item alias-item'
+    }
 
     element.innerHTML = `
             <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryType}">
@@ -266,7 +275,7 @@ export default class CommandLibraryUI extends ComponentBase {
                   .map(
                     ([name, alias]) => `
                     <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
-                        ${itemIcon} ${(alias._displayName || name)}
+                        ${itemIcon} ${(alias.displayName || alias._displayName || name)}
                     </div>
                 `
                   )
@@ -282,7 +291,8 @@ export default class CommandLibraryUI extends ComponentBase {
     element.addEventListener('click', (e) => {
       if (
         e.target.classList.contains('alias-item') ||
-        e.target.classList.contains('vertigo-alias-item')
+        e.target.classList.contains('vertigo-alias-item') ||
+        e.target.classList.contains('bindset-alias-item')
       ) {
         const aliasName = e.target.dataset.alias
 
@@ -380,12 +390,16 @@ export default class CommandLibraryUI extends ComponentBase {
           const allBs = ['Primary Bindset', ...Object.keys(bindsets)]
           allBs.forEach(bsName => {
             const loaderAlias = `sto_kb_bindset_enable_${env}_${sanitizeName(bsName)}`
+            // Format: "Bindset: Space - Enable Primary Bindset" or "Bindset: Ground - Enable <User specified name>"
+            const envCapitalized = env.charAt(0).toUpperCase() + env.slice(1)
+            const displayName = `Bindset: ${envCapitalized} - Enable ${bsName}`
             bindsetAliasItems.push([
               loaderAlias,
               {
                 type: 'bindset-alias',
-                description: `Enable ${bsName} (${env})`,
-                commands: loaderAlias
+                description: displayName,
+                commands: loaderAlias,
+                displayName: displayName // Add explicit display name
               }
             ])
           })
@@ -539,7 +553,7 @@ export default class CommandLibraryUI extends ComponentBase {
     if (!libraryContainer) return
 
     // Item-level filtering within library only
-    libraryContainer.querySelectorAll('.command-item, .alias-item, .vertigo-alias-item').forEach((item) => {
+    libraryContainer.querySelectorAll('.command-item, .alias-item, .vertigo-alias-item, .bindset-alias-item').forEach((item) => {
       // Skip if item already hidden by env filter
       const alreadyHiddenByEnv = item.dataset.envHidden === 'true'
 
@@ -563,7 +577,7 @@ export default class CommandLibraryUI extends ComponentBase {
 
     // Category-level filtering
     libraryContainer.querySelectorAll('.category').forEach((category) => {
-      const visibleItems = category.querySelectorAll('.command-item:not([style*="display: none"]), .alias-item:not([style*="display: none"]), .vertigo-alias-item:not([style*="display: none"])')
+      const visibleItems = category.querySelectorAll('.command-item:not([style*="display: none"]), .alias-item:not([style*="display: none"]), .vertigo-alias-item:not([style*="display: none"]), .bindset-alias-item:not([style*="display: none"])')
       const categoryVisible = !term || visibleItems.length > 0
       category.style.display = categoryVisible ? 'block' : 'none'
     })
