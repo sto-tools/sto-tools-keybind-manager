@@ -117,16 +117,33 @@ export default class ParameterCommandService extends ComponentBase {
         }
       }
     } else {
-      // Handle cross-tray range
-      // Same slot on each tray from startTray to endTray
+      // Handle cross-tray range - sequential slot execution across multiple trays
       for (let tray = startTray; tray <= endTray; tray++) {
-        if (active === 1 && !baseCommand.startsWith('+')) {
-          commands.push(`+${baseCommand} ${tray} ${startSlot}`)
-        } else if (active === 1 && baseCommand.startsWith('+')) {
-          commands.push(`${baseCommand} ${tray} ${startSlot}`)
+        let slotStart, slotEnd
+        
+        if (tray === startTray) {
+          // First tray: start from startSlot to slot 9
+          slotStart = startSlot
+          slotEnd = 9
+        } else if (tray === endTray) {
+          // Last tray: start from slot 0 to endSlot
+          slotStart = 0
+          slotEnd = endSlot
         } else {
-          const cleanCommand = baseCommand.replace(/^\+/, '')
-          commands.push(`${cleanCommand} ${active} ${tray} ${startSlot}`)
+          // Middle trays: all slots (0-9)
+          slotStart = 0
+          slotEnd = 9
+        }
+        
+        for (let slot = slotStart; slot <= slotEnd; slot++) {
+          if (active === 1 && !baseCommand.startsWith('+')) {
+            commands.push(`+${baseCommand} ${tray} ${slot}`)
+          } else if (active === 1 && baseCommand.startsWith('+')) {
+            commands.push(`${baseCommand} ${tray} ${slot}`)
+          } else {
+            const cleanCommand = baseCommand.replace(/^\+/, '')
+            commands.push(`${cleanCommand} ${active} ${tray} ${slot}`)
+          }
         }
       }
     }
@@ -170,13 +187,49 @@ export default class ParameterCommandService extends ComponentBase {
         }
       }
     } else {
-      // Handle cross-tray range (same slot on each tray)
+      // Handle cross-tray range - sequential slot execution across multiple trays with corresponding backup slots
+      let commandIndex = 0
+      
       for (let tray = startTray; tray <= endTray; tray++) {
-        const backupTray = backupStartTray + (tray - startTray)
-        if (active === 1) {
-          commands.push(`+TrayExecByTrayWithBackup ${tray} ${startSlot} ${backupTray} ${backupStartSlot}`)
+        let slotStart, slotEnd
+        
+        if (tray === startTray) {
+          // First tray: start from startSlot to slot 9
+          slotStart = startSlot
+          slotEnd = 9
+        } else if (tray === endTray) {
+          // Last tray: start from slot 0 to endSlot
+          slotStart = 0
+          slotEnd = endSlot
         } else {
-          commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${startSlot} ${backupTray} ${backupStartSlot}`)
+          // Middle trays: all slots (0-9)
+          slotStart = 0
+          slotEnd = 9
+        }
+        
+        for (let slot = slotStart; slot <= slotEnd; slot++) {
+          // Calculate corresponding backup slot position
+          const totalBackupSlots = (backupEndTray - backupStartTray) * 10 + (backupEndSlot - backupStartSlot + 1)
+          const backupSlotIndex = (backupStartTray * 10 + backupStartSlot + commandIndex) 
+          const backupTray = Math.floor(backupSlotIndex / 10)
+          const backupSlot = backupSlotIndex % 10
+          
+          // Ensure backup coordinates stay within the specified range
+          if (backupTray <= backupEndTray && (backupTray < backupEndTray || backupSlot <= backupEndSlot)) {
+            if (active === 1) {
+              commands.push(`+TrayExecByTrayWithBackup ${tray} ${slot} ${backupTray} ${backupSlot}`)
+            } else {
+              commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupTray} ${backupSlot}`)
+            }
+          } else {
+            // Fallback to original backup start if we exceed the range
+            if (active === 1) {
+              commands.push(`+TrayExecByTrayWithBackup ${tray} ${slot} ${backupStartTray} ${backupStartSlot}`)
+            } else {
+              commands.push(`TrayExecByTrayWithBackup ${active} ${tray} ${slot} ${backupStartTray} ${backupStartSlot}`)
+            }
+          }
+          commandIndex++
         }
       }
     }

@@ -523,10 +523,8 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
   }
 
-  /**
-   * UIComponentBase: Check if component has required data for rendering
-   * KeyBrowserUI needs profile and environment data to render the key grid
-   */
+  // UIComponentBase: Check if component has required data for rendering
+  // KeyBrowserUI needs profile and environment data to render the key grid
   hasRequiredData() {
     // We need both profile and environment data to render keys properly
     return this.cache && 
@@ -535,10 +533,8 @@ export default class KeyBrowserUI extends UIComponentBase {
            this.cache.keys !== undefined
   }
 
-  /**
-   * UIComponentBase: Perform initial render when data dependencies are ready
-   * This replaces the setTimeout retry pattern for DOM availability
-   */
+  // UIComponentBase: Perform initial render when data dependencies are ready
+  // This replaces the setTimeout retry pattern for DOM availability
   performInitialRender() {
     // Render the key grid when data is available
     this.render().catch((error) => {
