@@ -305,18 +305,13 @@ export default class VFXManagerService extends ComponentBase {
       }
     })
     
-    // Generate combined alias if any effects are selected
-    const allEffectsCount = this.selectedEffects.space.size + this.selectedEffects.ground.size
-    if (allEffectsCount > 0) {
-      const combinedCommands = this.generateCombinedAliasCommand(environments)
-      if (combinedCommands.length > 0) {
-        virtualAliases['dynFxSetFXExclusionList_Combined'] = {
-          commands: combinedCommands,
-          description: 'VFX suppression for all environments',
-          type: 'vfx-alias',
-          virtual: true // Mark as virtual
-        }
-      }
+    // Generate combined alias (always create, even when empty)
+    const combinedCommands = this.generateCombinedAliasCommand(environments)
+    virtualAliases['dynFxSetFXExclusionList_Combined'] = {
+      commands: combinedCommands,
+      description: 'VFX suppression for all environments',
+      type: 'vfx-alias',
+      virtual: true // Mark as virtual
     }
     
     return virtualAliases

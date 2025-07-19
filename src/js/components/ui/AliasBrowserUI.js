@@ -19,10 +19,12 @@ function generateSuggestedAlias(original, existingAliases = {}) {
 export default class AliasBrowserUI extends ComponentBase {
   constructor ({ eventBus: bus = eventBus,
                 modalManager = null,
+                confirmDialog = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(bus)
     this.componentName = 'AliasBrowserUI'
     this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.document = document
   }
 
@@ -139,11 +141,13 @@ export default class AliasBrowserUI extends ComponentBase {
   /**
    * Confirm deletion of an alias
    */
-  confirmDeleteAlias(aliasName) {
-    if (!aliasName) return
+  async confirmDeleteAlias(aliasName) {
+    if (!aliasName || !this.confirmDialog) return
     
-    const message = i18next.t('confirm_delete_alias', { alias: aliasName }) || `Delete alias ${aliasName}?`
-    if (confirm(message)) {
+    const message = i18next.t('confirm_delete_alias', { aliasName: aliasName }) || `Delete alias ${aliasName}?`
+    const title = i18next.t('confirm_delete') || 'Confirm Delete'
+    
+    if (await this.confirmDialog.confirm(message, title, 'danger')) {
       this.emit('alias:delete', { name: aliasName })
     }
   }

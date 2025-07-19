@@ -28,7 +28,8 @@ import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import SelectionService from './components/services/SelectionService.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
-import { VFXManagerUI, HeaderMenuUI, AboutModalUI, ImportUI } from './components/ui/index.js'
+import { VFXManagerUI, HeaderMenuUI, AboutModalUI, ImportUI, ConfirmDialogUI, InputDialogUI } from './components/ui/index.js'
+import HeaderToolbarUI from './components/ui/HeaderToolbarUI.js'
 import { SyncUI } from './components/sync/index.js'
 import STOCommandParser from './lib/STOCommandParser.js'
 import ImportService from './components/services/ImportService.js'
@@ -56,6 +57,8 @@ export default class STOToolsKeybindManager {
     this.keyCaptureService = null
     this.keyCaptureUI = null
     this.importUI = null
+    this.confirmDialogUI = null
+    this.inputDialogUI = null
 
     this.projectManagementService = null
   }
@@ -133,12 +136,29 @@ export default class STOToolsKeybindManager {
       this.selectionService = new SelectionService({ eventBus })
       this.selectionService.init()
 
+      // Modal dialog components - create early so they can be injected into other components
+      this.confirmDialogUI = new ConfirmDialogUI({
+        modalManager,
+        i18n: i18next
+      })
+
+      this.inputDialogUI = new InputDialogUI({
+        modalManager,
+        i18n: i18next
+      })
+
+      // Make modal dialogs globally available
+      window.confirmDialog = this.confirmDialogUI
+      window.inputDialog = this.inputDialogUI
+
       try {
         this.profileUI = new ProfileUI({
           eventBus,
           ui: stoUI,
           modalManager,
-          document
+          confirmDialog: this.confirmDialogUI,
+          document,
+          i18n: i18next
         })
       } catch (error) {
         throw error
@@ -168,6 +188,7 @@ export default class STOToolsKeybindManager {
       this.aliasBrowserUI = new AliasBrowserUI({
         eventBus,
         modalManager,
+        confirmDialog: this.confirmDialogUI,
         document,
       })
 
@@ -183,6 +204,8 @@ export default class STOToolsKeybindManager {
         eventBus,
         document,
         modalManager,
+        confirmDialog: this.confirmDialogUI,
+        i18n: i18next,
       })
 
       //this.keyBrowserUI.init()
@@ -280,10 +303,17 @@ export default class STOToolsKeybindManager {
         eventBus,
         ui: stoUI,
         modalManager,
-        parameterCommandUI: this.parameterCommandUI
+        parameterCommandUI: this.parameterCommandUI,
+        confirmDialog: this.confirmDialogUI
       })
 
       this.headerMenuUI = new HeaderMenuUI({
+        eventBus,
+        confirmDialog: this.confirmDialogUI,
+        document
+      })
+
+      this.headerToolbarUI = new HeaderToolbarUI({
         eventBus,
         document
       })
@@ -324,7 +354,7 @@ export default class STOToolsKeybindManager {
       this.preferencesUI.init()
 
       window.stoAliases = this.aliasBrowserUI
-
+      
       this.aliasBrowserService.init()
       this.aliasBrowserUI.init()
       this.commandLibraryService.init()
@@ -350,6 +380,12 @@ export default class STOToolsKeybindManager {
 
       try {
         this.headerMenuUI.onInit()
+      } catch (error) {
+        throw error // Re-throw to see the full error
+      }
+
+      try {
+        this.headerToolbarUI.init()
       } catch (error) {
         throw error // Re-throw to see the full error
       }
@@ -408,46 +444,18 @@ export default class STOToolsKeybindManager {
       })
       this.importUI.init()
 
-      this.updateBindsetButtonVisibility = () => {
-        try {
-          const aliasMode = this.preferencesService?.getSetting?.('bindToAliasMode') ?? false
-          const bindsets  = this.preferencesService?.getSetting?.('bindsetsEnabled') ?? false
-          const btn = document.getElementById('bindsetManagerBtn')
-          if (btn) {
-            const show = aliasMode && bindsets
-            btn.style.display = show ? '' : 'none'
-
-            // Hide parent toolbar-group if empty
-            const group = btn.closest('.toolbar-group')
-            if (group) {
-              group.style.display = show ? '' : 'none'
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to update Bindset button visibility', e)
-        }
-      }
-    
-      this.updateBindsetButtonVisibility()
-
-      eventBus.on('preferences:changed', (data) => {
-        if (data.key === 'bindsetsEnabled' || data.key === 'bindToAliasMode') {
-          this.updateBindsetButtonVisibility()
-        }
-      })
-
       const { default: BindsetService }      = await import('./components/services/BindsetService.js')
       const { default: BindsetManagerUI }    = await import('./components/ui/BindsetManagerUI.js')
       const { default: BindsetSelectorService } = await import('./components/services/BindsetSelectorService.js')
       const { default: BindsetSelectorUI }   = await import('./components/ui/BindsetSelectorUI.js')
 
       this.bindsetService  = new BindsetService({ eventBus })
-      this.bindsetManagerUI = new BindsetManagerUI({ eventBus })
+      this.bindsetManagerUI = new BindsetManagerUI({ eventBus, confirmDialog: this.confirmDialogUI, inputDialog: this.inputDialogUI })
       this.bindsetService.init()
       this.bindsetManagerUI.init()
 
       this.bindsetSelectorService = new BindsetSelectorService({ eventBus })
-      this.bindsetSelectorUI = new BindsetSelectorUI({ eventBus, document })
+      this.bindsetSelectorUI = new BindsetSelectorUI({ eventBus, confirmDialog: this.confirmDialogUI, document })
       this.bindsetSelectorService.init()
       this.bindsetSelectorUI.init()
 

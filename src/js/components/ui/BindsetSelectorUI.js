@@ -6,10 +6,11 @@ import i18next from 'i18next'
  * Manages the bindset selector UI and its interactions
  */
 export default class BindsetSelectorUI extends ComponentBase {
-  constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'BindsetSelectorUI'
     this.document = document
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     
     this.containerId = 'bindsetSelectorContainer'
     this.isOpen = false
@@ -261,13 +262,19 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
   }
 
-  showAddKeyConfirmation(bindsetName) {
+  async showAddKeyConfirmation(bindsetName) {
+    if (!this.confirmDialog) {
+      this.close()
+      return
+    }
+
     const message = i18next.t('add_key_to_bindset_confirm', { 
       key: this.cache.selectedKey, 
       bindset: bindsetName 
     }) || `Add key "${this.cache.selectedKey}" to bindset "${bindsetName}"?`
+    const title = i18next.t('confirm_add') || 'Confirm Add'
     
-    if (confirm(message)) {
+    if (await this.confirmDialog.confirm(message, title, 'info')) {
       this.request('bindset-selector:add-key-to-bindset', { bindset: bindsetName })
         .then(result => {
           if (!result?.success) {
@@ -282,13 +289,19 @@ export default class BindsetSelectorUI extends ComponentBase {
     this.close()
   }
 
-  showRemoveKeyConfirmation(bindsetName) {
+  async showRemoveKeyConfirmation(bindsetName) {
+    if (!this.confirmDialog) {
+      this.close()
+      return
+    }
+
     const message = i18next.t('remove_key_from_bindset_confirm', { 
       key: this.cache.selectedKey, 
       bindset: bindsetName 
     }) || `Remove key "${this.cache.selectedKey}" from bindset "${bindsetName}"?`
+    const title = i18next.t('confirm_remove') || 'Confirm Remove'
     
-    if (confirm(message)) {
+    if (await this.confirmDialog.confirm(message, title, 'warning')) {
       this.request('bindset-selector:remove-key-from-bindset', { bindset: bindsetName })
         .then(result => {
           if (!result?.success) {
@@ -306,17 +319,12 @@ export default class BindsetSelectorUI extends ComponentBase {
   showError(errorKey) {
     const message = i18next.t(`error_${errorKey}`) || `Error: ${errorKey}`
     
-    // Try to use existing toast system if available
-    if (this.eventBus) {
-      this.emit('toast:show', {
-        type: 'error',
-        message: message,
-        duration: 3000
-      })
-    } else {
-      // Fallback to alert
-      alert(message)
-    }
+    // Use toast system (ComponentBase always has eventBus)
+    this.emit('toast:show', {
+      type: 'error',
+      message: message,
+      duration: 3000
+    })
   }
 
   openBindsetManager() {

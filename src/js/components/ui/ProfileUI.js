@@ -5,12 +5,13 @@ import ComponentBase from '../ComponentBase.js'
  * Manages profile rendering, modals, and user interactions
  */
 export default class ProfileUI extends ComponentBase {
-  constructor({ eventBus, ui = null, modalManager = null, document = null, i18n = null } = {}) {
+  constructor({ eventBus, ui = null, modalManager = null, confirmDialog = null, document = null, i18n = null } = {}) {
     super(eventBus)
     this.componentName = 'ProfileUI'
 
     this.ui = ui
     this.modalManager = modalManager
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
 
     this.i18n = i18n
@@ -310,19 +311,20 @@ export default class ProfileUI extends ComponentBase {
   }
 
   // Confirm profile deletion - using cached state (broadcast/cache pattern)
-  confirmDeleteProfile() {
+  async confirmDeleteProfile() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     if (!this.cache.profile) {
       this.ui?.showToast?.(this._t('no_profile_selected_to_delete'), 'warning')
       return
     }
 
-    const confirmed = confirm(
-      this._t('confirm_delete_profile', { name: this.cache.profile.name }) ||
-      `Are you sure you want to delete the profile "${this.cache.profile.name}"? This action cannot be undone.`
-    )
+    if (!this.confirmDialog) return
 
-    if (confirmed) {
+    const message = this._t('confirm_delete_profile', { name: this.cache.profile.name }) ||
+      `Are you sure you want to delete the profile "${this.cache.profile.name}"? This action cannot be undone.`
+    const title = this._t('confirm_delete') || 'Confirm Delete'
+
+    if (await this.confirmDialog.confirm(message, title, 'danger')) {
       this.deleteCurrentProfile()
     }
   }

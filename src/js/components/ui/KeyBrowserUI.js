@@ -9,11 +9,15 @@ export default class KeyBrowserUI extends UIComponentBase {
   constructor ({ eventBus,
                 app = null,
                 modalManager = null,
+                confirmDialog = null,
+                i18n = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'KeyBrowserUI'
     this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
     this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
     this.document = document
     
     // Initialize cache for ComponentBase state management
@@ -170,10 +174,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     grid.appendChild(fragment)
   }
 
-  /* ============================================================
-   * Rendering helpers (migrated from legacy uiRendering)
-   * ========================================================== */
-
+  // Rendering helpers
   async renderSimpleGridView (fragment, allKeys) {
     // Sort keys using the service's sort function
     const sortedKeys = await this.request('key:sort', { keys: allKeys })
@@ -205,7 +206,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
   }
 
-  /* ------ Categorization helpers ------ */
+  // Categorization helpers
 
   async categorizeKeys (keysWithCommands, allKeys) {
     return await this.request('key:categorize-by-command', { keysWithCommands, allKeys })
@@ -300,7 +301,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
   }
 
-  // View-management helpers (migrated from legacy viewManagement)
+  // View-management helpers
   updateViewToggleButton (viewMode) {
     const toggleBtn = this.document.getElementById('toggleKeyViewBtn')
     if (!toggleBtn) return
@@ -479,16 +480,16 @@ export default class KeyBrowserUI extends UIComponentBase {
   }
 
   // Confirm deletion of a key
-  async confirmDeleteKey(key) {
-    if (!key) return
+  async confirmDeleteKey(keyName) {
+    if (!keyName || !this.confirmDialog) return false
     
-    const message = this.i18n?.t?.('confirm_delete_key', { key }) || `Delete key ${key}?`
-    const confirmed = confirm(message)
+    const message = this.i18n?.t?.('confirm_delete_key', { keyName: keyName }) || `Delete key ${keyName}?`
+    const title = this.i18n?.t?.('confirm_delete') || 'Confirm Delete'
     
-    if (confirmed) {
+    if (await this.confirmDialog.confirm(message, title, 'danger')) {
       try {
         // Use the eventBus to request key deletion from KeyService
-        this.emit('key:delete', { key })
+        this.emit('key:delete', { key: keyName })
         return true
       } catch (error) {
         console.error('Error deleting key:', error)

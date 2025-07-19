@@ -17,12 +17,14 @@ export default class CommandUI extends ComponentBase {
                 ui = null,
                 modalManager = null,
                 parameterCommandUI = null,
+                confirmDialog = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'CommandUI'
     this.ui           = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.modalManager = modalManager
     this.parameterCommandUI = parameterCommandUI
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
 
     this._activeBindset = 'Primary Bindset'
 
@@ -243,14 +245,14 @@ export default class CommandUI extends ComponentBase {
       }
     } catch (error) {
       console.error('CommandUI: Failed to show toast:', error)
-      // Fallback to browser alert if all else fails
-      alert(message)
+      // Emit a toast event as final fallback (ComponentBase always has eventBus)
+      this.emit('toast:show', { message, type })
     }
   }
 
   // Confirm clearing the command chain for a key or alias
   async confirmClearChain(key) {
-    if (!key) return
+    if (!key || !this.confirmDialog) return
     
     const currentEnv = this.getCurrentEnvironment()
     const isAliasMode = currentEnv === 'alias'
@@ -259,8 +261,9 @@ export default class CommandUI extends ComponentBase {
     try {
       const message = await this.getI18nMessage('confirm_clear_commands', { keyName: key }) || 
         `Clear command chain for ${itemType} ${key}?`
+      const title = await this.getI18nMessage('confirm_clear') || 'Confirm Clear'
       
-      if (confirm(message)) {
+      if (await this.confirmDialog.confirm(message, title, 'warning')) {
         console.log(`[CommandUI] Requesting clear command chain for ${itemType}: "${key}" in env: "${currentEnv}"`)
         
         this.emit('command-chain:clear', { key })

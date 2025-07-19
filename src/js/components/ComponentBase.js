@@ -66,6 +66,7 @@ export default class ComponentBase {
         keys: {},
         aliases: {},
         builds: {},
+        preferences: {},
         ...additionalCacheData
       }
     }
@@ -138,6 +139,54 @@ export default class ComponentBase {
       }
       this.cache.aliases = profile.aliases || {}
     })
+
+    // Cache preference changes
+    this.addEventListener('preferences:changed', (data) => {
+      if (data.changes) {
+        // Update cached preferences with the changes
+        Object.assign(this.cache.preferences, data.changes)
+      } else if (data.key && data.value !== undefined) {
+        // Handle legacy single preference change format
+        this.cache.preferences[data.key] = data.value
+      }
+    })
+
+    // Listen for initial preferences loading
+    this.addEventListener('preferences:loaded', (data) => {
+      console.log(`[${this.componentName}] preferences:loaded received:`, data)
+      if (data.settings) {
+        Object.assign(this.cache.preferences, data.settings)
+        console.log(`[${this.componentName}] Updated preferences cache from preferences:loaded`)
+      }
+    })
+
+    // Also listen for preferences:saved events which contain full settings
+    this.addEventListener('preferences:saved', (data) => {
+      console.log(`[${this.componentName}] preferences:saved received:`, data)
+      if (data.settings) {
+        Object.assign(this.cache.preferences, data.settings)
+        console.log(`[${this.componentName}] Updated preferences cache from preferences:saved`)
+      }
+    })
+
+    // Load initial preferences asynchronously
+    this._loadInitialPreferences()
+  }
+
+  /**
+   * Load initial preferences into cache
+   * Called during component initialization
+   */
+  async _loadInitialPreferences() {
+/*    try {
+      const preferences = await this.request('preferences:get-settings')
+      if (preferences && typeof preferences === 'object') {
+        Object.assign(this.cache.preferences, preferences)
+      }
+    } catch (error) {
+      // Preferences service might not be available yet, that's okay
+      // The cache will be updated when preferences:changed events are received
+    }*/
   }
 
   /**

@@ -201,7 +201,7 @@ export class STOCommandParser {
         patterns: [
           {
             // Master alias that combines both space & ground aliases
-            regex: /^dynFxSetFXExclusionList_combined$/i,
+            regex: /^dynFxSetFXExclusionList_Combined$/i,
             weight: 48,
             signature: 'VFXExclusionMaster()',
             extractParams: () => ({}),

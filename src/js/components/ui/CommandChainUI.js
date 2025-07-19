@@ -11,6 +11,9 @@ export default class CommandChainUI extends UIComponentBase {
 
     this.activeBindset = 'Primary Bindset'
     
+    // Cache preference values locally to avoid race conditions
+    this._bindToAliasMode = false
+    
     // Initialize cache for ComponentBase state management
     this.initializeCache({
       activeBindset: this.activeBindset
@@ -202,7 +205,8 @@ export default class CommandChainUI extends UIComponentBase {
             }
           } else if (key === 'bindToAliasMode') {
             console.log(`[CommandChainUI] Preference changed: bindToAliasMode = ${value}`)
-            // Note: bindToAliasMode is now handled by CommandChainService
+            // Cache the value locally to avoid race conditions
+            this._bindToAliasMode = !!value
             needsDropdownUpdate = true
             needsRender = true
           }
@@ -580,14 +584,9 @@ export default class CommandChainUI extends UIComponentBase {
 
   // Get the current bind-to-alias mode setting from cached preferences
   async getBindToAliasMode() {
-    try {
-      const mode = await this.request('command-chain:get-bind-to-alias-mode')
-      console.log(`[CommandChainUI] getBindToAliasMode() returning: ${mode}`)
-      return mode
-    } catch (error) {
-      console.error('[CommandChainUI] Failed to get bind-to-alias mode:', error)
-      return false // fallback to disabled
-    }
+    // Use locally cached value to avoid race conditions
+    console.log(`[CommandChainUI] getBindToAliasMode() returning cached value: ${this._bindToAliasMode}`)
+    return this._bindToAliasMode
   }
 
   // Update previews for bind-to-alias mode
@@ -843,8 +842,8 @@ export default class CommandChainUI extends UIComponentBase {
     if (sender === 'PreferencesService' && state.settings) {
       console.log(`[CommandChainUI] Late-join state from PreferencesService:`, state.settings)
       this._bindsetsEnabled = !!state.settings.bindsetsEnabled
-      // Note: bindToAliasMode is now handled by CommandChainService
-      console.log(`[CommandChainUI] Set bindsetsEnabled = ${this._bindsetsEnabled} from late-join`)
+      this._bindToAliasMode = !!state.settings.bindToAliasMode
+      console.log(`[CommandChainUI] Set bindsetsEnabled = ${this._bindsetsEnabled}, bindToAliasMode = ${this._bindToAliasMode} from late-join`)
       if (this._bindsetsEnabled && !this._bindsetDropdownReady) {
         // preferences arrive before onInit resolved
         this.setupBindsetDropdown().catch(()=>{})
