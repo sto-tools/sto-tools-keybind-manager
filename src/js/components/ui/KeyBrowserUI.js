@@ -15,6 +15,9 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
     this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
     this.document = document
+    
+    // Initialize cache for ComponentBase state management
+    this.initializeCache()
   }
 
   // Lifecycle

@@ -30,6 +30,9 @@ export default class CommandUI extends ComponentBase {
     this._lastValidation = { warnings: [], errors: [] }
 
     this.document = document
+    
+    // Initialize cache for ComponentBase state management
+    this.initializeCache()
   }
 
   onInit () {

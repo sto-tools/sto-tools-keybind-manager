@@ -10,6 +10,11 @@ export default class CommandChainUI extends UIComponentBase {
     this.document = document
 
     this.activeBindset = 'Primary Bindset'
+    
+    // Initialize cache for ComponentBase state management
+    this.initializeCache({
+      activeBindset: this.activeBindset
+    })
   }
 
   async onInit () {

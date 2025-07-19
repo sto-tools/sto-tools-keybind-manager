@@ -28,6 +28,9 @@ export default class ParameterCommandUI extends ComponentBase {
     this._activeBindset = 'Primary Bindset' // Default to primary bindset
     
     this.currentParameterCommand = null
+    
+    // Initialize cache for ComponentBase state management
+    this.initializeCache()
   }
 
   onInit() {

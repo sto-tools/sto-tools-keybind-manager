@@ -18,6 +18,9 @@ export default class ProfileUI extends ComponentBase {
     this._isModified = false
 
     this.currentModal = null
+    
+    // Initialize cache for ComponentBase state management
+    this.initializeCache()
     this.eventListenersSetup = false
 
     this._t = this._t.bind(this)
