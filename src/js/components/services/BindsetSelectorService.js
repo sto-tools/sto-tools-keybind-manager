@@ -154,7 +154,7 @@ export default class BindsetSelectorService extends ComponentBase {
     console.log(`[BindsetSelectorService] setActiveBindset called: ${this.activeBindset} -> ${bindsetName}`)
     this.activeBindset = bindsetName
     console.log(`[BindsetSelectorService] About to emit bindset-selector:active-changed with bindset:`, bindsetName)
-    this.emit('bindset-selector:active-changed', { bindset: bindsetName })
+    this.emit('bindset-selector:active-changed', { bindset: bindsetName }, { synchronous: true })
     console.log(`[BindsetSelectorService] Successfully emitted bindset-selector:active-changed with bindset:`, bindsetName)
   }
 

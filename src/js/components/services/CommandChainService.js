@@ -12,8 +12,6 @@ export default class CommandChainService extends ComponentBase {
     this.componentName = 'CommandChainService'
     this.i18n = i18n
 
-    // REFACTORED: No direct service dependencies – all communication via event bus
-    // Legacy state properties removed - ComponentBase handles all state caching now
     this.commands = []
     
     // Track active bindset (default to primary)
@@ -38,18 +36,11 @@ export default class CommandChainService extends ComponentBase {
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
 
-    // ---------------------------------------------------------
     // Register Request/Response endpoints for command chain management
-    // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        // Removed deprecated command-chain:* request endpoints – callers should now use command:* APIs directly.
-        // New: toggle or query execution-order stabilization
         this.respond('command:set-stabilize', ({ name, stabilize, bindset }) => this.setStabilize(name, stabilize, bindset)),
         this.respond('command:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
-        // New: allow UI workflows (e.g., Import modal) to clear the destination
-        // command chain synchronously via request/response.
-        // Returns boolean success flag so caller can detect failures.
         this.respond('command-chain:clear', async ({ key, bindset }) => {
           try {
             return await this.clearCommandChain(key, bindset)
@@ -58,19 +49,12 @@ export default class CommandChainService extends ComponentBase {
             throw err
           }
         }),
-        // New: expose stabilization state for validator service (unique)
         this.respond('command-chain:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
-        
-        // Bind-to-alias mode support (moved from CommandChainUI)
         this.respond('command-chain:get-bind-to-alias-mode', () => this.getBindToAliasMode()),
         this.respond('command-chain:generate-alias-name', ({ environment, keyName, bindsetName }) => 
           this.generateBindToAliasName(environment, keyName, bindsetName)),
         this.respond('command-chain:generate-alias-preview', ({ aliasName, commands }) => 
           this.generateAliasPreview(aliasName, commands)),
-        /*this.respond('command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
-        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
-        this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
-        this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),*/
       )
     }
   }
@@ -89,13 +73,11 @@ export default class CommandChainService extends ComponentBase {
     // DataCoordinator integration - listen for profile updates
     this.addEventListener('profile:updated', (data) => {
       if (data?.profile && data?.profileId) {
-        // Add the profileId to the profile object since DataCoordinator doesn't include it
         const profileWithId = { ...data.profile, id: data.profileId }
         this.updateCacheFromProfile(profileWithId)
+
         // Refresh commands if we have a selected key/alias
-        // disabled due to command chain rendering not being atomic
-        // RACE CONDITION FIX: Don't refresh during bindset operations or switching
-        const selectedKeyName = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+        const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
         if (selectedKeyName && !this._bindsetSwitchInProgress && !this._bindsetOperationInProgress) {
           console.log(`[CommandChainService] refreshCommands() after profile:updated - activeBindset: ${this.activeBindset}`)
           this.refreshCommands()
@@ -108,8 +90,8 @@ export default class CommandChainService extends ComponentBase {
     })
 
     this.addEventListener('profile:switched', (data) => {
-      this.currentProfile = data.profileId || data.profile || data.id
-      this.currentEnvironment = data.environment || 'space'
+      this.cache.currentProfile = data.profileId || data.profile || data.id
+      this.cache.currentEnvironment = data.environment || 'space'
       
       // Ensure cache has the profile ID even if we don't have the full profile object
       this.cache.currentProfile = this.currentProfile
@@ -125,10 +107,9 @@ export default class CommandChainService extends ComponentBase {
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data?.environment
       if (env) {
-        this.currentEnvironment = env
         this.cache.currentEnvironment = env
         // Refresh commands when environment changes
-        const selectedKeyName = this.currentEnvironment === 'alias' ? this.selectedAlias : this.selectedKey
+        const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
         if (selectedKeyName) {
           this.refreshCommands()
         }
@@ -177,12 +158,12 @@ export default class CommandChainService extends ComponentBase {
         // Wait a small amount of time to ensure the active bindset has been updated
         // The BindsetSelectorService calls setActiveBindset() which triggers bindset-selector:active-changed
         // which updates this.activeBindset, but we need to make sure that happens first
-        setTimeout(async () => {
-          console.log(`[CommandChainService] About to refresh commands - activeBindset: ${this.activeBindset}, expected: ${bindset}`)
-          const cmds = await this.getCommandsForSelectedKey()
-          console.log(`[CommandChainService] Refreshed commands for new bindset ${bindset}: ${cmds.length} commands`)
-          this.emit('chain-data-changed', { commands: cmds })
-        }, 100)
+        //setTimeout(async () => {
+        console.log(`[CommandChainService] About to refresh commands - activeBindset: ${this.activeBindset}, expected: ${bindset}`)
+        const cmds = await this.getCommandsForSelectedKey()
+        console.log(`[CommandChainService] Refreshed commands for new bindset ${bindset}: ${cmds.length} commands`)
+        this.emit('chain-data-changed', { commands: cmds })
+        //}, 100)
       }
     })
 

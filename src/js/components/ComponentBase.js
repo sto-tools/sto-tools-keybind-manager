@@ -224,32 +224,24 @@ export default class ComponentBase {
    * Emit an event through the event bus
    * @param {string} event - Event name
    * @param {*} data - Event data
+   * @param {Object} options - Options object { synchronous: boolean }
+   * @returns {Promise} - Promise that resolves when all listeners complete (if synchronous)
    */
-  emit(event, data = null) {
+  emit(event, data = null, options = {}) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log(`[${this.getComponentName()}] emit → ${event}`, data)
+      console.log(`[${this.getComponentName()}] emit → ${event} (options: ${JSON.stringify(options)})`, data)
     }
+    
     // Emit via event bus if available
     if (this.eventBus && typeof this.eventBus.emit === 'function') {
-      this.eventBus.emit(event, data)
+      return this.eventBus.emit(event, data, options)
     } else if (!this.eventBus) {
       // No event bus – skip routing
-      return
+      return Promise.resolve()
     }
 
-    // Also call any listeners registered through this component in cases where
-    // the provided eventBus is a mock that doesn\'t route events (common in tests)
-    const listeners = this.eventListeners.get(event)
-    if (listeners && listeners.length > 0) {
-      listeners.forEach(({ handler, context }) => {
-        try {
-          handler.call(context || this, data)
-        } catch (err) {
-          console.error('ComponentBase emit handler error', err)
-        }
-      })
-    }
+    return Promise.resolve()
   }
 
   /**
