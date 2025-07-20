@@ -10,7 +10,7 @@ import es from '../i18n/es.json'
 import { StorageService, DataCoordinator, ToastService } from './components/services/index.js'
 import { KeyService } from './components/services/index.js'
 import DataService from './components/services/DataService.js'
-import ExportService from './components/services/ExportService.js'
+// ExportService is now created and managed by app.js
 import { UIUtilityService } from './components/services/index.js'
 import { FileOperationsService } from './components/services/index.js'
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
@@ -120,7 +120,7 @@ const settings = storageService.getSettings()
 
   // Create dependencies first
   const stoKeybinds = new KeyService()
-  const stoExport = new ExportService({ storage: storageService, eventBus })
+  // ExportService is now created and managed by app.js - remove duplicate instance
   // Initialize FileOperationsService to register RPC endpoints (mirroring, parsing, etc.)
   const fileOpsService = new FileOperationsService({ eventBus, storage: storageService })
   fileOpsService.init()
@@ -155,10 +155,10 @@ const settings = storageService.getSettings()
   const chainValidatorService = new CommandChainValidatorService({ eventBus, i18n: i18next, ui: stoUI })
   chainValidatorService.init()
   
-  const stoFileExplorer = new FileExplorerUI({ eventBus, storage: storageService, exportManager: stoExport, ui: stoUI })
+  const stoFileExplorer = new FileExplorerUI({ eventBus, storage: storageService, ui: stoUI })
   // Init immediately so header Explorer button works without waiting for sto-app-ready
   stoFileExplorer.init()
-  const stoSync = new SyncService({ storage: storageService, ui: stoUI })
+  const stoSync = new SyncService({ eventBus, storage: storageService, ui: stoUI })
   
   // Minimal global assignments - only what's absolutely necessary for legacy compatibility
   Object.assign(window, {
@@ -166,7 +166,7 @@ const settings = storageService.getSettings()
     dataService,    // Required by app initialization
     dataCoordinator, // Required by ProfileService and other services
     stoKeybinds,    // Required by app initialization callback
-    stoExport,      // Required by app initialization callback  
+    // stoExport removed - now managed by app.js
     stoUI,          // Required by many components for toast notifications
     stoFileExplorer, // Required by header file explorer button
     stoSync,        // Required by sync UI components
@@ -204,7 +204,7 @@ const settings = storageService.getSettings()
   eventBus.on('sto-app-ready', () => {
     // Profile initialization is now handled by the app instance
     stoKeybinds.init()
-    stoExport.init()
+    // ExportService is now managed by app.js
     // Already initialized above, but ensure ready when app starts
     if (!stoFileExplorer.isInitialized()) {
       stoFileExplorer.init()

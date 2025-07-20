@@ -43,6 +43,69 @@ export default class ConfirmDialogUI extends ComponentBase {
     })
   }
 
+  // Show an informational dialog with just an OK button
+  async inform(message, title = 'Information', type = 'info') {
+    return new Promise((resolve) => {
+      const informModal = this.createInformModal(message, title, type)
+      const informId = 'informModal'
+      informModal.id = informId
+      document.body.appendChild(informModal)
+
+      const handleClose = () => {
+        this.modalManager?.hide(informId)
+        document.body.removeChild(informModal)
+        resolve(true)
+      }
+
+      informModal.querySelector('.inform-ok').addEventListener('click', handleClose)
+
+      // Also allow ESC key to close
+      const handleKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          document.removeEventListener('keydown', handleKeyDown)
+          handleClose()
+        }
+      }
+      document.addEventListener('keydown', handleKeyDown)
+
+      requestAnimationFrame(() => {
+        this.modalManager?.show(informId)
+      })
+    })
+  }
+
+  // Internal helper – generates the DOM for the inform dialog.
+  createInformModal(message, title, type) {
+    const modal = document.createElement('div')
+    modal.className = 'modal inform-modal'
+
+    const iconMap = {
+      warning: 'fa-exclamation-triangle',
+      danger: 'fa-exclamation-circle',
+      info: 'fa-info-circle',
+      success: 'fa-check-circle'
+    }
+
+    modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>
+                        <i class="fas ${iconMap[type] || iconMap.info}"></i>
+                        ${title}
+                    </h3>
+                </div>
+                <div class="modal-body">
+                    <p>${message}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary inform-ok">${this.i18n ? this.i18n.t('ok') : 'OK'}</button>
+                </div>
+            </div>
+        `
+
+    return modal
+  }
+
   // Internal helper – generates the DOM for the confirm dialog.
   createConfirmModal(message, title, type) {
     const modal = document.createElement('div')

@@ -33,14 +33,34 @@ export default class SyncService extends ComponentBase {
   // Set sync folder and optionally enable auto-sync
   async setSyncFolder(autoSync = false) {
     try {
-      const handle = await window.showDirectoryPicker()
-      await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
-      const folderName = handle.name
+      let handle, folderName
+
+      // Check if File System Access API is supported (Chromium browsers)
+      if ('showDirectoryPicker' in window) {
+        handle = await window.showDirectoryPicker()
+        await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
+        folderName = handle.name
+      } else {
+        // Firefox doesn't support File System Access API
+        this.ui?.showToast(i18next.t('sync_not_supported_firefox'), 'error')
+        
+        // Show a more detailed explanation using inform dialog (OK button only)
+        if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
+          await window.confirmDialog.inform(
+            i18next.t('sync_not_supported_detailed'),
+            i18next.t('sync_not_supported_title'),
+            'info'
+          )
+        }
+        
+        return null
+      }
 
       if (this.storage) {
         const settings = this.storage.getSettings()
         settings.syncFolderName = folderName
         settings.syncFolderPath = `Selected folder: ${folderName}`
+        settings.syncFolderFallback = false
         settings.autoSync = autoSync
         this.storage.saveSettings(settings)
       }
@@ -90,7 +110,8 @@ export default class SyncService extends ComponentBase {
       return
     }
     try {
-      await window.stoExport?.syncToFolder(handle)
+      // Use request/response system instead of global window.stoExport
+      await this.request('export:sync-to-folder', { dirHandle: handle })
 
       // Determine when to show success toast:
       // - Always show on manual sync (sync now button)
@@ -111,4 +132,5 @@ export default class SyncService extends ComponentBase {
       this.ui?.showToast(i18next.t('failed_to_sync_project', { error: err.message }), 'error')
     }
   }
+
 } 

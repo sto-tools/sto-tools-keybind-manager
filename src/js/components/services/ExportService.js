@@ -20,7 +20,9 @@ export default class ExportService extends ComponentBase {
   }
 
   // Lifecycle
-  onInit () {
+  async init () {
+    super.init()
+
     // Initialize ExportService-specific cache properties
     this.extendCache({
       profiles: {} // ExportService needs to cache multiple profiles
@@ -57,6 +59,9 @@ export default class ExportService extends ComponentBase {
       if (!prof) throw new Error(`Profile ${profileId} not found`)
       return await this.generateAliasFile(prof)
     })
+    this.respond('export:sync-to-folder', async ({ dirHandle }) => {
+      return await this.syncToFolder(dirHandle)
+    })
   }
 
   setupEventListeners () {
@@ -75,14 +80,24 @@ export default class ExportService extends ComponentBase {
 
   // Check if bind-to-alias mode is enabled from cached preferences
   getBindToAliasMode() {
+    console.log('[ExportService] getBindToAliasMode called')
+    console.log('[ExportService] cache:', this.cache)
+    console.log('[ExportService] preferences:', this.cache?.preferences)
+    console.log('[ExportService] bindToAliasMode:', this.cache?.preferences?.bindToAliasMode)
+    
     // Use cached preferences from ComponentBase instead of making requests
-    return this.cache.preferences.bindToAliasMode || false
+    return this.cache?.preferences?.bindToAliasMode || false
   }
   
   // Check if bindsets feature is enabled from cached preferences
   getBindsetsEnabled() {
+    console.log('[ExportService] getBindsetsEnabled called')
+    console.log('[ExportService] cache:', this.cache)
+    console.log('[ExportService] preferences:', this.cache?.preferences)
+    console.log('[ExportService] bindsetsEnabled:', this.cache?.preferences?.bindsetsEnabled)
+    
     // Use cached preferences from ComponentBase instead of making requests
-    return this.cache.preferences.bindsetsEnabled || false
+    return this.cache?.preferences?.bindsetsEnabled || false
   }
 
   // Sanitize a bindset name into a valid alias component (lower snake)
@@ -213,6 +228,7 @@ export default class ExportService extends ComponentBase {
 
     // Check if bind-to-alias mode is enabled
     const bindToAliasMode = this.getBindToAliasMode()
+    console.log('[ExportService] this: ', this)
 
     let content = `; ==============================================================================\n`
     content += `; ${environment.toUpperCase()} KEYBINDS\n`
@@ -682,12 +698,10 @@ export default class ExportService extends ComponentBase {
           }
         }
         
-        // Generate alias file if aliases exist
-        if (profile.aliases && Object.keys(profile.aliases).length > 0) {
-          const aliasContent = await this.generateAliasFile(profile)
-          const filename = `${profileDir}/${sanitizedName}_aliases.txt`
-          await writeFile(dirHandle, filename, aliasContent)
-        }
+        // Generate alias file (includes user aliases, VFX aliases, bind-to-alias, and bindset aliases)
+        const aliasContent = await this.generateAliasFile(profile)
+        const filename = `${profileDir}/${sanitizedName}_aliases.txt`
+        await writeFile(dirHandle, filename, aliasContent)
       }
 
       // Generate project.json with complete data

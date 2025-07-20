@@ -431,8 +431,6 @@ export default class STOToolsKeybindManager {
       this.projectManagementService = new ProjectManagementService({
         storage: storageService,
         ui: stoUI,
-        exportManager: window.stoExport,
-        i18n: i18next,
         app: this,
         eventBus,
       })

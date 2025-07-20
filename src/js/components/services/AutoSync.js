@@ -45,6 +45,12 @@ export default class AutoSync extends ComponentBase {
       if (changes.autoSync !== undefined || changes.autoSyncInterval !== undefined) {
         this.setupFromSettings()
       }
+      
+      // Trigger immediate sync for any preference change if sync is enabled
+      if (this.isEnabled) {
+        console.log('[AutoSync] Preference setting changed, triggering immediate sync')
+        this.sync()
+      }
     })
   }
 

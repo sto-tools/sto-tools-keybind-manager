@@ -236,13 +236,14 @@ export default class ParameterCommandUI extends ComponentBase {
         previewEl.textContent = commandText
       }
     } catch (error) {
-      console.error('Error updating parameter preview:', error)
       const previewEl = this.document.getElementById('parameterCommandPreview')
       if (previewEl) {
         if (error.message === 'please_enter_a_raw_command') {
           const msg = this.i18n?.t?.('please_enter_a_raw_command') || 'Please enter a raw command'
           previewEl.textContent = msg
         } else {
+          // Only log unexpected errors, not the expected "please_enter_a_raw_command"
+          console.error('Error updating parameter preview:', error)
           const errMsg = this.i18n?.t?.('error_generating_command') || 'Error generating command'
           previewEl.textContent = errMsg
         }
