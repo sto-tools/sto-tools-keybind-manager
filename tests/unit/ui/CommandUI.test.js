@@ -64,9 +64,11 @@ describe('CommandUI', () => {
     it('should include active bindset when adding commands to non-primary bindset', async () => {
       const mockCommand = { command: 'FireAll', type: 'basic' }
       
-      // Set up UI state
-      commandUI._selectedKey = 'F1'
-      commandUI._currentEnvironment = 'space'
+      // Set up UI state using the cache mechanism
+      commandUI.cache = {
+        selectedKey: 'F1',
+        currentEnvironment: 'space'
+      }
       commandUI._activeBindset = 'Custom Bindset'
       
       // Trigger command add
@@ -85,9 +87,11 @@ describe('CommandUI', () => {
     it('should not include bindset when in alias mode', async () => {
       const mockCommand = { command: 'FireAll', type: 'basic' }
       
-      // Set up UI state for alias mode
-      commandUI._selectedAlias = 'myalias'
-      commandUI._currentEnvironment = 'alias'
+      // Set up UI state for alias mode using the cache mechanism
+      commandUI.cache = {
+        selectedAlias: 'myalias',
+        currentEnvironment: 'alias'
+      }
       commandUI._activeBindset = 'Custom Bindset'
       
       // Trigger command add

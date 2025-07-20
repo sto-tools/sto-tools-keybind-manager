@@ -22,7 +22,7 @@ describe('SyncService', () => {
       getDirectoryHandle: vi.fn().mockResolvedValue(createHandle('syncDir')),
     }
 
-    service = new SyncService({ storage: fixture.storageService, ui: uiMock, fs: fsMock })
+    service = new SyncService({ eventBus: fixture.eventBus, storage: fixture.storageService, ui: uiMock, fs: fsMock })
   })
 
   afterEach(() => {

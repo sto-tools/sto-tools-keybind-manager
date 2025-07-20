@@ -258,18 +258,22 @@ export default class BindsetSelectorUI extends ComponentBase {
   }
 
   async showAddKeyConfirmation(bindsetName) {
-    if (!this.confirmDialog) {
-      this.close()
-      return
-    }
-
     const message = i18next.t('add_key_to_bindset_confirm', { 
       key: this.cache.selectedKey, 
       bindset: bindsetName 
     }) || `Add key "${this.cache.selectedKey}" to bindset "${bindsetName}"?`
-    const title = i18next.t('confirm_add') || 'Confirm Add'
     
-    if (await this.confirmDialog.confirm(message, title, 'info')) {
+    let confirmed = false
+    
+    if (this.confirmDialog) {
+      const title = i18next.t('confirm_add') || 'Confirm Add'
+      confirmed = await this.confirmDialog.confirm(message, title, 'info')
+    } else {
+      // Fallback to window.confirm when confirmDialog is not available
+      confirmed = window.confirm(message)
+    }
+    
+    if (confirmed) {
       this.request('bindset-selector:add-key-to-bindset', { bindset: bindsetName })
         .then(result => {
           if (!result?.success) {
@@ -285,18 +289,22 @@ export default class BindsetSelectorUI extends ComponentBase {
   }
 
   async showRemoveKeyConfirmation(bindsetName) {
-    if (!this.confirmDialog) {
-      this.close()
-      return
-    }
-
     const message = i18next.t('remove_key_from_bindset_confirm', { 
       key: this.cache.selectedKey, 
       bindset: bindsetName 
     }) || `Remove key "${this.cache.selectedKey}" from bindset "${bindsetName}"?`
-    const title = i18next.t('confirm_remove') || 'Confirm Remove'
     
-    if (await this.confirmDialog.confirm(message, title, 'warning')) {
+    let confirmed = false
+    
+    if (this.confirmDialog) {
+      const title = i18next.t('confirm_remove') || 'Confirm Remove'
+      confirmed = await this.confirmDialog.confirm(message, title, 'warning')
+    } else {
+      // Fallback to window.confirm when confirmDialog is not available
+      confirmed = window.confirm(message)
+    }
+    
+    if (confirmed) {
       this.request('bindset-selector:remove-key-from-bindset', { bindset: bindsetName })
         .then(result => {
           if (!result?.success) {

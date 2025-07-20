@@ -242,14 +242,19 @@ export default class CommandUI extends ComponentBase {
       }
     } catch (error) {
       console.error('CommandUI: Failed to show toast:', error)
-      // Emit a toast event as final fallback (ComponentBase always has eventBus)
-      this.emit('toast:show', { message, type })
+      // Emit a toast event as final fallback with null check for eventBus
+      if (this.eventBus) {
+        this.emit('toast:show', { message, type })
+      } else {
+        // Ultimate fallback: console output if no event system available
+        console.warn(`[CommandUI] Toast message (${type}): ${message}`)
+      }
     }
   }
 
   // Confirm clearing the command chain for a key or alias
   async confirmClearChain(key) {
-    if (!key || !this.confirmDialog) return
+    if (!key) return
     
     const currentEnv = this.getCurrentEnvironment()
     const isAliasMode = currentEnv === 'alias'
@@ -260,6 +265,13 @@ export default class CommandUI extends ComponentBase {
         `Clear command chain for ${itemType} ${key}?`
       const title = await this.getI18nMessage('confirm_clear') || 'Confirm Clear'
       
+      // Check if confirmDialog is available
+      if (!this.confirmDialog) {
+        console.error('CommandUI: confirmDialog not available, cannot show confirmation dialog')
+        await this.showToast('Confirmation dialog not available', 'error')
+        return
+      }
+      
       if (await this.confirmDialog.confirm(message, title, 'warning')) {
         console.log(`[CommandUI] Requesting clear command chain for ${itemType}: "${key}" in env: "${currentEnv}"`)
         
@@ -267,6 +279,8 @@ export default class CommandUI extends ComponentBase {
       }
     } catch (error) {
       console.error('CommandUI: Failed to confirm clear chain:', error)
+      // Show error toast to user when confirmation fails
+      await this.showToast('Failed to show confirmation dialog', 'error')
     }
   }
 
