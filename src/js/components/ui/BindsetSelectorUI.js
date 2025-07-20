@@ -16,11 +16,6 @@ export default class BindsetSelectorUI extends ComponentBase {
     this.isOpen = false
     this.service = null
     
-    // Initialize cache and internal state
-    this.initializeCache()
-    
-    this.activeBindset = 'Primary Bindset'
-    this.bindsetNames = ['Primary Bindset']
     this.keyBindsetMembership = new Map()
     this.isVisible = false
   }
@@ -35,13 +30,13 @@ export default class BindsetSelectorUI extends ComponentBase {
     this.listenersSetup = true
 
     // Listen for service state changes
-    this.addEventListener('bindset-selector:active-changed', ({ bindset }) => {
-      this.activeBindset = bindset
+    this.addEventListener('bindset-selector:active-changed', () => {
+      // ComponentBase automatically updates this.cache.activeBindset
       this.render()
     })
 
-    this.addEventListener('bindset-selector:membership-updated', ({ key, membership }) => {
-      this.cache.selectedKey = key
+    this.addEventListener('bindset-selector:membership-updated', ({ membership }) => {
+      // ComponentBase automatically updates this.cache.selectedKey
       this.keyBindsetMembership = membership
       this.render()
     })
@@ -53,14 +48,14 @@ export default class BindsetSelectorUI extends ComponentBase {
 
     this.addEventListener('bindsets:changed', ({ names }) => {
       console.log('[BindsetSelectorUI] bindsets:changed received:', names)
-      this.bindsetNames = names || ['Primary Bindset']
+      // ComponentBase automatically updates this.cache.bindsetNames
       this.render()
     })
 
     // Listen for key selection changes
     this.addEventListener('key:selected', ({ key }) => {
       console.log('[BindsetSelectorUI] key:selected received:', key)
-      this.cache.selectedKey = key
+      // ComponentBase handles this.cache.selectedKey automatically via key-selected events
       this.request('bindset-selector:set-key', { key })
     })
 
@@ -84,7 +79,7 @@ export default class BindsetSelectorUI extends ComponentBase {
       return
     }
 
-    console.log('[BindsetSelectorUI] render() called - isVisible:', this.isVisible, 'bindsetNames:', this.bindsetNames)
+    console.log('[BindsetSelectorUI] render() called - isVisible:', this.isVisible, 'bindsetNames:', this.cache.bindsetNames)
 
     if (!this.isVisible) {
       container.style.display = 'none'
@@ -100,7 +95,7 @@ export default class BindsetSelectorUI extends ComponentBase {
   }
 
   generateDropdownHTML() {
-    const activeBindset = this.activeBindset
+    const activeBindset = this.cache.activeBindset
     
     // Only return the button HTML - dropdown will be created separately
     let html = `
@@ -113,7 +108,7 @@ export default class BindsetSelectorUI extends ComponentBase {
   }
 
   generateDropdownMenuHTML() {
-    const activeBindset = this.activeBindset
+    const activeBindset = this.cache.activeBindset
     
     let html = `
       <div id="bindsetOptionsMenu" class="bindset-dropdown-menu" style="display: none;">
@@ -128,7 +123,7 @@ export default class BindsetSelectorUI extends ComponentBase {
     `
 
     // Other bindsets with toolbar
-    this.bindsetNames.forEach(bindset => {
+    this.cache.bindsetNames.forEach(bindset => {
       if (bindset === 'Primary Bindset') return
       
       const isActive = activeBindset === bindset
@@ -378,9 +373,8 @@ export default class BindsetSelectorUI extends ComponentBase {
   handleInitialState(sender, state) {
     if (sender === 'BindsetSelectorService' && state) {
       console.log('[BindsetSelectorUI] handleInitialState from BindsetSelectorService:', state)
-      this.cache.selectedKey = state.selectedKey
-      this.activeBindset = state.activeBindset
-      this.bindsetNames = state.bindsetNames || ['Primary Bindset']
+      // ComponentBase automatically handles selectedKey and activeBindset
+      // Only update UI-specific state
       this.keyBindsetMembership = state.keyBindsetMembership || new Map()
       this.isVisible = state.shouldDisplay || false
       this.render()

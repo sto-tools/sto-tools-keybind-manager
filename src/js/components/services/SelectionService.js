@@ -16,9 +16,6 @@ export default class SelectionService extends ComponentBase {
     super(eventBus)
     this.componentName = 'SelectionService'
     
-    // Initialize cache with selection-specific data
-    this.initializeCache()
-    
     this.editingContext = null
     
     // Environment-specific cached selections for persistence
@@ -48,21 +45,19 @@ export default class SelectionService extends ComponentBase {
   
   // Set up event listeners for integration with other services
   setupEventListeners() {
-    // Listen for DataCoordinator profile updates  
+    // ComponentBase automatically handles profile and environment caching
+    // We only need to listen for these events to update our specific business logic
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
       }
     })
-    
+
     // Listen for DataCoordinator profile switches
     this.addEventListener('profile:switched', async ({ profileId, profile, environment }) => {
       console.log(`[SelectionService] profile:switched: profileId="${profileId}", env="${environment}"`)
-      
-      this.cache.currentProfile = profileId
-      this.cache.profile = profile
-      this.cache.currentEnvironment = environment || 'space'
-      
+
+      // ComponentBase handles currentProfile, profile, and currentEnvironment caching
       this.updateCacheFromProfile(profile)
       
       // Restore cached selections from the new profile

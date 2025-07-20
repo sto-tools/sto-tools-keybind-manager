@@ -2,12 +2,10 @@ import ComponentBase from '../ComponentBase.js'
 import { formatAliasLine } from '../../lib/STOFormatter.js'
 
 export default class VFXManagerService extends ComponentBase {
-  constructor(eventBus) {
+  constructor(eventBus, i18n) {
     super(eventBus)
     this.componentName = 'VFXManagerService'
-    
-    // Initialize cache and VFX state
-    this.initializeCache()
+    this.i18n = i18n
     
     this.selectedEffects = {
       space: new Set(),
@@ -89,7 +87,7 @@ export default class VFXManagerService extends ComponentBase {
   // Generate alias line for display (formatted for STO export only)
   generateAlias(environment) {
     const effects = Array.from(this.selectedEffects[environment])
-    if (effects.length === 0) return 'No effects selected'
+    if (effects.length === 0) return this.i18n?.t?.('no_effects_selected') || 'No effects selected'
 
     const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
     const commands = this.generateAliasCommand(environment)
@@ -119,7 +117,12 @@ export default class VFXManagerService extends ComponentBase {
     const commands = [`dynFxSetFXExclusionList ${effects.join(',')}`]
 
     if (this.showPlayerSay) {
-      commands.push('PlayerSay VFX Suppression Loaded')
+      // Check translateGeneratedMessages preference - only translate if enabled
+      const shouldTranslate = this.cache.preferences.translateGeneratedMessages
+      const message = shouldTranslate 
+        ? (this.i18n?.t?.('vfx_suppression_loaded') || 'VFX Suppression Loaded')
+        : 'VFX Suppression Loaded'
+      commands.push(`PlayerSay ${message}`)
     }
 
     console.log(`[${this.componentName}] generateAliasCommand(${environment}): generated commands:`, commands)
@@ -156,7 +159,12 @@ export default class VFXManagerService extends ComponentBase {
     const commands = [`dynFxSetFXExclusionList ${allEffects.join(',')}`]
 
     if (this.showPlayerSay) {
-      commands.push('PlayerSay VFX Suppression Loaded')
+      // Check translateGeneratedMessages preference - only translate if enabled
+      const shouldTranslate = this.cache.preferences.translateGeneratedMessages
+      const message = shouldTranslate 
+        ? (this.i18n?.t?.('vfx_suppression_loaded') || 'VFX Suppression Loaded')
+        : 'VFX Suppression Loaded'
+      commands.push(`PlayerSay ${message}`)
     }
 
     return commands
@@ -299,7 +307,7 @@ export default class VFXManagerService extends ComponentBase {
       const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
       virtualAliases[aliasName] = {
         commands: commands,
-        description: `VFX suppression for ${environment} environment`,
+        description: this.i18n?.t?.('vfx_suppression_for_environment', { environment }) || `VFX suppression for ${environment} environment`,
         type: 'vfx-alias',
         virtual: true // Mark as virtual
       }
@@ -309,7 +317,7 @@ export default class VFXManagerService extends ComponentBase {
     const combinedCommands = this.generateCombinedAliasCommand(environments)
     virtualAliases['dynFxSetFXExclusionList_Combined'] = {
       commands: combinedCommands,
-      description: 'VFX suppression for all environments',
+      description: this.i18n?.t?.('vfx_suppression_for_all_environments') || 'VFX suppression for all environments',
       type: 'vfx-alias',
       virtual: true // Mark as virtual
     }

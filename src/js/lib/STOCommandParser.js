@@ -205,7 +205,12 @@ export class STOCommandParser {
             weight: 48,
             signature: 'VFXExclusionMaster()',
             extractParams: () => ({}),
-            generateDisplayText: () => 'VFX Alias: Combined Space/Ground'
+            generateDisplayText: () => {
+              if (typeof i18next !== 'undefined' && i18next.t) {
+                return i18next.t('vfx_alias_combined')
+              }
+              return 'VFX Alias: Combined Space/Ground'
+            }
           },
           {
             // Correct spelling – effects list form
@@ -221,7 +226,17 @@ export class STOCommandParser {
             weight: 49,
             signature: 'VFXExclusionAlias(aliasName: string)',
             extractParams: (match) => ({ aliasName: match[1] }),
-            generateDisplayText: (params) => `VFX Alias: ${params.aliasName}`
+            generateDisplayText: (params) => {
+              if (typeof i18next !== 'undefined' && i18next.t) {
+                const aliasName = params.aliasName.toLowerCase()
+                if (aliasName === 'space') {
+                  return i18next.t('vfx_alias_space')
+                } else if (aliasName === 'ground') {
+                  return i18next.t('vfx_alias_ground')
+                }
+              }
+              return `VFX Alias: ${params.aliasName}`
+            }
           }
         ],
         category: 'vfx',

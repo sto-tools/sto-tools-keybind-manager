@@ -127,7 +127,7 @@ export default class VFXManagerUI extends ComponentBase {
       if (spaceAlias) {
         spacePreviewEl.textContent = spaceAlias
       } else {
-        spacePreviewEl.textContent = 'No space effects selected'
+        spacePreviewEl.textContent = this.i18n?.t?.('no_space_effects_selected') || 'No space effects selected'
       }
     }
 
@@ -138,7 +138,7 @@ export default class VFXManagerUI extends ComponentBase {
       if (groundAlias) {
         groundPreviewEl.textContent = groundAlias
       } else {
-        groundPreviewEl.textContent = 'No ground effects selected'
+        groundPreviewEl.textContent = this.i18n?.t?.('no_ground_effects_selected') || 'No ground effects selected'
       }
     }
   }

@@ -26,6 +26,9 @@ export default class ComponentBase {
     this.initialized = true
     this.destroyed = false
     
+    // Initialize cache early to ensure it's available for event listeners
+    this.initializeCache()
+    
     // ---------------------------------------------------------
     // Late-Join State Registration handshake setup
     // ---------------------------------------------------------
@@ -67,8 +70,19 @@ export default class ComponentBase {
         aliases: {},
         builds: {},
         preferences: {},
+        activeBindset: 'Primary Bindset',
+        bindsetNames: ['Primary Bindset'],
         ...additionalCacheData
       }
+    }
+  }
+
+  // Extend cache with additional properties after initialization
+  extendCache(additionalCacheData = {}) {
+    if (this.cache) {
+      Object.assign(this.cache, additionalCacheData)
+    } else {
+      this.initializeCache(additionalCacheData)
     }
   }
 
@@ -157,6 +171,18 @@ export default class ComponentBase {
       if (data.settings) {
         Object.assign(this.cache.preferences, data.settings)
         console.log(`[${this.componentName}] Updated preferences cache from preferences:loaded`)
+      }
+    })
+
+    // Cache bindset state changes
+    this.addEventListener('bindset-selector:active-changed', (data) => {
+      this.cache.activeBindset = data.bindset
+    })
+
+    // Cache bindset list changes
+    this.addEventListener('bindsets:changed', (data) => {
+      if (data.names && Array.isArray(data.names)) {
+        this.cache.bindsetNames = data.names
       }
     })
 
@@ -431,6 +457,30 @@ export default class ComponentBase {
         selectedAlias: this.cache.selectedAlias,
         currentEnvironment: this.cache.currentEnvironment
       })
+    }
+
+    // Handle PreferencesService state
+    if (sender === 'PreferencesService' && state) {
+      // Cache preferences settings
+      if (state.settings && typeof state.settings === 'object') {
+        Object.assign(this.cache.preferences, state.settings)
+        console.log(`[ComponentBase] ${this.getComponentName()} cached PreferencesService state:`, {
+          bindToAliasMode: this.cache.preferences.bindToAliasMode,
+          bindsetsEnabled: this.cache.preferences.bindsetsEnabled,
+          settingsCount: Object.keys(state.settings).length
+        })
+      }
+    }
+
+    // Handle BindsetService state
+    if (sender === 'BindsetService' && state) {
+      // Cache bindset names
+      if (state.bindsets && Array.isArray(state.bindsets)) {
+        this.cache.bindsetNames = state.bindsets
+        console.log(`[ComponentBase] ${this.getComponentName()} cached BindsetService state:`, {
+          bindsetNames: this.cache.bindsetNames
+        })
+      }
     }
   }
 

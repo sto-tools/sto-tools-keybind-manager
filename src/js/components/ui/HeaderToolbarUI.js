@@ -10,7 +10,6 @@ export default class HeaderToolbarUI extends ComponentBase {
     this.componentName = 'HeaderToolbarUI'
     this.document = document
 
-    this.initializeCache()
   }
 
   init() {
@@ -67,17 +66,14 @@ export default class HeaderToolbarUI extends ComponentBase {
 
   /**
    * Handle late-join state from other components
-   * This ensures we get initial preferences during app startup
+   * ComponentBase now handles PreferencesService automatically
    */
   handleInitialState(sender, state) {
-    if (sender === 'PreferencesService' && state) {
-      console.log('[HeaderToolbarUI] Received initial preferences from PreferencesService:', state)
-      if (state.settings) {
-        Object.assign(this.cache.preferences, state.settings)
-        console.log('[HeaderToolbarUI] Updated preferences cache from late-join state')
-        // Update button visibility with the new preferences
-        this.updateBindsetButtonVisibility()
-      }
+    // ComponentBase automatically handles PreferencesService late-join
+    if (sender === 'PreferencesService' && this.cache.preferences) {
+      console.log('[HeaderToolbarUI] Received preferences via ComponentBase, updating UI')
+      // Update button visibility with the new preferences
+      this.updateBindsetButtonVisibility()
     }
   }
 

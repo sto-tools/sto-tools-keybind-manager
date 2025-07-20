@@ -32,14 +32,16 @@ export default class KeyService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  // State setters - Updated to use cached state
+  // State setters - ComponentBase handles these automatically
   setCurrentEnvironment (environment) {
-    this.cache.currentEnvironment = environment
-    this.cache.keys = this.cache.builds[environment]?.keys || {}
+    // ComponentBase handles this.cache.currentEnvironment via environment:changed events
+    // ComponentBase handles this.cache.keys via profile:updated events
+    console.log(`[KeyService] setCurrentEnvironment called with ${environment} - ComponentBase handles caching`)
   }
 
   setCurrentProfile (profileId) {
-    this.cache.currentProfile = profileId
+    // ComponentBase handles this.cache.currentProfile via profile:switched events
+    console.log(`[KeyService] setCurrentProfile called with ${profileId} - ComponentBase handles caching`)
   }
 
   /** Convenience getter */
@@ -51,25 +53,23 @@ export default class KeyService extends ComponentBase {
   setupEventListeners () {
     if (!this.eventBus) return
 
-    // Cache profile state from DataCoordinator broadcasts
+    // ComponentBase automatically handles profile, environment, and key caching
+    // We only need to listen for these events to update our specific business logic
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
+        // ComponentBase handles the cache updates, we just need to update our specific logic
         this.updateCacheFromProfile(profile)
       }
     })
 
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.cache.currentProfile = profileId
-      this.cache.currentEnvironment = environment || 'space'
-      
+    this.addEventListener('profile:switched', ({ profile }) => {
+      // ComponentBase handles currentProfile, currentEnvironment, and profile caching
       this.updateCacheFromProfile(profile)
     })
 
-    this.addEventListener('environment:changed', ({ environment }) => {
-      if (environment) {
-        this.cache.currentEnvironment = environment
-        this.cache.keys = this.cache.builds[environment]?.keys || {}
-      }
+    this.addEventListener('environment:changed', () => {
+      // ComponentBase handles currentEnvironment and keys caching
+      // No additional logic needed here
     })
 
     this.addEventListener('key:delete', ({ key } = {}) => this.deleteKey(key))
@@ -78,14 +78,10 @@ export default class KeyService extends ComponentBase {
   // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
-    
-    this.cache.builds = profile.builds || {
-      space: { keys: {} },
-      ground: { keys: {} }
-    }
-    
-    this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
-    this.cache.aliases = profile.aliases || {}
+
+    // ComponentBase handles builds, keys, and aliases caching automatically
+    // This method can be used for service-specific logic if needed
+    console.log(`[KeyService] Profile updated - ComponentBase handles caching automatically`)
   }
 
   // Profile access now uses cached state

@@ -28,9 +28,6 @@ export default class KeyCaptureUI extends ComponentBase {
     this.document     = document
     this.ui           = ui || (typeof window !== 'undefined' ? window.stoUI : null)
 
-    // Local cache for DataCoordinator broadcasted events
-    this.initializeCache()
-    
     this.currentKeyboard = null
     this.highlightedKeys = new Set()
     this.isDuplicationMode = false

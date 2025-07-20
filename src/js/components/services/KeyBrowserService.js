@@ -11,9 +11,6 @@ export default class KeyBrowserService extends ComponentBase {
     super(eventBus)
     this.componentName = 'KeyBrowserService'
 
-    this.initializeCache({
-      currentProfileId: null,
-    })
 
     // Register Request/Response endpoints for external callers
     if (this.eventBus) {
@@ -55,6 +52,8 @@ export default class KeyBrowserService extends ComponentBase {
   }
 
   setupEventListeners () {
+    // ComponentBase automatically handles profile and environment caching
+    // We only need to listen for these events to update our specific business logic
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
@@ -62,15 +61,8 @@ export default class KeyBrowserService extends ComponentBase {
       }
     })
 
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.cache.currentProfileId   = profileId
-      this.cache.currentProfile = profileId
-      
-      if (environment) {
-        this.cache.currentEnvironment = environment
-        this.cache.currentEnvironment = environment
-      }
-      
+    this.addEventListener('profile:switched', ({ profile }) => {
+      // ComponentBase handles currentProfile and currentEnvironment caching
       this.updateCacheFromProfile(profile)
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
@@ -79,9 +71,7 @@ export default class KeyBrowserService extends ComponentBase {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
 
-      this.cache.currentEnvironment = env
-      this.cache.currentEnvironment = env
-      this.cache.keys = this.cache.builds[env]?.keys || {}
+      // ComponentBase handles currentEnvironment and keys caching
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
@@ -94,17 +84,10 @@ export default class KeyBrowserService extends ComponentBase {
   // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
-    
-    this.cache.profile = profile
-    
-    // Ensure builds structure exists
-    this.cache.builds = profile.builds || {
-      space: { keys: {} },
-      ground: { keys: {} }
-    }
-    
-    // Update keys for current environment
-    this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
+
+    // ComponentBase handles profile, builds, and keys caching automatically
+    // This method can be used for service-specific logic if needed
+    console.log(`[KeyBrowserService] Profile updated - ComponentBase handles caching automatically`)
   }
 
   // Selection caching and auto-selection

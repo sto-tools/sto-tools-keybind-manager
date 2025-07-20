@@ -25,12 +25,9 @@ export default class ParameterCommandUI extends ComponentBase {
     this.ui = ui
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
     
-    this._activeBindset = 'Primary Bindset' // Default to primary bindset
+    // ComponentBase handles activeBindset caching automatically
     
     this.currentParameterCommand = null
-    
-    // Initialize cache for ComponentBase state management
-    this.initializeCache()
   }
 
   onInit() {
@@ -38,10 +35,8 @@ export default class ParameterCommandUI extends ComponentBase {
   }
 
   setupEventListeners() {
-    // Listen for bindset changes
-    this.addEventListener('bindset-selector:active-changed', (data) => {
-      this._activeBindset = data.bindset || 'Primary Bindset'
-    })
+    // ComponentBase handles bindset caching automatically via bindset-selector:active-changed
+    // No need to manually update _activeBindset - use this.cache.activeBindset instead
 
     // Handle parameter command editing requests
     this.addEventListener('parameter-command:edit', ({ index, command, commandDef, categoryId, commandId }) => {
@@ -301,7 +296,7 @@ export default class ParameterCommandUI extends ComponentBase {
       // Check if we're editing an existing command or adding a new one
       if (this.currentParameterCommand.isEditing && this.currentParameterCommand.editIndex !== undefined) {
         // Editing existing command - emit update event
-        const bindset = this.cache.currentEnvironment === 'alias' ? null : this._activeBindset
+        const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
         console.log('[ParameterCommandUI] emitting command:edit [parameterized]', { 
           key: selectedKey, 
           index: this.currentParameterCommand.editIndex, 
@@ -317,7 +312,7 @@ export default class ParameterCommandUI extends ComponentBase {
       } else {
         // Adding new command - handle arrays as single batch to avoid race conditions
         // Include active bindset when not in alias mode
-        const bindset = this.cache.currentEnvironment === 'alias' ? null : this._activeBindset
+        const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
         if (Array.isArray(cmd)) {
           console.log('[ParameterCommandUI] emitting command:add [bulk parameterized]', { commands: cmd, key: selectedKey })
           this.emit('command:add', { command: cmd, key: selectedKey, bindset })
@@ -445,7 +440,7 @@ export default class ParameterCommandUI extends ComponentBase {
       inputGroup.className = 'form-group'
 
       const label = this.document.createElement('label')
-      label.textContent = this.formatParameterName(paramName)
+      label.textContent = this.i18n?.t?.(paramName) || this.formatParameterName(paramName)
       label.setAttribute('for', `param_${paramName}`)
 
       let inputEl

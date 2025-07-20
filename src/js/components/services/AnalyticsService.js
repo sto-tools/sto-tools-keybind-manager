@@ -11,9 +11,6 @@ export default class AnalyticsService extends ComponentBase {
     super(eventBus)
     this.componentName = 'AnalyticsService'
 
-    // Local cache for DataCoordinator integration
-    this.initializeCache()
-
     if (this.eventBus) {
       // Register request/response endpoints for analytics operations
       this.respond('analytics:get-profile-stats', ({ profileId } = {}) => this.getProfileStats(profileId))
@@ -49,8 +46,7 @@ export default class AnalyticsService extends ComponentBase {
     })
 
     this.addEventListener('profile:switched', ({ profileId, profile }) => {
-      this.cache.currentProfile = profileId
-      
+      // ComponentBase handles currentProfile and profile caching automatically
       this.updateCacheFromProfile(profile)
     })
   }
@@ -58,8 +54,10 @@ export default class AnalyticsService extends ComponentBase {
   // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
-    
-    this.cache.profile = profile
+
+    // ComponentBase handles profile caching automatically
+    // This method can be used for service-specific logic if needed
+    console.log(`[AnalyticsService] Profile updated - ComponentBase handles caching automatically`)
   }
 
   // Profile access now uses cached state or DataCoordinator

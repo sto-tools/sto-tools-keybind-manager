@@ -28,6 +28,7 @@ export default class PreferencesService extends ComponentBase {
       autoSyncInterval: 'change',
       bindToAliasMode: false,
       bindsetsEnabled: false,
+      translateGeneratedMessages: false,
     }
 
     // Runtime copy

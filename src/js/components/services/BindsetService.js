@@ -5,9 +5,6 @@ export default class BindsetService extends ComponentBase {
     super(eventBus)
     this.componentName = 'BindsetService'
 
-    // Local cache for DataCoordinator integration
-    this.initializeCache()
-
     if (this.eventBus) {
       this.respond('bindset:list',          () => this.listBindsets())
       this.respond('bindset:create', ({ name }) => this.createBindset(name))
@@ -16,8 +13,7 @@ export default class BindsetService extends ComponentBase {
       this.respond('bindset:get-key-commands', ({ bindset, environment, key }) => this.getKeyCommands(bindset, environment, key))
     }
 
-    // Cache bindset names for quick access in late-join state sharing
-    this._bindsetNames = ['Primary Bindset']
+    // ComponentBase handles bindset names caching via this.cache.bindsetNames
 
     // Set up listeners for DataCoordinator broadcasts to maintain cache
     this.setupEventListeners()
@@ -26,7 +22,7 @@ export default class BindsetService extends ComponentBase {
   // Late-join state sharing
   getCurrentState () {
     return {
-      bindsets: [...this._bindsetNames]
+      bindsets: [...this.cache.bindsetNames]
     }
   }
 
@@ -43,10 +39,10 @@ export default class BindsetService extends ComponentBase {
   // Handle initial state from DataCoordinator
   handleInitialState(sender, state) {
     console.log('[BindsetService] handleInitialState called:', sender, !!state)
-    
+
     if (sender === 'DataCoordinator' && state?.currentProfileData) {
       console.log('[BindsetService] Received initial profile data from DataCoordinator')
-      this.cache.currentProfile = state.currentProfileData.id
+      // ComponentBase handles currentProfile caching automatically
       this.updateCacheFromProfile(state.currentProfileData)
     }
   }
@@ -57,7 +53,8 @@ export default class BindsetService extends ComponentBase {
     if (this._listenersSetup) return
     this._listenersSetup = true
 
-    // When DataCoordinator updates current profile data
+    // ComponentBase automatically handles profile and environment caching
+    // We only need to listen for these events to update our specific business logic
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
@@ -65,9 +62,8 @@ export default class BindsetService extends ComponentBase {
     })
 
     // When profile switch happens
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.cache.currentProfile = profileId
-      this.cache.currentEnvironment = environment || this.cache.currentEnvironment
+    this.addEventListener('profile:switched', ({ profile }) => {
+      // ComponentBase handles currentProfile and currentEnvironment caching
       this.updateCacheFromProfile(profile)
     })
   }
@@ -78,9 +74,9 @@ export default class BindsetService extends ComponentBase {
     if (!profile.id && this.cache.currentProfile) {
       profile.id = this.cache.currentProfile
     }
-    this.cache.profile = profile
-    this._bindsetNames = ['Primary Bindset', ...Object.keys(profile.bindsets || {})]
-    this.emit('bindsets:changed', { names: [...this._bindsetNames] })
+    // ComponentBase handles profile caching automatically
+    this.cache.bindsetNames = ['Primary Bindset', ...Object.keys(profile.bindsets || {})]
+    this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
   }
 
   // Return cached profile when available; fallback to request on first call
@@ -90,7 +86,7 @@ export default class BindsetService extends ComponentBase {
     const state = await this.request('data:get-current-state').catch(()=>null)
     const prof = state?.currentProfileData || null
     if (prof) {
-      this.cache.currentProfile = prof.id || this.cache.currentProfile
+      // ComponentBase handles currentProfile caching automatically
       this.updateCacheFromProfile(prof)
     }
     return prof
@@ -100,8 +96,8 @@ export default class BindsetService extends ComponentBase {
   async listBindsets () {
     const profile = await this.getProfile()
     //const bindsets = profile?.bindsets || {}
-    //this._bindsetNames = ['Primary Bindset', ...Object.keys(bindsets)]
-    return [...this._bindsetNames]
+    //this.cache.bindsetNames = ['Primary Bindset', ...Object.keys(bindsets)]
+    return [...this.cache.bindsetNames]
   }
 
   async createBindset (name) {
@@ -130,7 +126,7 @@ export default class BindsetService extends ComponentBase {
     if (res?.success) {
       // Update cached names and broadcast
       await this.listBindsets()
-      this.emit('bindsets:changed', { names: [...this._bindsetNames] })
+      this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
     }
     return res
   }
@@ -160,7 +156,7 @@ export default class BindsetService extends ComponentBase {
     if (res?.success) {
       // Update cached names and broadcast
       await this.listBindsets()
-      this.emit('bindsets:changed', { names: [...this._bindsetNames] })
+      this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
     }
     return res
   }
@@ -186,7 +182,7 @@ export default class BindsetService extends ComponentBase {
     if (res?.success) {
       // Update cached names and broadcast
       await this.listBindsets()
-      this.emit('bindsets:changed', { names: [...this._bindsetNames] })
+      this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
     }
     return res
   }

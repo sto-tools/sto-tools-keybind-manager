@@ -19,9 +19,6 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
     this.document = document
-    
-    // Initialize cache for ComponentBase state management
-    this.initializeCache()
   }
 
   // Lifecycle

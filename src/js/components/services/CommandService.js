@@ -14,12 +14,6 @@ export default class CommandService extends ComponentBase {
     this.componentName = 'CommandService'
     this.i18n = i18n
 
-    // Initialize cache for DataCoordinator integration
-    this.initializeCache()
-
-    // Track active bindset (default to primary)
-    this.activeBindset = 'Primary Bindset'
-
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
 
@@ -547,16 +541,17 @@ export default class CommandService extends ComponentBase {
     // Listen for active bindset changes from BindsetSelectorService
     this.addEventListener('bindset-selector:active-changed', ({ bindset }) => {
       console.log('[CommandService] bindset-selector:active-changed received:', bindset)
-      this.activeBindset = bindset || 'Primary Bindset'
+      // ComponentBase handles this.cache.activeBindset automatically
     })
 
     // Listen for key selection changes - reset to Primary Bindset when new key selected
     this.addEventListener('key-selected', ({ key, name }) => {
       const selectedKey = key || name
       console.log('[CommandService] key-selected received:', selectedKey)
-      if (selectedKey && this.activeBindset !== 'Primary Bindset') {
+      if (selectedKey && this.cache.activeBindset !== 'Primary Bindset') {
         console.log('[CommandService] Resetting active bindset to Primary Bindset for new key selection')
-        this.activeBindset = 'Primary Bindset'
+        // Emit event to update bindset - ComponentBase will handle the cache update
+        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
       }
     })
   }
@@ -564,24 +559,10 @@ export default class CommandService extends ComponentBase {
   // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
-    
-    this.cache.profile = profile
-    
-    // Update builds structure
-    this.cache.builds = profile.builds || {
-      space: { keys: {} },
-      ground: { keys: {} }
-    }
-    
-    // Update aliases
-    this.cache.aliases = profile.aliases || {}
-    
-    // Update keys for current environment – prefer flattened profile.keys if present
-    if (profile.keys) {
-      this.cache.keys = profile.keys
-    } else {
-      this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
-    }
+
+    // ComponentBase handles profile, builds, aliases, and keys caching automatically
+    // This method can be used for service-specific logic if needed
+    console.log(`[CommandService] Profile updated - ComponentBase handles caching automatically`)
   }
 
   // Return all commands associated with a key for the current environment.
@@ -684,7 +665,18 @@ export default class CommandService extends ComponentBase {
     }
 
     const commands = await this.getCommandsForSelectedKey()
-    const chainType = this.cache.currentEnvironment === 'alias' ? 'Alias Chain' : 'Command Chain'
+    
+    // Helper function to decode HTML entities using DOM
+    const decodeHtmlEntities = (str) => {
+      if (typeof str !== 'string') return str
+      const textarea = document.createElement('textarea')
+      textarea.innerHTML = str
+      return textarea.value
+    }
+    
+    const chainType = this.cache.currentEnvironment === 'alias' ? 
+      decodeHtmlEntities(this.i18n?.t?.('alias_chain') || 'Alias Chain') : 
+      decodeHtmlEntities(this.i18n?.t?.('command_chain') || 'Command Chain')
 
     if (commands.length === 0) {
       const emptyMessage = this.cache.currentEnvironment === 'alias' ? 
@@ -692,7 +684,7 @@ export default class CommandService extends ComponentBase {
         `${this.i18n?.t?.('click_add_command_to_start_building_your_command_chain') || 'Click "Add Command" to start building your command chain for'} ${selectedKey}.`
       
       return {
-        title: `${chainType} for ${selectedKey}`,
+        title: decodeHtmlEntities(this.i18n?.t?.('chain_for_key', { chainType, key: selectedKey }) || `${chainType} for ${selectedKey}`),
         preview: await this.getCommandChainPreview(),
         icon: 'fas fa-plus-circle',
         emptyTitle: this.i18n?.t?.('no_commands') || 'No Commands',
@@ -702,7 +694,7 @@ export default class CommandService extends ComponentBase {
     }
 
     return {
-      title: `${chainType} for ${selectedKey}`,
+      title: decodeHtmlEntities(this.i18n?.t?.('chain_for_key', { chainType, key: selectedKey }) || `${chainType} for ${selectedKey}`),
       preview: await this.getCommandChainPreview(),
       commandCount: commands.length.toString()
     }
@@ -753,10 +745,10 @@ export default class CommandService extends ComponentBase {
     }
 
     // Keybinds path – check if we're using a non-primary bindset
-    if (this.activeBindset && this.activeBindset !== 'Primary Bindset') {
+    if (this.cache.activeBindset && this.cache.activeBindset !== 'Primary Bindset') {
       // Get commands from the active bindset
-      const bindsetCommands = profile.bindsets?.[this.activeBindset]?.[environment]?.keys?.[selectedKey]
-      console.log('[CommandService] Using active bindset:', this.activeBindset, 'commands:', bindsetCommands)
+      const bindsetCommands = profile.bindsets?.[this.cache.activeBindset]?.[environment]?.keys?.[selectedKey]
+      console.log('[CommandService] Using active bindset:', this.cache.activeBindset, 'commands:', bindsetCommands)
       return Array.isArray(bindsetCommands) ? [...bindsetCommands] : []
     }
     

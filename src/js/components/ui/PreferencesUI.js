@@ -15,6 +15,7 @@ export default class PreferencesUI extends ComponentBase {
     this.settingDefinitions = {
       theme: { type: 'select', element: 'themeSelect' },
       language: { type: 'select', element: 'languageSelect' },
+      translateGeneratedMessages: { type: 'boolean', element: 'translateGeneratedMessagesCheckbox' },
       autoSave: { type: 'boolean', element: 'autoSaveCheckbox' },
       compactView: { type: 'boolean', element: 'compactViewCheckbox' },
       autoSync: { type: 'boolean', element: 'autoSync' },

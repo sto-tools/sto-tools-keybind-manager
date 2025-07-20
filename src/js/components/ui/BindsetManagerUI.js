@@ -13,16 +13,13 @@ export default class BindsetManagerUI extends ComponentBase {
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.inputDialog = inputDialog || (typeof window !== 'undefined' ? window.inputDialog : null)
     this.selectedBindset = null
-    this._bindsetNames = ['Primary Bindset']
   }
 
   async onInit() {
     this.setupEventListeners()
     this.render()
-    this.eventBus.on('bindsets:changed', ({ names } = {}) => {
-      if (Array.isArray(names)) {
-        this._bindsetNames = names
-      }
+    this.eventBus.on('bindsets:changed', () => {
+      // ComponentBase automatically updates this.cache.bindsetNames
       this.render()
     })
   }
@@ -49,7 +46,7 @@ export default class BindsetManagerUI extends ComponentBase {
         validate: (value) => {
           const trimmed = value.trim()
           if (!trimmed) return i18next.t('name_required') || 'Name is required'
-          if (this._bindsetNames.includes(trimmed)) return i18next.t('name_exists') || 'Name already exists'
+          if (this.cache.bindsetNames.includes(trimmed)) return i18next.t('name_exists') || 'Name already exists'
           return true
         }
       })
@@ -73,7 +70,7 @@ export default class BindsetManagerUI extends ComponentBase {
           const trimmed = value.trim()
           if (!trimmed) return i18next.t('name_required') || 'Name is required'
           if (trimmed === this.selectedBindset) return i18next.t('name_unchanged') || 'Name is unchanged'
-          if (this._bindsetNames.includes(trimmed)) return i18next.t('name_exists') || 'Name already exists'
+          if (this.cache.bindsetNames.includes(trimmed)) return i18next.t('name_exists') || 'Name already exists'
           return true
         }
       })
@@ -115,7 +112,7 @@ export default class BindsetManagerUI extends ComponentBase {
   async render() {
     const listUl = this.document.getElementById('bindsetList')
     if (!listUl) return
-    const names = this._bindsetNames || []
+    const names = this.cache.bindsetNames || []
     listUl.innerHTML = ''
     names.forEach(name => {
       const li = this.document.createElement('li')
@@ -137,7 +134,7 @@ export default class BindsetManagerUI extends ComponentBase {
   // Late-join support
   handleInitialState(sender, state) {
     if (state && state.bindsets) {
-      this._bindsetNames = Array.isArray(state.bindsets) ? state.bindsets : [...state.bindsets]
+      // ComponentBase automatically handles bindset names via bindsets:changed event
       // Re-render if UI already initialized
       if (this.isInitialized()) this.render()
     }

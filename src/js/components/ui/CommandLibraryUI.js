@@ -15,9 +15,6 @@ export default class CommandLibraryUI extends ComponentBase {
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
     this.eventListenersSetup = false
 
-    // Local cache for DataCoordinator profile state
-    this.initializeCache()
-
     this._rebuilding = false
     this._rebuildQueued = false
   }
@@ -66,7 +63,7 @@ export default class CommandLibraryUI extends ComponentBase {
     // Listen for alias changes to update command library with new aliases
     this.addEventListener('aliases-changed', ({ aliases }) => {
       if (aliases) {
-        this.cache.aliases = aliases
+        // ComponentBase handles this.cache.aliases automatically via profile:updated
         this.updateCommandLibrary()
       }
     })
@@ -308,7 +305,8 @@ export default class CommandLibraryUI extends ComponentBase {
           command: aliasName,
           type: alias.type,
           icon: isVfxAlias ? '👁️' : '🎭',
-          text: `${aliasName}`,
+          // Don't set hardcoded text for VFX aliases - let them get display text from parser
+          ...(isVfxAlias ? {} : { text: `${aliasName}` }),
           description: alias.description,
           isUserAlias: true,  // Flag to identify this as a user-defined alias
           isVfxAlias: isVfxAlias,
@@ -354,7 +352,9 @@ export default class CommandLibraryUI extends ComponentBase {
     const aliasContainer = this.document.getElementById('aliasCategoriesList') || this.document.getElementById('commandCategories')
     if (!aliasContainer) return
 
-    const allAliasesRaw = Object.entries(this.cache.aliases)
+    // Get combined aliases (includes VFX virtual aliases) from CommandLibraryService
+    const combinedAliases = await this.request('command:get-combined-aliases') || {}
+    const allAliasesRaw = Object.entries(combinedAliases)
 
     // Resolve display names for VFX aliases async
     const allAliases = await Promise.all(allAliasesRaw.map(async ([name, alias]) => {
@@ -371,11 +371,11 @@ export default class CommandLibraryUI extends ComponentBase {
     // Only include when preferences allow (bindsetsEnabled && bindToAliasMode)
     let bindsetAliasItems = []
     try {
-      const bindsetsEnabled = await this.request('preferences:get-setting', { key: 'bindsetsEnabled' })
-      const aliasMode       = await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
+      // Use cached preferences from ComponentBase instead of making requests
+      const bindsetsEnabled = this.cache.preferences.bindsetsEnabled
+      const aliasMode = this.cache.preferences.bindToAliasMode
 
-      const toBool = (v)=> v===true||v==='true'||v===1||v==='1'
-      if (toBool(bindsetsEnabled) && toBool(aliasMode)) {
+      if (bindsetsEnabled && aliasMode) {
         const profile = this.cache.profile || {}
         const bindsets = profile.bindsets || {}
         const envs = ['space','ground']
@@ -391,8 +391,12 @@ export default class CommandLibraryUI extends ComponentBase {
           allBs.forEach(bsName => {
             const loaderAlias = `sto_kb_bindset_enable_${env}_${sanitizeName(bsName)}`
             // Format: "Bindset: Space - Enable Primary Bindset" or "Bindset: Ground - Enable <User specified name>"
-            const envCapitalized = env.charAt(0).toUpperCase() + env.slice(1)
-            const displayName = `Bindset: ${envCapitalized} - Enable ${bsName}`
+            const envTranslated = typeof i18next !== 'undefined' ? i18next.t(env) : env.charAt(0).toUpperCase() + env.slice(1)
+            const bindsetNameTranslated = bsName === 'Primary Bindset' && typeof i18next !== 'undefined' 
+              ? i18next.t('primary_bindset') 
+              : bsName
+            const enableText = typeof i18next !== 'undefined' ? i18next.t('bindset_enable') : 'Enable'
+            const displayName = `${typeof i18next !== 'undefined' ? i18next.t('bindsets') : 'Bindset'}: ${envTranslated} - ${enableText} ${bindsetNameTranslated}`
             bindsetAliasItems.push([
               loaderAlias,
               {

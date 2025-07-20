@@ -342,7 +342,7 @@ export default class STOToolsKeybindManager {
         document
       })
 
-      this.vfxManagerService = new VFXManagerService(eventBus)
+      this.vfxManagerService = new VFXManagerService(eventBus, i18next)
       this.vfxManagerUI = new VFXManagerUI({eventBus, modalManager})
       this.vfxManagerService.init()
       this.vfxManagerUI.init()

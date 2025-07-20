@@ -15,10 +15,6 @@ export default class AliasService extends ComponentBase {
     this.i18n = i18n
     this.ui = ui
 
-    // Local cache for DataCoordinator integration
-    this.initializeCache()
-
- 
     if (this.eventBus) {
       // Register request/response endpoints for alias operations
       this.respond('alias:add', ({ name, description } = {}) => this.addAlias(name, description))

@@ -13,14 +13,6 @@ export default class CommandLibraryService extends ComponentBase {
     this.ui             = ui
     this.modalManager   = modalManager
 
-    // Initialize cache for DataCoordinator data
-    this.initializeCache({
-      currentProfile: null,
-      currentEnvironment: 'space',
-      profile: null,
-      keys: {},
-      aliases: {}
-    })
 
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
@@ -32,6 +24,7 @@ export default class CommandLibraryService extends ComponentBase {
         this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),
         this.respond('command:get-categories',    () => this.getCommandCategories()),
         this.respond('command:generate-id',       () => this.generateCommandId()),
+        this.respond('command:get-combined-aliases', async () => await this.getCombinedAliases()),
         this.respond('command:filter-library', () => {
           this.filterCommandLibrary()
           return true
@@ -57,8 +50,7 @@ export default class CommandLibraryService extends ComponentBase {
         console.log(`[CommandLibraryService] environment:changed event received. data:`, data, `parsed env: ${env}`)
       }
       if (env) {
-        this.cache.currentEnvironment = env
-        this.cache.currentEnvironment = env
+        // ComponentBase handles this.cache.currentEnvironment automatically
         
         // REMOVED: Selection clearing now handled by SelectionService
         
@@ -74,11 +66,22 @@ export default class CommandLibraryService extends ComponentBase {
     })
 
     // Listen for language changes and update i18n instance
-    this.addEventListener('language:changed', () => {
+    this.addEventListener('language:changed', async () => {
       // Update the i18n instance to use the latest language
       if (typeof window !== 'undefined' && window.i18next) {
         this.i18n = window.i18next
       }
+      
+      // Clear parser cache to refresh translated display text
+      try {
+        await this.request('parser:clear-cache')
+      } catch (error) {
+        console.warn('[CommandLibraryService] Could not clear parser cache:', error)
+      }
+      
+      // Clear cached display names for VFX aliases and regenerate
+      await this.updateCombinedAliases()
+      this.emit('aliases-changed', { aliases: this.cache.combinedAliases })
     })
 
     // Listen for VFX settings changes to update virtual aliases
@@ -92,16 +95,16 @@ export default class CommandLibraryService extends ComponentBase {
   // Update cache from profile data (DataCoordinator integration)
   updateCacheFromProfile(profile) {
     if (!profile) return
-    
+
     // Auto-migrate any legacy rich command objects to plain strings
     this.normalizeKeyArrays(profile)
-    
+
     this.cache.profile = profile
     this.cache.aliases = profile.aliases || {}
     // Preserve metadata for mirroring decisions
     this.cache.profile.keybindMetadata = profile.keybindMetadata || {}
     this.cache.profile.aliasMetadata   = profile.aliasMetadata   || {}
-    
+
     // Update keys for current environment
     if (profile.keys) {
       this.cache.keys = profile.keys
@@ -109,7 +112,7 @@ export default class CommandLibraryService extends ComponentBase {
       const currentBuild = profile.builds?.[this.cache.currentEnvironment]
       this.cache.keys = currentBuild?.keys || {}
     }
-    
+
     // Update combined aliases (real + virtual VFX)
     this.updateCombinedAliases().then(() => {
       // Emit event to notify UI components that aliases have changed (including virtual VFX aliases)

@@ -5,21 +5,8 @@ export default class BindsetSelectorService extends ComponentBase {
     super(eventBus)
     this.componentName = 'BindsetSelectorService'
     
-    // Initialize cache
-    this.initializeCache()
-    
-    // Internal state
-    this.activeBindset = 'Primary Bindset'
-    this.bindsetNames = ['Primary Bindset']
     this.keyBindsetMembership = new Map() // bindset -> has key boolean
     
-    // Cache for preferences
-    this.preferences = {
-      bindsetsEnabled: false,
-      bindToAliasMode: false
-    }
-
-
     if (this.eventBus) {
       this.respond('bindset-selector:set-key', ({ key }) => this.setSelectedKey(key))
       this.respond('bindset-selector:get-state', () => this.getCurrentState())
@@ -54,66 +41,43 @@ export default class BindsetSelectorService extends ComponentBase {
     // Listen for bindset changes from BindsetService
     this.addEventListener('bindsets:changed', ({ names }) => {
       console.log('[BindsetSelectorService] bindsets:changed received:', names)
-      this.bindsetNames = names || ['Primary Bindset']
+      // ComponentBase automatically updates this.cache.bindsetNames
       this.updateKeyMembership()
     })
 
-    // Listen for preferences changes
+    // Listen for preferences changes - ComponentBase handles caching automatically
     this.addEventListener('preferences:changed', (data) => {
-      // Handle both single-setting changes and bulk changes
+      // Check if bindset-related preferences changed
       const changes = data.changes || { [data.key]: data.value }
-      let needsUpdate = false
       
-      for (const [key, value] of Object.entries(changes)) {
-        if (key === 'bindsetsEnabled' || key === 'bindToAliasMode') {
-          this.preferences[key] = value
-          needsUpdate = true
-          console.log('[BindsetSelectorService] preference changed:', key, '=', value)
-        }
-      }
-      
-      if (needsUpdate) {
+      if (changes.bindsetsEnabled !== undefined || changes.bindToAliasMode !== undefined) {
+        console.log('[BindsetSelectorService] bindset preferences changed, updating visibility')
         const shouldDisplay = this.shouldDisplay()
-        console.log('[BindsetSelectorService] shouldDisplay:', shouldDisplay)
         this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
       }
     })
 
-    this.addEventListener('preferences:loaded', ({ settings }) => {
-      this.updatePreferences(settings)
-    })
-
-    // Listen for profile switches
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      console.log('[BindsetSelectorService] profile:switched received:', profileId, !!profile)
-      this.cache.currentProfile = profileId
-      this.cache.profile = profile
-      if (environment) {
-        this.cache.currentEnvironment = environment
-      }
+    // ComponentBase handles profile, environment, and key selection caching automatically
+    // We only need to listen for these events to update our specific business logic
+    
+    this.addEventListener('profile:switched', () => {
+      console.log('[BindsetSelectorService] profile:switched - updating key membership')
       this.updateKeyMembership()
     })
 
-    // Listen for profile updates
-    this.addEventListener('profile:updated', ({ profileId, profile }) => {
-      console.log('[BindsetSelectorService] profile:updated received:', profileId, !!profile)
+    this.addEventListener('profile:updated', ({ profileId }) => {
+      console.log('[BindsetSelectorService] profile:updated - updating key membership')
       if (profileId === this.cache.currentProfile) {
-        this.cache.profile = profile
         this.updateKeyMembership()
       }
     })
 
-    // Listen for environment changes
-    this.addEventListener('environment:changed', (data) => {
-      const env = typeof data === 'string' ? data : data?.environment
-      if (env) {
-        this.cache.currentEnvironment = env
-        this.updateKeyMembership()
-        // Update visibility based on new environment
-        const shouldDisplay = this.shouldDisplay()
-        console.log('[BindsetSelectorService] environment changed to:', env, 'shouldDisplay:', shouldDisplay)
-        this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
-      }
+    this.addEventListener('environment:changed', () => {
+      console.log('[BindsetSelectorService] environment:changed - updating key membership and visibility')
+      this.updateKeyMembership()
+      // Update visibility based on new environment
+      const shouldDisplay = this.shouldDisplay()
+      this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
     })
 
     // Listen for key selection changes - update membership when user selects different key
@@ -121,13 +85,15 @@ export default class BindsetSelectorService extends ComponentBase {
       const selectedKey = key || name
       console.log('[BindsetSelectorService] key-selected received:', selectedKey)
       if (selectedKey !== this.cache.selectedKey) {
-        // ComponentBase will automatically update this.cache.selectedKey
-        // But we need to update the key membership for the new key
+        // ComponentBase automatically updates this.cache.selectedKey
+        // We just need to update the key membership for the new key
         this.updateKeyMembership()
         
         // Reset to Primary Bindset when new key selected
-        if (this.activeBindset !== 'Primary Bindset') {
+        if (this.cache.activeBindset !== 'Primary Bindset') {
           console.log('[BindsetSelectorService] Resetting active bindset to Primary Bindset for new key selection')
+          // ComponentBase will handle this.cache.activeBindset via the event
+          // But we need to update it immediately for our business logic
           this.setActiveBindset('Primary Bindset')
         }
       }
@@ -135,24 +101,24 @@ export default class BindsetSelectorService extends ComponentBase {
   }
 
   updatePreferences(prefs) {
-    console.log('[BindsetSelectorService] updatePreferences:', prefs)
-    this.preferences.bindsetsEnabled = prefs?.bindsetsEnabled || false
-    this.preferences.bindToAliasMode = prefs?.bindToAliasMode || false
+    console.log('[BindsetSelectorService] updatePreferences (deprecated - using ComponentBase cache):', prefs)
+    // ComponentBase now handles preferences caching automatically
     const shouldDisplay = this.shouldDisplay()
-    console.log('[BindsetSelectorService] shouldDisplay:', shouldDisplay, 'bindsetsEnabled:', this.preferences.bindsetsEnabled, 'bindToAliasMode:', this.preferences.bindToAliasMode)
+    console.log('[BindsetSelectorService] shouldDisplay:', shouldDisplay, 'bindsetsEnabled:', this.cache.preferences.bindsetsEnabled, 'bindToAliasMode:', this.cache.preferences.bindToAliasMode)
     this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
   }
 
-  // State Management
+  // State Management - ComponentBase handles selectedKey caching
   setSelectedKey(key) {
-    this.cache.selectedKey = key
+    // ComponentBase will handle this.cache.selectedKey automatically via events
+    // We just need to update the key membership
     this.updateKeyMembership()
   }
 
 
   setActiveBindset(bindsetName) {
-    console.log(`[BindsetSelectorService] setActiveBindset called: ${this.activeBindset} -> ${bindsetName}`)
-    this.activeBindset = bindsetName
+    console.log(`[BindsetSelectorService] setActiveBindset called: ${this.cache.activeBindset} -> ${bindsetName}`)
+    // ComponentBase handles this.cache.activeBindset automatically via the event
     console.log(`[BindsetSelectorService] About to emit bindset-selector:active-changed with bindset:`, bindsetName)
     this.emit('bindset-selector:active-changed', { bindset: bindsetName }, { synchronous: true })
     console.log(`[BindsetSelectorService] Successfully emitted bindset-selector:active-changed with bindset:`, bindsetName)
@@ -164,7 +130,7 @@ export default class BindsetSelectorService extends ComponentBase {
 
     this.keyBindsetMembership.clear()
     
-    for (const bindsetName of this.bindsetNames) {
+    for (const bindsetName of this.cache.bindsetNames) {
       const hasKey = await this.keyExistsInBindset(bindsetName)
       this.keyBindsetMembership.set(bindsetName, hasKey)
       console.log(`[BindsetSelectorService] updateKeyMembership: ${bindsetName} -> ${hasKey} (key: ${this.cache.selectedKey})`)
@@ -321,7 +287,7 @@ export default class BindsetSelectorService extends ComponentBase {
 
   // Display Logic
   shouldDisplay() {
-    return this.preferences.bindsetsEnabled && this.preferences.bindToAliasMode && this.cache.currentEnvironment !== 'alias'
+    return this.cache.preferences.bindsetsEnabled && this.cache.preferences.bindToAliasMode && this.cache.currentEnvironment !== 'alias'
   }
 
   // External Actions
@@ -333,11 +299,11 @@ export default class BindsetSelectorService extends ComponentBase {
   getCurrentState() {
     return {
       selectedKey: this.cache.selectedKey,
-      activeBindset: this.activeBindset,
-      bindsetNames: [...this.bindsetNames],
+      activeBindset: this.cache.activeBindset,
+      bindsetNames: [...this.cache.bindsetNames],
       keyBindsetMembership: new Map(this.keyBindsetMembership),
       shouldDisplay: this.shouldDisplay(),
-      preferences: { ...this.preferences }
+      preferences: { ...this.cache.preferences }
     }
   }
 
@@ -347,23 +313,24 @@ export default class BindsetSelectorService extends ComponentBase {
     
     if (sender === 'BindsetService' && state) {
       if (state.bindsets) {
-        this.bindsetNames = state.bindsets
-        console.log('[BindsetSelectorService] Updated bindsetNames from BindsetService:', this.bindsetNames)
+        this.cache.bindsetNames = state.bindsets
+        console.log('[BindsetSelectorService] Updated bindsetNames from BindsetService:', this.cache.bindsetNames)
         // Update key membership after getting bindset names
         this.updateKeyMembership()
       }
     }
     
-    if (sender === 'PreferencesService' && state) {
-      this.updatePreferences(state.settings || state)
+    if (sender === 'PreferencesService' && this.cache.preferences) {
+      console.log('[BindsetSelectorService] Preferences received via ComponentBase')
+      // Update display state based on new preferences
+      const shouldDisplay = this.shouldDisplay()
+      this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
     }
 
-    // ComponentBase already handles DataCoordinator and SelectionService state automatically
-    // but we need to update key membership when we get that state
+    // ComponentBase automatically handles DataCoordinator and SelectionService state
+    // We just need to update our business logic when that state arrives
     if (sender === 'SelectionService' || sender === 'DataCoordinator') {
       console.log('[BindsetSelectorService] Received state from', sender, '- updating key membership')
-      // ComponentBase has already cached the data (selectedKey, profile, etc.)
-      // Now we just need to update the key membership
       this.updateKeyMembership()
     }
   }

@@ -15,9 +15,6 @@ export default class ParameterCommandService extends ComponentBase {
     super(bus)
     this.componentName = 'ParameterCommandService'
     
-    // Initialize cache
-    this.initializeCache()
-
     // Cache editing state from UI events (appropriate for parameter editing)
     this.editingContext = null
 

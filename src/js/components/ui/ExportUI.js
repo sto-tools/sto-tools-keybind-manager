@@ -5,9 +5,6 @@ export default class ExportUI extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
     if (!this.eventBus) this.eventBus = eventBus
-    
-    // Initialize cache with current profile state
-    this.initializeCache()
   }
 
   // Lifecycle

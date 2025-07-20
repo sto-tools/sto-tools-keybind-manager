@@ -10,9 +10,6 @@ export default class AliasBrowserService extends ComponentBase {
     this.componentName = 'AliasBrowserService'
     this.ui = ui
     
-    // Local cache for DataCoordinator integration
-    this.initializeCache()
-
     if (this.eventBus) {
       // Register request/response endpoints for alias operations
       this.respond('alias:get-all', () => this.getAliases())

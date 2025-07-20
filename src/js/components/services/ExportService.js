@@ -17,15 +17,15 @@ export default class ExportService extends ComponentBase {
     this.componentName = 'ExportService'
     this.storage = storage
     this.fileHandler = new STOFileHandler()
-    this.cache = {
-      profiles: {},
-      currentProfile: null,
-      currentEnvironment: 'space'
-    }
   }
 
   // Lifecycle
   onInit () {
+    // Initialize ExportService-specific cache properties
+    this.extendCache({
+      profiles: {} // ExportService needs to cache multiple profiles
+    })
+
     this.setupRequestHandlers()
     this.setupEventListeners()
   }
@@ -68,30 +68,21 @@ export default class ExportService extends ComponentBase {
     })
 
     this.addEventListener('profile:switched', ({ profileId, environment, profile }) => {
-      if (profileId) this.cache.currentProfile = profileId
-      if (environment) this.cache.currentEnvironment = environment
+      // ComponentBase handles currentProfile and currentEnvironment automatically
       if (profile) this.cache.profiles[profileId] = profile
     })
   }
 
-  // Check if bind-to-alias mode is enabled from preferences
-  async getBindToAliasMode() {
-    try {
-      return await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
-    } catch (error) {
-      console.warn('[ExportService] Failed to get bindToAliasMode setting:', error)
-      return false // Default to disabled if we can't get the setting
-    }
+  // Check if bind-to-alias mode is enabled from cached preferences
+  getBindToAliasMode() {
+    // Use cached preferences from ComponentBase instead of making requests
+    return this.cache.preferences.bindToAliasMode || false
   }
   
-  // Check if bindsets feature is enabled in preferences
-  async getBindsetsEnabled() {
-    try {
-      return await this.request('preferences:get-setting', { key: 'bindsetsEnabled' })
-    } catch (error) {
-      console.warn('[ExportService] Failed to get bindsetsEnabled setting:', error)
-      return false
-    }
+  // Check if bindsets feature is enabled from cached preferences
+  getBindsetsEnabled() {
+    // Use cached preferences from ComponentBase instead of making requests
+    return this.cache.preferences.bindsetsEnabled || false
   }
 
   // Sanitize a bindset name into a valid alias component (lower snake)
@@ -221,7 +212,7 @@ export default class ExportService extends ComponentBase {
     }
 
     // Check if bind-to-alias mode is enabled
-    const bindToAliasMode = await this.getBindToAliasMode()
+    const bindToAliasMode = this.getBindToAliasMode()
 
     let content = `; ==============================================================================\n`
     content += `; ${environment.toUpperCase()} KEYBINDS\n`
@@ -428,7 +419,7 @@ export default class ExportService extends ComponentBase {
     }
     
     // Check if bind-to-alias mode is enabled and add generated aliases
-    const bindToAliasMode = await this.getBindToAliasMode()
+    const bindToAliasMode = this.getBindToAliasMode()
     const generatedAliases = {}
     
     if (bindToAliasMode) {
@@ -469,7 +460,7 @@ export default class ExportService extends ComponentBase {
     // --------------------------------------------------------
     // Bindsets support – generate aliases per bindset & loaders
     // --------------------------------------------------------
-    const bindsetsEnabled = await this.getBindsetsEnabled()
+    const bindsetsEnabled = this.getBindsetsEnabled()
     const bindsetAliases = {}
     const loaderAliases = {}
 
