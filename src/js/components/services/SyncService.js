@@ -1,5 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
+
 import i18next from 'i18next'
 import eventBus from '../../core/eventBus.js'
 import FileSystemService, {
@@ -11,27 +11,18 @@ import FileSystemService, {
 export const writeFile = fsWriteFile
 
 export default class SyncService extends ComponentBase {
-  constructor(opts = {}) {
+  constructor({ eventBus, storage, ui, fs } = {}) {
     super(eventBus)
     this.componentName = 'SyncService'
 
-    // Support legacy signature: new SyncService(storage)
-    if (opts && typeof opts.getSettings === 'function') {
-      this.storage = opts
-      this.ui = global.stoUI // fallback to global mock in tests
-    } else {
-      const { storage, ui, fs } = opts
-      this.storage = storage
-      this.ui = ui
-      this.fs = fs || new FileSystemService({ eventBus })
-    }
+    this.storage = storage
+    this.ui = ui
+    this.fs = fs || new FileSystemService({ eventBus })
 
     // Ensure FileSystemService instance
     if (!this.fs) this.fs = new FileSystemService({ eventBus })
 
-    // ---------------------------------------------------------
     // Register Request/Response endpoints for UI components
-    // ---------------------------------------------------------
     if (this.eventBus) {
       this.respond('sync:sync-project', ({ source } = {}) => this.syncProject(source))
       this.respond('sync:set-sync-folder', ({ autoSync } = {}) => this.setSyncFolder(autoSync))
@@ -39,17 +30,37 @@ export default class SyncService extends ComponentBase {
     }
   }
 
-  /* Set sync folder and optionally enable auto-sync */
+  // Set sync folder and optionally enable auto-sync
   async setSyncFolder(autoSync = false) {
     try {
-      const handle = await window.showDirectoryPicker()
-      await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
-      const folderName = handle.name
+      let handle, folderName
+
+      // Check if File System Access API is supported (Chromium browsers)
+      if ('showDirectoryPicker' in window) {
+        handle = await window.showDirectoryPicker()
+        await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
+        folderName = handle.name
+      } else {
+        // Firefox doesn't support File System Access API
+        this.ui?.showToast(i18next.t('sync_not_supported_firefox'), 'error')
+        
+        // Show a more detailed explanation using inform dialog (OK button only)
+        if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
+          await window.confirmDialog.inform(
+            i18next.t('sync_not_supported_detailed'),
+            i18next.t('sync_not_supported_title'),
+            'info'
+          )
+        }
+        
+        return null
+      }
 
       if (this.storage) {
         const settings = this.storage.getSettings()
         settings.syncFolderName = folderName
         settings.syncFolderPath = `Selected folder: ${folderName}`
+        settings.syncFolderFallback = false
         settings.autoSync = autoSync
         this.storage.saveSettings(settings)
       }
@@ -99,7 +110,8 @@ export default class SyncService extends ComponentBase {
       return
     }
     try {
-      await window.stoExport?.syncToFolder(handle)
+      // Use request/response system instead of global window.stoExport
+      await this.request('export:sync-to-folder', { dirHandle: handle })
 
       // Determine when to show success toast:
       // - Always show on manual sync (sync now button)
@@ -120,4 +132,5 @@ export default class SyncService extends ComponentBase {
       this.ui?.showToast(i18next.t('failed_to_sync_project', { error: err.message }), 'error')
     }
   }
+
 } 

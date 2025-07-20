@@ -2,9 +2,7 @@ import ComponentBase from '../ComponentBase.js'
 
 /**
  * ModalManagerService – centralised modal show/hide logic with i18n
- * regeneration support. Migrated from legacy ui/modalManager.js so that it
- * can be injected where needed while still exposing a global fallback
- * (`window.modalManager`) for backwards-compatibility.
+ * regeneration support. 
  */
 export default class ModalManagerService extends ComponentBase {
   constructor (eventBus) {
@@ -130,7 +128,7 @@ export default class ModalManagerService extends ComponentBase {
     console.log(`[${this.componentName}] Unregistered callback for modal: ${modalId}`)
   }
 
-  /* ----------------------------------------------------------- utilities */
+  // Utilities
   getOverlay () {
     return document.getElementById(this.overlayId)
   }
@@ -173,7 +171,7 @@ export default class ModalManagerService extends ComponentBase {
     return true
   }
 
-  /* -------------------------- regeneration callbacks ------------------- */
+  // Regeneration callbacks
   registerRegenerateCallback (modalId, cb) {
     this.regenerateCallbacks[modalId] = cb
   }
@@ -182,10 +180,7 @@ export default class ModalManagerService extends ComponentBase {
   }
 
   registerAllModalCallbacks () {
-    // (Full callback list ported as-is from legacy implementation)
-
-
-    /* Parameter modal */
+    // Parameter modal
     this.registerRegenerateCallback('parameterModal', () => {
       if (window.app?.populateParameterModal) {
         const modal = document.getElementById('parameterModal')
@@ -198,7 +193,7 @@ export default class ModalManagerService extends ComponentBase {
       }
     })
 
-    /* Key selection modal */
+    // Key selection modal
     this.registerRegenerateCallback('keySelectionModal', () => {
       const modal = document.getElementById('keySelectionModal')
       const active = modal?.querySelector('.tab-content .tab-pane.active')
@@ -208,7 +203,7 @@ export default class ModalManagerService extends ComponentBase {
       }
     })
 
-    /* VFX/Vertigo modal - updated to use new VFX system */
+    // VFX/Vertigo modal - updated to use new VFX system
     this.registerRegenerateCallback('vertigoModal', () => {
       // Emit event for VFX UI to handle regeneration
       if (this.eventBus) {
@@ -219,28 +214,28 @@ export default class ModalManagerService extends ComponentBase {
       }
     })
 
-    /* Profile modal */
+    // Profile modal
     this.registerRegenerateCallback('profileModal', () => {
       const modal = document.getElementById('profileModal')
       window.applyTranslations?.(modal)
     })
 
-    /* Preferences modal */
+    // Preferences modal
     this.registerRegenerateCallback('preferencesModal', () => {
       window.app?.preferencesManager?.populatePreferencesModal?.()
     })
 
-    /* File explorer modal */
+    // File explorer modal
     this.registerRegenerateCallback('fileExplorerModal', () => {
       window.stoFileExplorer?.refreshFileList?.()
     })
 
-    /* Export modal */
+    // Export modal
     this.registerRegenerateCallback('exportModal', () => {
       window.stoExport?.populateExportModal?.()
     })
 
-    /* About modal */
+    // About modal
     this.registerRegenerateCallback('aboutModal', () => {
       const modal = document.getElementById('aboutModal')
       window.applyTranslations?.(modal)

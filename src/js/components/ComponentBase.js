@@ -26,6 +26,9 @@ export default class ComponentBase {
     this.initialized = true
     this.destroyed = false
     
+    // Initialize cache early to ensure it's available for event listeners
+    this.initializeCache()
+    
     // ---------------------------------------------------------
     // Late-Join State Registration handshake setup
     // ---------------------------------------------------------
@@ -40,15 +43,176 @@ export default class ComponentBase {
     // 3) Announce our readiness so existing components can reply
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
+      //console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
     }
     this.emit('component:register', {
       name: this.getComponentName(),
       replyTopic: this._myReplyTopic
     })
 
-    // 4) Continue with component-specific initialization
+    // 4) Set up standardized event listeners for common state
+    this._setupStandardizedEventListeners()
+
+    // 5) Continue with component-specific initialization
     this.onInit()
+  }
+
+  // Initialize cache in constructor if needed
+  initializeCache(additionalCacheData = {}) {
+    if (!this.cache) {
+      this.cache = {
+        selectedKey: null,
+        selectedAlias: null,
+        currentEnvironment: 'space',
+        currentProfile: null,
+        profile: null,
+        keys: {},
+        aliases: {},
+        builds: {},
+        preferences: {},
+        activeBindset: 'Primary Bindset',
+        bindsetNames: ['Primary Bindset'],
+        ...additionalCacheData
+      }
+    }
+  }
+
+  // Extend cache with additional properties after initialization
+  extendCache(additionalCacheData = {}) {
+    if (this.cache) {
+      Object.assign(this.cache, additionalCacheData)
+    } else {
+      this.initializeCache(additionalCacheData)
+    }
+  }
+
+  /**
+   * Set up standardized event listeners for common state changes
+   * This eliminates repetitive event listener setup in individual components
+   */
+  _setupStandardizedEventListeners() {
+    // Initialize cache
+    this.initializeCache()
+
+    // Cache selection state from SelectionService broadcasts
+    this.addEventListener('key-selected', (data) => {
+      this.cache.selectedKey = data.key
+      this.cache.selectedAlias = null // Clear alias when key selected
+    })
+
+    this.addEventListener('alias-selected', (data) => {
+      this.cache.selectedAlias = data.name
+      this.cache.selectedKey = null // Clear key when alias selected
+    })
+
+    // Cache environment changes
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
+      if (env) {
+        this.cache.currentEnvironment = env
+        // Update keys cache for new environment if we have builds data
+        if (this.cache.builds && this.cache.builds[env]) {
+          this.cache.keys = this.cache.builds[env].keys || {}
+        }
+      }
+    })
+
+    // Cache profile updates from DataCoordinator
+    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+      if (this.cache && profileId === this.cache.currentProfile) {
+        this.cache.profile = profile
+        // Update keys for current environment
+        if (profile.builds) {
+          this.cache.builds = profile.builds
+          const currentBuild = profile.builds[this.cache.currentEnvironment]
+          this.cache.keys = currentBuild?.keys || {}
+        } else if (profile.keys) {
+          this.cache.keys = profile.keys
+        }
+        // Update aliases
+        this.cache.aliases = profile.aliases || {}
+      }
+    })
+
+    // Handle profile switches
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
+      this.cache.currentProfile = profileId
+      this.cache.profile = profile
+      this.cache.currentEnvironment = environment || 'space'
+      // Backward compatibility for components expecting underscore names
+      this._currentEnvironment = this.cache.currentEnvironment
+      this._currentProfileId = profileId
+      
+      // Update cached data
+      if (profile.builds) {
+        this.cache.builds = profile.builds
+        const currentBuild = profile.builds[this.cache.currentEnvironment]
+        this.cache.keys = currentBuild?.keys || {}
+      } else if (profile.keys) {
+        this.cache.keys = profile.keys
+      }
+      this.cache.aliases = profile.aliases || {}
+    })
+
+    // Cache preference changes
+    this.addEventListener('preferences:changed', (data) => {
+      if (data.changes) {
+        // Update cached preferences with the changes
+        Object.assign(this.cache.preferences, data.changes)
+      } else if (data.key && data.value !== undefined) {
+        // Handle legacy single preference change format
+        this.cache.preferences[data.key] = data.value
+      }
+    })
+
+    // Listen for initial preferences loading
+    this.addEventListener('preferences:loaded', (data) => {
+      console.log(`[${this.componentName}] preferences:loaded received:`, data)
+      if (data.settings) {
+        Object.assign(this.cache.preferences, data.settings)
+        console.log(`[${this.componentName}] Updated preferences cache from preferences:loaded`)
+      }
+    })
+
+    // Cache bindset state changes
+    this.addEventListener('bindset-selector:active-changed', (data) => {
+      this.cache.activeBindset = data.bindset
+    })
+
+    // Cache bindset list changes
+    this.addEventListener('bindsets:changed', (data) => {
+      if (data.names && Array.isArray(data.names)) {
+        this.cache.bindsetNames = data.names
+      }
+    })
+
+    // Also listen for preferences:saved events which contain full settings
+    this.addEventListener('preferences:saved', (data) => {
+      console.log(`[${this.componentName}] preferences:saved received:`, data)
+      if (data.settings) {
+        Object.assign(this.cache.preferences, data.settings)
+        console.log(`[${this.componentName}] Updated preferences cache from preferences:saved`)
+      }
+    })
+
+    // Load initial preferences asynchronously
+    this._loadInitialPreferences()
+  }
+
+  /**
+   * Load initial preferences into cache
+   * Called during component initialization
+   */
+  async _loadInitialPreferences() {
+/*    try {
+      const preferences = await this.request('preferences:get-settings')
+      if (preferences && typeof preferences === 'object') {
+        Object.assign(this.cache.preferences, preferences)
+      }
+    } catch (error) {
+      // Preferences service might not be available yet, that's okay
+      // The cache will be updated when preferences:changed events are received
+    }*/
   }
 
   /**
@@ -135,32 +299,24 @@ export default class ComponentBase {
    * Emit an event through the event bus
    * @param {string} event - Event name
    * @param {*} data - Event data
+   * @param {Object} options - Options object { synchronous: boolean }
+   * @returns {Promise} - Promise that resolves when all listeners complete (if synchronous)
    */
-  emit(event, data = null) {
+  emit(event, data = null, options = {}) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log(`[${this.getComponentName()}] emit → ${event}`, data)
+      console.log(`[${this.getComponentName()}] emit → ${event} (options: ${JSON.stringify(options)})`, data)
     }
+    
     // Emit via event bus if available
     if (this.eventBus && typeof this.eventBus.emit === 'function') {
-      this.eventBus.emit(event, data)
+      return this.eventBus.emit(event, data, options)
     } else if (!this.eventBus) {
       // No event bus – skip routing
-      return
+      return Promise.resolve()
     }
 
-    // Also call any listeners registered through this component in cases where
-    // the provided eventBus is a mock that doesn\'t route events (common in tests)
-    const listeners = this.eventListeners.get(event)
-    if (listeners && listeners.length > 0) {
-      listeners.forEach(({ handler, context }) => {
-        try {
-          handler.call(context || this, data)
-        } catch (err) {
-          console.error('ComponentBase emit handler error', err)
-        }
-      })
-    }
+    return Promise.resolve()
   }
 
   /**
@@ -211,7 +367,7 @@ export default class ComponentBase {
 
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-     console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
+     //console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
     }
 
     // If we are active, provide our current state to the requester
@@ -223,12 +379,121 @@ export default class ComponentBase {
     }
   }
 
+  /**
+   * Centralized handling of common state from DataCoordinator and SelectionService
+   * This eliminates repetitive caching code in individual components
+   */
+  _handleInitialState(sender, state) {
+    if (!state) return
+
+    // Initialize cache if it doesn't exist
+    if (!this.cache) {
+      this.cache = {}
+    }
+
+    // Handle DataCoordinator state
+    if (sender === 'DataCoordinator') {
+      // Handle profile ID from both sources
+      const profileId = state.currentProfile || (state.currentProfileData && state.currentProfileData.id)
+      const profile = state.currentProfileData
+      
+      if (profileId) {
+        // Cache profile ID
+        this.cache.currentProfile = profileId
+      }
+      
+      if (profile) {
+        // Cache profile data
+        this.cache.profile = profile
+        this.cache.currentEnvironment = profile.environment || 'space'
+      } else if (state.currentEnvironment) {
+        // Handle environment without profile data
+        this.cache.currentEnvironment = state.currentEnvironment
+      }
+      
+      // Cache build-specific data if profile exists
+      if (profile) {
+        if (profile.builds) {
+          this.cache.builds = profile.builds
+          // Cache keys for current environment
+          const currentBuild = profile.builds[this.cache.currentEnvironment]
+          this.cache.keys = currentBuild?.keys || {}
+        } else if (profile.keys) {
+          // Legacy format support
+          this.cache.keys = profile.keys
+        }
+        
+        // Cache aliases
+        this.cache.aliases = profile.aliases || {}
+      }
+      
+      console.log(`[ComponentBase] ${this.getComponentName()} cached DataCoordinator state:`, {
+        currentProfile: this.cache.currentProfile,
+        currentEnvironment: this.cache.currentEnvironment
+      })
+    }
+
+    // Handle SelectionService state
+    if (sender === 'SelectionService' && state) {
+      // Cache selection properties
+      if (state.selectedKey !== undefined) {
+        this.cache.selectedKey = state.selectedKey
+      }
+      if (state.selectedAlias !== undefined) {
+        this.cache.selectedAlias = state.selectedAlias
+      }
+      if (state.currentEnvironment !== undefined) {
+        this.cache.currentEnvironment = state.currentEnvironment
+      }
+      if (state.editingContext !== undefined) {
+        this.cache.editingContext = state.editingContext
+      }
+      if (state.cachedSelections !== undefined) {
+        this.cache.cachedSelections = state.cachedSelections
+      }
+      
+      console.log(`[ComponentBase] ${this.getComponentName()} cached SelectionService state:`, {
+        selectedKey: this.cache.selectedKey,
+        selectedAlias: this.cache.selectedAlias,
+        currentEnvironment: this.cache.currentEnvironment
+      })
+    }
+
+    // Handle PreferencesService state
+    if (sender === 'PreferencesService' && state) {
+      // Cache preferences settings
+      if (state.settings && typeof state.settings === 'object') {
+        Object.assign(this.cache.preferences, state.settings)
+        console.log(`[ComponentBase] ${this.getComponentName()} cached PreferencesService state:`, {
+          bindToAliasMode: this.cache.preferences.bindToAliasMode,
+          bindsetsEnabled: this.cache.preferences.bindsetsEnabled,
+          settingsCount: Object.keys(state.settings).length
+        })
+      }
+    }
+
+    // Handle BindsetService state
+    if (sender === 'BindsetService' && state) {
+      // Cache bindset names
+      if (state.bindsets && Array.isArray(state.bindsets)) {
+        this.cache.bindsetNames = state.bindsets
+        console.log(`[ComponentBase] ${this.getComponentName()} cached BindsetService state:`, {
+          bindsetNames: this.cache.bindsetNames
+        })
+      }
+    }
+  }
+
   _onInitialState({ sender, state } = {}) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
       console.log(`[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`, state)
     }
 
+    // Handle common state first
+    this._handleInitialState(sender, state)
+
+    // Then call component-specific handler
     if (typeof this.handleInitialState === 'function') {
       this.handleInitialState(sender, state)
     }
@@ -277,7 +542,7 @@ export default class ComponentBase {
   respond(topic, handler) {
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.log(`[${this.getComponentName()}] respond ← ${topic} (handler registered)`)
+      //console.log(`[${this.getComponentName()}] respond ← ${topic} (handler registered)`)
     }
     return _cbRespond(this.eventBus, topic, async (payload) => {
       if (typeof window !== 'undefined') {

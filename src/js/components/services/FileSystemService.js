@@ -20,9 +20,7 @@ export default class FileSystemService extends ComponentBase {
     this.storeName = storeName
   }
 
-  /* --------------------------------------------------
-   * IndexedDB helpers
-   * ------------------------------------------------ */
+  // IndexedDB helpers
   openDB() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, 1)
@@ -64,9 +62,7 @@ export default class FileSystemService extends ComponentBase {
     return handle || null
   }
 
-  /* --------------------------------------------------
-   * File writing (File System Access API)
-   * ------------------------------------------------ */
+  // File writing (File System Access API)
   async writeFile(dirHandle, relativePath, contents) {
     const parts = relativePath.split('/')
     const fileName = parts.pop()
@@ -82,10 +78,8 @@ export default class FileSystemService extends ComponentBase {
     await writable.close()
   }
 
-  /* --------------------------------------------------
-   * Convenience static proxies so existing code that imports
-   * individual helpers keeps working without needing an instance.
-   * ------------------------------------------------ */
+  // Convenience static proxies so existing code that imports
+  // individual helpers keeps working without needing an instance.
   static #singleton = null
 
   static _getInstance() {

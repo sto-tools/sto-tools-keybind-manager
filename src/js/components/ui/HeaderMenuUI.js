@@ -5,10 +5,11 @@ import ComponentBase from '../ComponentBase.js'
  * Manages import, backup, language, and settings menu toggles and interactions
  */
 export default class HeaderMenuUI extends ComponentBase {
-  constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'HeaderMenuUI'
     this.document = document
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
   }
 
   onInit() {
@@ -118,37 +119,27 @@ export default class HeaderMenuUI extends ComponentBase {
     })
   }
 
-  /**
-   * Toggle the settings menu dropdown
-   */
+  // Toggle the settings menu dropdown
   toggleSettingsMenu() {
     this.toggleDropdown('settingsBtn')
   }
 
-  /**
-   * Toggle the import menu dropdown
-   */
+  // Toggle the import menu dropdown
   toggleImportMenu() {
     this.toggleDropdown('importMenuBtn')
   }
 
-  /**
-   * Toggle the backup menu dropdown
-   */
+  // Toggle the backup menu dropdown
   toggleBackupMenu() {
     this.toggleDropdown('backupMenuBtn')
   }
 
-  /**
-   * Toggle the language menu dropdown
-   */
+  // Toggle the language menu dropdown
   toggleLanguageMenu() {
     this.toggleDropdown('languageMenuBtn')
   }
 
-  /**
-   * Generic dropdown toggle helper
-   */
+  // Generic dropdown toggle helper
   toggleDropdown(buttonId) {
     const button = this.document.getElementById(buttonId)
     if (!button) return
@@ -167,21 +158,21 @@ export default class HeaderMenuUI extends ComponentBase {
     dropdown.classList.toggle('active')
   }
 
-  /**
-   * Close all dropdowns
-   */
+  // Close all dropdowns
   closeAllMenus() {
     this.document.querySelectorAll('.dropdown.active').forEach(dropdown => {
       dropdown.classList.remove('active')
     })
   }
 
-  /**
-   * Confirm app reset with user
-   */
+  // Confirm app reset with user
   async confirmResetApp() {
+    if (!this.confirmDialog) return
+
     const message = 'Are you sure you want to reset the application? This will clear all profiles and data.'
-    if (confirm(message)) {
+    const title = 'Confirm Reset Application'
+    
+    if (await this.confirmDialog.confirm(message, title, 'danger')) {
       this.emit('app:reset-confirmed')
     }
   }

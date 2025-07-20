@@ -12,44 +12,20 @@ export default class CommandChainService extends ComponentBase {
     this.componentName = 'CommandChainService'
     this.i18n = i18n
 
-    // REFACTORED: No direct service dependencies – all communication via event bus
-    // Cached state - now using DataCoordinator broadcast/cache pattern
-    this.selectedKey = null
-    this.currentEnvironment = 'space'
     this.commands = []
-    this.currentProfile = null
-    
-    // Track active bindset (default to primary)
-    this.activeBindset = 'Primary Bindset'
     
     // Flag to prevent race conditions during bindset switching
     this._bindsetSwitchInProgress = false
     this._bindsetOperationInProgress = false
 
-    // DataCoordinator cache
-    this.cache = {
-      profile: null,
-      keys: {},
-      aliases: {},
-      currentProfile: null,
-      currentEnvironment: 'space'
-    }
-
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
 
-    // ---------------------------------------------------------
     // Register Request/Response endpoints for command chain management
-    // ---------------------------------------------------------
     if (this.eventBus) {
       this._responseDetachFunctions.push(
-        // Removed deprecated command-chain:* request endpoints – callers should now use command:* APIs directly.
-        // New: toggle or query execution-order stabilization
         this.respond('command:set-stabilize', ({ name, stabilize, bindset }) => this.setStabilize(name, stabilize, bindset)),
         this.respond('command:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
-        // New: allow UI workflows (e.g., Import modal) to clear the destination
-        // command chain synchronously via request/response.
-        // Returns boolean success flag so caller can detect failures.
         this.respond('command-chain:clear', async ({ key, bindset }) => {
           try {
             return await this.clearCommandChain(key, bindset)
@@ -58,12 +34,12 @@ export default class CommandChainService extends ComponentBase {
             throw err
           }
         }),
-        // New: expose stabilization state for validator service (unique)
         this.respond('command-chain:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
-        /*this.respond('command:get-for-selected-key', async () => await this.getCommandsForSelectedKey()),
-        this.respond('command:get-empty-state-info', async () => await this.getEmptyStateInfo()),
-        this.respond('command:find-definition', ({ command }) => this.findCommandDefinition(command)),
-        this.respond('command:get-warning', ({ command }) => this.getCommandWarning(command)),*/
+        this.respond('command-chain:get-bind-to-alias-mode', () => this.getBindToAliasMode()),
+        this.respond('command-chain:generate-alias-name', ({ environment, keyName, bindsetName }) => 
+          this.generateBindToAliasName(environment, keyName, bindsetName)),
+        this.respond('command-chain:generate-alias-preview', ({ aliasName, commands }) => 
+          this.generateAliasPreview(aliasName, commands)),
       )
     }
   }
@@ -82,14 +58,13 @@ export default class CommandChainService extends ComponentBase {
     // DataCoordinator integration - listen for profile updates
     this.addEventListener('profile:updated', (data) => {
       if (data?.profile && data?.profileId) {
-        // Add the profileId to the profile object since DataCoordinator doesn't include it
         const profileWithId = { ...data.profile, id: data.profileId }
         this.updateCacheFromProfile(profileWithId)
-        // Refresh commands if we have a selected key
-        // disabled due to command chain rendering not being atomic
-        // RACE CONDITION FIX: Don't refresh during bindset operations or switching
-        if (this.selectedKey && !this._bindsetSwitchInProgress && !this._bindsetOperationInProgress) {
-          console.log(`[CommandChainService] refreshCommands() after profile:updated - activeBindset: ${this.activeBindset}`)
+
+        // Refresh commands if we have a selected key/alias
+        const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+        if (selectedKeyName && !this._bindsetSwitchInProgress && !this._bindsetOperationInProgress) {
+          console.log(`[CommandChainService] refreshCommands() after profile:updated - activeBindset: ${this.cache.activeBindset}`)
           this.refreshCommands()
         } else if (this._bindsetSwitchInProgress) {
           console.log(`[CommandChainService] Skipping refreshCommands() - bindset switch in progress`)
@@ -100,28 +75,22 @@ export default class CommandChainService extends ComponentBase {
     })
 
     this.addEventListener('profile:switched', (data) => {
-      this.currentProfile = data.profileId || data.profile || data.id
-      this.currentEnvironment = data.environment || 'space'
-      
-      // Ensure cache has the profile ID even if we don't have the full profile object
-      this.cache.currentProfile = this.currentProfile
-      this.cache.currentEnvironment = this.currentEnvironment
-      
+      // ComponentBase handles profile/environment caching automatically
+      // Just update our specific cache data from the profile if available
       if (data.profile) {
         this.updateCacheFromProfile(data.profile)
       }
-      // Clear selections when switching profiles
-      this.selectedKey = null
+      // ComponentBase handles selection clearing automatically when profiles switch
     })
 
     // Listen for environment changes
     this.addEventListener('environment:changed', (data) => {
       const env = typeof data === 'string' ? data : data?.environment
       if (env) {
-        this.currentEnvironment = env
-        this.cache.currentEnvironment = env
+        // ComponentBase handles currentEnvironment caching
         // Refresh commands when environment changes
-        if (this.selectedKey) {
+        const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+        if (selectedKeyName) {
           this.refreshCommands()
         }
       }
@@ -131,11 +100,11 @@ export default class CommandChainService extends ComponentBase {
     console.log('[CommandChainService] Setting up bindset-selector:active-changed listener')
     this.addEventListener('bindset-selector:active-changed', ({ bindset, name }) => {
       const newName = bindset || name
-      console.log(`[CommandChainService] *** bindset-selector:active-changed received: ${this.activeBindset} -> ${newName} ***`)
+      console.log(`[CommandChainService] *** bindset-selector:active-changed received: ${this.cache.activeBindset} -> ${newName} ***`)
       if (newName) {
         // Set flag to prevent race conditions
         this._bindsetSwitchInProgress = true
-        this.activeBindset = newName
+        // ComponentBase handles updating this.cache.activeBindset automatically
         console.log(`[CommandChainService] Calling refreshCommands() for bindset: ${newName}`)
         // Refresh commands to show the chain for the new bindset
         this.refreshCommands()
@@ -158,18 +127,37 @@ export default class CommandChainService extends ComponentBase {
       this._bindsetOperationInProgress = false
     })
 
+    // Listen for key added to bindset - immediately refresh command chain to show empty state
+    this.addEventListener('bindset-selector:key-added', async ({ key, bindset }) => {
+      console.log(`[CommandChainService] bindset-selector:key-added received: key=${key}, bindset=${bindset}, selectedKey=${this.cache.selectedKey}`)
+      
+      // Only refresh if this is the currently selected key
+      if (key === this.cache.selectedKey) {
+        console.log(`[CommandChainService] Key added to bindset ${bindset} - refreshing command chain to show empty state`)
+        
+        // Using synchronous events ensures proper coordination without setTimeout
+        console.log(`[CommandChainService] About to refresh commands - activeBindset: ${this.cache.activeBindset}, expected: ${bindset}`)
+        const cmds = await this.getCommandsForSelectedKey()
+        console.log(`[CommandChainService] Refreshed commands for new bindset ${bindset}: ${cmds.length} commands`)
+        this.emit('chain-data-changed', { commands: cmds })
+      }
+    })
+
     // Directly emit chain data changes whenever key/alias selection changes so
     // the command-chain UI always knows what it should be displaying.
     this.addEventListener('key-selected', async ({ key, name }) => {
       debugLog('key-selected', { key, name })
-      if (this.currentEnvironment === 'alias') return;
+      if (this.cache.currentEnvironment === 'alias') return;
       
-      this.selectedKey = key || name || null
+      // Let ComponentBase handle the selection state update
+      // ComponentBase will set this.selectedKey = key and clear this.selectedAlias
 
       // Reset to Primary Bindset when selecting a different key (same logic as CommandChainUI)
-      if (this.selectedKey && this.activeBindset !== 'Primary Bindset') {
-        console.log(`[CommandChainService] Resetting activeBindset from ${this.activeBindset} to Primary Bindset for key selection`)
-        this.activeBindset = 'Primary Bindset'
+      const selectedKeyName = key || name || null
+      if (selectedKeyName && this.cache.activeBindset !== 'Primary Bindset') {
+        console.log(`[CommandChainService] Resetting activeBindset from ${this.cache.activeBindset} to Primary Bindset for key selection`)
+        // Emit event to update bindset - ComponentBase will handle the cache update
+        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
       }
 
       // Refresh commands list when a new key is selected
@@ -181,10 +169,12 @@ export default class CommandChainService extends ComponentBase {
     // Handle alias selections explicitly so environment switches to alias
     this.addEventListener('alias-selected', async ({ name }) => {
       if (!name) return
-      if (this.currentEnvironment !== 'alias') return;
       
-      this.selectedKey = name
-
+      // Let ComponentBase handle the selection state update
+      // ComponentBase will set this.selectedAlias = name and clear this.selectedKey
+      
+      // Always emit chain-data-changed for alias selections to ensure UI updates
+      // The CommandChainUI will handle environment-specific rendering
       const cmds = await this.getCommandsForSelectedKey()
       console.log('[CommandChainService] [alias-selected] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
@@ -304,15 +294,16 @@ export default class CommandChainService extends ComponentBase {
 
     // Delete command
     this.addEventListener('commandchain:delete', async ({ index }) => {
-      if (index === undefined || !this.selectedKey) return
+      const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+      if (index === undefined || !selectedKeyName) return
 
       // Determine bindset context
-      const bindsetParam = (this.currentEnvironment === 'alias' || this.activeBindset === 'Primary Bindset')
+      const bindsetParam = (this.cache.currentEnvironment === 'alias' || this.cache.activeBindset === 'Primary Bindset')
         ? null
-        : this.activeBindset
+        : this.cache.activeBindset
       try {
         await this.request('command:delete', {
-          key: this.selectedKey,
+          key: selectedKeyName,
           index,
           bindset: bindsetParam
         })
@@ -324,14 +315,15 @@ export default class CommandChainService extends ComponentBase {
 
     // Move command
     this.addEventListener('commandchain:move', async ({ fromIndex, toIndex }) => {
-      if (!this.selectedKey) return
+      const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+      if (!selectedKeyName) return
 
-      const bindsetParam = (this.currentEnvironment === 'alias' || this.activeBindset === 'Primary Bindset')
+      const bindsetParam = (this.cache.currentEnvironment === 'alias' || this.cache.activeBindset === 'Primary Bindset')
         ? null
-        : this.activeBindset
+        : this.cache.activeBindset
       try {
         await this.request('command:move', {
-          key: this.selectedKey,
+          key: selectedKeyName,
           fromIndex,
           toIndex,
           bindset: bindsetParam
@@ -345,25 +337,30 @@ export default class CommandChainService extends ComponentBase {
     // Clear entire chain when broadcast event received (Button in UI)
     this.addEventListener('command-chain:clear', async ({ key }) => {
       if (!key) return
-      await this.clearCommandChain(key)
+      console.log(`[CommandChainService] Clearing command chain for key="${key}", activeBindset="${this.cache.activeBindset}", env="${this.cache.currentEnvironment}"`)
+      await this.clearCommandChain(key, this.cache.activeBindset !== 'Primary Bindset' ? this.cache.activeBindset : null)
+    })
+    
+    // Handle preferences changes for bind-to-alias mode
+    this.addEventListener('preferences:changed', ({ key, value }) => {
+      if (key === 'bindToAliasMode') {
+        console.log(`[CommandChainService] Preference changed: bindToAliasMode = ${value}`)
+        // Use centralized cache instead of local variable
+      }
     })
   }
 
-  /* ------------------------------------------------------------------
-   * REFACTORED: Replaced proxy methods with direct request/response calls
-   * No longer delegates to underlying services - uses event bus exclusively
-   * ------------------------------------------------------------------ */
-
   async getCommandsForSelectedKey () {
     try {
-      console.log(`[CommandChainService] getCommandsForSelectedKey called - activeBindset: ${this.activeBindset}, selectedKey: ${this.selectedKey}, environment: ${this.currentEnvironment}`)
+      const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+      console.log(`[CommandChainService] getCommandsForSelectedKey called - activeBindset: ${this.cache.activeBindset}, selectedKey: ${this.cache.selectedKey}, selectedAlias: ${this.cache.selectedAlias}, resolvedKey: ${selectedKeyName}, environment: ${this.cache.currentEnvironment}`)
       
       // Alias environment handled directly
-      if (this.currentEnvironment === 'alias') {
+      if (this.cache.currentEnvironment === 'alias') {
         return await this.request('command:get-for-selected-key')
       }
 
-      const activeBindset = this.activeBindset || 'Primary Bindset'
+      const activeBindset = this.cache.activeBindset || 'Primary Bindset'
       console.log(`[CommandChainService] Using activeBindset: ${activeBindset}`)
 
       if (activeBindset !== 'Primary Bindset') {
@@ -376,10 +373,11 @@ export default class CommandChainService extends ComponentBase {
         })
         
         try {
+          const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
           const requestPromise = this.request('bindset:get-key-commands', {
             bindset: activeBindset,
-            environment: this.currentEnvironment,
-            key: this.selectedKey,
+            environment: this.cache.currentEnvironment,
+            key: selectedKeyName,
           })
           
           const cmds = await Promise.race([requestPromise, timeoutPromise])
@@ -399,7 +397,11 @@ export default class CommandChainService extends ComponentBase {
 
       // Primary bindset path
       console.log(`[CommandChainService] Requesting commands from Primary Bindset`)
-      const cmds = await this.request('command:get-for-selected-key')
+      const cmds = await this.request('command:get-for-selected-key', {
+        key: selectedKeyName,
+        environment: this.cache.currentEnvironment,
+        bindset: 'Primary Bindset'
+      })
       console.log(`[CommandChainService] Received ${cmds?.length || 0} commands from Primary:`, cmds)
       return cmds
     } catch (error) {
@@ -464,22 +466,15 @@ export default class CommandChainService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * Command Chain Management - Core Implementation
-   * Handles adding, deleting, and reordering commands within chains
-   * ------------------------------------------------------------------ */
-
-  /**
-   * Get commands for a specific key
-   */
+  // Get commands for a specific key
   async getCommandsForKey(key) {
     try {
       if (!key) return []
 
-      const profile = await this.getCurrentProfile()
+      const profile = this.getCurrentProfile()
       if (!profile) return []
 
-      if (this.currentEnvironment === 'alias') {
+      if (this.cache.currentEnvironment === 'alias') {
         // -----------------------------------------------------------------
         // Alias command chains – canonical string[] only (no legacy "$$" strings)
         // -----------------------------------------------------------------
@@ -489,7 +484,7 @@ export default class CommandChainService extends ComponentBase {
         return [...alias.commands]
       } else {
         // Keybind command chains (already canonical string[])
-        const commands = profile.builds?.[this.currentEnvironment]?.keys?.[key]
+        const commands = profile.builds?.[this.cache.currentEnvironment]?.keys?.[key]
         return Array.isArray(commands) ? [...commands] : []
       }
     } catch (error) {
@@ -498,9 +493,7 @@ export default class CommandChainService extends ComponentBase {
     }
   }
 
-  /**
-   * Clear all commands from a key's command chain
-   */
+  // Clear all commands from a key's command chain
   async clearCommandChain(key, bindset = null) {
     try {
       if (!key) {
@@ -508,15 +501,16 @@ export default class CommandChainService extends ComponentBase {
         return false
       }
 
-      const profile = await this.getCurrentProfile()
+      const profile = this.getCurrentProfile()
       if (!profile) {
         console.warn('CommandChainService: Cannot clear chain - no active profile')
         return false
       }
 
-      const useBindset = (bindset && bindset !== 'Primary Bindset' && this.currentEnvironment !== 'alias')
+      const currentEnv = this.cache.currentEnvironment || 'space'
+      const useBindset = (bindset && bindset !== 'Primary Bindset' && currentEnv !== 'alias')
 
-      if (this.currentEnvironment === 'alias') {
+      if (currentEnv === 'alias') {
         // Clear alias command chain - use canonical array format
         if (profile.aliases && profile.aliases[key]) {
           profile.aliases[key].commands = []
@@ -527,15 +521,15 @@ export default class CommandChainService extends ComponentBase {
           if (!profile.bindsets?.[bindset]) {
             profile.bindsets = { ...(profile.bindsets || {}), [bindset]: { space: { keys: {} }, ground: { keys: {} } } }
           }
-          if (!profile.bindsets[bindset][this.currentEnvironment]) {
-            profile.bindsets[bindset][this.currentEnvironment] = { keys: {} }
+          if (!profile.bindsets[bindset][currentEnv]) {
+            profile.bindsets[bindset][currentEnv] = { keys: {} }
           }
-          profile.bindsets[bindset][this.currentEnvironment].keys[key] = []
+          profile.bindsets[bindset][currentEnv].keys[key] = []
         } else {
           // Clear keybind command chain in primary build
-          const commands = profile.builds?.[this.currentEnvironment]?.keys?.[key]
+          const commands = profile.builds?.[currentEnv]?.keys?.[key]
           if (commands) {
-            profile.builds[this.currentEnvironment].keys[key] = []
+            profile.builds[currentEnv].keys[key] = []
           }
         }
       }
@@ -548,7 +542,7 @@ export default class CommandChainService extends ComponentBase {
       }
 
       let updatePayload
-      if (this.currentEnvironment === 'alias') {
+      if (currentEnv === 'alias') {
         updatePayload = {
           modify: {
             aliases: {
@@ -561,7 +555,7 @@ export default class CommandChainService extends ComponentBase {
           modify: {
             bindsets: {
               [bindset]: {
-                [this.currentEnvironment]: {
+                [currentEnv]: {
                   keys: {
                     [key]: []
                   }
@@ -574,7 +568,7 @@ export default class CommandChainService extends ComponentBase {
         updatePayload = {
           modify: {
             builds: {
-              [this.currentEnvironment]: {
+              [currentEnv]: {
                 keys: {
                   [key]: []
                 }
@@ -591,6 +585,8 @@ export default class CommandChainService extends ComponentBase {
 
       if (result?.success) {
         this.emit('command-chain-cleared', { key })
+        // Emit chain-data-changed with empty commands to update UI immediately
+        this.emit('chain-data-changed', { commands: [] })
         return true
       } else {
         console.error('CommandChainService: Failed to save profile via DataCoordinator')
@@ -602,13 +598,7 @@ export default class CommandChainService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------------
-   * DataCoordinator Integration Methods
-   * ------------------------------------------------------------------ */
-
-  /**
-   * Update local cache from profile data received from DataCoordinator
-   */
+  // Update local cache from profile data received from DataCoordinator
   updateCacheFromProfile(profile) {
     if (!profile) {
       console.log('[CommandChainService] updateCacheFromProfile called with null/undefined profile')
@@ -617,23 +607,12 @@ export default class CommandChainService extends ComponentBase {
 
     console.log('[CommandChainService] updateCacheFromProfile called with profile:', {
       profileId: profile.id,
-      environment: this.currentEnvironment,
+      environment: this.cache.currentEnvironment,
       stackTrace: new Error().stack
     })
 
-    this.cache.profile = profile
-    this.cache.currentProfile = profile.id
-
-    // Cache environment-specific data
-    if (profile.keys) {
-      this.cache.keys = profile.keys
-    } else if (profile.builds && profile.builds[this.currentEnvironment]) {
-      this.cache.keys = profile.builds[this.currentEnvironment].keys || {}
-    }
-
-    if (profile.aliases) {
-      this.cache.aliases = profile.aliases
-    }
+    // ComponentBase handles profile, currentProfile, keys, and aliases caching
+    // We only need to handle service-specific logic here if needed
     
     console.log('[CommandChainService] Cache updated:', {
       currentProfile: this.cache.currentProfile,
@@ -642,18 +621,14 @@ export default class CommandChainService extends ComponentBase {
     })
   }
 
-  /**
-   * Get the current profile with build-specific data from cache
-   */
+  // Get the current profile with build-specific data from cache
   getCurrentProfile() {
     if (!this.cache.profile) return null
 
     return this.getCurrentBuild(this.cache.profile)
   }
 
-  /**
-   * Get the current build for a profile using cached data
-   */
+  // Get the current build for a profile using cached data
   getCurrentBuild(profile) {
     if (!profile) return null
 
@@ -664,66 +639,40 @@ export default class CommandChainService extends ComponentBase {
       }
     }
 
-    if (!profile.builds[this.currentEnvironment]) {
-      profile.builds[this.currentEnvironment] = { keys: {} }
+    if (!profile.builds[this.cache.currentEnvironment]) {
+      profile.builds[this.cache.currentEnvironment] = { keys: {} }
     }
 
-    if (!profile.builds[this.currentEnvironment].keys) {
-      profile.builds[this.currentEnvironment].keys = {}
+    if (!profile.builds[this.cache.currentEnvironment].keys) {
+      profile.builds[this.cache.currentEnvironment].keys = {}
     }
 
     return {
       ...profile,
-      keys: profile.builds[this.currentEnvironment].keys,
+      keys: profile.builds[this.cache.currentEnvironment].keys,
       aliases: profile.aliases || {},
     }
   }
 
-  /**
-   * Refresh commands for the currently selected key
-   */
+  // Refresh commands for the currently selected key
   async refreshCommands() {
-    if (this.selectedKey) {
-      const cmds = await this.getCommandsForSelectedKey()
+    const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+    if (selectedKeyName) {
+      const cmds = await this.request('command:get-for-selected-key', { key: selectedKeyName })
       this.emit('chain-data-changed', { commands: cmds })
     }
   }
 
-  /**
-   * Get current state for ComponentBase late-join system
-   */
+  // Get current state for ComponentBase late-join system
   getCurrentState() {
     return {
-      selectedKey: this.selectedKey,
       commands: this.commands
-      // REMOVED: currentEnvironment, currentProfile - not owned by CommandChainService
-      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
+      // REMOVED: selectedKey, currentEnvironment, currentProfile - not owned by CommandChainService
+      // These are managed by SelectionService (selection) and DataCoordinator (profile/environment)
     }
   }
 
-  /**
-   * Handle initial state from ComponentBase late-join system
-   */
-  handleInitialState(sender, state) {
-    if (sender === 'DataCoordinator' && state?.currentProfileData) {
-      this.updateCacheFromProfile(state.currentProfileData)
-      this.currentProfile = state.currentProfile
-      this.currentEnvironment = state.currentEnvironment || 'space'
-      // Ensure the cache environment is also updated
-      this.cache.currentEnvironment = this.currentEnvironment
-      // Ensure cache has profile ID even if updateCacheFromProfile didn't set it
-      this.cache.currentProfile = this.cache.currentProfile || state.currentProfile
-      
-      console.log(`[CommandChainService] Cache initialized from DataCoordinator:`, {
-        profileId: this.cache.currentProfile,
-        environment: this.cache.currentEnvironment
-      })
-    }
-  }
-
-  /**
-   * Cleanup
-   */
+  // Cleanup
   destroy() {
     // Clean up request/response handlers
     if (this._responseDetachFunctions) {
@@ -734,15 +683,9 @@ export default class CommandChainService extends ComponentBase {
     super.destroy()
   }
 
-  /* ------------------------------------------------------------------
-   * Stabilization helpers
-   * ------------------------------------------------------------------ */
-
-  /**
-   * Return whether the specified key/alias currently has stabilization enabled.
-   * @param {string} name - The key or alias name
-   * @param {string} [bindset] - Optional bindset name (for bindset-specific stabilization)
-   */
+  // Return whether the specified key/alias currently has stabilization enabled.
+  // @param {string} name - The key or alias name
+  // @param {string} [bindset] - Optional bindset name (for bindset-specific stabilization)
   isStabilized(name, bindset = null) {
     if (!name) return false
     const profile = this.cache.profile || null
@@ -761,23 +704,21 @@ export default class CommandChainService extends ComponentBase {
     // If bindset is specified, check bindset metadata
     if (bindset && bindset !== 'Primary Bindset') {
       return !!(profile.bindsetMetadata && profile.bindsetMetadata[bindset] &&
-        profile.bindsetMetadata[bindset][this.currentEnvironment] &&
-        profile.bindsetMetadata[bindset][this.currentEnvironment][name] &&
-        profile.bindsetMetadata[bindset][this.currentEnvironment][name].stabilizeExecutionOrder === true)
+        profile.bindsetMetadata[bindset][this.cache.currentEnvironment] &&
+        profile.bindsetMetadata[bindset][this.cache.currentEnvironment][name] &&
+        profile.bindsetMetadata[bindset][this.cache.currentEnvironment][name].stabilizeExecutionOrder === true)
     }
 
     // Default to primary bindset (keybindMetadata)
-    return !!(profile.keybindMetadata && profile.keybindMetadata[this.currentEnvironment] &&
-      profile.keybindMetadata[this.currentEnvironment][name] &&
-      profile.keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder === true)
+    return !!(profile.keybindMetadata && profile.keybindMetadata[this.cache.currentEnvironment] &&
+      profile.keybindMetadata[this.cache.currentEnvironment][name] &&
+      profile.keybindMetadata[this.cache.currentEnvironment][name].stabilizeExecutionOrder === true)
   }
 
-  /**
-   * Toggle or set stabilization flag for current key / alias.
-   * @param {string} name - The key or alias name
-   * @param {boolean} [stabilize=true] - Whether to enable stabilization
-   * @param {string} [bindset] - Optional bindset name (for bindset-specific stabilization)
-   */
+    // Toggle or set stabilization flag for current key / alias.
+  // @param {string} name - The key or alias name
+  // @param {boolean} [stabilize=true] - Whether to enable stabilization
+  // @param {string} [bindset] - Optional bindset name (for bindset-specific stabilization)
   async setStabilize(name, stabilize = true, bindset = null) {
     try {
       if (!name) return { success: false }
@@ -788,7 +729,7 @@ export default class CommandChainService extends ComponentBase {
       if (!profile) return { success: false }
 
       // Check if this is an alias by looking in the profile's aliases
-      const isAlias = this.currentEnvironment === 'alias' || !!(profile.aliases && profile.aliases[name])
+      const isAlias = this.cache.currentEnvironment === 'alias' || !!(profile.aliases && profile.aliases[name])
       let modifyPayload
 
       if (isAlias) {
@@ -809,21 +750,21 @@ export default class CommandChainService extends ComponentBase {
       } else if (!bindset || bindset === 'Primary Bindset') {
         // Primary bindset - use keybindMetadata
         const keybindMetadata = {}
-        if (!keybindMetadata[this.currentEnvironment]) {
-          keybindMetadata[this.currentEnvironment] = {}
+        if (!keybindMetadata[this.cache.currentEnvironment]) {
+          keybindMetadata[this.cache.currentEnvironment] = {}
         }
         
         const currentKeyMetadata = (profile.keybindMetadata && 
-                                   profile.keybindMetadata[this.currentEnvironment] && 
-                                   profile.keybindMetadata[this.currentEnvironment][name]) || {}
+                                   profile.keybindMetadata[this.cache.currentEnvironment] && 
+                                   profile.keybindMetadata[this.cache.currentEnvironment][name]) || {}
         
         // Create a copy of the current key metadata
-        keybindMetadata[this.currentEnvironment][name] = { ...currentKeyMetadata }
+        keybindMetadata[this.cache.currentEnvironment][name] = { ...currentKeyMetadata }
 
         if (stabilize) {
-          keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder = true
+          keybindMetadata[this.cache.currentEnvironment][name].stabilizeExecutionOrder = true
         } else {
-          keybindMetadata[this.currentEnvironment][name].stabilizeExecutionOrder = false
+          keybindMetadata[this.cache.currentEnvironment][name].stabilizeExecutionOrder = false
         }
 
         modifyPayload = { keybindMetadata }
@@ -831,11 +772,11 @@ export default class CommandChainService extends ComponentBase {
         // Bindset-specific metadata
         const bsMeta = {}
         bsMeta[bindset] = {}
-        bsMeta[bindset][this.currentEnvironment] = {}
+        bsMeta[bindset][this.cache.currentEnvironment] = {}
 
         const currentKeyMeta = (profile.bindsetMetadata && profile.bindsetMetadata[bindset] &&
-          profile.bindsetMetadata[bindset][this.currentEnvironment] &&
-          profile.bindsetMetadata[bindset][this.currentEnvironment][name]) || {}
+          profile.bindsetMetadata[bindset][this.cache.currentEnvironment] &&
+          profile.bindsetMetadata[bindset][this.cache.currentEnvironment][name]) || {}
 
         const newMeta = { ...currentKeyMeta }
         if (stabilize) {
@@ -844,7 +785,7 @@ export default class CommandChainService extends ComponentBase {
           newMeta.stabilizeExecutionOrder = false
         }
 
-        bsMeta[bindset][this.currentEnvironment][name] = newMeta
+        bsMeta[bindset][this.cache.currentEnvironment][name] = newMeta
 
         modifyPayload = { bindsetMetadata: bsMeta }
       }
@@ -870,6 +811,65 @@ export default class CommandChainService extends ComponentBase {
     } catch (err) {
       console.error('[CommandChainService] setStabilize failed', err)
       return { success: false, error: err.message }
+    }
+  }
+  
+  // Get the current bind-to-alias mode setting from cached preferences
+  getBindToAliasMode() {
+    return this.cache.preferences.bindToAliasMode
+  }
+  
+  // Generate alias name for bind-to-alias mode
+  // Uses the same logic as CommandChainUI but as a service operation
+  async generateBindToAliasName(environment, keyName, bindsetName = null) {
+    try {
+      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
+      return generateBindToAliasName(environment, keyName, bindsetName)
+    } catch (error) {
+      console.error('[CommandChainService] Failed to generate alias name:', error)
+      return null
+    }
+  }
+  
+  // Generate alias preview for bind-to-alias mode
+  // Formats the alias command string for display
+  generateAliasPreview(aliasName, commands) {
+    if (!aliasName) {
+      return ''
+    }
+    
+    try {
+      // Handle null or non-array commands
+      if (!Array.isArray(commands)) {
+        return `alias ${aliasName} <&  &>`
+      }
+      
+      // Convert commands to strings for alias generation, filtering out null/empty values
+      const commandStrings = commands.map(cmd => {
+        if (cmd === null || cmd === undefined) return ''
+        return typeof cmd === 'string' ? cmd : (cmd.command || '')
+      }).filter(Boolean)
+      
+      if (commandStrings.length === 0) {
+        return `alias ${aliasName} <&  &>`
+      }
+      
+      // Join commands with $$ separator for STO alias format
+      const commandChain = commandStrings.join(' $$ ')
+      return `alias ${aliasName} <& ${commandChain} &>`
+    } catch (error) {
+      console.error('[CommandChainService] Failed to generate alias preview:', error)
+      return `alias ${aliasName} <&  &>`
+    }
+  }
+  
+  // Handle initial state - ComponentBase now handles PreferencesService automatically
+  handleInitialState(sender, state) {
+    super.handleInitialState(sender, state)
+    
+    // ComponentBase automatically handles PreferencesService late-join
+    if (sender === 'PreferencesService' && this.cache.preferences) {
+      console.log(`[CommandChainService] Preferences received via ComponentBase: bindToAliasMode = ${this.cache.preferences.bindToAliasMode}`)
     }
   }
 } 

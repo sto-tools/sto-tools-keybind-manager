@@ -1,21 +1,16 @@
 // Service Components
-// export { default as storage } from '../../services/storage.js' // removed legacy shim reference
 export { default as PreferencesService } from './PreferencesService.js'
 export { default as ProjectManagementService } from './ProjectManagementService.js'
-//export { fsHandles } from '../../services/fsHandles.js'
 export { default as AutoSync } from './AutoSync.js'
-export { default as ProfileService } from './ProfileService.js'
 export { default as StorageService } from './StorageService.js'
 export { default as CommandLibraryService } from './CommandLibraryService.js'
 export { default as CommandService } from './CommandService.js'
-// EventHandlerService removed - components now handle their own DOM events
 export { default as InterfaceModeService } from './InterfaceModeService.js'
 export { default as SyncService } from './SyncService.js'
 export { default as FileSystemService } from './FileSystemService.js'
 export { default as KeyService } from './KeyService.js'
 export { default as FileOperationsService } from './FileOperationsService.js'
 export { default as ImportService } from './ImportService.js'
-
 export { default as ExportService } from './ExportService.js'
 export { default as ToastService } from './ToastService.js'
 export { default as UIUtilityService } from './UIUtilityService.js'

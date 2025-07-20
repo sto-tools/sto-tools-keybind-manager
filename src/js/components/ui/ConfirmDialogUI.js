@@ -5,26 +5,15 @@ import ComponentBase from '../ComponentBase.js'
  * resolving with the user's choice.
  */
 export default class ConfirmDialogUI extends ComponentBase {
-  /**
-   * @param {Object} opts
-   * @param {import('../../ui/modalManager.js').default} [opts.modalManager]
-   * @param {Object} [opts.i18n]
-   */
+
   constructor({ modalManager = null, i18n = null } = {}) {
     super()
     this.componentName = 'ConfirmDialogUI'
-    // Allow dependency injection for easier unit-testing
     this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
   }
 
-  /**
-   * Show a confirmation dialog and resolve with the user's choice.
-   * @param {string} message – Body message (already translated).
-   * @param {string} [title='Confirm'] – Title for the dialog.
-   * @param {'warning'|'danger'|'info'} [type='warning'] – Visual style.
-   * @returns {Promise<boolean>} – Resolves to `true` when user clicks yes.
-   */
+  // Show a confirmation dialog and resolve with the user's choice.
   async confirm(message, title = 'Confirm', type = 'warning') {
     return new Promise((resolve) => {
       const confirmModal = this.createConfirmModal(message, title, type)
@@ -47,16 +36,77 @@ export default class ConfirmDialogUI extends ComponentBase {
       })
 
       // Delay to next frame so the modal element is in the DOM before show()
+      // This is a workaround to ensure the modal element is in the DOM before show()
       requestAnimationFrame(() => {
         this.modalManager?.show(confirmId)
       })
     })
   }
 
-  /**
-   * Internal helper – generates the DOM for the confirm dialog.
-   * @private
-   */
+  // Show an informational dialog with just an OK button
+  async inform(message, title = 'Information', type = 'info') {
+    return new Promise((resolve) => {
+      const informModal = this.createInformModal(message, title, type)
+      const informId = 'informModal'
+      informModal.id = informId
+      document.body.appendChild(informModal)
+
+      const handleClose = () => {
+        this.modalManager?.hide(informId)
+        document.body.removeChild(informModal)
+        resolve(true)
+      }
+
+      informModal.querySelector('.inform-ok').addEventListener('click', handleClose)
+
+      // Also allow ESC key to close
+      const handleKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          document.removeEventListener('keydown', handleKeyDown)
+          handleClose()
+        }
+      }
+      document.addEventListener('keydown', handleKeyDown)
+
+      requestAnimationFrame(() => {
+        this.modalManager?.show(informId)
+      })
+    })
+  }
+
+  // Internal helper – generates the DOM for the inform dialog.
+  createInformModal(message, title, type) {
+    const modal = document.createElement('div')
+    modal.className = 'modal inform-modal'
+
+    const iconMap = {
+      warning: 'fa-exclamation-triangle',
+      danger: 'fa-exclamation-circle',
+      info: 'fa-info-circle',
+      success: 'fa-check-circle'
+    }
+
+    modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>
+                        <i class="fas ${iconMap[type] || iconMap.info}"></i>
+                        ${title}
+                    </h3>
+                </div>
+                <div class="modal-body">
+                    <p>${message}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary inform-ok">${this.i18n ? this.i18n.t('ok') : 'OK'}</button>
+                </div>
+            </div>
+        `
+
+    return modal
+  }
+
+  // Internal helper – generates the DOM for the confirm dialog.
   createConfirmModal(message, title, type) {
     const modal = document.createElement('div')
     modal.className = 'modal confirm-modal'

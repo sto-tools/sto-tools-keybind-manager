@@ -14,18 +14,14 @@ export default class ProjectManagementService extends ComponentBase {
   constructor({
     storage = null,
     ui = null,
-    exportManager = null,
-    i18n = null,
     app = null,
     eventBus = null
   } = {}) {
     super(eventBus)
     this.componentName = 'ProjectManagementService'
-    
-    // REFACTORED: Strict dependency injection - no global fallbacks
+
     this.storage = storage
     this.ui = ui
-    this.exportManager = exportManager
     this.i18n = typeof i18next !== 'undefined' ? i18next : null
     this.app = app
 
@@ -50,9 +46,7 @@ export default class ProjectManagementService extends ComponentBase {
     })
   }
 
-  /* --------------------------------------------------
-   *  Backup & Restore Application State (same format as sync folder)
-   * ------------------------------------------------ */
+  // Backup & Restore Application State (same format as sync folder)
   async backupApplicationState() {
     try {
       const data = this.storage.getAllData()
@@ -183,9 +177,7 @@ export default class ProjectManagementService extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   *  High-level helpers
-   * ------------------------------------------------ */
+  // High-level helpers
   async exportProject() {
     try {
       const data = this.storage.exportData()
@@ -297,9 +289,7 @@ export default class ProjectManagementService extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   *  UI-centric helpers – depend on injected `app`, `ui`, `i18n`
-   * ------------------------------------------------ */
+  // UI-centric helpers – depend on injected `app`, `ui`, `i18n`
   openProject() {
     const input = document.getElementById('fileInput') || document.createElement('input')
     if (!input.id) input.id = 'fileInput'
@@ -311,13 +301,14 @@ export default class ProjectManagementService extends ComponentBase {
       if (!file) return
 
       const reader = new FileReader()
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         try {
-          const success = this.exportManager.importJSONFile(ev.target.result)
+          const success = await this.request('export:import-from-file', { file: ev.target.result })
           if (success) {
             this.app?.loadData?.()
             this.app?.renderProfiles?.()
-            this.app?.renderKeyGrid?.()
+            // Use event-driven approach instead of direct method calls
+            this.emit('key:list-changed')
             // Command chain rendering is now handled by CommandChainUI via events
             this.ui?.showToast(this.i18n?.t('project_loaded_successfully') ?? 'Project loaded', 'success')
           } else {
@@ -349,40 +340,39 @@ export default class ProjectManagementService extends ComponentBase {
     this.emit('project-saved')
   }
 
-  exportKeybinds() {
+  async exportKeybinds() {
     const profile = this.app?.getCurrentProfile?.()
     if (!profile) return
 
     const env = this.app?.currentEnvironment || 'space'
 
-    const content = this.exportManager.generateSTOKeybindFile(profile, {
-      environment: env,
-    })
+    try {
+      const content = await this.request('export:generate-keybind-file', {
+        profileId: profile.id,
+        environment: env,
+        syncMode: false
+      })
 
-    const blob = new Blob([content], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
+      const blob = new Blob([content], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
 
-    const safeName = profile.name.replace(/[^a-zA-Z0-9]/g, '_')
-    a.download = `${safeName}_${env}_keybinds.txt`
-    a.click()
-    URL.revokeObjectURL(url)
+      const safeName = profile.name.replace(/[^a-zA-Z0-9]/g, '_')
+      a.download = `${safeName}_${env}_keybinds.txt`
+      a.click()
+      URL.revokeObjectURL(url)
 
-    this.ui?.showToast(
-      this.i18n?.t('keybinds_exported_successfully', { environment: env }) ?? 'Keybinds exported',
-      'success',
-    )
-  }
-
-  /* --------------------------------------------------
-   *  Optional singleton helper – keeps pattern consistent with other services
-   *  but no longer exposes legacy mix-in API.
-   * ------------------------------------------------ */
-  static #singleton = null
-
-  static getInstance() {
-    if (!this.#singleton) this.#singleton = new ProjectManagementService()
-    return this.#singleton
+      this.ui?.showToast(
+        this.i18n?.t('keybinds_exported_successfully', { environment: env }) ?? 'Keybinds exported',
+        'success',
+      )
+    } catch (error) {
+      console.error('[ProjectManagementService] Failed to export keybinds:', error)
+      this.ui?.showToast(
+        this.i18n?.t('export_failed') ?? 'Export failed',
+        'error',
+      )
+    }
   }
 } 

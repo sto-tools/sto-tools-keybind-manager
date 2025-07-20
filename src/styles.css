@@ -4403,6 +4403,17 @@ input:checked + .slider:before {
   transform: translateX(4px) scale(1.02);
 }
 
+.command-item.bindset-alias-item {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  font-weight: 500;
+}
+
+.command-item.bindset-alias-item:hover {
+  background: linear-gradient(135deg, #047857, #065f46);
+  transform: translateX(4px) scale(1.02);
+}
+
 /* Empty states */
 .empty-state {
   text-align: center;

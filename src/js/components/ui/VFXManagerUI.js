@@ -1,8 +1,7 @@
 import ComponentBase from '../ComponentBase.js'
-// VFX_EFFECTS now available globally from data.js
 
 export default class VFXManagerUI extends ComponentBase {
-  constructor(eventBus, modalManager) {
+  constructor({ eventBus, modalManager } = {}) {
     super(eventBus)
     this.componentName = 'VFXManagerUI'
     this.modalManager = modalManager
@@ -12,13 +11,13 @@ export default class VFXManagerUI extends ComponentBase {
 
   async init() {
     if (this.isInitialized) {
-      console.log(`[${this.componentName}] Already initialized`)
+      // Component already initialized
       return
     }
 
     this.setupEventListeners()
     this.isInitialized = true
-    console.log(`[${this.componentName}] Initialized`)
+    // VFXManagerUI initialized successfully
   }
 
   setupEventListeners() {
@@ -30,7 +29,7 @@ export default class VFXManagerUI extends ComponentBase {
   }
 
   handleModalPopulate({ vfxManager }) {
-    console.log(`[${this.componentName}] Populating VFX modal`)
+    // Populating VFX modal with effects
     this.vfxManager = vfxManager
     this.populateModal()
     this.modalManager.show('vertigoModal')
@@ -128,7 +127,7 @@ export default class VFXManagerUI extends ComponentBase {
       if (spaceAlias) {
         spacePreviewEl.textContent = spaceAlias
       } else {
-        spacePreviewEl.textContent = 'No space effects selected'
+        spacePreviewEl.textContent = this.i18n?.t?.('no_space_effects_selected') || 'No space effects selected'
       }
     }
 
@@ -139,7 +138,7 @@ export default class VFXManagerUI extends ComponentBase {
       if (groundAlias) {
         groundPreviewEl.textContent = groundAlias
       } else {
-        groundPreviewEl.textContent = 'No ground effects selected'
+        groundPreviewEl.textContent = this.i18n?.t?.('no_ground_effects_selected') || 'No ground effects selected'
       }
     }
   }

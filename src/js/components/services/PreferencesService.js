@@ -1,5 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import { respond } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 /**
@@ -13,7 +12,7 @@ export default class PreferencesService extends ComponentBase {
     this.storage = storage
     this.i18n = i18n
 
-    // Defaults match historical STOPreferencesManager
+    // Defaults
     this.defaultSettings = {
       theme: 'default',
       autoSave: true,
@@ -29,14 +28,13 @@ export default class PreferencesService extends ComponentBase {
       autoSyncInterval: 'change',
       bindToAliasMode: false,
       bindsetsEnabled: false,
+      translateGeneratedMessages: false,
     }
 
     // Runtime copy
     this.settings = { ...this.defaultSettings }
 
-    // ---------------------------------------------------------
     // Register Request/Response endpoints for UI components
-    // ---------------------------------------------------------
     if (this.eventBus) {
       this.respond('preferences:init', () => this.init())
       this.respond('preferences:load-settings', () => this.loadSettings())
@@ -60,9 +58,7 @@ export default class PreferencesService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  /* --------------------------------------------------
-   * Event Listeners
-   * ------------------------------------------------ */
+  // Event Listeners
   setupEventListeners() {
     if (!this.eventBus) return
 
@@ -79,9 +75,7 @@ export default class PreferencesService extends ComponentBase {
     })
   }
 
-  /* --------------------------------------------------
-   * Lifecycle
-   * ------------------------------------------------ */
+  // Lifecycle
   init() {
     this.loadSettings()
     this.applySettings()
@@ -89,9 +83,7 @@ export default class PreferencesService extends ComponentBase {
     super.init()
   }
 
-  /* --------------------------------------------------
-   * Persistence helpers
-   * ------------------------------------------------ */
+  // Persistence helpers
   loadSettings() {
     try {
       if (!this.storage) return
@@ -111,9 +103,7 @@ export default class PreferencesService extends ComponentBase {
     return ok
   }
 
-  /* --------------------------------------------------
-   * Accessors
-   * ------------------------------------------------ */
+  // Accessors
   getSettings() { return { ...this.settings } }
 
   getSetting(key) { return this.settings[key] }
@@ -150,22 +140,16 @@ export default class PreferencesService extends ComponentBase {
     this.applySettings()
   }
 
-  /* --------------------------------------------------
-   * Late-join state sharing
-   * ------------------------------------------------ */
-  /**
-   * Provide current settings so late-joining components can use them without
-   * making explicit RPC requests that may race the service startup.
-   */
+  // Late-join state sharing
+  // Provide current settings so late-joining components can use them without
+  // making explicit RPC requests that may race the service startup.
   getCurrentState() {
     return {
       settings: { ...this.settings }
     }
   }
 
-  /* --------------------------------------------------
-   * Application of settings
-   * ------------------------------------------------ */
+  // Application of settings
   applySettings() {
     this.applyTheme()
     this.applyLanguage()
@@ -219,9 +203,7 @@ export default class PreferencesService extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   * Theme Management
-   * ------------------------------------------------ */
+  // Theme Management
   toggleTheme() {
     const currentTheme = this.settings.theme || 'default'
     const newTheme = currentTheme === 'dark' ? 'default' : 'dark'
@@ -256,9 +238,7 @@ export default class PreferencesService extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   * Language Management
-   * ------------------------------------------------ */
+  // Language Management
   async changeLanguage(lang) {
     // Update settings
     this.setSetting('language', lang)
@@ -294,9 +274,7 @@ export default class PreferencesService extends ComponentBase {
     }
   }
 
-  /* --------------------------------------------------
-   * Browser Language Detection
-   * ------------------------------------------------ */
+  // Browser Language Detection
   detectBrowserLanguage() {
     try {
       if (typeof navigator === 'undefined') return 'en'

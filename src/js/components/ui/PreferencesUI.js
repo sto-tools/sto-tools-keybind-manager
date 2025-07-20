@@ -1,10 +1,8 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 export default class PreferencesUI extends ComponentBase {
-  constructor({ ui = null, document = null } = {}) {
+  constructor({ eventBus, ui = null, document = null } = {}) {
     super(eventBus)
     this.componentName = 'PreferencesUI'
     
@@ -17,6 +15,7 @@ export default class PreferencesUI extends ComponentBase {
     this.settingDefinitions = {
       theme: { type: 'select', element: 'themeSelect' },
       language: { type: 'select', element: 'languageSelect' },
+      translateGeneratedMessages: { type: 'boolean', element: 'translateGeneratedMessagesCheckbox' },
       autoSave: { type: 'boolean', element: 'autoSaveCheckbox' },
       compactView: { type: 'boolean', element: 'compactViewCheckbox' },
       autoSync: { type: 'boolean', element: 'autoSync' },
@@ -36,9 +35,7 @@ export default class PreferencesUI extends ComponentBase {
     this.setupEventListeners()
   }
 
-  /* --------------------------------------------------
-   * UI helpers (adapted from legacy STOPreferencesManager)
-   * ------------------------------------------------ */
+  // UI helpers
   setupEventListeners() {
     // Listen for preferences:show event from HeaderMenuUI
     this.eventBus.on('preferences:show', () => {
@@ -62,14 +59,14 @@ export default class PreferencesUI extends ComponentBase {
 
     // Category navigation buttons
     document.querySelectorAll('.category-item').forEach((item) => {
-      eventBus.onDom(item, 'click', 'pref-cat', (e) => {
+      this.eventBus.onDom(item, 'click', 'pref-cat', (e) => {
         const cat = e.currentTarget.dataset.category
         this.switchCategory(cat)
       })
     })
 
     // Save button
-    eventBus.onDom('savePreferencesBtn', 'click', 'pref-save', () => {
+    this.eventBus.onDom('savePreferencesBtn', 'click', 'pref-save', () => {
       this.saveAllSettings(true)
     })
 
@@ -108,12 +105,12 @@ export default class PreferencesUI extends ComponentBase {
 
       switch (def.type) {
         case 'boolean':
-          eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
+          this.eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
             this.handleSettingChange(key, e.target.checked)
           })
           break
         case 'select':
-          eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
+          this.eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
             this.handleSettingChange(key, e.target.value)
           })
           break
@@ -277,9 +274,7 @@ export default class PreferencesUI extends ComponentBase {
     }
   }
 
-  /**
-   * Enable/disable bindsetsEnabled checkbox depending on bindToAliasMode
-   */
+  // Enable/disable bindsetsEnabled checkbox depending on bindToAliasMode
   updateBindsetsCheckboxState(bindToAliasMode = null) {
     const checkbox = document.getElementById('bindsetsEnabledCheckbox')
     if (!checkbox) return

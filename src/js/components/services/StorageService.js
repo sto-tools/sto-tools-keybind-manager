@@ -1,6 +1,21 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 
+/*
+ * StorageService
+ * 
+ * Manages all data storage for the application.
+ * 
+ * This service is responsible for:
+ * - Storing and retrieving data from localStorage
+ * - Creating and restoring backups
+ * - Exporting and importing data
+ * - Clearing all data
+ * - Getting storage usage info
+ * - Migrating data from old formats to new formats
+ * - Ensuring storage structure is valid
+ * - Detecting browser language
+ */
 export default class StorageService extends ComponentBase {
   constructor({ 
     eventBus: bus = eventBus, 
@@ -29,8 +44,51 @@ export default class StorageService extends ComponentBase {
     // Ensure we have basic structure
     this.ensureStorageStructure()
     
+    // Set up event listeners
+    this.setupEventListeners()
+    
     // Emit storage ready event
     this.emit('storage:ready', { service: this })
+  }
+
+  setupEventListeners() {
+    // Listen for app reset confirmation
+    this.addEventListener('app:reset-confirmed', () => {
+      this.handleAppReset()
+    })
+  }
+
+  // Handle application reset
+  async handleAppReset() {
+    console.log('[StorageService] Handling application reset')
+    
+    try {
+      // Clear all data using existing method - this sets the reset flag
+      const success = this.clearAllData()
+      
+      if (success) {
+        console.log('[StorageService] Application reset successful - data cleared')
+        
+        // Reset internal cache to empty structure
+        this.data = this.getEmptyData()
+        
+        // Emit events to notify other components about the reset
+        this.emit('storage:data-reset', { data: this.data }, { synchronous: true })
+        this.emit('app:reset-complete', {}, { synchronous: true })
+        
+        // Show success message
+        if (typeof window !== 'undefined' && window.stoUI && window.stoUI.showToast) {
+          window.stoUI.showToast('Application reset successfully. All profiles cleared.', 'success')
+        }
+      } else {
+        console.error('[StorageService] Application reset failed')
+        // Emit error event for UI feedback
+        this.emit('app:reset-failed')
+      }
+    } catch (error) {
+      console.error('[StorageService] Error during application reset:', error)
+      this.emit('app:reset-failed', { error })
+    }
   }
 
   // Get all data from storage

@@ -1,22 +1,21 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
+/*
+ * BindsetSelectorUI - Handles the bindset selector UI
+ * Manages the bindset selector UI and its interactions
+ */
 export default class BindsetSelectorUI extends ComponentBase {
-  constructor({ eventBus: bus = eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(bus)
+  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+    super(eventBus)
     this.componentName = 'BindsetSelectorUI'
     this.document = document
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     
     this.containerId = 'bindsetSelectorContainer'
     this.isOpen = false
     this.service = null
     
-    // Internal state
-    this.selectedKey = null
-    this.activeBindset = 'Primary Bindset'
-    this.bindsetNames = ['Primary Bindset']
     this.keyBindsetMembership = new Map()
     this.isVisible = false
   }
@@ -31,13 +30,13 @@ export default class BindsetSelectorUI extends ComponentBase {
     this.listenersSetup = true
 
     // Listen for service state changes
-    this.addEventListener('bindset-selector:active-changed', ({ bindset }) => {
-      this.activeBindset = bindset
+    this.addEventListener('bindset-selector:active-changed', () => {
+      // ComponentBase automatically updates this.cache.activeBindset
       this.render()
     })
 
-    this.addEventListener('bindset-selector:membership-updated', ({ key, membership }) => {
-      this.selectedKey = key
+    this.addEventListener('bindset-selector:membership-updated', ({ membership }) => {
+      // ComponentBase automatically updates this.cache.selectedKey
       this.keyBindsetMembership = membership
       this.render()
     })
@@ -49,14 +48,14 @@ export default class BindsetSelectorUI extends ComponentBase {
 
     this.addEventListener('bindsets:changed', ({ names }) => {
       console.log('[BindsetSelectorUI] bindsets:changed received:', names)
-      this.bindsetNames = names || ['Primary Bindset']
+      // ComponentBase automatically updates this.cache.bindsetNames
       this.render()
     })
 
     // Listen for key selection changes
     this.addEventListener('key:selected', ({ key }) => {
       console.log('[BindsetSelectorUI] key:selected received:', key)
-      this.selectedKey = key
+      // ComponentBase handles this.cache.selectedKey automatically via key-selected events
       this.request('bindset-selector:set-key', { key })
     })
 
@@ -80,7 +79,7 @@ export default class BindsetSelectorUI extends ComponentBase {
       return
     }
 
-    console.log('[BindsetSelectorUI] render() called - isVisible:', this.isVisible, 'bindsetNames:', this.bindsetNames)
+    console.log('[BindsetSelectorUI] render() called - isVisible:', this.isVisible, 'bindsetNames:', this.cache.bindsetNames)
 
     if (!this.isVisible) {
       container.style.display = 'none'
@@ -96,7 +95,7 @@ export default class BindsetSelectorUI extends ComponentBase {
   }
 
   generateDropdownHTML() {
-    const activeBindset = this.activeBindset
+    const activeBindset = this.cache.activeBindset
     
     // Only return the button HTML - dropdown will be created separately
     let html = `
@@ -109,7 +108,7 @@ export default class BindsetSelectorUI extends ComponentBase {
   }
 
   generateDropdownMenuHTML() {
-    const activeBindset = this.activeBindset
+    const activeBindset = this.cache.activeBindset
     
     let html = `
       <div id="bindsetOptionsMenu" class="bindset-dropdown-menu" style="display: none;">
@@ -124,14 +123,14 @@ export default class BindsetSelectorUI extends ComponentBase {
     `
 
     // Other bindsets with toolbar
-    this.bindsetNames.forEach(bindset => {
+    this.cache.bindsetNames.forEach(bindset => {
       if (bindset === 'Primary Bindset') return
       
       const isActive = activeBindset === bindset
       const hasKey = this.keyBindsetMembership.get(bindset) || false
       const greyedOut = !hasKey ? 'greyed-out' : ''
       
-      console.log(`[BindsetSelectorUI] Bindset: ${bindset}, hasKey: ${hasKey}, selectedKey: ${this.selectedKey}`)
+      console.log(`[BindsetSelectorUI] Bindset: ${bindset}, hasKey: ${hasKey}, selectedKey: ${this.cache.selectedKey}`)
       
       html += `
         <div class="bindset-option ${isActive ? 'active' : ''} ${greyedOut}" data-bindset="${bindset}">
@@ -258,13 +257,23 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
   }
 
-  showAddKeyConfirmation(bindsetName) {
+  async showAddKeyConfirmation(bindsetName) {
     const message = i18next.t('add_key_to_bindset_confirm', { 
-      key: this.selectedKey, 
+      key: this.cache.selectedKey, 
       bindset: bindsetName 
-    }) || `Add key "${this.selectedKey}" to bindset "${bindsetName}"?`
+    }) || `Add key "${this.cache.selectedKey}" to bindset "${bindsetName}"?`
     
-    if (confirm(message)) {
+    let confirmed = false
+    
+    if (this.confirmDialog) {
+      const title = i18next.t('confirm_add') || 'Confirm Add'
+      confirmed = await this.confirmDialog.confirm(message, title, 'info')
+    } else {
+      // Fallback to window.confirm when confirmDialog is not available
+      confirmed = window.confirm(message)
+    }
+    
+    if (confirmed) {
       this.request('bindset-selector:add-key-to-bindset', { bindset: bindsetName })
         .then(result => {
           if (!result?.success) {
@@ -279,13 +288,23 @@ export default class BindsetSelectorUI extends ComponentBase {
     this.close()
   }
 
-  showRemoveKeyConfirmation(bindsetName) {
+  async showRemoveKeyConfirmation(bindsetName) {
     const message = i18next.t('remove_key_from_bindset_confirm', { 
-      key: this.selectedKey, 
+      key: this.cache.selectedKey, 
       bindset: bindsetName 
-    }) || `Remove key "${this.selectedKey}" from bindset "${bindsetName}"?`
+    }) || `Remove key "${this.cache.selectedKey}" from bindset "${bindsetName}"?`
     
-    if (confirm(message)) {
+    let confirmed = false
+    
+    if (this.confirmDialog) {
+      const title = i18next.t('confirm_remove') || 'Confirm Remove'
+      confirmed = await this.confirmDialog.confirm(message, title, 'warning')
+    } else {
+      // Fallback to window.confirm when confirmDialog is not available
+      confirmed = window.confirm(message)
+    }
+    
+    if (confirmed) {
       this.request('bindset-selector:remove-key-from-bindset', { bindset: bindsetName })
         .then(result => {
           if (!result?.success) {
@@ -303,17 +322,12 @@ export default class BindsetSelectorUI extends ComponentBase {
   showError(errorKey) {
     const message = i18next.t(`error_${errorKey}`) || `Error: ${errorKey}`
     
-    // Try to use existing toast system if available
-    if (this.eventBus) {
-      this.emit('toast:show', {
-        type: 'error',
-        message: message,
-        duration: 3000
-      })
-    } else {
-      // Fallback to alert
-      alert(message)
-    }
+    // Use toast system (ComponentBase always has eventBus)
+    this.emit('toast:show', {
+      type: 'error',
+      message: message,
+      duration: 3000
+    })
   }
 
   openBindsetManager() {
@@ -363,16 +377,12 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
   }
 
-  /* ------------------------------------------------------------ */
-  /* Late-join state handler                                    */
-  /* ------------------------------------------------------------ */
-
+  // Late-join state handler
   handleInitialState(sender, state) {
     if (sender === 'BindsetSelectorService' && state) {
       console.log('[BindsetSelectorUI] handleInitialState from BindsetSelectorService:', state)
-      this.selectedKey = state.selectedKey
-      this.activeBindset = state.activeBindset
-      this.bindsetNames = state.bindsetNames || ['Primary Bindset']
+      // ComponentBase automatically handles selectedKey and activeBindset
+      // Only update UI-specific state
       this.keyBindsetMembership = state.keyBindsetMembership || new Map()
       this.isVisible = state.shouldDisplay || false
       this.render()

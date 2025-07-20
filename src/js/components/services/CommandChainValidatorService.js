@@ -20,9 +20,7 @@ export default class CommandChainValidatorService extends ComponentBase {
     this.ui = ui
   }
 
-  /* ------------------------------------------------------------
-   * Lifecycle
-   * ---------------------------------------------------------- */
+  // Lifecycle
   onInit() {
     // Listen for validate events coming from the UI
     this.addEventListener('command-chain:validate', async ({ key, stabilized, isAlias }) => {
@@ -30,16 +28,14 @@ export default class CommandChainValidatorService extends ComponentBase {
     })
   }
 
-  /* ------------------------------------------------------------
-   * Public validation entry
-   * ---------------------------------------------------------- */
+  // Public validation entry
   async validateChain(key, stabilizedFlag = undefined, aliasFlag = undefined) {
     if (this._busy) return
     this._busy = true
     try {
-      // Retrieve the command list for the CURRENTLY SELECTED key via existing RPC
-      // Note: CommandUI ensures key is selected before emitting validate.
+      // Retrieve the command list for the CURRENTLY SELECTED key
       const commands = await this.request('command:get-for-selected-key')
+      
       // Normalize commands – even an empty/null response should allow validation rules
       if (!Array.isArray(commands)) {
         console.warn('[CommandChainValidatorService] No commands array returned – proceeding with empty list')
@@ -64,6 +60,7 @@ export default class CommandChainValidatorService extends ComponentBase {
           commands: safeCommands,
           stabilize: true
         })
+        
         length = previewStabilized.length
         generatedCommand = previewStabilized
       } else {
@@ -71,7 +68,6 @@ export default class CommandChainValidatorService extends ComponentBase {
         generatedCommand = previewUnstabilized
       }
 
-      // ------------------------------------
       // Run modular validators (a rule may return a single issue or an array)
       const ctx = { key, commands: safeCommands, length, stabilized, isAlias, generatedCommand }
       const issues = RULES.flatMap(r => {
@@ -115,9 +111,7 @@ export default class CommandChainValidatorService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------
-   * Helper – i18n wrapper (mirrors CommandUI implementation)
-   * ---------------------------------------------------------- */
+  // Helper – i18n wrapper (mirrors CommandUI implementation)
   async getI18nMessage(key, params = {}) {
     try {
       if (this.i18n && typeof this.i18n.t === 'function') {
@@ -129,9 +123,7 @@ export default class CommandChainValidatorService extends ComponentBase {
     }
   }
 
-  /* ------------------------------------------------------------
-   * Helper – toast wrapper (mirrors CommandUI implementation)
-   * ---------------------------------------------------------- */
+  // Helper – toast wrapper (mirrors CommandUI implementation)
   async showToast(message, type = 'info') {
     try {
       if (this.ui?.showToast) {

@@ -19,10 +19,12 @@ function generateSuggestedAlias(original, existingAliases = {}) {
 export default class AliasBrowserUI extends ComponentBase {
   constructor ({ eventBus: bus = eventBus,
                 modalManager = null,
+                confirmDialog = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(bus)
     this.componentName = 'AliasBrowserUI'
     this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.document = document
   }
 
@@ -34,18 +36,18 @@ export default class AliasBrowserUI extends ComponentBase {
     
     // React to alias list or selection changes
     this.eventBus.on('aliases-changed', () => {
-      console.log('[AliasBrowserUI] aliases-changed event received, calling render()')
+      // Aliases changed, updating display
       this.render()
     })
     this.eventBus.on('alias-selected', (data) => {
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserUI] alias-selected event received. data:`, data, `setting _selectedAliasName to: ${data.name}`)
+        // Alias selected, updating selection
       }
       this._selectedAliasName = data.name
       if (typeof window !== 'undefined') {
         // eslint-disable-next-line no-console
-        console.log(`[AliasBrowserUI] calling render() after alias-selected. _selectedAliasName:`, this._selectedAliasName)
+        // Rendering after alias selection
       }
       this.render()
     })
@@ -59,7 +61,7 @@ export default class AliasBrowserUI extends ComponentBase {
     // Toggle visibility based on current environment
     this.eventBus.on('environment:changed', (d = {}) => {
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
-      console.log('[AliasBrowserUI] environment:changed event received:', d, 'parsed env:', env)
+      // Environment changed, updating visibility
       this.toggleVisibility(env)
     })
 
@@ -139,11 +141,13 @@ export default class AliasBrowserUI extends ComponentBase {
   /**
    * Confirm deletion of an alias
    */
-  confirmDeleteAlias(aliasName) {
-    if (!aliasName) return
+  async confirmDeleteAlias(aliasName) {
+    if (!aliasName || !this.confirmDialog) return
     
-    const message = i18next.t('confirm_delete_alias', { alias: aliasName }) || `Delete alias ${aliasName}?`
-    if (confirm(message)) {
+    const message = i18next.t('confirm_delete_alias', { aliasName: aliasName }) || `Delete alias ${aliasName}?`
+    const title = i18next.t('confirm_delete') || 'Confirm Delete'
+    
+    if (await this.confirmDialog.confirm(message, title, 'danger')) {
       this.emit('alias:delete', { name: aliasName })
     }
   }
@@ -247,8 +251,9 @@ export default class AliasBrowserUI extends ComponentBase {
 
     // Use the correct CSS class selector to match what createAliasElement produces
     grid.querySelectorAll('.alias-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        request(this.eventBus, 'alias:select', { name: item.dataset.alias })
+      item.addEventListener('click', async () => {
+        // Use correct parameter name for SelectionService
+        await this.request('alias:select', { aliasName: item.dataset.alias })
         this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
       })
     })
@@ -283,7 +288,7 @@ export default class AliasBrowserUI extends ComponentBase {
     if (!container) return
     
     const shouldShow = (env === 'alias')
-    console.log('[AliasBrowserUI] toggleVisibility called with env:', env, 'shouldShow:', shouldShow, 'container exists:', !!container)
+    // Toggling alias browser visibility
     
     container.style.display = shouldShow ? '' : 'none'
   }
@@ -304,9 +309,7 @@ export default class AliasBrowserUI extends ComponentBase {
     }
   }
 
-  /**
-   * Show create alias modal
-   */
+  // Show create alias modal
   async createAliasModal() {
     if (!this.modalManager) return
 
@@ -338,6 +341,8 @@ export default class AliasBrowserUI extends ComponentBase {
     input.removeEventListener('input', validate)
     input.addEventListener('input', validate)
 
+    // Clear any existing onclick handler to prevent stacking
+    okBtn.onclick = null
     okBtn.onclick = () => {
       const name = input.value.trim()
       if (!name) return
@@ -349,9 +354,7 @@ export default class AliasBrowserUI extends ComponentBase {
     validate()
   }
 
-  /**
-   * Filter aliases by term
-   */
+  // Filter aliases by term
   filterAliases(value='') {
     const filter = (value||'').toString().toLowerCase()
     const grid = this.document.getElementById('aliasGrid')
@@ -373,7 +376,7 @@ export default class AliasBrowserUI extends ComponentBase {
     }
   }
 
-  /** Toggle alias search input */
+  // Toggle alias search input
   toggleAliasSearch() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return

@@ -19,14 +19,37 @@ function off(event, callback) {
   }
 }
 
-function emit(event, data) {
+function emit(event, data, options = {}) {
   // if (typeof window !== 'undefined') {
   //   // eslint-disable-next-line no-console
   //   console.log(`[eventBus] emit → ${event}`, data)
   // }
   
   const eventListeners = listeners.get(event)
-  if (eventListeners) {
+  if (!eventListeners) return Promise.resolve()
+  
+  if (options.synchronous) {
+    // Synchronous mode: wait for all listeners to complete
+    const promises = []
+    
+    eventListeners.forEach(callback => {
+      try {
+        const result = callback(data)
+        // If the callback returns a Promise, collect it
+        if (result && typeof result.then === 'function') {
+          promises.push(result)
+        }
+      } catch (error) {
+        console.error(`Error in event listener for ${event}:`, error)
+        // Include failed promises so we don't hang
+        promises.push(Promise.reject(error))
+      }
+    })
+    
+    // Return a Promise that resolves when all listeners complete
+    return Promise.allSettled ? Promise.allSettled(promises) : Promise.all(promises.map(p => p.catch(e => e)))
+  } else {
+    // Asynchronous mode (default): fire and forget
     eventListeners.forEach(callback => {
       try {
         callback(data)
@@ -34,6 +57,7 @@ function emit(event, data) {
         console.error(`Error in event listener for ${event}:`, error)
       }
     })
+    return Promise.resolve()
   }
 }
 

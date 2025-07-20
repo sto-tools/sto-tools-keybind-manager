@@ -1,74 +1,28 @@
-import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * KeyBrowserUI – responsible for rendering the key grid (#keyGrid).
  * For the initial migration it simply delegates to the legacy
  * renderKeyGrid implementation hanging off the global `app` instance.
  */
-export default class KeyBrowserUI extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus,
+export default class KeyBrowserUI extends UIComponentBase {
+  constructor ({ eventBus,
                 app = null,
                 modalManager = null,
+                confirmDialog = null,
+                i18n = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(bus)
+    super(eventBus)
     this.componentName = 'KeyBrowserUI'
     this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
     this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
     this.document = document
-
-    // Cached state
-    this._currentEnvironment = 'space'
   }
 
-  /* ============================================================
-   * Lifecycle
-   * ========================================================== */
+  // Lifecycle
   onInit () {
-    // Initialize cached selected key
-    this._selectedKeyName = null
-
-    // Environment will be determined from initial state - don't hardcode
-    this._currentEnvironment = null
-
-    // Re-render whenever key list changes or selection updates.
-    this.eventBus.on('key:list-changed', () => this.render())
-    this.eventBus.on('key-selected', (data) => {
-      this._selectedKeyName = data.key || data.name
-      this.render()
-    })
-
-    // Handle environment changes for visibility toggling
-    this.eventBus.on('environment:changed', (d = {}) => {
-      console.log('[KeyBrowserUI] environment:changed event received:', d)
-      const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
-      console.log('[KeyBrowserUI] parsed environment:', env)
-      if (!env) return
-      this._currentEnvironment = env
-      console.log('[KeyBrowserUI] calling toggleVisibility with env:', env)
-      this.toggleVisibility(env)
-      if (env !== 'alias') {
-        this.render()
-      }
-    })
-
-    // Listen for view mode toggles and update events from other components
-    this.addEventListener('key-view:toggle',        () => this.toggleKeyView())
-    this.addEventListener('key-view:update-toggle', (d) => this.updateViewToggleButton(d?.viewMode))
-    this.addEventListener('keys:filter',            (d) => {
-      const val = (typeof d === 'string') ? d : (d?.value || '')
-      this.filterKeys(val)
-    })
-    this.addEventListener('commands:filter',        (d) => {
-      const val = (typeof d === 'string') ? d : (d?.value || '')
-      this.filterCommands(val)
-    })
-    this.addEventListener('keys:show-all',          () => this.showAllKeys())
-
-    // Also re-render on explicit mode-changed events.
-    this.addEventListener('key-view:mode-changed', () => this.render())
-
     // Initial paint and toggle-button state (will be handled by handleInitialState)
     const initialMode = localStorage.getItem('keyViewMode') || 'grid'
     this.updateViewToggleButton(initialMode)
@@ -88,14 +42,14 @@ export default class KeyBrowserUI extends ComponentBase {
     })
 
     this.eventBus.onDom('deleteKeyBtn', 'click', 'key-delete', () => {
-      if (this._selectedKeyName) {
-        this.confirmDeleteKey(this._selectedKeyName)
+      if (this.cache.selectedKey) {
+        this.confirmDeleteKey(this.cache.selectedKey)
       }
     })
 
     this.eventBus.onDom('duplicateKeyBtn', 'click', 'key-duplicate', () => {
-      if (this._selectedKeyName) {
-        this.duplicateKey(this._selectedKeyName)
+      if (this.cache.selectedKey) {
+        this.duplicateKey(this.cache.selectedKey)
       }
     })
 
@@ -133,23 +87,43 @@ export default class KeyBrowserUI extends ComponentBase {
       this.toggleKeySearch()
     })
 
-    // Listen for key selection events from other components
-    this.addEventListener('key-selected', ({ key } = {}) => {
-      this._selectedKeyName = key
+    this.eventBus.on('key:list-changed', () => this.render())
+    
+    // Add environment change handler for UI visibility
+    this.addEventListener('environment:changed', (d = {}) => {
+      const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      if (!env) return
+      this.toggleVisibility(env)
+      if (env !== 'alias') {
+        this.render()
+      }
+    })
+    
+    // Add key selection handler for UI updates (single listener, not duplicate)
+    this.addEventListener('key-selected', () => {
+      this.render()
+    })
+    
+    // Add profile switch handler for UI updates (single listener, not duplicate)
+    this.addEventListener('profile:switched', () => {
       this.render()
     })
 
-    // Listen for profile changes
-    this.addEventListener('profile:switched', ({ profileId, environment } = {}) => {
-      this._currentProfileId = profileId
-      this._currentEnvironment = environment
-      this.render()
+    // Listen for view mode toggles and update events from other components
+    this.addEventListener('key-view:toggle',        () => this.toggleKeyView())
+    this.addEventListener('key-view:update-toggle', (d) => this.updateViewToggleButton(d?.viewMode))
+    this.addEventListener('keys:filter',            (d) => {
+      const val = (typeof d === 'string') ? d : (d?.value || '')
+      this.filterKeys(val)
     })
+    this.addEventListener('commands:filter',        (d) => {
+      const val = (typeof d === 'string') ? d : (d?.value || '')
+      this.filterCommands(val)
+    })
+    this.addEventListener('keys:show-all',          () => this.showAllKeys())
 
-    this.addEventListener('environment:changed', ({ environment } = {}) => {
-      this._currentEnvironment = environment
-      this.render()
-    })
+    // Also re-render on explicit mode-changed events.
+    this.addEventListener('key-view:mode-changed', () => this.render())
   }
 
   async render () {
@@ -176,178 +150,75 @@ export default class KeyBrowserUI extends ComponentBase {
     })
     const allKeys = [...new Set([...keys, ...Object.keys(keysWithCommands)])]
 
-    // Clear grid
-    grid.innerHTML = ''
-
+    // Build DOM atomically using DocumentFragment
+    const fragment = this.document.createDocumentFragment()
     const viewMode = localStorage.getItem('keyViewMode') || 'grid'
 
     if (viewMode === 'key-types') {
-      this.renderKeyTypeView(grid, profile, allKeys)
+      await this.renderKeyTypeView(fragment, profile, allKeys)
+      grid.classList.add('categorized')
     } else if (viewMode === 'grid') {
-      this.renderSimpleGridView(grid, allKeys)
+      await this.renderSimpleGridView(fragment, allKeys)
+      grid.classList.remove('categorized')
     } else {
       // command-category
-      await this.renderCommandCategoryView(grid, keysWithCommands, allKeys)
+      await this.renderCommandCategoryView(fragment, keysWithCommands, allKeys)
+      grid.classList.add('categorized')
     }
+
+    // Atomic DOM update - replace all content at once
+    grid.innerHTML = ''
+    grid.appendChild(fragment)
   }
 
-  /* ============================================================
-   * Rendering helpers (migrated from legacy uiRendering)
-   * ========================================================== */
-
-  renderSimpleGridView (grid, allKeys) {
-    grid.classList.remove('categorized')
-    const sortedKeys = allKeys.sort(this.compareKeys.bind(this))
+  // Rendering helpers
+  async renderSimpleGridView (fragment, allKeys) {
+    // Sort keys using the service's sort function
+    const sortedKeys = await this.request('key:sort', { keys: allKeys })
+    
     sortedKeys.forEach((keyName) => {
       const keyElement = this.createKeyElement(keyName)
-      grid.appendChild(keyElement)
+      fragment.appendChild(keyElement)
     })
   }
 
-  async renderCommandCategoryView (grid, keysWithCommands, allKeys) {
-    grid.classList.add('categorized')
+  async renderCommandCategoryView (fragment, keysWithCommands, allKeys) {
     const categories = await this.categorizeKeys(keysWithCommands, allKeys)
     const sorted = Object.entries(categories).sort(([aId,a],[bId,b]) => {
       if (a.priority !== b.priority) return a.priority - b.priority
       return a.name.localeCompare(b.name)
     })
-    sorted.forEach(([catId,catData]) => {
-      const el = this.createKeyCategoryElement(catId, catData)
-      grid.appendChild(el)
-    })
+    for (const [catId, catData] of sorted) {
+      const el = await this.createKeyCategoryElement(catId, catData)
+      fragment.appendChild(el)
+    }
   }
 
-  renderKeyTypeView (grid, profile, allKeys) {
-    grid.classList.add('categorized')
-    const cats = this.categorizeKeysByType(this._currentKeyMap, allKeys)
+  async renderKeyTypeView (fragment, profile, allKeys) {
+    const cats = await this.categorizeKeysByType(this._currentKeyMap, allKeys)
     const sorted = Object.entries(cats).sort(([,a],[,b]) => a.priority - b.priority)
-    sorted.forEach(([id,data]) => {
-      const el = this.createKeyCategoryElement(id, data, 'key-type')
-      grid.appendChild(el)
-    })
+    for (const [id, data] of sorted) {
+      const el = await this.createKeyCategoryElement(id, data, 'key-type')
+      fragment.appendChild(el)
+    }
   }
 
-  /* ------ Categorization helpers ------ */
+  // Categorization helpers
 
   async categorizeKeys (keysWithCommands, allKeys) {
-    const categories = {
-      unknown: { name: 'Unknown', icon: 'fas fa-question-circle', keys: new Set(), priority: 0 },
-    }
-
-    Object.entries(STO_DATA.commands).forEach(([catId,catData]) => {
-      categories[catId] = { name: catData.name, icon: catData.icon, keys: new Set(), priority: 1 }
-    })
-
-    // Process each key's commands async
-    await Promise.all(allKeys.map(async (keyName) => {
-      const commands = keysWithCommands[keyName] || []
-
-      if (!commands || commands.length === 0) {
-        categories.unknown.keys.add(keyName)
-        return
-      }
-
-      const keyCats = new Set()
-      
-      // Process each command async
-      await Promise.all(commands.map(async (command) => {
-        // Handle both new format (category) and legacy format (type)
-        const commandCategory = command.category || command.type
-        if (commandCategory && categories[commandCategory]) {
-          keyCats.add(commandCategory)
-        } else {
-          // Use STOCommandParser via event bus for command category detection
-          try {
-            const result = await this.request('parser:parse-command-string', { 
-              commandString: command.command,
-              options: { generateDisplayText: false }
-            })
-            if (result.commands && result.commands.length > 0) {
-              const detected = result.commands[0].category
-              if (categories[detected]) keyCats.add(detected)
-            }
-          } catch (error) {
-            // Fallback to custom category if parsing fails
-            if (!categories.custom) {
-              categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
-            }
-          }
-        }
-      }))
-
-      if (keyCats.size > 0) {
-        keyCats.forEach((cid) => categories[cid].keys.add(keyName))
-      } else {
-        if (!categories.custom) categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
-        categories.custom.keys.add(keyName)
-      }
-    }))
-
-    Object.values(categories).forEach((cat) => { cat.keys = Array.from(cat.keys).sort(this.compareKeys.bind(this)) })
-    return categories
+    return await this.request('key:categorize-by-command', { keysWithCommands, allKeys })
   }
 
-  detectKeyTypes (keyName) {
-    const types = []
-    if (/^F[0-9]+$/.test(keyName)) types.push('function')
-    if (/^[A-Z0-9]$/.test(keyName)) types.push('alphanumeric')
-    if (/^NUMPAD/.test(keyName)) types.push('numberpad')
-    if (/(Ctrl|Alt|Shift)/.test(keyName)) types.push('modifiers')
-    if (/(UP|DOWN|LEFT|RIGHT|HOME|END|PGUP|PGDN)/.test(keyName)) types.push('navigation')
-    if (/(ESC|TAB|CAPS|PRINT|SCROLL|PAUSE|Space|Enter|Escape)/.test(keyName)) types.push('system')
-    if (/MOUSE|WHEEL/.test(keyName)) types.push('mouse')
-    // Only consider it a symbol if it contains actual punctuation/symbols and isn't already categorized
-    if (types.length === 0 && /[^A-Za-z0-9]/.test(keyName)) types.push('symbols')
-    if (types.length === 0) types.push('other')
-    return types
+  async detectKeyTypes (keyName) {
+    return await this.request('key:detect-types', { keyName })
   }
 
-  categorizeKeysByType (keysWithCommands, allKeys) {
-    const categories = {
-      function:   { name: 'Function Keys',        icon: 'fas fa-keyboard',     keys: new Set(), priority: 1 },
-      alphanumeric:{ name: 'Letters & Numbers',   icon: 'fas fa-font',         keys: new Set(), priority: 2 },
-      numberpad:  { name: 'Numberpad',            icon: 'fas fa-calculator',   keys: new Set(), priority: 3 },
-      modifiers:  { name: 'Modifier Keys',        icon: 'fas fa-hand-paper',   keys: new Set(), priority: 4 },
-      navigation: { name: 'Navigation',           icon: 'fas fa-arrows-alt',   keys: new Set(), priority: 5 },
-      system:     { name: 'System Keys',          icon: 'fas fa-cogs',         keys: new Set(), priority: 6 },
-      mouse:      { name: 'Mouse & Wheel',        icon: 'fas fa-mouse',        keys: new Set(), priority: 7 },
-      symbols:    { name: 'Symbols & Punctuation',icon: 'fas fa-at',           keys: new Set(), priority: 8 },
-      other:      { name: 'Other Keys',           icon: 'fas fa-question-circle',keys: new Set(),priority: 9 },
-    }
-
-    allKeys.forEach((keyName) => {
-      const types = this.detectKeyTypes(keyName)
-      types.forEach((t) => (categories[t] || categories.other).keys.add(keyName))
-    })
-
-    Object.values(categories).forEach((c) => { c.keys = Array.from(c.keys).sort(this.compareKeys.bind(this)) })
-    return categories
+  async categorizeKeysByType (keysWithCommands, allKeys) {
+    return await this.request('key:categorize-by-type', { keysWithCommands, allKeys })
   }
 
-  compareKeys (a, b) {
-    // Embedded synchronous key comparison logic (from stoFileHandler)
-    const aIsF = a.match(/^F(\d+)$/)
-    const bIsF = b.match(/^F(\d+)$/)
-    if (aIsF && bIsF) return parseInt(aIsF[1]) - parseInt(bIsF[1])
-    if (aIsF && !bIsF) return -1
-    if (!aIsF && bIsF) return 1
-    const aIsNum = /^\d+$/.test(a)
-    const bIsNum = /^\d+$/.test(b)
-    if (aIsNum && bIsNum) return parseInt(a) - parseInt(b)
-    if (aIsNum && !bIsNum) return -1
-    if (!aIsNum && bIsNum) return 1
-    const aIsLetter = /^[A-Z]$/.test(a)
-    const bIsLetter = /^[A-Z]$/.test(b)
-    if (aIsLetter && bIsLetter) return a.localeCompare(b)
-    if (aIsLetter && !bIsLetter) return -1
-    if (!aIsLetter && bIsLetter) return 1
-    const specialOrder = ['Space', 'Tab', 'Enter', 'Escape']
-    const aSpecial = specialOrder.indexOf(a)
-    const bSpecial = specialOrder.indexOf(b)
-    if (aSpecial !== -1 && bSpecial !== -1) return aSpecial - bSpecial
-    if (aSpecial !== -1 && bSpecial === -1) return -1
-    if (aSpecial === -1 && bSpecial !== -1) return 1
-    return a.localeCompare(b)
+  async compareKeys (a, b) {
+    return await this.request('key:compare', { keyA: a, keyB: b })
   }
 
   formatKeyName (keyName) {
@@ -358,7 +229,7 @@ export default class KeyBrowserUI extends ComponentBase {
     const keyMap = this._currentKeyMap || {}
     const commands = (keyMap && keyMap[keyName]) ? keyMap[keyName] : []
 
-    const isSelected = keyName === this._selectedKeyName
+    const isSelected = keyName === this.cache.selectedKey
 
     // After canonical string refactoring, commands should be an array of strings
     // During transition, handle both legacy rich objects and canonical strings
@@ -383,18 +254,18 @@ export default class KeyBrowserUI extends ComponentBase {
 
     el.addEventListener('click', () => {
       // Fire select request; no need to await
-      request(eventBus, 'key:select', { key: keyName })
+      this.request('key:select', { keyName })
     })
     return el
   }
 
-  createKeyCategoryElement (categoryId, categoryData, mode='command') {
+  async createKeyCategoryElement (categoryId, categoryData, mode='command') {
     const element = this.document.createElement('div')
     element.className = 'category'
     element.dataset.category = categoryId
 
-    const storageKey = mode==='key-type'?`keyTypeCategory_${categoryId}_collapsed`:`keyCategory_${categoryId}_collapsed`
-    const isCollapsed = localStorage.getItem(storageKey)==='true'
+    // Get collapsed state from service
+    const isCollapsed = await this.request('key:get-category-state', { categoryId, mode })
 
     element.innerHTML = `<h4 class="${isCollapsed?'collapsed':''}" data-category="${categoryId}" data-mode="${mode}"><i class="fas fa-chevron-right category-chevron"></i><i class="${categoryData.icon}"></i>${categoryData.name}<span class="key-count">(${categoryData.keys.length})</span></h4><div class="category-commands ${isCollapsed?'collapsed':''}">${categoryData.keys.map((k)=>this.createKeyElement(k).outerHTML).join('')}</div>`
 
@@ -410,17 +281,24 @@ export default class KeyBrowserUI extends ComponentBase {
     return element
   }
 
-  toggleKeyCategory (categoryId, element, mode='command') {
-    const storageKey = mode==='key-type'?`keyTypeCategory_${categoryId}_collapsed`:`keyCategory_${categoryId}_collapsed`
-    const isCollapsed = element.querySelector('h4').classList.toggle('collapsed')
-    element.querySelector('.category-commands').classList.toggle('collapsed')
-    localStorage.setItem(storageKey, isCollapsed)
+  async toggleKeyCategory (categoryId, element, mode='command') {
+    // Use service to handle business logic
+    const isCollapsed = await this.request('key:toggle-category', { categoryId, mode })
+    
+    // Update DOM to reflect new state
+    const header = element.querySelector('h4')
+    const commands = element.querySelector('.category-commands')
+    
+    if (isCollapsed) {
+      header.classList.add('collapsed')
+      commands.classList.add('collapsed')
+    } else {
+      header.classList.remove('collapsed')
+      commands.classList.remove('collapsed')
+    }
   }
 
-  /* ============================================================
-   * View-management helpers (migrated from legacy viewManagement)
-   * ========================================================== */
-
+  // View-management helpers
   updateViewToggleButton (viewMode) {
     const toggleBtn = this.document.getElementById('toggleKeyViewBtn')
     if (!toggleBtn) return
@@ -467,15 +345,25 @@ export default class KeyBrowserUI extends ComponentBase {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
 
+    // Use service for business logic - determine which keys should be visible
+    const allKeys = Array.from(grid.querySelectorAll('.key-item')).map(item => item.dataset.key)
+    const visibleKeys = new Set()
+    
+    allKeys.forEach(keyName => {
+      const shouldShow = !filterLower || keyName.toLowerCase().includes(filterLower)
+      if (shouldShow) visibleKeys.add(keyName)
+    })
+
+    // Apply visibility to DOM elements
     grid.querySelectorAll('.key-item').forEach((item) => {
-      const keyName = (item.dataset.key || '').toLowerCase()
-      const visible = !filterLower || keyName.includes(filterLower)
+      const keyName = item.dataset.key
+      const visible = visibleKeys.has(keyName)
       item.style.display = visible ? 'flex' : 'none'
     })
 
     grid.querySelectorAll('.command-item[data-key]').forEach((item) => {
-      const keyName = (item.dataset.key || '').toLowerCase()
-      const visible = !filterLower || keyName.includes(filterLower)
+      const keyName = item.dataset.key
+      const visible = visibleKeys.has(keyName)
       item.style.display = visible ? 'flex' : 'none'
     })
 
@@ -514,6 +402,7 @@ export default class KeyBrowserUI extends ComponentBase {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
 
+    // Show all elements (no filtering)
     grid.querySelectorAll('.key-item').forEach((item) => { item.style.display = 'flex' })
     grid.querySelectorAll('.command-item[data-key]').forEach((item) => { item.style.display = 'flex' })
     grid.querySelectorAll('.category').forEach((category) => { category.style.display = 'block' })
@@ -534,8 +423,8 @@ export default class KeyBrowserUI extends ComponentBase {
     const applyVisibility = () => {
       const container = this.document.querySelector('.key-selector-container')
       if (!container) {
-        // If container doesn't exist yet, try again after a short delay
-        setTimeout(applyVisibility, 10)
+        // Container doesn't exist yet - DOM may not be ready
+        console.warn('[KeyBrowserUI] Key selector container not found in DOM')
         return
       }
       
@@ -553,18 +442,25 @@ export default class KeyBrowserUI extends ComponentBase {
     requestAnimationFrame(applyVisibility)
   }
 
-  /* ------------------------------------------------------------
-   * Late-join: sync visibility when initial state snapshot is received.
-   * ---------------------------------------------------------- */
+  // Late-join: sync visibility when initial state snapshot is received.
   handleInitialState (sender, state) {
     if (!state) return
     
+    // Restore selection from SelectionService late-join
+    if (sender === 'SelectionService') {
+      if (state.selectedKey) {
+        // Call the same logic as the key-selected event handler
+        // Selected key now tracked by ComponentBase in this.cache.selectedKey
+        this.render()
+      }
+      // Optionally handle selectedAlias if needed for future alias mode
+      return
+    }
     // Handle environment state from various sources
     const env = state.environment || state.currentEnvironment
     if (env) {
-      this._currentEnvironment = env
+      // Environment now tracked by ComponentBase in this.cache.currentEnvironment
       this.toggleVisibility(env)
-      
       // Render if not in alias mode
       if (env !== 'alias') {
         this.render()
@@ -573,28 +469,24 @@ export default class KeyBrowserUI extends ComponentBase {
     // Service state is now managed internally via events - no direct access needed
   }
 
-  /**
-   * Show key selection modal for adding new keys
-   */
+  // Show key selection modal for adding new keys
   showKeySelectionModal() {
     if (this.modalManager) {
       this.modalManager.show('keySelectionModal')
     }
   }
 
-  /**
-   * Confirm deletion of a key
-   */
-  async confirmDeleteKey(key) {
-    if (!key) return
+  // Confirm deletion of a key
+  async confirmDeleteKey(keyName) {
+    if (!keyName || !this.confirmDialog) return false
     
-    const message = this.i18n?.t?.('confirm_delete_key', { key }) || `Delete key ${key}?`
-    const confirmed = confirm(message)
+    const message = this.i18n?.t?.('confirm_delete_key', { keyName: keyName }) || `Delete key ${keyName}?`
+    const title = this.i18n?.t?.('confirm_delete') || 'Confirm Delete'
     
-    if (confirmed) {
+    if (await this.confirmDialog.confirm(message, title, 'danger')) {
       try {
         // Use the eventBus to request key deletion from KeyService
-        this.emit('key:delete', { key })
+        this.emit('key:delete', { key: keyName })
         return true
       } catch (error) {
         console.error('Error deleting key:', error)
@@ -608,17 +500,13 @@ export default class KeyBrowserUI extends ComponentBase {
     return false
   }
 
-  /**
-   * Duplicate the selected key
-   */
+  // Duplicate the selected key
   duplicateKey(key) {
     if (!key) return
     this.emit('key:duplicate', { key })
   }
 
-  /**
-   * Toggle key search functionality
-   */
+  // Toggle key search functionality
   toggleKeySearch() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
@@ -631,5 +519,24 @@ export default class KeyBrowserUI extends ComponentBase {
     } else {
       searchInput.blur()
     }
+  }
+
+  // UIComponentBase: Check if component has required data for rendering
+  // KeyBrowserUI needs profile and environment data to render the key grid
+  hasRequiredData() {
+    // We need both profile and environment data to render keys properly
+    return this.cache && 
+           this.cache.currentProfile && 
+           this.cache.currentEnvironment &&
+           this.cache.keys !== undefined
+  }
+
+  // UIComponentBase: Perform initial render when data dependencies are ready
+  // This replaces the setTimeout retry pattern for DOM availability
+  performInitialRender() {
+    // Render the key grid when data is available
+    this.render().catch((error) => {
+      console.error('[KeyBrowserUI] Initial render failed:', error)
+    })
   }
 } 

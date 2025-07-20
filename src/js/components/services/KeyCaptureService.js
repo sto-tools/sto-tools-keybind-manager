@@ -13,24 +13,19 @@ import { UNSAFE_KEYBINDS } from '../../core/constants.js'
  *  • chord-captured – when a full chord is captured  ({ chord, context })
  */
 export default class KeyCaptureService extends ComponentBase {
-  /**
-   * @param {Object}   [opts]
-   * @param {Object}   [opts.eventBus]  – global event bus for emitting events
-   * @param {Document} [opts.document]  – document reference (DI for tests)
-   */
   constructor ({ eventBus = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'KeyCaptureService'
     this.document = document
 
-    // Runtime state ---------------------------------------------------------
+    // Runtime state
     this.isCapturing          = false
     this.pressedCodes         = new Set()
     this.currentContext       = 'keySelectionModal'
     this.hasCapturedValidKey  = false
     this.locationSpecific     = false
 
-    // Bindings --------------------------------------------------------------
+    // Bindings
     this.boundHandleKeyDown = this.handleKeyDown.bind(this)
     this.boundHandleKeyUp   = this.handleKeyUp.bind(this)
     this.boundHandleMouseDown = this.handleMouseDown.bind(this)
@@ -48,8 +43,14 @@ export default class KeyCaptureService extends ComponentBase {
       dragThreshold: 5,
       pressTimeout: 200
     }
+  }
 
-    // Listen for start/stop requests emitted by UI components
+  init() {
+    super.init()
+    this.setupEventListeners()
+  }
+
+  setupEventListeners() {
     this.addEventListener('keycapture:start', ({ context } = {}) => this.startCapture(context))
     this.addEventListener('keycapture:stop',  () => this.stopCapture())
     this.addEventListener('keycapture:set-location-specific', ({ value } = {}) => {
@@ -57,13 +58,7 @@ export default class KeyCaptureService extends ComponentBase {
     })
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Public API                                                             */
-  /* ---------------------------------------------------------------------- */
-  /**
-   * Start listening for keyboard events.
-   * @param {string} [context='keySelectionModal'] – caller-supplied context
-   */
+  // Start listening for keyboard events.
   startCapture (context = 'keySelectionModal') {
     if (this.isCapturing) return
 
@@ -84,9 +79,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.emit('capture-start', { context })
   }
 
-  /**
-   * Stop listening and clean internal state.
-   */
+  // Stop listening and clean internal state.
   stopCapture () {
     if (!this.isCapturing) return
 
@@ -112,17 +105,12 @@ export default class KeyCaptureService extends ComponentBase {
     this.currentContext = 'keySelectionModal'
   }
 
-  /**
-   * Enable / disable left- vs right-modifier distinction.
-   * @param {boolean} value
-   */
+  // Enable / disable left- vs right-modifier distinction.
   setLocationSpecific (value) {
     this.locationSpecific = !!value
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Internal helpers                                                       */
-  /* ---------------------------------------------------------------------- */
+  // Internal helpers
   resetState () {
     this.pressedCodes.clear()
     this.hasCapturedValidKey = false
@@ -140,11 +128,8 @@ export default class KeyCaptureService extends ComponentBase {
     this.mouseState.startY = 0
   }
 
-  /* ----------------------------- event handlers ------------------------- */
-  /**
-   * Keyboard down handler – now async so we can await i18n translations when
-   * displaying toast notifications. The signature is otherwise unchanged.
-   */
+  // Keyboard down handler – now async so we can await i18n translations when
+  // displaying toast notifications. The signature is otherwise unchanged.
   async handleKeyDown (event) {
     if (!this.isCapturing) return
 
@@ -163,9 +148,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.pressedCodes.add(event.code)
     const chord = this.chordToString(this.pressedCodes)
 
-    // ------------------------------------------------------------------
     // Reject unsafe keybind combinations
-    // ------------------------------------------------------------------
     if (this.isRejectedChord(chord)) {
       // Try to fetch i18n translation via request/response pattern – fall back
       // to the raw English string if translation service is not available.
@@ -349,12 +332,8 @@ export default class KeyCaptureService extends ComponentBase {
     ].includes(code)
   }
 
-  /**
-   * Convert a Set of KeyboardEvent.code values into a user friendly string
-   * matching STO keybind notation (Shift+Ctrl+A, etc.).
-   * @param {Set<string>} codes
-   * @returns {string}
-   */
+  // Convert a Set of KeyboardEvent.code values into a user friendly string
+  // matching STO keybind notation (Shift+Ctrl+A, etc.).
   chordToString (codes) {
     const locationSpecific = this.locationSpecific
 
@@ -454,11 +433,7 @@ export default class KeyCaptureService extends ComponentBase {
       .join('+')
   }
 
-  /**
-   * Check chord string against UNSAFE_KEYBINDS list.
-   * @param {string} chord
-   * @returns {boolean}
-   */
+  // Check chord string against UNSAFE_KEYBINDS list.
   isRejectedChord (chord) {
     if (!chord) return false
     return UNSAFE_KEYBINDS.some(k => k.toUpperCase() === chord.toUpperCase())

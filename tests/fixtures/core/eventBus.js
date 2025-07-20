@@ -178,6 +178,13 @@ export function createEventBusFixture(options = {}) {
       }
     },
     
+    expectNoEvent: (eventType) => {
+      const events = eventHistory.filter(entry => entry.event === eventType)
+      if (events.length > 0) {
+        throw new Error(`Expected no '${eventType}' events but got ${events.length}`)
+      }
+    },
+    
     // Mock control
     mockReset: () => {
       Object.keys(eventBus).forEach(key => {

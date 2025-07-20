@@ -1,6 +1,4 @@
 ﻿import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 /**
@@ -17,32 +15,17 @@ export default class CommandLibraryUI extends ComponentBase {
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
     this.eventListenersSetup = false
 
-    // DataCoordinator cache for profile state
-    this.cache = {
-      profile: null,
-      aliases: {},
-      currentProfile: null
-    }
-
-    // Store current state for UI updates
-    this._currentEnvironment = 'space'
-    this._selectedKey = null
-    this._selectedAlias = null
     this._rebuilding = false
     this._rebuildQueued = false
   }
 
-  /**
-   * Initialize the CommandLibraryUI component
-   */
+  // Initialize the CommandLibraryUI component
   onInit() {
     this.setupEventListeners()
     this.setupCommandLibrary()
   }
 
-  /**
-   * Set up all event listeners for command library UI
-   */
+  // Set up all event listeners for command library UI
   setupEventListeners() {
     if (this.eventListenersSetup) {
       return // Prevent duplicate event listener setup
@@ -51,35 +34,25 @@ export default class CommandLibraryUI extends ComponentBase {
 
     // DataCoordinator profile state synchronization
     this.addEventListener('profile:updated', ({ profile }) => {
-      this.updateCacheFromProfile(profile)
       this.updateCommandLibrary()
     })
 
     this.addEventListener('profile:switched', ({ profile }) => {
-      this.updateCacheFromProfile(profile)
       this.updateCommandLibrary()
     })
 
     // Environment and selection changes
-    this.addEventListener('environment:changed', ({ environment }) => {
-      this._currentEnvironment = environment
-
-      // Re-apply environment visibility handled by service already.
-      // Re-apply current text search filter (if any)
+    this.addEventListener('environment:changed', () => {
       const searchInput = this.document.getElementById('commandSearch')
       const term = searchInput ? searchInput.value : ''
       this.applySearchFilter(term)
     })
 
-    this.addEventListener('key:selected', ({ key }) => {
-      this._selectedKey = key
-      this._selectedAlias = null
+    this.addEventListener('key-selected', () => {
       this.updateChainActions()
     })
 
-    this.addEventListener('alias:selected', ({ alias }) => {
-      this._selectedAlias = alias
-      this._selectedKey = null
+    this.addEventListener('alias-selected', () => {
       this.updateChainActions()
     })
     // Listen for language changes to refresh command library with new translations
@@ -90,17 +63,12 @@ export default class CommandLibraryUI extends ComponentBase {
     // Listen for alias changes to update command library with new aliases
     this.addEventListener('aliases-changed', ({ aliases }) => {
       if (aliases) {
-        this.cache.aliases = aliases
+        // ComponentBase handles this.cache.aliases automatically via profile:updated
         this.updateCommandLibrary()
       }
     })
 
-    // Stabilize execution order now handled via toolbar button in CommandChainUI
-
-    // Command lifecycle events are now handled by CommandChainUI
-    // CommandLibraryUI no longer needs to listen to these events
-
-    // NEW: Listen for search filter events from CommandUI
+    // Listen for search filter events from CommandUI
     this.addEventListener('command:filter', ({ filter = '' }) => {
       this.applySearchFilter(filter)
     })
@@ -112,9 +80,7 @@ export default class CommandLibraryUI extends ComponentBase {
     })
   }
 
-  /**
-   * Setup the command library UI
-   */
+  // Setup the command library UI
   async setupCommandLibrary() {
     // Avoid concurrent rebuilds; queue the latest request.
     if (this._rebuilding) {
@@ -154,9 +120,7 @@ export default class CommandLibraryUI extends ComponentBase {
     }
   }
 
-  /**
-   * Create a category element for the command library
-   */
+  // Create a category element for the command library
   createCategoryElement(categoryId, category) {
     const element = this.document.createElement('div') || {}
     if (!element.dataset) {
@@ -245,9 +209,7 @@ export default class CommandLibraryUI extends ComponentBase {
     return element
   }
 
-  /**
-   * Toggle command category collapse state
-   */
+  // Toggle command category collapse state
   toggleCommandCategory(categoryId, element) {
     const header = element.querySelector('h4')
     const commands = element.querySelector('.category-commands')
@@ -269,9 +231,7 @@ export default class CommandLibraryUI extends ComponentBase {
     }
   }
 
-  /**
-   * Create an alias category element for the command library
-   */
+  // Create an alias category element for the command library
   createAliasCategoryElement(
     aliases,
     categoryType = 'aliases',
@@ -286,10 +246,19 @@ export default class CommandLibraryUI extends ComponentBase {
     const isCollapsed = localStorage.getItem(storageKey) === 'true'
 
     const isVertigo = categoryType === 'vertigo-aliases'
-    const itemIcon = isVertigo ? '👁️' : '🎭'
-    const itemClass = isVertigo
-      ? 'command-item vertigo-alias-item'
-      : 'command-item alias-item'
+    const isBindset = categoryType === 'bindset-aliases'
+    
+    let itemIcon, itemClass
+    if (isVertigo) {
+      itemIcon = '👁️'
+      itemClass = 'command-item vertigo-alias-item'
+    } else if (isBindset) {
+      itemIcon = '🔧'
+      itemClass = 'command-item bindset-alias-item'
+    } else {
+      itemIcon = '🎭'
+      itemClass = 'command-item alias-item'
+    }
 
     element.innerHTML = `
             <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryType}">
@@ -303,7 +272,7 @@ export default class CommandLibraryUI extends ComponentBase {
                   .map(
                     ([name, alias]) => `
                     <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
-                        ${itemIcon} ${(alias._displayName || name)}
+                        ${itemIcon} ${(alias.displayName || alias._displayName || name)}
                     </div>
                 `
                   )
@@ -319,7 +288,8 @@ export default class CommandLibraryUI extends ComponentBase {
     element.addEventListener('click', (e) => {
       if (
         e.target.classList.contains('alias-item') ||
-        e.target.classList.contains('vertigo-alias-item')
+        e.target.classList.contains('vertigo-alias-item') ||
+        e.target.classList.contains('bindset-alias-item')
       ) {
         const aliasName = e.target.dataset.alias
 
@@ -335,7 +305,8 @@ export default class CommandLibraryUI extends ComponentBase {
           command: aliasName,
           type: alias.type,
           icon: isVfxAlias ? '👁️' : '🎭',
-          text: `${aliasName}`,
+          // Don't set hardcoded text for VFX aliases - let them get display text from parser
+          ...(isVfxAlias ? {} : { text: `${aliasName}` }),
           description: alias.description,
           isUserAlias: true,  // Flag to identify this as a user-defined alias
           isVfxAlias: isVfxAlias,
@@ -349,9 +320,7 @@ export default class CommandLibraryUI extends ComponentBase {
     return element
   }
 
-  /**
-   * Toggle alias category collapse state
-   */
+  // Toggle alias category collapse state
   toggleAliasCategory(categoryType, element) {
     const header = element.querySelector('h4')
     const commands = element.querySelector('.category-commands')
@@ -373,9 +342,7 @@ export default class CommandLibraryUI extends ComponentBase {
     }
   }
 
-  /**
-   * Update the command library using cached profile data
-   */
+  // Update the command library using cached profile data
   async updateCommandLibrary() {
     // Use cached profile data instead of making requests
     const profile = this.cache.profile
@@ -385,7 +352,9 @@ export default class CommandLibraryUI extends ComponentBase {
     const aliasContainer = this.document.getElementById('aliasCategoriesList') || this.document.getElementById('commandCategories')
     if (!aliasContainer) return
 
-    const allAliasesRaw = Object.entries(this.cache.aliases)
+    // Get combined aliases (includes VFX virtual aliases) from CommandLibraryService
+    const combinedAliases = await this.request('command:get-combined-aliases') || {}
+    const allAliasesRaw = Object.entries(combinedAliases)
 
     // Resolve display names for VFX aliases async
     const allAliases = await Promise.all(allAliasesRaw.map(async ([name, alias]) => {
@@ -402,11 +371,11 @@ export default class CommandLibraryUI extends ComponentBase {
     // Only include when preferences allow (bindsetsEnabled && bindToAliasMode)
     let bindsetAliasItems = []
     try {
-      const bindsetsEnabled = await this.request('preferences:get-setting', { key: 'bindsetsEnabled' })
-      const aliasMode       = await this.request('preferences:get-setting', { key: 'bindToAliasMode' })
+      // Use cached preferences from ComponentBase instead of making requests
+      const bindsetsEnabled = this.cache.preferences.bindsetsEnabled
+      const aliasMode = this.cache.preferences.bindToAliasMode
 
-      const toBool = (v)=> v===true||v==='true'||v===1||v==='1'
-      if (toBool(bindsetsEnabled) && toBool(aliasMode)) {
+      if (bindsetsEnabled && aliasMode) {
         const profile = this.cache.profile || {}
         const bindsets = profile.bindsets || {}
         const envs = ['space','ground']
@@ -421,12 +390,20 @@ export default class CommandLibraryUI extends ComponentBase {
           const allBs = ['Primary Bindset', ...Object.keys(bindsets)]
           allBs.forEach(bsName => {
             const loaderAlias = `sto_kb_bindset_enable_${env}_${sanitizeName(bsName)}`
+            // Format: "Bindset: Space - Enable Primary Bindset" or "Bindset: Ground - Enable <User specified name>"
+            const envTranslated = typeof i18next !== 'undefined' ? i18next.t(env) : env.charAt(0).toUpperCase() + env.slice(1)
+            const bindsetNameTranslated = bsName === 'Primary Bindset' && typeof i18next !== 'undefined' 
+              ? i18next.t('primary_bindset') 
+              : bsName
+            const enableText = typeof i18next !== 'undefined' ? i18next.t('bindset_enable') : 'Enable'
+            const displayName = `${typeof i18next !== 'undefined' ? i18next.t('bindsets') : 'Bindset'}: ${envTranslated} - ${enableText} ${bindsetNameTranslated}`
             bindsetAliasItems.push([
               loaderAlias,
               {
                 type: 'bindset-alias',
-                description: `Enable ${bsName} (${env})`,
-                commands: loaderAlias
+                description: displayName,
+                commands: loaderAlias,
+                displayName: displayName // Add explicit display name
               }
             ])
           })
@@ -473,30 +450,32 @@ export default class CommandLibraryUI extends ComponentBase {
     aliasContainer.replaceChildren(fragment)
   }
 
-  /**
-   * Filter command library based on current environment
-   */
+  // Filter command library based on current environment
   filterCommandLibrary() {
     // Delegate actual filtering logic to CommandLibraryService via request-response
-    request(this.eventBus, 'command:filter-library').catch(()=>{})
+    this.request('command:filter-library').catch(()=>{})
   }  
 
-  /**
-   * Update chain action buttons state
-   */
+  // Update chain action buttons state
   updateChainActions() {
     if (window.commandChainUI && typeof window.commandChainUI.updateChainActions === 'function') {
       window.commandChainUI.updateChainActions()
       return
     }
 
+    // Don't run if document is not available or DOM not ready
+    if (!this.document || !this.document.getElementById) {
+      return
+    }
+
     // Use cached state from event listeners
-    const selectedKey = this._currentEnvironment === 'alias' ? this._selectedAlias : this._selectedKey
+    const selectedKey = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
     const hasSelectedKey = !!selectedKey
     const doc = this.document
 
-    if (this._currentEnvironment === 'alias') {
-        ['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
+    if (this.cache.currentEnvironment === 'alias') {
+        const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
+        aliasButtons.forEach((id) => {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = !hasSelectedKey
         })
@@ -504,25 +483,26 @@ export default class CommandLibraryUI extends ComponentBase {
         if (addCmdBtn) addCmdBtn.disabled = !hasSelectedKey
         const importBtn = doc.getElementById('importFromKeyOrAliasBtn')
         if (importBtn) importBtn.disabled = !hasSelectedKey
-        ['deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+        const keyButtons = ['deleteKeyBtn', 'duplicateKeyBtn']
+        keyButtons.forEach((id) => {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = true
         })
       } else {
-        ['addCommandBtn', 'importFromKeyOrAliasBtn', 'deleteKeyBtn', 'duplicateKeyBtn'].forEach((id) => {
+        const mainButtons = ['addCommandBtn', 'importFromKeyOrAliasBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
+        mainButtons.forEach((id) => {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = !hasSelectedKey
         })
-        ['deleteAliasChainBtn', 'duplicateAliasChainBtn'].forEach((id) => {
+        const aliasButtons = ['deleteAliasChainBtn', 'duplicateAliasChainBtn']
+        aliasButtons.forEach((id) => {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = true
         })
       }
   }
 
-  /**
-   * Toggle library visibility
-   */
+  // Toggle library visibility
   toggleLibrary() {
     const content = this.document.getElementById('libraryContent')
     const btn = this.document.getElementById('toggleLibraryBtn')
@@ -538,51 +518,31 @@ export default class CommandLibraryUI extends ComponentBase {
     }
   }
 
-  /**
-   * Show template modal
-   */
+  // Show template modal
   showTemplateModal() {
     this.ui?.showToast?.(i18next.t('template_system_coming_soon'))
   }
 
-  /**
-   * Update local cache from profile data received from DataCoordinator
-   */
-  updateCacheFromProfile(profile) {
-    if (!profile) return
-
-    this.cache.profile = profile
-    this.cache.currentProfile = profile.id
-    this.cache.aliases = profile.aliases || {}
-  }
-
-  /**
-   * ComponentBase late-join support - provide current state
-   */
+  // Update local cache from profile data received from DataCoordinator
   getCurrentState() {
     return {
       aliases: this.cache.aliases,
       currentProfile: this.cache.currentProfile,
-      currentEnvironment: this._currentEnvironment,
-      selectedKey: this._selectedKey,
-      selectedAlias: this._selectedAlias
+      currentEnvironment: this.cache.currentEnvironment || 'space',
+      selectedKey: this.cache.selectedKey,
+      selectedAlias: this.cache.selectedAlias
     }
   }
 
-  /**
-   * ComponentBase late-join support - handle initial state from other instances
-   */
+  // ComponentBase late-join support - handle initial state from other instances
   handleInitialState(state, senderName) {
     if (senderName === 'DataCoordinator' && state.currentProfileData) {
-      this.updateCacheFromProfile(state.currentProfileData)
+      // ComponentBase already handles caching, just update the UI
       this.updateCommandLibrary()
     }
   }
 
-  /**
-   * Apply text search filter to command library items
-   * @param {string} filter - Current search term entered by user
-   */
+  // Apply text search filter to command library items
   async applySearchFilter(filter) {
     // Normalize filter string
     const term = (filter || '').trim().toLowerCase()
@@ -597,7 +557,7 @@ export default class CommandLibraryUI extends ComponentBase {
     if (!libraryContainer) return
 
     // Item-level filtering within library only
-    libraryContainer.querySelectorAll('.command-item, .alias-item, .vertigo-alias-item').forEach((item) => {
+    libraryContainer.querySelectorAll('.command-item, .alias-item, .vertigo-alias-item, .bindset-alias-item').forEach((item) => {
       // Skip if item already hidden by env filter
       const alreadyHiddenByEnv = item.dataset.envHidden === 'true'
 
@@ -619,11 +579,9 @@ export default class CommandLibraryUI extends ComponentBase {
       }
     })
 
-    // ---------------------------------
     // Category-level filtering
-    // ---------------------------------
     libraryContainer.querySelectorAll('.category').forEach((category) => {
-      const visibleItems = category.querySelectorAll('.command-item:not([style*="display: none"]), .alias-item:not([style*="display: none"]), .vertigo-alias-item:not([style*="display: none"])')
+      const visibleItems = category.querySelectorAll('.command-item:not([style*="display: none"]), .alias-item:not([style*="display: none"]), .vertigo-alias-item:not([style*="display: none"]), .bindset-alias-item:not([style*="display: none"])')
       const categoryVisible = !term || visibleItems.length > 0
       category.style.display = categoryVisible ? 'block' : 'none'
     })
@@ -636,14 +594,12 @@ export default class CommandLibraryUI extends ComponentBase {
     }
   }
 
-  /**
-   * Derive human-readable display text for an alias item.
-   * VFX aliases get prettified ("VFX Alias: Space", etc.).
-   */
+  // Derive human-readable display text for an alias item.
+  // VFX aliases get prettified ("VFX Alias: Space", etc.).
   async _getAliasDisplayName (name, alias) {
     if (alias.type === 'vfx-alias') {
       try {
-        const res = await request(this.eventBus, 'parser:parse-command-string', {
+        const res = await this.request('parser:parse-command-string', {
           commandString: name,
           options: { generateDisplayText: true }
         })

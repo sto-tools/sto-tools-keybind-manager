@@ -19,11 +19,11 @@ const mockKeyService = {
   deleteKey: vi.fn(),
   duplicateKey: vi.fn(),
   isValidKeyName: vi.fn(),
-  isValidAliasName: vi.fn(),
+  // REMOVED: isValidAliasName - moved to AliasService in Phase 3.1
   generateValidKeys: vi.fn(),
   getKeys: vi.fn(),
   getCurrentProfile: vi.fn(),
-  getProfileStats: vi.fn(),
+  // REMOVED: getProfileStats - moved to AnalyticsService in Phase 3.4
   setupEventListeners: vi.fn(),
   updateCacheFromProfile: vi.fn()
 }
@@ -119,7 +119,7 @@ describe('KeyService', () => {
 
       // Simulate successful addition
       keyService.cache.keys[keyName] = []
-      eventBus.emit('keys:changed', { keys: keyService.cache.keys })
+      // NO LONGER EMITS: keys:changed (Phase 2.2 - eliminated redundant events)
       return true
     })
 
@@ -129,7 +129,7 @@ describe('KeyService', () => {
       }
 
       delete keyService.cache.keys[keyName]
-      eventBus.emit('keys:changed', { keys: keyService.cache.keys })
+      // NO LONGER EMITS: keys:changed (Phase 2.2 - eliminated redundant events)
       return true
     })
 
@@ -148,7 +148,7 @@ describe('KeyService', () => {
 
       // Copy the key
       keyService.cache.keys[newKeyName] = [...keyService.cache.keys[sourceKey]]
-      eventBus.emit('keys:changed', { keys: keyService.cache.keys })
+      // NO LONGER EMITS: keys:changed (Phase 2.2 - eliminated redundant events)
       return newKeyName
     })
 
@@ -156,31 +156,8 @@ describe('KeyService', () => {
       return keyService.cache.keys
     })
 
-    keyService.getProfileStats = vi.fn((profile = {}) => {
-      const stats = {
-        totalKeys: 0,
-        spaceKeys: 0,
-        groundKeys: 0,
-        aliases: 0,
-        totalCommands: 0
-      }
-
-      if (profile.builds) {
-        if (profile.builds.space?.keys) {
-          stats.spaceKeys = Object.keys(profile.builds.space.keys).length
-          stats.totalCommands += Object.values(profile.builds.space.keys).reduce((sum, commands) => sum + commands.length, 0)
-        }
-        if (profile.builds.ground?.keys) {
-          stats.groundKeys = Object.keys(profile.builds.ground.keys).length
-          stats.totalCommands += Object.values(profile.builds.ground.keys).reduce((sum, commands) => sum + commands.length, 0)
-        }
-      }
-
-      stats.totalKeys = stats.spaceKeys + stats.groundKeys
-      stats.aliases = Object.keys(profile.aliases || {}).length
-
-      return stats
-    })
+    // getProfileStats REMOVED in Phase 3.4 - moved to AnalyticsService
+    // KeyService no longer handles statistics
   })
 
   afterEach(() => {
@@ -388,54 +365,18 @@ describe('KeyService', () => {
     })
   })
 
-  describe('Profile Statistics', () => {
-    it('should calculate correct profile statistics', () => {
-      const profile = profileFixture.profile
-      
-      const stats = keyService.getProfileStats(profile)
-      
-      expect(stats).toHaveProperty('totalKeys')
-      expect(stats).toHaveProperty('spaceKeys')
-      expect(stats).toHaveProperty('groundKeys')
-      expect(stats).toHaveProperty('aliases')
-      expect(stats).toHaveProperty('totalCommands')
-      
-      expect(stats.totalKeys).toBeGreaterThan(0)
-      expect(stats.spaceKeys).toBeGreaterThan(0)
-      expect(stats.aliases).toBeGreaterThan(0)
-    })
-
-    it('should handle empty profile statistics', () => {
-      const emptyProfile = { builds: { space: { keys: {} }, ground: { keys: {} } }, aliases: {} }
-      
-      const stats = keyService.getProfileStats(emptyProfile)
-      
-      expect(stats.totalKeys).toBe(0)
-      expect(stats.spaceKeys).toBe(0)
-      expect(stats.groundKeys).toBe(0)
-      expect(stats.aliases).toBe(0)
-      expect(stats.totalCommands).toBe(0)
-    })
-
-    it('should handle undefined profile', () => {
-      const stats = keyService.getProfileStats()
-      
-      expect(stats.totalKeys).toBe(0)
-      expect(stats.spaceKeys).toBe(0)
-      expect(stats.groundKeys).toBe(0)
-      expect(stats.aliases).toBe(0)
-      expect(stats.totalCommands).toBe(0)
-    })
-  })
+  // Profile Statistics REMOVED in Phase 3.4 
+  // Statistics functionality moved to AnalyticsService
+  // KeyService now focuses only on key CRUD operations
 
   describe('Event Integration', () => {
-    it('should emit keys:changed when adding keys', async () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
+    it('should NOT emit keys:changed when adding keys (Phase 2.2)', async () => {
+      const { expectNoEvent, eventBus: testEventBus } = createEventBusFixture()
       
       // Update keyService to use the test eventBus
       keyService.eventBus = testEventBus
       
-      // Update addKey mock to use the test eventBus
+      // Update addKey mock to reflect new behavior (no keys:changed emission)
       keyService.addKey = vi.fn(async (keyName) => {
         if (!await keyService.isValidKeyName(keyName)) {
           return false
@@ -450,7 +391,7 @@ describe('KeyService', () => {
         }
 
         keyService.cache.keys[keyName] = []
-        testEventBus.emit('keys:changed', { keys: keyService.cache.keys })
+        // NO LONGER EMITS: keys:changed - ComponentBase handles caching
         return true
       })
       
@@ -458,23 +399,23 @@ describe('KeyService', () => {
       
       await keyService.addKey('F5')
       
-      expectEvent('keys:changed')
+      expectNoEvent('keys:changed')
     })
 
-    it('should emit keys:changed when deleting keys', async () => {
-      const { expectEvent, eventBus: testEventBus } = createEventBusFixture()
+    it('should NOT emit keys:changed when deleting keys (Phase 2.2)', async () => {
+      const { expectNoEvent, eventBus: testEventBus } = createEventBusFixture()
       
       // Update keyService to use the test eventBus
       keyService.eventBus = testEventBus
       
-      // Update deleteKey mock to use the test eventBus
+      // Update deleteKey mock to reflect new behavior (no keys:changed emission)
       keyService.deleteKey = vi.fn(async (keyName) => {
         if (!keyService.cache.currentProfile || !keyService.cache.keys[keyName]) {
           return false
         }
 
         delete keyService.cache.keys[keyName]
-        testEventBus.emit('keys:changed', { keys: keyService.cache.keys })
+        // NO LONGER EMITS: keys:changed - ComponentBase handles caching
         return true
       })
       
@@ -483,7 +424,7 @@ describe('KeyService', () => {
       
       await keyService.deleteKey('Space')
       
-      expectEvent('keys:changed')
+      expectNoEvent('keys:changed')
     })
 
     it('should handle profile switching events', () => {

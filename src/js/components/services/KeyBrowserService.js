@@ -1,63 +1,47 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { respond, request } from '../../core/requestResponse.js'
 
 /**
  * KeyBrowserService – source-of-truth for the key grid.
  * Keeps track of the active profile/environment and exposes
  * helpers for retrieving keybind data as well as selecting keys
  * in a decoupled, event-driven manner.
- * 
- * REFACTORED: Now uses DataCoordinator broadcast/cache pattern
- * - Caches profile state locally from DataCoordinator broadcasts
- * - No direct storage access - all data comes from DataCoordinator
- * - Implements late-join support for dynamic initialization
- * - Maintains all existing selection caching and auto-selection logic
  */
 export default class KeyBrowserService extends ComponentBase {
-  constructor ({ storage, profileService, ui } = {}) {
+  constructor ({ eventBus } = {}) {
     super(eventBus)
     this.componentName = 'KeyBrowserService'
-    // Legacy parameters kept for backward compatibility but not used
-    this.storage        = storage
-    this.profileService = profileService || null
-    this.ui             = ui
 
-    this.currentProfileId   = null
-    this.currentEnvironment = 'space'
-    this.selectedKeyName    = null
 
-    // Selection caching for environment switches
-    this._cachedSelections = {
-      space: null,
-      ground: null
-    }
-
-    // REFACTORED: Cache profile state from DataCoordinator broadcasts
-    this.cache = {
-      currentProfile: null,
-      currentEnvironment: 'space',
-      keys: {}, // Current environment's keys
-      builds: { // Full builds structure for profile
-        space: { keys: {} },
-        ground: { keys: {} }
-      },
-      profile: null // Full profile object
-    }
-
-    // ---------------------------------------------------------
     // Register Request/Response endpoints for external callers
-    // ---------------------------------------------------------
     if (this.eventBus) {
       this.respond('key:get-all',           () => this.getKeys())
       this.respond('key:get-profile',       () => this.getProfile())
-      this.respond('key:select',            ({ key }) => this.selectKey(key))
+      
+      this.respond('key:categorize-by-command', ({ keysWithCommands, allKeys }) => 
+        this.categorizeKeys(keysWithCommands, allKeys)),
+      this.respond('key:categorize-by-type', ({ keysWithCommands, allKeys }) => 
+        this.categorizeKeysByType(keysWithCommands, allKeys)),
+      this.respond('key:compare', ({ keyA, keyB }) => 
+        this.compareKeys(keyA, keyB)),
+      this.respond('key:detect-types', ({ keyName }) => 
+        this.detectKeyTypes(keyName)),
+      
+      this.respond('key:sort', ({ keys }) => 
+        this.sortKeys(keys)),
+      
+      this.respond('key:filter', ({ keys, filter }) => 
+        this.filterKeys(keys, filter)),
+      this.respond('key:show-all', ({ keys }) => 
+        this.showAllKeys(keys)),
+      
+      this.respond('key:toggle-category', ({ categoryId, mode }) => 
+        this.toggleKeyCategory(categoryId, mode)),
+      this.respond('key:get-category-state', ({ categoryId, mode }) => 
+        this.getCategoryState(categoryId, mode))
     }
   }
 
-  /* ============================================================
-   * Lifecycle
-   * ============================================================ */
+  // Lifecycle
   async init() {
     super.init() // ComponentBase handles late-join automatically
     this.setupEventListeners()
@@ -68,9 +52,8 @@ export default class KeyBrowserService extends ComponentBase {
   }
 
   setupEventListeners () {
-    // REFACTORED: Listen to DataCoordinator broadcasts instead of direct storage access
-    
-    // Cache profile state from DataCoordinator broadcasts
+    // ComponentBase automatically handles profile and environment caching
+    // We only need to listen for these events to update our specific business logic
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
@@ -78,128 +61,38 @@ export default class KeyBrowserService extends ComponentBase {
       }
     })
 
-    // Profile switched (new modular event)
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.currentProfileId   = profileId
-      this.cache.currentProfile = profileId
-      
-      if (environment) {
-        this.currentEnvironment = environment
-        this.cache.currentEnvironment = environment
-      }
-      
-      this.selectedKeyName = null
-      // Clear cached selections when profile changes
-      this._cachedSelections = { space: null, ground: null }
-      
+    this.addEventListener('profile:switched', ({ profile }) => {
+      // ComponentBase handles currentProfile and currentEnvironment caching
       this.updateCacheFromProfile(profile)
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
-    // Environment changed – allow either string payload or { environment }
     this.addEventListener('environment:changed', async (payload) => {
       const env = typeof payload === 'string' ? payload : payload?.environment
       if (!env) return
-      
-      // Cache current selection before changing environment (only for key environments)
-      if (this.currentEnvironment !== 'alias' && this.selectedKeyName) {
-        this._cachedSelections[this.currentEnvironment] = this.selectedKeyName
-      }
-      
-      this.currentEnvironment = env
-      this.cache.currentEnvironment = env
-      this.selectedKeyName = null
-      
-      // Update keys cache for new environment
-      this.cache.keys = this.cache.builds[env]?.keys || {}
-      
-      // If switching to key environment, try to restore or auto-select
-      if (env !== 'alias') {
-        await this._restoreOrAutoSelectKey(env)
-      }
-      
+
+      // ComponentBase handles currentEnvironment and keys caching
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
-    // Late-join support now handled by ComponentBase automatically
-
-    // Legacy event compatibility - data modifications
     this.addEventListener('profile-modified', () => {
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
 
-    // Listen for key changes from KeyService
-    this.addEventListener('keys:changed', ({ keys }) => {
-      this.cache.keys = keys || {}
-      this.emit('key:list-changed', { keys: this.getKeys() })
-    })
   }
 
-  /**
-   * Update local cache from profile data
-   */
+  // Update local cache from profile data
   updateCacheFromProfile(profile) {
     if (!profile) return
-    
-    this.cache.profile = profile
-    
-    // Ensure builds structure exists
-    this.cache.builds = profile.builds || {
-      space: { keys: {} },
-      ground: { keys: {} }
-    }
-    
-    // Update keys for current environment
-    this.cache.keys = this.cache.builds[this.cache.currentEnvironment]?.keys || {}
+
+    // ComponentBase handles profile, builds, and keys caching automatically
+    // This method can be used for service-specific logic if needed
+    console.log(`[KeyBrowserService] Profile updated - ComponentBase handles caching automatically`)
   }
 
-  /* ============================================================
-   * Selection caching and auto-selection
-   * ============================================================ */
+  // Selection caching and auto-selection
   
-  /**
-   * Restore cached selection or auto-select first key for the given environment
-   * @param {string} environment - The environment to restore/auto-select for
-   */
-  async _restoreOrAutoSelectKey(environment) {
-    // Try to restore persisted selection first
-    const profile = this.getProfile()
-    const persistedKey = profile?.selections?.[environment]
-    const availableKeys = this.getKeys()
-    
-    if (persistedKey && availableKeys[persistedKey]) {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] Restoring persisted key selection for ${environment}: ${persistedKey}`)
-      }
-      this.selectKey(persistedKey)
-      return
-    }
-    
-    // Auto-select first key if none selected and keys exist
-    const keyNames = Object.keys(availableKeys)
-    if (keyNames.length > 0) {
-      // Sort keys to ensure consistent first selection
-      keyNames.sort()
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] Auto-selecting first key for ${environment}: ${keyNames[0]}`)
-      }
-      this.selectKey(keyNames[0])
-    } else {
-      // No keys available - emit key-selected with null to indicate no selection
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] No keys available for ${environment}, emitting null selection`)
-      }
-      this.selectedKeyName = null
-      this.emit('key-selected', { key: null, name: null })
-    }
-  }
-
-  /* ============================================================
-   * REFACTORED: Data helpers now use cached data
-   * ============================================================ */
+  // Data helpers now use cached data
   getProfile () {
     // Return cached profile instead of accessing storage directly
     return this.cache.profile
@@ -210,92 +103,29 @@ export default class KeyBrowserService extends ComponentBase {
     return this.cache.keys || {}
   }
 
-  /* ============================================================
-   * Selection helpers
-   * ============================================================ */
+  // Selection helpers
   async selectKey (name) {
-    if (this.selectedKeyName === name) return name
-    this.selectedKeyName = name
-
-    // Persist selection to profile storage
-    await this._persistKeySelection(name)
-
-    // Emit selection event for UI components to react
-    this.emit('key-selected', { key: name, name })
+    // Delegate to SelectionService for actual selection
+    const result = await this.request('selection:select-key', { 
+      keyName: name, 
+      environment: this.cache.currentEnvironment 
+    })
     
-    // Trigger UI updates that legacy code expects (moved from KeyService)
+    // Keep legacy UI integration logic
     if (typeof window !== 'undefined' && window.app) {
       // Trigger key grid refresh
-      if (window.app.renderKeyGrid) {
-        window.app.renderKeyGrid()
-      }
+      // Use event-driven approach instead of direct method calls
+      this.emit('key:list-changed')
       // Trigger chain actions update (button state management)
       if (window.app.updateChainActions) {
         window.app.updateChainActions()
       }
     }
     
-    return name
+    return result
   }
 
-  /**
-   * Persist key selection to profile storage
-   */
-  async _persistKeySelection(keyName) {
-    try {
-      const profile = this.getProfile()
-      if (!profile || !this.currentEnvironment || this.currentEnvironment === 'alias') {
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[KeyBrowserService] Skipping persistence: profile=${!!profile}, env=${this.currentEnvironment}`)
-        }
-        return // Don't persist for alias mode or if no profile
-      }
-
-      if (!this.currentProfileId) {
-        console.error('[KeyBrowserService] Cannot persist selection: currentProfileId is null')
-        return
-      }
-
-      // Prepare updated selections
-      const currentSelections = profile.selections || {}
-      const updatedSelections = {
-        ...currentSelections,
-        [this.currentEnvironment]: keyName
-      }
-
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[KeyBrowserService] Persisting key selection: ${this.currentEnvironment} -> ${keyName}`)
-      }
-
-      // Update through DataCoordinator using explicit operations API
-      const { request } = await import('../../core/requestResponse.js')
-      const result = await this.request('data:update-profile', {
-        profileId: this.currentProfileId,
-        properties: {
-          selections: updatedSelections
-        }
-      })
-
-      // Update local cache immediately to avoid race conditions
-      if (result?.success && this.cache.profile) {
-        this.cache.profile.selections = updatedSelections
-        if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
-          console.log(`[KeyBrowserService] Updated local cache with selections:`, updatedSelections)
-        }
-      } else if (!result?.success) {
-        console.error('[KeyBrowserService] Failed to persist selection, result:', result)
-      }
-    } catch (error) {
-      console.error('[KeyBrowserService] Failed to persist key selection:', error)
-    }
-  }
-
-  /* ============================================================
-   * Internal helpers
-   * ============================================================ */
+  // Internal helpers
   // Returns a cached list of all valid key names used across the app. This
   // mirrors the logic from STOFileHandler.generateValidKeys() but lets the key
   // browser remain independent of that heavier module.
@@ -326,42 +156,187 @@ export default class KeyBrowserService extends ComponentBase {
     return this._validKeys
   }
 
-  /* ============================================================
-   * ComponentBase late-join support
-   * ============================================================ */
-  getCurrentState() {
-    return {
-      selectedKeyName: this.selectedKeyName,
-      cachedSelections: { ...this._cachedSelections }
-      // REMOVED: currentProfileId, currentEnvironment, keys - not owned by KeyBrowserService
-      // These will be managed by SelectionService (selection) and DataCoordinator (profile/environment)
+  // Data Processing Methods (moved from KeyBrowserUI)
+  async categorizeKeys(keysWithCommands, allKeys) {
+    const categories = {
+      unknown: { name: 'Unknown', icon: 'fas fa-question-circle', keys: new Set(), priority: 0 },
     }
+
+    // Get command categories from data service
+    try {
+      const hasCommands = await this.request('data:has-commands')
+      if (hasCommands) {
+        const commandCategories = await this.request('data:get-commands')
+        Object.entries(commandCategories).forEach(([catId, catData]) => {
+          categories[catId] = { name: catData.name, icon: catData.icon, keys: new Set(), priority: 1 }
+        })
+      }
+    } catch (error) {
+      console.warn('KeyBrowserService: Failed to get command categories:', error)
+    }
+
+    // Process each key's commands async
+    await Promise.all(allKeys.map(async (keyName) => {
+      const commands = keysWithCommands[keyName] || []
+
+      if (!commands || commands.length === 0) {
+        categories.unknown.keys.add(keyName)
+        return
+      }
+
+      const keyCats = new Set()
+      
+      // Process each command async
+      await Promise.all(commands.map(async (command) => {
+        // Handle both new format (category) and legacy format (type)
+        const commandCategory = command.category || command.type
+        if (commandCategory && categories[commandCategory]) {
+          keyCats.add(commandCategory)
+        } else {
+          // Use STOCommandParser via event bus for command category detection
+          try {
+            const result = await this.request('parser:parse-command-string', { 
+              commandString: command.command,
+              options: { generateDisplayText: false }
+            })
+            if (result.commands && result.commands.length > 0) {
+              const detected = result.commands[0].category
+              if (categories[detected]) keyCats.add(detected)
+            }
+          } catch (error) {
+            // Fallback to custom category if parsing fails
+            if (!categories.custom) {
+              categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
+            }
+          }
+        }
+      }))
+
+      if (keyCats.size > 0) {
+        keyCats.forEach((cid) => categories[cid].keys.add(keyName))
+      } else {
+        if (!categories.custom) categories.custom = { name: 'Custom Commands', icon: 'fas fa-cog', keys: new Set(), priority: 2 }
+        categories.custom.keys.add(keyName)
+      }
+    }))
+
+    Object.values(categories).forEach((cat) => { cat.keys = Array.from(cat.keys).sort((a, b) => this.compareKeys(a, b)) })
+    return categories
   }
 
-  handleInitialState(sender, state) {
-    if (!state) return
-    
-    // Handle state from DataCoordinator via ComponentBase late-join
-    if (sender === 'DataCoordinator' && state.currentProfileData) {
-      const profile = state.currentProfileData
-      this.currentProfileId = profile.id
-      this.cache.currentProfile = profile.id
-      this.currentEnvironment = profile.environment || 'space'
-      this.cache.currentEnvironment = this.currentEnvironment
-      
-      // Clear cached selections when profile changes
-      this._cachedSelections = { space: null, ground: null }
-      
-      this.updateCacheFromProfile(profile)
-      this.emit('key:list-changed', { keys: this.getKeys() })
-      
-      console.log(`[${this.componentName}] Received initial state from DataCoordinator`)
+  // Detect key types based on name patterns
+  detectKeyTypes(keyName) {
+    const types = []
+    if (/^F[0-9]+$/.test(keyName)) types.push('function')
+    if (/^[A-Z0-9]$/.test(keyName)) types.push('alphanumeric')
+    if (/^NUMPAD/.test(keyName)) types.push('numberpad')
+    if (/(Ctrl|Alt|Shift)/.test(keyName)) types.push('modifiers')
+    if (/(UP|DOWN|LEFT|RIGHT|HOME|END|PGUP|PGDN)/.test(keyName)) types.push('navigation')
+    if (/(ESC|TAB|CAPS|PRINT|SCROLL|PAUSE|Space|Enter|Escape)/.test(keyName)) types.push('system')
+    if (/MOUSE|WHEEL/.test(keyName)) types.push('mouse')
+    // Only consider it a symbol if it contains actual punctuation/symbols and isn't already categorized
+    if (types.length === 0 && /[^A-Za-z0-9]/.test(keyName)) types.push('symbols')
+    if (types.length === 0) types.push('other')
+    return types
+  }
+
+  // Categorize keys by physical type (function keys, letters, etc.)
+  categorizeKeysByType(keysWithCommands, allKeys) {
+    const categories = {
+      function:   { name: 'Function Keys',        icon: 'fas fa-keyboard',     keys: new Set(), priority: 1 },
+      alphanumeric:{ name: 'Letters & Numbers',   icon: 'fas fa-font',         keys: new Set(), priority: 2 },
+      numberpad:  { name: 'Numberpad',            icon: 'fas fa-calculator',   keys: new Set(), priority: 3 },
+      modifiers:  { name: 'Modifier Keys',        icon: 'fas fa-hand-paper',   keys: new Set(), priority: 4 },
+      navigation: { name: 'Navigation',           icon: 'fas fa-arrows-alt',   keys: new Set(), priority: 5 },
+      system:     { name: 'System Keys',          icon: 'fas fa-cogs',         keys: new Set(), priority: 6 },
+      mouse:      { name: 'Mouse & Wheel',        icon: 'fas fa-mouse',        keys: new Set(), priority: 7 },
+      symbols:    { name: 'Symbols & Punctuation',icon: 'fas fa-at',           keys: new Set(), priority: 8 },
+      other:      { name: 'Other Keys',           icon: 'fas fa-question-circle',keys: new Set(),priority: 9 },
     }
+
+    allKeys.forEach((keyName) => {
+      const types = this.detectKeyTypes(keyName)
+      types.forEach((t) => (categories[t] || categories.other).keys.add(keyName))
+    })
+
+    Object.values(categories).forEach((c) => { c.keys = Array.from(c.keys).sort((a, b) => this.compareKeys(a, b)) })
+    return categories
+  }
+
+  // Compare two key names for sorting
+  compareKeys(a, b) {
+    // Embedded synchronous key comparison logic (from stoFileHandler)
+    const aIsF = a.match(/^F(\d+)$/)
+    const bIsF = b.match(/^F(\d+)$/)
+    if (aIsF && bIsF) return parseInt(aIsF[1]) - parseInt(bIsF[1])
+    if (aIsF && !bIsF) return -1
+    if (!aIsF && bIsF) return 1
+    const aIsNum = /^\d+$/.test(a)
+    const bIsNum = /^\d+$/.test(b)
+    if (aIsNum && bIsNum) return parseInt(a) - parseInt(b)
+    if (aIsNum && !bIsNum) return -1
+    if (!aIsNum && bIsNum) return 1
+    const aIsLetter = /^[A-Z]$/.test(a)
+    const bIsLetter = /^[A-Z]$/.test(b)
+    if (aIsLetter && bIsLetter) return a.localeCompare(b)
+    if (aIsLetter && !bIsLetter) return -1
+    if (!aIsLetter && bIsLetter) return 1
+    const specialOrder = ['Space', 'Tab', 'Enter', 'Escape']
+    const aSpecial = specialOrder.indexOf(a)
+    const bSpecial = specialOrder.indexOf(b)
+    if (aSpecial !== -1 && bSpecial !== -1) return aSpecial - bSpecial
+    if (aSpecial !== -1 && bSpecial === -1) return -1
+    if (aSpecial === -1 && bSpecial !== -1) return 1
+    return a.localeCompare(b)
+  }
+
+  // Sort an array of keys using the compareKeys logic
+  sortKeys(keys) {
+    if (!Array.isArray(keys)) return []
+    return [...keys].sort((a, b) => this.compareKeys(a, b))
+  }
+
+  // Filter keys based on search criteria
+  filterKeys(keys, filter = '') {
+    if (!Array.isArray(keys)) return []
+    if (!filter) return keys
     
-    // Handle state from other KeyBrowserService instances
-    if (sender === 'KeyBrowserService') {
-      this.selectedKeyName = state.selectedKeyName ?? this.selectedKeyName
-      this._cachedSelections = { ...this._cachedSelections, ...state.cachedSelections }
-    }
+    const filterLower = filter.toString().toLowerCase()
+    return keys.filter(key => {
+      const keyName = (key || '').toLowerCase()
+      return keyName.includes(filterLower)
+    })
+  }
+
+  // Show all keys (no filtering)
+  showAllKeys(keys) {
+    if (!Array.isArray(keys)) return []
+    return keys
+  }
+
+  // Toggle category collapsed state
+  toggleKeyCategory(categoryId, mode = 'command') {
+    if (!categoryId) return false
+    
+    const storageKey = mode === 'key-type' 
+      ? `keyTypeCategory_${categoryId}_collapsed`
+      : `keyCategory_${categoryId}_collapsed`
+    
+    const currentState = localStorage.getItem(storageKey) === 'true'
+    const newState = !currentState
+    
+    localStorage.setItem(storageKey, newState)
+    return newState
+  }
+
+  // Get category collapsed state
+  getCategoryState(categoryId, mode = 'command') {
+    if (!categoryId) return false
+    
+    const storageKey = mode === 'key-type' 
+      ? `keyTypeCategory_${categoryId}_collapsed`
+      : `keyCategory_${categoryId}_collapsed`
+    
+    return localStorage.getItem(storageKey) === 'true'
   }
 } 

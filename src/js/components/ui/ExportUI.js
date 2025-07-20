@@ -1,28 +1,19 @@
 import ComponentBase from '../ComponentBase.js'
-import eventBus from '../../core/eventBus.js'
-import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
 
 export default class ExportUI extends ComponentBase {
-  constructor ({ eventBus: bus = eventBus } = {}) {
-    super(bus || eventBus)
+  constructor ({ eventBus } = {}) {
+    super(eventBus)
     if (!this.eventBus) this.eventBus = eventBus
-    
-    // Cache current profile state
-    this.currentProfile = null
   }
 
-  /* ---------------------------------------------------------- */
-  /* Lifecycle                                                  */
-  /* ---------------------------------------------------------- */
+  // Lifecycle
   onInit () {
     this.setupEventListeners()
     this.setupStateListeners()
   }
 
-  /* ---------------------------------------------------------- */
-  /* Event binding                                              */
-  /* ---------------------------------------------------------- */
+  // Event binding
   setupEventListeners () {
     this.eventBus.onDom('exportKeybindsBtn', 'click', 'exportKeybinds', () => {
       this.showExportOptions()
@@ -38,22 +29,20 @@ export default class ExportUI extends ComponentBase {
   setupStateListeners () {
     // Listen for profile state changes
     this.addEventListener('profile:switched', ({ profile } = {}) => {
-      this.currentProfile = profile
+      this.cache.currentProfile = profile
     })
     
     // Listen for profile updates
     this.addEventListener('profile-updated', ({ profile } = {}) => {
-      if (this.currentProfile && profile && this.currentProfile.id === profile.id) {
-        this.currentProfile = profile
+      if (this.cache.currentProfile && profile && this.cache.currentProfile.id === profile.id) {
+        this.cache.currentProfile = profile
       }
     })
   }
 
-  /* ---------------------------------------------------------- */
-  /* UI helpers                                                 */
-  /* ---------------------------------------------------------- */
+  // UI helpers
   showExportOptions () {
-    if (!this.currentProfile) {
+    if (!this.cache.currentProfile) {
       this.emit('toast:show', { 
         message: i18next.t('no_profile_selected_to_export'), 
         type: 'warning' 
@@ -71,7 +60,7 @@ export default class ExportUI extends ComponentBase {
   }
 
   performExport () {
-    if (!this.currentProfile) {
+    if (!this.cache.currentProfile) {
       this.emit('toast:show', { 
         message: i18next.t('no_profile_selected_to_export'), 
         type: 'warning' 
@@ -79,26 +68,26 @@ export default class ExportUI extends ComponentBase {
       return
     }
     const format = document.getElementById('exportFormat')?.value || 'sto_keybind'
-    const env = document.getElementById('exportEnvironment')?.value || (this.currentProfile.currentEnvironment || 'space')
+    const env = document.getElementById('exportEnvironment')?.value || (this.cache.currentProfile.currentEnvironment || 'space')
 
     switch (format) {
       case 'sto_keybind':
-        this.exportSTOKeybindFile(this.currentProfile, env)
+        this.exportSTOKeybindFile(this.cache.currentProfile, env)
         break
       case 'json_profile':
-        this.exportJSONProfile(this.currentProfile, env)
+        this.exportJSONProfile(this.cache.currentProfile, env)
         break
       case 'json_project':
         this.exportCompleteProject()
         break
       case 'csv_data':
-        this.exportCSVData(this.currentProfile, env)
+        this.exportCSVData(this.cache.currentProfile, env)
         break
       case 'html_report':
-        this.exportHTMLReport(this.currentProfile, env)
+        this.exportHTMLReport(this.cache.currentProfile, env)
         break
       case 'alias_file':
-        this.exportAliases(this.currentProfile)
+        this.exportAliases(this.cache.currentProfile)
         break
       default:
         break
@@ -106,9 +95,7 @@ export default class ExportUI extends ComponentBase {
     this.emit('modal:hide', { modalId: 'exportModal' })
   }
 
-  /* ---------------------------------------------------------- */
-  /* Individual export handlers                                 */
-  /* ---------------------------------------------------------- */
+  // Individual export handlers
   async exportSTOKeybindFile (profile, env = 'space') {
     try {
       const content = await this.request('export:generate-keybind-file', {
@@ -247,9 +234,7 @@ export default class ExportUI extends ComponentBase {
     }
   }
 
-  /* ---------------------------------------------------------- */
-  /* Bulk operations                                           */
-  /* ---------------------------------------------------------- */
+  // Bulk operations
   async exportAllProfiles () {
     try {
       const data = await this.request('storage:get-all-data')
@@ -276,9 +261,7 @@ export default class ExportUI extends ComponentBase {
     }
   }
 
-  /* ---------------------------------------------------------- */
-  /* Misc helpers                                               */
-  /* ---------------------------------------------------------- */
+  // Misc helpers
   async copyCommandPreview () {
     const preview = document.getElementById('commandPreview')
     if (!preview) return
