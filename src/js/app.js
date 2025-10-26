@@ -483,9 +483,7 @@ export default class STOToolsKeybindManager {
   checkAndShowWelcomeMessage() {
     if (this.isFirstTime()) {
       localStorage.setItem('sto_keybind_manager_visited', 'true')
-      if (typeof modalManager !== 'undefined') {
-        modalManager.show('aboutModal')
-      }
+      this.modalManagerService.show('aboutModal')
     }
   }
 }

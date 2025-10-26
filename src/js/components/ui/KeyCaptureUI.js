@@ -23,7 +23,7 @@ export default class KeyCaptureUI extends ComponentBase {
     super(eventBus)
     this.componentName = 'KeyCaptureUI'
 
-    this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.modalManager = modalManager
     this.app          = app || (typeof window !== 'undefined' ? window.app : null)
     this.document     = document
     this.ui           = ui || (typeof window !== 'undefined' ? window.stoUI : null)

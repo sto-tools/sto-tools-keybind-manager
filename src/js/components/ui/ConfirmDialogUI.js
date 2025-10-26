@@ -9,7 +9,7 @@ export default class ConfirmDialogUI extends ComponentBase {
   constructor({ modalManager = null, i18n = null } = {}) {
     super()
     this.componentName = 'ConfirmDialogUI'
-    this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.modalManager = modalManager
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
   }
 

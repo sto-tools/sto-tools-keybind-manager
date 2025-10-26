@@ -15,7 +15,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     super(eventBus)
     this.componentName = 'KeyBrowserUI'
     this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
-    this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.modalManager = modalManager
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
     this.document = document
