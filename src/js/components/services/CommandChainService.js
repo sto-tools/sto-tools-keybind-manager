@@ -686,7 +686,7 @@ export default class CommandChainService extends ComponentBase {
     }
 
     // If we're in alias mode, only check alias metadata
-    if (this.currentEnvironment === 'alias') {
+    if (this.cache.currentEnvironment === 'alias') {
       return false
     }
 
