@@ -189,41 +189,51 @@ export default class SelectionService extends ComponentBase {
   // Select a key in the specified environment
   async selectKey(keyName, environment = null) {
     const env = environment || this.cache.currentEnvironment
-    
+
+    // Check if this is the same selection (avoid duplicate events)
+    if (this.cache.selectedKey === keyName && this.cache.currentEnvironment === env) {
+      return keyName
+    }
+
     // Update selection state
     this.cache.selectedKey = keyName
     this.cache.selectedAlias = null // Clear alias when selecting key
     this.cachedSelections[env] = keyName
-    
+
     // Persist to profile if we have one
     await this.persistSelectionToProfile(env, keyName)
-    
+
     // Emit selection event for other services
-    this.emit('key-selected', { 
-      key: keyName, 
+    this.emit('key-selected', {
+      key: keyName,
       environment: env,
       source: 'SelectionService'
     })
-    
+
     return keyName
   }
   
   // Select an alias
   async selectAlias(aliasName) {
+    // Check if this is the same selection (avoid duplicate events)
+    if (this.cache.selectedAlias === aliasName && this.cache.currentEnvironment === 'alias') {
+      return aliasName
+    }
+
     // Update selection state
     this.cache.selectedAlias = aliasName
     this.cache.selectedKey = null // Clear key when selecting alias
     this.cachedSelections.alias = aliasName
-    
+
     // Persist to profile if we have one
     await this.persistSelectionToProfile('alias', aliasName)
-    
+
     // Emit selection event for other services
-    this.emit('alias-selected', { 
+    this.emit('alias-selected', {
       name: aliasName,
       source: 'SelectionService'
     })
-    
+
     return aliasName
   }
   
