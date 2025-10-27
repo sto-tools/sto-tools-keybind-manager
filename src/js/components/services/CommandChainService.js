@@ -60,17 +60,6 @@ export default class CommandChainService extends ComponentBase {
       if (data?.profile && data?.profileId) {
         const profileWithId = { ...data.profile, id: data.profileId }
         this.updateCacheFromProfile(profileWithId)
-
-        // Refresh commands if we have a selected key/alias
-        const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
-        if (selectedKeyName && !this._bindsetSwitchInProgress && !this._bindsetOperationInProgress) {
-          console.log(`[CommandChainService] refreshCommands() after profile:updated - activeBindset: ${this.cache.activeBindset}`)
-          this.refreshCommands()
-        } else if (this._bindsetSwitchInProgress) {
-          console.log(`[CommandChainService] Skipping refreshCommands() - bindset switch in progress`)
-        } else if (this._bindsetOperationInProgress) {
-          console.log(`[CommandChainService] Skipping refreshCommands() - bindset operation in progress`)
-        }
       }
     })
 
