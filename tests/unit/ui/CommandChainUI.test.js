@@ -5,7 +5,7 @@ import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
 describe('Bind-to-Alias Mode', () => {
   let ui, mockDocument, mockEventBus, mockUI
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock document and UI
     mockDocument = {
       getElementById: vi.fn(),
@@ -22,27 +22,82 @@ describe('Bind-to-Alias Mode', () => {
       showToast: vi.fn()
     }
 
-    // Mock event bus with request/response capability  
+    // Create a mock event bus that properly handles the RPC pattern
+    const eventListeners = new Map()
+    
     mockEventBus = {
-      on: vi.fn(() => () => {}), // Return cleanup function
-      off: vi.fn(), // Add missing off method
-      emit: vi.fn(),
-      request: vi.fn()
+      on: vi.fn((topic, handler) => {
+        if (!eventListeners.has(topic)) {
+          eventListeners.set(topic, [])
+        }
+        eventListeners.get(topic).push(handler)
+        return () => {} // Return cleanup function
+      }),
+      off: vi.fn((topic, handler) => {
+        if (eventListeners.has(topic)) {
+          const handlers = eventListeners.get(topic)
+          const index = handlers.indexOf(handler)
+          if (index > -1) {
+            handlers.splice(index, 1)
+          }
+        }
+      }),
+      emit: vi.fn((topic, data) => {
+        // Handle RPC pattern: when code emits rpc:topic, respond appropriately
+        if (topic.startsWith('rpc:')) {
+          const actualTopic = topic.substring(4) // Remove 'rpc:' prefix
+          const { requestId, replyTopic, payload } = data
+          
+          // Simulate async response
+          setTimeout(() => {
+            let result
+            
+            if (actualTopic === 'preferences:get-setting' && payload?.key === 'bindToAliasMode') {
+              result = false
+            } else if (actualTopic === 'command-chain:is-stabilized') {
+              result = false
+            } else if (actualTopic === 'command:is-stabilized') {
+              if (payload.name === 'F1') {
+                if (payload.bindset === 'Primary Bindset') {
+                  result = false
+                } else if (payload.bindset === 'Custom Bindset') {
+                  result = true
+                } else {
+                  result = false
+                }
+              } else {
+                result = false
+              }
+            } else if (actualTopic === 'fileops:generate-mirrored-commands') {
+              result = null
+            } else if (actualTopic === 'command-chain:generate-alias-name') {
+              result = 'sto_kb_space_q'
+            } else if (actualTopic === 'command-chain:generate-alias-preview') {
+              const { commands } = payload
+              if (!commands || commands.length === 0) {
+                result = 'alias sto_kb_space_q <&  &>'
+              } else {
+                result = 'alias sto_kb_space_q <& FireAll $$ +power_exec Distribute_Shields &>'
+              }
+            } else {
+              result = {}
+            }
+            
+            // Emit response on reply topic
+            if (eventListeners.has(replyTopic)) {
+              eventListeners.get(replyTopic).forEach(handler => {
+                handler({ requestId, data: result })
+              })
+            }
+          }, 0)
+        }
+        
+        // Also call any registered listeners for this topic (for non-RPC events)
+        if (eventListeners.has(topic)) {
+          eventListeners.get(topic).forEach(handler => handler(data))
+        }
+      })
     }
-
-    // Mock the preferences request to return false by default
-    mockEventBus.request.mockImplementation((topic, data) => {
-      if (topic === 'preferences:get-setting' && data?.key === 'bindToAliasMode') {
-        return Promise.resolve(false)
-      }
-      if (topic === 'command-chain:is-stabilized') {
-        return Promise.resolve(false) // Default to not stabilized
-      }
-      if (topic === 'fileops:generate-mirrored-commands') {
-        return Promise.resolve(null) // Default to no mirroring
-      }
-      return Promise.resolve({})
-    })
 
     // Create CommandChainUI instance
     ui = new CommandChainUI({
@@ -50,35 +105,38 @@ describe('Bind-to-Alias Mode', () => {
       ui: mockUI,
       document: mockDocument
     })
+
+    // Initialize the component to set up cache
+    await ui.init()
   })
 
   describe('Alias Name Generation', () => {
     it('should generate correct alias names for different environments and keys', () => {
       // Test normal cases
-      expect(generateBindToAliasName('space', 'Q')).toBe('space_q')
-      expect(generateBindToAliasName('ground', 'F1')).toBe('ground_f1')
-      expect(generateBindToAliasName('space', 'Ctrl+A')).toBe('space_ctrl_a')
-      
+      expect(generateBindToAliasName('space', 'Q')).toBe('sto_kb_space_q')
+      expect(generateBindToAliasName('ground', 'F1')).toBe('sto_kb_ground_f1')
+      expect(generateBindToAliasName('space', 'Ctrl+A')).toBe('sto_kb_space_ctrl_a')
+
       // Test special characters
-      expect(generateBindToAliasName('space', 'Shift+Space')).toBe('space_shift_space')
-      expect(generateBindToAliasName('ground', 'Alt+Tab')).toBe('ground_alt_tab')
-      
+      expect(generateBindToAliasName('space', 'Shift+Space')).toBe('sto_kb_space_shift_space')
+      expect(generateBindToAliasName('ground', 'Alt+Tab')).toBe('sto_kb_ground_alt_tab')
+
       // Test edge cases
-      expect(generateBindToAliasName('space', '1')).toBe('space_k1') // Number key gets 'k' prefix
+      expect(generateBindToAliasName('space', '1')).toBe('sto_kb_space_k1') // Number key gets 'k' prefix
       expect(generateBindToAliasName('space', '')).toBe(null) // Empty key name
     })
 
     it('should handle special key names correctly', () => {
-      expect(generateBindToAliasName('space', 'NumPad1')).toBe('space_numpad1')
-      expect(generateBindToAliasName('space', 'Mouse4')).toBe('space_mouse4')
-      expect(generateBindToAliasName('ground', 'Alt+F4')).toBe('ground_alt_f4')
-      expect(generateBindToAliasName('space', 'Page Up')).toBe('space_page_up')
+      expect(generateBindToAliasName('space', 'NumPad1')).toBe('sto_kb_space_numpad1')
+      expect(generateBindToAliasName('space', 'Mouse4')).toBe('sto_kb_space_mouse4')
+      expect(generateBindToAliasName('ground', 'Alt+F4')).toBe('sto_kb_ground_alt_f4')
+      expect(generateBindToAliasName('space', 'Page Up')).toBe('sto_kb_space_page_up')
     })
 
     it('should handle invalid key names gracefully', () => {
       expect(generateBindToAliasName('space', '')).toBe(null)
       expect(generateBindToAliasName('space', '   ')).toBe(null)
-      expect(generateBindToAliasName('space', '!!!')).toBe('space_exclamationexclamationexclamation') // Special chars get converted
+      expect(generateBindToAliasName('space', '!!!')).toBe('sto_kb_space_exclamationexclamationexclamation') // Special chars get converted
     })
 
     it('should show generated alias section when bind-to-alias mode is active', async () => {
@@ -93,7 +151,7 @@ describe('Bind-to-Alias Mode', () => {
         return null
       })
 
-      ui._currentEnvironment = 'space'
+      ui.cache.currentEnvironment = 'space'
       
       const commands = [
         { command: 'FireAll' },
@@ -103,8 +161,8 @@ describe('Bind-to-Alias Mode', () => {
       await ui.updateBindToAliasMode(true, 'Q', commands)
       
       expect(mockGeneratedAlias.style.display).toBe('')
-      expect(mockAliasPreview.textContent).toBe('alias space_q <& FireAll $$ +power_exec Distribute_Shields &>')
-      expect(mockCommandPreview.textContent).toBe('Q "space_q"')
+      expect(mockAliasPreview.textContent).toBe('alias sto_kb_space_q <& FireAll $$ +power_exec Distribute_Shields &>')
+      expect(mockCommandPreview.textContent).toBe('Q "sto_kb_space_q"')
     })
 
     it('should hide generated alias section when bind-to-alias mode is disabled', async () => {
@@ -149,13 +207,13 @@ describe('Bind-to-Alias Mode', () => {
         return null
       })
 
-      ui._currentEnvironment = 'space'
+      ui.cache.currentEnvironment = 'space'
       
       await ui.updateBindToAliasMode(true, 'Q', [])
       
       expect(mockGeneratedAlias.style.display).toBe('')
-      expect(mockAliasPreview.textContent).toBe('alias space_q <&  &>')
-      expect(mockCommandPreview.textContent).toBe('Q "space_q"')
+      expect(mockAliasPreview.textContent).toBe('alias sto_kb_space_q <&  &>')
+      expect(mockCommandPreview.textContent).toBe('Q "sto_kb_space_q"')
     })
 
     it('should not show generated alias section in alias environment', async () => {
@@ -179,7 +237,7 @@ describe('Bind-to-Alias Mode', () => {
         return null
       })
 
-      ui._currentEnvironment = 'alias'
+      ui.cache.currentEnvironment = 'alias'
       
       const commands = [{ command: 'FireAll' }]
       
@@ -211,7 +269,7 @@ describe('Bind-to-Alias Mode', () => {
         return null
       })
 
-      ui._currentEnvironment = 'space'
+      ui.cache.currentEnvironment = 'space'
 
       await ui.updateBindToAliasMode(false, 'F4', [])
 
@@ -231,7 +289,7 @@ describe('Bind-to-Alias Mode', () => {
       })
 
       // Set environment to alias
-      ui._currentEnvironment = 'alias'
+      ui.cache.currentEnvironment = 'alias'
       
       // Call updatePreviewLabel directly (this is what gets called on environment change)
       ui.updatePreviewLabel()
@@ -278,7 +336,7 @@ describe('Bind-to-Alias Mode', () => {
       ui._bindsetNames = ['Primary Bindset', 'Custom Bindset']
       ui.activeBindset = 'Primary Bindset'
       ui._selectedKey = 'F1'
-      ui._currentEnvironment = 'space'
+      ui.cache.currentEnvironment = 'space'
     })
 
     it('should update stabilization button state when switching bindsets', async () => {
@@ -333,6 +391,9 @@ describe('Bind-to-Alias Mode', () => {
       // Setup the dropdown
       await ui.setupBindsetDropdown()
 
+      // Set up a selected key to trigger stabilization logic
+      ui.cache.selectedKey = 'F1'
+
       // Simulate initial state - primary bindset (not stabilized)
       await ui.updateChainActions()
       expect(mockButton.classList.toggle).toHaveBeenCalledWith('active', false)
@@ -341,7 +402,7 @@ describe('Bind-to-Alias Mode', () => {
       mockButton.classList.toggle.mockClear()
 
       // Simulate switching to custom bindset (stabilized)
-      ui.activeBindset = 'Custom Bindset'
+      ui.cache.activeBindset = 'Custom Bindset'
       await ui.updateChainActions()
       
       // Verify button state was updated to active
