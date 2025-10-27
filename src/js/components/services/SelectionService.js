@@ -27,6 +27,9 @@ export default class SelectionService extends ComponentBase {
     
     // Store detach functions for cleanup
     this._responseDetachFunctions = []
+    // Track last-deleted items to avoid re-selecting them during auto-selection
+    this._lastDeletedKey = null
+    this._lastDeletedAlias = null
     
     this.setupEventListeners()
     this.setupRequestHandlers()
@@ -56,7 +59,7 @@ export default class SelectionService extends ComponentBase {
     // Listen for DataCoordinator profile switches
     this.addEventListener('profile:switched', async ({ profileId, profile, environment }) => {
       console.log(`[SelectionService] profile:switched: profileId="${profileId}", env="${environment}"`)
-
+      
       // ComponentBase handles currentProfile, profile, and currentEnvironment caching
       this.updateCacheFromProfile(profile)
       
@@ -73,12 +76,12 @@ export default class SelectionService extends ComponentBase {
         }
         
         console.log(`[SelectionService] Restored cached selections from profile:`, this.cachedSelections)
-      }
+        }
       
       // Restore selection for current environment
       const cachedSelection = this.cachedSelections[this.cache.currentEnvironment]
       console.log(`[SelectionService] Validating and restoring selection for "${this.cache.currentEnvironment}": "${cachedSelection}"`)
-      
+        
       await this.validateAndRestoreSelection(this.cache.currentEnvironment, cachedSelection)
     })
     
@@ -92,10 +95,19 @@ export default class SelectionService extends ComponentBase {
     
     // Listen for alias deletions to handle auto-selection when selected alias is deleted
     this.addEventListener('alias-deleted', async ({ name }) => {
+      this._lastDeletedAlias = name
       if (this.cache.selectedAlias === name) {
         this.cache.selectedAlias = null
         this.cachedSelections.alias = null
-        
+
+        // Remove alias from cached data so auto-selection won't pick the deleted one again
+        if (this.cache.aliases && this.cache.aliases[name]) {
+          delete this.cache.aliases[name]
+        }
+        if (this.cache.profile?.aliases && this.cache.profile.aliases[name]) {
+          delete this.cache.profile.aliases[name]
+        }
+
         // Emit clear event for immediate UI update
         this.emit('alias-selected', { name: null, source: 'SelectionService' })
         
@@ -108,10 +120,10 @@ export default class SelectionService extends ComponentBase {
     
     // Listen for key deletions to handle auto-selection when selected key is deleted  
     this.addEventListener('key-deleted', async ({ keyName }) => {
-      
+      this._lastDeletedKey = keyName
       if (this.cache.selectedKey === keyName) {
         this.cache.selectedKey = null
-        
+
         // Update cache to remove the deleted key from all locations
         if (this.cache.builds) {
           for (const [env, build] of Object.entries(this.cache.builds)) {
@@ -125,16 +137,14 @@ export default class SelectionService extends ComponentBase {
           delete this.cache.keys[keyName]
           this.cachedSelections[this.cache.currentEnvironment] = null
         }
-        
-        
-        // Auto-select another key if we're in key environment (space/ground) BEFORE emitting clear event
+
+        // Emit clear event for immediate UI update
+        this.emit('key-selected', { key: null, source: 'SelectionService' })
+
+        // Auto-select another key if we're in key environment (space/ground)
         if (this.cache.currentEnvironment !== 'alias') {
-          const autoSelectedKey = await this.autoSelectFirst(this.cache.currentEnvironment)
-        } else {
-          // Only emit clear event if we're not doing auto-selection
-          this.emit('key-selected', { key: null, source: 'SelectionService' })
+          await this.autoSelectFirst(this.cache.currentEnvironment)
         }
-      } else {
       }
     })
   }
@@ -293,7 +303,7 @@ export default class SelectionService extends ComponentBase {
     // Auto-restore cached selection for the new environment with validation
     const cachedSelection = this.cachedSelections[newEnvironment]
     console.log(`[SelectionService] Switching to ${newEnvironment}, cached selection: "${cachedSelection}"`)
-    
+      
     if (newEnvironment === 'alias') {
       // Switching to alias mode - clear key selection first
       this.cache.selectedKey = null
@@ -336,11 +346,16 @@ export default class SelectionService extends ComponentBase {
       }
       
       // Auto-select first user-created alias (filter out VFX Manager system aliases)
-      const userAliases = Object.entries(aliases).filter(([key, value]) => value.type !== 'vfx-alias')
+      let userAliases = Object.entries(aliases).filter(([key, value]) => value.type !== 'vfx-alias')
+      // Exclude the last deleted alias if present
+      if (this._lastDeletedAlias) {
+        userAliases = userAliases.filter(([aliasName]) => aliasName !== this._lastDeletedAlias)
+      }
       
       if (userAliases.length > 0) {
         const firstAlias = userAliases[0][0] // Get the key (alias name)
         await this.selectAlias(firstAlias)
+        this._lastDeletedAlias = null
         return firstAlias
       }
     } else {
@@ -363,11 +378,16 @@ export default class SelectionService extends ComponentBase {
         }
       }
       
-      const keyNames = Object.keys(keys)
+      // Exclude last deleted key if present
+      let keyNames = Object.keys(keys)
+      if (this._lastDeletedKey) {
+        keyNames = keyNames.filter((k) => k !== this._lastDeletedKey)
+      }
       
       if (keyNames.length > 0) {
         const firstKey = keyNames[0]
         await this.selectKey(firstKey, env)
+        this._lastDeletedKey = null
         return firstKey
       } else {
         // No keys available in this environment - explicitly clear selection
@@ -416,7 +436,6 @@ export default class SelectionService extends ComponentBase {
     console.log(`[SelectionService] validateAndRestoreSelection: env="${environment}", cached="${cachedSelection}"`)
     
     if (!cachedSelection) {
-      console.log(`[SelectionService] No cached selection for ${environment}, auto-selecting first available`)
       await this.autoSelectFirst(environment)
       return
     }

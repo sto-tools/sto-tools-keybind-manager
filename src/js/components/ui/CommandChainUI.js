@@ -27,11 +27,13 @@ export default class CommandChainUI extends UIComponentBase {
     this._detachFunctions.push(
       this.eventBus.on('environment:changed', (data) => {
         const env = typeof data === 'string' ? data : data?.environment
-        
+
         if (env) {
           this.updateChainActions()
           this.updatePreviewLabel()
-          this.setupBindsetDropdown().catch(() => {})          
+          this.setupBindsetDropdown().catch(() => {})
+          // Re-render to show correct empty state info for new environment
+          this.render().catch(() => {})
         }
       })
     )

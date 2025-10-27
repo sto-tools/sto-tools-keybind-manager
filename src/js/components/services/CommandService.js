@@ -630,7 +630,7 @@ export default class CommandService extends ComponentBase {
   async getEmptyStateInfo() {
     // Use cached selection state from ComponentBase (SelectionService broadcasts)
     const selectedKey = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
-    
+
     console.log('[CommandService] getEmptyStateInfo DEBUG:', {
       currentEnvironment: this.cache.currentEnvironment,
       selectedKey: this.cache.selectedKey,
@@ -678,9 +678,21 @@ export default class CommandService extends ComponentBase {
       decodeHtmlEntities(this.i18n?.t?.('alias_chain') || 'Alias Chain') :
       decodeHtmlEntities(this.i18n?.t?.('command_chain') || 'Command Chain')
 
-    // If we have a selected key but got no commands, this might be a stale selection
-    // (key doesn't exist in current environment). Treat as no selection.
-    if (selectedKey && commands.length === 0) {
+    // Check if selected key/alias actually exists in current environment (stale selection check)
+    // A key/alias with no commands is valid, but a non-existent key/alias is stale
+    let isStaleSelection = false
+    if (selectedKey) {
+      if (this.cache.currentEnvironment === 'alias') {
+        const alias = this.cache.aliases && this.cache.aliases[selectedKey]
+        isStaleSelection = !alias
+      } else {
+        const key = this.cache.keys && this.cache.keys[selectedKey]
+        isStaleSelection = key === undefined
+      }
+    }
+
+    // If we have a stale selection (key doesn't exist in current environment), treat as no selection
+    if (isStaleSelection) {
       console.log(`[CommandService] Detected stale selection "${selectedKey}" in environment ${this.cache.currentEnvironment} - treating as no selection`)
 
       const selectText = this.cache.currentEnvironment === 'alias' ?
