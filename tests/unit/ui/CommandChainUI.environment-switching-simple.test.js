@@ -4,16 +4,22 @@ import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
 describe('CommandChainUI Environment Switching - Simple', () => {
   let ui, mockDocument, mockEventBus, mockUI
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock document
     mockDocument = {
       getElementById: vi.fn(),
       createElement: vi.fn(() => ({
         innerHTML: '',
-        classList: { remove: vi.fn(), add: vi.fn() },
+        classList: { remove: vi.fn(), add: vi.fn(), toggle: vi.fn() },
         style: {},
         replaceChildren: vi.fn(),
-        children: []
+        children: [],
+        addEventListener: vi.fn(),
+        querySelector: vi.fn(),
+        appendChild: vi.fn(),
+        setAttribute: vi.fn(),
+        getAttribute: vi.fn(),
+        dataset: {}
       })),
       querySelector: vi.fn(),
       body: { appendChild: vi.fn() },
@@ -40,8 +46,42 @@ describe('CommandChainUI Environment Switching - Simple', () => {
       document: mockDocument
     })
 
+    await ui.init()
+
     // Set up request method on the ui instance
     ui.request = vi.fn().mockResolvedValue({})
+
+    // Ensure cache is properly initialized for tests
+    ui.cache = ui.cache || {}
+    ui.cache.currentEnvironment = 'space'
+    ui.cache.selectedKey = null
+    ui.cache.selectedAlias = null
+    ui.cache.preferences = {}
+    ui.cache.activeBindset = 'Primary Bindset'
+
+    // Mock empty state info response
+    ui.request.mockImplementation((topic, data) => {
+      if (topic === 'command:get-empty-state-info') {
+        return Promise.resolve({
+          title: 'No Key Selected',
+          preview: 'Select a key to see the generated command',
+          icon: 'fas fa-keyboard',
+          emptyTitle: 'No Key Selected',
+          emptyDesc: 'Select a key from the left panel to view and edit its command chain.',
+          commandCount: '0'
+        })
+      }
+      if (topic === 'preferences:get-setting') {
+        return Promise.resolve(false)
+      }
+      if (topic === 'command-chain:is-stabilized') {
+        return Promise.resolve(true)
+      }
+      if (topic === 'fileops:generate-mirrored-commands') {
+        return Promise.resolve([])
+      }
+      return Promise.resolve({})
+    })
   })
 
   describe('Selection State Management', () => {
@@ -87,9 +127,9 @@ describe('CommandChainUI Environment Switching - Simple', () => {
       })
 
       // Simulate switching to ground environment with no keys
-      ui._currentEnvironment = 'ground'
-      ui._selectedKey = null
-      ui._selectedAlias = null
+      ui.cache.currentEnvironment = 'ground'
+      ui.cache.selectedKey = null
+      ui.cache.selectedAlias = null
 
       // Call render
       await ui.render()
@@ -141,9 +181,9 @@ describe('CommandChainUI Environment Switching - Simple', () => {
       })
 
       // Simulate switching to space environment with a selected key
-      ui._currentEnvironment = 'space'
-      ui._selectedKey = 'F2'
-      ui._selectedAlias = null
+      ui.cache.currentEnvironment = 'space'
+      ui.cache.selectedKey = 'F2'
+      ui.cache.selectedAlias = null
 
       // Mock getCommandsForCurrentSelection to return commands
       ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue([{ command: 'FireAll' }])
@@ -199,9 +239,9 @@ describe('CommandChainUI Environment Switching - Simple', () => {
       })
 
       // Simulate switching from space to alias environment
-      ui._currentEnvironment = 'alias'
-      ui._selectedKey = null  // Should be cleared when switching to alias
-      ui._selectedAlias = null
+      ui.cache.currentEnvironment = 'alias'
+      ui.cache.selectedKey = null  // Should be cleared when switching to alias
+      ui.cache.selectedAlias = null
 
       // Call render
       await ui.render()
