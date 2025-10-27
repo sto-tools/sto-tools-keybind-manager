@@ -4,7 +4,7 @@ import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
 describe('CommandChainUI Space to Ground Fix', () => {
   let ui, mockDocument, mockEventBus, mockUI
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock document
     mockDocument = {
       getElementById: vi.fn(),
@@ -40,6 +40,7 @@ describe('CommandChainUI Space to Ground Fix', () => {
       document: mockDocument
     })
 
+    await ui.init()
     // Set up request method on the ui instance
     ui.request = vi.fn().mockResolvedValue({})
   })
