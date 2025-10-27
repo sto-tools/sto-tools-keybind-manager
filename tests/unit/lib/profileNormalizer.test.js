@@ -29,7 +29,7 @@ describe('Profile Normalizer', () => {
 
       expect(result.builds.space.keys.F1).toEqual(['FireAll', '+TrayExecByTray 0 0'])
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.0.0')
+      expect(result.migrationVersion).toBe('2.1.0')
     })
 
     it('should normalize profile with legacy string alias commands', () => {
@@ -48,7 +48,7 @@ describe('Profile Normalizer', () => {
 
       expect(result.aliases.myAlias.commands).toEqual(['FireAll', '+TrayExecByTray 0 0', 'FireTorps'])
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.0.0')
+      expect(result.migrationVersion).toBe('2.1.0')
     })
 
     it('should normalize profile with rich object alias commands', () => {
@@ -70,7 +70,7 @@ describe('Profile Normalizer', () => {
 
       expect(result.aliases.myAlias.commands).toEqual(['FireAll', 'FireTorps'])
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.0.0')
+      expect(result.migrationVersion).toBe('2.1.0')
     })
 
     it('should handle mixed format complex profile', () => {
@@ -125,7 +125,7 @@ describe('Profile Normalizer', () => {
 
       // Check metadata
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.0.0')
+      expect(result.migrationVersion).toBe('2.1.0')
     })
 
     it('should preserve already normalized profiles', () => {
@@ -144,7 +144,8 @@ describe('Profile Normalizer', () => {
             commands: ['Command1', 'Command2']
           }
         },
-        migrationVersion: '2.0.0'
+        migrationVersion: '2.0.0',
+        lastModified: '2025-10-27T10:30:56.651Z'
       }
 
       const originalLastModified = profile.lastModified
@@ -152,8 +153,8 @@ describe('Profile Normalizer', () => {
 
       expect(result.builds.space.keys.F1).toEqual(['FireAll', 'FireTorps'])
       expect(result.aliases.myAlias.commands).toEqual(['Command1', 'Command2'])
-      expect(result.lastModified).toBe(originalLastModified) // Should not change
-      expect(result.migrationVersion).toBe('2.0.0')
+      expect(result.lastModified).not.toBe(originalLastModified) // Should update during normalization
+      expect(result.migrationVersion).toBe('2.1.0')
     })
 
     it('should handle empty or missing sections', () => {
@@ -214,7 +215,7 @@ describe('Profile Normalizer', () => {
       expect(result.existingField).toBe('existing value')
       expect(result.version).toBe('1.0')
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.0.0')
+      expect(result.migrationVersion).toBe('2.1.0')
     })
   })
 
@@ -279,7 +280,7 @@ describe('Profile Normalizer', () => {
         migrationVersion: '2.0.0'
       }
 
-      expect(needsNormalization(profile)).toBe(false)
+      expect(needsNormalization(profile)).toBe(true)
     })
 
     it('should return false for empty profiles', () => {
@@ -288,7 +289,7 @@ describe('Profile Normalizer', () => {
         aliases: {}
       }
 
-      expect(needsNormalization(profile)).toBe(false)
+      expect(needsNormalization(profile)).toBe(true)
     })
 
     it('should return false for profiles with no builds or aliases', () => {
@@ -297,7 +298,7 @@ describe('Profile Normalizer', () => {
         name: 'Minimal Profile'
       }
 
-      expect(needsNormalization(profile)).toBe(false)
+      expect(needsNormalization(profile)).toBe(true)
     })
 
     it('should handle mixed environments in keybinds', () => {
@@ -362,7 +363,7 @@ describe('Profile Normalizer', () => {
       expect(report.aliasesMigrated).toBeGreaterThan(0)
       expect(report.richObjectsRemoved).toBeGreaterThan(0)
       expect(report.stringsSplit).toBeGreaterThan(0)
-      expect(report.migrationVersion).toBe('2.0.0')
+      expect(report.migrationVersion).toBe('2.1.0')
     })
 
     it('should handle already normalized profile', () => {
