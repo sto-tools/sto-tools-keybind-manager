@@ -370,6 +370,13 @@ export default class SelectionService extends ComponentBase {
         await this.selectKey(firstKey, env)
         return firstKey
       } else {
+        // No keys available in this environment - explicitly clear selection
+        // Use current environment to determine what type of selection to clear
+        if (this.cache.currentEnvironment === 'alias') {
+          await this.selectAlias(null)
+        } else {
+          await this.selectKey(null, this.cache.currentEnvironment)
+        }
         return null
       }
     }

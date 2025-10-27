@@ -665,7 +665,7 @@ export default class CommandService extends ComponentBase {
     }
 
     const commands = await this.getCommandsForSelectedKey()
-    
+
     // Helper function to decode HTML entities using DOM
     const decodeHtmlEntities = (str) => {
       if (typeof str !== 'string') return str
@@ -673,10 +673,40 @@ export default class CommandService extends ComponentBase {
       textarea.innerHTML = str
       return textarea.value
     }
-    
-    const chainType = this.cache.currentEnvironment === 'alias' ? 
-      decodeHtmlEntities(this.i18n?.t?.('alias_chain') || 'Alias Chain') : 
+
+    const chainType = this.cache.currentEnvironment === 'alias' ?
+      decodeHtmlEntities(this.i18n?.t?.('alias_chain') || 'Alias Chain') :
       decodeHtmlEntities(this.i18n?.t?.('command_chain') || 'Command Chain')
+
+    // If we have a selected key but got no commands, this might be a stale selection
+    // (key doesn't exist in current environment). Treat as no selection.
+    if (selectedKey && commands.length === 0) {
+      console.log(`[CommandService] Detected stale selection "${selectedKey}" in environment ${this.cache.currentEnvironment} - treating as no selection`)
+
+      const selectText = this.cache.currentEnvironment === 'alias' ?
+        this.i18n?.t?.('select_an_alias_to_edit') || 'Select an alias to edit' :
+        this.i18n?.t?.('select_a_key_to_edit') || 'Select a key to edit'
+      const previewText = this.cache.currentEnvironment === 'alias' ?
+        this.i18n?.t?.('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' :
+        this.i18n?.t?.('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
+
+      const emptyIcon = this.cache.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
+      const emptyTitle = this.cache.currentEnvironment === 'alias' ?
+        this.i18n?.t?.('no_alias_selected') || 'No Alias Selected' :
+        this.i18n?.t?.('no_key_selected') || 'No Key Selected'
+      const emptyDesc = this.cache.currentEnvironment === 'alias' ?
+        this.i18n?.t?.('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' :
+        this.i18n?.t?.('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
+
+      return {
+        title: selectText,
+        preview: previewText,
+        icon: emptyIcon,
+        emptyTitle,
+        emptyDesc,
+        commandCount: '0'
+      }
+    }
 
     if (commands.length === 0) {
       const emptyMessage = this.cache.currentEnvironment === 'alias' ? 
