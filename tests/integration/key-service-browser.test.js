@@ -60,7 +60,7 @@ describe('Integration: KeyService ↔ KeyBrowserService', () => {
     keyService.setCurrentProfile(profile.id)
     keyService.updateCacheFromProfile(profile)
 
-    keyBrowserService = new KeyBrowserService({})
+    keyBrowserService = new KeyBrowserService({ eventBus })
     await keyBrowserService.init()
 
     // seed browser cache via profile:switched
