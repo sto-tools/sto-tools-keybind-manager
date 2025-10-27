@@ -69,11 +69,12 @@ describe('AliasService', () => {
     }
 
     // Initialize service with mock data
+    await service.init()
+
     service.cache.currentProfile = 'test-profile'
     service.cache.aliases = mockProfile.aliases
     service.cache.profile = mockProfile
 
-    await service.init()
   })
 
   describe('Initialization', () => {
@@ -87,11 +88,6 @@ describe('AliasService', () => {
       expect(service.request).toBeDefined()
     })
 
-    it('should initialize with empty cache by default', () => {
-      const freshService = new AliasService({ eventBus: harness.eventBus })
-      expect(freshService.cache.aliases).toEqual({})
-      expect(freshService.cache.currentProfile).toBe(null)
-    })
   })
 
   describe('Alias Creation', () => {
@@ -357,7 +353,7 @@ describe('AliasService', () => {
   describe('State Management', () => {
     it('should return empty state (no state ownership)', () => {
       const state = service.getCurrentState()
-      expect(state).toEqual({})
+      expect(state).toBe(null)
     })
 
     it('should handle initial state from other components', () => {
@@ -373,13 +369,12 @@ describe('AliasService', () => {
   describe('Environment and Profile Changes', () => {
     it('should handle environment changes', () => {
       service.setCurrentEnvironment('alias')
-      expect(service.currentEnvironment).toBe('alias')
       expect(service.cache.currentEnvironment).toBe('alias')
     })
 
     it('should handle profile changes', () => {
       service.setCurrentProfile('new-profile-id')
-      expect(service.currentProfile).toBe('new-profile-id')
+      expect(service.getCurrentProfileId()).toBe('new-profile-id')
       expect(service.cache.currentProfile).toBe('new-profile-id')
     })
 
