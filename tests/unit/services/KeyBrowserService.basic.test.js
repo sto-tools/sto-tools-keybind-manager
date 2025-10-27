@@ -9,10 +9,10 @@ import KeyBrowserService from '../../../src/js/components/services/KeyBrowserSer
 describe('KeyBrowserService – cache helpers', () => {
   let service
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // No need for injected eventBus because tests cover pure helpers
     service = new KeyBrowserService({})
-    if (typeof service.init === 'function') service.init()
+    await service.init()
   })
 
   it('getValidKeys should include common keys and modifiers', () => {
@@ -29,7 +29,12 @@ describe('KeyBrowserService – cache helpers', () => {
         ground: { keys: { G1: [] } }
       }
     }
-    service.updateCacheFromProfile(profile)
+
+    // Inject profile data directly into cache to simulate ComponentBase behavior
+    service.cache.profile = profile
+    service.cache.builds = profile.builds
+    service.cache.currentEnvironment = 'space'
+    service.cache.keys = profile.builds.space.keys
 
     const spaceKeys = service.getKeys()
     expect(Object.keys(spaceKeys)).toEqual(['F1', 'F2'])
@@ -39,9 +44,9 @@ describe('KeyBrowserService – cache helpers', () => {
 describe('KeyBrowserService – data processing methods', () => {
   let service
 
-  beforeEach(() => {
+  beforeEach(async () => {
     service = new KeyBrowserService({})
-    if (typeof service.init === 'function') service.init()
+    await service.init()
   })
 
   describe('sortKeys', () => {
