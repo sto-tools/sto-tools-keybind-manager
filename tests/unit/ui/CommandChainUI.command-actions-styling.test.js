@@ -13,7 +13,7 @@ describe('CommandChainUI Command Actions Styling', () => {
   let document
   let commandChainUI
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Mock request handlers used inside createCommandElement
     respond(eventBus, 'command:find-definition', ({ command }) => {
       const isCustomizable = /Custom/i.test(command)
@@ -43,6 +43,33 @@ describe('CommandChainUI Command Actions Styling', () => {
           }
         ]
       }
+    })
+
+    // Mock empty state info response
+    respond(eventBus, 'command:get-empty-state-info', () => {
+      return {
+        title: 'No Key Selected',
+        preview: 'Select a key to see the generated command',
+        icon: 'fas fa-keyboard',
+        emptyTitle: 'No Key Selected',
+        emptyDesc: 'Select a key from the left panel to view and edit its command chain.',
+        commandCount: '0'
+      }
+    })
+
+    // Mock preferences setting response
+    respond(eventBus, 'preferences:get-setting', () => {
+      return false
+    })
+
+    // Mock command chain stabilization check
+    respond(eventBus, 'command-chain:is-stabilized', () => {
+      return true
+    })
+
+    // Mock file operations for mirrored commands
+    respond(eventBus, 'fileops:generate-mirrored-commands', ({ commands }) => {
+      return commands || []
     })
 
     // Setup DOM
@@ -83,6 +110,12 @@ describe('CommandChainUI Command Actions Styling', () => {
       document,
       ui: { initDragAndDrop: () => {} }
     })
+
+    await commandChainUI.init()
+
+    // Set up cache with a selected key so render will show command elements instead of empty state
+    commandChainUI.cache.selectedKey = 'F1'
+    commandChainUI.cache.currentEnvironment = 'space'
   })
 
   describe('Command Actions Container Styling', () => {
