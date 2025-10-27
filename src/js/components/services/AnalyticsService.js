@@ -55,8 +55,14 @@ export default class AnalyticsService extends ComponentBase {
   updateCacheFromProfile(profile) {
     if (!profile) return
 
-    // ComponentBase handles profile caching automatically
-    // This method can be used for service-specific logic if needed
+    // Update cache directly when called methodically
+    this.cache.profile = profile
+    if (profile.id) {
+      this.cache.currentProfile = profile.id
+    }
+
+    // ComponentBase also handles caching automatically via event listeners
+    // This method provides immediate cache updates when called directly
     console.log(`[AnalyticsService] Profile updated - ComponentBase handles caching automatically`)
   }
 

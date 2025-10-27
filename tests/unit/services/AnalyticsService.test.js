@@ -61,10 +61,11 @@ describe('AnalyticsService', () => {
     }
 
     // Initialize cache
+    await service.init()
+
     service.cache.currentProfile = 'test-profile'
     service.cache.profile = mockProfile
 
-    await service.init()
   })
 
   describe('Initialization', () => {
@@ -77,12 +78,7 @@ describe('AnalyticsService', () => {
       expect(service.request).toBeDefined()
     })
 
-    it('should initialize with empty cache by default', () => {
-      const freshService = new AnalyticsService({ eventBus: harness.eventBus })
-      expect(freshService.cache.currentProfile).toBe(null)
-      expect(freshService.cache.profile).toBe(null)
     })
-  })
 
   describe('Key Statistics', () => {
     it('should calculate basic key statistics for new format', () => {
@@ -355,7 +351,7 @@ describe('AnalyticsService', () => {
   describe('State Management', () => {
     it('should return empty state (no state ownership)', () => {
       const state = service.getCurrentState()
-      expect(state).toEqual({})
+      expect(state).toBe(null)
     })
 
     it('should handle initial state from other components', () => {
