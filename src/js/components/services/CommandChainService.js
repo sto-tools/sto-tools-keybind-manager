@@ -805,7 +805,7 @@ export default class CommandChainService extends ComponentBase {
   
   // Get the current bind-to-alias mode setting from cached preferences
   getBindToAliasMode() {
-    return this.cache.preferences.bindToAliasMode
+    return this.cache.preferences.bindToAliasMode || false
   }
   
   // Generate alias name for bind-to-alias mode
