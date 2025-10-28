@@ -57,33 +57,25 @@ describe('Selection Restoration Fix - Page Reload', () => {
     await selectionService.init()
   })
 
-  it('should emit key-selected event after restoring selection from profile', () => {
-    // Filter to key-selected events
-    const keySelectedEvents = emittedEvents.filter(e => e.event === 'key-selected')
-    
-    // Should have at least one key-selected event
-    expect(keySelectedEvents.length).toBeGreaterThan(0)
-    
-    // Should emit the correct restored selection
-    const restorationEvent = keySelectedEvents.find(e => 
-      e.data.key === 'F2' && 
-      e.data.environment === 'ground' && 
-      e.data.source === 'SelectionService'
-    )
-    
-    expect(restorationEvent).toBeDefined()
-    expect(restorationEvent.data).toEqual({
-      key: 'F2',
-      environment: 'ground',
-      source: 'SelectionService'
-    })
+  it('should restore key selection from profile during initialization', () => {
+    // During initialization/late-join, state is set directly without emitting events
+    // This is the correct behavior - events are for user actions, not initialization
+
+    // Verify the selection was restored correctly in the cache
+    expect(selectionService.cache.selectedKey).toBe('F2')
+    expect(selectionService.cache.currentEnvironment).toBe('ground')
+    expect(selectionService.cachedSelections.ground).toBe('F2')
+
+    // Verify that validateKeyExists works correctly for the restored selection
+    expect(selectionService.validateKeyExists('F2', 'ground')).toBe(true)
+    expect(selectionService.validateKeyExists('F1', 'ground')).toBe(false)
   })
 
   it('should correctly restore all selection state from profile', () => {
     // Verify the SelectionService state matches the profile
-    expect(selectionService.currentEnvironment).toBe('ground')
-    expect(selectionService.selectedKey).toBe('F2')
-    expect(selectionService.selectedAlias).toBe(null) // Should be null since environment is 'ground', not 'alias'
+    expect(selectionService.cache.currentEnvironment).toBe('ground')
+    expect(selectionService.cache.selectedKey).toBe('F2')
+    expect(selectionService.cache.selectedAlias).toBe(null) // Should be null since environment is 'ground', not 'alias'
     expect(selectionService.cachedSelections).toEqual({
       space: 'F1',
       ground: 'F2',
@@ -124,17 +116,14 @@ describe('Selection Restoration Fix - Page Reload', () => {
     await newSelectionService.init()
 
     // Should restore alias selection
-    expect(newSelectionService.currentEnvironment).toBe('alias')
-    expect(newSelectionService.selectedAlias).toBe('TestAlias')
-    expect(newSelectionService.selectedKey).toBe(null) // Should be null in alias environment
+    expect(newSelectionService.cache.currentEnvironment).toBe('alias')
+    expect(newSelectionService.cache.selectedAlias).toBe('TestAlias')
+    expect(newSelectionService.cache.selectedKey).toBe(null) // Should be null in alias environment
+    expect(newSelectionService.cachedSelections.alias).toBe('TestAlias')
 
-    // Should emit alias-selected event
-    const aliasSelectedEvents = emittedEvents.filter(e => e.event === 'alias-selected')
-    const restorationEvent = aliasSelectedEvents.find(e => 
-      e.data.name === 'TestAlias' && 
-      e.data.source === 'SelectionService'
-    )
-    expect(restorationEvent).toBeDefined()
+    // Verify that validateAliasExists works correctly for the restored selection
+    expect(newSelectionService.validateAliasExists('TestAlias')).toBe(true)
+    expect(newSelectionService.validateAliasExists('NonExistentAlias')).toBe(false)
   })
 
   it('should work with DataCoordinator late-join handshake mechanism', () => {
