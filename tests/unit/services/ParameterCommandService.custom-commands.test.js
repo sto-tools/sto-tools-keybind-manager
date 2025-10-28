@@ -6,9 +6,10 @@ describe('ParameterCommandService - Custom Commands', () => {
   let service
   let fixture
   
-  beforeEach(() => {
+  beforeEach(async () => {
     fixture = createServiceFixture()
     service = new ParameterCommandService({ eventBus: fixture.eventBus })
+    await service.init()
     service.selectedKey = 'F1'
     service.currentEnvironment = 'space'
     
@@ -52,7 +53,7 @@ describe('ParameterCommandService - Custom Commands', () => {
         command: 'Target_Enemy_Near',
         displayText: 'Custom: Target_Enemy_Near',
         type: 'custom',
-        icon: '⚙️',
+        icon: undefined,
         id: expect.stringMatching(/^cmd_/),
         parameters: { rawCommand: 'Target_Enemy_Near' }
       })
@@ -146,7 +147,7 @@ describe('ParameterCommandService - Custom Commands', () => {
           commandDef, 
           params
         )
-      ).rejects.toThrow('Please enter a command')
+      ).rejects.toThrow('please_enter_a_raw_command')
     })
     
     it('should throw error for whitespace-only command', async () => {
@@ -166,7 +167,7 @@ describe('ParameterCommandService - Custom Commands', () => {
           commandDef, 
           params
         )
-      ).rejects.toThrow('Please enter a command')
+      ).rejects.toThrow('please_enter_a_raw_command')
     })
     
     it('should handle missing rawCommand parameter', async () => {
@@ -184,7 +185,7 @@ describe('ParameterCommandService - Custom Commands', () => {
           commandDef, 
           params
         )
-      ).rejects.toThrow('Please enter a command')
+      ).rejects.toThrow('please_enter_a_raw_command')
     })
   })
 
