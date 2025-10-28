@@ -22,7 +22,7 @@ describe('ExportService', () => {
   beforeEach(() => {
     fixture = createServiceFixture()
     service = new ExportService({ eventBus: fixture.eventBus, storage: fixture.storage })
-    service.init && service.init()
+    service.init()
 
     // Register responder for parser on the fixture event bus to avoid timeouts
     respond(fixture.eventBus, 'parser:parse-command-string', ({ commandString }) => ({ commands: [{ command: commandString }] }))
@@ -54,7 +54,12 @@ describe('ExportService', () => {
 
   describe('bind-to-alias mode – empty chains', () => {
     beforeEach(() => {
-      // Mock preferences so bind-to-alias mode is enabled
+      // Set up cached preferences so bind-to-alias mode is enabled
+      service.cache.preferences = {
+        bindToAliasMode: true
+      }
+
+      // Mock preferences requests as fallback
       service.request = vi.fn().mockImplementation(async (action, payload) => {
         if (action === 'preferences:get-setting' && payload.key === 'bindToAliasMode') {
           return true
@@ -69,7 +74,7 @@ describe('ExportService', () => {
       }
 
       const section = await service.generateKeybindSection(keys, { environment: 'space', profile: {} })
-      expect(section).toContain('F4 "space_f4"')
+      expect(section).toContain('F4 "sto_kb_space_f4"')
     })
 
     it('generates empty alias definition for empty chain', async () => {
@@ -85,13 +90,19 @@ describe('ExportService', () => {
       }
 
       const aliasFile = await service.generateAliasFile(profileData)
-      expect(aliasFile).toMatch(/alias space_f4 <&\s*&>/)
+      expect(aliasFile).toMatch(/alias sto_kb_space_f4 <&\s*&>/)
     })
   })
 
   describe('primary bindset loader alias generation', () => {
     it('should generate primary bindset loader that resets custom bindset keys to primary', async () => {
-      // Enable bindsets feature
+      // Enable bindsets feature and bind-to-alias mode
+      service.cache.preferences = {
+        bindsetsEnabled: true,
+        bindToAliasMode: true
+      }
+
+      // Mock preferences requests as fallback
       service.request = vi.fn().mockImplementation(async (action, payload) => {
         if (action === 'preferences:get-setting' && payload.key === 'bindsetsEnabled') {
           return true
@@ -128,27 +139,33 @@ describe('ExportService', () => {
       const result = await service.generateAliasFile(profile)
 
       // Should contain primary bindset loader alias
-      expect(result).toContain('alias bindset_enable_space_primary_bindset')
+      expect(result).toContain('alias sto_kb_bindset_enable_space_primary_bindset')
       
       // Primary bindset loader should:
       // 1. Bind F1 to primary alias (resets from custom - F1 exists in both primary and custom)
       // 2. Skip F2 and F3 (they only exist in primary, never overridden, no need to reset)
       // 3. Unbind F4 (exists only in custom, not in primary)
-      expect(result).toContain('bind F1 "space_f1"')
-      expect(result).not.toContain('bind F2 "space_f2"') // F2 only in primary, not overridden
-      expect(result).not.toContain('bind F3 "space_f3"') // F3 only in primary, not overridden
+      expect(result).toContain('bind F1 "sto_kb_space_f1"')
+      expect(result).not.toContain('bind F2 "sto_kb_space_f2"') // F2 only in primary, not overridden
+      expect(result).not.toContain('bind F3 "sto_kb_space_f3"') // F3 only in primary, not overridden
       expect(result).toContain('unbind F4')
 
       // Should also contain custom bindset loader
-      expect(result).toContain('alias bindset_enable_space_custom_bindset')
-      
+      expect(result).toContain('alias sto_kb_bindset_enable_space_custom_bindset')
+
       // Custom bindset loader should only bind keys that exist in the custom bindset
-      expect(result).toContain('bind F1 "space_custom_bindset_f1"')
-      expect(result).toContain('bind F4 "space_custom_bindset_f4"')
+      expect(result).toContain('bind F1 "sto_kb_space_custom_bindset_f1"')
+      expect(result).toContain('bind F4 "sto_kb_space_custom_bindset_f4"')
     })
 
     it('should generate primary bindset loader for ground environment', async () => {
-      // Enable bindsets feature
+      // Enable bindsets feature and bind-to-alias mode
+      service.cache.preferences = {
+        bindsetsEnabled: true,
+        bindToAliasMode: true
+      }
+
+      // Mock preferences requests as fallback
       service.request = vi.fn().mockImplementation(async (action, payload) => {
         if (action === 'preferences:get-setting' && payload.key === 'bindsetsEnabled') {
           return true
@@ -184,18 +201,18 @@ describe('ExportService', () => {
       const result = await service.generateAliasFile(profile)
 
       // Should contain ground primary bindset loader alias
-      expect(result).toContain('alias bindset_enable_ground_primary_bindset')
-      
+      expect(result).toContain('alias sto_kb_bindset_enable_ground_primary_bindset')
+
       // Primary bindset loader should:
       // 1. Bind Q to primary alias (resets from custom - Q exists in both primary and custom)
       // 2. Skip W (only exists in primary, never overridden, no need to reset)
       // 3. Unbind E (exists only in custom, not in primary)
-      expect(result).toContain('bind Q "ground_q"')
-      expect(result).not.toContain('bind W "ground_w"') // W only in primary, not overridden
+      expect(result).toContain('bind Q "sto_kb_ground_q"')
+      expect(result).not.toContain('bind W "sto_kb_ground_w"') // W only in primary, not overridden
       expect(result).toContain('unbind E')
 
       // Should also contain custom bindset loader
-      expect(result).toContain('alias bindset_enable_ground_ground_combat')
+      expect(result).toContain('alias sto_kb_bindset_enable_ground_ground_combat')
     })
   })
 }) 
