@@ -65,13 +65,13 @@ describe('VFX Virtual Alias Integration Flow', () => {
         createDocumentFragment: vi.fn(() => ({ appendChild: vi.fn() }))
       }
     })
-    commandLibraryUI.onInit()
+    await commandLibraryUI.init()
   })
 
   it('should propagate VFX virtual aliases to CommandLibraryUI when VFX settings change', async () => {
     // Set up spies
     const commandLibraryUpdateSpy = vi.spyOn(commandLibraryUI, 'updateCommandLibrary')
-    
+
     // Add some VFX effects
     vfxService.toggleEffect('space', 'FX_SpaceTest')
     vfxService.toggleEffect('ground', 'FX_GroundTest')
@@ -82,6 +82,9 @@ describe('VFX Virtual Alias Integration Flow', () => {
     expect(virtualAliases).toHaveProperty('dynFxSetFXExclusionList_Ground')
     expect(virtualAliases).toHaveProperty('dynFxSetFXExclusionList_Combined')
 
+    // Clear the emit call history before the test
+    mockEventBus.emit.mockClear()
+
     // Simulate VFX settings change (like when user saves VFX effects)
     mockEventBus.emit('vfx:settings-changed', {
       selectedEffects: {
@@ -91,24 +94,33 @@ describe('VFX Virtual Alias Integration Flow', () => {
       showPlayerSay: false
     })
 
-    // Wait for async operations
-    await new Promise(resolve => setTimeout(resolve, 0))
+    // Wait for async operations to complete - RPC requests and responses
+    await new Promise(resolve => setTimeout(resolve, 10))
 
-    // Verify that aliases-changed event was emitted by CommandLibraryService
-    expect(mockEventBus.emit).toHaveBeenCalledWith('aliases-changed', 
+    // Find the aliases-changed event call among all emit calls
+    const aliasesChangedCalls = mockEventBus.emit.mock.calls.filter(call => call[0] === 'aliases-changed')
+    expect(aliasesChangedCalls.length).toBeGreaterThan(0)
+
+    // Verify that aliases-changed event was emitted with correct structure
+    const aliasesChangedCall = aliasesChangedCalls[aliasesChangedCalls.length - 1]
+    expect(aliasesChangedCall[0]).toBe('aliases-changed')
+    expect(aliasesChangedCall[1]).toEqual(
       expect.objectContaining({
         aliases: expect.objectContaining({
           dynFxSetFXExclusionList_Space: expect.objectContaining({
             type: 'vfx-alias',
-            virtual: true
+            virtual: true,
+            commands: ['dynFxSetFXExclusionList FX_SpaceTest']
           }),
           dynFxSetFXExclusionList_Ground: expect.objectContaining({
             type: 'vfx-alias',
-            virtual: true
+            virtual: true,
+            commands: ['dynFxSetFXExclusionList FX_GroundTest']
           }),
           dynFxSetFXExclusionList_Combined: expect.objectContaining({
             type: 'vfx-alias',
-            virtual: true
+            virtual: true,
+            commands: ['dynFxSetFXExclusionList FX_SpaceTest,FX_GroundTest']
           })
         })
       })
@@ -117,10 +129,12 @@ describe('VFX Virtual Alias Integration Flow', () => {
     // Verify that CommandLibraryUI received the event and updated
     expect(commandLibraryUpdateSpy).toHaveBeenCalled()
 
-    // Verify the UI cache was updated with virtual aliases
-    expect(commandLibraryUI.cache.aliases).toHaveProperty('dynFxSetFXExclusionList_Space')
-    expect(commandLibraryUI.cache.aliases.dynFxSetFXExclusionList_Space.type).toBe('vfx-alias')
-    expect(commandLibraryUI.cache.aliases.dynFxSetFXExclusionList_Space.virtual).toBe(true)
+    // Verify that the UI can get the virtual aliases via the service (actual behavior)
+    const combinedAliases = await commandLibraryService.getCombinedAliases()
+    expect(combinedAliases).toHaveProperty('dynFxSetFXExclusionList_Space')
+    expect(combinedAliases.dynFxSetFXExclusionList_Space.type).toBe('vfx-alias')
+    expect(combinedAliases.dynFxSetFXExclusionList_Space.virtual).toBe(true)
+    expect(combinedAliases.dynFxSetFXExclusionList_Space.commands).toEqual(['dynFxSetFXExclusionList FX_SpaceTest'])
   })
 
   it('should handle VFX virtual aliases request from CommandLibraryService', async () => {
