@@ -27,11 +27,13 @@ export default class CommandChainUI extends UIComponentBase {
     this._detachFunctions.push(
       this.eventBus.on('environment:changed', (data) => {
         const env = typeof data === 'string' ? data : data?.environment
-        
+
         if (env) {
           this.updateChainActions()
           this.updatePreviewLabel()
-          this.setupBindsetDropdown().catch(() => {})          
+          this.setupBindsetDropdown().catch(() => {})
+          // Re-render to show correct empty state info for new environment
+          this.render().catch(() => {})
         }
       })
     )
@@ -39,19 +41,19 @@ export default class CommandChainUI extends UIComponentBase {
     // Listen for key selection
     this._detachFunctions.push(
       this.eventBus.on('key-selected', async (data) => {
-        const selectedKey = data.key || data.name
+        const selectedKey = data.key !== undefined ? data.key : data.name
         this.updateChainActions()
-        
+
         // Update bindset selector with selected key first (can be null)
         this.emit('bindset-selector:set-selected-key', { key: selectedKey })
-        
+
         // Reset to Primary Bindset when selecting a different key (unless already on Primary)
         // Only do this if a key was actually selected (not null)
         if (selectedKey && this.cache.activeBindset !== 'Primary Bindset') {
           this.cache.activeBindset = 'Primary Bindset'
           this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
           this.updateBindsetBanner()
-        }  
+        }
       })
     )
 

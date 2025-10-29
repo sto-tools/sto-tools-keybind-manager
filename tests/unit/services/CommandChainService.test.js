@@ -57,21 +57,6 @@ describe('CommandChainService', () => {
     expect(handler).toHaveBeenCalled()
   })
 
-  it.skip('should update environment and clear selection on environment change', async () => {
-    // select key first
-    eventBus.emit('key-selected', { key: 'F1' })
-    await new Promise(r => setTimeout(r, 0))
-
-    expect(service.selectedKey).toBe('F1')
-    expect(service.currentEnvironment).toBe('space')
-
-    eventBus.emit('environment:changed', { environment: 'ground' })
-    await new Promise(r => setTimeout(r, 0))
-
-    expect(service.currentEnvironment).toBe('ground')
-    expect(service.selectedKey).toBe(null)
-  })
-
   it('should emit chain-data-changed after command-added event', async () => {
     const spy = vi.fn()
     eventBus.on('chain-data-changed', spy)

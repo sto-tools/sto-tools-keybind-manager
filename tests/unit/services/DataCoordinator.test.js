@@ -232,13 +232,15 @@ describe('DataCoordinator Service', () => {
 
     it('should emit environment change event', async () => {
       await dataCoordinator.setEnvironment('ground')
-      
-      expect(mockEventBus.emit).toHaveBeenCalledWith('environment:changed', 
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith('environment:changed',
         expect.objectContaining({
           environment: 'ground',
           toEnvironment: 'ground',
-          fromEnvironment: 'space'
-        })
+          fromEnvironment: 'space',
+          timestamp: expect.any(Number)
+        }),
+        { synchronous: true }
       )
     })
   })
@@ -263,14 +265,16 @@ describe('DataCoordinator Service', () => {
 
     it('should emit settings change event', async () => {
       const newSettings = { theme: 'light' }
-      
+
       await dataCoordinator.updateSettings(newSettings)
-      
-      expect(mockEventBus.emit).toHaveBeenCalledWith('settings:changed', 
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith('settings:changed',
         expect.objectContaining({
           settings: newSettings,
-          updates: newSettings
-        })
+          updates: newSettings,
+          timestamp: expect.any(Number)
+        }),
+        {}
       )
     })
   })
@@ -315,8 +319,8 @@ describe('DataCoordinator Service', () => {
   describe('Error Handling', () => {
     it('should handle storage errors gracefully', async () => {
       mockStorage.saveProfile = vi.fn().mockRejectedValue(new Error('Storage error'))
-      
-      await expect(dataCoordinator.createProfile('Test Profile')).rejects.toThrow('Storage error')
+
+      await expect(dataCoordinator.createProfile('Test Profile')).rejects.toThrow('Failed to create profile')
     })
 
     it('should handle invalid profile operations', async () => {

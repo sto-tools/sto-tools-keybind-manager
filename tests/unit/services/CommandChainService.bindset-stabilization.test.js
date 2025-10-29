@@ -6,7 +6,7 @@ describe('CommandChainService - Bindset Stabilization', () => {
   let service
   let mockProfile
 
-  beforeEach(() => {
+  beforeEach(async () => {
     service = new CommandChainService({ eventBus, i18n: { t: key => key } })
     
     mockProfile = {
@@ -55,6 +55,8 @@ describe('CommandChainService - Bindset Stabilization', () => {
         }
       }
     }
+
+    await service.init()
 
     // Set up service cache
     service.cache.profile = mockProfile
@@ -258,14 +260,14 @@ describe('CommandChainService - Bindset Stabilization', () => {
 
   describe('environment handling', () => {
     it('should check correct environment metadata for bindsets', () => {
-      // Switch to ground environment
-      service.currentEnvironment = 'ground'
-      
+      // Switch to ground environment in cache
+      service.cache.currentEnvironment = 'ground'
+
       // Add ground metadata for testing
       mockProfile.bindsetMetadata['Custom Bindset'].ground = {
         'G1': { stabilizeExecutionOrder: true }
       }
-      
+
       expect(service.isStabilized('G1', 'Custom Bindset')).toBe(true)
       expect(service.isStabilized('F2', 'Custom Bindset')).toBe(false) // F2 is in space
     })

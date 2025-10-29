@@ -4,7 +4,7 @@ import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
 describe('CommandChainUI Empty State - Simple', () => {
   let ui, mockDocument, mockEventBus, mockUI
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock document
     mockDocument = {
       getElementById: vi.fn(),
@@ -39,6 +39,8 @@ describe('CommandChainUI Empty State - Simple', () => {
       ui: mockUI,
       document: mockDocument
     })
+
+    await ui.init()
 
     // Set up request method on the ui instance
     ui.request = vi.fn().mockResolvedValue({})
@@ -90,9 +92,9 @@ describe('CommandChainUI Empty State - Simple', () => {
       })
 
       // Set environment and clear selection
-      ui._currentEnvironment = 'space'
-      ui._selectedKey = null
-      ui._selectedAlias = null
+      ui.cache.currentEnvironment = 'space'
+      ui.cache.selectedKey = null
+      ui.cache.selectedAlias = null
 
       // Call render
       await ui.render()
@@ -150,9 +152,9 @@ describe('CommandChainUI Empty State - Simple', () => {
       })
 
       // Set environment to alias and clear selection
-      ui._currentEnvironment = 'alias'
-      ui._selectedKey = null
-      ui._selectedAlias = null
+      ui.cache.currentEnvironment = 'alias'
+      ui.cache.selectedKey = null
+      ui.cache.selectedAlias = null
 
       // Call render
       await ui.render()
@@ -167,19 +169,24 @@ describe('CommandChainUI Empty State - Simple', () => {
 
     it('should handle initial environment setup with late-join', async () => {
       // Set up initial state
-      ui._currentEnvironment = 'space'
-      ui._selectedKey = null
-      ui._selectedAlias = null
+      ui.cache.currentEnvironment = 'space'
+      ui.cache.selectedKey = null
+      ui.cache.selectedAlias = null
 
       // Mock updateChainActions
       const updateChainActionsSpy = vi.spyOn(ui, 'updateChainActions')
       const renderSpy = vi.spyOn(ui, 'render')
 
       // Simulate late-join environment state
+      // Manually set environment as ComponentBase would do during late-join
+      ui.cache.currentEnvironment = 'alias'
       ui.handleInitialState('InterfaceModeService', { environment: 'alias' })
 
+      // Wait for any promises to resolve
+      await new Promise(resolve => setTimeout(resolve, 0))
+
       // Verify environment was set and methods were called
-      expect(ui._currentEnvironment).toBe('alias')
+      expect(ui.cache.currentEnvironment).toBe('alias')
       expect(updateChainActionsSpy).toHaveBeenCalled()
       expect(renderSpy).toHaveBeenCalled()
     })

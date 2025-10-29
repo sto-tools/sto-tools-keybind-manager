@@ -1,4 +1,4 @@
-// Test suite for Phase 2.2: Centralized Selection Events
+// Test suite for Centralized Selection Events
 // Verifies that selection events are properly centralized through SelectionService
 // and that services delegate selection operations correctly
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -10,7 +10,7 @@ import CommandService from '../../../src/js/components/services/CommandService.j
 import CommandLibraryService from '../../../src/js/components/services/CommandLibraryService.js'
 import ParameterCommandService from '../../../src/js/components/services/ParameterCommandService.js'
 
-describe('Phase 2.2: Centralized Selection Events', () => {
+describe('Centralized Selection Events', () => {
   let harness
   let selectionService
   let keyBrowserService
@@ -113,20 +113,14 @@ describe('Phase 2.2: Centralized Selection Events', () => {
   describe('Selection State Ownership', () => {
     it('should not expose selection state in CommandService.getCurrentState()', () => {
       const state = commandService.getCurrentState()
-      
-      expect(state).not.toHaveProperty('selectedKey')
-      expect(state).not.toHaveProperty('selectedAlias')
-      expect(state).not.toHaveProperty('currentEnvironment')
-      expect(state).not.toHaveProperty('currentProfile')
+
+      expect(state).toBeNull()
     })
 
     it('should not expose selection state in CommandLibraryService.getCurrentState()', () => {
       const state = commandLibraryService.getCurrentState()
-      
-      expect(state).not.toHaveProperty('selectedKey')
-      expect(state).not.toHaveProperty('selectedAlias')
-      expect(state).not.toHaveProperty('currentEnvironment')
-      expect(state).not.toHaveProperty('currentProfile')
+
+      expect(state).toBeNull()
     })
 
     it('should not expose selection state in ParameterCommandService.getCurrentState()', () => {
@@ -167,12 +161,12 @@ describe('Phase 2.2: Centralized Selection Events', () => {
       commandService.request = requestSpy
       
       // Set cached state directly on CommandService (simulating ComponentBase caching)
-      commandService.selectedKey = 'F1'
-      commandService.currentEnvironment = 'space' 
       commandService.cache = {
         profile: mockProfile,
         keys: { 'F1': ['Target_Enemy_Near'] },
-        aliases: {}
+        aliases: {},
+        selectedKey: 'F1',
+        currentEnvironment: 'space'
       }
 
       // Call the method and verify it returns cached commands

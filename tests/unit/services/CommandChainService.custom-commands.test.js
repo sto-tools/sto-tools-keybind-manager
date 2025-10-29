@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import CommandChainService from '../../../src/js/components/services/CommandChainService.js'
 import { createServiceFixture } from '../../fixtures'
+import { respond } from '../../../src/js/core/requestResponse.js'
 
 describe('CommandChainService - Custom Commands', () => {
   let service
@@ -8,16 +9,73 @@ describe('CommandChainService - Custom Commands', () => {
   
   beforeEach(() => {
     fixture = createServiceFixture()
-    
+
     service = new CommandChainService({ eventBus: fixture.eventBus })
     service.selectedKey = 'F1'
     service.currentEnvironment = 'space'
-    
+
     // Initialize service if needed
     if (typeof service.init === 'function') service.init()
-    
+
+    // Helper method to simulate edit handler behavior
+    const handleEditCommand = async function({ index, command }) {
+      // Simulate the edit handler logic
+      let cmd
+      if (typeof command === 'string') {
+        cmd = { command }
+      } else {
+        cmd = command.parameters
+          ? { ...command, parameters: { ...command.parameters } }
+          : { ...command }
+      }
+
+      const def = await service.findCommandDefinition(cmd)
+      const isCustomizable = !!(def && def.customizable)
+
+      const isCustomCommand = cmd.type === 'custom' || cmd.category === 'custom' ||
+                              (cmd.command && await service.isCustomCommand(cmd.command))
+
+      if (isCustomizable) {
+        service.emit('parameter-command:edit', {
+          index,
+          command: cmd,
+          commandDef: def,
+          categoryId: def.categoryId || cmd.type,
+          commandId: def.commandId
+        })
+        return
+      } else if (isCustomCommand) {
+        const customDef = {
+          name: 'Edit Custom Command',
+          customizable: true,
+          categoryId: 'custom',
+          commandId: 'add_custom_command',
+          parameters: {
+            rawCommand: {
+              type: 'text',
+              default: cmd.command || '',
+              placeholder: 'Enter any STO command',
+              label: 'Command:'
+            }
+          }
+        }
+
+        service.emit('parameter-command:edit', {
+          index,
+          command: cmd,
+          commandDef: customDef,
+          categoryId: 'custom',
+          commandId: 'add_custom_command'
+        })
+        return
+      }
+    }
+
+    // Expose the helper method for testing
+    service.handleEditCommand = handleEditCommand
+
     // Mock required request responses
-    fixture.eventBus.registerMockResponse('parser:parse-command-string', ({ commandString }) => {
+    respond(fixture.eventBus, 'parser:parse-command-string', ({ commandString }) => {
       // Mock parser response for custom commands
       if (commandString === 'Target_Enemy_Near') {
         return {
@@ -29,7 +87,7 @@ describe('CommandChainService - Custom Commands', () => {
           }]
         }
       }
-      
+
       // Default to custom for unknown commands
       return {
         commands: [{
@@ -40,8 +98,8 @@ describe('CommandChainService - Custom Commands', () => {
         }]
       }
     })
-    
-    fixture.eventBus.registerMockResponse('command:find-definition', ({ command }) => {
+
+    respond(fixture.eventBus, 'command:find-definition', ({ command }) => {
       // Return null for custom commands (no definition found)
       return null
     })
@@ -62,10 +120,10 @@ describe('CommandChainService - Custom Commands', () => {
     
     it('should handle parsing errors gracefully', async () => {
       // Mock parser to throw an error
-      fixture.eventBus.registerMockResponse('parser:parse-command-string', () => {
+      respond(fixture.eventBus, 'parser:parse-command-string', () => {
         throw new Error('Parser error')
       })
-      
+
       const isCustom = await service.isCustomCommand('AnyCommand')
       expect(isCustom).toBe(true) // Should default to true on error
     })
@@ -136,60 +194,4 @@ describe('CommandChainService - Custom Commands', () => {
     })
   })
 
-  // Helper method to simulate edit handler behavior
-  async function handleEditCommand({ index, command }) {
-    // Simulate the edit handler logic
-    let cmd
-    if (typeof command === 'string') {
-      cmd = { command }
-    } else {
-      cmd = command.parameters
-        ? { ...command, parameters: { ...command.parameters } }
-        : { ...command }
-    }
-
-    const def = await service.findCommandDefinition(cmd)
-    const isCustomizable = !!(def && def.customizable)
-    
-    const isCustomCommand = cmd.type === 'custom' || cmd.category === 'custom' || 
-                            (cmd.command && await service.isCustomCommand(cmd.command))
-
-    if (isCustomizable) {
-      service.emit('parameter-command:edit', {
-        index,
-        command: cmd,
-        commandDef: def,
-        categoryId: def.categoryId || cmd.type,
-        commandId: def.commandId
-      })
-      return
-    } else if (isCustomCommand) {
-      const customDef = {
-        name: 'Edit Custom Command',
-        customizable: true,
-        categoryId: 'custom',
-        commandId: 'add_custom_command',
-        parameters: {
-          rawCommand: {
-            type: 'text',
-            default: cmd.command || '',
-            placeholder: 'Enter any STO command',
-            label: 'Command:'
-          }
-        }
-      }
-      
-      service.emit('parameter-command:edit', {
-        index,
-        command: cmd,
-        commandDef: customDef,
-        categoryId: 'custom',
-        commandId: 'add_custom_command'
-      })
-      return
-    }
-  }
-  
-  // Expose the helper method for testing
-  service.handleEditCommand = handleEditCommand
-}) 
+  }) 

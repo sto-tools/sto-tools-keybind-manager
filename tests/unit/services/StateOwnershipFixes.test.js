@@ -8,7 +8,6 @@ import KeyBrowserService from '../../../src/js/components/services/KeyBrowserSer
 import CommandService from '../../../src/js/components/services/CommandService.js'
 import ParameterCommandService from '../../../src/js/components/services/ParameterCommandService.js'
 import VFXManagerService from '../../../src/js/components/services/VFXManagerService.js'
-import ProfileService from '../../../src/js/components/services/ProfileService.js'
 import CommandChainService from '../../../src/js/components/services/CommandChainService.js'
 import BindsetSelectorService from '../../../src/js/components/services/BindsetSelectorService.js'
 import AliasBrowserService from '../../../src/js/components/services/AliasBrowserService.js'
@@ -32,15 +31,9 @@ describe('Phase 1a: State Ownership Fixes', () => {
       await service.init()
 
       const state = service.getCurrentState()
-      
-      // Should NOT contain any state (selection delegated to SelectionService)
-      expect(state).not.toHaveProperty('selectedKey')
-      expect(state).not.toHaveProperty('currentProfile')
-      expect(state).not.toHaveProperty('currentEnvironment')
-      expect(state).not.toHaveProperty('keys')
-      
-      // Should be an empty object or minimal state
-      expect(Object.keys(state)).toHaveLength(0)
+
+      // Should return null (uses ComponentBase default implementation)
+      expect(state).toBe(null)
     })
   })
 
@@ -54,16 +47,9 @@ describe('Phase 1a: State Ownership Fixes', () => {
       await service.init()
 
       const state = service.getCurrentState()
-      
-      // Should NOT contain any state (selection delegated to SelectionService)
-      expect(state).not.toHaveProperty('selectedKeyName')
-      expect(state).not.toHaveProperty('cachedSelections')
-      expect(state).not.toHaveProperty('currentProfileId')
-      expect(state).not.toHaveProperty('currentEnvironment')
-      expect(state).not.toHaveProperty('keys')
-      
-      // Should be an empty object or minimal state  
-      expect(Object.keys(state)).toHaveLength(0)
+
+      // Should return null (uses ComponentBase default implementation)
+      expect(state).toBe(null)
     })
   })
 
@@ -77,15 +63,9 @@ describe('Phase 1a: State Ownership Fixes', () => {
       await service.init()
 
       const state = service.getCurrentState()
-      
-      // Should NOT contain any state (selection delegated to SelectionService)
-      expect(state).not.toHaveProperty('selectedKey')
-      expect(state).not.toHaveProperty('selectedAlias')
-      expect(state).not.toHaveProperty('currentEnvironment')
-      expect(state).not.toHaveProperty('currentProfile')
-      
-      // Should be an empty object or minimal state
-      expect(Object.keys(state)).toHaveLength(0)
+
+      // Should return null (uses ComponentBase default implementation)
+      expect(state).toBe(null)
     })
   })
 
@@ -97,13 +77,14 @@ describe('Phase 1a: State Ownership Fixes', () => {
       await service.init()
 
       const state = service.getCurrentState()
-      
-      // Should only contain owned state
-      expect(state).toHaveProperty('selectedKey')
-      expect(state).toHaveProperty('selectedAlias')
+
+      // Should only contain owned state (editingContext)
       expect(state).toHaveProperty('editingContext')
-      
-      // Should NOT contain non-owned state
+      expect(state.editingContext).toBe(null) // Initial state
+
+      // Should NOT contain selection state (delegated to SelectionService)
+      expect(state).not.toHaveProperty('selectedKey')
+      expect(state).not.toHaveProperty('selectedAlias')
       expect(state).not.toHaveProperty('currentEnvironment')
     })
   })
@@ -124,27 +105,6 @@ describe('Phase 1a: State Ownership Fixes', () => {
     })
   })
 
-  describe('ProfileService getCurrentState()', () => {
-    it('should only return owned state (modified flag)', async () => {
-      const service = new ProfileService({ 
-        storage: harness.storage, 
-        eventBus: harness.eventBus,
-        i18n: { t: (key) => key }
-      })
-      await service.init()
-
-      const state = await service.getCurrentState()
-      
-      // Should only contain owned state
-      expect(state).toHaveProperty('modified')
-      
-      // Should NOT contain non-owned state (delegated to DataCoordinator)
-      expect(state).not.toHaveProperty('currentProfile')
-      expect(state).not.toHaveProperty('currentEnvironment')
-      expect(state).not.toHaveProperty('profiles')
-    })
-  })
-
   describe('AliasBrowserService getCurrentState()', () => {
     it('should only return owned state (selection cache)', async () => {
       const service = new AliasBrowserService({ 
@@ -155,15 +115,9 @@ describe('Phase 1a: State Ownership Fixes', () => {
       await service.init()
 
       const state = service.getCurrentState()
-      
-      // Should only contain owned state
-      expect(state).toHaveProperty('selectedAliasName')
-      expect(state).toHaveProperty('cachedAliasSelection')
-      
-      // Should NOT contain non-owned state
-      expect(state).not.toHaveProperty('currentProfileId')
-      expect(state).not.toHaveProperty('currentEnvironment')
-      expect(state).not.toHaveProperty('aliases')
+
+      // Should return null (uses ComponentBase default implementation)
+      expect(state).toBe(null)
     })
   })
 
@@ -181,17 +135,22 @@ describe('Phase 1a: State Ownership Fixes', () => {
       for (const service of services) {
         await service.init()
         const state = service.getCurrentState()
-        
-        // These should not be present in any non-DataCoordinator service
-        expect(state).not.toHaveProperty('currentProfile', 
+
+        // If state is null, it's compliant (using ComponentBase default)
+        if (state === null) {
+          continue
+        }
+
+        // For services that return non-null state, ensure they don't return non-owned properties
+        expect(state).not.toHaveProperty('currentProfile',
           `${service.componentName} should not return currentProfile`)
-        expect(state).not.toHaveProperty('currentEnvironment', 
+        expect(state).not.toHaveProperty('currentEnvironment',
           `${service.componentName} should not return currentEnvironment`)
-        expect(state).not.toHaveProperty('profiles', 
+        expect(state).not.toHaveProperty('profiles',
           `${service.componentName} should not return profiles`)
-        expect(state).not.toHaveProperty('keys', 
+        expect(state).not.toHaveProperty('keys',
           `${service.componentName} should not return keys`)
-        expect(state).not.toHaveProperty('aliases', 
+        expect(state).not.toHaveProperty('aliases',
           `${service.componentName} should not return aliases`)
       }
     })

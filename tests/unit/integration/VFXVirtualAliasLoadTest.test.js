@@ -4,6 +4,17 @@ import { createServiceFixture } from '../../fixtures/index.js'
 import VFXManagerService from '../../../src/js/components/services/VFXManagerService.js'
 import CommandLibraryService from '../../../src/js/components/services/CommandLibraryService.js'
 
+// Mock VFX effects data
+global.VFX_EFFECTS = {
+  space: [
+    { effect: 'Plasma_Torpedo_Explosion', name: 'Plasma Torpedo Explosion' },
+    { effect: 'Phaser_Beam', name: 'Phaser Beam' }
+  ],
+  ground: [
+    { effect: 'Explosion_Large', name: 'Large Explosion' }
+  ]
+}
+
 describe('VFX Virtual Alias Loading on Page Reload', () => {
   let harness, vfxService, commandLibraryService, capturedEvents
 
@@ -12,7 +23,7 @@ describe('VFX Virtual Alias Loading on Page Reload', () => {
     capturedEvents = []
 
     // Create VFXManagerService
-    vfxService = new VFXManagerService({ eventBus: harness.eventBus })
+    vfxService = new VFXManagerService(harness.eventBus)
 
     // Create CommandLibraryService with mocks
     const mockUI = { showToast: vi.fn() }

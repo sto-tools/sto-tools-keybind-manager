@@ -32,8 +32,18 @@ describe('Bind-to-Alias Mode Integration', () => {
       storage: serviceFixture.storage,
       eventBus: serviceFixture.eventBus
     })
-    exportService.onInit()
+    exportService.init()
+
+    // initializeCache is called by init(); no manual call needed
+
+    // Debug: Check if ExportService receives preference events
+    exportService.addEventListener('preferences:changed', (data) => {
+      console.log('[ExportService Test] Received preferences:changed event:', data)
+      console.log('[ExportService Test] Current cache after event:', exportService.cache.preferences)
+    })
+
     
+        
     dataCoordinator = new DataCoordinator({
       storage: serviceFixture.storage,
       eventBus: serviceFixture.eventBus
@@ -45,6 +55,7 @@ describe('Bind-to-Alias Mode Integration', () => {
       eventBus: serviceFixture.eventBus
     })
     commandChainService.request = vi.fn().mockResolvedValue({ success: true, profile: {} })
+    commandChainService.init()
     
     fixture = {
       ...serviceFixture,
@@ -145,8 +156,12 @@ describe('Bind-to-Alias Mode Integration', () => {
     it('should generate bind-to-alias export when mode is enabled', async () => {
       const { preferencesService, exportService } = fixture
 
+      console.log('[Test Debug] ExportService cache before setting:', exportService.cache.preferences)
+
       // Enable bind-to-alias mode
       preferencesService.setSetting('bindToAliasMode', true)
+
+      console.log('[Test Debug] ExportService cache after setting:', exportService.cache.preferences)
 
       // Create test profile with keybinds
       const profile = {
@@ -240,12 +255,12 @@ describe('Bind-to-Alias Mode Integration', () => {
       })
 
       // Keybind file should only contain keybinds for non-empty chains
-      expect(keybindResult).to.toContain('Q "sto_kb_space_q"') // Empty chain
+    expect(keybindResult).toContain('Q "sto_kb_space_q"') // Empty chain
       expect(keybindResult).toContain('F1 "sto_kb_space_f1"') // Non-empty chain
       
       // Alias file should only contain aliases for non-empty chains
       const aliasResult = await exportService.generateAliasFile(profile)
-      expect(aliasResult).to.toContain('alias sto_kb_space_q <&  &>') // Empty chain
+    expect(aliasResult).toContain('alias sto_kb_space_q <&  &>') // Empty chain
       expect(aliasResult).toContain('alias sto_kb_space_f1 <& FireAll &>') // Non-empty chain
     })
 
@@ -346,11 +361,9 @@ describe('Bind-to-Alias Mode Integration', () => {
         return { success: true, profile: profileData }
       })
 
-      // Initialize services with the profile
+      // Initialize services with the profile via broadcast to match production flow
       await dataCoordinator.updateProfile(profileData)
-      commandChainService.updateCacheFromProfile(profileData)
-      commandChainService.currentProfile = 'test_profile'
-      commandChainService.currentEnvironment = 'space'
+      fixture.eventBus.emit('profile:switched', { profileId: 'test_profile', profile: profileData, environment: 'space' })
 
       // Verify initial state - should be stabilized
       expect(commandChainService.isStabilized('F1', 'Custom Bindset')).toBe(true)
