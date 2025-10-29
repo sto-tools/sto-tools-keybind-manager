@@ -197,7 +197,7 @@ export default class CommandLibraryUI extends ComponentBase {
               type: categoryId,
               icon: commandDef.icon,
               text: commandDef.name,
-              id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
+              id: `cmd_${Date.now()}_${Math.random().toString(36).substring(2,11)}`,
             }
             console.log('[CommandLibraryUI] emitting command-add [static]', { commandDef: fullyHydratedCommand })
             this.emit('command-add', { commandDef: fullyHydratedCommand })
@@ -310,7 +310,7 @@ export default class CommandLibraryUI extends ComponentBase {
           description: alias.description,
           isUserAlias: true,  // Flag to identify this as a user-defined alias
           isVfxAlias: isVfxAlias,
-          id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
+          id: `cmd_${Date.now()}_${Math.random().toString(36).substring(2,11)}`,
         }
         console.log('[CommandLibraryUI] emitting command:add [alias]', { commandDef: fullyHydratedAlias })
         this.emit('command-add', { commandDef: fullyHydratedAlias })

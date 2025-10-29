@@ -367,7 +367,7 @@ export default class KeyService extends ComponentBase {
 
   // Utility helpers
   generateKeyId () {
-    return `key_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `key_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 
   // Legacy lifecycle hooks (kept for compatibility)
@@ -380,7 +380,7 @@ export default class KeyService extends ComponentBase {
   // continues to satisfy older tests without modification.
   // TODO: Remove this 
   generateCommandId () {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 
   // Profile export helpers (simplified for unit-test expectations)

@@ -472,7 +472,7 @@ export default class STOToolsKeybindManager {
   }
 
   generateCommandId() {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 
   // Welcome message functionality (moved from welcome mixin)

@@ -274,6 +274,6 @@ export default class AliasService extends ComponentBase {
 
   // Utility helpers
   generateAliasId () {
-    return `alias_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `alias_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 }

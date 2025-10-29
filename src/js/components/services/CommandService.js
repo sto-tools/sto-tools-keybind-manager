@@ -515,7 +515,7 @@ export default class CommandService extends ComponentBase {
   }
 
   generateCommandId () {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 
   // Set up event listeners for DataCoordinator integration

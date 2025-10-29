@@ -8,7 +8,7 @@ export default class CommandLibraryService extends ComponentBase {
   constructor({ eventBus, i18n, ui, modalManager }) {
     super(eventBus)
     this.componentName = 'CommandLibraryService'
-    this._instanceId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    this._instanceId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
     this.i18n           = i18n
     this.ui             = ui
     this.modalManager   = modalManager
@@ -352,7 +352,7 @@ export default class CommandLibraryService extends ComponentBase {
 
   // Generate a unique command ID
   generateCommandId() {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 
   // Get command categories for the library
