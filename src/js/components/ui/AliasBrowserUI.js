@@ -23,7 +23,7 @@ export default class AliasBrowserUI extends ComponentBase {
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(bus)
     this.componentName = 'AliasBrowserUI'
-    this.modalManager = modalManager || (typeof window !== 'undefined' ? window.modalManager : null)
+    this.modalManager = modalManager
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.document = document
   }

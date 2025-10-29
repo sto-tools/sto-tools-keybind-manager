@@ -16,11 +16,6 @@ export default class ModalManagerService extends ComponentBase {
     this.registerAllModalCallbacks()
     this.setupEventListeners()
 
-    // Register global instance for legacy code paths
-    if (typeof window !== 'undefined') {
-      window.modalManager = this
-    }
-
     // Re-translate currently open modal whenever language changes
     if (typeof window !== 'undefined' && window.i18next) {
       window.i18next.on('languageChanged', () => {
