@@ -502,22 +502,6 @@ export default class CommandLibraryUI extends ComponentBase {
       }
   }
 
-  // Toggle library visibility
-  toggleLibrary() {
-    const content = this.document.getElementById('libraryContent')
-    const btn = this.document.getElementById('toggleLibraryBtn')
-
-    if (content && btn) {
-      const isCollapsed = content.style.display === 'none'
-      content.style.display = isCollapsed ? 'block' : 'none'
-
-      const icon = btn.querySelector('i')
-      if (icon) {
-        icon.className = isCollapsed ? 'fas fa-chevron-up' : 'fas fa-chevron-down'
-      }
-    }
-  }
-
   // Show template modal
   showTemplateModal() {
     this.ui?.showToast?.(i18next.t('template_system_coming_soon'))
