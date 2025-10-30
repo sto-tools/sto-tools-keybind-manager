@@ -4784,9 +4784,6 @@ input:checked + .slider:before {
   padding: 4px;
 }
 
-#bindsetDropdownBtn {
-  margin-left: 6px;
-}
 
 /* Bindset Selector Dropdown */
 .bindset-dropdown-menu {

@@ -191,9 +191,7 @@ export default class CommandChainUI extends UIComponentBase {
             // Use centralized cache instead of local variable
             needsDropdownUpdate = true
             if (!value && this._bindsetDropdownReady) {
-              const btn = this.document.getElementById('bindsetDropdownBtn')
               const sel = this.document.getElementById('bindsetSelect')
-              if (btn) btn.style.display = 'none'
               if (sel) sel.style.display = 'none'
             }
           } else if (key === 'bindToAliasMode') {
