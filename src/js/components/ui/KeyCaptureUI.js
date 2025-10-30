@@ -189,8 +189,7 @@ export default class KeyCaptureUI extends ComponentBase {
   updateCaptureState(isCapturing) {
     const captureIndicator = this.document.getElementById('captureIndicator')
     const captureToggle = this.document.getElementById('toggleCaptureMode')
-    const manualMode = this.document.getElementById('manualSelectionMode')
-
+    
     // Persist capture state
     this.isCapturing = isCapturing
 
@@ -204,11 +203,7 @@ export default class KeyCaptureUI extends ComponentBase {
         : (i18next?.t('start_capture') || 'Start Capture')
     }
 
-    if (manualMode) {
-      manualMode.style.opacity = isCapturing ? '0.7' : '1'
-    }
-
-    // Disable/enable interactions with the virtual keyboard UI while capturing
+  // Disable/enable interactions with the virtual keyboard UI while capturing
     const vkb = this.document.getElementById('virtualKeyboard')
     if (vkb) {
       vkb.classList.toggle('disabled', isCapturing)
