@@ -610,12 +610,6 @@ export default class KeyCaptureUI extends ComponentBase {
     this.selectedLayout = language || 'en'
     this.currentKeyboard = JSON.parse(JSON.stringify(getKeyboardLayout(this.selectedLayout)))
     this.renderVirtualKeyboard()
-    
-    // Update layout indicator
-    const layoutIndicator = this.document.querySelector('.current-layout')
-    if (layoutIndicator) {
-      layoutIndicator.textContent = getLayoutName(language)
-    }
   }
 
   // Render the visual keyboard

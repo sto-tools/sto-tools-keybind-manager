@@ -3669,11 +3669,6 @@ input:checked + .slider:before {
   font-size: 0.875rem;
 }
 
-.current-layout {
-  font-size: 0.875rem;
-  color: var(--text-secondary, #6b7280);
-  font-style: italic;
-}
 
 /* Virtual Keyboard */
 .virtual-keyboard {
