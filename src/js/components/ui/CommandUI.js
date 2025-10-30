@@ -119,11 +119,6 @@ export default class CommandUI extends ComponentBase {
       this.showImportFromKeyOrAliasModal()
     })
 
-    // Save command button - save command from add-command modal
-    this.eventBus.onDom('saveCommandBtn', 'click', 'save-command', () => {
-      this.saveCommand()
-    })
-
     // Confirm import button - perform import from selected source
     this.eventBus.onDom('confirmImportBtn', 'click', 'confirm-import', () => {
       this.performImport()
@@ -476,35 +471,6 @@ export default class CommandUI extends ComponentBase {
       
       await this.showToast(message, 'error')
     }
-  }
-
-  // Save the command from the add-command modal
-  async saveCommand() {
-    const commandType = this.document.getElementById('commandType')?.value
-    const commandPreview = this.document.getElementById('modalCommandPreview')?.textContent
-
-    if (!commandType || !commandPreview) {
-      const message = await this.getI18nMessage('please_complete_command_configuration') || 'Please complete the command configuration'
-      await this.showToast(message, 'warning')
-      return
-    }
-
-    const selectedKey = this.getSelectedKey()
-    if (!selectedKey) {
-      const env = this.getCurrentEnvironment()
-      const msgKey = env === 'alias' ? 'please_select_an_alias_first' : 'please_select_a_key_first'
-      const message = await this.getI18nMessage(msgKey) || (env === 'alias' ? 'Please select an alias first' : 'Please select a key first')
-      await this.showToast(message, 'warning')
-      return
-    }
-
-    // Emit command save event
-    this.emit('command:save', {
-      key: selectedKey,
-      type: commandType,
-      command: commandPreview
-    })
-
   }
 
   // Show modal with validation details (warnings/errors)
