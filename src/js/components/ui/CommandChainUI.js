@@ -728,9 +728,7 @@ export default class CommandChainUI extends UIComponentBase {
         if (btn) btn.disabled = !hasSelectedKey
       })
 
-      const addCommandBtn = this.document.getElementById('addCommandBtn')
-      if (addCommandBtn) addCommandBtn.disabled = !hasSelectedKey
-
+      
       const importBtn = this.document.getElementById('importFromKeyOrAliasBtn')
       if (importBtn) importBtn.disabled = !hasSelectedKey
 
@@ -740,7 +738,7 @@ export default class CommandChainUI extends UIComponentBase {
         if (btn) btn.disabled = true
       })
     } else {
-      const keyButtons = ['addCommandBtn', 'importFromKeyOrAliasBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
+      const keyButtons = ['importFromKeyOrAliasBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
       keyButtons.forEach((id) => {
         const btn = this.document.getElementById(id)
         if (btn) btn.disabled = !hasSelectedKey

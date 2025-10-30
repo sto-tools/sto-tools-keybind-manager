@@ -479,9 +479,7 @@ export default class CommandLibraryUI extends ComponentBase {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = !hasSelectedKey
         })
-        const addCmdBtn = doc.getElementById('addCommandBtn')
-        if (addCmdBtn) addCmdBtn.disabled = !hasSelectedKey
-        const importBtn = doc.getElementById('importFromKeyOrAliasBtn')
+                const importBtn = doc.getElementById('importFromKeyOrAliasBtn')
         if (importBtn) importBtn.disabled = !hasSelectedKey
         const keyButtons = ['deleteKeyBtn', 'duplicateKeyBtn']
         keyButtons.forEach((id) => {
@@ -489,7 +487,7 @@ export default class CommandLibraryUI extends ComponentBase {
           if (btn) btn.disabled = true
         })
       } else {
-        const mainButtons = ['addCommandBtn', 'importFromKeyOrAliasBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
+        const mainButtons = ['importFromKeyOrAliasBtn', 'deleteKeyBtn', 'duplicateKeyBtn']
         mainButtons.forEach((id) => {
           const btn = doc.getElementById(id)
           if (btn) btn.disabled = !hasSelectedKey
