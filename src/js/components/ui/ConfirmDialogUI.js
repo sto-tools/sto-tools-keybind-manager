@@ -23,7 +23,10 @@ export default class ConfirmDialogUI extends ComponentBase {
 
       const handleConfirm = (result) => {
         this.modalManager?.hide(confirmId)
-        document.body.removeChild(confirmModal)
+        // Safe DOM removal - check if modal is still attached before removing
+        if (confirmModal && confirmModal.parentNode) {
+          confirmModal.parentNode.removeChild(confirmModal)
+        }
         resolve(result)
       }
 
@@ -53,7 +56,10 @@ export default class ConfirmDialogUI extends ComponentBase {
 
       const handleClose = () => {
         this.modalManager?.hide(informId)
-        document.body.removeChild(informModal)
+        // Safe DOM removal - check if modal is still attached before removing
+        if (informModal && informModal.parentNode) {
+          informModal.parentNode.removeChild(informModal)
+        }
         resolve(true)
       }
 

@@ -30,7 +30,10 @@ describe('CommandChainUI Space to Ground Fix', () => {
       on: vi.fn(() => () => {}), // Return cleanup function
       off: vi.fn(),
       emit: vi.fn(),
-      request: vi.fn()
+      request: vi.fn(),
+      // Stub DOM delegation so init() doesn't fail in unit tests without real DOM
+      onDom: vi.fn(() => () => {}),
+      onDomDebounced: vi.fn(() => () => {}),
     }
 
     // Create CommandChainUI instance

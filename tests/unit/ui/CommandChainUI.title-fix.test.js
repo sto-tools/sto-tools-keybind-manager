@@ -37,6 +37,9 @@ describe('CommandChainUI Title Fix', () => {
         }
       }),
       off: vi.fn(),
+      // Stub DOM delegation used by CommandChainUI so init doesn't error in unit tests that don't wire real DOM
+      onDom: vi.fn(() => () => {}),
+      onDomDebounced: vi.fn(() => () => {}),
       emit: vi.fn((event, data) => {
         if (listeners[event]) {
           listeners[event].forEach(callback => callback(data))
