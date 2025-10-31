@@ -26,8 +26,8 @@ export default class BindsetSelectorUI extends ComponentBase {
   }
 
   setupEventListeners() {
-    if (this.listenersSetup) return
-    this.listenersSetup = true
+    if (this.eventListenersSetup) return
+    this.eventListenersSetup = true
 
     // Listen for service state changes
     this.addEventListener('bindset-selector:active-changed', () => {

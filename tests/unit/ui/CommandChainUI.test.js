@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { JSDOM } from 'jsdom'
+import eventBus from '../../../src/js/core/eventBus.js'
 import { generateBindToAliasName } from '../../../src/js/lib/aliasNameValidator.js'
 import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
 
@@ -42,6 +44,9 @@ describe('Bind-to-Alias Mode', () => {
           }
         }
       }),
+      // Stub DOM delegation used by CommandChainUI so init doesn't error in unit tests that don't need DOM
+      onDom: vi.fn(() => () => {}),
+      onDomDebounced: vi.fn(() => () => {}),
       emit: vi.fn((topic, data) => {
         // Handle RPC pattern: when code emits rpc:topic, respond appropriately
         if (topic.startsWith('rpc:')) {
@@ -301,31 +306,40 @@ describe('Bind-to-Alias Mode', () => {
 
   describe('Copy Alias Functionality', () => {
     it('should copy alias content to clipboard when copy button is clicked', async () => {
-      const mockAliasPreview = { textContent: 'space_q "FireAll"' }
-      const mockCopyButton = { addEventListener: vi.fn() }
-      
-      mockDocument.getElementById.mockImplementation((id) => {
-        if (id === 'aliasPreview') return mockAliasPreview
-        if (id === 'copyAliasBtn') return mockCopyButton
-        return null
-      })
+      // Use a real DOM + real EventBus so onDom delegation works
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <button id="copyAliasBtn"></button>
+            <div id="aliasPreview">space_q \"FireAll\"</div>
+          </body>
+        </html>
+      `)
+      const realDoc = dom.window.document
+      // Bind globals so EventBus.onDom attaches to the correct document
+      globalThis.window = dom.window
+      globalThis.document = dom.window.document
+
+      const mockUI2 = { showToast: vi.fn() }
+      const component = new CommandChainUI({ eventBus, ui: mockUI2, document: realDoc })
 
       // Mock clipboard API
       const mockWriteText = vi.fn().mockResolvedValue()
-      Object.assign(navigator, {
-        clipboard: { writeText: mockWriteText }
-      })
+      globalThis.navigator = { clipboard: { writeText: mockWriteText } }
 
-      await ui.onInit()
-      
-      // Simulate button click
-      expect(mockCopyButton.addEventListener).toHaveBeenCalledWith('click', expect.any(Function))
-      const clickHandler = mockCopyButton.addEventListener.mock.calls[0][1]
-      
-      await clickHandler()
-      
+      await component.init()
+
+      // Dispatch real click on the button (delegated listener will call copy)
+      const btn = realDoc.getElementById('copyAliasBtn')
+      const clickEvent = new (realDoc.defaultView).MouseEvent('click', { bubbles: true })
+      btn.dispatchEvent(clickEvent)
+
+      // Wait a tick for async handler to complete
+      await new Promise(r => setTimeout(r, 0))
+
       expect(mockWriteText).toHaveBeenCalledWith('space_q "FireAll"')
-      expect(mockUI.showToast).toHaveBeenCalledWith('Alias copied to clipboard', 'success')
+      expect(mockUI2.showToast).toHaveBeenCalledWith('Alias copied to clipboard', 'success')
     })
   })
 

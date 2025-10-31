@@ -12,205 +12,233 @@ export default class CommandChainUI extends UIComponentBase {
   }
 
   async onInit () {
-    // Store detach functions for cleanup
-    this._detachFunctions = []
+    this.setupEventListeners()
+    this.render()
+  }
+
+  setupEventListeners() {
+    if (this.eventListenersSetup) return
+    this.eventListenersSetup = true
     
     // Listen for chain-data updates broadcast by service
-    this._detachFunctions.push(
-      this.eventBus.on('chain-data-changed', ({ commands }) => {
-        console.log('[CommandChainUI] chain-data-changed received with', commands.length, 'commands')
-        this.render(commands)
-      })
-    )
+    this.addEventListener('chain-data-changed', ({ commands }) => {
+      console.log('[CommandChainUI] chain-data-changed received with', commands.length, 'commands')
+      this.render(commands)
+    })
 
     // Listen for environment or key/alias changes for button state and caching
-    this._detachFunctions.push(
-      this.eventBus.on('environment:changed', (data) => {
-        const env = typeof data === 'string' ? data : data?.environment
+    this.addEventListener('environment:changed', (data) => {
+      const env = typeof data === 'string' ? data : data?.environment
 
-        if (env) {
-          this.updateChainActions()
-          this.updatePreviewLabel()
-          this.setupBindsetDropdown().catch(() => {})
-          // Re-render to show correct empty state info for new environment
-          this.render().catch(() => {})
-        }
-      })
-    )
+      if (env) {
+        this.updateChainActions()
+        this.updatePreviewLabel()
+        this.setupBindsetDropdown().catch(() => {})
+        // Re-render to show correct empty state info for new environment
+        this.render().catch(() => {})
+      }
+    })
 
     // Listen for key selection
-    this._detachFunctions.push(
-      this.eventBus.on('key-selected', async (data) => {
-        const selectedKey = data.key !== undefined ? data.key : data.name
-        this.updateChainActions()
+    this.addEventListener('key-selected', async (data) => {
+      const selectedKey = data.key !== undefined ? data.key : data.name
+      this.updateChainActions()
 
-        // Update bindset selector with selected key first (can be null)
-        this.emit('bindset-selector:set-selected-key', { key: selectedKey })
+      // Update bindset selector with selected key first (can be null)
+      this.emit('bindset-selector:set-selected-key', { key: selectedKey })
 
-        // Reset to Primary Bindset when selecting a different key (unless already on Primary)
-        // Only do this if a key was actually selected (not null)
-        if (selectedKey && this.cache.activeBindset !== 'Primary Bindset') {
-          this.cache.activeBindset = 'Primary Bindset'
-          this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-          this.updateBindsetBanner()
-        }
-      })
-    )
+      // Reset to Primary Bindset when selecting a different key (unless already on Primary)
+      // Only do this if a key was actually selected (not null)
+      if (selectedKey && this.cache.activeBindset !== 'Primary Bindset') {
+        this.cache.activeBindset = 'Primary Bindset'
+        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
+        this.updateBindsetBanner()
+      }
+    })
 
     // Listen for profile switching to clear cached state and show empty state
-    this._detachFunctions.push(
-      this.eventBus.on('profile:switched', (data) => {
-        console.log('[CommandChainUI] Profile switched, clearing cached state')
-        // Reset to Primary Bindset when switching profiles
+    this.addEventListener('profile:switched', (data) => {
+      console.log('[CommandChainUI] Profile switched, clearing cached state')
+      // Reset to Primary Bindset when switching profiles
+      this.cache.activeBindset = 'Primary Bindset'
+      this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
+      this.updateBindsetBanner()
+      this.updateChainActions()
+
+      // Render immediately to show empty state (don't wait for key selection)
+      this.render().catch(() => {})
+    })
+
+    // Listen for language changes to re-render command items with new translations
+    this.addEventListener('language:changed', () => {
+      this.render()
+    })
+
+    // Listen for bindset selector active changes
+    this.addEventListener('bindset-selector:active-changed', ({ bindset }) => {
+      this.cache.activeBindset = bindset
+      this.updateBindsetBanner()
+      this.updateChainActions()
+      this.render()
+    })
+
+    // Listen for key added to bindset - should switch to that bindset and show empty chain
+    console.log('[CommandChainUI] Setting up bindset-selector:key-added event listener')
+    this.addEventListener('bindset-selector:key-added', ({ key, bindset }) => {
+      console.log(`[CommandChainUI] *** bindset-selector:key-added received: key=${key}, bindset=${bindset}, selectedKey=${this.cache.selectedKey} ***`)
+      if (key === this.cache.selectedKey) {
+        console.log(`[CommandChainUI] *** Key added to bindset: ${bindset} (bindset switching already handled) ***`)
+        // NOTE: The BindsetSelectorService now switches to the bindset immediately when adding the key
+        // So we don't need to call setActiveBindset again here - it's already done
+        // The bindset-selector:active-changed event will have already fired
+      } else {
+        console.log(`[CommandChainUI] *** Event key ${key} does not match selectedKey ${this.cache.selectedKey}, ignoring ***`)
+      }
+    })
+    console.log('[CommandChainUI] bindset-selector:key-added event listener registered')
+
+    // Listen for key removed from bindset - switch to Primary if it was the active bindset
+    this.addEventListener('bindset-selector:key-removed', ({ key, bindset }) => {
+      if (key === this.cache.selectedKey && this.cache.activeBindset === bindset) {
+        // Switch to Primary Bindset since the key was removed from the active bindset
         this.cache.activeBindset = 'Primary Bindset'
         this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
         this.updateBindsetBanner()
         this.updateChainActions()
-        
-        // Render immediately to show empty state (don't wait for key selection)
-        this.render().catch(() => {})
-      })
-    )
-
-    // Listen for language changes to re-render command items with new translations
-    this._detachFunctions.push(
-      this.eventBus.on('language:changed', () => {
         this.render()
-      })
-    )
-
-    // Listen for bindset selector active changes
-    this._detachFunctions.push(
-      this.eventBus.on('bindset-selector:active-changed', ({ bindset }) => {
-        this.cache.activeBindset = bindset
-        this.updateBindsetBanner()
-        this.updateChainActions()
-        this.render()
-      })
-    )
-
-    // Listen for key added to bindset - should switch to that bindset and show empty chain
-    console.log('[CommandChainUI] Setting up bindset-selector:key-added event listener')
-    this._detachFunctions.push(
-      this.eventBus.on('bindset-selector:key-added', ({ key, bindset }) => {
-        console.log(`[CommandChainUI] *** bindset-selector:key-added received: key=${key}, bindset=${bindset}, selectedKey=${this.cache.selectedKey} ***`)
-        if (key === this.cache.selectedKey) {
-          console.log(`[CommandChainUI] *** Key added to bindset: ${bindset} (bindset switching already handled) ***`)
-          // NOTE: The BindsetSelectorService now switches to the bindset immediately when adding the key
-          // So we don't need to call setActiveBindset again here - it's already done
-          // The bindset-selector:active-changed event will have already fired
-        } else {
-          console.log(`[CommandChainUI] *** Event key ${key} does not match selectedKey ${this.cache.selectedKey}, ignoring ***`)
-        }
-      })
-    )
-    console.log('[CommandChainUI] bindset-selector:key-added event listener registered')
-
-    // Listen for key removed from bindset - switch to Primary if it was the active bindset
-    this._detachFunctions.push(
-      this.eventBus.on('bindset-selector:key-removed', ({ key, bindset }) => {
-        if (key === this.cache.selectedKey && this.cache.activeBindset === bindset) {
-          // Switch to Primary Bindset since the key was removed from the active bindset
-          this.cache.activeBindset = 'Primary Bindset'
-          this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-          this.updateBindsetBanner()
-          this.updateChainActions()
-          this.render()
-        }
-      })
-    )
+      }
+    })
 
     // Listen for preferences loaded event so we can initialize bindset UI based on saved settings
-    this._detachFunctions.push(
-      this.eventBus.on('preferences:loaded', async ({ settings }) => {
-        if (settings && typeof settings.bindsetsEnabled !== 'undefined') {
-          // Use centralized cache instead of local variable
-          if (!!this.cache.preferences.bindsetsEnabled && !this._bindsetDropdownReady) {
-            await this.setupBindsetDropdown()
-          }
+    this.addEventListener('preferences:loaded', async ({ settings }) => {
+      if (settings && typeof settings.bindsetsEnabled !== 'undefined') {
+        // Use centralized cache instead of local variable
+        if (!!this.cache.preferences.bindsetsEnabled && !this._bindsetDropdownReady) {
+          await this.setupBindsetDropdown()
         }
-      })
-    )
+      }
+    })
 
     // Listen for bindset changes
-    this._detachFunctions.push(
-      this.eventBus.on('bindsets:changed', async (data) => {
-        console.log('[CommandChainUI] bindsets:changed received with', data.names.length, 'bindsets')
-        this._bindsetNames = data.names
-        await this.setupBindsetDropdown()
-      })
-    )
+    this.addEventListener('bindsets:changed', async (data) => {
+      console.log('[CommandChainUI] bindsets:changed received with', data.names.length, 'bindsets')
+      this._bindsetNames = data.names
+      await this.setupBindsetDropdown()
+    })
 
     // Listen for stabilization button click
-    const stabilizeBtn = this.document.getElementById('stabilizeExecutionOrderBtn')
-    if (stabilizeBtn && !this._stabilizeListenerAttached) {
-      stabilizeBtn.addEventListener('click', async () => {
-        await this.toggleStabilize()
-      })
-      this._stabilizeListenerAttached = true
-    }
+    this.eventBus.onDom('stabilizeExecutionOrderBtn', 'click', 'commandchain-stabilize', async () => {
+      await this.toggleStabilize()
+    })
 
     // Listen for copy alias button click
-    const copyAliasBtn = this.document.getElementById('copyAliasBtn')
-    if (copyAliasBtn && !this._copyAliasListenerAttached) {
-      copyAliasBtn.addEventListener('click', async () => {
-        const aliasPreviewEl = this.document.getElementById('aliasPreview')
-        if (aliasPreviewEl && aliasPreviewEl.textContent) {
-          try {
-            await navigator.clipboard.writeText(aliasPreviewEl.textContent)
-            if (this.ui?.showToast) {
-              this.ui.showToast('Alias copied to clipboard', 'success')
-            }
-          } catch (error) {
-            console.error('Failed to copy alias to clipboard:', error)
-            if (this.ui?.showToast) {
-              this.ui.showToast('Failed to copy to clipboard', 'error')
-            }
-          }
+    this.eventBus.onDom('copyAliasBtn', 'click', 'commandchain-copy-alias', async () => {
+      await this.copyAliasToClipboard()
+    })
+
+    // Listen for command action button clicks (using delegation)
+    this.eventBus.onDom('#commandList', 'click', 'commandchain-action', (e) => {
+      const editBtn = e.target.closest('.btn-edit:not(.btn-placeholder)')
+      const deleteBtn = e.target.closest('.btn-delete')
+      const upBtn = e.target.closest('.btn-up')
+      const downBtn = e.target.closest('.btn-down')
+
+      if (editBtn && !editBtn.disabled) {
+        const commandItem = editBtn.closest('.command-item-row')
+        const index = parseInt(commandItem?.dataset?.index)
+        if (!Number.isNaN(index)) {
+          console.log('[CommandChainUI] EDIT BUTTON CLICKED:', {
+            index,
+            buttonId: editBtn.id,
+            buttonClass: editBtn.className,
+            buttonElement: editBtn
+          })
+          e.preventDefault()
+          e.stopPropagation()
+          this.emit('commandchain:edit', { index })
         }
-      })
-      this._copyAliasListenerAttached = true
-    }
+      } else if (deleteBtn && !deleteBtn.disabled) {
+        const commandItem = deleteBtn.closest('.command-item-row')
+        const index = parseInt(commandItem?.dataset?.index)
+        if (!Number.isNaN(index)) {
+          console.log('[CommandChainUI] DELETE BUTTON CLICKED:', {
+            index,
+            buttonId: deleteBtn.id,
+            buttonClass: deleteBtn.className,
+            buttonElement: deleteBtn
+          })
+          e.preventDefault()
+          e.stopPropagation()
+          this.emit('commandchain:delete', { index })
+        }
+      } else if (upBtn && !upBtn.disabled) {
+        const commandItem = upBtn.closest('.command-item-row')
+        const index = parseInt(commandItem?.dataset?.index)
+        if (!Number.isNaN(index)) {
+          this.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
+        }
+      } else if (downBtn && !downBtn.disabled) {
+        const commandItem = downBtn.closest('.command-item-row')
+        const index = parseInt(commandItem?.dataset?.index)
+        if (!Number.isNaN(index)) {
+          this.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
+        }
+      }
+    })
+
+    // Listen for double-click on customizable commands
+    this.eventBus.onDom('#commandList', 'dblclick', 'commandchain-edit-customizable', (e) => {
+      const commandItem = e.target.closest('.command-item-row.customizable')
+      if (commandItem) {
+        const index = parseInt(commandItem.dataset?.index)
+        if (!Number.isNaN(index)) {
+          console.log('[CommandChainUI] DOUBLE-CLICK on command element:', {
+            index,
+            target: e.target,
+            targetClass: e.target.className
+          })
+          this.emit('commandchain:edit', { index })
+        }
+      }
+    })
 
     // Setup drag/drop
     this.setupDragAndDrop()
 
     this.updateChainActions()
-    
+
     // UIComponentBase will handle initial render when data dependencies are ready
 
     // Listen for preference changes that toggle bindsets at runtime
-    this._detachFunctions.push(
-      this.eventBus.on('preferences:changed', async (data) => {
-        const changes = data.changes || { [data.key]: data.value }
-        let needsDropdownUpdate = false
-        let needsRender = false
-        
-        for (const [key, value] of Object.entries(changes)) {
-          if (key === 'bindsetsEnabled') {
-            // Use centralized cache instead of local variable
-            needsDropdownUpdate = true
-            if (!value && this._bindsetDropdownReady) {
-              const sel = this.document.getElementById('bindsetSelect')
-              if (sel) sel.style.display = 'none'
-            }
-          } else if (key === 'bindToAliasMode') {
-            console.log(`[CommandChainUI] Preference changed: bindToAliasMode = ${value}`)
-            // ComponentBase handles this.cache.preferences.bindToAliasMode automatically
-            needsDropdownUpdate = true
-            needsRender = true
+    this.addEventListener('preferences:changed', async (data) => {
+      const changes = data.changes || { [data.key]: data.value }
+      let needsDropdownUpdate = false
+      let needsRender = false
+
+      for (const [key, value] of Object.entries(changes)) {
+        if (key === 'bindsetsEnabled') {
+          // Use centralized cache instead of local variable
+          needsDropdownUpdate = true
+          if (!value && this._bindsetDropdownReady) {
+            const sel = this.document.getElementById('bindsetSelect')
+            if (sel) sel.style.display = 'none'
           }
+        } else if (key === 'bindToAliasMode') {
+          console.log(`[CommandChainUI] Preference changed: bindToAliasMode = ${value}`)
+          // ComponentBase handles this.cache.preferences.bindToAliasMode automatically
+          needsDropdownUpdate = true
+          needsRender = true
         }
-        
-        if (needsDropdownUpdate) {
-          await this.setupBindsetDropdown()
-        }
-        
-        if (needsRender) {
-          this.render().catch(() => {})
-        }
-      })
-    )
+      }
+
+      if (needsDropdownUpdate) {
+        await this.setupBindsetDropdown()
+      }
+
+      if (needsRender) {
+        this.render().catch(() => {})
+      }
+    })
 
     this.cache.activeBindset = this.cache.activeBindset || 'Primary Bindset'
     
@@ -436,15 +464,7 @@ export default class CommandChainUI extends UIComponentBase {
     if (isParameterized) {
       element.dataset.parameters = 'true'
       element.classList.add('customizable')
-
-      element.addEventListener('dblclick', (e) => {
-        console.log('[CommandChainUI] DOUBLE-CLICK on command element:', {
-          index,
-          target: e.target,
-          targetClass: e.target.className
-        })
-        this.emit('commandchain:edit', { index })
-      })
+      // Double-click is now handled by EventBus delegation in setupEventListeners()
     }
 
     // Pass the command string (not object) to get-warning
@@ -494,54 +514,8 @@ export default class CommandChainUI extends UIComponentBase {
         <button class="command-action-btn btn-down" title="Move Down" ${index === total - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
       </div>`
 
-    // Wire up action buttons via event bus
-    const editBtn   = element.querySelector('.btn-edit')
-    const deleteBtn = element.querySelector('.btn-delete')
-    const upBtn     = element.querySelector('.btn-up')
-    const downBtn   = element.querySelector('.btn-down')
-
-    // Add unique IDs for debugging
-    if (isParameterized && editBtn) {
-      editBtn.id = `edit-btn-${index}`
-      editBtn.addEventListener('click', (e) => {
-        console.log('[CommandChainUI] EDIT BUTTON CLICKED:', {
-          index,
-          buttonId: e.target.id,
-          buttonClass: e.target.className,
-          buttonElement: e.target
-        })
-        e.preventDefault()
-        e.stopPropagation()
-        this.emit('commandchain:edit', { index })
-      })
-    }
-
-    if (deleteBtn) {
-      deleteBtn.id = `delete-btn-${index}`
-      deleteBtn.addEventListener('click', (e) => {
-        console.log('[CommandChainUI] DELETE BUTTON CLICKED:', {
-          index,
-          buttonId: e.target.id,
-          buttonClass: e.target.className,
-          buttonElement: e.target
-        })
-        e.preventDefault()
-        e.stopPropagation()
-        this.emit('commandchain:delete', { index })
-      })
-    }
-
-    if (upBtn) {
-      upBtn.addEventListener('click', () => {
-        this.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
-      })
-    }
-
-    if (downBtn) {
-      downBtn.addEventListener('click', () => {
-        this.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
-      })
-    }
+    // Command action buttons are now handled by EventBus delegation in setupEventListeners()
+    // No need for individual event listeners here
 
     return element
   }
@@ -782,19 +756,9 @@ export default class CommandChainUI extends UIComponentBase {
 
   // Clean up event listeners when component is destroyed
   destroy() {
-    // Clean up event listeners to prevent memory leaks and duplicate handlers
-    if (this._detachFunctions) {
-      this._detachFunctions.forEach(detach => {
-        if (typeof detach === 'function') {
-          try {
-            detach()
-          } catch (e) {
-            // Ignore cleanup errors
-          }
-        }
-      })
-      this._detachFunctions = []
-    }
+    // Event cleanup is now handled automatically by ComponentBase
+    // Both this.addEventListener() and this.eventBus.onDom() listeners are cleaned up automatically
+    super.destroy()
   }
 
   // Late-join: sync environment if InterfaceModeService broadcasts its snapshot before we registered our listeners.
@@ -932,6 +896,26 @@ export default class CommandChainUI extends UIComponentBase {
       banner.textContent = this.cache.activeBindset
     } catch (err) {
       console.error('[CommandChainUI] Failed to update bindset banner', err)
+    }
+  }
+
+  /**
+   * Copy alias content to clipboard
+   */
+  async copyAliasToClipboard() {
+    const aliasPreviewEl = this.document.getElementById('aliasPreview')
+    if (aliasPreviewEl && aliasPreviewEl.textContent) {
+      try {
+        await navigator.clipboard.writeText(aliasPreviewEl.textContent)
+        if (this.ui?.showToast) {
+          this.ui.showToast('Alias copied to clipboard', 'success')
+        }
+      } catch (error) {
+        console.error('Failed to copy alias to clipboard:', error)
+        if (this.ui?.showToast) {
+          this.ui.showToast('Failed to copy to clipboard', 'error')
+        }
+      }
     }
   }
 
