@@ -17,17 +17,18 @@ export default class InterfaceModeUI extends ComponentBase {
     
     // Internal state
     this._uiListenersSetup = false
+    this._modeButtonsSetup = false
     this._modeButtons = {}
-    this._modeButtonHandlers = {} // Store button click handlers for cleanup
+    this._modeButtonHandlers = {} // Store button click handlers for cleanup (legacy - will be removed)
+    this._detachDomListeners = [] // Store detach functions for proper cleanup
 
     // Store handler references for proper cleanup
     this._modeChangedHandler = null
     this._environmentChangedHandler = null
   }
 
-  // Initialize the UI component
-  init() {
-    super.init()
+  // Component lifecycle hook - called by ComponentBase.init()
+  onInit() {
     this.setupEventListeners()
     this.setupModeButtons()
   }
@@ -67,24 +68,24 @@ export default class InterfaceModeUI extends ComponentBase {
 
   // Setup mode toggle buttons and their click handlers
   setupModeButtons() {
-    // Find mode buttons
-    this._modeButtons.space = this.document.querySelector('[data-mode="space"]')
-    this._modeButtons.ground = this.document.querySelector('[data-mode="ground"]')
-    this._modeButtons.alias = this.document.querySelector('[data-mode="alias"]')
+    if (this._modeButtonsSetup) {
+      return
+    }
 
-    // Setup click handlers - store references for proper cleanup
-    Object.entries(this._modeButtons).forEach(([mode, button]) => {
-      if (button) {
-        // Create and store handler function for this specific button
-        const handler = () => {
-          this.handleModeButtonClick(mode)
-        }
-        this._modeButtonHandlers[mode] = handler
-        button.addEventListener('click', handler)
-      } else {
-        console.warn(`[InterfaceModeUI] Mode button for ${mode} not found`)
-      }
+    // Use EventBus DOM handling pattern
+    const modes = ['space', 'ground', 'alias']
+
+    modes.forEach(mode => {
+      // Store detach function for cleanup
+      this._detachDomListeners.push(this.eventBus.onDom(
+        `[data-mode="${mode}"]`,
+        'click',
+        `mode-change-${mode}`,
+        () => this.handleModeButtonClick(mode)
+      ))
     })
+
+    this._modeButtonsSetup = true
   }
 
   // Handle mode button clicks
@@ -102,8 +103,10 @@ export default class InterfaceModeUI extends ComponentBase {
 
   // Update mode UI to reflect current mode
   updateModeUI(currentMode) {
-    // Update mode buttons
-    Object.entries(this._modeButtons).forEach(([mode, button]) => {
+    // Update mode buttons using DOM queries
+    const modes = ['space', 'ground', 'alias']
+    modes.forEach(mode => {
+      const button = this.document.querySelector(`[data-mode="${mode}"]`)
       if (button) {
         button.classList.toggle('active', mode === currentMode)
       }
@@ -185,17 +188,36 @@ export default class InterfaceModeUI extends ComponentBase {
       this._uiListenersSetup = false
     }
 
-    // Remove click handlers from buttons using stored handler references
+    // Clean up EventBus DOM listeners
+    if (Array.isArray(this._detachDomListeners) && this._detachDomListeners.length > 0) {
+      this._detachDomListeners.forEach(detach => {
+        try {
+          if (typeof detach === 'function') detach()
+        } catch (error) {
+          console.warn('[InterfaceModeUI] Error detaching DOM listener:', error)
+        }
+      })
+      this._detachDomListeners = []
+    }
+
+    // Legacy cleanup - remove old-style click handlers if any remain
     Object.entries(this._modeButtons).forEach(([mode, button]) => {
       if (button && this._modeButtonHandlers[mode]) {
         button.removeEventListener('click', this._modeButtonHandlers[mode])
       }
     })
-    
-    // Clear stored handlers
+
+    // Clear stored handlers and reset flags
     this._modeButtonHandlers = {}
+    this._modeButtons = {}
+    this._modeButtonsSetup = false
 
     super.destroy()
+  }
+
+  // Component lifecycle hook - called by ComponentBase
+  onDestroy() {
+    this.destroy()
   }
 
   // Late-join handshake: keep UI in sync with service state even if the relevant events fired before we registered.
