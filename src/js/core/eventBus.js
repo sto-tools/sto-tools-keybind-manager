@@ -1,4 +1,5 @@
 const listeners = new Map()
+const domListeners = new Set() // Track DOM event listeners for cleanup
 
 function on(event, callback) {
   if (!listeners.has(event)) {
@@ -73,7 +74,7 @@ function onDom(target, domEvent, busEvent, handler) {
       handler = busEvent
       busEvent = domEvent
     }
-    // Normalise selector: if the string already looks like a CSS selector (starts with '.' or '#') we keep it.
+    // Normalise selector: if string already looks like a CSS selector (starts with '.' or '#') we keep it.
     // Otherwise we assume it is an element id and prefix with '#'.
     const selector = /^[.#]/.test(target) ? target : `#${target}`
 
@@ -100,10 +101,17 @@ function onDom(target, domEvent, busEvent, handler) {
     }
     document.addEventListener(domEvent, delegated, true)
 
-    // Return detach function – remove only the delegated listener
-    return () => {
+    // Create cleanup function
+    const cleanup = () => {
       document.removeEventListener(domEvent, delegated, true)
+      // Remove from tracking
+      domListeners.delete(cleanup)
     }
+    
+    // Track cleanup function
+    domListeners.add(cleanup)
+    
+    return cleanup
   }
   
   if (!target || !target.addEventListener) return () => {}
@@ -114,7 +122,7 @@ function onDom(target, domEvent, busEvent, handler) {
   if (!busEvent) busEvent = domEvent
 
   if (handler) {
-    // If a handler is provided, attach it directly to the DOM event
+    // If a handler is provided, attach it directly to DOM event
     // and also emit the bus event for other listeners
     const domHandler = (e) => {
       try {
@@ -127,17 +135,33 @@ function onDom(target, domEvent, busEvent, handler) {
     }
     target.addEventListener(domEvent, domHandler)
 
-    return () => {
+    // Create cleanup function
+    const cleanup = () => {
       target.removeEventListener(domEvent, domHandler)
+      // Remove from tracking
+      domListeners.delete(cleanup)
     }
+    
+    // Track cleanup function
+    domListeners.add(cleanup)
+    
+    return cleanup
   } else {
     // If no handler is provided, just emit the bus event
     const domHandler = (e) => emit(busEvent, e)
     target.addEventListener(domEvent, domHandler)
 
-    return () => {
+    // Create cleanup function
+    const cleanup = () => {
       target.removeEventListener(domEvent, domHandler)
+      // Remove from tracking
+      domListeners.delete(cleanup)
     }
+    
+    // Track cleanup function
+    domListeners.add(cleanup)
+    
+    return cleanup
   }
 }
 
@@ -199,6 +223,18 @@ function onDomDebounced(target, domEvent, busEvent, handler, delay = 250) {
   })
 }
 
+function cleanupDomListeners() {
+  // Clean up all DOM event listeners
+  domListeners.forEach(cleanup => {
+    try {
+      cleanup()
+    } catch (error) {
+      console.error('Error cleaning up DOM event listener:', error)
+    }
+  })
+  domListeners.clear()
+}
+
 export default {
   on,
   off,
@@ -206,6 +242,7 @@ export default {
   onDom,
   onDomDebounced,
   debounce,
+  cleanupDomListeners,
   once,
   clear,
   getListenerCount,

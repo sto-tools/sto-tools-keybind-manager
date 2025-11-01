@@ -10,8 +10,7 @@ export default class ComponentBase {
     this.initialized = false
     this.destroyed = false
     this.eventListeners = new Map() // Track event listeners for cleanup
-    // Set componentName explicitly to avoid minification issues with constructor.name
-    this.componentName = this.constructor.name
+    this.domEventListeners = [] // Track DOM event listeners for cleanup
   }
 
   /**
@@ -273,6 +272,63 @@ export default class ComponentBase {
   }
 
   /**
+   * Register a DOM event listener and track it for cleanup
+   * @param {Function} detachFn - The cleanup function returned by eventBus.onDom
+   */
+  addDomEventListener(detachFn) {
+    if (typeof detachFn === 'function') {
+      this.domEventListeners.push(detachFn)
+    }
+  }
+
+  /**
+   * Wrapper for eventBus.onDom that automatically tracks the cleanup function
+   * @param {string|Element} target - DOM element or selector
+   * @param {string} domEvent - DOM event name
+   * @param {string|Function} busEventOrHandler - Bus event name or handler function
+   * @param {Function} handler - Optional handler function
+   * @returns {Function} The cleanup function from eventBus.onDom
+   */
+  onDom(target, domEvent, busEventOrHandler, handler) {
+    if (!this.eventBus) {
+      // Silently ignore if no event bus is available – useful during unit tests
+      return () => {}
+    }
+
+    // Call eventBus.onDom and get the cleanup function
+    const cleanupFn = this.eventBus.onDom(target, domEvent, busEventOrHandler, handler)
+    
+    // Track the cleanup function for automatic cleanup
+    this.addDomEventListener(cleanupFn)
+    
+    return cleanupFn
+  }
+
+  /**
+   * Wrapper for eventBus.onDomDebounced that automatically tracks the cleanup function
+   * @param {string|Element} target - DOM element or selector
+   * @param {string} domEvent - DOM event name
+   * @param {string|Function} busEventOrHandler - Bus event name or handler function
+   * @param {Function|number} handlerOrDelay - Optional handler function or delay
+   * @param {number} delay - Optional delay in milliseconds
+   * @returns {Function} The cleanup function from eventBus.onDomDebounced
+   */
+  onDomDebounced(target, domEvent, busEventOrHandler, handlerOrDelay, delay) {
+    if (!this.eventBus) {
+      // Silently ignore if no event bus is available – useful during unit tests
+      return () => {}
+    }
+
+    // Call eventBus.onDomDebounced and get the cleanup function
+    const cleanupFn = this.eventBus.onDomDebounced(target, domEvent, busEventOrHandler, handlerOrDelay, delay)
+    
+    // Track the cleanup function for automatic cleanup
+    this.addDomEventListener(cleanupFn)
+    
+    return cleanupFn
+  }
+
+  /**
    * Remove an event listener
    * @param {string} event - Event name
    * @param {Function} handler - Event handler function
@@ -325,13 +381,23 @@ export default class ComponentBase {
   cleanupEventListeners() {
     if (!this.eventBus) return
 
+    // Clean up regular event listeners
     for (const [event, listeners] of this.eventListeners) {
       listeners.forEach(({ handler }) => {
         this.eventBus.off(event, handler)
       })
     }
-
     this.eventListeners.clear()
+
+    // Clean up DOM event listeners
+    this.domEventListeners.forEach(detachFn => {
+      try {
+        detachFn()
+      } catch (error) {
+        console.error('Error cleaning up DOM event listener:', error)
+      }
+    })
+    this.domEventListeners = []
   }
 
   /**
