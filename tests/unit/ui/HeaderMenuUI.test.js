@@ -1,5 +1,6 @@
-import { describe, it, beforeEach, afterEach, expect } from 'vitest'
+import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import { createServiceFixture } from '../../fixtures/index.js'
+import { createEventBusFixture } from '../../fixtures/core/eventBus.js'
 import HeaderMenuUI from '../../../src/js/components/ui/HeaderMenuUI.js'
 
 function createDomFixture () {
@@ -31,15 +32,56 @@ describe('HeaderMenuUI', () => {
     // DOM & eventBus
     dom = createDomFixture()
     fixture = createServiceFixture()
-    eventBusFixture = fixture.eventBusFixture
+
+    // Create EventBus fixture with custom onDom mock that simulates real behavior
+    eventBusFixture = createEventBusFixture({
+      trackEvents: true,
+      mockEmit: false
+    })
+
+    // Mock onDom to actually trigger DOM events and emit to bus
+    eventBusFixture.eventBus.onDom = vi.fn((selector, event, busEvent, handler) => {
+      if (typeof busEvent === 'function') {
+        handler = busEvent
+        busEvent = event
+      }
+      if (!busEvent) busEvent = event
+
+      // Normalize selector like real EventBus - handle attribute selectors
+      const finalSelector = /^[.#]/.test(selector) ? selector :
+                           /^\[/.test(selector) ? selector : `#${selector}`
+
+      // Add actual DOM listener
+      const domHandler = (e) => {
+        const match = e.target.closest(finalSelector)
+        if (match) {
+          // Call handler (which will emit the actual event)
+          if (handler) {
+            try {
+              handler(e)
+            } catch (error) {
+              console.error(error)
+            }
+          }
+        }
+      }
+
+      document.addEventListener(event, domHandler, true)
+
+      return () => {
+        document.removeEventListener(event, domHandler, true)
+      }
+    })
 
     ui = new HeaderMenuUI({ eventBus: eventBusFixture.eventBus, document })
     ui.init()
   })
 
   afterEach(() => {
+    ui.destroy()
     dom.cleanup()
     fixture.destroy()
+    eventBusFixture.destroy()
   })
 
   it('should toggle dropdown active state', () => {
@@ -69,6 +111,13 @@ describe('HeaderMenuUI', () => {
     const deBtn = document.querySelector('[data-lang="de"]')
     deBtn.click()
 
+    eventBusFixture.expectEventCount('language:change', 1)
     eventBusFixture.expectEvent('language:change', { language: 'de' })
+
+    // Verify onDom was called exactly once for [data-lang] during init
+    const langOnDomCalls = eventBusFixture.eventBus.onDom.mock.calls.filter(
+      call => call[0] === '[data-lang]'
+    ).length
+    expect(langOnDomCalls).toBe(1) // Should be called once during component init
   })
 }) 

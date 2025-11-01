@@ -100,8 +100,16 @@ export function createEventBusFixture(options = {}) {
 
     // DOM event handling (simplified for testing)
     onDom: vi.fn((target, domEvent, busEvent, handler) => {
-      // Mock implementation that just tracks the call
-      return vi.fn() // Return cleanup function
+      // If only 3 arguments provided, treat busEvent as handler
+      if (typeof busEvent === 'function') {
+        handler = busEvent
+        busEvent = domEvent
+      }
+      if (!busEvent) busEvent = domEvent
+
+      return vi.fn(() => {
+        // Cleanup function - remove the mock listener
+      })
     }),
 
     onDomDebounced: vi.fn((target, domEvent, busEvent, handler, delay = 250) => {

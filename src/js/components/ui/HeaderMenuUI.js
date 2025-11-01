@@ -10,6 +10,8 @@ export default class HeaderMenuUI extends ComponentBase {
     this.componentName = 'HeaderMenuUI'
     this.document = document
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this._detachDomListeners = []
+    this._documentClickHandler = null
   }
 
   onInit() {
@@ -23,100 +25,99 @@ export default class HeaderMenuUI extends ComponentBase {
     this.eventListenersSetup = true
 
     // Header menu toggles - using correct button IDs from HTML
-    this.eventBus.onDom('settingsBtn', 'click', 'settings-toggle', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('settingsBtn', 'click', 'settings-toggle', () => {
       this.toggleSettingsMenu()
-    })
+    }))
 
-    this.eventBus.onDom('importMenuBtn', 'click', 'import-toggle', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('importMenuBtn', 'click', 'import-toggle', () => {
       this.toggleImportMenu()
-    })
+    }))
 
-    this.eventBus.onDom('backupMenuBtn', 'click', 'backup-toggle', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('backupMenuBtn', 'click', 'backup-toggle', () => {
       this.toggleBackupMenu()
-    })
+    }))
 
-    this.eventBus.onDom('languageMenuBtn', 'click', 'language-toggle', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('languageMenuBtn', 'click', 'language-toggle', () => {
       this.toggleLanguageMenu()
-    })
+    }))
 
     // VFX Button (could be moved to VFXManagerUI if preferred)
-    this.eventBus.onDom('vertigoBtn', 'click', 'vfx-open', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('vertigoBtn', 'click', 'vfx-open', () => {
       this.emit('vfx:show-modal')
-    })
+    }))
 
     // File Explorer Button
-    this.eventBus.onDom('fileExplorerBtn', 'click', 'file-explorer-open', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('fileExplorerBtn', 'click', 'file-explorer-open', () => {
       this.emit('file-explorer:open')
-    })
+    }))
 
     // Sync Now Button
-    this.eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('syncNowBtn', 'click', 'sync-now', () => {
       this.emit('sync:sync-now')
-    })
+    }))
 
     // Settings menu items
-    this.eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('preferencesBtn', 'click', 'preferences-open', () => {
       this.emit('preferences:show')
-    })
+    }))
 
-    this.eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('aboutBtn', 'click', 'about-open', () => {
       this.emit('about:show')
-    })
+    }))
 
     // Close all menus when clicking outside
-    this.document.addEventListener('click', (e) => {
+    this._documentClickHandler = (e) => {
       if (!e.target.closest('.dropdown')) {
         this.document.querySelectorAll('.dropdown.active').forEach(dropdown => {
           dropdown.classList.remove('active')
         })
       }
-    })
+    }
+    this.document.addEventListener('click', this._documentClickHandler)
 
     // File operations
-    this.eventBus.onDom('openProjectBtn', 'click', 'project-open', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('openProjectBtn', 'click', 'project-open', () => {
       this.emit('project:open')
-    })
+    }))
 
-    this.eventBus.onDom('saveProjectBtn', 'click', 'project-save', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('saveProjectBtn', 'click', 'project-save', () => {
       this.emit('project:save')
-    })
+    }))
 
-    this.eventBus.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
       this.emit('keybinds:export')
-    })
+    }))
 
     // Menu-specific operations
-    this.eventBus.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
       this.emit('keybinds:import')
-    })
+    }))
 
-    this.eventBus.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
       this.emit('aliases:import')
-    })
+    }))
 
-    this.eventBus.onDom('loadDefaultDataBtn', 'click', 'data-load-default', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('loadDefaultDataBtn', 'click', 'data-load-default', () => {
       this.emit('data:load-default')
-    })
+    }))
 
-    this.eventBus.onDom('resetAppBtn', 'click', 'app-reset', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('resetAppBtn', 'click', 'app-reset', () => {
       this.confirmResetApp()
-    })
+    }))
 
-    // Language selection
-    this.document.querySelectorAll('[data-lang]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const langButton = e.target.closest('[data-lang]')
-        const lang = langButton ? langButton.getAttribute('data-lang') : null
-        if (lang) {
-          this.emit('language:change', { language: lang })
-        }
-      })
-    })
+    // Language selection - using EventBus with built-in protection
+    this._detachDomListeners.push(this.eventBus.onDom('[data-lang]', 'click', 'language-change', (e) => {
+      const langButton = e.target.closest('[data-lang]')
+      const lang = langButton ? langButton.getAttribute('data-lang') : null
+      if (lang) {
+        this.emit('language:change', { language: lang })
+      }
+    }))
 
     // Theme toggle
-    this.eventBus.onDom('themeToggleBtn', 'click', 'theme-toggle', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('themeToggleBtn', 'click', 'theme-toggle', () => {
       this.emit('theme:toggle')
-    })
+    }))
   }
 
   // Toggle the settings menu dropdown
@@ -174,6 +175,19 @@ export default class HeaderMenuUI extends ComponentBase {
     
     if (await this.confirmDialog.confirm(message, title, 'danger')) {
       this.emit('app:reset-confirmed')
+    }
+  }
+
+  onDestroy() {
+    if (this._documentClickHandler) {
+      this.document.removeEventListener('click', this._documentClickHandler)
+      this._documentClickHandler = null
+    }
+    if (Array.isArray(this._detachDomListeners) && this._detachDomListeners.length > 0) {
+      this._detachDomListeners.forEach(detach => {
+        try { if (typeof detach === 'function') detach() } catch (_) {}
+      })
+      this._detachDomListeners = []
     }
   }
 } 
