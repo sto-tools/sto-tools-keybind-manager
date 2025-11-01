@@ -5,19 +5,14 @@ export default class VFXManagerUI extends ComponentBase {
     super(eventBus)
     this.componentName = 'VFXManagerUI'
     this.modalManager = modalManager
-    this.isInitialized = false
+    this.domListenersSetup = false
     this.vfxManager = null
+    this._detachDomListeners = [] // Store detach functions for proper cleanup
   }
 
-  async init() {
-    if (this.isInitialized) {
-      // Component already initialized
-      return
-    }
-
+  // Component lifecycle hook - called by ComponentBase.init()
+  onInit() {
     this.setupEventListeners()
-    this.isInitialized = true
-    // VFXManagerUI initialized successfully
   }
 
   setupEventListeners() {
@@ -144,69 +139,107 @@ export default class VFXManagerUI extends ComponentBase {
   }
 
   setupDOMEventListeners() {
-    // Effect checkbox changes
-    document.addEventListener('change', (e) => {
-      if (e.target.classList.contains('effect-checkbox')) {
+    if (this.domListenersSetup) {
+      return
+    }
+
+    // Effect checkbox changes - convert to eventBus.onDom pattern
+    this._detachDomListeners.push(this.eventBus.onDom(
+      '.effect-checkbox',
+      'change',
+      'vfx-effect-change',
+      (e) => {
         const environment = e.target.dataset.environment
         const effectName = e.target.dataset.effect
-        
+
         if (this.vfxManager) {
           this.vfxManager.toggleEffect(environment, effectName)
           this.updateEffectCounts()
           this.updatePreview()
         }
       }
-    })
+    ))
 
-    // PlayerSay checkbox
-    document.addEventListener('change', (e) => {
-      if (e.target.id === 'vertigoShowPlayerSay') {
+    // PlayerSay checkbox - convert to eventBus.onDom pattern
+    this._detachDomListeners.push(this.eventBus.onDom(
+      '#vertigoShowPlayerSay',
+      'change',
+      'vfx-playersay-change',
+      (e) => {
         if (this.vfxManager) {
           this.vfxManager.showPlayerSay = e.target.checked
           this.updatePreview()
         }
       }
-    })
+    ))
 
-    // VFX specific buttons using eventBus.onDom
-    this.eventBus.onDom('spaceSelectAll', 'click', 'vfx-space-select-all', () => {
+    // VFX specific buttons using eventBus.onDom (already correct pattern)
+    this._detachDomListeners.push(this.eventBus.onDom('spaceSelectAll', 'click', 'vfx-space-select-all', () => {
       if (this.vfxManager) {
         this.vfxManager.selectAllEffects('space')
         this.updateCheckboxes('space')
         this.updateEffectCounts()
         this.updatePreview()
       }
-    })
+    }))
 
-    this.eventBus.onDom('spaceClearAll', 'click', 'vfx-space-clear-all', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('spaceClearAll', 'click', 'vfx-space-clear-all', () => {
       if (this.vfxManager) {
         this.vfxManager.selectedEffects.space.clear()
         this.updateCheckboxes('space')
         this.updateEffectCounts()
         this.updatePreview()
       }
-    })
+    }))
 
-    this.eventBus.onDom('groundSelectAll', 'click', 'vfx-ground-select-all', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('groundSelectAll', 'click', 'vfx-ground-select-all', () => {
       if (this.vfxManager) {
         this.vfxManager.selectAllEffects('ground')
         this.updateCheckboxes('ground')
         this.updateEffectCounts()
         this.updatePreview()
       }
-    })
+    }))
 
-    this.eventBus.onDom('groundClearAll', 'click', 'vfx-ground-clear-all', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('groundClearAll', 'click', 'vfx-ground-clear-all', () => {
       if (this.vfxManager) {
         this.vfxManager.selectedEffects.ground.clear()
         this.updateCheckboxes('ground')
         this.updateEffectCounts()
         this.updatePreview()
       }
-    })
+    }))
 
-    this.eventBus.onDom('saveVertigoBtn', 'click', 'vfx-save', () => {
+    this._detachDomListeners.push(this.eventBus.onDom('saveVertigoBtn', 'click', 'vfx-save', () => {
       this.emit('vfx:save-effects')
-    })
+    }))
+
+    this.domListenersSetup = true
+  }
+
+  // Cleanup event listeners
+  destroy() {
+    // Clean up EventBus DOM listeners
+    if (Array.isArray(this._detachDomListeners) && this._detachDomListeners.length > 0) {
+      this._detachDomListeners.forEach(detach => {
+        try {
+          if (typeof detach === 'function') detach()
+        } catch (error) {
+          console.warn('[VFXManagerUI] Error detaching DOM listener:', error)
+        }
+      })
+      this._detachDomListeners = []
+    }
+
+    // Reset flags
+    this.domListenersSetup = false
+    this.vfxManager = null
+
+    super.destroy()
+  }
+
+  // Component lifecycle hook - called by ComponentBase
+  onDestroy() {
+    this.destroy()
   }
 } 
