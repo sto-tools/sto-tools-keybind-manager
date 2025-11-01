@@ -359,7 +359,7 @@ export default class ImportService extends ComponentBase {
     try {
       const projectData = JSON.parse(content)
       
-      if (!projectData.data || !projectData.type === 'project') {
+      if (!projectData.data || projectData.type !== 'project') {
         throw new Error('Invalid project file format')
       }
 
