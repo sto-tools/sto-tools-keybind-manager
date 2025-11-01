@@ -328,5 +328,46 @@ describe('DataCoordinator Service', () => {
         properties: { description: 'Updated' }
       })).rejects.toThrow('Profile non-existent not found')
     })
+
+    it('should handle null updates parameter correctly', async () => {
+      // Setup a test profile first
+      dataCoordinator.state.profiles['test-profile'] = { name: 'Test Profile' }
+
+      // Test that null updates throws the correct error, not TypeError
+      await expect(dataCoordinator.updateProfile('test-profile', null))
+        .rejects.toThrow('Updates are required')
+    })
+
+    it('should handle undefined updates parameter correctly', async () => {
+      // Setup a test profile first
+      dataCoordinator.state.profiles['test-profile'] = { name: 'Test Profile' }
+
+      // Test that undefined updates throws the correct error
+      await expect(dataCoordinator.updateProfile('test-profile', undefined))
+        .rejects.toThrow('Updates are required')
+    })
+
+    it('should handle empty object updates parameter correctly', async () => {
+      // Setup a test profile first
+      dataCoordinator.state.profiles['test-profile'] = { name: 'Test Profile' }
+
+      // Test that empty object updates throws the correct error
+      await expect(dataCoordinator.updateProfile('test-profile', {}))
+        .rejects.toThrow('Explicit operations (add/delete/modify/properties) required')
+    })
+
+    it('should handle null profile ID correctly', async () => {
+      // Test that null profile ID throws the correct error
+      await expect(dataCoordinator.updateProfile(null, {
+        properties: { description: 'Updated' }
+      })).rejects.toThrow('Profile ID is required')
+    })
+
+    it('should handle undefined profile ID correctly', async () => {
+      // Test that undefined profile ID throws the correct error
+      await expect(dataCoordinator.updateProfile(undefined, {
+        properties: { description: 'Updated' }
+      })).rejects.toThrow('Profile ID is required')
+    })
   })
 }) 

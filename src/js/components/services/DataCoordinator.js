@@ -856,8 +856,12 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   async updateProfile(profileId, updates) {
-    if (!profileId || !updates) {
-      throw new Error('Profile ID and updates are required')
+    if (!profileId) {
+      throw new Error('Profile ID is required')
+    }
+
+    if (!updates || updates === null) {
+      throw new Error('Updates are required')
     }
 
     const currentProfile = this.state.profiles[profileId]
