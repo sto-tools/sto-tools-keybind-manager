@@ -1,4 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+// Mock i18next before importing the service
+vi.mock('i18next', () => ({
+  default: {
+    t: vi.fn((key) => key)
+  }
+}))
+
 import SyncService from '../../../src/js/components/services/SyncService.js'
 import { createServiceFixture } from '../../fixtures/index.js'
 
@@ -27,25 +35,234 @@ describe('SyncService', () => {
 
   afterEach(() => {
     fixture.destroy()
+    vi.restoreAllMocks()
   })
 
-  it('setSyncFolder saves folder name in preferences', async () => {
-    const handle = createHandle('syncDir')
-    global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
+  describe('Browser Detection', () => {
+    it('isFirefox() returns true for Firefox user agent', () => {
+      global.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0' }
+      expect(service.isFirefox()).toBe(true)
+    })
 
-    await service.setSyncFolder(false)
+    it('isFirefox() returns false for Chrome user agent', () => {
+      global.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+      expect(service.isFirefox()).toBe(false)
+    })
 
-    expect(fixture.storageService.saveSettings).toHaveBeenCalled()
-    const saved = JSON.parse(fixture.storageFixture.localStorage.getItem('sto_keybind_settings') || '{}')
-    expect(saved.syncFolderName).toBe('syncDir')
-    expect(uiMock.showToast).toHaveBeenCalled()
+    it('isFirefox() returns false for Edge user agent', () => {
+      global.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59' }
+      expect(service.isFirefox()).toBe(false)
+    })
+
+    it('isFirefox() returns false when navigator is undefined', () => {
+      global.navigator = undefined
+      expect(service.isFirefox()).toBe(false)
+    })
   })
 
-  it('ensurePermission returns true when already granted', async () => {
-    const handle = createHandle('any')
-    const ok = await service.ensurePermission(handle)
-    expect(ok).toBe(true)
-    expect(handle.queryPermission).toHaveBeenCalled()
-    expect(handle.requestPermission).not.toHaveBeenCalled()
+  describe('Secure Context Detection', () => {
+    it('isSecureContext() returns true for HTTPS', () => {
+      global.window = {
+        isSecureContext: true,
+        location: { protocol: 'https:', hostname: 'example.com' }
+      }
+      expect(service.isSecureContext()).toBe(true)
+    })
+
+    it('isSecureContext() returns true for file:// protocol (fallback logic)', () => {
+      global.window = {
+        isSecureContext: undefined, // Force fallback logic
+        location: { protocol: 'file:', hostname: '' }
+      }
+      expect(service.isSecureContext()).toBe(true)
+    })
+
+    it('isSecureContext() returns true for localhost (fallback logic)', () => {
+      global.window = {
+        isSecureContext: undefined, // Force fallback logic
+        location: { protocol: 'http:', hostname: 'localhost' }
+      }
+      expect(service.isSecureContext()).toBe(true)
+    })
+
+    it('isSecureContext() returns true for 127.0.0.1 (fallback logic)', () => {
+      global.window = {
+        isSecureContext: undefined, // Force fallback logic
+        location: { protocol: 'http:', hostname: '127.0.0.1' }
+      }
+      expect(service.isSecureContext()).toBe(true)
+    })
+
+    it('isSecureContext() returns false for HTTP on non-localhost', () => {
+      global.window = {
+        isSecureContext: false,
+        location: { protocol: 'http:', hostname: 'example.com' }
+      }
+      expect(service.isSecureContext()).toBe(false)
+    })
+
+    it('isSecureContext() returns false when window is undefined', () => {
+      global.window = undefined
+      expect(service.isSecureContext()).toBe(false)
+    })
+  })
+
+  describe('setSyncFolder - Browser and Context Detection', () => {
+    beforeEach(() => {
+      // Mock window.confirmDialog
+      global.window = {
+        ...global.window,
+        confirmDialog: {
+          inform: vi.fn().mockResolvedValue(undefined)
+        }
+      }
+    })
+
+    it('shows Firefox error for Firefox regardless of protocol', async () => {
+      // Setup Firefox environment
+      global.navigator = { userAgent: 'Firefox/91.0' }
+      global.window.location = { protocol: 'https:', hostname: 'localhost' }
+      global.window.isSecureContext = true
+
+      await service.setSyncFolder(false)
+
+      expect(uiMock.showToast).toHaveBeenCalledWith('sync_not_supported_firefox', 'error')
+      expect(global.window.confirmDialog.inform).toHaveBeenCalled()
+    })
+
+    it('shows secure context error for Chrome on HTTP', async () => {
+      // Setup Chrome environment on HTTP
+      global.navigator = { userAgent: 'Chrome/91.0' }
+      global.window.location = { protocol: 'http:', hostname: 'example.com' }
+      global.window.isSecureContext = false
+      global.window.showDirectoryPicker = vi.fn() // Should not be called
+
+      await service.setSyncFolder(false)
+
+      expect(uiMock.showToast).toHaveBeenCalledWith('sync_not_supported_secure_context', 'error')
+      expect(global.window.confirmDialog.inform).toHaveBeenCalled()
+      expect(global.window.showDirectoryPicker).not.toHaveBeenCalled()
+    })
+
+    it('allows Chrome on HTTPS to proceed normally', async () => {
+      // Setup Chrome environment on HTTPS
+      global.navigator = { userAgent: 'Chrome/91.0' }
+      global.window.location = { protocol: 'https:', hostname: 'example.com' }
+      global.window.isSecureContext = true
+      const handle = createHandle('syncDir')
+      global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
+
+      await service.setSyncFolder(false)
+
+      expect(global.window.showDirectoryPicker).toHaveBeenCalled()
+      expect(uiMock.showToast).toHaveBeenCalledWith('sync_folder_set', 'success')
+      expect(fixture.storageService.saveSettings).toHaveBeenCalled()
+    })
+
+    it('allows Chrome on file:// to proceed normally', async () => {
+      // Setup Chrome environment on file://
+      global.navigator = { userAgent: 'Chrome/91.0' }
+      global.window.location = { protocol: 'file:', hostname: '' }
+      global.window.isSecureContext = true
+      const handle = createHandle('syncDir')
+      global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
+
+      await service.setSyncFolder(false)
+
+      expect(global.window.showDirectoryPicker).toHaveBeenCalled()
+      expect(uiMock.showToast).toHaveBeenCalledWith('sync_folder_set', 'success')
+    })
+
+    it('shows browser error for non-Firefox without API support', async () => {
+      // Setup non-Firefox browser without API support
+      global.navigator = { userAgent: 'SomeOtherBrowser/1.0' }
+      global.window.location = { protocol: 'https:', hostname: 'example.com' }
+      global.window.isSecureContext = true
+      delete global.window.showDirectoryPicker
+
+      await service.setSyncFolder(false)
+
+      expect(uiMock.showToast).toHaveBeenCalledWith('sync_not_supported_browser', 'error')
+      expect(global.window.confirmDialog.inform).toHaveBeenCalled()
+    })
+  })
+
+  describe('Legacy Functionality', () => {
+    it('setSyncFolder saves folder name in preferences', async () => {
+      const handle = createHandle('syncDir')
+      global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
+      global.navigator = { userAgent: 'Chrome/91.0' } // Non-Firefox
+      global.window.location = { protocol: 'https:', hostname: 'localhost' }
+      global.window.isSecureContext = true
+
+      await service.setSyncFolder(false)
+
+      expect(fixture.storageService.saveSettings).toHaveBeenCalled()
+      const saved = JSON.parse(fixture.storageFixture.localStorage.getItem('sto_keybind_settings') || '{}')
+      expect(saved.syncFolderName).toBe('syncDir')
+      expect(uiMock.showToast).toHaveBeenCalledWith('sync_folder_set', 'success')
+    })
+
+    it('ensurePermission returns true when already granted', async () => {
+      const handle = createHandle('any')
+      const ok = await service.ensurePermission(handle)
+      expect(ok).toBe(true)
+      expect(handle.queryPermission).toHaveBeenCalled()
+      expect(handle.requestPermission).not.toHaveBeenCalled()
+    })
+
+    describe('syncProject - Browser and Context Detection', () => {
+      it('shows Firefox error for Firefox regardless of protocol', async () => {
+        // Setup Firefox environment
+        global.navigator = { userAgent: 'Firefox/91.0' }
+        global.window.location = { protocol: 'https:', hostname: 'localhost' }
+        global.window.isSecureContext = true
+
+        await service.syncProject('manual')
+
+        expect(uiMock.showToast).toHaveBeenCalledWith('sync_not_supported_firefox', 'warning')
+      })
+
+      it('shows secure context error for Chrome on HTTP', async () => {
+        // Setup Chrome environment on HTTP
+        global.navigator = { userAgent: 'Chrome/91.0' }
+        global.window.location = { protocol: 'http:', hostname: 'example.com' }
+        global.window.isSecureContext = false
+
+        await service.syncProject('manual')
+
+        expect(uiMock.showToast).toHaveBeenCalledWith('sync_not_supported_secure_context', 'warning')
+      })
+
+      it('shows no sync folder selected for Chrome on HTTPS when no folder is set', async () => {
+        // Setup Chrome environment on HTTPS
+        global.navigator = { userAgent: 'Chrome/91.0' }
+        global.window.location = { protocol: 'https:', hostname: 'example.com' }
+        global.window.isSecureContext = true
+        // Mock getDirectoryHandle to return null (no folder set)
+        service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(null)
+
+        await service.syncProject('manual')
+
+        expect(uiMock.showToast).toHaveBeenCalledWith('no_sync_folder_selected', 'warning')
+      })
+
+      it('allows Chrome on HTTPS to proceed when folder is set', async () => {
+        // Setup Chrome environment on HTTPS
+        global.navigator = { userAgent: 'Chrome/91.0' }
+        global.window.location = { protocol: 'https:', hostname: 'example.com' }
+        global.window.isSecureContext = true
+        const handle = createHandle('syncDir')
+        service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle)
+
+        // Mock the export:sync-to-folder request to prevent errors
+        service.request = vi.fn().mockResolvedValue(undefined)
+
+        await service.syncProject('manual')
+
+        // Should show success message
+        expect(uiMock.showToast).toHaveBeenCalledWith('project_synced_successfully', 'success')
+      })
+    })
   })
 }) 

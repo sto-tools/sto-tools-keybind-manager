@@ -30,20 +30,45 @@ export default class SyncService extends ComponentBase {
     }
   }
 
+  // Browser detection utilities
+  isFirefox() {
+    // Check if the browser is Firefox
+    return typeof navigator !== 'undefined' &&
+           /firefox/i.test(navigator.userAgent) &&
+           !/seamonkey/i.test(navigator.userAgent)
+  }
+
+  isSecureContext() {
+    // Check if the current context is secure (HTTPS, file://, localhost)
+    if (typeof window === 'undefined') return false
+
+    // Use the browser's built-in secure context check first
+    if (window.isSecureContext !== undefined) {
+      return window.isSecureContext
+    }
+
+    // Fallback: check protocol and hostname
+    const protocol = window.location?.protocol
+    const hostname = window.location?.hostname
+
+    return protocol === 'https:' ||
+           protocol === 'file:' ||
+           protocol === 'chrome-extension:' ||
+           hostname === 'localhost' ||
+           hostname === '127.0.0.1' ||
+           (hostname && hostname.endsWith('.localhost'))
+  }
+
   // Set sync folder and optionally enable auto-sync
   async setSyncFolder(autoSync = false) {
     try {
       let handle, folderName
 
-      // Check if File System Access API is supported (Chromium browsers)
-      if ('showDirectoryPicker' in window) {
-        handle = await window.showDirectoryPicker()
-        await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
-        folderName = handle.name
-      } else {
-        // Firefox doesn't support File System Access API
+      // Implement proper decision tree for browser capability and security context
+      if (this.isFirefox()) {
+        // Firefox: File System Access API not supported regardless of protocol
         this.ui?.showToast(i18next.t('sync_not_supported_firefox'), 'error')
-        
+
         // Show a more detailed explanation using inform dialog (OK button only)
         if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
           await window.confirmDialog.inform(
@@ -52,7 +77,44 @@ export default class SyncService extends ComponentBase {
             'info'
           )
         }
-        
+
+        return null
+      }
+
+      // Non-Firefox browsers: Check security context
+      if (!this.isSecureContext()) {
+        // Insecure context (HTTP) - show specific secure context error
+        this.ui?.showToast(i18next.t('sync_not_supported_secure_context'), 'error')
+
+        // Show detailed explanation about secure context requirement
+        if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
+          await window.confirmDialog.inform(
+            i18next.t('sync_not_supported_secure_context_detailed'),
+            i18next.t('sync_not_supported_secure_context_title'),
+            'info'
+          )
+        }
+
+        return null
+      }
+
+      // Secure context: Check API availability and proceed
+      if ('showDirectoryPicker' in window) {
+        handle = await window.showDirectoryPicker()
+        await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
+        folderName = handle.name
+      } else {
+        // Unexpected case: Non-Firefox browser without API support in secure context
+        this.ui?.showToast(i18next.t('sync_not_supported_browser'), 'error')
+
+        if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
+          await window.confirmDialog.inform(
+            i18next.t('sync_not_supported_browser_detailed'),
+            i18next.t('sync_not_supported_browser_title'),
+            'info'
+          )
+        }
+
         return null
       }
 
@@ -99,6 +161,21 @@ export default class SyncService extends ComponentBase {
   }
 
   async syncProject(source = 'auto') {
+    // Apply the same browser and context detection logic as setSyncFolder
+    if (this.isFirefox()) {
+      // Firefox: File System Access API not supported regardless of protocol
+      this.ui?.showToast(i18next.t('sync_not_supported_firefox'), 'warning')
+      return
+    }
+
+    // Non-Firefox browsers: Check security context
+    if (!this.isSecureContext()) {
+      // Insecure context (HTTP) - show specific secure context error
+      this.ui?.showToast(i18next.t('sync_not_supported_secure_context'), 'warning')
+      return
+    }
+
+    // Secure context: Check if sync folder exists
     const handle = await this.getSyncFolderHandle()
     if (!handle) {
       this.ui?.showToast(i18next.t('no_sync_folder_selected'), 'warning')
