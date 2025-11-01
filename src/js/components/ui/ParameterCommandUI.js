@@ -1,5 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
+import { STOError } from '../../core/errors.js'
 
 /*
 * ParameterCommandUI – a UI component for editing parameterized commands.
@@ -28,6 +29,33 @@ export default class ParameterCommandUI extends ComponentBase {
     // ComponentBase handles activeBindset caching automatically
 
     this.currentParameterCommand = null
+  }
+
+  /**
+   * Safe Number parsing utility with NaN validation
+   *
+   * This function prevents NaN values from being passed to command building
+   * by validating numeric inputs from HTML form fields. Invalid inputs like
+   * "abc", "1.2.3", etc. throw validation errors with descriptive messages.
+   *
+   * @param {string} value - The string value to parse
+   * @param {string} paramName - The parameter name being parsed (for error messages)
+   * @returns {number} The parsed number
+   * @throws {STOError} If the parsed value is NaN
+   */
+  safeParseNumber(value, paramName) {
+    if (value === '' || value === undefined || value === null) {
+      return undefined
+    }
+
+    const parsed = Number(value)
+    if (Number.isNaN(parsed)) {
+      throw new STOError(
+        `Invalid number for ${paramName}: '${value}' is not a valid number`,
+        'INVALID_PARAMETER_NUMBER'
+      )
+    }
+    return parsed
   }
 
   onInit() {
@@ -216,7 +244,19 @@ export default class ParameterCommandUI extends ComponentBase {
 
     const { categoryId, commandId } = this.currentParameterCommand
     const commandDef = this.currentParameterCommand  // The commandDef properties are spread directly
-    const params = this.getParameterValues()
+
+    let params
+    try {
+      params = this.getParameterValues()
+    } catch (error) {
+      // Handle validation errors from safeParseNumber
+      const previewEl = this.document.getElementById('parameterCommandPreview')
+      if (previewEl) {
+        previewEl.textContent = error.message || 'Invalid parameter values'
+        previewEl.style.color = '#d63031' // Error color
+      }
+      return
+    }
 
     try {
       const cmd = await this.request('parameter-command:build', { categoryId, commandId, commandDef, params })
@@ -238,6 +278,8 @@ export default class ParameterCommandUI extends ComponentBase {
         }
         previewEl.textContent = commandText
       }
+      // Reset color to default on successful preview
+      previewEl.style.color = ''
     } catch (error) {
       const previewEl = this.document.getElementById('parameterCommandPreview')
       if (previewEl) {
@@ -264,7 +306,7 @@ export default class ParameterCommandUI extends ComponentBase {
       if (!name) return
 
       if (input.type === 'number') {
-        values[name] = input.value === '' ? undefined : Number(input.value)
+        values[name] = this.safeParseNumber(input.value, name)
       } else {
         values[name] = input.value
       }
@@ -291,7 +333,15 @@ export default class ParameterCommandUI extends ComponentBase {
 
     const { categoryId, commandId } = this.currentParameterCommand
     const commandDef = this.currentParameterCommand  // The commandDef properties are spread directly
-    const params = this.getParameterValues()
+
+    let params
+    try {
+      params = this.getParameterValues()
+    } catch (error) {
+      // Handle validation errors from safeParseNumber
+      this.ui?.showToast?.(error.message || 'Invalid parameter values', 'error')
+      return
+    }
 
     try {
       const cmd = await this.request('parameter-command:build', { categoryId, commandId, commandDef, params })
