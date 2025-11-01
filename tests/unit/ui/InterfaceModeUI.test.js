@@ -90,7 +90,7 @@ describe('InterfaceModeUI', () => {
   it('should initialize without errors', () => {
     expect(() => interfaceModeUI.init()).not.toThrow()
     expect(interfaceModeUI._uiListenersSetup).toBe(true)
-    expect(interfaceModeUI._detachDomListeners).toHaveLength(3) // space, ground, alias
+    expect(interfaceModeUI.domEventListeners).toHaveLength(3) // space, ground, alias
   })
 
   it('should set up eventBus.onDom listeners for mode buttons exactly once', () => {
@@ -118,7 +118,7 @@ describe('InterfaceModeUI', () => {
     interfaceModeUI.init() // Third init call
 
     // Should still have exactly 3 detach functions (one per mode)
-    expect(interfaceModeUI._detachDomListeners).toHaveLength(3)
+    expect(interfaceModeUI.domEventListeners).toHaveLength(3)
 
     // onDom should be called exactly 3 times (once per mode), because onInit() guard prevents duplicates
     expect(eventBusFixture.eventBus.onDom).toHaveBeenCalledTimes(3)
@@ -175,14 +175,14 @@ describe('InterfaceModeUI', () => {
     interfaceModeUI.init()
 
     // Store detach functions before cleanup
-    const detachFunctions = [...interfaceModeUI._detachDomListeners]
+    const detachFunctions = [...interfaceModeUI.domEventListeners]
     expect(detachFunctions).toHaveLength(3)
 
-    // Call onDestroy
-    interfaceModeUI.onDestroy()
+    // Call destroy (which calls onDestroy and cleanupEventListeners)
+    interfaceModeUI.destroy()
 
-    // Verify cleanup
-    expect(interfaceModeUI._detachDomListeners).toHaveLength(0)
+    // Verify automatic cleanup
+    expect(interfaceModeUI.domEventListeners).toHaveLength(0)
     expect(interfaceModeUI._uiListenersSetup).toBe(false)
   })
 
@@ -194,7 +194,7 @@ describe('InterfaceModeUI', () => {
     expect(() => interfaceModeUI.init()).not.toThrow()
 
     // Should still have 3 detach functions (EventBus registers listeners even if DOM elements don't exist yet)
-    expect(interfaceModeUI._detachDomListeners).toHaveLength(3)
+    expect(interfaceModeUI.domEventListeners).toHaveLength(3)
 
     // But clicking should still work for existing buttons
     const spaceButton = document.querySelector('[data-mode="space"]')

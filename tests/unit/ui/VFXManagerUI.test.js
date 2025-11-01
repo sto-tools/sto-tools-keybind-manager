@@ -160,7 +160,8 @@ describe('VFXManagerUI', () => {
   it('should initialize without errors', () => {
     expect(() => vfxManagerUI.init()).not.toThrow()
     expect(vfxManagerUI.domListenersSetup).toBe(true)
-    expect(vfxManagerUI._detachDomListeners).toHaveLength(7) // 2 checkboxes + 4 buttons + 1 save button
+    // Verify DOM event listeners are tracked for automatic cleanup
+    expect(vfxManagerUI.domEventListeners).toHaveLength(7) // 2 checkboxes + 4 buttons + 1 save button
   })
 
   it('should set up eventBus.onDom listeners for checkboxes exactly once', () => {
@@ -185,7 +186,7 @@ describe('VFXManagerUI', () => {
     vfxManagerUI.init() // Third init call
 
     // Should still have exactly 7 detach functions (one per listener type)
-    expect(vfxManagerUI._detachDomListeners).toHaveLength(7)
+    expect(vfxManagerUI.domEventListeners).toHaveLength(7)
 
     // onDom should be called exactly once per selector type
     const effectCheckboxCalls = eventBusFixture.eventBus.onDom.mock.calls.filter(
@@ -295,14 +296,14 @@ describe('VFXManagerUI', () => {
     vfxManagerUI.init()
 
     // Store detach functions before cleanup
-    const detachFunctions = [...vfxManagerUI._detachDomListeners]
+    const detachFunctions = [...vfxManagerUI.domEventListeners]
     expect(detachFunctions).toHaveLength(7)
 
-    // Call onDestroy
-    vfxManagerUI.onDestroy()
+    // Call destroy (which calls onDestroy and cleanupEventListeners)
+    vfxManagerUI.destroy()
 
-    // Verify cleanup
-    expect(vfxManagerUI._detachDomListeners).toHaveLength(0)
+    // Verify automatic cleanup
+    expect(vfxManagerUI.domEventListeners).toHaveLength(0)
     expect(vfxManagerUI.domListenersSetup).toBe(false)
   })
 
@@ -314,7 +315,7 @@ describe('VFXManagerUI', () => {
     expect(() => vfxManagerUI.init()).not.toThrow()
 
     // Should still have 7 detach functions (EventBus registers listeners even if elements don't exist)
-    expect(vfxManagerUI._detachDomListeners).toHaveLength(7)
+    expect(vfxManagerUI.domEventListeners).toHaveLength(7)
 
     // But clicking should still work for existing elements
     const spaceSelectAllBtn = document.getElementById('spaceSelectAll')

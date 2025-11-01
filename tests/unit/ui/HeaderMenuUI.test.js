@@ -40,22 +40,44 @@ describe('HeaderMenuUI', () => {
     })
 
     // Mock onDom to actually trigger DOM events and emit to bus
-    eventBusFixture.eventBus.onDom = vi.fn((selector, event, busEvent, handler) => {
+    eventBusFixture.eventBus.onDom = vi.fn((target, event, busEvent, handler) => {
       if (typeof busEvent === 'function') {
         handler = busEvent
         busEvent = event
       }
       if (!busEvent) busEvent = event
 
-      // Normalize selector like real EventBus - handle attribute selectors
-      const finalSelector = /^[.#]/.test(selector) ? selector :
-                           /^\[/.test(selector) ? selector : `#${selector}`
+      // Handle string selector (delegated)
+      if (typeof target === 'string') {
+        // Normalize selector like real EventBus - handle attribute selectors
+        const finalSelector = /^[.#]/.test(target) ? target :
+                             /^\[/.test(target) ? target : `#${target}`
 
-      // Add actual DOM listener
-      const domHandler = (e) => {
-        const match = e.target.closest(finalSelector)
-        if (match) {
-          // Call handler (which will emit the actual event)
+        // Add actual DOM listener
+        const domHandler = (e) => {
+          const match = e.target.closest(finalSelector)
+          if (match) {
+            // Call handler (which will emit the actual event)
+            if (handler) {
+              try {
+                handler(e)
+              } catch (error) {
+                console.error(error)
+              }
+            }
+          }
+        }
+
+        document.addEventListener(event, domHandler, true)
+
+        return () => {
+          document.removeEventListener(event, domHandler, true)
+        }
+      }
+
+      // Handle direct element/document reference
+      if (target && target.addEventListener) {
+        const domHandler = (e) => {
           if (handler) {
             try {
               handler(e)
@@ -64,13 +86,15 @@ describe('HeaderMenuUI', () => {
             }
           }
         }
+
+        target.addEventListener(event, domHandler)
+
+        return () => {
+          target.removeEventListener(event, domHandler)
+        }
       }
 
-      document.addEventListener(event, domHandler, true)
-
-      return () => {
-        document.removeEventListener(event, domHandler, true)
-      }
+      return () => {}
     })
 
     ui = new HeaderMenuUI({ eventBus: eventBusFixture.eventBus, document })

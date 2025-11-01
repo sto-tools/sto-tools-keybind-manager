@@ -18,9 +18,6 @@ export default class InterfaceModeUI extends ComponentBase {
     // Internal state
     this._uiListenersSetup = false
     this._modeButtonsSetup = false
-    this._modeButtons = {}
-    this._modeButtonHandlers = {} // Store button click handlers for cleanup (legacy - will be removed)
-    this._detachDomListeners = [] // Store detach functions for proper cleanup
 
     // Store handler references for proper cleanup
     this._modeChangedHandler = null
@@ -72,17 +69,17 @@ export default class InterfaceModeUI extends ComponentBase {
       return
     }
 
-    // Use EventBus DOM handling pattern
+    // Use automatic cleanup pattern
     const modes = ['space', 'ground', 'alias']
 
     modes.forEach(mode => {
-      // Store detach function for cleanup
-      this._detachDomListeners.push(this.eventBus.onDom(
+      // Use this.onDom for automatic cleanup
+      this.onDom(
         `[data-mode="${mode}"]`,
         'click',
         `mode-change-${mode}`,
         () => this.handleModeButtonClick(mode)
-      ))
+      )
     })
 
     this._modeButtonsSetup = true
@@ -179,8 +176,8 @@ export default class InterfaceModeUI extends ComponentBase {
     }
   }
 
-  // Cleanup event listeners
-  destroy() {
+  // Component lifecycle hook - called by ComponentBase
+  onDestroy() {
     if (this._uiListenersSetup) {
       // Properly remove event listeners using stored handler references
       this.eventBus.off('mode-changed', this._modeChangedHandler)
@@ -188,36 +185,9 @@ export default class InterfaceModeUI extends ComponentBase {
       this._uiListenersSetup = false
     }
 
-    // Clean up EventBus DOM listeners
-    if (Array.isArray(this._detachDomListeners) && this._detachDomListeners.length > 0) {
-      this._detachDomListeners.forEach(detach => {
-        try {
-          if (typeof detach === 'function') detach()
-        } catch (error) {
-          console.warn('[InterfaceModeUI] Error detaching DOM listener:', error)
-        }
-      })
-      this._detachDomListeners = []
-    }
-
-    // Legacy cleanup - remove old-style click handlers if any remain
-    Object.entries(this._modeButtons).forEach(([mode, button]) => {
-      if (button && this._modeButtonHandlers[mode]) {
-        button.removeEventListener('click', this._modeButtonHandlers[mode])
-      }
-    })
-
-    // Clear stored handlers and reset flags
-    this._modeButtonHandlers = {}
-    this._modeButtons = {}
+    // Reset flags
     this._modeButtonsSetup = false
-
-    super.destroy()
-  }
-
-  // Component lifecycle hook - called by ComponentBase
-  onDestroy() {
-    this.destroy()
+    // Note: DOM event listeners are automatically cleaned up by ComponentBase
   }
 
   // Late-join handshake: keep UI in sync with service state even if the relevant events fired before we registered.
