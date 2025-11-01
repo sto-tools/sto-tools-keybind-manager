@@ -89,6 +89,7 @@ export default class PreferencesService extends ComponentBase {
       if (!this.storage) return
       const stored = this.storage.getSettings()
       this.settings = { ...this.defaultSettings, ...stored }
+      console.log('[PreferencesService] loadSettings', { settings: { ...this.settings } })
       this.emit('preferences:loaded', { settings: this.getSettings() })
     } catch (err) {
       console.error('[PreferencesService] loadSettings failed', err)
@@ -96,10 +97,11 @@ export default class PreferencesService extends ComponentBase {
     }
   }
 
-  saveSettings() {
+  async saveSettings() {
     if (!this.storage) return false
     const ok = this.storage.saveSettings(this.settings)
-    if (ok) this.emit('preferences:saved', { settings: this.getSettings() })
+    console.log('[PreferencesService] saveSettings', { ok, settings: { ...this.settings } })
+    if (ok) await this.emit('preferences:saved', { settings: this.getSettings() }, { synchronous: true })
     return ok
   }
 
@@ -110,6 +112,7 @@ export default class PreferencesService extends ComponentBase {
 
   setSetting(key, value) {
     this.settings[key] = value
+    console.log('[PreferencesService] setSetting', { key, value })
     this.saveSettings()
     this.applySettings()
     this.emit('preferences:changed', { key, value })
@@ -118,6 +121,7 @@ export default class PreferencesService extends ComponentBase {
   setSettings(newSettings = {}) {
     const oldSettings = { ...this.settings }
     this.settings = { ...this.defaultSettings, ...newSettings }
+    console.log('[PreferencesService] setSettings', { changed: Object.keys(newSettings) })
     this.saveSettings()
     this.applySettings()
     

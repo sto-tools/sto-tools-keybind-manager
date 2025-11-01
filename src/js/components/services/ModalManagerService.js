@@ -225,10 +225,7 @@ export default class ModalManagerService extends ComponentBase {
       window.stoFileExplorer?.refreshFileList?.()
     })
 
-    // Export modal
-    this.registerRegenerateCallback('exportModal', () => {
-      window.stoExport?.populateExportModal?.()
-    })
+    // Export modal removed
 
     // About modal
     this.registerRegenerateCallback('aboutModal', () => {

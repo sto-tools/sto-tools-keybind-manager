@@ -76,13 +76,16 @@ export default class PreferencesUI extends ComponentBase {
     const syncBtn = document.getElementById('setSyncFolderBtn')
     if (syncBtn) {
       syncBtn.addEventListener('click', async () => {
+        console.log('[PreferencesUI] setSyncFolderBtn clicked')
         if (window.stoSync?.setSyncFolder) {
           try {
             const handle = await window.stoSync.setSyncFolder(true)
+            console.log('[PreferencesUI] setSyncFolder returned', { hasHandle: !!handle, name: handle?.name })
             if (handle) {
               // Reload settings (folder name/path updated by stoSync)
               await this.request('preferences:load-settings')
               this.updateFolderDisplay()
+              console.log('[PreferencesUI] settings reloaded after setSyncFolder')
             }
           } catch (err) {
             console.error('[PreferencesUI] setSyncFolder failed', err)
@@ -157,6 +160,7 @@ export default class PreferencesUI extends ComponentBase {
   }
 
   async saveAllSettings(manual = true) {
+    console.log('[PreferencesUI] saveAllSettings called', { manual, pending: { ...this.pendingSettings } })
     // First, apply any pending settings (e.g., bindToAliasMode) in bulk
     if (Object.keys(this.pendingSettings).length > 0) {
       // Get current settings and merge with pending changes
@@ -166,10 +170,12 @@ export default class PreferencesUI extends ComponentBase {
       
       // Clear pending settings now that they have been applied
       this.pendingSettings = {}
+      console.log('[PreferencesUI] pending settings applied')
     }
 
     // Use request/response instead of direct service call
     const ok = await this.saveSettings()
+    console.log('[PreferencesUI] preferences:save-settings result', { ok })
     if (ok && manual && this.ui?.showToast) {
       this.ui.showToast(i18next.t('preferences_saved'), 'success')
     }
@@ -178,10 +184,11 @@ export default class PreferencesUI extends ComponentBase {
     this.notifyAutoSyncSettingsChanged()
     
     // Use event bus instead of direct modalManager call
-    this.emit('modal:hide', { modalId: 'preferencesModal' })
+    await this.emit('modal:hide', { modalId: 'preferencesModal' }, { synchronous: true })
   }
 
   async showPreferences() {
+    console.log('[PreferencesUI] showPreferences')
     // Use request/response to get fresh settings
     await this.request('preferences:load-settings')
     // Discard any unsaved changes from previous session
@@ -203,6 +210,7 @@ export default class PreferencesUI extends ComponentBase {
   async updateFolderDisplay() {
     const settings = await this.request('preferences:get-settings')
     const { syncFolderName, syncFolderPath } = settings
+    console.log('[PreferencesUI] updateFolderDisplay', { syncFolderName, syncFolderPath })
     
     // Update folder display UI - use correct element ID from HTML
     const folderDisplayEl = this.document.getElementById('currentSyncFolder')

@@ -18,6 +18,10 @@ export default class SyncService extends ComponentBase {
     this.storage = storage
     this.ui = ui
     this.fs = fs || new FileSystemService({ eventBus })
+    this.awaitingSyncDecisionApply = false
+    this.pendingSyncAction = null
+    this.deferredImportContent = null
+    console.log('[SyncService] constructed')
 
     // Ensure FileSystemService instance
     if (!this.fs) this.fs = new FileSystemService({ eventBus })
@@ -27,6 +31,85 @@ export default class SyncService extends ComponentBase {
       this.respond('sync:sync-project', ({ source } = {}) => this.syncProject(source))
       this.respond('sync:set-sync-folder', ({ autoSync } = {}) => this.setSyncFolder(autoSync))
       this.respond('sync:get-sync-folder-handle', () => this.getSyncFolderHandle())
+
+      // Handle deferred import/overwrite on preferences save/cancel
+      this.addEventListener('preferences:saved', async () => {
+        console.log('[SyncService] preferences:saved received', { awaiting: this.awaitingSyncDecisionApply, pending: this.pendingSyncAction })
+        if (!this.awaitingSyncDecisionApply) return
+        try {
+          const handle = await this.getSyncFolderHandle()
+          if (!handle) return
+          const action = this.pendingSyncAction
+          console.log('[SyncService] applying pending action', { action })
+          if (action === 'import') {
+            try {
+              const fileHandle = await handle.getFileHandle('project.json', { create: false })
+              const file = await fileHandle.getFile()
+              const content = await file.text()
+              // Try immediate restore; if handler not ready, defer to app-ready
+              try {
+                const result = await this.request('project:restore-from-content', { content, fileName: 'project.json' })
+                console.log('[SyncService] project:restore-from-content result', result)
+                if (!result?.success) {
+                  const errMsg = result?.error || 'Unknown error'
+                  this.ui?.showToast(i18next.t('failed_to_import_project', { error: errMsg }) || `Failed to import project: ${errMsg}`, 'error')
+                }
+              } catch (e) {
+                // Handler may not be ready yet – defer until app is ready
+                this.deferredImportContent = { content, fileName: 'project.json' }
+                console.log('[SyncService] deferring import until sto-app-ready')
+              }
+            } catch (e) {
+              this.ui?.showToast(i18next.t('failed_to_import_project', { error: e.message }) || `Failed to import project: ${e.message}`, 'error')
+            }
+          } else if (action === 'overwrite') {
+            try {
+              await this.request('export:sync-to-folder', { dirHandle: handle })
+              console.log('[SyncService] overwrite: export:sync-to-folder completed')
+              this.ui?.showToast(i18next.t('project_synced_successfully'), 'success')
+            } catch (e) {
+              this.ui?.showToast(i18next.t('failed_to_sync_project', { error: e.message }), 'error')
+            }
+          }
+        } finally {
+          // Clear pending action and awaiting flag
+          this.pendingSyncAction = null
+          this.awaitingSyncDecisionApply = false
+          console.log('[SyncService] cleared pending action and awaiting flag')
+        }
+      })
+
+      this.addEventListener('modal:hidden', ({ modalId }) => {
+        console.log('[SyncService] modal:hidden received', { modalId, awaiting: this.awaitingSyncDecisionApply, pending: this.pendingSyncAction })
+        if (modalId !== 'preferencesModal') return
+        // Defer clearing to allow preferences:saved to fire first, if it will
+        setTimeout(() => {
+          if (this.awaitingSyncDecisionApply) {
+            // Preferences were closed without save – clear pending action
+            this.pendingSyncAction = null
+            this.awaitingSyncDecisionApply = false
+            console.log('[SyncService] preferences modal closed without save; pending cleared (deferred)')
+          }
+        }, 0)
+      })
+
+      // Handle deferred import once the app is fully initialized
+      this.addEventListener('sto-app-ready', async () => {
+        console.log('[SyncService] sto-app-ready received; checking deferred import', { hasDeferred: !!this.deferredImportContent })
+        if (!this.deferredImportContent) return
+        const { content, fileName } = this.deferredImportContent
+        this.deferredImportContent = null
+        try {
+          const result = await this.request('project:restore-from-content', { content, fileName })
+          console.log('[SyncService] deferred project:restore-from-content result', result)
+          if (!result?.success) {
+            const errMsg = result?.error || 'Unknown error'
+            this.ui?.showToast(i18next.t('failed_to_import_project', { error: errMsg }) || `Failed to import project: ${errMsg}`, 'error')
+          }
+        } catch (e) {
+          this.ui?.showToast(i18next.t('failed_to_import_project', { error: e.message }) || `Failed to import project: ${e.message}`, 'error')
+        }
+      })
     }
   }
 
@@ -62,6 +145,7 @@ export default class SyncService extends ComponentBase {
   // Set sync folder and optionally enable auto-sync
   async setSyncFolder(autoSync = false) {
     try {
+      console.log('[SyncService] setSyncFolder called', { autoSync })
       let handle, folderName
 
       // Implement proper decision tree for browser capability and security context
@@ -103,6 +187,7 @@ export default class SyncService extends ComponentBase {
         handle = await window.showDirectoryPicker()
         await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle)
         folderName = handle.name
+        console.log('[SyncService] setSyncFolder: directory selected', { folderName })
       } else {
         // Unexpected case: Non-Firefox browser without API support in secure context
         this.ui?.showToast(i18next.t('sync_not_supported_browser'), 'error')
@@ -124,10 +209,49 @@ export default class SyncService extends ComponentBase {
         settings.syncFolderPath = `Selected folder: ${folderName}`
         settings.syncFolderFallback = false
         settings.autoSync = autoSync
+
+        // Check for existing project.json immediately on folder selection
+        try {
+          const existingHandle = await handle.getFileHandle('project.json', { create: false })
+          if (existingHandle && typeof window !== 'undefined' && window.confirmDialog?.confirm) {
+            const file = await existingHandle.getFile()
+            const content = await file.text()
+            const title = i18next.t('sync_folder_contains_project_title') || 'Existing Sync Data Found'
+            const message = i18next.t('sync_folder_contains_project_prompt') || 'This folder already contains a project.json from a previous sync. Import it now instead of overwriting?'
+            const doImport = await window.confirmDialog.confirm(message, title, 'warning')
+            let pending = null
+            if (doImport) {
+              pending = 'import'
+              console.log('[SyncService] setSyncFolder: user chose IMPORT')
+            } else {
+              const overwriteTitle = i18next.t('sync_overwrite_existing_title') || 'Overwrite Sync Data?'
+              const overwriteMsg = i18next.t('sync_overwrite_existing_prompt') || 'Import declined. Overwrite the sync folder with current application state?'
+              const confirmOverwrite = await window.confirmDialog.confirm(overwriteMsg, overwriteTitle, 'warning')
+              if (confirmOverwrite) {
+                pending = 'overwrite'
+                console.log('[SyncService] setSyncFolder: user chose OVERWRITE')
+              } else {
+                this.ui?.showToast(i18next.t('sync_operation_cancelled') || 'Sync cancelled', 'info')
+                console.log('[SyncService] setSyncFolder: user CANCELLED')
+              }
+            }
+            if (pending) {
+              this.pendingSyncAction = pending
+              this.awaitingSyncDecisionApply = true
+              console.log('[SyncService] setSyncFolder: pending action recorded', { pending })
+            }
+          }
+        } catch (_) {
+          // No existing project.json – nothing to do
+          console.log('[SyncService] setSyncFolder: no existing project.json found')
+        }
+
+        // Persist updated settings
         this.storage.saveSettings(settings)
+        console.log('[SyncService] setSyncFolder: settings saved')
       }
       this.ui?.showToast(i18next.t('sync_folder_set'), 'success')
-      this.emit('sync:folder-set', { handle })
+      await this.emit('sync:folder-set', { handle }, { synchronous: true })
       return handle
     } catch (err) {
       if (err?.name !== 'AbortError') {
@@ -162,6 +286,7 @@ export default class SyncService extends ComponentBase {
 
   async syncProject(source = 'auto') {
     // Apply the same browser and context detection logic as setSyncFolder
+    console.log('[SyncService] syncProject called', { source })
     if (this.isFirefox()) {
       // Firefox: File System Access API not supported regardless of protocol
       this.ui?.showToast(i18next.t('sync_not_supported_firefox'), 'warning')
@@ -187,16 +312,18 @@ export default class SyncService extends ComponentBase {
       return
     }
     try {
+      // Proceed with sync without interactive prompts
       // Use request/response system instead of global window.stoExport
       await this.request('export:sync-to-folder', { dirHandle: handle })
+      console.log('[SyncService] export:sync-to-folder completed')
 
       // Determine when to show success toast:
       // - Always show on manual sync (sync now button)
       // - Show on time-based auto sync (e.g., "every 30 seconds")  
       // - Don't show on change-based auto sync ("after every change")
-      const settings = this.storage?.getSettings() || {}
-      const isAutoSyncEnabled = settings.autoSync
-      const autoSyncInterval = settings.autoSyncInterval || 'change'
+      const prefs = this.storage?.getSettings() || {}
+      const isAutoSyncEnabled = prefs.autoSync
+      const autoSyncInterval = prefs.autoSyncInterval || 'change'
       const isChangeBasedAutoSync = isAutoSyncEnabled && autoSyncInterval === 'change'
       const shouldShowToast = source === 'manual' || (source === 'auto' && !isChangeBasedAutoSync)
       
@@ -204,7 +331,7 @@ export default class SyncService extends ComponentBase {
         this.ui?.showToast(i18next.t('project_synced_successfully'), 'success')
       }
 
-      eventBus.emit('project-synced')
+      await this.emit('project-synced', null, { synchronous: true })
     } catch (err) {
       this.ui?.showToast(i18next.t('failed_to_sync_project', { error: err.message }), 'error')
     }

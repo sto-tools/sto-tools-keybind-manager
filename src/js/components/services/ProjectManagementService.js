@@ -28,6 +28,7 @@ export default class ProjectManagementService extends ComponentBase {
     // Only setup event handlers if eventBus is available
     if (this.eventBus) {
       this.setupEventHandlers()
+      this.setupRequestHandlers()
     }
   }
 
@@ -43,6 +44,14 @@ export default class ProjectManagementService extends ComponentBase {
     
     this.eventBus.on('project:open', () => {
       this.restoreApplicationState()
+    })
+  }
+
+  setupRequestHandlers() {
+    // Expose a unified restore endpoint for other services (e.g., SyncService)
+    this.respond('project:restore-from-content', async ({ content, fileName } = {}) => {
+      console.log('[ProjectManagementService] request project:restore-from-content', { fileName, size: content?.length })
+      return await this.restoreFromProjectContent(content, fileName)
     })
   }
 
@@ -114,46 +123,9 @@ export default class ProjectManagementService extends ComponentBase {
             }
 
             const text = await file.text()
-            const projectData = JSON.parse(text)
-
-            // Validate project.json format (same as sync folder)
-            if (!projectData || projectData.type !== 'project' || !projectData.data) {
-              throw new Error('Invalid project file format. Expected project.json from backup or sync folder.')
-            }
-
-            // Import the data using ImportService
-            const result = await this.request('import:project-file', { content: text })
-            
-            if (result.success) {
-              // Force DataCoordinator to reload its state from storage
-              await this.request('data:reload-state')
-              
-              // If there's a currentProfile in the imported data, switch to it
-              if (projectData.data.currentProfile) {
-                try {
-                  await this.request('data:switch-profile', { 
-                    profileId: projectData.data.currentProfile 
-                  })
-                } catch (error) {
-                  console.warn('Could not switch to imported current profile:', error.message)
-                }
-              }
-              
-              this.ui?.showToast(
-                this.i18n?.t?.('backup_restored_successfully') || 'Application state restored successfully',
-                'success'
-              )
-              
-              this.emit('project-backup-restored', { 
-                filename: file.name, 
-                data: projectData,
-                imported: result.imported 
-              })
-              
-              resolve({ success: true, data: projectData, imported: result.imported })
-            } else {
-              throw new Error(result.error || 'Import failed')
-            }
+            console.log('[ProjectManagementService] restoreApplicationState: file selected', { name: file.name, size: text.length })
+            const outcome = await this.restoreFromProjectContent(text, file.name)
+            resolve(outcome)
           } catch (error) {
             console.error('[ProjectManagementService] restoreApplicationState failed:', error)
             this.ui?.showToast(
@@ -177,202 +149,73 @@ export default class ProjectManagementService extends ComponentBase {
     }
   }
 
-  // High-level helpers
-  async exportProject() {
+  // Unified restore helper – used by both UI file-chooser and SyncService
+  async restoreFromProjectContent(text, fileName = 'project.json') {
     try {
-      const data = this.storage.exportData()
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: 'application/json',
-      })
+      console.log('[ProjectManagementService] restoreFromProjectContent: begin', { fileName, size: text?.length })
+      const projectData = JSON.parse(text)
 
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `sto-keybinds-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      this.emit('project-exported', { data })
-      return { success: true, data }
-    } catch (error) {
-      console.error('[ProjectManagementService] exportProject failed', error)
-      this.emit('project-export-failed', { error })
-      return { success: false, error: error.message }
-    }
-  }
-
-  async importProject(file) {
-    try {
-      const text = await file.text()
-      const data = JSON.parse(text)
-
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid project file format')
+      // Validate project.json format (same as sync folder)
+      if (!projectData || projectData.type !== 'project' || !projectData.data) {
+        console.warn('[ProjectManagementService] restoreFromProjectContent: invalid format')
+        throw new Error('Invalid project file format. Expected project.json from backup or sync folder.')
       }
 
-      const result = this.storage.importData(text)
-      if (!result) {
-        throw new Error('Failed to import project data')
+      // Import via ImportService
+      const result = await this.request('import:project-file', { content: text })
+      console.log('[ProjectManagementService] import:project-file result', result)
+      if (!result?.success) {
+        throw new Error(result?.error || 'Import failed')
       }
 
-      this.emit('project-imported', { data })
-      return { success: true, data }
-    } catch (error) {
-      console.error('[ProjectManagementService] importProject failed', error)
-      this.emit('project-import-failed', { error })
-      return { success: false, error: error.message }
-    }
-  }
+      // Force DataCoordinator to reload its state from storage
+      try {
+        const reload = await this.request('data:reload-state')
+        console.log('[ProjectManagementService] data:reload-state done', reload)
+      } catch (_) {}
 
-  async loadProjectFromFile() {
-    try {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.accept = '.json'
-
-      return await new Promise((resolve) => {
-        input.onchange = async (event) => {
-          const file = event.target.files[0]
-          if (!file) {
-            resolve({ success: false, error: 'No file selected' })
-            return
-          }
-          const result = await this.importProject(file)
-          resolve(result)
-        }
-
-        input.oncancel = () => {
-          resolve({ success: false, error: 'File selection cancelled' })
-        }
-
-        input.click()
-      })
-    } catch (error) {
-      console.error('[ProjectManagementService] loadProjectFromFile failed', error)
-      return { success: false, error: error.message }
-    }
-  }
-
-  async saveProjectToFile() {
-    try {
-      return await this.exportProject()
-    } catch (error) {
-      console.error('[ProjectManagementService] saveProjectToFile failed', error)
-      return { success: false, error: error.message }
-    }
-  }
-
-  validateProjectData(data) {
-    try {
-      if (!data || typeof data !== 'object') {
-        return { valid: false, error: 'Invalid data format' }
-      }
-      if (!data.profiles || typeof data.profiles !== 'object') {
-        return { valid: false, error: 'Missing profiles data' }
-      }
-      if (!data.currentProfile) {
-        return { valid: false, error: 'Missing current profile' }
-      }
-      for (const [profileId, profile] of Object.entries(data.profiles)) {
-        if (!profile || typeof profile !== 'object') {
-          return { valid: false, error: `Invalid profile structure for ${profileId}` }
-        }
-        if (!profile.name || typeof profile.name !== 'string') {
-          return { valid: false, error: `Missing profile name for ${profileId}` }
-        }
-      }
-      return { valid: true }
-    } catch (error) {
-      return { valid: false, error: error.message }
-    }
-  }
-
-  // UI-centric helpers – depend on injected `app`, `ui`, `i18n`
-  openProject() {
-    const input = document.getElementById('fileInput') || document.createElement('input')
-    if (!input.id) input.id = 'fileInput'
-    input.type = 'file'
-    input.accept = '.json'
-
-    input.onchange = (e) => {
-      const file = e.target.files[0]
-      if (!file) return
-
-      const reader = new FileReader()
-      reader.onload = async (ev) => {
+      // If there's a currentProfile in the imported data, switch to it
+      if (projectData.data.currentProfile) {
         try {
-          const success = await this.request('export:import-from-file', { file: ev.target.result })
-          if (success) {
-            this.app?.loadData?.()
-            this.app?.renderProfiles?.()
-            // Use event-driven approach instead of direct method calls
-            this.emit('key:list-changed')
-            // Command chain rendering is now handled by CommandChainUI via events
-            this.ui?.showToast(this.i18n?.t('project_loaded_successfully') ?? 'Project loaded', 'success')
-          } else {
-            this.ui?.showToast(this.i18n?.t('failed_to_load_project_file') ?? 'Failed to load project', 'error')
-          }
-        } catch (err) {
-          this.ui?.showToast(this.i18n?.t('invalid_project_file') ?? 'Invalid project file', 'error')
+          const sw = await this.request('data:switch-profile', { 
+            profileId: projectData.data.currentProfile 
+          })
+          console.log('[ProjectManagementService] data:switch-profile done', sw)
+        } catch (error) {
+          console.warn('Could not switch to imported current profile:', error?.message)
         }
       }
-      reader.readAsText(file)
-    }
-
-    input.click()
-  }
-
-  saveProject() {
-    const data = this.storage.exportData()
-    const json = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'sto_keybinds.json'
-    a.click()
-    URL.revokeObjectURL(url)
-
-    this.ui?.showToast(this.i18n?.t('project_exported_successfully') ?? 'Project exported', 'success')
-
-    this.emit('project-saved')
-  }
-
-  async exportKeybinds() {
-    const profile = this.app?.getCurrentProfile?.()
-    if (!profile) return
-
-    const env = this.app?.currentEnvironment || 'space'
-
-    try {
-      const content = await this.request('export:generate-keybind-file', {
-        profileId: profile.id,
-        environment: env,
-        syncMode: false
-      })
-
-      const blob = new Blob([content], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-
-      const safeName = profile.name.replace(/[^a-zA-Z0-9]/g, '_')
-      a.download = `${safeName}_${env}_keybinds.txt`
-      a.click()
-      URL.revokeObjectURL(url)
 
       this.ui?.showToast(
-        this.i18n?.t('keybinds_exported_successfully', { environment: env }) ?? 'Keybinds exported',
-        'success',
+        this.i18n?.t?.('backup_restored_successfully') || 'Application state restored successfully',
+        'success'
       )
+
+      await this.emit('project-backup-restored', { 
+        filename: fileName, 
+        data: projectData,
+        imported: result.imported 
+      }, { synchronous: true })
+      console.log('[ProjectManagementService] restoreFromProjectContent: success')
+
+      return { success: true, data: projectData, imported: result.imported }
     } catch (error) {
-      console.error('[ProjectManagementService] Failed to export keybinds:', error)
-      this.ui?.showToast(
-        this.i18n?.t('export_failed') ?? 'Export failed',
-        'error',
-      )
+      console.error('[ProjectManagementService] restoreFromProjectContent: failed', error)
+      return { success: false, error: error.message }
     }
   }
+
+  // High-level helpers (trimmed to backup/restore only)
+
+  
+
+  
+
+  
+
+  
+
+  // Legacy openProject() removed in favor of restoreApplicationState()
+
+  
 } 

@@ -23,7 +23,6 @@ import AliasService from './components/services/AliasService.js'
 import AnalyticsService from './components/services/AnalyticsService.js'
 import FileOperationsService from './components/services/FileOperationsService.js'
 import ExportService from './components/services/ExportService.js'
-import ExportUI from './components/ui/ExportUI.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
 import SelectionService from './components/services/SelectionService.js'
@@ -236,12 +235,6 @@ export default class STOToolsKeybindManager {
       })
 
       this.exportService.init()
-
-      this.exportUI = new ExportUI({
-        eventBus,
-      })
-
-      this.exportUI.init()
 
       this.keyCaptureService = new KeyCaptureService({ eventBus })
       this.keyCaptureService.init()
