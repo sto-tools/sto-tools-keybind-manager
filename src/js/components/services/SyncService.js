@@ -23,6 +23,9 @@ export default class SyncService extends ComponentBase {
     this.deferredImportContent = null
     console.log('[SyncService] constructed')
 
+    // Indirection for request calls (simplifies testing)
+    this.invokeRequest = this.request.bind(this)
+
     // Ensure FileSystemService instance
     if (!this.fs) this.fs = new FileSystemService({ eventBus })
 
@@ -43,20 +46,33 @@ export default class SyncService extends ComponentBase {
           console.log('[SyncService] applying pending action', { action })
           if (action === 'import') {
             try {
-              const fileHandle = await handle.getFileHandle('project.json', { create: false })
-              const file = await fileHandle.getFile()
-              const content = await file.text()
+              // Prefer deferred content from selection-time prompt
+              let content, fileName
+              if (this.deferredImportContent && this.deferredImportContent.content) {
+                content = this.deferredImportContent.content
+                fileName = this.deferredImportContent.fileName || 'project.json'
+              } else {
+                const fileHandle = await handle.getFileHandle('project.json', { create: false })
+                const file = await fileHandle.getFile()
+                content = await file.text()
+                fileName = 'project.json'
+              }
               // Try immediate restore; if handler not ready, defer to app-ready
               try {
-                const result = await this.request('project:restore-from-content', { content, fileName: 'project.json' })
+                console.log('[SyncService] invoking project:restore-from-content', { size: content?.length })
+                const result = await this.invokeRequest('project:restore-from-content', { content, fileName })
                 console.log('[SyncService] project:restore-from-content result', result)
                 if (!result?.success) {
                   const errMsg = result?.error || 'Unknown error'
                   this.ui?.showToast(i18next.t('failed_to_import_project', { error: errMsg }) || `Failed to import project: ${errMsg}`, 'error')
+                } else {
+                  // Clear any stashed content now that import succeeded
+                  this.deferredImportContent = null
+                  this.ui?.showToast(i18next.t('project_imported_from_sync_folder') || 'Application state imported from sync folder', 'success')
                 }
               } catch (e) {
                 // Handler may not be ready yet – defer until app is ready
-                this.deferredImportContent = { content, fileName: 'project.json' }
+                this.deferredImportContent = { content, fileName }
                 console.log('[SyncService] deferring import until sto-app-ready')
               }
             } catch (e) {
@@ -64,7 +80,7 @@ export default class SyncService extends ComponentBase {
             }
           } else if (action === 'overwrite') {
             try {
-              await this.request('export:sync-to-folder', { dirHandle: handle })
+              await this.invokeRequest('export:sync-to-folder', { dirHandle: handle })
               console.log('[SyncService] overwrite: export:sync-to-folder completed')
               this.ui?.showToast(i18next.t('project_synced_successfully'), 'success')
             } catch (e) {
@@ -100,7 +116,7 @@ export default class SyncService extends ComponentBase {
         const { content, fileName } = this.deferredImportContent
         this.deferredImportContent = null
         try {
-          const result = await this.request('project:restore-from-content', { content, fileName })
+          const result = await this.invokeRequest('project:restore-from-content', { content, fileName })
           console.log('[SyncService] deferred project:restore-from-content result', result)
           if (!result?.success) {
             const errMsg = result?.error || 'Unknown error'
@@ -223,6 +239,8 @@ export default class SyncService extends ComponentBase {
             if (doImport) {
               pending = 'import'
               console.log('[SyncService] setSyncFolder: user chose IMPORT')
+              // Stash content to avoid re-reading on save
+              this.deferredImportContent = { content, fileName: 'project.json' }
             } else {
               const overwriteTitle = i18next.t('sync_overwrite_existing_title') || 'Overwrite Sync Data?'
               const overwriteMsg = i18next.t('sync_overwrite_existing_prompt') || 'Import declined. Overwrite the sync folder with current application state?'
@@ -250,7 +268,9 @@ export default class SyncService extends ComponentBase {
         this.storage.saveSettings(settings)
         console.log('[SyncService] setSyncFolder: settings saved')
       }
-      this.ui?.showToast(i18next.t('sync_folder_set'), 'success')
+      if (!this.pendingSyncAction) {
+        this.ui?.showToast(i18next.t('sync_folder_set'), 'success')
+      }
       await this.emit('sync:folder-set', { handle }, { synchronous: true })
       return handle
     } catch (err) {
@@ -314,7 +334,7 @@ export default class SyncService extends ComponentBase {
     try {
       // Proceed with sync without interactive prompts
       // Use request/response system instead of global window.stoExport
-      await this.request('export:sync-to-folder', { dirHandle: handle })
+      await this.invokeRequest('export:sync-to-folder', { dirHandle: handle })
       console.log('[SyncService] export:sync-to-folder completed')
 
       // Determine when to show success toast:

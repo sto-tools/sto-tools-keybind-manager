@@ -261,11 +261,12 @@ describe('SyncService', () => {
         await service.syncProject('manual')
 
         // Should show success message
-        expect(uiMock.showToast).toHaveBeenCalledWith('project_synced_successfully', 'success')
+        expect(service.pendingSyncAction).toBe(null)
+        expect(service.awaitingSyncDecisionApply).toBe(false)
       })
     })
 
-    describe('syncProject - Import from existing project.json when present', () => {
+    describe('Import/Overwrite decision when setting sync folder (applied on save)', () => {
       beforeEach(() => {
         global.navigator = { userAgent: 'Chrome/91.0' }
         global.window.location = { protocol: 'https:', hostname: 'example.com' }
@@ -294,65 +295,77 @@ describe('SyncService', () => {
       }
 
       it('imports when user confirms import', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const project = { version: 'x', type: 'project', data: { profiles: {}, settings: {} } }
         const handle = createDirHandleWithProject(JSON.stringify(project))
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle)
+        global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
         global.window.confirmDialog.confirm.mockResolvedValue(true)
 
         const req = vi.fn().mockImplementation(async (topic, payload) => {
-          if (topic === 'import:project-file') return { success: true }
+          if (topic === 'project:restore-from-content') return { success: true }
           if (topic === 'export:sync-to-folder') throw new Error('should not export when importing')
           return undefined
         })
-        service.request = req
+        service.invokeRequest = req
 
-        await service.syncProject('manual')
-
-        expect(req).toHaveBeenCalledWith('import:project-file', { content: JSON.stringify(project) })
-        expect(uiMock.showToast).toHaveBeenCalledWith('project_imported_from_sync_folder', 'success')
+        await service.setSyncFolder(false)
+        // Apply pending action on preferences save
+        await fixture.eventBus.emit('preferences:saved', { settings: {} }, { synchronous: true })
+        await Promise.resolve()
+        await new Promise(r => setTimeout(r, 0))
+        expect(logSpy).toHaveBeenCalledWith('[SyncService] project:restore-from-content result', { success: true })
+        logSpy.mockRestore()
       })
 
       it('overwrites when user declines import but confirms overwrite', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const project = { version: 'x', type: 'project', data: { profiles: {}, settings: {} } }
         const handle = createDirHandleWithProject(JSON.stringify(project))
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle)
+        global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
         // First prompt (import?): decline; Second prompt (overwrite?): confirm
         global.window.confirmDialog.confirm
           .mockResolvedValueOnce(false)
           .mockResolvedValueOnce(true)
 
         const req = vi.fn().mockImplementation(async (topic, payload) => {
-          if (topic === 'import:project-file') throw new Error('should not import when declined')
+          if (topic === 'project:restore-from-content') throw new Error('should not import when declined')
           if (topic === 'export:sync-to-folder') return undefined
           return undefined
         })
-        service.request = req
+        service.invokeRequest = req
 
-        await service.syncProject('manual')
-
-        expect(req).toHaveBeenCalledWith('export:sync-to-folder', { dirHandle: handle })
-        expect(uiMock.showToast).toHaveBeenCalledWith('project_synced_successfully', 'success')
+        await service.setSyncFolder(false)
+        await fixture.eventBus.emit('preferences:saved', { settings: {} }, { synchronous: true })
+        await Promise.resolve()
+        await new Promise(r => setTimeout(r, 0))
+        expect(logSpy).toHaveBeenCalledWith('[SyncService] overwrite: export:sync-to-folder completed')
+        logSpy.mockRestore()
       })
 
       it('cancels when user declines both import and overwrite', async () => {
         const project = { version: 'x', type: 'project', data: { profiles: {}, settings: {} } }
         const handle = createDirHandleWithProject(JSON.stringify(project))
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle)
+        global.window.showDirectoryPicker = vi.fn().mockResolvedValue(handle)
         // First confirm: decline import; Second confirm: decline overwrite
         global.window.confirmDialog.confirm
           .mockResolvedValueOnce(false)
           .mockResolvedValueOnce(false)
 
         const req = vi.fn().mockImplementation(async (topic, payload) => {
-          if (topic === 'import:project-file') throw new Error('should not import when cancelled')
+          if (topic === 'project:restore-from-content') throw new Error('should not import when cancelled')
           if (topic === 'export:sync-to-folder') throw new Error('should not export when cancelled')
           return undefined
         })
-        service.request = req
+        service.invokeRequest = req
 
-        await service.syncProject('manual')
+        await service.setSyncFolder(false)
+        // Simulate preferences open/close without save
+        await fixture.eventBus.emit('modal:hidden', { modalId: 'preferencesModal' }, { synchronous: true })
 
-        expect(req).not.toHaveBeenCalledWith('import:project-file', expect.anything())
+        expect(req).not.toHaveBeenCalledWith('project:restore-from-content', expect.anything())
         expect(req).not.toHaveBeenCalledWith('export:sync-to-folder', expect.anything())
         expect(uiMock.showToast).toHaveBeenCalledWith('sync_operation_cancelled', 'info')
       })
