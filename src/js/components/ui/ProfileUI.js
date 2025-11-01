@@ -352,7 +352,7 @@ export default class ProfileUI extends ComponentBase {
      if (!state) return
 
      // ComponentBase handles caching, we just need to update the UI
-     if ((sender === 'DataCoordinator' || sender === 'ProfileService')) {
+     if (sender === 'DataCoordinator') {
        // UI hydration
        this.renderProfiles()
        this.updateProfileInfo()

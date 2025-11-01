@@ -164,7 +164,7 @@ const settings = storageService.getSettings()
   Object.assign(window, {
     storageService, // Required by some legacy components and tests
     dataService,    // Required by app initialization
-    dataCoordinator, // Required by ProfileService and other services
+    dataCoordinator, // Required by other services
     stoKeybinds,    // Required by app initialization callback
     // stoExport removed - now managed by app.js
     stoUI,          // Required by many components for toast notifications
