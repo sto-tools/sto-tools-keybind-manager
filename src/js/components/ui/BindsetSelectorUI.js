@@ -73,14 +73,14 @@ export default class BindsetSelectorUI extends ComponentBase {
 
     // DOM Event Listeners using EventBus onDom facility
     // Button events - use element selectors with EventBus delegation
-    this.eventBus.onDom('bindsetSelectorBtn', 'click', 'bindset-toggle', (e) => {
+    this.onDom('bindsetSelectorBtn', 'click', 'bindset-toggle', (e) => {
       e.preventDefault()
       e.stopPropagation()
       this.toggleDropdown()
     })
 
     // Bindset selection events - use delegation on the dropdown menu
-    this.eventBus.onDom('#bindsetOptionsMenu', 'click', 'bindset-option-selected', (e) => {
+    this.onDom('#bindsetOptionsMenu', 'click', 'bindset-option-selected', (e) => {
       const option = e.target.closest('.bindset-option')
       if (option && !e.target.closest('.toolbar-group')) {
         // Don't allow selection of greyed-out bindsets (where key doesn't exist)
@@ -94,7 +94,7 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
 
     // Add key buttons - handle click events on add-key-btn class
-    this.eventBus.onDom('#bindsetOptionsMenu', 'click', 'bindset-add-key', (e) => {
+    this.onDom('#bindsetOptionsMenu', 'click', 'bindset-add-key', (e) => {
       const addBtn = e.target.closest('.add-key-btn')
       if (addBtn && !addBtn.disabled) {
         e.preventDefault()
@@ -105,7 +105,7 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
 
     // Remove key buttons - handle click events on remove-key-btn class
-    this.eventBus.onDom('#bindsetOptionsMenu', 'click', 'bindset-remove-key', (e) => {
+    this.onDom('#bindsetOptionsMenu', 'click', 'bindset-remove-key', (e) => {
       const removeBtn = e.target.closest('.remove-key-btn')
       if (removeBtn && !removeBtn.disabled) {
         e.preventDefault()
@@ -116,7 +116,7 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
 
     // Manage bindsets link - use element selector
-    this.eventBus.onDom('manageBindsetsLink', 'click', 'bindset-manage', (e) => {
+    this.onDom('manageBindsetsLink', 'click', 'bindset-manage', (e) => {
       e.preventDefault()
       e.stopPropagation()
       this.openBindsetManager()
@@ -124,14 +124,14 @@ export default class BindsetSelectorUI extends ComponentBase {
     })
 
     // Document events - use document with proper cleanup and unique bus events
-    this.eventBus.onDom(this.document, 'click', 'bindset-outside-click', (e) => {
+    this.onDom(this.document, 'click', 'bindset-outside-click', (e) => {
       // Close if click is outside both the container and the dropdown menu
       if (!e.target.closest(`#${this.containerId}`) && !e.target.closest('#bindsetOptionsMenu')) {
         this.close()
       }
     })
 
-    this.eventBus.onDom(this.document, 'keydown', 'bindset-escape', (e) => {
+    this.onDom(this.document, 'keydown', 'bindset-escape', (e) => {
       if (e.key === 'Escape' && this.isOpen) {
         this.close()
       }

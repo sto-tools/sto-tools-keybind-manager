@@ -29,12 +29,12 @@ export default class BindsetManagerUI extends ComponentBase {
     this.listenersSetup = true
 
     // Open modal
-    this.eventBus.onDom('bindsetManagerBtn', 'click', 'bindset-manager-open', () => {
+    this.onDom('bindsetManagerBtn', 'click', 'bindset-manager-open', () => {
       this.render()
       this.emit('modal:show', { modalId: 'bindsetManagerModal' })
     })
 
-    this.eventBus.onDom('createBindsetBtn', 'click', 'bindset-create', async () => {
+    this.onDom('createBindsetBtn', 'click', 'bindset-create', async () => {
       if (!this.inputDialog) return
       
       const title = i18next.t('create_bindset') || 'Create Bindset'
@@ -56,7 +56,7 @@ export default class BindsetManagerUI extends ComponentBase {
       if (!res?.success) this.showError(res.error)
     })
 
-    this.eventBus.onDom('renameBindsetBtn', 'click', 'bindset-rename', async () => {
+    this.onDom('renameBindsetBtn', 'click', 'bindset-rename', async () => {
       if (!this.selectedBindset || !this.inputDialog) return
       
       const title = i18next.t('rename_bindset') || 'Rename Bindset'
@@ -80,7 +80,7 @@ export default class BindsetManagerUI extends ComponentBase {
       if (!res?.success) this.showError(res.error)
     })
 
-    this.eventBus.onDom('deleteBindsetBtn', 'click', 'bindset-delete', async () => {
+    this.onDom('deleteBindsetBtn', 'click', 'bindset-delete', async () => {
       if (!this.selectedBindset || !this.confirmDialog) return
       
       const message = i18next.t('confirm_delete_bindset', { name: this.selectedBindset }) || `Delete bindset "${this.selectedBindset}"?`

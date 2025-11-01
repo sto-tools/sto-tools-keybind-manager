@@ -127,17 +127,17 @@ export default class CommandChainUI extends UIComponentBase {
     })
 
     // Listen for stabilization button click
-    this.eventBus.onDom('stabilizeExecutionOrderBtn', 'click', 'commandchain-stabilize', async () => {
+    this.onDom('stabilizeExecutionOrderBtn', 'click', 'commandchain-stabilize', async () => {
       await this.toggleStabilize()
     })
 
     // Listen for copy alias button click
-    this.eventBus.onDom('copyAliasBtn', 'click', 'commandchain-copy-alias', async () => {
+    this.onDom('copyAliasBtn', 'click', 'commandchain-copy-alias', async () => {
       await this.copyAliasToClipboard()
     })
 
     // Listen for command action button clicks (using delegation)
-    this.eventBus.onDom('#commandList', 'click', 'commandchain-action', (e) => {
+    this.onDom('#commandList', 'click', 'commandchain-action', (e) => {
       const editBtn = e.target.closest('.btn-edit:not(.btn-placeholder)')
       const deleteBtn = e.target.closest('.btn-delete')
       const upBtn = e.target.closest('.btn-up')
@@ -187,7 +187,7 @@ export default class CommandChainUI extends UIComponentBase {
     })
 
     // Listen for double-click on customizable commands
-    this.eventBus.onDom('#commandList', 'dblclick', 'commandchain-edit-customizable', (e) => {
+    this.onDom('#commandList', 'dblclick', 'commandchain-edit-customizable', (e) => {
       const commandItem = e.target.closest('.command-item-row.customizable')
       if (commandItem) {
         const index = parseInt(commandItem.dataset?.index)
@@ -757,7 +757,7 @@ export default class CommandChainUI extends UIComponentBase {
   // Clean up event listeners when component is destroyed
   destroy() {
     // Event cleanup is now handled automatically by ComponentBase
-    // Both this.addEventListener() and this.eventBus.onDom() listeners are cleaned up automatically
+    // Both this.addEventListener() and this.onDom() listeners are cleaned up automatically
     super.destroy()
   }
 

@@ -76,21 +76,21 @@ export default class KeyCaptureUI extends ComponentBase {
     this.eventListenersSetup = true
 
     // Capture mode toggle
-    this.eventBus.onDom('toggleCaptureMode', 'click', 'toggle-capture-mode', () => {
+    this.onDom('toggleCaptureMode', 'click', 'toggle-capture-mode', () => {
       this.toggleCaptureMode()
     })
 
     // Main action buttons
-    this.eventBus.onDom('confirm-key-selection', 'click', 'confirm-key-selection', () => {
+    this.onDom('confirm-key-selection', 'click', 'confirm-key-selection', () => {
       this.confirmSelection()
     })
 
-    this.eventBus.onDom('cancel-key-selection', 'click', 'cancel-key-selection', () => {
+    this.onDom('cancel-key-selection', 'click', 'cancel-key-selection', () => {
       this.cancelSelection()
     })
 
     // Virtual keyboard key clicks (manual mode only)
-    this.eventBus.onDom('.vkey', 'click', 'virtual-key-click', (e) => {
+    this.onDom('.vkey', 'click', 'virtual-key-click', (e) => {
       // Ignore clicks while we are in live capture mode
       if (this.isCapturing) return
 
@@ -105,12 +105,12 @@ export default class KeyCaptureUI extends ComponentBase {
     })
 
     // Keyboard layout selector
-    this.eventBus.onDom('keyboardLayoutSelector', 'change', 'layout-change', (e) => {
+    this.onDom('keyboardLayoutSelector', 'change', 'layout-change', (e) => {
       this.changeKeyboardLayout(e.target.value)
     })
 
     // Location-specific modifier toggle
-    this.eventBus.onDom('distinguishModifierSide', 'change', 'location-specific-toggle', (e) => {
+    this.onDom('distinguishModifierSide', 'change', 'location-specific-toggle', (e) => {
       this.emit('keycapture:set-location-specific', { value: e.target.checked })
       // Update current selection if there is one
       if (this.cache.selectedKey) {

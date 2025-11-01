@@ -74,22 +74,18 @@ export default class InputDialogUI extends ComponentBase {
         resolve(null)
       }
 
-      // Event listeners
-      submitBtn.addEventListener('click', handleSubmit)
-      cancelBtn.addEventListener('click', handleCancel)
-
-      // Input validation on change
-      inputElement.addEventListener('input', () => {
+      // Input validation handler
+      const inputHandler = () => {
         errorDiv.style.display = 'none'
         isValid = true
 
         // Enable/disable submit button based on content
         const hasContent = inputElement.value.trim().length > 0
         submitBtn.disabled = !hasContent
-      })
+      }
 
-      // Handle Enter and Escape keys
-      inputElement.addEventListener('keydown', (e) => {
+      // Keyboard handler
+      const keyHandler = (e) => {
         if (e.key === 'Enter' && !submitBtn.disabled) {
           e.preventDefault()
           handleSubmit()
@@ -97,7 +93,13 @@ export default class InputDialogUI extends ComponentBase {
           e.preventDefault()
           handleCancel()
         }
-      })
+      }
+
+      // Use EventBus for automatic cleanup
+      this.onDom(submitBtn, 'click', 'input-dialog-submit', handleSubmit)
+      this.onDom(cancelBtn, 'click', 'input-dialog-cancel', handleCancel)
+      this.onDom(inputElement, 'input', 'input-dialog-input', inputHandler)
+      this.onDom(inputElement, 'keydown', 'input-dialog-keydown', keyHandler)
 
       // Initial button state
       const hasInitialContent = defaultValue.trim().length > 0
@@ -165,4 +167,5 @@ export default class InputDialogUI extends ComponentBase {
 
     return modal
   }
-}
+
+  }

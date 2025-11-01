@@ -81,14 +81,14 @@ export default class PreferencesUI extends ComponentBase {
 
     // Category navigation buttons
     document.querySelectorAll('.category-item').forEach((item) => {
-      this.eventBus.onDom(item, 'click', 'pref-cat', (e) => {
+      this.onDom(item, 'click', 'pref-cat', (e) => {
         const cat = e.currentTarget.dataset.category
         this.switchCategory(cat)
       })
     })
 
     // Save button
-    this.eventBus.onDom('savePreferencesBtn', 'click', 'pref-save', () => {
+    this.onDom('savePreferencesBtn', 'click', 'pref-save', () => {
       this.saveAllSettings(true)
     })
 
@@ -135,12 +135,12 @@ export default class PreferencesUI extends ComponentBase {
 
       switch (def.type) {
         case 'boolean':
-          this.eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
+          this.onDom(el, 'change', `pref-${key}`, (e) => {
             this.handleSettingChange(key, e.target.checked)
           })
           break
         case 'select':
-          this.eventBus.onDom(el, 'change', `pref-${key}`, (e) => {
+          this.onDom(el, 'change', `pref-${key}`, (e) => {
             this.handleSettingChange(key, e.target.value)
           })
           break

@@ -52,7 +52,7 @@ export default class CommandUI extends ComponentBase {
     this.eventListenersSetup = true
 
     // Clear command chain button
-    this.eventBus.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
+    this.onDom('clearChainBtn', 'click', 'command-chain-clear', () => {
       const selectedKey = this.getSelectedKey()
       if (selectedKey) {
         this.confirmClearChain(selectedKey)
@@ -60,7 +60,7 @@ export default class CommandUI extends ComponentBase {
     })
 
     // Validate command chain button
-    this.eventBus.onDom('validateChainBtn', 'click', 'command-chain-validate', () => {
+    this.onDom('validateChainBtn', 'click', 'command-chain-validate', () => {
       const selectedKey = this.getSelectedKey()
       if (selectedKey) {
         this.validateCurrentChain(selectedKey)
@@ -68,7 +68,7 @@ export default class CommandUI extends ComponentBase {
     })
 
     // Debounced command search input
-    this.eventBus.onDomDebounced(
+    this.onDomDebounced(
       'commandSearch',
       'input',
       'command-search',
@@ -79,7 +79,7 @@ export default class CommandUI extends ComponentBase {
     )
 
     // Command search keydown
-    this.eventBus.onDom('commandSearch', 'keydown', 'command-search-key', (e) => {
+    this.onDom('commandSearch', 'keydown', 'command-search-key', (e) => {
       if (e.key === 'Escape') {
         const input = e.target
         input.value = ''
@@ -93,7 +93,7 @@ export default class CommandUI extends ComponentBase {
     })
 
     // Clear Filter button
-    this.eventBus.onDom('showAllCommandsBtn', 'click', 'command-clear-filter', () => {
+    this.onDom('showAllCommandsBtn', 'click', 'command-clear-filter', () => {
       const inp = this.document.getElementById('commandSearch')
       if (inp) {
         // Clear the input value
@@ -110,17 +110,17 @@ export default class CommandUI extends ComponentBase {
     })
 
     // Command search button - toggle command search functionality
-    this.eventBus.onDom('commandSearchBtn', 'click', 'command-search-toggle', () => {
+    this.onDom('commandSearchBtn', 'click', 'command-search-toggle', () => {
       this.toggleCommandSearch()
     })
 
     // Import from key or alias button - show import from key or alias modal
-    this.eventBus.onDom('importFromKeyOrAliasBtn', 'click', 'import-from-key-or-alias', () => {
+    this.onDom('importFromKeyOrAliasBtn', 'click', 'import-from-key-or-alias', () => {
       this.showImportFromKeyOrAliasModal()
     })
 
     // Confirm import button - perform import from selected source
-    this.eventBus.onDom('confirmImportBtn', 'click', 'confirm-import', () => {
+    this.onDom('confirmImportBtn', 'click', 'confirm-import', () => {
       this.performImport()
     })
 

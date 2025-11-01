@@ -37,29 +37,29 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.eventListenersSetup = true
 
     // Key management DOM events
-    this.eventBus.onDom('addKeyBtn', 'click', 'key-add', () => {
+    this.onDom('addKeyBtn', 'click', 'key-add', () => {
       this.showKeySelectionModal()
     })
 
-    this.eventBus.onDom('deleteKeyBtn', 'click', 'key-delete', () => {
+    this.onDom('deleteKeyBtn', 'click', 'key-delete', () => {
       if (this.cache.selectedKey) {
         this.confirmDeleteKey(this.cache.selectedKey)
       }
     })
 
-    this.eventBus.onDom('duplicateKeyBtn', 'click', 'key-duplicate', () => {
+    this.onDom('duplicateKeyBtn', 'click', 'key-duplicate', () => {
       if (this.cache.selectedKey) {
         this.duplicateKey(this.cache.selectedKey)
       }
     })
 
     // Debounced key search input via eventBus helper
-    this.eventBus.onDomDebounced('keyFilter', 'input', 'key-filter', (e) => {
+    this.onDomDebounced('keyFilter', 'input', 'key-filter', (e) => {
       this.filterKeys(e.target.value)
     }, 250)
 
     // Escape / Enter keys within search input
-    this.eventBus.onDom('keyFilter', 'keydown', 'key-filter-key', (e) => {
+    this.onDom('keyFilter', 'keydown', 'key-filter-key', (e) => {
       if (e.key === 'Escape') {
         e.preventDefault()
         const input = e.target
@@ -74,16 +74,16 @@ export default class KeyBrowserUI extends UIComponentBase {
       }
     })
 
-    this.eventBus.onDom('showAllKeysBtn', 'click', 'show-all-keys', () => {
+    this.onDom('showAllKeysBtn', 'click', 'show-all-keys', () => {
       this.showAllKeys()
     })
 
-    this.eventBus.onDom('toggleKeyViewBtn', 'click', 'toggle-key-view', () => {
+    this.onDom('toggleKeyViewBtn', 'click', 'toggle-key-view', () => {
       this.toggleKeyView()
     })
 
     // Key search button
-    this.eventBus.onDom('keySearchBtn', 'click', 'key-search-toggle', () => {
+    this.onDom('keySearchBtn', 'click', 'key-search-toggle', () => {
       this.toggleKeySearch()
     })
 
@@ -252,7 +252,7 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     el.innerHTML = `<div class="key-label">${formatted}</div>${nonBlank.length>0?`<div class="activity-bar" style="width:${Math.min(nonBlank.length*15,100)}%"></div><div class="command-count-badge">${nonBlank.length}</div>`:''}`
 
-    el.addEventListener('click', () => {
+    this.onDom(el, 'click', 'key-element-click', () => {
       // Fire select request; no need to await
       this.request('key:select', { keyName })
     })
@@ -269,9 +269,11 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     element.innerHTML = `<h4 class="${isCollapsed?'collapsed':''}" data-category="${categoryId}" data-mode="${mode}"><i class="fas fa-chevron-right category-chevron"></i><i class="${categoryData.icon}"></i>${categoryData.name}<span class="key-count">(${categoryData.keys.length})</span></h4><div class="category-commands ${isCollapsed?'collapsed':''}">${categoryData.keys.map((k)=>this.createKeyElement(k).outerHTML).join('')}</div>`
 
-    // Attach header click to collapse/expand
+    // Attach header click to collapse/expand using EventBus
     const header = element.querySelector('h4')
-    header.addEventListener('click', () => this.toggleKeyCategory(categoryId, element, mode))
+    this.onDom(header, 'click', 'category-header-click', () => {
+      this.toggleKeyCategory(categoryId, element, mode)
+    })
 
     // Replace placeholder html strings with actual elements
     const commandsContainer = element.querySelector('.category-commands')
@@ -539,4 +541,5 @@ export default class KeyBrowserUI extends UIComponentBase {
       console.error('[KeyBrowserUI] Initial render failed:', error)
     })
   }
-} 
+
+  } 

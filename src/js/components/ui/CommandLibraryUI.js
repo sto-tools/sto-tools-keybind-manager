@@ -167,44 +167,42 @@ export default class CommandLibraryUI extends ComponentBase {
       </div>
     `
 
-    // Add click handler for category header
+    // Add click handler for category header using EventBus
     const header = element.querySelector ? element.querySelector('h4') : null
-    if (header && header.addEventListener) {
-      header.addEventListener('click', () => {
+    if (header) {
+      this.onDom(header, 'click', 'command-category-header', () => {
         this.toggleCommandCategory(categoryId, element)
       })
     }
 
-    // Add click handlers for commands
-    if (element.addEventListener) {
-      element.addEventListener('click', (e) => {
-        if (e.target.classList.contains('command-item')) {
-          const commandId = e.target.dataset.command
-          const categoryId = e.target.closest('.category').dataset.category
-          
-          // Get the command definition from STO_DATA
-          const commandDef = STO_DATA?.commands?.[categoryId]?.commands?.[commandId]
-          if (!commandDef) return
-          
-          if (commandDef.customizable) {
-            // For customizable commands, pass category/command info
-            console.log('[CommandLibraryUI] emitting command-add [customizable]', { categoryId, commandId, commandDef })
-            this.emit('command-add', { categoryId, commandId, commandDef })
-          } else {
-            // For static commands, pass the fully-hydrated definition
-            const fullyHydratedCommand = {
-              command: commandDef.command,
-              type: categoryId,
-              icon: commandDef.icon,
-              text: commandDef.name,
-              id: `cmd_${Date.now()}_${Math.random().toString(36).substring(2,11)}`,
-            }
-            console.log('[CommandLibraryUI] emitting command-add [static]', { commandDef: fullyHydratedCommand })
-            this.emit('command-add', { commandDef: fullyHydratedCommand })
+    // Add click handlers for commands using EventBus
+    this.onDom(element, 'click', 'command-item-click', (e) => {
+      if (e.target.classList.contains('command-item')) {
+        const commandId = e.target.dataset.command
+        const categoryId = e.target.closest('.category').dataset.category
+
+        // Get the command definition from STO_DATA
+        const commandDef = STO_DATA?.commands?.[categoryId]?.commands?.[commandId]
+        if (!commandDef) return
+
+        if (commandDef.customizable) {
+          // For customizable commands, pass category/command info
+          console.log('[CommandLibraryUI] emitting command-add [customizable]', { categoryId, commandId, commandDef })
+          this.emit('command-add', { categoryId, commandId, commandDef })
+        } else {
+          // For static commands, pass the fully-hydrated definition
+          const fullyHydratedCommand = {
+            command: commandDef.command,
+            type: categoryId,
+            icon: commandDef.icon,
+            text: commandDef.name,
+            id: `cmd_${Date.now()}_${Math.random().toString(36).substring(2,11)}`,
           }
+          console.log('[CommandLibraryUI] emitting command-add [static]', { commandDef: fullyHydratedCommand })
+          this.emit('command-add', { commandDef: fullyHydratedCommand })
         }
-      })
-    }
+      }
+    })
 
     return element
   }
@@ -281,11 +279,11 @@ export default class CommandLibraryUI extends ComponentBase {
         `
 
     const header = element.querySelector('h4')
-    header.addEventListener('click', () => {
+    this.onDom(header, 'click', 'alias-category-header', () => {
       this.toggleAliasCategory(categoryType, element)
     })
 
-    element.addEventListener('click', (e) => {
+    this.onDom(element, 'click', 'alias-item-click', (e) => {
       if (
         e.target.classList.contains('alias-item') ||
         e.target.classList.contains('vertigo-alias-item') ||
@@ -593,4 +591,5 @@ export default class CommandLibraryUI extends ComponentBase {
     }
     return name
   }
-}
+
+  }

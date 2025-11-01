@@ -45,33 +45,33 @@ export default class ProfileUI extends ComponentBase {
     }
     this.eventListenersSetup = true
     
-    // Profile dropdown change
+    // Profile dropdown change using EventBus
     const profileSelect = this.document.getElementById('profileSelect')
     if (profileSelect) {
-      profileSelect.addEventListener('change', (e) => {
+      this.onDom(profileSelect, 'change', 'profile-switch', (e) => {
         this.handleProfileSwitch(e.target.value)
       })
     }
 
     // Profile action buttons
-    this.eventBus.onDom('newProfileBtn', 'click', 'profile-new', () => {
+    this.onDom('newProfileBtn', 'click', 'profile-new', () => {
       this.showNewProfileModal()
     })
 
-    this.eventBus.onDom('cloneProfileBtn', 'click', 'profile-clone', () => {
+    this.onDom('cloneProfileBtn', 'click', 'profile-clone', () => {
       this.showCloneProfileModal()
     })
 
-    this.eventBus.onDom('renameProfileBtn', 'click', 'profile-rename', () => {
+    this.onDom('renameProfileBtn', 'click', 'profile-rename', () => {
       this.showRenameProfileModal()
     })
 
-    this.eventBus.onDom('deleteProfileBtn', 'click', 'profile-delete', () => {
+    this.onDom('deleteProfileBtn', 'click', 'profile-delete', () => {
       this.confirmDeleteProfile()
     })
 
     // Profile modal save button
-    this.eventBus.onDom('saveProfileBtn', 'click', 'profile-save', () => {
+    this.onDom('saveProfileBtn', 'click', 'profile-save', () => {
       this.handleProfileSave()
     })
 
@@ -367,4 +367,5 @@ export default class ProfileUI extends ComponentBase {
        modified: this._isModified
      }
    }
-} 
+
+   } 

@@ -47,19 +47,19 @@ export default class FileExplorerUI extends ComponentBase {
     })
 
     // Open Explorer button (toolbar)
-    this.eventBus.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
+    this.onDom('fileExplorerBtn', 'click', 'fileExplorer-open', () => {
       this.openExplorer()
     })
 
     // Delegate clicks on tree nodes
-    this.eventBus.onDom(this.treeId, 'click', 'fileExplorer-tree-click', (e) => {
+    this.onDom(this.treeId, 'click', 'fileExplorer-tree-click', (e) => {
       const node = e.target.closest('.tree-node')
       if (!node) return
       this.selectNode(node)
     })
 
     // Copy preview content → clipboard
-    this.eventBus.onDom('copyFileContentBtn', 'click', 'fileExplorer-copy-content', () => {
+    this.onDom('copyFileContentBtn', 'click', 'fileExplorer-copy-content', () => {
       const contentEl = this.document.getElementById(this.contentId)
       if (!contentEl) return
       const text = contentEl.textContent || ''
@@ -72,7 +72,7 @@ export default class FileExplorerUI extends ComponentBase {
     })
 
     // Download preview file
-    this.eventBus.onDom('downloadFileBtn', 'click', 'fileExplorer-download', async () => {
+    this.onDom('downloadFileBtn', 'click', 'fileExplorer-download', async () => {
       if (!this.selectedNode) return
       const { type, profileId, environment } = this.selectedNode
       const contentEl = this.document.getElementById(this.contentId)

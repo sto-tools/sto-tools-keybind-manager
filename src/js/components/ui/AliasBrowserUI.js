@@ -77,24 +77,24 @@ export default class AliasBrowserUI extends ComponentBase {
     this.eventListenersSetup = true
 
     // Alias management DOM events
-    this.eventBus.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {
+    this.onDom('addAliasChainBtn', 'click', 'alias-chain-add', () => {
       this.createAliasModal()
     })
 
-    this.eventBus.onDom('deleteAliasChainBtn', 'click', 'alias-chain-delete', () => {
+    this.onDom('deleteAliasChainBtn', 'click', 'alias-chain-delete', () => {
       if (this._selectedAliasName) {
         this.confirmDeleteAlias(this._selectedAliasName)
       }
     })
 
-    this.eventBus.onDom('duplicateAliasChainBtn', 'click', 'alias-chain-duplicate', () => {
+    this.onDom('duplicateAliasChainBtn', 'click', 'alias-chain-duplicate', () => {
       if (this._selectedAliasName) {
         this.duplicateAlias(this._selectedAliasName)
       }
     })
 
     // Alias options dropdown
-    this.eventBus.onDom('aliasOptionsDropdown', 'click', 'alias-options-toggle', (e) => {
+    this.onDom('aliasOptionsDropdown', 'click', 'alias-options-toggle', (e) => {
       e.stopPropagation()
       this.toggleAliasOptionsDropdown()
     })
@@ -102,18 +102,18 @@ export default class AliasBrowserUI extends ComponentBase {
     // Handle checkbox changes in alias options
     const aliasCheckboxes = ['aliasStabilizeOption', 'aliasToggleOption', 'aliasCycleOption']
     aliasCheckboxes.forEach(id => {
-      this.eventBus.onDom(id, 'change', `alias-option-${id}`, () => {
+      this.onDom(id, 'change', `alias-option-${id}`, () => {
         this.updateAliasOptionsLabel()
       })
     })
 
     // Debounced alias search input via eventBus helper
-    this.eventBus.onDomDebounced('aliasFilter', 'input', 'alias-filter', (e) => {
+    this.onDomDebounced('aliasFilter', 'input', 'alias-filter', (e) => {
       this.filterAliases(e.target.value)
     }, 250)
 
     // keydown Escape/Enter
-    this.eventBus.onDom('aliasFilter', 'keydown', 'alias-filter-key', (e) => {
+    this.onDom('aliasFilter', 'keydown', 'alias-filter-key', (e) => {
       if (e.key === 'Escape') {
         const input = e.target
         input.value = ''
@@ -127,13 +127,13 @@ export default class AliasBrowserUI extends ComponentBase {
     })
 
     // show all aliases button
-    this.eventBus.onDom('showAllAliasesBtn', 'click', 'alias-show-all', () => {
+    this.onDom('showAllAliasesBtn', 'click', 'alias-show-all', () => {
       const input = this.document.getElementById('aliasFilter')
       if (input) input.value = ''
       this.filterAliases('')
     })
 
-    this.eventBus.onDom('aliasSearchBtn', 'click', 'alias-search-toggle', () => {
+    this.onDom('aliasSearchBtn', 'click', 'alias-search-toggle', () => {
       this.toggleAliasSearch()
     })
   }
@@ -249,9 +249,9 @@ export default class AliasBrowserUI extends ComponentBase {
     grid.classList.remove('categorized')
     grid.innerHTML = entries.map(([name, alias]) => this.createAliasElement(name, alias)).join('')
 
-    // Use the correct CSS class selector to match what createAliasElement produces
+    // Use EventBus for automatic cleanup
     grid.querySelectorAll('.alias-item').forEach((item) => {
-      item.addEventListener('click', async () => {
+      this.onDom(item, 'click', 'alias-item-click', async () => {
         // Use correct parameter name for SelectionService
         await this.request('alias:select', { aliasName: item.dataset.alias })
         this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
@@ -389,4 +389,5 @@ export default class AliasBrowserUI extends ComponentBase {
       input.blur()
     }
   }
-} 
+
+  } 

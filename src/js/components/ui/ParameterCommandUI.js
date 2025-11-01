@@ -26,7 +26,7 @@ export default class ParameterCommandUI extends ComponentBase {
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
     
     // ComponentBase handles activeBindset caching automatically
-    
+
     this.currentParameterCommand = null
   }
 
@@ -95,12 +95,15 @@ export default class ParameterCommandUI extends ComponentBase {
     this.document.body.appendChild(modal)
 
     // Save / Cancel handlers
-    this.eventBus.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
+    this.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
       this.saveParameterCommand()
     })
 
+    // Use EventBus for automatic cleanup
     modal.querySelectorAll('.modal-close, [data-modal="parameterModal"]').forEach(btn => {
-      btn.addEventListener('click', () => this.cancelParameterCommand())
+      this.onDom(btn, 'click', 'parameter-modal-close', () => {
+        this.cancelParameterCommand()
+      })
     })
   }
 
@@ -488,4 +491,5 @@ export default class ParameterCommandUI extends ComponentBase {
       }
     })
   }
-}
+
+  }
