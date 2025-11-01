@@ -1,13 +1,29 @@
 import ComponentBase from '../ComponentBase.js'
 import i18next from 'i18next'
 
+/**
+ * PreferencesUI - User preferences management component
+ *
+ * This component manages the preferences modal and user settings through a modern
+ * event bus architecture. Settings are loaded and saved via request/response
+ * pattern to the PreferencesService, not through direct DOM manipulation.
+ *
+ * Architecture:
+ * - Settings loading: showPreferences() → preferences:load-settings → preferences:get-settings → updateUI()
+ * - User interactions: handleSettingChange() → updateSetting() → preferences:set-setting
+ * - Save action: saveAllSettings() → preferences:save-settings
+ *
+ * Note: Legacy methods updatePreferencesFromStorage() and setupPreferencesEventListeners()
+ * were removed during refactoring as they were redundant with the event bus approach.
+ */
 export default class PreferencesUI extends ComponentBase {
   constructor({ eventBus, ui = null, document = null } = {}) {
     super(eventBus)
     this.componentName = 'PreferencesUI'
-    
+
     this.ui = ui
-    this.document = document || (typeof window !== 'undefined' ? window.document : null)
+    this.document =
+      document || (typeof window !== 'undefined' ? window.document : null)
 
     this.eventsSetup = false
 
@@ -15,7 +31,10 @@ export default class PreferencesUI extends ComponentBase {
     this.settingDefinitions = {
       theme: { type: 'select', element: 'themeSelect' },
       language: { type: 'select', element: 'languageSelect' },
-      translateGeneratedMessages: { type: 'boolean', element: 'translateGeneratedMessagesCheckbox' },
+      translateGeneratedMessages: {
+        type: 'boolean',
+        element: 'translateGeneratedMessagesCheckbox',
+      },
       autoSave: { type: 'boolean', element: 'autoSaveCheckbox' },
       compactView: { type: 'boolean', element: 'compactViewCheckbox' },
       autoSync: { type: 'boolean', element: 'autoSync' },
@@ -51,8 +70,11 @@ export default class PreferencesUI extends ComponentBase {
     this.eventBus.on('preferences:changed', (data) => {
       // Handle both single-setting changes and bulk changes
       const changes = data.changes || { [data.key]: data.value }
-      
-      if (changes.autoSync !== undefined || changes.autoSyncInterval !== undefined) {
+
+      if (
+        changes.autoSync !== undefined ||
+        changes.autoSyncInterval !== undefined
+      ) {
         this.notifyAutoSyncSettingsChanged()
       }
     })
@@ -80,12 +102,17 @@ export default class PreferencesUI extends ComponentBase {
         if (window.stoSync?.setSyncFolder) {
           try {
             const handle = await window.stoSync.setSyncFolder(true)
-            console.log('[PreferencesUI] setSyncFolder returned', { hasHandle: !!handle, name: handle?.name })
+            console.log('[PreferencesUI] setSyncFolder returned', {
+              hasHandle: !!handle,
+              name: handle?.name,
+            })
             if (handle) {
               // Reload settings (folder name/path updated by stoSync)
               await this.request('preferences:load-settings')
               this.updateFolderDisplay()
-              console.log('[PreferencesUI] settings reloaded after setSyncFolder')
+              console.log(
+                '[PreferencesUI] settings reloaded after setSyncFolder'
+              )
             }
           } catch (err) {
             console.error('[PreferencesUI] setSyncFolder failed', err)
@@ -122,11 +149,15 @@ export default class PreferencesUI extends ComponentBase {
   }
 
   switchCategory(cat) {
-    document.querySelectorAll('.category-item').forEach((i) => i.classList.remove('active'))
+    document
+      .querySelectorAll('.category-item')
+      .forEach((i) => i.classList.remove('active'))
     const active = document.querySelector(`[data-category="${cat}"]`)
     active && active.classList.add('active')
 
-    document.querySelectorAll('.settings-panel').forEach((p) => p.classList.remove('active'))
+    document
+      .querySelectorAll('.settings-panel')
+      .forEach((p) => p.classList.remove('active'))
     const panel = document.getElementById(`${cat}-settings`)
     panel && panel.classList.add('active')
   }
@@ -160,14 +191,17 @@ export default class PreferencesUI extends ComponentBase {
   }
 
   async saveAllSettings(manual = true) {
-    console.log('[PreferencesUI] saveAllSettings called', { manual, pending: { ...this.pendingSettings } })
+    console.log('[PreferencesUI] saveAllSettings called', {
+      manual,
+      pending: { ...this.pendingSettings },
+    })
     // First, apply any pending settings (e.g., bindToAliasMode) in bulk
     if (Object.keys(this.pendingSettings).length > 0) {
       // Get current settings and merge with pending changes
       const currentSettings = await this.request('preferences:get-settings')
       const newSettings = { ...currentSettings, ...this.pendingSettings }
       await this.request('preferences:set-settings', newSettings)
-      
+
       // Clear pending settings now that they have been applied
       this.pendingSettings = {}
       console.log('[PreferencesUI] pending settings applied')
@@ -179,12 +213,16 @@ export default class PreferencesUI extends ComponentBase {
     if (ok && manual && this.ui?.showToast) {
       this.ui.showToast(i18next.t('preferences_saved'), 'success')
     }
-    
+
     // Notify AutoSync of setting changes
     this.notifyAutoSyncSettingsChanged()
-    
+
     // Use event bus instead of direct modalManager call
-    await this.emit('modal:hide', { modalId: 'preferencesModal' }, { synchronous: true })
+    await this.emit(
+      'modal:hide',
+      { modalId: 'preferencesModal' },
+      { synchronous: true }
+    )
   }
 
   async showPreferences() {
@@ -201,20 +239,23 @@ export default class PreferencesUI extends ComponentBase {
   }
 
   async populatePreferencesModal() {
-    // Use request/response to load settings
+    // Load current settings via event bus request/response pattern
+    // Settings are automatically applied to UI elements through the updateUI() method
+    // Event listeners are set up in setupEventListeners() and setupSettingControls()
     await this.request('preferences:load-settings')
-    this.updatePreferencesFromStorage()
-    this.setupPreferencesEventListeners()
   }
 
   async updateFolderDisplay() {
     const settings = await this.request('preferences:get-settings')
     const { syncFolderName, syncFolderPath } = settings
-    console.log('[PreferencesUI] updateFolderDisplay', { syncFolderName, syncFolderPath })
-    
+    console.log('[PreferencesUI] updateFolderDisplay', {
+      syncFolderName,
+      syncFolderPath,
+    })
+
     // Update folder display UI - use correct element ID from HTML
     const folderDisplayEl = this.document.getElementById('currentSyncFolder')
-    
+
     if (folderDisplayEl) {
       if (syncFolderName) {
         folderDisplayEl.textContent = syncFolderName
@@ -242,14 +283,6 @@ export default class PreferencesUI extends ComponentBase {
     // Use request/response instead of direct service call
     const ok = await this.request('preferences:save-settings')
     return ok
-  }
-
-  updatePreferencesFromStorage() {
-    // Implementation needed
-  }
-
-  setupPreferencesEventListeners() {
-    // Implementation needed
   }
 
   toggleSettingsMenu() {
@@ -300,4 +333,4 @@ export default class PreferencesUI extends ComponentBase {
       this.pendingSettings.bindsetsEnabled = false
     }
   }
-} 
+}
