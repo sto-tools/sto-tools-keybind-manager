@@ -1,6 +1,13 @@
 // STOCommandParser.js - Standalone STO Command Parser Library
 // Reusable library for parsing STO keybind commands with function signature validation
 // Dependencies: Only core infrastructure (eventBus, requestResponse)
+//
+// NOTE ON parseInt VALIDATION:
+// The regex patterns in this parser use \d+ to match numeric parameters, which ensures that
+// only valid digit strings reach the parseInt() calls. This means parseInt() will never return NaN
+// for valid regex matches, so additional NaN validation is unnecessary. Invalid inputs with
+// non-numeric parameters (e.g., "+TrayExecByTray abc 1") do not match the tray execution patterns
+// and are handled as "UnknownCommand" fallbacks.
 
 import { respond } from '../core/requestResponse.js'
 
