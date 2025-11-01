@@ -74,9 +74,9 @@ function onDom(target, domEvent, busEvent, handler) {
       handler = busEvent
       busEvent = domEvent
     }
-    // Normalise selector: if string already looks like a CSS selector (starts with '.' or '#') we keep it.
+    // Normalise selector: if string already looks like a CSS selector (starts with '.', '#', '[') we keep it.
     // Otherwise we assume it is an element id and prefix with '#'.
-    const selector = /^[.#]/.test(target) ? target : `#${target}`
+    const selector = /^[.\[#]/.test(target) ? target : `#${target}`
 
     const delegated = (e) => {
       const match = e.target.closest(selector)
