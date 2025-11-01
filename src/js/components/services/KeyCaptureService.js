@@ -212,19 +212,19 @@ export default class KeyCaptureService extends ComponentBase {
 
   handleMouseDown (event) {
     if (!this.isCapturing) return
-    
+
     // Prevent default behavior
     event.preventDefault()
-    
+
     this.mouseState.isDown = true
     this.mouseState.button = event.button
     this.mouseState.startX = event.clientX
     this.mouseState.startY = event.clientY
-    
+
     // Start press timer for press gestures
     this.mouseState.pressTimer = setTimeout(() => {
       if (this.mouseState.isDown) {
-        const gesture = this.getButtonGesture(event.button, 'press')
+        const gesture = this.getButtonGesture(this.mouseState.button, 'press')
         this.captureMouseGesture(gesture)
       }
     }, this.mouseState.pressTimeout)
