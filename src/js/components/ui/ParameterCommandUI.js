@@ -1,4 +1,4 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
 import { STOError } from '../../core/errors.js'
 
@@ -10,7 +10,7 @@ import { STOError } from '../../core/errors.js'
 * 2. Provide a preview of the generated command.
 * 3. Provide a way to save the command.
 */
-export default class ParameterCommandUI extends ComponentBase {
+export default class ParameterCommandUI extends UIComponentBase {
   constructor({
     eventBus,
     modalManager = null,

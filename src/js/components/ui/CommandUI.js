@@ -1,4 +1,4 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * CommandUI – owns the parameter-editing modal and acts as the bridge between
@@ -12,7 +12,7 @@ import ComponentBase from '../ComponentBase.js'
  * 3. For static commands, emit events for CommandService to handle.
  * 4. Cache UI state from broadcast events for immediate access.
  */
-export default class CommandUI extends ComponentBase {
+export default class CommandUI extends UIComponentBase {
   constructor ({ eventBus,
                 ui = null,
                 modalManager = null,
@@ -226,27 +226,7 @@ export default class CommandUI extends ComponentBase {
     }
   }
 
-  // Show toast using request/response
-  async showToast(message, type = 'info') {
-    try {
-      // Use UI service if available, otherwise fallback to direct UI
-      if (this.ui?.showToast) {
-        this.ui.showToast(message, type)
-      } else {
-        await this.request('toast:show', { message, type })
-      }
-    } catch (error) {
-      console.error('CommandUI: Failed to show toast:', error)
-      // Emit a toast event as final fallback with null check for eventBus
-      if (this.eventBus) {
-        this.emit('toast:show', { message, type })
-      } else {
-        // Ultimate fallback: console output if no event system available
-        console.warn(`[CommandUI] Toast message (${type}): ${message}`)
-      }
-    }
-  }
-
+  
   // Confirm clearing the command chain for a key or alias
   async confirmClearChain(key) {
     if (!key) return

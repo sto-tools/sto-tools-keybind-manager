@@ -73,7 +73,7 @@ describe('Bind-to-Alias Mode', () => {
               } else {
                 result = false
               }
-            } else if (actualTopic === 'fileops:generate-mirrored-commands') {
+            } else if (actualTopic === 'command:generate-mirrored-commands') {
               result = null
             } else if (actualTopic === 'command-chain:generate-alias-name') {
               result = 'sto_kb_space_q'
@@ -328,6 +328,9 @@ describe('Bind-to-Alias Mode', () => {
       const mockWriteText = vi.fn().mockResolvedValue()
       globalThis.navigator = { clipboard: { writeText: mockWriteText } }
 
+      // Spy on the showToast method
+      const showToastSpy = vi.spyOn(component, 'showToast')
+
       await component.init()
 
       // Dispatch real click on the button (delegated listener will call copy)
@@ -339,7 +342,7 @@ describe('Bind-to-Alias Mode', () => {
       await new Promise(r => setTimeout(r, 0))
 
       expect(mockWriteText).toHaveBeenCalledWith('space_q "FireAll"')
-      expect(mockUI2.showToast).toHaveBeenCalledWith('Alias copied to clipboard', 'success')
+      expect(showToastSpy).toHaveBeenCalledWith('Alias copied to clipboard', 'success')
     })
   })
 

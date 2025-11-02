@@ -100,18 +100,27 @@ export default class KeyService extends ComponentBase {
   // Core key operations now use DataCoordinator
   async addKey (keyName) {
     if (!await this.isValidKeyName(keyName)) {
-      this.ui?.showToast?.(this.i18n?.t?.('invalid_key_name') || 'Invalid key name', 'error')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('invalid_key_name'),
+        type: 'error'
+      })
       return false
     }
 
     if (!this.cache.currentProfile) {
-      this.ui?.showToast?.(this.i18n?.t?.('no_profile_selected') || 'No active profile', 'error')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('no_profile_selected'),
+        type: 'error'
+      })
       return false
     }
 
     // Check if key already exists in cache
     if (this.cache.keys[keyName]) {
-      this.ui?.showToast?.(this.i18n?.t?.('key_already_exists', { keyName }) || 'Key already exists', 'warning')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('key_already_exists', { keyName }),
+        type: 'warning'
+      })
       return false
     }
 
@@ -135,12 +144,18 @@ export default class KeyService extends ComponentBase {
       this.emit('key-added', { key: keyName })
       
       // Show success toast (legacy behavior from keyHandling.js)
-      this.ui?.showToast?.(this.i18n?.t?.('key_added') || 'Key added', 'success')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('key_added', { keyName }),
+        type: 'success'
+      })
       
       return true
     } catch (error) {
       console.error('[KeyService] Failed to add key:', error)
-      this.ui?.showToast?.(this.i18n?.t?.('failed_to_add_key') || 'Failed to add key', 'error')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('failed_to_add_key'),
+        type: 'error'
+      })
       return false
     }
   }

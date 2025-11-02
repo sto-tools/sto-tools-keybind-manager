@@ -1,10 +1,10 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * HeaderMenuUI - Handles header dropdown menu interactions
  * Manages import, backup, language, and settings menu toggles and interactions
  */
-export default class HeaderMenuUI extends ComponentBase {
+export default class HeaderMenuUI extends UIComponentBase {
   constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'HeaderMenuUI'

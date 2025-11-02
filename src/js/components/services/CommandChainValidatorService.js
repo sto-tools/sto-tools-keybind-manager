@@ -43,7 +43,7 @@ export default class CommandChainValidatorService extends ComponentBase {
       const safeCommands = Array.isArray(commands) ? commands : []
 
       // Generate the exact preview line used in the command-chain editor
-      const previewUnstabilized = await this.request('fileops:generate-command-preview', {
+      const previewUnstabilized = await this.request('command:generate-command-preview', {
         key,
         commands: safeCommands,
         stabilize: false
@@ -55,7 +55,7 @@ export default class CommandChainValidatorService extends ComponentBase {
 
       let length, generatedCommand
       if (stabilized && safeCommands.length > 1) {
-        const previewStabilized = await this.request('fileops:generate-command-preview', {
+        const previewStabilized = await this.request('command:generate-command-preview', {
           key,
           commands: safeCommands,
           stabilize: true
@@ -87,23 +87,6 @@ export default class CommandChainValidatorService extends ComponentBase {
       if (!this._severityCache) this._severityCache = {}
       const prevSeverity = this._severityCache[key]
       this._severityCache[key] = severity
-
-      if (severity === 'success') {
-        if (prevSeverity !== 'success') {
-          const okMsg = await this.getI18nMessage('command_chain_is_valid', { length }) || `Command chain is valid (${length}/999)`
-          await this.showToast(okMsg, 'success')
-        }
-      } else {
-        for (const issue of issues) {
-          let msg
-          if (issue.key) {
-            msg = await this.getI18nMessage(issue.key, issue.params) || issue.defaultMessage || issue.key
-          } else {
-            msg = issue.defaultMessage
-          }
-          await this.showToast(msg, issue.severity)
-        }
-      }
     } catch (error) {
       console.error('[CommandChainValidatorService] validateChain failed:', error)
     } finally {
@@ -123,17 +106,4 @@ export default class CommandChainValidatorService extends ComponentBase {
     }
   }
 
-  // Helper – toast wrapper (mirrors CommandUI implementation)
-  async showToast(message, type = 'info') {
-    try {
-      if (this.ui?.showToast) {
-        this.ui.showToast(message, type)
-      } else {
-        await this.request('toast:show', { message, type })
-      }
-    } catch (err) {
-      // Fallback – swallow to avoid breaking validation flow
-      console.error('[CommandChainValidatorService] showToast failed:', err)
-    }
   }
-}

@@ -1,7 +1,7 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import i18next from 'i18next'
 
-export default class SyncUI extends ComponentBase {
+export default class SyncUI extends UIComponentBase {
   constructor({ eventBus, ui = null } = {}) {
     super(eventBus)
     this.componentName = 'SyncUI'

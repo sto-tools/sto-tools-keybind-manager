@@ -1,11 +1,11 @@
-﻿import ComponentBase from '../ComponentBase.js'
+﻿import UIComponentBase from '../UIComponentBase.js'
 import i18next from 'i18next'
 
 /**
  * CommandLibraryUI - Handles all command library UI operations
  * Manages command chain rendering, library setup, and user interactions
  */
-export default class CommandLibraryUI extends ComponentBase {
+export default class CommandLibraryUI extends UIComponentBase {
   constructor({ service, eventBus, ui, modalManager, document }) {
     super(eventBus)
     this.componentName = 'CommandLibraryUI'

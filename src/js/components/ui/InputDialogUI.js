@@ -1,10 +1,10 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * InputDialogUI – responsible for rendering input dialogs and
  * resolving with the user's input or null if cancelled.
  */
-export default class InputDialogUI extends ComponentBase {
+export default class InputDialogUI extends UIComponentBase {
 
   constructor({ modalManager = null, i18n = null } = {}) {
     super()

@@ -34,12 +34,15 @@ describe('CommandUI', () => {
   })
 
   it('should show warning toast when adding static command without key selected', async () => {
+    // Spy on the showToast method
+    const showToastSpy = vi.spyOn(commandUI, 'showToast')
+
     eventBus.emit('command-add', { commandDef: { command: 'FireAll', name: 'Fire All' } })
 
     // microtask queue flush
     await new Promise(r => setTimeout(r, 0))
 
-    expect(uiStub.showToast).toHaveBeenCalled()
+    expect(showToastSpy).toHaveBeenCalled()
   })
 
   it('should emit command:add event when key is selected', async () => {

@@ -1,4 +1,4 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import { DISPLAY_VERSION } from '../../core/constants.js'
 
 /*
@@ -6,7 +6,7 @@ import { DISPLAY_VERSION } from '../../core/constants.js'
  * Responsible for showing application information, version, credits, etc.
  * Manages about-specific content while leaving generic modal behavior to ModalManagerService
  */
-export default class AboutModalUI extends ComponentBase {
+export default class AboutModalUI extends UIComponentBase {
   constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'AboutModalUI'

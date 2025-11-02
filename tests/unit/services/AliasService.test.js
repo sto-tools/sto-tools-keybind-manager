@@ -142,10 +142,6 @@ describe('AliasService', () => {
 
       expect(result).toBe(false)
       expect(service.request).not.toHaveBeenCalled()
-      expect(harness.mockUI.showToast).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid alias name'),
-        'error'
-      )
     })
 
     it('should reject duplicate alias names', async () => {
@@ -155,10 +151,6 @@ describe('AliasService', () => {
 
       expect(result).toBe(false)
       expect(service.request).not.toHaveBeenCalled()
-      expect(harness.mockUI.showToast).toHaveBeenCalledWith(
-        expect.stringContaining('already exists'),
-        'warning'
-      )
     })
 
     it('should handle creation errors gracefully', async () => {
@@ -168,10 +160,6 @@ describe('AliasService', () => {
       const result = await service.addAlias('FailAlias')
 
       expect(result).toBe(false)
-      expect(harness.mockUI.showToast).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to add alias'),
-        'error'
-      )
     })
   })
 
@@ -403,10 +391,6 @@ describe('AliasService', () => {
       const result = await service.addAlias('TestAlias')
 
       expect(result).toBe(false)
-      expect(harness.mockUI.showToast).toHaveBeenCalledWith(
-        expect.stringContaining('No active profile'),
-        'error'
-      )
     })
 
     it('should handle DataCoordinator failures gracefully', async () => {

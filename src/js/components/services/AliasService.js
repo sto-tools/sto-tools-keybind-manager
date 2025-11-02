@@ -18,9 +18,10 @@ export default class AliasService extends ComponentBase {
     if (this.eventBus) {
       // Register request/response endpoints for alias operations
       this.respond('alias:add', ({ name, description } = {}) => this.addAlias(name, description))
+      this.respond('alias:delete', ({ name } = {}) => this.deleteAlias(name))
       this.respond('alias:duplicate-with-name', ({ sourceName, newName } = {}) => this.duplicateAliasWithName(sourceName, newName))
       this.respond('alias:duplicate', ({ sourceName } = {}) => this.duplicateAlias(sourceName))
-      this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))      
+      this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))
       this.respond('alias:import-file', ({ content } = {}) => this.importAliasFile(content))
     }
   }
@@ -69,9 +70,7 @@ export default class AliasService extends ComponentBase {
       }
     })
 
-    // Listen for alias operations
-    this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
-
+    
   }
 
   // Update local cache from profile data
@@ -97,27 +96,15 @@ export default class AliasService extends ComponentBase {
   // Core alias operations now use DataCoordinator
   async addAlias (name, description = '') {
     if (!await this.isValidAliasName(name)) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('invalid_alias_name'),
-        type: 'error'
-      })
       return false
     }
 
     if (!this.cache.currentProfile) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('no_profile_selected'),
-        type: 'error'
-      })
       return false
     }
 
     // Check if alias already exists in cache
     if (this.cache.aliases[name]) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('alias_already_exists', { name }),
-        type: 'warning'
-      })
       return false
     }
 
@@ -137,20 +124,9 @@ export default class AliasService extends ComponentBase {
       })
 
       this.emit('alias-created', { name })
-      
-      // Show success toast
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('alias_added', { aliasName: name }),
-        type: 'success'
-      })
-      
       return true
     } catch (error) {
       console.error('[AliasService] Failed to add alias:', error)
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('failed_to_add_alias'),
-        type: 'error'
-      })
       return false
     }
   }

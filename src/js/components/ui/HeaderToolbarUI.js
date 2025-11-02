@@ -1,10 +1,10 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * HeaderToolbarUI - Manages toolbar button visibility based on preferences
  * Handles dynamic showing/hiding of toolbar buttons like bindset manager
  */
-export default class HeaderToolbarUI extends ComponentBase {
+export default class HeaderToolbarUI extends UIComponentBase {
   constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'HeaderToolbarUI'

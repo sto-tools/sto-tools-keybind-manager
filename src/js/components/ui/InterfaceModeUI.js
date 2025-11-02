@@ -1,10 +1,10 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * InterfaceModeUI - Handles mode toggle button UI and display updates
  * Owns the space/ground/alias toggle buttons and manages their visual state
  */
-export default class InterfaceModeUI extends ComponentBase {
+export default class InterfaceModeUI extends UIComponentBase {
   constructor({ eventBus: bus, ui = null, profileUI = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(bus)
     this.componentName = 'InterfaceModeUI'

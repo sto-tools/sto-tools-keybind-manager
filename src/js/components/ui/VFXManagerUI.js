@@ -1,6 +1,6 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
-export default class VFXManagerUI extends ComponentBase {
+export default class VFXManagerUI extends UIComponentBase {
   constructor({ eventBus, modalManager } = {}) {
     super(eventBus)
     this.componentName = 'VFXManagerUI'

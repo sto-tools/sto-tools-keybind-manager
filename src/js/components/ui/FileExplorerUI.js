@@ -1,4 +1,4 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import FileSystemService, { KEY_SYNC_FOLDER } from '../services/FileSystemService.js'
 
 /*
@@ -10,7 +10,7 @@ import FileSystemService, { KEY_SYNC_FOLDER } from '../services/FileSystemServic
 * 3. Provide a download button for the selected file.
 */
 
-export default class FileExplorerUI extends ComponentBase {
+export default class FileExplorerUI extends UIComponentBase {
   constructor ({
     eventBus,
     storage,

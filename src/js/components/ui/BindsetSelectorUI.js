@@ -1,11 +1,11 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import i18next from 'i18next'
 
 /*
  * BindsetSelectorUI - Handles the bindset selector UI
  * Manages the bindset selector UI and its interactions
  */
-export default class BindsetSelectorUI extends ComponentBase {
+export default class BindsetSelectorUI extends UIComponentBase {
   constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'BindsetSelectorUI'

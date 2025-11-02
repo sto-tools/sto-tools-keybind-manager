@@ -1,11 +1,11 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import i18next from 'i18next'
 
 /*
  * BindsetManagerUI - Handles the bindset manager modal
  * Manages the bindset manager modal and its interactions
  */
-export default class BindsetManagerUI extends ComponentBase {
+export default class BindsetManagerUI extends UIComponentBase {
   constructor({ eventBus, confirmDialog = null, inputDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'BindsetManagerUI'

@@ -16,7 +16,7 @@ describe('CommandChainValidatorService', () => {
 
     // Default stubs
     respond(eventBus, 'command:get-for-selected-key', () => ['cmd1'])
-    respond(eventBus, 'fileops:generate-command-preview', ({ key, commands }) => createLongPreview(995))
+    respond(eventBus, 'command:generate-command-preview', ({ key, commands }) => createLongPreview(995))
     respond(eventBus, 'toast:show', () => {})
 
     service = new CommandChainValidatorService({ eventBus })

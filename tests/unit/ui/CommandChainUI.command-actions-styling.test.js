@@ -68,7 +68,7 @@ describe('CommandChainUI Command Actions Styling', () => {
     })
 
     // Mock file operations for mirrored commands
-    respond(eventBus, 'fileops:generate-mirrored-commands', ({ commands }) => {
+    respond(eventBus, 'command:generate-mirrored-commands', ({ commands }) => {
       return commands || []
     })
 

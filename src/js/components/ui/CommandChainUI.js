@@ -360,7 +360,7 @@ export default class CommandChainUI extends UIComponentBase {
           const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
           if (stabilized && commands.length > 1) {
             const cmdParts = commands.map(c => (typeof c === 'string' ? { command: c } : c))
-            const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
+            const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: cmdParts })
             if (mirroredStr) {
               previewEl.textContent = `${selectedKeyName} "${mirroredStr}"`
             }
@@ -609,7 +609,7 @@ export default class CommandChainUI extends UIComponentBase {
               const commandStrings = commands.map(cmd => 
                 typeof cmd === 'string' ? cmd : (cmd.command || cmd)
               ).filter(Boolean)
-              const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
+              const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
               if (mirroredStr) {
                 aliasPreview = `alias ${aliasName} <& ${mirroredStr} &>`
               }
@@ -650,7 +650,7 @@ export default class CommandChainUI extends UIComponentBase {
         const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
         const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
         if (stabilized && commandStrings.length > 1) {
-          const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
+          const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
           if (mirroredStr) previewString = mirroredStr
         }
       } catch {}
@@ -907,14 +907,10 @@ export default class CommandChainUI extends UIComponentBase {
     if (aliasPreviewEl && aliasPreviewEl.textContent) {
       try {
         await navigator.clipboard.writeText(aliasPreviewEl.textContent)
-        if (this.ui?.showToast) {
-          this.ui.showToast('Alias copied to clipboard', 'success')
-        }
+        this.showToast('Alias copied to clipboard', 'success')
       } catch (error) {
         console.error('Failed to copy alias to clipboard:', error)
-        if (this.ui?.showToast) {
-          this.ui.showToast('Failed to copy to clipboard', 'error')
-        }
+        this.showToast('Failed to copy to clipboard', 'error')
       }
     }
   }

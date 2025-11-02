@@ -80,7 +80,7 @@ describe('CommandChainUI Environment Switching', () => {
       if (topic === 'command-chain:is-stabilized') {
         return Promise.resolve(true)
       }
-      if (topic === 'fileops:generate-mirrored-commands') {
+      if (topic === 'command:generate-mirrored-commands') {
         return Promise.resolve([])
       }
       return Promise.resolve({})

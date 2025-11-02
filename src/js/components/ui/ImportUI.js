@@ -1,10 +1,10 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * ImportUI – Presents file-open dialogs for the "Import Keybinds / Import Aliases"
  * menu actions and delegates the actual import work to ImportService.
  */
-export default class ImportUI extends ComponentBase {
+export default class ImportUI extends UIComponentBase {
   constructor ({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'ImportUI'

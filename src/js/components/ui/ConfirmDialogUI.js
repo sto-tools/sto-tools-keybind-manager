@@ -1,10 +1,10 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * ConfirmDialogUI – responsible for rendering confirmation dialogs and
  * resolving with the user's choice.
  */
-export default class ConfirmDialogUI extends ComponentBase {
+export default class ConfirmDialogUI extends UIComponentBase {
 
   constructor({ modalManager = null, i18n = null } = {}) {
     super()

@@ -1,10 +1,10 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 
 /**
  * ProfileUI - Handles all profile-related UI operations
  * Manages profile rendering, modals, and user interactions
  */
-export default class ProfileUI extends ComponentBase {
+export default class ProfileUI extends UIComponentBase {
   constructor({ eventBus, ui = null, modalManager = null, confirmDialog = null, document = null, i18n = null } = {}) {
     super(eventBus)
     this.componentName = 'ProfileUI'

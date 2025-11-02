@@ -1,4 +1,4 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import { request } from '../../core/requestResponse.js'
 import i18next from 'i18next'
@@ -16,7 +16,7 @@ function generateSuggestedAlias(original, existingAliases = {}) {
   return suggestion
 }
 
-export default class AliasBrowserUI extends ComponentBase {
+export default class AliasBrowserUI extends UIComponentBase {
   constructor ({ eventBus: bus = eventBus,
                 modalManager = null,
                 confirmDialog = null,
@@ -148,7 +148,13 @@ export default class AliasBrowserUI extends ComponentBase {
     const title = i18next.t('confirm_delete') || 'Confirm Delete'
     
     if (await this.confirmDialog.confirm(message, title, 'danger')) {
-      this.emit('alias:delete', { name: aliasName })
+      // Call alias service directly and show toast based on result
+      const result = await this.request('alias:delete', { name: aliasName })
+      if (result) {
+        this.showToast('Alias deleted successfully', 'success')
+      } else {
+        this.showToast('Failed to delete alias', 'error')
+      }
     }
   }
 
@@ -193,11 +199,32 @@ export default class AliasBrowserUI extends ComponentBase {
     input.removeEventListener('input', inputHandler)
     input.addEventListener('input', inputHandler)
 
-    okBtn.onclick = () => {
+    okBtn.onclick = async () => {
       const target = input.value.trim()
       if (!target || aliases[target]) return // should not happen due to validation
       this.modalManager.hide('aliasDuplicateModal')
-      this.emit('alias:duplicate', { from: aliasName, to: target })
+
+      // Validate target name first to provide better error messages
+      const isValidName = await this.request('alias:validate-name', { name: target })
+      if (!isValidName) {
+        this.showToast('Invalid alias name', 'error')
+        return
+      }
+
+      // Check if current profile exists
+      const currentProfile = await this.request('profile:get-current')
+      if (!currentProfile) {
+        this.showToast('No active profile', 'error')
+        return
+      }
+
+      // Call alias service directly and show toast based on result
+      const result = await this.request('alias:duplicate-with-name', { sourceName: aliasName, newName: target })
+      if (result?.success) {
+        this.showToast('Alias duplicated successfully', 'success')
+      } else {
+        this.showToast('Failed to duplicate alias', 'error')
+      }
     }
 
     // Show modal
@@ -343,11 +370,39 @@ export default class AliasBrowserUI extends ComponentBase {
 
     // Clear any existing onclick handler to prevent stacking
     okBtn.onclick = null
-    okBtn.onclick = () => {
+    okBtn.onclick = async () => {
       const name = input.value.trim()
       if (!name) return
       this.modalManager.hide('aliasCreationModal')
-      this.emit('alias:create', { name })
+
+      // Validate alias name first to provide better error messages
+      const isValidName = await this.request('alias:validate-name', { name })
+      if (!isValidName) {
+        this.showToast('Invalid alias name', 'error')
+        return
+      }
+
+      // Check if current profile exists
+      const currentProfile = await this.request('profile:get-current')
+      if (!currentProfile) {
+        this.showToast('No active profile', 'error')
+        return
+      }
+
+      // Check if alias already exists
+      const existingAliases = await this.request('alias:get-all')
+      if (existingAliases[name]) {
+        this.showToast('Alias already exists', 'warning')
+        return
+      }
+
+      // Call alias service directly and show toast based on result
+      const result = await this.request('alias:add', { name })
+      if (result) {
+        this.showToast('Alias created successfully', 'success')
+      } else {
+        this.showToast('Failed to create alias', 'error')
+      }
     }
 
     this.modalManager.show('aliasCreationModal')

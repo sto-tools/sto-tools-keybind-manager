@@ -1,4 +1,4 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import i18next from 'i18next'
 
 /**
@@ -16,7 +16,7 @@ import i18next from 'i18next'
  * Note: Legacy methods updatePreferencesFromStorage() and setupPreferencesEventListeners()
  * were removed during refactoring as they were redundant with the event bus approach.
  */
-export default class PreferencesUI extends ComponentBase {
+export default class PreferencesUI extends UIComponentBase {
   constructor({ eventBus, ui = null, document = null } = {}) {
     super(eventBus)
     this.componentName = 'PreferencesUI'
@@ -211,7 +211,10 @@ export default class PreferencesUI extends ComponentBase {
     const ok = await this.saveSettings()
     console.log('[PreferencesUI] preferences:save-settings result', { ok })
     if (ok && manual && this.ui?.showToast) {
-      this.ui.showToast(i18next.t('preferences_saved'), 'success')
+      this.emit('toast:show', {
+        message: i18next.t('preferences_saved'),
+        type: 'success'
+      })
     }
 
     // Notify AutoSync of setting changes

@@ -492,9 +492,10 @@ export default class KeyBrowserUI extends UIComponentBase {
         return true
       } catch (error) {
         console.error('Error deleting key:', error)
-        if (this.ui?.showToast) {
-          this.ui.showToast('Failed to delete key', 'error')
-        }
+        this.emit('toast:show', {
+          message: 'Failed to delete key',
+          type: 'error'
+        })
         return false
       }
     }

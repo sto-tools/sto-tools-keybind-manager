@@ -1,4 +1,4 @@
-import ComponentBase from '../ComponentBase.js'
+import UIComponentBase from '../UIComponentBase.js'
 import { 
   getKeyboardLayout, 
   getLayoutName, 
@@ -17,7 +17,7 @@ import { UNSAFE_KEYBINDS } from '../../core/constants.js'
  * - Smart key suggestions
  * - Capture-first workflow with manual fallback
  */
-export default class KeyCaptureUI extends ComponentBase {
+export default class KeyCaptureUI extends UIComponentBase {
 
   constructor ({ eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), ui = null } = {}) {
     super(eventBus)
@@ -484,9 +484,10 @@ export default class KeyCaptureUI extends ComponentBase {
       this.resetState()
     } catch (err) {
       console.error('Failed to confirm key selection:', err)
-      if (this.ui?.showToast) {
-        this.ui.showToast(i18next?.t('key_selection_failed') || 'Failed to select key', 'error')
-      }
+      this.emit('toast:show', {
+        message: i18next?.t('key_selection_failed') || 'Failed to select key',
+        type: 'error'
+      })
     }
   }
 
