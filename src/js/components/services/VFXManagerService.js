@@ -203,7 +203,8 @@ export default class VFXManagerService extends ComponentBase {
 
   // Set all effects for an environment
   selectAllEffects(environment) {
-    if (!VFX_EFFECTS[environment]) {
+    // Explicitly access VFX_EFFECTS from window object for clarity
+    if (!window.VFX_EFFECTS[environment]) {
       throw new Error(`Invalid environment: ${environment}`)
     }
 
@@ -211,7 +212,7 @@ export default class VFXManagerService extends ComponentBase {
       throw new Error(`Invalid environment: ${environment}`)
     }
 
-    VFX_EFFECTS[environment].forEach((effect) => {
+    window.VFX_EFFECTS[environment].forEach((effect) => {
       this.selectedEffects[environment].add(effect.effect)
     })
   }

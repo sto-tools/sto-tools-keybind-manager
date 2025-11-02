@@ -38,7 +38,8 @@ export default class VFXManagerUI extends UIComponentBase {
     const spaceList = document.getElementById('spaceEffectsList')
     if (spaceList) {
       spaceList.innerHTML = ''
-      VFX_EFFECTS.space.forEach((effect) => {
+      // Explicitly access VFX_EFFECTS from window object for clarity
+      window.VFX_EFFECTS.space.forEach((effect) => {
         const effectItem = this.createEffectItem('space', effect)
         spaceList.appendChild(effectItem)
       })
@@ -48,7 +49,8 @@ export default class VFXManagerUI extends UIComponentBase {
     const groundList = document.getElementById('groundEffectsList')
     if (groundList) {
       groundList.innerHTML = ''
-      VFX_EFFECTS.ground.forEach((effect) => {
+      // Explicitly access VFX_EFFECTS from window object for clarity
+      window.VFX_EFFECTS.ground.forEach((effect) => {
         const effectItem = this.createEffectItem('ground', effect)
         groundList.appendChild(effectItem)
       })
