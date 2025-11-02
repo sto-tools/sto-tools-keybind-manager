@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import ExportService from '../../../src/js/components/services/ExportService.js'
 import { createServiceFixture, createProfileDataFixture } from '../../fixtures/index.js'
 import { respond } from '../../../src/js/core/requestResponse.js'
+import * as SyncService from '../../../src/js/components/services/SyncService.js'
 import { vi } from 'vitest'
 
 /**
@@ -215,4 +216,35 @@ describe('ExportService', () => {
       expect(result).toContain('alias sto_kb_bindset_enable_ground_ground_combat')
     })
   })
-}) 
+
+  describe('syncToFolder', () => {
+    it('rethrows write failures without emitting toast events', async () => {
+      const writeError = new Error('sync write failed')
+      const writeSpy = vi.spyOn(SyncService, 'writeFile').mockRejectedValue(writeError)
+      const getAllDataSpy = vi.spyOn(service.storage, 'getAllData').mockReturnValue({
+        profiles: {
+          profile1: {
+            name: 'Profile One',
+            builds: {
+              space: {
+                keys: {
+                  F1: ['FireAll']
+                }
+              }
+            }
+          }
+        }
+      })
+
+      fixture.eventBusFixture.clearEventHistory()
+
+      await expect(service.syncToFolder({})).rejects.toThrow('sync write failed')
+
+      const toastEvents = fixture.eventBusFixture.getEventsOfType('toast:show')
+      expect(toastEvents).toHaveLength(0)
+
+      writeSpy.mockRestore()
+      getAllDataSpy.mockRestore()
+    })
+  })
+})

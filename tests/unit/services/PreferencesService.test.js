@@ -66,4 +66,30 @@ describe('PreferencesService', () => {
     expect(textSpan.getAttribute('data-i18n')).toBe('dark_mode')
     expect(textSpan.textContent).toBe('Dark Mode')
   })
-}) 
+
+  it('toggleTheme updates theme without emitting toast events', () => {
+    fixture.eventBusFixture.clearEventHistory()
+
+    const originalTheme = service.getSetting('theme') || 'default'
+    service.toggleTheme()
+
+    const expectedTheme = originalTheme === 'dark' ? 'default' : 'dark'
+    expect(service.getSetting('theme')).toBe(expectedTheme)
+
+    const toastEvents = fixture.eventBusFixture.getEventsOfType('toast:show')
+    expect(toastEvents).toHaveLength(0)
+  })
+
+  it('changeLanguage emits language:changed without showing toast', async () => {
+    fixture.eventBusFixture.clearEventHistory()
+
+    await service.changeLanguage('de')
+
+    const languageEvents = fixture.eventBusFixture.getEventsOfType('language:changed')
+    expect(languageEvents).toHaveLength(1)
+    expect(languageEvents[0].data).toEqual({ language: 'de' })
+
+    const toastEvents = fixture.eventBusFixture.getEventsOfType('toast:show')
+    expect(toastEvents).toHaveLength(0)
+  })
+})

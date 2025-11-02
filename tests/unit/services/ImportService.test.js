@@ -56,7 +56,7 @@ describe('ImportService', () => {
 
       const result = await service.importProjectFile(invalidProjectContent)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Invalid project file format')
+      expect(result.error).toBe('invalid_project_file')
     })
 
     it('should reject project files with missing data property', async () => {
@@ -67,7 +67,7 @@ describe('ImportService', () => {
 
       const result = await service.importProjectFile(noDataProjectContent)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Invalid project file format')
+      expect(result.error).toBe('invalid_project_file')
     })
 
     it('should reject project files with null data property', async () => {
@@ -78,7 +78,7 @@ describe('ImportService', () => {
 
       const result = await service.importProjectFile(nullDataProjectContent)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Invalid project file format')
+      expect(result.error).toBe('invalid_project_file')
     })
 
     it('should reject project files with undefined data property', async () => {
@@ -89,7 +89,7 @@ describe('ImportService', () => {
 
       const result = await service.importProjectFile(undefinedDataProjectContent)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Invalid project file format')
+      expect(result.error).toBe('invalid_project_file')
     })
 
     it('should accept project files with empty data object', async () => {
@@ -108,7 +108,7 @@ describe('ImportService', () => {
 
       const result = await service.importProjectFile(malformedContent)
       expect(result.success).toBe(false)
-      expect(result.error).toContain('Expected')
+      expect(result.error).toBe('import_failed_invalid_json')
     })
 
     it('should handle case-sensitive type checking correctly', async () => {
@@ -122,7 +122,110 @@ describe('ImportService', () => {
 
       const result = await service.importProjectFile(wrongCaseContent)
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Invalid project file format')
+      expect(result.error).toBe('invalid_project_file')
+    })
+
+    it('should import project files with actual profile data', async () => {
+      const projectWithProfileContent = JSON.stringify({
+        type: 'project',
+        data: {
+          profiles: {
+            'test-profile': {
+              name: 'Test Profile',
+              builds: {
+                space: { keys: { 'k': ['cmd1'] } },
+                ground: { keys: {} }
+              }
+            }
+          },
+          settings: {
+            currentProfile: 'test-profile'
+          }
+        }
+      })
+
+      const result = await service.importProjectFile(projectWithProfileContent)
+      expect(result.success).toBe(true)
+      expect(result.imported.profiles).toBe(1)
+      expect(result.currentProfile).toBe('test-profile')
+    })
+
+    it('should sanitize imported profile data correctly', async () => {
+      // Test with legacy profile format (keys instead of builds)
+      const legacyProfileContent = JSON.stringify({
+        type: 'project',
+        data: {
+          profiles: {
+            'legacy-profile': {
+              name: 'Legacy Profile',
+              // Legacy format - keys at root level instead of builds
+              keys: { 'k': ['legacy_cmd'] },
+              aliases: { 'test_alias': ['test_command'] }
+            }
+          },
+          settings: {}
+        }
+      })
+
+      const result = await service.importProjectFile(legacyProfileContent)
+      expect(result.success).toBe(true)
+      expect(result.imported.profiles).toBe(1)
+
+      // Verify the profile was sanitized to new format
+      const savedProfile = fixture.storage.getProfile('legacy-profile')
+      expect(savedProfile).toBeDefined()
+      expect(savedProfile.builds).toBeDefined()
+      expect(savedProfile.builds.space.keys).toEqual({ 'k': ['legacy_cmd'] })
+      expect(savedProfile.aliases).toEqual({ 'test_alias': ['test_command'] })
+    })
+
+    it('should return currentProfile from imported settings', async () => {
+      const projectWithCurrentProfile = JSON.stringify({
+        type: 'project',
+        data: {
+          profiles: {
+            'test-profile': {
+              name: 'Test Profile',
+              builds: { space: { keys: {} }, ground: { keys: {} } }
+            }
+          },
+          settings: {
+            currentProfile: 'test-profile'
+          }
+        }
+      })
+
+      const result = await service.importProjectFile(projectWithCurrentProfile)
+      expect(result.success).toBe(true)
+      expect(result.currentProfile).toBe('test-profile')
+    })
+
+    it('should handle missing sanitizeProfileData method gracefully', async () => {
+      // Temporarily remove the method to test error handling
+      const originalMethod = service.sanitizeProfileData
+      service.sanitizeProfileData = undefined
+
+      const projectContent = JSON.stringify({
+        type: 'project',
+        data: {
+          profiles: {
+            'test-profile': {
+              name: 'Test Profile',
+              builds: { space: { keys: {} }, ground: { keys: {} } }
+            }
+          },
+          settings: {}
+        }
+      })
+
+      // Should return structured error if sanitizeProfileData is missing
+      const result = await service.importProjectFile(projectContent)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('import_failed_invalid_json')
+      expect(result.params.reason).toContain('sanitizeProfileData is not a function')
+
+      // Restore the method
+      service.sanitizeProfileData = originalMethod
     })
   })
 })

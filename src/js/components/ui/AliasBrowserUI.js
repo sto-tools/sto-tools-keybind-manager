@@ -20,12 +20,14 @@ export default class AliasBrowserUI extends UIComponentBase {
   constructor ({ eventBus: bus = eventBus,
                 modalManager = null,
                 confirmDialog = null,
-                document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+                document = (typeof window !== 'undefined' ? window.document : undefined),
+                i18n = null } = {}) {
     super(bus)
     this.componentName = 'AliasBrowserUI'
     this.modalManager = modalManager
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.document = document
+    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
   }
 
   async onInit () {
@@ -150,10 +152,15 @@ export default class AliasBrowserUI extends UIComponentBase {
     if (await this.confirmDialog.confirm(message, title, 'danger')) {
       // Call alias service directly and show toast based on result
       const result = await this.request('alias:delete', { name: aliasName })
-      if (result) {
-        this.showToast('Alias deleted successfully', 'success')
+
+      if (result?.success) {
+        const successMessage = this._resolveAliasMessage(result?.message, { aliasName }, `Alias "${aliasName}" deleted successfully`)
+        this.showToast(successMessage, 'success')
       } else {
-        this.showToast('Failed to delete alias', 'error')
+        const params = result?.params || { aliasName }
+        const reason = params.reason || 'Unknown error'
+        const errorMessage = this._resolveAliasMessage(result?.error, params, `Failed to delete "${aliasName}": ${reason}`)
+        this.showToast(errorMessage, 'error')
       }
     }
   }
@@ -164,8 +171,14 @@ export default class AliasBrowserUI extends UIComponentBase {
   async duplicateAlias(aliasName) {
     if (!aliasName || !this.modalManager) return
 
-    const aliases = await this.request('alias:get-all')
-    const suggested = generateSuggestedAlias(aliasName, aliases)
+    // Prefer cached aliases (kept updated via ComponentBase). Fallback to service request.
+    let aliasMap = this.cache.aliases
+    if (!aliasMap || Object.keys(aliasMap).length === 0) {
+      const response = await this.request('alias:get-all') || {}
+      aliasMap = response.aliases || response || {}
+      this.cache.aliases = aliasMap
+    }
+    const suggested = generateSuggestedAlias(aliasName, aliasMap)
 
     // Get modal elements
     const modal = this.document.getElementById('aliasDuplicateModal')
@@ -177,7 +190,7 @@ export default class AliasBrowserUI extends UIComponentBase {
 
     const validate = () => {
       const val = (input.value || '').trim()
-      const duplicate = aliases[val]
+      const duplicate = aliasMap[val]
       let errorKey = null
       if (!val) errorKey = 'invalid_alias_name'
       else if (!isAliasNamePatternValid(val)) errorKey = 'invalid_alias_name'
@@ -201,29 +214,26 @@ export default class AliasBrowserUI extends UIComponentBase {
 
     okBtn.onclick = async () => {
       const target = input.value.trim()
-      if (!target || aliases[target]) return // should not happen due to validation
-      this.modalManager.hide('aliasDuplicateModal')
-
-      // Validate target name first to provide better error messages
-      const isValidName = await this.request('alias:validate-name', { name: target })
-      if (!isValidName) {
-        this.showToast('Invalid alias name', 'error')
-        return
-      }
-
-      // Check if current profile exists
-      const currentProfile = await this.request('profile:get-current')
-      if (!currentProfile) {
-        this.showToast('No active profile', 'error')
-        return
-      }
+      if (!target || aliasMap[target]) return // should not happen due to validation
+      this.modalManager?.hide?.('aliasDuplicateModal')
 
       // Call alias service directly and show toast based on result
       const result = await this.request('alias:duplicate-with-name', { sourceName: aliasName, newName: target })
       if (result?.success) {
-        this.showToast('Alias duplicated successfully', 'success')
+        const successMessage = this._resolveAliasMessage(result?.message, { from: aliasName, to: target }, `Alias copied from "${aliasName}" to "${target}"`)
+        this.showToast(successMessage, 'success')
+        // Update local cache optimistically so UI reflects the new alias immediately
+        this.cache.aliases = {
+          ...aliasMap,
+          [target]: JSON.parse(JSON.stringify(aliasMap[aliasName]))
+        }
+        this.render().catch(() => {})
       } else {
-        this.showToast('Failed to duplicate alias', 'error')
+        const params = result?.params || { sourceName: aliasName }
+        const reason = params.reason || 'Unknown error'
+        const fallback = `Failed to duplicate alias "${aliasName}": ${reason}`
+        const errorMessage = this._resolveAliasMessage(result?.error, params, fallback)
+        this.showToast(errorMessage, 'error')
       }
     }
 
@@ -258,7 +268,9 @@ export default class AliasBrowserUI extends UIComponentBase {
     const grid = this.document.getElementById('aliasGrid')
     if (!grid) return
 
-    const aliases = await this.request('alias:get-all')
+    const aliasResponse = await this.request('alias:get-all')
+    const aliases = aliasResponse && aliasResponse.aliases ? aliasResponse.aliases : (aliasResponse || {})
+    this.cache.aliases = aliases
     // Use cached selected alias from event listeners instead of polling
 
     const entries = Object.entries(aliases)
@@ -277,13 +289,32 @@ export default class AliasBrowserUI extends UIComponentBase {
     grid.innerHTML = entries.map(([name, alias]) => this.createAliasElement(name, alias)).join('')
 
     // Use EventBus for automatic cleanup
-    grid.querySelectorAll('.alias-item').forEach((item) => {
-      this.onDom(item, 'click', 'alias-item-click', async () => {
-        // Use correct parameter name for SelectionService
-        await this.request('alias:select', { aliasName: item.dataset.alias })
-        this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
+    if (typeof grid.querySelectorAll === 'function') {
+      grid.querySelectorAll('.alias-item').forEach((item) => {
+        this.onDom(item, 'click', 'alias-item-click', async () => {
+          // Use correct parameter name for SelectionService
+          await this.request('alias:select', { aliasName: item.dataset.alias })
+          this.emit('alias-browser/alias-clicked', { name: item.dataset.alias })
+        })
       })
-    })
+    }
+  }
+
+  _resolveAliasMessage(key, params = {}, fallback) {
+    if (!key) {
+      return fallback
+    }
+
+    const translated = this.i18n?.t?.(key, params)
+    const looksMissing = typeof translated === 'string' && (
+      translated === key || translated.startsWith(`${key}:`)
+    )
+
+    if (!looksMissing && typeof translated === 'string' && translated) {
+      return translated
+    }
+
+    return fallback
   }
 
   createAliasElement (name, alias) {

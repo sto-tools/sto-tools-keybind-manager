@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom'
 import eventBus from '../../../src/js/core/eventBus.js'
 import { generateBindToAliasName } from '../../../src/js/lib/aliasNameValidator.js'
 import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
+import i18next from 'i18next'
 
 describe('Bind-to-Alias Mode', () => {
   let ui, mockDocument, mockEventBus, mockUI
@@ -110,6 +111,8 @@ describe('Bind-to-Alias Mode', () => {
       ui: mockUI,
       document: mockDocument
     })
+
+    vi.spyOn(i18next, 't').mockImplementation((key) => key)
 
     // Initialize the component to set up cache
     await ui.init()
@@ -305,44 +308,100 @@ describe('Bind-to-Alias Mode', () => {
   })
 
   describe('Copy Alias Functionality', () => {
-    it('should copy alias content to clipboard when copy button is clicked', async () => {
-      // Use a real DOM + real EventBus so onDom delegation works
-      const dom = new JSDOM(`
-        <!DOCTYPE html>
-        <html>
-          <body>
-            <button id="copyAliasBtn"></button>
-            <div id="aliasPreview">space_q \"FireAll\"</div>
-          </body>
-        </html>
-      `)
-      const realDoc = dom.window.document
-      // Bind globals so EventBus.onDom attaches to the correct document
-      globalThis.window = dom.window
-      globalThis.document = dom.window.document
+    afterEach(() => {
+      mockDocument.getElementById.mockReset()
+    })
 
-      const mockUI2 = { showToast: vi.fn() }
-      const component = new CommandChainUI({ eventBus, ui: mockUI2, document: realDoc })
+    it('requests clipboard copy via utility channel and shows success toast', async () => {
+      const aliasEl = { textContent: '  space_q "FireAll"  ' }
+      mockDocument.getElementById.mockImplementation((id) => (id === 'aliasPreview' ? aliasEl : null))
 
-      // Mock clipboard API
-      const mockWriteText = vi.fn().mockResolvedValue()
-      globalThis.navigator = { clipboard: { writeText: mockWriteText } }
+      const requestSpy = vi.spyOn(ui, 'request').mockResolvedValue({
+        success: true,
+        message: 'content_copied_to_clipboard'
+      })
+      const toastSpy = vi.spyOn(ui, 'showToast')
 
-      // Spy on the showToast method
-      const showToastSpy = vi.spyOn(component, 'showToast')
+      await ui.copyAliasToClipboard()
 
-      await component.init()
+      expect(requestSpy).toHaveBeenCalledWith('utility:copy-to-clipboard', { text: 'space_q "FireAll"' })
+      expect(toastSpy).toHaveBeenCalledWith('content_copied_to_clipboard', 'success')
+    })
 
-      // Dispatch real click on the button (delegated listener will call copy)
-      const btn = realDoc.getElementById('copyAliasBtn')
-      const clickEvent = new (realDoc.defaultView).MouseEvent('click', { bubbles: true })
-      btn.dispatchEvent(clickEvent)
+    it('shows error toast when clipboard request reports failure', async () => {
+      const aliasEl = { textContent: 'space_q "FireAll"' }
+      mockDocument.getElementById.mockImplementation((id) => (id === 'aliasPreview' ? aliasEl : null))
 
-      // Wait a tick for async handler to complete
-      await new Promise(r => setTimeout(r, 0))
+      vi.spyOn(ui, 'request').mockResolvedValue({
+        success: false,
+        message: 'failed_to_copy_to_clipboard'
+      })
+      const toastSpy = vi.spyOn(ui, 'showToast')
 
-      expect(mockWriteText).toHaveBeenCalledWith('space_q "FireAll"')
-      expect(showToastSpy).toHaveBeenCalledWith('Alias copied to clipboard', 'success')
+      await ui.copyAliasToClipboard()
+
+      expect(toastSpy).toHaveBeenCalledWith('failed_to_copy_to_clipboard', 'error')
+    })
+
+    it('warns when there is no alias content to copy', async () => {
+      const aliasEl = { textContent: '   ' }
+      mockDocument.getElementById.mockImplementation((id) => (id === 'aliasPreview' ? aliasEl : null))
+      const toastSpy = vi.spyOn(ui, 'showToast')
+      const requestSpy = vi.spyOn(ui, 'request')
+
+      await ui.copyAliasToClipboard()
+
+      expect(toastSpy).toHaveBeenCalledWith('nothing_to_copy', 'warning')
+      expect(requestSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Copy Command Preview Functionality', () => {
+    afterEach(() => {
+      mockDocument.getElementById.mockReset()
+    })
+
+    it('copies command preview via utility request and shows success toast', async () => {
+      const previewEl = { textContent: '  F1 "FireAll"  ' }
+      mockDocument.getElementById.mockImplementation((id) => (id === 'commandPreview' ? previewEl : null))
+
+      const requestSpy = vi.spyOn(ui, 'request').mockResolvedValue({
+        success: true,
+        message: 'content_copied_to_clipboard'
+      })
+      const toastSpy = vi.spyOn(ui, 'showToast')
+
+      await ui.copyCommandPreviewToClipboard()
+
+      expect(requestSpy).toHaveBeenCalledWith('utility:copy-to-clipboard', { text: 'F1 "FireAll"' })
+      expect(toastSpy).toHaveBeenCalledWith('content_copied_to_clipboard', 'success')
+    })
+
+    it('shows error toast when copy request fails', async () => {
+      const previewEl = { textContent: 'F1 "FireAll"' }
+      mockDocument.getElementById.mockImplementation((id) => (id === 'commandPreview' ? previewEl : null))
+
+      vi.spyOn(ui, 'request').mockResolvedValue({
+        success: false,
+        message: 'failed_to_copy_to_clipboard'
+      })
+      const toastSpy = vi.spyOn(ui, 'showToast')
+
+      await ui.copyCommandPreviewToClipboard()
+
+      expect(toastSpy).toHaveBeenCalledWith('failed_to_copy_to_clipboard', 'error')
+    })
+
+    it('warns when command preview is empty', async () => {
+      const previewEl = { textContent: '   ' }
+      mockDocument.getElementById.mockImplementation((id) => (id === 'commandPreview' ? previewEl : null))
+      const toastSpy = vi.spyOn(ui, 'showToast')
+      const requestSpy = vi.spyOn(ui, 'request')
+
+      await ui.copyCommandPreviewToClipboard()
+
+      expect(toastSpy).toHaveBeenCalledWith('nothing_to_copy', 'warning')
+      expect(requestSpy).not.toHaveBeenCalled()
     })
   })
 

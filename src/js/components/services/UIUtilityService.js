@@ -56,7 +56,9 @@ export default class UIUtilityService extends ComponentBase {
     // Store detach functions for cleanup
     this.requestDetachers = []
     
-    this.requestDetachers.push(this.respond('ui:copy-to-clipboard', this.copyToClipboard.bind(this)))
+    const copyHandler = async ({ text } = {}) => this.copyToClipboard(text)
+    this.requestDetachers.push(this.respond('ui:copy-to-clipboard', copyHandler))
+    this.requestDetachers.push(this.respond('utility:copy-to-clipboard', copyHandler))
     this.requestDetachers.push(this.respond('ui:validate-form', this.validateForm.bind(this)))
     this.requestDetachers.push(this.respond('ui:validate-email', this.isValidEmail.bind(this)))
     this.requestDetachers.push(this.respond('ui:debounce', this.debounce.bind(this)))
@@ -113,12 +115,7 @@ export default class UIUtilityService extends ComponentBase {
   async copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text)
-      // Emit success toast via ToastService
-      this.emit('toast:show', {
-        message: typeof i18next !== 'undefined' ? i18next.t('content_copied_to_clipboard') : 'Content copied to clipboard',
-        type: 'success'
-      })
-      return true
+      return { success: true, message: 'content_copied_to_clipboard' }
     } catch (err) {
       // Fallback for older browsers
       const textArea = document.createElement('textarea')
@@ -128,17 +125,9 @@ export default class UIUtilityService extends ComponentBase {
 
       try {
         document.execCommand('copy')
-        this.emit('toast:show', {
-          message: typeof i18next !== 'undefined' ? i18next.t('content_copied_to_clipboard') : 'Content copied to clipboard',
-          type: 'success'
-        })
-        return true
+        return { success: true, message: 'content_copied_to_clipboard' }
       } catch (fallbackErr) {
-        this.emit('toast:show', {
-          message: typeof i18next !== 'undefined' ? i18next.t('failed_to_copy_to_clipboard') : 'Failed to copy to clipboard',
-          type: 'error'
-        })
-        return false
+        return { success: false, message: 'failed_to_copy_to_clipboard' }
       } finally {
         document.body.removeChild(textArea)
       }

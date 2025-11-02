@@ -150,23 +150,15 @@ export default class ImportService extends ComponentBase {
       const keyCount = Object.keys(parsed.keybinds).length
       
       if (keyCount === 0) {
-        this.emit('toast:show', {
-          message: this.i18n?.t?.('no_keybinds_found_in_file'),
-          type: 'warning'
-        })
-        return { success: false, error: 'No keybinds found' }
+        return { success: false, error: 'no_keybinds_found_in_file' }
       }
 
       if (!this.storage) {
-        return { success: false, error: 'Storage not available' }
+        return { success: false, error: 'storage_not_available' }
       }
 
       if (!profileId) {
-        this.emit('toast:show', {
-          message: this.i18n?.t?.('no_profile_selected_for_import'),
-          type: 'warning'
-        })
-        return { success: false, error: 'No active profile' }
+        return { success: false, error: 'no_active_profile' }
       }
 
       // Get or create profile
@@ -238,23 +230,16 @@ export default class ImportService extends ComponentBase {
         globalThis.app.setModified(true)
       }
 
-      // Show success notification
-      const msg = this.i18n?.t?.('import_completed_keybinds', { count: keyCount })
       
-      this.emit('toast:show', { message: msg, type: 'success' })
-
-      return { 
-        success: true, 
-        imported: { keys: keyCount }, 
-        errors: parsed.errors 
+      return {
+        success: true,
+        imported: { keys: keyCount },
+        errors: parsed.errors,
+        message: 'import_completed_keybinds'
       }
 
     } catch (error) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('failed_to_import_keybind_file', { error: error.message }),
-        type: 'error'
-      })
-      return { success: false, error: error.message }
+      return { success: false, error: 'import_failed', params: { reason: error.message } }
     }
   }
 
@@ -267,19 +252,11 @@ export default class ImportService extends ComponentBase {
       const aliasCount = importableAliases.length
       
       if (aliasCount === 0) {
-        this.emit('toast:show', {
-          message: this.i18n?.t?.('no_aliases_found_in_file'),
-          type: 'warning'
-        })
-        return { success: false, error: 'No aliases found' }
+        return { success: false, error: 'no_aliases_found_in_file' }
       }
 
       if (!this.storage || !profileId) {
-        this.emit('toast:show', {
-          message: this.i18n?.t?.('no_profile_selected_for_import'),
-          type: 'warning'
-        })
-        return { success: false, error: 'No active profile' }
+        return { success: false, error: 'no_active_profile' }
       }
 
       // Get or create profile
@@ -325,24 +302,16 @@ export default class ImportService extends ComponentBase {
         globalThis.app.setModified(true)
       }
 
-      // Show success notification
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('import_completed_aliases', { count: aliasCount }),
-        type: 'success'
-      })
-
-      return { 
-        success: true, 
-        imported: { aliases: aliasCount }, 
-        errors: parsed.errors 
+      
+      return {
+        success: true,
+        imported: { aliases: aliasCount },
+        errors: parsed.errors,
+        message: 'import_completed_aliases'
       }
 
     } catch (error) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('failed_to_import_aliases', { error: error.message }),
-        type: 'error'
-      })
-      return { success: false, error: error.message }
+      return { success: false, error: 'import_failed', params: { reason: error.message } }
     }
   }
 
@@ -350,9 +319,9 @@ export default class ImportService extends ComponentBase {
   async importProjectFile(content, options = {}) {
     try {
       const projectData = JSON.parse(content)
-      
+
       if (!projectData.data || projectData.type !== 'project') {
-        throw new Error('Invalid project file format')
+        return { success: false, error: 'invalid_project_file' }
       }
 
       const importedData = projectData.data
@@ -388,25 +357,19 @@ export default class ImportService extends ComponentBase {
         globalThis.app.setModified(true)
       }
 
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('project_imported_successfully', { profileCount: importedProfiles }),
-        type: 'success'
-      })
 
-      return { 
-        success: true, 
-        imported: { 
-          profiles: importedProfiles, 
-          settings: importedSettings 
-        }
+      return {
+        success: true,
+        message: 'project_imported_successfully',
+        imported: {
+          profiles: importedProfiles,
+          settings: importedSettings
+        },
+        currentProfile: importedData.settings?.currentProfile || null
       }
 
     } catch (error) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('failed_to_import_project', { error: error.message }),
-        type: 'error'
-      })
-      return { success: false, error: error.message }
+      return { success: false, error: 'import_failed_invalid_json', params: { reason: error.message } }
     }
   }
 
@@ -484,6 +447,61 @@ export default class ImportService extends ComponentBase {
   }
 
   
+  sanitizeProfileData(profileData) {
+    // Create a clean profile structure
+    const sanitized = {
+      name: profileData.name,
+      currentEnvironment: profileData.currentEnvironment || profileData.mode || 'space',
+      builds: {
+        space: { keys: {}, aliases: {} },
+        ground: { keys: {}, aliases: {} }
+      },
+      aliases: {},
+      keybindMetadata: {},
+      aliasMetadata: {},
+      bindsetMetadata: {}
+    }
+
+    // Handle different profile formats
+    if (profileData.builds) {
+      // New format with builds
+      if (profileData.builds.space) {
+        sanitized.builds.space = {
+          keys: profileData.builds.space.keys || {},
+          aliases: profileData.builds.space.aliases || {}
+        }
+      }
+      if (profileData.builds.ground) {
+        sanitized.builds.ground = {
+          keys: profileData.builds.ground.keys || {},
+          aliases: profileData.builds.ground.aliases || {}
+        }
+      }
+    } else if (profileData.keys || profileData.keybinds) {
+      // Legacy format - put keys in space environment
+      const keys = profileData.keys || profileData.keybinds || {}
+      sanitized.builds.space.keys = keys
+    }
+
+    // Handle aliases
+    if (profileData.aliases) {
+      sanitized.aliases = profileData.aliases
+    }
+
+    // Handle metadata
+    if (profileData.keybindMetadata) {
+      sanitized.keybindMetadata = profileData.keybindMetadata
+    }
+    if (profileData.aliasMetadata) {
+      sanitized.aliasMetadata = profileData.aliasMetadata
+    }
+    if (profileData.bindsetMetadata) {
+      sanitized.bindsetMetadata = profileData.bindsetMetadata
+    }
+
+    return sanitized
+  }
+
   onInit() {
     this.setupRequestHandlers()
     this.emit('import-service-ready')

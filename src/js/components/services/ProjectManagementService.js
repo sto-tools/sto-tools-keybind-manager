@@ -153,19 +153,20 @@ export default class ProjectManagementService extends ComponentBase {
   async restoreFromProjectContent(text, fileName = 'project.json') {
     try {
       console.log('[ProjectManagementService] restoreFromProjectContent: begin', { fileName, size: text?.length })
-      const projectData = JSON.parse(text)
 
-      // Validate project.json format (same as sync folder)
-      if (!projectData || projectData.type !== 'project' || !projectData.data) {
-        console.warn('[ProjectManagementService] restoreFromProjectContent: invalid format')
-        throw new Error('Invalid project file format. Expected project.json from backup or sync folder.')
-      }
-
-      // Import via ImportService
+      // Import via ImportService - let ImportService handle JSON parsing and validation
+      console.log('[ProjectManagementService] About to call ImportService with content length:', text?.length)
       const result = await this.request('import:project-file', { content: text })
-      console.log('[ProjectManagementService] import:project-file result', result)
+      console.log('[ProjectManagementService] import:project-file result', {
+        success: result?.success,
+        error: result?.error,
+        params: result?.params
+      })
       if (!result?.success) {
-        throw new Error(result?.error || 'Import failed')
+        const errorMessage = result?.error || 'import_failed'
+        const reason = result?.params?.reason || ''
+        const fullMessage = reason ? `${errorMessage}: ${reason}` : errorMessage
+        throw new Error(fullMessage)
       }
 
       // Force DataCoordinator to reload its state from storage
@@ -175,10 +176,10 @@ export default class ProjectManagementService extends ComponentBase {
       } catch (_) {}
 
       // If there's a currentProfile in the imported data, switch to it
-      if (projectData.data.currentProfile) {
+      if (result.currentProfile) {
         try {
-          const sw = await this.request('data:switch-profile', { 
-            profileId: projectData.data.currentProfile 
+          const sw = await this.request('data:switch-profile', {
+            profileId: result.currentProfile
           })
           console.log('[ProjectManagementService] data:switch-profile done', sw)
         } catch (error) {
@@ -191,14 +192,14 @@ export default class ProjectManagementService extends ComponentBase {
         'success'
       )
 
-      await this.emit('project-backup-restored', { 
-        filename: fileName, 
-        data: projectData,
-        imported: result.imported 
+      await this.emit('project-backup-restored', {
+        filename: fileName,
+        currentProfile: result.currentProfile,
+        imported: result.imported
       }, { synchronous: true })
       console.log('[ProjectManagementService] restoreFromProjectContent: success')
 
-      return { success: true, data: projectData, imported: result.imported }
+      return { success: true, currentProfile: result.currentProfile, imported: result.imported }
     } catch (error) {
       console.error('[ProjectManagementService] restoreFromProjectContent: failed', error)
       return { success: false, error: error.message }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import UIUtilityService from '../../../src/js/components/services/UIUtilityService.js'
 import { createEventBusFixture } from '../../fixtures'
 
@@ -45,4 +45,63 @@ describe('UIUtilityService', () => {
 
     vi.useRealTimers()
   })
-}) 
+
+  describe('copyToClipboard', () => {
+    let originalClipboard
+    let originalExecCommand
+
+    beforeEach(() => {
+      originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+      originalExecCommand = document.execCommand
+    })
+
+    afterEach(() => {
+      if (originalClipboard) {
+        Object.defineProperty(navigator, 'clipboard', originalClipboard)
+      } else {
+        delete navigator.clipboard
+      }
+      document.execCommand = originalExecCommand
+      vi.restoreAllMocks()
+    })
+
+    it('returns success payload when clipboard API is available', async () => {
+      const writeText = vi.fn().mockResolvedValue()
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true
+      })
+
+      const result = await service.copyToClipboard('hello world')
+
+      expect(writeText).toHaveBeenCalledWith('hello world')
+      expect(result).toEqual({ success: true, message: 'content_copied_to_clipboard' })
+    })
+
+    it('falls back to execCommand when clipboard API rejects', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockRejectedValue(new Error('no clipboard')) },
+        configurable: true
+      })
+      document.execCommand = vi.fn().mockReturnValue(true)
+
+      const result = await service.copyToClipboard('fallback text')
+
+      expect(document.execCommand).toHaveBeenCalledWith('copy')
+      expect(result).toEqual({ success: true, message: 'content_copied_to_clipboard' })
+    })
+
+    it('returns failure payload when fallback copy fails', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockRejectedValue(new Error('no clipboard')) },
+        configurable: true
+      })
+      document.execCommand = vi.fn(() => { throw new Error('exec fail') })
+
+      const result = await service.copyToClipboard('cannot copy')
+
+      expect(document.execCommand).toHaveBeenCalledWith('copy')
+      expect(result).toEqual({ success: false, message: 'failed_to_copy_to_clipboard' })
+    })
+  })
+})

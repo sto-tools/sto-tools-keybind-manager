@@ -21,7 +21,6 @@ export default class AliasService extends ComponentBase {
       this.respond('alias:delete', ({ name } = {}) => this.deleteAlias(name))
       this.respond('alias:duplicate-with-name', ({ sourceName, newName } = {}) => this.duplicateAliasWithName(sourceName, newName))
       this.respond('alias:duplicate', ({ sourceName } = {}) => this.duplicateAlias(sourceName))
-      this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))
       this.respond('alias:import-file', ({ content } = {}) => this.importAliasFile(content))
     }
   }
@@ -96,16 +95,16 @@ export default class AliasService extends ComponentBase {
   // Core alias operations now use DataCoordinator
   async addAlias (name, description = '') {
     if (!await this.isValidAliasName(name)) {
-      return false
+      return { success: false, error: 'invalid_alias_name', params: { name } }
     }
 
     if (!this.cache.currentProfile) {
-      return false
+      return { success: false, error: 'no_profile_selected' }
     }
 
     // Check if alias already exists in cache
     if (this.cache.aliases[name]) {
-      return false
+      return { success: false, error: 'alias_already_exists', params: { name } }
     }
 
     try {
@@ -114,8 +113,8 @@ export default class AliasService extends ComponentBase {
         profileId: this.cache.currentProfile,
         add: {
           aliases: {
-            [name]: { 
-              description, 
+            [name]: {
+              description,
               commands: [], // Use array format for commands
               type: 'alias' // Set proper type
             }
@@ -124,17 +123,21 @@ export default class AliasService extends ComponentBase {
       })
 
       this.emit('alias-created', { name })
-      return true
+      return { success: true, message: 'alias_created', data: { name } }
     } catch (error) {
       console.error('[AliasService] Failed to add alias:', error)
-      return false
+      return { success: false, error: 'failed_to_add_alias' }
     }
   }
 
   // Delete an alias from the current profile
   async deleteAlias (name) {
-    if (!this.cache.currentProfile || !this.cache.aliases[name]) {
-      return false
+    if (!this.cache.currentProfile) {
+      return { success: false, error: 'no_profile_selected' }
+    }
+
+    if (!this.cache.aliases[name]) {
+      return { success: false, error: 'alias_not_found', params: { name } }
     }
 
     try {
@@ -147,10 +150,10 @@ export default class AliasService extends ComponentBase {
       })
 
       this.emit('alias-deleted', { name })
-      return true
+      return { success: true, message: 'alias_deleted', data: { name } }
     } catch (error) {
       console.error('[AliasService] Failed to delete alias:', error)
-      return false
+      return { success: false, error: 'failed_to_delete_alias' }
     }
   }
 
@@ -196,14 +199,22 @@ export default class AliasService extends ComponentBase {
 
   // Duplicate an existing alias to an explicit new alias name
   async duplicateAliasWithName (sourceName, newName) {
-    if (!sourceName || !newName) return false
+    if (!sourceName || !newName) {
+      return { success: false, error: 'invalid_alias_name' }
+    }
 
     // Validate source exists
-    if (!this.cache.aliases[sourceName]) return false
+    if (!this.cache.aliases[sourceName]) {
+      return { success: false, error: 'alias_not_found', params: { name: sourceName } }
+    }
 
     // Validate new alias name and not duplicate
-    if (!await this.isValidAliasName(newName)) return false
-    if (this.cache.aliases[newName]) return false
+    if (!await this.isValidAliasName(newName)) {
+      return { success: false, error: 'invalid_alias_name', params: { name: newName } }
+    }
+    if (this.cache.aliases[newName]) {
+      return { success: false, error: 'alias_already_exists', params: { name: newName } }
+    }
 
     const original = this.cache.aliases[sourceName]
 
@@ -227,13 +238,13 @@ export default class AliasService extends ComponentBase {
         commands: original.commands,
         type: original.type || 'alias'
       }
-      
+
       this.emit('alias-created', { name: newName })
       this.emit('alias-duplicated', { from: sourceName, to: newName })
-      return { success: true, newName }
+      return { success: true, message: 'alias_duplicated', data: { from: sourceName, to: newName } }
     } catch (error) {
       console.error('[AliasService] Failed to duplicate alias with name:', error)
-      return { success: false }
+      return { success: false, error: 'failed_to_duplicate_alias' }
     }
   }
 

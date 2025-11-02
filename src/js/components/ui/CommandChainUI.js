@@ -136,6 +136,11 @@ export default class CommandChainUI extends UIComponentBase {
       await this.copyAliasToClipboard()
     })
 
+    // Listen for copy command preview button click
+    this.onDom('copyPreviewBtn', 'click', 'commandchain-copy-preview', async () => {
+      await this.copyCommandPreviewToClipboard()
+    })
+
     // Listen for command action button clicks (using delegation)
     this.onDom('#commandList', 'click', 'commandchain-action', (e) => {
       const editBtn = e.target.closest('.btn-edit:not(.btn-placeholder)')
@@ -904,14 +909,60 @@ export default class CommandChainUI extends UIComponentBase {
    */
   async copyAliasToClipboard() {
     const aliasPreviewEl = this.document.getElementById('aliasPreview')
-    if (aliasPreviewEl && aliasPreviewEl.textContent) {
-      try {
-        await navigator.clipboard.writeText(aliasPreviewEl.textContent)
-        this.showToast('Alias copied to clipboard', 'success')
-      } catch (error) {
-        console.error('Failed to copy alias to clipboard:', error)
-        this.showToast('Failed to copy to clipboard', 'error')
+    const text = aliasPreviewEl?.textContent?.trim()
+    if (!text) {
+      this.showToast(i18next.t('nothing_to_copy') || 'Nothing to copy', 'warning')
+      return
+    }
+
+    try {
+      const result = await this.request('utility:copy-to-clipboard', { text })
+      if (result?.success) {
+        const successMessage = this._resolveClipboardMessage(result?.message, 'content_copied_to_clipboard')
+        this.showToast(successMessage, 'success')
+      } else {
+        const errorMessage = this._resolveClipboardMessage(result?.message, 'failed_to_copy_to_clipboard')
+        this.showToast(errorMessage, 'error')
       }
+    } catch (error) {
+      console.error('Failed to copy alias to clipboard:', error)
+      const fallback = i18next.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
+      this.showToast(fallback, 'error')
+    }
+  }
+
+  _resolveClipboardMessage(key, fallbackKey) {
+    if (!key) {
+      return i18next.t(fallbackKey) || fallbackKey
+    }
+    const translated = i18next.t(key)
+    if (translated && translated !== key) {
+      return translated
+    }
+    return i18next.t(fallbackKey) || fallbackKey
+  }
+
+  async copyCommandPreviewToClipboard() {
+    const commandPreviewEl = this.document.getElementById('commandPreview')
+    const text = commandPreviewEl?.textContent?.trim()
+    if (!text) {
+      this.showToast(i18next.t('nothing_to_copy') || 'Nothing to copy', 'warning')
+      return
+    }
+
+    try {
+      const result = await this.request('utility:copy-to-clipboard', { text })
+      if (result?.success) {
+        const successMessage = this._resolveClipboardMessage(result?.message, 'content_copied_to_clipboard')
+        this.showToast(successMessage, 'success')
+      } else {
+        const errorMessage = this._resolveClipboardMessage(result?.message, 'failed_to_copy_to_clipboard')
+        this.showToast(errorMessage, 'error')
+      }
+    } catch (error) {
+      console.error('Failed to copy command preview to clipboard:', error)
+      const fallback = i18next.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
+      this.showToast(fallback, 'error')
     }
   }
 

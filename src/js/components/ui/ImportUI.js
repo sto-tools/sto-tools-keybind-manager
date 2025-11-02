@@ -5,10 +5,11 @@ import UIComponentBase from '../UIComponentBase.js'
  * menu actions and delegates the actual import work to ImportService.
  */
 export default class ImportUI extends UIComponentBase {
-  constructor ({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor ({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined), i18n } = {}) {
     super(eventBus)
     this.componentName = 'ImportUI'
     this.document = document
+    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
   }
 
   onInit () {
@@ -36,21 +37,31 @@ export default class ImportUI extends UIComponentBase {
           const content = evt.target.result
           const state = await this.request('data:get-current-state')
           const profileId = state.currentProfile
+          let result
           if (type === 'keybinds') {
             // Ask user which environment to import into
             const env = await this.promptEnvironment(state.currentEnvironment || 'space')
             if (!env) return // user cancelled
 
-            await this.request('import:keybind-file', {
+            result = await this.request('import:keybind-file', {
               content,
               profileId,
               environment: env
             })
           } else {
-            await this.request('import:alias-file', {
+            result = await this.request('import:alias-file', {
               content,
               profileId
             })
+          }
+
+          // Show appropriate toast based on result
+          if (result?.success) {
+            const message = this.i18n?.t?.(result?.message, { count: result.imported?.keys || result.imported?.aliases || 0 })
+            this.showToast(message, 'success')
+          } else {
+            const message = this.i18n?.t?.(result?.error, result?.params)
+            this.showToast(message, 'error')
           }
         } catch (error) {
           console.error(`[ImportUI] Failed to import file:`, error)

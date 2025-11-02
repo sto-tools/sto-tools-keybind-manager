@@ -96,7 +96,9 @@ describe('AliasService', () => {
 
       const result = await service.addAlias('NewAlias', 'Test description')
 
-      expect(result).toBe(true)
+      expect(result.success).toBe(true)
+      expect(result.message).toBe('alias_created')
+      expect(result.data.name).toBe('NewAlias')
       expect(service.request).toHaveBeenCalledWith('data:update-profile', {
         profileId: 'test-profile',
         add: {
@@ -140,7 +142,9 @@ describe('AliasService', () => {
 
       const result = await service.addAlias('123InvalidName')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('invalid_alias_name')
+      expect(result.params.name).toBe('123InvalidName')
       expect(service.request).not.toHaveBeenCalled()
     })
 
@@ -149,7 +153,9 @@ describe('AliasService', () => {
 
       const result = await service.addAlias('ExistingAlias', 'Duplicate name')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('alias_already_exists')
+      expect(result.params.name).toBe('ExistingAlias')
       expect(service.request).not.toHaveBeenCalled()
     })
 
@@ -159,7 +165,8 @@ describe('AliasService', () => {
 
       const result = await service.addAlias('FailAlias')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('failed_to_add_alias')
     })
   })
 
@@ -169,7 +176,9 @@ describe('AliasService', () => {
 
       const result = await service.deleteAlias('ExistingAlias')
 
-      expect(result).toBe(true)
+      expect(result.success).toBe(true)
+      expect(result.message).toBe('alias_deleted')
+      expect(result.data.name).toBe('ExistingAlias')
       expect(service.request).toHaveBeenCalledWith('data:update-profile', {
         profileId: 'test-profile',
         delete: {
@@ -185,7 +194,9 @@ describe('AliasService', () => {
     it('should reject deletion of non-existent alias', async () => {
       const result = await service.deleteAlias('NonExistentAlias')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('alias_not_found')
+      expect(result.params.name).toBe('NonExistentAlias')
       expect(service.request).not.toHaveBeenCalled()
     })
 
@@ -194,7 +205,8 @@ describe('AliasService', () => {
 
       const result = await service.deleteAlias('ExistingAlias')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('failed_to_delete_alias')
     })
   })
 
@@ -243,7 +255,10 @@ describe('AliasService', () => {
 
       const result = await service.duplicateAliasWithName('ExistingAlias', 'CustomCopy')
 
-      expect(result).toEqual({ success: true, newName: 'CustomCopy' })
+      expect(result.success).toBe(true)
+      expect(result.message).toBe('alias_duplicated')
+      expect(result.data.from).toBe('ExistingAlias')
+      expect(result.data.to).toBe('CustomCopy')
       expect(service.request).toHaveBeenCalledWith('data:update-profile', {
         profileId: 'test-profile',
         add: {
@@ -263,7 +278,9 @@ describe('AliasService', () => {
 
       const result = await service.duplicateAliasWithName('ExistingAlias', '123Invalid')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('invalid_alias_name')
+      expect(result.params.name).toBe('123Invalid')
       expect(service.request).not.toHaveBeenCalled()
     })
 
@@ -272,7 +289,9 @@ describe('AliasService', () => {
 
       const result = await service.duplicateAliasWithName('ExistingAlias', 'EmptyAlias')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('alias_already_exists')
+      expect(result.params.name).toBe('EmptyAlias')
       expect(service.request).not.toHaveBeenCalled()
     })
   })
@@ -390,7 +409,8 @@ describe('AliasService', () => {
 
       const result = await service.addAlias('TestAlias')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('no_profile_selected')
     })
 
     it('should handle DataCoordinator failures gracefully', async () => {
@@ -399,7 +419,8 @@ describe('AliasService', () => {
 
       const result = await service.addAlias('FailAlias')
 
-      expect(result).toBe(false)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('failed_to_add_alias')
     })
   })
 

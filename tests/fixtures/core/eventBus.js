@@ -78,6 +78,42 @@ export function createEventBusFixture(options = {}) {
       eventBus.on(event, onceCallback)
     }),
 
+    // Built-in request/response support
+    request: vi.fn(async (topic, payload) => {
+      // Generate a mock request ID and reply topic
+      const requestId = `mock_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+      const replyTopic = `${topic}::reply::${requestId}`
+
+      // Set up response listener
+      let response = null
+      let timeoutId = null
+
+      return new Promise((resolve, reject) => {
+        // Set up response handler
+        const onResponse = (message) => {
+          if (timeoutId) {
+            clearTimeout(timeoutId)
+          }
+          if (message && Object.prototype.hasOwnProperty.call(message, 'error')) {
+            reject(new Error(message.error))
+          } else {
+            resolve(message ? message.data : undefined)
+          }
+        }
+
+        eventBus.on(replyTopic, onResponse)
+
+        // Set timeout
+        timeoutId = setTimeout(() => {
+          eventBus.off(replyTopic, onResponse)
+          reject(new Error('Request timed out'))
+        }, 5000)
+
+        // Emit the request
+        eventBus.emit(`rpc:${topic}`, { requestId, replyTopic, payload })
+      })
+    }),
+
     clear: vi.fn(() => {
       listeners.clear()
       if (trackEvents) {
@@ -88,6 +124,26 @@ export function createEventBusFixture(options = {}) {
     getListenerCount: vi.fn((event) => {
       const eventListeners = listeners.get(event)
       return eventListeners ? eventListeners.size : 0
+    }),
+
+    // Helper to mock responses for testing
+    mockResponse: vi.fn((topic, handler) => {
+      eventBus.on(`rpc:${topic}`, ({ requestId, replyTopic, payload }) => {
+        try {
+          const result = handler(payload, requestId, replyTopic)
+          if (result instanceof Promise) {
+            result.then(data => {
+              eventBus.emit(replyTopic, { data })
+            }).catch(error => {
+              eventBus.emit(replyTopic, { error: error.message })
+            })
+          } else {
+            eventBus.emit(replyTopic, { data: result })
+          }
+        } catch (error) {
+          eventBus.emit(replyTopic, { error: error.message })
+        }
+      })
     }),
 
     getAllListenerCounts: vi.fn(() => {

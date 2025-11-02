@@ -30,7 +30,7 @@ describe('Integration: KeyService ↔ KeyBrowserService', () => {
     }
 
     // Stub DataCoordinator update-profile handler – mutates in-memory profile and emits broadcast
-    detachUpdateProfile = respond(eventBus, 'data:update-profile', async ({ profileId, add, delete: del }) => {
+    detachUpdateProfile = respond(eventBus, 'data:update-profile', async ({ profileId, add, delete: delParam }) => {
       if (profileId !== profile.id) return { success: false }
 
       // Handle additions
@@ -39,8 +39,8 @@ describe('Integration: KeyService ↔ KeyBrowserService', () => {
         Object.assign(profile.builds.space.keys, deepClone(newKeys))
       }
       // Handle deletions (array of key names)
-      if (del?.builds?.space?.keys) {
-        for (const k of del.builds.space.keys) {
+      if (delParam?.builds?.space?.keys) {
+        for (const k of delParam.builds.space.keys) {
           delete profile.builds.space.keys[k]
         }
       }
@@ -56,9 +56,12 @@ describe('Integration: KeyService ↔ KeyBrowserService', () => {
     // Instantiate services
     keyService = new KeyService({ eventBus, ui: { showToast: vi.fn() } })
     await keyService.init()
-    // seed cache
-    keyService.setCurrentProfile(profile.id)
-    keyService.updateCacheFromProfile(profile)
+    // Mimic DataCoordinator profile switch so ComponentBase caches the profile
+    eventBus.emit('profile:switched', {
+      profileId: profile.id,
+      profile: deepClone(profile),
+      environment: 'space'
+    })
 
     keyBrowserService = new KeyBrowserService({ eventBus })
     await keyBrowserService.init()
@@ -73,8 +76,8 @@ describe('Integration: KeyService ↔ KeyBrowserService', () => {
   })
 
   it('deleteKey should remove key and KeyBrowserService reflects change', async () => {
-    const ok = await keyService.deleteKey('F2')
-    expect(ok).toBe(true)
+    const result = await keyService.deleteKey('F2')
+    expect(result).toEqual({ success: true, key: 'F2', environment: 'space' })
 
     // Wait a tick for profile:updated broadcast handling
     await new Promise(r => setTimeout(r, 0))
@@ -85,8 +88,10 @@ describe('Integration: KeyService ↔ KeyBrowserService', () => {
   })
 
   it('duplicateKey should create new key and KeyBrowserService reflects change', async () => {
-    const ok = await keyService.duplicateKey('F1')
-    expect(ok).toBe(true)
+    const result = await keyService.duplicateKey('F1')
+    expect(result.success).toBe(true)
+    expect(result.sourceKey).toBe('F1')
+    expect(result.newKey).toContain('F1_copy')
 
     await new Promise(r => setTimeout(r, 0))
 

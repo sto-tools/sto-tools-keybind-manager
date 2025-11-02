@@ -19,7 +19,7 @@ import { UNSAFE_KEYBINDS } from '../../core/constants.js'
  */
 export default class KeyCaptureUI extends UIComponentBase {
 
-  constructor ({ eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), ui = null } = {}) {
+  constructor ({ eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), ui = null, i18n = null } = {}) {
     super(eventBus)
     this.componentName = 'KeyCaptureUI'
 
@@ -27,6 +27,7 @@ export default class KeyCaptureUI extends UIComponentBase {
     this.app          = app || (typeof window !== 'undefined' ? window.app : null)
     this.document     = document
     this.ui           = ui || (typeof window !== 'undefined' ? window.stoUI : null)
+    this.i18n         = i18n || (typeof i18next !== 'undefined' ? i18next : null)
 
     this.currentKeyboard = null
     this.highlightedKeys = new Set()
@@ -467,27 +468,46 @@ export default class KeyCaptureUI extends UIComponentBase {
     if (!this.cache.selectedKey) return
 
     try {
+      let result
       if (this.isDuplicationMode) {
         // Handle key duplication with new name
-        await this.request('key:duplicate-with-name', { 
-          sourceKey: this.sourceKeyForDuplication,
-          newKey: this.cache.selectedKey
+        const sourceKey = this.sourceKeyForDuplication
+        const targetKey = this.cache.selectedKey
+        result = await this.request('key:duplicate-with-name', {
+          sourceKey,
+          newKey: targetKey
         })
-        this.isDuplicationMode = false
-        this.sourceKeyForDuplication = null
+        if (result?.success) {
+          const from = result.sourceKey || result?.data?.from || sourceKey
+          const to = result.newKey || result?.data?.to || targetKey
+          const successMessage = this.i18n?.t?.('key_duplicated', { from, to })
+          this.showToast(successMessage, 'success')
+          this.isDuplicationMode = false
+          this.sourceKeyForDuplication = null
+        } else {
+          const errorMessage = this.i18n?.t?.(result?.error, result?.params)
+          this.showToast(errorMessage, 'error')
+          return
+        }
       } else {
-        // Handle regular key addition
-        await this.request('key:add', { key: this.cache.selectedKey })
+        // Handle regular key addition - service will do validation internally
+        result = await this.request('key:add', { key: this.cache.selectedKey })
+        if (result?.success) {
+          const message = this.i18n?.t?.('key_added', { keyName: this.cache.selectedKey })
+          this.showToast(message, 'success')
+        } else {
+          const message = this.i18n?.t?.(result?.error, result?.params)
+          this.showToast(message, 'error')
+          return
+        }
       }
-      
+
       this.modalManager?.hide('keySelectionModal')
       this.resetState()
     } catch (err) {
       console.error('Failed to confirm key selection:', err)
-      this.emit('toast:show', {
-        message: i18next?.t('key_selection_failed') || 'Failed to select key',
-        type: 'error'
-      })
+      const message = this.i18n?.t?.('key_selection_failed')
+      this.showToast(message, 'error')
     }
   }
 

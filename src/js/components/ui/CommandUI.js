@@ -18,6 +18,7 @@ export default class CommandUI extends UIComponentBase {
                 modalManager = null,
                 parameterCommandUI = null,
                 confirmDialog = null,
+                i18n = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'CommandUI'
@@ -25,11 +26,15 @@ export default class CommandUI extends UIComponentBase {
     this.modalManager = modalManager
     this.parameterCommandUI = parameterCommandUI
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this.i18n = i18n
 
     this._activeBindset = 'Primary Bindset'
 
     // Store last validation issues
     this._lastValidation = { warnings: [], errors: [] }
+
+    // Track last toast severity per key so we avoid repeating identical toasts
+    this._toastSeverityByKey = new Map()
 
     this.document = document
   }
@@ -160,7 +165,7 @@ export default class CommandUI extends UIComponentBase {
     })
 
     // Listen for validation results to update status indicator
-    this.addEventListener('command-chain:validation-result', async ({ severity, warnings = [], errors = [] }) => {
+    this.addEventListener('command-chain:validation-result', async ({ key, severity, warnings = [], errors = [] }) => {
       const ind = this.document.getElementById('statusIndicator')
       if (!ind) return
       const iconEl = ind.querySelector('i')
@@ -177,16 +182,9 @@ export default class CommandUI extends UIComponentBase {
       // Update icon class and colour
       iconEl.className = `fas ${cfg.icon}`
 
-      try {
-        const translated = await this.request('i18n:translate', { key: cfg.textKey })
-        const finalText = (translated && translated !== cfg.textKey) ? translated : cfg.textDefault
-        // Update both content and data-i18n attribute so other i18n refreshes keep the correct label
-        textEl.textContent = finalText
-        textEl.setAttribute('data-i18n', cfg.textKey)
-      } catch {
-        textEl.textContent = cfg.textDefault
-        textEl.setAttribute('data-i18n', cfg.textKey)
-      }
+      // Default to the fallback label immediately so UI updates synchronously
+      textEl.textContent = cfg.textDefault
+      textEl.setAttribute('data-i18n', cfg.textKey)
 
       // Update color classes
       ind.classList.remove('status-success', 'status-warning', 'status-error')
@@ -194,6 +192,53 @@ export default class CommandUI extends UIComponentBase {
 
       // Store issues for modal display
       this._lastValidation = { warnings, errors }
+
+      const hasIssues = (warnings && warnings.length > 0) || (errors && errors.length > 0)
+      const stateKey = key || '__global__'
+      let shouldShowIssueToasts = false
+
+      if (!hasIssues || severity === 'success') {
+        this._toastSeverityByKey.delete(stateKey)
+      } else {
+        const previousSeverity = this._toastSeverityByKey.get(stateKey)
+        shouldShowIssueToasts = previousSeverity !== severity
+        this._toastSeverityByKey.set(stateKey, severity)
+      }
+
+      const resolveIssueMessage = (issue) => {
+        const translated = this.i18n?.t?.(issue.key, issue.params)
+        const looksMissing = typeof translated === 'string' && (
+          translated === issue.key || translated.startsWith(`${issue.key}:`)
+        )
+
+        if (!looksMissing && typeof translated === 'string' && translated) {
+          return translated
+        }
+
+        return issue.defaultMessage || issue.key
+      }
+
+      if (shouldShowIssueToasts) {
+        errors.forEach(error => {
+          const message = resolveIssueMessage(error)
+          this.showToast(message, 'error')
+        })
+
+        warnings.forEach(warning => {
+          const message = resolveIssueMessage(warning)
+          this.showToast(message, 'warning')
+        })
+      }
+
+      // Refresh the label once translations resolve
+      try {
+        const translated = await this.request('i18n:translate', { key: cfg.textKey })
+        if (typeof translated === 'string' && translated && translated !== cfg.textKey) {
+          textEl.textContent = translated
+        }
+      } catch (_) {
+        // Ignore translation failures - fallback text already applied
+      }
 
       if (severity !== 'success' && (warnings.length || errors.length)) {
         ind.classList.add('clickable')

@@ -213,13 +213,6 @@ export default class PreferencesService extends ComponentBase {
     const newTheme = currentTheme === 'dark' ? 'default' : 'dark'
     
     this.setSetting('theme', newTheme)
-    
-    // Show toast notification
-    const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
-    if (this.i18n) {
-      const message = this.i18n.t('switched_to_theme', { themeName }) || `Switched to ${themeName}`
-      this.emit('toast:show', { message, type: 'success' })
-    }
   }
 
   updateThemeToggleButton(theme) {
@@ -254,12 +247,6 @@ export default class PreferencesService extends ComponentBase {
 
     // Emit event for other components to re-render with new language
     this.emit('language:changed', { language: lang })
-
-    // Show toast notification
-    if (this.i18n) {
-      const message = this.i18n.t('language_updated') || 'Language updated'
-      this.emit('toast:show', { message, type: 'success' })
-    }
   }
 
   updateLanguageFlag(lang) {

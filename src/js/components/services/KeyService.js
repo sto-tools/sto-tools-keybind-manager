@@ -22,6 +22,8 @@ export default class KeyService extends ComponentBase {
     // Register Request/Response topics for key state and actions
     if (this.eventBus) {
       this.respond('key:add', ({ key } = {}) => this.addKey(key))
+      this.respond('key:delete', ({ key } = {}) => this.deleteKey(key))
+      this.respond('key:duplicate', ({ key } = {}) => this.duplicateKey(key))
       this.respond('key:duplicate-with-name', ({ sourceKey, newKey } = {}) => this.duplicateKeyWithName(sourceKey, newKey))
     }
   }
@@ -39,11 +41,7 @@ export default class KeyService extends ComponentBase {
     console.log(`[KeyService] setCurrentEnvironment called with ${environment} - ComponentBase handles caching`)
   }
 
-  setCurrentProfile (profileId) {
-    // ComponentBase handles this.cache.currentProfile via profile:switched events
-    console.log(`[KeyService] setCurrentProfile called with ${profileId} - ComponentBase handles caching`)
-  }
-
+  
   /** Convenience getter */
   getCurrentProfileId () {
     return this.cache.currentProfile
@@ -71,8 +69,6 @@ export default class KeyService extends ComponentBase {
       // ComponentBase handles currentEnvironment and keys caching
       // No additional logic needed here
     })
-
-    this.addEventListener('key:delete', ({ key } = {}) => this.deleteKey(key))
   }
 
   // Update local cache from profile data
@@ -100,28 +96,16 @@ export default class KeyService extends ComponentBase {
   // Core key operations now use DataCoordinator
   async addKey (keyName) {
     if (!await this.isValidKeyName(keyName)) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('invalid_key_name'),
-        type: 'error'
-      })
-      return false
+      return { success: false, error: 'invalid_key_name', params: { keyName } }
     }
 
     if (!this.cache.currentProfile) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('no_profile_selected'),
-        type: 'error'
-      })
-      return false
+      return { success: false, error: 'no_profile_selected' }
     }
 
     // Check if key already exists in cache
     if (this.cache.keys[keyName]) {
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('key_already_exists', { keyName }),
-        type: 'warning'
-      })
-      return false
+      return { success: false, error: 'key_already_exists', params: { keyName } }
     }
 
     try {
@@ -142,28 +126,22 @@ export default class KeyService extends ComponentBase {
       // CHANGED: Delegate selection to SelectionService
       await this.request('selection:select-key', { keyName, environment: this.cache.currentEnvironment })
       this.emit('key-added', { key: keyName })
-      
-      // Show success toast (legacy behavior from keyHandling.js)
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('key_added', { keyName }),
-        type: 'success'
-      })
-      
-      return true
+
+      return { success: true, key: keyName, environment: this.cache.currentEnvironment }
     } catch (error) {
       console.error('[KeyService] Failed to add key:', error)
-      this.emit('toast:show', {
-        message: this.i18n?.t?.('failed_to_add_key'),
-        type: 'error'
-      })
-      return false
+      return { success: false, error: 'failed_to_add_key' }
     }
   }
 
   // Delete a key row from the current profile
   async deleteKey (keyName) {
-    if (!this.cache.currentProfile || !this.cache.keys[keyName]) {
-      return false
+    if (!this.cache.currentProfile) {
+      return { success: false, error: 'no_profile_selected' }
+    }
+
+    if (!this.cache.keys[keyName]) {
+      return { success: false, error: 'key_not_found', params: { keyName } }
     }
 
     try {
@@ -181,22 +159,26 @@ export default class KeyService extends ComponentBase {
 
       // SelectionService handles selection clearing automatically via key-deleted event
       this.emit('key-deleted', { keyName })
-      return true
+      return { success: true, key: keyName, environment: this.cache.currentEnvironment }
     } catch (error) {
       console.error('[KeyService] Failed to delete key:', error)
-      return false
+      return { success: false, error: 'failed_to_delete_key' }
     }
   }
 
   // Duplicate an existing key row (clone commands with new ids)
   async duplicateKey (keyName) {
-    if (!this.cache.currentProfile || !this.cache.keys[keyName]) {
-      return false
+    if (!this.cache.currentProfile) {
+      return { success: false, error: 'no_profile_selected' }
+    }
+
+    if (!this.cache.keys[keyName]) {
+      return { success: false, error: 'key_not_found', params: { keyName } }
     }
 
     const commands = this.cache.keys[keyName]
     if (!commands || commands.length === 0) {
-      return false
+      return { success: false, error: 'failed_to_duplicate_key' }
     }
 
     try {
@@ -226,48 +208,75 @@ export default class KeyService extends ComponentBase {
       })
 
       this.emit('key-duplicated', { from: keyName, to: newKeyName })
-      return true
+      return { success: true, sourceKey: keyName, newKey: newKeyName, environment: this.cache.currentEnvironment }
     } catch (error) {
       console.error('[KeyService] Failed to duplicate key:', error)
-      return false
+      return { success: false, error: 'failed_to_duplicate_key' }
     }
   }
 
   // Duplicate an existing key to an explicit new key name
   async duplicateKeyWithName (sourceKey, newKey) {
-    if (!sourceKey || !newKey) return false
+    if (!this.cache.currentProfile) {
+      return { success: false, error: 'no_profile_selected' }
+    }
+
+    if (!sourceKey || typeof sourceKey !== 'string') {
+      return { success: false, error: 'failed_to_duplicate_key' }
+    }
+
+    if (!newKey || typeof newKey !== 'string') {
+      return { success: false, error: 'invalid_key_name', params: { keyName: newKey || '' } }
+    }
 
     // Validate source exists
-    if (!this.cache.keys[sourceKey]) return false
+    if (!this.cache.keys[sourceKey]) {
+      return { success: false, error: 'key_not_found', params: { keyName: sourceKey } }
+    }
 
     // Validate new key name and not duplicate
-    if (!await this.isValidKeyName(newKey)) return false
-    if (this.cache.keys[newKey]) return false
+    if (!await this.isValidKeyName(newKey)) {
+      return { success: false, error: 'invalid_key_name', params: { keyName: newKey } }
+    }
+
+    if (this.cache.keys[newKey]) {
+      return { success: false, error: 'key_already_exists', params: { keyName: newKey } }
+    }
 
     const commands = this.cache.keys[sourceKey]
+    if (!Array.isArray(commands) || commands.length === 0) {
+      return { success: false, error: 'no_commands_to_duplicate' }
+    }
 
     try {
+      const clonedCommands = JSON.parse(JSON.stringify(commands))
+
       await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
         add: {
           builds: {
             [this.cache.currentEnvironment]: {
               keys: {
-                [newKey]: JSON.parse(JSON.stringify(commands))
+                [newKey]: clonedCommands
               }
             }
           }
         }
       })
 
-      // Update local cache
-      this.cache.keys[newKey] = JSON.parse(JSON.stringify(commands))
-      // KeyBrowserService receives updates via ComponentBase automatic caching
+      // Update local cache so dependent services remain in sync until broadcast arrives
+      this.cache.keys[newKey] = JSON.parse(JSON.stringify(clonedCommands))
       this.emit('key-duplicated', { from: sourceKey, to: newKey })
-      return true
+
+      return {
+        success: true,
+        sourceKey,
+        newKey,
+        environment: this.cache.currentEnvironment
+      }
     } catch (error) {
       console.error('[KeyService] Failed to duplicate key with name:', error)
-      return false
+      return { success: false, error: 'failed_to_duplicate_key' }
     }
   }
 
@@ -275,8 +284,9 @@ export default class KeyService extends ComponentBase {
   async isValidKeyName (keyName) {
     if (!keyName || typeof keyName !== 'string') return false
     try {
-      const pattern = await this.request('data:get-key-name-pattern') || /^[A-Za-z0-9_+]+$/
-      
+      const patternResponse = await this.request('data:get-key-name-pattern') || /^[A-Za-z0-9_+]+$/
+      const pattern = patternResponse?.pattern ?? patternResponse
+
       // Special case: if pattern is 'USE_STO_KEY_NAMES', use the STO key names list
       if (pattern === 'USE_STO_KEY_NAMES') {
         const { STO_KEY_NAMES } = await import('../../data/stoKeyNames.js')
@@ -290,7 +300,11 @@ export default class KeyService extends ComponentBase {
         return STO_KEY_NAMES.includes(keyName) && keyName.length <= 20
       }
       
-      return pattern.test(keyName) && keyName.length <= 20
+      if (pattern instanceof RegExp) {
+        return pattern.test(keyName) && keyName.length <= 20
+      }
+
+      return /^[A-Za-z0-9_+]+$/.test(keyName) && keyName.length <= 20
     } catch (error) {
       // Fallback to default pattern if DataService not available
       return /^[A-Za-z0-9_+]+$/.test(keyName) && keyName.length <= 20

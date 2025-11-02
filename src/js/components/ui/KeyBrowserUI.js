@@ -486,16 +486,15 @@ export default class KeyBrowserUI extends UIComponentBase {
     const title = this.i18n?.t?.('confirm_delete') || 'Confirm Delete'
     
     if (await this.confirmDialog.confirm(message, title, 'danger')) {
-      try {
-        // Use the eventBus to request key deletion from KeyService
-        this.emit('key:delete', { key: keyName })
+      // Use the request/response pattern to delete key from KeyService
+      const result = await this.request('key:delete', { key: keyName })
+      if (result?.success) {
+        const successMessage = this.i18n?.t?.('key_deleted', { keyName })
+        this.showToast(successMessage, 'success')
         return true
-      } catch (error) {
-        console.error('Error deleting key:', error)
-        this.emit('toast:show', {
-          message: 'Failed to delete key',
-          type: 'error'
-        })
+      } else {
+        const errorMessage = this.i18n?.t?.(result?.error, result?.params)
+        this.showToast(errorMessage, 'error')
         return false
       }
     }
@@ -504,9 +503,12 @@ export default class KeyBrowserUI extends UIComponentBase {
   }
 
   // Duplicate the selected key
-  duplicateKey(key) {
-    if (!key) return
+  async duplicateKey(key) {
+    if (!key) return false
+
+    // Defer to KeyCaptureUI so the user can choose the target key name.
     this.emit('key:duplicate', { key })
+    return true
   }
 
   // Toggle key search functionality

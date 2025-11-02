@@ -188,6 +188,7 @@ export default class STOToolsKeybindManager {
         modalManager,
         confirmDialog: this.confirmDialogUI,
         document,
+        i18n: i18next,
       })
 
       this.keyBrowserService = new KeyBrowserService({
@@ -242,6 +243,7 @@ export default class STOToolsKeybindManager {
         eventBus,
         modalManager,
         document,
+        i18n: i18next,
       })
       this.keyCaptureUI.init()
 
@@ -302,12 +304,14 @@ export default class STOToolsKeybindManager {
       this.headerMenuUI = new HeaderMenuUI({
         eventBus,
         confirmDialog: this.confirmDialogUI,
-        document
+        document,
+        i18n: i18next,
       })
 
       this.headerToolbarUI = new HeaderToolbarUI({
         eventBus,
-        document
+        document,
+        i18n: i18next,
       })
 
       this.syncUI = new SyncUI({
@@ -317,7 +321,8 @@ export default class STOToolsKeybindManager {
 
       this.aboutModalUI = new AboutModalUI({
         eventBus,
-        document
+        document,
+        i18n: i18next,
       })
 
       this.interfaceModeService = new InterfaceModeService({
@@ -331,11 +336,12 @@ export default class STOToolsKeybindManager {
         eventBus,
         ui: stoUI,
         profileUI: this.profileUI,
-        document
+        document,
+        i18n: i18next,
       })
 
       this.vfxManagerService = new VFXManagerService(eventBus, i18next)
-      this.vfxManagerUI = new VFXManagerUI({eventBus, modalManager})
+      this.vfxManagerUI = new VFXManagerUI({eventBus, modalManager, i18n: i18next})
       this.vfxManagerService.init()
       this.vfxManagerUI.init()
 
@@ -431,6 +437,7 @@ export default class STOToolsKeybindManager {
       this.importUI = new ImportUI({
         eventBus,
         document,
+        i18n: i18next,
       })
       this.importUI.init()
 

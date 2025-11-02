@@ -163,9 +163,6 @@ export default class KeyCaptureService extends ComponentBase {
         // No-op – keep fallback string
       }
 
-      // Inform the user via toast notification.
-      this.emit('toast:show', { message, type: 'error' })
-
       // Reset state so the rejected chord is not considered captured.
       this.resetState()
       event.preventDefault()

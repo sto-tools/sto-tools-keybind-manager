@@ -719,10 +719,6 @@ export default class ExportService extends ComponentBase {
 
       // Toast is handled by SyncService to respect autosync settings
     } catch (error) {
-      this.emit('toast:show', { 
-        message: i18next.t('sync_failed', { error: error.message }), 
-        type: 'error' 
-      })
       throw error
     }
   }

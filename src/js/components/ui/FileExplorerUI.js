@@ -59,16 +59,20 @@ export default class FileExplorerUI extends UIComponentBase {
     })
 
     // Copy preview content → clipboard
-    this.onDom('copyFileContentBtn', 'click', 'fileExplorer-copy-content', () => {
+    this.onDom('copyFileContentBtn', 'click', 'fileExplorer-copy-content', async () => {
       const contentEl = this.document.getElementById(this.contentId)
       if (!contentEl) return
       const text = contentEl.textContent || ''
       if (!text.trim()) {
-        this.ui?.showToast(i18next.t('nothing_to_copy'), 'warning')
+        this.showToast(i18next.t('nothing_to_copy'), 'warning')
         return
       }
-      this.ui?.copyToClipboard(text)
-      this.ui?.showToast(i18next.t('content_copied_to_clipboard'), 'success')
+      const result = await this.request('utility:copy-to-clipboard', { text })
+      if (result?.success) {
+        this.showToast(i18next.t?.(result?.message), 'success')
+      } else {
+        this.showToast(i18next.t?.(result?.message), 'error')
+      }
     })
 
     // Download preview file

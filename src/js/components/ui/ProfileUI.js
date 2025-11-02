@@ -111,10 +111,10 @@ export default class ProfileUI extends UIComponentBase {
         // Key grid will be updated automatically via events
         // Command chain handled elsewhere – just refresh our info UI
         this.updateProfileInfo()
-        this.ui?.showToast?.(result.message, 'success')
+        this.showToast(result.message, 'success')
       }
     } catch (error) {
-      this.ui?.showToast?.(error.message, 'error')
+      this.showToast(error.message, 'error')
     }
   }
 
@@ -202,7 +202,7 @@ export default class ProfileUI extends UIComponentBase {
   showCloneProfileModal() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     if (!this.cache.profile) {
-      this.ui?.showToast?.(this._t('no_profile_selected_to_clone'), 'warning')
+      this.showToast(this._t('no_profile_selected_to_clone'), 'warning')
       return
     }
 
@@ -228,7 +228,7 @@ export default class ProfileUI extends UIComponentBase {
   showRenameProfileModal() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     if (!this.cache.profile) {
-      this.ui?.showToast?.(this._t('no_profile_selected_to_rename'), 'warning')
+      this.showToast(this._t('no_profile_selected_to_rename'), 'warning')
       return
     }
 
@@ -261,7 +261,7 @@ export default class ProfileUI extends UIComponentBase {
     const description = descInput ? descInput.value.trim() : ''
 
     if (!name) {
-      this.ui?.showToast?.(this._t('profile_name_required'), 'error')
+      this.showToast(this._t('profile_name_required'), 'error')
       return
     }
 
@@ -276,7 +276,7 @@ export default class ProfileUI extends UIComponentBase {
             await this.renderProfiles()
             // Key grid will be updated automatically via events
             this.updateProfileInfo()
-            this.ui?.showToast?.(result.message, 'success')
+            this.showToast(result.message, 'success')
           }
           break
         }
@@ -285,7 +285,7 @@ export default class ProfileUI extends UIComponentBase {
           result = await this.request('data:clone-profile', { sourceId: this.cache.currentProfile, newName: name })
           if (result?.success) {
             await this.renderProfiles()
-            this.ui?.showToast?.(result.message, 'success')
+            this.showToast(result.message, 'success')
           }
           break
         }
@@ -295,7 +295,7 @@ export default class ProfileUI extends UIComponentBase {
           if (result?.success) {
             await this.renderProfiles()
             this.updateProfileInfo()
-            this.ui?.showToast?.(result.message || this._t('profile_renamed'), 'success')
+            this.showToast(result.message || this._t('profile_renamed'), 'success')
           }
           break
         }
@@ -304,7 +304,7 @@ export default class ProfileUI extends UIComponentBase {
       this.modalManager.hide('profileModal')
       this.currentModal = null
     } catch (error) {
-      this.ui?.showToast?.(error.message, 'error')
+      this.showToast(error.message, 'error')
     }
   }
 
@@ -312,7 +312,7 @@ export default class ProfileUI extends UIComponentBase {
   async confirmDeleteProfile() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     if (!this.cache.profile) {
-      this.ui?.showToast?.(this._t('no_profile_selected_to_delete'), 'warning')
+      this.showToast(this._t('no_profile_selected_to_delete'), 'warning')
       return
     }
 
@@ -339,10 +339,10 @@ export default class ProfileUI extends UIComponentBase {
           this.updateProfileInfo()
         }
         this.renderProfiles()
-        this.ui?.showToast?.(result.message, 'success')
+        this.showToast(result.message, 'success')
       }
     } catch (error) {
-      this.ui?.showToast?.(error.message, 'error')
+      this.showToast(error.message, 'error')
     }
   }
 

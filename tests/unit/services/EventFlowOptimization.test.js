@@ -101,12 +101,14 @@ describe('Phase 2.1: Event Flow Optimization - keys:changed Elimination', () => 
       // Setup service with profile and keys
       keyService.cache.currentProfile = 'test-profile'
       keyService.cache.keys = { F1: ['command1'] }
+      keyService.cache.currentEnvironment = 'space'
 
       // Mock the request method for DataCoordinator update
       keyService.request = vi.fn().mockResolvedValue({ success: true })
+      keyService.isValidKeyName = vi.fn().mockResolvedValue(true)
 
       // Call duplicateKeyWithName
-      await keyService.duplicateKeyWithName('F1', 'F2')
+      const result = await keyService.duplicateKeyWithName('F1', 'F2')
 
       // Verify keys:changed was NOT emitted (but key-duplicated should be)
       const keysChangedEvents = capturedEvents.filter(e => e.event === 'keys:changed')
@@ -115,6 +117,7 @@ describe('Phase 2.1: Event Flow Optimization - keys:changed Elimination', () => 
       expect(keysChangedEvents).toHaveLength(0)
       expect(keyDuplicatedEvents).toHaveLength(1)
       expect(keyDuplicatedEvents[0].data).toEqual({ from: 'F1', to: 'F2' })
+      expect(result).toEqual({ success: true, sourceKey: 'F1', newKey: 'F2', environment: 'space' })
     })
   })
 
