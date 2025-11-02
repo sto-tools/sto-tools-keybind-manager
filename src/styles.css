@@ -378,7 +378,8 @@ body {
   font-weight: 500;
 }
 
-.key-count {
+.key-count,
+.alias-count {
   color: var(--text-muted);
   font-size: 0.875rem;
 }

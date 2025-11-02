@@ -37,6 +37,8 @@
   "space": "Space",
   "ground": "Ground",
   "alias": "Alias",
+  "alias_lowercase": "alias",
+  "aliases_lowercase": "aliases",
   "modified": "Modified",
   "valid": "Valid",
   "keys": "keys",

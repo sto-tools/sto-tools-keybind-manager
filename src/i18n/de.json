@@ -76,6 +76,8 @@
   "system": "System",
   "custom": "Benutzerdefiniert",
   "alias": "Alias",
+  "alias_lowercase": "alias",
+  "aliases_lowercase": "aliase",
   "custom_command": "Benutzerdefinierter Befehl",
   "add_custom_command": "Benutzerdefinierten Befehl hinzufügen",
   "profile": "Profil",

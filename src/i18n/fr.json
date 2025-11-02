@@ -76,6 +76,8 @@
   "system": "Système",
   "custom": "Personnalisé",
   "alias": "Alias",
+  "alias_lowercase": "alias",
+  "aliases_lowercase": "alias",
   "custom_command": "Commande personnalisée",
   "add_custom_command": "Ajouter une commande personnalisée",
   "profile": "Profil",

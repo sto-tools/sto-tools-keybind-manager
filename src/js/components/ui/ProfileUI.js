@@ -159,7 +159,25 @@ export default class ProfileUI extends UIComponentBase {
     })
 
     const keyCount = this.document.getElementById('keyCount')
-    if (keyCount) {
+    const aliasCount = this.document.getElementById('aliasCount')
+
+    if (!keyCount || !aliasCount) return
+
+    if (this.cache.currentEnvironment === 'alias') {
+      // Hide key count, show alias count
+      keyCount.style.display = 'none'
+      aliasCount.style.display = ''
+
+      // Update alias count (total aliases in profile)
+      const totalAliases = Object.keys(this.cache.aliases || {}).length
+      const aliasText = totalAliases === 1 ? this._t('alias_lowercase') : this._t('aliases_lowercase')
+      aliasCount.textContent = `${totalAliases} ${aliasText}`
+    } else {
+      // Show key count, hide alias count
+      keyCount.style.display = ''
+      aliasCount.style.display = 'none'
+
+      // Update key count (existing logic)
       if (this.cache.profile) {
         const currentBuild = this.cache.profile.builds?.[this.cache.currentEnvironment]
         const count = Object.keys(currentBuild?.keys || {}).length
