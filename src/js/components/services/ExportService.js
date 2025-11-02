@@ -197,7 +197,7 @@ export default class ExportService extends ComponentBase {
 
       if (shouldStabilize && commandsArray.length > 1) {
         const cmdParts = commandsArray.map(c => ({ command: c }))
-        const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
+        const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: cmdParts })
         commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
       }
 
@@ -612,7 +612,7 @@ export default class ExportService extends ComponentBase {
 
       if (shouldStabilize && commandsArray.length > 1) {
         const cmdParts = commandsArray.map(c => ({ command: c }))
-        const mirroredStr = await this.request('fileops:generate-mirrored-commands', { commands: cmdParts })
+        const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: cmdParts })
         commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
       }
 

@@ -668,6 +668,7 @@
   "create_alias_to_get_started": "Créez un alias pour commencer",
   "create_aliases_hint": "Créez des alias de commandes pour simplifier les séquences de commandes complexes.",
   "alias_deleted": "Alias \"{{alias}}\" supprimé",
+  "alias_added": "Alias \"{{aliasName}}\" ajouté",
   "please_select_a_key_first": "Veuillez d'abord sélectionner une touche",
   "alias_added_to_key": "Alias \"{{alias}}\" ajouté à {{key}}",
   "no_active_profile": "Aucun profil actif",

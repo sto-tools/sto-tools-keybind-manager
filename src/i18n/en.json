@@ -695,6 +695,7 @@
   "create_alias_to_get_started": "Create an alias to get started",
   "create_aliases_hint": "Create command aliases to simplify complex command sequences.",
   "alias_deleted": "Alias \"{{alias}}\" deleted",
+  "alias_added": "Alias \"{{aliasName}}\" added",
   "please_select_a_key_first": "Please select a key first",
   "alias_added_to_key": "Alias \"{{alias}}\" added to {{key}}",
   "no_active_profile": "No active profile",

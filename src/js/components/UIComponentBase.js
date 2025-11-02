@@ -58,6 +58,13 @@ export default class UIComponentBase extends ComponentBase {
     this.performInitialRender()
   }
 
+  // Show toast notification using the event system
+  // @param {string} message - The message to display
+  // @param {string} type - The toast type ('info', 'success', 'warning', 'error')
+  showToast(message, type = 'info') {
+    this.emit('toast:show', { message, type })
+  }
+
   // Check if component is waiting for data dependencies
   // @returns {boolean} True if waiting for initial render
   isPendingRender() {

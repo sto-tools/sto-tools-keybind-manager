@@ -662,6 +662,7 @@
   "create_alias_to_get_started": "Erstellen Sie einen Alias um zu beginnen",
   "create_aliases_hint": "Erstellen Sie Befehlsaliase um komplexe Befehlssequenzen zu vereinfachen.",
   "alias_deleted": "Alias \"{{alias}}\" gelöscht",
+  "alias_added": "Alias \"{{aliasName}}\" hinzugefügt",
   "please_select_a_key_first": "Bitte wählen Sie zuerst eine Taste",
   "alias_added_to_key": "Alias \"{{alias}}\" zu {{key}} hinzugefügt",
   "no_active_profile": "Kein aktives Profil",

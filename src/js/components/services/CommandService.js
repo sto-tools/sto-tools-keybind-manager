@@ -38,9 +38,13 @@ export default class CommandService extends ComponentBase {
         this.respond('command:get-import-sources', ({ environment, currentKey }) => 
           this.getImportSources(environment, currentKey)
         ),
-        this.respond('command:import-from-source', ({ sourceValue, targetKey, clearDestination, currentEnvironment }) => 
+        this.respond('command:import-from-source', ({ sourceValue, targetKey, clearDestination, currentEnvironment }) =>
           this.importFromSource(sourceValue, targetKey, clearDestination, currentEnvironment)
-        )
+        ),
+        this.respond('command:generate-command-preview', ({ key, commands, stabilize = false }) =>
+          this.generateCommandPreview(key, commands, stabilize)),
+        this.respond('command:generate-mirrored-commands', async ({ commands = [] }) =>
+          this.generateMirroredCommands(commands))
       )
     }
   }
@@ -933,7 +937,47 @@ export default class CommandService extends ComponentBase {
 
   // Generate mirrored command string for stabilization
   async generateMirroredCommandString(commands) {
-    return await this.request('fileops:generate-mirrored-commands', { commands })
+    return await this.generateMirroredCommands(commands)
+  }
+
+  // Generate mirrored command string for execution order stabilization
+  async generateMirroredCommands(commands = []) {
+    // Accept either an array of command objects or plain strings.
+    if (!Array.isArray(commands) || commands.length === 0) return ''
+
+    // Normalise to command objects first
+    const cmdObjects = commands.map((c) => {
+      if (typeof c === 'string') return { command: c }
+      if (c && typeof c.command === 'string') return c
+      return null
+    }).filter(Boolean)
+
+    if (cmdObjects.length <= 1) {
+      const normalized = await this.normalizeCommandsForDisplay(cmdObjects)
+      return normalized.join(' $$ ')
+    }
+
+    // Apply normalization before mirroring
+    const normalizedStrings = await this.normalizeCommandsForDisplay(cmdObjects)
+    const mirrored = [...normalizedStrings, ...normalizedStrings.slice(0, -1).reverse()]
+    return mirrored.join(' $$ ')
+  }
+
+  // Command preview generation
+  generateCommandPreview(key, commands, stabilize = false) {
+    if (!Array.isArray(commands) || commands.length === 0) {
+      return `${key} ""`
+    }
+
+    let commandString
+    if (stabilize && commands.length > 1) {
+      const strs = commands.map(c => (typeof c === 'string' ? c : c.command))
+      commandString = [...strs, ...strs.slice(0, -1).reverse()].join(' $$ ')
+    } else {
+      commandString = commands.map(c => c.command || c).join(' $$ ')
+    }
+
+    return `${key} "${commandString}"`
   }
 
   // Check if a command is compatible with the target environment

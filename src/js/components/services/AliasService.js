@@ -97,18 +97,27 @@ export default class AliasService extends ComponentBase {
   // Core alias operations now use DataCoordinator
   async addAlias (name, description = '') {
     if (!await this.isValidAliasName(name)) {
-      this.ui?.showToast?.(this.i18n?.t?.('invalid_alias_name') || 'Invalid alias name', 'error')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('invalid_alias_name'),
+        type: 'error'
+      })
       return false
     }
 
     if (!this.cache.currentProfile) {
-      this.ui?.showToast?.(this.i18n?.t?.('no_profile_selected') || 'No active profile', 'error')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('no_profile_selected'),
+        type: 'error'
+      })
       return false
     }
 
     // Check if alias already exists in cache
     if (this.cache.aliases[name]) {
-      this.ui?.showToast?.(this.i18n?.t?.('alias_already_exists', { name }) || 'Alias already exists', 'warning')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('alias_already_exists', { name }),
+        type: 'warning'
+      })
       return false
     }
 
@@ -130,12 +139,18 @@ export default class AliasService extends ComponentBase {
       this.emit('alias-created', { name })
       
       // Show success toast
-      this.ui?.showToast?.(this.i18n?.t?.('alias_added') || 'Alias added', 'success')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('alias_added', { aliasName: name }),
+        type: 'success'
+      })
       
       return true
     } catch (error) {
       console.error('[AliasService] Failed to add alias:', error)
-      this.ui?.showToast?.(this.i18n?.t?.('failed_to_add_alias') || 'Failed to add alias', 'error')
+      this.emit('toast:show', {
+        message: this.i18n?.t?.('failed_to_add_alias'),
+        type: 'error'
+      })
       return false
     }
   }

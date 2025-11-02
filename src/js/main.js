@@ -12,7 +12,6 @@ import { KeyService } from './components/services/index.js'
 import DataService from './components/services/DataService.js'
 // ExportService is now created and managed by app.js
 import { UIUtilityService } from './components/services/index.js'
-import { FileOperationsService } from './components/services/index.js'
 import FileExplorerUI from './components/ui/FileExplorerUI.js'
 import { SyncService } from './components/services/index.js'
 // VFX_EFFECTS now available globally from data.js
@@ -121,10 +120,7 @@ const settings = storageService.getSettings()
   // Create dependencies first
   const stoKeybinds = new KeyService()
   // ExportService is now created and managed by app.js - remove duplicate instance
-  // Initialize FileOperationsService to register RPC endpoints (mirroring, parsing, etc.)
-  const fileOpsService = new FileOperationsService({ eventBus, storage: storageService })
-  fileOpsService.init()
-  // Create UI utility service
+    // Create UI utility service
   const uiUtilityService = new UIUtilityService(eventBus)
   
   // Helper to bridge legacy UI components with the new utility service
@@ -171,7 +167,6 @@ const settings = storageService.getSettings()
     stoFileExplorer, // Required by header file explorer button
     stoSync,        // Required by sync UI components
     eventBus,       // Required for component communication debugging
-    fileOpsService,
     // VFX_EFFECTS now available globally from data.js
   })
 
