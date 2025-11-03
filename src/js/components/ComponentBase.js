@@ -65,7 +65,12 @@ export default class ComponentBase {
     // 4) Set up standardized event listeners for common state
     this._setupStandardizedEventListeners()
 
-    // 5) Continue with component-specific initialization
+    // 5) Call UI-specific initialization hook if it exists
+    if (this.uiInit) {
+      this.uiInit()
+    }
+
+    // 6) Continue with component-specific initialization
     this.onInit()
   }
 

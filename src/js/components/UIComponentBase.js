@@ -12,14 +12,20 @@ export default class UIComponentBase extends ComponentBase {
   }
 
   // UI component initialization with data dependency checking
-  // Override this to handle component-specific initialization
-  onInit() {
+  // This method is called automatically by ComponentBase.init() after framework setup
+  uiInit() {
     if (this.hasRequiredData()) {
       this.performInitialRender()
     } else {
       // Mark that we need to render once data is available
       this.pendingInitialRender = true
     }
+  }
+
+  // Component-specific initialization hook
+  // Override this to handle component-specific initialization in UI components
+  onInit() {
+    // Override in subclasses for component-specific initialization
   }
 
   // Handle initial state from late-join handshake
