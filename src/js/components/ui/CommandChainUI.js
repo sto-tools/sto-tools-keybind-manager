@@ -760,10 +760,10 @@ export default class CommandChainUI extends UIComponentBase {
   }
 
   // Clean up event listeners when component is destroyed
-  destroy() {
+  onDestroy() {
     // Event cleanup is now handled automatically by ComponentBase
     // Both this.addEventListener() and this.onDom() listeners are cleaned up automatically
-    super.destroy()
+    // Additional cleanup logic can be added here if needed
   }
 
   // Late-join: sync environment if InterfaceModeService broadcasts its snapshot before we registered our listeners.

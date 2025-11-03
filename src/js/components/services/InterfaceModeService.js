@@ -175,7 +175,7 @@ export default class InterfaceModeService extends ComponentBase {
   }
 
   // Cleanup event listeners
-  destroy() {
+  onDestroy() {
     if (this._modeListenersSetup) {
       // Properly remove event listeners using stored handler references
       this.eventBus.off('profile:switched', this._profileSwitchedHandler)
@@ -187,8 +187,6 @@ export default class InterfaceModeService extends ComponentBase {
       this._responseDetachFunction()
       this._responseDetachFunction = null
     }
-
-    super.destroy()
   }
 
   // Provide serialisable snapshot representing current mode

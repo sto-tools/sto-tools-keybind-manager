@@ -569,7 +569,7 @@ export default class SelectionService extends ComponentBase {
   }
   
   // Cleanup method to detach all request/response handlers
-  destroy() {
+  onDestroy() {
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach(detach => {
         if (typeof detach === 'function') {
@@ -577,11 +577,6 @@ export default class SelectionService extends ComponentBase {
         }
       })
       this._responseDetachFunctions = []
-    }
-    
-    // Call parent destroy if it exists
-    if (super.destroy && typeof super.destroy === 'function') {
-      super.destroy()
     }
   }
 }

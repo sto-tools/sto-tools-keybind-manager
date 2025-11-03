@@ -5,12 +5,25 @@
 import { request as _cbRequest, respond as _cbRespond } from '../core/requestResponse.js'
 
 export default class ComponentBase {
+  // Static FinalizationRegistry for automatic cleanup when components are garbage collected
+  static cleanupRegistry = new FinalizationRegistry((heldValue) => {
+    if (heldValue && heldValue.component && heldValue.component.onDestroy) {
+      console.log(`[ComponentBase] Finalizing ${heldValue.constructorName || 'Component'}`)
+      heldValue.component.onDestroy()
+    }
+  })
   constructor(eventBus = null) {
     this.eventBus = eventBus
     this.initialized = false
     this.destroyed = false
     this.eventListeners = new Map() // Track event listeners for cleanup
     this.domEventListeners = [] // Track DOM event listeners for cleanup
+
+    // Register this instance for automatic cleanup when garbage collected
+    ComponentBase.cleanupRegistry.register(this, {
+      component: this,
+      constructorName: this.constructor.name
+    })
   }
 
   /**
@@ -244,10 +257,12 @@ export default class ComponentBase {
 
   /**
    * Hook for component-specific cleanup
-   * Override in subclasses
+   * Override in subclasses - DO NOT override destroy() directly
+   * This method is called automatically when the component is garbage collected
+   * via FinalizationRegistry
    */
   onDestroy() {
-    // Override in subclasses
+    // Override in subclasses for cleanup logic
   }
 
   /**

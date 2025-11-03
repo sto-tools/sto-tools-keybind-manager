@@ -662,14 +662,12 @@ export default class CommandChainService extends ComponentBase {
   }
 
   // Cleanup
-  destroy() {
+  onDestroy() {
     // Clean up request/response handlers
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach(detach => detach())
       this._responseDetachFunctions = []
     }
-
-    super.destroy()
   }
 
   // Return whether the specified key/alias currently has stabilization enabled.
