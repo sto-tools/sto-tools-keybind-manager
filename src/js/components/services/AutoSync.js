@@ -85,7 +85,8 @@ export default class AutoSync extends ComponentBase {
       }
     }
 
-    // Don't persist here to avoid circular updates
+    // Settings persistence is handled by PreferencesService to avoid circular updates
+    // AutoSync only responds to settings changes, it doesn't persist them
     console.log(`[AutoSync] Enabled with interval: ${this.interval}`)
   }
 
@@ -106,14 +107,7 @@ export default class AutoSync extends ComponentBase {
     console.log('[AutoSync] Disabled')
   }
 
-  _persistSettings(enabled) {
-    if (!this.storage) return
-    const s = this.storage.getSettings()
-    s.autoSync = enabled
-    if (enabled) s.autoSyncInterval = this.interval
-    this.storage.saveSettings(s)
-  }
-
+  
   // Debounced sync for change-based mode
   debouncedSync() {
     // Clear any existing timeout
@@ -141,15 +135,7 @@ export default class AutoSync extends ComponentBase {
     }
   }
 
-  // Status helpers
-  getStatus() {
-    return {
-      enabled: this.isEnabled,
-      interval: this.interval,
-      lastSync: this.lastSync,
-    }
-  }
-
+  
   // UI indicator (optional)
   _updateIndicator(state) {
     if (!this.ui || typeof document === 'undefined') return
