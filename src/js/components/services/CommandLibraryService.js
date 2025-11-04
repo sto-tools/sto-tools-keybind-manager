@@ -35,7 +35,6 @@ export default class CommandLibraryService extends ComponentBase {
 
   onInit() {
     this.setupEventListeners()
-    this.setupRequestResponseEndpoints()
   }
 
   // Event Listeners
@@ -94,9 +93,6 @@ export default class CommandLibraryService extends ComponentBase {
   updateCacheFromProfile(profile) {
     if (!profile) return
 
-    // Auto-migrate any legacy rich command objects to plain strings
-    this.normalizeKeyArrays(profile)
-
     this.cache.profile = profile
     this.cache.aliases = profile.aliases || {}
     // Preserve metadata for mirroring decisions
@@ -140,41 +136,7 @@ export default class CommandLibraryService extends ComponentBase {
     this.cache.combinedAliases = await this.getCombinedAliases()
   }
 
-  // Get the current profile with build-specific data from cache
-  getCurrentProfile() {
-    if (!this.cache.profile) return null
-
-    return this.getCurrentBuild(this.cache.profile)
-  }
-
-  // Get the current build for a profile using cached data
-  getCurrentBuild(profile) {
-    if (!profile) return null
-
-    if (!profile.builds) {
-      profile.builds = {
-        space: { keys: {} },
-        ground: { keys: {} },
-      }
-    }
-
-    if (!profile.builds[this.cache.currentEnvironment]) {
-      profile.builds[this.cache.currentEnvironment] = { keys: {} }
-    }
-
-    if (!profile.builds[this.cache.currentEnvironment].keys) {
-      profile.builds[this.cache.currentEnvironment].keys = {}
-    }
-
-    return {
-      ...profile,
-      keys: profile.builds[this.cache.currentEnvironment].keys,
-      aliases: this.cache.combinedAliases || profile.aliases || {},
-      keybindMetadata: profile.keybindMetadata || {},
-      aliasMetadata: profile.aliasMetadata || {}
-    }
-  }
-
+  
   // Find command definition and apply i18n translations
   async findCommandDefinition(command) {
     try {
@@ -269,36 +231,6 @@ export default class CommandLibraryService extends ComponentBase {
     return translatedDef
   }
 
-  // Format display text from parser, handling i18n-compatible objects
-  formatDisplayText(displayText) {
-    if (typeof displayText === 'string') {
-      return displayText
-    }
-    
-    if (typeof displayText === 'object' && displayText.key) {
-      if (!this.i18n) return displayText.fallback
-      
-      // Get the base translated name
-      const baseName = this.i18n.t(displayText.key, { defaultValue: displayText.fallback })
-      
-      // Add parameters if present
-      if (displayText.params) {
-        const { tray, slot, backup_tray, backup_slot } = displayText.params
-        
-        if (backup_tray !== undefined && backup_slot !== undefined) {
-          // Tray with backup format
-          return `${baseName} (${tray} ${slot} -> ${backup_tray} ${backup_slot})`
-        } else if (tray !== undefined && slot !== undefined) {
-          // Simple tray format
-          return `${baseName} (${tray} ${slot})`
-        }
-      }
-      
-      return baseName
-    }
-    
-    return displayText
-  }
 
   // Get command warning information
   async getCommandWarning(command) {
@@ -463,39 +395,5 @@ export default class CommandLibraryService extends ComponentBase {
       })
       this._responseDetachFunctions = []
     }
-  }
-
-  setupRequestResponseEndpoints() {
-    // Store detach functions for cleanup
-    if (!this._responseDetachFunctions) {
-      this._responseDetachFunctions = []
-    }
-
-    // Endpoint for getting command library data
-    this._responseDetachFunctions.push(
-      this.respond('command-library:get-data', () => {
-        return {
-          commandCategories: this.commandCategories,
-          userCommands: this.userCommands
-        }
-      })
-    )
-  }
-
-  // New method to normalize key arrays
-  normalizeKeyArrays(profile) {
-    if (!profile || !profile.builds) return
-
-    ['space', 'ground'].forEach(env => {
-      const envBuild = profile.builds[env]
-      if (!envBuild || !envBuild.keys) return
-
-      Object.entries(envBuild.keys).forEach(([k, arr]) => {
-        if (!Array.isArray(arr)) return
-        envBuild.keys[k] = arr
-          .map(entry => typeof entry === 'string' ? entry : (entry && entry.command) || '')
-          .filter(Boolean)
-      })
-    })
   }
 }

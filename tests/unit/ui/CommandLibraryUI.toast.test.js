@@ -83,18 +83,7 @@ describe('CommandLibraryUI Toast Tests', () => {
     vi.restoreAllMocks()
   })
 
-  describe('showTemplateModal', () => {
-    it('should show toast when template modal is shown', () => {
-      // Call the showTemplateModal method
-      component.showTemplateModal()
-
-      // Should show toast with template system message
-      expect(showToastSpy).toHaveBeenCalledWith(
-        'Template system coming soon'
-      )
-    })
-  })
-
+  
   describe('UIComponentBase integration', () => {
     it('should inherit showToast method from UIComponentBase', () => {
       expect(typeof component.showToast).toBe('function')

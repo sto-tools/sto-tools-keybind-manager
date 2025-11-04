@@ -498,11 +498,7 @@ export default class CommandLibraryUI extends UIComponentBase {
       }
   }
 
-  // Show template modal
-  showTemplateModal() {
-    this.showToast(i18next.t('template_system_coming_soon'))
-  }
-
+  
   // Update local cache from profile data received from DataCoordinator
   getCurrentState() {
     return {
