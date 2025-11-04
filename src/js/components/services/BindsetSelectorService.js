@@ -100,14 +100,7 @@ export default class BindsetSelectorService extends ComponentBase {
     })
   }
 
-  updatePreferences(prefs) {
-    console.log('[BindsetSelectorService] updatePreferences (deprecated - using ComponentBase cache):', prefs)
-    // ComponentBase now handles preferences caching automatically
-    const shouldDisplay = this.shouldDisplay()
-    console.log('[BindsetSelectorService] shouldDisplay:', shouldDisplay, 'bindsetsEnabled:', this.cache.preferences.bindsetsEnabled, 'bindToAliasMode:', this.cache.preferences.bindToAliasMode)
-    this.emit('bindset-selector:visibility-changed', { visible: shouldDisplay })
-  }
-
+  
   // State Management - ComponentBase handles selectedKey caching
   setSelectedKey(key) {
     // ComponentBase will handle this.cache.selectedKey automatically via events
@@ -173,10 +166,7 @@ export default class BindsetSelectorService extends ComponentBase {
     }
   }
 
-  isKeyInBindset(bindsetName) {
-    return this.keyBindsetMembership.get(bindsetName) || false
-  }
-
+  
   // Key Addition/Removal
   async addKeyToBindset(bindsetName) {
     if (!this.cache.selectedKey || bindsetName === 'Primary Bindset') {

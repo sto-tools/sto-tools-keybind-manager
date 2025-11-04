@@ -6,7 +6,6 @@ export default class BindsetService extends ComponentBase {
     this.componentName = 'BindsetService'
 
     if (this.eventBus) {
-      this.respond('bindset:list',          () => this.listBindsets())
       this.respond('bindset:create', ({ name }) => this.createBindset(name))
       this.respond('bindset:rename', ({ oldName, newName }) => this.renameBindset(oldName, newName))
       this.respond('bindset:delete', ({ name }) => this.deleteBindset(name))
@@ -87,14 +86,7 @@ export default class BindsetService extends ComponentBase {
     return prof
   }
 
-  // Helpers
-  async listBindsets () {
-    const profile = await this.getProfile()
-    //const bindsets = profile?.bindsets || {}
-    //this.cache.bindsetNames = ['Primary Bindset', ...Object.keys(bindsets)]
-    return [...this.cache.bindsetNames]
-  }
-
+  
   async createBindset (name) {
     if (!name || name === 'Primary Bindset') return { success: false, error: 'invalid_name' }
     const profile = await this.getProfile()
@@ -119,8 +111,7 @@ export default class BindsetService extends ComponentBase {
     }
     const res = await this.request('data:update-profile', { profileId: profile.id, updates })
     if (res?.success) {
-      // Update cached names and broadcast
-      await this.listBindsets()
+      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
       this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
     }
     return res
@@ -149,8 +140,7 @@ export default class BindsetService extends ComponentBase {
     }
     const res = await this.request('data:update-profile', { profileId: profile.id, updates })
     if (res?.success) {
-      // Update cached names and broadcast
-      await this.listBindsets()
+      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
       this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
     }
     return res
@@ -175,8 +165,7 @@ export default class BindsetService extends ComponentBase {
     }
     const res = await this.request('data:update-profile', { profileId: profile.id, updates })
     if (res?.success) {
-      // Update cached names and broadcast
-      await this.listBindsets()
+      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
       this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
     }
     return res
