@@ -15,13 +15,7 @@ describe('KeyBrowserService – cache helpers', () => {
     await service.init()
   })
 
-  it('getValidKeys should include common keys and modifiers', () => {
-    const keys = service.getValidKeys()
-    expect(keys).toContain('F1')
-    expect(keys).toContain('Ctrl+F1')
-    expect(keys).toContain('Space')
-  })
-
+  
   it('updateCacheFromProfile should populate keys for the current environment', () => {
     const profile = {
       builds: {

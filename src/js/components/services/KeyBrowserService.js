@@ -91,59 +91,8 @@ export default class KeyBrowserService extends ComponentBase {
     return this.cache.keys || {}
   }
 
-  // Selection helpers
-  async selectKey (name) {
-    // Delegate to SelectionService for actual selection
-    const result = await this.request('selection:select-key', { 
-      keyName: name, 
-      environment: this.cache.currentEnvironment 
-    })
-    
-    // Keep legacy UI integration logic
-    if (typeof window !== 'undefined' && window.app) {
-      // Trigger key grid refresh
-      // Use event-driven approach instead of direct method calls
-      this.emit('key:list-changed')
-      // Trigger chain actions update (button state management)
-      if (window.app.updateChainActions) {
-        window.app.updateChainActions()
-      }
-    }
-    
-    return result
-  }
-
-  // Internal helpers
-  // Returns a cached list of all valid key names used across the app. This
-  // mirrors the logic from STOFileHandler.generateValidKeys() but lets the key
-  // browser remain independent of that heavier module.
-  getValidKeys () {
-    if (this._validKeys) return this._validKeys
-    const keys = new Set()
-    for (let i = 1; i <= 12; i++) keys.add(`F${i}`)
-    for (let i = 0; i <= 9; i++) keys.add(i.toString())
-    for (let i = 65; i <= 90; i++) keys.add(String.fromCharCode(i)) // A-Z
-
-    const special = [
-      'Space','Tab','Enter','Escape','Backspace','Delete','Insert','Home','End',
-      'PageUp','PageDown','Up','Down','Left','Right','NumPad0','NumPad1','NumPad2',
-      'NumPad3','NumPad4','NumPad5','NumPad6','NumPad7','NumPad8','NumPad9',
-      'NumPadEnter','NumPadPlus','NumPadMinus','NumPadMultiply','NumPadDivide',
-      'Button4','Button5','Button6','Button7','Button8','Lbutton','Rbutton','Mbutton',
-      'Leftdrag','Rightdrag','Middleclick','Mousechord','Wheelplus','Wheelminus',
-      'Semicolon','Equals','Comma','Minus','Period','Slash','Grave','LeftBracket',
-      'Backslash','RightBracket','Quote','[',']'
-    ]
-    special.forEach(k => keys.add(k))
-
-    const modifiers = ['Ctrl','Alt','Shift','Control']
-    const base = Array.from(keys)
-    modifiers.forEach(m => base.forEach(k => keys.add(`${m}+${k}`)))
-
-    this._validKeys = Array.from(keys).sort()
-    return this._validKeys
-  }
-
+  
+  
   // Data Processing Methods (moved from KeyBrowserUI)
   async categorizeKeys(keysWithCommands, allKeys) {
     const categories = {

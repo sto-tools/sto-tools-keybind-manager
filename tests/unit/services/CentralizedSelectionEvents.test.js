@@ -73,7 +73,7 @@ describe('Centralized Selection Events', () => {
   })
 
   describe('Selection Delegation', () => {
-    it('should delegate key selection from KeyBrowserService to SelectionService', async () => {
+    it('should handle key selection directly through SelectionService', async () => {
       // Mock SelectionService request response
       selectionService.respond = vi.fn().mockImplementation((method, handler) => {
         if (method === 'selection:select-key') {
@@ -81,8 +81,8 @@ describe('Centralized Selection Events', () => {
         }
       })
 
-      // KeyBrowserService should delegate to SelectionService
-      await keyBrowserService.selectKey('F1')
+      // SelectionService should handle key selection directly
+      await selectionService.selectKey('F1', 'space')
 
       // Verify that SelectionService emits the centralized event
       const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
