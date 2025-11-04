@@ -211,22 +211,6 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
     })
   })
 
-  describe('Static Combat Commands', () => {
-    it('should parse static combat commands', () => {
-      const commands = ['FireAll', 'FirePhasers', 'FireTorps']
-
-      commands.forEach(cmd => {
-        const result = parser.parseCommandString(cmd)
-        expect(result.commands[0]).toMatchObject({
-          signature: 'StaticCombat()',
-          category: 'combat',
-          icon: '🔥',
-          parameters: { commandName: cmd }
-        })
-      })
-    })
-  })
-
   describe('VFX Commands', () => {
     it('should parse VFX exclusion commands', () => {
       const result = parser.parseCommandString('dynFxSetFXExclusionList Fx_Explosion,Fx_Beam')
@@ -263,7 +247,7 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
       expect(result.commands).toHaveLength(3)
       expect(result.commands[0].category).toBe('communication')
       expect(result.commands[1].category).toBe('tray')
-      expect(result.commands[2].category).toBe('combat')
+      expect(result.commands[2].category).toBe('custom')
     })
 
     it('should detect mirrored commands', () => {
@@ -331,41 +315,6 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
       })
     })
   })
-
-  describe('API Methods', () => {
-    it('should validate commands against signatures', () => {
-      const isValid = parser.validateCommand(
-        'TrayExecByTray(active: number, tray: number, slot: number)',
-        '+TrayExecByTray 1 2'
-      )
-
-      expect(isValid).toBe(true)
-    })
-
-    it('should extract command signatures', () => {
-      const signatures = parser.getCommandSignature('say "test" $$ FireAll')
-
-      expect(signatures).toEqual([
-        'Communication(verb: string, message: string)',
-        'StaticCombat()'
-      ])
-    })
-
-    it('should extract parameters for specific signatures', () => {
-      const params = parser.extractParameters(
-        'TrayExecByTray(active: number, tray: number, slot: number)',
-        '+TrayExecByTray 3 7'
-      )
-
-      expect(params).toEqual({
-        active: 1,
-        tray: 3,
-        slot: 7,
-        baseCommand: '+TrayExecByTray',
-        isShorthand: true
-      })
-    })
-  })
 })
 
 describe('STOCommandParser - RequestResponse Integration', () => {
@@ -389,26 +338,6 @@ describe('STOCommandParser - RequestResponse Integration', () => {
 
     expect(result.commands).toHaveLength(1)
     expect(result.commands[0].category).toBe('tray')
-  })
-
-  it('should respond to parser:validate-command requests', async () => {
-    const isValid = await request(eventBus, 'parser:validate-command', {
-      signature: 'TrayExecByTray(active: number, tray: number, slot: number)',
-      commandString: '+TrayExecByTray 1 2'
-    })
-
-    expect(isValid).toBe(true)
-  })
-
-  it('should respond to parser:get-command-signature requests', async () => {
-    const signatures = await request(eventBus, 'parser:get-command-signature', {
-      commandString: 'say "test" $$ FireAll'
-    })
-
-    expect(signatures).toEqual([
-      'Communication(verb: string, message: string)',
-      'StaticCombat()'
-    ])
   })
 
   it('should clear cache on request', async () => {
@@ -444,7 +373,7 @@ describe('STOCommandParser - Standalone Usage', () => {
     expect(standaloneParser.options.enablePerformanceMetrics).toBe(true)
 
     const result = standaloneParser.parseCommandString('FireAll')
-    expect(result.commands[0].category).toBe('combat')
+    expect(result.commands[0].category).toBe('custom')
   })
 
   it('should work without requestResponse handlers when standalone', () => {

@@ -41,17 +41,8 @@ export class STOCommandParser {
     // Pure parsing operations (no application logic)
     respond(this.eventBus, 'parser:parse-command-string', ({ commandString, options }) => 
       this.parseCommandString(commandString, options))
-    
-    respond(this.eventBus, 'parser:validate-command', ({ signature, commandString }) => 
-      this.validateCommand(signature, commandString))
-    
-    respond(this.eventBus, 'parser:get-command-signature', ({ commandString }) => 
-      this.getCommandSignature(commandString))
-    
-    respond(this.eventBus, 'parser:extract-parameters', ({ signature, commandString }) => 
-      this.extractParameters(signature, commandString))
-    
-    respond(this.eventBus, 'parser:get-performance-metrics', () => 
+  
+    respond(this.eventBus, 'parser:get-performance-metrics', () =>
       Array.from(this.performanceMetrics.entries()))
     
     respond(this.eventBus, 'parser:clear-cache', () => {
@@ -249,36 +240,6 @@ export class STOCommandParser {
         category: 'vfx',
         baseCommand: 'VFXControl',
         icon: '✨'
-      },
-
-      'StaticCombat': {
-        patterns: [
-          {
-            regex: /^(FireAll|FirePhasers|FireTorps|FireMines|FirePhasersTorps|FireProjectiles)$/i,
-            weight: 40,
-            signature: 'StaticCombat()',
-            extractParams: (match) => ({ commandName: match[1] }),
-            generateDisplayText: (params) => this.getStaticCombatDisplayName(params.commandName)
-          }
-        ],
-        category: 'combat',
-        baseCommand: 'StaticCombat',
-        icon: '🔥'
-      },
-
-      'StaticTargeting': {
-        patterns: [
-          {
-            regex: /^(Target_Enemy_Near|Target_Friend_Near|Target_Self|Target_Clear|Target_Teammate\s+\d+)$/i,
-            weight: 35,
-            signature: 'StaticTargeting()',
-            extractParams: (match) => ({ commandName: match[1] }),
-            generateDisplayText: (params) => this.getStaticTargetingDisplayName(params.commandName)
-          }
-        ],
-        category: 'targeting',
-        baseCommand: 'StaticTargeting',
-        icon: '🎯'
       },
 
       'PowerCommands': {
@@ -496,51 +457,6 @@ export class STOCommandParser {
     existing.avgTime = existing.totalTime / existing.count
     
     this.performanceMetrics.set(operation, existing)
-  }
-
-  validateCommand(signature, commandString) {
-    // Validate that a command string matches the expected signature
-    const parseResult = this.parseCommandString(commandString)
-    return parseResult.commands.some(cmd => cmd.signature === signature)
-  }
-
-  getCommandSignature(commandString) {
-    const parseResult = this.parseCommandString(commandString)
-    return parseResult.commands.map(cmd => cmd.signature)
-  }
-
-  extractParameters(signature, commandString) {
-    const parseResult = this.parseCommandString(commandString)
-    const matchingCommand = parseResult.commands.find(cmd => cmd.signature === signature)
-    return matchingCommand ? matchingCommand.parameters : {}
-  }
-
-  getStaticCombatDisplayName(commandName) {
-    const displayMap = {
-      'FireAll': 'Fire All Weapons',
-      'FirePhasers': 'Fire Energy Weapons',
-      'FireTorps': 'Fire Torpedoes',
-      'FireMines': 'Fire Mines',
-      'FirePhasersTorps': 'Fire Phasers & Torpedoes',
-      'FireProjectiles': 'Fire Projectiles'
-    }
-    return displayMap[commandName] || commandName
-  }
-
-  getStaticTargetingDisplayName(commandName) {
-    const displayMap = {
-      'Target_Enemy_Near': 'Target Nearest Enemy',
-      'Target_Friend_Near': 'Target Nearest Friend',
-      'Target_Self': 'Target Self',
-      'Target_Clear': 'Clear Target'
-    }
-    
-    if (commandName.startsWith('Target_Teammate')) {
-      const match = commandName.match(/Target_Teammate\s+(\d+)/)
-      return match ? `Target Teammate ${match[1]}` : commandName
-    }
-    
-    return displayMap[commandName] || commandName
   }
 
   // Utility method for external library usage
