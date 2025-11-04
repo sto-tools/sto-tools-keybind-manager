@@ -13,6 +13,7 @@ export default class AliasBrowserService extends ComponentBase {
     if (this.eventBus) {
       // Register request/response endpoints for alias operations
       this.respond('alias:get-all', () => this.getAliases())
+      this.respond('alias-browser:create', ({ name, description = '' } = {}) => this.createAlias(name, description))
     }
   }
 
@@ -56,15 +57,7 @@ export default class AliasBrowserService extends ComponentBase {
       }
     })
 
-    // Listen for alias operationss
-    this.addEventListener('alias:delete', ({ name } = {}) => this.deleteAlias(name))
-    this.addEventListener('alias:duplicate', ({ from, to, name } = {}) => {
-      if (from && to) return this.duplicateAlias(from, to)
-      const source = name || from
-      return this.duplicateAlias(source)
-    })
-    this.addEventListener('alias:create', ({ name, description='' } = {}) => this.createAlias(name, description))
-    
+      
   }
 
   updateCacheFromProfile(profile) {
@@ -95,39 +88,7 @@ export default class AliasBrowserService extends ComponentBase {
       // Auto-select the newly created alias
       await this.selectAlias(name)
     }
-    
+
     return result
-  }
-
-  async deleteAlias(name) {
-    if (!this.cache.aliases || !this.cache.aliases[name]) return false
-
-    return await this.request('alias:delete', { name })
-  }
-
-  /**
-   * Duplicate an alias.
-   * @param {string} sourceName - Name of the alias to copy from.
-   * @param {string} [targetName] - Destination alias name selected by the user. If omitted the
-   *                                legacy auto-suffix logic (_copy, _copy1 …) is applied for
-   *                                backward-compatibility with existing tests and API consumers.
-   */
-  async duplicateAlias(sourceName, targetName = undefined) {
-    if (!this.cache.aliases || !this.cache.aliases[sourceName]) return false
-
-    let result
-    if (targetName) {
-      result = await this.request('alias:duplicate-with-name', { sourceName, newName: targetName })
-    } else {
-      result = await this.request('alias:duplicate', { sourceName })
-    }
-
-    if (result?.success) {
-      // Auto-select the newly duplicated alias
-      await this.selectAlias(result.newName)
-      return true
-    }
-
-    return false
   }
 } 

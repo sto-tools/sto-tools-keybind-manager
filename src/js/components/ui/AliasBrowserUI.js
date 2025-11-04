@@ -380,24 +380,14 @@ export default class AliasBrowserUI extends UIComponentBase {
         return
       }
 
-      // Check if current profile exists
-      const currentProfile = await this.request('profile:get-current')
-      if (!currentProfile) {
-        this.showToast('No active profile', 'error')
-        return
-      }
-
-      // Check if alias already exists
-      const existingAliases = await this.request('alias:get-all')
-      if (existingAliases[name]) {
-        this.showToast('Alias already exists', 'warning')
-        return
-      }
-
-      // Call alias service directly and show toast based on result
-      const result = await this.request('alias:add', { name })
-      if (result) {
+      // Use event-driven alias creation to enable auto-selection
+      // The service will handle profile and duplicate checks
+      const result = await this.request('alias-browser:create', { name, description: '' })
+      if (result?.success) {
         this.showToast('Alias created successfully', 'success')
+      } else if (result?.error) {
+        const errorMessage = this.i18n?.t?.(result.error, result.params) || result.error
+        this.showToast(errorMessage, 'error')
       } else {
         this.showToast('Failed to create alias', 'error')
       }

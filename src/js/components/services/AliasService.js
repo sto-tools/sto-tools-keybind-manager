@@ -21,6 +21,7 @@ export default class AliasService extends ComponentBase {
       this.respond('alias:delete', ({ name } = {}) => this.deleteAlias(name))
       this.respond('alias:duplicate-with-name', ({ sourceName, newName } = {}) => this.duplicateAliasWithName(sourceName, newName))
       this.respond('alias:duplicate', ({ sourceName } = {}) => this.duplicateAlias(sourceName))
+      this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))
       this.respond('alias:import-file', ({ content } = {}) => this.importAliasFile(content))
     }
   }
