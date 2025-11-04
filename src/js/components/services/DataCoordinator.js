@@ -114,17 +114,15 @@ export default class DataCoordinator extends ComponentBase {
     this.setupRequestHandlers()
   }
 
-  async init() {
-    super.init()
-    
+  async onInit() {
     console.log(`[${this.componentName}] Initializing...`)
-    
+
     // Set up event listeners
     this.setupEventListeners()
-    
+
     // Load initial state from storage
     await this.loadInitialState()
-    
+
     console.log(`[${this.componentName}] Initialization complete`)
   }
 
@@ -310,6 +308,7 @@ export default class DataCoordinator extends ComponentBase {
         environment: this.state.currentEnvironment,
         profileCount: Object.keys(this.state.profiles).length
       })
+
       
     } catch (error) {
       console.error(`[${this.componentName}] Failed to load initial state:`, error)

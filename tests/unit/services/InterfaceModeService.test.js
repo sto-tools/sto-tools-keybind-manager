@@ -33,7 +33,11 @@ describe('InterfaceModeService', () => {
     await service.switchMode('ground')
 
     expect(service.currentMode).toBe('ground')
-    eventBusFixture.expectEvent('environment:changed', { environment: 'ground' })
+    eventBusFixture.expectEvent('environment:changed', {
+      environment: 'ground',
+      toEnvironment: 'ground',
+      fromEnvironment: 'space'
+    })
   })
 
   it('should not emit environment:changed when switching to the same mode', async () => {

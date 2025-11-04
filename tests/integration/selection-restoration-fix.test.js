@@ -1,13 +1,14 @@
 // Integration test to verify selection restoration fix on page reload
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import eventBus from '../../src/js/core/eventBus.js'
 import SelectionService from '../../src/js/components/services/SelectionService.js'
 import DataCoordinator from '../../src/js/components/services/DataCoordinator.js'
 import StorageService from '../../src/js/components/services/StorageService.js'
+import InterfaceModeService from '../../src/js/components/services/InterfaceModeService.js'
 
 describe('Selection Restoration Fix - Page Reload', () => {
-  let selectionService, dataCoordinator, storageService
+  let selectionService, dataCoordinator, storageService, interfaceModeService
   let emittedEvents = []
 
   beforeEach(async () => {
@@ -52,9 +53,38 @@ describe('Selection Restoration Fix - Page Reload', () => {
     dataCoordinator = new DataCoordinator({ eventBus, storage: storageService })
     await dataCoordinator.init()
 
+    // InterfaceModeService emits the environment change in the real app
+    interfaceModeService = new InterfaceModeService({ eventBus })
+    interfaceModeService.request = vi.fn(async (topic) => {
+      if (topic === 'data:update-profile') {
+        return { success: true }
+      }
+      return null
+    })
+    interfaceModeService.init()
+
     // Initialize SelectionService second (simulates app startup order)
     selectionService = new SelectionService({ eventBus })
     await selectionService.init()
+
+    // Wait for handshake to complete before switching mode
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    const restoredEnv = dataCoordinator.getCurrentState().currentEnvironment
+    if (restoredEnv) {
+      await interfaceModeService.switchMode(restoredEnv)
+    }
+
+    // Wait for all async operations to complete
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+  })
+
+  afterEach(() => {
+    interfaceModeService?.destroy?.()
+    selectionService?.destroy?.()
+    dataCoordinator?.destroy?.()
+    vi.clearAllMocks()
   })
 
   it('should restore key selection from profile during initialization', () => {
@@ -112,8 +142,21 @@ describe('Selection Restoration Fix - Page Reload', () => {
     const newDataCoordinator = new DataCoordinator({ eventBus, storage: storageService })
     await newDataCoordinator.init()
 
+    const newInterfaceModeService = new InterfaceModeService({ eventBus })
+    newInterfaceModeService.request = vi.fn(async (topic) => {
+      if (topic === 'data:update-profile') {
+        return { success: true }
+      }
+      return null
+    })
+    newInterfaceModeService.init()
+
     const newSelectionService = new SelectionService({ eventBus })
     await newSelectionService.init()
+
+    await new Promise(resolve => setTimeout(resolve, 50))
+    await newInterfaceModeService.switchMode('alias')
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     // Should restore alias selection
     expect(newSelectionService.cache.currentEnvironment).toBe('alias')
@@ -124,6 +167,10 @@ describe('Selection Restoration Fix - Page Reload', () => {
     // Verify that validateAliasExists works correctly for the restored selection
     expect(newSelectionService.validateAliasExists('TestAlias')).toBe(true)
     expect(newSelectionService.validateAliasExists('NonExistentAlias')).toBe(false)
+
+    newInterfaceModeService.destroy()
+    newSelectionService.destroy()
+    newDataCoordinator.destroy()
   })
 
   it('should work with DataCoordinator late-join handshake mechanism', () => {

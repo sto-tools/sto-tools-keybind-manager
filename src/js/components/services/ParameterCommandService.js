@@ -33,13 +33,8 @@ export default class ParameterCommandService extends ComponentBase {
     }
   }
 
-  async init() {
-    super.init() // ComponentBase handles late-join automatically
-    this.setupEventListeners()
-  }
-
   onInit() {
-    // Legacy method - now handled by init()
+    this.setupEventListeners()
   }
 
   setupEventListeners() {

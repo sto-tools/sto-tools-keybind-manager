@@ -56,7 +56,7 @@ describe('SelectionService VFX Alias Filtering', () => {
       expect(result).not.toBe('dynFxSetFXExclusionList_Ground')
       expect(['UserAlias1', 'UserAlias2', 'UserAlias3']).toContain(result)
       
-      expect(selectAliasSpy).toHaveBeenCalledWith(result)
+      expect(selectAliasSpy).toHaveBeenCalledWith(result, expect.objectContaining({ isAuto: true }))
     })
 
     it('should validate only user-created aliases, not VFX system aliases', () => {

@@ -31,9 +31,7 @@ export default class InterfaceModeService extends ComponentBase {
     }
   }
 
-  // Initialize the service
-  init() {
-    super.init()
+  onInit() {
     this.setupEventListeners()
   }
 
@@ -111,7 +109,9 @@ export default class InterfaceModeService extends ComponentBase {
 
     // Emit environment change synchronously AFTER storage operation completes
     this.emit('environment:changed', {
-      environment: mode
+      environment: mode,
+      toEnvironment: mode,
+      fromEnvironment: oldMode
     }, { synchronous: true })
   }
 

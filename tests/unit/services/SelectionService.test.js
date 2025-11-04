@@ -116,6 +116,29 @@ describe('SelectionService', () => {
         }
       })
     })
+
+    it('should emit when manual selection repeats an auto-selected key', async () => {
+      service.cache.builds = {
+        space: { keys: { F1: [{ command: 'TestCommand' }] } },
+        ground: { keys: {} }
+      }
+      service.cache.keys = { F1: [{ command: 'TestCommand' }] }
+
+      await service.autoSelectFirst('space')
+
+      // Ignore the auto-selection event
+      capturedEvents.length = 0
+
+      await service.selectKey('F1', 'space')
+
+      const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+      expect(keySelectedEvents).toHaveLength(1)
+      expect(keySelectedEvents[0].data).toEqual({
+        key: 'F1',
+        environment: 'space',
+        source: 'SelectionService'
+      })
+    })
   })
 
   describe('Alias Selection', () => {

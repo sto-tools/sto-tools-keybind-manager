@@ -638,4 +638,4 @@ export default class ComponentBase {
       return await handler(payload)
     })
   }
-} 
+}

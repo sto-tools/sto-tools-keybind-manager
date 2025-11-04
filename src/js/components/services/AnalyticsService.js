@@ -19,8 +19,7 @@ export default class AnalyticsService extends ComponentBase {
     }
   }
 
-  async init() {
-    super.init() 
+  onInit() {
     this.setupEventListeners()
   }
 

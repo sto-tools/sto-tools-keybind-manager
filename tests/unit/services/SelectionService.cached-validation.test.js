@@ -12,6 +12,7 @@ describe('SelectionService Cached Selection Validation', () => {
     selectionService = new SelectionService({ 
       eventBus: env.eventBus 
     })
+    selectionService.request = vi.fn().mockResolvedValue({ success: true })
     
     // Mock ComponentBase cache with test data
     selectionService.cache = {
@@ -116,7 +117,7 @@ describe('SelectionService Cached Selection Validation', () => {
       // Test restoring valid key
       await selectionService.validateAndRestoreSelection('space', 'F1')
       
-      expect(selectKeySpy).toHaveBeenCalledWith('F1', 'space')
+      expect(selectKeySpy).toHaveBeenCalledWith('F1', 'space', expect.objectContaining({ isAuto: true }))
       expect(autoSelectSpy).not.toHaveBeenCalled()
     })
 
@@ -130,7 +131,7 @@ describe('SelectionService Cached Selection Validation', () => {
       
       // Should NOT directly select the invalid key, but SHOULD call autoSelect which then selects first available
       expect(autoSelectSpy).toHaveBeenCalledWith('space')
-      expect(selectKeySpy).toHaveBeenCalledWith('F1', 'space') // Auto-selected first available key
+      expect(selectKeySpy).toHaveBeenCalledWith('F1', 'space', expect.objectContaining({ isAuto: true })) // Auto-selected first available key
       expect(selectionService.cachedSelections.space).toBe('F1') // Cache updated with new selection
     })
 
@@ -142,7 +143,7 @@ describe('SelectionService Cached Selection Validation', () => {
       // Test restoring valid alias
       await selectionService.validateAndRestoreSelection('alias', 'ValidAlias')
       
-      expect(selectAliasSpy).toHaveBeenCalledWith('ValidAlias')
+      expect(selectAliasSpy).toHaveBeenCalledWith('ValidAlias', expect.objectContaining({ isAuto: true }))
       expect(autoSelectSpy).not.toHaveBeenCalled()
     })
 
@@ -156,7 +157,7 @@ describe('SelectionService Cached Selection Validation', () => {
       
       // Should NOT directly select the invalid alias, but SHOULD call autoSelect which then selects first available
       expect(autoSelectSpy).toHaveBeenCalledWith('alias')
-      expect(selectAliasSpy).toHaveBeenCalledWith('ValidAlias') // Auto-selected first available alias
+      expect(selectAliasSpy).toHaveBeenCalledWith('ValidAlias', expect.objectContaining({ isAuto: true })) // Auto-selected first available alias
       expect(selectionService.cachedSelections.alias).toBe('ValidAlias') // Cache updated with new selection
     })
 
@@ -177,7 +178,7 @@ describe('SelectionService Cached Selection Validation', () => {
       const result = await selectionService.autoSelectFirst('space')
       
       expect(result).toBe('F1') // First key in space (alphabetically first in cached data)
-      expect(selectKeySpy).toHaveBeenCalledWith('F1', 'space')
+      expect(selectKeySpy).toHaveBeenCalledWith('F1', 'space', expect.objectContaining({ isAuto: true }))
     })
 
     it('should auto-select first available alias from cached data', async () => {
@@ -186,7 +187,7 @@ describe('SelectionService Cached Selection Validation', () => {
       const result = await selectionService.autoSelectFirst('alias')
       
       expect(result).toBe('ValidAlias') // Only valid alias in cached data
-      expect(selectAliasSpy).toHaveBeenCalledWith('ValidAlias')
+      expect(selectAliasSpy).toHaveBeenCalledWith('ValidAlias', expect.objectContaining({ isAuto: true }))
     })
 
     it('should return null when no items available for auto-selection', async () => {
@@ -241,6 +242,79 @@ describe('SelectionService Cached Selection Validation', () => {
       await new Promise(resolve => setTimeout(resolve, 10))
       
       expect(validateSpy).toHaveBeenCalledWith('alias', 'TestAlias')
+    })
+  })
+
+  describe('Per-environment caching behaviour', () => {
+    it('should remember last selection per environment when switching back and forth', async () => {
+      selectionService.request = vi.fn().mockResolvedValue({ success: true })
+
+      selectionService.cache.builds = {
+        space: { keys: { F10: ['FireAll'], F11: ['Spare'] } },
+        ground: { keys: { F11: ['Sprint'], F3: ['Jump'] } }
+      }
+      selectionService.cache.keys = selectionService.cache.builds.space.keys
+      selectionService.cache.profile = {
+        id: 'test-profile',
+        selections: {},
+        builds: selectionService.cache.builds
+      }
+      selectionService.cache.currentEnvironment = 'space'
+      selectionService.cache.keys = selectionService.cache.builds.space.keys
+
+      await selectionService.selectKey('F10', 'space')
+      await selectionService.switchEnvironment('ground')
+      await selectionService.selectKey('F11', 'ground')
+
+      await selectionService.switchEnvironment('space')
+      expect(selectionService.cache.selectedKey).toBe('F10')
+
+      await selectionService.switchEnvironment('ground')
+      expect(selectionService.cache.selectedKey).toBe('F11')
+    })
+
+    it('should restore environment-specific selection when environment:changed events fire', async () => {
+      selectionService.request = vi.fn().mockResolvedValue({ success: true })
+
+      selectionService.cache.builds = {
+        space: { keys: { F10: ['FireAll'], F12: ['Spare'] } },
+        ground: { keys: { F11: ['Sprint'], F13: ['Jump'] } }
+      }
+      selectionService.cache.keys = selectionService.cache.builds.space.keys
+      selectionService.cache.profile = {
+        id: 'test-profile',
+        selections: {},
+        builds: selectionService.cache.builds
+      }
+
+      await selectionService.selectKey('F10', 'space')
+
+      selectionService.eventBus.emit('environment:changed', {
+        fromEnvironment: 'space',
+        toEnvironment: 'ground',
+        environment: 'ground'
+      })
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      await selectionService.selectKey('F11', 'ground')
+
+      selectionService.eventBus.emit('environment:changed', {
+        fromEnvironment: 'ground',
+        toEnvironment: 'space',
+        environment: 'space'
+      })
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(selectionService.cache.selectedKey).toBe('F10')
+
+      selectionService.eventBus.emit('environment:changed', {
+        fromEnvironment: 'space',
+        toEnvironment: 'ground',
+        environment: 'ground'
+      })
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(selectionService.cache.selectedKey).toBe('F11')
     })
   })
 })

@@ -19,10 +19,7 @@ export default class ExportService extends ComponentBase {
     this.fileHandler = new STOFileHandler()
   }
 
-  // Lifecycle
-  async init () {
-    super.init()
-
+  onInit() {
     // Initialize ExportService-specific cache properties
     this.extendCache({
       profiles: {} // ExportService needs to cache multiple profiles

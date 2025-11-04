@@ -41,14 +41,8 @@ export default class KeyBrowserService extends ComponentBase {
     }
   }
 
-  // Lifecycle
-  async init() {
-    super.init() // ComponentBase handles late-join automatically
+  onInit() {
     this.setupEventListeners()
-  }
-
-  onInit () {
-    // Legacy method - now handled by init()
   }
 
   setupEventListeners () {

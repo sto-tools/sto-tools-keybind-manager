@@ -33,7 +33,7 @@ export default class ModalManagerService extends ComponentBase {
     }
   }
 
-  async init() {
+  onInit() {
     if (this.isInitialized) {
       console.log(`[${this.componentName}] Already initialized`)
       return

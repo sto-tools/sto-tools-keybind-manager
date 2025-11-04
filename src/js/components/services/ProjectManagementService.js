@@ -33,7 +33,7 @@ export default class ProjectManagementService extends ComponentBase {
   }
 
   onInit() {
-    // Service is ready
+    console.log('[ProjectManagementService] Initialized and ready')
   }
 
   setupEventHandlers() {

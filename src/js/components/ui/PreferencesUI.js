@@ -47,10 +47,11 @@ export default class PreferencesUI extends UIComponentBase {
     this.pendingSettings = {}
   }
 
-  async init() {
+  onInit() {
     // Use request/response instead of direct service call
-    await this.request('preferences:init')
-    this.populatePreferencesModal()
+    this.request('preferences:init').then(() => {
+      this.populatePreferencesModal()
+    })
     this.setupEventListeners()
   }
 

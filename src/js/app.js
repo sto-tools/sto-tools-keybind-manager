@@ -433,6 +433,8 @@ export default class STOToolsKeybindManager {
         eventBus,
       })
 
+      this.projectManagementService.init()
+
 
       this.importUI = new ImportUI({
         eventBus,

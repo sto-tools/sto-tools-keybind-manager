@@ -253,8 +253,11 @@ export default class KeyBrowserUI extends UIComponentBase {
     el.innerHTML = `<div class="key-label">${formatted}</div>${nonBlank.length>0?`<div class="activity-bar" style="width:${Math.min(nonBlank.length*15,100)}%"></div><div class="command-count-badge">${nonBlank.length}</div>`:''}`
 
     this.onDom(el, 'click', 'key-element-click', () => {
-      // Fire select request; no need to await
-      this.request('key:select', { keyName })
+      // Fire select request; include environment so SelectionService restores correct context
+      this.request('key:select', {
+        keyName,
+        environment: this.cache?.currentEnvironment || 'space'
+      })
     })
     return el
   }

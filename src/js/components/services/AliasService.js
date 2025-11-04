@@ -25,8 +25,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  async init() {
-    super.init() 
+  onInit() {
     this.setupEventListeners()
   }
 

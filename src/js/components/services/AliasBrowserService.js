@@ -16,12 +16,8 @@ export default class AliasBrowserService extends ComponentBase {
     }
   }
 
-  async init() {
-    super.init() 
-    this.setupEventListeners()
-  }
-
   onInit() {
+    this.setupEventListeners()
   }
 
   setupEventListeners() {

@@ -26,13 +26,8 @@ export default class BindsetService extends ComponentBase {
     }
   }
 
-  // Initialize service and register with ComponentBase system
-  async init() {
+  onInit() {
     console.log('[BindsetService] Initializing...')
-    
-    // Register with ComponentBase for late-join state synchronization
-    super.init()
-    
     console.log('[BindsetService] Initialized successfully')
   }
 

@@ -22,15 +22,12 @@ export default class VFXManagerService extends ComponentBase {
     }
   }
 
-  async init() {
+  onInit() {
     if (this.isInitialized) {
       console.log(`[${this.componentName}] Already initialized`)
       return
     }
 
-    // Call parent init to register with component system
-    super.init()
-    
     this.setupEventListeners()
     this.isInitialized = true
     console.log(`[${this.componentName}] Initialized`)

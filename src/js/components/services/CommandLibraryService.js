@@ -33,9 +33,7 @@ export default class CommandLibraryService extends ComponentBase {
     }
   }
 
-  // Initialize the service
-  async init() {
-    super.init() // ComponentBase handles late-join automatically
+  onInit() {
     this.setupEventListeners()
     this.setupRequestResponseEndpoints()
   }

@@ -45,8 +45,7 @@ export default class KeyCaptureService extends ComponentBase {
     }
   }
 
-  init() {
-    super.init()
+  onInit() {
     this.setupEventListeners()
   }
 

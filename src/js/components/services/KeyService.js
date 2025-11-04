@@ -28,12 +28,7 @@ export default class KeyService extends ComponentBase {
     }
   }
 
-  // Lifecycle
-  async init() {
-    super.init() // ComponentBase handles late-join automatically
-    this.setupEventListeners()
-  }
-
+  
   // State setters - ComponentBase handles these automatically
   setCurrentEnvironment (environment) {
     // ComponentBase handles this.cache.currentEnvironment via environment:changed events
@@ -399,9 +394,8 @@ export default class KeyService extends ComponentBase {
     return `key_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 
-  // Legacy lifecycle hooks (kept for compatibility)
-  onInit () {
-    // Now handled by init() method
+  onInit() {
+    this.setupEventListeners()
   }
 
   // Historically the UI expected a command-id generator utility on the

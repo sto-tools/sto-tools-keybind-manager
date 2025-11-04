@@ -36,7 +36,10 @@ export default class PreferencesService extends ComponentBase {
 
     // Register Request/Response endpoints for UI components
     if (this.eventBus) {
-      this.respond('preferences:init', () => this.init())
+      this.respond('preferences:init', () => {
+        this.loadSettings()
+        this.applySettings()
+      })
       this.respond('preferences:load-settings', () => this.loadSettings())
       this.respond('preferences:save-settings', () => this.saveSettings())
       this.respond('preferences:get-settings', () => this.getSettings())
@@ -75,12 +78,9 @@ export default class PreferencesService extends ComponentBase {
     })
   }
 
-  // Lifecycle
-  init() {
+  onInit() {
     this.loadSettings()
     this.applySettings()
-
-    super.init()
   }
 
   // Persistence helpers

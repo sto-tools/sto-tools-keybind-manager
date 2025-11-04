@@ -63,11 +63,14 @@ describe('DataCoordinator Service', () => {
         },
         settings: { theme: 'dark' }
       }
-      
+
       mockStorage.getAllData.mockReturnValue(mockData)
-      
+
       await dataCoordinator.init()
-      
+
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0))
+
       expect(dataCoordinator.state.currentProfile).toBe('test-profile')
       expect(dataCoordinator.state.profiles).toEqual(mockData.profiles)
       expect(dataCoordinator.state.settings).toEqual(mockData.settings)
@@ -82,11 +85,14 @@ describe('DataCoordinator Service', () => {
         },
         settings: {}
       }
-      
+
       mockStorage.getAllData.mockReturnValue(mockData)
-      
+
       await dataCoordinator.init()
-      
+
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0))
+
       expect(dataCoordinator.state.currentProfile).toBe('profile1')
       expect(mockStorage.saveAllData).toHaveBeenCalledWith(
         expect.objectContaining({
