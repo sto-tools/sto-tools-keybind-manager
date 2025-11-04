@@ -36,15 +36,9 @@ export default class ExportService extends ComponentBase {
       await this.generateFileName(profile, extension, environment))
     this.respond('export:generate-alias-filename', ({ profile, extension }) => 
       this.generateAliasFileName(profile, extension))
-    this.respond('export:generate-csv-data', ({ profile }) => 
-      this.generateCSVData(profile))
-    this.respond('export:generate-html-report', ({ profile }) => 
-      this.generateHTMLReport(profile))
-    this.respond('export:import-from-file', async ({ file }) => 
+    this.respond('export:import-from-file', async ({ file }) =>
       await this.importFromFile(file))
-    this.respond('export:sanitize-profile', ({ profile }) => 
-      this.sanitizeProfileForExport(profile))
-    this.respond('export:extract-keys', ({ profile, environment }) => 
+    this.respond('export:extract-keys', ({ profile, environment }) =>
       this.extractKeys(profile, environment))
     this.respond('export:generate-keybind-file', async ({ profileId, environment = 'space', syncMode = false }) => {
       const prof = this.getProfileFromCache(profileId)
@@ -75,24 +69,24 @@ export default class ExportService extends ComponentBase {
     })
   }
 
-  // Check if bind-to-alias mode is enabled from cached preferences
-  getBindToAliasMode() {
-    console.log('[ExportService] getBindToAliasMode called')
+  // Check if bind-to-alias mode is enabled from cached preferences (internal method)
+  _getBindToAliasMode() {
+    console.log('[ExportService] _getBindToAliasMode called')
     console.log('[ExportService] cache:', this.cache)
     console.log('[ExportService] preferences:', this.cache?.preferences)
     console.log('[ExportService] bindToAliasMode:', this.cache?.preferences?.bindToAliasMode)
-    
+
     // Use cached preferences from ComponentBase instead of making requests
     return this.cache?.preferences?.bindToAliasMode || false
   }
   
-  // Check if bindsets feature is enabled from cached preferences
-  getBindsetsEnabled() {
-    console.log('[ExportService] getBindsetsEnabled called')
+  // Check if bindsets feature is enabled from cached preferences (internal method)
+  _getBindsetsEnabled() {
+    console.log('[ExportService] _getBindsetsEnabled called')
     console.log('[ExportService] cache:', this.cache)
     console.log('[ExportService] preferences:', this.cache?.preferences)
     console.log('[ExportService] bindsetsEnabled:', this.cache?.preferences?.bindsetsEnabled)
-    
+
     // Use cached preferences from ComponentBase instead of making requests
     return this.cache?.preferences?.bindsetsEnabled || false
   }
@@ -173,49 +167,6 @@ export default class ExportService extends ComponentBase {
     return header
   }
 
-  async generateAliasSection (aliases, profile = {}) {
-    if (!aliases || Object.keys(aliases).length === 0) return ''
-
-    let content = `; Command Aliases
-; ================================================================
-; Aliases allow you to create custom commands that execute
-; multiple commands in sequence. Use them in keybinds like any
-; other command.
-; ================================================================
-
-`
-
-    const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
-    for (const [name, alias] of sorted) {
-      let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
-
-      // Apply mirroring if aliasMetadata says so
-      const shouldStabilize = (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
-
-      if (shouldStabilize && commandsArray.length > 1) {
-        const cmdParts = commandsArray.map(c => ({ command: c }))
-        const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: cmdParts })
-        commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
-      }
-
-      // Optimise each command (e.g., TrayExecByTray / TrayExecByTrayWithBackup)
-      const optimisedCommands = []
-      for (const cmd of commandsArray) {
-        // normalise + optimise each command string
-        /* eslint-disable no-await-in-loop */
-        const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
-        /* eslint-enable no-await-in-loop */
-        optimisedCommands.push(opt)
-      }
-
-      // Join array back to string for STO format
-      const commandsStr = optimisedCommands.join(' $$ ')
-      content += formatAliasLine(name, { ...alias, commands: commandsStr })
-      content += '\n'
-    }
-    return content
-  }
-
   async generateKeybindSection (keys, options = {}) {
     const { environment = 'space', syncMode = false, profile } = options
     
@@ -224,7 +175,7 @@ export default class ExportService extends ComponentBase {
     }
 
     // Check if bind-to-alias mode is enabled
-    const bindToAliasMode = this.getBindToAliasMode()
+    const bindToAliasMode = this._getBindToAliasMode()
     console.log('[ExportService] this: ', this)
 
     let content = `; ==============================================================================\n`
@@ -280,134 +231,8 @@ export default class ExportService extends ComponentBase {
     return content
   }
 
-  // CSV helpers
-  generateCSVData (profile) {
-    const rows = []
-    const env = profile.currentEnvironment || 'space'
-    const keys = this.extractKeys(profile, env)
-
-    const getCmdStr = (c) => typeof c === 'string' ? c : c.command
-
-    Object.entries(keys).forEach(([key, commands]) => {
-      commands.forEach((cmdObj, idx) => {
-        const cmdStr = getCmdStr(cmdObj)
-        rows.push({
-          key,
-          order: idx + 1,
-          command: cmdStr,
-          type: (cmdObj && cmdObj.type) || '',
-          description: (cmdObj && cmdObj.text) || '',
-        })
-      })
-    })
-
-    // Aliases
-    if (profile.aliases) {
-      Object.values(profile.aliases).forEach((alias) => {
-        rows.push({
-          key: 'ALIAS',
-          order: '',
-          command: alias.name,
-          type: 'alias',
-          description: alias.description || '',
-        })
-      })
-    }
-
-    // Legacy header uses Title-case – keep for backward compatibility / tests
-    const csvHeader = ['Key', 'Command', 'Type', 'Description', 'Position']
-    const csvLines = [csvHeader.join(',')]
-    rows.forEach((row) => {
-      csvLines.push([
-        this.escapeCSV(row.key),
-        this.escapeCSV(row.command),
-        this.escapeCSV(row.type),
-        this.escapeCSV(row.description),
-        this.escapeCSV(row.order),
-      ].join(','))
-    })
-    return csvLines.join('\n')
-  }
-
-  escapeCSV (value) {
-    if (value === null || value === undefined) return ''
-    const str = value.toString()
-    if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"'
-    return str
-  }
-
-  // HTML helpers
-  generateHTMLReport (profile) {
-    const env = profile.currentEnvironment || 'space'
-    const keys = this.extractKeys(profile, env)
-    const title = `${profile.name} – ${i18next.t('html_report_title')}`
-
-    return `<!DOCTYPE html>
-<html lang="${i18next.language}">
-<head>
-  <meta charset="utf-8" />
-  <title>${title}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { font-size: 24px; margin-bottom: 10px; }
-    h2 { font-size: 20px; margin-top: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    code { background-color: #eee; padding: 2px 4px; }
-    .keybind { margin-bottom: 10px; }
-    .command { background-color:#e0e0e0; padding:2px 4px; margin:1px; display:inline-block; }
-  </style>
-</head>
-<body>
-  <h1>${title}</h1>
-
-  <h2>${i18next.t('keybinds')}</h2>
-  ${this.generateHTMLKeybindSection(keys)}
-
-  <h2>${i18next.t('aliases')}</h2>
-  ${this.generateHTMLAliasSection(profile.aliases)}
-</body>
-</html>`
-  }
-
-  generateHTMLKeybindSection (keys) {
-    if (!keys || Object.keys(keys).length === 0) return '<p>No keybinds defined</p>'
-
-    const getCmdStr = (c) => typeof c === 'string' ? c : c.command
-
-    let html = '<table><thead><tr><th>Key</th><th>Commands</th></tr></thead><tbody>'
-    Object.entries(keys).forEach(([key, commands]) => {
-      const commandList = commands
-        .map(getCmdStr)
-        .filter(Boolean)
-        .map((c) => `<span class="command">${c}</span>`)
-        .join(' ')
-      html += `<tr><td><code>${key}</code></td><td>${commandList}</td></tr>`
-    })
-    html += '</tbody></table>'
-    return html
-  }
-
-  generateHTMLAliasSection (aliases) {
-    if (!aliases || Object.keys(aliases).length === 0) return '<p>No aliases defined</p>'
-
-    let html = '<table><thead><tr><th>Alias</th><th>Commands</th><th>Description</th></tr></thead><tbody>'
-    Object.values(aliases).forEach((alias) => {
-      let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
-      const commandsDisplay = commandsArray.join(' $$ ')
-      
-      html += `<tr>
-        <td><code>${alias.name}</code></td>
-        <td><code>${commandsDisplay}</code></td>
-        <td>${alias.description || ''}</td>
-      </tr>`
-    })
-    html += '</tbody></table>'
-    return html
-  }
-
+  
+  
   /* ---------------------------------------------------------- */
   /* Import delegation methods removed - use ImportService directly */
   /* Use: await this.request('import:from-file', { file })          */
@@ -432,7 +257,7 @@ export default class ExportService extends ComponentBase {
     }
     
     // Check if bind-to-alias mode is enabled and add generated aliases
-    const bindToAliasMode = this.getBindToAliasMode()
+    const bindToAliasMode = this._getBindToAliasMode()
     const generatedAliases = {}
     
     if (bindToAliasMode) {
@@ -473,7 +298,7 @@ export default class ExportService extends ComponentBase {
     // --------------------------------------------------------
     // Bindsets support – generate aliases per bindset & loaders
     // --------------------------------------------------------
-    const bindsetsEnabled = this.getBindsetsEnabled()
+    const bindsetsEnabled = this._getBindsetsEnabled()
     const bindsetAliases = {}
     const loaderAliases = {}
 
@@ -729,41 +554,6 @@ export default class ExportService extends ComponentBase {
   generateAliasFileName (profile, extension) {
     const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
     return `${sanitized}_aliases.${extension}`
-  }
-
-  sanitizeProfileForExport (profile) {
-    // Deep clone to avoid mutating original
-    const sanitized = JSON.parse(JSON.stringify(profile))
-
-    // Commands are now canonical strings, so no need to strip IDs
-    // This function is kept for backward compatibility but is essentially a no-op
-    const stripIds = (commands=[]) => {
-      return normalizeToStringArray(commands)
-    }
-
-    // Strip IDs from all environments
-    if (sanitized.keybinds) {
-      Object.keys(sanitized.keybinds).forEach(env => {
-        if (sanitized.keybinds[env]) {
-          Object.keys(sanitized.keybinds[env]).forEach(key => {
-            sanitized.keybinds[env][key] = stripIds(sanitized.keybinds[env][key])
-          })
-        }
-      })
-    }
-
-    // Strip IDs from builds structure
-    if (sanitized.builds) {
-      Object.keys(sanitized.builds).forEach(env => {
-        if (sanitized.builds[env] && sanitized.builds[env].keys) {
-          Object.keys(sanitized.builds[env].keys).forEach(key => {
-            sanitized.builds[env].keys[key] = stripIds(sanitized.builds[env].keys[key])
-          })
-        }
-      })
-    }
-
-    return sanitized
   }
 
   extractKeys (profile = {}, environment = 'space') {
