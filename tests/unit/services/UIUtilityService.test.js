@@ -3,7 +3,7 @@ import UIUtilityService from '../../../src/js/components/services/UIUtilityServi
 import { createEventBusFixture } from '../../fixtures'
 
 /**
- * Unit tests – UIUtilityService (pure helpers)
+ * Unit tests – UIUtilityService (clipboard and drag-drop utilities)
  */
 
 describe('UIUtilityService', () => {
@@ -14,36 +14,74 @@ describe('UIUtilityService', () => {
     service = new UIUtilityService(eventBus)
   })
 
-  it('isValidEmail correctly validates email strings', () => {
-    expect(service.isValidEmail('john.doe@example.com')).toBe(true)
-    expect(service.isValidEmail('not-an-email')).toBe(false)
-    expect(service.isValidEmail('bob@local')).toBe(false)
+  it('should have drag state initialized', () => {
+    expect(service.dragState).toEqual({
+      isDragging: false,
+      dragElement: null,
+      dragData: null,
+    })
   })
 
-  it('validateForm returns invalid when required field empty', () => {
-    document.body.innerHTML = `<form id="testForm"><input id="name" name="name" required value="" /></form>`
-    const formEl = document.getElementById('testForm')
-    const result = service.validateForm(formEl)
-    expect(result.isValid).toBe(false)
-    expect(result.errors.length).toBe(1)
+  it('should initialize drag and drop functionality', () => {
+    // Create a mock container element
+    const container = document.createElement('div')
+    container.id = 'test-container'
+    document.body.appendChild(container)
+
+    // Mock event listener to verify it's called
+    const addEventListenerSpy = vi.spyOn(container, 'addEventListener')
+
+    // Call initDragAndDrop
+    service.initDragAndDrop(container, {
+      draggableSelector: '.draggable',
+      onDragStart: vi.fn(),
+      onDragEnd: vi.fn(),
+    })
+
+    // Verify event listeners were added
+    expect(addEventListenerSpy).toHaveBeenCalledWith('dragstart', expect.any(Function))
+    expect(addEventListenerSpy).toHaveBeenCalledWith('dragend', expect.any(Function))
+    expect(addEventListenerSpy).toHaveBeenCalledWith('dragover', expect.any(Function))
+    expect(addEventListenerSpy).toHaveBeenCalledWith('drop', expect.any(Function))
+
+    // Cleanup
+    document.body.removeChild(container)
+    addEventListenerSpy.mockRestore()
   })
 
-  it('debounce delays function execution', () => {
-    vi.useFakeTimers()
+  describe('Event Handlers', () => {
+    it('should handle copy to clipboard events', async () => {
+      const emitSpy = vi.spyOn(service, 'emit')
+      const copyToClipboardSpy = vi.spyOn(service, 'copyToClipboard').mockResolvedValue({ success: true })
 
-    const fn = vi.fn()
-    const debounced = service.debounce(fn, 100)
+      await service.handleCopyToClipboard({ text: 'test text' })
 
-    debounced()
-    debounced()
-    // At this point function should not have executed
-    expect(fn).not.toHaveBeenCalled()
+      expect(copyToClipboardSpy).toHaveBeenCalledWith('test text')
+      expect(emitSpy).toHaveBeenCalledWith('ui:clipboard-result', {
+        success: { success: true },
+        text: 'test text'
+      })
 
-    // Fast-forward time
-    vi.advanceTimersByTime(120)
-    expect(fn).toHaveBeenCalledTimes(1)
+      copyToClipboardSpy.mockRestore()
+      emitSpy.mockRestore()
+    })
 
-    vi.useRealTimers()
+    it('should handle init drag drop events', async () => {
+      const emitSpy = vi.spyOn(service, 'emit')
+      const container = document.createElement('div')
+      container.id = 'drag-container'
+      document.body.appendChild(container)
+
+      await service.handleInitDragDrop({ containerId: 'drag-container', options: { test: true } })
+
+      expect(emitSpy).toHaveBeenCalledWith('ui:drag-drop-initialized', {
+        containerId: 'drag-container',
+        options: { test: true }
+      })
+
+      document.body.removeChild(container)
+      emitSpy.mockRestore()
+    })
   })
 
   describe('copyToClipboard', () => {
