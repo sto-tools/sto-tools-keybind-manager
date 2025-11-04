@@ -228,14 +228,9 @@ export default class AliasService extends ComponentBase {
     const profileId = this.cache.currentProfile
 
     // Delegate to ImportService for complete import handling
-    return request(this.eventBus, 'import:alias-file', { 
-      content, 
-      profileId 
+    return request(this.eventBus, 'import:alias-file', {
+      content,
+      profileId
     })
-  }
-
-  // Utility helpers
-  generateAliasId () {
-    return `alias_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 }
