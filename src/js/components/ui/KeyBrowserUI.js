@@ -130,7 +130,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
 
-    const profile = await this.request('key:get-profile')
+    const profile = this.cache.profile
     if (!profile) {
       grid.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><h4>${i18next.t('no_profile_selected') || 'No Profile Selected'}</h4></div>`
       return

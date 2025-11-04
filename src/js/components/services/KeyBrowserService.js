@@ -15,7 +15,6 @@ export default class KeyBrowserService extends ComponentBase {
     // Register Request/Response endpoints for external callers
     if (this.eventBus) {
       this.respond('key:get-all',           () => this.getKeys())
-      this.respond('key:get-profile',       () => this.getProfile())
       
       this.respond('key:categorize-by-command', ({ keysWithCommands, allKeys }) => 
         this.categorizeKeys(keysWithCommands, allKeys)),
@@ -85,13 +84,8 @@ export default class KeyBrowserService extends ComponentBase {
   }
 
   // Selection caching and auto-selection
-  
-  // Data helpers now use cached data
-  getProfile () {
-    // Return cached profile instead of accessing storage directly
-    return this.cache.profile
-  }
 
+  // Data helpers now use cached data
   getKeys () {
     // Return cached keys for current environment
     return this.cache.keys || {}
