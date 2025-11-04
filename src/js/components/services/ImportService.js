@@ -2,7 +2,6 @@
 // Uses STOCommandParser for parsing, handles application logic
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
-import STOFileHandler from '../../lib/fileHandler.js'
 import { normalizeToStringArray, normalizeToOptimizedString } from '../../lib/commandDisplayAdapter.js'
 import { decodeKeyFromImport } from '../../lib/keyEncoding.js'
 
@@ -13,7 +12,6 @@ export default class ImportService extends ComponentBase {
     this.storage = storage
     this.i18n = i18n
     this.ui = ui
-    this.fileHandler = new STOFileHandler()
   }
 
   setupRequestHandlers() {

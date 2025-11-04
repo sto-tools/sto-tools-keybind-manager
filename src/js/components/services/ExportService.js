@@ -1,5 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import STOFileHandler from '../../lib/fileHandler.js'
 import { writeFile } from './SyncService.js'
 import i18next from 'i18next'
 import { formatAliasLine, formatKeybindLine } from '../../lib/STOFormatter.js'
@@ -16,7 +15,6 @@ export default class ExportService extends ComponentBase {
     super(eventBus)
     this.componentName = 'ExportService'
     this.storage = storage
-    this.fileHandler = new STOFileHandler()
   }
 
   onInit() {
