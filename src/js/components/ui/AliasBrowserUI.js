@@ -95,20 +95,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       }
     })
 
-    // Alias options dropdown
-    this.onDom('aliasOptionsDropdown', 'click', 'alias-options-toggle', (e) => {
-      e.stopPropagation()
-      this.toggleAliasOptionsDropdown()
-    })
-
-    // Handle checkbox changes in alias options
-    const aliasCheckboxes = ['aliasStabilizeOption', 'aliasToggleOption', 'aliasCycleOption']
-    aliasCheckboxes.forEach(id => {
-      this.onDom(id, 'change', `alias-option-${id}`, () => {
-        this.updateAliasOptionsLabel()
-      })
-    })
-
+    
     // Debounced alias search input via eventBus helper
     this.onDomDebounced('aliasFilter', 'input', 'alias-filter', (e) => {
       this.filterAliases(e.target.value)
@@ -243,27 +230,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     validate()
   }
 
-  /**
-   * Toggle alias options dropdown
-   */
-  toggleAliasOptionsDropdown() {
-    const dropdown = this.document.getElementById('aliasOptionsDropdown')
-    if (dropdown) {
-      dropdown.classList.toggle('active')
-    }
-  }
-
-  /**
-   * Update alias options label based on selected checkboxes
-   */
-  updateAliasOptionsLabel() {
-    const stabilize = this.document.getElementById('aliasStabilizeOption')?.checked
-    const toggle = this.document.getElementById('aliasToggleOption')?.checked
-    const cycle = this.document.getElementById('aliasCycleOption')?.checked
-    
-    this.emit('alias:options-changed', { stabilize, toggle, cycle })
-  }
-
+  
   async render () {
     const grid = this.document.getElementById('aliasGrid')
     if (!grid) return

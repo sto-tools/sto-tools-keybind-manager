@@ -76,10 +76,6 @@ export default class AliasBrowserService extends ComponentBase {
     this.cache.aliases = profile.aliases || {}
   }
 
-  getProfile() {
-    return this.cache.profile
-  }
-
   getAliases() {
     return Object.fromEntries(Object.entries(this.cache.aliases || {}).filter(([key, value]) => value.type !== 'vfx-alias')) 
   }
