@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { 
-  isAliasNameAllowed, 
-  isAliasNamePatternValid, 
-  generateBindToAliasName,
-  parseBindToAliasName 
+import {
+  isAliasNameAllowed,
+  isAliasNamePatternValid,
+  generateBindToAliasName
 } from '../../../src/js/lib/aliasNameValidator.js'
 
 describe('aliasNameValidator', () => {
@@ -79,36 +78,6 @@ describe('aliasNameValidator', () => {
     it('collapses multiple underscores and removes leading/trailing ones', () => {
       expect(generateBindToAliasName('space', 'Ctrl+_+A')).toBe('sto_kb_space_ctrl_underscore_a')
       expect(generateBindToAliasName('space', '___test___')).toBe('sto_kb_space_underscoreunderscoreunderscoretestunderscoreunderscoreunderscore')
-    })
-  })
-
-  describe('parseBindToAliasName', () => {
-    it('parses generated alias names correctly', () => {
-      expect(parseBindToAliasName('sto_kb_space_q')).toEqual({
-        environment: 'space',
-        keyPart: 'q',
-        originalKey: 'q'
-      })
-
-      expect(parseBindToAliasName('sto_kb_ground_control_leftbracket')).toEqual({
-        environment: 'ground',
-        keyPart: 'control_leftbracket',
-        originalKey: 'control leftbracket'
-      })
-    })
-
-    it('handles numeric key prefixes', () => {
-      expect(parseBindToAliasName('sto_kb_space_k1')).toEqual({
-        environment: 'space',
-        keyPart: 'k1',
-        originalKey: '1'
-      })
-    })
-
-    it('returns null for invalid patterns', () => {
-      expect(parseBindToAliasName('invalid')).toBe(null)
-      expect(parseBindToAliasName('')).toBe(null)
-      expect(parseBindToAliasName(null)).toBe(null)
     })
   })
 }) 
