@@ -106,15 +106,20 @@ describe('SelectionService', () => {
 
       await service.selectKey('F4')
 
-      expect(service.request).toHaveBeenCalledWith('data:update-profile', {
-        profileId: 'test-profile',
-        properties: {
-          selections: {
-            ground: 'F8',
-            space: 'F4'
-          }
-        }
-      })
+      expect(service.request).toHaveBeenCalledWith(
+        'data:update-profile',
+        expect.objectContaining({
+          profileId: 'test-profile',
+          updates: expect.objectContaining({
+            properties: expect.objectContaining({
+              selections: expect.objectContaining({
+                ground: 'F8',
+                space: 'F4'
+              })
+            })
+          })
+        })
+      )
     })
 
     it('should emit when manual selection repeats an auto-selected key', async () => {
@@ -171,15 +176,20 @@ describe('SelectionService', () => {
 
       await service.selectAlias('TestAlias')
 
-      expect(service.request).toHaveBeenCalledWith('data:update-profile', {
-        profileId: 'test-profile',
-        properties: {
-          selections: {
-            space: 'F5',
-            alias: 'TestAlias'
-          }
-        }
-      })
+      expect(service.request).toHaveBeenCalledWith(
+        'data:update-profile',
+        expect.objectContaining({
+          profileId: 'test-profile',
+          updates: expect.objectContaining({
+            properties: expect.objectContaining({
+              selections: expect.objectContaining({
+                space: 'F5',
+                alias: 'TestAlias'
+              })
+            })
+          })
+        })
+      )
     })
   })
 

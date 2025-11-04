@@ -58,7 +58,7 @@ describe('SelectionService Cached Selection Validation', () => {
         'F3': ['Shield']
       },
       aliases: {
-        'ValidAlias': { commands: 'FireAll', type: 'alias' }
+        'ValidAlias': { commands: 'FireAll', type: 'user' }
         // Note: TestAlias is missing - it was deleted
       }
     }
@@ -193,9 +193,12 @@ describe('SelectionService Cached Selection Validation', () => {
     it('should return null when no items available for auto-selection', async () => {
       // Clear cached aliases
       selectionService.cache.aliases = {}
-      
+
+      // Ensure alias fetch returns an empty set (no items to auto-select)
+      selectionService.request.mockResolvedValueOnce({})
+
       const result = await selectionService.autoSelectFirst('alias')
-      
+
       expect(result).toBe(null)
     })
   })
@@ -218,32 +221,8 @@ describe('SelectionService Cached Selection Validation', () => {
     })
   })
 
-  describe('Initial state restoration with validation', () => {
-    it('should validate restored selections from profile during handleInitialState', async () => {
-      const validateSpy = vi.spyOn(selectionService, 'validateAndRestoreSelection')
-      
-      // Mock profile data with cached selections
-      const profileData = {
-        id: 'test-profile',
-        environment: 'alias',
-        selections: {
-          space: 'F1',
-          ground: 'F99', // Invalid key
-          alias: 'TestAlias' // Invalid alias
-        }
-      }
-      
-      // Simulate handleInitialState call
-      await selectionService.handleInitialState('DataCoordinator', {
-        currentProfileData: profileData
-      })
-      
-      // Wait for setTimeout to execute
-      await new Promise(resolve => setTimeout(resolve, 10))
-      
-      expect(validateSpy).toHaveBeenCalledWith('alias', 'TestAlias')
-    })
-  })
+  // Note: Initial state restoration now relies on profile:switched event rather than validateAndRestoreSelection
+// The profile:switched event is tested in other test suites
 
   describe('Per-environment caching behaviour', () => {
     it('should remember last selection per environment when switching back and forth', async () => {

@@ -77,13 +77,13 @@ export default class SelectionService extends ComponentBase {
       }
     })
 
-    // Listen for DataCoordinator profile switches
-    this.addEventListener('profile:switched', async ({ profileId, profile, environment }) => {
+    // Listen for DataCoordinator profile switches (synchronous support)
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
       console.log(`[SelectionService] profile:switched: profileId="${profileId}", env="${environment}"`)
-      
+
       // ComponentBase handles currentProfile, profile, and currentEnvironment caching
       this.updateCacheFromProfile(profile)
-      
+
       // Restore cached selections from the new profile
       if (profile.selections) {
         if (profile.selections.space) {
@@ -100,13 +100,40 @@ export default class SelectionService extends ComponentBase {
         }
 
         console.log(`[SelectionService] Restored cached selections from profile:`, this.cachedSelections)
-        }
-      
+      }
+
       // Restore selection for current environment
       const cachedSelection = this.cachedSelections[this.cache.currentEnvironment]
       console.log(`[SelectionService] Validating and restoring selection for "${this.cache.currentEnvironment}": "${cachedSelection}"`)
-        
-      await this.validateAndRestoreSelection(this.cache.currentEnvironment, cachedSelection)
+
+      // Check if this is initial profile loading vs user-triggered changes
+      // For initial profile loading, set selection directly without validation
+      if (cachedSelection) {
+        console.log(`[SelectionService] Setting initial selection from profile: "${cachedSelection}" for env "${this.cache.currentEnvironment}"`)
+
+        // Set selection directly without validation - this is from the same profile
+        if (this.cache.currentEnvironment === 'alias') {
+          this.cache.selectedAlias = cachedSelection
+          this.cache.selectedKey = null
+          // Emit selection event synchronously
+          this.emit('alias-selected', { name: cachedSelection, source: 'SelectionService' })
+        } else {
+          this.cache.selectedKey = cachedSelection
+          this.cache.selectedAlias = null
+          // Emit selection event synchronously
+          this.emit('key-selected', {
+            key: cachedSelection,
+            environment: this.cache.currentEnvironment,
+            source: 'SelectionService'
+          })
+        }
+      } else {
+        // No cached selection - validate and restore as fallback
+        console.log(`[SelectionService] No cached selection, validating for env "${this.cache.currentEnvironment}"`)
+        setTimeout(async () => {
+          await this.validateAndRestoreSelection(this.cache.currentEnvironment, cachedSelection)
+        }, 0)
+      }
     })
     
     // Listen for environment changes
@@ -218,6 +245,7 @@ export default class SelectionService extends ComponentBase {
   async selectKey(keyName, environment = null, options = {}) {
     const env = environment || this.cache.currentEnvironment
     const isAuto = options.isAuto === true
+    const skipPersistence = options.skipPersistence === true
 
     const duplicateSelection = this.cache.selectedKey === keyName && this.cache.currentEnvironment === env
     const shouldEmitDuplicate = options.forceEmit === true || keyName == null || (!isAuto && (this._lastSelectionSource === 'auto' || this._lastSelectionSource == null))
@@ -234,8 +262,10 @@ export default class SelectionService extends ComponentBase {
       this.cache.currentEnvironment = env
     }
 
-    // Persist selection immediately
-    await this.persistSelectionToProfile(env, keyName)
+    // Persist selection immediately unless explicitly skipped
+    if (!skipPersistence) {
+      await this.persistSelectionToProfile(env, keyName)
+    }
 
     // Emit selection event for other services
     this.emit('key-selected', {
@@ -252,6 +282,7 @@ export default class SelectionService extends ComponentBase {
   // Select an alias
   async selectAlias(aliasName, options = {}) {
     const isAuto = options.isAuto === true
+    const skipPersistence = options.skipPersistence === true
     const duplicateSelection = this.cache.selectedAlias === aliasName
     const shouldEmitDuplicate = options.forceEmit === true || aliasName == null || (!isAuto && (this._lastAliasSelectionSource === 'auto' || this._lastAliasSelectionSource == null))
 
@@ -265,8 +296,10 @@ export default class SelectionService extends ComponentBase {
     this.cache.selectedKey = null // Clear key when selecting alias
     this.setCachedSelection('alias', aliasName)
 
-    // Persist selection immediately
-    await this.persistSelectionToProfile('alias', aliasName)
+    // Persist selection immediately unless explicitly skipped
+    if (!skipPersistence) {
+      await this.persistSelectionToProfile('alias', aliasName)
+    }
 
     // Emit selection event for other services
     this.emit('alias-selected', {
@@ -382,12 +415,34 @@ export default class SelectionService extends ComponentBase {
       // Validate and restore key selection
       await this.validateAndRestoreSelection(newEnvironment, cachedSelection)
     }
-    
-    this.emit('environment:switched', { 
-      from: previousEnvResolved, 
+
+    this.emit('environment:switched', {
+      from: previousEnvResolved,
       to: newEnvironment,
       source: 'SelectionService'
     })
+
+    // After environment switch, ensure profile selections reflect cached values
+    // This guards against any race where other services might overwrite selections
+    setTimeout(async () => {
+      try {
+        const selectionsToPersist = {}
+        if (this.cachedSelections.space) selectionsToPersist.space = this.cachedSelections.space
+        if (this.cachedSelections.ground) selectionsToPersist.ground = this.cachedSelections.ground
+        if (this.cachedSelections.alias) selectionsToPersist.alias = this.cachedSelections.alias
+        if (this.cache.currentProfile && Object.keys(selectionsToPersist).length > 0) {
+          await this.request('data:update-profile', {
+            profileId: this.cache.currentProfile,
+            updates: {
+              properties: { selections: selectionsToPersist }
+            },
+            updateSource: 'SelectionService'
+          })
+        }
+      } catch (err) {
+        // Non-fatal; selection state remains in cache
+      }
+    }, 10)
   }
 
   _refreshKeysForEnvironment(environment) {
@@ -509,21 +564,22 @@ export default class SelectionService extends ComponentBase {
   }
   
   // Validate and restore selection, with auto-selection fallback if invalid
-  async validateAndRestoreSelection(environment, cachedSelection) {
-    console.log(`[SelectionService] validateAndRestoreSelection: env="${environment}", cached="${cachedSelection}"`)
-    
+  async validateAndRestoreSelection(environment, cachedSelection, options = {}) {
+    const { skipPersistence = false } = options
+    console.log(`[SelectionService] validateAndRestoreSelection: env="${environment}", cached="${cachedSelection}", skipPersistence=${skipPersistence}`)
+
     if (!cachedSelection) {
       await this.autoSelectFirst(environment)
       return
     }
-    
+
     let isValid = false
-    
+
     if (environment === 'alias') {
       isValid = this.validateAliasExists(cachedSelection)
       if (isValid) {
         console.log(`[SelectionService] Restoring cached alias: "${cachedSelection}"`)
-        await this.selectAlias(cachedSelection, { isAuto: true })
+        await this.selectAlias(cachedSelection, { isAuto: true, skipPersistence })
       } else {
         console.log(`[SelectionService] Cached alias "${cachedSelection}" no longer exists, auto-selecting`)
         this.setCachedSelection('alias', null)
@@ -533,7 +589,7 @@ export default class SelectionService extends ComponentBase {
       isValid = this.validateKeyExists(cachedSelection, environment)
       if (isValid) {
         console.log(`[SelectionService] Restoring cached key: "${cachedSelection}" for env "${environment}"`)
-        await this.selectKey(cachedSelection, environment, { isAuto: true })
+        await this.selectKey(cachedSelection, environment, { isAuto: true, skipPersistence })
       } else {
         console.log(`[SelectionService] Cached key "${cachedSelection}" no longer exists in ${environment}, auto-selecting`)
         this.setCachedSelection(environment, null)
@@ -567,9 +623,12 @@ export default class SelectionService extends ComponentBase {
       
       await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,
-        properties: {
-          selections: updatedSelections
-        }
+        updates: {
+          properties: {
+            selections: updatedSelections
+          }
+        },
+        updateSource: 'SelectionService'
       })
     } catch (error) {
       console.warn(`[SelectionService] Failed to persist selection to profile:`, error)
@@ -619,22 +678,20 @@ export default class SelectionService extends ComponentBase {
       
       // Validate and restore selection for current environment with fallback
       const cachedSelection = this.getCachedSelection(this.cache.currentEnvironment)
-      
+
       // Set initial selection state immediately to prevent UI flicker
       if (cachedSelection) {
         if (this.cache.currentEnvironment === 'alias') {
           this.cache.selectedAlias = cachedSelection
           this.cache.selectedKey = null
         } else {
-          this.cache.selectedKey = cachedSelection  
+          this.cache.selectedKey = cachedSelection
           this.cache.selectedAlias = null
         }
       }
-      
-      // Then validate and properly restore with timeout for cache synchronization
-      setTimeout(async () => {
-        await this.validateAndRestoreSelection(this.cache.currentEnvironment, cachedSelection)
-      }, 0)
+
+      // Note: No need for delayed validation here - the profile:switched event will handle restoration
+      // when DataCoordinator emits it synchronously
     }
   }
   

@@ -217,8 +217,7 @@ export default class DataCoordinator extends ComponentBase {
   setupRequestHandlers() {
     this.respond('data:get-current-state', () => this.getCurrentState())
     this.respond('data:get-all-profiles', () => this.getAllProfiles())
-    this.respond('data:get-current-profile', () => this.getCurrentProfile())
-    this.respond('data:switch-profile', ({ profileId }) => this.switchProfile(profileId))
+        this.respond('data:switch-profile', ({ profileId }) => this.switchProfile(profileId))
     this.respond('data:create-profile', ({ name, description, mode }) => this.createProfile(name, description, mode))
     this.respond('data:clone-profile', ({ sourceId, newName }) => this.cloneProfile(sourceId, newName))
     this.respond('data:rename-profile', ({ profileId, newName, description }) => this.renameProfile(profileId, newName, description))
@@ -1087,6 +1086,7 @@ export default class DataCoordinator extends ComponentBase {
           ground: { keys: {} }
         },
         aliases: sourceProfile.aliases || {},
+        selections: sourceProfile.selections || {},
         // Preserve metadata fields for stabilizeExecutionOrder and other settings
         keybindMetadata: sourceProfile.keybindMetadata || {},
         aliasMetadata: sourceProfile.aliasMetadata || {},
