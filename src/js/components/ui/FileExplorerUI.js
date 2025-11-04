@@ -106,10 +106,7 @@ export default class FileExplorerUI extends UIComponentBase {
         }
       }
       this.downloadFile(text, filename, 'text/plain')
-    })
-
-    // Listen for external file-operations (other components)
-    this.addEventListener('file-explorer:save', (data) => this.saveFile(data.path, data.content))
+      })
   }
 
   // UI actions
@@ -244,27 +241,6 @@ export default class FileExplorerUI extends UIComponentBase {
     // Attempt to load previously saved user-selected dir
     this.currentDirectory = await this.fileSystem.getDirectoryHandle(KEY_SYNC_FOLDER)
     return this.currentDirectory
-  }
-
-  async openFile (path) {
-    // Reading files is not yet required by the application logic.
-    // This stub exists to demonstrate the service usage and future extension.
-    console.log('[FileExplorerUI] openFile – not implemented yet:', path)
-  }
-
-  async saveFile (relativePath, content) {
-    try {
-      let dirHandle = await this.ensureDirectoryHandle()
-      if (!dirHandle) {
-        console.warn('[FileExplorerUI] No directory handle available for saveFile')
-        return
-      }
-      await this.fileSystem.writeFile(dirHandle, relativePath, content)
-      this.ui?.showToast(i18next.t('file_saved_successfully'), 'success')
-    } catch (error) {
-      console.error('Failed to save file:', error)
-      this.ui?.showToast(i18next.t('failed_to_save_file'), 'error')
-    }
   }
 
   downloadFile (content, filename, mimeType) {
