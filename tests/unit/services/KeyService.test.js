@@ -13,7 +13,6 @@ const mockKeyService = {
   constructor: vi.fn(),
   init: vi.fn(),
   setCurrentProfile: vi.fn(),
-  setCurrentEnvironment: vi.fn(),
   setSelectedKey: vi.fn(),
   addKey: vi.fn(),
   deleteKey: vi.fn(),
@@ -21,7 +20,6 @@ const mockKeyService = {
   isValidKeyName: vi.fn(),
   // REMOVED: isValidAliasName - moved to AliasService in Phase 3.1
   generateValidKeys: vi.fn(),
-  getKeys: vi.fn(),
   getCurrentProfile: vi.fn(),
   // REMOVED: getProfileStats - moved to AnalyticsService in Phase 3.4
   setupEventListeners: vi.fn(),
@@ -72,12 +70,7 @@ describe('KeyService', () => {
       keyService.cache.currentProfile = profileId
     })
 
-    keyService.setCurrentEnvironment = vi.fn((environment) => {
-      keyService.currentEnvironment = environment
-      keyService.cache.currentEnvironment = environment
-      keyService.cache.keys = keyService.cache.builds[environment]?.keys || {}
-    })
-
+    
     keyService.setSelectedKey = vi.fn((key) => {
       keyService.selectedKey = key
     })
@@ -152,10 +145,7 @@ describe('KeyService', () => {
       return newKeyName
     })
 
-    keyService.getKeys = vi.fn(() => {
-      return keyService.cache.keys
-    })
-
+    
     // getProfileStats REMOVED in Phase 3.4 - moved to AnalyticsService
     // KeyService no longer handles statistics
   })
@@ -194,16 +184,7 @@ describe('KeyService', () => {
       expect(keyService.cache.currentProfile).toBe(profileId)
     })
 
-    it('should set current environment', () => {
-      const environment = 'ground'
-      
-      keyService.setCurrentEnvironment(environment)
-      
-      expect(keyService.setCurrentEnvironment).toHaveBeenCalledWith(environment)
-      expect(keyService.currentEnvironment).toBe(environment)
-      expect(keyService.cache.currentEnvironment).toBe(environment)
-    })
-
+    
     it('should update cache from profile data', () => {
       const profile = profileFixture.profile
       
@@ -449,11 +430,12 @@ describe('KeyService', () => {
     it('should maintain cache consistency', () => {
       const profileId = 'test-profile'
       const environment = 'ground'
-      
+
       keyService.setCurrentProfile(profileId)
-      keyService.setCurrentEnvironment(environment)
+      keyService.currentEnvironment = environment  // Set directly since setCurrentEnvironment was removed
+      keyService.cache.currentEnvironment = environment
       keyService.updateCacheFromProfile(profileFixture.profile)
-      
+
       expect(keyService.cache.currentProfile).toBe(profileId)
       expect(keyService.cache.currentEnvironment).toBe(environment)
       expect(keyService.cache.keys).toEqual(profileFixture.profile.builds.ground.keys)

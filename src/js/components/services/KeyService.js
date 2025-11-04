@@ -29,19 +29,6 @@ export default class KeyService extends ComponentBase {
   }
 
   
-  // State setters - ComponentBase handles these automatically
-  setCurrentEnvironment (environment) {
-    // ComponentBase handles this.cache.currentEnvironment via environment:changed events
-    // ComponentBase handles this.cache.keys via profile:updated events
-    console.log(`[KeyService] setCurrentEnvironment called with ${environment} - ComponentBase handles caching`)
-  }
-
-  
-  /** Convenience getter */
-  getCurrentProfileId () {
-    return this.cache.currentProfile
-  }
-
   // Event listeners for DataCoordinator integration
   setupEventListeners () {
     if (!this.eventBus) return
@@ -349,11 +336,6 @@ export default class KeyService extends ComponentBase {
   }
 
 
-  /* Legacy helper used by keybinds tests */
-  isValidKey (key) {
-    if (!key || typeof key !== 'string' || !Array.isArray(this.validKeys)) return false
-    return this.validKeys.some(v => v.toLowerCase() === key.toLowerCase())
-  }
 
   generateValidKeys () {
     const list = []
@@ -398,44 +380,4 @@ export default class KeyService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  // Historically the UI expected a command-id generator utility on the
-  // keyHandling helper.  We expose the same helper here so the singleton stub
-  // continues to satisfy older tests without modification.
-  // TODO: Remove this 
-  generateCommandId () {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
-  }
-
-  // Profile export helpers (simplified for unit-test expectations)
-  // TODO: Remove this
-  compareKeys (a, b) {
-    // Embedded synchronous key comparison logic (from stoFileHandler)
-    const aIsF = a.match(/^F(\d+)$/)
-    const bIsF = b.match(/^F(\d+)$/)
-    if (aIsF && bIsF) return parseInt(aIsF[1]) - parseInt(bIsF[1])
-    if (aIsF && !bIsF) return -1
-    if (!aIsF && bIsF) return 1
-    const aIsNum = /^\d+$/.test(a)
-    const bIsNum = /^\d+$/.test(b)
-    if (aIsNum && bIsNum) return parseInt(a) - parseInt(b)
-    if (aIsNum && !bIsNum) return -1
-    if (!aIsNum && bIsNum) return 1
-    const aIsLetter = /^[A-Z]$/.test(a)
-    const bIsLetter = /^[A-Z]$/.test(b)
-    if (aIsLetter && bIsLetter) return a.localeCompare(b)
-    if (aIsLetter && !bIsLetter) return -1
-    if (!aIsLetter && bIsLetter) return 1
-    const specialOrder = ['Space', 'Tab', 'Enter', 'Escape']
-    const aSpecial = specialOrder.indexOf(a)
-    const bSpecial = specialOrder.indexOf(b)
-    if (aSpecial !== -1 && bSpecial !== -1) return aSpecial - bSpecial
-    if (aSpecial !== -1 && bSpecial === -1) return -1
-    if (aSpecial === -1 && bSpecial !== -1) return 1
-    return a.localeCompare(b)
-  }
-
-  // Helper: return array of key names in current environment from cache.
-  getKeys () {
-    return Object.keys(this.cache.keys)
-  }
 } 
