@@ -211,43 +211,6 @@ describe('AliasService', () => {
   })
 
   describe('Alias Duplication', () => {
-    it('should duplicate alias with auto-generated name', async () => {
-      service.request.mockResolvedValueOnce({ success: true })
-
-      const result = await service.duplicateAlias('ExistingAlias')
-
-      expect(result).toEqual({ success: true, newName: 'ExistingAlias_copy' })
-      expect(service.request).toHaveBeenCalledWith('data:update-profile', {
-        profileId: 'test-profile',
-        add: {
-          aliases: {
-            'ExistingAlias_copy': {
-              description: 'Test alias (copy)',
-              commands: ['FireAll', 'TargetEnemyNear'],
-              type: 'alias'
-            }
-          }
-        }
-      })
-      expect(capturedEvents).toContainEqual({
-        event: 'alias-created',
-        data: { name: 'ExistingAlias_copy' }
-      })
-      expect(capturedEvents).toContainEqual({
-        event: 'alias-duplicated',
-        data: { from: 'ExistingAlias', to: 'ExistingAlias_copy' }
-      })
-    })
-
-    it('should handle name collisions by incrementing counter', async () => {
-      // Add a duplicate to cache to simulate collision
-      service.cache.aliases['ExistingAlias_copy'] = { description: 'Already exists', commands: [], type: 'alias' }
-      service.request.mockResolvedValueOnce({ success: true })
-
-      const result = await service.duplicateAlias('ExistingAlias')
-
-      expect(result.newName).toBe('ExistingAlias_copy1')
-    })
 
     it('should duplicate alias with specific name', async () => {
       service.isValidAliasName = vi.fn().mockResolvedValue(true)

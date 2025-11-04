@@ -20,7 +20,6 @@ export default class AliasService extends ComponentBase {
       this.respond('alias:add', ({ name, description } = {}) => this.addAlias(name, description))
       this.respond('alias:delete', ({ name } = {}) => this.deleteAlias(name))
       this.respond('alias:duplicate-with-name', ({ sourceName, newName } = {}) => this.duplicateAliasWithName(sourceName, newName))
-      this.respond('alias:duplicate', ({ sourceName } = {}) => this.duplicateAlias(sourceName))
       this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))
       this.respond('alias:import-file', ({ content } = {}) => this.importAliasFile(content))
     }
@@ -157,46 +156,7 @@ export default class AliasService extends ComponentBase {
     }
   }
 
-  // Duplicate an existing alias (clone with new auto-generated name)
-  async duplicateAlias (sourceName) {
-    if (!this.cache.currentProfile || !this.cache.aliases[sourceName]) {
-      return false
-    }
-
-    const original = this.cache.aliases[sourceName]
-
-    try {
-      // Generate unique new alias name
-      let newName = `${sourceName}_copy`
-      let counter = 1
-      while (this.cache.aliases[newName]) {
-        newName = `${sourceName}_copy${counter}`
-        counter++
-      }
-
-      // Add duplicated alias using explicit operations API
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        add: {
-          aliases: {
-            [newName]: {
-              description: original.description + ' (copy)',
-              commands: original.commands,
-              type: original.type || 'alias' // Preserve type or default to 'alias'
-            }
-          }
-        }
-      })
-
-      this.emit('alias-created', { name: newName })
-      this.emit('alias-duplicated', { from: sourceName, to: newName })
-      return { success: true, newName }
-    } catch (error) {
-      console.error('[AliasService] Failed to duplicate alias:', error)
-      return { success: false }
-    }
-  }
-
+  
   // Duplicate an existing alias to an explicit new alias name
   async duplicateAliasWithName (sourceName, newName) {
     if (!sourceName || !newName) {
