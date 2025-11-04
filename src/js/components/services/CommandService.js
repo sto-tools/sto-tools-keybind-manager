@@ -563,18 +563,7 @@ export default class CommandService extends ComponentBase {
     console.log(`[CommandService] Profile updated - ComponentBase handles caching automatically`)
   }
 
-  // Return all commands associated with a key for the current environment.
-  // Alias environment returns the command array (now normalized to string[]).
-  getCommandsForKey (key) {
-    if (this.cache.currentEnvironment === 'alias') {
-      const alias = this.cache.aliases && this.cache.aliases[key]
-      if (!alias || !Array.isArray(alias.commands)) return []
-      
-      return Array.isArray(alias.commands) ? alias.commands : []
-    }
-    return this.cache.keys[key] || []
-  }
-
+  
   // Placeholder command validator – always returns true.
   // Can be expanded later with proper validation logic.
   validateCommand (command) {

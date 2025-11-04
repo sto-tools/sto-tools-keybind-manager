@@ -35,8 +35,7 @@ export default class CommandChainService extends ComponentBase {
           }
         }),
         this.respond('command-chain:is-stabilized', ({ name, bindset }) => this.isStabilized(name, bindset)),
-        this.respond('command-chain:get-bind-to-alias-mode', () => this.getBindToAliasMode()),
-        this.respond('command-chain:generate-alias-name', ({ environment, keyName, bindsetName }) => 
+          this.respond('command-chain:generate-alias-name', ({ environment, keyName, bindsetName }) => 
           this.generateBindToAliasName(environment, keyName, bindsetName)),
         this.respond('command-chain:generate-alias-preview', ({ aliasName, commands }) => 
           this.generateAliasPreview(aliasName, commands)),
@@ -455,33 +454,7 @@ export default class CommandChainService extends ComponentBase {
     }
   }
 
-  // Get commands for a specific key
-  async getCommandsForKey(key) {
-    try {
-      if (!key) return []
-
-      const profile = this.getCurrentProfile()
-      if (!profile) return []
-
-      if (this.cache.currentEnvironment === 'alias') {
-        // -----------------------------------------------------------------
-        // Alias command chains – canonical string[] only (no legacy "$$" strings)
-        // -----------------------------------------------------------------
-        const alias = profile.aliases && profile.aliases[key]
-        if (!alias || !Array.isArray(alias.commands)) return []
-        // Return a shallow copy to avoid accidental mutation by callers
-        return [...alias.commands]
-      } else {
-        // Keybind command chains (already canonical string[])
-        const commands = profile.builds?.[this.cache.currentEnvironment]?.keys?.[key]
-        return Array.isArray(commands) ? [...commands] : []
-      }
-    } catch (error) {
-      console.error('CommandChainService: Failed to get commands for key:', error)
-      return []
-    }
-  }
-
+  
   // Clear all commands from a key's command chain
   async clearCommandChain(key, bindset = null) {
     try {
@@ -801,11 +774,7 @@ export default class CommandChainService extends ComponentBase {
     }
   }
   
-  // Get the current bind-to-alias mode setting from cached preferences
-  getBindToAliasMode() {
-    return this.cache.preferences.bindToAliasMode || false
-  }
-  
+    
   // Generate alias name for bind-to-alias mode
   // Uses the same logic as CommandChainUI but as a service operation
   async generateBindToAliasName(environment, keyName, bindsetName = null) {

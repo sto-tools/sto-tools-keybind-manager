@@ -95,21 +95,7 @@ describe('CommandChainService – bind-to-alias endpoints', () => {
     fixture.destroy()
   })
 
-  describe('command-chain:get-bind-to-alias-mode', () => {
-    it('should return current bind-to-alias mode', () => {
-      const result = service.getBindToAliasMode()
-      expect(result).toBe(false) // Default state
-    })
-
-    it('should update when preferences change', () => {
-      // Simulate preferences change
-      eventBus.emit('preferences:changed', { key: 'bindToAliasMode', value: true })
-      
-      const result = service.getBindToAliasMode()
-      expect(result).toBe(true)
-    })
-  })
-
+  
   describe('command-chain:generate-alias-name', () => {
     it('should generate alias name for key in environment', async () => {
       const result = await service.generateBindToAliasName('space', 'F1', null)
