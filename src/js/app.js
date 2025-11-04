@@ -20,7 +20,6 @@ import { PreferencesService } from './components/services/index.js'
 import PreferencesUI from './components/ui/PreferencesUI.js'
 import KeyService from './components/services/KeyService.js'
 import AliasService from './components/services/AliasService.js'
-import AnalyticsService from './components/services/AnalyticsService.js'
 import ExportService from './components/services/ExportService.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
@@ -171,12 +170,7 @@ export default class STOToolsKeybindManager {
 
       await this.aliasService.init()
 
-      this.analyticsService = new AnalyticsService({
-        eventBus,
-      })
-
-      await this.analyticsService.init()
-
+      
       this.aliasBrowserService = new AliasBrowserService({
         storage: storageService,
         ui: stoUI,
