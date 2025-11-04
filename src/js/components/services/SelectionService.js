@@ -107,16 +107,24 @@ export default class SelectionService extends ComponentBase {
       console.log(`[SelectionService] Validating and restoring selection for "${this.cache.currentEnvironment}": "${cachedSelection}"`)
 
       // Check if this is initial profile loading vs user-triggered changes
-      // For initial profile loading, set selection directly without validation
+      // For initial profile loading, set selection directly and then validate it
       if (cachedSelection) {
         console.log(`[SelectionService] Setting initial selection from profile: "${cachedSelection}" for env "${this.cache.currentEnvironment}"`)
 
-        // Set selection directly without validation - this is from the same profile
+        // Set selection initially, then validate to ensure it exists in current profile
         if (this.cache.currentEnvironment === 'alias') {
           this.cache.selectedAlias = cachedSelection
           this.cache.selectedKey = null
           // Emit selection event synchronously
           this.emit('alias-selected', { name: cachedSelection, source: 'SelectionService' })
+
+          // Validate the selection exists in current profile
+          if (!this.validateAliasExists(cachedSelection)) {
+            console.log(`[SelectionService] Cached alias "${cachedSelection}" doesn't exist in current profile, clearing and auto-selecting`)
+            setTimeout(async () => {
+              await this.validateAndRestoreSelection('alias', null)
+            }, 0)
+          }
         } else {
           this.cache.selectedKey = cachedSelection
           this.cache.selectedAlias = null
@@ -126,6 +134,14 @@ export default class SelectionService extends ComponentBase {
             environment: this.cache.currentEnvironment,
             source: 'SelectionService'
           })
+
+          // Validate the selection exists in current profile
+          if (!this.validateKeyExists(cachedSelection, this.cache.currentEnvironment)) {
+            console.log(`[SelectionService] Cached key "${cachedSelection}" doesn't exist in current profile, clearing and auto-selecting`)
+            setTimeout(async () => {
+              await this.validateAndRestoreSelection(this.cache.currentEnvironment, null)
+            }, 0)
+          }
         }
       } else {
         // No cached selection - validate and restore as fallback
