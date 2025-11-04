@@ -29,11 +29,7 @@ export default class AliasService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  // State setters - Updated to use cached state
-  setCurrentEnvironment (environment) {
-    this.cache.currentEnvironment = environment
-  }
-
+  
   setCurrentProfile (profileId) {
     this.cache.currentProfile = profileId
   }
