@@ -214,7 +214,7 @@ export default class PreferencesUI extends UIComponentBase {
     if (ok && manual && this.ui?.showToast) {
       this.emit('toast:show', {
         message: i18next.t('preferences_saved'),
-        type: 'success'
+        type: 'success',
       })
     }
 
@@ -287,14 +287,6 @@ export default class PreferencesUI extends UIComponentBase {
     // Use request/response instead of direct service call
     const ok = await this.request('preferences:save-settings')
     return ok
-  }
-
-  toggleSettingsMenu() {
-    const settingsBtn = this.document.getElementById('settingsBtn')
-    const dropdown = settingsBtn?.closest('.dropdown')
-    if (dropdown) {
-      dropdown.classList.toggle('active')
-    }
   }
 
   handleSettingChange(key, value) {

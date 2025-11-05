@@ -2,17 +2,17 @@ import ComponentBase from '../ComponentBase.js'
 
 /**
  * ModalManagerService – centralised modal show/hide logic with i18n
- * regeneration support. 
+ * regeneration support.
  */
 export default class ModalManagerService extends ComponentBase {
-  constructor (eventBus) {
+  constructor(eventBus) {
     super(eventBus)
     this.componentName = 'ModalManagerService'
 
     this.overlayId = 'modalOverlay'
     this.regenerateCallbacks = {} // modalId -> callback
     this.isInitialized = false
-    
+
     this.registerAllModalCallbacks()
     this.setupEventListeners()
 
@@ -48,9 +48,15 @@ export default class ModalManagerService extends ComponentBase {
     this.eventBus.on('modal:show', this.handleShowModal.bind(this))
     this.eventBus.on('modal:hide', this.handleHideModal.bind(this))
     this.eventBus.on('modal:toggle', this.handleToggleModal.bind(this))
-    this.eventBus.on('modal:register-callback', this.handleRegisterCallback.bind(this))
-    this.eventBus.on('modal:unregister-callback', this.handleUnregisterCallback.bind(this))
-    
+    this.eventBus.on(
+      'modal:register-callback',
+      this.handleRegisterCallback.bind(this)
+    )
+    this.eventBus.on(
+      'modal:unregister-callback',
+      this.handleUnregisterCallback.bind(this)
+    )
+
     // Setup global DOM event listeners for modal close buttons
     this.setupGlobalModalEventListeners()
   }
@@ -82,7 +88,10 @@ export default class ModalManagerService extends ComponentBase {
 
     // Click outside modal to close (modal overlay)
     document.addEventListener('click', (e) => {
-      if (e.target.id === this.overlayId || e.target.classList.contains('modal-overlay')) {
+      if (
+        e.target.id === this.overlayId ||
+        e.target.classList.contains('modal-overlay')
+      ) {
         const activeModal = document.querySelector('.modal.active')
         if (activeModal) {
           this.hide(activeModal.id)
@@ -104,32 +113,41 @@ export default class ModalManagerService extends ComponentBase {
   }
 
   async handleToggleModal({ modalId }) {
-    const modal = (typeof modalId === 'string') ? document.getElementById(modalId) : modalId
+    const modal =
+      typeof modalId === 'string' ? document.getElementById(modalId) : modalId
     if (!modal) return false
 
     const isActive = modal.classList.contains('active')
     const result = isActive ? this.hide(modalId) : this.show(modalId)
-    this.emit('modal:toggled', { modalId, isActive: !isActive, success: result })
+    this.emit('modal:toggled', {
+      modalId,
+      isActive: !isActive,
+      success: result,
+    })
     return result
   }
 
   async handleRegisterCallback({ modalId, callback }) {
     this.registerRegenerateCallback(modalId, callback)
-    console.log(`[${this.componentName}] Registered callback for modal: ${modalId}`)
+    console.log(
+      `[${this.componentName}] Registered callback for modal: ${modalId}`
+    )
   }
 
   async handleUnregisterCallback({ modalId }) {
     this.unregisterRegenerateCallback(modalId)
-    console.log(`[${this.componentName}] Unregistered callback for modal: ${modalId}`)
+    console.log(
+      `[${this.componentName}] Unregistered callback for modal: ${modalId}`
+    )
   }
 
   // Utilities
-  getOverlay () {
+  getOverlay() {
     return document.getElementById(this.overlayId)
   }
 
-  show (id) {
-    const modal   = (typeof id === 'string') ? document.getElementById(id) : id
+  show(id) {
+    const modal = typeof id === 'string' ? document.getElementById(id) : id
     const overlay = this.getOverlay()
     if (!overlay || !modal) return false
 
@@ -143,16 +161,16 @@ export default class ModalManagerService extends ComponentBase {
 
     const firstInput = modal.querySelector('input, textarea, select')
     if (firstInput) setTimeout(() => firstInput.focus(), 100)
-    
+
     // Emit modal:shown event for components that need to respond to modal opening
     const modalId = typeof id === 'string' ? id : modal.id
     this.emit('modal:shown', { modalId, success: true })
-    
+
     return true
   }
 
-  hide (id) {
-    const modal   = (typeof id === 'string') ? document.getElementById(id) : id
+  hide(id) {
+    const modal = typeof id === 'string' ? document.getElementById(id) : id
     const overlay = this.getOverlay()
     if (!overlay || !modal) return false
 
@@ -167,19 +185,20 @@ export default class ModalManagerService extends ComponentBase {
   }
 
   // Regeneration callbacks
-  registerRegenerateCallback (modalId, cb) {
+  registerRegenerateCallback(modalId, cb) {
     this.regenerateCallbacks[modalId] = cb
   }
-  unregisterRegenerateCallback (modalId) {
+
+  unregisterRegenerateCallback(modalId) {
     delete this.regenerateCallbacks[modalId]
   }
 
-  registerAllModalCallbacks () {
+  registerAllModalCallbacks() {
     // Parameter modal
     this.registerRegenerateCallback('parameterModal', () => {
       if (window.app?.populateParameterModal) {
         const modal = document.getElementById('parameterModal')
-        const def   = modal?.getAttribute('data-command-def')
+        const def = modal?.getAttribute('data-command-def')
         if (def) {
           try {
             window.app.populateParameterModal(JSON.parse(def))
@@ -215,11 +234,6 @@ export default class ModalManagerService extends ComponentBase {
       window.applyTranslations?.(modal)
     })
 
-    // Preferences modal
-    this.registerRegenerateCallback('preferencesModal', () => {
-      window.app?.preferencesManager?.populatePreferencesModal?.()
-    })
-
     // File explorer modal
     this.registerRegenerateCallback('fileExplorerModal', () => {
       window.stoFileExplorer?.refreshFileList?.()
@@ -232,6 +246,5 @@ export default class ModalManagerService extends ComponentBase {
       const modal = document.getElementById('aboutModal')
       window.applyTranslations?.(modal)
     })
-
   }
-} 
+}

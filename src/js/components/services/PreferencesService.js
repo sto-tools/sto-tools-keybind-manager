@@ -7,7 +7,7 @@ import i18next from 'i18next'
  */
 export default class PreferencesService extends ComponentBase {
   constructor({ storage, eventBus, i18n = i18next } = {}) {
-    super(eventBus) 
+    super(eventBus)
     this.componentName = 'PreferencesService'
     this.storage = storage
     this.i18n = i18n
@@ -43,11 +43,14 @@ export default class PreferencesService extends ComponentBase {
       this.respond('preferences:load-settings', () => this.loadSettings())
       this.respond('preferences:save-settings', () => this.saveSettings())
       this.respond('preferences:get-settings', () => this.getSettings())
-      this.respond('preferences:set-setting', ({ key, value }) => this.setSetting(key, value))
-      this.respond('preferences:set-settings', (newSettings) => this.setSettings(newSettings))
+      this.respond('preferences:set-setting', ({ key, value }) =>
+        this.setSetting(key, value)
+      )
+      this.respond('preferences:set-settings', (newSettings) =>
+        this.setSettings(newSettings)
+      )
       this.respond('preferences:get-setting', ({ key }) => this.getSetting(key))
-      this.respond('preferences:reset-settings', () => this.resetSettings())
-      
+
       // Add i18n translation endpoint for UI components
       this.respond('i18n:translate', ({ key, params = {} }) => {
         if (this.i18n && this.i18n.t) {
@@ -89,7 +92,9 @@ export default class PreferencesService extends ComponentBase {
       if (!this.storage) return
       const stored = this.storage.getSettings()
       this.settings = { ...this.defaultSettings, ...stored }
-      console.log('[PreferencesService] loadSettings', { settings: { ...this.settings } })
+      console.log('[PreferencesService] loadSettings', {
+        settings: { ...this.settings },
+      })
       this.emit('preferences:loaded', { settings: this.getSettings() })
     } catch (err) {
       console.error('[PreferencesService] loadSettings failed', err)
@@ -100,15 +105,27 @@ export default class PreferencesService extends ComponentBase {
   async saveSettings() {
     if (!this.storage) return false
     const ok = this.storage.saveSettings(this.settings)
-    console.log('[PreferencesService] saveSettings', { ok, settings: { ...this.settings } })
-    if (ok) await this.emit('preferences:saved', { settings: this.getSettings() }, { synchronous: true })
+    console.log('[PreferencesService] saveSettings', {
+      ok,
+      settings: { ...this.settings },
+    })
+    if (ok)
+      await this.emit(
+        'preferences:saved',
+        { settings: this.getSettings() },
+        { synchronous: true }
+      )
     return ok
   }
 
   // Accessors
-  getSettings() { return { ...this.settings } }
+  getSettings() {
+    return { ...this.settings }
+  }
 
-  getSetting(key) { return this.settings[key] }
+  getSetting(key) {
+    return this.settings[key]
+  }
 
   setSetting(key, value) {
     this.settings[key] = value
@@ -121,10 +138,12 @@ export default class PreferencesService extends ComponentBase {
   setSettings(newSettings = {}) {
     const oldSettings = { ...this.settings }
     this.settings = { ...this.defaultSettings, ...newSettings }
-    console.log('[PreferencesService] setSettings', { changed: Object.keys(newSettings) })
+    console.log('[PreferencesService] setSettings', {
+      changed: Object.keys(newSettings),
+    })
     this.saveSettings()
     this.applySettings()
-    
+
     // Emit a single event with all the changes
     const changes = {}
     for (const [key, value] of Object.entries(newSettings)) {
@@ -132,16 +151,10 @@ export default class PreferencesService extends ComponentBase {
         changes[key] = value
       }
     }
-    
+
     if (Object.keys(changes).length > 0) {
       this.emit('preferences:changed', { changes })
     }
-  }
-
-  resetSettings() {
-    this.settings = { ...this.defaultSettings }
-    this.saveSettings()
-    this.applySettings()
   }
 
   // Late-join state sharing
@@ -149,7 +162,7 @@ export default class PreferencesService extends ComponentBase {
   // making explicit RPC requests that may race the service startup.
   getCurrentState() {
     return {
-      settings: { ...this.settings }
+      settings: { ...this.settings },
     }
   }
 
@@ -163,7 +176,7 @@ export default class PreferencesService extends ComponentBase {
   applyTheme() {
     if (typeof document === 'undefined') return
     const theme = this.settings.theme || 'default'
-    
+
     // Use documentElement for data-theme attribute (matches CSS)
     if (theme === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark')
@@ -176,13 +189,16 @@ export default class PreferencesService extends ComponentBase {
 
   async applyLanguage() {
     const lang = this.settings.language || 'en'
-    
+
     if (this.i18n && this.i18n.language !== lang) {
       await this.i18n.changeLanguage(lang)
     }
 
     // Apply translations to the document
-    if (typeof window !== 'undefined' && typeof window.applyTranslations === 'function') {
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.applyTranslations === 'function'
+    ) {
       window.applyTranslations()
     }
 
@@ -211,13 +227,13 @@ export default class PreferencesService extends ComponentBase {
   toggleTheme() {
     const currentTheme = this.settings.theme || 'default'
     const newTheme = currentTheme === 'dark' ? 'default' : 'dark'
-    
+
     this.setSetting('theme', newTheme)
   }
 
   updateThemeToggleButton(theme) {
     if (typeof document === 'undefined') return
-    
+
     const themeToggleBtn = document.getElementById('themeToggleBtn')
     const themeToggleText = document.getElementById('themeToggleText')
     const themeIcon = themeToggleBtn?.querySelector('i')
@@ -251,31 +267,17 @@ export default class PreferencesService extends ComponentBase {
 
   updateLanguageFlag(lang) {
     if (typeof document === 'undefined') return
-    
+
     const flag = document.getElementById('languageFlag')
-    const flagClasses = { 
-      en: 'fi fi-gb', 
-      de: 'fi fi-de', 
-      es: 'fi fi-es', 
-      fr: 'fi fi-fr' 
+    const flagClasses = {
+      en: 'fi fi-gb',
+      de: 'fi fi-de',
+      es: 'fi fi-es',
+      fr: 'fi fi-fr',
     }
-    
+
     if (flag) {
       flag.className = flagClasses[lang] || 'fi fi-gb'
     }
   }
-
-  // Browser Language Detection
-  detectBrowserLanguage() {
-    try {
-      if (typeof navigator === 'undefined') return 'en'
-      const cand = (navigator.languages && navigator.languages[0]) || navigator.language
-      if (!cand) return 'en'
-      const lang = cand.toLowerCase().split(/[-_]/)[0]
-      return ['en', 'de', 'es', 'fr'].includes(lang) ? lang : 'en'
-    } catch (error) {
-      console.error('Error detecting browser language:', error)
-      return 'en'
-    }
-  }
-} 
+}
