@@ -165,6 +165,13 @@ function onDom(target, domEvent, busEvent, handler) {
   }
 }
 
+/**
+ * Add a one-time event listener that automatically removes itself after first execution.
+ * This function is kept for future use - it's a common event pattern that may be needed.
+ * @param {string} event - The event name to listen for
+ * @param {Function} callback - The callback function to execute once
+ * @returns {Function} Detach function to manually remove the listener if needed
+ */
 function once(event, callback) {
   const onceCallback = (data) => {
     off(event, onceCallback)
@@ -173,21 +180,30 @@ function once(event, callback) {
   on(event, onceCallback)
 }
 
+/**
+ * Clear all event listeners from the event bus.
+ * This is a global cleanup function that removes ALL listeners from ALL events AND all DOM listeners.
+ *
+ * Useful for:
+ * - Testing setup/teardown
+ * - Application reset scenarios
+ * - Memory cleanup during page transitions
+ * - Debugging and development cleanup
+ *
+ * @returns {void}
+ */
 function clear() {
   listeners.clear()
-}
 
-function getListenerCount(event) {
-  const eventListeners = listeners.get(event)
-  return eventListeners ? eventListeners.size : 0
-}
-
-function getAllListenerCounts() {
-  const counts = {}
-  for (const [event, listenerSet] of listeners) {
-    counts[event] = listenerSet.size
-  }
-  return counts
+  // Clean up all DOM event listeners (replaces the removed cleanupDomListeners function)
+  domListeners.forEach(cleanup => {
+    try {
+      cleanup()
+    } catch (error) {
+      console.error('Error cleaning up DOM event listener:', error)
+    }
+  })
+  domListeners.clear()
 }
 
 // -----------------------
@@ -223,17 +239,6 @@ function onDomDebounced(target, domEvent, busEvent, handler, delay = 250) {
   })
 }
 
-function cleanupDomListeners() {
-  // Clean up all DOM event listeners
-  domListeners.forEach(cleanup => {
-    try {
-      cleanup()
-    } catch (error) {
-      console.error('Error cleaning up DOM event listener:', error)
-    }
-  })
-  domListeners.clear()
-}
 
 export default {
   on,
@@ -241,12 +246,8 @@ export default {
   emit,
   onDom,
   onDomDebounced,
-  debounce,
-  cleanupDomListeners,
   once,
   clear,
-  getListenerCount,
-  getAllListenerCounts,
   // Expose listeners for debugging and testing (read-only access)
   get listeners() {
     return listeners

@@ -3,9 +3,6 @@
 // -------------------------------------------------------------
 import eventBus from './eventBus.js'
 
-// Internal registry for synchronous command handlers
-const commandHandlers = new Map()
-
 /**
  * Generates a unique correlation ID for a request.
  * @returns {string}
@@ -101,34 +98,4 @@ function respond(bus = eventBus, topic, handler) {
   return () => bus.off(`rpc:${topic}`, internal)
 }
 
-/**
- * Register a synchronous command handler. Useful for lightweight, CPU-bound tasks.
- *
- * @param {string} topic - Command topic.
- * @param {(payload: any) => any} handler - Synchronous handler.
- * @returns {() => void} Detach function to unregister the handler.
- */
-function handleCommand(topic, handler) {
-  if (typeof handler !== 'function') {
-    throw new Error('Handler must be a function')
-  }
-  commandHandlers.set(topic, handler)
-  return () => commandHandlers.delete(topic)
-}
-
-/**
- * Invoke a synchronous command.
- *
- * @param {string} topic - Command topic.
- * @param {any} payload - Command payload.
- * @returns {any} Result returned by the handler.
- */
-function command(topic, payload) {
-  const handler = commandHandlers.get(topic)
-  if (!handler) {
-    throw new Error(`No command handler registered for topic "${topic}"`)
-  }
-  return handler(payload)
-}
-
-export { makeRequestId, request, respond, handleCommand, command } 
+export { request, respond } 

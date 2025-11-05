@@ -1,7 +1,7 @@
 // STO Command Parser Library - Entry point for external consumption
 // Standalone library for parsing Star Trek Online keybind commands
 export { STOCommandParser } from './STOCommandParser.js'
-export { respond, request, handleCommand, command } from '../core/requestResponse.js'
+export { respond, request } from '../core/requestResponse.js'
 export { default as eventBus } from '../core/eventBus.js'
 
 // Command display and normalization utilities

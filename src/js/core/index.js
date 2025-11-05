@@ -2,7 +2,7 @@
 // Essential building blocks for creating parser integrations
 
 export { default as eventBus } from './eventBus.js'
-export { respond, request, handleCommand, command, makeRequestId } from './requestResponse.js'
+export { respond, request } from './requestResponse.js'
 export { default as store } from './store.js'
 
 // Core constants that external consumers might need
@@ -20,9 +20,7 @@ export function createEventBusSetup() {
   return {
     eventBus,
     respond,
-    request,
-    handleCommand,
-    command
+    request
   }
 }
 

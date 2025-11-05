@@ -24,7 +24,6 @@ export function createRequestResponseFixture(eventBus, options = {}) {
   const requests = []
   const responses = []
   const handlers = new Map()
-  const commandHandlers = new Map()
 
   // Generate unique request ID
   const makeRequestId = () => {
@@ -125,35 +124,15 @@ export function createRequestResponseFixture(eventBus, options = {}) {
     }
   })
 
-  // Mock command handling
-  const handleCommand = vi.fn((topic, handler) => {
-    if (typeof handler !== 'function') {
-      throw new Error('Handler must be a function')
-    }
-    commandHandlers.set(topic, handler)
-    return () => commandHandlers.delete(topic)
-  })
-
-  const command = vi.fn((topic, payload) => {
-    const handler = commandHandlers.get(topic)
-    if (!handler) {
-      throw new Error(`No command handler registered for topic "${topic}"`)
-    }
-    return handler(payload)
-  })
-
   const fixture = {
     request,
     respond,
-    handleCommand,
-    command,
     makeRequestId,
     
     // Testing utilities
     getRequests: () => [...requests],
     getResponses: () => [...responses],
     getHandlers: () => new Map(handlers),
-    getCommandHandlers: () => new Map(commandHandlers),
     
     clearHistory: () => {
       requests.length = 0
@@ -261,19 +240,15 @@ export function createRequestResponseFixture(eventBus, options = {}) {
     mockReset: () => {
       request.mockReset()
       respond.mockReset()
-      handleCommand.mockReset()
-      command.mockReset()
       requests.length = 0
       responses.length = 0
       handlers.clear()
-      commandHandlers.clear()
     },
-    
+
     // Cleanup
     destroy: () => {
       // Clear all handlers
       handlers.clear()
-      commandHandlers.clear()
       requests.length = 0
       responses.length = 0
       unregisterFixture(fixtureId)
@@ -294,15 +269,12 @@ export async function createRealRequestResponseFixture(eventBus) {
   const fixtureId = generateFixtureId('realRequestResponse')
   
   // Import the real request/response module
-  const { request, respond, handleCommand, command, makeRequestId } = 
+  const { request, respond } =
     await import('../../../src/js/core/requestResponse.js')
-  
+
   const fixture = {
     request,
     respond,
-    handleCommand,
-    command,
-    makeRequestId,
     
     // No testing utilities for real implementation
     destroy: () => {

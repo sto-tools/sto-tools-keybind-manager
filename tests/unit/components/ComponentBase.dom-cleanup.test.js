@@ -15,7 +15,7 @@ describe('ComponentBase DOM event listener automatic cleanup', () => {
       component.destroy()
     }
     // Clean up any remaining eventBus listeners
-    eventBus.cleanupDomListeners()
+    eventBus.clear()
   })
 
   it('onDom wrapper automatically tracks cleanup function', () => {
