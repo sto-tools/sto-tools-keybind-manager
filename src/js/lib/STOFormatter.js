@@ -52,36 +52,4 @@ export function formatKeybindLine(key, commands = []) {
   return `${encodedKey} "${chained}"\n`
 }
 
-// Convenience helpers -------------------------------------------------------
-
-/**
- * Sort aliases by name and return formatted lines.
- */
-export function formatAliasBlock(aliases = {}, includeHeader = false) {
-  if (!aliases || Object.keys(aliases).length === 0) return ''
-
-  let block = ''
-  if (includeHeader) {
-    block += `; Command Aliases\n; ================================================================\n\n`
-  }
-  const sorted = Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))
-  sorted.forEach(([name, alias]) => {
-    block += formatAliasLine(name, alias)
-    block += '\n'
-  })
-  return block
-}
-
-/**
- * Format a section of keybinds given a key→commands map.
- */
-export function formatKeybindBlock(keysObj = {}) {
-  if (!keysObj || Object.keys(keysObj).length === 0) return ''
-
-  let block = ''
-  Object.entries(keysObj).forEach(([key, cmds]) => {
-    block += formatKeybindLine(key, cmds)
-  })
-  block += '\n'
-  return block
-} 
+ 
