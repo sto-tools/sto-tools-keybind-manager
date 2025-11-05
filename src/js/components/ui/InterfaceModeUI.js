@@ -5,16 +5,21 @@ import UIComponentBase from '../UIComponentBase.js'
  * Owns the space/ground/alias toggle buttons and manages their visual state
  */
 export default class InterfaceModeUI extends UIComponentBase {
-  constructor({ eventBus: bus, ui = null, profileUI = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({
+    eventBus: bus,
+    ui = null,
+    profileUI = null,
+    document = typeof window !== 'undefined' ? window.document : undefined,
+  } = {}) {
     super(bus)
     this.componentName = 'InterfaceModeUI'
     this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.profileUI = profileUI
     this.document = document
-    
+
     // Internal cached state
     this._currentMode = 'space'
-    
+
     // Internal state
     this._uiListenersSetup = false
     this._modeButtonsSetup = false
@@ -46,7 +51,8 @@ export default class InterfaceModeUI extends UIComponentBase {
     }
 
     this._environmentChangedHandler = (d = {}) => {
-      const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
+      const env =
+        typeof d === 'string' ? d : d.environment || d.newMode || d.mode
       if (env) {
         this._currentMode = env
         this.updateModeUI(env)
@@ -72,13 +78,10 @@ export default class InterfaceModeUI extends UIComponentBase {
     // Use automatic cleanup pattern
     const modes = ['space', 'ground', 'alias']
 
-    modes.forEach(mode => {
+    modes.forEach((mode) => {
       // Use this.onDom for automatic cleanup
-      this.onDom(
-        `[data-mode="${mode}"]`,
-        'click',
-        `mode-change-${mode}`,
-        () => this.handleModeButtonClick(mode)
+      this.onDom(`[data-mode="${mode}"]`, 'click', `mode-change-${mode}`, () =>
+        this.handleModeButtonClick(mode)
       )
     })
 
@@ -91,7 +94,10 @@ export default class InterfaceModeUI extends UIComponentBase {
       // Use request-response pattern to switch environment
       const result = await this.request('environment:switch', { mode })
       if (!result.success) {
-        console.error('[InterfaceModeUI] Failed to switch environment:', result.error)
+        console.error(
+          '[InterfaceModeUI] Failed to switch environment:',
+          result.error
+        )
       }
     } catch (error) {
       console.error('[InterfaceModeUI] Error switching environment:', error)
@@ -102,7 +108,7 @@ export default class InterfaceModeUI extends UIComponentBase {
   updateModeUI(currentMode) {
     // Update mode buttons using DOM queries
     const modes = ['space', 'ground', 'alias']
-    modes.forEach(mode => {
+    modes.forEach((mode) => {
       const button = this.document.querySelector(`[data-mode="${mode}"]`)
       if (button) {
         button.classList.toggle('active', mode === currentMode)
@@ -116,8 +122,12 @@ export default class InterfaceModeUI extends UIComponentBase {
   // Update key grid display based on current mode
   updateKeyGridDisplay(currentMode) {
     // Toggle visibility between key selector and alias selector depending on mode
-    const keySelectorContainer = this.document.querySelector('.key-selector-container')
-    const aliasSelectorContainer = this.document.getElementById('aliasSelectorContainer')
+    const keySelectorContainer = this.document.querySelector(
+      '.key-selector-container'
+    )
+    const aliasSelectorContainer = this.document.getElementById(
+      'aliasSelectorContainer'
+    )
 
     if (currentMode === 'alias') {
       if (keySelectorContainer) keySelectorContainer.style.display = 'none'
@@ -140,8 +150,11 @@ export default class InterfaceModeUI extends UIComponentBase {
   set currentMode(mode) {
     this._currentMode = mode
     // Use request-response pattern to switch environment
-    this.request('environment:switch', { mode }).catch(error => {
-      console.error('[InterfaceModeUI] Error switching environment via setter:', error)
+    this.request('environment:switch', { mode }).catch((error) => {
+      console.error(
+        '[InterfaceModeUI] Error switching environment via setter:',
+        error
+      )
     })
   }
 
@@ -153,27 +166,6 @@ export default class InterfaceModeUI extends UIComponentBase {
   // Set current environment (alias for currentMode)
   set currentEnvironment(mode) {
     this.currentMode = mode
-  }
-
-  // Get current mode (public method for external calls)
-  getCurrentMode() {
-    return this.currentMode
-  }
-
-  // Set current mode (public method for external calls)
-  async setCurrentMode(mode) {
-    try {
-      // Use request-response pattern to switch environment
-      const result = await this.request('environment:switch', { mode })
-      if (result.success) {
-        this._currentMode = result.mode
-        this.updateModeUI(result.mode)
-      } else {
-        console.error('[InterfaceModeUI] Failed to switch environment:', result.error)
-      }
-    } catch (error) {
-      console.error('[InterfaceModeUI] Error switching environment:', error)
-    }
   }
 
   // Component lifecycle hook - called by ComponentBase
@@ -191,10 +183,13 @@ export default class InterfaceModeUI extends UIComponentBase {
   }
 
   // Late-join handshake: keep UI in sync with service state even if the relevant events fired before we registered.
-  handleInitialState (sender, state) {
+  handleInitialState(sender, state) {
     if (!state) return
-    if ((sender === 'InterfaceModeService' || state.environment) && state.environment) {
+    if (
+      (sender === 'InterfaceModeService' || state.environment) &&
+      state.environment
+    ) {
       this.updateModeUI(state.environment)
     }
   }
-} 
+}
