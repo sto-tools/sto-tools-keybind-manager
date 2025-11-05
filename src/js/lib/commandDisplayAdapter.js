@@ -330,21 +330,6 @@ function getTranslationKey(parsedCommand, commandDef) {
   return null
 }
 
-/**
- * Batch enrich multiple commands for display
- * @param {string[]} commandStrings - Array of canonical command strings
- * @param {Object} i18n - Internationalization object
- * @param {Object} options - Additional options
- * @returns {Promise<Object[]>} Array of rich command objects
- */
-export async function enrichArrayForDisplay(commandStrings, i18n, options = {}) {
-  if (!Array.isArray(commandStrings)) {
-    return []
-  }
-  
-  const promises = commandStrings.map(cmdStr => enrichForDisplay(cmdStr, i18n, options))
-  return Promise.all(promises)
-}
 
 /**
  * Check if a value is a rich command object (vs a string)
@@ -359,24 +344,4 @@ export function isRichObject(value) {
          value.command.trim().length > 0)
 }
 
-/**
- * Debug helper: Count rich objects in data structure
- * @param {*} data - Data structure to analyze
- * @returns {number} Number of rich objects found
- */
-export function countRichObjects(data) {
-  let count = 0
-  
-  function traverse(obj) {
-    if (isRichObject(obj)) {
-      count++
-    } else if (Array.isArray(obj)) {
-      obj.forEach(traverse)
-    } else if (obj && typeof obj === 'object') {
-      Object.values(obj).forEach(traverse)
-    }
-  }
-  
-  traverse(data)
-  return count
-} 
+ 

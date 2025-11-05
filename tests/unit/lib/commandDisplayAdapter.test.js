@@ -1,12 +1,11 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import { createServiceFixture } from '../../fixtures/index.js'
 import { respond } from '../../../src/js/core/requestResponse.js'
-import { 
-  enrichForDisplay, 
-  normalizeToString, 
+import {
+  enrichForDisplay,
+  normalizeToString,
   normalizeToStringArray,
   isRichObject,
-  countRichObjects,
   normalizeToOptimizedString
 } from '../../../src/js/lib/commandDisplayAdapter.js'
 
@@ -340,51 +339,7 @@ describe('Command Display Adapter', () => {
     })
   })
 
-  describe('countRichObjects', () => {
-    it('should count rich objects in array', () => {
-      const mixed = [
-        'FireAll',
-        { command: '+TrayExecByTray 0 0', name: 'Tray Exec' },
-        'FireTorps',
-        { command: 'Distribute_Shields', name: 'Distribute Shields' }
-      ]
-      
-      const result = countRichObjects(mixed)
-      expect(result).toBe(2)
-    })
-
-    it('should return 0 for array with no rich objects', () => {
-      const strings = ['FireAll', 'FireTorps', '+TrayExecByTray 0 0']
-      
-      const result = countRichObjects(strings)
-      expect(result).toBe(0)
-    })
-
-    it('should handle single item', () => {
-      expect(countRichObjects('FireAll')).toBe(0)
-      expect(countRichObjects({ command: 'FireAll', name: 'Fire All' })).toBe(1)
-    })
-
-    it('should handle empty or invalid inputs', () => {
-      expect(countRichObjects([])).toBe(0)
-      expect(countRichObjects(null)).toBe(0)
-      expect(countRichObjects(undefined)).toBe(0)
-    })
-
-    it('should exclude invalid rich objects from count', () => {
-      const mixed = [
-        { command: 'FireAll', name: 'Fire All' },
-        { name: 'No Command Property' },
-        { command: '' },
-        { command: null },
-        'StringCommand'
-      ]
-      
-      const result = countRichObjects(mixed)
-      expect(result).toBe(1) // Only the first object is valid
-    })
-  })
-
+  
   describe('integration scenarios', () => {
     it('should handle complete workflow: rich objects to strings and back', async () => {
       const originalRichObjects = [
@@ -414,12 +369,9 @@ describe('Command Display Adapter', () => {
         { command: '+TrayExecByTray 0 0', name: 'Legacy Rich Object' }, // legacy rich object
         'FireTorps' // canonical string
       ]
-      
+
       const normalized = normalizeToStringArray(mixed)
       expect(normalized).toEqual(['FireAll', '+TrayExecByTray 0 0', 'FireTorps'])
-      
-      const richObjectCount = countRichObjects(mixed)
-      expect(richObjectCount).toBe(1)
     })
 
     it('should preserve data integrity through multiple conversions', () => {

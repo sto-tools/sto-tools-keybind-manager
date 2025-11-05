@@ -415,14 +415,7 @@ export default class CommandUI extends UIComponentBase {
     }
   }
 
-  // Check if a command is compatible with the target environment
-  async isCommandCompatible(commandName, targetEnvironment) {
-    return await this.request('command:check-environment-compatibility', { 
-      command: commandName, 
-      environment: targetEnvironment 
-    })
-  }
-
+  
   // Perform the import from the selected source
   async performImport() {
     const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)

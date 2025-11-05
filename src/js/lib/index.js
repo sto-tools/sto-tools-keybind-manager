@@ -7,12 +7,10 @@ export { default as eventBus } from '../core/eventBus.js'
 // Command display and normalization utilities
 export {
   enrichForDisplay,
-  enrichArrayForDisplay,
   normalizeToString,
   normalizeToStringArray,
   normalizeToOptimizedString,
-  isRichObject,
-  countRichObjects
+  isRichObject
 } from './commandDisplayAdapter.js'
 
 export {
