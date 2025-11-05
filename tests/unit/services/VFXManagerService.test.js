@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach, expect } from 'vitest'
+import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import { createServiceFixture } from '../../fixtures/index.js'
 import VFXManagerService from '../../../src/js/components/services/VFXManagerService.js'
 
@@ -37,10 +37,10 @@ describe('VFXManagerService', () => {
 
   it('should toggle effect selection', () => {
     service.toggleEffect('space', 'Bloom')
-    expect(service.getSelectedEffects('space')).toContain('Bloom')
+    expect(service.selectedEffects.space.has('Bloom')).toBe(true)
 
     service.toggleEffect('space', 'Bloom')
-    expect(service.getSelectedEffects('space')).not.toContain('Bloom')
+    expect(service.selectedEffects.space.has('Bloom')).toBe(false)
   })
 
   it('should generate alias command with and without PlayerSay', () => {
@@ -62,13 +62,27 @@ describe('VFXManagerService', () => {
     expect(combined).toEqual(['dynFxSetFXExclusionList FX_A,FX_B'])
   })
 
-  it('should emit modal:hide after cancelEffects', () => {
-    // store initial state
-    service.initialState = {
-      selectedEffects: { space: new Set(), ground: new Set() },
-      showPlayerSay: false
-    }
-    service.cancelEffects()
+  it('should emit modal:hide after saveEffects', async () => {
+    // Set up some effects to save
+    service.toggleEffect('space', 'Bloom')
+    service.cache.currentProfile = 'test-profile'
+
+    // Mock the data coordinator requests
+    service.request = vi.fn(async (topic) => {
+      if (topic === 'data:get-all-profiles') {
+        return {
+          'test-profile': { id: 'test-profile', name: 'Test Profile' }
+        }
+      }
+      if (topic === 'data:update-profile') {
+        return { success: true }
+      }
+      return null
+    })
+
+    await service.saveEffects()
+
+    // Verify modal:hide event was emitted
     eventBusFixture.expectEvent('modal:hide', { modalId: 'vertigoModal' })
   })
 
@@ -76,14 +90,14 @@ describe('VFXManagerService', () => {
     // Test that selectAllEffects works with explicit window.VFX_EFFECTS access
     // Regression test for: VFX_MANAGER_UNDEFINED_REFERENCE bug
     service.selectAllEffects('space')
-    const selectedSpaceEffects = service.getSelectedEffects('space')
+    const selectedSpaceEffects = Array.from(service.selectedEffects.space)
     expect(selectedSpaceEffects.length).toBeGreaterThan(0)
     expect(selectedSpaceEffects).toContain('Bloom')
     expect(selectedSpaceEffects).toContain('FX_A')
 
     // Test ground environment
     service.selectAllEffects('ground')
-    const selectedGroundEffects = service.getSelectedEffects('ground')
+    const selectedGroundEffects = Array.from(service.selectedEffects.ground)
     expect(selectedGroundEffects.length).toBeGreaterThan(0)
     expect(selectedGroundEffects).toContain('FX_GreenSmoke')
     expect(selectedGroundEffects).toContain('FX_B')
