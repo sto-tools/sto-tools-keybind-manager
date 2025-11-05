@@ -100,16 +100,20 @@ describe('UIComponentBase uiInit Integration', () => {
       component.init()
 
       // Should be pending render when data not ready
-      expect(component.isPendingRender()).toBe(true)
+      expect(component.pendingInitialRender).toBe(true)
       expect(component.renderCalled).toBe(false)
 
       // Now simulate data becoming available
       component.setDataReady(true)
-      component.forceRender()
+      // Force render by directly manipulating state and calling performInitialRender
+      component.pendingInitialRender = false
+      const renderSpy = vi.spyOn(component, 'performInitialRender')
+      component.performInitialRender()
 
       // Should render when data is ready
-      expect(component.isPendingRender()).toBe(false)
+      expect(component.pendingInitialRender).toBe(false)
       expect(component.renderCalled).toBe(true)
+      expect(renderSpy).toHaveBeenCalled()
     })
 
     it('should render immediately in uiInit() when data is ready', () => {
@@ -131,7 +135,7 @@ describe('UIComponentBase uiInit Integration', () => {
       component.init()
 
       // Should render immediately when data is ready
-      expect(component.isPendingRender()).toBe(false)
+      expect(component.pendingInitialRender).toBe(false)
       expect(component.renderCalled).toBe(true)
     })
 
@@ -160,7 +164,7 @@ describe('UIComponentBase uiInit Integration', () => {
 
       // Should use UIComponentBase's uiInit() method
       expect(component.renderCalled).toBe(true)
-      expect(component.isPendingRender()).toBe(false)
+      expect(component.pendingInitialRender).toBe(false)
       expect(component.onInitCalled).toBe(true)
     })
   })

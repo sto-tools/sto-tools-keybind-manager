@@ -211,25 +211,6 @@ export default class ComponentBase {
         console.log(`[${this.componentName}] Updated preferences cache from preferences:saved`)
       }
     })
-
-    // Load initial preferences asynchronously
-    this._loadInitialPreferences()
-  }
-
-  /**
-   * Load initial preferences into cache
-   * Called during component initialization
-   */
-  async _loadInitialPreferences() {
-/*    try {
-      const preferences = await this.request('preferences:get-settings')
-      if (preferences && typeof preferences === 'object') {
-        Object.assign(this.cache.preferences, preferences)
-      }
-    } catch (error) {
-      // Preferences service might not be available yet, that's okay
-      // The cache will be updated when preferences:changed events are received
-    }*/
   }
 
   /**
@@ -428,14 +409,7 @@ export default class ComponentBase {
     return this.initialized && !this.destroyed
   }
 
-  /**
-   * Check if component is destroyed
-   * @returns {boolean}
-   */
-  isDestroyed() {
-    return this.destroyed
-  }
-
+  
   /**
    * Get component name for debugging
    * @returns {string}

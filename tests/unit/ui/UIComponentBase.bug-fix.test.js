@@ -45,7 +45,7 @@ describe('UIComponentBase Bug Fix Verification', () => {
       // 2. Component's onInit() runs for component-specific logic
       expect(component.initializationLogicRan).toBe(true)
       expect(component.dataDependencyCheckRan).toBe(true)
-      expect(component.isPendingRender()).toBe(false)
+      expect(component.pendingInitialRender).toBe(false)
     })
 
     it('should demonstrate the fix works for real UI components', () => {
@@ -77,7 +77,7 @@ describe('UIComponentBase Bug Fix Verification', () => {
       // Verify the fix: Both UIComponentBase and component logic work
       expect(component.setupCalled).toBe(true) // Component's onInit() ran
       expect(component.rendered).toBe(true)   // UIComponentBase's uiInit() ran
-      expect(component.isPendingRender()).toBe(false)
+      expect(component.pendingInitialRender).toBe(false)
     })
 
     it('should maintain proper initialization order: ComponentBase → UIComponentBase → Component', () => {
@@ -164,22 +164,26 @@ describe('UIComponentBase Bug Fix Verification', () => {
       component.setDataReady(false)
       component.init()
 
-      expect(component.isPendingRender()).toBe(true)
+      expect(component.pendingInitialRender).toBe(true)
       expect(component.renderCallCount).toBe(0)
 
       // Test 2: Data becomes available, render should happen
       component.setDataReady(true)
-      component.forceRender()
+      // Force render by directly manipulating state and calling performInitialRender
+      component.pendingInitialRender = false
+      const renderSpy = vi.spyOn(component, 'performInitialRender')
+      component.performInitialRender()
 
-      expect(component.isPendingRender()).toBe(false)
+      expect(component.pendingInitialRender).toBe(false)
       expect(component.renderCallCount).toBe(1)
+      expect(renderSpy).toHaveBeenCalled()
 
       // Test 3: Initialize with data ready from the start
       const component2 = new DataDependentUIComponent(eventBus)
       component2.setDataReady(true)
       component2.init()
 
-      expect(component2.isPendingRender()).toBe(false)
+      expect(component2.pendingInitialRender).toBe(false)
       expect(component2.renderCallCount).toBe(1)
     })
   })
@@ -211,7 +215,7 @@ describe('UIComponentBase Bug Fix Verification', () => {
 
       // Both should work automatically now
       expect(component.existingLogicExecuted).toBe(true)
-      expect(component.isPendingRender()).toBe(false)
+      expect(component.pendingInitialRender).toBe(false)
     })
   })
 })

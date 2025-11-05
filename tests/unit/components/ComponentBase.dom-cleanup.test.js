@@ -11,7 +11,7 @@ describe('ComponentBase DOM event listener automatic cleanup', () => {
   })
 
   afterEach(() => {
-    if (component && !component.isDestroyed()) {
+    if (component && !component.destroyed) {
       component.destroy()
     }
     // Clean up any remaining eventBus listeners
