@@ -25,13 +25,6 @@ export default class ToastService extends ComponentBase {
     }
   }
 
-  // HTML escape function to prevent XSS
-  escapeHtml(text) {
-    const div = document.createElement('div')
-    div.textContent = text
-    return div.innerHTML
-  }
-
   // Show a toast message.
   showToast(message, type = 'info', duration = 3000) {
     const toast = this.createToast(message, type, duration)
@@ -101,13 +94,6 @@ export default class ToastService extends ComponentBase {
     })
 
     return toast
-  }
-
-  // Public helper to hide a toast immediately.
-  hideToast(toast) {
-    if (toast && toast.parentNode) {
-      this.removeToast(toast)
-    }
   }
 
   // Internal helper that adds the removal animation and cleans up the DOM.
