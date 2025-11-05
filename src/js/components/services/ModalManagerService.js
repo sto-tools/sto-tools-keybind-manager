@@ -47,15 +47,6 @@ export default class ModalManagerService extends ComponentBase {
     // Modal control events
     this.eventBus.on('modal:show', this.handleShowModal.bind(this))
     this.eventBus.on('modal:hide', this.handleHideModal.bind(this))
-    this.eventBus.on('modal:toggle', this.handleToggleModal.bind(this))
-    this.eventBus.on(
-      'modal:register-callback',
-      this.handleRegisterCallback.bind(this)
-    )
-    this.eventBus.on(
-      'modal:unregister-callback',
-      this.handleUnregisterCallback.bind(this)
-    )
 
     // Setup global DOM event listeners for modal close buttons
     this.setupGlobalModalEventListeners()
@@ -110,35 +101,6 @@ export default class ModalManagerService extends ComponentBase {
     const result = this.hide(modalId)
     this.emit('modal:hidden', { modalId, success: result })
     return result
-  }
-
-  async handleToggleModal({ modalId }) {
-    const modal =
-      typeof modalId === 'string' ? document.getElementById(modalId) : modalId
-    if (!modal) return false
-
-    const isActive = modal.classList.contains('active')
-    const result = isActive ? this.hide(modalId) : this.show(modalId)
-    this.emit('modal:toggled', {
-      modalId,
-      isActive: !isActive,
-      success: result,
-    })
-    return result
-  }
-
-  async handleRegisterCallback({ modalId, callback }) {
-    this.registerRegenerateCallback(modalId, callback)
-    console.log(
-      `[${this.componentName}] Registered callback for modal: ${modalId}`
-    )
-  }
-
-  async handleUnregisterCallback({ modalId }) {
-    this.unregisterRegenerateCallback(modalId)
-    console.log(
-      `[${this.componentName}] Unregistered callback for modal: ${modalId}`
-    )
   }
 
   // Utilities
