@@ -8,11 +8,7 @@
 import { describe, test, expect } from 'vitest'
 import {
   encodeKeyForExport,
-  decodeKeyFromImport,
-  keyNeedsEncoding,
-  keyNeedsDecoding,
-  getEncodableKeys,
-  getEncodedKeys
+  decodeKeyFromImport
 } from '../../../src/js/lib/keyEncoding.js'
 
 describe('keyEncoding', () => {
@@ -131,58 +127,6 @@ describe('keyEncoding', () => {
     test('should handle boolean input gracefully', () => {
       expect(decodeKeyFromImport(true)).toBe(true)
       expect(decodeKeyFromImport(false)).toBe(false)
-    })
-  })
-
-  describe('keyNeedsEncoding', () => {
-    test('should return true for keys that need encoding', () => {
-      expect(keyNeedsEncoding('`')).toBe(true)
-    })
-
-    test('should return false for keys that don\'t need encoding', () => {
-      expect(keyNeedsEncoding('A')).toBe(false)
-      expect(keyNeedsEncoding('F1')).toBe(false)
-      expect(keyNeedsEncoding('ENTER')).toBe(false)
-    })
-
-    test('should handle invalid input gracefully', () => {
-      expect(keyNeedsEncoding(null)).toBe(false)
-      expect(keyNeedsEncoding(undefined)).toBe(false)
-      expect(keyNeedsEncoding(123)).toBe(false)
-    })
-  })
-
-  describe('keyNeedsDecoding', () => {
-    test('should return true for encoded keys that need decoding', () => {
-      expect(keyNeedsDecoding('0x29')).toBe(true)
-    })
-
-    test('should return false for keys that don\'t need decoding', () => {
-      expect(keyNeedsDecoding('A')).toBe(false)
-      expect(keyNeedsDecoding('F1')).toBe(false)
-      expect(keyNeedsDecoding('ENTER')).toBe(false)
-    })
-
-    test('should handle invalid input gracefully', () => {
-      expect(keyNeedsDecoding(null)).toBe(false)
-      expect(keyNeedsDecoding(undefined)).toBe(false)
-      expect(keyNeedsDecoding(123)).toBe(false)
-    })
-  })
-
-  describe('getEncodableKeys', () => {
-    test('should return array of keys that need encoding', () => {
-      const keys = getEncodableKeys()
-      expect(Array.isArray(keys)).toBe(true)
-      expect(keys).toContain('`')
-    })
-  })
-
-  describe('getEncodedKeys', () => {
-    test('should return array of encoded key values', () => {
-      const keys = getEncodedKeys()
-      expect(Array.isArray(keys)).toBe(true)
-      expect(keys).toContain('0x29')
     })
   })
 

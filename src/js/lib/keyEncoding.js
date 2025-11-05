@@ -67,36 +67,3 @@ export function decodeKeyFromImport(encodedKey) {
   return KEY_DECODE_MAP[encodedKey] || encodedKey
 }
 
-/**
- * Check if a key needs encoding for export
- * @param {string} keyName - Key name to check
- * @returns {boolean} - True if key needs encoding
- */
-export function keyNeedsEncoding(keyName) {
-  return keyName in KEY_ENCODE_MAP
-}
-
-/**
- * Check if a key is an encoded hex value that needs decoding
- * @param {string} keyName - Key name to check
- * @returns {boolean} - True if key is encoded and needs decoding
- */
-export function keyNeedsDecoding(keyName) {
-  return keyName in KEY_DECODE_MAP
-}
-
-/**
- * Get all keys that need encoding (for validation/testing)
- * @returns {string[]} - Array of key names that need encoding
- */
-export function getEncodableKeys() {
-  return Object.keys(KEY_ENCODE_MAP)
-}
-
-/**
- * Get all encoded key values (for validation/testing)
- * @returns {string[]} - Array of encoded key values
- */
-export function getEncodedKeys() {
-  return Object.values(KEY_ENCODE_MAP)
-}

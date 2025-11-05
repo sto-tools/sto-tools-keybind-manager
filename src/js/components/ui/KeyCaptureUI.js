@@ -449,20 +449,7 @@ export default class KeyCaptureUI extends UIComponentBase {
     }
   }
 
-  // Get currently active modifiers (legacy method for compatibility)
-  getActiveModifiers() {
-    return this.getActiveVirtualModifiers()
-  }
-
-  // Toggle modifier state (legacy method for compatibility)
-  toggleModifier(modifier) {
-    // This method is now handled by toggleVirtualModifier
-    // Keep for compatibility but redirect to virtual keyboard handling
-    const keyCode = modifier === 'ctrl' ? 'ControlLeft' :
-                   modifier === 'alt' ? 'AltLeft' : 'ShiftLeft'
-    this.toggleVirtualModifier(keyCode)
-  }
-
+  
   // Confirm the current selection
   async confirmSelection() {
     if (!this.cache.selectedKey) return

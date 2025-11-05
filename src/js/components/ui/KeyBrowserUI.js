@@ -116,11 +116,7 @@ export default class KeyBrowserUI extends UIComponentBase {
       const val = (typeof d === 'string') ? d : (d?.value || '')
       this.filterKeys(val)
     })
-    this.addEventListener('commands:filter',        (d) => {
-      const val = (typeof d === 'string') ? d : (d?.value || '')
-      this.filterCommands(val)
-    })
-    this.addEventListener('keys:show-all',          () => this.showAllKeys())
+        this.addEventListener('keys:show-all',          () => this.showAllKeys())
 
     // Also re-render on explicit mode-changed events.
     this.addEventListener('key-view:mode-changed', () => this.render())
@@ -387,22 +383,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
   }
 
-  filterCommands (filter = '') {
-    const filterLower = (filter || '').toString().toLowerCase()
-
-    this.document.querySelectorAll('.command-item').forEach((item) => {
-      const text = (item.textContent || '').toLowerCase()
-      const visible = !filterLower || text.includes(filterLower)
-      item.style.display = visible ? 'flex' : 'none'
-    })
-
-    this.document.querySelectorAll('.category').forEach((category) => {
-      const visibleCommands = category.querySelectorAll('.command-item:not([style*="display: none"])')
-      const categoryVisible = !filterLower || visibleCommands.length > 0
-      category.style.display = categoryVisible ? 'block' : 'none'
-    })
-  }
-
+  
   showAllKeys () {
     const grid = this.document.getElementById('keyGrid')
     if (!grid) return
