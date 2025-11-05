@@ -156,13 +156,6 @@ export default class HeaderMenuUI extends UIComponentBase {
     dropdown.classList.toggle('active')
   }
 
-  // Close all dropdowns
-  closeAllMenus() {
-    this.document.querySelectorAll('.dropdown.active').forEach(dropdown => {
-      dropdown.classList.remove('active')
-    })
-  }
-
   // Confirm app reset with user
   async confirmResetApp() {
     if (!this.confirmDialog) return
