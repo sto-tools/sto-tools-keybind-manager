@@ -1,8 +1,7 @@
 import { describe, it, beforeEach, expect } from 'vitest'
-import { 
-  normalizeProfile, 
-  needsNormalization, 
-  getMigrationReport 
+import {
+  normalizeProfile,
+  needsNormalization
 } from '../../../src/js/lib/profileNormalizer.js'
 
 describe('Profile Normalizer', () => {
@@ -322,94 +321,7 @@ describe('Profile Normalizer', () => {
     })
   })
 
-  describe('getMigrationReport', () => {
-    it('should generate detailed migration report', () => {
-      const profile = {
-        id: 'test-profile',
-        name: 'Test Profile',
-        builds: {
-          'space': {
-            keys: {
-              'F1': [{ command: 'FireAll', name: 'Fire All' }, 'AlreadyNormalized'],
-              'F2': 'SingleCommand'
-            }
-          },
-          'ground': {
-            keys: {
-              'G1': ['AlreadyNormalized']
-            }
-          }
-        },
-        aliases: {
-          'alias1': {
-            commands: 'Command1$$Command2$$Command3'
-          },
-          'alias2': {
-            commands: [{ command: 'RichCommand', name: 'Rich' }, 'NormalCommand']
-          },
-          'alias3': {
-            commands: ['AlreadyNormalized']
-          }
-        }
-      }
-
-      // Create a copy for normalization
-      const original = JSON.parse(JSON.stringify(profile))
-      normalizeProfile(profile)
-      const report = getMigrationReport(original, profile)
-
-      expect(report.hasChanges).toBe(true)
-      expect(report.keybindsMigrated).toBeGreaterThan(0)
-      expect(report.aliasesMigrated).toBeGreaterThan(0)
-      expect(report.richObjectsRemoved).toBeGreaterThan(0)
-      expect(report.stringsSplit).toBeGreaterThan(0)
-      expect(report.migrationVersion).toBe('2.1.0')
-    })
-
-    it('should handle already normalized profile', () => {
-      const profile = {
-        id: 'normalized-profile',
-        name: 'Normalized Profile',
-        builds: {
-          'space': {
-            keys: {
-              'F1': ['Command1', 'Command2']
-            }
-          }
-        },
-        aliases: {
-          'alias1': {
-            commands: ['Command3', 'Command4']
-          }
-        },
-        migrationVersion: '2.0.0'
-      }
-
-      const original = JSON.parse(JSON.stringify(profile))
-      normalizeProfile(profile)
-      const report = getMigrationReport(original, profile)
-
-      expect(report.hasChanges).toBe(false)
-      expect(report.keybindsMigrated).toBe(0)
-      expect(report.aliasesMigrated).toBe(0)
-    })
-
-    it('should handle empty profile', () => {
-      const profile = {
-        id: 'empty-profile',
-        name: 'Empty Profile'
-      }
-
-      const original = JSON.parse(JSON.stringify(profile))
-      normalizeProfile(profile)
-      const report = getMigrationReport(original, profile)
-
-      expect(report.hasChanges).toBe(false)
-      expect(report.keybindsMigrated).toBe(0)
-      expect(report.aliasesMigrated).toBe(0)
-    })
-  })
-
+  
   describe('edge cases and error handling', () => {
     it('should handle null or undefined profiles gracefully', () => {
       expect(needsNormalization(null)).toBe(false)
@@ -417,9 +329,6 @@ describe('Profile Normalizer', () => {
       
       expect(() => normalizeProfile(null)).not.toThrow()
       expect(() => normalizeProfile(undefined)).not.toThrow()
-      
-      expect(() => getMigrationReport(null, null)).not.toThrow()
-      expect(() => getMigrationReport(undefined, undefined)).not.toThrow()
     })
 
     it('should handle malformed keybinds structure', () => {

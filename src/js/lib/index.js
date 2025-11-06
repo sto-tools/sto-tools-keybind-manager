@@ -15,9 +15,7 @@ export {
 
 export {
   normalizeProfile,
-  needsNormalization,
-  getMigrationReport,
-  batchNormalizeProfiles
+  needsNormalization
 } from './profileNormalizer.js'
 
 // Default configuration for external use
