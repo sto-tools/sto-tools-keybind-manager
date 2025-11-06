@@ -2263,13 +2263,6 @@ window.TRAY_CONFIG = {
 }
 
 // Utility functions for data access
-window.getCommandsByCategory = function (category) {
-  if (!category || !STO_DATA.commands[category]) {
-    return []
-  }
-  return Object.values(STO_DATA.commands[category].commands)
-}
-
 window.localizeCommandData = function () {
   const i18n = window.i18next
   if (!i18n) return
