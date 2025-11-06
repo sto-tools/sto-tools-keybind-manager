@@ -403,38 +403,13 @@ export default class ParameterCommandUI extends UIComponentBase {
   }
 
   // Legacy facade methods – keep external API intact
-  async editCommand (index) {
-    // Use ComponentBase cached state
-    const currentEnv = this.cache.currentEnvironment || 'space'
-    const selectedKey = currentEnv === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
-    
-    if (!selectedKey) return
-
-    try {
-      // Fetch commands for the selected key via request/response layer
-      const commands = await this.request('command:get-for-selected-key')
-      if (!commands || !commands[index]) return
-
-      const command = commands[index]
-      const commandDef = await this.request('parameter-command:find-definition', { commandString: command })
-      if (!commandDef) return
-
-      this.editParameterizedCommand(index, command, commandDef)
-    } catch (error) {
-      console.error('ParameterCommandUI.editCommand failed:', error)
-    }
-  }
-
+  
   // Thin wrappers delegating to the service – keeps external API
   // intact for legacy code/tests.
   generateCommandId (...args) {
     return this.request('parameter-command:generate-id')
   }
-  
-  async buildParameterizedCommand (categoryId, commandId, commandDef, params) {
-    return await this.request('parameter-command:build', { categoryId, commandId, commandDef, params })
-  }
-  
+
   async findCommandDefinition (commandString) {
     return await this.request('parameter-command:find-definition', { commandString })
   }
