@@ -138,6 +138,13 @@ export default class ComponentBase {
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (this.cache && profileId === this.cache.currentProfile) {
         this.cache.profile = profile
+        // Handle null profile gracefully
+        if (!profile) {
+          this.cache.builds = null
+          this.cache.keys = {}
+          this.cache.aliases = {}
+          return
+        }
         // Update keys for current environment
         if (profile.builds) {
           this.cache.builds = profile.builds
@@ -159,7 +166,15 @@ export default class ComponentBase {
       // Backward compatibility for components expecting underscore names
       this._currentEnvironment = this.cache.currentEnvironment
       this._currentProfileId = profileId
-      
+
+      // Handle null profile gracefully
+      if (!profile) {
+        this.cache.builds = null
+        this.cache.keys = {}
+        this.cache.aliases = {}
+        return
+      }
+
       // Update cached data
       if (profile.builds) {
         this.cache.builds = profile.builds

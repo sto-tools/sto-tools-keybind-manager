@@ -84,6 +84,12 @@ export default class SelectionService extends ComponentBase {
       // ComponentBase handles currentProfile, profile, and currentEnvironment caching
       this.updateCacheFromProfile(profile)
 
+      // Handle null profile gracefully
+      if (!profile) {
+        this.cachedSelections = { space: null, ground: null, alias: null }
+        return
+      }
+
       // Restore cached selections from the new profile
       if (profile.selections) {
         if (profile.selections.space) {
@@ -668,14 +674,20 @@ export default class SelectionService extends ComponentBase {
     
     
     // Handle state from DataCoordinator
-    if (sender === 'DataCoordinator' && state.currentProfileData) {
+    if (sender === 'DataCoordinator' && state.hasOwnProperty('currentProfileData')) {
       const profile = state.currentProfileData
-      
+
+      if (!profile) {
+        this.cache.currentProfile = null
+        this.cachedSelections = { space: null, ground: null, alias: null }
+        return
+      }
+
       this.cache.currentProfile = profile.id
       this.cache.currentEnvironment = profile.environment || 'space'
-      
+
       this.updateCacheFromProfile(profile)
-      
+
       // Restore cached selections but NOT active selections (avoid showing invalid state during late-join)
       if (profile.selections) {
         if (profile.selections.space) {

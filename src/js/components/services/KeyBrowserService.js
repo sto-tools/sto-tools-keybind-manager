@@ -54,8 +54,13 @@ export default class KeyBrowserService extends ComponentBase {
       }
     })
 
-    this.addEventListener('profile:switched', ({ profile }) => {
-      // ComponentBase handles currentProfile and currentEnvironment caching
+    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
+      this.cache.currentProfile = profileId
+
+      if (environment) {
+        this.cache.currentEnvironment = environment
+      }
+
       this.updateCacheFromProfile(profile)
       this.emit('key:list-changed', { keys: this.getKeys() })
     })
