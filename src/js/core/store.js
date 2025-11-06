@@ -22,18 +22,4 @@ const store = new Proxy(state, {
   },
 })
 
-export function resetStore() {
-  Object.assign(store, {
-    currentProfile: null,
-    currentMode: 'space',
-    currentEnvironment: 'space',
-    selectedKey: null,
-    isModified: false,
-    undoStack: [],
-    redoStack: [],
-    maxUndoSteps: 50,
-    commandIdCounter: 0,
-  })
-}
-
 export default store
