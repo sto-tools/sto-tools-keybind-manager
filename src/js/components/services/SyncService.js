@@ -32,8 +32,6 @@ export default class SyncService extends ComponentBase {
     // Register Request/Response endpoints for UI components
     if (this.eventBus) {
       this.respond('sync:sync-project', ({ source } = {}) => this.syncProject(source))
-      this.respond('sync:set-sync-folder', ({ autoSync } = {}) => this.setSyncFolder(autoSync))
-      this.respond('sync:get-sync-folder-handle', () => this.getSyncFolderHandle())
 
       // Handle deferred import/overwrite on preferences save/cancel
       this.addEventListener('preferences:saved', async () => {
