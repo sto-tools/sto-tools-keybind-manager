@@ -12,6 +12,18 @@ function makeRequestId() {
 }
 
 /**
+ * Format topic for error messages, handling undefined/null values.
+ * @param {string|undefined|null} topic - The topic to format
+ * @returns {string} - Formatted topic string
+ */
+function formatTopic(topic) {
+  if (topic === undefined || topic === null) {
+    return '[UNDEFINED_TOPIC]'
+  }
+  return typeof topic === 'string' ? topic : String(topic)
+}
+
+/**
  * Send an asynchronous request and await a response.
  *
  * @template TRequest
@@ -24,12 +36,20 @@ function makeRequestId() {
  */
 function request(bus = eventBus, topic, payload, timeout = 5000) {
   if (!bus) {
-    throw new Error(`Request failed: eventBus is null/undefined for topic "${topic}". Component may not be properly initialized.`)
+    throw new Error(`Request failed: eventBus is null/undefined for topic "${formatTopic(topic)}". Component may not be properly initialized.`)
   }
-  
+
+  // O(1) check using existing listeners Map - no iteration required
+  const rpcTopic = `rpc:${topic}`
+  const listeners = bus.listeners.get(rpcTopic)
+
+  if (!listeners || listeners.size === 0) {
+    throw new Error(`Request failed: No handler registered for topic "${formatTopic(topic)}". Component may not be properly initialized.`)
+  }
+
   if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-console
-    //console.log(`[requestResponse] request → ${topic}`, payload)
+    //console.log(`[requestResponse] request → ${formatTopic(topic)}`, payload)
   }
   const requestId = makeRequestId()
   const replyTopic = `${topic}::reply::${requestId}`

@@ -3,11 +3,11 @@ import { JSDOM } from 'jsdom'
 import eventBus from '../../../src/js/core/eventBus.js'
 import { generateBindToAliasName } from '../../../src/js/lib/aliasNameValidator.js'
 import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
+//import CommandChainService from '../../../src/js/components/services/CommandChainService.js'
 import i18next from 'i18next'
 
 describe('Bind-to-Alias Mode', () => {
   let ui, mockDocument, mockEventBus, mockUI
-
   beforeEach(async () => {
     // Mock document and UI
     mockDocument = {
@@ -27,8 +27,9 @@ describe('Bind-to-Alias Mode', () => {
 
     // Create a mock event bus that properly handles the RPC pattern
     const eventListeners = new Map()
-    
+
     mockEventBus = {
+      listeners: new Map(), // Add listeners Map for requestResponse handler detection
       on: vi.fn((topic, handler) => {
         if (!eventListeners.has(topic)) {
           eventListeners.set(topic, [])
@@ -37,8 +38,17 @@ describe('Bind-to-Alias Mode', () => {
         return () => {} // Return cleanup function
       }),
       off: vi.fn((topic, handler) => {
+        // Remove from eventListeners
         if (eventListeners.has(topic)) {
           const handlers = eventListeners.get(topic)
+          const index = handlers.indexOf(handler)
+          if (index > -1) {
+            handlers.splice(index, 1)
+          }
+        }
+        // Remove from listeners Map
+        if (mockEventBus.listeners.has(topic)) {
+          const handlers = mockEventBus.listeners.get(topic)
           const index = handlers.indexOf(handler)
           if (index > -1) {
             handlers.splice(index, 1)
@@ -102,8 +112,69 @@ describe('Bind-to-Alias Mode', () => {
         if (eventListeners.has(topic)) {
           eventListeners.get(topic).forEach(handler => handler(data))
         }
+      }),
+
+      // Mock respond function to track RPC handlers
+      respond: vi.fn((topic, handler) => {
+        const rpcTopic = `rpc:${topic}`
+        if (!mockEventBus.listeners.has(rpcTopic)) {
+          mockEventBus.listeners.set(rpcTopic, [])
+        }
+        mockEventBus.listeners.get(rpcTopic).push(handler)
+
+        return () => { // Return detach function
+          if (mockEventBus.listeners.has(rpcTopic)) {
+            const handlers = mockEventBus.listeners.get(rpcTopic)
+            const index = handlers.indexOf(handler)
+            if (index > -1) {
+              handlers.splice(index, 1)
+            }
+          }
+        }
+      }),
+
+      // Expose listeners for requestResponse handler detection
+      clear: vi.fn(() => {
+        eventListeners.clear()
+        mockEventBus.listeners.clear()
       })
     }
+
+    // Mock respond function to track RPC handlers
+      respond: vi.fn((topic, handler) => {
+        const rpcTopic = `rpc:${topic}`
+        if (!mockEventBus.listeners.has(rpcTopic)) {
+          mockEventBus.listeners.set(rpcTopic, [])
+        }
+        mockEventBus.listeners.get(rpcTopic).push(handler)
+
+        return () => { // Return detach function
+          if (mockEventBus.listeners.has(rpcTopic)) {
+            const handlers = mockEventBus.listeners.get(rpcTopic)
+            const index = handlers.indexOf(handler)
+            if (index > -1) {
+              handlers.splice(index, 1)
+            }
+          }
+        }
+      })
+
+    // Mock handlers for command-chain endpoints
+    mockEventBus.respond('command-chain:generate-alias-name', async ({ environment, keyName, bindsetName }) => {
+      return `sto_kb_${environment}_${keyName.toLowerCase()}`
+    })
+
+    mockEventBus.respond('command-chain:generate-alias-preview', async ({ commands }) => {
+      if (!commands || commands.length === 0) {
+        return 'alias sto_kb_space_q <&  &>'
+      } else {
+        return 'alias sto_kb_space_q <& FireAll $$ +power_exec Distribute_Shields &>'
+      }
+    })
+
+    mockEventBus.respond('command-chain:is-stabilized', async () => {
+      return false
+    })
 
     // Create CommandChainUI instance
     ui = new CommandChainUI({

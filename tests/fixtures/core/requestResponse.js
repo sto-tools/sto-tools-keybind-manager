@@ -30,11 +30,24 @@ export function createRequestResponseFixture(eventBus, options = {}) {
     return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   }
 
-  // Mock request function
+  // Format topic for error messages (mimics real implementation)
+  const formatTopic = (topic) => {
+    if (topic === undefined || topic === null) {
+      return '[UNDEFINED_TOPIC]'
+    }
+    return typeof topic === 'string' ? topic : String(topic)
+  }
+
+  // Mock request function (mimics real requestResponse.js behavior before handler check)
   const request = vi.fn((bus, topic, payload, timeout = defaultTimeout) => {
+    // Mimic the validation from the real implementation (but skip handler check - handled by respond registration)
+    if (!bus) {
+      throw new Error(`Request failed: eventBus is null/undefined for topic "${formatTopic(topic)}". Component may not be properly initialized.`)
+    }
+
     const requestId = makeRequestId()
     const replyTopic = `${topic}::reply::${requestId}`
-    
+
     if (trackRequests) {
       requests.push({
         requestId,

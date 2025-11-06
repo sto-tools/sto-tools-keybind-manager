@@ -23,9 +23,19 @@ describe('VFX Virtual Alias Integration Flow', () => {
     // Create mock event bus
     mockEventBus = {
       events: {},
+      listeners: new Map(), // Add listeners Map for requestResponse handler detection
       on: vi.fn((event, callback) => {
         if (!mockEventBus.events[event]) mockEventBus.events[event] = []
         mockEventBus.events[event].push(callback)
+
+        // Special handling for RPC events - also store in listeners Map
+        if (event.startsWith('rpc:')) {
+          if (!mockEventBus.listeners.has(event)) {
+            mockEventBus.listeners.set(event, [])
+          }
+          mockEventBus.listeners.get(event).push(callback)
+        }
+
         return () => mockEventBus.off(event, callback)
       }),
       off: vi.fn((event, callback) => {
@@ -35,8 +45,47 @@ describe('VFX Virtual Alias Integration Flow', () => {
         }
       }),
       emit: vi.fn((event, data) => {
+        // Handle VFX virtual alias emission
+        if (event === 'vfx:virtual-aliases-updated' && data.aliases) {
+          mockEventBus.events['vfx:virtual-aliases-updated']?.forEach(callback => callback(data))
+        }
+
+        // Handle RPC pattern for all events
+        if (event.startsWith('rpc:') && mockEventBus.listeners.has(event)) {
+          // Call the registered RPC handlers
+          const handlers = mockEventBus.listeners.get(event)
+          handlers.forEach(handler => {
+            try {
+              // Simulate async handler behavior
+              setTimeout(() => handler(data), 0)
+            } catch (error) {
+              console.error(`Error in RPC handler for ${event}:`, error)
+            }
+          })
+        }
+
+        // Regular event handling
         if (mockEventBus.events[event]) {
           mockEventBus.events[event].forEach(callback => callback(data))
+        }
+      }),
+
+      // Add mock respond function for VFX service
+      respond: vi.fn((topic, handler) => {
+        const rpcTopic = `rpc:${topic}`
+        if (!mockEventBus.listeners.has(rpcTopic)) {
+          mockEventBus.listeners.set(rpcTopic, [])
+        }
+        mockEventBus.listeners.get(rpcTopic).push(handler)
+
+        return () => { // Return detach function
+          if (mockEventBus.listeners.has(rpcTopic)) {
+            const handlers = mockEventBus.listeners.get(rpcTopic)
+            const index = handlers.indexOf(handler)
+            if (index > -1) {
+              handlers.splice(index, 1)
+            }
+          }
         }
       })
     }
@@ -95,7 +144,7 @@ describe('VFX Virtual Alias Integration Flow', () => {
     })
 
     // Wait for async operations to complete - RPC requests and responses
-    await new Promise(resolve => setTimeout(resolve, 10))
+    await new Promise(resolve => setTimeout(resolve, 50))
 
     // Find the aliases-changed event call among all emit calls
     const aliasesChangedCalls = mockEventBus.emit.mock.calls.filter(call => call[0] === 'aliases-changed')
@@ -140,10 +189,11 @@ describe('VFX Virtual Alias Integration Flow', () => {
   it('should handle VFX virtual aliases request from CommandLibraryService', async () => {
     // Add VFX effects
     vfxService.toggleEffect('space', 'FX_SpaceTest')
-    
-    // Test that CommandLibraryService can get virtual aliases
+
+    // Debug: Check what's actually happening
     const combinedAliases = await commandLibraryService.getCombinedAliases()
-    
+    console.log('Combined aliases:', JSON.stringify(combinedAliases, null, 2))
+
     expect(combinedAliases).toHaveProperty('dynFxSetFXExclusionList_Space')
     expect(combinedAliases.dynFxSetFXExclusionList_Space).toEqual({
       commands: ['dynFxSetFXExclusionList FX_SpaceTest'],
