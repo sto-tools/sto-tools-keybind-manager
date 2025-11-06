@@ -559,13 +559,6 @@ export function getLayoutName(language) {
   return layout.name
 }
 
-/**
- * Get all supported layouts
- * @returns {Array} Array of layout objects
- */
-export function getAllLayouts() {
-  return [QWERTY_LAYOUT, QWERTZ_LAYOUT, AZERTY_LAYOUT]
-}
 
 export {
   KEY_POSITIONS,
