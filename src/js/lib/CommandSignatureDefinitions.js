@@ -272,29 +272,10 @@ export function isEditableSignature(signature) {
   return Object.values(definition.parameters || {}).some(param => param.type !== 'hidden')
 }
 
-/**
- * Get all supported signatures
- * @returns {string[]} Array of all supported signatures
- */
-export function getSupportedSignatures() {
-  return Object.keys(SIGNATURE_DEFINITIONS)
-}
 
-/**
- * Get signatures by category
- * @param {string} category - Category to filter by
- * @returns {string[]} Array of signatures for the category
- */
-export function getSignaturesByCategory(category) {
-  return Object.entries(SIGNATURE_DEFINITIONS)
-    .filter(([_, definition]) => definition.category === category)
-    .map(([signature, _]) => signature)
-}
 
 export default {
   SIGNATURE_DEFINITIONS,
   getParameterDefinition,
-  isEditableSignature,
-  getSupportedSignatures,
-  getSignaturesByCategory
+  isEditableSignature
 } 
