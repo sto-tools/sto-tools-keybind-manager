@@ -52,7 +52,7 @@ export default class AboutModalUI extends UIComponentBase {
     // Update version display
     const aboutVersionElement = this.document.getElementById('aboutVersion')
     if (aboutVersionElement) {
-      aboutVersionElement.textContent = ` v${DISPLAY_VERSION}`
+      aboutVersionElement.textContent = ` ${DISPLAY_VERSION}`
     }
   }
 } 
