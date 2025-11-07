@@ -280,11 +280,6 @@ export default class BindsetSelectorService extends ComponentBase {
     return this.cache.preferences.bindsetsEnabled && this.cache.preferences.bindToAliasMode && this.cache.currentEnvironment !== 'alias'
   }
 
-  // External Actions
-  openBindsetManager() {
-    this.emit('bindset-manager:open')
-  }
-
   // Late-join state sharing
   getCurrentState() {
     return {
