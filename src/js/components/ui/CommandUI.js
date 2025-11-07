@@ -196,11 +196,24 @@ export default class CommandUI extends UIComponentBase {
       const hasIssues = (warnings && warnings.length > 0) || (errors && errors.length > 0)
       const stateKey = key || '__global__'
       let shouldShowIssueToasts = false
+      let shouldShowSuccessToast = false
+
+      const previousSeverity = this._toastSeverityByKey.get(stateKey)
 
       if (!hasIssues || severity === 'success') {
-        this._toastSeverityByKey.delete(stateKey)
+        // Show success toast if:
+        // 1. Transitioning from non-success to success state, OR
+        // 2. Loading a valid command chain (no previous severity)
+        if (severity === 'success') {
+          if (!previousSeverity || previousSeverity !== 'success') {
+            shouldShowSuccessToast = true
+          }
+          // Track success state to prevent duplicate toasts
+          this._toastSeverityByKey.set(stateKey, 'success')
+        } else {
+          this._toastSeverityByKey.delete(stateKey)
+        }
       } else {
-        const previousSeverity = this._toastSeverityByKey.get(stateKey)
         shouldShowIssueToasts = previousSeverity !== severity
         this._toastSeverityByKey.set(stateKey, severity)
       }
@@ -228,6 +241,12 @@ export default class CommandUI extends UIComponentBase {
           const message = resolveIssueMessage(warning)
           this.showToast(message, 'warning')
         })
+      }
+
+      // Show success toast when transitioning from non-success to success state
+      if (shouldShowSuccessToast) {
+        const successMessage = this.i18n?.t?.('command_chain_is_valid') || 'Command chain is valid'
+        this.showToast(successMessage, 'success')
       }
 
       // Refresh the label once translations resolve

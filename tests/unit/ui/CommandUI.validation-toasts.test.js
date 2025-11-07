@@ -11,6 +11,7 @@ describe('CommandUI Validation Toast Tests', () => {
         t: vi.fn((key, params) => {
           if (key === 'test_warning') return 'Test warning message'
           if (key === 'test_error') return 'Test error message'
+          if (key === 'command_chain_is_valid') return 'Command chain is valid'
           return `${key}:${JSON.stringify(params)}`
         })
       },
@@ -238,7 +239,62 @@ describe('CommandUI Validation Toast Tests', () => {
       expect(showToastSpy).toHaveBeenCalledWith('Fallback warning message', 'warning')
     })
 
-    it('should not show toasts when no warnings or errors', () => {
+    it('should show success toast when transitioning from warning to success', () => {
+      // First validation with warning severity
+      component.eventBus.emit('command-chain:validation-result', {
+        key: 'k',
+        severity: 'warning',
+        warnings: [{ key: 'test_warning', params: {} }],
+        errors: []
+      })
+      expect(showToastSpy).toHaveBeenCalledTimes(1)
+
+      // Clear the spy for the next validation
+      showToastSpy.mockClear()
+
+      // Second validation with success severity - should show success toast
+      component.eventBus.emit('command-chain:validation-result', {
+        key: 'k',
+        severity: 'success',
+        warnings: [],
+        errors: []
+      })
+
+      // Should show success toast
+      expect(showToastSpy).toHaveBeenCalledTimes(1)
+      expect(showToastSpy).toHaveBeenCalledWith('Command chain is valid', 'success')
+    })
+
+    it('should show success toast when loading a valid command chain', () => {
+      // First validation with success severity (simulating loading a valid command chain)
+      component.eventBus.emit('command-chain:validation-result', {
+        key: 'k',
+        severity: 'success',
+        warnings: [],
+        errors: []
+      })
+
+      // Should show success toast when loading a valid command chain
+      expect(showToastSpy).toHaveBeenCalledTimes(1)
+      expect(showToastSpy).toHaveBeenCalledWith('Command chain is valid', 'success')
+    })
+
+    it('should not show success toast when already in success state', () => {
+      // First validation with success severity
+      component.eventBus.emit('command-chain:validation-result', {
+        key: 'k',
+        severity: 'success',
+        warnings: [],
+        errors: []
+      })
+
+      expect(showToastSpy).toHaveBeenCalledTimes(1)
+      expect(showToastSpy).toHaveBeenCalledWith('Command chain is valid', 'success')
+
+      // Clear the spy for the next validation
+      showToastSpy.mockClear()
+
+      // Second validation with success severity - should not show success toast again
       component.eventBus.emit('command-chain:validation-result', {
         key: 'k',
         severity: 'success',
