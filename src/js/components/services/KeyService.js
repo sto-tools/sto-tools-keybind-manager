@@ -62,19 +62,7 @@ export default class KeyService extends ComponentBase {
     console.log(`[KeyService] Profile updated - ComponentBase handles caching automatically`)
   }
 
-  // Profile access now uses cached state
-  getCurrentProfile () {
-    if (!this.cache.currentProfile) return null
-    
-    return {
-      id: this.cache.currentProfile,
-      builds: this.cache.builds,
-      keys: this.cache.keys,
-      aliases: this.cache.aliases,
-      environment: this.cache.currentEnvironment
-    }
-  }
-
+  
   // Core key operations now use DataCoordinator
   async addKey (keyName) {
     if (!await this.isValidKeyName(keyName)) {

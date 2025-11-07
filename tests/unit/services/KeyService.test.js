@@ -20,7 +20,7 @@ const mockKeyService = {
   isValidKeyName: vi.fn(),
   // REMOVED: isValidAliasName - moved to AliasService in Phase 3.1
   generateValidKeys: vi.fn(),
-  getCurrentProfile: vi.fn(),
+  // REMOVED: getCurrentProfile - removed as dead code (bug fix)
   // REMOVED: getProfileStats - moved to AnalyticsService in Phase 3.4
   setupEventListeners: vi.fn(),
   updateCacheFromProfile: vi.fn()
@@ -80,17 +80,6 @@ describe('KeyService', () => {
       keyService.cache.builds = profile.builds || { space: { keys: {} }, ground: { keys: {} } }
       keyService.cache.keys = keyService.cache.builds[keyService.cache.currentEnvironment]?.keys || {}
       keyService.cache.aliases = profile.aliases || {}
-    })
-
-    keyService.getCurrentProfile = vi.fn(() => {
-      if (!keyService.cache.currentProfile) return null
-      return {
-        id: keyService.cache.currentProfile,
-        builds: keyService.cache.builds,
-        keys: keyService.cache.keys,
-        aliases: keyService.cache.aliases,
-        environment: keyService.cache.currentEnvironment
-      }
     })
 
     keyService.isValidKeyName = vi.fn(async (keyName) => {
@@ -187,31 +176,12 @@ describe('KeyService', () => {
     
     it('should update cache from profile data', () => {
       const profile = profileFixture.profile
-      
+
       keyService.updateCacheFromProfile(profile)
-      
+
       expect(keyService.updateCacheFromProfile).toHaveBeenCalledWith(profile)
       expect(keyService.cache.builds).toEqual(profile.builds)
       expect(keyService.cache.aliases).toEqual(profile.aliases)
-    })
-
-    it('should get current profile with virtual structure', () => {
-      const profileId = 'test-profile'
-      keyService.setCurrentProfile(profileId)
-      keyService.updateCacheFromProfile(profileFixture.profile)
-      
-      const result = keyService.getCurrentProfile()
-      
-      expect(result).toBeDefined()
-      expect(result.id).toBe(profileId)
-      expect(result.builds).toEqual(profileFixture.profile.builds)
-      expect(result.environment).toBe('space')
-    })
-
-    it('should return null for current profile when none set', () => {
-      const result = keyService.getCurrentProfile()
-      
-      expect(result).toBeNull()
     })
   })
 
