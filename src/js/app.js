@@ -371,7 +371,7 @@ export default class STOToolsKeybindManager {
       }
 
       try {
-        this.headerMenuUI.onInit()
+        this.headerMenuUI.init()
       } catch (error) {
         throw error // Re-throw to see the full error
       }
@@ -389,7 +389,7 @@ export default class STOToolsKeybindManager {
       }
       
       try {
-        this.aboutModalUI.onInit()
+        this.aboutModalUI.init()
       } catch (error) {
         throw error // Re-throw to see the full error
       }
