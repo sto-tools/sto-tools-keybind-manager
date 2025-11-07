@@ -6,6 +6,8 @@
   "keybinds": "Atajos de teclado",
   "import_keybinds": "Importar atajos de teclado",
   "export_keybinds": "Exportar atajos de teclado",
+  "import_environment": "Importar atajos de teclado",
+  "import_environment_question": "Elige un entorno para importar este archivo de atajos de teclado",
   "aliases": "Alias",
   "import_aliases": "Importar alias",
   "export_aliases": "Exportar alias",

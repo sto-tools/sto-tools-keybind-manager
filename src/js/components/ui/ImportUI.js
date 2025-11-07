@@ -5,21 +5,34 @@ import UIComponentBase from '../UIComponentBase.js'
  * menu actions and delegates the actual import work to ImportService.
  */
 export default class ImportUI extends UIComponentBase {
-  constructor ({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined), i18n } = {}) {
+  constructor({
+    eventBus,
+    document = typeof window !== 'undefined' ? window.document : undefined,
+    i18n,
+    modalManager = null,
+  } = {}) {
     super(eventBus)
     this.componentName = 'ImportUI'
     this.document = document
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.modalManager = modalManager
+
+    // Store current modal data for regeneration
+    this.currentImportModal = null
   }
 
-  onInit () {
+  onInit() {
     // Listen for menu events dispatched by HeaderMenuUI
-    this.addEventListener('keybinds:import', () => this.openFileDialog('keybinds'))
-    this.addEventListener('aliases:import', () => this.openFileDialog('aliases'))
+    this.addEventListener('keybinds:import', () =>
+      this.openFileDialog('keybinds')
+    )
+    this.addEventListener('aliases:import', () =>
+      this.openFileDialog('aliases')
+    )
   }
 
   // Opens a hidden file input, waits for selection and forwards content to ImportService.
-  async openFileDialog (type) {
+  async openFileDialog(type) {
     const input = this.document.createElement('input')
     input.type = 'file'
     input.accept = '.txt'
@@ -40,24 +53,28 @@ export default class ImportUI extends UIComponentBase {
           let result
           if (type === 'keybinds') {
             // Ask user which environment to import into
-            const env = await this.promptEnvironment(state.currentEnvironment || 'space')
+            const env = await this.promptEnvironment(
+              state.currentEnvironment || 'space'
+            )
             if (!env) return // user cancelled
 
             result = await this.request('import:keybind-file', {
               content,
               profileId,
-              environment: env
+              environment: env,
             })
           } else {
             result = await this.request('import:alias-file', {
               content,
-              profileId
+              profileId,
             })
           }
 
           // Show appropriate toast based on result
           if (result?.success) {
-            const message = this.i18n?.t?.(result?.message, { count: result.imported?.keys || result.imported?.aliases || 0 })
+            const message = this.i18n?.t?.(result?.message, {
+              count: result.imported?.keys || result.imported?.aliases || 0,
+            })
             this.showToast(message, 'success')
           } else {
             const message = this.i18n?.t?.(result?.error, result?.params)
@@ -78,61 +95,123 @@ export default class ImportUI extends UIComponentBase {
 
   // Show a simple modal asking user whether the import is for Space or Ground.
   // Returns chosen environment string or null if cancelled.
-  promptEnvironment (defaultEnv = 'space') {
+  promptEnvironment(defaultEnv = 'space') {
     return new Promise((resolve) => {
-      // Create overlay
-      const overlay = this.document.createElement('div')
-      overlay.style.position = 'fixed'
-      overlay.style.top = '0'
-      overlay.style.left = '0'
-      overlay.style.width = '100%'
-      overlay.style.height = '100%'
-      overlay.style.background = 'rgba(0,0,0,0.4)'
-      overlay.style.display = 'flex'
-      overlay.style.alignItems = 'center'
-      overlay.style.justifyContent = 'center'
-      overlay.style.zIndex = '9999'
+      const modal = this.createImportModal(defaultEnv)
+      const modalId = 'importModal'
+      modal.id = modalId
+      this.document.body.appendChild(modal)
 
-      const modal = this.document.createElement('div')
-      modal.style.background = '#fff'
-      modal.style.padding = '20px'
-      modal.style.borderRadius = '8px'
-      modal.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)'
-      modal.style.textAlign = 'center'
-      modal.innerHTML = `<h3 style="margin-top:0">Select Environment</h3><p>Import keybinds into which environment?</p>`
+      // Store modal data for regeneration
+      this.currentImportModal = { defaultEnv, resolve, modalElement: modal }
 
-      const btnSpace = this.createEnvButton('Space', 'space', defaultEnv === 'space')
-      const btnGround = this.createEnvButton('Ground', 'ground', defaultEnv === 'ground')
-      const btnCancel = this.createEnvButton('Cancel', null)
+      // Register regeneration callback for language changes
+      this.modalManager?.registerRegenerateCallback(modalId, () => {
+        this.regenerateImportModal()
+      })
 
-      modal.appendChild(btnSpace)
-      modal.appendChild(btnGround)
-      modal.appendChild(btnCancel)
-      overlay.appendChild(modal)
-      this.document.body.appendChild(overlay)
+      const handleChoice = (choice) => {
+        // Unregister regeneration callback
+        this.modalManager?.unregisterRegenerateCallback(modalId)
+        this.currentImportModal = null
 
-      const cleanup = (choice) => {
-        this.document.body.removeChild(overlay)
+        this.modalManager?.hide(modalId)
+        if (modal && modal.parentNode) {
+          modal.parentNode.removeChild(modal)
+        }
         resolve(choice)
       }
 
-      btnSpace.addEventListener('click', () => cleanup('space'))
-      btnGround.addEventListener('click', () => cleanup('ground'))
-      btnCancel.addEventListener('click', () => cleanup(null))
+      // Use EventBus for automatic cleanup
+      this.onDom('.import-space', 'click', 'import-dialog-space', () =>
+        handleChoice('space')
+      )
+      this.onDom('.import-ground', 'click', 'import-dialog-ground', () =>
+        handleChoice('ground')
+      )
+      this.onDom('.import-cancel', 'click', 'import-dialog-cancel', () =>
+        handleChoice(null)
+      )
+
+      // Show modal
+      requestAnimationFrame(() => {
+        this.modalManager?.show(modalId)
+      })
     })
   }
 
-  createEnvButton (label, value, primary = false) {
-    const btn = this.document.createElement('button')
-    btn.textContent = label
-    btn.style.margin = '6px'
-    btn.style.padding = '8px 14px'
-    btn.style.border = 'none'
-    btn.style.borderRadius = '4px'
-    btn.style.cursor = 'pointer'
-    btn.style.fontSize = '14px'
-    btn.style.background = primary ? '#007bff' : '#e0e0e0'
-    btn.style.color = primary ? '#fff' : '#000'
-    return btn
+  // Create a standard modal for environment selection
+  createImportModal(defaultEnv) {
+    const modal = this.document.createElement('div')
+    modal.className = 'modal import-modal'
+
+    const title = this.i18n
+      ? this.i18n.t('import_environment') || 'Import Environment'
+      : 'Import Environment'
+    const message = this.i18n
+      ? this.i18n.t('import_environment_question') ||
+        'Import keybinds into which environment?'
+      : 'Import keybinds into which environment?'
+    const spaceText = this.i18n ? this.i18n.t('space') || 'Space' : 'Space'
+    const groundText = this.i18n ? this.i18n.t('ground') || 'Ground' : 'Ground'
+    const cancelText = this.i18n ? this.i18n.t('cancel') || 'Cancel' : 'Cancel'
+
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-file-import"></i>
+            ${title}
+          </h3>
+        </div>
+        <div class="modal-body">
+          <p>${message}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary import-space ${defaultEnv === 'space' ? 'btn-primary' : 'btn-secondary'}">${spaceText}</button>
+          <button class="btn btn-primary import-ground ${defaultEnv === 'ground' ? 'btn-primary' : 'btn-secondary'}">${groundText}</button>
+          <button class="btn btn-secondary import-cancel">${cancelText}</button>
+        </div>
+      </div>
+    `
+
+    return modal
   }
-} 
+
+  // Regeneration method for language changes
+  regenerateImportModal() {
+    if (!this.currentImportModal) return
+
+    const { defaultEnv, modalElement } = this.currentImportModal
+
+    const newModal = this.createImportModal(defaultEnv)
+    newModal.id = 'importModal'
+
+    // Replace the old modal with the new one
+    modalElement.replaceWith(newModal)
+    this.currentImportModal.modalElement = newModal
+
+    // Re-attach event listeners
+    const handleChoice = (choice) => {
+      const { resolve } = this.currentImportModal
+      this.modalManager?.unregisterRegenerateCallback('importModal')
+      this.currentImportModal = null
+      this.modalManager?.hide('importModal')
+      if (newModal && newModal.parentNode) {
+        newModal.parentNode.removeChild(newModal)
+      }
+      resolve(choice)
+    }
+
+    // Use EventBus for automatic cleanup
+    this.onDom('.import-space', 'click', 'import-dialog-regen-space', () =>
+      handleChoice('space')
+    )
+    this.onDom('.import-ground', 'click', 'import-dialog-regen-ground', () =>
+      handleChoice('ground')
+    )
+    this.onDom('.import-cancel', 'click', 'import-dialog-regen-cancel', () =>
+      handleChoice(null)
+    )
+  }
+}

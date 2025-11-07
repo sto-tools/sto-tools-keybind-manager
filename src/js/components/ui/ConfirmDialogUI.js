@@ -5,12 +5,15 @@ import UIComponentBase from '../UIComponentBase.js'
  * resolving with the user's choice.
  */
 export default class ConfirmDialogUI extends UIComponentBase {
-
-  constructor({ modalManager = null, i18n = null } = {}) {
-    super()
+  constructor({ eventBus = null, modalManager = null, i18n = null } = {}) {
+    super(eventBus)
     this.componentName = 'ConfirmDialogUI'
     this.modalManager = modalManager
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+
+    // Store current modal data for regeneration
+    this.currentConfirmModal = null
+    this.currentInformModal = null
   }
 
   // Show a confirmation dialog and resolve with the user's choice.
@@ -21,7 +24,25 @@ export default class ConfirmDialogUI extends UIComponentBase {
       confirmModal.id = confirmId
       document.body.appendChild(confirmModal)
 
+      // Store modal data for regeneration
+      this.currentConfirmModal = {
+        message,
+        title,
+        type,
+        resolve,
+        modalElement: confirmModal,
+      }
+
+      // Register regeneration callback for language changes
+      this.modalManager?.registerRegenerateCallback(confirmId, () => {
+        this.regenerateConfirmModal()
+      })
+
       const handleConfirm = (result) => {
+        // Unregister regeneration callback
+        this.modalManager?.unregisterRegenerateCallback(confirmId)
+        this.currentConfirmModal = null
+
         this.modalManager?.hide(confirmId)
         // Safe DOM removal - check if modal is still attached before removing
         if (confirmModal && confirmModal.parentNode) {
@@ -30,13 +51,23 @@ export default class ConfirmDialogUI extends UIComponentBase {
         resolve(result)
       }
 
-      confirmModal.querySelector('.confirm-yes').addEventListener('click', () => {
-        handleConfirm(true)
-      })
+      // Attach listeners directly to button elements for reliable event handling
+      // even when modal is removed from DOM
+      const yesButton = confirmModal.querySelector('.confirm-yes')
+      const noButton = confirmModal.querySelector('.confirm-no')
 
-      confirmModal.querySelector('.confirm-no').addEventListener('click', () => {
-        handleConfirm(false)
-      })
+      // Use EventBus for automatic cleanup - attach directly to elements
+      if (yesButton) {
+        this.onDom(yesButton, 'click', 'confirm-dialog-yes', () => {
+          handleConfirm(true)
+        })
+      }
+
+      if (noButton) {
+        this.onDom(noButton, 'click', 'confirm-dialog-no', () => {
+          handleConfirm(false)
+        })
+      }
 
       // Delay to next frame so the modal element is in the DOM before show()
       // This is a workaround to ensure the modal element is in the DOM before show()
@@ -54,7 +85,25 @@ export default class ConfirmDialogUI extends UIComponentBase {
       informModal.id = informId
       document.body.appendChild(informModal)
 
+      // Store modal data for regeneration
+      this.currentInformModal = {
+        message,
+        title,
+        type,
+        resolve,
+        modalElement: informModal,
+      }
+
+      // Register regeneration callback for language changes
+      this.modalManager?.registerRegenerateCallback(informId, () => {
+        this.regenerateInformModal()
+      })
+
       const handleClose = () => {
+        // Unregister regeneration callback
+        this.modalManager?.unregisterRegenerateCallback(informId)
+        this.currentInformModal = null
+
         this.modalManager?.hide(informId)
         // Safe DOM removal - check if modal is still attached before removing
         if (informModal && informModal.parentNode) {
@@ -63,7 +112,14 @@ export default class ConfirmDialogUI extends UIComponentBase {
         resolve(true)
       }
 
-      informModal.querySelector('.inform-ok').addEventListener('click', handleClose)
+      // Attach listener directly to button element for reliable event handling
+      // even when modal is removed from DOM
+      const okButton = informModal.querySelector('.inform-ok')
+
+      // Use EventBus for automatic cleanup - attach directly to element
+      if (okButton) {
+        this.onDom(okButton, 'click', 'inform-dialog-ok', handleClose)
+      }
 
       // Also allow ESC key to close
       const handleKeyDown = (event) => {
@@ -89,7 +145,7 @@ export default class ConfirmDialogUI extends UIComponentBase {
       warning: 'fa-exclamation-triangle',
       danger: 'fa-exclamation-circle',
       info: 'fa-info-circle',
-      success: 'fa-check-circle'
+      success: 'fa-check-circle',
     }
 
     modal.innerHTML = `
@@ -143,4 +199,90 @@ export default class ConfirmDialogUI extends UIComponentBase {
 
     return modal
   }
-} 
+
+  // Regeneration methods for language changes
+  regenerateConfirmModal() {
+    if (!this.currentConfirmModal) return
+
+    const { message, title, type, modalElement } = this.currentConfirmModal
+    const newModal = this.createConfirmModal(message, title, type)
+    newModal.id = 'confirmModal'
+
+    // Replace the old modal with the new one
+    modalElement.replaceWith(newModal)
+    this.currentConfirmModal.modalElement = newModal
+
+    // Re-attach event listeners directly to button elements
+    const yesButton = newModal.querySelector('.confirm-yes')
+    const noButton = newModal.querySelector('.confirm-no')
+
+    if (yesButton) {
+      this.onDom(yesButton, 'click', 'confirm-dialog-regen-yes', () => {
+        this.handleConfirmAction(true)
+      })
+    }
+
+    if (noButton) {
+      this.onDom(noButton, 'click', 'confirm-dialog-regen-no', () => {
+        this.handleConfirmAction(false)
+      })
+    }
+  }
+
+  regenerateInformModal() {
+    if (!this.currentInformModal) return
+
+    const { message, title, type, modalElement } = this.currentInformModal
+    const newModal = this.createInformModal(message, title, type)
+    newModal.id = 'informModal'
+
+    // Replace the old modal with the new one
+    modalElement.replaceWith(newModal)
+    this.currentInformModal.modalElement = newModal
+
+    // Re-attach event listeners
+    const handleClose = () => {
+      const { resolve } = this.currentInformModal
+      this.modalManager?.unregisterRegenerateCallback('informModal')
+      this.currentInformModal = null
+      this.modalManager?.hide('informModal')
+      if (newModal && newModal.parentNode) {
+        newModal.parentNode.removeChild(newModal)
+      }
+      resolve(true)
+    }
+
+    // Attach listener directly to button element
+    const okButton = newModal.querySelector('.inform-ok')
+    if (okButton) {
+      this.onDom(okButton, 'click', 'inform-dialog-regen-ok', handleClose)
+    }
+
+    // Re-attach ESC key listener
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        document.removeEventListener('keydown', handleKeyDown)
+        handleClose()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+  }
+
+  // Helper method for confirm action handling
+  handleConfirmAction(result) {
+    if (!this.currentConfirmModal) return
+
+    const { resolve, modalElement } = this.currentConfirmModal
+
+    // Unregister regeneration callback
+    this.modalManager?.unregisterRegenerateCallback('confirmModal')
+    this.currentConfirmModal = null
+
+    this.modalManager?.hide('confirmModal')
+    if (modalElement && modalElement.parentNode) {
+      modalElement.parentNode.removeChild(modalElement)
+    }
+
+    resolve(result)
+  }
+}

@@ -6,6 +6,8 @@
   "keybinds": "Raccourcis",
   "import_keybinds": "Importer les raccourcis",
   "export_keybinds": "Exporter les raccourcis",
+  "import_environment": "Importer les raccourcis",
+  "import_environment_question": "Choisissez un environnement pour importer ce fichier de raccourcis",
   "aliases": "Alias",
   "import_aliases": "Importer les alias",
   "export_aliases": "Exporter les alias",

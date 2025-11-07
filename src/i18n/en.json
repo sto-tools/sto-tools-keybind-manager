@@ -6,6 +6,8 @@
   "keybinds": "Keybinds",
   "import_keybinds": "Import Keybinds",
   "export_keybinds": "Export Keybinds",
+  "import_environment": "Import Keybinds",
+  "import_environment_question": "Choose an environment to import this keybind file to",
   "aliases": "Aliases",
   "import_aliases": "Import Aliases",
   "export_aliases": "Export Aliases",

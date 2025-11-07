@@ -5,12 +5,14 @@ import UIComponentBase from '../UIComponentBase.js'
  * resolving with the user's input or null if cancelled.
  */
 export default class InputDialogUI extends UIComponentBase {
-
   constructor({ eventBus = null, modalManager = null, i18n = null } = {}) {
     super(eventBus)
     this.componentName = 'InputDialogUI'
     this.modalManager = modalManager
     this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+
+    // Store current modal data for regeneration
+    this.currentInputModal = null
   }
 
   /**
@@ -32,14 +34,40 @@ export default class InputDialogUI extends UIComponentBase {
       placeholder = '',
       type = 'text',
       validate = null,
-      maxLength = 255
+      maxLength = 255,
     } = options
 
     return new Promise((resolve) => {
-      const inputModal = this.createInputModal(message, title, defaultValue, placeholder, type, validate, maxLength)
+      const inputModal = this.createInputModal(
+        message,
+        title,
+        defaultValue,
+        placeholder,
+        type,
+        validate,
+        maxLength
+      )
       const inputId = 'inputModal'
       inputModal.id = inputId
       document.body.appendChild(inputModal)
+
+      // Store modal data for regeneration
+      this.currentInputModal = {
+        message,
+        title,
+        defaultValue,
+        placeholder,
+        type,
+        validate,
+        maxLength,
+        resolve,
+        modalElement: inputModal,
+      }
+
+      // Register regeneration callback for language changes
+      this.modalManager?.registerRegenerateCallback(inputId, () => {
+        this.regenerateInputModal()
+      })
 
       const inputElement = inputModal.querySelector('.input-field')
       const submitBtn = inputModal.querySelector('.input-submit')
@@ -50,13 +78,16 @@ export default class InputDialogUI extends UIComponentBase {
 
       const handleSubmit = () => {
         const value = inputElement.value
-        
+
         // Run validation if provided
         if (validate && typeof validate === 'function') {
           const validationResult = validate(value)
           if (validationResult !== true) {
             // Validation failed - show error
-            errorDiv.textContent = typeof validationResult === 'string' ? validationResult : 'Invalid input'
+            errorDiv.textContent =
+              typeof validationResult === 'string'
+                ? validationResult
+                : 'Invalid input'
             errorDiv.style.display = 'block'
             inputElement.focus()
             isValid = false
@@ -119,6 +150,10 @@ export default class InputDialogUI extends UIComponentBase {
    * @private
    */
   closeModal(modalElement, modalId) {
+    // Unregister regeneration callback
+    this.modalManager?.unregisterRegenerateCallback(modalId)
+    this.currentInputModal = null
+
     this.modalManager?.hide(modalId)
     if (modalElement && modalElement.parentNode) {
       modalElement.parentNode.removeChild(modalElement)
@@ -129,7 +164,15 @@ export default class InputDialogUI extends UIComponentBase {
    * Internal helper – generates the DOM for the input dialog.
    * @private
    */
-  createInputModal(message, title, defaultValue, placeholder, type, validate, maxLength) {
+  createInputModal(
+    message,
+    title,
+    defaultValue,
+    placeholder,
+    type,
+    validate,
+    maxLength
+  ) {
     const modal = document.createElement('div')
     modal.className = 'modal input-modal'
 
@@ -168,4 +211,114 @@ export default class InputDialogUI extends UIComponentBase {
     return modal
   }
 
+  // Regeneration method for language changes
+  regenerateInputModal() {
+    if (!this.currentInputModal) return
+
+    const {
+      message,
+      title,
+      defaultValue,
+      placeholder,
+      type,
+      validate,
+      maxLength,
+      modalElement,
+    } = this.currentInputModal
+
+    // Preserve current input value before regeneration
+    const currentValue =
+      modalElement.querySelector('.input-field')?.value || defaultValue
+
+    const newModal = this.createInputModal(
+      message,
+      title,
+      defaultValue,
+      placeholder,
+      type,
+      validate,
+      maxLength
+    )
+    newModal.id = 'inputModal'
+
+    // Replace the old modal with the new one
+    modalElement.replaceWith(newModal)
+    this.currentInputModal.modalElement = newModal
+
+    // Restore input value
+    const inputElement = newModal.querySelector('.input-field')
+    const submitBtn = newModal.querySelector('.input-submit')
+    const cancelBtn = newModal.querySelector('.input-cancel')
+    const errorDiv = newModal.querySelector('.input-error')
+
+    inputElement.value = currentValue
+
+    // Re-attach event listeners
+    const handleSubmit = () => {
+      const value = inputElement.value
+
+      // Run validation if provided
+      if (validate && typeof validate === 'function') {
+        const validationResult = validate(value)
+        if (validationResult !== true) {
+          // Validation failed - show error
+          errorDiv.textContent =
+            typeof validationResult === 'string'
+              ? validationResult
+              : 'Invalid input'
+          errorDiv.style.display = 'block'
+          inputElement.focus()
+          return
+        }
+      }
+
+      // Valid input - close modal and resolve
+      this.closeModal(newModal, 'inputModal')
+      this.currentInputModal.resolve(value)
+    }
+
+    const handleCancel = () => {
+      this.closeModal(newModal, 'inputModal')
+      this.currentInputModal.resolve(null)
+    }
+
+    // Input validation handler
+    const inputHandler = () => {
+      errorDiv.style.display = 'none'
+
+      // Enable/disable submit button based on content
+      const hasContent = inputElement.value.trim().length > 0
+      submitBtn.disabled = !hasContent
+    }
+
+    // Keyboard handler
+    const keyHandler = (e) => {
+      if (e.key === 'Enter' && !submitBtn.disabled) {
+        e.preventDefault()
+        handleSubmit()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        handleCancel()
+      }
+    }
+
+    // Use EventBus for automatic cleanup
+    this.onDom(submitBtn, 'click', 'input-dialog-submit-regen', handleSubmit)
+    this.onDom(cancelBtn, 'click', 'input-dialog-cancel-regen', handleCancel)
+    this.onDom(inputElement, 'input', 'input-dialog-input-regen', inputHandler)
+    this.onDom(
+      inputElement,
+      'keydown',
+      'input-dialog-keydown-regen',
+      keyHandler
+    )
+
+    // Set initial button state
+    const hasContent = currentValue.trim().length > 0
+    submitBtn.disabled = !hasContent
+
+    // Focus input
+    inputElement.focus()
+    inputElement.select()
   }
+}

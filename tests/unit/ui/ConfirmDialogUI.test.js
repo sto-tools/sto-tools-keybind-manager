@@ -1,11 +1,14 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import ConfirmDialogUI from '../../../src/js/components/ui/ConfirmDialogUI.js'
+import eventBus from '../../../src/js/core/eventBus.js'
 
 // Simple stub for modalManager with show/hide tracking
 function createModalManagerStub () {
   return {
     show: vi.fn(),
-    hide: vi.fn()
+    hide: vi.fn(),
+    registerRegenerateCallback: vi.fn(),
+    unregisterRegenerateCallback: vi.fn()
   }
 }
 
@@ -17,7 +20,7 @@ describe('ConfirmDialogUI', () => {
     vi.stubGlobal('requestAnimationFrame', (cb) => cb())
 
     modalStub = createModalManagerStub()
-    ui = new ConfirmDialogUI({ modalManager: modalStub })
+    ui = new ConfirmDialogUI({ modalManager: modalStub, eventBus })
   })
 
   afterEach(() => {
@@ -33,7 +36,7 @@ describe('ConfirmDialogUI', () => {
     expect(modalElement).toBeTruthy()
 
     // Simulate click on yes button
-    modalElement.querySelector('.confirm-yes').click()
+    modalElement.querySelector('.confirm-yes').dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     const result = await promise
     expect(result).toBe(true)
@@ -47,7 +50,7 @@ describe('ConfirmDialogUI', () => {
     expect(modalElement).toBeTruthy()
 
     // Simulate click on no button
-    modalElement.querySelector('.confirm-no').click()
+    modalElement.querySelector('.confirm-no').dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     const result = await promise
     expect(result).toBe(false)
@@ -68,7 +71,7 @@ describe('ConfirmDialogUI', () => {
 
     // Simulate click on yes button - should not throw DOMException
     expect(() => {
-      modalElement.querySelector('.confirm-yes').click()
+      modalElement.querySelector('.confirm-yes').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     }).not.toThrow()
 
     const result = await promise
@@ -90,7 +93,7 @@ describe('ConfirmDialogUI', () => {
 
     // Simulate click on OK button - should not throw DOMException
     expect(() => {
-      modalElement.querySelector('.inform-ok').click()
+      modalElement.querySelector('.inform-ok').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     }).not.toThrow()
 
     const result = await promise
@@ -109,7 +112,7 @@ describe('ConfirmDialogUI', () => {
 
     // Simulate click on yes button - should not throw DOMException
     expect(() => {
-      modalElement.querySelector('.confirm-yes').click()
+      modalElement.querySelector('.confirm-yes').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     }).not.toThrow()
 
     const result = await promise

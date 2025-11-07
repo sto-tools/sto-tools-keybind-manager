@@ -6,6 +6,8 @@
   "keybinds": "Tastaturbelegung",
   "import_keybinds": "Tastaturbelegung importieren",
   "export_keybinds": "Tastaturbelegung exportieren",
+  "import_environment": "Tastaturbelegung importieren",
+  "import_environment_question": "Wählen Sie eine Umgebung für den Import dieser Tastaturbelegungsdatei",
   "aliases": "Aliase",
   "import_aliases": "Aliase importieren",
   "export_aliases": "Aliase exportieren",

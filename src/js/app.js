@@ -135,6 +135,7 @@ export default class STOToolsKeybindManager {
 
       // Modal dialog components - create early so they can be injected into other components
       this.confirmDialogUI = new ConfirmDialogUI({
+        eventBus,
         modalManager,
         i18n: i18next
       })
@@ -435,6 +436,7 @@ export default class STOToolsKeybindManager {
         eventBus,
         document,
         i18n: i18next,
+        modalManager: this.modalManagerService,
       })
       this.importUI.init()
 

@@ -13,19 +13,23 @@ import UIComponentBase from '../UIComponentBase.js'
  * 4. Cache UI state from broadcast events for immediate access.
  */
 export default class CommandUI extends UIComponentBase {
-  constructor ({ eventBus,
-                ui = null,
-                modalManager = null,
-                parameterCommandUI = null,
-                confirmDialog = null,
-                i18n = null,
-                document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({
+    eventBus,
+    ui = null,
+    modalManager = null,
+    parameterCommandUI = null,
+    confirmDialog = null,
+    i18n = null,
+    document = typeof window !== 'undefined' ? window.document : undefined,
+  } = {}) {
     super(eventBus)
     this.componentName = 'CommandUI'
-    this.ui           = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
+    this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.modalManager = modalManager
     this.parameterCommandUI = parameterCommandUI
-    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this.confirmDialog =
+      confirmDialog ||
+      (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.i18n = i18n
 
     this._activeBindset = 'Primary Bindset'
@@ -37,9 +41,12 @@ export default class CommandUI extends UIComponentBase {
     this._toastSeverityByKey = new Map()
 
     this.document = document
+
+    // Store current modal data for regeneration
+    this.currentValidationModal = null
   }
 
-  onInit () {
+  onInit() {
     this.setupEventListeners()
     this.setupUIStateEventListeners()
   }
@@ -120,15 +127,19 @@ export default class CommandUI extends UIComponentBase {
     })
 
     // Import from key or alias button - show import from key or alias modal
-    this.onDom('importFromKeyOrAliasBtn', 'click', 'import-from-key-or-alias', () => {
-      this.showImportFromKeyOrAliasModal()
-    })
+    this.onDom(
+      'importFromKeyOrAliasBtn',
+      'click',
+      'import-from-key-or-alias',
+      () => {
+        this.showImportFromKeyOrAliasModal()
+      }
+    )
 
     // Confirm import button - perform import from selected source
     this.onDom('confirmImportBtn', 'click', 'confirm-import', () => {
       this.performImport()
     })
-
 
     this.addEventListener('command-add', async (payload = {}) => {
       const { categoryId, commandId, commandDef } = payload
@@ -140,24 +151,41 @@ export default class CommandUI extends UIComponentBase {
           if (!selectedKey) {
             // Get current environment to show appropriate message
             const env = this.getCurrentEnvironment()
-            const msgKey = env === 'alias' ? 'please_select_an_alias_first' : 'please_select_a_key_first'
-            const message = await this.getI18nMessage(msgKey) || 
-              (env === 'alias' ? 'Please select an alias first' : 'Please select a key first')
+            const msgKey =
+              env === 'alias'
+                ? 'please_select_an_alias_first'
+                : 'please_select_a_key_first'
+            const message =
+              (await this.getI18nMessage(msgKey)) ||
+              (env === 'alias'
+                ? 'Please select an alias first'
+                : 'Please select a key first')
 
             await this.showToast(message, 'warning')
             return
           }
 
           // Include active bindset when not in alias mode
-          const bindset = this.cache.currentEnvironment === 'alias' ? null : this._activeBindset
-          this.emit('command:add', { command: commandDef, key: selectedKey, bindset })
+          const bindset =
+            this.cache.currentEnvironment === 'alias'
+              ? null
+              : this._activeBindset
+          this.emit('command:add', {
+            command: commandDef,
+            key: selectedKey,
+            bindset,
+          })
         } catch (error) {
           console.error('CommandUI: Failed to handle static command:', error)
         }
       } else if (categoryId && commandId && commandDef) {
         // Customizable command - show parameter modal
         if (this.parameterCommandUI) {
-          this.parameterCommandUI.showParameterModal(categoryId, commandId, commandDef)
+          this.parameterCommandUI.showParameterModal(
+            categoryId,
+            commandId,
+            commandDef
+          )
         } else {
           console.error('CommandUI: parameterCommandUI not available')
         }
@@ -165,108 +193,134 @@ export default class CommandUI extends UIComponentBase {
     })
 
     // Listen for validation results to update status indicator
-    this.addEventListener('command-chain:validation-result', async ({ key, severity, warnings = [], errors = [] }) => {
-      const ind = this.document.getElementById('statusIndicator')
-      if (!ind) return
-      const iconEl = ind.querySelector('i')
-      const textEl = ind.querySelector('span')
-      if (!iconEl || !textEl) return
+    this.addEventListener(
+      'command-chain:validation-result',
+      async ({ key, severity, warnings = [], errors = [] }) => {
+        const ind = this.document.getElementById('statusIndicator')
+        if (!ind) return
+        const iconEl = ind.querySelector('i')
+        const textEl = ind.querySelector('span')
+        if (!iconEl || !textEl) return
 
-      const mapping = {
-        success: { icon: 'fa-check-circle', textKey: 'valid', textDefault: 'Valid', color: 'status-success' },
-        warning: { icon: 'fa-exclamation-triangle', textKey: 'warning', textDefault: 'Warning', color: 'status-warning' },
-        error:   { icon: 'fa-exclamation-circle',  textKey: 'error',  textDefault: 'Error',  color: 'status-error' }
-      }
-      const cfg = mapping[severity] || mapping.success
+        const mapping = {
+          success: {
+            icon: 'fa-check-circle',
+            textKey: 'valid',
+            textDefault: 'Valid',
+            color: 'status-success',
+          },
+          warning: {
+            icon: 'fa-exclamation-triangle',
+            textKey: 'warning',
+            textDefault: 'Warning',
+            color: 'status-warning',
+          },
+          error: {
+            icon: 'fa-exclamation-circle',
+            textKey: 'error',
+            textDefault: 'Error',
+            color: 'status-error',
+          },
+        }
+        const cfg = mapping[severity] || mapping.success
 
-      // Update icon class and colour
-      iconEl.className = `fas ${cfg.icon}`
+        // Update icon class and colour
+        iconEl.className = `fas ${cfg.icon}`
 
-      // Default to the fallback label immediately so UI updates synchronously
-      textEl.textContent = cfg.textDefault
-      textEl.setAttribute('data-i18n', cfg.textKey)
+        // Default to the fallback label immediately so UI updates synchronously
+        textEl.textContent = cfg.textDefault
+        textEl.setAttribute('data-i18n', cfg.textKey)
 
-      // Update color classes
-      ind.classList.remove('status-success', 'status-warning', 'status-error')
-      ind.classList.add(cfg.color)
+        // Update color classes
+        ind.classList.remove('status-success', 'status-warning', 'status-error')
+        ind.classList.add(cfg.color)
 
-      // Store issues for modal display
-      this._lastValidation = { warnings, errors }
+        // Store issues for modal display
+        this._lastValidation = { warnings, errors }
 
-      const hasIssues = (warnings && warnings.length > 0) || (errors && errors.length > 0)
-      const stateKey = key || '__global__'
-      let shouldShowIssueToasts = false
-      let shouldShowSuccessToast = false
+        const hasIssues =
+          (warnings && warnings.length > 0) || (errors && errors.length > 0)
+        const stateKey = key || '__global__'
+        let shouldShowIssueToasts = false
+        let shouldShowSuccessToast = false
 
-      const previousSeverity = this._toastSeverityByKey.get(stateKey)
+        const previousSeverity = this._toastSeverityByKey.get(stateKey)
 
-      if (!hasIssues || severity === 'success') {
-        // Show success toast if:
-        // 1. Transitioning from non-success to success state, OR
-        // 2. Loading a valid command chain (no previous severity)
-        if (severity === 'success') {
-          if (!previousSeverity || previousSeverity !== 'success') {
-            shouldShowSuccessToast = true
+        if (!hasIssues || severity === 'success') {
+          // Show success toast if:
+          // 1. Transitioning from non-success to success state, OR
+          // 2. Loading a valid command chain (no previous severity)
+          if (severity === 'success') {
+            if (!previousSeverity || previousSeverity !== 'success') {
+              shouldShowSuccessToast = true
+            }
+            // Track success state to prevent duplicate toasts
+            this._toastSeverityByKey.set(stateKey, 'success')
+          } else {
+            this._toastSeverityByKey.delete(stateKey)
           }
-          // Track success state to prevent duplicate toasts
-          this._toastSeverityByKey.set(stateKey, 'success')
         } else {
-          this._toastSeverityByKey.delete(stateKey)
-        }
-      } else {
-        shouldShowIssueToasts = previousSeverity !== severity
-        this._toastSeverityByKey.set(stateKey, severity)
-      }
-
-      const resolveIssueMessage = (issue) => {
-        const translated = this.i18n?.t?.(issue.key, issue.params)
-        const looksMissing = typeof translated === 'string' && (
-          translated === issue.key || translated.startsWith(`${issue.key}:`)
-        )
-
-        if (!looksMissing && typeof translated === 'string' && translated) {
-          return translated
+          shouldShowIssueToasts = previousSeverity !== severity
+          this._toastSeverityByKey.set(stateKey, severity)
         }
 
-        return issue.defaultMessage || issue.key
-      }
+        const resolveIssueMessage = (issue) => {
+          const translated = this.i18n?.t?.(issue.key, issue.params)
+          const looksMissing =
+            typeof translated === 'string' &&
+            (translated === issue.key || translated.startsWith(`${issue.key}:`))
 
-      if (shouldShowIssueToasts) {
-        errors.forEach(error => {
-          const message = resolveIssueMessage(error)
-          this.showToast(message, 'error')
-        })
+          if (!looksMissing && typeof translated === 'string' && translated) {
+            return translated
+          }
 
-        warnings.forEach(warning => {
-          const message = resolveIssueMessage(warning)
-          this.showToast(message, 'warning')
-        })
-      }
-
-      // Show success toast when transitioning from non-success to success state
-      if (shouldShowSuccessToast) {
-        const successMessage = this.i18n?.t?.('command_chain_is_valid') || 'Command chain is valid'
-        this.showToast(successMessage, 'success')
-      }
-
-      // Refresh the label once translations resolve
-      try {
-        const translated = await this.request('i18n:translate', { key: cfg.textKey })
-        if (typeof translated === 'string' && translated && translated !== cfg.textKey) {
-          textEl.textContent = translated
+          return issue.defaultMessage || issue.key
         }
-      } catch (_) {
-        // Ignore translation failures - fallback text already applied
-      }
 
-      if (severity !== 'success' && (warnings.length || errors.length)) {
-        ind.classList.add('clickable')
-        ind.onclick = () => this.showValidationDetails()
-      } else {
-        ind.classList.remove('clickable')
-        ind.onclick = null
+        if (shouldShowIssueToasts) {
+          errors.forEach((error) => {
+            const message = resolveIssueMessage(error)
+            this.showToast(message, 'error')
+          })
+
+          warnings.forEach((warning) => {
+            const message = resolveIssueMessage(warning)
+            this.showToast(message, 'warning')
+          })
+        }
+
+        // Show success toast when transitioning from non-success to success state
+        if (shouldShowSuccessToast) {
+          const successMessage =
+            this.i18n?.t?.('command_chain_is_valid') || 'Command chain is valid'
+          this.showToast(successMessage, 'success')
+        }
+
+        // Refresh the label once translations resolve
+        try {
+          const translated = await this.request('i18n:translate', {
+            key: cfg.textKey,
+          })
+          if (
+            typeof translated === 'string' &&
+            translated &&
+            translated !== cfg.textKey
+          ) {
+            textEl.textContent = translated
+          }
+        } catch (_) {
+          // Ignore translation failures - fallback text already applied
+        }
+
+        if (severity !== 'success' && (warnings.length || errors.length)) {
+          ind.classList.add('clickable')
+          ind.onclick = () => this.showValidationDetails()
+        } else {
+          ind.classList.remove('clickable')
+          ind.onclick = null
+        }
       }
-    })
+    )
   }
 
   // Get the currently selected key from cached state
@@ -290,30 +344,36 @@ export default class CommandUI extends UIComponentBase {
     }
   }
 
-  
   // Confirm clearing the command chain for a key or alias
   async confirmClearChain(key) {
     if (!key) return
-    
+
     const currentEnv = this.getCurrentEnvironment()
     const isAliasMode = currentEnv === 'alias'
     const itemType = isAliasMode ? 'alias' : 'key'
-    
+
     try {
-      const message = await this.getI18nMessage('confirm_clear_commands', { keyName: key }) || 
-        `Clear command chain for ${itemType} ${key}?`
-      const title = await this.getI18nMessage('confirm_clear') || 'Confirm Clear'
-      
+      const message =
+        (await this.getI18nMessage('confirm_clear_commands', {
+          keyName: key,
+        })) || `Clear command chain for ${itemType} ${key}?`
+      const title =
+        (await this.getI18nMessage('confirm_clear')) || 'Confirm Clear'
+
       // Check if confirmDialog is available
       if (!this.confirmDialog) {
-        console.error('CommandUI: confirmDialog not available, cannot show confirmation dialog')
+        console.error(
+          'CommandUI: confirmDialog not available, cannot show confirmation dialog'
+        )
         await this.showToast('Confirmation dialog not available', 'error')
         return
       }
-      
+
       if (await this.confirmDialog.confirm(message, title, 'warning')) {
-        console.log(`[CommandUI] Requesting clear command chain for ${itemType}: "${key}" in env: "${currentEnv}"`)
-        
+        console.log(
+          `[CommandUI] Requesting clear command chain for ${itemType}: "${key}" in env: "${currentEnv}"`
+        )
+
         this.emit('command-chain:clear', { key })
       }
     } catch (error) {
@@ -329,7 +389,9 @@ export default class CommandUI extends UIComponentBase {
       // Determine whether Stabilize Execution Order is enabled for this key/alias
       let stabilized = false
       try {
-        stabilized = await this.request('command-chain:is-stabilized', { name: key })
+        stabilized = await this.request('command-chain:is-stabilized', {
+          name: key,
+        })
       } catch (_) {}
 
       const isAlias = this.getCurrentEnvironment() === 'alias'
@@ -352,7 +414,9 @@ export default class CommandUI extends UIComponentBase {
 
   // Toggle command search functionality
   toggleCommandSearch() {
-    const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
+    const doc =
+      this.document ||
+      (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
     const searchInput = doc.getElementById('commandSearch')
     if (!searchInput) return
@@ -370,16 +434,22 @@ export default class CommandUI extends UIComponentBase {
     const selectedKey = this.getSelectedKey()
     if (!selectedKey) {
       const env = this.getCurrentEnvironment()
-      const msgKey = env === 'alias' ? 'please_select_an_alias_first' : 'please_select_a_key_first'
-      const message = await this.getI18nMessage(msgKey) || 
-        (env === 'alias' ? 'Please select an alias first' : 'Please select a key first')
+      const msgKey =
+        env === 'alias'
+          ? 'please_select_an_alias_first'
+          : 'please_select_a_key_first'
+      const message =
+        (await this.getI18nMessage(msgKey)) ||
+        (env === 'alias'
+          ? 'Please select an alias first'
+          : 'Please select a key first')
       await this.showToast(message, 'warning')
       return
     }
-    
+
     // Populate the modal with available sources
     await this.populateImportSources()
-    
+
     // Show the modal
     if (this.modalManager) {
       this.modalManager.show('importFromKeyOrAliasModal')
@@ -388,7 +458,9 @@ export default class CommandUI extends UIComponentBase {
 
   // Populate the import sources dropdown based on current environment
   async populateImportSources() {
-    const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
+    const doc =
+      this.document ||
+      (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
 
     const select = doc.getElementById('importSourceSelect')
@@ -396,116 +468,135 @@ export default class CommandUI extends UIComponentBase {
 
     // Clear existing options
     select.innerHTML = ''
-    
+
     const currentEnv = this.getCurrentEnvironment()
     const currentKey = this.getSelectedKey()
-    
+
     try {
       // Get import sources from CommandService
-      const sources = await this.request('command:get-import-sources', { 
-        environment: currentEnv, 
-        currentKey: currentKey 
+      const sources = await this.request('command:get-import-sources', {
+        environment: currentEnv,
+        currentKey,
       })
-      
+
       // Populate the dropdown with sources
-      sources.forEach(source => {
+      sources.forEach((source) => {
         const option = doc.createElement('option')
         option.value = source.value
         option.textContent = source.label
         select.appendChild(option)
       })
-      
+
       // Add default option if no sources available
       if (sources.length === 0) {
         const option = doc.createElement('option')
         option.value = ''
-        option.textContent = await this.getI18nMessage('no_sources_available') || 'No sources available'
+        option.textContent =
+          (await this.getI18nMessage('no_sources_available')) ||
+          'No sources available'
         option.disabled = true
         select.appendChild(option)
       }
-      
     } catch (error) {
       console.error('CommandUI: Failed to populate import sources:', error)
       const option = doc.createElement('option')
       option.value = ''
-      option.textContent = await this.getI18nMessage('error_loading_sources') || 'Error loading sources'
+      option.textContent =
+        (await this.getI18nMessage('error_loading_sources')) ||
+        'Error loading sources'
       option.disabled = true
       select.appendChild(option)
     }
   }
 
-  
   // Perform the import from the selected source
   async performImport() {
-    const doc = this.document || (typeof window !== 'undefined' ? window.document : undefined)
+    const doc =
+      this.document ||
+      (typeof window !== 'undefined' ? window.document : undefined)
     if (!doc) return
 
     const select = doc.getElementById('importSourceSelect')
     const clearCheckbox = doc.getElementById('clearDestinationBeforeImport')
-    
+
     if (!select || !clearCheckbox) return
-    
+
     const sourceValue = select.value
     const clearDestination = clearCheckbox.checked
     const targetKey = this.getSelectedKey()
     const currentEnv = this.getCurrentEnvironment()
-    
+
     if (!sourceValue || !targetKey) {
-      const message = await this.getI18nMessage('please_select_a_source') || 'Please select a source'
+      const message =
+        (await this.getI18nMessage('please_select_a_source')) ||
+        'Please select a source'
       await this.showToast(message, 'warning')
       return
     }
-    
+
     try {
       // Delegate to CommandService for business logic
       const result = await this.request('command:import-from-source', {
         sourceValue,
         targetKey,
         clearDestination,
-        currentEnvironment: currentEnv
+        currentEnvironment: currentEnv,
       })
-      
+
       // Handle success response
       if (result.success) {
         // Show warning for dropped commands if any
         if (result.droppedCount > 0) {
-          const sourceEnvName = result.sourceType.charAt(0).toUpperCase() + result.sourceType.slice(1)
-          const targetEnvName = currentEnv.charAt(0).toUpperCase() + currentEnv.slice(1)
-          const message = await this.getI18nMessage('cross_environment_import_warning', {
-            dropped: result.droppedCount,
-            sourceEnv: sourceEnvName,
-            targetEnv: targetEnvName
-          }) || `Warning: ${result.droppedCount} ${sourceEnvName}-specific commands were dropped when importing to ${targetEnvName}`
+          const sourceEnvName =
+            result.sourceType.charAt(0).toUpperCase() +
+            result.sourceType.slice(1)
+          const targetEnvName =
+            currentEnv.charAt(0).toUpperCase() + currentEnv.slice(1)
+          const message =
+            (await this.getI18nMessage('cross_environment_import_warning', {
+              dropped: result.droppedCount,
+              sourceEnv: sourceEnvName,
+              targetEnv: targetEnvName,
+            })) ||
+            `Warning: ${result.droppedCount} ${sourceEnvName}-specific commands were dropped when importing to ${targetEnvName}`
           await this.showToast(message, 'warning')
         }
-        
+
         // Success toast
-        const successMsg = await this.getI18nMessage('commands_imported_successfully', {
-          count: result.importedCount,
-          source: result.sourceName
-        }) || `Imported ${result.importedCount} commands from ${result.sourceName}`
-        
+        const successMsg =
+          (await this.getI18nMessage('commands_imported_successfully', {
+            count: result.importedCount,
+            source: result.sourceName,
+          })) ||
+          `Imported ${result.importedCount} commands from ${result.sourceName}`
+
         await this.showToast(successMsg, 'success')
-        
+
         // Close modal
         if (this.modalManager) {
           this.modalManager.hide('importFromKeyOrAliasModal')
         }
       }
-      
     } catch (error) {
       console.error('CommandUI: Failed to import commands:', error)
-      
+
       // Handle specific error messages
       let message
       if (error.message === 'Source has no commands to import') {
-        message = await this.getI18nMessage('source_has_no_commands') || 'Source has no commands to import'
+        message =
+          (await this.getI18nMessage('source_has_no_commands')) ||
+          'Source has no commands to import'
       } else if (error.message === 'No compatible commands found for import') {
-        message = await this.getI18nMessage('no_compatible_commands_to_import') || 'No compatible commands to import after filtering'
+        message =
+          (await this.getI18nMessage('no_compatible_commands_to_import')) ||
+          'No compatible commands to import after filtering'
       } else {
-        message = await this.getI18nMessage('import_failed', { error: error?.message || error }) || `Import failed: ${error?.message || error}`
+        message =
+          (await this.getI18nMessage('import_failed', {
+            error: error?.message || error,
+          })) || `Import failed: ${error?.message || error}`
       }
-      
+
       await this.showToast(message, 'error')
     }
   }
@@ -517,10 +608,13 @@ export default class CommandUI extends UIComponentBase {
 
     const translateEntry = async (entry) => {
       if (typeof entry === 'string') {
-        return this.request('i18n:translate', { key: entry }).catch(()=>entry)
+        return this.request('i18n:translate', { key: entry }).catch(() => entry)
       }
       if (entry && entry.key) {
-        return this.request('i18n:translate', { key: entry.key, params: entry.params || {} }).catch(()=> (entry.defaultMessage || entry.key))
+        return this.request('i18n:translate', {
+          key: entry.key,
+          params: entry.params || {},
+        }).catch(() => entry.defaultMessage || entry.key)
       }
       if (entry && entry.defaultMessage) {
         return entry.defaultMessage
@@ -537,18 +631,23 @@ export default class CommandUI extends UIComponentBase {
 
     let sectionsHtml = ''
     if (translatedErrors.length) {
-      const errLis = translatedErrors.map(e=>`<li class=\"error-item\">${e}</li>`).join('')
+      const errLis = translatedErrors
+        .map((e) => `<li class=\"error-item\">${e}</li>`)
+        .join('')
       sectionsHtml += `<h4>${errorLabel}</h4><ul>${errLis}</ul>`
     }
     if (translatedWarnings.length) {
-      const warnLis = translatedWarnings.map(w=>`<li class=\"warning-item\">${w}</li>`).join('')
+      const warnLis = translatedWarnings
+        .map((w) => `<li class=\"warning-item\">${w}</li>`)
+        .join('')
       sectionsHtml += `<h4>${warningLabel}</h4><ul>${warnLis}</ul>`
     }
 
     const i18nTranslate = (k) => this.request('i18n:translate', { key: k })
 
-    const title = await i18nTranslate('validation_details') || 'Validation Details'
-    const okText = await i18nTranslate('ok') || 'OK'
+    const title =
+      (await i18nTranslate('validation_details')) || 'Validation Details'
+    const okText = (await i18nTranslate('ok')) || 'OK'
 
     const modalId = 'validationDetailsModal'
     const existing = this.document.getElementById(modalId)
@@ -557,6 +656,14 @@ export default class CommandUI extends UIComponentBase {
     const modal = this.document.createElement('div')
     modal.id = modalId
     modal.className = 'modal'
+
+    // Store modal data for regeneration
+    this.currentValidationModal = { errors, warnings, modalElement: modal }
+
+    // Register regeneration callback for language changes
+    this.modalManager?.registerRegenerateCallback(modalId, () => {
+      this.regenerateValidationModal()
+    })
 
     modal.innerHTML = `
       <div class="modal-content">
@@ -568,17 +675,33 @@ export default class CommandUI extends UIComponentBase {
     this.document.body.appendChild(modal)
 
     const close = () => {
+      // Unregister regeneration callback
+      this.modalManager?.unregisterRegenerateCallback(modalId)
+      this.currentValidationModal = null
+
       if (this.modalManager) {
         this.modalManager.hide(modalId)
       }
       modal.remove()
     }
-    modal.querySelector('#validationOkBtn').addEventListener('click', close)
+
+    // Use EventBus for automatic cleanup
+    this.onDom('#validationOkBtn', 'click', 'validation-dialog-ok', close)
 
     if (this.modalManager) {
       this.modalManager.show(modalId)
     } else {
-      requestAnimationFrame(()=> modal.classList.add('active'))
+      requestAnimationFrame(() => modal.classList.add('active'))
     }
+  }
+
+  // Regeneration method for language changes
+  regenerateValidationModal() {
+    if (!this.currentValidationModal) return
+
+    const { errors, warnings } = this.currentValidationModal
+
+    // Re-create the modal content with new language
+    this.showValidationDetails()
   }
 }
