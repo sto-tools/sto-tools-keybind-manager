@@ -1,5 +1,5 @@
 import UIComponentBase from '../UIComponentBase.js'
-import FileSystemService, { KEY_SYNC_FOLDER } from '../services/FileSystemService.js'
+import FileSystemService from '../services/FileSystemService.js'
 
 /*
 * FileExplorerUI – a UI component for managing file operations in the browser's file system.
@@ -31,7 +31,6 @@ export default class FileExplorerUI extends UIComponentBase {
     this.contentId = 'fileContent'
 
     this.selectedNode       = null
-    this.currentDirectory   = null
   }
 
   // Lifecycle hooks
@@ -233,14 +232,6 @@ export default class FileExplorerUI extends UIComponentBase {
         console.error('Failed to generate alias export via ExportService:', error)
         return `; Failed to generate export: ${error.message}`
       })
-  }
-
-  // File operations – via FileSystemService
-  async ensureDirectoryHandle () {
-    if (this.currentDirectory) return this.currentDirectory
-    // Attempt to load previously saved user-selected dir
-    this.currentDirectory = await this.fileSystem.getDirectoryHandle(KEY_SYNC_FOLDER)
-    return this.currentDirectory
   }
 
   downloadFile (content, filename, mimeType) {
