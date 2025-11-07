@@ -130,12 +130,6 @@ export default class DataService extends ComponentBase {
     this.responseHandlers = []
   }
 
-  // Update the data source (for testing or dynamic updates)
-  updateData(newData) {
-    this.data = newData || {}
-    this.emit('data:updated', { data: this.data })
-  }
-
   // Provide current state for late-join handshake
   getCurrentState() {
     return {
