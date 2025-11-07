@@ -402,18 +402,7 @@ export default class ParameterCommandUI extends UIComponentBase {
     }
   }
 
-  // Legacy facade methods – keep external API intact
   
-  // Thin wrappers delegating to the service – keeps external API
-  // intact for legacy code/tests.
-  generateCommandId (...args) {
-    return this.request('parameter-command:generate-id')
-  }
-
-  async findCommandDefinition (commandString) {
-    return await this.request('parameter-command:find-definition', { commandString })
-  }
-
   // DRY helpers for parameter input generation
   formatParameterName (n) {
     return n.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
