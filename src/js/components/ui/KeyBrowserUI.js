@@ -205,16 +205,8 @@ export default class KeyBrowserUI extends UIComponentBase {
     return await this.request('key:categorize-by-command', { keysWithCommands, allKeys })
   }
 
-  async detectKeyTypes (keyName) {
-    return await this.request('key:detect-types', { keyName })
-  }
-
   async categorizeKeysByType (keysWithCommands, allKeys) {
     return await this.request('key:categorize-by-type', { keysWithCommands, allKeys })
-  }
-
-  async compareKeys (a, b) {
-    return await this.request('key:compare', { keyA: a, keyB: b })
   }
 
   formatKeyName (keyName) {
