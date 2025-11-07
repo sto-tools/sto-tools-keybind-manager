@@ -264,36 +264,52 @@ export default class CommandUI extends UIComponentBase {
           this._toastSeverityByKey.set(stateKey, severity)
         }
 
-        const resolveIssueMessage = (issue) => {
-          const translated = this.i18n?.t?.(issue.key, issue.params)
-          const looksMissing =
-            typeof translated === 'string' &&
-            (translated === issue.key || translated.startsWith(`${issue.key}:`))
+        const resolveIssueMessage = async (issue) => {
+          // Try to get the translation using the proper request/response pattern
+          try {
+            const translated = await this.request('i18n:translate', {
+              key: issue.key,
+              params: issue.params || {}
+            })
 
-          if (!looksMissing && typeof translated === 'string' && translated) {
-            return translated
+            // Check if we got a valid translation that's not the key itself
+            if (translated &&
+                typeof translated === 'string' &&
+                translated !== issue.key &&
+                !translated.startsWith(`${issue.key}:`)) {
+              return translated
+            }
+          } catch (error) {
+            console.warn('CommandUI: Failed to translate issue message:', error)
           }
 
+          // Fall back to default message if translation is missing or invalid
           return issue.defaultMessage || issue.key
         }
 
         if (shouldShowIssueToasts) {
-          errors.forEach((error) => {
-            const message = resolveIssueMessage(error)
-            this.showToast(message, 'error')
-          })
+          // Process issue toasts asynchronously
+          const processErrorToasts = async () => {
+            for (const error of errors) {
+              const message = await resolveIssueMessage(error)
+              this.showToast(message, 'error')
+            }
 
-          warnings.forEach((warning) => {
-            const message = resolveIssueMessage(warning)
-            this.showToast(message, 'warning')
-          })
+            for (const warning of warnings) {
+              const message = await resolveIssueMessage(warning)
+              this.showToast(message, 'warning')
+            }
+          }
+          processErrorToasts()
         }
 
         // Show success toast when transitioning from non-success to success state
         if (shouldShowSuccessToast) {
-          const successMessage =
-            this.i18n?.t?.('command_chain_is_valid') || 'Command chain is valid'
-          this.showToast(successMessage, 'success')
+          const processSuccessToast = async () => {
+            const successMessage = await this.getI18nMessage('command_chain_is_valid') || 'Command chain is valid'
+            this.showToast(successMessage, 'success')
+          }
+          processSuccessToast()
         }
 
         // Refresh the label once translations resolve

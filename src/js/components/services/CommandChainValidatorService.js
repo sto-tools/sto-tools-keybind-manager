@@ -94,16 +94,4 @@ export default class CommandChainValidatorService extends ComponentBase {
     }
   }
 
-  // Helper – i18n wrapper (mirrors CommandUI implementation)
-  async getI18nMessage(key, params = {}) {
-    try {
-      if (this.i18n && typeof this.i18n.t === 'function') {
-        return this.i18n.t(key, params)
-      }
-      return await this.request('i18n:translate', { key, params })
-    } catch (err) {
-      return null
-    }
-  }
-
   }
