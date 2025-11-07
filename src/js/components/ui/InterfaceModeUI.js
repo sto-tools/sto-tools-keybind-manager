@@ -158,16 +158,6 @@ export default class InterfaceModeUI extends UIComponentBase {
     })
   }
 
-  // Get current environment (alias for currentMode)
-  get currentEnvironment() {
-    return this._currentMode
-  }
-
-  // Set current environment (alias for currentMode)
-  set currentEnvironment(mode) {
-    this.currentMode = mode
-  }
-
   // Component lifecycle hook - called by ComponentBase
   onDestroy() {
     if (this._uiListenersSetup) {
