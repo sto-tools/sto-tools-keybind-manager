@@ -28,19 +28,6 @@ export class CommandFormatAdapter {
     }
   }
 
-  
-  /**
-   * Extract command string from either format
-   * @param {Object} command - Command in either format
-   * @returns {string} Command string
-   */
-  static getCommandString(command) {
-    return command?.command || ''
-  }
-
-  
-  
-  
   /**
    * Normalize command object to ensure consistent structure
    * @param {Object} command - Command in any format
