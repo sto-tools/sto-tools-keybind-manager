@@ -338,7 +338,8 @@ describe('AliasService', () => {
 
   describe('Environment and Profile Changes', () => {
     it('should handle profile changes', () => {
-      service.setCurrentProfile('new-profile-id')
+      // Simulate profile switching via event-driven system
+      service.cache.currentProfile = 'new-profile-id'
       expect(service.getCurrentProfileId()).toBe('new-profile-id')
       expect(service.cache.currentProfile).toBe('new-profile-id')
     })

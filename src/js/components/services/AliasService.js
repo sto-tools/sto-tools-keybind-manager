@@ -29,11 +29,6 @@ export default class AliasService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  
-  setCurrentProfile (profileId) {
-    this.cache.currentProfile = profileId
-  }
-
   // Convenience getter
   getCurrentProfileId () {
     return this.cache.currentProfile
