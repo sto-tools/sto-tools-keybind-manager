@@ -1080,19 +1080,6 @@ export default class KeyCaptureUI extends UIComponentBase {
     })
   }
 
-  // Legacy compatibility
-  startCapture(context = 'keySelectionModal') {
-    this.startCaptureMode()
-  }
-
-  stopCapture() {
-    this.stopCaptureMode()
-  }
-
-  addSelectedKey() {
-    this.confirmSelection()
-  }
-
   populateKeySelectionModal() {
     // Legacy method - now handled by initializeModal
     this.initializeModal()

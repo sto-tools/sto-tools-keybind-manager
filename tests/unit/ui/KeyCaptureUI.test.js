@@ -29,11 +29,11 @@ describe('KeyCaptureUI', () => {
     fixture.destroy()
   })
 
-  it('startCapture should prepare UI and emit keycapture:start', () => {
+  it('startCaptureMode should prepare UI and emit keycapture:start', () => {
     // First initialize the modal to build the content
     ui.buildModalContent()
 
-    ui.startCapture('keySelectionModal')
+    ui.startCaptureMode('keySelectionModal')
 
     // Check that capture indicator becomes active
     const captureIndicator = document.getElementById('captureIndicator')
@@ -58,7 +58,7 @@ describe('KeyCaptureUI', () => {
     ui.buildModalContent()
 
     // Simulate start first
-    ui.startCapture('keySelectionModal')
+    ui.startCaptureMode('keySelectionModal')
 
     // Emit capture-stop event
     eventBusFixture.eventBus.emit('capture-stop', { context: 'keySelectionModal' })
