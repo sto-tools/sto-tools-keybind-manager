@@ -7,9 +7,9 @@ import { request as _cbRequest, respond as _cbRespond } from '../core/requestRes
 export default class ComponentBase {
   // Static FinalizationRegistry for automatic cleanup when components are garbage collected
   static cleanupRegistry = new FinalizationRegistry((heldValue) => {
-    if (heldValue && heldValue.component && heldValue.component.onDestroy) {
+    if (heldValue && heldValue.component && heldValue.component.destroy) {
       console.log(`[ComponentBase] Finalizing ${heldValue.constructorName || 'Component'}`)
-      heldValue.component.onDestroy()
+      heldValue.component.destroy()
     }
   })
   constructor(eventBus = null) {
