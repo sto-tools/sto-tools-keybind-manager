@@ -140,6 +140,7 @@ export default class STOToolsKeybindManager {
       })
 
       this.inputDialogUI = new InputDialogUI({
+        eventBus,
         modalManager,
         i18n: i18next
       })
