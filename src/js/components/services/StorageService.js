@@ -3,18 +3,19 @@ import eventBus from '../../core/eventBus.js'
 
 /*
  * StorageService
- * 
+ *
  * Manages all data storage for the application.
- * 
+ *
  * This service is responsible for:
  * - Storing and retrieving data from localStorage
- * - Creating and restoring backups
- * - Exporting and importing data
+ * - Creating automatic backups
  * - Clearing all data
  * - Getting storage usage info
  * - Migrating data from old formats to new formats
  * - Ensuring storage structure is valid
  * - Detecting browser language
+ *
+ * Note: Advanced import/export functionality is handled by ProjectManagementService
  */
 export default class StorageService extends ComponentBase {
   constructor({ 
@@ -245,58 +246,7 @@ export default class StorageService extends ComponentBase {
     }
   }
 
-  // Restore from backup
-  restoreFromBackup() {
-    try {
-      const backup = localStorage.getItem(this.backupKey)
-      if (backup) {
-        const parsed = JSON.parse(backup)
-        localStorage.setItem(this.storageKey, parsed.data)
-        
-        // Emit backup restored event
-        this.emit('storage:backup-restored', { backup: parsed })
-        
-        return true
-      }
-    } catch (error) {
-      console.error('Error restoring from backup:', error)
-    }
-    return false
-  }
-
-  // Export data as JSON string
-  exportData() {
-    const data = this.getAllData()
-    return JSON.stringify(data, null, 2)
-  }
-
-  // Import data from JSON string
-  importData(jsonString) {
-    try {
-      const data = JSON.parse(jsonString)
-
-      if (!this.isValidDataStructure(data)) {
-        // Invalid data structure is an expected validation result, not an error
-        return false
-      }
-
-      const result = this.saveAllData(data)
-      
-      // Emit data imported event
-      if (result) {
-        this.emit('storage:data-imported', { data })
-      }
-      
-      return result
-    } catch (error) {
-      // Only log if it's not an expected JSON parse error from tests
-      if (!(error instanceof SyntaxError && jsonString.includes('invalid'))) {
-        console.error('Error importing data:', error)
-      }
-      return false
-    }
-  }
-
+  
   // Clear all data (reset application)
   clearAllData() {
     try {

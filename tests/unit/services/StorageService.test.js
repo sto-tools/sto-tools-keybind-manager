@@ -103,25 +103,7 @@ describe('StorageService', () => {
     })
   })
 
-  describe('Backup & restore', () => {
-    it('should create a backup when data is saved and restore from it', () => {
-      const data = storageService.getAllData()
-      const originalLanguage = data.settings.language
-      data.settings.language = 'fr'
-      // First save to update data (will create a backup of original state)
-      storageService.saveAllData(data)
-
-      // Corrupt the main data entry
-      localStorage.setItem('sto_keybind_manager', '"corrupted"')
-
-      // Restore from backup (should restore original state before the change)
-      storageService.restoreFromBackup()
-
-      const restored = storageService.getAllData(true)
-      expect(restored.settings.language).toBe(originalLanguage)
-    })
-  })
-
+  
   describe('Error handling', () => {
     it('should return false when localStorage.setItem throws', async () => {
       const { createLocalStorageFixture } = await import('../../fixtures/core/index.js')
