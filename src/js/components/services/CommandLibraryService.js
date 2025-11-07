@@ -89,33 +89,6 @@ export default class CommandLibraryService extends ComponentBase {
     })
   }
 
-  // Update cache from profile data (DataCoordinator integration)
-  updateCacheFromProfile(profile) {
-    if (!profile) return
-
-    this.cache.profile = profile
-    this.cache.aliases = profile.aliases || {}
-    // Preserve metadata for mirroring decisions
-    this.cache.profile.keybindMetadata = profile.keybindMetadata || {}
-    this.cache.profile.aliasMetadata   = profile.aliasMetadata   || {}
-
-    // Update keys for current environment
-    if (profile.keys) {
-      this.cache.keys = profile.keys
-    } else {
-      const currentBuild = profile.builds?.[this.cache.currentEnvironment]
-      this.cache.keys = currentBuild?.keys || {}
-    }
-
-    // Update combined aliases (real + virtual VFX)
-    this.updateCombinedAliases().then(() => {
-      // Emit event to notify UI components that aliases have changed (including virtual VFX aliases)
-      this.emit('aliases-changed', { aliases: this.cache.combinedAliases })
-    }).catch(error => {
-      console.error('[CommandLibraryService] Failed to update combined aliases:', error)
-    })
-  }
-
   // Get combined aliases (real profile aliases + virtual VFX aliases)
   async getCombinedAliases() {
     const realAliases = { ...this.cache.aliases }
