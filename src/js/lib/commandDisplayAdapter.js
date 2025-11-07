@@ -331,17 +331,5 @@ function getTranslationKey(parsedCommand, commandDef) {
 }
 
 
-/**
- * Check if a value is a rich command object (vs a string)
- * @param {*} value - Value to check
- * @returns {boolean} True if it's a rich object
- */
-export function isRichObject(value) {
-  return Boolean(value && 
-         typeof value === 'object' && 
-         !Array.isArray(value) &&
-         typeof value.command === 'string' &&
-         value.command.trim().length > 0)
-}
 
  

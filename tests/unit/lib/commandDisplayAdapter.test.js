@@ -5,7 +5,6 @@ import {
   enrichForDisplay,
   normalizeToString,
   normalizeToStringArray,
-  isRichObject,
   normalizeToOptimizedString
 } from '../../../src/js/lib/commandDisplayAdapter.js'
 
@@ -307,38 +306,7 @@ describe('Command Display Adapter', () => {
     })
   })
 
-  describe('isRichObject', () => {
-    it('should identify rich command objects', () => {
-      const richObject = {
-        command: 'FireAll',
-        name: 'Fire All Weapons'
-      }
-      
-      expect(isRichObject(richObject)).toBe(true)
-    })
-
-    it('should reject non-objects', () => {
-      expect(isRichObject('FireAll')).toBe(false)
-      expect(isRichObject(null)).toBe(false)
-      expect(isRichObject(undefined)).toBe(false)
-      expect(isRichObject(123)).toBe(false)
-      expect(isRichObject([])).toBe(false)
-    })
-
-    it('should reject objects without command property', () => {
-      expect(isRichObject({})).toBe(false)
-      expect(isRichObject({ name: 'Test' })).toBe(false)
-    })
-
-    it('should require command to be a non-empty string', () => {
-      expect(isRichObject({ command: null })).toBe(false)
-      expect(isRichObject({ command: undefined })).toBe(false)
-      expect(isRichObject({ command: 123 })).toBe(false)
-      expect(isRichObject({ command: '' })).toBe(false)
-      expect(isRichObject({ command: '   ' })).toBe(false) // whitespace only
-    })
-  })
-
+  
   
   describe('integration scenarios', () => {
     it('should handle complete workflow: rich objects to strings and back', async () => {

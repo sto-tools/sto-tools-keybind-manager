@@ -9,8 +9,7 @@ export {
   enrichForDisplay,
   normalizeToString,
   normalizeToStringArray,
-  normalizeToOptimizedString,
-  isRichObject
+  normalizeToOptimizedString
 } from './commandDisplayAdapter.js'
 
 export {
