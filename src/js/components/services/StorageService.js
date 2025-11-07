@@ -10,7 +10,6 @@ import eventBus from '../../core/eventBus.js'
  * - Storing and retrieving data from localStorage
  * - Creating automatic backups
  * - Clearing all data
- * - Getting storage usage info
  * - Migrating data from old formats to new formats
  * - Ensuring storage structure is valid
  * - Detecting browser language
@@ -267,26 +266,7 @@ export default class StorageService extends ComponentBase {
     }
   }
 
-  // Get storage usage info
-  getStorageInfo() {
-    try {
-      const dataSize = localStorage.getItem(this.storageKey)?.length || 0
-      const backupSize = localStorage.getItem(this.backupKey)?.length || 0
-      const settingsSize = localStorage.getItem(this.settingsKey)?.length || 0
-
-      return {
-        totalSize: dataSize + backupSize + settingsSize,
-        dataSize,
-        backupSize,
-        settingsSize,
-        available: this.getAvailableStorage(),
-      }
-    } catch (error) {
-      console.error('Error getting storage info:', error)
-      return null
-    }
-  }
-
+  
   // Private methods
 
   getDefaultData() {
@@ -508,43 +488,8 @@ export default class StorageService extends ComponentBase {
     return 'space' // Default to space for 'space', 'Space', or any other value
   }
 
-  getAvailableStorage() {
-    try {
-      // Test available localStorage space
-      let testKey = 'storage_test'
-      let testData = '0'
-      let testSize = 0
-
-      // Binary search for max storage
-      let low = 0
-      let high = 10 * 1024 * 1024 // 10MB max test
-
-      while (low <= high) {
-        let mid = Math.floor((low + high) / 2)
-        testData = '0'.repeat(mid)
-
-        try {
-          localStorage.setItem(testKey, testData)
-          localStorage.removeItem(testKey)
-          testSize = mid
-          low = mid + 1
-        } catch (e) {
-          high = mid - 1
-        }
-      }
-
-      return testSize
-    } catch (error) {
-      return 0
-    }
-  }
-
-  // Load default/demo data explicitly
-  loadDefaultData() {
-    const defaultData = this.getDefaultData()
-    return this.saveAllData(defaultData)
-  }
-
+  
+  
   /**
    * Get current state for late-join support
    * @returns {Object} The storage service instance
