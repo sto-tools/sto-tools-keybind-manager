@@ -340,7 +340,7 @@ export default class ProfileUI extends UIComponentBase {
       `Are you sure you want to delete the profile "${this.cache.profile.name}"? This action cannot be undone.`
     const title = this._t('confirm_delete') || 'Confirm Delete'
 
-    if (await this.confirmDialog.confirm(message, title, 'danger')) {
+    if (await this.confirmDialog.confirm(message, title, 'danger', 'profileDelete')) {
       this.deleteCurrentProfile()
     }
   }

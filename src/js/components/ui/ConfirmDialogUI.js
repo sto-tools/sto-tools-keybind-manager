@@ -17,10 +17,11 @@ export default class ConfirmDialogUI extends UIComponentBase {
   }
 
   // Show a confirmation dialog and resolve with the user's choice.
-  async confirm(message, title = 'Confirm', type = 'warning') {
+  // Optional prefix parameter for semantic modal IDs (e.g., 'loadDefaultData', 'resetApplication')
+  async confirm(message, title = 'Confirm', type = 'warning', prefix = '') {
     return new Promise((resolve) => {
       const confirmModal = this.createConfirmModal(message, title, type)
-      const confirmId = 'confirmModal'
+      const confirmId = prefix ? `${prefix}ConfirmModal` : 'confirmModal'
       confirmModal.id = confirmId
       document.body.appendChild(confirmModal)
 
@@ -31,6 +32,7 @@ export default class ConfirmDialogUI extends UIComponentBase {
         type,
         resolve,
         modalElement: confirmModal,
+        confirmId, // Store the modal ID for cleanup and regeneration
       }
 
       // Register regeneration callback for language changes
@@ -78,10 +80,11 @@ export default class ConfirmDialogUI extends UIComponentBase {
   }
 
   // Show an informational dialog with just an OK button
-  async inform(message, title = 'Information', type = 'info') {
+  // Optional prefix parameter for semantic modal IDs (e.g., 'syncSuccess', 'syncError')
+  async inform(message, title = 'Information', type = 'info', prefix = '') {
     return new Promise((resolve) => {
       const informModal = this.createInformModal(message, title, type)
-      const informId = 'informModal'
+      const informId = prefix ? `${prefix}InformModal` : 'informModal'
       informModal.id = informId
       document.body.appendChild(informModal)
 
@@ -92,6 +95,7 @@ export default class ConfirmDialogUI extends UIComponentBase {
         type,
         resolve,
         modalElement: informModal,
+        informId, // Store the modal ID for cleanup and regeneration
       }
 
       // Register regeneration callback for language changes
@@ -204,9 +208,9 @@ export default class ConfirmDialogUI extends UIComponentBase {
   regenerateConfirmModal() {
     if (!this.currentConfirmModal) return
 
-    const { message, title, type, modalElement } = this.currentConfirmModal
+    const { message, title, type, modalElement, confirmId } = this.currentConfirmModal
     const newModal = this.createConfirmModal(message, title, type)
-    newModal.id = 'confirmModal'
+    newModal.id = confirmId
 
     // Replace the old modal with the new one
     modalElement.replaceWith(newModal)
@@ -232,9 +236,9 @@ export default class ConfirmDialogUI extends UIComponentBase {
   regenerateInformModal() {
     if (!this.currentInformModal) return
 
-    const { message, title, type, modalElement } = this.currentInformModal
+    const { message, title, type, modalElement, informId } = this.currentInformModal
     const newModal = this.createInformModal(message, title, type)
-    newModal.id = 'informModal'
+    newModal.id = informId
 
     // Replace the old modal with the new one
     modalElement.replaceWith(newModal)
@@ -242,10 +246,10 @@ export default class ConfirmDialogUI extends UIComponentBase {
 
     // Re-attach event listeners
     const handleClose = () => {
-      const { resolve } = this.currentInformModal
-      this.modalManager?.unregisterRegenerateCallback('informModal')
+      const { resolve, informId } = this.currentInformModal
+      this.modalManager?.unregisterRegenerateCallback(informId)
       this.currentInformModal = null
-      this.modalManager?.hide('informModal')
+      this.modalManager?.hide(informId)
       if (newModal && newModal.parentNode) {
         newModal.parentNode.removeChild(newModal)
       }
@@ -272,13 +276,13 @@ export default class ConfirmDialogUI extends UIComponentBase {
   handleConfirmAction(result) {
     if (!this.currentConfirmModal) return
 
-    const { resolve, modalElement } = this.currentConfirmModal
+    const { resolve, modalElement, confirmId } = this.currentConfirmModal
 
     // Unregister regeneration callback
-    this.modalManager?.unregisterRegenerateCallback('confirmModal')
+    this.modalManager?.unregisterRegenerateCallback(confirmId)
     this.currentConfirmModal = null
 
-    this.modalManager?.hide('confirmModal')
+    this.modalManager?.hide(confirmId)
     if (modalElement && modalElement.parentNode) {
       modalElement.parentNode.removeChild(modalElement)
     }

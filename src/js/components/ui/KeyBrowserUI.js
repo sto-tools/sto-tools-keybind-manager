@@ -461,7 +461,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     const message = this.i18n?.t?.('confirm_delete_key', { keyName: keyName }) || `Delete key ${keyName}?`
     const title = this.i18n?.t?.('confirm_delete') || 'Confirm Delete'
     
-    if (await this.confirmDialog.confirm(message, title, 'danger')) {
+    if (await this.confirmDialog.confirm(message, title, 'danger', 'keyDelete')) {
       // Use the request/response pattern to delete key from KeyService
       const result = await this.request('key:delete', { key: keyName })
       if (result?.success) {

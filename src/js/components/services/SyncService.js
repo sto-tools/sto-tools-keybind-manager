@@ -172,7 +172,8 @@ export default class SyncService extends ComponentBase {
           await window.confirmDialog.inform(
             i18next.t('sync_not_supported_detailed'),
             i18next.t('sync_not_supported_title'),
-            'info'
+            'info',
+            'syncNotSupported'
           )
         }
 
@@ -189,7 +190,8 @@ export default class SyncService extends ComponentBase {
           await window.confirmDialog.inform(
             i18next.t('sync_not_supported_secure_context_detailed'),
             i18next.t('sync_not_supported_secure_context_title'),
-            'info'
+            'info',
+            'syncSecureContext'
           )
         }
 
@@ -210,7 +212,8 @@ export default class SyncService extends ComponentBase {
           await window.confirmDialog.inform(
             i18next.t('sync_not_supported_browser_detailed'),
             i18next.t('sync_not_supported_browser_title'),
-            'info'
+            'info',
+            'syncNotSupportedBrowser'
           )
         }
 
@@ -232,7 +235,7 @@ export default class SyncService extends ComponentBase {
             const content = await file.text()
             const title = i18next.t('sync_folder_contains_project_title') || 'Existing Sync Data Found'
             const message = i18next.t('sync_folder_contains_project_prompt') || 'This folder already contains a project.json from a previous sync. Import it now instead of overwriting?'
-            const doImport = await window.confirmDialog.confirm(message, title, 'warning')
+            const doImport = await window.confirmDialog.confirm(message, title, 'warning', 'syncImportProject')
             let pending = null
             if (doImport) {
               pending = 'import'
@@ -242,7 +245,7 @@ export default class SyncService extends ComponentBase {
             } else {
               const overwriteTitle = i18next.t('sync_overwrite_existing_title') || 'Overwrite Sync Data?'
               const overwriteMsg = i18next.t('sync_overwrite_existing_prompt') || 'Import declined. Overwrite the sync folder with current application state?'
-              const confirmOverwrite = await window.confirmDialog.confirm(overwriteMsg, overwriteTitle, 'warning')
+              const confirmOverwrite = await window.confirmDialog.confirm(overwriteMsg, overwriteTitle, 'warning', 'syncOverwriteProject')
               if (confirmOverwrite) {
                 pending = 'overwrite'
                 console.log('[SyncService] setSyncFolder: user chose OVERWRITE')

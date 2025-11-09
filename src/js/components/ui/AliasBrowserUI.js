@@ -136,7 +136,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     const message = i18next.t('confirm_delete_alias', { aliasName: aliasName }) || `Delete alias ${aliasName}?`
     const title = i18next.t('confirm_delete') || 'Confirm Delete'
     
-    if (await this.confirmDialog.confirm(message, title, 'danger')) {
+    if (await this.confirmDialog.confirm(message, title, 'danger', 'aliasDelete')) {
       // Call alias service directly and show toast based on result
       const result = await this.request('alias:delete', { name: aliasName })
 

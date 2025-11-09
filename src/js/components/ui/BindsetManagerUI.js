@@ -86,7 +86,7 @@ export default class BindsetManagerUI extends UIComponentBase {
       const message = i18next.t('confirm_delete_bindset', { name: this.selectedBindset }) || `Delete bindset "${this.selectedBindset}"?`
       const title = i18next.t('confirm_delete') || 'Confirm Delete'
       
-      if (await this.confirmDialog.confirm(message, title, 'danger')) {
+      if (await this.confirmDialog.confirm(message, title, 'danger', 'bindsetDelete')) {
         const res = await this.request('bindset:delete', { name: this.selectedBindset })
         if (!res?.success) this.showError(res.error)
       }

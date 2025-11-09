@@ -258,7 +258,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     
     if (this.confirmDialog) {
       const title = i18next.t('confirm_add') || 'Confirm Add'
-      confirmed = await this.confirmDialog.confirm(message, title, 'info')
+      confirmed = await this.confirmDialog.confirm(message, title, 'info', 'bindsetAddKey')
     } else {
       // Fallback to window.confirm when confirmDialog is not available
       confirmed = window.confirm(message)
@@ -289,7 +289,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     
     if (this.confirmDialog) {
       const title = i18next.t('confirm_remove') || 'Confirm Remove'
-      confirmed = await this.confirmDialog.confirm(message, title, 'warning')
+      confirmed = await this.confirmDialog.confirm(message, title, 'warning', 'bindsetRemoveKey')
     } else {
       // Fallback to window.confirm when confirmDialog is not available
       confirmed = window.confirm(message)

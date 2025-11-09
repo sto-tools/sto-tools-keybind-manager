@@ -177,7 +177,7 @@ export default class DataCoordinator extends ComponentBase {
           const message = `A profile named "Default" already exists. Loading default data would overwrite it. Do you want to continue?`
           const title = 'Default Profile Exists'
           
-          const confirmed = await window.confirmDialog.confirm(message, title, 'warning')
+          const confirmed = await window.confirmDialog.confirm(message, title, 'warning', 'loadDefaultData')
           if (!confirmed) {
             console.log('[DataCoordinator] User cancelled default data load')
             return

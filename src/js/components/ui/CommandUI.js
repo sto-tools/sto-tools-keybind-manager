@@ -385,7 +385,7 @@ export default class CommandUI extends UIComponentBase {
         return
       }
 
-      if (await this.confirmDialog.confirm(message, title, 'warning')) {
+      if (await this.confirmDialog.confirm(message, title, 'warning', 'commandChainClear')) {
         console.log(
           `[CommandUI] Requesting clear command chain for ${itemType}: "${key}" in env: "${currentEnv}"`
         )

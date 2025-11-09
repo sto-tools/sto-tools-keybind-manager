@@ -163,7 +163,7 @@ export default class HeaderMenuUI extends UIComponentBase {
     const message = 'Are you sure you want to reset the application? This will clear all profiles and data.'
     const title = 'Confirm Reset Application'
     
-    if (await this.confirmDialog.confirm(message, title, 'danger')) {
+    if (await this.confirmDialog.confirm(message, title, 'danger', 'resetApplication')) {
       this.emit('app:reset-confirmed')
     }
   }
