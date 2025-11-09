@@ -136,7 +136,7 @@ export default class VFXManagerService extends ComponentBase {
       return []
     }
 
-    const commands = [`dynFxSetFXExclusionList ${effects.join(',')}`]
+    const commands = [`dynFxSetFXExlusionList ${effects.join(',')}`]
 
     if (this.showPlayerSay) {
       // Check translateGeneratedMessages preference - only translate if enabled
@@ -185,7 +185,7 @@ export default class VFXManagerService extends ComponentBase {
 
     if (allEffects.length === 0) return []
 
-    const commands = [`dynFxSetFXExclusionList ${allEffects.join(',')}`]
+    const commands = [`dynFxSetFXExlusionList ${allEffects.join(',')}`]
 
     if (this.showPlayerSay) {
       // Check translateGeneratedMessages preference - only translate if enabled

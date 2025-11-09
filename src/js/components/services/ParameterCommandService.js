@@ -492,7 +492,7 @@ export default class ParameterCommandService extends ComponentBase {
           const effects = p.effects || ''
           return {
             // Use correct spelling first
-            command: `dynFxSetFXExclusionList ${effects}`,
+            command: `dynFxSetFXExlusionList ${effects}`,
             text: `VFX Exclude: ${effects}`
           }
         } else if (commandId === 'vfx_exclusion_alias') {

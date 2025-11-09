@@ -11,7 +11,7 @@
 import { normalizeToString, normalizeToStringArray as _normalizeToStringArray } from './commandDisplayAdapter.js'
 
 // Current migration version - profiles not matching this will be migrated
-const CURRENT_MIGRATION_VERSION = '2.1.0'
+const CURRENT_MIGRATION_VERSION = '2.1.1'
 
 // Migration rules - defines what migrations to run for each version upgrade
 // Each rule defines migrations FROM a version TO the next version
@@ -19,10 +19,14 @@ const MIGRATION_RULES = {
   '2.0.0': {
     targetVersion: '2.1.0',
     migrations: ['removeVFXAliases']
+  },
+  '2.1.0': {
+    targetVersion: '2.1.1',
+    migrations: ['fixVFXCommandSpelling']
   }
   // Future example:
-  // '2.1.0': {
-  //   targetVersion: '2.2.0', 
+  // '2.1.1': {
+  //   targetVersion: '2.2.0',
   //   migrations: ['someNewMigration']
   // }
 }
@@ -89,6 +93,8 @@ export function normalizeProfile(profile) {
     for (const migration of step.migrations) {
       if (migration === 'removeVFXAliases') {
         hasChanges = runVFXAliasMigration(profile) || hasChanges
+      } else if (migration === 'fixVFXCommandSpelling') {
+        hasChanges = runVFXCommandSpellingMigration(profile) || hasChanges
       }
       // Future migrations can be added here
     }
@@ -124,6 +130,60 @@ function runVFXAliasMigration(profile) {
   }
   
   return hasChanges
+}
+
+// Migration: Fix VFX command spelling (2.1.0 -> 2.1.1)
+function runVFXCommandSpellingMigration(profile) {
+  let hasChanges = false
+
+  // Only fix VFX aliases that the tool actually generates
+  const vfxAliasNames = [
+    'dynFxSetFXExclusionList_Combined',
+    'dynFxSetFXExclusionList_Space',
+    'dynFxSetFXExclusionList_Ground'
+  ]
+
+  // Fix alias commands ONLY for VFX Manager aliases
+  // Note: We don't touch keybinds - if users manually put wrong spelling there, that's on them to resolve
+  if (profile.aliases && typeof profile.aliases === 'object') {
+    for (const aliasName of vfxAliasNames) {
+      if (profile.aliases[aliasName] && typeof profile.aliases[aliasName] === 'object') {
+        const aliasData = profile.aliases[aliasName]
+        if (aliasData.commands) {
+          const corrected = correctVFXCommandSpelling(aliasData.commands)
+          if (JSON.stringify(corrected) !== JSON.stringify(aliasData.commands)) {
+            console.log(`[ProfileNormalizer] Fixing VFX command spelling in alias: ${aliasName}`)
+            profile.aliases[aliasName].commands = corrected
+            hasChanges = true
+          }
+        }
+      }
+    }
+  }
+
+  return hasChanges
+}
+
+// Helper function to correct VFX command spelling
+function correctVFXCommandSpelling(commands) {
+  if (!commands) return commands
+
+  // Handle string commands
+  if (typeof commands === 'string') {
+    return commands.replace(/\bdynFxSetFXExclusionList\b/g, 'dynFxSetFXExlusionList')
+  }
+
+  // Handle array of commands
+  if (Array.isArray(commands)) {
+    return commands.map(cmd => {
+      if (typeof cmd === 'string') {
+        return cmd.replace(/\bdynFxSetFXExclusionList\b/g, 'dynFxSetFXExlusionList')
+      }
+      return cmd
+    })
+  }
+
+  return commands
 }
 
 // Legacy command normalization (always runs for backwards compatibility)

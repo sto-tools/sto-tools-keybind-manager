@@ -28,7 +28,7 @@ describe('Profile Normalizer', () => {
 
       expect(result.builds.space.keys.F1).toEqual(['FireAll', '+TrayExecByTray 0 0'])
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.1.0')
+      expect(result.migrationVersion).toBe('2.1.1')
     })
 
     it('should normalize profile with legacy string alias commands', () => {
@@ -47,7 +47,7 @@ describe('Profile Normalizer', () => {
 
       expect(result.aliases.myAlias.commands).toEqual(['FireAll', '+TrayExecByTray 0 0', 'FireTorps'])
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.1.0')
+      expect(result.migrationVersion).toBe('2.1.1')
     })
 
     it('should normalize profile with rich object alias commands', () => {
@@ -69,7 +69,7 @@ describe('Profile Normalizer', () => {
 
       expect(result.aliases.myAlias.commands).toEqual(['FireAll', 'FireTorps'])
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.1.0')
+      expect(result.migrationVersion).toBe('2.1.1')
     })
 
     it('should handle mixed format complex profile', () => {
@@ -124,7 +124,7 @@ describe('Profile Normalizer', () => {
 
       // Check metadata
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.1.0')
+      expect(result.migrationVersion).toBe('2.1.1')
     })
 
     it('should preserve already normalized profiles', () => {
@@ -153,7 +153,7 @@ describe('Profile Normalizer', () => {
       expect(result.builds.space.keys.F1).toEqual(['FireAll', 'FireTorps'])
       expect(result.aliases.myAlias.commands).toEqual(['Command1', 'Command2'])
       expect(result.lastModified).not.toBe(originalLastModified) // Should update during normalization
-      expect(result.migrationVersion).toBe('2.1.0')
+      expect(result.migrationVersion).toBe('2.1.1')
     })
 
     it('should handle empty or missing sections', () => {
@@ -214,7 +214,7 @@ describe('Profile Normalizer', () => {
       expect(result.existingField).toBe('existing value')
       expect(result.version).toBe('1.0')
       expect(result.lastModified).toBeDefined()
-      expect(result.migrationVersion).toBe('2.1.0')
+      expect(result.migrationVersion).toBe('2.1.1')
     })
   })
 

@@ -47,11 +47,11 @@ describe('VFXManagerService', () => {
     service.toggleEffect('ground', 'FX_GreenSmoke')
 
     let cmd = service.generateAliasCommand('ground')
-    expect(cmd).toEqual(['dynFxSetFXExclusionList FX_GreenSmoke'])
+    expect(cmd).toEqual(['dynFxSetFXExlusionList FX_GreenSmoke'])
 
     service.showPlayerSay = true
     cmd = service.generateAliasCommand('ground')
-    expect(cmd).toEqual(['dynFxSetFXExclusionList FX_GreenSmoke', 'PlayerSay VFX Suppression Loaded'])
+    expect(cmd).toEqual(['dynFxSetFXExlusionList FX_GreenSmoke', 'PlayerSay VFX Suppression Loaded'])
   })
 
   it('should combine effects across environments', () => {
@@ -59,7 +59,7 @@ describe('VFXManagerService', () => {
     service.toggleEffect('ground', 'FX_B')
 
     const combined = service.generateCombinedAliasCommand(['space', 'ground'])
-    expect(combined).toEqual(['dynFxSetFXExclusionList FX_A,FX_B'])
+    expect(combined).toEqual(['dynFxSetFXExlusionList FX_A,FX_B'])
   })
 
   it('should emit modal:hide after saveEffects', async () => {

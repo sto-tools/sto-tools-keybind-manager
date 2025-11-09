@@ -104,7 +104,7 @@ describe('VFX Virtual Alias Loading on Page Reload', () => {
     
     // Verify Space alias has commands
     expect(virtualAliases.dynFxSetFXExclusionList_Space.commands).toEqual([
-      'dynFxSetFXExclusionList Plasma_Torpedo_Explosion,Phaser_Beam',
+      'dynFxSetFXExlusionList Plasma_Torpedo_Explosion,Phaser_Beam',
       'PlayerSay VFX Suppression Loaded'
     ])
     expect(virtualAliases.dynFxSetFXExclusionList_Space.type).toBe('vfx-alias')
@@ -112,7 +112,7 @@ describe('VFX Virtual Alias Loading on Page Reload', () => {
 
     // Verify Ground alias has commands
     expect(virtualAliases.dynFxSetFXExclusionList_Ground.commands).toEqual([
-      'dynFxSetFXExclusionList Explosion_Large',
+      'dynFxSetFXExlusionList Explosion_Large',
       'PlayerSay VFX Suppression Loaded'
     ])
   })

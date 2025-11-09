@@ -159,17 +159,17 @@ describe('VFX Virtual Alias Integration Flow', () => {
           dynFxSetFXExclusionList_Space: expect.objectContaining({
             type: 'vfx-alias',
             virtual: true,
-            commands: ['dynFxSetFXExclusionList FX_SpaceTest']
+            commands: ['dynFxSetFXExlusionList FX_SpaceTest']
           }),
           dynFxSetFXExclusionList_Ground: expect.objectContaining({
             type: 'vfx-alias',
             virtual: true,
-            commands: ['dynFxSetFXExclusionList FX_GroundTest']
+            commands: ['dynFxSetFXExlusionList FX_GroundTest']
           }),
           dynFxSetFXExclusionList_Combined: expect.objectContaining({
             type: 'vfx-alias',
             virtual: true,
-            commands: ['dynFxSetFXExclusionList FX_SpaceTest,FX_GroundTest']
+            commands: ['dynFxSetFXExlusionList FX_SpaceTest,FX_GroundTest']
           })
         })
       })
@@ -183,7 +183,7 @@ describe('VFX Virtual Alias Integration Flow', () => {
     expect(combinedAliases).toHaveProperty('dynFxSetFXExclusionList_Space')
     expect(combinedAliases.dynFxSetFXExclusionList_Space.type).toBe('vfx-alias')
     expect(combinedAliases.dynFxSetFXExclusionList_Space.virtual).toBe(true)
-    expect(combinedAliases.dynFxSetFXExclusionList_Space.commands).toEqual(['dynFxSetFXExclusionList FX_SpaceTest'])
+    expect(combinedAliases.dynFxSetFXExclusionList_Space.commands).toEqual(['dynFxSetFXExlusionList FX_SpaceTest'])
   })
 
   it('should handle VFX virtual aliases request from CommandLibraryService', async () => {
@@ -196,7 +196,7 @@ describe('VFX Virtual Alias Integration Flow', () => {
 
     expect(combinedAliases).toHaveProperty('dynFxSetFXExclusionList_Space')
     expect(combinedAliases.dynFxSetFXExclusionList_Space).toEqual({
-      commands: ['dynFxSetFXExclusionList FX_SpaceTest'],
+      commands: ['dynFxSetFXExlusionList FX_SpaceTest'],
       description: 'VFX suppression for space environment',
       type: 'vfx-alias',
       virtual: true
@@ -213,13 +213,13 @@ describe('VFX Virtual Alias Integration Flow', () => {
 
     // Check space alias
     expect(virtualAliases.dynFxSetFXExclusionList_Space.commands).toEqual([
-      'dynFxSetFXExclusionList FX_SpaceTest',
+      'dynFxSetFXExlusionList FX_SpaceTest',
       'PlayerSay VFX Suppression Loaded'
     ])
 
     // Check combined alias
     expect(virtualAliases.dynFxSetFXExclusionList_Combined.commands).toEqual([
-      'dynFxSetFXExclusionList FX_SpaceTest,FX_GroundTest',
+      'dynFxSetFXExlusionList FX_SpaceTest,FX_GroundTest',
       'PlayerSay VFX Suppression Loaded'
     ])
   })
