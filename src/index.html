@@ -269,7 +269,7 @@
                     <i class="fas fa-search"></i>
                   </button>
                 </div>
-                <button class="toolbar-btn" id="showAllKeysBtn" data-i18n-title="clear_filter" aria-label="Clear filter">
+                <button class="toolbar-btn" id="showAllKeysBtn" data-i18n-title="show_all_keys" aria-label="Show All Keys">
                   <i class="fas fa-times-circle"></i>
                 </button>
               </div>
@@ -574,7 +574,7 @@
         <div class="modal-body">
           <div class="vertigo-content">
             <div class="vertigo-header">
-              <p>
+              <p data-i18n="vfx_manager_description">
                 Select visual effects to disable using dynFxSetFXExlusionList
                 aliases. Effects are organized by environment.
               </p>
@@ -582,7 +582,7 @@
             <div class="vertigo-environments">
               <div class="vertigo-environment">
                 <div class="environment-header">
-                  <h4><i class="fas fa-rocket"></i> Space Effects</h4>
+                  <h4><i class="fas fa-rocket"></i> <span data-i18n="space_effects">Space Effects</span></h4>
                   <div class="environment-controls">
                     <button class="btn btn-small" id="spaceSelectAll" data-i18n="select_all">
                       Select All
@@ -590,9 +590,7 @@
                     <button class="btn btn-small" id="spaceClearAll" data-i18n="clear_all">
                       Clear All
                     </button>
-                    <span class="effect-count" id="spaceEffectCount"
-                      >0 selected</span
-                    >
+                    <span class="effect-count" id="spaceEffectCount">0</span>
                   </div>
                 </div>
                 <div class="effects-list" id="spaceEffectsList">
@@ -601,7 +599,7 @@
               </div>
               <div class="vertigo-environment">
                 <div class="environment-header">
-                  <h4><i class="fas fa-user"></i> Ground Effects</h4>
+                  <h4 data-i18n="ground_effects"><i class="fas fa-user"></i> Ground Effects</h4>
                   <div class="environment-controls">
                     <button class="btn btn-small" id="groundSelectAll" data-i18n="select_all">
                       Select All
@@ -609,9 +607,7 @@
                     <button class="btn btn-small" id="groundClearAll" data-i18n="clear_all">
                       Clear All
                     </button>
-                    <span class="effect-count" id="groundEffectCount"
-                      >0 selected</span
-                    >
+                    <span class="effect-count" id="groundEffectCount">0</span>
                   </div>
                 </div>
                 <div class="effects-list" id="groundEffectsList">
@@ -621,15 +617,15 @@
             </div>
             <div class="vertigo-preview">
               <div class="alias-preview-section">
-                <h4>Generated Aliases:</h4>
+                <h4 data-i18n="generated_aliases">Generated Aliases:</h4>
                 <div class="alias-preview" id="spaceAliasPreview">
-                  <label>Space Alias:</label>
+                  <label data-i18n="space_alias">Space Alias:</label>
                   <div class="command-preview" id="spaceAliasCommand" data-i18n="no_space_effects_selected">
                     No space effects selected
                   </div>
                 </div>
                 <div class="alias-preview" id="groundAliasPreview">
-                  <label>Ground Alias:</label>
+                  <label data-i18n="ground_alias">Ground Alias:</label>
                   <div class="command-preview" id="groundAliasCommand" data-i18n="no_ground_effects_selected">
                     No ground effects selected
                   </div>
@@ -650,7 +646,7 @@
           <button class="btn btn-primary" id="saveVertigoBtn" data-i18n="generate_aliases">
             Generate Aliases
           </button>
-          <button class="btn btn-secondary" data-modal="vertigoModal">
+          <button class="btn btn-secondary" data-modal="vertigoModal" data-i18n="cancel">
             Cancel
           </button>
         </div>
@@ -674,7 +670,7 @@
                 <span data-i18n="sto_tools_keybind_manager"></span>
                 <span id="aboutVersion"></span>
               </h4>
-              <p data-i18n="a_comprehensive_web_based_tool_for_creating_editing_and_managing_star_trek_online_keybind_configurations_with_visual_editing_and_advanced_features">
+              <p data-i18n="app_description">
                 A comprehensive web-based tool for creating, editing, and
                 managing Star Trek Online keybind configurations with visual
                 editing and advanced features.

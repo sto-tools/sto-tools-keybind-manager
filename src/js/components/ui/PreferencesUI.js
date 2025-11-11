@@ -29,14 +29,12 @@ export default class PreferencesUI extends UIComponentBase {
 
     // Adopt settingDefinitions from historical implementation
     this.settingDefinitions = {
-      theme: { type: 'select', element: 'themeSelect' },
       language: { type: 'select', element: 'languageSelect' },
       translateGeneratedMessages: {
         type: 'boolean',
         element: 'translateGeneratedMessagesCheckbox',
       },
       autoSave: { type: 'boolean', element: 'autoSaveCheckbox' },
-      compactView: { type: 'boolean', element: 'compactViewCheckbox' },
       autoSync: { type: 'boolean', element: 'autoSync' },
       autoSyncInterval: { type: 'select', element: 'autoSyncInterval' },
       bindToAliasMode: { type: 'boolean', element: 'bindToAliasModeCheckbox' },

@@ -1,10 +1,9 @@
 import UIComponentBase from '../UIComponentBase.js'
-import { 
-  getKeyboardLayout, 
-  getLayoutName, 
-  KEY_POSITIONS, 
-  MOUSE_GESTURES, 
-  SMART_SUGGESTIONS 
+import {
+  getKeyboardLayout,
+  getLayoutName,
+  KEY_POSITIONS,
+  MOUSE_GESTURES
 } from '../../lib/keyboardLayouts.js'
 import { UNSAFE_KEYBINDS } from '../../core/constants.js'
 

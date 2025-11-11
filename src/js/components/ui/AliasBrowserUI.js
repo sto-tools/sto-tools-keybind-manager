@@ -304,7 +304,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     return `
       <div class="alias-item ${isSelected ? 'active' : ''}" data-alias="${name}" data-length="${lengthClass}" title="${description}">
         <div class="alias-name">${name}</div>
-        <div class="alias-command-count">${commandCount} <span data-i18n="commands">${i18next.t('commands')}</span></div>
+        <div class="alias-command-count">${commandCount} <span data-i18n="${commandCount === 1 ? 'command_singular' : 'commands'}">${i18next.t(commandCount === 1 ? 'command_singular' : 'commands')}</span></div>
       </div>`
   }
 

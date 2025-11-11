@@ -275,7 +275,8 @@ export default class STOToolsKeybindManager {
       this.commandChainUI      = new CommandChainUI({
         eventBus,
         ui: stoUI,
-        document
+        document,
+        i18n: i18next
       })
 
       this.parameterCommandService = new ParameterCommandService({

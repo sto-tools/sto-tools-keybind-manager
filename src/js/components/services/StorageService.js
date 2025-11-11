@@ -17,14 +17,15 @@ import eventBus from '../../core/eventBus.js'
  * Note: Advanced import/export functionality is handled by ProjectManagementService
  */
 export default class StorageService extends ComponentBase {
-  constructor({ 
-    eventBus: bus = eventBus, 
-    storageKey = 'sto_keybind_manager', 
-    backupKey = 'sto_keybind_manager_backup', 
-    settingsKey = 'sto_keybind_settings', 
+  constructor({
+    eventBus: bus = eventBus,
+    storageKey = 'sto_keybind_manager',
+    backupKey = 'sto_keybind_manager_backup',
+    settingsKey = 'sto_keybind_settings',
     version = '1.0.0',
     dataService = null,
-    data = {}
+    data = {},
+    i18n = null
   } = {}) {
     super(bus)
     this.componentName = 'StorageService'
@@ -34,6 +35,7 @@ export default class StorageService extends ComponentBase {
     this.version = version
     this.dataService = dataService
     this.data = data || {}
+    this.i18n = i18n
 
   }
 
@@ -78,7 +80,8 @@ export default class StorageService extends ComponentBase {
         
         // Show success message
         if (typeof window !== 'undefined' && window.stoUI && window.stoUI.showToast) {
-          window.stoUI.showToast('Application reset successfully. All profiles cleared.', 'success')
+          const message = this.i18n?.t('application_reset_successfully') || 'Application reset successfully. All profiles cleared.'
+          window.stoUI.showToast(message, 'success')
         }
       } else {
         console.error('[StorageService] Application reset failed')

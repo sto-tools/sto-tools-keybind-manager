@@ -5,11 +5,12 @@ import UIComponentBase from '../UIComponentBase.js'
  * Manages import, backup, language, and settings menu toggles and interactions
  */
 export default class HeaderMenuUI extends UIComponentBase {
-  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n = (typeof i18next !== 'undefined' ? i18next : null) } = {}) {
     super(eventBus)
     this.componentName = 'HeaderMenuUI'
     this.document = document
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this.i18n = i18n
   }
 
   onInit() {
@@ -111,6 +112,11 @@ export default class HeaderMenuUI extends UIComponentBase {
       }
     })
 
+    // Listen for language changed events to show toast feedback
+    this.addEventListener('language:changed', ({ language }) => {
+      this.showToast(this.i18n?.t('language_updated') || 'Language updated', 'success')
+    })
+
     // Theme toggle
     this.onDom('themeToggleBtn', 'click', 'theme-toggle', () => {
       this.emit('theme:toggle')
@@ -160,9 +166,9 @@ export default class HeaderMenuUI extends UIComponentBase {
   async confirmResetApp() {
     if (!this.confirmDialog) return
 
-    const message = 'Are you sure you want to reset the application? This will clear all profiles and data.'
-    const title = 'Confirm Reset Application'
-    
+    const message = this.i18n?.t('confirm_reset_application') || 'Are you sure you want to reset the application? This will clear all profiles and data.'
+    const title = this.i18n?.t('confirm_reset_app') || 'Confirm Reset Application'
+
     if (await this.confirmDialog.confirm(message, title, 'danger', 'resetApplication')) {
       this.emit('app:reset-confirmed')
     }

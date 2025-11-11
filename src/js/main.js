@@ -21,27 +21,16 @@ import { DISPLAY_VERSION } from './core/constants.js'
 import { CommandChainValidatorService } from './components/services/index.js'
 import devMonitor from './dev/DevMonitor.js'
 
-// Create new StorageService component
-const storageService = new StorageService({ eventBus })
-storageService.init()
-
 // Create DataService first so it's available for DataCoordinator
-const dataService = new DataService({ 
+const dataService = new DataService({
   eventBus,
   data: typeof globalThis !== 'undefined' ? globalThis.STO_DATA : null
 })
-dataService.init()
 
-// Create DataCoordinator - the single source of truth for data operations
-const dataCoordinator = new DataCoordinator({ eventBus, storage: storageService })
-dataCoordinator.init()
-// Get settings from the new StorageService
-const settings = storageService.getSettings()
+;(async () => {
 
-;(async () => {  
-  
   await i18next.init({
-    lng: settings.language || 'en',
+    lng: 'en', // Default to English, will be updated after StorageService is created
     fallbackLng: 'en',
     resources: {
       en: { translation: en },
@@ -53,6 +42,23 @@ const settings = storageService.getSettings()
 
   // Make i18next available globally for data.js and other modules that need it
   window.i18next = i18next
+
+  // Create new StorageService component with i18n support
+  const storageService = new StorageService({ eventBus, i18n: i18next })
+  storageService.init()
+
+  // Initialize DataService now that storage service is available
+  dataService.init()
+
+  // Create DataCoordinator - the single source of truth for data operations
+  const dataCoordinator = new DataCoordinator({ eventBus, storage: storageService, i18n: i18next })
+  dataCoordinator.init()
+
+  // Get settings from the new StorageService and update language if needed
+  const settings = storageService.getSettings()
+  if (settings.language && settings.language !== 'en') {
+    await i18next.changeLanguage(settings.language)
+  }
   
   // Initialize DevMonitor after i18next is available
   if (devMonitor.isDevelopment) {

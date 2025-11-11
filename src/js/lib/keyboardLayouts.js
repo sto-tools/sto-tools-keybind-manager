@@ -516,18 +516,6 @@ const SMART_SUGGESTIONS = {
   movement: {
     category: 'Movement',
     keys: ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Shift+KeyW', 'Shift+KeyA', 'Shift+KeyS', 'Shift+KeyD']
-  },
-  abilities: {
-    category: 'Abilities',
-    keys: ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12']
-  },
-  quickslots: {
-    category: 'Quick Slots',
-    keys: ['Ctrl+Digit1', 'Ctrl+Digit2', 'Ctrl+Digit3', 'Ctrl+Digit4', 'Ctrl+Digit5', 'Ctrl+Digit6', 'Ctrl+Digit7', 'Ctrl+Digit8', 'Ctrl+Digit9']
-  },
-  mouse: {
-    category: 'Mouse Actions',
-    keys: ['lclick', 'rclick', 'mclick', 'lpress', 'rpress', 'ldrag', 'rdrag', 'wheelup', 'wheeldown']
   }
 }
 

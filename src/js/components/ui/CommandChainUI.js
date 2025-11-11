@@ -1,13 +1,13 @@
 import UIComponentBase from '../UIComponentBase.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
-import i18next from 'i18next'
 
 export default class CommandChainUI extends UIComponentBase {
-  constructor ({ eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor ({ eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n = null } = {}) {
     super(eventBus)
     this.componentName = 'CommandChainUI'
     this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
     this.document = document
+    this.i18n = i18n
 
   }
 
@@ -342,15 +342,30 @@ export default class CommandChainUI extends UIComponentBase {
       const aliasCountSpanEl = this.document.getElementById('aliasCommandCount')
       const commandCountDisplay = this.document.getElementById('commandCountDisplay')
       const aliasCommandCountDisplay = this.document.getElementById('aliasCommandCountDisplay')
-      
+
+      // Find the translation key spans for pluralization
+      const commandTranslationSpan = commandCountDisplay?.querySelector('[data-i18n="commands"], [data-i18n="command_singular"]')
+      const aliasCommandTranslationSpan = aliasCommandCountDisplay?.querySelector('[data-i18n="commands"], [data-i18n="command_singular"]')
+
+      const commandCount = commands.length
+      const translationKey = commandCount === 1 ? 'command_singular' : 'commands'
+
       if (bindToAliasMode && selectedKeyName && this.cache.currentEnvironment !== 'alias') {
         // Show count on Generated Alias section
-        if (aliasCountSpanEl) aliasCountSpanEl.textContent = commands.length.toString()
+        if (aliasCountSpanEl) aliasCountSpanEl.textContent = commandCount.toString()
+        if (aliasCommandTranslationSpan) {
+          aliasCommandTranslationSpan.setAttribute('data-i18n', translationKey)
+          aliasCommandTranslationSpan.textContent = this.i18n?.t(translationKey) || translationKey
+        }
         if (aliasCommandCountDisplay) aliasCommandCountDisplay.style.display = ''
         if (commandCountDisplay) commandCountDisplay.style.display = 'none'
       } else {
         // Show count on Generated Command section (normal mode)
-        if (countSpanEl) countSpanEl.textContent = commands.length.toString()
+        if (countSpanEl) countSpanEl.textContent = commandCount.toString()
+        if (commandTranslationSpan) {
+          commandTranslationSpan.setAttribute('data-i18n', translationKey)
+          commandTranslationSpan.textContent = this.i18n?.t(translationKey) || translationKey
+        }
         if (commandCountDisplay) commandCountDisplay.style.display = ''
         if (aliasCommandCountDisplay) aliasCommandCountDisplay.style.display = 'none'
       }
@@ -416,7 +431,7 @@ export default class CommandChainUI extends UIComponentBase {
     const commandString = typeof command === 'string' ? command : normalizeToString(command)
     
     // Get i18n object for translations
-    const i18n = typeof i18next !== 'undefined' ? i18next : null
+    const i18n = this.i18n
     
     // Enrich command for display
     const richCommand = await enrichForDisplay(commandString, i18n, { eventBus: this.eventBus })
@@ -437,8 +452,8 @@ export default class CommandChainUI extends UIComponentBase {
         // Handle i18n structure with key/params/fallback
         if (displayText.key && displayText.fallback) {
           // Try to get i18n translation if available
-          if (typeof i18next !== 'undefined' && i18next.t) {
-            const translated = i18next.t(displayText.key, displayText.params || {})
+          if (this.i18n && this.i18n.t) {
+            const translated = this.i18n.t(displayText.key, displayText.params || {})
             if (translated && translated !== displayText.key) {
               return translated
             }
@@ -565,9 +580,9 @@ export default class CommandChainUI extends UIComponentBase {
       // Apply translation immediately using multiple fallback methods
       if (typeof window !== 'undefined' && window.applyTranslations) {
         window.applyTranslations(labelEl.parentElement)
-      } else if (typeof i18next !== 'undefined' && i18next.t) {
+      } else if (this.i18n && this.i18n.t) {
         // Fallback: apply translation directly
-        labelEl.textContent = i18next.t(newKey)
+        labelEl.textContent = this.i18n.t(newKey)
       } else {
         // Last resort: use English fallback
         labelEl.textContent = newKey === 'generated_alias' ? 'Generated Alias:' : 'Generated Command:'
@@ -911,7 +926,7 @@ export default class CommandChainUI extends UIComponentBase {
     const aliasPreviewEl = this.document.getElementById('aliasPreview')
     const text = aliasPreviewEl?.textContent?.trim()
     if (!text) {
-      this.showToast(i18next.t('nothing_to_copy') || 'Nothing to copy', 'warning')
+      this.showToast(this.i18n?.t('nothing_to_copy') || 'Nothing to copy', 'warning')
       return
     }
 
@@ -926,27 +941,27 @@ export default class CommandChainUI extends UIComponentBase {
       }
     } catch (error) {
       console.error('Failed to copy alias to clipboard:', error)
-      const fallback = i18next.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
+      const fallback = this.i18n?.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
       this.showToast(fallback, 'error')
     }
   }
 
   _resolveClipboardMessage(key, fallbackKey) {
     if (!key) {
-      return i18next.t(fallbackKey) || fallbackKey
+      return this.i18n?.t(fallbackKey) || fallbackKey
     }
-    const translated = i18next.t(key)
+    const translated = this.i18n?.t(key)
     if (translated && translated !== key) {
       return translated
     }
-    return i18next.t(fallbackKey) || fallbackKey
+    return this.i18n?.t(fallbackKey) || fallbackKey
   }
 
   async copyCommandPreviewToClipboard() {
     const commandPreviewEl = this.document.getElementById('commandPreview')
     const text = commandPreviewEl?.textContent?.trim()
     if (!text) {
-      this.showToast(i18next.t('nothing_to_copy') || 'Nothing to copy', 'warning')
+      this.showToast(this.i18n?.t('nothing_to_copy') || 'Nothing to copy', 'warning')
       return
     }
 
@@ -961,7 +976,7 @@ export default class CommandChainUI extends UIComponentBase {
       }
     } catch (error) {
       console.error('Failed to copy command preview to clipboard:', error)
-      const fallback = i18next.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
+      const fallback = this.i18n?.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
       this.showToast(fallback, 'error')
     }
   }

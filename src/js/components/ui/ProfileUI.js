@@ -22,12 +22,6 @@ export default class ProfileUI extends UIComponentBase {
     
     this.eventListenersSetup = false
 
-    this._t = this._t.bind(this)
-  }
-
-  // Lightweight translation helper
-  _t(key, options) {
-    return this.i18n?.t?.(key, options) || key
   }
 
   // Initialize the ProfileUI component – called by ComponentBase after the
@@ -131,7 +125,7 @@ export default class ProfileUI extends UIComponentBase {
     if (profileEntries.length === 0) {
       const option = this.document.createElement('option')
       option.value = ''
-      option.textContent = this._t('no_profiles_available') || 'No profiles available'
+      option.textContent = this.i18n?.t('no_profiles_available') || 'No profiles available'
       option.disabled = true
       select.appendChild(option)
     } else {
@@ -170,7 +164,7 @@ export default class ProfileUI extends UIComponentBase {
 
       // Update alias count (total aliases in profile)
       const totalAliases = Object.keys(this.cache.aliases || {}).length
-      const aliasText = totalAliases === 1 ? this._t('alias_lowercase') : this._t('aliases_lowercase')
+      const aliasText = totalAliases === 1 ? this.i18n?.t('alias_lowercase') : this.i18n?.t('aliases_lowercase')
       aliasCount.textContent = `${totalAliases} ${aliasText}`
     } else {
       // Show key count, hide alias count
@@ -181,10 +175,10 @@ export default class ProfileUI extends UIComponentBase {
       if (this.cache.profile) {
         const currentBuild = this.cache.profile.builds?.[this.cache.currentEnvironment]
         const count = Object.keys(currentBuild?.keys || {}).length
-        const keyText = count === 1 ? this._t('key') : this._t('keys')
+        const keyText = count === 1 ? this.i18n?.t('key') : this.i18n?.t('keys')
         keyCount.textContent = `${count} ${keyText}`
       } else {
-        keyCount.textContent = this._t('no_profile')
+        keyCount.textContent = this.i18n?.t('no_profile')
       }
     }
 
@@ -203,7 +197,7 @@ export default class ProfileUI extends UIComponentBase {
     const nameInput = this.document.getElementById('profileName')
     const descInput = this.document.getElementById('profileDescription')
 
-    if (title) title.textContent = this._t('new_profile')
+    if (title) title.textContent = this.i18n?.t('new_profile')
     if (nameInput) {
       nameInput.value = ''
       nameInput.placeholder = 'Enter profile name'
@@ -220,7 +214,7 @@ export default class ProfileUI extends UIComponentBase {
   showCloneProfileModal() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     if (!this.cache.profile) {
-      this.showToast(this._t('no_profile_selected_to_clone'), 'warning')
+      this.showToast(this.i18n?.t('no_profile_selected_to_clone'), 'warning')
       return
     }
 
@@ -229,7 +223,7 @@ export default class ProfileUI extends UIComponentBase {
     const nameInput = this.document.getElementById('profileName')
     const descInput = this.document.getElementById('profileDescription')
 
-    if (title) title.textContent = this._t('clone_profile')
+    if (title) title.textContent = this.i18n?.t('clone_profile')
     if (nameInput) {
       nameInput.value = `${this.cache.profile.name} Copy`
       nameInput.placeholder = 'Enter new profile name'
@@ -246,7 +240,7 @@ export default class ProfileUI extends UIComponentBase {
   showRenameProfileModal() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     if (!this.cache.profile) {
-      this.showToast(this._t('no_profile_selected_to_rename'), 'warning')
+      this.showToast(this.i18n?.t('no_profile_selected_to_rename'), 'warning')
       return
     }
 
@@ -255,7 +249,7 @@ export default class ProfileUI extends UIComponentBase {
     const nameInput = this.document.getElementById('profileName')
     const descInput = this.document.getElementById('profileDescription')
 
-    if (title) title.textContent = this._t('rename_profile')
+    if (title) title.textContent = this.i18n?.t('rename_profile')
     if (nameInput) {
       nameInput.value = this.cache.profile.name
       nameInput.placeholder = 'Enter profile name'
@@ -279,7 +273,7 @@ export default class ProfileUI extends UIComponentBase {
     const description = descInput ? descInput.value.trim() : ''
 
     if (!name) {
-      this.showToast(this._t('profile_name_required'), 'error')
+      this.showToast(this.i18n?.t('profile_name_required'), 'error')
       return
     }
 
@@ -313,7 +307,7 @@ export default class ProfileUI extends UIComponentBase {
           if (result?.success) {
             await this.renderProfiles()
             this.updateProfileInfo()
-            this.showToast(result.message || this._t('profile_renamed'), 'success')
+            this.showToast(result.message || this.i18n?.t('profile_renamed'), 'success')
           }
           break
         }
@@ -330,15 +324,15 @@ export default class ProfileUI extends UIComponentBase {
   async confirmDeleteProfile() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
     if (!this.cache.profile) {
-      this.showToast(this._t('no_profile_selected_to_delete'), 'warning')
+      this.showToast(this.i18n?.t('no_profile_selected_to_delete'), 'warning')
       return
     }
 
     if (!this.confirmDialog) return
 
-    const message = this._t('confirm_delete_profile', { name: this.cache.profile.name }) ||
+    const message = this.i18n?.t('confirm_delete_profile', { profileName: this.cache.profile.name }) ||
       `Are you sure you want to delete the profile "${this.cache.profile.name}"? This action cannot be undone.`
-    const title = this._t('confirm_delete') || 'Confirm Delete'
+    const title = this.i18n?.t('confirm_delete') || 'Confirm Delete'
 
     if (await this.confirmDialog.confirm(message, title, 'danger', 'profileDelete')) {
       this.deleteCurrentProfile()

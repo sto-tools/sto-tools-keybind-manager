@@ -23,7 +23,7 @@ const STO_DATA = {
             rawCommand: {
               type: 'text',
               default: '',
-              placeholder: 'Enter any STO command (e.g., Target_Enemy_Near)',
+              placeholder: 'command_definitions.parameter_placeholders.any_sto_command',
               label: 'Command:'
             }
           }
@@ -47,7 +47,7 @@ const STO_DATA = {
             entityName: {
               type: 'text',
               default: 'EntityName',
-              placeholder: 'Enter entity name',
+              placeholder: 'command_definitions.parameter_placeholders.entity_name',
             },
           },
         },
@@ -282,8 +282,8 @@ const STO_DATA = {
           icon: '👕',
           customizable: true,
           parameters: {
-            modifier1: { type: 'text', default: 'modifier1', placeholder: 'First modifier' },
-            modifier2: { type: 'text', default: 'modifier2', placeholder: 'Second modifier' },
+            modifier1: { type: 'text', default: 'modifier1', placeholder: 'command_definitions.parameter_placeholders.first_modifier' },
+            modifier2: { type: 'text', default: 'modifier2', placeholder: 'command_definitions.parameter_placeholders.second_modifier' },
           },
         },
       },
@@ -335,7 +335,7 @@ const STO_DATA = {
           icon: '🤝',
           customizable: true,
           parameters: {
-            name: { type: 'text', default: '', placeholder: 'Entity name (optional)' },
+            name: { type: 'text', default: '', placeholder: 'command_definitions.parameter_placeholders.entity_name_optional' },
           },
         },
       },

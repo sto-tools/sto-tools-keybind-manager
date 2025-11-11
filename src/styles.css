@@ -4471,6 +4471,7 @@ input:checked + .slider:before {
   color: #ffffff;
 }
 
+
 /* Validation status colors */
 .status-success { color: var(--success); }
 .status-warning { color: var(--warning); }

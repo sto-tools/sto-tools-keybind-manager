@@ -102,7 +102,7 @@ export default class ParameterCommandUI extends UIComponentBase {
     modal.innerHTML = `
       <div class="modal-content">
         <div class="modal-header">
-          <h3 id="parameterModalTitle">Configure Command Parameters</h3>
+          <h3 id="parameterModalTitle" data-i18n="parameter_configuration">Parameter Configuration</h3>
           <button class="modal-close" data-modal="parameterModal">
             <i class="fas fa-times"></i>
           </button>
@@ -110,13 +110,13 @@ export default class ParameterCommandUI extends UIComponentBase {
         <div class="modal-body">
           <div id="parameterInputs"></div>
           <div class="command-preview-modal">
-            <label>Generated Command:</label>
+            <label>${this.i18n?.t('generated_command') || 'Generated Command:'}</label>
             <div class="command-preview" id="parameterCommandPreview"></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="saveParameterCommandBtn">Add Command</button>
-          <button class="btn btn-secondary" data-modal="parameterModal">Cancel</button>
+          <button class="btn btn-primary" id="saveParameterCommandBtn">${this.i18n?.t?.('add_command') || 'Add Command'}</button>
+          <button class="btn btn-secondary" data-modal="parameterModal">${this.i18n?.t?.('cancel') || 'Cancel'}</button>
         </div>
       </div>`
 
@@ -157,7 +157,7 @@ export default class ParameterCommandUI extends UIComponentBase {
 
     if (!container || !titleElement) return
 
-    titleElement.textContent = `Configure: ${commandDef.name}`
+    titleElement.textContent = `${this.i18n?.t('configure_colon') || 'Configure:'} ${commandDef.name}`
     container.innerHTML = ''
     this.buildParameterInputs(container, commandDef)
 
@@ -230,7 +230,7 @@ export default class ParameterCommandUI extends UIComponentBase {
 
     if (!container || !titleElement) return
 
-    titleElement.textContent = `Edit: ${commandDef.name}`
+    titleElement.textContent = `${this.i18n?.t('edit_colon') || 'Edit:'} ${commandDef.name}`
     container.innerHTML = ''
     this.buildParameterInputs(container, commandDef, existingParams)
 
@@ -414,24 +414,29 @@ export default class ParameterCommandUI extends UIComponentBase {
     if (paramDef.help) return paramDef.help
 
     const helpMap = {
-      tray:         'Tray number (0-9)',
-      slot:         'Slot number (0-9)',
-      start_tray:   'Starting tray number',
-      end_tray:     'Ending tray number',
-      start_slot:   'Starting slot number',
-      end_slot:     'Ending slot number',
-      backup_tray:  'Backup tray number',
-      backup_slot:  'Backup slot number',
-      active:       '0: Disabled, 1: Enabled',
-      entityName:   'Name of the entity to target',
-      message:      'Message text to send',
-      distance:     'Camera distance value',
-      amount:       'Throttle adjustment amount',
-      position:     'Throttle position (0-100)',
-      filename:     'File name (without extension)',
-      state:        '1 to enable, 0 to disable',
-      verb:         'Communication channel (say, team, zone)',
-      alias_name:   'Name of the alias to execute',
+      tray:         this.i18n?.t('parameter_help.tray') || 'Tray number (0-9)',
+      slot:         this.i18n?.t('parameter_help.slot') || 'Slot number (0-9)',
+      start_tray:   this.i18n?.t('start_tray') || 'Starting tray number',
+      end_tray:     this.i18n?.t('end_tray') || 'Ending tray number',
+      start_slot:   this.i18n?.t('start_slot') || 'Starting slot number',
+      end_slot:     this.i18n?.t('end_slot') || 'Ending slot number',
+      backup_tray:  this.i18n?.t('backup_tray') || 'Backup tray number',
+      backup_slot:  this.i18n?.t('backup_slot') || 'Backup slot number',
+      backup_start_tray: this.i18n?.t('backup_start_tray') || 'Backup start tray number',
+      backup_start_slot: this.i18n?.t('backup_start_slot') || 'Backup start slot number',
+      backup_end_tray:   this.i18n?.t('backup_end_tray') || 'Backup end tray number',
+      backup_end_slot:   this.i18n?.t('backup_end_slot') || 'Backup end slot number',
+      active:       this.i18n?.t('parameter_help.active') || '0: Disabled, 1: Enabled',
+      entityName:   this.i18n?.t('parameter_help.entityName') || 'Name of the entity to target',
+      message:      this.i18n?.t('parameter_help.message') || 'Message text to send',
+      distance:     this.i18n?.t('parameter_help.distance') || 'Camera distance value',
+      amount:       this.i18n?.t('parameter_help.amount') || 'Throttle adjustment amount',
+      position:     this.i18n?.t('parameter_help.position') || 'Throttle position (0-100)',
+      filename:     this.i18n?.t('parameter_help.filename') || 'File name (without extension)',
+      state:        this.i18n?.t('parameter_help.state') || '1 to enable, 0 to disable',
+      verb:         this.i18n?.t('parameter_help.verb') || 'Communication channel (say, team, zone)',
+      alias_name:   this.i18n?.t('parameter_help.alias_name') || 'Name of the alias to execute',
+      command_type: this.i18n?.t('parameter_help.command_type') || 'Command execution type (STOTrayExecByTray shows UI, TrayExecByTray does not)'
     }
 
     return helpMap[paramName] || 'Parameter value'
@@ -443,10 +448,10 @@ export default class ParameterCommandUI extends UIComponentBase {
       return this.i18n?.t?.(`verb.${value}`) || value
     }
     if (value === 'STOTrayExecByTray') {
-      return 'STOTrayExecByTray (shows key binding on UI)'
+      return this.i18n?.t?.('stotrayexecbytray_description') || value
     }
     if (value === 'TrayExecByTray') {
-      return 'TrayExecByTray (no UI indication)'
+      return this.i18n?.t?.('trayexecbytray_description') || value
     }
     return value
   }
@@ -458,7 +463,7 @@ export default class ParameterCommandUI extends UIComponentBase {
       inputGroup.className = 'form-group'
 
       const label = this.document.createElement('label')
-      label.textContent = this.i18n?.t?.(paramName) || this.formatParameterName(paramName)
+      label.textContent = paramDef.label || this.i18n?.t?.(paramName) || this.formatParameterName(paramName)
       label.setAttribute('for', `param_${paramName}`)
 
       let inputEl
@@ -482,7 +487,14 @@ export default class ParameterCommandUI extends UIComponentBase {
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
         inputEl.value = selectedVal ?? ''
-        if (paramDef.placeholder) inputEl.placeholder = paramDef.placeholder
+        if (paramDef.placeholder) {
+          // Translate placeholder if it's a translation key
+          if (paramDef.placeholder.startsWith('command_definitions.') && this.i18n) {
+            inputEl.placeholder = this.i18n.t(paramDef.placeholder) || paramDef.placeholder
+          } else {
+            inputEl.placeholder = paramDef.placeholder
+          }
+        }
         if (paramDef.type === 'number') {
           if (paramDef.min !== undefined)  inputEl.min  = paramDef.min
           if (paramDef.max !== undefined)  inputEl.max  = paramDef.max

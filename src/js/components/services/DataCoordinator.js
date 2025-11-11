@@ -1,7 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import { respond, request } from '../../core/requestResponse.js'
 import { normalizeProfile, needsNormalization } from '../../lib/profileNormalizer.js'
-import i18next from 'i18next'
 
 /**
  * DataCoordinator - Single source of truth for all data operations
@@ -91,11 +90,11 @@ import i18next from 'i18next'
  * })
  */
 export default class DataCoordinator extends ComponentBase {
-  constructor({ eventBus, storage }) {
+  constructor({ eventBus, storage, i18n = i18next }) {
     super(eventBus)
     this.componentName = 'DataCoordinator'
     this.storage = storage
-    this.i18n = typeof i18next !== 'undefined' ? i18next : null
+    this.i18n = i18n
     
     // Cache current state
     this.state = {
@@ -174,8 +173,8 @@ export default class DataCoordinator extends ComponentBase {
         
         // Show modal asking if user wants to overwrite
         if (typeof window !== 'undefined' && window.confirmDialog) {
-          const message = `A profile named "Default" already exists. Loading default data would overwrite it. Do you want to continue?`
-          const title = 'Default Profile Exists'
+          const message = this.i18n?.t('default_profile_exists_message') || `A profile named "Default" already exists. Loading default data would overwrite it. Do you want to continue?`
+          const title = this.i18n?.t('default_profile_exists_title') || 'Default Profile Exists'
           
           const confirmed = await window.confirmDialog.confirm(message, title, 'warning', 'loadDefaultData')
           if (!confirmed) {
@@ -392,10 +391,10 @@ export default class DataCoordinator extends ComponentBase {
         currentProfile = this.buildVirtualProfile(profile, this.state.currentEnvironment)
       }
       
-      return { 
-        success: true, 
-        switched: false, 
-        message: 'Already on this profile',
+      return {
+        success: true,
+        switched: false,
+        message: this.i18n?.t?.('already_on_profile') || 'Already on this profile',
         profile: currentProfile
       }
     }
@@ -430,11 +429,14 @@ export default class DataCoordinator extends ComponentBase {
       timestamp: Date.now()
     }, { synchronous: true })
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       switched: true,
       profile: virtualProfile,
-      message: `Switched to ${profile.name} (${this.state.currentEnvironment})`
+      message: this.i18n?.t?.('switched_to_profile', {
+        name: profile.name,
+        environment: this.state.currentEnvironment
+      }) || `Switched to ${profile.name} (${this.state.currentEnvironment})`
     }
   }
 
@@ -487,7 +489,7 @@ export default class DataCoordinator extends ComponentBase {
         success: true,
         profileId,
         profile,
-        message: `Profile "${name}" created`
+        message: this.i18n?.t?.('profile_created', { name }) || `Profile "${name}" created`
       }
     } catch (error) {
       const message = this.i18n?.t?.('failed_to_create_profile', { error: error.message }) || `Failed to create profile: ${error.message}`
@@ -546,7 +548,7 @@ export default class DataCoordinator extends ComponentBase {
         success: true,
         profileId,
         profile: clonedProfile,
-        message: `Profile "${newName}" created from "${sourceProfile.name}"`
+        message: this.i18n?.t?.('profile_created_from', { newName, sourceProfile: sourceProfile.name }) || `Profile "${newName}" created from "${sourceProfile.name}"`
       }
     } catch (error) {
       const message = this.i18n?.t?.('failed_to_clone_profile', { error: error.message }) || `Failed to clone profile: ${error.message}`
@@ -674,7 +676,7 @@ export default class DataCoordinator extends ComponentBase {
         success: true,
         deletedProfile: profile,
         switchedProfile,
-        message: `Profile "${profile.name}" deleted`
+        message: this.i18n?.t?.('profile_deleted', { profileName: profile.name }) || `Profile "${profile.name}" deleted`
       }
     } catch (error) {
       const message = this.i18n?.t?.('failed_to_delete_profile', { error: error.message }) || `Failed to delete profile: ${error.message}`

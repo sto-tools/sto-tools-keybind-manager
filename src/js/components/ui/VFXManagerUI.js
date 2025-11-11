@@ -1,10 +1,11 @@
 import UIComponentBase from '../UIComponentBase.js'
 
 export default class VFXManagerUI extends UIComponentBase {
-  constructor({ eventBus, modalManager } = {}) {
+  constructor({ eventBus, modalManager, i18n } = {}) {
     super(eventBus)
     this.componentName = 'VFXManagerUI'
     this.modalManager = modalManager
+    this.i18n = i18n
     this.domListenersSetup = false
     this.vfxManager = null
   }
@@ -104,14 +105,14 @@ export default class VFXManagerUI extends UIComponentBase {
     const spaceCount = this.vfxManager.getEffectCount('space')
     const spaceCountEl = document.getElementById('spaceEffectCount')
     if (spaceCountEl) {
-      spaceCountEl.textContent = spaceCount
+      spaceCountEl.textContent = `${spaceCount} ${this.i18n?.t?.('selected') || 'selected'}`
     }
 
     // Update ground count
     const groundCount = this.vfxManager.getEffectCount('ground')
     const groundCountEl = document.getElementById('groundEffectCount')
     if (groundCountEl) {
-      groundCountEl.textContent = groundCount
+      groundCountEl.textContent = `${groundCount} ${this.i18n?.t?.('selected') || 'selected'}`
     }
   }
 
