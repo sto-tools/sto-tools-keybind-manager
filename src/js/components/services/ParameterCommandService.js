@@ -541,6 +541,10 @@ export default class ParameterCommandService extends ComponentBase {
           // Handle Chat Log command
           const baseCmd = cmd || 'ChatLog'
           cmd = `${baseCmd} ${p.state}`
+        } else if (commandId === 'autofire_set' && p.state !== undefined) {
+          // Handle Set Autofire command
+          const baseCmd = cmd || 'defaultautoattack'
+          cmd = `${baseCmd} ${p.state}`
         } else if (commandId === 'ui_tooltip_delay' && p.seconds !== undefined) {
           // Handle UI Tooltip Delay command
           const baseCmd = cmd || 'ui_TooltipDelay'

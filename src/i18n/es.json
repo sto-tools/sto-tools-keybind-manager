@@ -391,9 +391,9 @@
       "name": "Captura de pantalla JPG",
       "description": "Guardar una captura de pantalla como JPG"
     },
-    "autofire_toggle": {
-      "name": "Alternar disparo automático",
-      "description": "Alternar disparo automático de armas"
+    "autofire_set": {
+      "name": "Establecer disparo automático",
+      "description": "Activar y desactivar el disparo automático de armas. X = 1 lo activa y X = 0 lo desactiva."
     },
     "bind_save_file": {
       "name": "Guardar atajos a archivo",

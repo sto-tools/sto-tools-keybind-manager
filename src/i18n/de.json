@@ -378,9 +378,9 @@
       "name": "Screenshot JPG",
       "description": "Einen Screenshot als JPG speichern"
     },
-    "autofire_toggle": {
-      "name": "Autofeuer umschalten",
-      "description": "Waffen-Autofeuer umschalten"
+    "autofire_set": {
+      "name": "Autofeuer einstellen",
+      "description": "Waffen-Autofeuer ein- und ausschalten. X = 1 schaltet es ein und X = 0 schaltet es aus."
     },
     "bind_save_file": {
       "name": "Binds in Datei speichern",

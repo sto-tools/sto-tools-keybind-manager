@@ -404,9 +404,9 @@
       "name": "Screenshot JPG",
       "description": "Save a screenshot as JPG"
     },
-    "autofire_toggle": {
-      "name": "Toggle Autofire",
-      "description": "Toggle weapon autofire"
+    "autofire_set": {
+      "name": "Set Autofire",
+      "description": "Turn weapon autofire off and on. X = 1 turns it on and X = 0 turns it off."
     },
     "bind_save_file": {
       "name": "Save Binds to File",

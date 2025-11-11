@@ -800,9 +800,9 @@ const STO_DATA = {
       commands: {
         toggle_hud: {
           name: 'Toggle HUD',
-          command: '+GenToggleHUD',
+          command: '++ShowGameUI',
           description: 'Toggle HUD visibility',
-          syntax: '+GenToggleHUD',
+          syntax: '++ShowGameUI',
           icon: '👁️',
         },
         screenshot: {
@@ -819,12 +819,16 @@ const STO_DATA = {
           syntax: 'screenshot_jpg',
           icon: '📷',
         },
-        autofire_toggle: {
-          name: 'Toggle Autofire',
-          command: '+GenToggleAutofire',
-          description: 'Toggle weapon autofire',
-          syntax: '+GenToggleAutofire',
+        autofire_set: {
+          name: 'Set Autofire',
+          command: 'defaultautoattack',
+          description: 'Turn weapon autofire off and on. X = 1 turns it on and X = 0 turns it off.',
+          syntax: 'defaultautoattack <x>',
           icon: '🔁',
+          customizable: true,
+          parameters: {
+            state: { type: 'number', min: 0, max: 1, default: 1 }
+          }
         },
         bind_save_file: {
           name: 'Save Binds to File',

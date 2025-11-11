@@ -382,9 +382,9 @@
       "name": "Capture d'écran JPG",
       "description": "Sauvegarder une capture d'écran en JPG"
     },
-    "autofire_toggle": {
-      "name": "Basculer tir automatique",
-      "description": "Basculer le tir automatique des armes"
+    "autofire_set": {
+      "name": "Définir tir automatique",
+      "description": "Activer et désactiver le tir automatique des armes. X = 1 l'active et X = 0 le désactive."
     },
     "bind_save_file": {
       "name": "Sauvegarder raccourcis vers fichier",
