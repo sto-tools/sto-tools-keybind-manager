@@ -39,6 +39,10 @@ export default class CommandWarnRule extends ValidatorBase{
     })
   }
 
+  get i18n() {
+    return (typeof window !== 'undefined' && window.i18next) ? window.i18next : null
+  }
+
   validate(ctx){
     const { commands } = ctx
     if(!Array.isArray(commands) || commands.length === 0) return null
@@ -51,9 +55,9 @@ export default class CommandWarnRule extends ValidatorBase{
       if(def && def.warning){
         // Translate command name if possible
         let name = def.name || str
-        if(def._id && typeof window !== 'undefined' && window.i18next && window.i18next.t){
+        if(def._id && this.i18n){
           const nameKey = `command_definitions.${def._id}.name`
-          const translatedName = window.i18next.t(nameKey)
+          const translatedName = this.i18n.t(nameKey)
           if(translatedName && translatedName !== nameKey){
             name = translatedName
           }
@@ -61,8 +65,8 @@ export default class CommandWarnRule extends ValidatorBase{
 
         // Translate warning text
         let warnText = def.warning
-        if(typeof window !== 'undefined' && window.i18next && window.i18next.t){
-          const t = window.i18next.t(def.warning)
+        if(this.i18n){
+          const t = this.i18n.t(def.warning)
           warnText = t && t !== def.warning ? t : def.warning
         }
 

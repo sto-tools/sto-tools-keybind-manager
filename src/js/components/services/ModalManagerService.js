@@ -5,9 +5,10 @@ import ComponentBase from '../ComponentBase.js'
  * regeneration support.
  */
 export default class ModalManagerService extends ComponentBase {
-  constructor(eventBus) {
+  constructor({ eventBus, i18n } = {}) {
     super(eventBus)
     this.componentName = 'ModalManagerService'
+    this.i18n = i18n
 
     this.overlayId = 'modalOverlay'
     this.regenerateCallbacks = {} // modalId -> callback
@@ -17,8 +18,8 @@ export default class ModalManagerService extends ComponentBase {
     this.setupEventListeners()
 
     // Re-translate currently open modal whenever language changes
-    if (typeof window !== 'undefined' && window.i18next) {
-      window.i18next.on('languageChanged', () => {
+    if (this.i18n) {
+      this.i18n.on('languageChanged', () => {
         const open = document.querySelector('.modal.active')
         if (!open) return
         const modalId = open.id

@@ -90,7 +90,7 @@ import { normalizeProfile, needsNormalization } from '../../lib/profileNormalize
  * })
  */
 export default class DataCoordinator extends ComponentBase {
-  constructor({ eventBus, storage, i18n = i18next }) {
+  constructor({ eventBus, storage, i18n }) {
     super(eventBus)
     this.componentName = 'DataCoordinator'
     this.storage = storage
@@ -173,8 +173,8 @@ export default class DataCoordinator extends ComponentBase {
         
         // Show modal asking if user wants to overwrite
         if (typeof window !== 'undefined' && window.confirmDialog) {
-          const message = this.i18n?.t('default_profile_exists_message') || `A profile named "Default" already exists. Loading default data would overwrite it. Do you want to continue?`
-          const title = this.i18n?.t('default_profile_exists_title') || 'Default Profile Exists'
+          const message = this.i18n.t('default_profile_exists_message')
+          const title = this.i18n.t('default_profile_exists_title')
           
           const confirmed = await window.confirmDialog.confirm(message, title, 'warning', 'loadDefaultData')
           if (!confirmed) {
@@ -310,7 +310,7 @@ export default class DataCoordinator extends ComponentBase {
       
     } catch (error) {
       console.error(`[${this.componentName}] Failed to load initial state:`, error)
-      const message = this.i18n?.t?.('failed_to_load_profile_data', { error: error.message }) || `Failed to load profile data: ${error.message}`
+      const message = this.i18n.t('failed_to_load_profile_data', { error: error.message })
       throw new Error(message)
     }
   }
@@ -394,7 +394,7 @@ export default class DataCoordinator extends ComponentBase {
       return {
         success: true,
         switched: false,
-        message: this.i18n?.t?.('already_on_profile') || 'Already on this profile',
+        message: this.i18n.t('already_on_profile'),
         profile: currentProfile
       }
     }
@@ -433,10 +433,10 @@ export default class DataCoordinator extends ComponentBase {
       success: true,
       switched: true,
       profile: virtualProfile,
-      message: this.i18n?.t?.('switched_to_profile', {
+      message: this.i18n.t('switched_to_profile', {
         name: profile.name,
         environment: this.state.currentEnvironment
-      }) || `Switched to ${profile.name} (${this.state.currentEnvironment})`
+      })
     }
   }
 
@@ -445,7 +445,7 @@ export default class DataCoordinator extends ComponentBase {
    */
   async createProfile(name, description = '', mode = 'space') {
     if (!name || !name.trim()) {
-      const message = this.i18n?.t?.('profile_name_is_required') || 'Profile name is required'
+      const message = this.i18n.t('profile_name_is_required')
       throw new Error(message)
     }
 
@@ -453,7 +453,7 @@ export default class DataCoordinator extends ComponentBase {
 
     // Check if profile already exists
     if (this.state.profiles[profileId]) {
-      const message = this.i18n?.t?.('profile_already_exists') || `Profile with name "${name}" already exists`
+      const message = this.i18n.t('profile_already_exists')
       throw new Error(message)
     }
 
@@ -489,10 +489,10 @@ export default class DataCoordinator extends ComponentBase {
         success: true,
         profileId,
         profile,
-        message: this.i18n?.t?.('profile_created', { name }) || `Profile "${name}" created`
+        message: this.i18n.t('profile_created', { name })
       }
     } catch (error) {
-      const message = this.i18n?.t?.('failed_to_create_profile', { error: error.message }) || `Failed to create profile: ${error.message}`
+      const message = this.i18n.t('failed_to_create_profile', { error: error.message })
       throw new Error(message)
     }
   }
@@ -502,13 +502,13 @@ export default class DataCoordinator extends ComponentBase {
    */
   async cloneProfile(sourceId, newName) {
     if (!sourceId || !newName || !newName.trim()) {
-      const message = this.i18n?.t?.('profile_name_is_required') || 'Source profile ID and new name are required'
+      const message = this.i18n.t('source_profile_and_new_name_required')
       throw new Error(message)
     }
 
     const sourceProfile = this.state.profiles[sourceId]
     if (!sourceProfile) {
-      const message = this.i18n?.t?.('source_profile_not_found') || 'Source profile not found'
+      const message = this.i18n.t('source_profile_not_found')
       throw new Error(message)
     }
 
@@ -516,7 +516,7 @@ export default class DataCoordinator extends ComponentBase {
 
     // Check if profile already exists
     if (this.state.profiles[profileId]) {
-      const message = this.i18n?.t?.('profile_already_exists') || `Profile with name "${newName}" already exists`
+      const message = this.i18n.t('profile_already_exists')
       throw new Error(message)
     }
 
@@ -548,10 +548,10 @@ export default class DataCoordinator extends ComponentBase {
         success: true,
         profileId,
         profile: clonedProfile,
-        message: this.i18n?.t?.('profile_created_from', { newName, sourceProfile: sourceProfile.name }) || `Profile "${newName}" created from "${sourceProfile.name}"`
+        message: this.i18n.t('profile_created_from', { newName, sourceProfile: sourceProfile.name })
       }
     } catch (error) {
-      const message = this.i18n?.t?.('failed_to_clone_profile', { error: error.message }) || `Failed to clone profile: ${error.message}`
+      const message = this.i18n.t('failed_to_clone_profile', { error: error.message })
       throw new Error(message)
     }
   }
@@ -561,13 +561,13 @@ export default class DataCoordinator extends ComponentBase {
    */
   async renameProfile(profileId, newName, description = '') {
     if (!profileId || !newName || !newName.trim()) {
-      const message = this.i18n?.t?.('profile_name_is_required') || 'Profile ID and new name are required'
+      const message = this.i18n.t('profile_name_is_required')
       throw new Error(message)
     }
 
     const profile = this.state.profiles[profileId]
     if (!profile) {
-      const message = this.i18n?.t?.('profile_not_found') || 'Profile not found'
+      const message = this.i18n.t('profile_not_found')
       throw new Error(message)
     }
 
@@ -600,7 +600,7 @@ export default class DataCoordinator extends ComponentBase {
         message: `Profile renamed to "${newName}"`
       }
     } catch (error) {
-      const message = this.i18n?.t?.('failed_to_rename_profile', { error: error.message }) || `Failed to rename profile: ${error.message}`
+      const message = this.i18n.t('failed_to_rename_profile', { error: error.message })
       throw new Error(message)
     }
   }
@@ -610,19 +610,19 @@ export default class DataCoordinator extends ComponentBase {
    */
   async deleteProfile(profileId) {
     if (!profileId) {
-      const message = this.i18n?.t?.('profile_id_required') || 'Profile ID is required'
+      const message = this.i18n.t('profile_id_required')
       throw new Error(message)
     }
 
     const profile = this.state.profiles[profileId]
     if (!profile) {
-      const message = this.i18n?.t?.('profile_not_found') || 'Profile not found'
+      const message = this.i18n.t('profile_not_found')
       throw new Error(message)
     }
 
     const profileCount = Object.keys(this.state.profiles).length
     if (profileCount <= 1) {
-      const message = this.i18n?.t?.('cannot_delete_the_last_profile') || 'Cannot delete the last profile'
+      const message = this.i18n.t('cannot_delete_the_last_profile')
       throw new Error(message)
     }
 
@@ -676,10 +676,10 @@ export default class DataCoordinator extends ComponentBase {
         success: true,
         deletedProfile: profile,
         switchedProfile,
-        message: this.i18n?.t?.('profile_deleted', { profileName: profile.name }) || `Profile "${profile.name}" deleted`
+        message: this.i18n.t('profile_deleted', { profileName: profile.name })
       }
     } catch (error) {
-      const message = this.i18n?.t?.('failed_to_delete_profile', { error: error.message }) || `Failed to delete profile: ${error.message}`
+      const message = this.i18n.t('failed_to_delete_profile', { error: error.message })
       throw new Error(message)
     }
   }
@@ -909,7 +909,7 @@ export default class DataCoordinator extends ComponentBase {
 
         return { success: true, profile: updatedProfile }
       } catch (error) {
-        const message = this.i18n?.t?.('failed_to_save_profile', { error: error.message }) || `Failed to save profile: ${error.message}`
+        const message = this.i18n.t('failed_to_save_profile', { error: error.message })
         throw new Error(message)
       }
   }
@@ -1107,7 +1107,7 @@ export default class DataCoordinator extends ComponentBase {
         await this.storage.saveProfile(profileId, profile)
         this.state.profiles[profileId] = profile
       } catch (error) {
-        const message = this.i18n?.t?.('failed_to_save_profile', { error: error.message }) || `Failed to save profile: ${error.message}`
+        const message = this.i18n.t('failed_to_save_profile', { error: error.message })
         throw new Error(message)
       }
     }
@@ -1182,7 +1182,7 @@ export default class DataCoordinator extends ComponentBase {
         await this.storage.saveProfile(profileId, profile)
         this.state.profiles[profileId] = profile
       } catch (error) {
-        const message = this.i18n?.t?.('failed_to_save_profile', { error: error.message }) || `Failed to save profile: ${error.message}`
+        const message = this.i18n.t('failed_to_save_profile', { error: error.message })
         throw new Error(message)
       }
     }
@@ -1260,7 +1260,7 @@ export default class DataCoordinator extends ComponentBase {
 
           console.log(`[${this.componentName}] Profile ${profileId} migrated from ${originalVersion} to ${newVersion}`)
         } catch (error) {
-          const message = this.i18n?.t?.('failed_to_save_profile', { error: error.message }) || `Failed to save profile: ${error.message}`
+          const message = this.i18n.t('failed_to_save_profile', { error: error.message })
           throw new Error(message)
         }
       }

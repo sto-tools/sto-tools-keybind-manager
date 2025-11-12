@@ -11,7 +11,10 @@ describe('ProjectManagementService.restoreFromProjectContent', () => {
     service = new ProjectManagementService({
       eventBus: fixture.eventBus,
       storage: fixture.storage,
-      i18n: { t: (key) => (key === 'backup_restored_successfully' ? 'Restored!' : key) }
+      i18n: { t: (key) => {
+        if (key === 'backup_restored_successfully') return 'Application state restored successfully'
+        return key
+      }}
     })
     service.ui = { showToast: vi.fn() }
     service.init()

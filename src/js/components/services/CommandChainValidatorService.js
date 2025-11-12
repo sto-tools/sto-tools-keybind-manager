@@ -13,7 +13,7 @@ import RULES from './validators/index.js'
  *   • Otherwise emit success (green)
  */
 export default class CommandChainValidatorService extends ComponentBase {
-  constructor({ eventBus, i18n = null, ui = null } = {}) {
+  constructor({ eventBus, i18n, ui = null } = {}) {
     super(eventBus)
     this.componentName = 'CommandChainValidatorService'
     this.i18n = i18n

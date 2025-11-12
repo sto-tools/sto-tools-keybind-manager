@@ -80,7 +80,7 @@ export default class StorageService extends ComponentBase {
         
         // Show success message
         if (typeof window !== 'undefined' && window.stoUI && window.stoUI.showToast) {
-          const message = this.i18n?.t('application_reset_successfully') || 'Application reset successfully. All profiles cleared.'
+          const message = this.i18n.t('application_reset_successfully')
           window.stoUI.showToast(message, 'success')
         }
       } else {

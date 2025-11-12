@@ -1,18 +1,18 @@
 ﻿import UIComponentBase from '../UIComponentBase.js'
-import i18next from 'i18next'
 
 /**
  * CommandLibraryUI - Handles all command library UI operations
  * Manages command chain rendering, library setup, and user interactions
  */
 export default class CommandLibraryUI extends UIComponentBase {
-  constructor({ service, eventBus, ui, modalManager, document }) {
+  constructor({ service, eventBus, ui, modalManager, document, i18n }) {
     super(eventBus)
     this.componentName = 'CommandLibraryUI'
     this.service = service
     this.ui = ui
     this.modalManager = modalManager
     this.document = document || (typeof window !== 'undefined' ? window.document : null)
+    this.i18n = i18n
     this.eventListenersSetup = false
 
     this._rebuilding = false
@@ -146,15 +146,11 @@ export default class CommandLibraryUI extends UIComponentBase {
             ([cmdId, cmd]) => {
               // Try to get translated name from i18n, fallback to original name
               const translationKey = `command_definitions.${cmdId}.name`
-              const translatedName = (typeof i18next !== 'undefined' && i18next.exists(translationKey)) 
-                ? i18next.t(translationKey) 
-                : cmd.name
-              
+              const translatedName = this.i18n.t(translationKey)
+
               // Try to get translated description from i18n, fallback to original description
               const descTranslationKey = `command_definitions.${cmdId}.description`
-              const translatedDescription = (typeof i18next !== 'undefined' && i18next.exists(descTranslationKey)) 
-                ? i18next.t(descTranslationKey) 
-                : cmd.description
+              const translatedDescription = this.i18n.t(descTranslationKey)
               
               return `
             <div class="command-item ${cmd.customizable ? 'customizable' : ''}" data-command="${cmdId}" title="${translatedDescription}${cmd.customizable ? ' (Customizable)' : ''}">
@@ -262,7 +258,7 @@ export default class CommandLibraryUI extends UIComponentBase {
             <h4 class="${isCollapsed ? 'collapsed' : ''}" data-category="${categoryType}">
                 <i class="fas fa-chevron-right category-chevron"></i>
                 <i class="${iconClass}"></i>
-                ${typeof i18next !== 'undefined' ? i18next.t(titleKey) : titleKey}
+                ${this.i18n.t(titleKey)}
                 <span class="command-count">(${aliases.length})</span>
             </h4>
             <div class="category-commands ${isCollapsed ? 'collapsed' : ''}">
@@ -389,12 +385,12 @@ export default class CommandLibraryUI extends UIComponentBase {
           allBs.forEach(bsName => {
             const loaderAlias = `sto_kb_bindset_enable_${env}_${sanitizeName(bsName)}`
             // Format: "Bindset: Space - Enable Primary Bindset" or "Bindset: Ground - Enable <User specified name>"
-            const envTranslated = typeof i18next !== 'undefined' ? i18next.t(env) : env.charAt(0).toUpperCase() + env.slice(1)
-            const bindsetNameTranslated = bsName === 'Primary Bindset' && typeof i18next !== 'undefined' 
-              ? i18next.t('primary_bindset') 
+            const envTranslated = this.i18n.t(env)
+            const bindsetNameTranslated = bsName === 'Primary Bindset'
+              ? this.i18n.t('primary_bindset')
               : bsName
-            const enableText = typeof i18next !== 'undefined' ? i18next.t('bindset_enable') : 'Enable'
-            const displayName = `${typeof i18next !== 'undefined' ? i18next.t('bindsets') : 'Bindset'}: ${envTranslated} - ${enableText} ${bindsetNameTranslated}`
+            const enableText = this.i18n.t('bindset_enable')
+            const displayName = `${this.i18n.t('bindsets')}: ${envTranslated} - ${enableText} ${bindsetNameTranslated}`
             bindsetAliasItems.push([
               loaderAlias,
               {

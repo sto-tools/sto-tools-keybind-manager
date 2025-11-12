@@ -117,7 +117,7 @@ export default class STOToolsKeybindManager {
         throw new Error('Required dependencies not loaded')
       }
       
-      this.modalManagerService = new ModalManagerService(eventBus)
+      this.modalManagerService = new ModalManagerService({ eventBus, i18n })
       this.modalManagerService.init()
       
       const modalManager = this.modalManagerService
@@ -266,6 +266,7 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         modalManager,
         document,
+        i18n: i18next,
       })
 
       this.commandChainService = new CommandChainService({
@@ -428,6 +429,7 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         app: this,
         eventBus,
+        i18n: i18next,
       })
 
       this.projectManagementService.init()
@@ -447,12 +449,12 @@ export default class STOToolsKeybindManager {
       const { default: BindsetSelectorUI }   = await import('./components/ui/BindsetSelectorUI.js')
 
       this.bindsetService  = new BindsetService({ eventBus })
-      this.bindsetManagerUI = new BindsetManagerUI({ eventBus, confirmDialog: this.confirmDialogUI, inputDialog: this.inputDialogUI })
+      this.bindsetManagerUI = new BindsetManagerUI({ eventBus, i18n: i18next, confirmDialog: this.confirmDialogUI, inputDialog: this.inputDialogUI })
       this.bindsetService.init()
       this.bindsetManagerUI.init()
 
       this.bindsetSelectorService = new BindsetSelectorService({ eventBus })
-      this.bindsetSelectorUI = new BindsetSelectorUI({ eventBus, confirmDialog: this.confirmDialogUI, document })
+      this.bindsetSelectorUI = new BindsetSelectorUI({ eventBus, confirmDialog: this.confirmDialogUI, document, i18n: i18next })
       this.bindsetSelectorService.init()
       this.bindsetSelectorUI.init()
 

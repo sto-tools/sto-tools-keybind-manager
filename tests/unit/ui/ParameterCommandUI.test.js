@@ -10,7 +10,9 @@ describe('ParameterCommandUI', () => {
     fixture = createServiceFixture()
     mockModalManager = {
       hide: vi.fn(),
-      show: vi.fn()
+      show: vi.fn(),
+      registerRegenerateCallback: vi.fn(),
+      unregisterRegenerateCallback: vi.fn()
     }
     mockI18n = {
       t: vi.fn((key, params) => {
@@ -385,6 +387,127 @@ describe('ParameterCommandUI', () => {
         commandDef: ui.currentParameterCommand,
         params: { tray: 1, slot: 2 }
       })
+    })
+  })
+
+  describe('Modal Regeneration', () => {
+    it('should register regeneration callback when creating modal', () => {
+      // Mock DOM elements for modal creation
+      const mockModal = {
+        id: 'parameterModal',
+        innerHTML: '',
+        appendChild: vi.fn(),
+        querySelectorAll: vi.fn(() => []),
+        replaceWith: vi.fn()
+      }
+
+      const mockBody = { appendChild: vi.fn() }
+      mockDocument.createElement.mockReturnValue(mockModal)
+      mockDocument.body = mockBody
+      mockDocument.getElementById.mockReturnValue(mockModal)
+
+      // Add 'cancel' translation to mock i18n
+      mockI18n.t.mockImplementation((key) => {
+        const translations = {
+          'cancel': 'Cancel',
+          'add_command': 'Add Command',
+          'generated_command': 'Generated Command:',
+          'parameter_configuration': 'Parameter Configuration'
+        }
+        return translations[key] || key
+      })
+
+      ui.createParameterModal()
+
+      expect(mockModalManager.registerRegenerateCallback).toHaveBeenCalledWith(
+        'parameterModal',
+        expect.any(Function)
+      )
+    })
+
+    it('should regenerate modal content while preserving state', () => {
+      // Mock modal element
+      const mockModal = {
+        id: 'parameterModal',
+        innerHTML: '',
+        querySelectorAll: vi.fn(() => [])
+      }
+
+      mockDocument.getElementById.mockReturnValue(mockModal)
+
+      // Add translations including 'save' for editing mode
+      mockI18n.t.mockImplementation((key) => {
+        const translations = {
+          'cancel': 'Cancel',
+          'add_command': 'Add Command',
+          'save': 'Save',
+          'generated_command': 'Generated Command:',
+          'parameter_configuration': 'Parameter Configuration'
+        }
+        return translations[key] || key
+      })
+
+      // Set up current parameter command in editing mode
+      ui.currentParameterCommand = {
+        commandDef: { name: 'Test Command', parameters: {} },
+        isEditing: true
+      }
+
+      // Mock populateParameterModalForEdit method
+      ui.populateParameterModalForEdit = vi.fn()
+      ui.getParameterValues = vi.fn(() => ({ tray: '1', slot: '2' }))
+
+      // Call regeneration
+      ui.regenerateParameterModal()
+
+      // Verify modal HTML was updated
+      expect(mockModal.innerHTML).toContain('Cancel')
+      expect(mockModal.innerHTML).toContain('Save') // Should show 'Save' in editing mode
+      expect(mockModal.innerHTML).toContain('Generated Command:')
+      expect(mockModal.innerHTML).toContain('Parameter Configuration')
+
+      // Verify state preservation method was called
+      expect(ui.populateParameterModalForEdit).toHaveBeenCalledWith(
+        ui.currentParameterCommand.commandDef,
+        { tray: '1', slot: '2' }
+      )
+    })
+
+    it('should unregister regeneration callback when cancelling', () => {
+      ui.cancelParameterCommand()
+
+      expect(mockModalManager.unregisterRegenerateCallback).toHaveBeenCalledWith('parameterModal')
+    })
+
+    it('should unregister regeneration callback when saving', async () => {
+      // Set up for successful save
+      ui.cache.currentEnvironment = 'space'
+      ui.cache.selectedKey = 'F1'
+      ui.currentParameterCommand = {
+        categoryId: 'testCategory',
+        commandId: 'testCommand'
+      }
+
+      // Mock parameter inputs and preview
+      const mockContainer = {
+        querySelectorAll: vi.fn(() => [
+          { name: 'tray', type: 'number', value: '1' },
+          { name: 'slot', type: 'number', value: '2' }
+        ])
+      }
+      const mockPreviewElement = { textContent: '', style: { color: '' } }
+
+      mockDocument.getElementById.mockImplementation((id) => {
+        if (id === 'parameterInputs') return mockContainer
+        if (id === 'parameterCommandPreview') return mockPreviewElement
+        return null
+      })
+
+      ui.request.mockResolvedValue('+TrayExecByTray 1 2')
+
+      await ui.saveParameterCommand()
+
+      expect(mockModalManager.unregisterRegenerateCallback).toHaveBeenCalledWith('parameterModal')
     })
   })
 })

@@ -6,7 +6,7 @@ import i18next from 'i18next'
  * Pure logic / no DOM querying.  UI interactions live in PreferencesUI.
  */
 export default class PreferencesService extends ComponentBase {
-  constructor({ storage, eventBus, i18n = i18next } = {}) {
+  constructor({ storage, eventBus, i18n } = {}) {
     super(eventBus)
     this.componentName = 'PreferencesService'
     this.storage = storage
@@ -242,11 +242,11 @@ export default class PreferencesService extends ComponentBase {
       if (theme === 'dark') {
         themeIcon.className = 'fas fa-sun'
         themeToggleText.setAttribute('data-i18n', 'light_mode')
-        themeToggleText.textContent = this.i18n?.t('light_mode') || 'Light Mode'
+        themeToggleText.textContent = this.i18n.t('light_mode')
       } else {
         themeIcon.className = 'fas fa-moon'
         themeToggleText.setAttribute('data-i18n', 'dark_mode')
-        themeToggleText.textContent = this.i18n?.t('dark_mode') || 'Dark Mode'
+        themeToggleText.textContent = this.i18n.t('dark_mode')
       }
     }
   }

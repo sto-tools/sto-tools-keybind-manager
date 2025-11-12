@@ -388,18 +388,18 @@ export default class ImportService extends ComponentBase {
           throw new Error('Unknown JSON file format')
         }
       } catch (error) {
-        throw new Error(this.i18n?.t?.('import_failed_invalid_json'))
+        throw new Error(this.i18n.t('import_failed_invalid_json'))
       }
     } else if (filename.endsWith('.txt')) {
       // Determine the current profile for import
       const profileId = this.getCurrentProfileId()
       if (!profileId) {
-        throw new Error(this.i18n?.t?.('no_profile_selected_for_import'))
+        throw new Error(this.i18n.t('no_profile_selected_for_import'))
       }
       
       return this.importKeybindFile(content, profileId)
     } else {
-      throw new Error(this.i18n?.t?.('import_failed_unsupported_format'))
+      throw new Error(this.i18n.t('import_failed_unsupported_format'))
     }
   }
 

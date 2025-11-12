@@ -1,6 +1,5 @@
 import ComponentBase from '../ComponentBase.js'
 
-import i18next from 'i18next'
 import eventBus from '../../core/eventBus.js'
 import FileSystemService, {
   writeFile as fsWriteFile,
@@ -11,12 +10,13 @@ import FileSystemService, {
 export const writeFile = fsWriteFile
 
 export default class SyncService extends ComponentBase {
-  constructor({ eventBus, storage, ui, fs } = {}) {
+  constructor({ eventBus, storage, ui, fs, i18n } = {}) {
     super(eventBus)
     this.componentName = 'SyncService'
 
     this.storage = storage
     this.ui = ui
+    this.i18n = i18n
     this.fs = fs || new FileSystemService({ eventBus })
     this.awaitingSyncDecisionApply = false
     this.pendingSyncAction = null
@@ -62,11 +62,11 @@ export default class SyncService extends ComponentBase {
                 console.log('[SyncService] project:restore-from-content result', result)
                 if (!result?.success) {
                   const errMsg = result?.error || 'Unknown error'
-                  this.ui?.showToast(i18next.t('failed_to_import_project', { error: errMsg }) || `Failed to import project: ${errMsg}`, 'error')
+                  this.ui?.showToast(this.i18n.t('failed_to_import_project', { error: errMsg }), 'error')
                 } else {
                   // Clear any stashed content now that import succeeded
                   this.deferredImportContent = null
-                  this.ui?.showToast(i18next.t('project_imported_from_sync_folder') || 'Application state imported from sync folder', 'success')
+                  this.ui?.showToast(this.i18n.t('project_imported_from_sync_folder'), 'success')
                 }
               } catch (e) {
                 // Handler may not be ready yet – defer until app is ready
@@ -74,15 +74,15 @@ export default class SyncService extends ComponentBase {
                 console.log('[SyncService] deferring import until sto-app-ready')
               }
             } catch (e) {
-              this.ui?.showToast(i18next.t('failed_to_import_project', { error: e.message }) || `Failed to import project: ${e.message}`, 'error')
+              this.ui?.showToast(this.i18n.t('failed_to_import_project', { error: e.message }), 'error')
             }
           } else if (action === 'overwrite') {
             try {
               await this.invokeRequest('export:sync-to-folder', { dirHandle: handle })
               console.log('[SyncService] overwrite: export:sync-to-folder completed')
-              this.ui?.showToast(i18next.t('project_synced_successfully'), 'success')
+              this.ui?.showToast(this.i18n.t('project_synced_successfully'), 'success')
             } catch (e) {
-              this.ui?.showToast(i18next.t('failed_to_sync_project', { error: e.message }), 'error')
+              this.ui?.showToast(this.i18n.t('failed_to_sync_project', { error: e.message }), 'error')
             }
           }
         } finally {
@@ -118,10 +118,10 @@ export default class SyncService extends ComponentBase {
           console.log('[SyncService] deferred project:restore-from-content result', result)
           if (!result?.success) {
             const errMsg = result?.error || 'Unknown error'
-            this.ui?.showToast(i18next.t('failed_to_import_project', { error: errMsg }) || `Failed to import project: ${errMsg}`, 'error')
+            this.ui?.showToast(this.i18n.t('failed_to_import_project', { error: errMsg }), 'error')
           }
         } catch (e) {
-          this.ui?.showToast(i18next.t('failed_to_import_project', { error: e.message }) || `Failed to import project: ${e.message}`, 'error')
+          this.ui?.showToast(this.i18n.t('failed_to_import_project', { error: e.message }), 'error')
         }
       })
     }
@@ -165,13 +165,13 @@ export default class SyncService extends ComponentBase {
       // Implement proper decision tree for browser capability and security context
       if (this.isFirefox()) {
         // Firefox: File System Access API not supported regardless of protocol
-        this.ui?.showToast(i18next.t('sync_not_supported_firefox'), 'error')
+        this.ui?.showToast(this.i18n.t('sync_not_supported_firefox'), 'error')
 
         // Show a more detailed explanation using inform dialog (OK button only)
         if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
           await window.confirmDialog.inform(
-            i18next.t('sync_not_supported_detailed'),
-            i18next.t('sync_not_supported_title'),
+            this.i18n.t('sync_not_supported_detailed'),
+            this.i18n.t('sync_not_supported_title'),
             'info',
             'syncNotSupported'
           )
@@ -183,13 +183,13 @@ export default class SyncService extends ComponentBase {
       // Non-Firefox browsers: Check security context
       if (!this.isSecureContext()) {
         // Insecure context (HTTP) - show specific secure context error
-        this.ui?.showToast(i18next.t('sync_not_supported_secure_context'), 'error')
+        this.ui?.showToast(this.i18n.t('sync_not_supported_secure_context'), 'error')
 
         // Show detailed explanation about secure context requirement
         if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
           await window.confirmDialog.inform(
-            i18next.t('sync_not_supported_secure_context_detailed'),
-            i18next.t('sync_not_supported_secure_context_title'),
+            this.i18n.t('sync_not_supported_secure_context_detailed'),
+            this.i18n.t('sync_not_supported_secure_context_title'),
             'info',
             'syncSecureContext'
           )
@@ -206,12 +206,12 @@ export default class SyncService extends ComponentBase {
         console.log('[SyncService] setSyncFolder: directory selected', { folderName })
       } else {
         // Unexpected case: Non-Firefox browser without API support in secure context
-        this.ui?.showToast(i18next.t('sync_not_supported_browser'), 'error')
+        this.ui?.showToast(this.i18n.t('sync_not_supported_browser'), 'error')
 
         if (typeof window !== 'undefined' && window.confirmDialog && window.confirmDialog.inform) {
           await window.confirmDialog.inform(
-            i18next.t('sync_not_supported_browser_detailed'),
-            i18next.t('sync_not_supported_browser_title'),
+            this.i18n.t('sync_not_supported_browser_detailed'),
+            this.i18n.t('sync_not_supported_browser_title'),
             'info',
             'syncNotSupportedBrowser'
           )
@@ -233,8 +233,8 @@ export default class SyncService extends ComponentBase {
           if (existingHandle && typeof window !== 'undefined' && window.confirmDialog?.confirm) {
             const file = await existingHandle.getFile()
             const content = await file.text()
-            const title = i18next.t('sync_folder_contains_project_title') || 'Existing Sync Data Found'
-            const message = i18next.t('sync_folder_contains_project_prompt') || 'This folder already contains a project.json from a previous sync. Import it now instead of overwriting?'
+            const title = this.i18n.t('sync_folder_contains_project_title')
+            const message = this.i18n.t('sync_folder_contains_project_prompt')
             const doImport = await window.confirmDialog.confirm(message, title, 'warning', 'syncImportProject')
             let pending = null
             if (doImport) {
@@ -243,14 +243,14 @@ export default class SyncService extends ComponentBase {
               // Stash content to avoid re-reading on save
               this.deferredImportContent = { content, fileName: 'project.json' }
             } else {
-              const overwriteTitle = i18next.t('sync_overwrite_existing_title') || 'Overwrite Sync Data?'
-              const overwriteMsg = i18next.t('sync_overwrite_existing_prompt') || 'Import declined. Overwrite the sync folder with current application state?'
+              const overwriteTitle = this.i18n.t('sync_overwrite_existing_title')
+              const overwriteMsg = this.i18n.t('sync_overwrite_existing_prompt')
               const confirmOverwrite = await window.confirmDialog.confirm(overwriteMsg, overwriteTitle, 'warning', 'syncOverwriteProject')
               if (confirmOverwrite) {
                 pending = 'overwrite'
                 console.log('[SyncService] setSyncFolder: user chose OVERWRITE')
               } else {
-                this.ui?.showToast(i18next.t('sync_operation_cancelled') || 'Sync cancelled', 'info')
+                this.ui?.showToast(this.i18n.t('sync_operation_cancelled'), 'info')
                 console.log('[SyncService] setSyncFolder: user CANCELLED')
               }
             }
@@ -270,13 +270,13 @@ export default class SyncService extends ComponentBase {
         console.log('[SyncService] setSyncFolder: settings saved')
       }
       if (!this.pendingSyncAction) {
-        this.ui?.showToast(i18next.t('sync_folder_set'), 'success')
+        this.ui?.showToast(this.i18n.t('sync_folder_set'), 'success')
       }
       await this.emit('sync:folder-set', { handle }, { synchronous: true })
       return handle
     } catch (err) {
       if (err?.name !== 'AbortError') {
-        this.ui?.showToast(i18next.t('failed_to_set_sync_folder', { error: err.message }), 'error')
+        this.ui?.showToast(this.i18n.t('failed_to_set_sync_folder', { error: err.message }), 'error')
       }
       return null
     }
@@ -310,26 +310,26 @@ export default class SyncService extends ComponentBase {
     console.log('[SyncService] syncProject called', { source })
     if (this.isFirefox()) {
       // Firefox: File System Access API not supported regardless of protocol
-      this.ui?.showToast(i18next.t('sync_not_supported_firefox'), 'warning')
+      this.ui?.showToast(this.i18n.t('sync_not_supported_firefox'), 'warning')
       return
     }
 
     // Non-Firefox browsers: Check security context
     if (!this.isSecureContext()) {
       // Insecure context (HTTP) - show specific secure context error
-      this.ui?.showToast(i18next.t('sync_not_supported_secure_context'), 'warning')
+      this.ui?.showToast(this.i18n.t('sync_not_supported_secure_context'), 'warning')
       return
     }
 
     // Secure context: Check if sync folder exists
     const handle = await this.getSyncFolderHandle()
     if (!handle) {
-      this.ui?.showToast(i18next.t('no_sync_folder_selected'), 'warning')
+      this.ui?.showToast(this.i18n.t('no_sync_folder_selected'), 'warning')
       return
     }
     const allowed = await this.ensurePermission(handle)
     if (!allowed) {
-      this.ui?.showToast(i18next.t('permission_denied_to_folder'), 'error')
+      this.ui?.showToast(this.i18n.t('permission_denied_to_folder'), 'error')
       return
     }
     try {
@@ -349,12 +349,12 @@ export default class SyncService extends ComponentBase {
       const shouldShowToast = source === 'manual' || (source === 'auto' && !isChangeBasedAutoSync)
       
       if (shouldShowToast) {
-        this.ui?.showToast(i18next.t('project_synced_successfully'), 'success')
+        this.ui?.showToast(this.i18n.t('project_synced_successfully'), 'success')
       }
 
       await this.emit('project-synced', null, { synchronous: true })
     } catch (err) {
-      this.ui?.showToast(i18next.t('failed_to_sync_project', { error: err.message }), 'error')
+      this.ui?.showToast(this.i18n.t('failed_to_sync_project', { error: err.message }), 'error')
     }
   }
 

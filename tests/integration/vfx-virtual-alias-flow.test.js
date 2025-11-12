@@ -91,7 +91,8 @@ describe('VFX Virtual Alias Integration Flow', () => {
     }
 
     // Create services
-    vfxService = new VFXManagerService(mockEventBus)
+    const mockI18n = { t: vi.fn((key, params) => key) }
+    vfxService = new VFXManagerService(mockEventBus, mockI18n)
     await vfxService.init()
 
     commandLibraryService = new CommandLibraryService({
@@ -197,7 +198,7 @@ describe('VFX Virtual Alias Integration Flow', () => {
     expect(combinedAliases).toHaveProperty('dynFxSetFXExclusionList_Space')
     expect(combinedAliases.dynFxSetFXExclusionList_Space).toEqual({
       commands: ['dynFxSetFXExlusionList FX_SpaceTest'],
-      description: 'VFX suppression for space environment',
+      description: 'vfx_suppression_for_environment',
       type: 'vfx-alias',
       virtual: true
     })

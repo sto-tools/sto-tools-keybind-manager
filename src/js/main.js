@@ -157,10 +157,10 @@ const dataService = new DataService({
   const chainValidatorService = new CommandChainValidatorService({ eventBus, i18n: i18next, ui: stoUI })
   chainValidatorService.init()
   
-  const stoFileExplorer = new FileExplorerUI({ eventBus, storage: storageService, ui: stoUI })
+  const stoFileExplorer = new FileExplorerUI({ eventBus, storage: storageService, ui: stoUI, i18n: i18next })
   // Init immediately so header Explorer button works without waiting for sto-app-ready
   stoFileExplorer.init()
-  const stoSync = new SyncService({ eventBus, storage: storageService, ui: stoUI })
+  const stoSync = new SyncService({ eventBus, storage: storageService, ui: stoUI, i18n: i18next })
   
   // Minimal global assignments - only what's absolutely necessary for legacy compatibility
   Object.assign(window, {

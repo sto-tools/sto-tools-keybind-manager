@@ -880,5 +880,18 @@
   "name": "Name",
   "rawCommand": "Befehl",
   "seconds": "Sekunden",
-  "space_alias": "Raum-Alias"
+  "space_alias": "Raum-Alias",
+  "backup_restore_failed": "Wiederherstellung der Sicherung fehlgeschlagen: {{error}}",
+  "confirm_add": "Hinzufügen bestätigen",
+  "confirm_delete_bindset": "Bindset \"{{name}}\" löschen?",
+  "confirm_remove": "Entfernen bestätigen",
+  "error_add_failed": "Fehler beim Hinzufügen der Taste zum Bindset",
+  "error_remove_failed": "Fehler beim Entfernen der Taste aus dem Bindset",
+  "name_exists": "Name existiert bereits",
+  "name_required": "Name ist erforderlich",
+  "name_unchanged": "Name ist unverändert",
+  "not_found": "Nicht gefunden",
+  "rename_bindset": "Bindset umbenennen",
+  "source_profile_and_new_name_required": "Quellprofil-ID und neuer Name sind erforderlich",
+  "unknown_command": "Unbekannter Befehl"
 }

@@ -1,14 +1,14 @@
 import UIComponentBase from '../UIComponentBase.js'
-import i18next from 'i18next'
 
 /*
  * BindsetManagerUI - Handles the bindset manager modal
  * Manages the bindset manager modal and its interactions
  */
 export default class BindsetManagerUI extends UIComponentBase {
-  constructor({ eventBus, confirmDialog = null, inputDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({ eventBus, i18n, confirmDialog = null, inputDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'BindsetManagerUI'
+    this.i18n = i18n
     this.document = document
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.inputDialog = inputDialog || (typeof window !== 'undefined' ? window.inputDialog : null)
@@ -37,16 +37,16 @@ export default class BindsetManagerUI extends UIComponentBase {
     this.onDom('createBindsetBtn', 'click', 'bindset-create', async () => {
       if (!this.inputDialog) return
       
-      const title = i18next.t('create_bindset') || 'Create Bindset'
-      const message = i18next.t('enter_bindset_name') || 'Enter bindset name:'
+      const title = this.i18n.t('create_bindset')
+      const message = this.i18n.t('enter_bindset_name')
       
       const name = await this.inputDialog.prompt(message, {
         title,
-        placeholder: i18next.t('bindset_name') || 'Bindset name',
+        placeholder: this.i18n.t('bindset_name'),
         validate: (value) => {
           const trimmed = value.trim()
-          if (!trimmed) return i18next.t('name_required') || 'Name is required'
-          if (this.cache.bindsetNames.includes(trimmed)) return i18next.t('name_exists') || 'Name already exists'
+          if (!trimmed) return this.i18n.t('name_required')
+          if (this.cache.bindsetNames.includes(trimmed)) return this.i18n.t('name_exists')
           return true
         }
       })
@@ -59,18 +59,18 @@ export default class BindsetManagerUI extends UIComponentBase {
     this.onDom('renameBindsetBtn', 'click', 'bindset-rename', async () => {
       if (!this.selectedBindset || !this.inputDialog) return
       
-      const title = i18next.t('rename_bindset') || 'Rename Bindset'
-      const message = i18next.t('enter_new_name') || 'Enter new name:'
+      const title = this.i18n.t('rename_bindset')
+      const message = this.i18n.t('enter_new_name')
       
       const newName = await this.inputDialog.prompt(message, {
         title,
         defaultValue: this.selectedBindset,
-        placeholder: i18next.t('bindset_name') || 'Bindset name',
+        placeholder: this.i18n.t('bindset_name'),
         validate: (value) => {
           const trimmed = value.trim()
-          if (!trimmed) return i18next.t('name_required') || 'Name is required'
-          if (trimmed === this.selectedBindset) return i18next.t('name_unchanged') || 'Name is unchanged'
-          if (this.cache.bindsetNames.includes(trimmed)) return i18next.t('name_exists') || 'Name already exists'
+          if (!trimmed) return this.i18n.t('name_required')
+          if (trimmed === this.selectedBindset) return this.i18n.t('name_unchanged')
+          if (this.cache.bindsetNames.includes(trimmed)) return this.i18n.t('name_exists')
           return true
         }
       })
@@ -83,8 +83,8 @@ export default class BindsetManagerUI extends UIComponentBase {
     this.onDom('deleteBindsetBtn', 'click', 'bindset-delete', async () => {
       if (!this.selectedBindset || !this.confirmDialog) return
       
-      const message = i18next.t('confirm_delete_bindset', { name: this.selectedBindset }) || `Delete bindset "${this.selectedBindset}"?`
-      const title = i18next.t('confirm_delete') || 'Confirm Delete'
+      const message = this.i18n.t('confirm_delete_bindset', { name: this.selectedBindset })
+      const title = this.i18n.t('confirm_delete')
       
       if (await this.confirmDialog.confirm(message, title, 'danger', 'bindsetDelete')) {
         const res = await this.request('bindset:delete', { name: this.selectedBindset })
@@ -103,7 +103,7 @@ export default class BindsetManagerUI extends UIComponentBase {
     const key = map[err] || 'error'
     const el = this.document.getElementById('bindsetError')
     if (el) {
-      el.textContent = i18next.t(key)
+      el.textContent = this.i18n.t(key)
       el.style.display = ''
       setTimeout(() => { el.style.display = 'none' }, 4000)
     }

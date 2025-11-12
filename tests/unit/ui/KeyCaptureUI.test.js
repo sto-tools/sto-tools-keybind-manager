@@ -20,7 +20,11 @@ describe('KeyCaptureUI', () => {
     dom = createDomFixture()
     fixture = createServiceFixture()
     eventBusFixture = fixture.eventBusFixture
-    ui = new KeyCaptureUI({ eventBus: eventBusFixture.eventBus, document })
+    const mockI18n = {
+      t: vi.fn((key) => key),
+      language: 'en'
+    }
+    ui = new KeyCaptureUI({ eventBus: eventBusFixture.eventBus, document, i18n: mockI18n })
     await ui.init()
   })
 

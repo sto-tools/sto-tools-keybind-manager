@@ -5,14 +5,30 @@ import UIComponentBase from '../UIComponentBase.js'
  * resolving with the user's input or null if cancelled.
  */
 export default class InputDialogUI extends UIComponentBase {
-  constructor({ eventBus = null, modalManager = null, i18n = null } = {}) {
+  constructor({ eventBus = null, modalManager = null, i18n } = {}) {
     super(eventBus)
     this.componentName = 'InputDialogUI'
     this.modalManager = modalManager
-    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n = i18n
 
     // Store current modal data for regeneration
     this.currentInputModal = null
+  }
+
+  onInit() {
+    this.setupEventListeners()
+  }
+
+  setupEventListeners() {
+    // Listen for language changes and regenerate modal if open
+    this.addEventListener('language:changed', () => {
+      // i18n instance is injected through constructor - no need to update from global
+
+      // Regenerate modal if currently open
+      if (this.currentInputModal) {
+        this.regenerateInputModal()
+      }
+    })
   }
 
   /**
@@ -176,8 +192,8 @@ export default class InputDialogUI extends UIComponentBase {
     const modal = document.createElement('div')
     modal.className = 'modal input-modal'
 
-    const submitText = this.i18n ? this.i18n.t('ok') || 'OK' : 'OK'
-    const cancelText = this.i18n ? this.i18n.t('cancel') || 'Cancel' : 'Cancel'
+    const submitText = this.i18n.t('ok')
+    const cancelText = this.i18n.t('cancel')
 
     modal.innerHTML = `
       <div class="modal-content">

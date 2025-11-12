@@ -1,16 +1,16 @@
 import UIComponentBase from '../UIComponentBase.js'
-import i18next from 'i18next'
 
 /*
  * BindsetSelectorUI - Handles the bindset selector UI
  * Manages the bindset selector UI and its interactions
  */
 export default class BindsetSelectorUI extends UIComponentBase {
-  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n } = {}) {
     super(eventBus)
     this.componentName = 'BindsetSelectorUI'
     this.document = document
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this.i18n = i18n
 
     this.containerId = 'bindsetSelectorContainer'
     this.isOpen = false
@@ -164,7 +164,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     
     // Only return the button HTML - dropdown will be created separately
     let html = `
-      <button class="toolbar-btn" id="bindsetSelectorBtn" title="${i18next.t('select_bindset') || 'Select Bindset'}">
+      <button class="toolbar-btn" id="bindsetSelectorBtn" title="${this.i18n.t('select_bindset')}">
         <i class="fas fa-tags"></i>
       </button>
     `
@@ -183,7 +183,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     const isPrimaryActive = activeBindset === 'Primary Bindset'
     html += `
       <div class="bindset-option ${isPrimaryActive ? 'active' : ''}" data-bindset="Primary Bindset">
-        <span class="bindset-name">${i18next.t('primary_bindset') || 'Primary Bindset'}</span>
+        <span class="bindset-name">${this.i18n.t('primary_bindset')}</span>
       </div>
     `
 
@@ -203,13 +203,13 @@ export default class BindsetSelectorUI extends UIComponentBase {
           <div class="toolbar-group">
             <button class="toolbar-btn-small add-key-btn" 
                     data-bindset="${this.escapeHtml(bindset)}" 
-                    title="${i18next.t('add_key_to_bindset') || 'Add key to bindset'}"
+                    title="${this.i18n.t('add_key_to_bindset')}"
                     ${hasKey ? 'disabled' : ''}>
               <i class="fas fa-plus"></i>
             </button>
             <button class="toolbar-btn-small remove-key-btn" 
                     data-bindset="${this.escapeHtml(bindset)}" 
-                    title="${i18next.t('remove_key_from_bindset') || 'Remove key from bindset'}"
+                    title="${this.i18n.t('remove_key_from_bindset')}"
                     ${!hasKey ? 'disabled' : ''}>
               <i class="fas fa-minus"></i>
             </button>
@@ -220,7 +220,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
 
     html += `
         <div class="bindset-dropdown-footer">
-          <a href="#" id="manageBindsetsLink" class="text-link">[${i18next.t('manage_bindsets') || 'Manage Bindsets'}]</a>
+          <a href="#" id="manageBindsetsLink" class="text-link">[${this.i18n.t('manage_bindsets')}]</a>
         </div>
       </div>
     `
@@ -249,15 +249,15 @@ export default class BindsetSelectorUI extends UIComponentBase {
 
   
   async showAddKeyConfirmation(bindsetName) {
-    const message = i18next.t('add_key_to_bindset_confirm', { 
-      key: this.cache.selectedKey, 
-      bindset: bindsetName 
-    }) || `Add key "${this.cache.selectedKey}" to bindset "${bindsetName}"?`
+    const message = this.i18n.t('add_key_to_bindset_confirm', {
+      key: this.cache.selectedKey,
+      bindset: bindsetName
+    })
     
     let confirmed = false
     
     if (this.confirmDialog) {
-      const title = i18next.t('confirm_add') || 'Confirm Add'
+      const title = this.i18n.t('confirm_add')
       confirmed = await this.confirmDialog.confirm(message, title, 'info', 'bindsetAddKey')
     } else {
       // Fallback to window.confirm when confirmDialog is not available
@@ -280,15 +280,15 @@ export default class BindsetSelectorUI extends UIComponentBase {
   }
 
   async showRemoveKeyConfirmation(bindsetName) {
-    const message = i18next.t('remove_key_from_bindset_confirm', { 
-      key: this.cache.selectedKey, 
-      bindset: bindsetName 
-    }) || `Remove key "${this.cache.selectedKey}" from bindset "${bindsetName}"?`
+    const message = this.i18n.t('remove_key_from_bindset_confirm', {
+      key: this.cache.selectedKey,
+      bindset: bindsetName
+    })
     
     let confirmed = false
     
     if (this.confirmDialog) {
-      const title = i18next.t('confirm_remove') || 'Confirm Remove'
+      const title = this.i18n.t('confirm_remove')
       confirmed = await this.confirmDialog.confirm(message, title, 'warning', 'bindsetRemoveKey')
     } else {
       // Fallback to window.confirm when confirmDialog is not available
@@ -311,7 +311,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
   }
 
   showError(errorKey) {
-    const message = i18next.t(`error_${errorKey}`) || `Error: ${errorKey}`
+    const message = this.i18n.t(`error_${errorKey}`)
     
     // Use toast system (ComponentBase always has eventBus)
     this.emit('toast:show', {

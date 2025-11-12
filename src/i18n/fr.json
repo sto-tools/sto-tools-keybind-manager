@@ -880,5 +880,18 @@
   "name": "Nom",
   "rawCommand": "Commande",
   "seconds": "Secondes",
-  "space_alias": "Alias Espace"
+  "space_alias": "Alias Espace",
+  "backup_restore_failed": "Échec de la restauration de la sauvegarde : {{error}}",
+  "confirm_add": "Confirmer l'ajout",
+  "confirm_delete_bindset": "Supprimer l'ensemble de liens \"{{name}}\" ?",
+  "confirm_remove": "Confirmer la suppression",
+  "error_add_failed": "Échec de l'ajout de la touche à l'ensemble de liens",
+  "error_remove_failed": "Échec de la suppression de la touche de l'ensemble de liens",
+  "name_exists": "Le nom existe déjà",
+  "name_required": "Nom requis",
+  "name_unchanged": "Le nom n'a pas changé",
+  "not_found": "Non trouvé",
+  "rename_bindset": "Renommer l'ensemble de liens",
+  "source_profile_and_new_name_required": "Le profil source et le nouveau nom sont requis",
+  "unknown_command": "Commande inconnue"
 }

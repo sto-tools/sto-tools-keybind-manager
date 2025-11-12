@@ -146,7 +146,8 @@ describe('VFXManagerUI', () => {
       modalManager: {
         show: vi.fn(),
         hide: vi.fn()
-      }
+      },
+      i18n: { t: vi.fn((key) => key) }
     })
   })
 
@@ -281,15 +282,15 @@ describe('VFXManagerUI', () => {
     const spaceCountEl = document.getElementById('spaceEffectCount')
     const groundCountEl = document.getElementById('groundEffectCount')
 
-    expect(spaceCountEl.textContent).toBe('0')
-    expect(groundCountEl.textContent).toBe('0')
+    expect(spaceCountEl.textContent).toBe('0 selected')
+    expect(groundCountEl.textContent).toBe('0 selected')
 
     // Select an effect
     mockVFXManager.toggleEffect('space', 'shield_bubble')
     vfxManagerUI.updateEffectCounts()
 
-    expect(spaceCountEl.textContent).toBe('1')
-    expect(groundCountEl.textContent).toBe('0')
+    expect(spaceCountEl.textContent).toBe('1 selected')
+    expect(groundCountEl.textContent).toBe('0 selected')
   })
 
   it('should clean up listeners properly in onDestroy', () => {

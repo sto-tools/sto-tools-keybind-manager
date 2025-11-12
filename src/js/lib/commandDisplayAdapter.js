@@ -254,8 +254,8 @@ function createFallbackRichObject(commandString, i18n) {
   const cmdStr = String(commandString || '').trim()
   return {
     command: cmdStr,
-    text: cmdStr || (i18n?.t?.('unknown_command') || 'Unknown Command'),
-    displayText: cmdStr || (i18n?.t?.('unknown_command') || 'Unknown Command'),
+    text: cmdStr || i18n.t('unknown_command'),
+    displayText: cmdStr || i18n.t('unknown_command'),
     icon: '⚙️',
     type: 'custom',
     category: 'custom',

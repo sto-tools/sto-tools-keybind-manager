@@ -1,7 +1,6 @@
 import ComponentBase from '../ComponentBase.js'
 import eventBus from '../../core/eventBus.js'
 import { respond } from '../../core/requestResponse.js'
-import i18next from 'i18next'
 
 const STO_DATA = globalThis.STO_DATA || {}
 
@@ -15,14 +14,15 @@ export default class ProjectManagementService extends ComponentBase {
     storage = null,
     ui = null,
     app = null,
-    eventBus = null
+    eventBus = null,
+    i18n = null
   } = {}) {
     super(eventBus)
     this.componentName = 'ProjectManagementService'
 
     this.storage = storage
     this.ui = ui
-    this.i18n = typeof i18next !== 'undefined' ? i18next : null
+    this.i18n = i18n
     this.app = app
 
     // Only setup event handlers if eventBus is available
@@ -88,7 +88,7 @@ export default class ProjectManagementService extends ComponentBase {
       URL.revokeObjectURL(url)
 
       this.ui?.showToast(
-        this.i18n?.t?.('backup_created_successfully') || 'Application backup created successfully',
+        this.i18n.t('backup_created_successfully'),
         'success'
       )
       
@@ -97,8 +97,7 @@ export default class ProjectManagementService extends ComponentBase {
     } catch (error) {
       console.error('[ProjectManagementService] backupApplicationState failed', error)
       this.ui?.showToast(
-        this.i18n?.t?.('failed_to_create_backup', { error: error.message }) || 
-        `Failed to create backup: ${error.message}`,
+        this.i18n.t('failed_to_create_backup', { error: error.message }),
         'error'
       )
       this.emit('project-backup-failed', { error })
@@ -129,8 +128,7 @@ export default class ProjectManagementService extends ComponentBase {
           } catch (error) {
             console.error('[ProjectManagementService] restoreApplicationState failed:', error)
             this.ui?.showToast(
-              this.i18n?.t?.('backup_restore_failed', { error: error.message }) || 
-              `Failed to restore backup: ${error.message}`,
+              this.i18n.t('backup_restore_failed', { error: error.message }),
               'error'
             )
             resolve({ success: false, error: error.message })
@@ -188,7 +186,7 @@ export default class ProjectManagementService extends ComponentBase {
       }
 
       this.ui?.showToast(
-        this.i18n?.t?.('backup_restored_successfully') || 'Application state restored successfully',
+        this.i18n.t('backup_restored_successfully'),
         'success'
       )
 

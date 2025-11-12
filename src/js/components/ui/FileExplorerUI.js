@@ -17,6 +17,7 @@ export default class FileExplorerUI extends UIComponentBase {
     ui,
     fileSystem,
     document = window.document,
+    i18n,
   } = {}) {
     super(eventBus)
     this.componentName = 'FileExplorerUI'
@@ -25,6 +26,7 @@ export default class FileExplorerUI extends UIComponentBase {
     this.ui            = ui            || window.stoUI          || null
     this.fileSystem    = fileSystem    || FileSystemService._getInstance()
     this.document      = document
+    this.i18n          = i18n
 
     this.modalId   = 'fileExplorerModal'
     this.treeId    = 'fileTree'
@@ -136,7 +138,7 @@ export default class FileExplorerUI extends UIComponentBase {
 
       // Space Build
       if (profile.builds && profile.builds.space) {
-        const spaceNode = this.createNode('build', i18next.t('space_build') || 'Space Build', {
+        const spaceNode = this.createNode('build', this.i18n.t('space_build'), {
           profileId,
           environment: 'space',
         })
@@ -145,7 +147,7 @@ export default class FileExplorerUI extends UIComponentBase {
 
       // Ground Build
       if (profile.builds && profile.builds.ground) {
-        const groundNode = this.createNode('build', i18next.t('ground_build') || 'Ground Build', {
+        const groundNode = this.createNode('build', this.i18n.t('ground_build'), {
           profileId,
           environment: 'ground',
         })
@@ -153,7 +155,7 @@ export default class FileExplorerUI extends UIComponentBase {
       }
 
       // Aliases node (aggregated)
-      const aliasNode = this.createNode('aliases', i18next.t('aliases') || 'Aliases', { profileId })
+      const aliasNode = this.createNode('aliases', this.i18n.t('aliases'), { profileId })
       childrenContainer.appendChild(aliasNode)
 
       profileNode.appendChild(childrenContainer)

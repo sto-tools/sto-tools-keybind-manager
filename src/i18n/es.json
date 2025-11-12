@@ -880,5 +880,18 @@
   "name": "Nombre",
   "rawCommand": "Comando",
   "seconds": "Segundos",
-  "space_alias": "Alias de Espacio"
+  "space_alias": "Alias de Espacio",
+  "backup_restore_failed": "Falló la restauración de la copia de seguridad: {{error}}",
+  "confirm_add": "Confirmar Agregar",
+  "confirm_delete_bindset": "¿Eliminar conjunto de enlaces \"{{name}}\"?",
+  "confirm_remove": "Confirmar Eliminar",
+  "error_add_failed": "Falló al agregar la tecla al conjunto de enlaces",
+  "error_remove_failed": "Falló al eliminar la tecla del conjunto de enlaces",
+  "name_exists": "El nombre ya existe",
+  "name_required": "Se requiere nombre",
+  "name_unchanged": "El nombre no ha cambiado",
+  "not_found": "No encontrado",
+  "rename_bindset": "Renombrar Conjunto de Enlaces",
+  "source_profile_and_new_name_required": "Se requieren el perfil de origen y el nuevo nombre",
+  "unknown_command": "Comando desconocido"
 }

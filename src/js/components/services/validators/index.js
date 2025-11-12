@@ -14,7 +14,7 @@ const rules = [
   new StabilizedTrayOnlyRule(),
   new KeyCommandCountRule(),
   new AliasMixedEnvironmentRule(),
-  new CommandWarnRule(),
+  new CommandWarnRule({ i18n: (typeof window !== 'undefined' && window.i18next) ? window.i18next : null }),
   new UnsafeKeybindRule(),
   new STOTrayExecOptimizationRule()
 ]

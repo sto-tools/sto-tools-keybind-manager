@@ -21,13 +21,13 @@ export default class AliasBrowserUI extends UIComponentBase {
                 modalManager = null,
                 confirmDialog = null,
                 document = (typeof window !== 'undefined' ? window.document : undefined),
-                i18n = null } = {}) {
+                i18n } = {}) {
     super(bus)
     this.componentName = 'AliasBrowserUI'
     this.modalManager = modalManager
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
     this.document = document
-    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n = i18n
   }
 
   async onInit () {
@@ -133,8 +133,8 @@ export default class AliasBrowserUI extends UIComponentBase {
   async confirmDeleteAlias(aliasName) {
     if (!aliasName || !this.confirmDialog) return
     
-    const message = i18next.t('confirm_delete_alias', { aliasName: aliasName }) || `Delete alias ${aliasName}?`
-    const title = i18next.t('confirm_delete') || 'Confirm Delete'
+    const message = this.i18n.t('confirm_delete_alias', { aliasName: aliasName })
+    const title = this.i18n.t('confirm_delete')
     
     if (await this.confirmDialog.confirm(message, title, 'danger', 'aliasDelete')) {
       // Call alias service directly and show toast based on result
@@ -184,7 +184,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       else if (!isAliasNameAllowed(val)) errorKey = 'reserved_command_name'
       else if (duplicate) errorKey = 'alias_name_in_use'
 
-      warnEl.textContent = errorKey ? i18next.t(errorKey) : ''
+      warnEl.textContent = errorKey ? this.i18n.t(errorKey) : ''
       const invalid = !!errorKey
       warnEl.style.display = invalid ? '' : 'none'
       okBtn.disabled = invalid
@@ -246,8 +246,8 @@ export default class AliasBrowserUI extends UIComponentBase {
       grid.innerHTML = `
         <div class="empty-state">
           <i class="fas fa-mask"></i>
-          <h4 data-i18n="no_aliases_defined">${i18next.t('no_aliases_defined')}</h4>
-          <p data-i18n="create_alias_to_get_started">${i18next.t('create_alias_to_get_started')}</p>
+          <h4 data-i18n="no_aliases_defined">${this.i18n.t('no_aliases_defined')}</h4>
+          <p data-i18n="create_alias_to_get_started">${this.i18n.t('create_alias_to_get_started')}</p>
         </div>`
       return
     }
@@ -272,7 +272,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       return fallback
     }
 
-    const translated = this.i18n?.t?.(key, params)
+    const translated = this.i18n.t(key, params)
     const looksMissing = typeof translated === 'string' && (
       translated === key || translated.startsWith(`${key}:`)
     )
@@ -304,7 +304,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     return `
       <div class="alias-item ${isSelected ? 'active' : ''}" data-alias="${name}" data-length="${lengthClass}" title="${description}">
         <div class="alias-name">${name}</div>
-        <div class="alias-command-count">${commandCount} <span data-i18n="${commandCount === 1 ? 'command_singular' : 'commands'}">${i18next.t(commandCount === 1 ? 'command_singular' : 'commands')}</span></div>
+        <div class="alias-command-count">${commandCount} <span data-i18n="${commandCount === 1 ? 'command_singular' : 'commands'}">${this.i18n.t(commandCount === 1 ? 'command_singular' : 'commands')}</span></div>
       </div>`
   }
 
@@ -355,7 +355,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       else if (!isAliasNameAllowed(val)) errorKey = 'reserved_command_name'
       else if (aliases[val]) errorKey = 'alias_name_in_use'
 
-      warnEl.textContent = errorKey ? i18next.t(errorKey) : ''
+      warnEl.textContent = errorKey ? this.i18n.t(errorKey) : ''
       const invalid = !!errorKey
       warnEl.style.display = invalid ? '' : 'none'
       okBtn.disabled = invalid
@@ -386,7 +386,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       if (result?.success) {
         this.showToast('Alias created successfully', 'success')
       } else if (result?.error) {
-        const errorMessage = this.i18n?.t?.(result.error, result.params) || result.error
+        const errorMessage = this.i18n.t(result.error, result.params)
         this.showToast(errorMessage, 'error')
       } else {
         this.showToast('Failed to create alias', 'error')

@@ -620,20 +620,20 @@ export default class CommandService extends ComponentBase {
     })
 
     if (!selectedKey) {
-      const selectText = this.cache.currentEnvironment === 'alias' ? 
-        this.i18n?.t?.('select_an_alias_to_edit') || 'Select an alias to edit' : 
-        this.i18n?.t?.('select_a_key_to_edit') || 'Select a key to edit'
-      const previewText = this.cache.currentEnvironment === 'alias' ? 
-        this.i18n?.t?.('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' : 
-        this.i18n?.t?.('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
+      const selectText = this.cache.currentEnvironment === 'alias' ?
+        this.i18n.t('select_an_alias_to_edit') :
+        this.i18n.t('select_a_key_to_edit')
+      const previewText = this.cache.currentEnvironment === 'alias' ?
+        this.i18n.t('select_an_alias_to_see_the_generated_command') :
+        this.i18n.t('select_a_key_to_see_the_generated_command')
       
       const emptyIcon = this.cache.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
-      const emptyTitle = this.cache.currentEnvironment === 'alias' ? 
-        this.i18n?.t?.('no_alias_selected') || 'No Alias Selected' : 
-        this.i18n?.t?.('no_key_selected') || 'No Key Selected'
-      const emptyDesc = this.cache.currentEnvironment === 'alias' ? 
-        this.i18n?.t?.('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' : 
-        this.i18n?.t?.('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
+      const emptyTitle = this.cache.currentEnvironment === 'alias' ?
+        this.i18n.t('no_alias_selected') :
+        this.i18n.t('no_key_selected')
+      const emptyDesc = this.cache.currentEnvironment === 'alias' ?
+        this.i18n.t('select_alias_from_left_panel') :
+        this.i18n.t('select_key_from_left_panel')
       
         return {
         title: selectText,
@@ -656,8 +656,8 @@ export default class CommandService extends ComponentBase {
     }
 
     const chainType = this.cache.currentEnvironment === 'alias' ?
-      decodeHtmlEntities(this.i18n?.t?.('alias_chain') || 'Alias Chain') :
-      decodeHtmlEntities(this.i18n?.t?.('command_chain') || 'Command Chain')
+      decodeHtmlEntities(this.i18n.t('alias_chain')) :
+      decodeHtmlEntities(this.i18n.t('command_chain'))
 
     // Check if selected key/alias actually exists in current environment (stale selection check)
     // A key/alias with no commands is valid, but a non-existent key/alias is stale
@@ -677,19 +677,19 @@ export default class CommandService extends ComponentBase {
       console.log(`[CommandService] Detected stale selection "${selectedKey}" in environment ${this.cache.currentEnvironment} - treating as no selection`)
 
       const selectText = this.cache.currentEnvironment === 'alias' ?
-        this.i18n?.t?.('select_an_alias_to_edit') || 'Select an alias to edit' :
-        this.i18n?.t?.('select_a_key_to_edit') || 'Select a key to edit'
+        this.i18n.t('select_an_alias_to_edit') :
+        this.i18n.t('select_a_key_to_edit')
       const previewText = this.cache.currentEnvironment === 'alias' ?
-        this.i18n?.t?.('select_an_alias_to_see_the_generated_command') || 'Select an alias to see the generated command' :
-        this.i18n?.t?.('select_a_key_to_see_the_generated_command') || 'Select a key to see the generated command'
+        this.i18n.t('select_an_alias_to_see_the_generated_command') :
+        this.i18n.t('select_a_key_to_see_the_generated_command')
 
       const emptyIcon = this.cache.currentEnvironment === 'alias' ? 'fas fa-mask' : 'fas fa-keyboard'
       const emptyTitle = this.cache.currentEnvironment === 'alias' ?
-        this.i18n?.t?.('no_alias_selected') || 'No Alias Selected' :
-        this.i18n?.t?.('no_key_selected') || 'No Key Selected'
+        this.i18n.t('no_alias_selected') :
+        this.i18n.t('no_key_selected')
       const emptyDesc = this.cache.currentEnvironment === 'alias' ?
-        this.i18n?.t?.('select_alias_from_left_panel') || 'Select an alias from the left panel to view and edit its command chain.' :
-        this.i18n?.t?.('select_key_from_left_panel') || 'Select a key from the left panel to view and edit its command chain.'
+        this.i18n.t('select_alias_from_left_panel') :
+        this.i18n.t('select_key_from_left_panel')
 
       return {
         title: selectText,
@@ -703,21 +703,21 @@ export default class CommandService extends ComponentBase {
 
     if (commands.length === 0) {
       const emptyMessage = this.cache.currentEnvironment === 'alias' ? 
-        `${this.i18n?.t?.('click_add_command_to_start_building_your_alias_chain') || 'Click "Add Command" to start building your alias chain for'} ${selectedKey}.` :
-        `${this.i18n?.t?.('click_add_command_to_start_building_your_command_chain') || 'Click "Add Command" to start building your command chain for'} ${selectedKey}.`
+        `${this.i18n.t('click_add_command_to_start_building_your_alias_chain')} ${selectedKey}.` :
+        `${this.i18n.t('click_add_command_to_start_building_your_command_chain')} ${selectedKey}.`
       
       return {
-        title: decodeHtmlEntities(this.i18n?.t?.('chain_for_key', { chainType, key: selectedKey }) || `${chainType} for ${selectedKey}`),
+        title: decodeHtmlEntities(this.i18n.t('chain_for_key', { chainType, key: selectedKey })),
         preview: await this.getCommandChainPreview(),
         icon: 'fas fa-plus-circle',
-        emptyTitle: this.i18n?.t?.('no_commands') || 'No Commands',
+        emptyTitle: this.i18n.t('no_commands'),
         emptyDesc: emptyMessage,
         commandCount: '0'
       }
     }
 
     return {
-      title: decodeHtmlEntities(this.i18n?.t?.('chain_for_key', { chainType, key: selectedKey }) || `${chainType} for ${selectedKey}`),
+      title: decodeHtmlEntities(this.i18n.t('chain_for_key', { chainType, key: selectedKey })),
       preview: await this.getCommandChainPreview(),
       commandCount: commands.length.toString()
     }

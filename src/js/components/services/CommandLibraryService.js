@@ -64,10 +64,7 @@ export default class CommandLibraryService extends ComponentBase {
 
     // Listen for language changes and update i18n instance
     this.addEventListener('language:changed', async () => {
-      // Update the i18n instance to use the latest language
-      if (typeof window !== 'undefined' && window.i18next) {
-        this.i18n = window.i18next
-      }
+      // i18n instance is injected through constructor - no need to update from global
       
       // Clear parser cache to refresh translated display text
       try {

@@ -4,10 +4,10 @@ import ComponentBase from '../ComponentBase.js'
  * ToastService – handles creation and life-cycle of toast notifications.
  */
 export default class ToastService extends ComponentBase {
-  constructor({ eventBus = null, i18n = null, containerId = 'toastContainer' } = {}) {
+  constructor({ eventBus, i18n, containerId = 'toastContainer' } = {}) {
     super(eventBus)
     this.componentName = 'ToastService'
-    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n = i18n
 
     this.containerId = containerId
     

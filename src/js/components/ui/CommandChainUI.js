@@ -2,7 +2,7 @@ import UIComponentBase from '../UIComponentBase.js'
 import { enrichForDisplay, normalizeToString } from '../../lib/commandDisplayAdapter.js'
 
 export default class CommandChainUI extends UIComponentBase {
-  constructor ({ eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n = null } = {}) {
+  constructor ({ eventBus, ui = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n }) {
     super(eventBus)
     this.componentName = 'CommandChainUI'
     this.ui = ui || (typeof stoUI !== 'undefined' ? stoUI : null)
@@ -355,7 +355,7 @@ export default class CommandChainUI extends UIComponentBase {
         if (aliasCountSpanEl) aliasCountSpanEl.textContent = commandCount.toString()
         if (aliasCommandTranslationSpan) {
           aliasCommandTranslationSpan.setAttribute('data-i18n', translationKey)
-          aliasCommandTranslationSpan.textContent = this.i18n?.t(translationKey) || translationKey
+          aliasCommandTranslationSpan.textContent = this.i18n.t(translationKey)
         }
         if (aliasCommandCountDisplay) aliasCommandCountDisplay.style.display = ''
         if (commandCountDisplay) commandCountDisplay.style.display = 'none'
@@ -364,7 +364,7 @@ export default class CommandChainUI extends UIComponentBase {
         if (countSpanEl) countSpanEl.textContent = commandCount.toString()
         if (commandTranslationSpan) {
           commandTranslationSpan.setAttribute('data-i18n', translationKey)
-          commandTranslationSpan.textContent = this.i18n?.t(translationKey) || translationKey
+          commandTranslationSpan.textContent = this.i18n.t(translationKey)
         }
         if (commandCountDisplay) commandCountDisplay.style.display = ''
         if (aliasCommandCountDisplay) aliasCommandCountDisplay.style.display = 'none'
@@ -926,7 +926,7 @@ export default class CommandChainUI extends UIComponentBase {
     const aliasPreviewEl = this.document.getElementById('aliasPreview')
     const text = aliasPreviewEl?.textContent?.trim()
     if (!text) {
-      this.showToast(this.i18n?.t('nothing_to_copy') || 'Nothing to copy', 'warning')
+      this.showToast(this.i18n.t('nothing_to_copy'), 'warning')
       return
     }
 
@@ -941,27 +941,26 @@ export default class CommandChainUI extends UIComponentBase {
       }
     } catch (error) {
       console.error('Failed to copy alias to clipboard:', error)
-      const fallback = this.i18n?.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
-      this.showToast(fallback, 'error')
+      this.showToast(this.i18n.t('failed_to_copy_to_clipboard'), 'error')
     }
   }
 
   _resolveClipboardMessage(key, fallbackKey) {
     if (!key) {
-      return this.i18n?.t(fallbackKey) || fallbackKey
+      return this.i18n.t(fallbackKey)
     }
-    const translated = this.i18n?.t(key)
+    const translated = this.i18n.t(key)
     if (translated && translated !== key) {
       return translated
     }
-    return this.i18n?.t(fallbackKey) || fallbackKey
+    return this.i18n.t(fallbackKey)
   }
 
   async copyCommandPreviewToClipboard() {
     const commandPreviewEl = this.document.getElementById('commandPreview')
     const text = commandPreviewEl?.textContent?.trim()
     if (!text) {
-      this.showToast(this.i18n?.t('nothing_to_copy') || 'Nothing to copy', 'warning')
+      this.showToast(this.i18n.t('nothing_to_copy'), 'warning')
       return
     }
 
@@ -976,7 +975,7 @@ export default class CommandChainUI extends UIComponentBase {
       }
     } catch (error) {
       console.error('Failed to copy command preview to clipboard:', error)
-      const fallback = this.i18n?.t('failed_to_copy_to_clipboard') || 'Failed to copy to clipboard'
+      const fallback = this.i18n.t('failed_to_copy_to_clipboard')
       this.showToast(fallback, 'error')
     }
   }

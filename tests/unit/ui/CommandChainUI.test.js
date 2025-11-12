@@ -176,14 +176,17 @@ describe('Bind-to-Alias Mode', () => {
       return false
     })
 
+    // Mock i18n
+    const mockI18n = { t: vi.fn((key) => key) }
+    vi.spyOn(i18next, 't').mockImplementation((key) => key)
+
     // Create CommandChainUI instance
     ui = new CommandChainUI({
       eventBus: mockEventBus,
       ui: mockUI,
-      document: mockDocument
+      document: mockDocument,
+      i18n: mockI18n
     })
-
-    vi.spyOn(i18next, 't').mockImplementation((key) => key)
 
     // Initialize the component to set up cache
     await ui.init()

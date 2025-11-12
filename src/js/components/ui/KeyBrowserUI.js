@@ -10,14 +10,14 @@ export default class KeyBrowserUI extends UIComponentBase {
                 app = null,
                 modalManager = null,
                 confirmDialog = null,
-                i18n = null,
+                i18n,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
     this.componentName = 'KeyBrowserUI'
     this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
     this.modalManager = modalManager
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
-    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n = i18n
     this.document = document
   }
 
@@ -128,7 +128,7 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     const profile = this.cache.profile
     if (!profile) {
-      grid.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><h4>${i18next.t('no_profile_selected') || 'No Profile Selected'}</h4></div>`
+      grid.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><h4>${this.i18n.t('no_profile_selected')}</h4></div>`
       return
     }
 
@@ -300,13 +300,13 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     if (viewMode === 'categorized') {
       icon.className = 'fas fa-sitemap'
-      toggleBtn.title = (typeof i18next !== 'undefined' ? i18next.t('switch_to_key_type_view') : 'Switch to key type view')
+      toggleBtn.title = this.i18n.t('switch_to_key_type_view')
     } else if (viewMode === 'key-types') {
       icon.className = 'fas fa-th'
-      toggleBtn.title = (typeof i18next !== 'undefined' ? i18next.t('switch_to_grid_view') : 'Switch to grid view')
+      toggleBtn.title = this.i18n.t('switch_to_grid_view')
     } else { // grid
       icon.className = 'fas fa-list'
-      toggleBtn.title = (typeof i18next !== 'undefined' ? i18next.t('switch_to_command_categories') : 'Switch to command categories')
+      toggleBtn.title = this.i18n.t('switch_to_command_categories')
     }
   }
 
@@ -458,18 +458,18 @@ export default class KeyBrowserUI extends UIComponentBase {
   async confirmDeleteKey(keyName) {
     if (!keyName || !this.confirmDialog) return false
     
-    const message = this.i18n?.t?.('confirm_delete_key', { keyName: keyName }) || `Delete key ${keyName}?`
-    const title = this.i18n?.t?.('confirm_delete') || 'Confirm Delete'
+    const message = this.i18n.t('confirm_delete_key', { keyName: keyName })
+    const title = this.i18n.t('confirm_delete')
     
     if (await this.confirmDialog.confirm(message, title, 'danger', 'keyDelete')) {
       // Use the request/response pattern to delete key from KeyService
       const result = await this.request('key:delete', { key: keyName })
       if (result?.success) {
-        const successMessage = this.i18n?.t?.('key_deleted', { keyName })
+        const successMessage = this.i18n.t('key_deleted', { keyName })
         this.showToast(successMessage, 'success')
         return true
       } else {
-        const errorMessage = this.i18n?.t?.(result?.error, result?.params)
+        const errorMessage = this.i18n.t(result?.error, result?.params)
         this.showToast(errorMessage, 'error')
         return false
       }

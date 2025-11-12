@@ -105,14 +105,14 @@ export default class VFXManagerUI extends UIComponentBase {
     const spaceCount = this.vfxManager.getEffectCount('space')
     const spaceCountEl = document.getElementById('spaceEffectCount')
     if (spaceCountEl) {
-      spaceCountEl.textContent = `${spaceCount} ${this.i18n?.t?.('selected') || 'selected'}`
+      spaceCountEl.textContent = `${spaceCount} ${this.i18n.t('selected')}`
     }
 
     // Update ground count
     const groundCount = this.vfxManager.getEffectCount('ground')
     const groundCountEl = document.getElementById('groundEffectCount')
     if (groundCountEl) {
-      groundCountEl.textContent = `${groundCount} ${this.i18n?.t?.('selected') || 'selected'}`
+      groundCountEl.textContent = `${groundCount} ${this.i18n.t('selected')}`
     }
   }
 
@@ -124,7 +124,7 @@ export default class VFXManagerUI extends UIComponentBase {
       if (spaceAlias) {
         spacePreviewEl.textContent = spaceAlias
       } else {
-        spacePreviewEl.textContent = this.i18n?.t?.('no_space_effects_selected') || 'No space effects selected'
+        spacePreviewEl.textContent = this.i18n.t('no_space_effects_selected')
       }
     }
 
@@ -135,7 +135,7 @@ export default class VFXManagerUI extends UIComponentBase {
       if (groundAlias) {
         groundPreviewEl.textContent = groundAlias
       } else {
-        groundPreviewEl.textContent = this.i18n?.t?.('no_ground_effects_selected') || 'No ground effects selected'
+        groundPreviewEl.textContent = this.i18n.t('no_ground_effects_selected')
       }
     }
   }

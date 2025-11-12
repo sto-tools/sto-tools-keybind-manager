@@ -14,7 +14,7 @@ export default class ImportUI extends UIComponentBase {
     super(eventBus)
     this.componentName = 'ImportUI'
     this.document = document
-    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n = i18n
     this.modalManager = modalManager
 
     // Store current modal data for regeneration
@@ -72,12 +72,12 @@ export default class ImportUI extends UIComponentBase {
 
           // Show appropriate toast based on result
           if (result?.success) {
-            const message = this.i18n?.t?.(result?.message, {
+            const message = this.i18n.t(result?.message, {
               count: result.imported?.keys || result.imported?.aliases || 0,
             })
             this.showToast(message, 'success')
           } else {
-            const message = this.i18n?.t?.(result?.error, result?.params)
+            const message = this.i18n.t(result?.error, result?.params)
             this.showToast(message, 'error')
           }
         } catch (error) {
@@ -145,16 +145,11 @@ export default class ImportUI extends UIComponentBase {
     const modal = this.document.createElement('div')
     modal.className = 'modal import-modal'
 
-    const title = this.i18n
-      ? this.i18n.t('import_environment') || 'Import Environment'
-      : 'Import Environment'
-    const message = this.i18n
-      ? this.i18n.t('import_environment_question') ||
-        'Import keybinds into which environment?'
-      : 'Import keybinds into which environment?'
-    const spaceText = this.i18n ? this.i18n.t('space') || 'Space' : 'Space'
-    const groundText = this.i18n ? this.i18n.t('ground') || 'Ground' : 'Ground'
-    const cancelText = this.i18n ? this.i18n.t('cancel') || 'Cancel' : 'Cancel'
+    const title = this.i18n.t('import_environment')
+    const message = this.i18n.t('import_environment_question')
+    const spaceText = this.i18n.t('space')
+    const groundText = this.i18n.t('ground')
+    const cancelText = this.i18n.t('cancel')
 
     modal.innerHTML = `
       <div class="modal-content">

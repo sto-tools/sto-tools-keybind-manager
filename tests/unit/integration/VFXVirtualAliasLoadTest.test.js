@@ -22,13 +22,15 @@ describe('VFX Virtual Alias Loading on Page Reload', () => {
     harness = createServiceFixture()
     capturedEvents = []
 
-    // Create VFXManagerService
-    vfxService = new VFXManagerService(harness.eventBus)
-
-    // Create CommandLibraryService with mocks
+    // Create mocks first
     const mockUI = { showToast: vi.fn() }
     const mockI18n = { t: vi.fn((key, params) => key) }
     const mockModalManager = { show: vi.fn() }
+
+    // Create VFXManagerService with i18n
+    vfxService = new VFXManagerService(harness.eventBus, mockI18n)
+
+    // Create CommandLibraryService with mocks
     
     commandLibraryService = new CommandLibraryService({
       eventBus: harness.eventBus,

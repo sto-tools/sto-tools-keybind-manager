@@ -11,7 +11,7 @@ const STO_DATA = globalThis.STO_DATA || {}
  * profiles, keybind data and project archives.  
  */
 export default class ExportService extends ComponentBase {
-  constructor ({ eventBus, storage, i18n = i18next } = {}) {
+  constructor ({ eventBus, storage, i18n } = {}) {
     super(eventBus)
     this.componentName = 'ExportService'
     this.storage = storage
@@ -120,7 +120,7 @@ export default class ExportService extends ComponentBase {
     const hasKeys = keys && Object.keys(keys).length > 0
 
     if (!hasKeys) {
-      return '; ' + this.i18n?.t('no_keybinds_to_export') + '\n'
+      return '; ' + this.i18n.t('no_keybinds_to_export') + '\n'
     }
 
     const filename = `${profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${environment}.txt`
@@ -149,12 +149,12 @@ export default class ExportService extends ComponentBase {
     let header = `; ================================================================
 ; ${profile.name} - STO Keybind Configuration
 ; ================================================================
-; ${this.i18n?.t('environment') || 'Environment:'} ${env.toUpperCase()}
-; ${this.i18n?.t('generated') || 'Generated:'} ${timestamp}
-; ${this.i18n?.t('created_by') || 'Created by:'} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
+; ${this.i18n.t('environment')} ${env.toUpperCase()}
+; ${this.i18n.t('generated')} ${timestamp}
+; ${this.i18n.t('created_by')} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
 ;
-; ${this.i18n?.t('statistics')}:
-; - ${this.i18n?.t('total_commands')}: ${keyCount}
+; ${this.i18n.t('statistics')}:
+; - ${this.i18n.t('total_commands')}: ${keyCount}
 ;
 ; To use this keybind file in Star Trek Online:
 ; 1. Save this file in your STO Live folder as a .txt file
@@ -170,7 +170,7 @@ export default class ExportService extends ComponentBase {
     const { environment = 'space', syncMode = false, profile } = options
     
     if (!keys || Object.keys(keys).length === 0) {
-      return '; ' + this.i18n?.t('no_keybinds_to_export') + '\n'
+      return '; ' + this.i18n.t('no_keybinds_to_export') + '\n'
     }
 
     // Check if bind-to-alias mode is enabled
@@ -186,8 +186,8 @@ export default class ExportService extends ComponentBase {
       // The actual alias definitions should be handled in generateAliasFile
       const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
       
-      content += `; ${this.i18n?.t('export_generated_aliases_note')}\n`
-      content += `; ${this.i18n?.t('export_alias_definitions_note')}\n`
+      content += `; ${this.i18n.t('export_generated_aliases_note')}\n`
+      content += `; ${this.i18n.t('export_alias_definitions_note')}\n`
       content += `; ------------------------------------------------------------------------------\n`
       
       // Generate keybind lines that call the aliases
@@ -410,15 +410,15 @@ export default class ExportService extends ComponentBase {
     const allAliases = { ...aliases, ...vfxAliases, ...generatedAliases, ...bindsetAliases, ...loaderAliases }
     
     if (Object.keys(allAliases).length === 0) {
-      return '; ' + this.i18n?.t('no_aliases_to_export') + '\n'
+      return '; ' + this.i18n.t('no_aliases_to_export') + '\n'
     }
 
     let content = await this.generateAliasFileHeader(profile)
     
     // Add note about generated aliases if any exist
     if (Object.keys(generatedAliases).length > 0) {
-      content += `; ${this.i18n?.t('export_user_and_generated_aliases')}\n`
-      content += `; ${this.i18n?.t('export_generated_aliases_count', { count: Object.keys(generatedAliases).length })}\n`
+      content += `; ${this.i18n.t('export_user_and_generated_aliases')}\n`
+      content += `; ${this.i18n.t('export_generated_aliases_count', { count: Object.keys(generatedAliases).length })}\n`
       content += `; ================================================================\n\n`
     }
     
@@ -463,9 +463,9 @@ export default class ExportService extends ComponentBase {
     return `; ================================================================
 ; ${profile.name} - STO Alias Configuration
 ; ================================================================
-; ${this.i18n?.t('environment') || 'Environment:'} Alias
-; ${this.i18n?.t('generated') || 'Generated:'} ${timestamp}
-; ${this.i18n?.t('created_by') || 'Created by:'} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
+; ${this.i18n.t('environment')} Alias
+; ${this.i18n.t('generated')} ${timestamp}
+; ${this.i18n.t('created_by')} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
 ;
 ; Alias Statistics:
 ; - Total aliases: ${aliasCount}

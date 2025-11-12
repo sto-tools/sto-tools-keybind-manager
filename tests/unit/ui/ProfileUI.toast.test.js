@@ -175,14 +175,14 @@ describe('ProfileUI Toast Tests', () => {
     })
 
     it('should verify toast calls exist in ProfileUI methods', () => {
-      // Test that the component has the _t helper method
-      expect(typeof component._t).toBe('function')
-
       // Test that it has showToast method
       expect(typeof component.showToast).toBe('function')
 
+      // Test that it has i18n.t for translations
+      expect(typeof component.i18n.t).toBe('function')
+
       // Test a translation
-      const result = component._t('profile_name_required')
+      const result = component.i18n.t('profile_name_required')
       expect(result).toBe('Profile name required')
     })
   })
@@ -197,12 +197,12 @@ describe('ProfileUI Toast Tests', () => {
       expect(typeof component.i18n.t).toBe('function')
     })
 
-    it('should use translation helper method', () => {
-      // ProfileUI has a _t helper method that uses this.i18n.t
-      expect(typeof component._t).toBe('function')
+    it('should use i18n.t for translations', () => {
+      // ProfileUI uses i18n.t for translations
+      expect(typeof component.i18n.t).toBe('function')
 
-      // Test the helper method
-      const result = component._t('profile_name_required')
+      // Test the translation method
+      const result = component.i18n.t('profile_name_required')
       expect(result).toBe('Profile name required')
     })
   })

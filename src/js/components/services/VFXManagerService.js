@@ -99,7 +99,7 @@ export default class VFXManagerService extends ComponentBase {
   generateAlias(environment) {
     const effects = Array.from(this.selectedEffects[environment])
     if (effects.length === 0)
-      return this.i18n?.t?.('no_effects_selected') || 'No effects selected'
+      return this.i18n.t('no_effects_selected')
 
     const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
     const commands = this.generateAliasCommand(environment)
@@ -142,7 +142,7 @@ export default class VFXManagerService extends ComponentBase {
       // Check translateGeneratedMessages preference - only translate if enabled
       const shouldTranslate = this.cache.preferences.translateGeneratedMessages
       const message = shouldTranslate
-        ? this.i18n?.t?.('vfx_suppression_loaded') || 'VFX Suppression Loaded'
+        ? this.i18n.t('vfx_suppression_loaded')
         : 'VFX Suppression Loaded'
       commands.push(`PlayerSay ${message}`)
     }
@@ -191,7 +191,7 @@ export default class VFXManagerService extends ComponentBase {
       // Check translateGeneratedMessages preference - only translate if enabled
       const shouldTranslate = this.cache.preferences.translateGeneratedMessages
       const message = shouldTranslate
-        ? this.i18n?.t?.('vfx_suppression_loaded') || 'VFX Suppression Loaded'
+        ? this.i18n.t('vfx_suppression_loaded')
         : 'VFX Suppression Loaded'
       commands.push(`PlayerSay ${message}`)
     }
@@ -326,9 +326,7 @@ export default class VFXManagerService extends ComponentBase {
       const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`
       virtualAliases[aliasName] = {
         commands,
-        description:
-          this.i18n?.t?.('vfx_suppression_for_environment', { environment }) ||
-          `VFX suppression for ${environment} environment`,
+        description: this.i18n.t('vfx_suppression_for_environment', { environment }),
         type: 'vfx-alias',
         virtual: true, // Mark as virtual
       }
@@ -338,9 +336,7 @@ export default class VFXManagerService extends ComponentBase {
     const combinedCommands = this.generateCombinedAliasCommand(environments)
     virtualAliases.dynFxSetFXExclusionList_Combined = {
       commands: combinedCommands,
-      description:
-        this.i18n?.t?.('vfx_suppression_for_all_environments') ||
-        'VFX suppression for all environments',
+      description: this.i18n.t('vfx_suppression_for_all_environments'),
       type: 'vfx-alias',
       virtual: true, // Mark as virtual
     }

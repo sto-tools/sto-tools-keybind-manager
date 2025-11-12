@@ -5,11 +5,11 @@ import UIComponentBase from '../UIComponentBase.js'
  * resolving with the user's choice.
  */
 export default class ConfirmDialogUI extends UIComponentBase {
-  constructor({ eventBus = null, modalManager = null, i18n = null } = {}) {
+  constructor({ eventBus, modalManager, i18n } = {}) {
     super(eventBus)
     this.componentName = 'ConfirmDialogUI'
     this.modalManager = modalManager
-    this.i18n = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n = i18n
 
     // Store current modal data for regeneration
     this.currentConfirmModal = null

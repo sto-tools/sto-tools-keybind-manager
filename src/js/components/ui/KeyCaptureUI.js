@@ -18,7 +18,7 @@ import { UNSAFE_KEYBINDS } from '../../core/constants.js'
  */
 export default class KeyCaptureUI extends UIComponentBase {
 
-  constructor ({ eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), ui = null, i18n = null } = {}) {
+  constructor ({ eventBus, modalManager = null, app = null, document = (typeof window !== 'undefined' ? window.document : undefined), ui = null, i18n } = {}) {
     super(eventBus)
     this.componentName = 'KeyCaptureUI'
 
@@ -26,7 +26,7 @@ export default class KeyCaptureUI extends UIComponentBase {
     this.app          = app || (typeof window !== 'undefined' ? window.app : null)
     this.document     = document
     this.ui           = ui || (typeof window !== 'undefined' ? window.stoUI : null)
-    this.i18n         = i18n || (typeof i18next !== 'undefined' ? i18next : null)
+    this.i18n         = i18n
 
     this.currentKeyboard = null
     this.highlightedKeys = new Set()
@@ -198,9 +198,9 @@ export default class KeyCaptureUI extends UIComponentBase {
     }
     
     if (captureToggle) {
-      captureToggle.textContent = isCapturing 
-        ? (i18next?.t('switch_to_manual') || 'Switch to Manual')
-        : (i18next?.t('start_capture') || 'Start Capture')
+      captureToggle.textContent = isCapturing
+        ? this.i18n.t('switch_to_manual')
+        : this.i18n.t('start_capture')
     }
 
   // Disable/enable interactions with the virtual keyboard UI while capturing
@@ -466,12 +466,12 @@ export default class KeyCaptureUI extends UIComponentBase {
         if (result?.success) {
           const from = result.sourceKey || result?.data?.from || sourceKey
           const to = result.newKey || result?.data?.to || targetKey
-          const successMessage = this.i18n?.t?.('key_duplicated', { from, to })
+          const successMessage = this.i18n.t('key_duplicated', { from, to })
           this.showToast(successMessage, 'success')
           this.isDuplicationMode = false
           this.sourceKeyForDuplication = null
         } else {
-          const errorMessage = this.i18n?.t?.(result?.error, result?.params)
+          const errorMessage = this.i18n.t(result?.error, result?.params)
           this.showToast(errorMessage, 'error')
           return
         }
@@ -479,10 +479,10 @@ export default class KeyCaptureUI extends UIComponentBase {
         // Handle regular key addition - service will do validation internally
         result = await this.request('key:add', { key: this.cache.selectedKey })
         if (result?.success) {
-          const message = this.i18n?.t?.('key_added', { keyName: this.cache.selectedKey })
+          const message = this.i18n.t('key_added', { keyName: this.cache.selectedKey })
           this.showToast(message, 'success')
         } else {
-          const message = this.i18n?.t?.(result?.error, result?.params)
+          const message = this.i18n.t(result?.error, result?.params)
           this.showToast(message, 'error')
           return
         }
@@ -492,7 +492,7 @@ export default class KeyCaptureUI extends UIComponentBase {
       this.resetState()
     } catch (err) {
       console.error('Failed to confirm key selection:', err)
-      const message = this.i18n?.t?.('key_selection_failed')
+      const message = this.i18n.t('key_selection_failed')
       this.showToast(message, 'error')
     }
   }
@@ -534,7 +534,7 @@ export default class KeyCaptureUI extends UIComponentBase {
 
   // Generate the complete modal HTML
   generateModalHTML() {
-    const currentLang = i18next?.language || 'en'
+    const currentLang = this.i18n.language || 'en'
     const layoutName = getLayoutName(currentLang)
 
     return `
@@ -547,27 +547,27 @@ export default class KeyCaptureUI extends UIComponentBase {
               <i class="fas fa-keyboard"></i>
             </div>
             <div class="capture-instructions">
-              <h3 data-i18n="press_any_key_combination">${i18next?.t('press_any_key_combination') || 'Press any key combination...'}</h3>
-              <p data-i18n="capture_instructions">${i18next?.t('capture_instructions') || 'Use your keyboard, mouse, or click keys below'}</p>
+              <h3 data-i18n="press_any_key_combination">${this.i18n.t('press_any_key_combination')}</h3>
+              <p data-i18n="capture_instructions">${this.i18n.t('capture_instructions')}</p>
             </div>
           </div>
           <button class="btn btn-secondary toggle-mode" id="toggleCaptureMode" data-i18n="switch_to_manual">
-            ${i18next?.t('switch_to_manual') || 'Switch to Manual'}
+            ${this.i18n.t('switch_to_manual')}
           </button>
         </div>
 
         <!-- Preview Section -->
         <div class="selection-preview">
           <div class="preview-display">
-            <label data-i18n="selected_key">${i18next?.t('selected_key') || 'Selected Key'}:</label>
+            <label data-i18n="selected_key">${this.i18n.t('selected_key')}:</label>
             <div class="key-preview-display" id="keyPreviewDisplay">
-              <span class="no-selection" data-i18n="no_key_selected">${i18next?.t('no_key_selected') || 'No key selected'}</span>
+              <span class="no-selection" data-i18n="no_key_selected">${this.i18n.t('no_key_selected')}</span>
             </div>
           </div>
           <div class="preview-controls">
             <label class="location-specific-toggle">
               <input type="checkbox" id="distinguishModifierSide" />
-              <span data-i18n="distinguish_left_right_modifiers">${i18next?.t('distinguish_left_right_modifiers') || 'Distinguish left/right modifiers'}</span>
+              <span data-i18n="distinguish_left_right_modifiers">${this.i18n.t('distinguish_left_right_modifiers')}</span>
             </label>
           </div>
         </div>
@@ -594,10 +594,10 @@ export default class KeyCaptureUI extends UIComponentBase {
         <div class="capture-footer">
           <div class="action-buttons">
             <button class="btn btn-primary" id="confirm-key-selection" disabled data-i18n="confirm_selection">
-              ${i18next?.t('confirm_selection') || 'Confirm Selection'}
+              ${this.i18n.t('confirm_selection')}
             </button>
             <button class="btn btn-secondary" id="cancel-key-selection" data-i18n="cancel">
-              ${i18next?.t('cancel') || 'Cancel'}
+              ${this.i18n.t('cancel')}
             </button>
           </div>
         </div>
@@ -762,7 +762,7 @@ export default class KeyCaptureUI extends UIComponentBase {
       const formatted = this.formatKeyForDisplay(chord)
       preview.innerHTML = `<span class="key-combination">${formatted}</span>`
     } else {
-      preview.innerHTML = `<span class="no-selection" data-i18n="no_key_selected">${i18next?.t('no_key_selected') || 'No key selected'}</span>`
+      preview.innerHTML = `<span class="no-selection" data-i18n="no_key_selected">${this.i18n.t('no_key_selected')}</span>`
     }
   }
 

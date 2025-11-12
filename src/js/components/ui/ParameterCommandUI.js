@@ -72,6 +72,13 @@ export default class ParameterCommandUI extends UIComponentBase {
         this.editParameterizedCommand(index, command, commandDef)
       }
     })
+
+    // Listen for language changes to regenerate modal if open
+    // The ModalManagerService will automatically handle regeneration through registered callbacks
+    this.addEventListener('language:changed', () => {
+      // Modal regeneration is handled by ModalManagerService languageChanged handler
+      // No need to manually regenerate here
+    })
   }
 
   // UI – Modal lifecycle
@@ -81,6 +88,12 @@ export default class ParameterCommandUI extends UIComponentBase {
     // Create modal lazily
     if (!this.document.getElementById('parameterModal')) {
       this.createParameterModal()
+    } else {
+      // Re-register regeneration callback if modal already exists
+      // This ensures language changes work for subsequent modal openings
+      this.modalManager?.registerRegenerateCallback('parameterModal', () => {
+        this.regenerateParameterModal()
+      })
     }
 
     // Persist command definition on the modal so it can be rebuilt on i18n
@@ -110,44 +123,118 @@ export default class ParameterCommandUI extends UIComponentBase {
         <div class="modal-body">
           <div id="parameterInputs"></div>
           <div class="command-preview-modal">
-            <label>${this.i18n?.t('generated_command') || 'Generated Command:'}</label>
+            <label data-i18n="generated_command">${this.i18n.t('generated_command')}</label>
             <div class="command-preview" id="parameterCommandPreview"></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="saveParameterCommandBtn">${this.i18n?.t?.('add_command') || 'Add Command'}</button>
-          <button class="btn btn-secondary" data-modal="parameterModal">${this.i18n?.t?.('cancel') || 'Cancel'}</button>
+          <button class="btn btn-primary" id="saveParameterCommandBtn">${this.i18n.t('add_command')}</button>
+          <button class="btn btn-secondary" data-modal="parameterModal">${this.i18n.t('cancel')}</button>
         </div>
       </div>`
 
     this.document.body.appendChild(modal)
 
-    // Save / Cancel handlers
-    this.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
-      this.saveParameterCommand()
+    // Register regeneration callback for language changes
+    this.modalManager?.registerRegenerateCallback('parameterModal', () => {
+      this.regenerateParameterModal()
     })
 
-    // Use EventBus for automatic cleanup
-    modal.querySelectorAll('.modal-close, [data-modal="parameterModal"]').forEach(btn => {
-      this.onDom(btn, 'click', 'parameter-modal-close', () => {
-        this.cancelParameterCommand()
-      })
-    })
+    // Attach event handlers using helper method
+    this.attachModalEventHandlers()
   }
 
   cancelParameterCommand () {
     // Emit event to notify services that editing has ended
     this.emit('parameter-edit:end')
-    
+
     this.currentParameterCommand = null
 
     // Reset button text (i18n ready)
     const saveBtn = this.document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
-      saveBtn.textContent = this.i18n?.t?.('add_command') || 'Add Command'
+      saveBtn.textContent = this.i18n.t('add_command')
     }
 
+    // Note: Keep regeneration callback active for future modal use
+    // this.modalManager?.unregisterRegenerateCallback('parameterModal')
+
     this.modalManager?.hide('parameterModal')
+  }
+
+  /**
+   * Regeneration method for language changes
+   * Rebuilds the modal content while preserving current state
+   */
+  regenerateParameterModal() {
+    if (!this.currentParameterCommand) return
+
+    // Capture current state before regeneration
+    const { commandDef, isEditing, editIndex, originalCommand } = this.currentParameterCommand
+    const currentParameterValues = this.getParameterValues()
+
+    // Rebuild modal content
+    const modal = this.document.getElementById('parameterModal')
+    if (!modal) return
+
+    // Update modal HTML with current language
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="parameterModalTitle" data-i18n="parameter_configuration">Parameter Configuration</h3>
+          <button class="modal-close" data-modal="parameterModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="parameterInputs"></div>
+          <div class="command-preview-modal">
+            <label data-i18n="generated_command">${this.i18n.t('generated_command')}</label>
+            <div class="command-preview" id="parameterCommandPreview"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="saveParameterCommandBtn">${this.i18n.t(isEditing ? 'save' : 'add_command')}</button>
+          <button class="btn btn-secondary" data-modal="parameterModal">${this.i18n.t('cancel')}</button>
+        </div>
+      </div>`
+
+    
+    // Re-attach event handlers for the new modal content
+    this.attachModalEventHandlers()
+
+    // Restore modal state
+    if (isEditing) {
+      this.populateParameterModalForEdit(commandDef, currentParameterValues)
+      // Update button text for editing
+      const saveBtn = this.document.getElementById('saveParameterCommandBtn')
+      if (saveBtn) {
+        saveBtn.textContent = this.i18n.t('save')
+      }
+    } else {
+      this.populateParameterModal(commandDef)
+    }
+  }
+
+  /**
+   * Helper method to attach modal event handlers
+   * Used both during modal creation and regeneration
+   */
+  attachModalEventHandlers() {
+    // Save button handler
+    this.onDom('saveParameterCommandBtn', 'click', 'parameter-command-save', () => {
+      this.saveParameterCommand()
+    })
+
+    // Modal close handlers
+    const modal = this.document.getElementById('parameterModal')
+    if (modal) {
+      modal.querySelectorAll('.modal-close, [data-modal="parameterModal"]').forEach(btn => {
+        this.onDom(btn, 'click', 'parameter-modal-close', () => {
+          this.cancelParameterCommand()
+        })
+      })
+    }
   }
 
   // Modal content helpers
@@ -157,7 +244,7 @@ export default class ParameterCommandUI extends UIComponentBase {
 
     if (!container || !titleElement) return
 
-    titleElement.textContent = `${this.i18n?.t('configure_colon') || 'Configure:'} ${commandDef.name}`
+    titleElement.textContent = `${this.i18n.t('configure_colon')} ${commandDef.name}`
     container.innerHTML = ''
     this.buildParameterInputs(container, commandDef)
 
@@ -195,11 +282,8 @@ export default class ParameterCommandUI extends UIComponentBase {
     // For editing, we need to extract existing parameters from the command
     const enrichCommand = async () => {
       try {
-        // Get i18n object for translations
-        const i18n = typeof i18next !== 'undefined' ? i18next : null
-        
-        // Enrich the command to get its parameters
-        const richCommand = await enrichForDisplay(commandString, i18n, { eventBus: this.eventBus })
+        // Use injected i18n object for translations
+        const richCommand = await enrichForDisplay(commandString, this.i18n, { eventBus: this.eventBus })
         const existingParams = richCommand.parameters || {}
         
         // Populate modal with existing parameters
@@ -208,7 +292,7 @@ export default class ParameterCommandUI extends UIComponentBase {
         // Update button text for editing
         const saveBtn = this.document.getElementById('saveParameterCommandBtn')
         if (saveBtn) {
-          saveBtn.textContent = this.i18n?.t?.('save') || 'Save'
+          saveBtn.textContent = this.i18n.t('save')
         }
 
         // Use injected modal manager
@@ -230,7 +314,7 @@ export default class ParameterCommandUI extends UIComponentBase {
 
     if (!container || !titleElement) return
 
-    titleElement.textContent = `${this.i18n?.t('edit_colon') || 'Edit:'} ${commandDef.name}`
+    titleElement.textContent = `${this.i18n.t('edit_colon')} ${commandDef.name}`
     container.innerHTML = ''
     this.buildParameterInputs(container, commandDef, existingParams)
 
@@ -284,12 +368,12 @@ export default class ParameterCommandUI extends UIComponentBase {
       const previewEl = this.document.getElementById('parameterCommandPreview')
       if (previewEl) {
         if (error.message === 'please_enter_a_raw_command') {
-          const msg = this.i18n?.t?.('please_enter_a_raw_command') || 'Please enter a raw command'
+          const msg = this.i18n.t('please_enter_a_raw_command')
           previewEl.textContent = msg
         } else {
           // Only log unexpected errors, not the expected "please_enter_a_raw_command"
           console.error('Error updating parameter preview:', error)
-          const errMsg = this.i18n?.t?.('error_generating_command') || 'Error generating command'
+          const errMsg = this.i18n.t('error_generating_command')
           previewEl.textContent = errMsg
         }
       }
@@ -324,9 +408,9 @@ export default class ParameterCommandUI extends UIComponentBase {
 
     
     if (!selectedKey || !this.currentParameterCommand) {
-      const message = currentEnv === 'alias' 
-        ? (this.i18n?.t?.('please_select_an_alias_first') || 'Please select an alias first')
-        : (this.i18n?.t?.('please_select_a_key_first') || 'Please select a key first')
+      const message = currentEnv === 'alias'
+        ? this.i18n.t('please_select_an_alias_first')
+        : this.i18n.t('please_select_a_key_first')
       this.ui?.showToast?.(message, 'warning')
       return
     }
@@ -378,10 +462,10 @@ export default class ParameterCommandUI extends UIComponentBase {
     } catch (error) {
       console.error('Error building parameterized command:', error)
       if (error.message === 'please_enter_a_raw_command') {
-        const msg = this.i18n?.t?.('please_enter_a_raw_command') || 'Please enter a raw command'
+        const msg = this.i18n.t('please_enter_a_raw_command')
         this.ui?.showToast?.(msg, 'warning')
       } else {
-        const errMsg = this.i18n?.t?.('error_generating_command') || 'Error generating command'
+        const errMsg = this.i18n.t('error_generating_command')
         this.ui?.showToast?.(errMsg, 'error')
       }
       return
@@ -389,17 +473,20 @@ export default class ParameterCommandUI extends UIComponentBase {
 
     // Close modal
     this.modalManager?.hide('parameterModal')
-    
+
     // Emit event to notify services that editing has ended
     this.emit('parameter-edit:end')
-    
+
     this.currentParameterCommand = null
 
     // Reset button text (i18n ready)
     const saveBtn = this.document.getElementById('saveParameterCommandBtn')
     if (saveBtn) {
-      saveBtn.textContent = this.i18n?.t?.('add_command') || 'Add Command'
+      saveBtn.textContent = this.i18n.t('add_command')
     }
+
+    // Note: Keep regeneration callback active for future modal use
+    // this.modalManager?.unregisterRegenerateCallback('parameterModal')
   }
 
   
@@ -414,44 +501,44 @@ export default class ParameterCommandUI extends UIComponentBase {
     if (paramDef.help) return paramDef.help
 
     const helpMap = {
-      tray:         this.i18n?.t('parameter_help.tray') || 'Tray number (0-9)',
-      slot:         this.i18n?.t('parameter_help.slot') || 'Slot number (0-9)',
-      start_tray:   this.i18n?.t('start_tray') || 'Starting tray number',
-      end_tray:     this.i18n?.t('end_tray') || 'Ending tray number',
-      start_slot:   this.i18n?.t('start_slot') || 'Starting slot number',
-      end_slot:     this.i18n?.t('end_slot') || 'Ending slot number',
-      backup_tray:  this.i18n?.t('backup_tray') || 'Backup tray number',
-      backup_slot:  this.i18n?.t('backup_slot') || 'Backup slot number',
-      backup_start_tray: this.i18n?.t('backup_start_tray') || 'Backup start tray number',
-      backup_start_slot: this.i18n?.t('backup_start_slot') || 'Backup start slot number',
-      backup_end_tray:   this.i18n?.t('backup_end_tray') || 'Backup end tray number',
-      backup_end_slot:   this.i18n?.t('backup_end_slot') || 'Backup end slot number',
-      active:       this.i18n?.t('parameter_help.active') || '0: Disabled, 1: Enabled',
-      entityName:   this.i18n?.t('parameter_help.entityName') || 'Name of the entity to target',
-      message:      this.i18n?.t('parameter_help.message') || 'Message text to send',
-      distance:     this.i18n?.t('parameter_help.distance') || 'Camera distance value',
-      amount:       this.i18n?.t('parameter_help.amount') || 'Throttle adjustment amount',
-      position:     this.i18n?.t('parameter_help.position') || 'Throttle position (0-100)',
-      filename:     this.i18n?.t('parameter_help.filename') || 'File name (without extension)',
-      state:        this.i18n?.t('parameter_help.state') || '1 to enable, 0 to disable',
-      verb:         this.i18n?.t('parameter_help.verb') || 'Communication channel (say, team, zone)',
-      alias_name:   this.i18n?.t('parameter_help.alias_name') || 'Name of the alias to execute',
-      command_type: this.i18n?.t('parameter_help.command_type') || 'Command execution type (STOTrayExecByTray shows UI, TrayExecByTray does not)'
+      tray:         this.i18n.t('parameter_help.tray'),
+      slot:         this.i18n.t('parameter_help.slot'),
+      start_tray:   this.i18n.t('parameter_help.start_tray'),
+      end_tray:     this.i18n.t('parameter_help.end_tray'),
+      start_slot:   this.i18n.t('parameter_help.start_slot'),
+      end_slot:     this.i18n.t('parameter_help.end_slot'),
+      backup_tray:  this.i18n.t('parameter_help.backup_tray'),
+      backup_slot:  this.i18n.t('parameter_help.backup_slot'),
+      backup_start_tray: this.i18n.t('parameter_help.backup_start_tray'),
+      backup_start_slot: this.i18n.t('parameter_help.backup_start_slot'),
+      backup_end_tray:   this.i18n.t('parameter_help.backup_end_tray'),
+      backup_end_slot:   this.i18n.t('parameter_help.backup_end_slot'),
+      active:       this.i18n.t('parameter_help.active'),
+      entityName:   this.i18n.t('parameter_help.entityName'),
+      message:      this.i18n.t('parameter_help.message'),
+      distance:     this.i18n.t('parameter_help.distance'),
+      amount:       this.i18n.t('parameter_help.amount'),
+      position:     this.i18n.t('parameter_help.position'),
+      filename:     this.i18n.t('parameter_help.filename'),
+      state:        this.i18n.t('parameter_help.state'),
+      verb:         this.i18n.t('parameter_help.verb'),
+      alias_name:   this.i18n.t('parameter_help.alias_name'),
+      command_type: this.i18n.t('parameter_help.command_type')
     }
 
-    return helpMap[paramName] || 'Parameter value'
+    return helpMap[paramName] || this.i18n.t('parameter_value')
   }
 
   // Resolve option labels with i18n support and special-case tray labels
   getOptionLabel (paramName, value) {
     if (paramName === 'verb') {
-      return this.i18n?.t?.(`verb.${value}`) || value
+      return this.i18n.t(`verb.${value}`)
     }
     if (value === 'STOTrayExecByTray') {
-      return this.i18n?.t?.('stotrayexecbytray_description') || value
+      return this.i18n.t('stotrayexecbytray_description')
     }
     if (value === 'TrayExecByTray') {
-      return this.i18n?.t?.('trayexecbytray_description') || value
+      return this.i18n.t('trayexecbytray_description')
     }
     return value
   }
@@ -463,7 +550,7 @@ export default class ParameterCommandUI extends UIComponentBase {
       inputGroup.className = 'form-group'
 
       const label = this.document.createElement('label')
-      label.textContent = paramDef.label || this.i18n?.t?.(paramName) || this.formatParameterName(paramName)
+      label.textContent = paramDef.label || this.i18n.t(`parameter_help.${paramName}`) || this.i18n.t(paramName) || this.formatParameterName(paramName)
       label.setAttribute('for', `param_${paramName}`)
 
       let inputEl
