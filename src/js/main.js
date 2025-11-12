@@ -177,7 +177,7 @@ const dataService = new DataService({
   })
 
   // Initialize app after dependencies are available
-  const app = new STOToolsKeybindManager()
+  const app = new STOToolsKeybindManager({ i18n: i18next })
   
   // App instance is NOT exposed globally - components communicate via eventBus
   // Initialize the app - this will emit 'sto-app-ready' when complete

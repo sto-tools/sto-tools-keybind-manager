@@ -34,7 +34,8 @@ import ParameterCommandService from './components/services/ParameterCommandServi
 
 
 export default class STOToolsKeybindManager {
-  constructor() {
+  constructor({ i18n } = {}) {
+    this.i18n = i18n
     this.store = store
     this.eventListeners = new Map()
     this.autoSyncManager = null // created later when dependencies available
@@ -117,7 +118,7 @@ export default class STOToolsKeybindManager {
         throw new Error('Required dependencies not loaded')
       }
       
-      this.modalManagerService = new ModalManagerService({ eventBus, i18n })
+      this.modalManagerService = new ModalManagerService({ eventBus, i18n: this.i18n })
       this.modalManagerService.init()
       
       const modalManager = this.modalManagerService
@@ -137,13 +138,13 @@ export default class STOToolsKeybindManager {
       this.confirmDialogUI = new ConfirmDialogUI({
         eventBus,
         modalManager,
-        i18n: i18next
+        i18n: this.i18n
       })
 
       this.inputDialogUI = new InputDialogUI({
         eventBus,
         modalManager,
-        i18n: i18next
+        i18n: this.i18n
       })
 
       // Make modal dialogs globally available
@@ -157,7 +158,7 @@ export default class STOToolsKeybindManager {
           modalManager,
           confirmDialog: this.confirmDialogUI,
           document,
-          i18n: i18next
+          i18n: this.i18n
         })
       } catch (error) {
         throw error
@@ -166,7 +167,7 @@ export default class STOToolsKeybindManager {
       this.aliasService = new AliasService({
         storage: storageService,
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
         ui: stoUI,
       })
 
@@ -184,7 +185,7 @@ export default class STOToolsKeybindManager {
         modalManager,
         confirmDialog: this.confirmDialogUI,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
       this.keyBrowserService = new KeyBrowserService({
@@ -200,7 +201,7 @@ export default class STOToolsKeybindManager {
         document,
         modalManager,
         confirmDialog: this.confirmDialogUI,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
       //this.keyBrowserUI.init()
@@ -208,7 +209,7 @@ export default class STOToolsKeybindManager {
       this.keyService = new KeyService({
         storage: storageService,
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
         ui: stoUI,
       })
 
@@ -217,7 +218,7 @@ export default class STOToolsKeybindManager {
       this.importService = new ImportService({
         storage: storageService,
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
         ui: stoUI,
       })
 
@@ -226,7 +227,7 @@ export default class STOToolsKeybindManager {
       this.exportService = new ExportService({
         storage: storageService,
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
         ui: stoUI,
       })
 
@@ -239,14 +240,14 @@ export default class STOToolsKeybindManager {
         eventBus,
         modalManager,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
       })
       this.keyCaptureUI.init()
 
       this.commandService = new CommandService({
         storage: storageService,
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
         ui: stoUI,
       })
 
@@ -255,7 +256,7 @@ export default class STOToolsKeybindManager {
       this.commandLibraryService = new CommandLibraryService({
         storage: storageService,
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
         ui: stoUI,
         modalManager,
       })
@@ -266,18 +267,18 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         modalManager,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
       this.commandChainService = new CommandChainService({
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
       })
       this.commandChainUI      = new CommandChainUI({
         eventBus,
         ui: stoUI,
         document,
-        i18n: i18next
+        i18n: this.i18n
       })
 
       this.parameterCommandService = new ParameterCommandService({
@@ -287,7 +288,7 @@ export default class STOToolsKeybindManager {
       this.parameterCommandUI = new ParameterCommandUI({
         eventBus,
         modalManager,
-        i18n: i18next,
+        i18n: this.i18n,
         ui: stoUI
       })
       
@@ -303,13 +304,13 @@ export default class STOToolsKeybindManager {
         eventBus,
         confirmDialog: this.confirmDialogUI,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
       this.headerToolbarUI = new HeaderToolbarUI({
         eventBus,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
       this.syncUI = new SyncUI({
@@ -320,7 +321,7 @@ export default class STOToolsKeybindManager {
       this.aboutModalUI = new AboutModalUI({
         eventBus,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
       this.interfaceModeService = new InterfaceModeService({
@@ -335,15 +336,15 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         profileUI: this.profileUI,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
-      this.vfxManagerService = new VFXManagerService(eventBus, i18next)
-      this.vfxManagerUI = new VFXManagerUI({eventBus, modalManager, i18n: i18next})
+      this.vfxManagerService = new VFXManagerService(eventBus, this.i18n)
+      this.vfxManagerUI = new VFXManagerUI({eventBus, modalManager, i18n: this.i18n})
       this.vfxManagerService.init()
       this.vfxManagerUI.init()
 
-      this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: i18next, ui: stoUI })
+      this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: this.i18n, ui: stoUI })
       this.preferencesUI = new PreferencesUI({ eventBus, service: this.preferencesService, ui: stoUI })
       this.preferencesManager = this.preferencesUI
       this.preferencesService.init()
@@ -411,7 +412,7 @@ export default class STOToolsKeybindManager {
       this.checkAndShowWelcomeMessage()
       
       stoUI.showToast(
-        i18next.t('sto_tools_keybind_manager_loaded_successfully'),
+        this.i18n.t('sto_tools_keybind_manager_loaded_successfully'),
         'success'
       )
 
@@ -429,7 +430,7 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         app: this,
         eventBus,
-        i18n: i18next,
+        i18n: this.i18n,
       })
 
       this.projectManagementService.init()
@@ -438,7 +439,7 @@ export default class STOToolsKeybindManager {
       this.importUI = new ImportUI({
         eventBus,
         document,
-        i18n: i18next,
+        i18n: this.i18n,
         modalManager: this.modalManagerService,
       })
       this.importUI.init()
@@ -449,19 +450,19 @@ export default class STOToolsKeybindManager {
       const { default: BindsetSelectorUI }   = await import('./components/ui/BindsetSelectorUI.js')
 
       this.bindsetService  = new BindsetService({ eventBus })
-      this.bindsetManagerUI = new BindsetManagerUI({ eventBus, i18n: i18next, confirmDialog: this.confirmDialogUI, inputDialog: this.inputDialogUI })
+      this.bindsetManagerUI = new BindsetManagerUI({ eventBus, i18n: this.i18n, confirmDialog: this.confirmDialogUI, inputDialog: this.inputDialogUI })
       this.bindsetService.init()
       this.bindsetManagerUI.init()
 
       this.bindsetSelectorService = new BindsetSelectorService({ eventBus })
-      this.bindsetSelectorUI = new BindsetSelectorUI({ eventBus, confirmDialog: this.confirmDialogUI, document, i18n: i18next })
+      this.bindsetSelectorUI = new BindsetSelectorUI({ eventBus, confirmDialog: this.confirmDialogUI, document, i18n: this.i18n })
       this.bindsetSelectorService.init()
       this.bindsetSelectorUI.init()
 
     } catch (error) {
       if (typeof stoUI !== 'undefined' && stoUI.showToast) {
         stoUI.showToast(
-          typeof i18next !== 'undefined' ? i18next.t('failed_to_load_application') : 'Failed to load application',
+          this.i18n.t('failed_to_load_application'),
           'error'
         )
       }
