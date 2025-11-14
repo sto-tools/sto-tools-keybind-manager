@@ -92,14 +92,14 @@ describe('CommandService mutations', () => {
 
     await new Promise(r => setTimeout(r, 0))
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ key: 'F1' }))
-    // Manually sync cache like DataCoordinator would
-    service.updateCacheFromProfile(profile)
+    // Simulate DataCoordinator profile update like ComponentBase would handle
+    eventBus.emit('profile:switched', { profileId: profile.id, profile, environment: 'space' })
     expect(service.cache.keys['F1'].length).toBe(3)
   })
 
   it('deleteCommand should remove entry and emit command-deleted', async () => {
     // Ensure cache is fresh
-    service.updateCacheFromProfile(profile)
+    eventBus.emit('profile:switched', { profileId: profile.id, profile, environment: 'space' })
 
     const spy = vi.fn()
     eventBus.on('command-deleted', spy)
@@ -109,13 +109,13 @@ describe('CommandService mutations', () => {
 
     await new Promise(r => setTimeout(r, 0))
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ key: 'F1', index: 0 }))
-    service.updateCacheFromProfile(profile)
+    eventBus.emit('profile:switched', { profileId: profile.id, profile, environment: 'space' })
     expect(service.cache.keys['F1'].length).toBe(1)
   })
 
   it('moveCommand should reorder and emit command-moved', async () => {
     // Ensure cache fresh then add another command to have 3 entries
-    service.updateCacheFromProfile(profile)
+    eventBus.emit('profile:switched', { profileId: profile.id, profile, environment: 'space' })
     await service.addCommand('F1', { command: 'Cmd3' })
 
     const spy = vi.fn()
@@ -126,7 +126,7 @@ describe('CommandService mutations', () => {
 
     await new Promise(r => setTimeout(r, 0))
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ key: 'F1', fromIndex: 0, toIndex: 2 }))
-    service.updateCacheFromProfile(profile)
+    eventBus.emit('profile:switched', { profileId: profile.id, profile, environment: 'space' })
     const cmds = service.cache.keys['F1']
     const val = cmds[2]
     if (typeof val === 'string') {

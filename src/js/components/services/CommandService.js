@@ -53,11 +53,7 @@ export default class CommandService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  // Convenience getter
-  getCurrentProfileId () {
-    return this.cache.currentProfile
-  }
-
+  
   // Profile helpers now use cached data
   getCurrentProfile () {
     if (!this.cache.currentProfile) return null
@@ -512,10 +508,7 @@ export default class CommandService extends ComponentBase {
     }
   }
 
-  generateCommandId () {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
-  }
-
+  
   // Set up event listeners for DataCoordinator integration
   setupEventListeners() {
     // Listen for command addition events from UI components (broadcast pattern)
@@ -554,16 +547,6 @@ export default class CommandService extends ComponentBase {
     })
   }
 
-  // Update local cache from profile data
-  updateCacheFromProfile(profile) {
-    if (!profile) return
-
-    // ComponentBase handles profile, builds, aliases, and keys caching automatically
-    // This method can be used for service-specific logic if needed
-    console.log(`[CommandService] Profile updated - ComponentBase handles caching automatically`)
-  }
-
-  
   // Placeholder command validator – always returns true.
   // Can be expanded later with proper validation logic.
   validateCommand (command) {
