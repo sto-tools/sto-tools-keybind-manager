@@ -17,6 +17,9 @@
   --surface: #ffffff;
   --surface-dark: #f1f5f9;
   --surface-darker: #e2e8f0;
+  --surface-light: #f8fafc;
+  --surface-hover: #f1f5f9;
+  --surface-alt: #f8fafc;
   --border: #e2e8f0;
   --border-dark: #cbd5e1;
   --border-focus: #3b82f6;
@@ -55,6 +58,9 @@
   --surface: #1e293b;
   --surface-dark: #334155;
   --surface-darker: #475569;
+  --surface-light: #334155;
+  --surface-hover: #475569;
+  --surface-alt: #334155;
   --border: #334155;
   --border-dark: #475569;
   --border-focus: #3b82f6;
@@ -599,7 +605,7 @@ body {
 }
 
 .category-item:hover {
-  background: var(--surface-hover);
+  background: var(--surface-hover, var(--surface-dark));
 }
 
 .category-item.active {
@@ -1933,7 +1939,7 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 0.125rem;
-  background: var(--surface-light);
+  background: var(--surface-light, var(--surface-dark));
   border-radius: var(--radius);
   padding: 0.125rem;
   border: 1px solid var(--border);
@@ -2851,7 +2857,7 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 0.125rem;
-  background: var(--surface-light);
+  background: var(--surface-light, var(--surface-dark));
   border-radius: var(--radius);
   padding: 0.125rem;
   border: 1px solid var(--border);
@@ -3537,7 +3543,7 @@ input:checked + .slider:before {
 }
 
 .bindset-option:hover {
-  background: var(--surface-hover);
+  background: var(--surface-hover, var(--surface-dark));
 }
 
 .bindset-option.active {
@@ -3567,7 +3573,6 @@ input:checked + .slider:before {
 .toolbar-group {
   display: flex;
   gap: 4px;
-  opacity: 0.7;
 }
 
 .bindset-option:hover .toolbar-group {
@@ -3591,7 +3596,7 @@ input:checked + .slider:before {
 }
 
 .toolbar-btn-small:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--surface-hover, var(--surface-dark));
   border-color: var(--accent);
 }
 
@@ -3615,7 +3620,7 @@ input:checked + .slider:before {
   border-top: 1px solid var(--border);
   padding: 8px 12px;
   text-align: center;
-  background: var(--surface-alt);
+  background: var(--surface-alt, var(--surface));
 }
 
 .text-link {
