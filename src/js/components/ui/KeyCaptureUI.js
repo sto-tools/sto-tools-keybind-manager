@@ -1079,11 +1079,7 @@ export default class KeyCaptureUI extends UIComponentBase {
     })
   }
 
-  populateKeySelectionModal() {
-    // Legacy method - now handled by initializeModal
-    this.initializeModal()
-  }
-
+  
   // Determine if chord is in UNSAFE list (case-insensitive)
   isUnsafeChord (chord) {
     if (!chord) return false
