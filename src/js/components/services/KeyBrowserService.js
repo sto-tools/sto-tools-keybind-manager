@@ -7,9 +7,10 @@ import ComponentBase from '../ComponentBase.js'
  * in a decoupled, event-driven manner.
  */
 export default class KeyBrowserService extends ComponentBase {
-  constructor ({ eventBus } = {}) {
+  constructor ({ eventBus, i18n } = {}) {
     super(eventBus)
     this.componentName = 'KeyBrowserService'
+    this.i18n = i18n
 
 
     // Register Request/Response endpoints for external callers
@@ -185,15 +186,15 @@ export default class KeyBrowserService extends ComponentBase {
   // Categorize keys by physical type (function keys, letters, etc.)
   categorizeKeysByType(keysWithCommands, allKeys) {
     const categories = {
-      function:   { name: 'Function Keys',        icon: 'fas fa-keyboard',     keys: new Set(), priority: 1 },
-      alphanumeric:{ name: 'Letters & Numbers',   icon: 'fas fa-font',         keys: new Set(), priority: 2 },
-      numberpad:  { name: 'Numberpad',            icon: 'fas fa-calculator',   keys: new Set(), priority: 3 },
-      modifiers:  { name: 'Modifier Keys',        icon: 'fas fa-hand-paper',   keys: new Set(), priority: 4 },
-      navigation: { name: 'Navigation',           icon: 'fas fa-arrows-alt',   keys: new Set(), priority: 5 },
-      system:     { name: 'System Keys',          icon: 'fas fa-cogs',         keys: new Set(), priority: 6 },
-      mouse:      { name: 'Mouse & Wheel',        icon: 'fas fa-mouse',        keys: new Set(), priority: 7 },
-      symbols:    { name: 'Symbols & Punctuation',icon: 'fas fa-at',           keys: new Set(), priority: 8 },
-      other:      { name: 'Other Keys',           icon: 'fas fa-question-circle',keys: new Set(),priority: 9 },
+      function:   { name: this.i18n.t('key_type.function_keys'),        icon: 'fas fa-keyboard',     keys: new Set(), priority: 1 },
+      alphanumeric:{ name: this.i18n.t('key_type.letters_numbers'),       icon: 'fas fa-font',         keys: new Set(), priority: 2 },
+      numberpad:  { name: this.i18n.t('key_type.numberpad'),              icon: 'fas fa-calculator',   keys: new Set(), priority: 3 },
+      modifiers:  { name: this.i18n.t('key_type.modifier_keys'),         icon: 'fas fa-hand-paper',   keys: new Set(), priority: 4 },
+      navigation: { name: this.i18n.t('key_type.navigation'),            icon: 'fas fa-arrows-alt',   keys: new Set(), priority: 5 },
+      system:     { name: this.i18n.t('key_type.system_keys'),           icon: 'fas fa-cogs',         keys: new Set(), priority: 6 },
+      mouse:      { name: this.i18n.t('key_type.mouse_wheel'),           icon: 'fas fa-mouse',        keys: new Set(), priority: 7 },
+      symbols:    { name: this.i18n.t('key_type.symbols_punctuation'),   icon: 'fas fa-at',           keys: new Set(), priority: 8 },
+      other:      { name: this.i18n.t('key_type.other_keys'),            icon: 'fas fa-question-circle',keys: new Set(),priority: 9 },
     }
 
     allKeys.forEach((keyName) => {

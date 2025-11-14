@@ -58,8 +58,6 @@
   "description_optional": "Descripción (opcional):",
   "alias_name": "Nombre del alias:",
   "select_key_dialog_title": "Seleccionar Tecla",
-  "function": "Función",
-  "arrows": "Flechas",
   "vfx_manager": "Gestor VFX",
   "space_effects": "Efectos de espacio",
   "select_all": "Seleccionar Todo",
@@ -118,7 +116,6 @@
   "generated": "Generado:",
   "created_by": "Creado por:",
   "statistics": "Estadísticas",
-  "keys_bound": "Teclas vinculadas:",
   "total_commands": "Total de comandos:",
   "command_aliases": "Alias de comandos",
   "vfx_aliases": "Alias VFX",
@@ -702,7 +699,6 @@
   "confirm_delete_alias": "¿Estás seguro de que quieres eliminar el alias \"{{aliasName}}\"?",
   "confirm_delete_key": "¿Estás seguro de que quieres eliminar la tecla \"{{keyName}}\" y todos sus comandos?",
   "confirm_delete_profile": "¿Estás seguro de que quieres eliminar el perfil \"{{profileName}}\"?\n\nEsta acción no se puede deshacer.",
-  "delete_key": "Eliminar tecla",
   "failed_to_copy_to_clipboard": "Falló al copiar al portapapeles",
   "no_effects_selected": "No hay efectos seleccionados. Por favor selecciona al menos un efecto para generar alias.",
   "profile_created_from": "Perfil \"{{newName}}\" creado desde \"{{sourceProfile}}\"",
@@ -717,26 +713,6 @@
   "click_add_command_to_start_building_your_command_chain": "Seleccione elementos en la Biblioteca de Comandos para comenzar a construir su cadena de comandos de teclas para",
   "click_add_command_to_start_building_your_alias_chain": "Seleccione elementos en la Biblioteca de Comandos para comenzar a construir su cadena de comandos de alias para",
   "create_alias": "Crear Alias",
-  "position": "Posición",
-  "distance": "Distancia",
-  "amount": "Cantidad",
-  "state": "Estado",
-  "targeting_command": "Comando de Objetivo",
-  "tray_number": "Número de Bandeja",
-  "slot_number": "Número de Ranura",
-  "start_tray": "Bandeja de Inicio",
-  "end_tray": "Bandeja Final",
-  "start_slot": "Ranura de Inicio",
-  "end_slot": "Ranura Final",
-  "backup_tray": "Bandeja de Respaldo",
-  "backup_slot": "Ranura de Respaldo",
-  "backup_start_tray": "Bandeja de Inicio de Respaldo",
-  "backup_end_tray": "Bandeja Final de Respaldo",
-  "backup_start_slot": "Ranura de Inicio de Respaldo",
-  "backup_end_slot": "Ranura Final de Respaldo",
-  "backup_configuration": "Configuración de Respaldo",
-  "backup_range_configuration": "Configuración de Rango de Respaldo",
-  "tray_range": "Rango de Bandeja",
   "key": "tecla",
   "no_profile": "Sin perfil",
   "stotrayexecbytray_description": "STOTrayExecByTray (muestra el enlace de tecla en la UI)",
@@ -787,6 +763,124 @@
   "profile_id_required": "Se requiere ID de perfil",
   "space_build": "Construcción Espacial",
   "syncing": "Sincronizando...",
+  "command_parameters": {
+    "active": {
+      "label": "Activo",
+      "help": "0: Desactivado, 1: Activado"
+    },
+    "tray": {
+      "label": "Bandeja",
+      "help": "Número de bandeja (0-9)"
+    },
+    "slot": {
+      "label": "Ranura",
+      "help": "Número de ranura (0-9)"
+    },
+    "start_tray": {
+      "label": "Bandeja de Inicio",
+      "help": "Número de bandeja de inicio"
+    },
+    "end_tray": {
+      "label": "Bandeja de Fin",
+      "help": "Número de bandeja de fin"
+    },
+    "start_slot": {
+      "label": "Ranura de Inicio",
+      "help": "Número de ranura de inicio"
+    },
+    "end_slot": {
+      "label": "Ranura de Fin",
+      "help": "Número de ranura de fin"
+    },
+    "backup_tray": {
+      "label": "Bandeja de Respaldo",
+      "help": "Número de bandeja de respaldo"
+    },
+    "backup_slot": {
+      "label": "Ranura de Respaldo",
+      "help": "Número de ranura de respaldo"
+    },
+    "backup_start_tray": {
+      "label": "Bandeja de Inicio de Respaldo",
+      "help": "Número de bandeja de inicio de respaldo"
+    },
+    "backup_end_tray": {
+      "label": "Bandeja de Fin de Respaldo",
+      "help": "Número de bandeja de fin de respaldo"
+    },
+    "backup_start_slot": {
+      "label": "Ranura de Inicio de Respaldo",
+      "help": "Número de ranura de inicio de respaldo"
+    },
+    "backup_end_slot": {
+      "label": "Ranura de Fin de Respaldo",
+      "help": "Número de ranura de fin de respaldo"
+    },
+    "command_type": {
+      "label": "Tipo de Comando",
+      "help": "Tipo de ejecución de comando (STOTrayExecByTray muestra UI, TrayExecByTray no)"
+    },
+    "entityName": {
+      "label": "Nombre de Entidad",
+      "help": "Nombre de la entidad a objetivo"
+    },
+    "message": {
+      "label": "Mensaje",
+      "help": "Texto del mensaje a enviar"
+    },
+    "distance": {
+      "label": "Distancia",
+      "help": "Valor de distancia de cámara"
+    },
+    "amount": {
+      "label": "Cantidad",
+      "help": "Cantidad de ajuste del acelerador"
+    },
+    "position": {
+      "label": "Posición",
+      "help": "Posición del acelerador (0-100)"
+    },
+    "filename": {
+      "label": "Nombre de Archivo",
+      "help": "Nombre de archivo (sin extensión)"
+    },
+    "state": {
+      "label": "Estado",
+      "help": "1 para activar, 0 para desactivar"
+    },
+    "verb": {
+      "label": "Canal",
+      "help": "Canal de comunicación (decir, equipo, zona)"
+    },
+    "alias_name": {
+      "label": "Nombre de Alias",
+      "help": "Nombre del alias a ejecutar"
+    },
+    "rawCommand": {
+      "label": "Comando",
+      "help": "Texto de comando STO sin formato"
+    },
+    "seconds": {
+      "label": "Segundos",
+      "help": "Retraso en segundos"
+    },
+    "alpha": {
+      "label": "Alfa",
+      "help": "Valor de transparencia (0-255)"
+    },
+    "modifier1": {
+      "label": "Modificador 1",
+      "help": "Primera combinación de teclas modificadoras"
+    },
+    "modifier2": {
+      "label": "Modificador 2",
+      "help": "Segunda combinación de teclas modificadoras"
+    },
+    "name": {
+      "label": "Nombre",
+      "help": "Nombre del objetivo u objeto"
+    }
+  },
   "add_new_alias": "Agregar Nuevo Alias",
   "delete_selected_alias": "Eliminar Alias Seleccionado",
   "duplicate_selected_alias": "Duplicar Alias Seleccionado",
@@ -840,46 +934,13 @@
   "export_generated_aliases_count": "del modo de alias a teclas ({{count}} alias generados)",
   "export_generated_aliases_note": "Líneas de atajos que llaman a alias generados",
   "export_user_and_generated_aliases": "Este archivo contiene tanto alias creados por el usuario como alias generados",
-  "modifier1": "Modificador 1",
-  "modifier2": "Modificador 2",
   "please_select_an_alias_first": "Por favor selecciona un alias primero",
   "confirm_reset_app": "Confirmar Restablecimiento de Aplicación",
-  "active": "Activo",
-  "command_type": "Tipo de Comando",
   "configure_colon": "Configurar:",
   "edit_colon": "Editar:",
-  "parameter_help": {
-    "amount": "Cantidad de ajuste del acelerador",
-    "position": "Posición del acelerador (0-100)",
-    "distance": "Valor de distancia de cámara",
-    "active": "0: Desactivado, 1: Activado",
-    "tray": "Número de bandeja (0-9)",
-    "slot": "Número de ranura (0-9)",
-    "command_type": "Tipo de ejecución de comando (STOTrayExecByTray muestra UI, TrayExecByTray no)",
-    "entityName": "Nombre de la entidad a apuntar",
-    "message": "Texto del mensaje a enviar",
-    "filename": "Nombre de archivo (sin extensión)",
-    "state": "1 para activar, 0 para desactivar",
-    "verb": "Canal de comunicación (say, team, zone)",
-    "alias_name": "Nombre del alias a ejecutar",
-    "alpha": "Valor de transparencia (0-255)",
-    "modifier1": "Primera combinación de teclas modificadoras",
-    "modifier2": "Segunda combinación de teclas modificadoras",
-    "name": "Nombre del objetivo u objeto",
-    "rawCommand": "Texto de comando STO sin formato",
-    "seconds": "Retardo en segundos"
-  },
-  "slot": "Ranura",
-  "tray": "Bandeja",
-  "alpha": "Alfa",
   "default_profile_exists_message": "Ya existe un perfil llamado \"Default\". Cargar los datos predeterminados lo sobrescribiría. ¿Desea continuar?",
   "default_profile_exists_title": "Perfil Predeterminado Existe",
-  "entityName": "Nombre de Entidad",
-  "filename": "Nombre de Archivo",
   "ground_alias": "Alias de Tierra",
-  "name": "Nombre",
-  "rawCommand": "Comando",
-  "seconds": "Segundos",
   "space_alias": "Alias de Espacio",
   "backup_restore_failed": "Falló la restauración de la copia de seguridad: {{error}}",
   "confirm_add": "Confirmar Agregar",

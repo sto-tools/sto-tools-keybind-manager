@@ -13,10 +13,11 @@ import { UNSAFE_KEYBINDS } from '../../core/constants.js'
  *  • chord-captured – when a full chord is captured  ({ chord, context })
  */
 export default class KeyCaptureService extends ComponentBase {
-  constructor ({ eventBus = null, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
+  constructor ({ eventBus = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n } = {}) {
     super(eventBus)
     this.componentName = 'KeyCaptureService'
     this.document = document
+    this.i18n = i18n
 
     // Runtime state
     this.isCapturing          = false
@@ -149,18 +150,8 @@ export default class KeyCaptureService extends ComponentBase {
 
     // Reject unsafe keybind combinations
     if (this.isRejectedChord(chord)) {
-      // Try to fetch i18n translation via request/response pattern – fall back
-      // to the raw English string if translation service is not available.
-      let message = `Unsafe keybind combination: ${chord} is not allowed`
-      try {
-        const translated = await this.request('i18n:translate', {
-          key: 'unsafe_keybind',
-          params: { key: chord }
-        })
-        if (translated) message = translated
-      } catch (_) {
-        // No-op – keep fallback string
-      }
+      // Get i18n translation directly
+      const message = this.i18n.t('unsafe_keybind', { key: chord })
 
       // Reset state so the rejected chord is not considered captured.
       this.resetState()

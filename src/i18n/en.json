@@ -71,8 +71,6 @@
   "description_optional": "Description (optional):",
   "alias_name": "Alias Name:",
   "select_key_dialog_title": "Select Key",
-  "function": "Function",
-  "arrows": "Arrows",
   "space_effects": "Space Effects",
   "selected": "selected",
   "ground_effects": "Ground Effects",
@@ -132,7 +130,6 @@
   "generated": "Generated",
   "created_by": "Created by",
   "statistics": "Statistics",
-  "keys_bound": "Keys Bound:",
   "total_commands": "Total Commands:",
   "command_aliases": "Command Aliases",
   "vfx_aliases": "VFX Aliases",
@@ -155,6 +152,17 @@
     "communication": "Communication",
     "system": "System",
     "custom": "Custom"
+  },
+  "key_type": {
+    "function_keys": "Function Keys",
+    "letters_numbers": "Letters & Numbers",
+    "numberpad": "Numberpad",
+    "modifier_keys": "Modifier Keys",
+    "navigation": "Navigation",
+    "system_keys": "System Keys",
+    "mouse_wheel": "Mouse & Wheel",
+    "symbols_punctuation": "Symbols & Punctuation",
+    "other_keys": "Other Keys"
   },
   "command_definitions": {
     "add_custom_command": {
@@ -724,10 +732,10 @@
       "failed_to_copy_to_clipboard": "Failed to copy to clipboard",
   "confirm_delete_alias": "Are you sure you want to delete the alias \"{{aliasName}}\"?",
   "confirm_delete_key": "Are you sure you want to delete the key \"{{keyName}}\" and all its commands?",
+  "confirm_clear": "Confirm Clear",
   "confirm_clear_commands": "Are you sure you want to clear all commands for \"{{keyName}}\"?",
   "confirm_delete_profile": "Are you sure you want to delete the profile \"{{profileName}}\"?\n\nThis action cannot be undone.",
   "confirm_reset_application": "Are you sure you want to reset the application?\n\nThis will delete all profiles, keybinds, and settings. This action cannot be undone.",
-  "delete_key": "Delete Key",
   "yes": "Yes",
   "no": "No",
   "ok": "OK",
@@ -737,47 +745,14 @@
   "click_add_command_to_start_building_your_alias_chain": "Select items in the Command Library to start building your alias command chain for",
 
   "create_alias": "Create Alias",
-  "position": "Position",
-  "distance": "Distance",
-  "amount": "Amount",
-  "state": "State",
-  "active": "Active",
-  "tray": "Tray",
-  "slot": "Slot",
-  "command_type": "Command Type",
-  "targeting_command": "Targeting Command",
-  "tray_number": "Tray Number",
-  "slot_number": "Slot Number",
-  "start_tray": "Start Tray",
-  "end_tray": "End Tray",
-  "start_slot": "Start Slot",
-  "end_slot": "End Slot",
-  "backup_tray": "Backup Tray",
-  "backup_slot": "Backup Slot",
-  "backup_start_tray": "Backup Start Tray",
-  "backup_end_tray": "Backup End Tray",
-  "backup_start_slot": "Backup Start Slot",
-  "backup_end_slot": "Backup End Slot",
-  "backup_configuration": "Backup Configuration",
-  "backup_range_configuration": "Backup Range Configuration",
-
-  "tray_range": "Tray Range",
-    "key": "key",
+  "key": "key",
   "no_profile": "No profile",
   "stotrayexecbytray_description": "STOTrayExecByTray (shows key binding on UI)",
   "trayexecbytray_description": "TrayExecByTray (no UI indication)",
   "parameter_configuration": "Parameter Configuration",
   "configure_colon": "Configure:",
   "edit_colon": "Edit:",
-  "modifier1": "Modifier 1",
-  "modifier2": "Modifier 2",
-  "rawCommand": "Command",
-  "seconds": "Seconds",
-  "alpha": "Alpha",
-  "name": "Name",
-  "entityName": "Entity Name",
-  "filename": "Filename",
-
+  
   "vfx_manager": "VFX Manager",
   "select_all": "Select All",
   "clear_all": "Clear All",
@@ -881,37 +856,123 @@
   "profile_id_required": "Profile ID is required",
   "space_build": "Space Build",
   "syncing": "Syncing...",
-  "parameter_help": {
-    "amount": "Throttle adjustment amount",
-    "position": "Throttle position (0-100)",
-    "distance": "Camera distance value",
-    "active": "0: Disabled, 1: Enabled",
-    "tray": "Tray number (0-9)",
-    "slot": "Slot number (0-9)",
-    "start_tray": "Starting tray number",
-    "end_tray": "Ending tray number",
-    "start_slot": "Starting slot number",
-    "end_slot": "Ending slot number",
-    "backup_tray": "Backup tray number",
-    "backup_slot": "Backup slot number",
-    "backup_start_tray": "Backup start tray number",
-    "backup_start_slot": "Backup start slot number",
-    "backup_end_tray": "Backup end tray number",
-    "backup_end_slot": "Backup end slot number",
-    "command_type": "Command execution type (STOTrayExecByTray shows UI, TrayExecByTray does not)",
-    "entityName": "Name of the entity to target",
-    "message": "Message text to send",
-    "filename": "File name (without extension)",
-    "state": "1 to enable, 0 to disable",
-    "verb": "Communication channel (say, team, zone)",
-    "alias_name": "Name of the alias to execute",
-    "rawCommand": "Raw STO command text",
-    "seconds": "Delay in seconds",
-    "alpha": "Transparency value (0-255)",
-    "modifier1": "First modifier key combination",
-    "modifier2": "Second modifier key combination",
-    "name": "Name of the target or object",
-    "parameter_value": "Parameter value"
+  "command_parameters": {
+    "active": {
+      "label": "Active",
+      "help": "0: Disabled, 1: Enabled"
+    },
+    "tray": {
+      "label": "Tray",
+      "help": "Tray number (0-9)"
+    },
+    "slot": {
+      "label": "Slot",
+      "help": "Slot number (0-9)"
+    },
+    "start_tray": {
+      "label": "Start Tray",
+      "help": "Starting tray number"
+    },
+    "end_tray": {
+      "label": "End Tray",
+      "help": "Ending tray number"
+    },
+    "start_slot": {
+      "label": "Start Slot",
+      "help": "Starting slot number"
+    },
+    "end_slot": {
+      "label": "End Slot",
+      "help": "Ending slot number"
+    },
+    "backup_tray": {
+      "label": "Backup Tray",
+      "help": "Backup tray number"
+    },
+    "backup_slot": {
+      "label": "Backup Slot",
+      "help": "Backup slot number"
+    },
+    "backup_start_tray": {
+      "label": "Backup Start Tray",
+      "help": "Backup start tray number"
+    },
+    "backup_end_tray": {
+      "label": "Backup End Tray",
+      "help": "Backup end tray number"
+    },
+    "backup_start_slot": {
+      "label": "Backup Start Slot",
+      "help": "Backup start slot number"
+    },
+    "backup_end_slot": {
+      "label": "Backup End Slot",
+      "help": "Backup end slot number"
+    },
+    "command_type": {
+      "label": "Command Type",
+      "help": "Command execution type (STOTrayExecByTray shows UI, TrayExecByTray does not)"
+    },
+    "entityName": {
+      "label": "Entity Name",
+      "help": "Name of the entity to target"
+    },
+    "message": {
+      "label": "Message",
+      "help": "Message text to send"
+    },
+    "distance": {
+      "label": "Distance",
+      "help": "Camera distance value"
+    },
+    "amount": {
+      "label": "Amount",
+      "help": "Throttle adjustment amount"
+    },
+    "position": {
+      "label": "Position",
+      "help": "Throttle position (0-100)"
+    },
+    "filename": {
+      "label": "Filename",
+      "help": "File name (without extension)"
+    },
+    "state": {
+      "label": "State",
+      "help": "1 to enable, 0 to disable"
+    },
+    "verb": {
+      "label": "Channel",
+      "help": "Communication channel (say, team, zone)"
+    },
+    "alias_name": {
+      "label": "Alias Name",
+      "help": "Name of the alias to execute"
+    },
+    "rawCommand": {
+      "label": "Command",
+      "help": "Raw STO command text"
+    },
+    "seconds": {
+      "label": "Seconds",
+      "help": "Delay in seconds"
+    },
+    "alpha": {
+      "label": "Alpha",
+      "help": "Transparency value (0-255)"
+    },
+    "modifier1": {
+      "label": "Modifier 1",
+      "help": "First modifier key combination"
+    },
+    "modifier2": {
+      "label": "Modifier 2",
+      "help": "Second modifier key combination"
+    },
+    "name": {
+      "label": "Name",
+      "help": "Name of the target or object"
+    }
   },
   "error_add_failed": "Failed to add key to bindset",
   "error_remove_failed": "Failed to remove key from bindset"

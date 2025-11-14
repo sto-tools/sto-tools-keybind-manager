@@ -393,9 +393,9 @@ export default class KeyCaptureUI extends UIComponentBase {
       } else {
         // Add generic modifiers
         if (active.length > 0) {
-          if (type === 'ctrl') modifiers.push('Ctrl')
-          else if (type === 'alt') modifiers.push('Alt')
-          else if (type === 'shift') modifiers.push('Shift')
+          if (type === 'ctrl') modifiers.push(this.i18n.t('ctrl'))
+          else if (type === 'alt') modifiers.push(this.i18n.t('alt'))
+          else if (type === 'shift') modifiers.push(this.i18n.t('shift'))
         }
       }
     })
@@ -1092,12 +1092,8 @@ export default class KeyCaptureUI extends UIComponentBase {
 
   // Show toast error and reset preview/selection when unsafe chord selected
   async handleUnsafeChord (chord) {
-    // Build message via i18n if available
-    let message = `Unsafe keybind combination: ${chord} is not allowed`
-    try {
-      const translated = await this.request('i18n:translate', { key: 'unsafe_keybind', params: { key: chord } })
-      if (translated) message = translated
-    } catch (_) {}
+    // Build message via i18n
+    const message = this.i18n.t('unsafe_keybind', { key: chord })
 
     this.emit('toast:show', { message, type: 'error' })
 

@@ -190,6 +190,7 @@ export default class STOToolsKeybindManager {
 
       this.keyBrowserService = new KeyBrowserService({
         eventBus,
+        i18n: this.i18n,
         storage: storageService,
         profileService: this.profileService,
         ui: stoUI,
@@ -233,7 +234,7 @@ export default class STOToolsKeybindManager {
 
       this.exportService.init()
 
-      this.keyCaptureService = new KeyCaptureService({ eventBus })
+      this.keyCaptureService = new KeyCaptureService({ eventBus, i18n: this.i18n })
       this.keyCaptureService.init()
 
       this.keyCaptureUI = new KeyCaptureUI({
@@ -297,7 +298,8 @@ export default class STOToolsKeybindManager {
         ui: stoUI,
         modalManager,
         parameterCommandUI: this.parameterCommandUI,
-        confirmDialog: this.confirmDialogUI
+        confirmDialog: this.confirmDialogUI,
+        i18n: this.i18n
       })
 
       this.headerMenuUI = new HeaderMenuUI({
@@ -344,7 +346,7 @@ export default class STOToolsKeybindManager {
       this.vfxManagerService.init()
       this.vfxManagerUI.init()
 
-      this.preferencesService = new PreferencesService({ storage: storageService, eventBus, i18n: this.i18n, ui: stoUI })
+      this.preferencesService = new PreferencesService({ storage: storageService, eventBus, ui: stoUI, i18n: this.i18n })
       this.preferencesUI = new PreferencesUI({ eventBus, service: this.preferencesService, ui: stoUI })
       this.preferencesManager = this.preferencesUI
       this.preferencesService.init()

@@ -57,8 +57,6 @@
   "description_optional": "Description (optionnelle) :",
   "alias_name": "Nom de l'alias :",
   "select_key_dialog_title": "Sélectionner la Touche",
-  "function": "Fonction",
-  "arrows": "Flèches",
   "vfx_manager": "Gestionnaire VFX",
   "space_effects": "Effets d'espace",
   "select_all": "Tout sélectionner",
@@ -117,7 +115,6 @@
   "generated": "Généré :",
   "created_by": "Créé par :",
   "statistics": "Statistiques",
-  "keys_bound": "Touches liées :",
   "total_commands": "Total des commandes :",
   "command_aliases": "Alias de commandes",
   "command_categories": {
@@ -691,7 +688,6 @@
   "confirm_delete_alias": "Êtes-vous sûr de vouloir supprimer l'alias \"{{aliasName}}\" ?",
   "confirm_delete_key": "Êtes-vous sûr de vouloir supprimer la touche \"{{keyName}}\" et toutes ses commandes ?",
   "confirm_delete_profile": "Êtes-vous sûr de vouloir supprimer le profil \"{{profileName}}\" ?\n\nCette action ne peut pas être annulée.",
-  "delete_key": "Supprimer la touche",
   "failed_to_copy_to_clipboard": "Échec de la copie dans le presse-papiers",
   "no_effects_selected": "Aucun effet sélectionné. Veuillez sélectionner au moins un effet pour générer des alias.",
   "profile_created_from": "Profil \"{{newName}}\" créé à partir de \"{{sourceProfile}}\"",
@@ -706,26 +702,6 @@
   "click_add_command_to_start_building_your_command_chain": "Sélectionnez des éléments dans la Bibliothèque de commandes pour commencer à construire votre chaîne de commandes de touches pour",
   "click_add_command_to_start_building_your_alias_chain": "Sélectionnez des éléments dans la Bibliothèque de commandes pour commencer à construire votre chaîne de commandes d'alias pour",
   "create_alias": "Créer un Alias",
-  "position": "Position",
-  "distance": "Distance",
-  "amount": "Quantité",
-  "state": "État",
-  "targeting_command": "Commande de Ciblage",
-  "tray_number": "Numéro de Plateau",
-  "slot_number": "Numéro d'Emplacement",
-  "start_tray": "Plateau de Début",
-  "end_tray": "Plateau de Fin",
-  "start_slot": "Emplacement de Début",
-  "end_slot": "Emplacement de Fin",
-  "backup_tray": "Plateau de Sauvegarde",
-  "backup_slot": "Emplacement de Sauvegarde",
-  "backup_start_tray": "Plateau de Début de Sauvegarde",
-  "backup_end_tray": "Plateau de Fin de Sauvegarde",
-  "backup_start_slot": "Emplacement de Début de Sauvegarde",
-  "backup_end_slot": "Emplacement de Fin de Sauvegarde",
-  "backup_configuration": "Configuration de Sauvegarde",
-  "backup_range_configuration": "Configuration de Plage de Sauvegarde",
-  "tray_range": "Plage de Plateau",
   "key": "touche",
   "no_profile": "Aucun profil",
   "stotrayexecbytray_description": "STOTrayExecByTray (affiche la liaison de touche dans l'UI)",
@@ -784,6 +760,124 @@
   "profile_id_required": "ID de profil requis",
   "space_build": "Construction Espace",
   "syncing": "Synchronisation en cours...",
+  "command_parameters": {
+    "active": {
+      "label": "Actif",
+      "help": "0: Désactivé, 1: Activé"
+    },
+    "tray": {
+      "label": "Plateau",
+      "help": "Numéro de plateau (0-9)"
+    },
+    "slot": {
+      "label": "Emplacement",
+      "help": "Numéro d'emplacement (0-9)"
+    },
+    "start_tray": {
+      "label": "Plateau de Début",
+      "help": "Numéro de plateau de début"
+    },
+    "end_tray": {
+      "label": "Plateau de Fin",
+      "help": "Numéro de plateau de fin"
+    },
+    "start_slot": {
+      "label": "Emplacement de Début",
+      "help": "Numéro d'emplacement de début"
+    },
+    "end_slot": {
+      "label": "Emplacement de Fin",
+      "help": "Numéro d'emplacement de fin"
+    },
+    "backup_tray": {
+      "label": "Plateau de Sauvegarde",
+      "help": "Numéro de plateau de sauvegarde"
+    },
+    "backup_slot": {
+      "label": "Emplacement de Sauvegarde",
+      "help": "Numéro d'emplacement de sauvegarde"
+    },
+    "backup_start_tray": {
+      "label": "Plateau de Début de Sauvegarde",
+      "help": "Numéro de plateau de début de sauvegarde"
+    },
+    "backup_end_tray": {
+      "label": "Plateau de Fin de Sauvegarde",
+      "help": "Numéro de plateau de fin de sauvegarde"
+    },
+    "backup_start_slot": {
+      "label": "Emplacement de Début de Sauvegarde",
+      "help": "Numéro d'emplacement de début de sauvegarde"
+    },
+    "backup_end_slot": {
+      "label": "Emplacement de Fin de Sauvegarde",
+      "help": "Numéro d'emplacement de fin de sauvegarde"
+    },
+    "command_type": {
+      "label": "Type de Commande",
+      "help": "Type d'exécution de commande (STOTrayExecByTray affiche l'UI, TrayExecByTray non)"
+    },
+    "entityName": {
+      "label": "Nom d'Entité",
+      "help": "Nom de l'entité à cibler"
+    },
+    "message": {
+      "label": "Message",
+      "help": "Texte du message à envoyer"
+    },
+    "distance": {
+      "label": "Distance",
+      "help": "Valeur de distance de caméra"
+    },
+    "amount": {
+      "label": "Quantité",
+      "help": "Quantité d'ajustement des gaz"
+    },
+    "position": {
+      "label": "Position",
+      "help": "Position des gaz (0-100)"
+    },
+    "filename": {
+      "label": "Nom de Fichier",
+      "help": "Nom de fichier (sans extension)"
+    },
+    "state": {
+      "label": "État",
+      "help": "1 pour activer, 0 pour désactiver"
+    },
+    "verb": {
+      "label": "Canal",
+      "help": "Canal de communication (dire, équipe, zone)"
+    },
+    "alias_name": {
+      "label": "Nom d'Alias",
+      "help": "Nom de l'alias à exécuter"
+    },
+    "rawCommand": {
+      "label": "Commande",
+      "help": "Texte de commande STO brut"
+    },
+    "seconds": {
+      "label": "Secondes",
+      "help": "Délai en secondes"
+    },
+    "alpha": {
+      "label": "Alpha",
+      "help": "Valeur de transparence (0-255)"
+    },
+    "modifier1": {
+      "label": "Modificateur 1",
+      "help": "Première combinaison de touches modificatrices"
+    },
+    "modifier2": {
+      "label": "Modificateur 2",
+      "help": "Seconde combinaison de touches modificatrices"
+    },
+    "name": {
+      "label": "Nom",
+      "help": "Nom de la cible ou de l'objet"
+    }
+  },
   "add_new_alias": "Ajouter un Nouvel Alias",
   "delete_selected_alias": "Supprimer l'Alias Sélectionné",
   "duplicate_selected_alias": "Dupliquer l'Alias Sélectionné",
@@ -840,46 +934,13 @@
   "export_generated_aliases_count": "du mode alias vers touches ({{count}} alias générés)",
   "export_generated_aliases_note": "Lignes de raccourcis qui appellent des alias générés",
   "export_user_and_generated_aliases": "Ce fichier contient à la fois des alias créés par l'utilisateur et des alias générés",
-  "modifier1": "Modificateur 1",
-  "modifier2": "Modificateur 2",
   "please_select_an_alias_first": "Veuillez d'abord sélectionner un alias",
   "confirm_reset_app": "Confirmer la Réinitialisation de l'Application",
-  "active": "Actif",
-  "command_type": "Type de Commande",
   "configure_colon": "Configurer :",
   "edit_colon": "Éditer :",
-  "parameter_help": {
-    "amount": "Quantité d'ajustement des gaz",
-    "position": "Position des gaz (0-100)",
-    "distance": "Valeur de distance de caméra",
-    "active": "0: Désactivé, 1: Activé",
-    "tray": "Numéro de plateau (0-9)",
-    "slot": "Numéro d'emplacement (0-9)",
-    "command_type": "Type d'exécution de commande (STOTrayExecByTray affiche l'UI, TrayExecByTray ne l'affiche pas)",
-    "entityName": "Nom de l'entité à cibler",
-    "message": "Texte du message à envoyer",
-    "filename": "Nom de fichier (sans extension)",
-    "state": "1 pour activer, 0 pour désactiver",
-    "verb": "Canal de communication (say, team, zone)",
-    "alias_name": "Nom de l'alias à exécuter",
-    "alpha": "Valeur de transparence (0-255)",
-    "modifier1": "Première combinaison de touches modificatrices",
-    "modifier2": "Seconde combinaison de touches modificatrices",
-    "name": "Nom de la cible ou de l'objet",
-    "rawCommand": "Texte de commande STO brut",
-    "seconds": "Délai en secondes"
-  },
-  "slot": "Emplacement",
-  "tray": "Plateau",
-  "alpha": "Alpha",
   "default_profile_exists_message": "Un profil nommé \"Default\" existe déjà. Le chargement des données par défaut l'écraserait. Voulez-vous continuer ?",
   "default_profile_exists_title": "Profil par Défaut Existe",
-  "entityName": "Nom d'Entité",
-  "filename": "Nom de Fichier",
   "ground_alias": "Alias Sol",
-  "name": "Nom",
-  "rawCommand": "Commande",
-  "seconds": "Secondes",
   "space_alias": "Alias Espace",
   "backup_restore_failed": "Échec de la restauration de la sauvegarde : {{error}}",
   "confirm_add": "Confirmer l'ajout",

@@ -19,7 +19,7 @@ export default class CommandUI extends UIComponentBase {
     modalManager = null,
     parameterCommandUI = null,
     confirmDialog = null,
-    i18n = null,
+    i18n,
     document = typeof window !== 'undefined' ? window.document : undefined,
   } = {}) {
     super(eventBus)
@@ -155,11 +155,7 @@ export default class CommandUI extends UIComponentBase {
               env === 'alias'
                 ? 'please_select_an_alias_first'
                 : 'please_select_a_key_first'
-            const message =
-              (await this.getI18nMessage(msgKey)) ||
-              (env === 'alias'
-                ? 'Please select an alias first'
-                : 'Please select a key first')
+            const message = this.i18n.t(msgKey)
 
             await this.showToast(message, 'warning')
             return
@@ -264,23 +260,16 @@ export default class CommandUI extends UIComponentBase {
           this._toastSeverityByKey.set(stateKey, severity)
         }
 
-        const resolveIssueMessage = async (issue) => {
-          // Try to get the translation using the proper request/response pattern
-          try {
-            const translated = await this.request('i18n:translate', {
-              key: issue.key,
-              params: issue.params || {}
-            })
+        const resolveIssueMessage = (issue) => {
+          // Get the translation directly via i18n
+          const translated = this.i18n.t(issue.key, issue.params || {})
 
-            // Check if we got a valid translation that's not the key itself
-            if (translated &&
-                typeof translated === 'string' &&
-                translated !== issue.key &&
-                !translated.startsWith(`${issue.key}:`)) {
-              return translated
-            }
-          } catch (error) {
-            console.warn('CommandUI: Failed to translate issue message:', error)
+          // Check if we got a valid translation that's not the key itself
+          if (translated &&
+              typeof translated === 'string' &&
+              translated !== issue.key &&
+              !translated.startsWith(`${issue.key}:`)) {
+            return translated
           }
 
           // Fall back to default message if translation is missing or invalid
@@ -288,44 +277,35 @@ export default class CommandUI extends UIComponentBase {
         }
 
         if (shouldShowIssueToasts) {
-          // Process issue toasts asynchronously
-          const processErrorToasts = async () => {
-            for (const error of errors) {
-              const message = await resolveIssueMessage(error)
-              this.showToast(message, 'error')
-            }
-
-            for (const warning of warnings) {
-              const message = await resolveIssueMessage(warning)
-              this.showToast(message, 'warning')
-            }
+          // Process issue toasts
+          for (const error of errors) {
+            const message = resolveIssueMessage(error)
+            this.showToast(message, 'error')
           }
-          processErrorToasts()
+
+          for (const warning of warnings) {
+            const message = resolveIssueMessage(warning)
+            this.showToast(message, 'warning')
+          }
         }
 
         // Show success toast when transitioning from non-success to success state
         if (shouldShowSuccessToast) {
           const processSuccessToast = async () => {
-            const successMessage = await this.getI18nMessage('command_chain_is_valid') || 'Command chain is valid'
+            const successMessage = this.i18n.t('command_chain_is_valid')
             this.showToast(successMessage, 'success')
           }
           processSuccessToast()
         }
 
-        // Refresh the label once translations resolve
-        try {
-          const translated = await this.request('i18n:translate', {
-            key: cfg.textKey,
-          })
-          if (
-            typeof translated === 'string' &&
-            translated &&
-            translated !== cfg.textKey
-          ) {
-            textEl.textContent = translated
-          }
-        } catch (_) {
-          // Ignore translation failures - fallback text already applied
+        // Refresh the label with translated text
+        const translated = this.i18n.t(cfg.textKey)
+        if (
+          typeof translated === 'string' &&
+          translated &&
+          translated !== cfg.textKey
+        ) {
+          textEl.textContent = translated
         }
 
         if (severity !== 'success' && (warnings.length || errors.length)) {
@@ -350,16 +330,7 @@ export default class CommandUI extends UIComponentBase {
     return this.cache.currentEnvironment || 'space'
   }
 
-  // Get i18n message using request/response
-  async getI18nMessage(key, params = {}) {
-    try {
-      return await this.request('i18n:translate', { key, params })
-    } catch (error) {
-      console.error('CommandUI: Failed to get i18n message:', error)
-      return null
-    }
-  }
-
+  
   // Confirm clearing the command chain for a key or alias
   async confirmClearChain(key) {
     if (!key) return
@@ -369,12 +340,10 @@ export default class CommandUI extends UIComponentBase {
     const itemType = isAliasMode ? 'alias' : 'key'
 
     try {
-      const message =
-        (await this.getI18nMessage('confirm_clear_commands', {
+      const message = this.i18n.t('confirm_clear_commands', {
           keyName: key,
-        })) || `Clear command chain for ${itemType} ${key}?`
-      const title =
-        (await this.getI18nMessage('confirm_clear')) || 'Confirm Clear'
+        })
+      const title = this.i18n.t('confirm_clear')
 
       // Check if confirmDialog is available
       if (!this.confirmDialog) {
@@ -454,11 +423,7 @@ export default class CommandUI extends UIComponentBase {
         env === 'alias'
           ? 'please_select_an_alias_first'
           : 'please_select_a_key_first'
-      const message =
-        (await this.getI18nMessage(msgKey)) ||
-        (env === 'alias'
-          ? 'Please select an alias first'
-          : 'Please select a key first')
+      const message = this.i18n.t(msgKey)
       await this.showToast(message, 'warning')
       return
     }
@@ -507,9 +472,7 @@ export default class CommandUI extends UIComponentBase {
       if (sources.length === 0) {
         const option = doc.createElement('option')
         option.value = ''
-        option.textContent =
-          (await this.getI18nMessage('no_sources_available')) ||
-          'No sources available'
+        option.textContent = this.i18n.t('no_sources_available')
         option.disabled = true
         select.appendChild(option)
       }
@@ -517,9 +480,7 @@ export default class CommandUI extends UIComponentBase {
       console.error('CommandUI: Failed to populate import sources:', error)
       const option = doc.createElement('option')
       option.value = ''
-      option.textContent =
-        (await this.getI18nMessage('error_loading_sources')) ||
-        'Error loading sources'
+      option.textContent = this.i18n.t('error_loading_sources')
       option.disabled = true
       select.appendChild(option)
     }
@@ -543,9 +504,7 @@ export default class CommandUI extends UIComponentBase {
     const currentEnv = this.getCurrentEnvironment()
 
     if (!sourceValue || !targetKey) {
-      const message =
-        (await this.getI18nMessage('please_select_a_source')) ||
-        'Please select a source'
+      const message = this.i18n.t('please_select_a_source')
       await this.showToast(message, 'warning')
       return
     }
@@ -568,23 +527,19 @@ export default class CommandUI extends UIComponentBase {
             result.sourceType.slice(1)
           const targetEnvName =
             currentEnv.charAt(0).toUpperCase() + currentEnv.slice(1)
-          const message =
-            (await this.getI18nMessage('cross_environment_import_warning', {
+          const message = this.i18n.t('cross_environment_import_warning', {
               dropped: result.droppedCount,
               sourceEnv: sourceEnvName,
               targetEnv: targetEnvName,
-            })) ||
-            `Warning: ${result.droppedCount} ${sourceEnvName}-specific commands were dropped when importing to ${targetEnvName}`
+            })
           await this.showToast(message, 'warning')
         }
 
         // Success toast
-        const successMsg =
-          (await this.getI18nMessage('commands_imported_successfully', {
+        const successMsg = this.i18n.t('commands_imported_successfully', {
             count: result.importedCount,
             source: result.sourceName,
-          })) ||
-          `Imported ${result.importedCount} commands from ${result.sourceName}`
+          })
 
         await this.showToast(successMsg, 'success')
 
@@ -599,18 +554,13 @@ export default class CommandUI extends UIComponentBase {
       // Handle specific error messages
       let message
       if (error.message === 'Source has no commands to import') {
-        message =
-          (await this.getI18nMessage('source_has_no_commands')) ||
-          'Source has no commands to import'
+        message = this.i18n.t('source_has_no_commands')
       } else if (error.message === 'No compatible commands found for import') {
-        message =
-          (await this.getI18nMessage('no_compatible_commands_to_import')) ||
-          'No compatible commands to import after filtering'
+        message = this.i18n.t('no_compatible_commands_to_import')
       } else {
-        message =
-          (await this.getI18nMessage('import_failed', {
+        message = this.i18n.t('import_failed', {
             error: error?.message || error,
-          })) || `Import failed: ${error?.message || error}`
+          })
       }
 
       await this.showToast(message, 'error')
@@ -622,28 +572,35 @@ export default class CommandUI extends UIComponentBase {
     const { warnings = [], errors = [] } = this._lastValidation || {}
     if (!warnings.length && !errors.length) return
 
-    const translateEntry = async (entry) => {
+    const translatedErrors = errors.map(entry => {
       if (typeof entry === 'string') {
-        return this.request('i18n:translate', { key: entry }).catch(() => entry)
+        return this.i18n.t(entry)
       }
       if (entry && entry.key) {
-        return this.request('i18n:translate', {
-          key: entry.key,
-          params: entry.params || {},
-        }).catch(() => entry.defaultMessage || entry.key)
+        return this.i18n.t(entry.key, entry.params || {})
       }
       if (entry && entry.defaultMessage) {
         return entry.defaultMessage
       }
       return ''
-    }
+    })
 
-    const translatedErrors = await Promise.all(errors.map(translateEntry))
-    const translatedWarnings = await Promise.all(warnings.map(translateEntry))
+    const translatedWarnings = warnings.map(entry => {
+      if (typeof entry === 'string') {
+        return this.i18n.t(entry)
+      }
+      if (entry && entry.key) {
+        return this.i18n.t(entry.key, entry.params || {})
+      }
+      if (entry && entry.defaultMessage) {
+        return entry.defaultMessage
+      }
+      return ''
+    })
 
     // Build grouped sections
-    const errorLabel = await translateEntry('error')
-    const warningLabel = await translateEntry('warning')
+    const errorLabel = this.i18n.t('error')
+    const warningLabel = this.i18n.t('warning')
 
     let sectionsHtml = ''
     if (translatedErrors.length) {
@@ -659,11 +616,8 @@ export default class CommandUI extends UIComponentBase {
       sectionsHtml += `<h4>${warningLabel}</h4><ul>${warnLis}</ul>`
     }
 
-    const i18nTranslate = (k) => this.request('i18n:translate', { key: k })
-
-    const title =
-      (await i18nTranslate('validation_details')) || 'Validation Details'
-    const okText = (await i18nTranslate('ok')) || 'OK'
+    const title = this.i18n.t('validation_details')
+    const okText = this.i18n.t('ok')
 
     const modalId = 'validationDetailsModal'
     const existing = this.document.getElementById(modalId)

@@ -141,12 +141,12 @@ export default class AliasBrowserUI extends UIComponentBase {
       const result = await this.request('alias:delete', { name: aliasName })
 
       if (result?.success) {
-        const successMessage = this._resolveAliasMessage(result?.message, { aliasName }, `Alias "${aliasName}" deleted successfully`)
+        const successMessage = this.i18n.t(result?.message || 'alias_deleted', { name: aliasName })
         this.showToast(successMessage, 'success')
       } else {
         const params = result?.params || { aliasName }
         const reason = params.reason || 'Unknown error'
-        const errorMessage = this._resolveAliasMessage(result?.error, params, `Failed to delete "${aliasName}": ${reason}`)
+        const errorMessage = this.i18n.t(result?.error || 'failed_to_delete_alias', { name: aliasName, reason })
         this.showToast(errorMessage, 'error')
       }
     }
@@ -207,7 +207,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       // Call alias service directly and show toast based on result
       const result = await this.request('alias:duplicate-with-name', { sourceName: aliasName, newName: target })
       if (result?.success) {
-        const successMessage = this._resolveAliasMessage(result?.message, { from: aliasName, to: target }, `Alias copied from "${aliasName}" to "${target}"`)
+        const successMessage = this.i18n.t(result?.message || 'alias_duplicated', { from: aliasName, to: target })
         this.showToast(successMessage, 'success')
         // Update local cache optimistically so UI reflects the new alias immediately
         this.cache.aliases = {
@@ -218,8 +218,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       } else {
         const params = result?.params || { sourceName: aliasName }
         const reason = params.reason || 'Unknown error'
-        const fallback = `Failed to duplicate alias "${aliasName}": ${reason}`
-        const errorMessage = this._resolveAliasMessage(result?.error, params, fallback)
+        const errorMessage = this.i18n.t(result?.error || 'failed_to_duplicate_alias', { sourceName: aliasName, reason })
         this.showToast(errorMessage, 'error')
       }
     }
@@ -267,23 +266,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     }
   }
 
-  _resolveAliasMessage(key, params = {}, fallback) {
-    if (!key) {
-      return fallback
-    }
-
-    const translated = this.i18n.t(key, params)
-    const looksMissing = typeof translated === 'string' && (
-      translated === key || translated.startsWith(`${key}:`)
-    )
-
-    if (!looksMissing && typeof translated === 'string' && translated) {
-      return translated
-    }
-
-    return fallback
-  }
-
+  
   createAliasElement (name, alias) {
     // Handle both legacy string format and new canonical string array format
     let commandCount = 0
@@ -384,7 +367,8 @@ export default class AliasBrowserUI extends UIComponentBase {
       // The service will handle profile and duplicate checks
       const result = await this.request('alias-browser:create', { name, description: '' })
       if (result?.success) {
-        this.showToast('Alias created successfully', 'success')
+        const successMessage = this.i18n.t(result?.message || 'alias_created', { name })
+        this.showToast(successMessage, 'success')
       } else if (result?.error) {
         const errorMessage = this.i18n.t(result.error, result.params)
         this.showToast(errorMessage, 'error')

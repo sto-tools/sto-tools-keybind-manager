@@ -57,8 +57,6 @@
   "description_optional": "Beschreibung (optional):",
   "alias_name": "Alias-Name:",
   "select_key_dialog_title": "Taste auswählen",
-  "function": "Funktion",
-  "arrows": "Pfeile",
   "vfx_manager": "VFX-Manager",
   "space_effects": "Weltraum-Effekte",
   "select_all": "Alle auswählen",
@@ -117,7 +115,6 @@
   "generated": "Generiert:",
   "created_by": "Erstellt von:",
   "statistics": "Statistiken",
-  "keys_bound": "Gebundene Tasten:",
   "total_commands": "Gesamtbefehle:",
   "command_aliases": "Befehlsaliase",
   "command_categories": {
@@ -693,7 +690,6 @@
   "confirm_delete_alias": "Sind Sie sicher, dass Sie den Alias \"{{aliasName}}\" löschen möchten?",
   "confirm_delete_key": "Sind Sie sicher, dass Sie die Taste \"{{keyName}}\" und alle ihre Befehle löschen möchten?",
   "confirm_delete_profile": "Sind Sie sicher, dass Sie das Profil \"{{profileName}}\" löschen möchten?\n\nDiese Aktion kann nicht rückgängig gemacht werden.",
-  "delete_key": "Taste löschen",
   "failed_to_copy_to_clipboard": "In Zwischenablage kopieren fehlgeschlagen",
   "no_effects_selected": "Keine Effekte ausgewählt. Bitte wählen Sie mindestens einen Effekt aus, um Aliase zu generieren.",
   "profile_created_from": "Profil \"{{newName}}\" aus \"{{sourceProfile}}\" erstellt",
@@ -708,31 +704,11 @@
   "click_add_command_to_start_building_your_command_chain": "Wählen Sie Elemente in der Befehlsbibliothek aus, um mit dem Erstellen Ihrer Tasten-Befehlsfolge für zu beginnen",
   "click_add_command_to_start_building_your_alias_chain": "Wählen Sie Elemente in der Befehlsbibliothek aus, um mit dem Erstellen Ihrer Alias-Befehlsfolge für zu beginnen",
   "create_alias": "Alias erstellen",
-  "position": "Position",
-  "distance": "Entfernung",
-  "amount": "Menge",
-  "state": "Zustand",
-  "targeting_command": "Zielbefehl",
-  "tray_number": "Fachnummer",
-  "slot_number": "Slotnummer",
-  "start_tray": "Startfach",
-  "end_tray": "Endfach",
-  "start_slot": "Startslot",
-  "end_slot": "Endslot",
-  "backup_tray": "Backup-Fach",
-  "backup_slot": "Backup-Slot",
-  "backup_start_tray": "Backup-Startfach",
-  "backup_end_tray": "Backup-Endfach",
-  "backup_start_slot": "Backup-Startslot",
-  "backup_end_slot": "Backup-Endslot",
-  "backup_configuration": "Backup-Konfiguration",
-  "backup_range_configuration": "Backup-Bereichskonfiguration",
-  "tray_range": "Fachbereich",
   "key": "Taste",
   "no_profile": "Kein Profil",
   "parameter_configuration": "Parameter-Konfiguration",
-  "stotrayexecbytray_description": "Führt Tray-Befehle basierend auf der aktuellen Tray-Nummer aus",
-  "trayexecbytray_description": "Führt Befehle basierend auf der aktuellen Tray-Nummer aus",
+  "stotrayexecbytray_description": "STOTrayExecByTray (zeigt Tastenbelegung in der UI an)",
+  "trayexecbytray_description": "TrayExecByTray (keine UI-Anzeige)",
   "vfx_aliases": "VFX-Aliase",
   "bindset_enable": "Aktivieren",
   "vfx_alias_space": "VFX-Alias: Raum",
@@ -786,6 +762,124 @@
   "profile_id_required": "Profil-ID ist erforderlich",
   "space_build": "Weltraum-Build",
   "syncing": "Synchronisiere...",
+  "command_parameters": {
+    "active": {
+      "label": "Aktiv",
+      "help": "0: Deaktiviert, 1: Aktiviert"
+    },
+    "tray": {
+      "label": "Fach",
+      "help": "Fachnummer (0-9)"
+    },
+    "slot": {
+      "label": "Slot",
+      "help": "Slotnummer (0-9)"
+    },
+    "start_tray": {
+      "label": "Startfach",
+      "help": "Startfachnummer"
+    },
+    "end_tray": {
+      "label": "Endfach",
+      "help": "Endfachnummer"
+    },
+    "start_slot": {
+      "label": "Startslot",
+      "help": "Startslotnummer"
+    },
+    "end_slot": {
+      "label": "Endslot",
+      "help": "Endslotnummer"
+    },
+    "backup_tray": {
+      "label": "Backup-Fach",
+      "help": "Backup-Fachnummer"
+    },
+    "backup_slot": {
+      "label": "Backup-Slot",
+      "help": "Backup-Slotnummer"
+    },
+    "backup_start_tray": {
+      "label": "Backup-Startfach",
+      "help": "Backup-Startfachnummer"
+    },
+    "backup_end_tray": {
+      "label": "Backup-Endfach",
+      "help": "Backup-Endfachnummer"
+    },
+    "backup_start_slot": {
+      "label": "Backup-Startslot",
+      "help": "Backup-Startslotnummer"
+    },
+    "backup_end_slot": {
+      "label": "Backup-Endslot",
+      "help": "Backup-Endslotnummer"
+    },
+    "command_type": {
+      "label": "Befehlstyp",
+      "help": "Befehlsausführungstyp (STOTrayExecByTray zeigt UI, TrayExecByTray nicht)"
+    },
+    "entityName": {
+      "label": "Entitätsname",
+      "help": "Name der zu zielenden Entität"
+    },
+    "message": {
+      "label": "Nachricht",
+      "help": "Nachrichtentext zum Senden"
+    },
+    "distance": {
+      "label": "Entfernung",
+      "help": "Kameraentfernungswert"
+    },
+    "amount": {
+      "label": "Betrag",
+      "help": "Drosselstellungsbetrag"
+    },
+    "position": {
+      "label": "Position",
+      "help": "Drosselstellung (0-100)"
+    },
+    "filename": {
+      "label": "Dateiname",
+      "help": "Dateiname (ohne Erweiterung)"
+    },
+    "state": {
+      "label": "Status",
+      "help": "1 zum Aktivieren, 0 zum Deaktivieren"
+    },
+    "verb": {
+      "label": "Kanal",
+      "help": "Kommunikationskanal (sagen, Team, Zone)"
+    },
+    "alias_name": {
+      "label": "Alias-Name",
+      "help": "Name des auszuführenden Alias"
+    },
+    "rawCommand": {
+      "label": "Befehl",
+      "help": "Roher STO-Befehlstext"
+    },
+    "seconds": {
+      "label": "Sekunden",
+      "help": "Verzögerung in Sekunden"
+    },
+    "alpha": {
+      "label": "Alpha",
+      "help": "Transparenzwert (0-255)"
+    },
+    "modifier1": {
+      "label": "Modifikator 1",
+      "help": "Erste Modifikator-Tastenkombination"
+    },
+    "modifier2": {
+      "label": "Modifikator 2",
+      "help": "Zweite Modifikator-Tastenkombination"
+    },
+    "name": {
+      "label": "Name",
+      "help": "Name des Ziels oder Objekts"
+    }
+  },
   "add_new_alias": "Neuen Alias hinzufügen",
   "delete_selected_alias": "Ausgewählten Alias löschen",
   "duplicate_selected_alias": "Ausgewählten Alias duplizieren",
@@ -840,46 +934,13 @@
   "export_generated_aliases_count": "aus Alias-an-Tasten-Modus ({{count}} generierte Aliase)",
   "export_generated_aliases_note": "Keybind-Zeilen, die generierte Aliase aufrufen",
   "export_user_and_generated_aliases": "Diese Datei enthält sowohl benutzererstellte Aliase als auch generierte Aliase",
-  "modifier1": "Modifikator 1",
-  "modifier2": "Modifikator 2",
   "please_select_an_alias_first": "Bitte wählen Sie zuerst einen Alias",
   "confirm_reset_app": "Anwendung zurücksetzen bestätigen",
-  "active": "Aktiv",
-  "command_type": "Befehlstyp",
   "configure_colon": "Konfigurieren:",
   "edit_colon": "Bearbeiten:",
-  "parameter_help": {
-    "amount": "Drosselstellungsbetrag",
-    "position": "Drosselstellung (0-100)",
-    "distance": "Kameraentfernungswert",
-    "active": "0: Deaktiviert, 1: Aktiviert",
-    "tray": "Fachnummer (0-9)",
-    "slot": "Slotnummer (0-9)",
-    "command_type": "Befehlsausführungstyp (STOTrayExecByTray zeigt UI, TrayExecByTray nicht)",
-    "entityName": "Name der zu zielenden Entität",
-    "message": "Zu sendende Nachricht",
-    "filename": "Dateiname (ohne Erweiterung)",
-    "state": "1 zum Aktivieren, 0 zum Deaktivieren",
-    "verb": "Kommunikationskanal (say, team, zone)",
-    "alias_name": "Name des auszuführenden Alias",
-    "alpha": "Transparenzwert (0-255)",
-    "modifier1": "Erster Modifikator-Tastenkombination",
-    "modifier2": "Zweiter Modifikator-Tastenkombination",
-    "name": "Name des Ziels oder Objekts",
-    "rawCommand": "Roher STO-Befehlstext",
-    "seconds": "Verzögerung in Sekunden"
-  },
-  "slot": "Slot",
-  "tray": "Fach",
-  "alpha": "Alpha",
   "default_profile_exists_message": "Ein Profil namens \"Default\" existiert bereits. Das Laden der Standarddaten würde es überschreiben. Möchten Sie fortfahren?",
   "default_profile_exists_title": "Standard-Profil existiert",
-  "entityName": "Entitätsname",
-  "filename": "Dateiname",
   "ground_alias": "Boden-Alias",
-  "name": "Name",
-  "rawCommand": "Befehl",
-  "seconds": "Sekunden",
   "space_alias": "Raum-Alias",
   "backup_restore_failed": "Wiederherstellung der Sicherung fehlgeschlagen: {{error}}",
   "confirm_add": "Hinzufügen bestätigen",

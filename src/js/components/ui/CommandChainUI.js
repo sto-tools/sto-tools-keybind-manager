@@ -493,13 +493,9 @@ export default class CommandChainUI extends UIComponentBase {
     // Resolve tooltip text using the central i18n service so that dynamic language switching works
     let warningText = null
     if (warningInfo) {
-      try {
-        const translated = await this.request('i18n:translate', { key: warningInfo })
-        // Use translated value if available; otherwise fall back to original (may already be natural language)
-        warningText = translated && translated !== warningInfo ? translated : warningInfo
-      } catch {
-        warningText = warningInfo
-      }
+      const translated = this.i18n.t(warningInfo)
+      // Use translated value if available; otherwise fall back to original (may already be natural language)
+      warningText = translated && translated !== warningInfo ? translated : warningInfo
     }
 
     const warningIcon = warningText
@@ -933,27 +929,16 @@ export default class CommandChainUI extends UIComponentBase {
     try {
       const result = await this.request('utility:copy-to-clipboard', { text })
       if (result?.success) {
-        const successMessage = this._resolveClipboardMessage(result?.message, 'content_copied_to_clipboard')
+        const successMessage = this.i18n.t(result?.message || 'content_copied_to_clipboard')
         this.showToast(successMessage, 'success')
       } else {
-        const errorMessage = this._resolveClipboardMessage(result?.message, 'failed_to_copy_to_clipboard')
+        const errorMessage = this.i18n.t(result?.message || 'failed_to_copy_to_clipboard')
         this.showToast(errorMessage, 'error')
       }
     } catch (error) {
       console.error('Failed to copy alias to clipboard:', error)
       this.showToast(this.i18n.t('failed_to_copy_to_clipboard'), 'error')
     }
-  }
-
-  _resolveClipboardMessage(key, fallbackKey) {
-    if (!key) {
-      return this.i18n.t(fallbackKey)
-    }
-    const translated = this.i18n.t(key)
-    if (translated && translated !== key) {
-      return translated
-    }
-    return this.i18n.t(fallbackKey)
   }
 
   async copyCommandPreviewToClipboard() {
@@ -967,10 +952,10 @@ export default class CommandChainUI extends UIComponentBase {
     try {
       const result = await this.request('utility:copy-to-clipboard', { text })
       if (result?.success) {
-        const successMessage = this._resolveClipboardMessage(result?.message, 'content_copied_to_clipboard')
+        const successMessage = this.i18n.t(result?.message || 'content_copied_to_clipboard')
         this.showToast(successMessage, 'success')
       } else {
-        const errorMessage = this._resolveClipboardMessage(result?.message, 'failed_to_copy_to_clipboard')
+        const errorMessage = this.i18n.t(result?.message || 'failed_to_copy_to_clipboard')
         this.showToast(errorMessage, 'error')
       }
     } catch (error) {

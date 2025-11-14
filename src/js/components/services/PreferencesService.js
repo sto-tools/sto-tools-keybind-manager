@@ -1,5 +1,4 @@
 import ComponentBase from '../ComponentBase.js'
-import i18next from 'i18next'
 
 /**
  * PreferencesService – persistent user settings (theme, language, etc.)
@@ -51,17 +50,9 @@ export default class PreferencesService extends ComponentBase {
       )
       this.respond('preferences:get-setting', ({ key }) => this.getSetting(key))
 
-      // Add i18n translation endpoint for UI components
-      this.respond('i18n:translate', ({ key, params = {} }) => {
-        if (this.i18n && this.i18n.t) {
-          return this.i18n.t(key, params)
-        }
-        return key // Fallback to key if i18n not available
-      })
+      // Set up event listeners for theme and language changes
+      this.setupEventListeners()
     }
-
-    // Set up event listeners for theme and language changes
-    this.setupEventListeners()
   }
 
   // Event Listeners

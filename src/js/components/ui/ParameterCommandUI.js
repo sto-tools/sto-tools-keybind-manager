@@ -500,33 +500,8 @@ export default class ParameterCommandUI extends UIComponentBase {
   getParameterHelp (paramName, paramDef) {
     if (paramDef.help) return paramDef.help
 
-    const helpMap = {
-      tray:         this.i18n.t('parameter_help.tray'),
-      slot:         this.i18n.t('parameter_help.slot'),
-      start_tray:   this.i18n.t('parameter_help.start_tray'),
-      end_tray:     this.i18n.t('parameter_help.end_tray'),
-      start_slot:   this.i18n.t('parameter_help.start_slot'),
-      end_slot:     this.i18n.t('parameter_help.end_slot'),
-      backup_tray:  this.i18n.t('parameter_help.backup_tray'),
-      backup_slot:  this.i18n.t('parameter_help.backup_slot'),
-      backup_start_tray: this.i18n.t('parameter_help.backup_start_tray'),
-      backup_start_slot: this.i18n.t('parameter_help.backup_start_slot'),
-      backup_end_tray:   this.i18n.t('parameter_help.backup_end_tray'),
-      backup_end_slot:   this.i18n.t('parameter_help.backup_end_slot'),
-      active:       this.i18n.t('parameter_help.active'),
-      entityName:   this.i18n.t('parameter_help.entityName'),
-      message:      this.i18n.t('parameter_help.message'),
-      distance:     this.i18n.t('parameter_help.distance'),
-      amount:       this.i18n.t('parameter_help.amount'),
-      position:     this.i18n.t('parameter_help.position'),
-      filename:     this.i18n.t('parameter_help.filename'),
-      state:        this.i18n.t('parameter_help.state'),
-      verb:         this.i18n.t('parameter_help.verb'),
-      alias_name:   this.i18n.t('parameter_help.alias_name'),
-      command_type: this.i18n.t('parameter_help.command_type')
-    }
-
-    return helpMap[paramName] || this.i18n.t('parameter_value')
+    // Use the new command_parameters structure for unified parameter data
+    return this.i18n.t(`command_parameters.${paramName}.help`) || this.i18n.t('parameter_value')
   }
 
   // Resolve option labels with i18n support and special-case tray labels
@@ -550,7 +525,7 @@ export default class ParameterCommandUI extends UIComponentBase {
       inputGroup.className = 'form-group'
 
       const label = this.document.createElement('label')
-      label.textContent = paramDef.label || this.i18n.t(`parameter_help.${paramName}`) || this.i18n.t(paramName) || this.formatParameterName(paramName)
+      label.textContent = paramDef.label || this.i18n.t(`command_parameters.${paramName}.label`) || this.i18n.t(paramName) || this.formatParameterName(paramName)
       label.setAttribute('for', `param_${paramName}`)
 
       let inputEl
