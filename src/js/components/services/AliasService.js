@@ -29,11 +29,7 @@ export default class AliasService extends ComponentBase {
     this.setupEventListeners()
   }
 
-  // Convenience getter
-  getCurrentProfileId () {
-    return this.cache.currentProfile
-  }
-
+  
   // Event listeners for DataCoordinator integration
   setupEventListeners () {
     if (!this.eventBus) return
@@ -70,18 +66,7 @@ export default class AliasService extends ComponentBase {
     this.cache.profile = profile
   }
 
-  // Profile access now uses cached state
-  getCurrentProfile () {
-    if (!this.cache.currentProfile) return null
-    
-    // Return virtual profile with current aliases
-    return {
-      id: this.cache.currentProfile,
-      aliases: this.cache.aliases,
-      environment: this.cache.currentEnvironment
-    }
-  }
-
+  
   // Core alias operations now use DataCoordinator
   async addAlias (name, description = '') {
     if (!await this.isValidAliasName(name)) {
