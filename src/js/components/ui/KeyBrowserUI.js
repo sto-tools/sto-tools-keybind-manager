@@ -120,6 +120,18 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     // Also re-render on explicit mode-changed events.
     this.addEventListener('key-view:mode-changed', () => this.render())
+
+    // Listen for language changes and re-render with new translations
+    this.addEventListener('language:changed', () => {
+      this.render()
+    })
+
+    // Listen for theme changes and re-render with theme-specific styling
+    this.addEventListener('preferences:changed', ({ key }) => {
+      if (key === 'theme') {
+        this.render()
+      }
+    })
   }
 
   async render () {
