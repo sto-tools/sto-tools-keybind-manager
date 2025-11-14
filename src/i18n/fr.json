@@ -117,6 +117,17 @@
   "statistics": "Statistiques",
   "total_commands": "Total des commandes :",
   "command_aliases": "Alias de commandes",
+  "key_type": {
+    "function_keys": "Touches de fonction",
+    "letters_numbers": "Lettres et nombres",
+    "numberpad": "Pavé numérique",
+    "modifier_keys": "Touches modificatrices",
+    "navigation": "Navigation",
+    "system_keys": "Touches système",
+    "mouse_wheel": "Souris et molette",
+    "symbols_punctuation": "Symboles et ponctuation",
+    "other_keys": "Autres touches"
+  },
   "command_categories": {
     "targeting": "Ciblage",
     "combat": "Combat",
@@ -684,6 +695,7 @@
   "no_keybinds_to_export": "Aucun raccourci à exporter",
   "no_aliases_to_export": "Aucun alias à exporter",
   "application_reset_successfully": "Application réinitialisée avec succès",
+  "confirm_clear": "Confirmer l'effacement",
   "confirm_clear_commands": "Êtes-vous sûr de vouloir effacer toutes les commandes pour \"{{keyName}}\" ?",
   "confirm_delete_alias": "Êtes-vous sûr de vouloir supprimer l'alias \"{{aliasName}}\" ?",
   "confirm_delete_key": "Êtes-vous sûr de vouloir supprimer la touche \"{{keyName}}\" et toutes ses commandes ?",

@@ -117,6 +117,17 @@
   "statistics": "Statistiken",
   "total_commands": "Gesamtbefehle:",
   "command_aliases": "Befehlsaliase",
+  "key_type": {
+    "function_keys": "Funktionstasten",
+    "letters_numbers": "Buchstaben & Zahlen",
+    "numberpad": "Nummernblock",
+    "modifier_keys": "Modifikatortasten",
+    "navigation": "Navigation",
+    "system_keys": "Systemtasten",
+    "mouse_wheel": "Maus & Rad",
+    "symbols_punctuation": "Symbole & Zeichensetzung",
+    "other_keys": "Andere Tasten"
+  },
   "command_categories": {
     "targeting": "Zielauswahl",
     "combat": "Kampf",
@@ -686,6 +697,7 @@
   "no_keybinds_to_export": "Keine Keybinds zum Exportieren",
   "no_aliases_to_export": "Keine Aliase zum Exportieren",
   "application_reset_successfully": "Anwendung erfolgreich zurückgesetzt",
+  "confirm_clear": "Löschen bestätigen",
   "confirm_clear_commands": "Sind Sie sicher, dass Sie alle Befehle für \"{{keyName}}\" löschen möchten?",
   "confirm_delete_alias": "Sind Sie sicher, dass Sie den Alias \"{{aliasName}}\" löschen möchten?",
   "confirm_delete_key": "Sind Sie sicher, dass Sie die Taste \"{{keyName}}\" und alle ihre Befehle löschen möchten?",

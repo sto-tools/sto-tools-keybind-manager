@@ -126,6 +126,17 @@
   "vfx_suppression_loaded": "Supresión VFX Cargada",
   "vfx_suppression_for_environment": "Supresión VFX para entorno {{environment}}",
   "vfx_suppression_for_all_environments": "Supresión VFX para todos los entornos",
+  "key_type": {
+    "function_keys": "Teclas de función",
+    "letters_numbers": "Letras y números",
+    "numberpad": "Teclado numérico",
+    "modifier_keys": "Teclas modificadoras",
+    "navigation": "Navegación",
+    "system_keys": "Teclas del sistema",
+    "mouse_wheel": "Ratón y rueda",
+    "symbols_punctuation": "Símbolos y puntuación",
+    "other_keys": "Otras teclas"
+  },
   "command_categories": {
     "targeting": "Apuntado",
     "combat": "Combate",
@@ -695,6 +706,7 @@
   "no_keybinds_to_export": "No hay atajos para exportar",
   "no_aliases_to_export": "No hay alias para exportar",
   "application_reset_successfully": "Aplicación restablecida exitosamente",
+  "confirm_clear": "Confirmar limpieza",
   "confirm_clear_commands": "¿Estás seguro de que quieres limpiar todos los comandos para \"{{keyName}}\"?",
   "confirm_delete_alias": "¿Estás seguro de que quieres eliminar el alias \"{{aliasName}}\"?",
   "confirm_delete_key": "¿Estás seguro de que quieres eliminar la tecla \"{{keyName}}\" y todos sus comandos?",
