@@ -30,6 +30,8 @@
     "test:playwright:ui": "cd test_browser && npm run test:ui",
     "test:playwright:headed": "cd test_browser && npm run test:headed --",
     "lint": "eslint \"{src,tests}/**/*.js\" --ignore-pattern \"src/dist/bundle.js\"",
+    "lint:src": "eslint \"src/js/**/*.js\" --ignore-pattern \"src/dist/bundle.js\"",
+    "lint:tests": "eslint \"tests/**/*.js\" --ignore-pattern \"src/dist/bundle.js\"",
     "format": "prettier --write \"{src,tests}/**/*.{js,css,html}\""
   },
   "devDependencies": {

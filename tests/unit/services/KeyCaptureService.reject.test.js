@@ -21,7 +21,17 @@ describe('KeyCaptureService – unsafe keybind rejection', () => {
 
   it('suppresses toast emission when rejecting unsafe chords', async () => {
     const fixture = createServiceFixture()
-    const service = new KeyCaptureService({ eventBus: fixture.eventBus, document: createStubDocument() })
+
+    // Mock i18n for KeyCaptureService
+    const mockI18n = {
+      t: vi.fn((key, params) => key)
+    }
+
+    const service = new KeyCaptureService({
+      eventBus: fixture.eventBus,
+      document: createStubDocument(),
+      i18n: mockI18n
+    })
     fixture.eventBusFixture.clearEventHistory()
 
     service.isCapturing = true

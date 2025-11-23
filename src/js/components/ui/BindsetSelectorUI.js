@@ -37,6 +37,10 @@ export default class BindsetSelectorUI extends UIComponentBase {
 
     this.addEventListener('bindset-selector:membership-updated', ({ membership }) => {
       // ComponentBase automatically updates this.cache.selectedKey
+      console.log(`[BindsetSelectorUI] membership-updated received:`, Object.fromEntries(membership))
+      console.log(`[BindsetSelectorUI] current cache.selectedKey:`, this.cache.selectedKey)
+      console.log(`[BindsetSelectorUI] Primary Bindset membership:`, membership.get('Primary Bindset'))
+
       this.keyBindsetMembership = membership
       this.render()
     })
@@ -54,7 +58,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
 
     // Listen for key selection changes
     this.addEventListener('key:selected', ({ key }) => {
-      console.log('[BindsetSelectorUI] key:selected received:', key)
+      console.log(`[BindsetSelectorUI] key:selected received: key="${key}", current cache.selectedKey="${this.cache.selectedKey}"`)
       // ComponentBase handles this.cache.selectedKey automatically via key-selected events
       this.request('bindset-selector:set-key', { key })
     })
@@ -181,8 +185,11 @@ export default class BindsetSelectorUI extends UIComponentBase {
 
     // Primary Bindset (no toolbar)
     const isPrimaryActive = activeBindset === 'Primary Bindset'
+    const hasPrimaryKey = this.keyBindsetMembership.get('Primary Bindset') || false
+    const primaryGreyedOut = !hasPrimaryKey ? 'greyed-out' : ''
+
     html += `
-      <div class="bindset-option ${isPrimaryActive ? 'active' : ''}" data-bindset="Primary Bindset">
+      <div class="bindset-option ${isPrimaryActive ? 'active' : ''} ${primaryGreyedOut}" data-bindset="Primary Bindset">
         <span class="bindset-name">${this.i18n.t('primary_bindset')}</span>
       </div>
     `

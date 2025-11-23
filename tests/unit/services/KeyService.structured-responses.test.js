@@ -21,6 +21,12 @@ describe('KeyService Structured Response Tests', () => {
         builds: {
           space: { keys: {} },
           ground: { keys: {} }
+        },
+        bindsets: {
+          Custom: {
+            space: { keys: {} },
+            ground: { keys: {} }
+          }
         }
       }
 
@@ -42,7 +48,28 @@ describe('KeyService Structured Response Tests', () => {
 
     eventBus.on('rpc:data:update-profile', ({ requestId, replyTopic, payload }) => {
       // Mock the data update - return success
-      const { profileId, add, delete: deleteOp } = payload
+      const { profileId, add, delete: deleteOp, updates } = payload
+      if (updates?.modify?.bindsets) {
+        const modifications = updates.modify.bindsets
+        service.cache.profile.bindsets = service.cache.profile.bindsets || {}
+        Object.entries(modifications).forEach(([bindsetName, envData]) => {
+          if (!service.cache.profile.bindsets[bindsetName]) {
+            service.cache.profile.bindsets[bindsetName] = { space: { keys: {} }, ground: { keys: {} } }
+          }
+          Object.entries(envData).forEach(([env, data]) => {
+            if (!service.cache.profile.bindsets[bindsetName][env]) {
+              service.cache.profile.bindsets[bindsetName][env] = { keys: {} }
+            }
+            const targetKeys = service.cache.profile.bindsets[bindsetName][env].keys
+            Object.entries(data.keys || {}).forEach(([key, value]) => {
+              if (value === null) delete targetKeys[key]
+              else targetKeys[key] = value
+            })
+          })
+        })
+        eventBus.emit(replyTopic, { data: { success: true } })
+        return
+      }
       if (add || deleteOp) {
         // Update the service cache to simulate what DataCoordinator would do
         if (add && add.builds && add.builds.space && add.builds.space.keys) {
@@ -82,6 +109,12 @@ describe('KeyService Structured Response Tests', () => {
       builds: {
         space: { keys: {} },
         ground: { keys: {} }
+      },
+      bindsets: {
+        Custom: {
+          space: { keys: {} },
+          ground: { keys: {} }
+        }
       }
     }
     fixture.storage.saveProfile('test-profile', testProfile)
@@ -153,6 +186,18 @@ describe('KeyService Structured Response Tests', () => {
         error: 'key_already_exists',
         params: { keyName: 'K1' }
       })
+    })
+
+    it('should add key directly into a target bindset when provided', async () => {
+      const result = await service.addKey('B1', 'Custom')
+
+      expect(result).toEqual({
+        success: true,
+        key: 'B1',
+        environment: 'space',
+        bindset: 'Custom'
+      })
+      expect(service.cache.profile.bindsets.Custom.space.keys.B1).toEqual([])
     })
   })
 

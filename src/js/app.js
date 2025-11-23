@@ -202,6 +202,7 @@ export default class STOToolsKeybindManager {
         document,
         modalManager,
         confirmDialog: this.confirmDialogUI,
+        inputDialog: this.inputDialogUI,
         i18n: this.i18n,
       })
 

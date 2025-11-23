@@ -1,4 +1,5 @@
 import UIComponentBase from '../UIComponentBase.js'
+import BindsetDeleteConfirmUI from './BindsetDeleteConfirmUI.js'
 
 /**
  * KeyBrowserUI – responsible for rendering the key grid (#keyGrid).
@@ -10,6 +11,7 @@ export default class KeyBrowserUI extends UIComponentBase {
                 app = null,
                 modalManager = null,
                 confirmDialog = null,
+                inputDialog = null,
                 i18n,
                 document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
     super(eventBus)
@@ -17,8 +19,16 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.app      = app || (typeof window.app !== 'undefined' ? window.app : null)
     this.modalManager = modalManager
     this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
+    this.inputDialog = inputDialog || (typeof window !== 'undefined' ? window.inputDialog : null)
     this.i18n = i18n
     this.document = document
+
+    // Initialize bindset delete confirmation modal
+    this.bindsetDeleteConfirm = new BindsetDeleteConfirmUI({
+      eventBus: this.eventBus,
+      modalManager: this.modalManager,
+      i18n: this.i18n
+    })
   }
 
   // Lifecycle
@@ -88,7 +98,10 @@ export default class KeyBrowserUI extends UIComponentBase {
     })
 
     this.eventBus.on('key:list-changed', () => this.render())
-    
+
+    // Initialize view mode based on current bindset settings
+    this.ensureCorrectViewMode()
+
     // Add environment change handler for UI visibility
     this.addEventListener('environment:changed', (d = {}) => {
       const env = typeof d === 'string' ? d : d.environment || d.newMode || d.mode
@@ -126,9 +139,43 @@ export default class KeyBrowserUI extends UIComponentBase {
       this.render()
     })
 
-    // Listen for theme changes and re-render with theme-specific styling
-    this.addEventListener('preferences:changed', ({ key }) => {
-      if (key === 'theme') {
+    // Listen for preference changes that affect bindset display
+    this.addEventListener('preferences:changed', (data) => {
+      // Handle both { key, value } and { changes } event formats
+      const changes = data.changes || { [data.key]: data.value }
+
+      for (const [key, value] of Object.entries(changes)) {
+        if (key === 'theme') {
+          this.render()
+        } else if (key === 'bindsetsEnabled' || key === 'bindToAliasMode') {
+          // When bindsets are enabled/disabled, re-evaluate view mode
+          this.ensureCorrectViewMode()
+          this.render()
+        }
+      }
+    })
+
+    // Listen for bindset section collapse changes and re-render
+    this.addEventListener('bindset-section:collapse-changed', () => {
+      this.render()
+    })
+
+    // Listen for bindset changes and re-render when bindsets are enabled
+    this.addEventListener('bindsets:changed', () => {
+      if (this.shouldShowBindsetSections()) {
+        this.render()
+      }
+    })
+
+    // Listen for bindset management events
+    this.addEventListener('bindset:created', () => {
+      if (this.shouldShowBindsetSections()) {
+        this.render()
+      }
+    })
+
+    this.addEventListener('bindset:deleted', () => {
+      if (this.shouldShowBindsetSections()) {
         this.render()
       }
     })
@@ -144,12 +191,12 @@ export default class KeyBrowserUI extends UIComponentBase {
       return
     }
 
+    // Build DOM atomically using DocumentFragment
+    const fragment = this.document.createDocumentFragment()
+    const viewMode = this.getCurrentViewMode()
+
+    // Get key data first
     const keyMap = await this.request('key:get-all')
-
-    // Cache for child helpers
-    this._currentKeyMap = keyMap
-    // Use cached selected key from event listeners instead of polling
-
     const keys      = Object.keys(keyMap)
     const keysWithCommands = {}
     keys.forEach((k) => {
@@ -158,25 +205,64 @@ export default class KeyBrowserUI extends UIComponentBase {
     })
     const allKeys = [...new Set([...keys, ...Object.keys(keysWithCommands)])]
 
-    // Build DOM atomically using DocumentFragment
-    const fragment = this.document.createDocumentFragment()
-    const viewMode = localStorage.getItem('keyViewMode') || 'grid'
+    // Cache for child helpers
+    this._currentKeyMap = keyMap
 
-    if (viewMode === 'key-types') {
-      await this.renderKeyTypeView(fragment, profile, allKeys)
+    // If bindsets are enabled, render bindset sections for ALL view types
+    if (this.shouldShowBindsetSections()) {
+      await this.renderBindsetSectionsView(fragment, viewMode, profile, keyMap, keysWithCommands, allKeys)
       grid.classList.add('categorized')
-    } else if (viewMode === 'grid') {
-      await this.renderSimpleGridView(fragment, allKeys)
-      grid.classList.remove('categorized')
     } else {
-      // command-category
-      await this.renderCommandCategoryView(fragment, keysWithCommands, allKeys)
-      grid.classList.add('categorized')
+      // Original rendering for when bindsets are disabled
+      if (viewMode === 'key-types') {
+        await this.renderKeyTypeView(fragment, profile, allKeys)
+        grid.classList.add('categorized')
+      } else if (viewMode === 'grid') {
+        await this.renderSimpleGridView(fragment, allKeys)
+        grid.classList.remove('categorized')
+      } else {
+        // command-category
+        await this.renderCommandCategoryView(fragment, keysWithCommands, allKeys)
+        grid.classList.add('categorized')
+      }
     }
 
     // Atomic DOM update - replace all content at once
     grid.innerHTML = ''
     grid.appendChild(fragment)
+  }
+
+  // View mode management helpers
+
+  /**
+   * Determines the current view mode based on user preference
+   * @returns {string} The view mode to use ('bindset-sections', 'grid', 'categorized', etc.)
+   */
+  getCurrentViewMode() {
+    // Use the user's saved preference or default to grid
+    return localStorage.getItem('keyViewMode') || 'grid'
+  }
+
+  /**
+   * Determines if bindset functionality should be displayed in the current view
+   * @returns {boolean} True if bindset functionality should be shown
+   */
+  shouldShowBindsetSections() {
+    const bindsetsEnabled = this.cache.preferences?.bindsetsEnabled || false
+    const bindToAliasMode = this.cache.preferences?.bindToAliasMode || false
+    const currentEnvironment = this.cache.currentEnvironment || 'space'
+
+    // Show bindset functionality when bindsets are enabled and conditions are met
+    return bindsetsEnabled && bindToAliasMode && currentEnvironment !== 'alias'
+  }
+
+  /**
+   * Ensures the bindset display is updated when preferences change
+   */
+  ensureCorrectViewMode() {
+    // Just emit a view mode changed event to trigger re-render with current bindset settings
+    const currentMode = this.getCurrentViewMode()
+    this.emit('key-view:mode-changed', { mode: currentMode })
   }
 
   // Rendering helpers
@@ -211,6 +297,166 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
   }
 
+  async renderBindsetSectionView (fragment, profile) {
+    // Get sectional keys organized by bindset
+    const sectionalKeys = await this.request('key:get-all-sectional')
+
+    // Sort bindsets: Primary Bindset first, then alphabetically
+    const sortedBindsets = Object.entries(sectionalKeys).sort(([aName], [bName]) => {
+      if (aName === 'Primary Bindset') return -1
+      if (bName === 'Primary Bindset') return 1
+      return aName.localeCompare(bName)
+    })
+
+    // Render each bindset as a collapsible section
+    for (const [bindsetName, bindsetData] of sortedBindsets) {
+      const sectionElement = await this.createBindsetSectionElement(bindsetName, bindsetData)
+      fragment.appendChild(sectionElement)
+    }
+  }
+
+  /**
+   * Renders bindset sections view that works with all view types
+   * @param {DocumentFragment} fragment - The fragment to render into
+   * @param {string} viewMode - The view mode ('grid', 'key-types', 'command-category')
+   */
+  async renderBindsetSectionsView (fragment, viewMode, profile, keyMap, keysWithCommands, allKeys) {
+    // Get sectional keys organized by bindset
+    const sectionalKeys = await this.request('key:get-all-sectional')
+
+    // Sort bindsets: Primary Bindset first, then alphabetically
+    const sortedBindsets = Object.entries(sectionalKeys).sort(([aName], [bName]) => {
+      if (aName === 'Primary Bindset') return -1
+      if (bName === 'Primary Bindset') return 1
+      return aName.localeCompare(bName)
+    })
+
+    // Store the current view mode for use in createBindsetSectionElement
+    this._currentViewMode = viewMode
+
+    // Render each bindset as a section using the working implementation
+    for (const [bindsetName, bindsetData] of sortedBindsets) {
+      const sectionElement = await this.createBindsetSectionElement(bindsetName, bindsetData, viewMode, profile, keyMap, keysWithCommands, allKeys)
+      fragment.appendChild(sectionElement)
+    }
+  }
+
+  
+  toggleBindsetSection(bindsetName, element) {
+    const isCollapsed = element.classList.toggle('collapsed')
+    localStorage.setItem(`bindset-section-collapsed-${bindsetName}`, isCollapsed.toString())
+
+    const collapseIcon = element.querySelector('[data-action="toggle-collapse"] i')
+    if (collapseIcon) {
+      collapseIcon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-down'
+    }
+
+    // Emit collapse state change for other components
+    this.emit('bindset-section:collapse-changed', { bindsetName, isCollapsed })
+  }
+
+  // View-specific rendering methods for bindset sections
+
+  async renderSimpleGridViewForKeys (fragment, keys, bindsetData) {
+    // Filter and sort keys for this bindset
+    const sortedKeys = keys.sort()
+
+    // Render grid items
+    for (const key of sortedKeys) {
+      const keyEl = this.createKeyElement(key, bindsetData[key])
+      if (keyEl) {
+        fragment.appendChild(keyEl)
+      }
+    }
+  }
+
+  async renderKeyTypeViewForKeys (fragment, profile, keys, bindsetData) {
+    // Categorize keys for this bindset
+    const keyMap = {}
+    keys.forEach(key => {
+      keyMap[key] = bindsetData[key] || []
+    })
+
+    const categorized = await this.request('key:detect-types', { keys: Object.keys(keyMap) })
+
+    // Sort categories: standard, weapon, system, movement, social
+    const categoryOrder = ['standard', 'weapon', 'system', 'movement', 'social']
+    const sortedCategories = Object.keys(categorized).sort((a, b) => {
+      const aIndex = categoryOrder.indexOf(a.toLowerCase())
+      const bIndex = categoryOrder.indexOf(b.toLowerCase())
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b)
+      if (aIndex === -1) return 1
+      if (bIndex === -1) return -1
+      return aIndex - bIndex
+    })
+
+    for (const category of sortedCategories) {
+      const categoryData = categorized[category]
+      if (categoryData.keys.length === 0) continue
+
+      const el = this.document.createElement('div')
+      el.className = 'category-group'
+
+      // Category header
+      const header = this.document.createElement('div')
+      header.className = 'category-header'
+      header.innerHTML = `<i class="fas ${categoryData.icon}"></i> ${categoryData.name}`
+      el.appendChild(header)
+
+      // Commands container
+      const commandsContainer = this.document.createElement('div')
+      commandsContainer.className = 'category-commands'
+      categoryData.keys.forEach((k) => {
+        const keyEl = this.createKeyElement(k, bindsetData[k])
+        if (keyEl) {
+          commandsContainer.appendChild(keyEl)
+        }
+      })
+
+      el.appendChild(commandsContainer)
+      fragment.appendChild(el)
+    }
+  }
+
+  async renderCommandCategoryViewForKeys (fragment, keysWithCommands, allKeys, bindsetData) {
+    const categorized = await this.categorizeKeys(keysWithCommands, allKeys)
+
+    // Sort categories alphabetically
+    const sortedCategories = Object.keys(categorized).sort()
+
+    for (const category of sortedCategories) {
+      const categoryKeys = categorized[category]
+      if (categoryKeys.length === 0) continue
+
+      // Filter keys to only include those in this bindset
+      const bindsetCategoryKeys = categoryKeys.filter(key => allKeys.includes(key))
+
+      if (bindsetCategoryKeys.length === 0) continue
+
+      const el = this.document.createElement('div')
+      el.className = 'category-group'
+
+      // Category header
+      const header = this.document.createElement('div')
+      header.className = 'category-header'
+      header.textContent = category
+      el.appendChild(header)
+
+      // Commands container
+      const commandsContainer = this.document.createElement('div')
+      commandsContainer.className = 'category-commands'
+      bindsetCategoryKeys.forEach((k) => {
+        const keyEl = this.createKeyElement(k, bindsetData[k])
+        if (keyEl) {
+          commandsContainer.appendChild(keyEl)
+        }
+      })
+
+      el.appendChild(commandsContainer)
+      fragment.appendChild(el)
+    }
+  }
+
   // Categorization helpers
 
   async categorizeKeys (keysWithCommands, allKeys) {
@@ -225,11 +471,11 @@ export default class KeyBrowserUI extends UIComponentBase {
     return keyName.replace(/\+/g,'<br>+')
   }
 
-  createKeyElement (keyName) {
+  createKeyElement (keyName, bindsetContext = null) {
     const keyMap = this._currentKeyMap || {}
     const commands = (keyMap && keyMap[keyName]) ? keyMap[keyName] : []
 
-    const isSelected = keyName === this.cache.selectedKey
+    const isSelected = this.isKeySelectedInContext(keyName, bindsetContext)
 
     // After canonical string refactoring, commands should be an array of strings
     // During transition, handle both legacy rich objects and canonical strings
@@ -252,17 +498,36 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     el.innerHTML = `<div class="key-label">${formatted}</div>${nonBlank.length>0?`<div class="activity-bar" style="width:${Math.min(nonBlank.length*15,100)}%"></div><div class="command-count-badge">${nonBlank.length}</div>`:''}`
 
-    this.onDom(el, 'click', 'key-element-click', () => {
-      // Fire select request; include environment so SelectionService restores correct context
+    this.onDom(el, 'click', 'key-element-click', (e) => {
+      // Check if this key is within a bindset section
+      const bindsetSection = el.closest('.bindset-section')
+      const bindsetName = bindsetSection?.dataset?.bindset
+
+      // Fire select request; include environment and bindset context.
+      // SelectionService will synchronize the active bindset before emitting key-selected.
+      console.log(`[KeyBrowserUI] Sending key:select with bindset context: ${bindsetName}`)
       this.request('key:select', {
         keyName,
-        environment: this.cache?.currentEnvironment || 'space'
+        environment: this.cache?.currentEnvironment || 'space',
+        bindset: bindsetName && bindsetName !== 'Primary Bindset' ? bindsetName : null
       })
     })
     return el
   }
 
-  async createKeyCategoryElement (categoryId, categoryData, mode='command') {
+  isKeySelectedInContext (keyName, bindsetContext) {
+    // If no bindset context, use global selection (backward compatibility)
+    if (!bindsetContext) {
+      return keyName === this.cache.selectedKey
+    }
+
+    // With bindset context, check if key is selected in that specific bindset
+    // Leverages existing this.cache.activeBindset tracking
+    return keyName === this.cache.selectedKey &&
+           this.cache.activeBindset === bindsetContext
+  }
+
+  async createKeyCategoryElement (categoryId, categoryData, mode='command', bindsetContext=null) {
     const element = this.document.createElement('div')
     element.className = 'category'
     element.dataset.category = categoryId
@@ -270,7 +535,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     // Get collapsed state from service
     const isCollapsed = await this.request('key:get-category-state', { categoryId, mode })
 
-    element.innerHTML = `<h4 class="${isCollapsed?'collapsed':''}" data-category="${categoryId}" data-mode="${mode}"><i class="fas fa-chevron-right category-chevron"></i><i class="${categoryData.icon}"></i>${categoryData.name}<span class="key-count">(${categoryData.keys.length})</span></h4><div class="category-commands ${isCollapsed?'collapsed':''}">${categoryData.keys.map((k)=>this.createKeyElement(k).outerHTML).join('')}</div>`
+    element.innerHTML = `<h4 class="${isCollapsed?'collapsed':''}" data-category="${categoryId}" data-mode="${mode}"><i class="fas fa-chevron-right category-chevron"></i><i class="${categoryData.icon}"></i>${categoryData.name}<span class="key-count">(${categoryData.keys.length})</span></h4><div class="category-commands ${isCollapsed?'collapsed':''}">${categoryData.keys.map((k)=>this.createKeyElement(k, bindsetContext).outerHTML).join('')}</div>`
 
     // Attach header click to collapse/expand using EventBus
     const header = element.querySelector('h4')
@@ -281,25 +546,354 @@ export default class KeyBrowserUI extends UIComponentBase {
     // Replace placeholder html strings with actual elements
     const commandsContainer = element.querySelector('.category-commands')
     commandsContainer.innerHTML = ''
-    categoryData.keys.forEach((k) => commandsContainer.appendChild(this.createKeyElement(k)))
+    categoryData.keys.forEach((k) => commandsContainer.appendChild(this.createKeyElement(k, bindsetContext)))
 
     return element
+  }
+
+  async createBindsetSectionElement (bindsetName, bindsetData, viewMode, profile, keyMap, keysWithCommands, allKeys) {
+    const element = this.document.createElement('div')
+    element.className = 'bindset-section'
+    element.dataset.bindset = bindsetName
+
+    // Create section header with command group separator styling
+    const header = this.document.createElement('div')
+    header.className = 'bindset-header command-group-separator'
+    header.dataset.bindset = bindsetName
+    header.dataset.action = 'bindset-section-header'
+
+    const headerInfo = this.document.createElement('div')
+    headerInfo.className = 'bindset-info group-info'
+
+    const twisty = this.document.createElement('i')
+    twisty.className = `fas fa-chevron-right twisty ${bindsetData.isCollapsed ? 'collapsed' : ''}`
+
+    const name = this.document.createElement('span')
+    name.className = 'bindset-name group-title'
+    name.textContent = bindsetName
+
+    const count = this.document.createElement('span')
+    count.className = 'bindset-count'
+    count.textContent = `(${bindsetData.keyCount})`
+
+    headerInfo.appendChild(twisty)
+    headerInfo.appendChild(name)
+    headerInfo.appendChild(count)
+    header.appendChild(headerInfo)
+
+    // Add bindset management menu
+    const actions = this.document.createElement('div')
+    actions.className = 'bindset-actions'
+
+    // Create menu button
+    const menuBtn = this.document.createElement('button')
+    menuBtn.className = 'control-btn bindset-menu-btn'
+    menuBtn.dataset.action = 'bindset-menu'
+    menuBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>'
+    menuBtn.title = this.i18n.t('bindset_actions')
+    actions.appendChild(menuBtn)
+
+    // Create dropdown menu
+    const menuDropdown = this.document.createElement('div')
+    menuDropdown.className = 'bindset-menu-dropdown'
+    menuDropdown.dataset.bindset = bindsetName
+
+    // Add menu items based on bindset type
+    if (bindsetName === 'Primary Bindset') {
+      // Primary Bindset: Create + Clone actions
+      this.addMenuItem(menuDropdown, 'create', 'fas fa-plus', this.i18n.t('create_bindset'), () => this.handleCreateBindset())
+      this.addMenuItem(menuDropdown, 'clone', 'fas fa-copy', this.i18n.t('clone_bindset'), () => this.handleCloneBindset(bindsetName))
+    } else {
+      // User-Defined Bindset: Clone + Rename + Delete actions
+      this.addMenuItem(menuDropdown, 'clone', 'fas fa-copy', this.i18n.t('clone_bindset'), () => this.handleCloneBindset(bindsetName))
+      this.addMenuItem(menuDropdown, 'rename', 'fas fa-edit', this.i18n.t('rename_bindset'), () => this.handleRenameBindset(bindsetName))
+      this.addMenuItem(menuDropdown, 'delete', 'fas fa-trash', this.i18n.t('delete_bindset'), () => this.handleDeleteBindset(bindsetName), true) // dangerous = true
+    }
+
+    actions.appendChild(menuDropdown)
+
+    // Attach menu button handler
+    this.onDom(menuBtn, 'click', 'bindset-menu-btn', (e) => {
+      e.stopPropagation()
+      this.toggleBindsetMenu(menuDropdown)
+    })
+
+    // Close menu when clicking outside
+    this.onDom(this.document, 'click', 'bindset-menu-outside', (e) => {
+      if (!e.target.closest('.bindset-actions')) {
+        this.closeAllBindsetMenus()
+      }
+    })
+
+    header.appendChild(actions)
+
+    element.appendChild(header)
+
+    // Create content area for keys
+    const content = this.document.createElement('div')
+    content.className = `bindset-content ${bindsetData.isCollapsed ? 'collapsed' : ''}`
+
+    // Add keys to content based on current view mode
+    console.log(`[KeyBrowserUI] bindsetData.keys for "${bindsetName}":`, bindsetData.keys)
+    console.log(`[KeyBrowserUI] bindsetData.keys.length:`, bindsetData.keys.length)
+
+    if (bindsetData.keys.length > 0) {
+      // Get appropriate keyMap for this bindset
+      let keyMap = {}
+      if (bindsetName === 'Primary Bindset') {
+        keyMap = await this.request('key:get-all')
+      } else {
+        // Get bindset keys from profile data
+        const environment = this.cache.currentEnvironment || 'space'
+        const profile = this.cache.profile
+
+        console.log(`[KeyBrowserUI] Profile bindsets for "${bindsetName}":`, profile?.bindsets?.[bindsetName])
+        console.log(`[KeyBrowserUI] Environment: "${environment}"`)
+
+        keyMap = {}
+        if (profile?.bindsets?.[bindsetName]?.[environment]?.keys) {
+          keyMap = profile.bindsets[bindsetName][environment].keys
+          console.log(`[KeyBrowserUI] Created keyMap for bindset "${bindsetName}" with ${Object.keys(keyMap).length} keys:`, Object.keys(keyMap))
+        } else {
+          console.log(`[KeyBrowserUI] No keys found - profile.bindsets.${bindsetName}?:`, !!profile?.bindsets?.[bindsetName])
+          console.log(`[KeyBrowserUI] No keys found - profile.bindsets.${bindsetName}.${environment}?:`, !!profile?.bindsets?.[bindsetName]?.[environment])
+          console.log(`[KeyBrowserUI] Available bindsets:`, Object.keys(profile?.bindsets || {}))
+        }
+      }
+
+      // Cache keyMap for key element creation
+      this._currentKeyMap = keyMap
+
+      const currentViewMode = viewMode || 'grid'
+
+      if (currentViewMode === 'key-types') {
+        // Render key-types view for this bindset
+        await this.renderKeyTypeViewForBindset(content, bindsetData.keys, keyMap, bindsetName, keysWithCommands, allKeys)
+      } else if (currentViewMode === 'categorized') {
+        // Render command-category view for this bindset
+        await this.renderCommandCategoryViewForBindset(content, bindsetData.keys, keyMap, bindsetName, keysWithCommands)
+      } else {
+        // Default: grid view
+        const keyGrid = this.document.createElement('div')
+        keyGrid.className = 'key-grid-subsection'
+
+        bindsetData.keys.forEach((keyName) => {
+          const keyElement = this.createKeyElement(keyName, bindsetName)
+          keyGrid.appendChild(keyElement)
+        })
+
+        content.appendChild(keyGrid)
+      }
+    } else {
+      console.log(`[KeyBrowserUI] Showing empty message for bindset "${bindsetName}" - no keys found`)
+      const emptyMessage = this.document.createElement('div')
+      emptyMessage.className = 'empty-section'
+      emptyMessage.textContent = this.i18n.t('no_keys_in_bindset')
+      content.appendChild(emptyMessage)
+    }
+
+    element.appendChild(content)
+
+    // Attach header click handler for collapse/expand
+    this.onDom(header, 'click', 'bindset-section-header-click', () => {
+      this.toggleBindsetSection(bindsetName, element)
+    })
+
+    
+    return element
+  }
+
+  // Helper methods for rendering different view types within bindset sections
+
+  async renderKeyTypeViewForBindset (content, keys, keyMap, bindsetName, keysWithCommands, allKeys) {
+    const categorized = await this.categorizeKeysByType(keysWithCommands, keys)
+
+    // Sort categories: standard, weapon, system, movement, social
+    const categoryOrder = ['standard', 'weapon', 'system', 'movement', 'social']
+    const sortedCategories = Object.keys(categorized).sort((a, b) => {
+      const aIndex = categoryOrder.indexOf(a.toLowerCase())
+      const bIndex = categoryOrder.indexOf(b.toLowerCase())
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b)
+      if (aIndex === -1) return 1
+      if (bIndex === -1) return -1
+      return aIndex - bIndex
+    })
+
+    for (const category of sortedCategories) {
+      const categoryData = categorized[category]
+      if (categoryData.keys.length === 0) continue
+
+      // Use the same createKeyCategoryElement method as non-bindset views
+      const el = await this.createKeyCategoryElement(category, categoryData, 'type', bindsetName)
+      content.appendChild(el)
+    }
+  }
+
+  async renderCommandCategoryViewForBindset (content, keys, keyMap, bindsetName, keysWithCommands) {
+    const categorized = await this.categorizeKeys(keysWithCommands, keys)
+
+    // Sort categories alphabetically
+    const sortedCategories = Object.keys(categorized).sort()
+
+    for (const category of sortedCategories) {
+      const categoryData = categorized[category]
+      if (categoryData.keys.length === 0) continue
+
+      // Transform the data to match createKeyCategoryElement expectations
+      // The categorized data has a different structure, so we need to adapt it
+      const adaptedCategoryData = {
+        name: this.i18n.t(category),
+        icon: 'fas fa-folder', // Default icon for command categories
+        keys: categoryData.keys
+      }
+
+      // Use the same createKeyCategoryElement method as non-bindset views
+      const el = await this.createKeyCategoryElement(category, adaptedCategoryData, 'command', bindsetName)
+      content.appendChild(el)
+    }
   }
 
   async toggleKeyCategory (categoryId, element, mode='command') {
     // Use service to handle business logic
     const isCollapsed = await this.request('key:toggle-category', { categoryId, mode })
-    
+
     // Update DOM to reflect new state
     const header = element.querySelector('h4')
     const commands = element.querySelector('.category-commands')
-    
+
     if (isCollapsed) {
       header.classList.add('collapsed')
       commands.classList.add('collapsed')
     } else {
       header.classList.remove('collapsed')
       commands.classList.remove('collapsed')
+    }
+  }
+
+  async toggleBindsetSection (bindsetName, element) {
+    // Use service to handle business logic
+    const isCollapsed = await this.request('bindset:toggle-collapse', { bindsetName })
+
+    // Update DOM to reflect new state
+    const header = element.querySelector('.bindset-header')
+    const content = element.querySelector('.bindset-content')
+    const twisty = element.querySelector('.twisty')
+
+    if (isCollapsed) {
+      header?.classList.add('collapsed')
+      content?.classList.add('collapsed')
+      if (twisty) {
+        twisty.classList.add('collapsed')
+      }
+    } else {
+      header?.classList.remove('collapsed')
+      content?.classList.remove('collapsed')
+      if (twisty) {
+        twisty.classList.remove('collapsed')
+      }
+    }
+  }
+
+  // Helper method to count keys in a bindset
+  async countBindsetKeys(bindsetName) {
+    try {
+      // Use the same data access pattern as BindsetService for consistency
+      const profile = this.cache.profile || this.cache.currentProfile
+      console.log(`[KeyBrowserUI] countBindsetKeys for "${bindsetName}":`, {
+        profile: !!profile,
+        profileBindsets: !!profile?.bindsets,
+        bindsetKeys: Object.keys(profile?.bindsets || {}),
+        targetBindset: profile?.bindsets?.[bindsetName]
+      })
+
+      const bindset = profile?.bindsets?.[bindsetName]
+      if (!bindset) {
+        console.log(`[KeyBrowserUI] countBindsetKeys: bindset "${bindsetName}" not found`)
+        return 0
+      }
+
+      let keyCount = 0
+      const hasKeys = (env) => {
+        const envData = bindset?.[env]?.keys
+        const hasEnvKeys = envData && Object.keys(envData).length > 0
+        console.log(`[KeyBrowserUI] countBindsetKeys: env "${env}" has keys: ${hasEnvKeys}, key count: ${hasEnvKeys ? Object.keys(envData).length : 0}`)
+        return hasEnvKeys
+      }
+
+      // Use the same logic as BindsetService.deleteBindset for consistency
+      if (hasKeys('space')) keyCount += Object.keys(bindset.space.keys).length
+      if (hasKeys('ground')) keyCount += Object.keys(bindset.ground.keys).length
+
+      console.log(`[KeyBrowserUI] countBindsetKeys: final count for "${bindsetName}" = ${keyCount}`)
+
+      // Fallback validation: if cache returns 0, try service verification
+      if (keyCount === 0) {
+        console.log(`[KeyBrowserUI] countBindsetKeys: cache reports 0 keys, checking with service...`)
+        try {
+          // Use the bindset:delete endpoint (without force) to check if bindset is truly empty
+          const serviceCheck = await this.request('bindset:delete', { name: bindsetName })
+          console.log(`[KeyBrowserUI] countBindsetKeys: service check result:`, serviceCheck)
+
+          // If service says bindset is not empty, use a conservative estimate
+          if (serviceCheck?.success === false && serviceCheck?.error === 'not_empty') {
+            console.log(`[KeyBrowserUI] countBindsetKeys: service indicates bindset has keys, using fallback count`)
+            return 1 // Fallback count - any positive number will trigger multi-step confirmation
+          }
+        } catch (serviceError) {
+          console.warn(`[KeyBrowserUI] countBindsetKeys: service check failed:`, serviceError)
+          // Stick with cache result if service check fails
+        }
+      }
+
+      return keyCount
+    } catch (error) {
+      console.error('Error counting bindset keys:', error)
+      return 0
+    }
+  }
+
+  // Confirm deletion of a bindset
+  async confirmDeleteBindset(bindsetName) {
+    if (!bindsetName || !this.confirmDialog) return false
+
+    // Check if bindset contains keys
+    const keyCount = await this.countBindsetKeys(bindsetName)
+
+    if (keyCount > 0) {
+      // Use multi-step confirmation for bindsets with keys
+      const confirmed = await this.bindsetDeleteConfirm.confirm(bindsetName, keyCount, 'bindsetDelete')
+      if (confirmed) {
+        const result = await this.request('bindset:delete-with-keys', { name: bindsetName })
+        if (result?.success) {
+          const successMessage = this.i18n.t('bindset_deleted', { name: bindsetName })
+          this.showToast(successMessage, 'success')
+          return true
+        } else {
+          const errorMessage = this.i18n.t(result?.error, result?.params)
+          this.showToast(errorMessage, 'error')
+          return false
+        }
+      }
+      return false
+    } else {
+      // Use simple confirmation for empty bindsets
+      const message = this.i18n.t('confirm_delete_bindset', { name: bindsetName })
+      const title = this.i18n.t('confirm_delete')
+
+      if (await this.confirmDialog.confirm(message, title, 'danger', 'bindsetDelete')) {
+        const result = await this.request('bindset:delete', { name: bindsetName })
+        if (result?.success) {
+          const successMessage = this.i18n.t('bindset_deleted', { name: bindsetName })
+          this.showToast(successMessage, 'success')
+          return true
+        } else {
+          const errorMessage = this.i18n.t(result?.error, result?.params)
+          this.showToast(errorMessage, 'error')
+          return false
+        }
+      }
+
+      return false
     }
   }
 
@@ -310,6 +904,8 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     const icon = toggleBtn.querySelector('i') || toggleBtn
 
+    // Only cycle between the 3 main view types: grid, categorized, key-types
+    // Bindset sections is an overlay, not a separate view mode
     if (viewMode === 'categorized') {
       icon.className = 'fas fa-sitemap'
       toggleBtn.title = this.i18n.t('switch_to_key_type_view')
@@ -318,7 +914,7 @@ export default class KeyBrowserUI extends UIComponentBase {
       toggleBtn.title = this.i18n.t('switch_to_grid_view')
     } else { // grid
       icon.className = 'fas fa-list'
-      toggleBtn.title = this.i18n.t('switch_to_command_categories')
+      toggleBtn.title = this.i18n.t('switch_to_categorized_view')
     }
   }
 
@@ -328,12 +924,14 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     const currentMode = localStorage.getItem('keyViewMode') || 'grid'
     let newMode
-    if (currentMode === 'key-types') {
-      newMode = 'grid'
-    } else if (currentMode === 'grid') {
+
+    // Only cycle between the 3 main view types: grid → categorized → key-types → grid
+    if (currentMode === 'grid') {
       newMode = 'categorized'
-    } else {
+    } else if (currentMode === 'categorized') {
       newMode = 'key-types'
+    } else { // key-types or any other
+      newMode = 'grid'
     }
 
     localStorage.setItem('keyViewMode', newMode)
@@ -531,6 +1129,121 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.render().catch((error) => {
       console.error('[KeyBrowserUI] Initial render failed:', error)
     })
+  }
+
+  // Bindset menu helper methods
+  addMenuItem(menu, action, icon, text, handler, dangerous = false) {
+    const item = this.document.createElement('div')
+    item.className = `bindset-menu-item ${dangerous ? 'dangerous' : ''}`
+    item.dataset.action = action
+    item.innerHTML = `<i class="${icon}"></i><span>${text}</span>`
+
+    this.onDom(item, 'click', `bindset-menu-${action}`, (e) => {
+      e.stopPropagation()
+      handler()
+      this.closeAllBindsetMenus()
+    })
+
+    menu.appendChild(item)
+  }
+
+  toggleBindsetMenu(menuDropdown) {
+    const isOpen = menuDropdown.classList.contains('open')
+    this.closeAllBindsetMenus()
+
+    if (!isOpen) {
+      menuDropdown.classList.add('open')
+    }
+  }
+
+  closeAllBindsetMenus() {
+    this.document.querySelectorAll('.bindset-menu-dropdown.open').forEach(menu => {
+      menu.classList.remove('open')
+    })
+  }
+
+  // Bindset action handlers
+  async handleCreateBindset() {
+    if (!this.inputDialog) return
+
+    const title = this.i18n.t('create_bindset')
+    const message = this.i18n.t('enter_bindset_name')
+
+    const name = await this.inputDialog.prompt(message, {
+      title,
+      placeholder: this.i18n.t('bindset_name'),
+      validate: (value) => {
+        const trimmed = value.trim()
+        if (!trimmed) return this.i18n.t('name_required')
+        if (this.cache.bindsetNames.includes(trimmed)) return this.i18n.t('name_exists')
+        return true
+      }
+    })
+
+    if (!name?.trim()) return
+    const res = await this.request('bindset:create', { name: name.trim() })
+    if (!res?.success) this.showError(res.error)
+  }
+
+  async handleCloneBindset(bindsetName) {
+    if (!this.inputDialog) return
+
+    const title = this.i18n.t('clone_bindset')
+    const message = this.i18n.t('enter_bindset_name')
+    const suggestedName = bindsetName === 'Primary Bindset' ?
+      this.i18n.t('primary_bindset_copy_default') :
+      `${bindsetName} ${this.i18n.t('copy_suffix')}`
+
+    const name = await this.inputDialog.prompt(message, {
+      title,
+      defaultValue: suggestedName,
+      placeholder: this.i18n.t('bindset_name'),
+      validate: (value) => {
+        const trimmed = value.trim()
+        if (!trimmed) return this.i18n.t('name_required')
+        if (trimmed === bindsetName) return this.i18n.t('name_unchanged')
+        if (this.cache.bindsetNames.includes(trimmed)) return this.i18n.t('name_exists')
+        return true
+      }
+    })
+
+    if (!name?.trim() || name.trim() === bindsetName) return
+    const res = await this.request('bindset:clone', {
+      sourceBindset: bindsetName,
+      targetBindset: name.trim()
+    })
+    if (!res?.success) this.showError(res.error)
+  }
+
+  async handleRenameBindset(bindsetName) {
+    if (!this.inputDialog) return
+
+    const title = this.i18n.t('rename_bindset')
+    const message = this.i18n.t('enter_bindset_name')
+
+    const name = await this.inputDialog.prompt(message, {
+      title,
+      defaultValue: bindsetName,
+      placeholder: this.i18n.t('bindset_name'),
+      validate: (value) => {
+        const trimmed = value.trim()
+        if (!trimmed) return this.i18n.t('name_required')
+        if (trimmed === bindsetName) return this.i18n.t('name_unchanged')
+        if (this.cache.bindsetNames.includes(trimmed)) return this.i18n.t('name_exists')
+        return true
+      }
+    })
+
+    if (!name?.trim() || name.trim() === bindsetName) return
+    const res = await this.request('bindset:rename', {
+      oldName: bindsetName,
+      newName: name.trim()
+    })
+    if (!res?.success) this.showError(res.error)
+  }
+
+  handleDeleteBindset(bindsetName) {
+    this.confirmDeleteBindset(bindsetName)
   }
 
   } 

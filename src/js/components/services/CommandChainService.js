@@ -134,21 +134,23 @@ export default class CommandChainService extends ComponentBase {
     // Directly emit chain data changes whenever key/alias selection changes so
     // the command-chain UI always knows what it should be displaying.
     this.addEventListener('key-selected', async ({ key, name }) => {
+      console.log(`[CommandChainService] key-selected event received: key=${key}, name=${name}`)
       debugLog('key-selected', { key, name })
+
+      // Early debug check
+      if (!this.cache) {
+        console.error(`[CommandChainService] Cache not available!`)
+        return
+      }
+      console.log(`[CommandChainService] Cache state: currentEnvironment=${this.cache.currentEnvironment}, activeBindset=${this.cache.activeBindset}`)
+
       if (this.cache.currentEnvironment === 'alias') return;
-      
+
       // Let ComponentBase handle the selection state update
       // ComponentBase will set this.selectedKey = key and clear this.selectedAlias
 
-      // Reset to Primary Bindset when selecting a different key (same logic as CommandChainUI)
-      const selectedKeyName = key || name || null
-      if (selectedKeyName && this.cache.activeBindset !== 'Primary Bindset') {
-        console.log(`[CommandChainService] Resetting activeBindset from ${this.cache.activeBindset} to Primary Bindset for key selection`)
-        // Emit event to update bindset - ComponentBase will handle the cache update
-        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-      }
-
-      // Refresh commands list when a new key is selected
+      // We don't manage bindset changes here - that's BindsetSelectorService's responsibility
+      // We simply react to whatever bindset is currently active in the cache
       const cmds = await this.getCommandsForSelectedKey()
       console.log('[CommandChainService] [key-selected] emitting chain-data-changed with', cmds.length, 'commands')
       this.emit('chain-data-changed', { commands: cmds })
@@ -330,10 +332,15 @@ export default class CommandChainService extends ComponentBase {
     })
     
     // Handle preferences changes for bind-to-alias mode
-    this.addEventListener('preferences:changed', ({ key, value }) => {
-      if (key === 'bindToAliasMode') {
-        console.log(`[CommandChainService] Preference changed: bindToAliasMode = ${value}`)
-        // Use centralized cache instead of local variable
+    this.addEventListener('preferences:changed', (data) => {
+      // Handle both { key, value } and { changes } event formats
+      const changes = data.changes || { [data.key]: data.value }
+
+      for (const [key, value] of Object.entries(changes)) {
+        if (key === 'bindToAliasMode') {
+          console.log(`[CommandChainService] Preference changed: bindToAliasMode = ${value}`)
+          // Use centralized cache instead of local variable
+        }
       }
     })
   }

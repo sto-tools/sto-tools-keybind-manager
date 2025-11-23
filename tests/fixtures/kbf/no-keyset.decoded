@@ -1,0 +1,17 @@
+================================================================================
+KBF FILE DECODED
+================================================================================
+
+GROUPSET: 1
+
+KEYSET:
+  Name:Master
+  KEY:
+    Key:Space
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:0;N2:0;N3:0;O:0;
+    ACT: Activity:97;Text:;Text2:;N1:0;N2:0;N3:0;O:0;

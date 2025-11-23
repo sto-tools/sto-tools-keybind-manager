@@ -95,6 +95,10 @@ export default class HeaderMenuUI extends UIComponentBase {
       this.emit('aliases:import')
     })
 
+    this.onDom('importKbfBtn', 'click', 'kbf-import', () => {
+      this.emit('keybinds:kbf-import')
+    })
+
     this.onDom('loadDefaultDataBtn', 'click', 'data-load-default', () => {
       this.emit('data:load-default')
     })

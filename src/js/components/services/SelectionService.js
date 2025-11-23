@@ -117,38 +117,32 @@ export default class SelectionService extends ComponentBase {
       if (cachedSelection) {
         console.log(`[SelectionService] Setting initial selection from profile: "${cachedSelection}" for env "${this.cache.currentEnvironment}"`)
 
-        // Set selection initially, then validate to ensure it exists in current profile
-        if (this.cache.currentEnvironment === 'alias') {
-          this.cache.selectedAlias = cachedSelection
-          this.cache.selectedKey = null
-          // Emit selection event synchronously
-          this.emit('alias-selected', { name: cachedSelection, source: 'SelectionService' })
+        // Defer the initial selection emit until after other services process profile:switched
+        setTimeout(async () => {
+          if (this.cache.currentEnvironment === 'alias') {
+            this.cache.selectedAlias = cachedSelection
+            this.cache.selectedKey = null
+            this.emit('alias-selected', { name: cachedSelection, source: 'SelectionService' })
 
-          // Validate the selection exists in current profile
-          if (!this.validateAliasExists(cachedSelection)) {
-            console.log(`[SelectionService] Cached alias "${cachedSelection}" doesn't exist in current profile, clearing and auto-selecting`)
-            setTimeout(async () => {
+            if (!this.validateAliasExists(cachedSelection)) {
+              console.log(`[SelectionService] Cached alias "${cachedSelection}" doesn't exist in current profile, clearing and auto-selecting`)
               await this.validateAndRestoreSelection('alias', null)
-            }, 0)
-          }
-        } else {
-          this.cache.selectedKey = cachedSelection
-          this.cache.selectedAlias = null
-          // Emit selection event synchronously
-          this.emit('key-selected', {
-            key: cachedSelection,
-            environment: this.cache.currentEnvironment,
-            source: 'SelectionService'
-          })
+            }
+          } else {
+            this.cache.selectedKey = cachedSelection
+            this.cache.selectedAlias = null
+            this.emit('key-selected', {
+              key: cachedSelection,
+              environment: this.cache.currentEnvironment,
+              source: 'SelectionService'
+            })
 
-          // Validate the selection exists in current profile
-          if (!this.validateKeyExists(cachedSelection, this.cache.currentEnvironment)) {
-            console.log(`[SelectionService] Cached key "${cachedSelection}" doesn't exist in current profile, clearing and auto-selecting`)
-            setTimeout(async () => {
+            if (!this.validateKeyExists(cachedSelection, this.cache.currentEnvironment)) {
+              console.log(`[SelectionService] Cached key "${cachedSelection}" doesn't exist in current profile, clearing and auto-selecting`)
               await this.validateAndRestoreSelection(this.cache.currentEnvironment, null)
-            }, 0)
+            }
           }
-        }
+        }, 0)
       } else {
         // No cached selection - validate and restore as fallback
         console.log(`[SelectionService] No cached selection, validating for env "${this.cache.currentEnvironment}"`)
@@ -256,10 +250,12 @@ export default class SelectionService extends ComponentBase {
         
       // Legacy compatibility handlers
       this.respond('key:get-selected', () => this.cache.selectedKey),
-      this.respond('key:select', ({ keyName, environment }) => 
-        this.selectKey(keyName, environment)),
+      this.respond('key:select', ({ keyName, environment, bindset }) =>
+        this.selectKey(keyName, environment, { bindset })),
       this.respond('alias:select', ({ aliasName }) => 
-        this.selectAlias(aliasName))
+        this.selectAlias(aliasName)),
+      this.respond('selection:select-key', ({ keyName, environment, bindset }) =>
+        this.selectKey(keyName, environment, { bindset }))
     )
   }
   
@@ -269,7 +265,14 @@ export default class SelectionService extends ComponentBase {
     const isAuto = options.isAuto === true
     const skipPersistence = options.skipPersistence === true
 
-    const duplicateSelection = this.cache.selectedKey === keyName && this.cache.currentEnvironment === env
+    const bindsetContext = options.bindset || null
+
+    const duplicateSelection = this.cache.selectedKey === keyName &&
+                          this.cache.currentEnvironment === env &&
+                          (bindsetContext ?
+                            this.cache.activeBindset === bindsetContext :
+                            this.cache.activeBindset === 'Primary Bindset'
+                          )
     const shouldEmitDuplicate = options.forceEmit === true || keyName == null || (!isAuto && (this._lastSelectionSource === 'auto' || this._lastSelectionSource == null))
 
     if (duplicateSelection && !shouldEmitDuplicate) {
@@ -289,16 +292,46 @@ export default class SelectionService extends ComponentBase {
       await this.persistSelectionToProfile(env, keyName)
     }
 
+    await this._syncBindsetContextForSelection(env, bindsetContext)
+
     // Emit selection event for other services
+    console.log(`[SelectionService] Emitting key-selected with: key=${keyName}, environment=${env}, bindset=${options.bindset || null}`)
     this.emit('key-selected', {
       key: keyName,
       environment: env,
+      bindset: bindsetContext,
       source: 'SelectionService'
     })
 
     this._lastSelectionSource = isAuto ? 'auto' : 'manual'
 
     return keyName
+  }
+
+  async _syncBindsetContextForSelection(environment, bindsetContext) {
+    if (environment === 'alias') return
+
+    const preferences = this.cache?.preferences || {}
+    if (!preferences.bindsetsEnabled || !preferences.bindToAliasMode) {
+      return
+    }
+
+    const currentActive = this.cache?.activeBindset || 'Primary Bindset'
+    let targetBindset = null
+
+    if (bindsetContext && bindsetContext !== currentActive) {
+      targetBindset = bindsetContext
+    } else if (!bindsetContext && currentActive !== 'Primary Bindset') {
+      targetBindset = 'Primary Bindset'
+    }
+
+    if (!targetBindset) return
+
+    try {
+      await this.request('bindset-selector:set-active-bindset', { bindset: targetBindset })
+    } catch (error) {
+      console.warn('[SelectionService] Failed to synchronize bindset context:', error)
+    }
   }
 
   // Select an alias
@@ -483,6 +516,12 @@ export default class SelectionService extends ComponentBase {
 
   // Auto-select the first available item in the specified environment
   async autoSelectFirst(environment = null) {
+    // CRITICAL: Add data validation to prevent auto-selection before profile data is loaded
+    if (!this.cache.profile || !this.cache.currentProfile) {
+      console.log('[SelectionService] Profile data not loaded, skipping auto-selection')
+      return null
+    }
+
     const env = environment || this.cache.currentEnvironment
     
     if (env === 'alias') {
@@ -540,7 +579,7 @@ export default class SelectionService extends ComponentBase {
       
       if (keyNames.length > 0) {
         const firstKey = keyNames[0]
-        await this.selectKey(firstKey, env, { isAuto: true })
+        await this.selectKey(firstKey, env, { isAuto: true, bindset: 'Primary Bindset' })
         this._lastDeletedKey = null
         return firstKey
       } else {
@@ -589,6 +628,12 @@ export default class SelectionService extends ComponentBase {
   async validateAndRestoreSelection(environment, cachedSelection, options = {}) {
     const { skipPersistence = false } = options
     console.log(`[SelectionService] validateAndRestoreSelection: env="${environment}", cached="${cachedSelection}", skipPersistence=${skipPersistence}`)
+
+    // CRITICAL: Add profile data validation to prevent errors during initialization
+    if (!this.cache.profile || !this.cache.currentProfile) {
+      console.log('[SelectionService] Profile data not available for validation')
+      return
+    }
 
     if (!cachedSelection) {
       await this.autoSelectFirst(environment)

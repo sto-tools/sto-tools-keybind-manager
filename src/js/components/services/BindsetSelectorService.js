@@ -1,18 +1,24 @@
 import ComponentBase from '../ComponentBase.js'
+import { STO_KEY_NAMES } from '../../data/stoKeyNames.js'
+import KeyService from './KeyService.js'
 
 export default class BindsetSelectorService extends ComponentBase {
   constructor ({ eventBus } = {}) {
     super(eventBus)
     this.componentName = 'BindsetSelectorService'
-    
+
     this.keyBindsetMembership = new Map() // bindset -> has key boolean
+
+    // Initialize KeyService for key normalization
+    this.keyService = new KeyService(eventBus)
     
     if (this.eventBus) {
       this.respond('bindset-selector:set-key', ({ key }) => this.setSelectedKey(key))
-      this.respond('bindset-selector:get-state', () => this.getCurrentState())
+      // REMOVED: this.respond('bindset-selector:get-state', () => this.getCurrentState())
       this.respond('bindset-selector:add-key-to-bindset', ({ bindset }) => this.addKeyToBindset(bindset))
       this.respond('bindset-selector:remove-key-from-bindset', ({ bindset }) => this.removeKeyFromBindset(bindset))
       this.respond('bindset-selector:set-active-bindset', ({ bindset }) => this.setActiveBindset(bindset))
+      this.respond('bindset-selector:find-key-in-bindset', ({ keysObject, selectedKey }) => this.findKeyInBindset(keysObject, selectedKey))
     }
 
     this.setupEventListeners()
@@ -81,20 +87,28 @@ export default class BindsetSelectorService extends ComponentBase {
     })
 
     // Listen for key selection changes - update membership when user selects different key
-    this.addEventListener('key-selected', ({ key, name }) => {
+    this.addEventListener('key-selected', ({ key, name, bindset }) => {
       const selectedKey = key || name
-      console.log('[BindsetSelectorService] key-selected received:', selectedKey)
+      console.log('[BindsetSelectorService] key-selected received:', selectedKey, 'with bindset context:', bindset)
+      console.log('[BindsetSelectorService] BEFORE: cache.selectedKey =', this.cache.selectedKey)
+
       if (selectedKey !== this.cache.selectedKey) {
         // ComponentBase automatically updates this.cache.selectedKey
-        // We just need to update the key membership for the new key
+        // BUT there might be a timing issue here!
+
+        // Force update cache immediately to ensure consistency
+        this.cache.selectedKey = selectedKey
+        console.log('[BindsetSelectorService] FORCE UPDATED: cache.selectedKey =', this.cache.selectedKey)
+
+        // Now update membership with the correct key
         this.updateKeyMembership()
-        
-        // Reset to Primary Bindset when new key selected
-        if (this.cache.activeBindset !== 'Primary Bindset') {
-          console.log('[BindsetSelectorService] Resetting active bindset to Primary Bindset for new key selection')
-          // ComponentBase will handle this.cache.activeBindset via the event
-          // But we need to update it immediately for our business logic
-          this.setActiveBindset('Primary Bindset')
+
+        // Respect bindset context provided in key-selected events
+        // Don't automatically reset to Primary Bindset - let SelectionService manage bindset context
+        if (bindset && bindset !== this.cache.activeBindset) {
+          console.log('[BindsetSelectorService] Respecting bindset context from key-selected event:', bindset)
+          // Note: We don't call setActiveBindset here to avoid conflicting with SelectionService's
+          // _syncBindsetContextForSelection() which properly manages bindset context
         }
       }
     })
@@ -119,22 +133,45 @@ export default class BindsetSelectorService extends ComponentBase {
 
   // Key Membership Management
   async updateKeyMembership() {
-    if (!this.cache.selectedKey) return
+    if (!this.cache.selectedKey) {
+      console.log(`[BindsetSelectorService] updateKeyMembership: early return - no selectedKey`)
+      return
+    }
+
+    console.log(`[BindsetSelectorService] updateKeyMembership: STARTING with selectedKey="${this.cache.selectedKey}"`)
 
     this.keyBindsetMembership.clear()
-    
+
     for (const bindsetName of this.cache.bindsetNames) {
       const hasKey = await this.keyExistsInBindset(bindsetName)
       this.keyBindsetMembership.set(bindsetName, hasKey)
       console.log(`[BindsetSelectorService] updateKeyMembership: ${bindsetName} -> ${hasKey} (key: ${this.cache.selectedKey})`)
     }
-    
-    this.emit('bindset-selector:membership-updated', { 
-      key: this.cache.selectedKey, 
-      membership: new Map(this.keyBindsetMembership) 
+
+    console.log(`[BindsetSelectorService] updateKeyMembership: EMITTING membership-updated with key="${this.cache.selectedKey}"`)
+
+    this.emit('bindset-selector:membership-updated', {
+      key: this.cache.selectedKey,
+      membership: new Map(this.keyBindsetMembership)
     })
   }
 
+  /**
+   * Helper method to find a key in a bindset using normalized comparison
+   * @param {Object} keysObject - The keys object from profile data
+   * @param {string} selectedKey - The selected key to find
+   * @returns {Array|null} - The commands array if found, null if not found
+   */
+  findKeyInBindset(keysObject, selectedKey) {
+    if (!keysObject || !selectedKey) {
+      return null
+    }
+
+    // Simple direct lookup - keys should already be normalized during import
+    return keysObject[selectedKey] || null
+  }
+
+  
   async keyExistsInBindset(bindsetName) {
     if (!this.cache.selectedKey) {
       console.log(`[BindsetSelectorService] keyExistsInBindset early return: no selectedKey`)
@@ -148,16 +185,16 @@ export default class BindsetSelectorService extends ComponentBase {
     
     try {
       if (bindsetName === 'Primary Bindset') {
-        // Check primary bindset (builds)
-        const commands = this.cache.profile.builds?.[this.cache.currentEnvironment]?.keys?.[this.cache.selectedKey]
+        // Check primary bindset (builds) using simple direct lookup
+        const keysObject = this.cache.profile.builds?.[this.cache.currentEnvironment]?.keys
+        const commands = this.findKeyInBindset(keysObject, this.cache.selectedKey)
         const exists = commands !== undefined && Array.isArray(commands)
-        console.log(`[BindsetSelectorService] Primary bindset check: ${this.cache.selectedKey} in ${this.cache.currentEnvironment} -> ${exists}`, commands)
         return exists
       } else {
-        // Check user-defined bindset
-        const commands = this.cache.profile.bindsets?.[bindsetName]?.[this.cache.currentEnvironment]?.keys?.[this.cache.selectedKey]
+        // Check user-defined bindset using simple direct lookup
+        const keysObject = this.cache.profile.bindsets?.[bindsetName]?.[this.cache.currentEnvironment]?.keys
+        const commands = this.findKeyInBindset(keysObject, this.cache.selectedKey)
         const exists = commands !== undefined && Array.isArray(commands)
-        console.log(`[BindsetSelectorService] ${bindsetName} bindset check: ${this.cache.selectedKey} in ${this.cache.currentEnvironment} -> ${exists}`, commands)
         return exists
       }
     } catch (error) {

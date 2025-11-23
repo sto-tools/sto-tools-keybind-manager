@@ -37,6 +37,9 @@ export default class KeyCaptureUI extends UIComponentBase {
     // When switching modes, we may get an immediate residual chord (e.g. "lclick") – ignore it once.
     this.ignoreNextChord = false
 
+    // Capture destination bindset (when bindsets are enabled)
+    this.captureTargetBindset = 'Primary Bindset'
+
     // Remember the last side (L/R) used for each modifier to restore when toggling distinguish option
     this.lastModifierSide = { ctrl: 'L', alt: 'L', shift: 'L' }
 
@@ -109,6 +112,11 @@ export default class KeyCaptureUI extends UIComponentBase {
       this.changeKeyboardLayout(e.target.value)
     })
 
+    // Bindset target selector (only rendered when bindsets are enabled)
+    this.onDom('bindsetTargetSelector', 'change', 'bindset-target-change', (e) => {
+      this.captureTargetBindset = e.target.value || 'Primary Bindset'
+    })
+
     // Location-specific modifier toggle
     this.onDom('distinguishModifierSide', 'change', 'location-specific-toggle', (e) => {
       this.emit('keycapture:set-location-specific', { value: e.target.checked })
@@ -124,6 +132,8 @@ export default class KeyCaptureUI extends UIComponentBase {
   // Initialize the modal when shown
   initializeModal() {
     console.log('[KeyCaptureUI] initializeModal called')
+    // Resolve bindset target before rendering so the selector reflects it
+    this.captureTargetBindset = this.resolveDefaultBindset()
     this.buildModalContent()
     // Ensure dropdown reflects current layout
     const selector = this.document.getElementById('keyboardLayoutSelector')
@@ -137,6 +147,9 @@ export default class KeyCaptureUI extends UIComponentBase {
     
     // Start capture mode immediately
     this.startCaptureMode()
+
+    // Sync bindset selector (when rendered) with resolved default
+    this.syncBindsetSelector()
   }
 
   // Handle key duplication request
@@ -477,7 +490,10 @@ export default class KeyCaptureUI extends UIComponentBase {
         }
       } else {
         // Handle regular key addition - service will do validation internally
-        result = await this.request('key:add', { key: this.cache.selectedKey })
+        result = await this.request('key:add', { 
+          key: this.cache.selectedKey,
+          bindset: this.captureTargetBindset
+        })
         if (result?.success) {
           const message = this.i18n.t('key_added', { keyName: this.cache.selectedKey })
           this.showToast(message, 'success')
@@ -512,6 +528,7 @@ export default class KeyCaptureUI extends UIComponentBase {
     this.isCapturing = false
     this.ignoreNextChord = false
     this.lastModifierSide = { ctrl: 'L', alt: 'L', shift: 'L' }
+    this.captureTargetBindset = 'Primary Bindset'
     this.clearKeyboardHighlights()
     this.clearVirtualModifiers()
     this.updatePreviewDisplay('')
@@ -519,6 +536,25 @@ export default class KeyCaptureUI extends UIComponentBase {
 
     // Reset service location-specific flag to false so next modal starts clean
     this.emit('keycapture:set-location-specific', { value: false })
+  }
+
+  // Bindset targeting helpers
+  shouldShowBindsetPicker() {
+    const prefs = this.cache?.preferences || {}
+    return prefs.bindsetsEnabled && prefs.bindToAliasMode && this.cache.currentEnvironment !== 'alias'
+  }
+
+  resolveDefaultBindset() {
+    if (!this.shouldShowBindsetPicker()) return 'Primary Bindset'
+    const active = this.cache?.activeBindset || 'Primary Bindset'
+    return active || 'Primary Bindset'
+  }
+
+  syncBindsetSelector() {
+    const selector = this.document.getElementById('bindsetTargetSelector')
+    if (selector) {
+      selector.value = this.captureTargetBindset
+    }
   }
 
   // UI rendering
@@ -536,6 +572,8 @@ export default class KeyCaptureUI extends UIComponentBase {
   generateModalHTML() {
     const currentLang = this.i18n.language || 'en'
     const layoutName = getLayoutName(currentLang)
+
+    const bindsetPicker = this.generateBindsetPickerHTML()
 
     return `
       <div class="hybrid-key-capture">
@@ -569,6 +607,7 @@ export default class KeyCaptureUI extends UIComponentBase {
               <input type="checkbox" id="distinguishModifierSide" />
               <span data-i18n="distinguish_left_right_modifiers">${this.i18n.t('distinguish_left_right_modifiers')}</span>
             </label>
+            ${bindsetPicker}
           </div>
         </div>
 
@@ -601,6 +640,28 @@ export default class KeyCaptureUI extends UIComponentBase {
             </button>
           </div>
         </div>
+      </div>
+    `
+  }
+
+  generateBindsetPickerHTML() {
+    if (!this.shouldShowBindsetPicker()) return ''
+
+    const bindsets = (this.cache?.bindsetNames && this.cache.bindsetNames.length)
+      ? this.cache.bindsetNames
+      : ['Primary Bindset']
+
+    const options = bindsets.map((name) => {
+      const selected = name === this.captureTargetBindset ? 'selected' : ''
+      return `<option value="${this.escapeHtml(name)}" ${selected}>${this.escapeHtml(name)}</option>`
+    }).join('')
+
+    return `
+      <div class="bindset-target">
+        <label for="bindsetTargetSelector">${this.i18n.t('select_bindset')}</label>
+        <select id="bindsetTargetSelector" class="form-select">
+          ${options}
+        </select>
       </div>
     `
   }
@@ -1007,6 +1068,18 @@ export default class KeyCaptureUI extends UIComponentBase {
       keyElement.classList.add('selected')
       this.highlightedKeys.add(keyCode)
     }
+  }
+
+  // Basic HTML escape for bindset option labels
+  escapeHtml(text) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }
+    return String(text).replace(/[&<>"']/g, (m) => map[m] || m)
   }
 
   // Clear keyboard highlights

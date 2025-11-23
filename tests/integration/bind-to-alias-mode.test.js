@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createServiceFixture } from '../fixtures/services/index.js'
 import PreferencesService from '../../src/js/components/services/PreferencesService.js'
 import ExportService from '../../src/js/components/services/ExportService.js'
@@ -13,12 +13,27 @@ describe('Bind-to-Alias Mode Integration', () => {
 
   beforeEach(async () => {
     const serviceFixture = createServiceFixture()
-    
+
+    // Mock i18n for ExportService
+    const mockI18n = {
+      t: vi.fn((key, params) => {
+        const translations = {
+          'export_generated_aliases_note': 'Keybind lines that call generated aliases',
+          'export_alias_definitions_note': '(Alias definitions are in the alias file)',
+          'export_separator': '==============================================================================',
+          'space_keybinds': 'SPACE KEYBINDS',
+          'ground_keybinds': 'GROUND KEYBINDS',
+          'alias_definitions': 'ALIAS DEFINITIONS'
+        }
+        return translations[key] || key
+      })
+    }
+
     // Mock parser service to avoid timeouts during command optimization
     respond(serviceFixture.eventBus, 'parser:parse-command-string', ({ commandString }) => ({
       commands: [{ command: commandString }]
     }))
-    
+
     // Create PreferencesService with bind-to-alias mode setting
     const preferencesService = new PreferencesService({
       storage: serviceFixture.storage,
@@ -26,11 +41,12 @@ describe('Bind-to-Alias Mode Integration', () => {
     })
     preferencesService.defaultSettings.bindToAliasMode = false
     preferencesService.init()
-    
-    // Create ExportService
+
+    // Create ExportService with i18n
     const exportService = new ExportService({
       storage: serviceFixture.storage,
-      eventBus: serviceFixture.eventBus
+      eventBus: serviceFixture.eventBus,
+      i18n: mockI18n
     })
     exportService.init()
 

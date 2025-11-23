@@ -156,8 +156,8 @@ export default class ParameterCommandUI extends UIComponentBase {
       saveBtn.textContent = this.i18n.t('add_command')
     }
 
-    // Note: Keep regeneration callback active for future modal use
-    // this.modalManager?.unregisterRegenerateCallback('parameterModal')
+    // Unregister regeneration callback when cancelling
+    this.modalManager?.unregisterRegenerateCallback('parameterModal')
 
     this.modalManager?.hide('parameterModal')
   }
@@ -471,6 +471,9 @@ export default class ParameterCommandUI extends UIComponentBase {
       return
     }
 
+    // Unregister regeneration callback when saving
+    this.modalManager?.unregisterRegenerateCallback('parameterModal')
+
     // Close modal
     this.modalManager?.hide('parameterModal')
 
@@ -485,8 +488,8 @@ export default class ParameterCommandUI extends UIComponentBase {
       saveBtn.textContent = this.i18n.t('add_command')
     }
 
-    // Note: Keep regeneration callback active for future modal use
-    // this.modalManager?.unregisterRegenerateCallback('parameterModal')
+    // Unregister regeneration callback when cancelling
+    this.modalManager?.unregisterRegenerateCallback('parameterModal')
   }
 
   

@@ -175,14 +175,22 @@ export default class ComponentBase {
         return
       }
 
-      // Update cached data
-      if (profile.builds) {
-        this.cache.builds = profile.builds
+      // CRITICAL FIX: Use virtual profile structure first
+      // DataCoordinator provides flattened keys and aliases in virtual profiles
+      if (profile.keys) {
+        // Use virtual profile's flattened keys structure
+        this.cache.keys = profile.keys
+      } else if (profile.builds) {
+        // Fallback to nested structure for backward compatibility
         const currentBuild = profile.builds[this.cache.currentEnvironment]
         this.cache.keys = currentBuild?.keys || {}
-      } else if (profile.keys) {
-        this.cache.keys = profile.keys
+        this.cache.builds = profile.builds
+      } else {
+        this.cache.keys = {}
+        this.cache.builds = null
       }
+
+      // Use virtual profile's aliases (already flattened)
       this.cache.aliases = profile.aliases || {}
     })
 

@@ -536,14 +536,11 @@ export default class CommandService extends ComponentBase {
     })
 
     // Listen for key selection changes - reset to Primary Bindset when new key selected
+    // No automatic bindset resetting in key-selected event - let KeyBrowserUI handle bindset changes
     this.addEventListener('key-selected', ({ key, name }) => {
       const selectedKey = key || name
       console.log('[CommandService] key-selected received:', selectedKey)
-      if (selectedKey && this.cache.activeBindset !== 'Primary Bindset') {
-        console.log('[CommandService] Resetting active bindset to Primary Bindset for new key selection')
-        // Emit event to update bindset - ComponentBase will handle the cache update
-        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-      }
+      // Don't automatically reset to Primary Bindset - let KeyBrowserUI handle bindset changes
     })
   }
 
@@ -650,8 +647,7 @@ export default class CommandService extends ComponentBase {
         const alias = this.cache.aliases && this.cache.aliases[selectedKey]
         isStaleSelection = !alias
       } else {
-        const key = this.cache.keys && this.cache.keys[selectedKey]
-        isStaleSelection = key === undefined
+        isStaleSelection = !this.validateKeyExistsInCurrentContext(selectedKey)
       }
     }
 
@@ -706,8 +702,34 @@ export default class CommandService extends ComponentBase {
     }
   }
 
+  /**
+   * Validate if a key exists in the current bindset context
+   * Checks both primary bindset and active bindset if applicable
+   * @param {string} keyName - The key name to validate
+   * @returns {boolean} - True if key exists in current context
+   */
+  validateKeyExistsInCurrentContext(keyName) {
+    if (!keyName) return false
+
+    // First check primary bindset (this.cache.keys)
+    const existsInPrimary = this.cache.keys && this.cache.keys[keyName] !== undefined
+    if (existsInPrimary) {
+      return true
+    }
+
+    // If we have an active bindset that's not the primary bindset, check it too
+    if (this.cache.activeBindset && this.cache.activeBindset !== 'Primary Bindset' && this.cache.profile) {
+      const existsInBindset = this.cache.profile.bindsets?.[this.cache.activeBindset]?.[this.cache.currentEnvironment]?.keys?.[keyName] !== undefined
+      console.log(`[CommandService] validateKeyExistsInCurrentContext: key "${keyName}" in bindset "${this.cache.activeBindset}" -> ${existsInBindset}`)
+      return existsInBindset
+    }
+
+    // No active bindset or key not found in active bindset
+    return false
+  }
+
   // Get commands for the currently selected key/alias using cached data
-  getCommandsForSelectedKey(params = {}) {
+  async getCommandsForSelectedKey(params = {}) {
     console.log('[CommandService] getCommandsForSelectedKey called with params:', params)
     console.log('[CommandService] Current state:', {
       currentEnvironment: this.cache.currentEnvironment,
@@ -751,11 +773,19 @@ export default class CommandService extends ComponentBase {
     }
 
     // Keybinds path – check if we're using a non-primary bindset
-    if (this.cache.activeBindset && this.cache.activeBindset !== 'Primary Bindset') {
-      // Get commands from the active bindset
-      const bindsetCommands = profile.bindsets?.[this.cache.activeBindset]?.[environment]?.keys?.[selectedKey]
-      console.log('[CommandService] Using active bindset:', this.cache.activeBindset, 'commands:', bindsetCommands)
-      return Array.isArray(bindsetCommands) ? [...bindsetCommands] : []
+    const bindsetsEnabled = this.cache.preferences?.bindsetsEnabled === true
+    if (bindsetsEnabled && this.cache.activeBindset && this.cache.activeBindset !== 'Primary Bindset') {
+      // Fetch latest commands from BindsetService (avoids stale cache)
+      const commands = await this.request('bindset:get-key-commands', {
+        bindset: this.cache.activeBindset,
+        environment,
+        key: selectedKey
+      })
+      console.log('[CommandService] Using active bindset via service lookup:', this.cache.activeBindset, 'commands:', commands)
+      if (Array.isArray(commands)) {
+        return [...commands]
+      }
+      console.warn('[CommandService] Active bindset missing commands for key; falling back to Primary Bindset')
     }
     
     // Primary bindset path – keys arrays are already canonical string[]
@@ -900,7 +930,7 @@ export default class CommandService extends ComponentBase {
     return await this.generateMirroredCommands(commands)
   }
 
-  // Generate mirrored command string for execution order stabilization
+  // Generate mirrored command string for execution order stabilization with TrayExec-aware palindromic generation
   async generateMirroredCommands(commands = []) {
     // Accept either an array of command objects or plain strings.
     if (!Array.isArray(commands) || commands.length === 0) return ''
@@ -917,10 +947,50 @@ export default class CommandService extends ComponentBase {
       return normalized.join(' $$ ')
     }
 
-    // Apply normalization before mirroring
-    const normalizedStrings = await this.normalizeCommandsForDisplay(cmdObjects)
-    const mirrored = [...normalizedStrings, ...normalizedStrings.slice(0, -1).reverse()]
-    return mirrored.join(' $$ ')
+    // Apply TrayExec-aware palindromic generation
+    const beforePrePivot = []  // Non-TrayExec + excluded TrayExec (before)
+    const palindromic = []     // TrayExec for mirroring (pre-pivot candidates)
+    const pivotGroup = []      // Excluded TrayExec (in pivot)
+
+    cmdObjects.forEach(cmd => {
+      const cmdStr = cmd.command
+      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/)
+      const isExcluded = cmd.palindromicGeneration === false
+
+      if (!isTrayExec) {
+        beforePrePivot.push(cmdStr)  // Non-TrayExec first
+      } else if (isExcluded) {
+        if (cmd.placement === 'in-pivot-group') {
+          pivotGroup.push(cmdStr)
+        } else {
+          beforePrePivot.push(cmdStr)  // before-pre-pivot
+        }
+      } else {
+        palindromic.push(cmdStr)  // Normal TrayExec palindrome
+      }
+    })
+
+    // Determine pivot/pivot group + pre-pivot
+    let pivot = []
+    let prePivot = palindromic
+
+    if (pivotGroup.length > 0) {
+      pivot = pivotGroup  // Use specified pivot group
+    } else if (palindromic.length > 0) {
+      pivot = [palindromic[palindromic.length - 1]]  // Last item becomes pivot
+      prePivot = palindromic.slice(0, -1)  // All others are pre-pivot
+    }
+
+    const postPivot = [...prePivot].reverse()  // Mirror pre-pivot to create post-pivot
+
+    // Build final sequence: [non-TrayExec + before-pre-pivot] + [pre-pivot] + [pivot] + [post-pivot]
+    const finalCommands = [...beforePrePivot, ...prePivot, ...pivot, ...postPivot]
+
+    // Apply normalization before returning
+    const normalizedStrings = await this.normalizeCommandsForDisplay(
+      finalCommands.map(cmd => ({ command: cmd }))
+    )
+    return normalizedStrings.join(' $$ ')
   }
 
   // Command preview generation

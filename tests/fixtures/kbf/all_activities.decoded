@@ -1,0 +1,968 @@
+================================================================================
+KBF FILE DECODED
+================================================================================
+
+GROUPSET: 1
+
+KEYSET:
+  Name:Master
+  KEY:
+    Key:A
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:0;Text:Team message;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:B
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:1;Text:;Text2:;N1:0;N2:0;N3:0;O:1;
+  KEY:
+    Key:C
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:2;Text:;Text2:;N1:0;N2:0;N3:0;O:2;
+  KEY:
+    Key:D
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:3;Text:;Text2:;N1:0;N2:0;N3:0;O:3;
+  KEY:
+    Key:E
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:4;Text:;Text2:;N1:1;N2:0;N3:0;O:4;
+  KEY:
+    Key:F
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:5;Text:Target Dummy;Text2:;N1:0;N2:0;N3:0;O:5;
+  KEY:
+    Key:G
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:6;Text:;Text2:;N1:0;N2:0;N3:0;O:6;
+  KEY:
+    Key:H
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:7;Text:;Text2:;N1:0;N2:0;N3:0;O:7;
+  KEY:
+    Key:I
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:8;Text:;Text2:;N1:0;N2:0;N3:0;O:8;
+  KEY:
+    Key:J
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:9;Text:;Text2:;N1:0;N2:0;N3:0;O:9;
+  KEY:
+    Key:K
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:10;Text:;Text2:;N1:0;N2:0;N3:0;O:10;
+  KEY:
+    Key:L
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:11;Text:;Text2:;N1:0;N2:0;N3:0;O:11;
+  KEY:
+    Key:M
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:12;Text:AssistFriend;Text2:;N1:0;N2:0;N3:0;O:12;
+  KEY:
+    Key:N
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:13;Text:;Text2:;N1:0;N2:1;N3:0;O:13;
+  KEY:
+    Key:O
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:14;Text:;Text2:;N1:0;N2:0;N3:0;O:14;
+  KEY:
+    Key:P
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:15;Text:;Text2:;N1:0;N2:0;N3:0;O:15;
+  KEY:
+    Key:Q
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:16;Text:;Text2:;N1:0;N2:0;N3:0;O:16;
+  KEY:
+    Key:R
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:17;Text:;Text2:;N1:0;N2:0;N3:0;O:17;
+  KEY:
+    Key:S
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:18;Text:;Text2:;N1:0;N2:0;N3:0;O:18;
+  KEY:
+    Key:T
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:19;Text:;Text2:;N1:0;N2:0;N3:0;O:19;
+  KEY:
+    Key:U
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:20;Text:;Text2:;N1:0;N2:0;N3:0;O:20;
+  KEY:
+    Key:V
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:22;Text:;Text2:;N1:0;N2:0;N3:0;O:21;
+  KEY:
+    Key:W
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:23;Text:;Text2:;N1:0;N2:0;N3:0;O:22;
+  KEY:
+    Key:X
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:24;Text:;Text2:;N1:20;N2:0;N3:0;O:23;
+  KEY:
+    Key:Y
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:2;N2:0;N3:0;O:24;
+  KEY:
+    Key:Z
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:27;Text:;Text2:;N1:0;N2:0;N3:0;O:25;
+  KEY:
+    Key:0
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:28;Text:;Text2:;N1:0;N2:0;N3:0;O:26;
+  KEY:
+    Key:1
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:29;Text:;Text2:;N1:0;N2:0;N3:0;O:27;
+  KEY:
+    Key:2
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:30;Text:;Text2:;N1:0;N2:0;N3:0;O:28;
+  KEY:
+    Key:3
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:31;Text:;Text2:;N1:0;N2:0;N3:0;O:29;
+  KEY:
+    Key:4
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:32;Text:;Text2:;N1:0;N2:0;N3:0;O:30;
+  KEY:
+    Key:5
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:33;Text:;Text2:;N1:0;N2:0;N3:0;O:31;
+  KEY:
+    Key:6
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:34;Text:;Text2:;N1:35;N2:0;N3:0;O:32;
+  KEY:
+    Key:7
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:35;Text:;Text2:;N1:0;N2:0;N3:0;O:33;
+  KEY:
+    Key:8
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:36;Text:;Text2:;N1:0;N2:0;N3:0;O:34;
+  KEY:
+    Key:9
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:37;Text:;Text2:;N1:0;N2:0;N3:0;O:35;
+  KEY:
+    Key:F1
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:38;Text:;Text2:;N1:0;N2:0;N3:0;O:36;
+  KEY:
+    Key:F2
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:39;Text:;Text2:;N1:0;N2:0;N3:0;O:37;
+  KEY:
+    Key:F3
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:40;Text:;Text2:;N1:0;N2:0;N3:0;O:38;
+  KEY:
+    Key:F4
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:41;Text:;Text2:;N1:0;N2:0;N3:0;O:39;
+  KEY:
+    Key:F5
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:42;Text:;Text2:;N1:0;N2:0;N3:0;O:40;
+  KEY:
+    Key:F6
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:43;Text:;Text2:;N1:0;N2:0;N3:0;O:41;
+  KEY:
+    Key:F7
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:44;Text:;Text2:;N1:0;N2:0;N3:0;O:42;
+  KEY:
+    Key:F8
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:45;Text:;Text2:;N1:0;N2:0;N3:0;O:43;
+  KEY:
+    Key:F9
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:46;Text:;Text2:;N1:0;N2:0;N3:0;O:44;
+  KEY:
+    Key:F10
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:47;Text:;Text2:;N1:0;N2:0;N3:0;O:45;
+  KEY:
+    Key:F11
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:48;Text:;Text2:;N1:0;N2:0;N3:0;O:46;
+  KEY:
+    Key:F12
+    PriorityOrder:0
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:49;Text:;Text2:;N1:0;N2:0;N3:0;O:47;
+  KEY:
+    Key:A
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:50;Text:;Text2:;N1:0;N2:0;N3:0;O:48;
+  KEY:
+    Key:B
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:51;Text:;Text2:;N1:0;N2:0;N3:0;O:49;
+  KEY:
+    Key:C
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:52;Text:;Text2:;N1:0;N2:0;N3:0;O:50;
+  KEY:
+    Key:D
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:53;Text:;Text2:;N1:0;N2:0;N3:0;O:51;
+  KEY:
+    Key:E
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:54;Text:;Text2:;N1:0;N2:0;N3:0;O:52;
+  KEY:
+    Key:F
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:55;Text:;Text2:;N1:0;N2:0;N3:0;O:53;
+  KEY:
+    Key:G
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:56;Text:;Text2:;N1:0;N2:0;N3:0;O:54;
+  KEY:
+    Key:H
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:57;Text:;Text2:;N1:0;N2:0;N3:0;O:55;
+  KEY:
+    Key:I
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:58;Text:;Text2:;N1:0;N2:0;N3:0;O:56;
+  KEY:
+    Key:J
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:59;Text:;Text2:;N1:0;N2:0;N3:0;O:57;
+  KEY:
+    Key:K
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:60;Text:;Text2:;N1:0;N2:0;N3:0;O:58;
+  KEY:
+    Key:L
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:61;Text:;Text2:;N1:0;N2:0;N3:0;O:59;
+  KEY:
+    Key:M
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:62;Text:;Text2:;N1:0;N2:0;N3:0;O:60;
+  KEY:
+    Key:N
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:63;Text:;Text2:;N1:0;N2:0;N3:0;O:61;
+  KEY:
+    Key:O
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:64;Text:;Text2:;N1:120;N2:0;N3:0;O:62;
+  KEY:
+    Key:P
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:65;Text:;Text2:;N1:3;N2:0;N3:0;O:63;
+  KEY:
+    Key:Q
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:66;Text:;Text2:;N1:2;N2:0;N3:0;O:64;
+  KEY:
+    Key:R
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:67;Text:;Text2:;N1:2;N2:0;N3:0;O:65;
+  KEY:
+    Key:S
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:68;Text:;Text2:;N1:0;N2:0;N3:0;O:66;
+  KEY:
+    Key:T
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:69;Text:;Text2:;N1:0;N2:0;N3:0;O:67;
+  KEY:
+    Key:U
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:70;Text:;Text2:;N1:0;N2:0;N3:0;O:68;
+  KEY:
+    Key:V
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:71;Text:;Text2:;N1:0;N2:0;N3:0;O:69;
+  KEY:
+    Key:W
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:72;Text:;Text2:;N1:0;N2:0;N3:0;O:70;
+  KEY:
+    Key:X
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:73;Text:;Text2:;N1:0;N2:0;N3:0;O:71;
+  KEY:
+    Key:Y
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:74;Text:;Text2:;N1:0;N2:0;N3:0;O:72;
+  KEY:
+    Key:Z
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:76;Text:;Text2:;N1:150;N2:0;N3:0;O:73;
+  KEY:
+    Key:0
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:77;Text:Zone broadcast;Text2:;N1:0;N2:0;N3:0;O:74;
+  KEY:
+    Key:1
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:78;Text:Local hello;Text2:;N1:0;N2:0;N3:0;O:75;
+  KEY:
+    Key:2
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:79;Text:;Text2:;N1:0;N2:0;N3:0;O:76;
+  KEY:
+    Key:3
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:80;Text:;Text2:;N1:0;N2:0;N3:0;O:77;
+  KEY:
+    Key:4
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:81;Text:;Text2:;N1:0;N2:0;N3:0;O:78;
+  KEY:
+    Key:5
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:82;Text:;Text2:;N1:0;N2:0;N3:0;O:79;
+  KEY:
+    Key:6
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:83;Text:;Text2:;N1:0;N2:0;N3:0;O:80;
+  KEY:
+    Key:7
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:84;Text:;Text2:;N1:0;N2:0;N3:0;O:81;
+  KEY:
+    Key:8
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:85;Text:;Text2:;N1:0;N2:0;N3:0;O:82;
+  KEY:
+    Key:9
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:86;Text:;Text2:;N1:125;N2:0;N3:0;O:83;
+  KEY:
+    Key:F1
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:87;Text:;Text2:;N1:110;N2:0;N3:0;O:84;
+  KEY:
+    Key:F2
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:88;Text:;Text2:;N1:115;N2:0;N3:0;O:85;
+  KEY:
+    Key:F3
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:89;Text:;Text2:;N1:105;N2:0;N3:0;O:86;
+  KEY:
+    Key:F4
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:90;Text:;Text2:;N1:0;N2:0;N3:0;O:87;
+  KEY:
+    Key:F5
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:91;Text:;Text2:;N1:95;N2:0;N3:0;O:88;
+  KEY:
+    Key:F6
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:92;Text:;Text2:;N1:90;N2:0;N3:0;O:89;
+  KEY:
+    Key:F7
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:93;Text:;Text2:;N1:130;N2:0;N3:0;O:90;
+  KEY:
+    Key:F8
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:94;Text:;Text2:;N1:120;N2:0;N3:0;O:91;
+  KEY:
+    Key:F9
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:95;Text:;Text2:;N1:3;N2:2;N3:4;O:92;
+  KEY:
+    Key:F10
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:96;Text:dance;Text2:;N1:0;N2:0;N3:0;O:93;
+  KEY:
+    Key:F11
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:97;Text:cycle_emote;Text2:;N1:0;N2:0;N3:0;O:94;
+  KEY:
+    Key:F12
+    PriorityOrder:0
+    Control:0
+    Alt:1
+    Shift:0
+    Combo:
+    ACT: Activity:98;Text:PlayerOne;Text2:Hello there!;N1:0;N2:0;N3:0;O:95;
+  KEY:
+    Key:A
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:99;Text:all_activities_bindings.txt;Text2:;N1:0;N2:0;N3:0;O:96;
+  KEY:
+    Key:B
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:101;Text:visible_cycle_emote;Text2:;N1:0;N2:0;N3:0;O:97;
+  KEY:
+    Key:C
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:102;Text:;Text2:;N1:0;N2:0;N3:0;O:98;
+  KEY:
+    Key:D
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:103;Text:;Text2:;N1:0;N2:0;N3:0;O:99;
+  KEY:
+    Key:E
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:104;Text:AllActivities;Text2:;N1:0;N2:0;N3:0;O:100;
+  KEY:
+    Key:F
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:105;Text:all_activities_output.txt;Text2:;N1:0;N2:0;N3:0;O:101;
+  KEY:
+    Key:G
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:106;Text:;Text2:;N1:0;N2:0;N3:0;O:102;
+  KEY:
+    Key:H
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:107;Text:;Text2:;N1:0;N2:0;N3:0;O:103;
+  KEY:
+    Key:I
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:108;Text:;Text2:;N1:0;N2:0;N3:0;O:104;
+  KEY:
+    Key:J
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:109;Text:;Text2:;N1:0;N2:0;N3:0;O:105;
+  KEY:
+    Key:K
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:110;Text:;Text2:;N1:0;N2:0;N3:0;O:106;
+  KEY:
+    Key:L
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:111;Text:;Text2:;N1:0;N2:0;N3:0;O:107;
+  KEY:
+    Key:M
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:112;Text:local_campaign;Text2:;N1:0;N2:0;N3:0;O:108;
+  KEY:
+    Key:N
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:113;Text:fleet;Text2:Fleet briefing;N1:0;N2:0;N3:0;O:109;
+  KEY:
+    Key:O
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:114;Text:F12;Text2:;N1:0;N2:0;N3:0;O:110;
+  KEY:
+    Key:P
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:115;Text:;Text2:;N1:0;N2:0;N3:0;O:111;
+  KEY:
+    Key:Q
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:116;Text:;Text2:;N1:80;N2:0;N3:0;O:112;
+  KEY:
+    Key:R
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:117;Text:;Text2:;N1:0;N2:0;N3:0;O:113;
+  KEY:
+    Key:S
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:118;Text:;Text2:;N1:0;N2:0;N3:0;O:114;
+  KEY:
+    Key:T
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:119;Text:;Text2:;N1:0;N2:0;N3:0;O:115;
+  KEY:
+    Key:U
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:120;Text:;Text2:;N1:0;N2:0;N3:0;O:116;
+  KEY:
+    Key:V
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:121;Text:;Text2:;N1:1;N2:5;N3:0;O:117;
+  KEY:
+    Key:W
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:122;Text:;Text2:;N1:4;N2:0;N3:0;O:118;
+  KEY:
+    Key:X
+    PriorityOrder:0
+    Control:1
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:123;Text:;Text2:;N1:0;N2:0;N3:0;O:119;

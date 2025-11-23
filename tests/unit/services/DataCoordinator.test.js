@@ -23,9 +23,21 @@ describe('DataCoordinator Service', () => {
     
     mockStorage.saveAllData.mockResolvedValue()
     
-    dataCoordinator = new DataCoordinator({ 
-      eventBus: mockEventBus, 
-      storage: mockStorage 
+    // Mock i18n for DataCoordinator
+    const mockI18n = {
+      t: vi.fn((key, params) => {
+        const translations = {
+          'cannot_delete_the_last_profile': 'Cannot delete the last profile',
+          'failed_to_create_profile': 'Failed to create profile'
+        }
+        return translations[key] || key
+      })
+    }
+
+    dataCoordinator = new DataCoordinator({
+      eventBus: mockEventBus,
+      storage: mockStorage,
+      i18n: mockI18n
     })
   })
 
@@ -160,6 +172,9 @@ describe('DataCoordinator Service', () => {
       expect(dataCoordinator.state.profiles[result.profileId]).toBeDefined()
       expect(dataCoordinator.state.profiles[result.profileId].name).toBe('New Profile')
       expect(dataCoordinator.state.profiles[result.profileId].description).toBe('Test Description')
+      expect(dataCoordinator.state.profiles[result.profileId].keybindMetadata).toEqual({ space: {}, ground: {} })
+      expect(dataCoordinator.state.profiles[result.profileId].aliasMetadata).toEqual({})
+      expect(dataCoordinator.state.profiles[result.profileId].bindsetMetadata).toEqual({})
     })
 
     it('should switch to existing profile', async () => {

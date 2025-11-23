@@ -1,0 +1,119 @@
+================================================================================
+KBF FILE DECODED
+================================================================================
+
+GROUPSET: 1
+
+KEYSET:
+  Name:Master
+
+KEYSET:
+  Name:mybinds
+  KEY:
+    Key:Space
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:6;N2:0;N3:0;O:0;
+    ACT: Activity:26;Text:;Text2:;N1:7;N2:0;N3:0;O:1;
+    ACT: Activity:29;Text:;Text2:;N1:0;N2:0;N3:0;O:2;
+    ACT: Activity:14;Text:;Text2:;N1:0;N2:0;N3:0;O:3;
+    ACT: Activity:118;Text:;Text2:;N1:0;N2:0;N3:0;O:4;
+  KEY:
+    Key:K
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:99;Text:mybinds.txt;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:L
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:105;Text:mybinds.txt;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:T
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:106;Text:;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:Y
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:107;Text:;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:H
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:108;Text:;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:`
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:2;Text:;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:1
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:0;N2:0;N3:0;O:0;
+  KEY:
+    Key:2
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:1;N2:0;N3:0;O:0;
+  KEY:
+    Key:3
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:2;N2:0;N3:0;O:0;
+  KEY:
+    Key:4
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:3;N2:0;N3:0;O:0;
+  KEY:
+    Key:5
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:4;N2:0;N3:0;O:0;
+  KEY:
+    Key:6
+    PriorityOrder:1
+    Control:0
+    Alt:0
+    Shift:0
+    Combo:
+    ACT: Activity:26;Text:;Text2:;N1:5;N2:0;N3:0;O:0;

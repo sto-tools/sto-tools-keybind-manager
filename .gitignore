@@ -3,7 +3,8 @@ mockup/
 samples/
 test/node_modules/
 test/results/
-
+*backup*
+**/*.backup
 
 # START Ruler Generated Files
 .cursor/rules/ruler_cursor_instructions.md

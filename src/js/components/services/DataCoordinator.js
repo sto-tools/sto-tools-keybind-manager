@@ -465,6 +465,11 @@ export default class DataCoordinator extends ComponentBase {
         space: { keys: {} },
         ground: { keys: {} }
       },
+      // Seed metadata scaffolding so later updates don't drop stabilization flags
+      keybindMetadata: { space: {}, ground: {} },
+      aliasMetadata: {},
+      bindsetMetadata: {},
+      bindsets: {}, // Add bindsets property for KBF import support
       aliases: {},
       created: new Date().toISOString(),
       lastModified: new Date().toISOString()
@@ -719,6 +724,15 @@ export default class DataCoordinator extends ComponentBase {
           }
         })
       }
+
+      // Delete bindsetMetadata
+      if (operations.delete.bindsetMetadata && Array.isArray(operations.delete.bindsetMetadata)) {
+        operations.delete.bindsetMetadata.forEach(bsName => {
+          if (result.bindsetMetadata) {
+            delete result.bindsetMetadata[bsName]
+          }
+        })
+      }
     }
 
     if (operations.add) {
@@ -739,6 +753,10 @@ export default class DataCoordinator extends ComponentBase {
 
       if (operations.add.bindsets) {
         result.bindsets = { ...(result.bindsets || {}), ...operations.add.bindsets }
+      }
+
+      if (operations.add.bindsetMetadata) {
+        result.bindsetMetadata = { ...(result.bindsetMetadata || {}), ...operations.add.bindsetMetadata }
       }
     }
         
@@ -1087,6 +1105,7 @@ export default class DataCoordinator extends ComponentBase {
           space: { keys: {} },
           ground: { keys: {} }
         },
+        bindsets: sourceProfile.bindsets || {}, // Add bindsets property for KBF import support
         aliases: sourceProfile.aliases || {},
         selections: sourceProfile.selections || {},
         // Preserve metadata fields for stabilizeExecutionOrder and other settings
@@ -1140,13 +1159,13 @@ export default class DataCoordinator extends ComponentBase {
       timestamp: Date.now()
     })
     
-    // If we activated a profile for the first time, emit profile:switched event
-    if (profileActivated && this.state.currentProfile) {
+    // CRITICAL: Only emit profile:switched when profile data is actually ready
+    if (profileActivated && this.state.currentProfile && this.state.profiles[this.state.currentProfile]) {
       const activatedProfile = this.state.profiles[this.state.currentProfile]
       const virtualProfile = this.buildVirtualProfile(activatedProfile, this.state.currentEnvironment)
-      
+
       console.log(`[${this.componentName}] Emitting profile:switched for initial profile activation: ${this.state.currentProfile}`)
-      
+
       this.emit('profile:switched', {
         fromProfile: null,
         toProfile: this.state.currentProfile,
@@ -1155,6 +1174,9 @@ export default class DataCoordinator extends ComponentBase {
         environment: this.state.currentEnvironment,
         timestamp: Date.now()
       }, { synchronous: true })
+    } else if (profileActivated) {
+      // Profile activation was attempted but profile data is not ready
+      console.log(`[${this.componentName}] Profile activation attempted but profile data not ready, delaying profile:switched broadcast`)
     }
   }
 
@@ -1169,6 +1191,7 @@ export default class DataCoordinator extends ComponentBase {
           space: { keys: {} },
           ground: { keys: {} }
         },
+        bindsets: {}, // Add bindsets property for KBF import support
         aliases: {},
         created: new Date().toISOString(),
         lastModified: new Date().toISOString()

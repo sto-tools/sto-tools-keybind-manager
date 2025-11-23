@@ -21,7 +21,7 @@ export default class KeyService extends ComponentBase {
 
     // Register Request/Response topics for key state and actions
     if (this.eventBus) {
-      this.respond('key:add', ({ key } = {}) => this.addKey(key))
+      this.respond('key:add', ({ key, bindset } = {}) => this.addKey(key, bindset))
       this.respond('key:delete', ({ key } = {}) => this.deleteKey(key))
       this.respond('key:duplicate', ({ key } = {}) => this.duplicateKey(key))
       this.respond('key:duplicate-with-name', ({ sourceKey, newKey } = {}) => this.duplicateKeyWithName(sourceKey, newKey))
@@ -64,7 +64,7 @@ export default class KeyService extends ComponentBase {
 
   
   // Core key operations now use DataCoordinator
-  async addKey (keyName) {
+  async addKey (keyName, bindset = null) {
     if (!await this.isValidKeyName(keyName)) {
       return { success: false, error: 'invalid_key_name', params: { keyName } }
     }
@@ -73,31 +73,83 @@ export default class KeyService extends ComponentBase {
       return { success: false, error: 'no_profile_selected' }
     }
 
-    // Check if key already exists in cache
-    if (this.cache.keys[keyName]) {
-      return { success: false, error: 'key_already_exists', params: { keyName } }
+    const environment = this.cache.currentEnvironment
+    const targetBindset = (bindset && bindset !== 'Primary Bindset') ? bindset : null
+    const profile = this.cache.profile
+
+    if (targetBindset) {
+      const targetKeys = profile?.bindsets?.[targetBindset]?.[environment]?.keys || {}
+      if (targetKeys[keyName]) {
+        return { success: false, error: 'key_already_exists', params: { keyName } }
+      }
+    } else {
+      // Check if key already exists in primary cache
+      if (this.cache.keys[keyName]) {
+        return { success: false, error: 'key_already_exists', params: { keyName } }
+      }
     }
 
     try {
-      // Add new key using explicit operations API
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
-        add: {
-          builds: {
-            [this.cache.currentEnvironment]: {
-              keys: {
-                [keyName]: []
+      if (targetBindset) {
+        // Add to a specific bindset without touching primary keys
+        await this.request('data:update-profile', {
+          profileId: this.cache.currentProfile,
+          updates: {
+            modify: {
+              bindsets: {
+                [targetBindset]: {
+                  [environment]: {
+                    keys: {
+                      [keyName]: []
+                    }
+                  }
+                }
               }
             }
           }
-        }
-      })
+        })
 
-      // CHANGED: Delegate selection to SelectionService
-      await this.request('selection:select-key', { keyName, environment: this.cache.currentEnvironment })
+        // Keep local cache in sync so UI can immediately render the new bindset key
+        this.cache.profile = this.cache.profile || {}
+        this.cache.profile.bindsets = this.cache.profile.bindsets || {}
+        if (!this.cache.profile.bindsets[targetBindset]) {
+          this.cache.profile.bindsets[targetBindset] = { space: { keys: {} }, ground: { keys: {} } }
+        }
+        if (!this.cache.profile.bindsets[targetBindset][environment]) {
+          this.cache.profile.bindsets[targetBindset][environment] = { keys: {} }
+        }
+        this.cache.profile.bindsets[targetBindset][environment].keys[keyName] = []
+        this.emit('profile:updated', { profileId: this.cache.currentProfile, profile: this.cache.profile })
+        this.emit('profile-modified', { profileId: this.cache.currentProfile })
+      } else {
+        // Add to primary bindset (original path)
+        await this.request('data:update-profile', {
+          profileId: this.cache.currentProfile,
+          add: {
+            builds: {
+              [environment]: {
+                keys: {
+                  [keyName]: []
+                }
+              }
+            }
+          }
+        })
+
+        // Keep primary cache in sync for immediate UI updates
+        this.cache.keys[keyName] = []
+        if (this.cache.profile?.builds?.[environment]?.keys) {
+          this.cache.profile.builds[environment].keys[keyName] = []
+        }
+        this.emit('profile:updated', { profileId: this.cache.currentProfile, profile: this.cache.profile })
+        this.emit('profile-modified', { profileId: this.cache.currentProfile })
+      }
+
+      // Delegate selection to SelectionService with bindset context when applicable
+      await this.request('selection:select-key', { keyName, environment, bindset: targetBindset })
       this.emit('key-added', { key: keyName })
 
-      return { success: true, key: keyName, environment: this.cache.currentEnvironment }
+      return { success: true, key: keyName, environment, bindset: targetBindset || 'Primary Bindset' }
     } catch (error) {
       console.error('[KeyService] Failed to add key:', error)
       return { success: false, error: 'failed_to_add_key' }

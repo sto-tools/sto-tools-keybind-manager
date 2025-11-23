@@ -7,8 +7,10 @@ export default class BindsetService extends ComponentBase {
 
     if (this.eventBus) {
       this.respond('bindset:create', ({ name }) => this.createBindset(name))
+      this.respond('bindset:clone', ({ sourceBindset, targetBindset }) => this.cloneBindset(sourceBindset, targetBindset))
       this.respond('bindset:rename', ({ oldName, newName }) => this.renameBindset(oldName, newName))
       this.respond('bindset:delete', ({ name }) => this.deleteBindset(name))
+      this.respond('bindset:delete-with-keys', ({ name }) => this.deleteBindset(name, true))
       this.respond('bindset:get-key-commands', ({ bindset, environment, key }) => this.getKeyCommands(bindset, environment, key))
     }
 
@@ -117,6 +119,57 @@ export default class BindsetService extends ComponentBase {
     return res
   }
 
+  async cloneBindset (sourceBindset, targetBindset) {
+    if (!sourceBindset || !targetBindset) return { success: false, error: 'invalid_name' }
+    if (targetBindset === 'Primary Bindset') return { success: false, error: 'invalid_name' }
+
+    const profile = await this.getProfile()
+    console.log('[BindsetService] cloneBindset: profile =', profile, 'id =', profile && profile.id)
+    if (!profile || !profile.id) {
+      console.error('[BindsetService] cloneBindset: no_profile error, profile:', profile)
+      return { success: false, error: 'no_profile' }
+    }
+
+    if (profile.bindsets && profile.bindsets[targetBindset]) {
+      return { success: false, error: 'name_exists' }
+    }
+
+    // Get source bindset data
+    let sourceData
+    if (sourceBindset === 'Primary Bindset') {
+      // Clone from primary build data
+      sourceData = {
+        space: { keys: profile.builds?.space?.keys || {} },
+        ground: { keys: profile.builds?.ground?.keys || {} },
+      }
+    } else {
+      // Clone from existing bindset
+      sourceData = profile.bindsets?.[sourceBindset]
+      if (!sourceData) {
+        return { success: false, error: 'source_not_found' }
+      }
+    }
+
+    // Create new bindset with copied data
+    const updates = {
+      add: {
+        bindsets: {
+          [targetBindset]: {
+            space: { keys: { ...(sourceData.space?.keys || {}) } },
+            ground: { keys: { ...(sourceData.ground?.keys || {}) } },
+          },
+        },
+      },
+    }
+
+    const res = await this.request('data:update-profile', { profileId: profile.id, updates })
+    if (res?.success) {
+      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
+      this.emit('bindsets:changed', { names: [...this.cache.bindsetNames] })
+    }
+    return res
+  }
+
   async renameBindset (oldName, newName) {
     if (!oldName || !newName || oldName === 'Primary Bindset' || newName === 'Primary Bindset') {
       return { success: false, error: 'invalid_name' }
@@ -128,7 +181,8 @@ export default class BindsetService extends ComponentBase {
     if (profile.bindsets[newName]) {
       return { success: false, error: 'name_exists' }
     }
-    // Add new then delete old
+
+    // Add new bindset data
     const insert = profile.bindsets[oldName]
     const updates = {
       add: {
@@ -138,6 +192,15 @@ export default class BindsetService extends ComponentBase {
         bindsets: [oldName],
       },
     }
+
+    // Also handle bindsetMetadata if it exists
+    if (profile.bindsetMetadata && profile.bindsetMetadata[oldName]) {
+      updates.add.bindsetMetadata = {
+        [newName]: profile.bindsetMetadata[oldName]
+      }
+      updates.delete.bindsetMetadata = [oldName]
+    }
+
     const res = await this.request('data:update-profile', { profileId: profile.id, updates })
     if (res?.success) {
       // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
@@ -146,16 +209,18 @@ export default class BindsetService extends ComponentBase {
     return res
   }
 
-  async deleteBindset (name) {
+  async deleteBindset (name, force = false) {
     if (!name || name === 'Primary Bindset') return { success: false, error: 'invalid_name' }
     const profile = await this.getProfile()
     const target = profile.bindsets?.[name]
     if (!target) return { success: false, error: 'not_found' }
 
-    // Ensure bindset is empty
-    const hasKeys = (env) => target?.[env]?.keys && Object.keys(target[env].keys).length > 0
-    if (hasKeys('space') || hasKeys('ground')) {
-      return { success: false, error: 'not_empty' }
+    // Ensure bindset is empty unless force is true
+    if (!force) {
+      const hasKeys = (env) => target?.[env]?.keys && Object.keys(target[env].keys).length > 0
+      if (hasKeys('space') || hasKeys('ground')) {
+        return { success: false, error: 'not_empty' }
+      }
     }
 
     const updates = {

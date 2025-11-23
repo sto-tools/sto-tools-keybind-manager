@@ -308,4 +308,60 @@ describe('SelectionService Cached Validation with Bindsets Integration', () => {
       expect(selectionService.validateAliasExists('MalformedAlias2')).toBe(true) // Still considered valid alias
     })
   })
+
+  describe('Bindset selection synchronization', () => {
+    beforeEach(() => {
+      selectionService.initializeCache()
+      selectionService.cache.preferences.bindsetsEnabled = true
+      selectionService.cache.preferences.bindToAliasMode = true
+      selectionService.cache.currentEnvironment = 'space'
+      selectionService.cache.activeBindset = 'Primary Bindset'
+    })
+
+    const mockRpcResponse = (topic, handler = () => ({ success: true })) => {
+      const rpcTopic = `rpc:${topic}`
+      env.eventBus.on(rpcTopic, ({ replyTopic, requestId, payload }) => {
+        try {
+          const result = handler(payload)
+          env.eventBus.emit(replyTopic, { requestId, data: result })
+        } catch (err) {
+          env.eventBus.emit(replyTopic, { requestId, error: err.message })
+        }
+      })
+    }
+
+    it('requests bindset activation before emitting key-selected when context is provided', async () => {
+      env.eventBusFixture.clearEventHistory()
+      mockRpcResponse('bindset-selector:set-active-bindset')
+
+      await selectionService.selectKey('F1', 'space', { bindset: 'Combat Bindset' })
+
+      const history = env.eventBusFixture.getEventHistory()
+      const rpcIndex = history.findIndex(entry => entry.event === 'rpc:bindset-selector:set-active-bindset')
+      const keyIndex = history.findIndex(entry => entry.event === 'key-selected')
+
+      expect(rpcIndex).toBeGreaterThan(-1)
+      expect(keyIndex).toBeGreaterThan(-1)
+      expect(rpcIndex).toBeLessThan(keyIndex)
+
+      const keyEvent = history[keyIndex]
+      expect(keyEvent.data.bindset).toBe('Combat Bindset')
+    })
+
+    it('resets to Primary bindset when no bindset context is provided', async () => {
+      env.eventBusFixture.clearEventHistory()
+      mockRpcResponse('bindset-selector:set-active-bindset')
+      selectionService.cache.activeBindset = 'Combat Bindset'
+
+      await selectionService.selectKey('F2', 'space', {})
+
+      const rpcEvents = env.eventBusFixture.getEventsOfType('rpc:bindset-selector:set-active-bindset')
+      expect(rpcEvents.length).toBeGreaterThan(0)
+      expect(rpcEvents[rpcEvents.length - 1].data.payload.bindset).toBe('Primary Bindset')
+
+      const keyEvents = env.eventBusFixture.getEventsOfType('key-selected')
+      expect(keyEvents.length).toBeGreaterThan(0)
+      expect(keyEvents[keyEvents.length - 1].data.bindset).toBeNull()
+    })
+  })
 })

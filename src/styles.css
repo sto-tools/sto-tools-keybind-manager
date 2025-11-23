@@ -885,8 +885,506 @@ input:checked + .slider:before {
   background: var(--surface-dark);
 }
 
+/* Bindset selection modal styles */
+.bindset-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--surface);
+}
+
+/* Single bindset selection - clean styling inspired by table modal */
+.single-bindset-container {
+  margin: 1.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.single-bindset-option {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.single-bindset-option:last-child {
+  border-bottom: none;
+}
+
+.single-bindset-option:hover {
+  background: var(--surface-light);
+}
+
+.single-bindset-option.selected {
+  background: var(--surface-light);
+}
+
+.single-bindset-label {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  cursor: pointer;
+  width: 100%;
+  margin: 0;
+  font-weight: normal;
+}
+
+.single-bindset-radio {
+  margin-right: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary);
+}
+
+.single-bindset-content {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.single-bindset-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.single-bindset-name {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.single-bindset-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.single-bindset-badge.primary {
+  background: var(--primary);
+  color: white;
+}
+
+.single-bindset-meta {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.single-bindset-count {
+  font-weight: 400;
+}
+
+.single-bindset-note {
+  background: var(--surface-dark);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-top: 1rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.single-bindset-note i {
+  color: var(--primary);
+}
+
+.bindset-functionality-info {
+  margin: 1.5rem 0;
+  border: 1px solid var(--primary-light, #93c5fd);
+  border-radius: var(--radius-lg);
+  background: var(--surface-light);
+  overflow: hidden;
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
+  border-bottom: 1px solid var(--primary-light, #93c5fd);
+  font-weight: 600;
+  color: var(--primary, #3b82f6);
+}
+
+.info-header i {
+  font-size: 1rem;
+}
+
+.info-content {
+  padding: 1rem;
+}
+
+.info-content p {
+  margin: 0 0 0.75rem 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.info-content p:last-child {
+  margin-bottom: 0;
+}
+
+.info-content strong {
+  color: var(--primary, #3b82f6);
+}
+
+.bindset-option {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s ease;
+}
+
+.bindset-option:last-child {
+  border-bottom: none;
+}
+
+.bindset-option:hover {
+  background: var(--surface-light);
+}
+
+.bindset-option input[type="checkbox"] {
+  margin-right: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary);
+}
+
+.bindset-option label {
+  flex: 1;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+}
+
+/* Enhanced bindset table-grid layout */
+.enhanced-bindset-grid {
+  margin: 1.5rem 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.bindset-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.bindset-table th {
+  background: var(--surface-dark);
+  color: var(--text);
+  font-weight: 600;
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bindset-row {
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--border);
+}
+
+.bindset-row:last-child {
+  border-bottom: none;
+}
+
+.bindset-row:hover {
+  background: var(--surface-light);
+}
+
+.bindset-name-cell {
+  padding: 1rem;
+  width: 40%;
+  vertical-align: middle;
+}
+
+.bindset-mapping-cell {
+  padding: 1rem;
+  width: 60%;
+  vertical-align: middle;
+}
+
+/* 3-column layout adjustments */
+.bindset-name-cell {
+  width: 40%;
+}
+
+.bindset-name {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.bindset-indicator {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bindset-indicator.primary {
+  background: var(--primary);
+  color: white;
+}
+
+.bindset-mapping-select {
+  width: 100%;
+  max-width: 200px;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--background);
+  color: var(--text);
+  font-size: 0.875rem;
+  margin-right: 0.75rem;
+  cursor: pointer;
+}
+
+.bindset-mapping-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.bindset-custom-input {
+  width: 100%;
+  max-width: 250px;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--background);
+  color: var(--text);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.bindset-custom-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.bindset-custom-input::placeholder {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* New 3-column layout CSS classes */
+.bindset-type-cell {
+  padding: 1rem;
+  width: 35%;
+  vertical-align: middle;
+}
+
+.bindset-custom-cell {
+  padding: 1rem;
+  width: 25%;
+  vertical-align: middle;
+}
+
+.bindset-custom-container {
+  margin-top: 0.5rem;
+  display: none;
+}
+
+/* Enhanced preview section styling */
+.enhanced-preview-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+}
+
+.enhanced-preview-section h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.preview-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.preview-row {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--surface-light);
+  border-radius: 0.375rem;
+  border-left: 4px solid var(--primary);
+}
+
+.preview-original {
+  font-weight: 500;
+  color: var(--text);
+  margin-right: 0.75rem;
+  flex: 1;
+}
+
+.preview-arrow {
+  color: var(--text-dim);
+  margin: 0 0.75rem;
+  font-weight: bold;
+}
+
+.mapping-indicator {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mapping-indicator.primary {
+  background: var(--success);
+  color: white;
+}
+
+.mapping-indicator.custom {
+  background: var(--primary);
+  color: white;
+}
+
+.mapping-indicator.custom.conflict {
+  background: var(--warning);
+  color: var(--text);
+}
+
+.conflict-warning {
+  background: var(--warning);
+  color: var(--text);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  font-weight: 600;
+}
+
+.preview-placeholder {
+  color: var(--text-dim);
+  font-style: italic;
+  text-align: center;
+  padding: 2rem 1rem;
+  margin: 0;
+}
+
 .modal-open {
   overflow: hidden;
+}
+
+/* KBF Import Progress Modal */
+.progress-modal .modal-content {
+  width: 450px;
+}
+
+.progress-container {
+  margin: 1.5rem 0;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.progress-stage {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.progress-percentage {
+  font-size: 0.85rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: var(--surface-light);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.progress-bar-fill.indeterminate {
+  background: linear-gradient(90deg,
+    var(--primary) 0%,
+    var(--primary-light) 25%,
+    var(--surface-light) 50%,
+    var(--primary-light) 75%,
+    var(--primary) 100%);
+  background-size: 200% 100%;
+  animation: indeterminate-progress 2s ease-in-out infinite;
+}
+
+@keyframes indeterminate-progress {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.progress-details {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 1.2rem;
+}
+
+/* Progress modal footer adjustments */
+.progress-modal .modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-dark);
+  display: flex;
+  justify-content: center;
+}
+
+.progress-modal .progress-cancel-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
 }
 
 /* About modal specific styles */
@@ -2786,6 +3284,7 @@ input:checked + .slider:before {
   background: var(--surface-dark);
   cursor: grab;
   transition: var(--transition);
+  position: relative;
 }
 
 .command-item-row:hover {
@@ -2861,6 +3360,104 @@ input:checked + .slider:before {
   border-radius: var(--radius);
   padding: 0.125rem;
   border: 1px solid var(--border);
+}
+
+/* Palindromic Controls */
+/* Palindromic toggle button - uses toolbar-toggle class for styling */
+/* Active state = included in palindrome, Inactive = excluded */
+
+/* Command Groups - Grouped view for stabilized chains */
+.command-group-separator {
+  height: 32px;
+  background: linear-gradient(to bottom, transparent, var(--surface-dark, rgba(0,0,0,0.05)), transparent);
+  border-left: 3px solid var(--primary, #4a90e2);
+  margin: 8px 0 4px 0;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-radius: var(--radius);
+}
+
+.command-group-separator:hover {
+  background: linear-gradient(to bottom, transparent, var(--surface-hover, rgba(0,0,0,0.08)), transparent);
+}
+
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.group-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.twisty {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.twisty.collapsed {
+  transform: rotate(0deg);
+}
+
+.twisty:not(.collapsed) {
+  transform: rotate(90deg);
+}
+
+/* Component-specific adjustments for command-group-separator */
+.command-group-separator .twisty {
+  width: 12px;
+  height: 12px;
+  font-size: 10px;
+  margin-right: 8px;
+}
+
+.group-title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.group-count {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  background: var(--surface, rgba(0,0,0,0.1));
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.group-hint {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+/* Command items in groups - subtle visual distinction */
+.command-item-row[data-group] {
+  margin-left: 12px;
+  border-left: 2px solid transparent;
+}
+
+.command-item-row[data-group="non-trayexec"] {
+  border-left-color: var(--secondary, #6c757d);
+}
+
+.command-item-row[data-group="palindromic"] {
+  border-left-color: var(--primary, #4a90e2);
+}
+
+.command-item-row[data-group="pivot"] {
+  border-left-color: var(--accent, #f39c12);
 }
 
 /* Command Action Buttons - Match toolbar-btn styling */
@@ -3638,4 +4235,481 @@ input:checked + .slider:before {
 #bindsetSelectorContainer {
   position: relative;
   display: inline-block;
+}
+
+/* Bindset Sections - Sectional key grid display */
+.bindset-section {
+  margin-bottom: 16px;
+  border-radius: var(--radius);
+  overflow: visible;
+}
+
+.bindset-header {
+  /* Reuse command-group-separator styling with bindset-specific modifications */
+  height: 36px;
+  background: linear-gradient(to bottom, transparent, var(--surface-dark, rgba(0,0,0,0.05)), transparent);
+  border-left: 3px solid var(--primary, #4a90e2);
+  margin: 0;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  border-radius: var(--radius);
+}
+
+.bindset-header:hover {
+  background: linear-gradient(to bottom, transparent, var(--surface-hover, rgba(0,0,0,0.08)), transparent);
+}
+
+.bindset-header .bindset-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.bindset-header .twisty {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bindset-header .twisty.collapsed {
+  transform: rotate(0deg);
+}
+
+.bindset-header .twisty:not(.collapsed) {
+  transform: rotate(90deg);
+}
+
+.bindset-header .bindset-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.bindset-header .bindset-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.bindset-header .bindset-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.bindset-header .control-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 12px;
+}
+
+.bindset-header .control-btn:hover {
+  background: var(--surface-hover, rgba(0,0,0,0.1));
+  color: var(--text-primary);
+}
+
+.bindset-header .control-btn:active {
+  transform: scale(0.95);
+}
+
+.bindset-content {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.bindset-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.bindset-content:not(.collapsed) {
+  max-height: 2000px;
+  opacity: 1;
+  margin-top: 8px;
+}
+
+.key-grid-subsection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.empty-section {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-style: italic;
+  background: var(--surface-alt, var(--surface));
+  border-radius: var(--radius);
+  margin: 8px 4px;
+}
+
+/* Bindset menu dropdown */
+.bindset-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--surface-alt, var(--surface));
+  border: 1px solid var(--border-light, rgba(0,0,0,0.1));
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 1000;
+  min-width: 160px;
+  max-width: 200px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.2s ease;
+  margin-top: 4px;
+}
+
+.bindset-menu-dropdown.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.bindset-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: var(--text-primary);
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.05));
+}
+
+.bindset-menu-item:last-child {
+  border-bottom: none;
+}
+
+.bindset-menu-item:hover {
+  background: var(--surface-hover, rgba(0,0,0,0.05));
+}
+
+.bindset-menu-item.dangerous {
+  color: var(--danger, #dc3545);
+}
+
+.bindset-menu-item.dangerous:hover {
+  background: var(--danger-light, rgba(220,53,69,0.1));
+}
+
+.bindset-menu-item i {
+  width: 16px;
+  margin-right: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.bindset-menu-item span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bindset menu button specific styling */
+.bindset-menu-btn {
+  position: relative;
+}
+
+.bindset-actions {
+  position: relative;
+}
+
+/* Table headers for import modal - should look like normal table headers */
+.import-modal .bindset-table th.bindset-header,
+.keybind-modal .bindset-table th.bindset-header,
+.command-chain-modal .bindset-table th.bindset-header,
+.auth-modal .bindset-table th.bindset-header,
+.profile-modal .bindset-table th.bindset-header {
+  /* Reset to normal table header styling */
+  height: auto !important;
+  background: var(--surface-dark) !important;
+  color: var(--text) !important;
+  font-size: 0.875rem !important;
+  padding: 1rem !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 600 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  text-align: left !important;
+  box-shadow: none !important;
+  background-clip: border-box !important;
+  cursor: default !important;
+  display: table-cell !important;
+  vertical-align: middle !important;
+}
+
+/* Remove hover effects for table headers */
+.import-modal .bindset-table th.bindset-header:hover,
+.keybind-modal .bindset-table th.bindset-header:hover,
+.command-chain-modal .bindset-table th.bindset-header:hover,
+.auth-modal .bindset-table th.bindset-header:hover,
+.profile-modal .bindset-table th.bindset-header:hover {
+  background: var(--surface-dark) !important;
+}
+
+/* Hide table-specific elements in modal table headers */
+.import-modal .bindset-table th.bindset-header .twisty,
+.import-modal .bindset-table th.bindset-header .bindset-info,
+.import-modal .bindset-table th.bindset-header .bindset-count,
+.import-modal .bindset-table th.bindset-header .bindset-actions,
+.keybind-modal .bindset-table th.bindset-header .twisty,
+.keybind-modal .bindset-table th.bindset-header .bindset-info,
+.keybind-modal .bindset-table th.bindset-header .bindset-count,
+.keybind-modal .bindset-table th.bindset-header .bindset-actions {
+  display: none !important;
+}
+
+/* Responsive adjustments for bindset sections */
+@media (max-width: 768px) {
+  .bindset-header {
+    height: 40px;
+    padding: 0 8px;
+  }
+
+  .bindset-header .bindset-actions {
+    gap: 2px;
+    margin-left: 8px;
+  }
+
+  .bindset-header .control-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .key-grid-subsection {
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 6px;
+    padding: 0 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bindset-section {
+    margin-bottom: 12px;
+  }
+
+  .bindset-header {
+    height: 44px;
+    padding: 0 6px;
+    flex-wrap: wrap;
+  }
+
+  .bindset-header .bindset-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bindset-header .bindset-name {
+    font-size: 13px;
+  }
+
+  .key-grid-subsection {
+    grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
+    gap: 4px;
+  }
+}
+
+/* Bindset Delete Confirmation Modal Styles */
+.bindset-delete-confirm-modal .modal-content {
+  width: 600px;
+}
+
+.bindset-delete-confirm-content {
+  max-height: 90vh;
+}
+
+.bindset-delete-warning {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+[data-theme='dark'] .bindset-delete-warning {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.bindset-delete-warning p {
+  margin: 0.5rem 0;
+  color: var(--text);
+}
+
+.bindset-delete-warning p:first-child {
+  margin-top: 0;
+}
+
+.bindset-delete-warning p:last-child {
+  margin-bottom: 0;
+}
+
+.bindset-delete-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.bindset-delete-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Checkbox styles */
+.checkbox-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  cursor: pointer !important;
+  font-weight: normal !important;
+  color: var(--text) !important;
+  margin: 0 !important;
+  padding: 0.75rem !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--surface) !important;
+  transition: var(--transition) !important;
+}
+
+.checkbox-label:hover {
+  background: var(--surface-hover) !important;
+  border-color: var(--border-dark) !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+  appearance: none !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  border: 2px solid var(--border) !important;
+  border-radius: 0.25rem !important;
+  background: var(--surface) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  transition: var(--transition) !important;
+  margin: 0 !important;
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.checkbox-label input[type="checkbox"]:checked::after {
+  content: '✓' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: white !important;
+  font-size: 0.875rem !important;
+  font-weight: bold !important;
+}
+
+.checkbox-label .checkmark {
+  display: none !important;
+}
+
+/* Input field styles */
+.input-label {
+  display: block !important;
+  font-weight: 600 !important;
+  color: var(--text) !important;
+  margin-bottom: 0.5rem !important;
+  font-size: 0.875rem !important;
+}
+
+.bindset-delete-step .form-control {
+  width: 100% !important;
+  padding: 0.75rem !important;
+  border: 2px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  font-size: 1rem !important;
+  transition: var(--transition) !important;
+  font-family: monospace !important;
+  text-transform: uppercase !important;
+}
+
+.bindset-delete-step .form-control:focus {
+  outline: none !important;
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+.bindset-delete-step .form-control:disabled {
+  background: var(--surface-darker) !important;
+  color: var(--text-muted) !important;
+  cursor: not-allowed !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* Button styles */
+.bindset-delete-confirm-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.bindset-delete-confirm-btn:disabled:hover {
+  background: var(--danger) !important;
+  transform: none !important;
+}
+
+/* Modal header icon styling */
+.bindset-delete-confirm-modal .modal-header h3 i {
+  color: var(--danger);
+  margin-right: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .bindset-delete-confirm-modal .modal-content {
+    width: 95vw;
+    margin: 1rem;
+  }
+
+  .bindset-delete-steps {
+    gap: 1rem;
+  }
+
+  .bindset-delete-step {
+    gap: 0.75rem;
+  }
 }

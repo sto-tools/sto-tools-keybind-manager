@@ -12,11 +12,11 @@ export default class CommandChainUI extends UIComponentBase {
   }
 
   async onInit () {
-    this.setupEventListeners()
+    await this.setupEventListeners()
     this.render()
   }
 
-  setupEventListeners() {
+  async setupEventListeners() {
     if (this.eventListenersSetup) return
     this.eventListenersSetup = true
     
@@ -42,28 +42,27 @@ export default class CommandChainUI extends UIComponentBase {
     // Listen for key selection
     this.addEventListener('key-selected', async (data) => {
       const selectedKey = data.key !== undefined ? data.key : data.name
+      if (selectedKey !== undefined) {
+        this.cache.selectedKey = selectedKey
+      }
+      if (data?.environment) {
+        this.cache.currentEnvironment = data.environment
+      }
+
       this.updateChainActions()
 
       // Update bindset selector with selected key first (can be null)
       this.emit('bindset-selector:set-selected-key', { key: selectedKey })
 
-      // Reset to Primary Bindset when selecting a different key (unless already on Primary)
-      // Only do this if a key was actually selected (not null)
-      if (selectedKey && this.cache.activeBindset !== 'Primary Bindset') {
-        this.cache.activeBindset = 'Primary Bindset'
-        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-        this.updateBindsetBanner()
-      }
+      await this.refreshActiveBindset()
     })
 
     // Listen for profile switching to clear cached state and show empty state
-    this.addEventListener('profile:switched', (data) => {
+    this.addEventListener('profile:switched', async (data) => {
       console.log('[CommandChainUI] Profile switched, clearing cached state')
       // Reset to Primary Bindset when switching profiles
-      this.cache.activeBindset = 'Primary Bindset'
-      this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-      this.updateBindsetBanner()
-      this.updateChainActions()
+      await this.request('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
+      // updateBindsetBanner and updateChainActions will be called by the bindset-selector:active-changed listener
 
       // Render immediately to show empty state (don't wait for key selection)
       this.render().catch(() => {})
@@ -82,6 +81,20 @@ export default class CommandChainUI extends UIComponentBase {
       this.render()
     })
 
+    // Late-join state sync: ensure we have the current selection in cache even if the initial event fired before listeners were ready
+    try {
+      const currentSelectedKey = await this.request('key:get-selected')
+      if (currentSelectedKey) {
+        this.cache.selectedKey = currentSelectedKey
+      }
+    } catch (err) {
+      console.warn('[CommandChainUI] Failed to sync initial selected key state', err)
+    }
+
+    if (!this.cache.currentEnvironment) {
+      this.cache.currentEnvironment = 'space'
+    }
+
     // Listen for key added to bindset - should switch to that bindset and show empty chain
     console.log('[CommandChainUI] Setting up bindset-selector:key-added event listener')
     this.addEventListener('bindset-selector:key-added', ({ key, bindset }) => {
@@ -98,14 +111,11 @@ export default class CommandChainUI extends UIComponentBase {
     console.log('[CommandChainUI] bindset-selector:key-added event listener registered')
 
     // Listen for key removed from bindset - switch to Primary if it was the active bindset
-    this.addEventListener('bindset-selector:key-removed', ({ key, bindset }) => {
+    this.addEventListener('bindset-selector:key-removed', async ({ key, bindset }) => {
       if (key === this.cache.selectedKey && this.cache.activeBindset === bindset) {
         // Switch to Primary Bindset since the key was removed from the active bindset
-        this.cache.activeBindset = 'Primary Bindset'
-        this.emit('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-        this.updateBindsetBanner()
-        this.updateChainActions()
-        this.render()
+        await this.request('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
+        // updateBindsetBanner, updateChainActions, and render will be called by the bindset-selector:active-changed listener
       }
     })
 
@@ -207,6 +217,66 @@ export default class CommandChainUI extends UIComponentBase {
       }
     })
 
+    // Listen for palindromic toggle button clicks
+    this.onDom('#commandList', 'click', 'commandchain-palindromic-toggle', async (e) => {
+      const palindromicBtn = e.target.closest('.btn-palindromic-toggle')
+      if (palindromicBtn) {
+        e.preventDefault()
+        e.stopPropagation()
+        const index = parseInt(palindromicBtn.dataset.commandIndex)
+        if (!Number.isNaN(index)) {
+          // Get the actual command to determine current state
+          const commands = await this.getCommandsForCurrentSelection()
+          if (commands && index >= 0 && index < commands.length) {
+            const command = commands[index]
+            // Determine current state: included if string or palindromicGeneration !== false
+            const isCurrentlyIncluded = typeof command !== 'object' || command.palindromicGeneration !== false
+            // Toggle: if currently included, exclude it (set to false)
+            const newValue = !isCurrentlyIncluded
+            console.log('[CommandChainUI] Toggling palindromic:', { index, command, isCurrentlyIncluded, newValue })
+            await this.updateCommandPalindromicSetting(index, 'palindromicGeneration', newValue)
+          }
+        }
+      }
+    })
+
+    // Listen for placement toggle button clicks
+    this.onDom('#commandList', 'click', 'commandchain-placement-toggle', async (e) => {
+      const placementBtn = e.target.closest('.btn-placement-toggle')
+      if (placementBtn) {
+        e.preventDefault()
+        e.stopPropagation()
+        const index = parseInt(placementBtn.dataset.commandIndex)
+        if (!Number.isNaN(index)) {
+          // Get the actual command to determine current state
+          const commands = await this.getCommandsForCurrentSelection()
+          if (commands && index >= 0 && index < commands.length) {
+            const command = commands[index]
+            // Determine current placement
+            const currentPlacement = typeof command === 'object' && command.placement ? command.placement : 'before-pre-pivot'
+            // Toggle: if in pivot group, move to before-pre-pivot, otherwise move to pivot group
+            const newPlacement = currentPlacement === 'in-pivot-group' ? 'before-pre-pivot' : 'in-pivot-group'
+            console.log('[CommandChainUI] Toggling placement:', { index, command, currentPlacement, newPlacement })
+            await this.updateCommandPalindromicSetting(index, 'placement', newPlacement)
+          }
+        }
+      }
+    })
+
+    // Listen for group header clicks to toggle collapse
+    this.onDom('#commandList', 'click', 'commandchain-group-header', (e) => {
+      const groupHeader = e.target.closest('.group-header')
+      if (groupHeader) {
+        const groupType = groupHeader.dataset.group
+        if (groupType) {
+          const isCollapsed = this.getGroupCollapsedState(groupType)
+          this.setGroupCollapsedState(groupType, !isCollapsed)
+          // Re-render to show updated state
+          this.render()
+        }
+      }
+    })
+
     // Setup drag/drop
     this.setupDragAndDrop()
 
@@ -245,9 +315,11 @@ export default class CommandChainUI extends UIComponentBase {
       }
     })
 
-    this.cache.activeBindset = this.cache.activeBindset || 'Primary Bindset'
-    
-    this.emit('bindset:active-changed', { bindset: this.cache.activeBindset })
+    // Initialize active bindset if not already set (ComponentBase should handle this via state sync)
+    if (!this.cache.activeBindset) {
+      console.log('[CommandChainUI] No active bindset in cache, waiting for ComponentBase state sync')
+      // REMOVED: await this.request('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
+    }
   }
 
   // Render the command chain
@@ -274,12 +346,14 @@ export default class CommandChainUI extends UIComponentBase {
       let commands = commandsArg
       if (!commands) {
         const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
-        if (!selectedKeyName) {
-          // No selection yet - just show empty state and return
+
+        // CRITICAL: Add explicit profile validation to prevent undefined display during initialization
+        if (!selectedKeyName || !this.cache.profile || !this.cache.currentProfile) {
+          // No selection or profile data yet - show clean empty state without attempting to resolve undefined data
           const emptyStateInfo = await this.request('command:get-empty-state-info')
-          titleEl.textContent   = emptyStateInfo.title
-          previewEl.textContent = emptyStateInfo.preview
-          if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount
+          titleEl.textContent = emptyStateInfo.title || ''
+          previewEl.textContent = emptyStateInfo.preview || ''
+          if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount || ''
 
           // Create new container content atomically
           const newContent = this.document.createElement('div')
@@ -289,12 +363,12 @@ export default class CommandChainUI extends UIComponentBase {
               <h4>${emptyStateInfo.emptyTitle}</h4>
               <p>${emptyStateInfo.emptyDesc}</p>
             </div>`
-          
+
           // Atomic replacement
           container.replaceChildren(...newContent.children)
           return
         }
-        // We have a selection, so request the commands
+        // We have a selection and profile data, so request the commands
         commands = await this.getCommandsForCurrentSelection()
       }
 
@@ -302,6 +376,11 @@ export default class CommandChainUI extends UIComponentBase {
 
       // Use cached selection state from event listeners
       const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+
+      // Bindset context is not guaranteed to be initialized on early renders; default to Primary
+      if (!this.cache.activeBindset) {
+        this.cache.activeBindset = 'Primary Bindset'
+      }
 
       if (!selectedKeyName || commands.length === 0) {
         // Empty state - use empty state info for title and preview
@@ -393,11 +472,53 @@ export default class CommandChainUI extends UIComponentBase {
       // Hide any existing empty state
       if (emptyState) emptyState.classList.remove('show')
 
+      // Check if chain is stabilized to determine rendering mode
+      let isStabilized = false
+      try {
+        const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
+        isStabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
+      } catch (err) {
+        console.warn('[CommandChainUI] Failed to check stabilization state:', err)
+      }
+
       // Build the complete new command list structure atomically
       const newCommandElements = []
-      for (let i = 0; i < commands.length; i++) {
-        const el = await this.createCommandElement(commands[i], i, commands.length)
-        newCommandElements.push(el)
+      
+      if (isStabilized && commands.length > 0) {
+        // Use grouped rendering for stabilized chains
+        const groups = this.groupCommands(commands)
+        // Render groups in order: non-trayexec, palindromic, pivot
+        const groupOrder = ['non-trayexec', 'palindromic', 'pivot']
+        for (const groupType of groupOrder) {
+          const groupData = groups[groupType]
+          // Only render groups that have commands
+          if (groupData && groupData.commands.length > 0) {
+            // Render group separator
+            const separator = this.renderGroupSeparator(groupType, groupData)
+            if (separator) {
+              const separatorEl = this.document.createElement('div')
+              separatorEl.innerHTML = separator
+              newCommandElements.push(...separatorEl.children)
+            }
+            
+            // Render commands in group (if not collapsed)
+            if (!groupData.isCollapsed) {
+              for (let groupIndex = 0; groupIndex < groupData.commands.length; groupIndex++) {
+                const { command, index } = groupData.commands[groupIndex]
+                // Pass group-relative index (1-based) for display when stabilized
+                const displayIndex = groupIndex + 1
+                const el = await this.createCommandElement(command, index, commands.length, groupType, displayIndex)
+                newCommandElements.push(el)
+              }
+            }
+          }
+        }
+      } else {
+        // Use flat rendering for unstabilized chains
+        for (let i = 0; i < commands.length; i++) {
+          const el = await this.createCommandElement(commands[i], i, commands.length)
+          newCommandElements.push(el)
+        }
       }
 
       // Atomic replacement - this is the only DOM mutation that affects the command list
@@ -417,8 +538,122 @@ export default class CommandChainUI extends UIComponentBase {
       this.updateBindsetBanner()
   }
 
+  // Group commands into sections for stabilized chains
+  groupCommands(commands) {
+    const groups = {
+      'non-trayexec': {
+        title: this.i18n.t('command_group_non_trayexec'),
+        commands: [],
+        isCollapsed: this.getGroupCollapsedState('non-trayexec')
+      },
+      'palindromic': {
+        title: this.i18n.t('command_group_palindromic'),
+        commands: [],
+        isCollapsed: this.getGroupCollapsedState('palindromic')
+      },
+      'pivot': {
+        title: this.i18n.t('command_group_pivot'),
+        commands: [],
+        isCollapsed: this.getGroupCollapsedState('pivot')
+      }
+    }
+
+    // Check if there are any commands explicitly in pivot group
+    let hasExplicitPivotGroup = false
+    commands.forEach((cmd, index) => {
+      const cmdStr = typeof cmd === 'string' ? cmd : cmd.command
+      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/)
+      const isExcluded = typeof cmd === 'object' && cmd.palindromicGeneration === false
+      const isInPivotGroup = typeof cmd === 'object' && cmd.placement === 'in-pivot-group'
+      
+      if (isInPivotGroup) {
+        hasExplicitPivotGroup = true
+      }
+    })
+
+    commands.forEach((cmd, index) => {
+      const cmdStr = typeof cmd === 'string' ? cmd : cmd.command
+      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/)
+      const isExcluded = typeof cmd === 'object' && cmd.palindromicGeneration === false
+      const isInPivotGroup = typeof cmd === 'object' && cmd.placement === 'in-pivot-group'
+      
+      // Determine which group this command belongs to
+      let targetGroup = null
+      if (!isTrayExec) {
+        targetGroup = 'non-trayexec'
+      } else if (isExcluded && isInPivotGroup && hasExplicitPivotGroup) {
+        // Only add to pivot group if there's an explicit pivot group
+        targetGroup = 'pivot'
+      } else if (isExcluded) {
+        // Excluded but not in pivot group (or no explicit pivot group) - goes with non-TrayExec
+        targetGroup = 'non-trayexec'
+      } else {
+        // Included in palindrome
+        targetGroup = 'palindromic'
+      }
+
+      groups[targetGroup].commands.push({ command: cmd, index })
+    })
+
+    return groups
+  }
+
+  // Get collapsed state for a group from localStorage
+  getGroupCollapsedState(groupType) {
+    if (typeof window === 'undefined' || !window.localStorage) return false
+    const storageKey = `commandGroup_${groupType}_collapsed`
+    return localStorage.getItem(storageKey) === 'true'
+  }
+
+  // Set collapsed state for a group in localStorage
+  setGroupCollapsedState(groupType, collapsed) {
+    if (typeof window === 'undefined' || !window.localStorage) return
+    const storageKey = `commandGroup_${groupType}_collapsed`
+    if (collapsed) {
+      localStorage.setItem(storageKey, 'true')
+    } else {
+      localStorage.removeItem(storageKey)
+    }
+  }
+
+  // Render group separator with collapsible header
+  renderGroupSeparator(groupType, groupData) {
+    const reorderHint = this.getReorderHint(groupType)
+    
+    return `
+      <div class="command-group-separator" data-group="${groupType}">
+        <div class="group-header" data-group="${groupType}" data-action="commandchain-group-header">
+          <div class="group-info">
+            <i class="fas fa-chevron-right twisty ${groupData.isCollapsed ? 'collapsed' : ''}"></i>
+            <span class="group-title">${groupData.title}</span>
+            <span class="group-count">(${groupData.commands.length})</span>
+          </div>
+          ${reorderHint ? `
+            <div class="group-hint">
+              ${reorderHint}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `
+  }
+
+  // Get reorder hint for a group type
+  getReorderHint(groupType) {
+    switch (groupType) {
+      case 'non-trayexec':
+        return this.i18n.t('command_group_hint_fixed_order')
+      case 'palindromic':
+        return this.i18n.t('command_group_hint_palindromic')
+      case 'pivot':
+        return this.i18n.t('command_group_hint_pivot')
+      default:
+        return ''
+    }
+  }
+
   // Create a command element
-  async createCommandElement (command, index, total) {
+  async createCommandElement (command, index, total, groupType = null, displayIndex = null) {
     const element = this.document.createElement('div') || {}
     if (!element.dataset) {
       element.dataset = {}
@@ -426,22 +661,82 @@ export default class CommandChainUI extends UIComponentBase {
     element.className = 'command-item-row'
     element.dataset.index = index
     element.draggable = true
+    if (groupType) {
+      element.dataset.group = groupType
+    }
 
     // Convert canonical string command to rich object for display
     const commandString = typeof command === 'string' ? command : normalizeToString(command)
-    
+
     // Get i18n object for translations
     const i18n = this.i18n
-    
+
     // Enrich command for display
     const richCommand = await enrichForDisplay(commandString, i18n, { eventBus: this.eventBus })
     console.log('[CommandChainUI] enriched command:', richCommand)
+
+    // Check if stabilization is enabled for the current key/alias
+    let isStabilized = false
+    try {
+      const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+      if (selectedKeyName) {
+        const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
+        isStabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
+      }
+    } catch (error) {
+      console.warn('[CommandChainUI] Failed to check stabilization state:', error)
+    }
 
     // Look up definition for display helpers
     const commandDef = await this.request('command:find-definition', { command: commandString })
     // Determine if this command should expose parameter editing
     const isCustomCmd = richCommand.type === 'custom' || richCommand.category === 'custom'
     const isParameterized = (commandDef && commandDef.customizable) || isCustomCmd
+
+    // Determine if this is a TrayExec command for palindromic controls
+    const isTrayExec = commandString.match(/^(?:\+)?TrayExecByTray/)
+
+    // Extract palindromic settings from command object (if rich object)
+    // Default is included (palindromicGeneration !== false), so active = included
+    // If it's a string, it's included. If it's an object, it's included unless palindromicGeneration is explicitly false
+    const isIncludedInPalindromic = typeof command !== 'object' || command.palindromicGeneration !== false
+    const isExcluded = !isIncludedInPalindromic
+    const placement = typeof command === 'object' && command.placement ? command.placement : 'before-pre-pivot'
+    const isInPivotGroup = placement === 'in-pivot-group'
+
+    // Generate palindromic toggle button (only show for TrayExec commands when stabilized)
+    // Active = included in palindrome, Inactive = excluded
+    let palindromicButton = ''
+    if (isStabilized && isTrayExec) {
+      const palindromicTooltip = isIncludedInPalindromic 
+        ? this.i18n.t('palindromic_included_tooltip')
+        : this.i18n.t('palindromic_excluded_tooltip')
+      palindromicButton = `
+        <button class="command-action-btn toolbar-toggle btn-palindromic-toggle ${isIncludedInPalindromic ? 'active' : ''}" 
+                title="${palindromicTooltip}" 
+                data-command-index="${index}"
+                data-action="commandchain-palindromic-toggle">
+          <i class="fas fa-balance-scale"></i>
+        </button>
+      `
+    }
+
+    // Generate placement toggle button (only show for excluded TrayExec commands when stabilized)
+    // Active = in pivot group, Inactive = before pre-pivot
+    let placementButton = ''
+    if (isStabilized && isTrayExec && isExcluded) {
+      const placementTooltip = isInPivotGroup
+        ? this.i18n.t('placement_in_pivot_group_tooltip')
+        : this.i18n.t('placement_before_palindromes_tooltip')
+      placementButton = `
+        <button class="command-action-btn toolbar-toggle btn-placement-toggle ${isInPivotGroup ? 'active' : ''}" 
+                title="${placementTooltip}" 
+                data-command-index="${index}"
+                data-action="commandchain-placement-toggle">
+          <i class="fas fa-arrows-left-right-to-line"></i>
+        </button>
+      `
+    }
 
     // Helper function to format display text from i18n objects
     const formatDisplayText = (displayText) => {
@@ -515,8 +810,10 @@ export default class CommandChainUI extends UIComponentBase {
       commandType = commandDef.categoryId
     }
 
+    // Use displayIndex if provided (group-relative for stabilized), otherwise use global index
+    const numberToDisplay = displayIndex !== null ? displayIndex : (index + 1)
     element.innerHTML = `
-      <div class="command-number">${index + 1}</div>
+      <div class="command-number">${numberToDisplay}</div>
       <div class="command-content">
         <span class="command-icon">${displayIcon}</span>
         <span class="command-text">${displayName}${parameterInd}</span>
@@ -526,6 +823,8 @@ export default class CommandChainUI extends UIComponentBase {
       <div class="command-actions">
         ${isParameterized ? `<button class="command-action-btn btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>` : `<button class="command-action-btn btn-edit btn-placeholder" disabled aria-hidden="true" style="visibility:hidden"><i class="fas fa-edit"></i></button>`}
         <button class="command-action-btn command-action-btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
+        ${palindromicButton}
+        ${placementButton}
         <button class="command-action-btn btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
         <button class="command-action-btn btn-down" title="Move Down" ${index === total - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
       </div>`
@@ -563,8 +862,6 @@ export default class CommandChainUI extends UIComponentBase {
       },
     })
   }
-
-
 
   // Update previews for bind-to-alias mode
   updatePreviewLabel() {
@@ -753,6 +1050,55 @@ export default class CommandChainUI extends UIComponentBase {
     try {
       // Pass the current bindset when not in alias mode
       const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
+      
+      // If disabling stabilization, extract original commands (before-pre-pivot + pre-pivot + pivot)
+      if (currentlyActive) {
+        const commands = await this.getCommandsForCurrentSelection()
+        if (commands && commands.length > 0) {
+          const originalCommands = this.extractOriginalFromMirrored(commands)
+          
+          // Save the extracted original commands
+          const environment = this.cache.currentEnvironment
+          let payload
+          if (this.cache.currentEnvironment === 'alias') {
+            payload = {
+              modify: {
+                aliases: {
+                  [name]: { commands: originalCommands }
+                }
+              }
+            }
+          } else if (bindset && bindset !== 'Primary Bindset') {
+            payload = {
+              modify: {
+                bindsets: {
+                  [bindset]: {
+                    [environment]: {
+                      keys: { [name]: originalCommands }
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            payload = {
+              modify: {
+                builds: {
+                  [environment]: {
+                    keys: { [name]: originalCommands }
+                  }
+                }
+              }
+            }
+          }
+          
+          await this.request('data:update-profile', {
+            profileId: this.cache.currentProfile,
+            ...payload
+          })
+        }
+      }
+      
       // Toggle stabilization state
       const result = await this.request('command:set-stabilize', { name, stabilize: !currentlyActive, bindset })
       if (result && result.success) {
@@ -770,6 +1116,147 @@ export default class CommandChainUI extends UIComponentBase {
     }
   }
 
+  // Extract original commands from a mirrored sequence using the same logic as mirrorCommands
+  // but without the post-pivot mirror. This ensures consistency with the mirroring algorithm.
+  extractOriginalFromMirrored(commands) {
+    if (!Array.isArray(commands) || commands.length === 0) return commands
+
+    // Use the same grouping logic as mirrorCommands, but work with command objects
+    const beforePrePivot = []  // Non-TrayExec + excluded TrayExec (before)
+    const palindromic = []     // TrayExec for mirroring (pre-pivot candidates)
+    const pivotGroup = []      // Excluded TrayExec (in pivot)
+
+    commands.forEach(cmd => {
+      const cmdStr = typeof cmd === 'string' ? cmd : cmd.command
+      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/)
+      const isExcluded = typeof cmd === 'object' && cmd.palindromicGeneration === false
+
+      if (!isTrayExec) {
+        beforePrePivot.push(cmd)  // Non-TrayExec first
+      } else if (isExcluded) {
+        if (typeof cmd === 'object' && cmd.placement === 'in-pivot-group') {
+          pivotGroup.push(cmd)
+        } else {
+          beforePrePivot.push(cmd)  // before-pre-pivot
+        }
+      } else {
+        palindromic.push(cmd)  // Normal TrayExec palindrome
+      }
+    })
+
+    // Determine pivot/pivot group + pre-pivot (same logic as mirrorCommands)
+    let pivot = []
+    let prePivot = palindromic
+
+    if (pivotGroup.length > 0) {
+      pivot = pivotGroup  // Use specified pivot group
+    } else if (palindromic.length > 0) {
+      pivot = [palindromic[palindromic.length - 1]]  // Last item becomes pivot
+      prePivot = palindromic.slice(0, -1)  // All others are pre-pivot
+    }
+
+    // Return original sequence: before-pre-pivot + pre-pivot + pivot (no post-pivot)
+    return [...beforePrePivot, ...prePivot, ...pivot]
+  }
+
+  // Update palindromic settings for a specific command using lazy rich object conversion
+  async updateCommandPalindromicSetting(commandIndex, setting, value) {
+    try {
+      // Get current commands for the selected key/alias
+      const commands = await this.getCommandsForCurrentSelection()
+      if (!commands || commandIndex < 0 || commandIndex >= commands.length) {
+        console.warn('[CommandChainUI] Invalid command index:', commandIndex)
+        return
+      }
+
+      const command = commands[commandIndex]
+      const commandString = typeof command === 'string' ? command : normalizeToString(command)
+
+      console.log('[CommandChainUI] updateCommandPalindromicSetting:', {
+        commandIndex,
+        setting,
+        value,
+        currentCommand: command,
+        commandString
+      })
+
+      // Apply lazy rich object conversion: only convert to rich object when user customizes
+      if (typeof command === 'string') {
+        // Convert string to rich object with palindromic settings
+        commands[commandIndex] = {
+          command: commandString,
+          palindromicGeneration: value // Set to the new value (true or false)
+        }
+      } else {
+        // Update existing rich object - always explicitly set the value
+        const updatedCommand = { ...command, [setting]: value }
+        commands[commandIndex] = updatedCommand
+      }
+
+      console.log('[CommandChainUI] Updated command:', commands[commandIndex])
+
+      // Update the command chain with the modified commands using data:update-profile
+      const selectedKeyName = this.cache.currentEnvironment === 'alias' ? this.cache.selectedAlias : this.cache.selectedKey
+      if (selectedKeyName) {
+        const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
+        const environment = this.cache.currentEnvironment
+        
+        // Build the update payload - preserve rich objects
+        let payload
+        if (this.cache.currentEnvironment === 'alias') {
+          // For aliases, update the commands property
+          payload = {
+            modify: {
+              aliases: {
+                [selectedKeyName]: { commands }
+              }
+            }
+          }
+        } else if (bindset && bindset !== 'Primary Bindset') {
+          // For bindsets, update in bindsets structure
+          payload = {
+            modify: {
+              bindsets: {
+                [bindset]: {
+                  [environment]: {
+                    keys: { [selectedKeyName]: commands }
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          // For primary bindset, update in builds structure
+          payload = {
+            modify: {
+              builds: {
+                [environment]: {
+                  keys: { [selectedKeyName]: commands }
+                }
+              }
+            }
+          }
+        }
+        
+        console.log('[CommandChainUI] Updating commands with payload:', payload)
+        
+        await this.request('data:update-profile', {
+          profileId: this.cache.currentProfile,
+          ...payload
+        })
+        
+        // Re-fetch commands to ensure we have the saved state
+        const updatedCommands = await this.getCommandsForCurrentSelection()
+        console.log('[CommandChainUI] Commands after update:', updatedCommands)
+        
+        // Trigger re-render to show updated button state
+        this.render(updatedCommands)
+      }
+    } catch (err) {
+      console.error('[CommandChainUI] Failed to update command palindromic setting:', err)
+    }
+  }
+
   // Clean up event listeners when component is destroyed
   onDestroy() {
     // Event cleanup is now handled automatically by ComponentBase
@@ -780,7 +1267,18 @@ export default class CommandChainUI extends UIComponentBase {
   // Late-join: sync environment if InterfaceModeService broadcasts its snapshot before we registered our listeners.
   handleInitialState (sender, state) {
     if (!state) return
-   
+
+    // NEW: Handle BindsetSelectorService state
+    if (sender === 'BindsetSelectorService') {
+      console.log('[CommandChainUI] Received initial state from BindsetSelectorService:', state)
+      // ComponentBase automatically updates this.cache.activeBindset and other common state
+      // Update any UI-specific state if needed
+      this.updateBindsetBanner()
+      this.updateChainActions()
+      this.render()
+      return
+    }
+
     // Restore selection from SelectionService late-join
     if (sender === 'SelectionService') {
       this.render().catch(() => {})
@@ -830,16 +1328,28 @@ export default class CommandChainUI extends UIComponentBase {
       container.style.display = 'block'
     }
     
-    // Update bindset banner when enabled
-    this.updateBindsetBanner()
-    
-    // Set initial active bindset if not already set
-    if (!this.cache.activeBindset) {
-      this.cache.activeBindset = 'Primary Bindset'
-      this.emit('bindset:active-changed', { bindset: this.cache.activeBindset })
-    }
-    
+    await this.refreshActiveBindset()
     this._bindsetDropdownReady = true
+  }
+
+  async refreshActiveBindset(preferredBindset = undefined) {
+    try {
+      if (preferredBindset !== undefined) {
+        const resolved = preferredBindset || 'Primary Bindset'
+        this.cache.activeBindset = resolved
+        this.updateBindsetBanner()
+        return
+      }
+
+      // FIXED: State should be available via ComponentBase synchronization
+      if (this.cache.activeBindset) {
+        this.updateBindsetBanner()
+      } else {
+        console.warn('[CommandChainUI] No active bindset in cache - ComponentBase state sync may be incomplete')
+      }
+    } catch (error) {
+      console.error('[CommandChainUI] Failed to refresh active bindset state', error)
+    }
   }
 
   async getCommandsForCurrentSelection() {
@@ -854,7 +1364,8 @@ export default class CommandChainUI extends UIComponentBase {
     const keyName = this.cache.selectedKey
     if (!keyName) return []
 
-    if (!this.cache.activeBindset || this.cache.activeBindset === 'Primary Bindset') {
+    const bindsetsEnabled = this.cache.preferences?.bindsetsEnabled === true
+    if (!bindsetsEnabled || !this.cache.activeBindset || this.cache.activeBindset === 'Primary Bindset') {
       // Use DataCoordinator directly for primary bindset
       return await this.request('data:get-key-commands', {
         environment: this.cache.currentEnvironment,
@@ -879,8 +1390,7 @@ export default class CommandChainUI extends UIComponentBase {
 
       let banner = this.document.getElementById('bindsetBanner')
 
-      // Conditions to show banner
-      const shouldShow = this.cache.preferences.bindsetsEnabled && this.cache.activeBindset && this.cache.activeBindset !== 'Primary Bindset'
+      const shouldShow = this.cache.activeBindset && this.cache.activeBindset !== 'Primary Bindset'
 
       if (!shouldShow) {
         if (banner) banner.remove()

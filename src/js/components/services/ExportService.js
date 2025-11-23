@@ -210,7 +210,7 @@ export default class ExportService extends ComponentBase {
           profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
 
         if (shouldStabilize && Array.isArray(cmds) && cmds.length > 1) {
-          cmds = this.mirrorCommands(cmds)
+          cmds = this.mirrorCommands(cmds, shouldStabilize)
         }
 
         // Optimise each command string
@@ -280,7 +280,7 @@ export default class ExportService extends ComponentBase {
             profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
 
           if (shouldStabilize && Array.isArray(commands) && commands.length > 1) {
-            cmds = this.mirrorCommands(commands)
+            cmds = this.mirrorCommands(commands, shouldStabilize)
           }
 
           // Store as generated alias
@@ -331,7 +331,7 @@ export default class ExportService extends ComponentBase {
               profile.bindsetMetadata[bsName][environment][key].stabilizeExecutionOrder)
 
             if (shouldStabilize && cmds.length > 1) {
-              cmds = this.mirrorCommands(cmds)
+              cmds = this.mirrorCommands(cmds, shouldStabilize)
             }
 
             const aliasName = await this.generateBindsetAliasName(environment, bsName, key)
@@ -573,14 +573,61 @@ export default class ExportService extends ComponentBase {
     return {}
   }
 
-  /* helper to mirror command strings array */
-  mirrorCommands(commands) {
-    if (!Array.isArray(commands) || commands.length <= 1) return commands
+  /* helper to mirror command strings array with TrayExec-aware palindromic generation */
+  mirrorCommands(commands, stabilize = false, includePostPivot = true) {
+    if (!Array.isArray(commands) || commands.length <= 1) {
+      // For single commands or non-stabilized mode, just extract command strings
+      return commands.map(cmd => typeof cmd === 'string' ? cmd : cmd.command)
+    }
 
-    // Commands are now canonical strings, so just mirror the strings directly
-    const clean = normalizeToStringArray(commands)
-    const mirrored = [...clean, ...clean.slice(0, -1).reverse()]
-    return mirrored
+    if (!stabilize) {
+      // No stabilization - just extract command strings
+      return commands.map(cmd => typeof cmd === 'string' ? cmd : cmd.command)
+    }
+
+    const beforePrePivot = []  // Non-TrayExec + excluded TrayExec (before)
+    const palindromic = []     // TrayExec for mirroring (pre-pivot candidates)
+    const pivotGroup = []      // Excluded TrayExec (in pivot)
+
+    commands.forEach(cmd => {
+      const cmdStr = typeof cmd === 'string' ? cmd : cmd.command
+      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/)
+      const isExcluded = typeof cmd === 'object' && cmd.palindromicGeneration === false
+
+      if (!isTrayExec) {
+        beforePrePivot.push(cmdStr)  // Non-TrayExec first
+      } else if (isExcluded) {
+        if (cmd.placement === 'in-pivot-group') {
+          pivotGroup.push(cmdStr)
+        } else {
+          beforePrePivot.push(cmdStr)  // before-pre-pivot
+        }
+      } else {
+        palindromic.push(cmdStr)  // Normal TrayExec palindrome
+      }
+    })
+
+    // Determine pivot/pivot group + pre-pivot
+    let pivot = []
+    let prePivot = palindromic
+
+    if (pivotGroup.length > 0) {
+      pivot = pivotGroup  // Use specified pivot group
+    } else if (palindromic.length > 0) {
+      pivot = [palindromic[palindromic.length - 1]]  // Last item becomes pivot
+      prePivot = palindromic.slice(0, -1)  // All others are pre-pivot
+    }
+
+    // Build sequence: [non-TrayExec + before-pre-pivot] + [pre-pivot] + [pivot]
+    let result = [...beforePrePivot, ...prePivot, ...pivot]
+    
+    // Optionally add post-pivot mirror
+    if (includePostPivot) {
+      const postPivot = [...prePivot].reverse()  // Mirror pre-pivot to create post-pivot
+      result = [...result, ...postPivot]
+    }
+    
+    return result
   }
 
   // Late-join state sync

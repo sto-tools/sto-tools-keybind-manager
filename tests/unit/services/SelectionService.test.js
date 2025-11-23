@@ -75,7 +75,7 @@ describe('SelectionService', () => {
 
       expect(capturedEvents).toContainEqual({
         event: 'key-selected',
-        data: { key: 'F1', environment: 'space', source: 'SelectionService' }
+        data: { key: 'F1', environment: 'space', bindset: null, source: 'SelectionService' }
       })
     })
 
@@ -87,7 +87,7 @@ describe('SelectionService', () => {
 
       expect(capturedEvents).toContainEqual({
         event: 'key-selected',
-        data: { key: 'F2', environment: 'ground', source: 'SelectionService' }
+        data: { key: 'F2', environment: 'ground', bindset: null, source: 'SelectionService' }
       })
     })
 
@@ -141,6 +141,7 @@ describe('SelectionService', () => {
       expect(keySelectedEvents[0].data).toEqual({
         key: 'F1',
         environment: 'space',
+        bindset: null,
         source: 'SelectionService'
       })
     })
@@ -525,6 +526,185 @@ describe('SelectionService', () => {
 
       // Verify the service has the right component name for identification
       expect(service.componentName).toBe('SelectionService')
+    })
+  })
+
+  describe('Regression Tests', () => {
+    describe('Cross-Bindset Key Selection (js-bindset-selection-blocking)', () => {
+      it('should allow same key selection in different bindsets', async () => {
+        // Simulate selecting a key in Primary Bindset
+        service.cache.selectedKey = 'F1'
+        service.cache.currentEnvironment = 'space'
+        service.cache.activeBindset = 'Primary Bindset'
+
+        // Select same key in different bindset - should not be treated as duplicate
+        const result = await service.selectKey('F1', 'space', { bindset: 'Custom Bindset' })
+
+        // Should allow the selection (not early return due to duplicate detection)
+        expect(result).toBe('F1')
+        expect(service.cache.selectedKey).toBe('F1')
+
+        // Should emit the selection event (this proves it wasn't blocked as duplicate)
+        const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+        expect(keySelectedEvents).toHaveLength(1)
+        expect(keySelectedEvents[0].data).toEqual({
+          key: 'F1',
+          environment: 'space',
+          bindset: 'Custom Bindset',
+          source: 'SelectionService'
+        })
+      })
+
+      it('should treat same key in same bindset as duplicate', async () => {
+        // First establish a manual selection to set _lastSelectionSource
+        await service.selectKey('F1', 'space', { bindset: 'Primary Bindset' })
+        expect(service.cache.selectedKey).toBe('F1')
+
+        capturedEvents.length = 0
+
+        // Select same key in same bindset - should be treated as duplicate
+        const result = await service.selectKey('F1', 'space', { bindset: 'Primary Bindset' })
+
+        // Should early return due to duplicate detection
+        expect(result).toBe('F1')
+        expect(service.cache.selectedKey).toBe('F1') // Should remain unchanged
+
+        // Should not emit selection event for duplicate (now that _lastSelectionSource is 'manual')
+        const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+        expect(keySelectedEvents).toHaveLength(0)
+      })
+
+      it('should maintain backward compatibility for non-bindset selections', async () => {
+        // First establish a manual selection to set _lastSelectionSource
+        await service.selectKey('F1', 'space')
+        expect(service.cache.selectedKey).toBe('F1')
+
+        capturedEvents.length = 0
+
+        // Select same key without bindset context - should work as before
+        const result = await service.selectKey('F1', 'space')
+
+        // Should work as before (legacy behavior)
+        expect(result).toBe('F1')
+
+        // Should treat as duplicate (no bindset context means use current logic)
+        const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+        expect(keySelectedEvents).toHaveLength(0)
+      })
+
+      it('should allow cross-bindset selection with different environments', async () => {
+        // Select key in space environment with Primary Bindset
+        await service.selectKey('F1', 'space', { bindset: 'Primary Bindset' })
+        expect(service.cache.selectedKey).toBe('F1')
+
+        capturedEvents.length = 0
+
+        // Select same key in ground environment with Custom Bindset - should work
+        const result = await service.selectKey('F1', 'ground', { bindset: 'Custom Bindset' })
+
+        expect(result).toBe('F1')
+        expect(service.cache.selectedKey).toBe('F1')
+
+        // Should emit the selection event proving cross-bindset selection worked
+        const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+        expect(keySelectedEvents).toHaveLength(1)
+        expect(keySelectedEvents[0].data).toEqual({
+          key: 'F1',
+          environment: 'ground',
+          bindset: 'Custom Bindset',
+          source: 'SelectionService'
+        })
+      })
+    })
+  })
+
+  describe('Cross-Bindset Selection Regression Tests', () => {
+    it('should allow same key selection from primary to user-defined bindset', async () => {
+      // First establish a manual selection in primary bindset to set _lastSelectionSource
+      await service.selectKey('F1', 'space', { bindset: null })
+      expect(service.cache.selectedKey).toBe('F1')
+      // Note: activeBindset cache is updated asynchronously via _syncBindsetContextForSelection
+      capturedEvents.length = 0
+
+      // Select same key in user-defined bindset - should work and emit event
+      const result = await service.selectKey('F1', 'space', { bindset: 'Custom Bindset' })
+
+      expect(result).toBe('F1')
+      expect(service.cache.selectedKey).toBe('F1') // Key should be updated
+
+      // Should emit the selection event proving cross-bindset selection worked
+      const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+      expect(keySelectedEvents).toHaveLength(1)
+      expect(keySelectedEvents[0].data).toEqual({
+        key: 'F1',
+        environment: 'space',
+        bindset: 'Custom Bindset',
+        source: 'SelectionService'
+      })
+    })
+
+    // Note: Tests for user-defined to primary bindset selection and duplicate detection
+    // within user-defined bindsets are complex due to asynchronous cache updates.
+    // The core functionality is verified in the working tests above and via manual testing.
+
+    it('should block duplicate selection within primary bindset', async () => {
+      // First establish a manual selection in primary bindset to set _lastSelectionSource
+      await service.selectKey('F1', 'space', { bindset: null })
+      expect(service.cache.selectedKey).toBe('F1')
+      // Note: activeBindset cache is updated asynchronously via _syncBindsetContextForSelection
+      capturedEvents.length = 0
+
+      // Try to select same key in primary bindset - should be blocked as duplicate
+      const result = await service.selectKey('F1', 'space', { bindset: null })
+
+      expect(result).toBe('F1') // Should return the key but not update state
+      expect(service.cache.selectedKey).toBe('F1') // Should remain unchanged
+
+      // Should NOT emit any selection events for duplicates
+      const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+      expect(keySelectedEvents).toHaveLength(0)
+    })
+
+    it('should maintain current behavior for non-bindset key selection', async () => {
+      // First establish a manual selection to set _lastSelectionSource
+      await service.selectKey('F1', 'space')
+      expect(service.cache.selectedKey).toBe('F1')
+      // Note: activeBindset cache is updated asynchronously via _syncBindsetContextForSelection
+      capturedEvents.length = 0
+
+      // Select same key without bindset context - should be blocked as duplicate
+      const result = await service.selectKey('F1', 'space')
+
+      expect(result).toBe('F1') // Should return the key but not update state
+      expect(service.cache.selectedKey).toBe('F1') // Should remain unchanged
+
+      // Should NOT emit any selection events for duplicates
+      const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+      expect(keySelectedEvents).toHaveLength(0)
+    })
+
+    it('should allow different key selection in same bindset', async () => {
+      // First establish a manual selection to set _lastSelectionSource
+      await service.selectKey('F1', 'space', { bindset: 'Custom Bindset' })
+      expect(service.cache.selectedKey).toBe('F1')
+      // Note: activeBindset cache is updated asynchronously via _syncBindsetContextForSelection
+      capturedEvents.length = 0
+
+      // Select different key in same bindset - should work and emit event
+      const result = await service.selectKey('F2', 'space', { bindset: 'Custom Bindset' })
+
+      expect(result).toBe('F2')
+      expect(service.cache.selectedKey).toBe('F2') // Key should be updated
+
+      // Should emit the selection event for the different key
+      const keySelectedEvents = capturedEvents.filter(e => e.event === 'key-selected')
+      expect(keySelectedEvents).toHaveLength(1)
+      expect(keySelectedEvents[0].data).toEqual({
+        key: 'F2',
+        environment: 'space',
+        bindset: 'Custom Bindset',
+        source: 'SelectionService'
+      })
     })
   })
 
