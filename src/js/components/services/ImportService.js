@@ -24,18 +24,29 @@ export default class ImportService extends ComponentBase {
     // Import operations
     this.respond(
       'import:keybind-file',
-      ({ content, profileId, environment, options = {} }) =>
-        this.importKeybindFile(content, profileId, environment, options)
+      ({ content, profileId, environment, options = {}, strategy }) => {
+        // Validate strategy input with fallback to default
+        const validStrategies = ['merge_keep', 'merge_overwrite', 'overwrite_all']
+        const validatedStrategy = validStrategies.includes(strategy) ? strategy : 'merge_keep'
+        return this.importKeybindFile(content, profileId, environment, { ...options, strategy: validatedStrategy })
+      }
     )
 
-    this.respond('import:alias-file', ({ content, profileId, options = {} }) =>
-      this.importAliasFile(content, profileId, options)
-    )
+    this.respond('import:alias-file', ({ content, profileId, options = {}, strategy }) => {
+      // Validate strategy input with fallback to default
+      const validStrategies = ['merge_keep', 'merge_overwrite', 'overwrite_all']
+      const validatedStrategy = validStrategies.includes(strategy) ? strategy : 'merge_keep'
+      return this.importAliasFile(content, profileId, { ...options, strategy: validatedStrategy })
+    })
 
     this.respond(
       'import:kbf-file',
-      ({ content, profileId, environment, options = {}, configuration }) =>
-        this.importKBFFile(content, profileId, environment, options, configuration)
+      ({ content, profileId, environment, options = {}, strategy, configuration }) => {
+        // Validate strategy input with fallback to default
+        const validStrategies = ['merge_keep', 'merge_overwrite', 'overwrite_all']
+        const validatedStrategy = validStrategies.includes(strategy) ? strategy : (options.strategy || 'merge_keep')
+        return this.importKBFFile(content, profileId, environment, { ...options, strategy: validatedStrategy }, configuration)
+      }
     )
 
     this.respond('import:project-file', ({ content, options = {} }) =>
@@ -167,7 +178,7 @@ export default class ImportService extends ComponentBase {
   }
 
   // Import keybind file content
-  async importKeybindFile(content, profileId, environment, options = {}) {
+  async importKeybindFile(content, profileId, environment, { strategy = 'merge_keep' } = {}) {
     try {
       const parsed = await this.parseKeybindFile(content)
       const keyCount = Object.keys(parsed.keybinds).length
@@ -216,15 +227,48 @@ export default class ImportService extends ComponentBase {
 
       const dest = profile.builds[env].keys
 
+      // Initialize tracking variables for strategy results
+      let imported = 0
+      let skipped = 0
+      let overwritten = 0
+      let cleared = 0
+
+      // Apply strategy logic
+      if (strategy === 'overwrite_all') {
+        // Clear all existing keys for this environment
+        const existingKeys = Object.keys(dest)
+        cleared = existingKeys.length
+        Object.keys(dest).forEach(key => delete dest[key])
+
+        // Clear corresponding metadata for consistent state
+        if (profile.keybindMetadata && profile.keybindMetadata[environment]) {
+          existingKeys.forEach(key => {
+            delete profile.keybindMetadata[environment][key]
+          })
+        }
+      }
+
       // Apply keybinds with mirroring detection using STOCommandParser
       for (const [key, data] of Object.entries(parsed.keybinds)) {
         const commandString = data.raw
+
+        // Check for conflicts based on strategy
+        if (strategy === 'merge_keep' && dest.hasOwnProperty(key)) {
+          skipped++
+          continue // Skip existing key
+        }
+
+        // Track overwritten for merge_overwrite strategy
+        if (strategy === 'merge_overwrite' && dest.hasOwnProperty(key)) {
+          overwritten++
+        }
 
         // Check for mirroring pattern using STOCommandParser
         const parseResult = await this.request('parser:parse-command-string', {
           commandString,
         })
 
+        let processedCommands = []
         if (parseResult.isMirrored) {
           // Extract original commands from mirrored sequence
           const originalCommands =
@@ -249,7 +293,7 @@ export default class ImportService extends ComponentBase {
             /* eslint-enable no-await-in-loop */
             optimised.push(opt)
           }
-          dest[key] = optimised
+          processedCommands = optimised
 
           // Set stabilization metadata for primary bindset
           if (!profile.keybindMetadata) profile.keybindMetadata = {}
@@ -269,8 +313,11 @@ export default class ImportService extends ComponentBase {
             /* eslint-enable no-await-in-loop */
             optimised.push(opt)
           }
-          dest[key] = optimised
+          processedCommands = optimised
         }
+
+        dest[key] = processedCommands
+        imported++
       }
 
       // Save profile
@@ -286,7 +333,10 @@ export default class ImportService extends ComponentBase {
 
       return {
         success: true,
-        imported: { keys: keyCount },
+        imported: { keys: imported },
+        skipped,
+        overwritten,
+        cleared,
         errors: parsed.errors,
         message: 'import_completed_keybinds',
       }
@@ -300,7 +350,7 @@ export default class ImportService extends ComponentBase {
   }
 
   // Import alias file content
-  async importAliasFile(content, profileId, options = {}) {
+  async importAliasFile(content, profileId, { strategy = 'merge_keep' } = {}) {
     try {
       const parsed = await this.parseAliasFile(content)
       // Count only non-generated aliases (exclude sto_kb_ prefix)
@@ -321,12 +371,45 @@ export default class ImportService extends ComponentBase {
       const profile = this.storage.getProfile(profileId) || { aliases: {} }
       if (!profile.aliases) profile.aliases = {}
 
+      // Initialize tracking variables for strategy results
+      let imported = 0
+      let skipped = 0
+      let overwritten = 0
+      let cleared = 0
+
+      // Apply strategy logic
+      if (strategy === 'overwrite_all') {
+        // Clear all existing aliases
+        const existingAliases = Object.keys(profile.aliases)
+        cleared = existingAliases.length
+        Object.keys(profile.aliases).forEach(alias => delete profile.aliases[alias])
+
+        // Clear corresponding metadata for consistent state
+        if (profile.aliasMetadata) {
+          existingAliases.forEach(alias => {
+            delete profile.aliasMetadata[alias]
+          })
+        }
+      }
+
       // Apply aliases using parsed data - convert to canonical string array format
       // Skip generated keybind/bindset aliases (those with sto_kb_ prefix)
       for (const [name, data] of Object.entries(parsed.aliases)) {
         if (name.startsWith('sto_kb_')) {
-                    continue
+          continue
         }
+
+        // Check for conflicts based on strategy
+        if (strategy === 'merge_keep' && profile.aliases.hasOwnProperty(name)) {
+          skipped++
+          continue // Skip existing alias
+        }
+
+        // Track overwritten for merge_overwrite strategy
+        if (strategy === 'merge_overwrite' && profile.aliases.hasOwnProperty(name)) {
+          overwritten++
+        }
+
         // Split command string by $$ and convert to canonical string array
         const commandString = data.commands || ''
         const commandArray = commandString.trim()
@@ -351,6 +434,7 @@ export default class ImportService extends ComponentBase {
           commands: optimisedArray, // Store as canonical string array (optimised)
           description: data.description || '',
         }
+        imported++
       }
 
       // Save profile
@@ -366,7 +450,10 @@ export default class ImportService extends ComponentBase {
 
       return {
         success: true,
-        imported: { aliases: aliasCount },
+        imported: { aliases: imported },
+        skipped,
+        overwritten,
+        cleared,
         errors: parsed.errors,
         message: 'import_completed_aliases',
       }
@@ -380,7 +467,7 @@ export default class ImportService extends ComponentBase {
   }
 
   // Import KBF file content
-  async importKBFFile(content, profileId, environment, options = {}, configuration = null) {
+  async importKBFFile(content, profileId, environment, { strategy = 'merge_keep' } = {}, configuration = null) {
     const errors = []
     const warnings = []
 
@@ -502,6 +589,9 @@ export default class ImportService extends ComponentBase {
       // Initialize tracking variables (previously from processKBFBindsets)
       let totalKeysImported = 0
       let totalAliasesImported = 0
+      let totalKeysSkipped = 0
+      let totalKeysOverwritten = 0
+      let totalKeysCleared = 0
       let hasPrimaryBindset = false
       let masterBindsetName = null
 
@@ -540,21 +630,10 @@ export default class ImportService extends ComponentBase {
             warnings
           }
         }
-      } else if (options.selectedBindsets) {
-        // Legacy selection support
-        bindsetsToProcess = bindsetNames.filter((name) => options.selectedBindsets.includes(name))
-
-        // Validate against bindsetsEnabled preference for legacy options
-        if (!bindsetsEnabled && bindsetsToProcess.length > 1) {
-          return {
-            success: false,
-            error: 'multiple_bindsets_not_allowed',
-            message: 'Multiple bindset import is not allowed when bindsets are disabled',
-            errors: [`Legacy options specify ${bindsetsToProcess.length} bindsets but bindsetsEnabled = false`],
-            warnings
-          }
-        }
-      }
+      } else if (onlyBindsetIsMaster) {
+        // Default behavior: map single Master bindset to primary
+        bindsetMappings[bindsetNames[0]] = 'primary'
+      } // Note: Legacy options support removed since strategy parameter changed - use configuration instead
 
       // Additional validation: ensure all selected bindsets map to primary when bindsets disabled
       if (!bindsetsEnabled && bindsetsToProcess.length > 0) {
@@ -567,6 +646,47 @@ export default class ImportService extends ComponentBase {
               message: 'Bindsets can only be mapped to primary bindset when bindsets are disabled',
               errors: [`Bindset "${bindsetName}" is mapped to "${mappingType}" but only "primary" is allowed when bindsetsEnabled = false`],
               warnings
+            }
+          }
+        }
+      }
+
+      // Apply KBF strategy logic - determine which targets need clearing
+      if (strategy === 'overwrite_all') {
+        // For each selected bindset, clear the target destination based on mapping type
+        for (const [bindsetName, bindsetData] of Object.entries(parseResult.bindsets)) {
+          if (!bindsetsToProcess.includes(bindsetName)) continue
+
+          const mappingType = bindsetMappings[bindsetName] || 'custom'
+          const finalName = bindsetRenames[bindsetName] || bindsetName
+
+          if (mappingType === 'primary') {
+            // Clear primary environment keys
+            const existingKeys = Object.keys(profile.builds[environment].keys || {})
+            totalKeysCleared += existingKeys.length
+            Object.keys(profile.builds[environment].keys || {}).forEach(key => delete profile.builds[environment].keys[key])
+
+            // Clear corresponding primary keybind metadata for consistent state
+            if (profile.keybindMetadata && profile.keybindMetadata[environment]) {
+              existingKeys.forEach(key => {
+                delete profile.keybindMetadata[environment][key]
+              })
+            }
+          } else {
+            // Clear named bindset keys
+            const finalBindsetName = finalName
+            if (!profile.bindsets) profile.bindsets = {}
+            if (!profile.bindsets[finalBindsetName]) profile.bindsets[finalBindsetName] = { space: { keys: {} }, ground: { keys: {} } }
+
+            const existingKeys = Object.keys(profile.bindsets[finalBindsetName][environment].keys || {})
+            totalKeysCleared += existingKeys.length
+            Object.keys(profile.bindsets[finalBindsetName][environment].keys || {}).forEach(key => delete profile.bindsets[finalBindsetName][environment].keys[key])
+
+            // Clear corresponding bindset metadata for consistent state
+            if (profile.bindsetMetadata && profile.bindsetMetadata[finalBindsetName] && profile.bindsetMetadata[finalBindsetName][environment]) {
+              existingKeys.forEach(key => {
+                delete profile.bindsetMetadata[finalBindsetName][environment][key]
+              })
             }
           }
         }
@@ -598,6 +718,17 @@ export default class ImportService extends ComponentBase {
                 if (keyData && typeof keyData === 'object' && keyData.commands) {
                   commands = keyData.commands
                   keyMetadata = keyData.metadata || {}
+                }
+
+                // Check for conflicts based on strategy
+                if (strategy === 'merge_keep' && profile.builds[environment].keys.hasOwnProperty(key)) {
+                  totalKeysSkipped++
+                  continue // Skip existing key
+                }
+
+                // Track overwritten for merge_overwrite strategy
+                if (strategy === 'merge_overwrite' && profile.builds[environment].keys.hasOwnProperty(key)) {
+                  totalKeysOverwritten++
                 }
 
                 // Convert rich objects to canonical string array
@@ -639,6 +770,18 @@ export default class ImportService extends ComponentBase {
                 if (keyData && typeof keyData === 'object' && keyData.commands) {
                   commands = keyData.commands
                   keyMetadata = keyData.metadata || {}
+                }
+
+                // Check for conflicts based on strategy
+                const targetKeys = profile.bindsets[finalBindsetName][environment].keys || {}
+                if (strategy === 'merge_keep' && targetKeys.hasOwnProperty(key)) {
+                  totalKeysSkipped++
+                  continue // Skip existing key
+                }
+
+                // Track overwritten for merge_overwrite strategy
+                if (strategy === 'merge_overwrite' && targetKeys.hasOwnProperty(key)) {
+                  totalKeysOverwritten++
                 }
 
                 const commandArray = normalizeToStringArray(commands)
@@ -702,6 +845,9 @@ export default class ImportService extends ComponentBase {
           keys: totalKeysImported,
           aliases: totalAliasesImported,
         },
+        skipped: totalKeysSkipped,
+        overwritten: totalKeysOverwritten,
+        cleared: totalKeysCleared,
         stats: {
           processedLayers: parseResult.stats.processedLayers,
           skippedActivities: parseResult.stats.skippedActivities,
@@ -713,8 +859,8 @@ export default class ImportService extends ComponentBase {
         warnings,
         bindsetNames: Object.keys(parseResult.bindsets),
         masterBindset: {
-          hasMasterBindset: hasPrimaryBindset,
-          masterBindsetName,
+          hasMasterBindset: Object.keys(parseResult.bindsets).some(name => name.toLowerCase() === 'master'),
+          masterBindsetName: Object.keys(parseResult.bindsets).find(name => name.toLowerCase() === 'master'),
           mappedToPrimary: hasPrimaryBindset,
           displayName: hasPrimaryBindset ? 'Primary Bindset' : null,
         },

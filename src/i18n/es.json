@@ -1050,5 +1050,22 @@
   "single_bindset_import_note": "Dado que los bindsets están deshabilitados, este bindset se importará al bindset primario.",
   "reduced_bindset_functionality": "Modo de Importación de Bindset Único",
   "reduced_bindset_functionality_description": "Con bindsets deshabilitados, puede importar un solo bindset que se mapeará a su bindset primario. Esto proporciona una experiencia de importación optimizada.",
-  "enable_full_bindset_functionality": "Para opciones avanzadas de importación de múltiples bindsets, habilite bindsets en la configuración."
+  "enable_full_bindset_functionality": "Para opciones avanzadas de importación de múltiples bindsets, habilite bindsets en la configuración.",
+  "import_strategy": "Estrategia de importación",
+  "merge_keep_existing": "Fusionar (conservar existentes)",
+  "merge_overwrite_existing": "Fusionar (sobrescribir existentes)",
+  "overwrite_all": "Sobrescribir todo",
+  "overwrite_all_description_keybinds": "Elimina todos los atajos de teclado existentes en este entorno y los reemplaza con los importados.",
+  "overwrite_all_description_kbf": "Elimina los atajos de teclado existentes de los bindsets seleccionados y los reemplaza con datos KBF importados.",
+  "overwrite_all_description_kbf_primary": "Elimina todos los atajos de teclado existentes en el entorno primario y los reemplaza con datos KBF importados.",
+  "overwrite_all_description_kbf_bindsets": "Elimina los atajos de teclado existentes de los bindsets seleccionados y los reemplaza con datos KBF importados.",
+  "overwrite_all_description_aliases": "Elimina todos los alias existentes y los reemplaza con los importados.",
+  "overwrite_confirm_title": "Confirmar sobrescritura",
+  "overwrite_confirm_body_keys": "Esto eliminará todos los atajos de teclado existentes en {{environment}} y los reemplazará con el archivo de importación.",
+  "overwrite_confirm_body_aliases": "Esto eliminará todos los alias existentes y los reemplazará con el archivo de importación.",
+  "overwrite_counts": "Actual: {{current}} · Entrante: {{incoming}}",
+  "overwrite_all_action": "Sobrescribir todo",
+  "import_result_skipped": "Importados {{imported}}, omitidos {{skipped}} conflictos.",
+  "import_result_overwrote": "Importados {{imported}}, sobrescritos {{overwritten}} elementos.",
+  "import_result_overwrite_all": "Importados {{imported}} después de limpiar {{cleared}} elementos existentes."
 }

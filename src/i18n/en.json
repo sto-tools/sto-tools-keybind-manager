@@ -1059,5 +1059,22 @@
   "custom_name_placeholder": "Enter custom name...",
   "reduced_bindset_functionality": "Single Bindset Import Mode",
   "reduced_bindset_functionality_description": "With bindsets disabled, you can import a single bindset that will be mapped to your primary bindset. This provides a streamlined import experience.",
-  "enable_full_bindset_functionality": "For advanced multi-bindset import options, enable bindsets in settings."
+  "enable_full_bindset_functionality": "For advanced multi-bindset import options, enable bindsets in settings.",
+  "import_strategy": "Import strategy",
+  "merge_keep_existing": "Merge (keep existing)",
+  "merge_overwrite_existing": "Merge (overwrite existing)",
+  "overwrite_all": "Overwrite all",
+  "overwrite_all_description_keybinds": "Removes all existing keybinds in this environment and replaces them with imported ones.",
+  "overwrite_all_description_kbf": "Removes existing keybinds from the selected bindsets and replaces them with imported KBF data.",
+  "overwrite_all_description_kbf_primary": "Removes all existing keybinds in the primary environment and replaces them with imported KBF data.",
+  "overwrite_all_description_kbf_bindsets": "Removes existing keybinds from the selected bindsets and replaces them with imported KBF data.",
+  "overwrite_all_description_aliases": "Removes all existing aliases and replaces them with imported ones.",
+  "overwrite_confirm_title": "Confirm overwrite",
+  "overwrite_confirm_body_keys": "This will remove all existing keybinds in {{environment}} and replace them with the import file.",
+  "overwrite_confirm_body_aliases": "This will remove all existing aliases and replace them with the import file.",
+  "overwrite_counts": "Current: {{current}} · Incoming: {{incoming}}",
+  "overwrite_all_action": "Overwrite all",
+  "import_result_skipped": "Imported {{imported}}, skipped {{skipped}} conflicts.",
+  "import_result_overwrote": "Imported {{imported}}, overwrote {{overwritten}} items.",
+  "import_result_overwrite_all": "Imported {{imported}} after clearing {{cleared}} existing items."
 }

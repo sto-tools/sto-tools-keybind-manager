@@ -57,28 +57,48 @@ export default class ImportUI extends UIComponentBase {
           const profileId = state.currentProfile
           let result
           if (type === 'keybinds') {
-            // Ask user which environment to import into
-            const env = await this.promptEnvironment(
-              state.currentEnvironment || 'space'
+            // Ask user which environment to import into and what strategy to use
+            const importConfig = await this.promptEnvironment(
+              state.currentEnvironment || 'space',
+              'keybinds'
             )
-            if (!env) return // user cancelled
+            if (!importConfig) return // user cancelled
+
+            // Check for overwrite confirmation if strategy is overwrite_all
+            if (importConfig.strategy === 'overwrite_all') {
+              // Get current key count for the environment
+              const currentProfile = this.storage?.getProfile?.(profileId)
+              const currentKeys = Object.keys(currentProfile?.builds?.[importConfig.environment]?.keys || {}).length
+
+              if (currentKeys > 0) {
+                const confirmed = await this.showOverwriteConfirmation('keys', currentKeys, 0, importConfig.environment)
+                if (!confirmed) return // user cancelled overwrite
+              }
+            }
 
             result = await this.request('import:keybind-file', {
               content,
               profileId,
-              environment: env,
+              environment: importConfig.environment,
+              strategy: importConfig.strategy
             })
           } else if (type === 'kbf') {
-            // Ask user which environment to import into
-            const env = await this.promptEnvironment(
-              state.currentEnvironment || 'space'
+            // Get bindsets preference to provide context-aware descriptions
+            const preferences = await this.request('preferences:get-settings')
+            const bindsetsEnabled = preferences?.bindsetsEnabled ?? true
+
+            // Ask user which environment to import into and what strategy to use
+            const importConfig = await this.promptEnvironment(
+              state.currentEnvironment || 'space',
+              'kbf',
+              { bindsetsEnabled } // Pass context for better descriptions
             )
-            if (!env) return // user cancelled
+            if (!importConfig) return // user cancelled
 
             // Parse KBF file first to extract bindset information without importing
             const parseResult = await this.request('parse-kbf-file', {
               content,
-              environment: env
+              environment: importConfig.environment
             })
 
             if (!parseResult.valid) {
@@ -96,17 +116,35 @@ export default class ImportUI extends UIComponentBase {
               return // user cancelled
             }
 
-            // Import with user configuration
+            // Import with user configuration and strategy
             result = await this.request('import:kbf-file', {
               content,
               profileId,
-              environment: env,
+              environment: importConfig.environment,
+              strategy: importConfig.strategy,
               configuration
             })
           } else {
+            // For alias imports, we need to prompt for strategy too but not environment
+            const strategy = await this.promptAliasStrategy()
+            if (!strategy) return // user cancelled
+
+            // Check for overwrite confirmation if strategy is overwrite_all
+            if (strategy === 'overwrite_all') {
+              // Get current alias count
+              const currentProfile = this.storage?.getProfile?.(profileId)
+              const currentAliases = Object.keys(currentProfile?.aliases || {}).length
+
+              if (currentAliases > 0) {
+                const confirmed = await this.showOverwriteConfirmation('aliases', currentAliases, 0)
+                if (!confirmed) return // user cancelled overwrite
+              }
+            }
+
             result = await this.request('import:alias-file', {
               content,
               profileId,
+              strategy
             })
           }
 
@@ -117,9 +155,37 @@ export default class ImportUI extends UIComponentBase {
               // Enhanced KBF success messaging with comprehensive statistics
               message = this.getKBFSuccessMessage(result)
             } else {
-              message = this.i18n.t(result?.message, {
-                count: result.imported?.keys || result.imported?.aliases || 0,
-              })
+              // Use strategy-based messages for keybind and alias imports
+              let messageKey
+              const imported = result.imported?.keys || result.imported?.aliases || 0
+              const skipped = result.skipped || 0
+              const overwritten = result.overwritten || 0
+              const cleared = result.cleared || 0
+
+              if (cleared > 0) {
+                messageKey = 'import_result_overwrite_all'
+                message = this.i18n.t(messageKey, {
+                  imported,
+                  cleared
+                })
+              } else if (overwritten > 0) {
+                messageKey = 'import_result_overwrote'
+                message = this.i18n.t(messageKey, {
+                  imported,
+                  overwritten
+                })
+              } else if (skipped > 0) {
+                messageKey = 'import_result_skipped'
+                message = this.i18n.t(messageKey, {
+                  imported,
+                  skipped
+                })
+              } else {
+                // Fallback to original message for no conflicts
+                message = this.i18n.t(result?.message, {
+                  count: imported,
+                })
+              }
             }
             this.showToast(message, 'success')
           } else {
@@ -146,16 +212,16 @@ export default class ImportUI extends UIComponentBase {
   }
 
   // Show a simple modal asking user whether the import is for Space or Ground.
-  // Returns chosen environment string or null if cancelled.
-  promptEnvironment(defaultEnv = 'space') {
+  // Returns { environment, strategy } object or null if cancelled.
+  promptEnvironment(defaultEnv = 'space', importType = 'keybinds', additionalContext = {}) {
     return new Promise((resolve) => {
-      const modal = this.createImportModal(defaultEnv)
+      const modal = this.createImportModal(defaultEnv, importType, additionalContext)
       const modalId = 'importModal'
       modal.id = modalId
       this.document.body.appendChild(modal)
 
       // Store modal data for regeneration
-      this.currentImportModal = { defaultEnv, resolve, modalElement: modal }
+      this.currentImportModal = { defaultEnv, importType, additionalContext, resolve, modalElement: modal }
 
       // Register regeneration callback for language changes
       this.modalManager?.registerRegenerateCallback(modalId, () => {
@@ -163,6 +229,10 @@ export default class ImportUI extends UIComponentBase {
       })
 
       const handleChoice = (choice) => {
+        // Get selected strategy from radio buttons
+        const selectedStrategyRadio = modal.querySelector('input[name="import-strategy"]:checked')
+        const strategy = selectedStrategyRadio ? selectedStrategyRadio.value : 'merge_keep'
+
         // Unregister regeneration callback
         this.modalManager?.unregisterRegenerateCallback(modalId)
         this.currentImportModal = null
@@ -171,7 +241,12 @@ export default class ImportUI extends UIComponentBase {
         if (modal && modal.parentNode) {
           modal.parentNode.removeChild(modal)
         }
-        resolve(choice)
+
+        if (choice) {
+          resolve({ environment: choice, strategy })
+        } else {
+          resolve(null)
+        }
       }
 
       // Use EventBus for automatic cleanup
@@ -193,15 +268,38 @@ export default class ImportUI extends UIComponentBase {
   }
 
   // Create a standard modal for environment selection
-  createImportModal(defaultEnv) {
+  createImportModal(defaultEnv, importType = 'keybinds', additionalContext = {}) {
     const modal = this.document.createElement('div')
     modal.className = 'modal import-modal'
 
     const title = this.i18n.t('import_environment')
     const message = this.i18n.t('import_environment_question')
+    const strategyLabel = this.i18n.t('import_strategy')
+    const mergeKeepText = this.i18n.t('merge_keep_existing')
+    const mergeOverwriteText = this.i18n.t('merge_overwrite_existing')
+    const overwriteAllText = this.i18n.t('overwrite_all')
     const spaceText = this.i18n.t('space')
     const groundText = this.i18n.t('ground')
     const cancelText = this.i18n.t('cancel')
+
+    // Enhanced overwrite_all descriptions based on import type
+    let overwriteAllDescription = ''
+    if (importType === 'keybinds') {
+      overwriteAllDescription = this.i18n.t('overwrite_all_description_keybinds')
+    } else if (importType === 'kbf') {
+      // For KBF imports, use context-aware descriptions based on bindsets preference
+      const { bindsetsEnabled } = additionalContext
+
+      if (bindsetsEnabled === false) {
+        // Bindsets are disabled - only primary bindset will be affected
+        overwriteAllDescription = this.i18n.t('overwrite_all_description_kbf_primary')
+      } else {
+        // Bindsets are enabled - user will choose specific bindsets in next step
+        overwriteAllDescription = this.i18n.t('overwrite_all_description_kbf_bindsets')
+      }
+    } else if (importType === 'aliases') {
+      overwriteAllDescription = this.i18n.t('overwrite_all_description_aliases')
+    }
 
     modal.innerHTML = `
       <div class="modal-content">
@@ -213,6 +311,25 @@ export default class ImportUI extends UIComponentBase {
         </div>
         <div class="modal-body">
           <p>${message}</p>
+
+          <div class="import-strategy-section">
+            <label class="import-strategy-label">${strategyLabel}</label>
+            <div class="import-strategy-options">
+              <label class="import-strategy-option">
+                <input type="radio" name="import-strategy" value="merge_keep" checked>
+                <span>${mergeKeepText}</span>
+              </label>
+              <label class="import-strategy-option">
+                <input type="radio" name="import-strategy" value="merge_overwrite">
+                <span>${mergeOverwriteText}</span>
+              </label>
+              <label class="import-strategy-option">
+                <input type="radio" name="import-strategy" value="overwrite_all">
+                <span>${overwriteAllText}</span>
+                ${overwriteAllDescription ? `<div class="strategy-description">${overwriteAllDescription}</div>` : ''}
+              </label>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-primary import-space ${defaultEnv === 'space' ? 'btn-primary' : 'btn-secondary'}">${spaceText}</button>
@@ -229,9 +346,9 @@ export default class ImportUI extends UIComponentBase {
   regenerateImportModal() {
     if (!this.currentImportModal) return
 
-    const { defaultEnv, modalElement } = this.currentImportModal
+    const { defaultEnv, importType, additionalContext, modalElement } = this.currentImportModal
 
-    const newModal = this.createImportModal(defaultEnv)
+    const newModal = this.createImportModal(defaultEnv, importType, additionalContext)
     newModal.id = 'importModal'
 
     // Replace the old modal with the new one
@@ -241,13 +358,22 @@ export default class ImportUI extends UIComponentBase {
     // Re-attach event listeners
     const handleChoice = (choice) => {
       const { resolve } = this.currentImportModal
+      // Get selected strategy from radio buttons
+      const selectedStrategyRadio = newModal.querySelector('input[name="import-strategy"]:checked')
+      const strategy = selectedStrategyRadio ? selectedStrategyRadio.value : 'merge_keep'
+
       this.modalManager?.unregisterRegenerateCallback('importModal')
       this.currentImportModal = null
       this.modalManager?.hide('importModal')
       if (newModal && newModal.parentNode) {
         newModal.parentNode.removeChild(newModal)
       }
-      resolve(choice)
+
+      if (choice) {
+        resolve({ environment: choice, strategy })
+      } else {
+        resolve(null)
+      }
     }
 
     // Use EventBus for automatic cleanup
@@ -259,6 +385,263 @@ export default class ImportUI extends UIComponentBase {
     )
     this.onDom('.import-cancel', 'click', 'import-dialog-regen-cancel', () =>
       handleChoice(null)
+    )
+  }
+
+  // Show a simple modal asking user to choose import strategy for aliases
+  // Returns chosen strategy string or null if cancelled
+  promptAliasStrategy() {
+    return new Promise((resolve) => {
+      const modal = this.createAliasStrategyModal()
+      const modalId = 'aliasStrategyModal'
+      modal.id = modalId
+      this.document.body.appendChild(modal)
+
+      // Store modal data for regeneration
+      this.currentAliasStrategyModal = { resolve, modalElement: modal }
+
+      // Register regeneration callback for language changes
+      this.modalManager?.registerRegenerateCallback(modalId, () => {
+        this.regenerateAliasStrategyModal()
+      })
+
+      const handleStrategyChoice = (strategy) => {
+        // Unregister regeneration callback
+        this.modalManager?.unregisterRegenerateCallback(modalId)
+        this.currentAliasStrategyModal = null
+
+        this.modalManager?.hide(modalId)
+        if (modal && modal.parentNode) {
+          modal.parentNode.removeChild(modal)
+        }
+        resolve(strategy)
+      }
+
+      // Use EventBus for automatic cleanup
+      this.onDom('.alias-strategy-confirm', 'click', 'alias-strategy-confirm', () => {
+        const selectedStrategyRadio = modal.querySelector('input[name="alias-import-strategy"]:checked')
+        const strategy = selectedStrategyRadio ? selectedStrategyRadio.value : 'merge_keep'
+        handleStrategyChoice(strategy)
+      })
+
+      this.onDom('.alias-strategy-cancel', 'click', 'alias-strategy-cancel', () =>
+        handleStrategyChoice(null)
+      )
+
+      // Show modal
+      requestAnimationFrame(() => {
+        this.modalManager?.show(modalId)
+      })
+    })
+  }
+
+  // Create a modal for alias strategy selection
+  createAliasStrategyModal() {
+    const modal = this.document.createElement('div')
+    modal.className = 'modal import-modal'
+
+    const title = this.i18n.t('import_strategy')
+    const strategyLabel = this.i18n.t('import_strategy')
+    const mergeKeepText = this.i18n.t('merge_keep_existing')
+    const mergeOverwriteText = this.i18n.t('merge_overwrite_existing')
+    const overwriteAllText = this.i18n.t('overwrite_all')
+    const overwriteAllDescription = this.i18n.t('overwrite_all_description_aliases')
+    const confirmText = this.i18n.t('import')
+    const cancelText = this.i18n.t('cancel')
+
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-file-import"></i>
+            ${title}
+          </h3>
+        </div>
+        <div class="modal-body">
+          <label class="import-strategy-label">${strategyLabel}</label>
+          <div class="import-strategy-options">
+            <label class="import-strategy-option">
+              <input type="radio" name="alias-import-strategy" value="merge_keep" checked>
+              <span>${mergeKeepText}</span>
+            </label>
+            <label class="import-strategy-option">
+              <input type="radio" name="alias-import-strategy" value="merge_overwrite">
+              <span>${mergeOverwriteText}</span>
+            </label>
+            <label class="import-strategy-option">
+              <input type="radio" name="alias-import-strategy" value="overwrite_all">
+              <span>${overwriteAllText}</span>
+              <div class="strategy-description">${overwriteAllDescription}</div>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary alias-strategy-confirm">${confirmText}</button>
+          <button class="btn btn-secondary alias-strategy-cancel">${cancelText}</button>
+        </div>
+      </div>
+    `
+
+    return modal
+  }
+
+  // Regeneration method for alias strategy modal
+  regenerateAliasStrategyModal() {
+    if (!this.currentAliasStrategyModal) return
+
+    const { modalElement } = this.currentAliasStrategyModal
+
+    const newModal = this.createAliasStrategyModal()
+    newModal.id = 'aliasStrategyModal'
+
+    // Replace the old modal with the new one
+    modalElement.replaceWith(newModal)
+    this.currentAliasStrategyModal.modalElement = newModal
+
+    // Re-attach event listeners
+    const handleStrategyChoice = (strategy) => {
+      const { resolve } = this.currentAliasStrategyModal
+      this.modalManager?.unregisterRegenerateCallback('aliasStrategyModal')
+      this.currentAliasStrategyModal = null
+      this.modalManager?.hide('aliasStrategyModal')
+      if (newModal && newModal.parentNode) {
+        newModal.parentNode.removeChild(newModal)
+      }
+      resolve(strategy)
+    }
+
+    // Use EventBus for automatic cleanup
+    this.onDom('.alias-strategy-confirm', 'click', 'alias-strategy-regen-confirm', () => {
+      const selectedStrategyRadio = newModal.querySelector('input[name="alias-import-strategy"]:checked')
+      const strategy = selectedStrategyRadio ? selectedStrategyRadio.value : 'merge_keep'
+      handleStrategyChoice(strategy)
+    })
+
+    this.onDom('.alias-strategy-cancel', 'click', 'alias-strategy-regen-cancel', () =>
+      handleStrategyChoice(null)
+    )
+  }
+
+  // Show overwrite confirmation dialog when strategy is overwrite_all
+  async showOverwriteConfirmation(type, current, incoming, environment = null, customMessage = null) {
+    return new Promise((resolve) => {
+      const modal = this.createOverwriteConfirmationModal(type, current, incoming, environment, customMessage)
+      const modalId = 'overwriteConfirmModal'
+      modal.id = modalId
+      this.document.body.appendChild(modal)
+
+      // Store modal data for regeneration
+      this.currentOverwriteConfirmModal = { resolve, modalElement: modal, customMessage }
+
+      // Register regeneration callback for language changes
+      this.modalManager?.registerRegenerateCallback(modalId, () => {
+        this.regenerateOverwriteConfirmationModal(type, current, incoming, environment, customMessage)
+      })
+
+      const handleConfirmChoice = (confirmed) => {
+        // Unregister regeneration callback
+        this.modalManager?.unregisterRegenerateCallback(modalId)
+        this.currentOverwriteConfirmModal = null
+
+        this.modalManager?.hide(modalId)
+        if (modal && modal.parentNode) {
+          modal.parentNode.removeChild(modal)
+        }
+        resolve(confirmed)
+      }
+
+      // Use EventBus for automatic cleanup
+      this.onDom('.overwrite-confirm-yes', 'click', 'overwrite-confirm-yes', () =>
+        handleConfirmChoice(true)
+      )
+
+      this.onDom('.overwrite-confirm-no', 'click', 'overwrite-confirm-no', () =>
+        handleConfirmChoice(false)
+      )
+
+      // Show modal
+      requestAnimationFrame(() => {
+        this.modalManager?.show(modalId)
+      })
+    })
+  }
+
+  // Create overwrite confirmation modal
+  createOverwriteConfirmationModal(type, current, incoming, environment, customMessage = null) {
+    const modal = this.document.createElement('div')
+    modal.className = 'modal import-modal'
+
+    const title = this.i18n.t('overwrite_confirm_title')
+    let bodyText
+
+    // Use custom message if provided, otherwise fall back to default logic
+    if (customMessage) {
+      bodyText = customMessage
+    } else if (type === 'keys' && environment) {
+      bodyText = this.i18n.t('overwrite_confirm_body_keys', { environment })
+    } else {
+      bodyText = this.i18n.t('overwrite_confirm_body_aliases')
+    }
+
+    // Only show counts if we're using the default logic (for non-custom messages)
+    const countsText = customMessage ? '' : this.i18n.t('overwrite_counts', { current, incoming })
+    const yesText = this.i18n.t('overwrite_all_action')
+    const noText = this.i18n.t('cancel')
+
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-exclamation-triangle"></i>
+            ${title}
+          </h3>
+        </div>
+        <div class="modal-body">
+          <p>${bodyText}</p>
+          ${countsText ? `<p><strong>${countsText}</strong></p>` : ''}
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger overwrite-confirm-yes">${yesText}</button>
+          <button class="btn btn-secondary overwrite-confirm-no">${noText}</button>
+        </div>
+      </div>
+    `
+
+    return modal
+  }
+
+  // Regeneration method for overwrite confirmation modal
+  regenerateOverwriteConfirmationModal(type, current, incoming, environment, customMessage = null) {
+    if (!this.currentOverwriteConfirmModal) return
+
+    const { modalElement, customMessage: storedCustomMessage } = this.currentOverwriteConfirmModal
+
+    const newModal = this.createOverwriteConfirmationModal(type, current, incoming, environment, storedCustomMessage)
+    newModal.id = 'overwriteConfirmModal'
+
+    // Replace the old modal with the new one
+    modalElement.replaceWith(newModal)
+    this.currentOverwriteConfirmModal.modalElement = newModal
+
+    // Re-attach event listeners
+    const handleConfirmChoice = (confirmed) => {
+      const { resolve } = this.currentOverwriteConfirmModal
+      this.modalManager?.unregisterRegenerateCallback('overwriteConfirmModal')
+      this.currentOverwriteConfirmModal = null
+      this.modalManager?.hide('overwriteConfirmModal')
+      if (newModal && newModal.parentNode) {
+        newModal.parentNode.removeChild(newModal)
+      }
+      resolve(confirmed)
+    }
+
+    // Use EventBus for automatic cleanup
+    this.onDom('.overwrite-confirm-yes', 'click', 'overwrite-confirm-regen-yes', () =>
+      handleConfirmChoice(true)
+    )
+
+    this.onDom('.overwrite-confirm-no', 'click', 'overwrite-confirm-regen-no', () =>
+      handleConfirmChoice(false)
     )
   }
 
@@ -437,7 +820,7 @@ export default class ImportUI extends UIComponentBase {
 
   // Get comprehensive KBF success message with detailed statistics
   getKBFSuccessMessage(result) {
-    const { imported, stats, errors, warnings } = result
+    const { imported, skipped, overwritten, cleared, stats, errors, warnings } = result
 
     // Build base success message with import counts
     let message = this.i18n.t('kbf_import_completed', {
@@ -448,6 +831,24 @@ export default class ImportUI extends UIComponentBase {
 
     // Add additional context for comprehensive feedback (requirement 6.8)
     const additionalInfo = []
+
+    // Add strategy result information for KBF imports
+    if (cleared > 0) {
+      additionalInfo.push(this.i18n.t('import_result_overwrite_all', {
+        imported: imported?.keys || 0,
+        cleared
+      }))
+    } else if (overwritten > 0) {
+      additionalInfo.push(this.i18n.t('import_result_overwrote', {
+        imported: imported?.keys || 0,
+        overwritten
+      }))
+    } else if (skipped > 0) {
+      additionalInfo.push(this.i18n.t('import_result_skipped', {
+        imported: imported?.keys || 0,
+        skipped
+      }))
+    }
 
     // Add skipped activities count if available
     if (stats?.skippedActivities > 0) {

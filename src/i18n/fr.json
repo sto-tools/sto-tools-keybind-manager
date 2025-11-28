@@ -1050,5 +1050,22 @@
   "single_bindset_import_note": "Puisque les bindsets sont désactivés, ce bindset sera importé dans le bindset primaire.",
   "reduced_bindset_functionality": "Mode d'Importation de Bindset Unique",
   "reduced_bindset_functionality_description": "Avec les bindsets désactivés, vous pouvez importer un seul bindset qui sera mappé à votre bindset primaire. Cela offre une expérience d'importation optimisée.",
-  "enable_full_bindset_functionality": "Pour des options avancées d'importation de multiples bindsets, activez les bindsets dans les paramètres."
+  "enable_full_bindset_functionality": "Pour des options avancées d'importation de multiples bindsets, activez les bindsets dans les paramètres.",
+  "import_strategy": "Stratégie d'importation",
+  "merge_keep_existing": "Fusionner (conserver existants)",
+  "merge_overwrite_existing": "Fusionner (écraser existants)",
+  "overwrite_all": "Tout écraser",
+  "overwrite_all_description_keybinds": "Supprime toutes les touches existantes dans cet environnement et les remplace par celles importées.",
+  "overwrite_all_description_kbf": "Supprime les touches existantes des bindsets sélectionnés et les remplace par les données KBF importées.",
+  "overwrite_all_description_kbf_primary": "Supprime toutes les touches existantes dans l'environnement primaire et les remplace par les données KBF importées.",
+  "overwrite_all_description_kbf_bindsets": "Supprime les touches existantes des bindsets sélectionnés et les remplace par les données KBF importées.",
+  "overwrite_all_description_aliases": "Supprime tous les alias existants et les remplace par ceux importés.",
+  "overwrite_confirm_title": "Confirmer l'écrasement",
+  "overwrite_confirm_body_keys": "Cela supprimera toutes les touches existantes dans {{environment}} et les remplacera par le fichier d'importation.",
+  "overwrite_confirm_body_aliases": "Cela supprimera tous les alias existants et les remplacera par le fichier d'importation.",
+  "overwrite_counts": "Actuel : {{current}} · Entrant : {{incoming}}",
+  "overwrite_all_action": "Tout écraser",
+  "import_result_skipped": "{{imported}} importés, {{skipped}} conflits ignorés.",
+  "import_result_overwrote": "{{imported}} importés, {{overwritten}} éléments écrasés.",
+  "import_result_overwrite_all": "{{imported}} importés après avoir effacé {{cleared}} éléments existants."
 }

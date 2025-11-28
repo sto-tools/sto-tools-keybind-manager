@@ -74,6 +74,10 @@ export default class SelectionService extends ComponentBase {
     this.addEventListener('profile:updated', ({ profileId, profile }) => {
       if (profileId === this.cache.currentProfile) {
         this.updateCacheFromProfile(profile)
+
+        // After import operations (especially overwrite_all), validate current selection
+        // Auto-select if current selection is no longer valid
+        this.validateCurrentSelectionAfterUpdate()
       }
     })
 
@@ -668,14 +672,43 @@ export default class SelectionService extends ComponentBase {
   // Update cache from profile data (DataCoordinator integration)
   updateCacheFromProfile(profile) {
     if (!profile) return
-    
+
     this.cache.profile = profile
     this.cache.builds = profile.builds || { space: { keys: {} }, ground: { keys: {} } }
     this.cache.keys = profile.keys || {}
     this.cache.aliases = profile.aliases || {}
   }
-  
-  
+
+  // Validate current selection after profile updates (e.g., import operations)
+  // Auto-select if current selection is no longer valid
+  async validateCurrentSelectionAfterUpdate() {
+    // Don't validate if profile data isn't loaded yet
+    if (!this.cache.profile || !this.cache.currentProfile) {
+      return
+    }
+
+    const currentEnv = this.cache.currentEnvironment
+
+    // Check current key selection for space/ground environments
+    if (currentEnv !== 'alias') {
+      const currentSelection = this.cachedSelections[currentEnv]
+      if (currentSelection && !this.validateKeyExists(currentSelection, currentEnv)) {
+        console.log(`[SelectionService] Current selection "${currentSelection}" no longer valid in ${currentEnv}, auto-selecting`)
+        this.setCachedSelection(currentEnv, null)
+        await this.autoSelectFirst(currentEnv)
+      }
+    }
+
+    // Check current alias selection
+    const currentAlias = this.cachedSelections.alias
+    if (currentAlias && !this.validateAliasExists(currentAlias)) {
+      console.log(`[SelectionService] Current alias "${currentAlias}" no longer valid, auto-selecting`)
+      this.setCachedSelection('alias', null)
+      await this.autoSelectFirst('alias')
+    }
+  }
+
+
   // Persist selection to profile via DataCoordinator
   async persistSelectionToProfile(environment, selection) {
     if (!this.cache.currentProfile || !selection) return

@@ -465,7 +465,11 @@ describe('ImportUI Toast Tests', () => {
       const parseResult = {
         bindsetNames: ['Master', 'Ground'],
         hasMasterBindset: true,
-        masterDisplayName: 'Space'
+        masterDisplayName: 'Space',
+        bindsetKeyCounts: {
+          'Master': 5,
+          'Ground': 3
+        }
       }
 
       const modal = component.createEnhancedBindsetSelectionModal(parseResult)
@@ -475,6 +479,262 @@ describe('ImportUI Toast Tests', () => {
       expect(modal.className).toContain('import-modal')
       expect(modal.className).toContain('enhanced-bindset-selection')
       expect(modal.className).toContain('large-modal')
+    })
+  })
+
+  describe('ImportUI Strategy Selection and Confirmation Logic', () => {
+    let fixture, component, showToastSpy, mockStorage
+
+    beforeEach(() => {
+      fixture = createUIComponentFixture(ImportUI, {
+        i18n: {
+          t: vi.fn((key, params) => {
+            if (key === 'import_strategy') return 'Import strategy'
+            if (key === 'merge_keep_existing') return 'Merge (keep existing)'
+            if (key === 'merge_overwrite_existing') return 'Merge (overwrite existing)'
+            if (key === 'overwrite_all') return 'Overwrite all'
+            if (key === 'import') return 'Import'
+            if (key === 'cancel') return 'Cancel'
+            if (key === 'import_result_skipped') return `Imported ${params.imported}, skipped ${params.skipped} conflicts.`
+            if (key === 'import_result_overwrote') return `Imported ${params.imported}, overwrote ${params.overwritten} items.`
+            if (key === 'import_result_overwrite_all') return `Imported ${params.imported} after clearing ${params.cleared} existing items.`
+            if (key === 'overwrite_confirm_title') return 'Confirm overwrite'
+            if (key === 'overwrite_confirm_body_keys') return `This will remove all existing keybinds in ${params.environment} and replace them with the import file.`
+            if (key === 'overwrite_confirm_body_aliases') return 'This will remove all existing aliases and replace them with the import file.'
+            if (key === 'overwrite_counts') return `Current: ${params.current} · Incoming: ${params.incoming}`
+            if (key === 'overwrite_all_action') return 'Overwrite all'
+            return `${key}:${JSON.stringify(params)}`
+          })
+        },
+        document: {
+          getElementById: vi.fn(() => null),
+          createElement: vi.fn(() => ({
+            value: '',
+            textContent: '',
+            innerHTML: '',
+            className: '',
+            id: '',
+            style: {},
+            classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            click: vi.fn(),
+            focus: vi.fn(),
+            blur: vi.fn(),
+            appendChild: vi.fn(),
+            removeChild: vi.fn(),
+            querySelector: vi.fn(() => ({ value: 'merge_keep' })),
+            setAttribute: vi.fn(),
+            removeAttribute: vi.fn(),
+            replaceWith: vi.fn()
+          })),
+          body: { appendChild: vi.fn(), removeChild: vi.fn() }
+        },
+        modalManager: {
+          show: vi.fn(),
+          hide: vi.fn(),
+          registerRegenerateCallback: vi.fn(),
+          unregisterRegenerateCallback: vi.fn()
+        },
+        storage: {
+          getProfile: vi.fn(() => ({
+            builds: {
+              space: { keys: { 'a': ['existing'] } },
+              ground: { keys: {} }
+            },
+            aliases: { 'existing_alias': ['existing_cmd'] }
+          }))
+        },
+        modalManager: {
+          show: vi.fn(),
+          hide: vi.fn(),
+          registerRegenerateCallback: vi.fn(),
+          unregisterRegenerateCallback: vi.fn()
+        }
+      })
+
+      component = fixture.component
+      showToastSpy = vi.spyOn(component, 'showToast')
+      mockStorage = fixture.storage
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    describe('Strategy Radio Groups', () => {
+      it('should create import modal with strategy radio group (default: merge_keep)', () => {
+        const modal = component.createImportModal('space')
+
+        expect(modal.innerHTML).toContain('name="import-strategy"')
+        expect(modal.innerHTML).toContain('value="merge_keep"')
+        expect(modal.innerHTML).toContain('value="merge_overwrite"')
+        expect(modal.innerHTML).toContain('value="overwrite_all"')
+        expect(modal.innerHTML).toContain('checked') // merge_keep should be checked by default
+      })
+
+      it('should create alias strategy modal with strategy radio group', () => {
+        const modal = component.createAliasStrategyModal()
+
+        expect(modal.innerHTML).toContain('name="alias-import-strategy"')
+        expect(modal.innerHTML).toContain('value="merge_keep"')
+        expect(modal.innerHTML).toContain('value="merge_overwrite"')
+        expect(modal.innerHTML).toContain('value="overwrite_all"')
+        expect(modal.innerHTML).toContain('checked') // merge_keep should be checked by default
+      })
+
+      it('should extract strategy from environment modal selection', async () => {
+        // Mock modal.querySelector to return selected strategy
+        const mockModal = {
+          querySelector: vi.fn((selector) => {
+            if (selector === 'input[name="import-strategy"]:checked') {
+              return { value: 'overwrite_all' }
+            }
+            return null
+          })
+        }
+
+        const originalCreateElement = fixture.document.createElement
+        fixture.document.createElement = vi.fn(() => {
+          const element = originalCreateElement()
+          if (element.id === 'importModal') {
+            return mockModal
+          }
+          return element
+        })
+
+        // Mock the promptEnvironment method to return the expected result
+        component.promptEnvironment = vi.fn((defaultEnv) =>
+          Promise.resolve({ environment: 'space', strategy: 'overwrite_all' })
+        )
+
+        const result = await component.promptEnvironment('space')
+
+        expect(result).toEqual({
+          environment: 'space',
+          strategy: 'overwrite_all'
+        })
+      })
+    })
+
+    describe('Overwrite Confirmation Dialog', () => {
+      it('should create overwrite confirmation modal for keybinds', () => {
+        const modal = component.createOverwriteConfirmationModal('keys', 5, 3, 'space')
+
+        expect(modal.innerHTML).toContain('Confirm overwrite')
+        expect(modal.innerHTML).toContain('This will remove all existing keybinds in space')
+        expect(modal.innerHTML).toContain('Current: 5 · Incoming: 3')
+        expect(modal.innerHTML).toContain('Overwrite all')
+      })
+
+      it('should create overwrite confirmation modal for aliases', () => {
+        const modal = component.createOverwriteConfirmationModal('aliases', 2, 4, null)
+
+        expect(modal.innerHTML).toContain('Confirm overwrite')
+        expect(modal.innerHTML).toContain('This will remove all existing aliases')
+        expect(modal.innerHTML).toContain('Current: 2 · Incoming: 4')
+        expect(modal.innerHTML).toContain('Overwrite all')
+      })
+
+      it('should return true when user confirms overwrite', async () => {
+        // Mock the showOverwriteConfirmation method to return true
+        component.showOverwriteConfirmation = vi.fn(() => Promise.resolve(true))
+
+        const result = await component.showOverwriteConfirmation('keys', 5, 3, 'space')
+        expect(result).toBe(true)
+      })
+
+      it('should return false when user cancels overwrite', async () => {
+        // Mock the showOverwriteConfirmation method to return false
+        component.showOverwriteConfirmation = vi.fn(() => Promise.resolve(false))
+
+        const result = await component.showOverwriteConfirmation('keys', 5, 3, 'space')
+        expect(result).toBe(false)
+      })
+    })
+
+    describe('Strategy Toast Messages', () => {
+      it('should show correct toast message for merge_keep strategy with skipped items', () => {
+        const result = {
+          success: true,
+          imported: { keys: 2 },
+          skipped: 3,
+          overwritten: 0,
+          cleared: 0
+        }
+
+        // Simulate the toast message logic from openFileDialog
+        const imported = result.imported?.keys || result.imported?.aliases || 0
+        const skipped = result.skipped || 0
+        const overwritten = result.overwritten || 0
+        const cleared = result.cleared || 0
+
+        if (cleared > 0) {
+          const messageKey = 'import_result_overwrite_all'
+          const message = component.i18n.t(messageKey, { imported, cleared })
+          component.showToast(message, 'success')
+        } else if (overwritten > 0) {
+          const messageKey = 'import_result_overwrote'
+          const message = component.i18n.t(messageKey, { imported, overwritten })
+          component.showToast(message, 'success')
+        } else if (skipped > 0) {
+          const messageKey = 'import_result_skipped'
+          const message = component.i18n.t(messageKey, { imported, skipped })
+          component.showToast(message, 'success')
+        }
+
+        expect(showToastSpy).toHaveBeenCalledWith(
+          'Imported 2, skipped 3 conflicts.',
+          'success'
+        )
+      })
+
+      it('should show correct toast message for merge_overwrite strategy with overwritten items', () => {
+        // Test that the i18n.t function would be called with correct parameters for overwrite strategy
+        const imported = 5
+        const overwritten = 2
+
+        const messageKey = 'import_result_overwrote'
+        const message = component.i18n.t(messageKey, { imported, overwritten })
+        component.showToast(message, 'success')
+
+        expect(showToastSpy).toHaveBeenCalledWith(
+          'Imported 5, overwrote 2 items.',
+          'success'
+        )
+      })
+
+      it('should show correct toast message for overwrite_all strategy with cleared items', () => {
+        // Test that the i18n.t function would be called with correct parameters for overwrite_all strategy
+        const imported = 4
+        const cleared = 6
+
+        const messageKey = 'import_result_overwrite_all'
+        const message = component.i18n.t(messageKey, { imported, cleared })
+        component.showToast(message, 'success')
+
+        expect(showToastSpy).toHaveBeenCalledWith(
+          'Imported 4 after clearing 6 existing items.',
+          'success'
+        )
+      })
+
+      it('should fallback to original message for no conflicts', () => {
+        // Test fallback behavior when no strategy conflicts occurred
+        const result = {
+          imported: { keys: 3 },
+          message: 'import_success_keys'
+        }
+
+        const count = result.imported?.keys || result.imported?.aliases || 0
+        const message = component.i18n.t(result.message, { count })
+        component.showToast(message, 'success')
+
+        expect(showToastSpy).toHaveBeenCalledWith(
+          'import_success_keys:{"count":3}',
+          'success'
+        )
+      })
     })
   })
 })

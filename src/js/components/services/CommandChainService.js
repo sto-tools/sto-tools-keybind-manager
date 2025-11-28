@@ -59,6 +59,8 @@ export default class CommandChainService extends ComponentBase {
       if (data?.profile && data?.profileId) {
         const profileWithId = { ...data.profile, id: data.profileId }
         this.updateCacheFromProfile(profileWithId)
+        // Refresh command chain display to show updated keybinds/aliases after import
+        this.refreshCommands()
       }
     })
 

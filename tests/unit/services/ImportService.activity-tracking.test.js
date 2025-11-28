@@ -92,7 +92,8 @@ describe('ImportService - Activity Tracking Metadata Handling', () => {
 
       // Verify that stabilizeExecutionOrder metadata was set based on Activity 13
       const savedProfile = fixture.storage.saveProfile.mock.calls[0][1]
-      expect(savedProfile.keybindMetadata.space.F1).toMatchObject({
+
+      expect(savedProfile.bindsetMetadata.TestBindset.space.F1).toMatchObject({
         stabilizeExecutionOrder: true
       })
 
@@ -161,7 +162,7 @@ describe('ImportService - Activity Tracking Metadata Handling', () => {
 
       // Verify that stabilizeExecutionOrder metadata was set based on Activity 26
       const savedProfile = fixture.storage.saveProfile.mock.calls[0][1]
-      expect(savedProfile.keybindMetadata.space.F1).toMatchObject({
+      expect(savedProfile.bindsetMetadata.TestBindset.space.F1).toMatchObject({
         stabilizeExecutionOrder: true
       })
 
@@ -226,7 +227,7 @@ describe('ImportService - Activity Tracking Metadata Handling', () => {
 
       // Verify that stabilizeExecutionOrder metadata was set based on Activity 95
       const savedProfile = fixture.storage.saveProfile.mock.calls[0][1]
-      expect(savedProfile.keybindMetadata.space.F1).toMatchObject({
+      expect(savedProfile.bindsetMetadata.TestBindset.space.F1).toMatchObject({
         stabilizeExecutionOrder: true
       })
 

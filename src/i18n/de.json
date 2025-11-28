@@ -1050,5 +1050,22 @@
   "single_bindset_import_note": "Da Bindsets deaktiviert sind, wird dieses Bindset in das primäre Bindset importiert.",
   "reduced_bindset_functionality": "Einzel-Bindset-Import-Modus",
   "reduced_bindset_functionality_description": "Mit deaktivierten Bindsets können Sie ein einzelnes Bindset importieren, das Ihrem primären Bindset zugeordnet wird. Dies bietet einen optimierten Importerfahrung.",
-  "enable_full_bindset_functionality": "Für erweiterte Multi-Bindset-Import-Optionen aktivieren Sie Bindsets in den Einstellungen."
+  "enable_full_bindset_functionality": "Für erweiterte Multi-Bindset-Import-Optionen aktivieren Sie Bindsets in den Einstellungen.",
+  "import_strategy": "Import-Strategie",
+  "merge_keep_existing": "Zusammenführen (bestehende behalten)",
+  "merge_overwrite_existing": "Zusammenführen (bestehende überschreiben)",
+  "overwrite_all": "Alle überschreiben",
+  "overwrite_all_description_keybinds": "Entfernt alle vorhandenen Tastaturbelegungen in dieser Umgebung und ersetzt sie durch importierte.",
+  "overwrite_all_description_kbf": "Entfernt vorhandene Tastaturbelegungen aus den ausgewählten Bindsets und ersetzt sie durch importierte KBF-Daten.",
+  "overwrite_all_description_kbf_primary": "Entfernt alle vorhandenen Tastaturbelegungen in der primären Umgebung und ersetzt sie durch importierte KBF-Daten.",
+  "overwrite_all_description_kbf_bindsets": "Entfernt vorhandene Tastaturbelegungen aus den ausgewählten Bindsets und ersetzt sie durch importierte KBF-Daten.",
+  "overwrite_all_description_aliases": "Entfernt alle vorhandenen Aliase und ersetzt sie durch importierte.",
+  "overwrite_confirm_title": "Überschreiben bestätigen",
+  "overwrite_confirm_body_keys": "Dadurch werden alle vorhandenen Tastaturbelegungen in {{environment}} entfernt und durch die Importdatei ersetzt.",
+  "overwrite_confirm_body_aliases": "Dadurch werden alle vorhandenen Aliase entfernt und durch die Importdatei ersetzt.",
+  "overwrite_counts": "Aktuell: {{current}} · Eingehend: {{incoming}}",
+  "overwrite_all_action": "Alle überschreiben",
+  "import_result_skipped": "{{imported}} importiert, {{skipped}} Konflikte übersprungen.",
+  "import_result_overwrote": "{{imported}} importiert, {{overwritten}} Elemente überschrieben.",
+  "import_result_overwrite_all": "{{imported}} nach dem Löschen von {{cleared}} vorhandenen Elementen importiert."
 }

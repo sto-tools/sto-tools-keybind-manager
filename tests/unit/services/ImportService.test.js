@@ -25,6 +25,9 @@ describe('ImportService', () => {
 
     // Register responder for parser on the fixture event bus
     respond(fixture.eventBus, 'parser:parse-command-string', ({ commandString }) => ({ commands: [{ command: commandString }] }))
+
+    // Register responder for preferences to avoid hanging calls
+    respond(fixture.eventBus, 'preferences:get-settings', () => ({ bindsetsEnabled: true }))
   })
 
   afterEach(() => {
@@ -1180,6 +1183,165 @@ describe('ImportService', () => {
       expect(mockProfile.profile.builds.space.keys).toEqual({}) // Should remain empty
 
       vi.restoreAllMocks()
+    })
+  })
+
+  describe('ImportService Strategy Behaviors', () => {
+    let fixture, service, mockProfile
+
+    beforeEach(() => {
+      fixture = createServiceFixture()
+      service = new ImportService({ eventBus: fixture.eventBus, storage: fixture.storage })
+      service.init()
+
+      // Register responder for parser on the fixture event bus
+      respond(fixture.eventBus, 'parser:parse-command-string', ({ commandString }) => ({ commands: [{ command: commandString }] }))
+
+      // Set up mock profile with existing data for strategy testing
+      mockProfile = {
+        builds: {
+          space: { keys: { 'a': ['existing_cmd1'], 'b': ['existing_cmd2'] } },
+          ground: { keys: { 'c': ['existing_cmd3'] } }
+        },
+        aliases: {
+          'existing_alias1': { commands: 'existing_alias_cmd1' },
+          'existing_alias2': { commands: 'existing_alias_cmd2' }
+        }
+      }
+      fixture.storage.saveProfile('test-profile', mockProfile)
+    })
+
+    afterEach(() => {
+      service.destroy()
+    })
+
+    describe('importKeybindFile strategy behaviors', () => {
+      const testKeybindContent = `
+a "new_cmd1"
+b "new_cmd2"
+c "new_cmd3"
+d "new_cmd4"
+      `.trim()
+
+      it('should implement merge_keep strategy (skip existing, track skipped)', async () => {
+        const result = await service.importKeybindFile(testKeybindContent, 'test-profile', 'space', { strategy: 'merge_keep' })
+
+        expect(result.success).toBe(true)
+        expect(result.imported.keys).toBe(2) // c and d are new
+        expect(result.skipped).toBe(2) // a and b exist
+        expect(result.overwritten).toBe(0)
+        expect(result.cleared).toBe(0)
+
+        // Verify existing keys are unchanged
+        const profile = fixture.storage.getProfile('test-profile')
+        expect(profile.builds.space.keys['a']).toEqual(['existing_cmd1'])
+        expect(profile.builds.space.keys['b']).toEqual(['existing_cmd2'])
+        // New keys should be added
+        expect(profile.builds.space.keys['d']).toBeDefined()
+      })
+
+      it('should implement merge_overwrite strategy (replace existing, track overwritten)', async () => {
+        const result = await service.importKeybindFile(testKeybindContent, 'test-profile', 'space', { strategy: 'merge_overwrite' })
+
+        expect(result.success).toBe(true)
+        expect(result.imported.keys).toBe(4) // all keys processed
+        expect(result.skipped).toBe(0)
+        expect(result.overwritten).toBe(2) // a and b replaced
+        expect(result.cleared).toBe(0)
+
+        // Verify existing keys are overwritten
+        const profile = fixture.storage.getProfile('test-profile')
+        expect(profile.builds.space.keys['a']).not.toEqual(['existing_cmd1'])
+        expect(profile.builds.space.keys['b']).not.toEqual(['existing_cmd2'])
+      })
+
+      it('should implement overwrite_all strategy (clear first, track cleared)', async () => {
+        const result = await service.importKeybindFile(testKeybindContent, 'test-profile', 'space', { strategy: 'overwrite_all' })
+
+        expect(result.success).toBe(true)
+        expect(result.imported.keys).toBe(4) // all keys processed
+        expect(result.skipped).toBe(0)
+        expect(result.overwritten).toBe(0)
+        expect(result.cleared).toBe(2) // a and b cleared
+
+        // Verify all keys from file are imported and old ones gone
+        const profile = fixture.storage.getProfile('test-profile')
+        expect(profile.builds.space.keys['a']).toBeDefined()
+        expect(profile.builds.space.keys['b']).toBeDefined()
+        expect(profile.builds.space.keys['c']).toBeDefined()
+        expect(profile.builds.space.keys['d']).toBeDefined()
+        expect(Object.keys(profile.builds.space.keys)).toHaveLength(4)
+      })
+
+      it('should default to merge_keep strategy when no strategy specified', async () => {
+        const result = await service.importKeybindFile(testKeybindContent, 'test-profile', 'space', {})
+
+        expect(result.success).toBe(true)
+        expect(result.skipped).toBe(2) // Should behave like merge_keep
+        expect(result.imported.keys).toBe(2)
+      })
+
+      it('should only clear keys for the specific environment in overwrite_all', async () => {
+        const result = await service.importKeybindFile(testKeybindContent, 'test-profile', 'ground', { strategy: 'overwrite_all' })
+
+        expect(result.success).toBe(true)
+        expect(result.cleared).toBe(1) // Only ground key 'c' cleared
+
+        // Ground environment should have new keys
+        const profile = fixture.storage.getProfile('test-profile')
+        expect(profile.builds.ground.keys['a']).toBeDefined()
+        expect(profile.builds.ground.keys['b']).toBeDefined()
+        // Space environment should be unchanged
+        expect(profile.builds.space.keys['a']).toEqual(['existing_cmd1'])
+        expect(profile.builds.space.keys['b']).toEqual(['existing_cmd2'])
+      })
+    })
+
+    describe('importAliasFile strategy behaviors', () => {
+      const testAliasContent = `
+alias new_alias1 "new_alias_cmd1"
+alias new_alias2 "new_alias_cmd2"
+alias existing_alias1 "replace_existing"
+      `.trim()
+
+      it('should implement merge_keep strategy for aliases', async () => {
+        const result = await service.importAliasFile(testAliasContent, 'test-profile', { strategy: 'merge_keep' })
+
+        expect(result.success).toBe(true)
+        expect(result.imported.aliases).toBe(2) // new_alias1 and new_alias2 are new
+        expect(result.skipped).toBe(1) // existing_alias1 already exists
+        expect(result.overwritten).toBe(0)
+        expect(result.cleared).toBe(0)
+
+        const profile = fixture.storage.getProfile('test-profile')
+        expect(profile.aliases['existing_alias1']).toEqual({ commands: 'existing_alias_cmd1' }) // unchanged
+      })
+
+      it('should implement merge_overwrite strategy for aliases', async () => {
+        const result = await service.importAliasFile(testAliasContent, 'test-profile', { strategy: 'merge_overwrite' })
+
+        expect(result.success).toBe(true)
+        expect(result.imported.aliases).toBe(3) // new_alias1, new_alias2, and existing_alias1 (replaced)
+        expect(result.skipped).toBe(0)
+        expect(result.overwritten).toBe(1) // existing_alias1 replaced
+        expect(result.cleared).toBe(0)
+
+        const profile = fixture.storage.getProfile('test-profile')
+        expect(profile.aliases['existing_alias1']).not.toEqual({ commands: 'existing_alias_cmd1' }) // replaced
+      })
+
+      it('should implement overwrite_all strategy for aliases', async () => {
+        const result = await service.importAliasFile(testAliasContent, 'test-profile', { strategy: 'overwrite_all' })
+
+        expect(result.success).toBe(true)
+        expect(result.imported.aliases).toBe(3) // new_alias1, new_alias2, and existing_alias1
+        expect(result.skipped).toBe(0)
+        expect(result.overwritten).toBe(0)
+        expect(result.cleared).toBe(2) // existing_alias1 and existing_alias2 cleared
+
+        const profile = fixture.storage.getProfile('test-profile')
+        expect(Object.keys(profile.aliases)).toHaveLength(3) // only new aliases
+      })
     })
   })
 })
