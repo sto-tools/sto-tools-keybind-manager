@@ -589,7 +589,7 @@ export default class ParameterCommandUI extends UIComponentBase {
         })
       } else {
         inputEl      = this.document.createElement('input')
-        inputEl.type = paramDef.type === 'number' ? 'number' : 'text'
+        inputEl.type = (paramDef.type === 'number' || paramDef.type === 'boolean') ? 'number' : 'text'
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
         inputEl.value = selectedVal ?? ''
@@ -601,7 +601,7 @@ export default class ParameterCommandUI extends UIComponentBase {
             inputEl.placeholder = paramDef.placeholder
           }
         }
-        if (paramDef.type === 'number') {
+        if (paramDef.type === 'number' || paramDef.type === 'boolean') {
           if (paramDef.min !== undefined)  inputEl.min  = paramDef.min
           if (paramDef.max !== undefined)  inputEl.max  = paramDef.max
           if (paramDef.step !== undefined) inputEl.step = paramDef.step
