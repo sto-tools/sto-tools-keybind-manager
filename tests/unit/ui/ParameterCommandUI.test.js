@@ -95,6 +95,64 @@ describe('ParameterCommandUI', () => {
     })
   })
 
+  describe('safeParseBoolean', () => {
+    it('should return undefined for empty string', () => {
+      const result = ui.safeParseBoolean('', 'test')
+      expect(result).toBeUndefined()
+    })
+
+    it('should return undefined for undefined value', () => {
+      const result = ui.safeParseBoolean(undefined, 'test')
+      expect(result).toBeUndefined()
+    })
+
+    it('should return undefined for null value', () => {
+      const result = ui.safeParseBoolean(null, 'test')
+      expect(result).toBeUndefined()
+    })
+
+    it('should transform non-zero numbers to 1 (true)', () => {
+      expect(ui.safeParseBoolean('1', 'test')).toBe(1)
+      expect(ui.safeParseBoolean('2', 'test')).toBe(1)
+      expect(ui.safeParseBoolean('5', 'test')).toBe(1)
+      expect(ui.safeParseBoolean('-1', 'test')).toBe(1)
+      expect(ui.safeParseBoolean('0.5', 'test')).toBe(1)
+      expect(ui.safeParseBoolean('3.14', 'test')).toBe(1)
+    })
+
+    it('should keep 0 as 0 (false)', () => {
+      expect(ui.safeParseBoolean('0', 'test')).toBe(0)
+    })
+
+    it('should throw STOError for invalid numeric inputs', () => {
+      const invalidInputs = ['abc', '1.2.3', '123abc', 'hello', '1..2', 'NaN']
+
+      invalidInputs.forEach(input => {
+        expect(() => {
+          ui.safeParseBoolean(input, 'testParam')
+        }).toThrow(STOError)
+
+        try {
+          ui.safeParseBoolean(input, 'testParam')
+        } catch (error) {
+          expect(error.name).toBe('STOError')
+          expect(error.code).toBe('INVALID_PARAMETER_BOOLEAN')
+          expect(error.message).toContain('Invalid boolean for testParam')
+          expect(error.message).toContain(`'${input}'`)
+        }
+      })
+    })
+
+    // Regression test for the original bug
+    it('should transform invalid boolean values like 2, 3, -1 to 1', () => {
+      // These are the exact scenarios from the bug report
+      expect(ui.safeParseBoolean('2', 'active')).toBe(1)
+      expect(ui.safeParseBoolean('3', 'active')).toBe(1)
+      expect(ui.safeParseBoolean('-1', 'active')).toBe(1)
+      expect(ui.safeParseBoolean('5', 'active')).toBe(1)
+    })
+  })
+
   describe('getParameterValues', () => {
     let mockContainer, mockInputs
 
@@ -143,6 +201,61 @@ describe('ParameterCommandUI', () => {
         active: 0,
         textParam: 'hello',
         selectParam: 'option1'
+      })
+    })
+
+    it('should use safeParseBoolean for boolean parameters and transform values', () => {
+      // Set up currentParameterCommand with boolean parameter definitions
+      ui.currentParameterCommand = {
+        commandDef: {
+          parameters: {
+            tray: { type: 'number' },
+            slot: { type: 'number' },
+            active: { type: 'boolean' },  // Boolean parameter
+            textParam: { type: 'text' }
+          }
+        }
+      }
+
+      mockInputs = [
+        { name: 'tray', type: 'number', value: '1' },
+        { name: 'slot', type: 'number', value: '5' },
+        { name: 'active', type: 'number', value: '2' }, // Invalid boolean value - should be transformed
+        { name: 'textParam', type: 'text', value: 'hello' }
+      ]
+
+      const result = ui.getParameterValues()
+      expect(result).toEqual({
+        tray: 1,          // Regular number - parsed as-is
+        slot: 5,          // Regular number - parsed as-is
+        active: 1,        // Boolean - 2 transformed to 1 (true)
+        textParam: 'hello'
+      })
+    })
+
+    it('should use safeParseBoolean for boolean parameters and keep 0 as 0', () => {
+      // Set up currentParameterCommand with boolean parameter definitions
+      ui.currentParameterCommand = {
+        commandDef: {
+          parameters: {
+            tray: { type: 'number' },
+            active: { type: 'boolean' },  // Boolean parameter
+            textParam: { type: 'text' }
+          }
+        }
+      }
+
+      mockInputs = [
+        { name: 'tray', type: 'number', value: '1' },
+        { name: 'active', type: 'number', value: '0' }, // Valid boolean value - should stay 0
+        { name: 'textParam', type: 'text', value: 'hello' }
+      ]
+
+      const result = ui.getParameterValues()
+      expect(result).toEqual({
+        tray: 1,          // Regular number - parsed as-is
+        active: 0,        // Boolean - 0 stays 0 (false)
+        textParam: 'hello'
       })
     })
 
