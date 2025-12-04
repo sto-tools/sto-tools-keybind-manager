@@ -457,7 +457,11 @@ export default class CommandChainUI extends UIComponentBase {
       await this.updateBindToAliasMode(bindToAliasMode, selectedKeyName, commands)
 
       // For non-bind-to-alias mode, ensure key preview shows mirrored commands when stabilized
-      if (!bindToAliasMode && selectedKeyName && this.cache.currentEnvironment !== 'alias') {
+      // CRITICAL: This should only apply when NOT in bind-to-alias mode to prevent conflicts
+      // ADDITIONAL SAFEGUARD: Double-check bindToAliasMode to prevent race conditions
+      const currentBindToAliasMode = this.cache.preferences?.bindToAliasMode ?? false
+      if (!bindToAliasMode && !currentBindToAliasMode && selectedKeyName && this.cache.currentEnvironment !== 'alias') {
+        console.log('[CommandChainUI] Applying mirroring for non-bind-to-alias mode')
         try {
           const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
           const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
@@ -471,6 +475,8 @@ export default class CommandChainUI extends UIComponentBase {
         } catch (err) {
           console.warn('[CommandChainUI] Failed to generate mirrored preview', err)
         }
+      } else if (bindToAliasMode || currentBindToAliasMode) {
+        console.log('[CommandChainUI] Skipping mirroring logic - bind-to-alias mode is active')
       }
 
       // Hide any existing empty state
@@ -968,14 +974,18 @@ export default class CommandChainUI extends UIComponentBase {
     const aliasPreviewEl = this.document.getElementById('aliasPreview')
     const previewEl = this.document.getElementById('commandPreview')
 
-    console.log(`[CommandChainUI] updateBindToAliasMode: bindToAliasMode=${bindToAliasMode}, selectedKeyName=${selectedKeyName}, environment=${this.cache.currentEnvironment}, activeBindset=${this.cache.activeBindset}`)
+    // Double-check current bindToAliasMode preference to handle race conditions
+    const currentBindToAliasMode = this.cache.preferences?.bindToAliasMode ?? false
+    const effectiveBindToAliasMode = bindToAliasMode || currentBindToAliasMode
+
+    console.log(`[CommandChainUI] updateBindToAliasMode: bindToAliasMode=${bindToAliasMode}, current=${currentBindToAliasMode}, effective=${effectiveBindToAliasMode}, selectedKeyName=${selectedKeyName}, environment=${this.cache.currentEnvironment}, activeBindset=${this.cache.activeBindset}`)
     
     if (!generatedAlias || !aliasPreviewEl || !previewEl) {
       console.log(`[CommandChainUI] Missing UI elements: generatedAlias=${!!generatedAlias}, aliasPreviewEl=${!!aliasPreviewEl}, previewEl=${!!previewEl}`)
       return
     }
 
-    if (bindToAliasMode && selectedKeyName && this.cache.currentEnvironment !== 'alias') {
+    if (effectiveBindToAliasMode && selectedKeyName && this.cache.currentEnvironment !== 'alias') {
       // Show generated alias section
       generatedAlias.style.display = ''
       
@@ -1015,7 +1025,13 @@ export default class CommandChainUI extends UIComponentBase {
           aliasPreviewEl.textContent = aliasPreview
           
           // Update main preview to show keybind that calls the alias
+          // CRITICAL: In bind-to-alias mode, main preview should ALWAYS show alias name, never raw commands
           previewEl.textContent = `${selectedKeyName} "${aliasName}"`
+
+          // ADDITIONAL SAFEGUARD: Ensure bind-to-alias mode takes precedence over any subsequent mirroring logic
+          if (effectiveBindToAliasMode) {
+            console.log('[CommandChainUI] Set main preview to alias name - bind-to-alias mode takes precedence')
+          }
         } else {
           aliasPreviewEl.textContent = 'Invalid key name for alias generation'
           previewEl.textContent = `${selectedKeyName} "..."`
