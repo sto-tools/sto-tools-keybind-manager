@@ -189,14 +189,18 @@ export default class CommandChainUI extends UIComponentBase {
       } else if (upBtn && !upBtn.disabled) {
         const commandItem = upBtn.closest('.command-item-row')
         const index = parseInt(commandItem?.dataset?.index)
+        const groupType = commandItem?.dataset?.group || null
         if (!Number.isNaN(index)) {
-          this.emit('commandchain:move', { fromIndex: index, toIndex: index - 1 })
+          const targetIndex = this.getMoveTarget(index, groupType, 'up')
+          this.emit('commandchain:move', { fromIndex: index, toIndex: targetIndex })
         }
       } else if (downBtn && !downBtn.disabled) {
         const commandItem = downBtn.closest('.command-item-row')
         const index = parseInt(commandItem?.dataset?.index)
+        const groupType = commandItem?.dataset?.group || null
         if (!Number.isNaN(index)) {
-          this.emit('commandchain:move', { fromIndex: index, toIndex: index + 1 })
+          const targetIndex = this.getMoveTarget(index, groupType, 'down')
+          this.emit('commandchain:move', { fromIndex: index, toIndex: targetIndex })
         }
       }
     })
@@ -483,10 +487,12 @@ export default class CommandChainUI extends UIComponentBase {
 
       // Build the complete new command list structure atomically
       const newCommandElements = []
-      
+
       if (isStabilized && commands.length > 0) {
         // Use grouped rendering for stabilized chains
         const groups = this.groupCommands(commands)
+        // Store group structure for event handlers
+        this.currentGroups = groups
         // Render groups in order: non-trayexec, palindromic, pivot
         const groupOrder = ['non-trayexec', 'palindromic', 'pivot']
         for (const groupType of groupOrder) {
@@ -514,6 +520,8 @@ export default class CommandChainUI extends UIComponentBase {
           }
         }
       } else {
+        // Clear group structure for unstabilized mode
+        this.currentGroups = null
         // Use flat rendering for unstabilized chains
         for (let i = 0; i < commands.length; i++) {
           const el = await this.createCommandElement(commands[i], i, commands.length)
@@ -653,6 +661,78 @@ export default class CommandChainUI extends UIComponentBase {
   }
 
   // Create a command element
+  getButtonState (direction, index, total, groupType, displayIndex) {
+    // Dual-mode logic: stabilized mode uses group-aware logic, unstabilized uses current behavior
+    if (groupType && this.currentGroups && this.currentGroups[groupType]) {
+      // Stabilized mode: use group-relative logic
+      const groupData = this.currentGroups[groupType]
+      const groupCommands = groupData.commands
+      const groupSize = groupCommands.length
+
+      // Find this command's position within its group
+      const groupIndex = groupCommands.findIndex(cmd => cmd.index === index)
+
+      // For single-item groups, hide both buttons
+      if (groupSize <= 1) {
+        return direction === 'up'
+          ? '<button class="command-action-btn btn-up" title="Move Up" disabled aria-hidden="true" style="display:none"><i class="fas fa-chevron-up"></i></button>'
+          : '<button class="command-action-btn btn-down" title="Move Down" disabled aria-hidden="true" style="display:none"><i class="fas fa-chevron-down"></i></button>'
+      }
+
+      // For multi-item groups, use group-relative boundaries
+      if (direction === 'up') {
+        const isFirstInGroup = groupIndex === 0
+        return `<button class="command-action-btn btn-up" title="Move Up" ${isFirstInGroup ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>`
+      } else {
+        const isLastInGroup = groupIndex === groupSize - 1
+        return `<button class="command-action-btn btn-down" title="Move Down" ${isLastInGroup ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>`
+      }
+    } else {
+      // Unstabilized mode: use exact current logic to preserve existing behavior
+      if (direction === 'up') {
+        return `<button class="command-action-btn btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>`
+      } else {
+        return `<button class="command-action-btn btn-down" title="Move Down" ${index === total - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>`
+      }
+    }
+  }
+
+  getMoveTarget (index, groupType, direction) {
+    // Dual-mode logic: stabilized mode uses group-aware logic, unstabilized uses current behavior
+    if (groupType && this.currentGroups && this.currentGroups[groupType]) {
+      // Stabilized mode: calculate valid target within the same group
+      const groupData = this.currentGroups[groupType]
+      const groupCommands = groupData.commands
+      const groupSize = groupCommands.length
+
+      // Find this command's position within its group
+      const groupIndex = groupCommands.findIndex(cmd => cmd.index === index)
+
+      if (direction === 'up') {
+        // Can't move up if already first in group
+        if (groupIndex <= 0) {
+          return index // No valid move, return same index
+        }
+        // Return the actual array index of the command above in the group
+        return groupCommands[groupIndex - 1].index
+      } else {
+        // Can't move down if already last in group
+        if (groupIndex >= groupSize - 1) {
+          return index // No valid move, return same index
+        }
+        // Return the actual array index of the command below in the group
+        return groupCommands[groupIndex + 1].index
+      }
+    } else {
+      // Unstabilized mode: use exact current logic to preserve existing behavior
+      if (direction === 'up') {
+        return index - 1
+      } else {
+        return index + 1
+      }
+    }
+  }
+
   async createCommandElement (command, index, total, groupType = null, displayIndex = null) {
     const element = this.document.createElement('div') || {}
     if (!element.dataset) {
@@ -825,8 +905,8 @@ export default class CommandChainUI extends UIComponentBase {
         <button class="command-action-btn command-action-btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
         ${palindromicButton}
         ${placementButton}
-        <button class="command-action-btn btn-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
-        <button class="command-action-btn btn-down" title="Move Down" ${index === total - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>
+        ${this.getButtonState('up', index, total, groupType, displayIndex)}
+        ${this.getButtonState('down', index, total, groupType, displayIndex)}
       </div>`
 
     // Command action buttons are now handled by EventBus delegation in setupEventListeners()

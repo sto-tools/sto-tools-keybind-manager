@@ -1001,7 +1001,7 @@
   "command_group_hint_fixed_order": "Orden fijo - siempre se ejecuta primero",
   "command_group_hint_palindromic": "Se puede reordenar - afecta la estructura del palíndromo",
   "command_group_hint_pivot": "Se puede reordenar - forma el centro del palíndromo",
-  "command_group_non_trayexec": "Comandos No-TrayExec",
+  "command_group_non_trayexec": "Comandos Pre-pivot",
   "command_group_palindromic": "TrayExec Palindrómico",
   "command_group_pivot": "Grupo Pivot",
   "palindromic_excluded_tooltip": "Excluido del palíndromo (clic para incluir)",
