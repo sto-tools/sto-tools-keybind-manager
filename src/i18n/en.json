@@ -1019,7 +1019,7 @@
   },
   "error_add_failed": "Failed to add key to bindset",
   "error_remove_failed": "Failed to remove key from bindset",
-  "command_group_non_trayexec": "Pre-pivot Commands",
+  "command_group_non_trayexec": "Before Palindrome",
   "command_group_palindromic": "Palindromic TrayExec",
   "command_group_pivot": "Pivot Group",
   "command_group_hint_fixed_order": "Always executed first",

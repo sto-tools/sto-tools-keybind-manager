@@ -1001,7 +1001,7 @@
   "command_group_hint_fixed_order": "Wird immer zuerst ausgeführt",
   "command_group_hint_palindromic": "Beeinflusst Palindromstruktur",
   "command_group_hint_pivot": "Bildet Palindrommitte",
-  "command_group_non_trayexec": "Pre-Pivot-Befehle",
+  "command_group_non_trayexec": "Vor dem Palindrom",
   "command_group_palindromic": "Palindromische TrayExec",
   "command_group_pivot": "Pivot-Gruppe",
   "palindromic_excluded_tooltip": "Von Palindrom ausgeschlossen (klicken zum einschließen)",
