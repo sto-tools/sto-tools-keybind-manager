@@ -139,13 +139,15 @@ describe('CommandChainUI Stabilized Ordering', () => {
         }
       })
 
-      it('should hide buttons for single-item groups', () => {
+      it('should gray out buttons for single-item groups', () => {
         // Palindromic group has only one command
         const upButton = ui.getButtonState('up', 2, 6, 'palindromic', 1)
         const downButton = ui.getButtonState('down', 2, 6, 'palindromic', 1)
 
-        expect(upButton).toContain('style="display:none"')
-        expect(downButton).toContain('style="display:none"')
+        expect(upButton).toContain('disabled')
+        expect(downButton).toContain('disabled')
+        expect(upButton).not.toContain('style="display:none"')
+        expect(downButton).not.toContain('style="display:none"')
       })
 
       it('should show buttons for first item in multi-item group', () => {

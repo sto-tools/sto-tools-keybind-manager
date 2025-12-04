@@ -672,11 +672,11 @@ export default class CommandChainUI extends UIComponentBase {
       // Find this command's position within its group
       const groupIndex = groupCommands.findIndex(cmd => cmd.index === index)
 
-      // For single-item groups, hide both buttons
+      // For single-item groups, show grayed out buttons (consistent with non-stabilized mode)
       if (groupSize <= 1) {
         return direction === 'up'
-          ? '<button class="command-action-btn btn-up" title="Move Up" disabled aria-hidden="true" style="display:none"><i class="fas fa-chevron-up"></i></button>'
-          : '<button class="command-action-btn btn-down" title="Move Down" disabled aria-hidden="true" style="display:none"><i class="fas fa-chevron-down"></i></button>'
+          ? '<button class="command-action-btn btn-up" title="Move Up" disabled><i class="fas fa-chevron-up"></i></button>'
+          : '<button class="command-action-btn btn-down" title="Move Down" disabled><i class="fas fa-chevron-down"></i></button>'
       }
 
       // For multi-item groups, use group-relative boundaries
