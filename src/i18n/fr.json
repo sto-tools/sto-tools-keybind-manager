@@ -809,51 +809,51 @@
     },
     "tray": {
       "label": "Plateau",
-      "help": "Numéro de plateau (0-9)"
+      "help": "Numéro de plateau (0-9). 0=Plateau de jeu 1"
     },
     "slot": {
       "label": "Emplacement",
-      "help": "Numéro d'emplacement (0-9)"
+      "help": "Numéro d'emplacement (0-9). 0=Emplacement de jeu 1"
     },
     "start_tray": {
       "label": "Plateau de Début",
-      "help": "Numéro de plateau de début"
+      "help": "Numéro de plateau de début (0-9). 0=Plateau de jeu 1"
     },
     "end_tray": {
       "label": "Plateau de Fin",
-      "help": "Numéro de plateau de fin"
+      "help": "Numéro de plateau de fin (0-9). 0=Plateau de jeu 1"
     },
     "start_slot": {
       "label": "Emplacement de Début",
-      "help": "Numéro d'emplacement de début"
+      "help": "Numéro d'emplacement de début (0-9). 0=Emplacement de jeu 1"
     },
     "end_slot": {
       "label": "Emplacement de Fin",
-      "help": "Numéro d'emplacement de fin"
+      "help": "Numéro d'emplacement de fin (0-9). 0=Emplacement de jeu 1"
     },
     "backup_tray": {
       "label": "Plateau de Sauvegarde",
-      "help": "Numéro de plateau de sauvegarde"
+      "help": "Numéro de plateau de sauvegarde (0-9). 0=Plateau de jeu 1"
     },
     "backup_slot": {
       "label": "Emplacement de Sauvegarde",
-      "help": "Numéro d'emplacement de sauvegarde"
+      "help": "Numéro d'emplacement de sauvegarde (0-9). 0=Emplacement de jeu 1"
     },
     "backup_start_tray": {
       "label": "Plateau de Début de Sauvegarde",
-      "help": "Numéro de plateau de début de sauvegarde"
+      "help": "Numéro de plateau de début de sauvegarde (0-9). 0=Plateau de jeu 1"
     },
     "backup_end_tray": {
       "label": "Plateau de Fin de Sauvegarde",
-      "help": "Numéro de plateau de fin de sauvegarde"
+      "help": "Numéro de plateau de fin de sauvegarde (0-9). 0=Plateau de jeu 1"
     },
     "backup_start_slot": {
       "label": "Emplacement de Début de Sauvegarde",
-      "help": "Numéro d'emplacement de début de sauvegarde"
+      "help": "Numéro d'emplacement de début de sauvegarde (0-9). 0=Emplacement de jeu 1"
     },
     "backup_end_slot": {
       "label": "Emplacement de Fin de Sauvegarde",
-      "help": "Numéro d'emplacement de fin de sauvegarde"
+      "help": "Numéro d'emplacement de fin de sauvegarde (0-9). 0=Emplacement de jeu 1"
     },
     "command_type": {
       "label": "Type de Commande",
@@ -998,10 +998,10 @@
   "bindset_actions": "Actions de l'ensemble de liens",
   "source_profile_and_new_name_required": "Le profil source et le nouveau nom sont requis",
   "unknown_command": "Commande inconnue",
-  "command_group_hint_fixed_order": "Ordre fixe - toujours exécuté en premier",
-  "command_group_hint_palindromic": "Peut être réorganisé - affecte la structure du palindrome",
-  "command_group_hint_pivot": "Peut être réorganisé - forme le centre du palindrome",
-  "command_group_non_trayexec": "Commandes Non-TrayExec",
+  "command_group_hint_fixed_order": "Toujours exécuté en premier",
+  "command_group_hint_palindromic": "Affecte la structure du palindrome",
+  "command_group_hint_pivot": "Forme le centre du palindrome",
+  "command_group_non_trayexec": "Avant le Palindrome",
   "command_group_palindromic": "TrayExec Palindromique",
   "command_group_pivot": "Groupe Pivot",
   "palindromic_excluded_tooltip": "Exclu du palindrome (cliquer pour inclure)",

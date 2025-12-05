@@ -812,51 +812,51 @@
     },
     "tray": {
       "label": "Bandeja",
-      "help": "Número de bandeja (0-9)"
+      "help": "Número de bandeja (0-9). 0=Bandeja del juego 1"
     },
     "slot": {
       "label": "Ranura",
-      "help": "Número de ranura (0-9)"
+      "help": "Número de ranura (0-9). 0=Ranura del juego 1"
     },
     "start_tray": {
       "label": "Bandeja de Inicio",
-      "help": "Número de bandeja de inicio"
+      "help": "Número de bandeja de inicio (0-9). 0=Bandeja del juego 1"
     },
     "end_tray": {
       "label": "Bandeja de Fin",
-      "help": "Número de bandeja de fin"
+      "help": "Número de bandeja de fin (0-9). 0=Bandeja del juego 1"
     },
     "start_slot": {
       "label": "Ranura de Inicio",
-      "help": "Número de ranura de inicio"
+      "help": "Número de ranura de inicio (0-9). 0=Ranura del juego 1"
     },
     "end_slot": {
       "label": "Ranura de Fin",
-      "help": "Número de ranura de fin"
+      "help": "Número de ranura de fin (0-9). 0=Ranura del juego 1"
     },
     "backup_tray": {
       "label": "Bandeja de Respaldo",
-      "help": "Número de bandeja de respaldo"
+      "help": "Número de bandeja de respaldo (0-9). 0=Bandeja del juego 1"
     },
     "backup_slot": {
       "label": "Ranura de Respaldo",
-      "help": "Número de ranura de respaldo"
+      "help": "Número de ranura de respaldo (0-9). 0=Ranura del juego 1"
     },
     "backup_start_tray": {
       "label": "Bandeja de Inicio de Respaldo",
-      "help": "Número de bandeja de inicio de respaldo"
+      "help": "Número de bandeja de inicio de respaldo (0-9). 0=Bandeja del juego 1"
     },
     "backup_end_tray": {
       "label": "Bandeja de Fin de Respaldo",
-      "help": "Número de bandeja de fin de respaldo"
+      "help": "Número de bandeja de fin de respaldo (0-9). 0=Bandeja del juego 1"
     },
     "backup_start_slot": {
       "label": "Ranura de Inicio de Respaldo",
-      "help": "Número de ranura de inicio de respaldo"
+      "help": "Número de ranura de inicio de respaldo (0-9). 0=Ranura del juego 1"
     },
     "backup_end_slot": {
       "label": "Ranura de Fin de Respaldo",
-      "help": "Número de ranura de fin de respaldo"
+      "help": "Número de ranura de fin de respaldo (0-9). 0=Ranura del juego 1"
     },
     "command_type": {
       "label": "Tipo de Comando",
@@ -998,10 +998,10 @@
   "bindset_actions": "Acciones del Conjunto de Enlaces",
   "source_profile_and_new_name_required": "Se requieren el perfil de origen y el nuevo nombre",
   "unknown_command": "Comando desconocido",
-  "command_group_hint_fixed_order": "Orden fijo - siempre se ejecuta primero",
-  "command_group_hint_palindromic": "Se puede reordenar - afecta la estructura del palíndromo",
-  "command_group_hint_pivot": "Se puede reordenar - forma el centro del palíndromo",
-  "command_group_non_trayexec": "Comandos No-TrayExec",
+  "command_group_hint_fixed_order": "Siempre se ejecuta primero",
+  "command_group_hint_palindromic": "Afecta la estructura del palíndromo",
+  "command_group_hint_pivot": "Forma el centro del palíndromo",
+  "command_group_non_trayexec": "Antes del Palíndromo",
   "command_group_palindromic": "TrayExec Palindrómico",
   "command_group_pivot": "Grupo Pivot",
   "palindromic_excluded_tooltip": "Excluido del palíndromo (clic para incluir)",

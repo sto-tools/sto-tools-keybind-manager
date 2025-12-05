@@ -811,51 +811,51 @@
     },
     "tray": {
       "label": "Fach",
-      "help": "Fachnummer (0-9)"
+      "help": "Fachnummer (0-9). 0=Spiel-Fach 1"
     },
     "slot": {
       "label": "Slot",
-      "help": "Slotnummer (0-9)"
+      "help": "Platznummer (0-9). 0=Spiel-Platz 1"
     },
     "start_tray": {
       "label": "Startfach",
-      "help": "Startfachnummer"
+      "help": "Startfachnummer (0-9). 0=Spiel-Fach 1"
     },
     "end_tray": {
       "label": "Endfach",
-      "help": "Endfachnummer"
+      "help": "Endfachnummer (0-9). 0=Spiel-Fach 1"
     },
     "start_slot": {
       "label": "Startslot",
-      "help": "Startslotnummer"
+      "help": "Startplatznummer (0-9). 0=Spiel-Platz 1"
     },
     "end_slot": {
       "label": "Endslot",
-      "help": "Endslotnummer"
+      "help": "Endplatznummer (0-9). 0=Spiel-Platz 1"
     },
     "backup_tray": {
       "label": "Backup-Fach",
-      "help": "Backup-Fachnummer"
+      "help": "Backup-Fachnummer (0-9). 0=Spiel-Fach 1"
     },
     "backup_slot": {
       "label": "Backup-Slot",
-      "help": "Backup-Slotnummer"
+      "help": "Backup-Platznummer (0-9). 0=Spiel-Platz 1"
     },
     "backup_start_tray": {
       "label": "Backup-Startfach",
-      "help": "Backup-Startfachnummer"
+      "help": "Backup-Startfachnummer (0-9). 0=Spiel-Fach 1"
     },
     "backup_end_tray": {
       "label": "Backup-Endfach",
-      "help": "Backup-Endfachnummer"
+      "help": "Backup-Endfachnummer (0-9). 0=Spiel-Fach 1"
     },
     "backup_start_slot": {
       "label": "Backup-Startslot",
-      "help": "Backup-Startslotnummer"
+      "help": "Backup-Startplatznummer (0-9). 0=Spiel-Platz 1"
     },
     "backup_end_slot": {
       "label": "Backup-Endslot",
-      "help": "Backup-Endslotnummer"
+      "help": "Backup-Endplatznummer (0-9). 0=Spiel-Platz 1"
     },
     "command_type": {
       "label": "Befehlstyp",
@@ -998,10 +998,10 @@
   "bindset_actions": "Bindset-Aktionen",
   "source_profile_and_new_name_required": "Quellprofil-ID und neuer Name sind erforderlich",
   "unknown_command": "Unbekannter Befehl",
-  "command_group_hint_fixed_order": "Feste Reihenfolge - wird immer zuerst ausgeführt",
-  "command_group_hint_palindromic": "Kann neu angeordnet werden - beeinflusst Palindromstruktur",
-  "command_group_hint_pivot": "Kann neu angeordnet werden - bildet Palindrommitte",
-  "command_group_non_trayexec": "Nicht-TrayExec-Befehle",
+  "command_group_hint_fixed_order": "Wird immer zuerst ausgeführt",
+  "command_group_hint_palindromic": "Beeinflusst Palindromstruktur",
+  "command_group_hint_pivot": "Bildet Palindrommitte",
+  "command_group_non_trayexec": "Vor dem Palindrom",
   "command_group_palindromic": "Palindromische TrayExec",
   "command_group_pivot": "Pivot-Gruppe",
   "palindromic_excluded_tooltip": "Von Palindrom ausgeschlossen (klicken zum einschließen)",

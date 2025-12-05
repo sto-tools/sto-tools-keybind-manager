@@ -906,51 +906,51 @@
     },
     "tray": {
       "label": "Tray",
-      "help": "Tray number (0-9)"
+      "help": "Tray number (0-9). 0=Game Tray 1"
     },
     "slot": {
       "label": "Slot",
-      "help": "Slot number (0-9)"
+      "help": "Slot number (0-9). 0=Game Slot 1"
     },
     "start_tray": {
       "label": "Start Tray",
-      "help": "Starting tray number"
+      "help": "Starting tray number (0-9). 0=Game Tray 1"
     },
     "end_tray": {
       "label": "End Tray",
-      "help": "Ending tray number"
+      "help": "Ending tray number (0-9). 0=Game Tray 1"
     },
     "start_slot": {
       "label": "Start Slot",
-      "help": "Starting slot number"
+      "help": "Starting slot number (0-9). 0=Game Slot 1"
     },
     "end_slot": {
       "label": "End Slot",
-      "help": "Ending slot number"
+      "help": "Ending slot number (0-9). 0=Game Slot 1"
     },
     "backup_tray": {
       "label": "Backup Tray",
-      "help": "Backup tray number"
+      "help": "Backup tray number (0-9). 0=Game Tray 1"
     },
     "backup_slot": {
       "label": "Backup Slot",
-      "help": "Backup slot number"
+      "help": "Backup slot number (0-9). 0=Game Slot 1"
     },
     "backup_start_tray": {
       "label": "Backup Start Tray",
-      "help": "Backup start tray number"
+      "help": "Backup start tray number (0-9). 0=Game Tray 1"
     },
     "backup_end_tray": {
       "label": "Backup End Tray",
-      "help": "Backup end tray number"
+      "help": "Backup end tray number (0-9). 0=Game Tray 1"
     },
     "backup_start_slot": {
       "label": "Backup Start Slot",
-      "help": "Backup start slot number"
+      "help": "Backup start slot number (0-9). 0=Game Slot 1"
     },
     "backup_end_slot": {
       "label": "Backup End Slot",
-      "help": "Backup end slot number"
+      "help": "Backup end slot number (0-9). 0=Game Slot 1"
     },
     "command_type": {
       "label": "Command Type",
@@ -1019,12 +1019,12 @@
   },
   "error_add_failed": "Failed to add key to bindset",
   "error_remove_failed": "Failed to remove key from bindset",
-  "command_group_non_trayexec": "Non-TrayExec Commands",
+  "command_group_non_trayexec": "Before Palindrome",
   "command_group_palindromic": "Palindromic TrayExec",
   "command_group_pivot": "Pivot Group",
-  "command_group_hint_fixed_order": "Fixed order - always executed first",
-  "command_group_hint_palindromic": "Can be reordered - affects palindrome structure",
-  "command_group_hint_pivot": "Can be reordered - forms palindrome center",
+  "command_group_hint_fixed_order": "Always executed first",
+  "command_group_hint_palindromic": "Affects palindrome structure",
+  "command_group_hint_pivot": "Forms palindrome center",
   "palindromic_included_tooltip": "Included in palindrome (click to exclude)",
   "palindromic_excluded_tooltip": "Excluded from palindrome (click to include)",
   "placement_in_pivot_group_tooltip": "In pivot group (click to move before palindromes)",

@@ -58,6 +58,36 @@ export default class ParameterCommandUI extends UIComponentBase {
     return parsed
   }
 
+  /**
+   * Safe Boolean parsing utility with transformation logic
+   *
+   * This function handles boolean parameter validation and transformation
+   * according to boolean semantics: any non-zero number becomes 1 (true),
+   * and 0 remains 0 (false). This provides proper boolean behavior for
+   * parameters that are stored as numbers but represent boolean values.
+   *
+   * @param {string} value - The string value to parse
+   * @param {string} paramName - The parameter name being parsed (for error messages)
+   * @returns {number} 0 or 1 (boolean representation as number)
+   * @throws {STOError} If the parsed value is NaN
+   */
+  safeParseBoolean(value, paramName) {
+    if (value === '' || value === undefined || value === null) {
+      return undefined
+    }
+
+    const parsed = Number(value)
+    if (Number.isNaN(parsed)) {
+      throw new STOError(
+        `Invalid boolean for ${paramName}: '${value}' is not a valid number`,
+        'INVALID_PARAMETER_BOOLEAN'
+      )
+    }
+
+    // Boolean transformation: any non-zero value becomes 1, 0 remains 0
+    return parsed !== 0 ? 1 : 0
+  }
+
   onInit() {
     this.setupEventListeners()
   }
@@ -385,12 +415,23 @@ export default class ParameterCommandUI extends UIComponentBase {
     if (!container) return {}
 
     const values = {}
+
+    // Get parameter definitions from current command to check types
+    const commandDef = this.currentParameterCommand?.commandDef
+    const parameterDefs = commandDef?.parameters || {}
+
     container.querySelectorAll('input, select').forEach(input => {
       const name = input.name
       if (!name) return
 
+      const paramDef = parameterDefs[name]
+
       if (input.type === 'number') {
-        values[name] = this.safeParseNumber(input.value, name)
+        if (paramDef?.type === 'boolean') {
+          values[name] = this.safeParseBoolean(input.value, name)
+        } else {
+          values[name] = this.safeParseNumber(input.value, name)
+        }
       } else {
         values[name] = input.value
       }
@@ -548,7 +589,7 @@ export default class ParameterCommandUI extends UIComponentBase {
         })
       } else {
         inputEl      = this.document.createElement('input')
-        inputEl.type = paramDef.type === 'number' ? 'number' : 'text'
+        inputEl.type = (paramDef.type === 'number' || paramDef.type === 'boolean') ? 'number' : 'text'
         inputEl.id   = `param_${paramName}`
         inputEl.name = paramName
         inputEl.value = selectedVal ?? ''
@@ -560,7 +601,7 @@ export default class ParameterCommandUI extends UIComponentBase {
             inputEl.placeholder = paramDef.placeholder
           }
         }
-        if (paramDef.type === 'number') {
+        if (paramDef.type === 'number' || paramDef.type === 'boolean') {
           if (paramDef.min !== undefined)  inputEl.min  = paramDef.min
           if (paramDef.max !== undefined)  inputEl.max  = paramDef.max
           if (paramDef.step !== undefined) inputEl.step = paramDef.step
@@ -576,7 +617,30 @@ export default class ParameterCommandUI extends UIComponentBase {
       container.appendChild(inputGroup)
 
       // Live preview updates
-      inputEl.addEventListener('input', () => this.updateParameterPreview())
+      if (paramDef.type === 'boolean') {
+        // Special handling for boolean parameters: real-time validation and transformation
+        inputEl.addEventListener('input', (event) => {
+          const value = event.target.value
+
+          // Validate input is a number first
+          const parsed = Number(value)
+          if (!Number.isNaN(parsed)) {
+            // Transform non-zero values to 1, keep 0 as 0
+            const transformedValue = parsed !== 0 ? 1 : 0
+
+            // Only update the field if the transformation changed the value
+            if (parsed !== transformedValue) {
+              event.target.value = transformedValue
+            }
+          }
+
+          this.updateParameterPreview()
+        })
+      } else {
+        // Standard handling for other parameter types
+        inputEl.addEventListener('input', () => this.updateParameterPreview())
+      }
+
       if (inputEl.tagName === 'SELECT') {
         inputEl.addEventListener('change', () => this.updateParameterPreview())
       }
