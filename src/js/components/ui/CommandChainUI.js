@@ -1009,10 +1009,20 @@ export default class CommandChainUI extends UIComponentBase {
             const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
             const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
             if (stabilized && commands.length > 1) {
-              const commandStrings = commands.map(cmd => 
-                typeof cmd === 'string' ? cmd : (cmd.command || cmd)
-              ).filter(Boolean)
-              const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
+              // CRITICAL: Ensure placement data is preserved when passing commands to mirroring service
+              const commandObjects = commands.map(cmd => {
+                if (typeof cmd === 'string') {
+                  return { command: cmd }
+                } else {
+                  // Preserve rich object properties including placement
+                  return {
+                    command: cmd.command || cmd,
+                    placement: cmd.placement,
+                    palindromicGeneration: cmd.palindromicGeneration
+                  }
+                }
+              }).filter(Boolean)
+              const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: commandObjects })
               if (mirroredStr) {
                 aliasPreview = `alias ${aliasName} <& ${mirroredStr} &>`
               }
@@ -1058,8 +1068,21 @@ export default class CommandChainUI extends UIComponentBase {
       try {
         const bindset = this.cache.currentEnvironment === 'alias' ? null : this.cache.activeBindset
         const stabilized = await this.request('command-chain:is-stabilized', { name: selectedKeyName, bindset })
-        if (stabilized && commandStrings.length > 1) {
-          const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: commandStrings.map(c=>({command:c})) })
+        if (stabilized && commands.length > 1) {
+          // CRITICAL: Ensure placement data is preserved when passing commands to mirroring service
+          const commandObjects = commands.map(cmd => {
+            if (typeof cmd === 'string') {
+              return { command: cmd }
+            } else {
+              // Preserve rich object properties including placement
+              return {
+                command: cmd.command || cmd,
+                placement: cmd.placement,
+                palindromicGeneration: cmd.palindromicGeneration
+              }
+            }
+          }).filter(Boolean)
+          const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: commandObjects })
           if (mirroredStr) previewString = mirroredStr
         }
       } catch {}
@@ -1340,13 +1363,13 @@ export default class CommandChainUI extends UIComponentBase {
           profileId: this.cache.currentProfile,
           ...payload
         })
-        
-        // Re-fetch commands to ensure we have the saved state
-        const updatedCommands = await this.getCommandsForCurrentSelection()
-        console.log('[CommandChainUI] Commands after update:', updatedCommands)
-        
-        // Trigger re-render to show updated button state
-        this.render(updatedCommands)
+
+        // CRITICAL: Use the updated commands array directly instead of re-fetching to avoid timing issues
+        // This ensures the mirroring logic has the most up-to-date placement data
+        console.log('[CommandChainUI] Commands after update:', commands)
+
+        // Trigger re-render to show updated button state with the current placement data
+        await this.render(commands)
       }
     } catch (err) {
       console.error('[CommandChainUI] Failed to update command palindromic setting:', err)
