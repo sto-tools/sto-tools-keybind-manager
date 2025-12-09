@@ -50,6 +50,11 @@ export default class KeyCaptureService extends ComponentBase {
 
   onInit() {
     this.setupEventListeners()
+    this.setupGamepadEventHandling()
+
+    // Register request/response endpoints for other services
+    this.respond('keycapture:get-modifiers', this.getModifiers.bind(this))
+    this.respond('keycapture:get-pressed-codes', this.getPressedCodes.bind(this))
   }
 
   setupEventListeners() {
@@ -71,13 +76,16 @@ export default class KeyCaptureService extends ComponentBase {
     // Add keyboard listeners
     this.document.addEventListener('keydown', this.boundHandleKeyDown)
     this.document.addEventListener('keyup',   this.boundHandleKeyUp)
-    
+
     // Add mouse listeners
     this.document.addEventListener('mousedown', this.boundHandleMouseDown)
     this.document.addEventListener('mouseup', this.boundHandleMouseUp)
     this.document.addEventListener('mousemove', this.boundHandleMouseMove)
     this.document.addEventListener('wheel', this.boundHandleWheel, { passive: false })
     this.document.addEventListener('dblclick', this.boundHandleDblClick)
+
+    // Start gamepad capture coordination
+    this.startGamepadCapture()
 
     this.emit('capture-start', { context })
   }
@@ -87,21 +95,24 @@ export default class KeyCaptureService extends ComponentBase {
     if (!this.isCapturing) return
 
     this.isCapturing = false
-    
+
     // Remove keyboard listeners
     this.document.removeEventListener('keydown', this.boundHandleKeyDown)
     this.document.removeEventListener('keyup',   this.boundHandleKeyUp)
-    
+
     // Remove mouse listeners
     this.document.removeEventListener('mousedown', this.boundHandleMouseDown)
     this.document.removeEventListener('mouseup', this.boundHandleMouseUp)
     this.document.removeEventListener('mousemove', this.boundHandleMouseMove)
     this.document.removeEventListener('wheel', this.boundHandleWheel, { passive: false })
     this.document.removeEventListener('dblclick', this.boundHandleDblClick)
-    
+
+    // Stop gamepad capture coordination
+    this.stopGamepadCapture()
+
     this.pressedCodes.clear()
     this.hasCapturedValidKey = false
-    
+
     // Clear mouse state
     this.resetMouseState()
 
@@ -469,9 +480,98 @@ export default class KeyCaptureService extends ComponentBase {
       .join('+')
   }
 
+  // Get currently pressed modifier keys for other services
+  getModifiers() {
+    if (!this.isCapturing) {
+      return []
+    }
+
+    // Filter pressed codes to only return modifiers
+    const modifierCodes = [...this.pressedCodes].filter(code => this.isModifier(code))
+
+    // Convert modifier codes to standard format for chord creation
+    return modifierCodes.map(code => {
+      if (code.startsWith('Control')) return 'Ctrl'
+      if (code.startsWith('Alt')) return 'Alt'
+      if (code.startsWith('Shift')) return 'Shift'
+      if (code.startsWith('Meta')) return 'Meta'
+      return code
+    })
+  }
+
+  // Get all currently pressed key codes for other services
+  getPressedCodes() {
+    if (!this.isCapturing) {
+      return []
+    }
+
+    // Return all currently pressed codes
+    return [...this.pressedCodes]
+  }
+
   // Check chord string against UNSAFE_KEYBINDS list.
   isRejectedChord (chord) {
     if (!chord) return false
     return UNSAFE_KEYBINDS.some(k => k.toUpperCase() === chord.toUpperCase())
+  }
+
+  /* ------------------------ Gamepad Coordination ----------------------- */
+
+  // Start gamepad capture coordination with GamepadCaptureService
+  async startGamepadCapture() {
+    try {
+      // Request gamepad capture to start via the service interface
+      const result = await this.request('gamepad:start-capture')
+      console.log('KeyCaptureService: Gamepad capture coordination started', result)
+    } catch (error) {
+      // GamepadCaptureService may not be available or may fail
+      console.warn('KeyCaptureService: Failed to start gamepad capture coordination:', error)
+    }
+  }
+
+  // Stop gamepad capture coordination with GamepadCaptureService
+  async stopGamepadCapture() {
+    try {
+      // Request gamepad capture to stop via the service interface
+      const result = await this.request('gamepad:stop-capture')
+      console.log('KeyCaptureService: Gamepad capture coordination stopped', result)
+    } catch (error) {
+      // GamepadCaptureService may not be available
+      console.warn('KeyCaptureService: Failed to stop gamepad capture coordination:', error)
+    }
+  }
+
+  // Handle chord-captured events from gamepad service (coordinated with keyboard/mouse chords)
+  setupGamepadEventHandling() {
+    // Listen for chord-captured events from GamepadCaptureService
+    this.addEventListener('chord-captured', (event) => {
+      // Check if event has detail property (some events may not have it)
+      if (!event.detail) return
+
+      const { chord, context, source, gamepadIndex, gamepadInputs } = event.detail
+
+      // Only process gamepad-sourced chords if we're currently capturing
+      if (source === 'gamepad' && this.isCapturing) {
+        console.log('KeyCaptureService: Received gamepad chord:', {
+          chord,
+          context,
+          gamepadIndex,
+          gamepadInputs,
+          currentContext: this.currentContext
+        })
+
+        // Emit the gamepad chord to maintain the same event format as keyboard/mouse
+        this.emit('chord-captured', {
+          chord,
+          context: this.currentContext, // Use our context for consistency
+          source: 'gamepad',
+          gamepadIndex,
+          gamepadInputs
+        })
+
+        // Mark that we've captured a valid input to handle the capture session lifecycle
+        this.hasCapturedValidKey = true
+      }
+    })
   }
 } 

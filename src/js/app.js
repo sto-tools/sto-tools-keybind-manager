@@ -23,6 +23,7 @@ import AliasService from './components/services/AliasService.js'
 import ExportService from './components/services/ExportService.js'
 import KeyCaptureService from './components/services/KeyCaptureService.js'
 import KeyCaptureUI from './components/ui/KeyCaptureUI.js'
+import GamepadCaptureService from './components/services/GamepadCaptureService.js'
 import SelectionService from './components/services/SelectionService.js'
 import { VFXManagerService, ModalManagerService } from './components/services/index.js'
 import { VFXManagerUI, HeaderMenuUI, AboutModalUI, ImportUI, ConfirmDialogUI, InputDialogUI } from './components/ui/index.js'
@@ -245,6 +246,9 @@ export default class STOToolsKeybindManager {
         i18n: this.i18n,
       })
       this.keyCaptureUI.init()
+
+      this.gamepadCaptureService = new GamepadCaptureService({ eventBus, i18n: this.i18n })
+      this.gamepadCaptureService.init()
 
       this.commandService = new CommandService({
         storage: storageService,

@@ -1,7 +1,14 @@
 /**
- * Keyboard layout definitions for international support
- * Used by KeyCaptureUI to render appropriate visual keyboards
+ * Keyboard and controller layout definitions for international support
+ * Used by KeyCaptureUI to render appropriate visual keyboards and virtual controllers
  */
+
+import {
+  STANDARD_GAMEPAD_LAYOUT,
+  JOYSTICK_LAYOUT,
+  getAllControllerLayouts as _getAllControllerLayouts,
+  getAllControllerPositions
+} from './controllerLayouts.js'
 
 // Base key positions (independent of layout)
 const KEY_POSITIONS = {
@@ -530,6 +537,35 @@ const SMART_SUGGESTIONS = {
   }
 }
 
+// All available layout options including keyboards and controllers
+const ALL_LAYOUTS = {
+  // Keyboard layouts
+  QWERTY: QWERTY_LAYOUT,
+  QWERTZ: QWERTZ_LAYOUT,
+  AZERTY: AZERTY_LAYOUT,
+
+  // Controller layouts (special handling)
+  'Standard Gamepad': {
+    ...STANDARD_GAMEPAD_LAYOUT,
+    isController: true,
+    positions: getAllControllerPositions()
+  },
+  'Joystick': {
+    ...JOYSTICK_LAYOUT,
+    isController: true,
+    positions: getAllControllerPositions()
+  }
+}
+
+// Layout options for UI selector
+const LAYOUT_OPTIONS = [
+  { value: 'QWERTY', label: 'QWERTY (English/Spanish)', type: 'keyboard' },
+  { value: 'QWERTZ', label: 'QWERTZ (German)', type: 'keyboard' },
+  { value: 'AZERTY', label: 'AZERTY (French)', type: 'keyboard' },
+  { value: 'Standard Gamepad', label: 'Standard Gamepad', type: 'controller' },
+  { value: 'Joystick', label: 'Joystick', type: 'controller' }
+]
+
 /**
  * Get keyboard layout for a given language
  * @param {string} language - Language code (en, de, fr, es)
@@ -549,6 +585,41 @@ export function getKeyboardLayout(language) {
 }
 
 /**
+ * Get layout by name (supports both keyboard and controller layouts)
+ * @param {string} layoutName - Layout name ('QWERTY', 'QWERTZ', 'AZERTY', 'Standard Gamepad', 'Joystick')
+ * @returns {Object} Layout object
+ */
+export function getLayoutByName(layoutName) {
+  return ALL_LAYOUTS[layoutName] || QWERTY_LAYOUT
+}
+
+/**
+ * Get all available layout options for UI selector
+ * @returns {Array} Array of layout option objects
+ */
+export function getLayoutOptions() {
+  return LAYOUT_OPTIONS
+}
+
+/**
+ * Check if a layout is a controller layout
+ * @param {string} layoutName - Layout name
+ * @returns {boolean} True if layout is a controller
+ */
+export function isControllerLayout(layoutName) {
+  const layout = ALL_LAYOUTS[layoutName]
+  return layout && layout.isController === true
+}
+
+/**
+ * Get controller layouts only
+ * @returns {Array} Array of controller layout objects
+ */
+export function getAvailableControllerLayouts() {
+  return _getAllControllerLayouts()
+}
+
+/**
  * Get keyboard layout name for a given language
  * @param {string} language - Language code
  * @returns {string} Layout name
@@ -559,11 +630,16 @@ export function getLayoutName(language) {
 }
 
 
+// Re-export controller layouts for convenience
+export { STANDARD_GAMEPAD_LAYOUT, JOYSTICK_LAYOUT } from './controllerLayouts.js'
+
 export {
   KEY_POSITIONS,
   QWERTY_LAYOUT,
   QWERTZ_LAYOUT,
   AZERTY_LAYOUT,
   MOUSE_GESTURES,
-  SMART_SUGGESTIONS
+  SMART_SUGGESTIONS,
+  ALL_LAYOUTS,
+  LAYOUT_OPTIONS
 } 

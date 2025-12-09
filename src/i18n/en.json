@@ -1092,5 +1092,14 @@
   "overwrite_all_action": "Overwrite all",
   "import_result_skipped": "Imported {{imported}}, skipped {{skipped}} conflicts.",
   "import_result_overwrote": "Imported {{imported}}, overwrote {{overwritten}} items.",
-  "import_result_overwrite_all": "Imported {{imported}} after clearing {{cleared}} existing items."
+  "import_result_overwrite_all": "Imported {{imported}} after clearing {{cleared}} existing items.",
+  "gamepad_unavailable_secure_context": "Gamepad support requires a secure connection (HTTPS). Please use a secure connection to enable gamepad functionality.",
+  "gamepad_unsupported": "Gamepad API is not supported in this browser. Please use a modern browser that supports the Gamepad API.",
+  "gamepad_unavailable": "Gamepad support is not available in this environment.",
+  "gamepad_not_found": "The specified gamepad was not found or is not connected.",
+  "gamepad_not_calibrating": "No calibration session is currently active.",
+  "gamepad_calibration_standard_not_needed": "Standard gamepads do not require calibration. This feature is for non-standard controllers only.",
+  "gamepad_calibration_invalid_step": "Invalid calibration step.",
+  "gamepad_calibration_invalid_input": "Invalid input type for this calibration step.",
+  "gamepad_calibrate_prompt": "Press {{buttonName}} (Step {{stepNumber}} of {{totalSteps}})"
 }
