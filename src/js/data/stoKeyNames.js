@@ -20,6 +20,7 @@ export const STO_KEY_NAMES = [
   // since the decoding happens during import and encoding happens during export
   // Gamepad/xbox style
   'Joy1','Joy2','Joy3','Joy4','Joy5','Joy6','Joy7','Joy8','Joy9','Joy10','Joy11','Joy12',
+  'Joy13','Joy14','Joy15','Joy16','Joy17','Joy18','Joy19','Joy20','Joy21','Joy22','Joy23','Joy24',
   'Lstick_down','Lstick_left','Lstick_right','Lstick_up',
   'Rstick_down','Rstick_left','Rstick_right','Rstick_up',
   'Joypad_down','Joypad_left','Joypad_right','Joypad_up'

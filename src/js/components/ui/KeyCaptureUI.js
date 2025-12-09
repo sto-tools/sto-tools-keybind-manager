@@ -1009,8 +1009,8 @@ export default class KeyCaptureUI extends UIComponentBase {
     const renderControllerButton = (control) => {
       const baseStyle = `
         position: absolute;
-        left: ${(control.col + 1) * 2.5}rem;
-        top: ${(control.row + 3) * 2.5}rem;
+        left: ${control.col * 2.5}rem;
+        top: ${control.row * 2.5}rem;
         width: ${(control.width || 1) * 2.5}rem;
         height: 2.5rem;
         background: linear-gradient(135deg, ${control.color || '#9e9e9e'}, ${this.adjustColor(control.color || '#9e9e9e', -20)});
@@ -1052,43 +1052,40 @@ export default class KeyCaptureUI extends UIComponentBase {
         additionalStyle = `
           border-radius: 0.5rem 0.5rem 0.25rem 0.25rem;
           width: 2rem;
-          left: ${(control.col + 1.25) * 2.5}rem;
         `
       } else if (control.id.includes('down')) {
         additionalStyle = `
           border-radius: 0.25rem 0.25rem 0.5rem 0.5rem;
           width: 2rem;
-          left: ${(control.col + 1.25) * 2.5}rem;
         `
       } else if (control.id.includes('left')) {
         additionalStyle = `
           border-radius: 0.5rem 0.25rem 0.25rem 0.5rem;
-          height: 2rem;
-          top: ${(control.row + 3.25) * 2.5}rem;
+          width: 2rem;
         `
       } else if (control.id.includes('right')) {
         additionalStyle = `
           border-radius: 0.25rem 0.5rem 0.5rem 0.25rem;
-          height: 2rem;
-          top: ${(control.row + 3.25) * 2.5}rem;
+          width: 2rem;
         `
       }
 
       const baseStyle = `
         position: absolute;
-        left: ${(control.col + 1) * 2.5}rem;
-        top: ${(control.row + 3) * 2.5}rem;
+        left: ${control.col * 2.5}rem;
+        top: ${control.row * 2.5}rem;
         width: ${(control.width || 1) * 2.5}rem;
         height: 2.5rem;
         background: linear-gradient(135deg, ${control.color || '#607D8B'}, ${this.adjustColor(control.color || '#607D8B', -20)});
         border: 2px solid #333;
+        border-radius: ${control.type === 'trigger' ? '0.5rem' : '0.25rem'};
         color: white;
         font-weight: bold;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        font-size: 0.9rem;
+        font-size: 0.8rem;
         box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
         transition: all 0.15s ease;
         z-index: 10;
@@ -1114,8 +1111,8 @@ export default class KeyCaptureUI extends UIComponentBase {
       const stickBase = stickControls[0]
       const style = `
         position: absolute;
-        left: ${(stickBase.col + 1) * 2.5}rem;
-        top: ${(stickBase.row + 3) * 2.5}rem;
+        left: ${stickBase.col * 2.5}rem;
+        top: ${stickBase.row * 2.5}rem;
         width: ${(stickBase.width || 2) * 2.5}rem;
         height: ${(stickBase.width || 2) * 2.5}rem;
         background: radial-gradient(circle, #f5f5f5 0%, #e0e0e0 40%, #9e9e9e 100%);
@@ -1211,7 +1208,7 @@ export default class KeyCaptureUI extends UIComponentBase {
       bumpersTriggers.forEach(control => {
         const triggerStyle = control.type === 'trigger' ? `
           height: 1.8rem;
-          top: ${(control.row + 3.35) * 2.5}rem;
+          top: ${control.row * 2.5}rem;
           background: linear-gradient(180deg, ${control.color || '#757575'}, ${this.adjustColor(control.color || '#757575', -30)});
           border-radius: 0.75rem 0.75rem 0.5rem 0.5rem;
         ` : ''
