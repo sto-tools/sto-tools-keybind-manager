@@ -5,46 +5,59 @@
 
 // Base controller control positions
 const CONTROLLER_POSITIONS = {
-  // Standard Gamepad buttons
-  Joy1: { row: 2, col: 14, width: 1, type: 'button' },      // A (bottom face button)
-  Joy2: { row: 1, col: 13, width: 1, type: 'button' },      // B (right face button)
-  Joy3: { row: 1, col: 15, width: 1, type: 'button' },      // X (left face button)
-  Joy4: { row: 0, col: 14, width: 1, type: 'button' },      // Y (top face button)
+  // Bumpers and triggers (top row)
+  Joy5: { row: 1, col: 2, width: 1, type: 'button' },     // Left Bumper (LB)
+  Joy6: { row: 1, col: 13, width: 1, type: 'button' },   // Right Bumper (RB)
+  Joy7: { row: 0, col: 2, width: 1, type: 'trigger' },    // Left Trigger (LT)
+  Joy8: { row: 0, col: 13, width: 1, type: 'trigger' },  // Right Trigger (RT)
 
-  // Bumpers and triggers
-  Joy5: { row: 0, col: 11, width: 1.5, type: 'button' },    // Left Bumper (LB)
-  Joy6: { row: 0, col: 15.5, width: 1.5, type: 'button' },  // Right Bumper (RB)
-  Joy7: { row: -1, col: 11, width: 1.5, type: 'trigger' },  // Left Trigger (LT)
-  Joy8: { row: -1, col: 15.5, width: 1.5, type: 'trigger' }, // Right Trigger (RT)
+  // Face buttons (right side)
+  Joy1: { row: 4, col: 13, width: 1, type: 'button' },      // A (bottom face button)
+  Joy2: { row: 3, col: 14, width: 1, type: 'button' },      // B (right face button)
+  Joy3: { row: 3, col: 12, width: 1, type: 'button' },      // X (left face button)
+  Joy4: { row: 2, col: 13, width: 1, type: 'button' },      // Y (top face button)
 
-  // D-pad
-  Joypad_up: { row: 1, col: 2, width: 1, type: 'dpad' },
-  Joypad_down: { row: 3, col: 2, width: 1, type: 'dpad' },
-  Joypad_left: { row: 2, col: 1, width: 1, type: 'dpad' },
-  Joypad_right: { row: 2, col: 3, width: 1, type: 'dpad' },
+  // D-pad (left side)
+  Joypad_up: { row: 2, col: 2, width: 1, type: 'dpad' },
+  Joypad_down: { row: 4, col: 2, width: 1, type: 'dpad' },
+  Joypad_left: { row: 3, col: 1, width: 1, type: 'dpad' },
+  Joypad_right: { row: 3, col: 3, width: 1, type: 'dpad' },
 
   // Center buttons
-  Joy9: { row: 2, col: 7, width: 1, type: 'button' },       // Select/Back
+  Joy9: { row: 2, col: 6, width: 1, type: 'button' },       // Select/Back
   Joy10: { row: 2, col: 9, width: 1, type: 'button' },      // Start/Forward
-  Joy11: { row: 1, col: 8, width: 1, type: 'button' },      // Left Stick Click
-  Joy12: { row: 3, col: 8, width: 1, type: 'button' },      // Right Stick Click
+  
+  
 
   // Analog sticks (as directions)
-  Lstick_up: { row: 4, col: 4, width: 2, type: 'stick', stick: 'left', direction: 'up' },
-  Lstick_down: { row: 6, col: 4, width: 2, type: 'stick', stick: 'left', direction: 'down' },
-  Lstick_left: { row: 5, col: 3, width: 2, type: 'stick', stick: 'left', direction: 'left' },
-  Lstick_right: { row: 5, col: 5, width: 2, type: 'stick', stick: 'left', direction: 'right' },
+  Lstick_up: { row: 3, col: 5, width: 1, type: 'stick', stick: 'left', direction: 'up' },
+  Lstick_down: { row: 5, col: 5, width: 1, type: 'stick', stick: 'left', direction: 'down' },
+  Joy11: { row: 4, col: 5, width: 1, type: 'button' },      // Left Stick Click (L3)
+  Lstick_left: { row: 4, col: 4, width: 1, type: 'stick', stick: 'left', direction: 'left' },
+  Lstick_right: { row: 4, col: 6, width: 1, type: 'stick', stick: 'left', direction: 'right' },
 
-  Rstick_up: { row: 4, col: 12, width: 2, type: 'stick', stick: 'right', direction: 'up' },
-  Rstick_down: { row: 6, col: 12, width: 2, type: 'stick', stick: 'right', direction: 'down' },
-  Rstick_left: { row: 5, col: 11, width: 2, type: 'stick', stick: 'right', direction: 'left' },
-  Rstick_right: { row: 5, col: 13, width: 2, type: 'stick', stick: 'right', direction: 'right' },
+  Rstick_up: { row: 3, col: 10, width: 1, type: 'stick', stick: 'right', direction: 'up' },
+  Rstick_down: { row: 5, col: 10, width: 1, type: 'stick', stick: 'right', direction: 'down' },
+  Joy12: { row: 4, col: 10, width: 1, type: 'button' },      // Right Stick Click (R3)
+  Rstick_left: { row: 4, col: 9, width: 1, type: 'stick', stick: 'right', direction: 'left' },
+  Rstick_right: { row: 4, col: 11, width: 1, type: 'stick', stick: 'right', direction: 'right' },
 
-  // Joystick-specific controls
-  Joy13: { row: 2, col: 6, width: 1, type: 'button' },      // Additional joystick button 1
-  Joy14: { row: 3, col: 6, width: 1, type: 'button' },      // Additional joystick button 2
-  Joy15: { row: 2, col: 10, width: 1, type: 'button' },     // Additional joystick button 3
-  Joy16: { row: 3, col: 10, width: 1, type: 'button' },     // Additional joystick button 4
+  // Joystick-specific controls (additional buttons)
+  Joy13: { row: 2, col: 16, width: 1, type: 'button' },      // Additional joystick button 1
+  Joy14: { row: 3, col: 16, width: 1, type: 'button' },      // Additional joystick button 2
+  Joy15: { row: 4, col: 16, width: 1, type: 'button' },      // Additional joystick button 3
+  
+  Joy16: { row: 2, col: 17, width: 1, type: 'button' },      // Additional joystick button 1
+  Joy17: { row: 3, col: 17, width: 1, type: 'button' },      // Additional joystick button 2
+  Joy18: { row: 4, col: 17, width: 1, type: 'button' },      // Additional joystick button 3
+
+  Joy19: { row: 2, col: 18, width: 1, type: 'button' },      // Additional joystick button 1
+  Joy20: { row: 3, col: 18, width: 1, type: 'button' },      // Additional joystick button 2
+  Joy21: { row: 4, col: 18, width: 1, type: 'button' },      // Additional joystick button 3
+
+  Joy22: { row: 2, col: 19, width: 1, type: 'button' },      // Additional joystick button 1
+  Joy23: { row: 3, col: 19, width: 1, type: 'button' },      // Additional joystick button 2
+  Joy24: { row: 4, col: 19, width: 1, type: 'button' },      // Additional joystick button 3
 }
 
 // Standard Gamepad layout (Xbox/PlayStation style controllers)
@@ -464,6 +477,62 @@ const JOYSTICK_LAYOUT = {
       secondary: 'Button 16',
       gamepadIndex: 19,
       description: 'Additional button 16',
+      color: '#FFEB3B'
+    },
+    Joy17: {
+      primary: 'B16',
+      secondary: 'Button 17',
+      gamepadIndex: 20,
+      description: 'Additional button 17',
+      color: '#FFEB3B'
+    },
+    Joy18: {
+      primary: 'B17',
+      secondary: 'Button 18',
+      gamepadIndex: 21,
+      description: 'Additional button 18',
+      color: '#FFEB3B'
+    },
+    Joy19: {
+      primary: 'B19',
+      secondary: 'Button 19',
+      gamepadIndex: 22,
+      description: 'Additional button 19',
+      color: '#FFEB3B'
+    },
+    Joy20: {
+      primary: 'B20',
+      secondary: 'Button 20',
+      gamepadIndex: 23,
+      description: 'Additional button 20',
+      color: '#FFEB3B'
+    },
+    Joy21: {
+      primary: 'B21',
+      secondary: 'Button 21',
+      gamepadIndex: 24,
+      description: 'Additional button 21',
+      color: '#FFEB3B'
+    },
+    Joy22: {
+      primary: 'B22',
+      secondary: 'Button 22',
+      gamepadIndex: 25,
+      description: 'Additional button 22',
+      color: '#FFEB3B'
+    },
+    Joy23: {
+      primary: 'B23',
+      secondary: 'Button 23',
+      gamepadIndex: 26,
+      description: 'Additional button 23',
+      color: '#FFEB3B'
+    },
+    Joy24: {
+      primary: 'B24',
+      secondary: 'Button 24',
+      gamepadIndex: 27,
+      description: 'Additional button 24',
       color: '#FFEB3B'
     }
   }
