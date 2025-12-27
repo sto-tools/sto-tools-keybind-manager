@@ -264,7 +264,7 @@ export default class KeyCaptureService extends ComponentBase {
     
     event.preventDefault()
     
-    const gesture = event.deltaY > 0 ? 'wheeldown' : 'wheelup'
+    const gesture = event.deltaY > 0 ? 'Wheelminus' : 'Wheelplus'
     this.captureMouseGesture(gesture)
   }
 
@@ -335,7 +335,7 @@ export default class KeyCaptureService extends ComponentBase {
         // Mouse gestures --------------------------------------------------
         if (typeof code === 'string' && (
           code.startsWith('l') || code.startsWith('r') || code.startsWith('m') ||
-          code === 'wheelup' || code === 'wheeldown'
+          code === 'Wheelplus' || code === 'Wheelminus'
         )) {
           return code
         }
@@ -343,7 +343,7 @@ export default class KeyCaptureService extends ComponentBase {
         // Modifiers --------------------------------------------------------
         if (code.startsWith('Control')) {
           if (locationSpecific) return code.endsWith('Left') ? 'LCTRL' : 'RCTRL'
-          return 'Ctrl'
+          return 'Control'
         }
         if (code.startsWith('Alt')) {
           if (locationSpecific) return code.endsWith('Left') ? 'LALT' : 'RALT'
