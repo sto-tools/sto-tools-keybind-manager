@@ -447,9 +447,8 @@ export default class ExportService extends ComponentBase {
         optimisedCommands.push(opt)
       }
 
-      // Join array back to string for STO format
-      const commandsStr = optimisedCommands.join(' $$ ')
-      content += formatAliasLine(name, { ...alias, commands: commandsStr })
+      // Pass array directly to formatAliasLine which will handle joining
+      content += formatAliasLine(name, { ...alias, commands: optimisedCommands })
       content += '\n'
     }
     
