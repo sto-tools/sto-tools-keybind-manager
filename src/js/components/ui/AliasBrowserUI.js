@@ -269,10 +269,28 @@ export default class AliasBrowserUI extends UIComponentBase {
   
   createAliasElement (name, alias) {
     // Handle both legacy string format and new canonical string array format
+    // Also supports rich command objects with metadata (e.g., { command: 'cmd', palindromicGeneration: false })
     let commandCount = 0
     if (Array.isArray(alias.commands)) {
-      // New canonical array format
-      commandCount = alias.commands.filter(cmd => cmd && cmd.trim()).length
+      // Extract command strings from both string and rich object formats
+      commandCount = alias.commands.filter(cmd => {
+        // Handle null/undefined
+        if (!cmd) return false
+
+        // Handle string format
+        if (typeof cmd === 'string') {
+          return cmd.trim().length > 0
+        }
+
+        // Handle rich object format: { command: 'string', ...metadata }
+        if (typeof cmd === 'object' && cmd.command) {
+          const cmdStr = cmd.command
+          return cmdStr && typeof cmdStr === 'string' && cmdStr.trim().length > 0
+        }
+
+        // Ignore other types (numbers, booleans, etc.)
+        return false
+      }).length
     } else if (typeof alias.commands === 'string' && alias.commands.trim()) {
       // Legacy string format - split by $$
       commandCount = alias.commands.trim().split(/\s*\$\$/).length
