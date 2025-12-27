@@ -432,9 +432,28 @@ export default class ExportService extends ComponentBase {
       const shouldStabilize = !alias.isGenerated && !alias.isLoader && (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
 
       if (shouldStabilize && commandsArray.length > 1) {
-        const cmdParts = commandsArray.map(c => ({ command: c }))
+        // PROPERLY normalize: preserve existing objects, convert strings to objects
+        const cmdParts = commandsArray.map(c => {
+          if (typeof c === 'string') {
+            return { command: c }  // String → object
+          } else if (c && typeof c.command === 'string') {
+            return c  // Already an object, preserve metadata
+          }
+          return null
+        }).filter(Boolean)
+
         const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: cmdParts })
         commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
+      } else {
+        // ALSO normalize when not stabilizing - extract command strings from objects
+        commandsArray = commandsArray.map(c => {
+          if (typeof c === 'string') {
+            return c
+          } else if (c && typeof c.command === 'string') {
+            return c.command  // Extract command string from object
+          }
+          return null
+        }).filter(Boolean)
       }
 
       // Optimise each command (e.g., TrayExecByTray / TrayExecByTrayWithBackup)
