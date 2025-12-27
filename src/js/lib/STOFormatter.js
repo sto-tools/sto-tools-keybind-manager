@@ -16,7 +16,17 @@ export function formatAliasLine(name, alias = {}, includeDescription = true) {
   if (includeDescription && alias.description) {
     line += `; ${alias.description}\n`
   }
-  line += `alias ${name} <& ${alias.commands} &>\n`
+
+  // Handle string, array of strings, or array of objects
+  let cmdStr = alias.commands || ''
+  if (Array.isArray(cmdStr)) {
+    const valid = cmdStr
+      .map((c) => typeof c === 'string' ? c.trim() : (c && typeof c.command === 'string' ? c.command.trim() : ''))
+      .filter((s) => s.length > 0)
+    cmdStr = valid.join(' $$ ')
+  }
+
+  line += `alias ${name} <& ${cmdStr} &>\n`
   return line
 }
 
