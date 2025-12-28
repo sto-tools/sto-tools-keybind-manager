@@ -33,6 +33,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.boundHandleMouseUp = this.handleMouseUp.bind(this)
     this.boundHandleMouseMove = this.handleMouseMove.bind(this)
     this.boundHandleWheel = this.handleWheel.bind(this)
+    this.boundHandleDblClick = this.handleDblClick.bind(this)
 
     // Mouse state tracking
     this.mouseState = {
@@ -40,9 +41,7 @@ export default class KeyCaptureService extends ComponentBase {
       button: null,
       startX: 0,
       startY: 0,
-      pressTimer: null,
-      dragThreshold: 5,
-      pressTimeout: 200
+      dragThreshold: 5
     }
   }
 
@@ -75,6 +74,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.document.addEventListener('mouseup', this.boundHandleMouseUp)
     this.document.addEventListener('mousemove', this.boundHandleMouseMove)
     this.document.addEventListener('wheel', this.boundHandleWheel, { passive: false })
+    this.document.addEventListener('dblclick', this.boundHandleDblClick)
 
     this.emit('capture-start', { context })
   }
@@ -94,6 +94,7 @@ export default class KeyCaptureService extends ComponentBase {
     this.document.removeEventListener('mouseup', this.boundHandleMouseUp)
     this.document.removeEventListener('mousemove', this.boundHandleMouseMove)
     this.document.removeEventListener('wheel', this.boundHandleWheel, { passive: false })
+    this.document.removeEventListener('dblclick', this.boundHandleDblClick)
     
     this.pressedCodes.clear()
     this.hasCapturedValidKey = false
@@ -118,10 +119,6 @@ export default class KeyCaptureService extends ComponentBase {
   }
 
   resetMouseState () {
-    if (this.mouseState.pressTimer) {
-      clearTimeout(this.mouseState.pressTimer)
-      this.mouseState.pressTimer = null
-    }
     this.mouseState.isDown = false
     this.mouseState.button = null
     this.mouseState.startX = 0
@@ -207,31 +204,18 @@ export default class KeyCaptureService extends ComponentBase {
     this.mouseState.button = event.button
     this.mouseState.startX = event.clientX
     this.mouseState.startY = event.clientY
-
-    // Start press timer for press gestures
-    this.mouseState.pressTimer = setTimeout(() => {
-      if (this.mouseState.isDown) {
-        const gesture = this.getButtonGesture(this.mouseState.button, 'press')
-        this.captureMouseGesture(gesture)
-      }
-    }, this.mouseState.pressTimeout)
   }
 
   handleMouseUp (event) {
     if (!this.isCapturing) return
-    
+
     event.preventDefault()
-    
-    if (this.mouseState.pressTimer) {
-      clearTimeout(this.mouseState.pressTimer)
-      this.mouseState.pressTimer = null
-    }
-    
+
     if (this.mouseState.isDown && this.mouseState.button === event.button) {
       const deltaX = Math.abs(event.clientX - this.mouseState.startX)
       const deltaY = Math.abs(event.clientY - this.mouseState.startY)
       const hasMoved = deltaX > this.mouseState.dragThreshold || deltaY > this.mouseState.dragThreshold
-      
+
       if (hasMoved) {
         // This was a drag gesture
         const gesture = this.getButtonGesture(event.button, 'drag')
@@ -242,44 +226,47 @@ export default class KeyCaptureService extends ComponentBase {
         this.captureMouseGesture(gesture)
       }
     }
-    
+
     this.resetMouseState()
   }
 
   handleMouseMove (event) {
     if (!this.isCapturing || !this.mouseState.isDown) return
-    
-    // Check if we've moved enough to cancel the press timer
-    const deltaX = Math.abs(event.clientX - this.mouseState.startX)
-    const deltaY = Math.abs(event.clientY - this.mouseState.startY)
-    
-    if ((deltaX > this.mouseState.dragThreshold || deltaY > this.mouseState.dragThreshold) && this.mouseState.pressTimer) {
-      clearTimeout(this.mouseState.pressTimer)
-      this.mouseState.pressTimer = null
-    }
+
+    // Mouse movement is tracked for drag detection
+    // No special handling needed here - drag detection happens in handleMouseUp
   }
 
   handleWheel (event) {
     if (!this.isCapturing) return
-    
+
     event.preventDefault()
-    
+
     const gesture = event.deltaY > 0 ? 'Wheelminus' : 'Wheelplus'
+    this.captureMouseGesture(gesture)
+  }
+
+  handleDblClick (event) {
+    if (!this.isCapturing) return
+
+    event.preventDefault()
+
+    const gesture = this.getButtonGesture(event.button, 'doubleclick')
     this.captureMouseGesture(gesture)
   }
 
   getButtonGesture (button, type) {
     // Standard buttons use l/m/r prefixes
     const stdMap = {
-      0: 'l', // Left
-      1: 'm', // Middle
-      2: 'r', // Right
+      0: 'L', // Left
+      1: 'M', // Middle
+      2: 'R', // Right
     }
 
     if (button <= 2) {
-      const prefix = stdMap[button] || 'l'
+      const prefix = stdMap[button] || 'L'
       if (type === 'click') return `${prefix}click`
-      if (type === 'press') return `${prefix}press`
+      if (type === 'doubleclick') return `${prefix}dblclick`
       if (type === 'drag')  return `${prefix}drag`
       return `${prefix}click`
     }
@@ -287,8 +274,8 @@ export default class KeyCaptureService extends ComponentBase {
     // Extended buttons (Button4+)
     const btnLabel = `Button${button + 1}`
     if (type === 'click') return btnLabel
-    if (type === 'press') return `${btnLabel}press`
-    if (type === 'drag')  return `${btnLabel}drag`
+    if (type === 'doubleclick') return `${btnLabel}dblclick`
+    //if (type === 'drag')  return `${btnLabel}drag`
     return btnLabel
   }
 

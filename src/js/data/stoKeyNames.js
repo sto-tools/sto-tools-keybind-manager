@@ -7,7 +7,9 @@ export const STO_KEY_NAMES = [
   'enter',
   // Mouse buttons
   'Button1','Button2','Button3','Button4','Button5','Button6','Button7','Button8','Button9','Button10',
-  'Lbutton','Rbutton','Middleclick','Wheelminus','Wheelplus',
+  'Lbutton','Rbutton','Wheelminus','Wheelplus',
+  'Lclick','Rclick','Mclick','Ldblclick','Rdblclick','Mdblclick',
+  'Ldrag','Rdrag','Mdrag',
   'Multiply',
   '0','1','2','3','4','5','6','7','8','9',
   'numpad0','numpad1','numpad2','numpad3','numpad4','numpad5','numpad6','numpad7','numpad8','numpad9',
