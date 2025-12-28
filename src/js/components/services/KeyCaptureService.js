@@ -41,7 +41,10 @@ export default class KeyCaptureService extends ComponentBase {
       button: null,
       startX: 0,
       startY: 0,
-      dragThreshold: 5
+      dragThreshold: 5,
+      pendingClickTimer: null,      // Timer for delayed click capture
+      pendingClickButton: null,     // Which button is pending capture
+      pendingClickGesture: null     // Gesture string to capture on timeout
     }
   }
 
@@ -123,6 +126,14 @@ export default class KeyCaptureService extends ComponentBase {
     this.mouseState.button = null
     this.mouseState.startX = 0
     this.mouseState.startY = 0
+
+    // Clear pending click state
+    if (this.mouseState.pendingClickTimer) {
+      clearTimeout(this.mouseState.pendingClickTimer)
+      this.mouseState.pendingClickTimer = null
+    }
+    this.mouseState.pendingClickButton = null
+    this.mouseState.pendingClickGesture = null
   }
 
   // Keyboard down handler – now async so we can await i18n translations when
@@ -200,6 +211,17 @@ export default class KeyCaptureService extends ComponentBase {
     // Prevent default behavior
     event.preventDefault()
 
+    // Check if there's a pending click timer for the same button
+    // This indicates the user is starting a double-click
+    if (this.mouseState.pendingClickTimer &&
+        this.mouseState.pendingClickButton === event.button) {
+      // Cancel the pending click timer - user is double-clicking
+      clearTimeout(this.mouseState.pendingClickTimer)
+      this.mouseState.pendingClickTimer = null
+      this.mouseState.pendingClickButton = null
+      this.mouseState.pendingClickGesture = null
+    }
+
     this.mouseState.isDown = true
     this.mouseState.button = event.button
     this.mouseState.startX = event.clientX
@@ -217,17 +239,34 @@ export default class KeyCaptureService extends ComponentBase {
       const hasMoved = deltaX > this.mouseState.dragThreshold || deltaY > this.mouseState.dragThreshold
 
       if (hasMoved) {
-        // This was a drag gesture
+        // This was a drag gesture - capture immediately (drags can't be part of double-clicks)
         const gesture = this.getButtonGesture(event.button, 'drag')
         this.captureMouseGesture(gesture)
       } else {
-        // This was a click gesture
+        // This was a click gesture - delay capture to allow time for double-click detection
         const gesture = this.getButtonGesture(event.button, 'click')
-        this.captureMouseGesture(gesture)
+
+        // Cancel any existing pending click timer
+        if (this.mouseState.pendingClickTimer) {
+          clearTimeout(this.mouseState.pendingClickTimer)
+        }
+
+        // Store the pending click gesture
+        this.mouseState.pendingClickButton = event.button
+        this.mouseState.pendingClickGesture = gesture
+
+        // Start timer to capture as single click if no double-click occurs
+        this.mouseState.pendingClickTimer = setTimeout(() => {
+          this.capturePendingClick()
+        }, 500) // 500ms delay for double-click detection
       }
     }
 
-    this.resetMouseState()
+    // Reset mouse down state, but don't clear pending click state
+    this.mouseState.isDown = false
+    this.mouseState.button = null
+    this.mouseState.startX = 0
+    this.mouseState.startY = 0
   }
 
   handleMouseMove (event) {
@@ -251,8 +290,31 @@ export default class KeyCaptureService extends ComponentBase {
 
     event.preventDefault()
 
+    // Cancel any pending click timer (safety check - should already be cancelled by second mousedown)
+    if (this.mouseState.pendingClickTimer) {
+      clearTimeout(this.mouseState.pendingClickTimer)
+      this.mouseState.pendingClickTimer = null
+    }
+
+    // Clear pending click state
+    this.mouseState.pendingClickButton = null
+    this.mouseState.pendingClickGesture = null
+
+    // Capture the double-click gesture immediately
     const gesture = this.getButtonGesture(event.button, 'doubleclick')
     this.captureMouseGesture(gesture)
+  }
+
+  capturePendingClick () {
+    // Check if there's a pending click gesture to capture
+    if (this.mouseState.pendingClickGesture) {
+      this.captureMouseGesture(this.mouseState.pendingClickGesture)
+
+      // Clear pending click state
+      this.mouseState.pendingClickTimer = null
+      this.mouseState.pendingClickButton = null
+      this.mouseState.pendingClickGesture = null
+    }
   }
 
   getButtonGesture (button, type) {
