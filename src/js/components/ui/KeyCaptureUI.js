@@ -720,7 +720,7 @@ export default class KeyCaptureUI extends UIComponentBase {
 
     const renderColumn = (rowsDict, type = 'main') => {
       const expectedNumCols = [17, 18, 19, 20]
-      const expectedMouseCols = [22, 23, 24]
+      const expectedMouseCols = [22, 23, 24, 25, 26, 27]
       const keyUnit = 2.5 // rem, base key width
       let html = ''
       for (let rowIdx = 0; rowIdx <= maxRow; rowIdx++) {
