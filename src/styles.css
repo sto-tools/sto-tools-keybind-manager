@@ -4142,6 +4142,73 @@ input:checked + .slider:before {
   margin-right: 0.625rem; /* 0.25u gap before CtrlR */
 }
 
+.vkey[data-key-code="Lclick"] {
+  width: 4.375rem;
+}
+
+.vkey[data-key-code="Ldrag"] {
+  width: 4.375rem;
+}
+
+.vkey[data-key-code="Ldblclick"] {
+  width: 4.375rem;
+}
+
+/** Right mouse actions */
+.vkey[data-key-code="Rclick"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Rdrag"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Rdblclick"] {
+  width: 4.375rem;
+}
+
+/** Middle mouse actions */
+.vkey[data-key-code="Mclick"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Mdrag"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Mdblclick"] {
+  width: 4.375rem;
+}
+
+/** Extra buttons (Button4 - Button10) */
+.vkey[data-key-code="Button4"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Button5"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Button6"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Button7"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Button8"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Button9"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Button10"] {
+  width: 4.375rem;
+}
+
+/** Wheel gestures */
+.vkey[data-key-code="Wheelplus"] {
+  width: 4.375rem;
+}
+.vkey[data-key-code="Wheelminus"] {
+  width: 4.375rem;
+}
+
+
+
 /* Bindset Select & Manager */
 .bindset-select {
   margin-left: 1rem;
