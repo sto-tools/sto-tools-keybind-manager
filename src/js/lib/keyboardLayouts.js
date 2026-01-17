@@ -216,10 +216,10 @@ const QWERTY_LAYOUT = {
     AltRight: { primary: 'Alt', secondary: '' },
 
     // Navigation
-    ArrowUp: { primary: '↑', secondary: '' },
-    ArrowDown: { primary: '↓', secondary: '' },
-    ArrowLeft: { primary: '←', secondary: '' },
-    ArrowRight: { primary: '→', secondary: '' },
+    ArrowUp: { name: "Up", primary: '↑', secondary: '' },
+    ArrowDown: { name: "Down", primary: '↓', secondary: '' },
+    ArrowLeft: { name: "Left", primary: '←', secondary: '' },
+    ArrowRight: { name: "Right", primary: '→', secondary: '' },
     Home: { primary: 'Home', secondary: '' },
     End: { primary: 'End', secondary: '' },
     PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
@@ -329,10 +329,10 @@ const QWERTZ_LAYOUT = {
     AltRight: { primary: 'Alt', secondary: '' },
 
     // Navigation
-    ArrowUp: { primary: '↑', secondary: '' },
-    ArrowDown: { primary: '↓', secondary: '' },
-    ArrowLeft: { primary: '←', secondary: '' },
-    ArrowRight: { primary: '→', secondary: '' },
+    ArrowUp: { name: "Up", primary: '↑', secondary: '' },
+    ArrowDown: { name: "Down", primary: '↓', secondary: '' },
+    ArrowLeft: { name: "Left", primary: '←', secondary: '' },
+    ArrowRight: { name: "Right", primary: '→', secondary: '' },
     Home: { primary: 'Home', secondary: '' },
     End: { primary: 'End', secondary: '' },
     PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
@@ -442,10 +442,10 @@ const AZERTY_LAYOUT = {
     AltRight: { primary: 'Alt', secondary: '' },
 
     // Navigation
-    ArrowUp: { primary: '↑', secondary: '' },
-    ArrowDown: { primary: '↓', secondary: '' },
-    ArrowLeft: { primary: '←', secondary: '' },
-    ArrowRight: { primary: '→', secondary: '' },
+    ArrowUp: { name: "Up", primary: '↑', secondary: '' },
+    ArrowDown: { name: "Down", primary: '↓', secondary: '' },
+    ArrowLeft: { name: "Left", primary: '←', secondary: '' },
+    ArrowRight: { name: "Right", primary: '→', secondary: '' },
     Home: { primary: 'Home', secondary: '' },
     End: { primary: 'End', secondary: '' },
     PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
