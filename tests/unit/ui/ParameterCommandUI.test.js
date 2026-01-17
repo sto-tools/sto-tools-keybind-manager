@@ -294,7 +294,8 @@ describe('ParameterCommandUI', () => {
 
       ui.currentParameterCommand = {
         categoryId: 'testCategory',
-        commandId: 'testCommand'
+        commandId: 'testCommand',
+        commandDef: { name: 'Test Command', command: 'TestCommand', parameters: {} }
       }
     })
 
@@ -357,7 +358,8 @@ describe('ParameterCommandUI', () => {
       ui.currentParameterCommand = {
         categoryId: 'testCategory',
         commandId: 'testCommand',
-        isEditing: false
+        isEditing: false,
+        commandDef: { name: 'Test Command', command: 'TestCommand', parameters: {} }
       }
     })
 
@@ -419,12 +421,14 @@ describe('ParameterCommandUI', () => {
       // Mock successful command building
       ui.request.mockResolvedValue('+TrayExecByTray 1 2')
 
+      const expectedCommandDef = ui.currentParameterCommand.commandDef
+
       await ui.saveParameterCommand()
 
       expect(ui.request).toHaveBeenCalledWith('parameter-command:build', {
         categoryId: 'testCategory',
         commandId: 'testCommand',
-        commandDef: { categoryId: 'testCategory', commandId: 'testCommand', isEditing: false },
+        commandDef: expectedCommandDef,
         params: { tray: 1, slot: 2 }
       })
     })
@@ -453,7 +457,8 @@ describe('ParameterCommandUI', () => {
 
       ui.currentParameterCommand = {
         categoryId: 'testCategory',
-        commandId: 'testCommand'
+        commandId: 'testCommand',
+        commandDef: { name: 'Test Command', command: 'TestCommand', parameters: {} }
       }
 
       await ui.updateParameterPreview()
@@ -485,7 +490,8 @@ describe('ParameterCommandUI', () => {
 
       ui.currentParameterCommand = {
         categoryId: 'testCategory',
-        commandId: 'testCommand'
+        commandId: 'testCommand',
+        commandDef: { name: 'Test Command', command: 'TestCommand', parameters: {} }
       }
 
       ui.request.mockResolvedValue('+TrayExecByTray 1 2')
@@ -497,7 +503,7 @@ describe('ParameterCommandUI', () => {
       expect(ui.request).toHaveBeenCalledWith('parameter-command:build', {
         categoryId: 'testCategory',
         commandId: 'testCommand',
-        commandDef: ui.currentParameterCommand,
+        commandDef: ui.currentParameterCommand.commandDef,
         params: { tray: 1, slot: 2 }
       })
     })
@@ -598,7 +604,8 @@ describe('ParameterCommandUI', () => {
       ui.cache.selectedKey = 'F1'
       ui.currentParameterCommand = {
         categoryId: 'testCategory',
-        commandId: 'testCommand'
+        commandId: 'testCommand',
+        commandDef: { name: 'Test Command', command: 'TestCommand', parameters: {} }
       }
 
       // Mock parameter inputs and preview

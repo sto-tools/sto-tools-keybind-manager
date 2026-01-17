@@ -356,8 +356,7 @@ export default class ParameterCommandUI extends UIComponentBase {
   async updateParameterPreview () {
     if (!this.currentParameterCommand) return
 
-    const { categoryId, commandId } = this.currentParameterCommand
-    const commandDef = this.currentParameterCommand  // The commandDef properties are spread directly
+    const { categoryId, commandId, commandDef } = this.currentParameterCommand
 
     let params
     try {
@@ -456,8 +455,7 @@ export default class ParameterCommandUI extends UIComponentBase {
       return
     }
 
-    const { categoryId, commandId } = this.currentParameterCommand
-    const commandDef = this.currentParameterCommand  // The commandDef properties are spread directly
+    const { categoryId, commandId, commandDef } = this.currentParameterCommand
 
     let params
     try {
