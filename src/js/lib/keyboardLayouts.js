@@ -34,6 +34,8 @@ const KEY_POSITIONS = {
   Digit0: { row: 1, col: 10, width: 1 },
   Minus: { row: 1, col: 11, width: 1 },
   Equal: { row: 1, col: 12, width: 1 },
+
+  Backspace: { row: 1, col: 13, width: 1.5 }, 
   
   // Top letter row
   Tab: { row: 2, col: 0, width: 1.5 },
@@ -201,6 +203,7 @@ const QWERTY_LAYOUT = {
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
     Backquote: { primary: '`', secondary: '~' },
+    Backspace: { primary: 'Backspace', secondary: '' },
 
     // Special keys
     Space: { primary: 'Space', secondary: '' },
@@ -315,6 +318,8 @@ const QWERTZ_LAYOUT = {
     Period: { primary: '.', secondary: '' },
     Backquote: { primary: '`', secondary: '~' },
 
+    Backspace: { primary: 'Backspace', secondary: '' },
+
     // Special keys
     Space: { primary: 'Space', secondary: '' },
     Tab: { primary: 'Tab', secondary: '' },
@@ -427,6 +432,8 @@ const AZERTY_LAYOUT = {
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
     Backquote: { primary: '`', secondary: '~' },
+
+    Backspace: { primary: 'Backspace', secondary: '' },
 
     // Special keys
     Space: { primary: 'Space', secondary: '' },
