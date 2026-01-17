@@ -90,6 +90,19 @@ export default class KeyService extends ComponentBase {
     }
 
     try {
+      // CRITICAL FIX: Update selection FIRST, before modifying profile
+      // This ensures when data:update-profile triggers profile:updated,
+      // the selection cache already contains the new key
+      // Use skipPersistence to avoid triggering a second profile:updated event
+      await this.request('selection:select-key', {
+        keyName,
+        environment,
+        bindset: targetBindset,
+        skipPersistence: true // Skip persistence to avoid duplicate profile:updated events
+      })
+
+      // NOW update the profile - DataCoordinator will emit profile:updated,
+      // but selection cache is already correct
       if (targetBindset) {
         // Add to a specific bindset without touching primary keys
         await this.request('data:update-profile', {
@@ -141,13 +154,7 @@ export default class KeyService extends ComponentBase {
         }
       }
 
-      // CRITICAL FIX: Select the new key BEFORE emitting profile:updated
-      // This ensures CommandChainService.refreshCommands() uses the correct selection
-      await this.request('selection:select-key', { keyName, environment, bindset: targetBindset })
-
-      // NOW emit profile:updated - cache is already updated with new selection
-      this.emit('profile:updated', { profileId: this.cache.currentProfile, profile: this.cache.profile })
-      this.emit('profile-modified', { profileId: this.cache.currentProfile })
+      // DataCoordinator already emitted profile:updated, so we only emit key-added
       this.emit('key-added', { key: keyName })
 
       return { success: true, key: keyName, environment, bindset: targetBindset || 'Primary Bindset' }
