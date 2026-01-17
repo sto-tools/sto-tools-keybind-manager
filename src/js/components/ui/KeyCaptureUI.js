@@ -862,7 +862,7 @@ export default class KeyCaptureUI extends UIComponentBase {
 
     const keyInfo = this.currentKeyboard?.keys[keyCode]
     if (keyInfo) {
-      return keyInfo.primary
+      return keyInfo.name || keyInfo.primary
     }
 
     // Fallback to simplified name
