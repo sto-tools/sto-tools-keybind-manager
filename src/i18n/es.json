@@ -933,6 +933,10 @@
     "name": {
       "label": "Nombre",
       "help": "Nombre del objetivo u objeto"
+    },
+    "degrees": {
+      "label": "Grados",
+      "help": "Tamaño del cono del arco en grados"
     }
   },
   "add_new_alias": "Agregar Nuevo Alias",

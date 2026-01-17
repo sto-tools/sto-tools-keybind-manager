@@ -47,4 +47,75 @@ describe('ParameterCommandService', () => {
     expect(commands[0]).toBe('+TrayExec 3 0')
     expect(commands[9]).toBe('+TrayExec 3 9')
   })
+
+  /**
+   * Regression tests for arc targeting commands bug fix
+   * Bug: js-missing-arc-target-commands
+   * Issue: Editing arc targeting commands corrupted them to just "Target"
+   * Fix: Updated targeting builder to recognize arc commandIds and append degrees parameter
+   */
+  describe('Regression tests', () => {
+    it('should build Target_Enemy_Near_ForArc command with degrees parameter (regression: js-missing-arc-target-commands)', async () => {
+      const commandDef = {
+        command: 'Target_Enemy_Near_ForArc',
+        name: 'Target Nearest Enemy (Fore Arc)',
+        icon: '🎯'
+      }
+      const params = { degrees: 90 }
+
+      const result = await service.buildParameterizedCommand('targeting', 'target_enemy_near_forarc', commandDef, params)
+
+      expect(result).not.toBeNull()
+      expect(result.command).toBe('Target_Enemy_Near_ForArc 90')
+      expect(result.displayText).toBe('Target Nearest Enemy (Fore Arc) (90°)')
+      expect(result.parameters).toEqual({ degrees: 90 })
+    })
+
+    it('should build Target_Enemy_Near_AftArc command with degrees parameter (regression: js-missing-arc-target-commands)', async () => {
+      const commandDef = {
+        command: 'Target_Enemy_Near_AftArc',
+        name: 'Target Nearest Enemy (Aft Arc)',
+        icon: '🎯'
+      }
+      const params = { degrees: 120 }
+
+      const result = await service.buildParameterizedCommand('targeting', 'target_enemy_near_aftarc', commandDef, params)
+
+      expect(result).not.toBeNull()
+      expect(result.command).toBe('Target_Enemy_Near_AftArc 120')
+      expect(result.displayText).toBe('Target Nearest Enemy (Aft Arc) (120°)')
+      expect(result.parameters).toEqual({ degrees: 120 })
+    })
+
+    it('should build Target_Enemy_Near_SideArc command with degrees parameter (regression: js-missing-arc-target-commands)', async () => {
+      const commandDef = {
+        command: 'Target_Enemy_Near_SideArc',
+        name: 'Target Nearest Enemy (Side Arc)',
+        icon: '🎯'
+      }
+      const params = { degrees: 180 }
+
+      const result = await service.buildParameterizedCommand('targeting', 'target_enemy_near_sidearc', commandDef, params)
+
+      expect(result).not.toBeNull()
+      expect(result.command).toBe('Target_Enemy_Near_SideArc 180')
+      expect(result.displayText).toBe('Target Nearest Enemy (Side Arc) (180°)')
+      expect(result.parameters).toEqual({ degrees: 180 })
+    })
+
+    it('should still build Target command with entityName parameter (regression: js-missing-arc-target-commands)', async () => {
+      const commandDef = {
+        command: 'Target',
+        name: 'Target by Name',
+        icon: '🎯'
+      }
+      const params = { entityName: 'EnemyShip' }
+
+      const result = await service.buildParameterizedCommand('targeting', 'target', commandDef, params)
+
+      expect(result).not.toBeNull()
+      expect(result.command).toBe('Target "EnemyShip"')
+      expect(result.displayText).toBe('Target: EnemyShip')
+    })
+  })
 }) 

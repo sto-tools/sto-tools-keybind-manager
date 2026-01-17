@@ -932,6 +932,10 @@
     "name": {
       "label": "Name",
       "help": "Name des Ziels oder Objekts"
+    },
+    "degrees": {
+      "label": "Grad",
+      "help": "Größe des Kegels in Grad"
     }
   },
   "add_new_alias": "Neuen Alias hinzufügen",

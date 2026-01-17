@@ -930,6 +930,10 @@
     "name": {
       "label": "Nom",
       "help": "Nom de la cible ou de l'objet"
+    },
+    "degrees": {
+      "label": "Degrés",
+      "help": "Taille du cône de l'arc en degrés"
     }
   },
   "add_new_alias": "Ajouter un Nouvel Alias",

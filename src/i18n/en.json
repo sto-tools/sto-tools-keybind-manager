@@ -1027,6 +1027,10 @@
     "name": {
       "label": "Name",
       "help": "Name of the target or object"
+    },
+    "degrees": {
+      "label": "Degrees",
+      "help": "Size of the arc cone in degrees"
     }
   },
   "error_add_failed": "Failed to add key to bindset",

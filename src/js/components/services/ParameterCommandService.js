@@ -272,6 +272,15 @@ export default class ParameterCommandService extends ComponentBase {
     // as single source of truth instead of CommandBuilderService.
     const builders = {
       targeting: (p) => {
+        // Handle arc targeting commands with degrees parameter
+        const arcCommands = ['target_enemy_near_forarc', 'target_enemy_near_aftarc', 'target_enemy_near_sidearc']
+        if (arcCommands.includes(commandId) && p.degrees !== undefined) {
+          return {
+            command: `${commandDef.command} ${p.degrees}`,
+            text: `${commandDef.name} (${p.degrees}°)`,
+            parameters: { degrees: p.degrees }
+          }
+        }
         // Handle both legacy data.js format (commandId: 'target') and signature-based format (commandId: 'target_entity')
         if ((commandId === 'target' || commandId === 'target_entity') && p.entityName) {
           return {
