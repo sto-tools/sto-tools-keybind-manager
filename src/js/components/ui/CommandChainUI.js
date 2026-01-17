@@ -55,6 +55,9 @@ export default class CommandChainUI extends UIComponentBase {
       this.emit('bindset-selector:set-selected-key', { key: selectedKey })
 
       await this.refreshActiveBindset()
+
+      // FIX: Render to refresh command chain display with new selection
+      this.render().catch(() => {})
     })
 
     // Listen for profile switching to clear cached state and show empty state
