@@ -228,10 +228,14 @@ export default class SelectionService extends ComponentBase {
   setupRequestHandlers() {
     this._responseDetachFunctions.push(
       // Core selection operations
-      this.respond('selection:select-key', ({ keyName, environment }) => 
-        this.selectKey(keyName, environment)),
-      this.respond('selection:select-alias', ({ aliasName }) => 
-        this.selectAlias(aliasName)),
+
+      this.respond('selection:select-alias', ({ aliasName, skipPersistence, isAuto, forceEmit }) => {
+        const options = {}
+        if (skipPersistence === true) options.skipPersistence = true
+        if (isAuto === true) options.isAuto = true
+        if (forceEmit === true) options.forceEmit = true
+        return this.selectAlias(aliasName, options)
+      }),
       this.respond('selection:clear', ({ type }) => 
         this.clearSelection(type)),
       this.respond('selection:get-selected', ({ environment }) => 
@@ -258,8 +262,13 @@ export default class SelectionService extends ComponentBase {
         this.selectKey(keyName, environment, { bindset })),
       this.respond('alias:select', ({ aliasName }) => 
         this.selectAlias(aliasName)),
-      this.respond('selection:select-key', ({ keyName, environment, bindset }) =>
-        this.selectKey(keyName, environment, { bindset }))
+      this.respond('selection:select-key', ({ keyName, environment, bindset, skipPersistence, isAuto, forceEmit }) => {
+        const options = { bindset }
+        if (skipPersistence === true) options.skipPersistence = true
+        if (isAuto === true) options.isAuto = true
+        if (forceEmit === true) options.forceEmit = true
+        return this.selectKey(keyName, environment, options)
+      })
     )
   }
   

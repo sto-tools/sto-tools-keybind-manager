@@ -83,6 +83,9 @@ export default class AliasService extends ComponentBase {
     }
 
     try {
+      // Set selection before updating profile so profile:updated refreshes with the new alias
+      await this.request('selection:select-alias', { aliasName: name, skipPersistence: true })
+
       // Add new alias using explicit operations API
       await this.request('data:update-profile', {
         profileId: this.cache.currentProfile,

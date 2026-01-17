@@ -192,6 +192,19 @@ describe('SelectionService', () => {
         })
       )
     })
+
+    it('should skip persistence when skipPersistence is true', async () => {
+      service.cache.currentProfile = 'test-profile'
+      service.cache.profile = { selections: {} }
+      service.request.mockReset()
+
+      await service.selectAlias('TestAlias', { skipPersistence: true })
+
+      expect(service.request).not.toHaveBeenCalledWith(
+        'data:update-profile',
+        expect.anything()
+      )
+    })
   })
 
   describe('Selection Clearing', () => {

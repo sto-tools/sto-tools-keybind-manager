@@ -92,14 +92,18 @@ describe('AliasService', () => {
 
   describe('Alias Creation', () => {
     it('should create a new alias with valid name and description', async () => {
-      service.request.mockResolvedValueOnce({ success: true })
+      service.request.mockResolvedValue({ success: true })
 
       const result = await service.addAlias('NewAlias', 'Test description')
 
       expect(result.success).toBe(true)
       expect(result.message).toBe('alias_created')
       expect(result.data.name).toBe('NewAlias')
-      expect(service.request).toHaveBeenCalledWith('data:update-profile', {
+      expect(service.request).toHaveBeenNthCalledWith(1, 'selection:select-alias', {
+        aliasName: 'NewAlias',
+        skipPersistence: true
+      })
+      expect(service.request).toHaveBeenNthCalledWith(2, 'data:update-profile', {
         profileId: 'test-profile',
         add: {
           aliases: {
@@ -118,11 +122,15 @@ describe('AliasService', () => {
     })
 
     it('should create alias with empty description if not provided', async () => {
-      service.request.mockResolvedValueOnce({ success: true })
+      service.request.mockResolvedValue({ success: true })
 
       await service.addAlias('MinimalAlias')
 
-      expect(service.request).toHaveBeenCalledWith('data:update-profile', {
+      expect(service.request).toHaveBeenNthCalledWith(1, 'selection:select-alias', {
+        aliasName: 'MinimalAlias',
+        skipPersistence: true
+      })
+      expect(service.request).toHaveBeenNthCalledWith(2, 'data:update-profile', {
         profileId: 'test-profile',
         add: {
           aliases: {
@@ -161,7 +169,9 @@ describe('AliasService', () => {
 
     it('should handle creation errors gracefully', async () => {
       service.isValidAliasName = vi.fn().mockResolvedValue(true)
-      service.request.mockRejectedValueOnce(new Error('Network error'))
+      service.request
+        .mockResolvedValueOnce({ success: true }) // selection:select-alias
+        .mockRejectedValueOnce(new Error('Network error')) // data:update-profile
 
       const result = await service.addAlias('FailAlias')
 
