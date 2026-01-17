@@ -163,7 +163,7 @@ const QWERTY_LAYOUT = {
     Digit8: { primary: '8', secondary: '' },
     Digit9: { primary: '9', secondary: '' },
     Digit0: { primary: '0', secondary: '' },
-    
+
     // Letters (uppercase only)
     KeyQ: { primary: 'Q', secondary: '' },
     KeyW: { primary: 'W', secondary: '' },
@@ -191,7 +191,7 @@ const QWERTY_LAYOUT = {
     KeyB: { primary: 'B', secondary: '' },
     KeyN: { primary: 'N', secondary: '' },
     KeyM: { primary: 'M', secondary: '' },
-    
+
     // Essential symbols only
     Minus: { primary: '-', secondary: '' },
     Equal: { primary: '=', secondary: '' },
@@ -201,20 +201,20 @@ const QWERTY_LAYOUT = {
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
     Backquote: { primary: '`', secondary: '~' },
-    
+
     // Special keys
     Space: { primary: 'Space', secondary: '' },
     Tab: { primary: 'Tab', secondary: '' },
-    Escape: { primary: 'Esc', secondary: '' },
-    Delete: { primary: 'Del', secondary: '' },
-    CapsLock: { primary: 'Caps', secondary: '' },
+    Escape: { name: 'Escape', primary: 'Esc', secondary: '' },
+    Delete: { name: 'Delete', primary: 'Del', secondary: '' },
+    CapsLock: { name: 'CapsLock', primary: 'Caps', secondary: '' },
     ShiftLeft: { primary: 'Shift', secondary: '' },
     ShiftRight: { primary: 'Shift', secondary: '' },
     ControlLeft: { primary: 'Ctrl', secondary: '' },
     ControlRight: { primary: 'Ctrl', secondary: '' },
     AltLeft: { primary: 'Alt', secondary: '' },
     AltRight: { primary: 'Alt', secondary: '' },
-    
+
     // Navigation
     ArrowUp: { primary: '↑', secondary: '' },
     ArrowDown: { primary: '↓', secondary: '' },
@@ -222,10 +222,10 @@ const QWERTY_LAYOUT = {
     ArrowRight: { primary: '→', secondary: '' },
     Home: { primary: 'Home', secondary: '' },
     End: { primary: 'End', secondary: '' },
-    PageUp: { primary: 'PgUp', secondary: '' },
-    PageDown: { primary: 'PgDn', secondary: '' },
-    Insert: { primary: 'Ins', secondary: '' },
-    
+    PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
+    PageDown: { name: 'PageDown', primary: 'PgDn', secondary: '' },
+    Insert: { name: 'Insert', primary: 'Ins', secondary: '' },
+
     // Function keys
     F1: { primary: 'F1', secondary: '' },
     F2: { primary: 'F2', secondary: '' },
@@ -276,7 +276,7 @@ const QWERTZ_LAYOUT = {
     Digit8: { primary: '8', secondary: '' },
     Digit9: { primary: '9', secondary: '' },
     Digit0: { primary: '0', secondary: '' },
-    
+
     // Letters (uppercase only, QWERTZ layout)
     KeyQ: { primary: 'Q', secondary: '' },
     KeyW: { primary: 'W', secondary: '' },
@@ -304,7 +304,7 @@ const QWERTZ_LAYOUT = {
     KeyB: { primary: 'B', secondary: '' },
     KeyN: { primary: 'N', secondary: '' },
     KeyM: { primary: 'M', secondary: '' },
-    
+
     // Essential symbols only
     Minus: { primary: '-', secondary: '' },
     Equal: { primary: '=', secondary: '' },
@@ -314,20 +314,20 @@ const QWERTZ_LAYOUT = {
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
     Backquote: { primary: '`', secondary: '~' },
-    
+
     // Special keys
     Space: { primary: 'Space', secondary: '' },
     Tab: { primary: 'Tab', secondary: '' },
-    Escape: { primary: 'Esc', secondary: '' },
-    Delete: { primary: 'Del', secondary: '' },
-    CapsLock: { primary: 'Caps', secondary: '' },
+    Escape: { name: 'Escape', primary: 'Esc', secondary: '' },
+    Delete: { name: 'Delete', primary: 'Del', secondary: '' },
+    CapsLock: { name: 'CapsLock', primary: 'Caps', secondary: '' },
     ShiftLeft: { primary: 'Shift', secondary: '' },
     ShiftRight: { primary: 'Shift', secondary: '' },
     ControlLeft: { primary: 'Ctrl', secondary: '' },
     ControlRight: { primary: 'Ctrl', secondary: '' },
     AltLeft: { primary: 'Alt', secondary: '' },
     AltRight: { primary: 'Alt', secondary: '' },
-    
+
     // Navigation
     ArrowUp: { primary: '↑', secondary: '' },
     ArrowDown: { primary: '↓', secondary: '' },
@@ -335,9 +335,9 @@ const QWERTZ_LAYOUT = {
     ArrowRight: { primary: '→', secondary: '' },
     Home: { primary: 'Home', secondary: '' },
     End: { primary: 'End', secondary: '' },
-    PageUp: { primary: 'PgUp', secondary: '' },
-    PageDown: { primary: 'PgDn', secondary: '' },
-    Insert: { primary: 'Ins', secondary: '' },
+    PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
+    PageDown: { name: 'PageDown', primary: 'PgDn', secondary: '' },
+    Insert: { name: 'Insert', primary: 'Ins', secondary: '' },
     
     // Function keys
     F1: { primary: 'F1', secondary: '' },
@@ -389,7 +389,7 @@ const AZERTY_LAYOUT = {
     Digit8: { primary: '8', secondary: '' },
     Digit9: { primary: '9', secondary: '' },
     Digit0: { primary: '0', secondary: '' },
-    
+
     // Letters (uppercase only, AZERTY layout)
     KeyA: { primary: 'Q', secondary: '' }, // Physical A key shows Q
     KeyQ: { primary: 'A', secondary: '' }, // Physical Q key shows A
@@ -417,7 +417,7 @@ const AZERTY_LAYOUT = {
     KeyB: { primary: 'B', secondary: '' },
     KeyN: { primary: 'N', secondary: '' },
     KeyM: { primary: 'M', secondary: '' },
-    
+
     // Essential symbols only
     Minus: { primary: '-', secondary: '' },
     Equal: { primary: '=', secondary: '' },
@@ -427,20 +427,20 @@ const AZERTY_LAYOUT = {
     Comma: { primary: ',', secondary: '' },
     Period: { primary: '.', secondary: '' },
     Backquote: { primary: '`', secondary: '~' },
-    
+
     // Special keys
     Space: { primary: 'Space', secondary: '' },
     Tab: { primary: 'Tab', secondary: '' },
-    Escape: { primary: 'Esc', secondary: '' },
-    Delete: { primary: 'Del', secondary: '' },
-    CapsLock: { primary: 'Caps', secondary: '' },
+    Escape: { name: 'Escape', primary: 'Esc', secondary: '' },
+    Delete: { name: 'Delete', primary: 'Del', secondary: '' },
+    CapsLock: { name: 'CapsLock', primary: 'Caps', secondary: '' },
     ShiftLeft: { primary: 'Shift', secondary: '' },
     ShiftRight: { primary: 'Shift', secondary: '' },
     ControlLeft: { primary: 'Ctrl', secondary: '' },
     ControlRight: { primary: 'Ctrl', secondary: '' },
     AltLeft: { primary: 'Alt', secondary: '' },
     AltRight: { primary: 'Alt', secondary: '' },
-    
+
     // Navigation
     ArrowUp: { primary: '↑', secondary: '' },
     ArrowDown: { primary: '↓', secondary: '' },
@@ -448,9 +448,9 @@ const AZERTY_LAYOUT = {
     ArrowRight: { primary: '→', secondary: '' },
     Home: { primary: 'Home', secondary: '' },
     End: { primary: 'End', secondary: '' },
-    PageUp: { primary: 'PgUp', secondary: '' },
-    PageDown: { primary: 'PgDn', secondary: '' },
-    Insert: { primary: 'Ins', secondary: '' },
+    PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
+    PageDown: { name: 'PageDown', primary: 'PgDn', secondary: '' },
+    Insert: { name: 'Insert', primary: 'Ins', secondary: '' },
     
     // Function keys
     F1: { primary: 'F1', secondary: '' },
