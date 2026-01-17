@@ -183,6 +183,18 @@
       "name": "Apuntar enemigo más cercano",
       "description": "Apuntar al enemigo más cercano visible"
     },
+    "target_enemy_near_forarc": {
+      "name": "Apuntar enemigo más cercano (Arco Proa)",
+      "description": "Apuntar al enemigo más cercano dentro de un cono frontal"
+    },
+    "target_enemy_near_aftarc": {
+      "name": "Apuntar enemigo más cercano (Arco Popa)",
+      "description": "Apuntar al enemigo más cercano dentro de un cono trasero"
+    },
+    "target_enemy_near_sidearc": {
+      "name": "Apuntar enemigo más cercano (Arco Lateral)",
+      "description": "Apuntar al enemigo más cercano dentro de arcos laterales (babor y estribor)"
+    },
     "target_friend_near": {
       "name": "Apuntar aliado más cercano",
       "description": "Apuntar a la entidad aliada más cercana"

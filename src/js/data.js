@@ -58,6 +58,58 @@ const STO_DATA = {
           syntax: 'Target_Enemy_Near',
           icon: '🎯',
         },
+        // Note: "ForArc" is STO's spelling (means "Fore Arc" or front arc)
+        target_enemy_near_forarc: {
+          name: 'Target Nearest Enemy (Fore Arc)',
+          command: 'Target_Enemy_Near_ForArc',
+          description: 'Target nearest enemy within a forward-facing cone',
+          syntax: 'Target_Enemy_Near_ForArc <degrees>',
+          icon: '🎯',
+          customizable: true,
+          parameters: {
+            degrees: {
+              type: 'number',
+              min: 0,
+              max: 360,
+              default: 90,
+              step: 15,
+            },
+          },
+        },
+        target_enemy_near_aftarc: {
+          name: 'Target Nearest Enemy (Aft Arc)',
+          command: 'Target_Enemy_Near_AftArc',
+          description: 'Target nearest enemy within a rear-facing cone',
+          syntax: 'Target_Enemy_Near_AftArc <degrees>',
+          icon: '🎯',
+          customizable: true,
+          parameters: {
+            degrees: {
+              type: 'number',
+              min: 0,
+              max: 360,
+              default: 90,
+              step: 15,
+            },
+          },
+        },
+        target_enemy_near_sidearc: {
+          name: 'Target Nearest Enemy (Side Arc)',
+          command: 'Target_Enemy_Near_SideArc',
+          description: 'Target nearest enemy within side arcs (both port and starboard)',
+          syntax: 'Target_Enemy_Near_SideArc <degrees>',
+          icon: '🎯',
+          customizable: true,
+          parameters: {
+            degrees: {
+              type: 'number',
+              min: 0,
+              max: 360,
+              default: 90,
+              step: 15,
+            },
+          },
+        },
         target_friend_near: {
           name: 'Target Nearest Friend',
           command: 'Target_Friend_Near',

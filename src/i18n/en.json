@@ -196,6 +196,18 @@
       "name": "Target Nearest Enemy",
       "description": "Target the nearest enemy in view"
     },
+    "target_enemy_near_forarc": {
+      "name": "Target Nearest Enemy (Fore Arc)",
+      "description": "Target nearest enemy within a forward-facing cone"
+    },
+    "target_enemy_near_aftarc": {
+      "name": "Target Nearest Enemy (Aft Arc)",
+      "description": "Target nearest enemy within a rear-facing cone"
+    },
+    "target_enemy_near_sidearc": {
+      "name": "Target Nearest Enemy (Side Arc)",
+      "description": "Target nearest enemy within side arcs (both port and starboard)"
+    },
     "target_friend_near": {
       "name": "Target Nearest Friend",
       "description": "Target the nearest friendly entity"
