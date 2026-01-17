@@ -139,7 +139,8 @@ describe('KeyService Structured Response Tests', () => {
       expect(result).toEqual({
         success: true,
         key: 'K1',
-        environment: 'space'
+        environment: 'space',
+        bindset: 'Primary Bindset'
       })
     })
 

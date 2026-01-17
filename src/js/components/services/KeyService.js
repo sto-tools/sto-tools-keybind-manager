@@ -119,8 +119,6 @@ export default class KeyService extends ComponentBase {
           this.cache.profile.bindsets[targetBindset][environment] = { keys: {} }
         }
         this.cache.profile.bindsets[targetBindset][environment].keys[keyName] = []
-        this.emit('profile:updated', { profileId: this.cache.currentProfile, profile: this.cache.profile })
-        this.emit('profile-modified', { profileId: this.cache.currentProfile })
       } else {
         // Add to primary bindset (original path)
         await this.request('data:update-profile', {
@@ -141,12 +139,15 @@ export default class KeyService extends ComponentBase {
         if (this.cache.profile?.builds?.[environment]?.keys) {
           this.cache.profile.builds[environment].keys[keyName] = []
         }
-        this.emit('profile:updated', { profileId: this.cache.currentProfile, profile: this.cache.profile })
-        this.emit('profile-modified', { profileId: this.cache.currentProfile })
       }
 
-      // Delegate selection to SelectionService with bindset context when applicable
+      // CRITICAL FIX: Select the new key BEFORE emitting profile:updated
+      // This ensures CommandChainService.refreshCommands() uses the correct selection
       await this.request('selection:select-key', { keyName, environment, bindset: targetBindset })
+
+      // NOW emit profile:updated - cache is already updated with new selection
+      this.emit('profile:updated', { profileId: this.cache.currentProfile, profile: this.cache.profile })
+      this.emit('profile-modified', { profileId: this.cache.currentProfile })
       this.emit('key-added', { key: keyName })
 
       return { success: true, key: keyName, environment, bindset: targetBindset || 'Primary Bindset' }
