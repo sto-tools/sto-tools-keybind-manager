@@ -35,23 +35,29 @@ export default class VFXManagerUI extends UIComponentBase {
   populateModal() {
     if (!this.vfxManager) return
 
-    // Populate space effects
+    // Populate space effects (sorted alphabetically by label)
     const spaceList = document.getElementById('spaceEffectsList')
     if (spaceList) {
       spaceList.innerHTML = ''
       // Explicitly access VFX_EFFECTS from window object for clarity
-      window.VFX_EFFECTS.space.forEach((effect) => {
+      const sortedSpaceEffects = [...window.VFX_EFFECTS.space].sort((a, b) =>
+        a.label.localeCompare(b.label)
+      )
+      sortedSpaceEffects.forEach((effect) => {
         const effectItem = this.createEffectItem('space', effect)
         spaceList.appendChild(effectItem)
       })
     }
 
-    // Populate ground effects
+    // Populate ground effects (sorted alphabetically by label)
     const groundList = document.getElementById('groundEffectsList')
     if (groundList) {
       groundList.innerHTML = ''
       // Explicitly access VFX_EFFECTS from window object for clarity
-      window.VFX_EFFECTS.ground.forEach((effect) => {
+      const sortedGroundEffects = [...window.VFX_EFFECTS.ground].sort((a, b) =>
+        a.label.localeCompare(b.label)
+      )
+      sortedGroundEffects.forEach((effect) => {
         const effectItem = this.createEffectItem('ground', effect)
         groundList.appendChild(effectItem)
       })

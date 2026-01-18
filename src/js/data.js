@@ -1781,7 +1781,10 @@ const STO_DATA = {
         label: 'EPS Power Transfer',
         effect: 'Cfx_Ship_Eng_Epspowertransfer_Target',
       },
-      { label: 'Focus Frenzy', effect: 'Fx_Skilltree_Ship_Ffrenzy_Activatefx' },
+      {
+        label: 'Focus Frenzy',
+        effect: 'Fx_Skilltree_Ship_Ffrenzy_Activatefx,Cfx_Skilltree_Ship_Ffrenzy_Bufffx',
+      },
       { label: 'Go Down Fighting', effect: 'Fx_Bop_Godownfighting' },
       { label: 'Hangar Pet Rank Up', effect: 'Fx_Ship_Levelup_Fighter_Rankup' },
       { label: 'Hazard Emitters', effect: 'Cfx_Ship_Sci_Hazardemitter_Buff' },
@@ -2018,6 +2021,586 @@ const STO_DATA = {
         label: 'Vulnerability Assessment Sweep',
         effect: 'Fx_Capt_Powers_Ship_Tac_Vulnerability_Assessment_Sweep',
       },
+      {
+        label: 'Jem\'Hadar Wingmen Pet Markers (2 effects)',
+        effect: 'Cfx_Ships_Races_Dom_Wingmen_Marker_Alpha,Cfx_Ships_Races_Dom_Wingmen_Marker_Beta',
+      },
+      {
+        label: 'Scanning Cone Animation',
+        effect: 'Fx_Ship_Scan_Cone_Repair_Withlight',
+      },
+      {
+        label: 'Garrett Console Yellow AOE',
+        effect: 'Fx_Ships_Garrett_Coordinated_Engagement_Solution_Activatefx',
+      },
+      {
+        label: 'Terran Task Force Black Phaser Beams (3 effects)',
+        effect: 'Fx_Rp_T6_Ship_Wr_Phaser_Mirror_Beam_Overload,Fx_Rp_T6_Ship_Wr_Phaser_Mirror_Beam,Fx_Rp_T6_Ship_Wr_Phaser_Mirror_Bolt_Heavy_Dual',
+      },
+      {
+        label: 'Sensor Analysis Targeting Arrow',
+        effect: 'Fx_Ship_Sci_Sensoranalysis_Arrowgeo',
+      },
+      {
+        label: 'Cheyenne FPNA All Animations (3 effects)',
+        effect: 'Fx_Ship_Cp_T6_Cheyenne_Fp_Network_Array_Energy,Fx_Ship_Cp_T6_Cheyenne_Fp_Network_Array_Activatefx_Pulse,Fx_Ship_Cp_T6_Cheyenne_Fp_Network_Array_Activatefx',
+      },
+      {
+        label: 'Excelsior Auxiliary Phaser Banks Charge VFX',
+        effect: 'Cfx_Ship_Cp_T6_Excelsior2_Auxiliary_Phaser_Banks_Chargefx',
+      },
+      {
+        label: 'Subspace Fracture Tunnel Field (2 effects)',
+        effect: 'Fx_Ship_Cp_T6_Obelisk_Subspace_Fracture_Tunnel_Charge_Out,Fx_Cp_T6_Obelisk_Subspace_Fracture_Tunnel_Activate_Out',
+      },
+      {
+        label: 'Disco Rep Lorca\'s Ambition Set VFX (4 effects)',
+        effect: 'Fx_Ship_Phaser_Cb26_Beam_Heavy_Dual,Fx_Ship_Phaser_Cb26_Beam_Heavy_Overload_Dual,Fx_Ship_Phaser_Cb26_Beam_Heavy_Faw_Dual,Fx_Ship_Torpedo_Dark_Matter',
+      },
+      {
+        label: 'Console - Bajoran Interceptor - D.O.M.I.N.O.',
+        effect: 'Cfx_2018_Aniv_Ship_Domino_Weaponbuff',
+      },
+      {
+        label: 'Console - Obelisk - Subspace Fracture Tunnel Hold',
+        effect: 'Cfx_Cp_T6_Obelisk_Subspace_Fracture_Tunnel_Hold',
+      },
+      {
+        label: 'Khitomer Alliance Vanity Shield Material Swap',
+        effect: 'Cfx_Khitomer_Alliance_Vanity_Shield_Materialswap',
+      },
+      {
+        label: 'Reputation - Iconian Ship Deploysip Feedback',
+        effect: 'Cfx_Rep_Iconian_Ship_Deploysip_Feedback',
+      },
+      {
+        label: 'Brg Assimilate Team',
+        effect: 'Cfx_Ship_Brg_Assimilate_Team',
+      },
+      {
+        label: 'Brg Control Assimilate Team Recall',
+        effect: 'Cfx_Ship_Brg_Control_Assimilate_Team_Recall',
+      },
+      {
+        label: 'Command - Inspiration - Turn The Tide',
+        effect: 'Cfx_Ship_Cmd_Insp_Turn_The_Tide_Bufffx',
+      },
+      {
+        label: 'Universal Console - High Energy Communications Network',
+        effect: 'Cfx_Ship_Console_Carrier_High_Energy_Communications_Network',
+      },
+      {
+        label: 'Console - Cb27 Generate Plasma Storm',
+        effect: 'Cfx_Ship_Cp_Cb27_Generate_Plasma_Storm_Hitfx',
+      },
+      {
+        label: 'Cruiser Auras Defense',
+        effect: 'Cfx_Ship_Cruiser_Auras_Defense',
+      },
+      {
+        label: 'Mod Confuse Debuff',
+        effect: 'Cfx_Ship_Mod_Confuse_Debuff',
+      },
+      {
+        label: 'Mod Hot (2 effects)',
+        effect: 'Cfx_Ship_Mod_Hot,Fx_Ship_Mod_Hot_Pulse',
+      },
+      {
+        label: 'Mod Slow',
+        effect: 'Cfx_Ship_Mod_Slow',
+      },
+      {
+        label: 'Mod Subsystem Disable Aux',
+        effect: 'Cfx_Ship_Mod_Subsystem_Disable_Aux',
+      },
+      {
+        label: 'Mod Subsystem Disable Engines',
+        effect: 'Cfx_Ship_Mod_Subsystem_Disable_Engines',
+      },
+      {
+        label: 'Mod Subsystem Disable Shields',
+        effect: 'Cfx_Ship_Mod_Subsystem_Disable_Shields',
+      },
+      {
+        label: 'Mod Subsystem Disable Weapons',
+        effect: 'Cfx_Ship_Mod_Subsystem_Disable_Weapons',
+      },
+      {
+        label: 'Rem Part Shield T6 Materialswap',
+        effect: 'Cfx_Ship_Rem_Part_Shield_T6_Materialswap',
+      },
+      {
+        label: 'Romulan - Singularity Powers - Shielding R1',
+        effect: 'Cfx_Ship_Rom_Singularity_Shielding_R1',
+      },
+      {
+        label: 'Science - Absorptiveshield Proc',
+        effect: 'Cfx_Ship_Sci_Absorptiveshield_Proc',
+      },
+      {
+        label: 'Science - Photonicfleet Costume',
+        effect: 'Cfx_Ship_Sci_Photonicfleet_Costume',
+      },
+      {
+        label: 'Science - Tachyonbeam',
+        effect: 'Cfx_Ship_Sci_Tachyonbeam',
+      },
+      {
+        label: 'Console - Eleos - Custom Power Matrix - Aux Third',
+        effect: 'Cfx_Ship_T6eleos_Power_Matrix_Aux_Third',
+      },
+      {
+        label: 'Console - Eleos - Custom Power Matrix - Engine Third',
+        effect: 'Cfx_Ship_T6eleos_Power_Matrix_Engine_Third',
+      },
+      {
+        label: 'Console - Eleos - Custom Power Matrix - Shield Third',
+        effect: 'Cfx_Ship_T6eleos_Power_Matrix_Shield_Third',
+      },
+      {
+        label: 'Tactical - Targetsubsystem Debuff Engines',
+        effect: 'Cfx_Ship_Tac_Targetsubsystem_Debuff_Engines',
+      },
+      {
+        label: 'Trait - Unconventional Systems Ring',
+        effect: 'Cfx_Ship_Trait_Cb30_Unconventional_Systems_Ring',
+      },
+      {
+        label: 'Trait Doffpack5 Carrier Pet Refresh Immunity',
+        effect: 'Cfx_Ship_Trait_Doffpack5_Carrier_Pet_Refresh_Immunity',
+      },
+      {
+        label: 'Boff Command - Owemitters Buff',
+        effect: 'Cfx_Ships_Boff_Cmd_Owemitters_Buff',
+      },
+      {
+        label: 'Boff Command - Owemitters Drain',
+        effect: 'Cfx_Ships_Boff_Cmd_Owemitters_Drain',
+      },
+      {
+        label: 'Console - Credence Dilithium Transporter Dispersal (2 effects)',
+        effect: 'Cfx_Ships_Cp_T6_Credence_Dilithium_Transporter_Dispersal_Bufffx,Fx_Ships_Cp_T6_Credence_Dilithium_Transporter_Dispersal_Aoe',
+      },
+      {
+        label: 'Console - Temporal Disorder Speed Boost',
+        effect: 'Cfx_Ships_Cp_Temporal_Disorder_Speed_Boost',
+      },
+      {
+        label: 'Fed Guardian Particle Conversion Matrix - Buff',
+        effect: 'Cfx_Ships_Fed_Guardian_Pcmatrix_Buff',
+      },
+      {
+        label: 'Fed Guardian Particle Conversion Matrix - Weaponbuff',
+        effect: 'Cfx_Ships_Fed_Guardian_Pcmatrix_Weaponbuff',
+      },
+      {
+        label: 'Space Intel Destemitters',
+        effect: 'Cfx_Space_Intel_Destemitters',
+      },
+      {
+        label: 'Boff - Intelligence - Evadelock Debuff',
+        effect: 'Cfx_Spc_Boffpowers_Int_Evadelock_Debuff',
+      },
+      {
+        label: 'Specialization - Pilot - Othercheek Aft',
+        effect: 'Cfx_Specs_Space_Pilot_Othercheek_Aft',
+      },
+      {
+        label: 'Specialization - Pilot - Othercheek Fore',
+        effect: 'Cfx_Specs_Space_Pilot_Othercheek_Fore',
+      },
+      {
+        label: 'Specialization - Pilot - Othercheek Port',
+        effect: 'Cfx_Specs_Space_Pilot_Othercheek_Port',
+      },
+      {
+        label: 'Specialization - Pilot - Othercheek Starboard',
+        effect: 'Cfx_Specs_Space_Pilot_Othercheek_Starboard',
+      },
+      {
+        label: 'Tfo Powers Op Wolf Shuttle Phaser Blast Danger Zone',
+        effect: 'Cfx_Tfo_Powers_Op_Wolf_Shuttle_Phaser_Blast_Danger_Zone',
+      },
+      {
+        label: 'Trait - Lukari Auto Proto Conduits',
+        effect: 'Cfx_Traits_Ship_Lukari_Auto_Proto_Conduits',
+      },
+      {
+        label: 'Bop Brace For Impact Hull',
+        effect: 'Fx_Bop_Braceforimpact_Hull',
+      },
+      {
+        label: 'Bop Evasive Maneuvers',
+        effect: 'Fx_Bop_Evasivemaneuvers',
+      },
+      {
+        label: 'Er Kmaru Ship Pe Torpedo Amplified Relays Buff',
+        effect: 'Fx_Er_Kmaru_Ship_Pe_Torpedo_Amplified_Relays_Buff',
+      },
+      {
+        label: 'Er Ship Destabilizing Resonance Beam Aoe',
+        effect: 'Fx_Er_Ship_Destabilizing_Resonance_Beam_Aoe',
+      },
+      {
+        label: 'Gen Fireworks 300 Day',
+        effect: 'Fx_Gen_Fireworks_300day',
+      },
+      {
+        label: 'Lockboxfx Cb29 Ship Into The Breach',
+        effect: 'Fx_Lockboxfx_Cb29_Ship_Into_The_Breach',
+      },
+      {
+        label: 'TFO - Mars - Beam On Board 1 Of 3',
+        effect: 'Fx_Mars_Tfo_Beam_On_Board_1_Of_3',
+      },
+      {
+        label: 'TFO - Mars - Beam On Board 2 Of 3',
+        effect: 'Fx_Mars_Tfo_Beam_On_Board_2_Of_3',
+      },
+      {
+        label: 'TFO - Mars - Beam On Board 3 Of 3',
+        effect: 'Fx_Mars_Tfo_Beam_On_Board_3_Of_3',
+      },
+      {
+        label: 'TFO - Mars - Beam On Board Base',
+        effect: 'Fx_Mars_Tfo_Beam_On_Board_Base',
+      },
+      {
+        label: 'Reputation - Iconian - Ship Energy Refrequencer',
+        effect: 'Fx_Rep_Ico_Ship_Energy_Refrequencer',
+      },
+      {
+        label: 'Reputation - Discovery - Set Bonus Mycelial Discharge',
+        effect: 'Fx_Rep_S17_Set_Bonus_Mycelial_Discharge',
+      },
+      {
+        label: 'Rp T6 Ship Wr Phaser Mirror Beam Faw',
+        effect: 'Fx_Rp_T6_Ship_Wr_Phaser_Mirror_Beam_Faw',
+      },
+      {
+        label: 'Rp T6 Ship Wr Phaser Mirror Bolt Heavy Scatter Dual',
+        effect: 'Fx_Rp_T6_Ship_Wr_Phaser_Mirror_Bolt_Heavy_Scatter_Dual',
+      },
+      {
+        label: 'Antiproton Cb33 Bolt (3 effects)',
+        effect: 'Fx_Ship_Antiproton_Cb33_Bolt,Fx_Ship_Antiproton_Cb33_Bolt_Scatter_Turret,Fx_Ship_Antiproton_Cb33_Bolt_Scatter_Turret_Spray',
+      },
+      {
+        label: 'Antiproton Cb33 Weapon Proc Beam',
+        effect: 'Fx_Ship_Antiproton_Cb33_Wep_Proc_Beam',
+      },
+      {
+        label: 'Antiproton Cb33 Weapon Proc Bolt',
+        effect: 'Fx_Ship_Antiproton_Cb33_Wep_Proc_Bolt',
+      },
+      {
+        label: 'Chroniton Beam (3 effects)',
+        effect: 'Fx_Ship_Chroniton_Beam,Fx_Ship_Chroniton_Beam_Faw,Fx_Ship_Chroniton_Beam_Overload',
+      },
+      {
+        label: 'Command - Inspiration - Against All Odds (2 effects)',
+        effect: 'Fx_Ship_Cmd_Insp_Against_All_Odds,Fx_Ship_Cmd_Insp_Against_All_Odds_Activate',
+      },
+      {
+        label: 'Command - Inspiration - Battle Preparation Activate',
+        effect: 'Fx_Ship_Cmd_Insp_Battle_Preparation_Activate',
+      },
+      {
+        label: 'Console - Excelsior2 Auxiliary Phaser Banks Overload Powerup',
+        effect: 'Fx_Ship_Cp_T6_Excelsior2_Auxiliary_Phaser_Banks_Overload_Powerup',
+      },
+      {
+        label: 'Console - Hysperian Dragonbreath',
+        effect: 'Fx_Ship_Cp_T6_Hysperian_Dragonbreath_Hitfx',
+      },
+      {
+        label: 'Console - La Sirena Mdh Projector',
+        effect: 'Fx_Ship_Cp_T6_La_Sirena_Mdh_Projector',
+      },
+      {
+        label: 'Delphic Antiproton - Beam (5 effects)',
+        effect: 'Fx_Ship_Delphicap_Beam,Fx_Ship_Delphicap_Beam_Dual,Fx_Ship_Delphicap_Beam_Faw,Fx_Ship_Delphicap_Beam_Faw_Dual,Fx_Ship_Delphicap_Beam_Overload_Dual',
+      },
+      {
+        label: 'Device - Battery - Shields',
+        effect: 'Fx_Ship_Device_Batteryshields',
+      },
+      {
+        label: 'Device - Battery - Weapons',
+        effect: 'Fx_Ship_Device_Batteryweapons',
+      },
+      {
+        label: 'Device - Red Matter Capacitor',
+        effect: 'Fx_Ship_Device_Redmatter',
+      },
+      {
+        label: 'Doffs Cb19 Nakuhl Space Heal',
+        effect: 'Fx_Ship_Doffs_Cb19_Nakuhl_Space_Heal',
+      },
+      {
+        label: 'Engineering - Auxiliary Power to Battery',
+        effect: 'Fx_Ship_Eng_Auxpowerbattery',
+      },
+      {
+        label: 'Engineering - Directed Energy Mod',
+        effect: 'Fx_Ship_Eng_Directedenergymod',
+      },
+      {
+        label: 'Engineering - Emergency Power To Auxiliary',
+        effect: 'Fx_Ship_Eng_Emergencypoweraux',
+      },
+      {
+        label: 'Engineering - Emergency Power to Engines',
+        effect: 'Fx_Ship_Eng_Emergencypowerengines',
+      },
+      {
+        label: 'Console - Avenger - Hazaard Shielding Heal',
+        effect: 'Fx_Ship_Fed_Avenger_T6_Hazaardshielding_Heal',
+      },
+      {
+        label: 'Iconian - Cb17 FS Efficiency',
+        effect: 'Fx_Ship_Ico_Cb17_Fsefficiency',
+      },
+      {
+        label: 'Iconian Energy Beam (6 effects)',
+        effect: 'Fx_Ship_Iconian_Energy_Beam,Fx_Ship_Iconian_Energy_Beam_Dual,Fx_Ship_Iconian_Energy_Beam_Faw,Fx_Ship_Iconian_Energy_Beam_Faw_Dual,Fx_Ship_Iconian_Energy_Beam_Overload,Fx_Ship_Iconian_Energy_Beam_Overload_Dual',
+      },
+      {
+        label: 'Mod Critchance Buff',
+        effect: 'Fx_Ship_Mod_Critchance_Buff',
+      },
+      {
+        label: 'Mod Critseverity Buff Small',
+        effect: 'Fx_Ship_Mod_Critseverity_Buff_Small',
+      },
+      {
+        label: 'Mod Damageresistance Buff',
+        effect: 'Fx_Ship_Mod_Damageresistance_Buff_Pulse',
+      },
+      {
+        label: 'Mod Hold Debuff',
+        effect: 'Fx_Ship_Mod_Hold_Debuff',
+      },
+      {
+        label: 'Omg Cuttingbeam',
+        effect: 'Fx_Ship_Omg_Cuttingbeam',
+      },
+      {
+        label: 'Phaser Gen Tng Beam (2 effects)',
+        effect: 'Fx_Ship_Phaser_Gen_Tng_Beam,Fx_Ship_Phaser_Gen_Tng_Beam_Overload',
+      },
+      {
+        label: 'Phaser Gen Tng Bolt Scatter Turret Spray',
+        effect: 'Fx_Ship_Phaser_Gen_Tng_Bolt_Scatter_Turret_Spray',
+      },
+      {
+        label: 'Phaser Kelvin Long Bolt Overload',
+        effect: 'Fx_Ship_Phaser_Kelvin_Long_Bolt_Overload',
+      },
+      {
+        label: 'Shield Indicator - Hit Aft',
+        effect: 'Fx_Ship_Shieldindicator_Hit_Aft',
+      },
+      {
+        label: 'Shield Indicator - Hit Fore',
+        effect: 'Fx_Ship_Shieldindicator_Hit_Fore',
+      },
+      {
+        label: 'Shield Indicator - Hit Port',
+        effect: 'Fx_Ship_Shieldindicator_Hit_Port',
+      },
+      {
+        label: 'Shield Indicator - Hit Starboard',
+        effect: 'Fx_Ship_Shieldindicator_Hit_Starboard',
+      },
+      {
+        label: 'Shield Indicator - Level 01 Aft',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_01_Aft',
+      },
+      {
+        label: 'Shield Indicator - Level 01 Fore',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_01_Fore',
+      },
+      {
+        label: 'Shield Indicator - Level 01 Port',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_01_Port',
+      },
+      {
+        label: 'Shield Indicator - Level 01 Solid Ring',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_01_Solidring',
+      },
+      {
+        label: 'Shield Indicator - Level 01 Starboard',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_01_Starboard',
+      },
+      {
+        label: 'Shield Indicator - Level 02 Aft',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_02_Aft',
+      },
+      {
+        label: 'Shield Indicator - Level 02 Fore',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_02_Fore',
+      },
+      {
+        label: 'Shield Indicator - Level 02 Port',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_02_Port',
+      },
+      {
+        label: 'Shield Indicator - Level 02 Solid Ring',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_02_Solidring',
+      },
+      {
+        label: 'Shield Indicator - Level 02 Starboard',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_02_Starboard',
+      },
+      {
+        label: 'Shield Indicator - Level 03 Aft',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_03_Aft',
+      },
+      {
+        label: 'Shield Indicator - Level 03 Fore',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_03_Fore',
+      },
+      {
+        label: 'Shield Indicator - Level 03 Port',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_03_Port',
+      },
+      {
+        label: 'Shield Indicator - Level 03 Solid Ring',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_03_Solidring',
+      },
+      {
+        label: 'Shield Indicator - Level 03 Starboard',
+        effect: 'Fx_Ship_Shieldindicator_Lvl_03_Starboard',
+      },
+      {
+        label: 'Shield Indicator - Solid Ring Hitflash',
+        effect: 'Fx_Ship_Shieldindicator_Solidring_Hitflash',
+      },
+      {
+        label: 'Slipstream (2 effects)',
+        effect: 'Fx_Ship_Slipstream,Fx_Ship_Slipstream_Deathfx',
+      },
+      {
+        label: 'Tactical - Cb22 Distributed Targeting',
+        effect: 'Fx_Ship_Tac_Cb22_Dtargeting',
+      },
+      {
+        label: 'Tactical - Beams: Fire at Will',
+        effect: 'Fx_Ship_Tac_Weaponbuff_Beamfaw',
+      },
+      {
+        label: 'Tactical - Beams: Overload',
+        effect: 'Fx_Ship_Tac_Weaponbuff_Beamoverload',
+      },
+      {
+        label: 'Tactical - Cannons: Scatter Volley',
+        effect: 'Fx_Ship_Tac_Weaponbuff_Cannons_Scattervolley',
+      },
+      {
+        label: 'Tactical - Cannons: Rapid Fire',
+        effect: 'Fx_Ship_Tac_Weaponbuff_Cannons_Rapidfire',
+      },
+      {
+        label: 'Tactical - Torpedos: Spread',
+        effect: 'Fx_Ship_Tac_Weaponbuff_Torpedospread',
+      },
+      {
+        label: 'Temporal - Entrophic Redistribution Projectile',
+        effect: 'Fx_Ship_Temp_Entredist_Projectile',
+      },
+      {
+        label: 'Temporal - Heisenberg Amplifier Projectile',
+        effect: 'Fx_Ship_Temp_Hamplifier_Projectile',
+      },
+      {
+        label: 'Temporal - Recursive shearing',
+        effect: 'Fx_Ship_Temp_Rshearing',
+      },
+      {
+        label: 'Tetryon Beam (2 effects)',
+        effect: 'Fx_Ship_Tetryon_Beam,Fx_Ship_Tetryon_Beam_Overload',
+      },
+      {
+        label: 'Tactical - Kemocite Weaponry Activatefx',
+        effect: 'Fx_Ship_Xindi_Lockboxcb15_Kemocite_Weaponry_Activatefx',
+      },
+      {
+        label: 'Boff Command - Confire Buff',
+        effect: 'Fx_Ships_Boff_Cmd_Confire_Buff',
+      },
+      {
+        label: 'Boff Command - Rallypoint Activate',
+        effect: 'Fx_Ships_Boff_Cmd_Rallypoint_Activate',
+      },
+      {
+        label: 'Boff Command - Supression Barrage Activate',
+        effect: 'Fx_Ships_Boff_Cmd_Sbarrage_Activate',
+      },
+      {
+        label: 'Console - Credence Dilithium Transporter Dispersal Weapon Proc',
+        effect: 'Fx_Ships_Cp_T6_Credence_Dilithium_Transporter_Dispersal_Wep_Proc',
+      },
+      {
+        label: 'Console - Temporal Disorder Activate',
+        effect: 'Fx_Ships_Cp_Temporal_Disorder_Activate',
+      },
+      {
+        label: 'Console - Temporal Disorder Aoe Radiation',
+        effect: 'Fx_Ships_Cp_Temporal_Disorder_Aoe_Radiation',
+      },
+      {
+        label: 'Console - Temporal Disorder Spawnanim',
+        effect: 'Fx_Ships_Cp_Temporal_Disorder_Spawnanim',
+      },
+      {
+        label: 'Intel Reciprocity',
+        effect: 'Fx_Ships_Intel_Reciprocity',
+      },
+      {
+        label: 'Space Intel Autoreinforce',
+        effect: 'Fx_Space_Intel_Autoreinforce',
+      },
+      {
+        label: 'Trait - Pedal to the Metal Stage 1',
+        effect: 'Fx_Space_Pilot_Pedalmetal_Stage1',
+      },
+      {
+        label: 'Trait - Pedal to the Metal Stage 2',
+        effect: 'Fx_Space_Pilot_Pedalmetal_Stage2',
+      },
+      {
+        label: 'Trait - Pedal to the Metal Stage 3',
+        effect: 'Fx_Space_Pilot_Pedalmetal_Stage3',
+      },
+      {
+        label: 'Boff - Intelligence - Override Lock',
+        effect: 'Fx_Spc_Boffpowers_Int_Override_Lock',
+      },
+      {
+        label: 'Boff - Intelligence - Viral Impulse',
+        effect: 'Fx_Spc_Boffpowers_Int_Viralimpulse',
+      },
+      {
+        label: 'Boff - Miracle Worker - Align Shield Frequencies',
+        effect: 'Fx_Spc_Boffpowers_Miracleworker_Alignshieldfrequencies',
+      },
+      {
+        label: 'Specialization - Pilot - Lonewolf',
+        effect: 'Fx_Spec_Spc_Pilot_Lonewolf',
+      },
+      {
+        label: 'Tfo Powers Op Wolf Shuttle Rpg Proj',
+        effect: 'Fx_Tfo_Powers_Op_Wolf_Shuttle_Rpg_Proj',
+      },
+      {
+        label: 'Trait - Super Charged Weapons',
+        effect: 'Fx_Trait_Powers_Ship_2016_Aniv_Super_Charged_Weapons',
+      },
+      {
+        label: 'Traits - Preferential Targeting',
+        effect: 'Fx_Traits_Ship_Cb22_Ptargeting',
+      },
     ],
     ground: [
       {
@@ -2132,8 +2715,17 @@ const STO_DATA = {
           'Cfx_Er_Featured_Char_Kuumaarke_Set_Symphony_Of_Lightning_Drone_Aoe',
       },
       {
+        label: 'Symphony of Lightning Drone AoE Hitfx',
+        effect:
+          'Cfx_Er_Featured_Char_Kuumaarke_Set_Symphony_Of_Lightning_Drone_Aoe_Hitfx',
+      },
+      {
         label: 'Symphony of Lightning STRIKE',
         effect: 'Fx_Er_Featured_Char_Kuumaarke_Set_Symphony_Of_Lightning_Strike',
+      },
+      {
+        label: 'Symphony of Lightning Targetedfx',
+        effect: 'Cfx_Er_Featured_Char_Kuumaarke_Set_Symphony_Of_Lightning_Targetedfx',
       },
       {
         label: 'Trajectory Bending',
@@ -2142,6 +2734,386 @@ const STO_DATA = {
       {
         label: 'Visual Dampening Field',
         effect: 'Cfx_Char_Trait_Mirror_Vdfield',
+      },
+      {
+        label: 'All Holographic Effects (3 effects)',
+        effect: 'Cfx_Costumefx_Char_Hologram_Emh_Mk1,Cfx_Costumefx_Char_Hologram_Generic,Cfx_Ship_Holoemitter',
+      },
+      {
+        label: 'Ground Tactical Initiative',
+        effect: 'Fx_Ground_Kit_Tac_Tacticalinitiative',
+      },
+      {
+        label: 'All Reputation Flourish Effects (13 effects)',
+        effect: 'dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_8472_Counter_command,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Competitive_Wargames,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Delta_Alliance,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Dyson_Joint_Command,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Gamma_Task_Force,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Iconian_Resistance,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Lukari_Restoration_Initiative,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_New_Romulus,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Nukara_Strikeforce,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Task_Force_Omega,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Temporal_Defense_Initiative,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Terran_Task_Force,dynFxExcludeFX Fx_Reputationpowers_T6_Char_Rep_Flaunting_Disco_Legends',
+      },
+      {
+        label: 'Brg Assimilated Vulnerability',
+        effect: 'Cfx_Char_Brg_Assimilated_Vulnerability',
+      },
+      {
+        label: 'DoT Generic',
+        effect: 'Cfx_Char_Dot_Generic',
+      },
+      {
+        label: 'Risan Kit - Engineering - Cyclonic Generator Aura Whirl',
+        effect: 'Cfx_Char_Ground_Kit_Sum_Event_Cyclonic_Generator_Aura_Whirl',
+      },
+      {
+        label: 'Risan Kit - Universal - Sandstorm Aura Whirl (2 effects)',
+        effect: 'Cfx_Char_Ground_Kit_Univ_Sum_Sandstorm_Aura_Whirl,Cfx_Char_Ground_Kit_Univ_Sum_Sandstorm_Hitfx',
+      },
+      {
+        label: 'Klingon Targ Hell Meteors Targeting',
+        effect: 'Cfx_Char_Klg_Targ_Hell_Meteors_Targeting',
+      },
+      {
+        label: 'Mod Confuse Debuff',
+        effect: 'Cfx_Char_Mod_Confuse_Debuff',
+      },
+      {
+        label: 'Mod Crit Severity Buff',
+        effect: 'Cfx_Char_Mod_Critseverity_Buff',
+      },
+      {
+        label: 'Mod Damage Resistance Buff',
+        effect: 'Cfx_Char_Mod_Damageresistance_Buff',
+      },
+      {
+        label: 'Mod Damage Resistance Debuff',
+        effect: 'Cfx_Char_Mod_Damageresistance_Debuff',
+      },
+      {
+        label: 'Shield Regeneration',
+        effect: 'Cfx_Char_Shieldregen',
+      },
+      {
+        label: 'Spec Powers Command Revitalize',
+        effect: 'Cfx_Char_Spec_Powers_Command_Revitalize_Bufffx',
+      },
+      {
+        label: 'Trait Cb30 Unconventional Gear Ring',
+        effect: 'Cfx_Char_Trait_Cb30_Unconventional_Gear_Ring',
+      },
+      {
+        label: 'Winter Kit Boff Cryothermic Armor',
+        effect: 'Cfx_Char_Winter_Kit_Boff_Cryothermic_Armor',
+      },
+      {
+        label: 'Winter Event Ice Skates',
+        effect: 'Cfx_Char_Winterevent_Iceskates',
+      },
+      {
+        label: 'Eee Exposed',
+        effect: 'Cfx_Eee_Exposed',
+      },
+      {
+        label: 'Ep Winter Event Science Kit - Cryo Pulse',
+        effect: 'Cfx_Ep_Winterevent_Kit_Sci_Cryonic_Pulse_Holdfx',
+      },
+      {
+        label: 'Ep Winter Event Player Aura Hit',
+        effect: 'Cfx_Ep_Winterevent_Player_Aurahitfx',
+      },
+      {
+        label: 'TFO Pahvan Crystal Prism Tether Beam Space',
+        effect: 'Cfx_Er_Tfo_Pahvan_Crystal_Prism_Tether_Beam_Space',
+      },
+      {
+        label: 'Event Reward Winter Breen Cryoshaper Armor Chunks',
+        effect: 'Cfx_Eventreward_Winter_Breencryoshaper_Armor_Chunks',
+      },
+      {
+        label: 'Science Kit - Cold Fusion Flash Dot (2 effects)',
+        effect: 'Cfx_Ground_Kit_Cb20_Sci_Cold_Fusion_Flash_Dot,Fx_Ground_Kit_Cb20_Sci_Cold_Fusion_Flash_Aoe',
+      },
+      {
+        label: 'Command Kit - Hammer And Anvil Damage Resistance',
+        effect: 'Cfx_Ground_Kit_Cmd_Hammeranvil_Dmgres',
+      },
+      {
+        label: 'Command Kit - Strata Analysis Stage 1 (2 effects)',
+        effect: 'Cfx_Ground_Kit_Cmd_Stratanalysis_Stage1,Fx_Ground_Kit_Cmd_Stratanalysis_Bufffx',
+      },
+      {
+        label: 'Command Kit - Strata Analysis Stage 2',
+        effect: 'Cfx_Ground_Kit_Cmd_Stratanalysis_Stage2',
+      },
+      {
+        label: 'Command Kit - Strata Analysis Stage 3',
+        effect: 'Cfx_Ground_Kit_Cmd_Stratanalysis_Stage3',
+      },
+      {
+        label: 'Engineering Kit - Fuse Armor Debuff Aura Hold',
+        effect: 'Cfx_Ground_Kit_Eng_Fuse_Armor_Debuff_Aura_Hold',
+      },
+      {
+        label: 'Engineering Kit - Fuse Armor Debuff Aura Root',
+        effect: 'Cfx_Ground_Kit_Eng_Fuse_Armor_Debuff_Aura_Root',
+      },
+      {
+        label: 'Engineering Kit - Fuse Armor Debuff Aura Slow',
+        effect: 'Cfx_Ground_Kit_Eng_Fuse_Armor_Debuff_Aura_Slow',
+      },
+      {
+        label: 'Tactical Kit - Deadly Intent Buff',
+        effect: 'Cfx_Ground_Kit_Tac_Deadlyintent_Buff',
+      },
+      {
+        label: 'Tactical Kit - Fire On My Mark',
+        effect: 'Cfx_Ground_Kit_Tac_Fireonmymark',
+      },
+      {
+        label: 'Tactical Kit - Focus Fire',
+        effect: 'Cfx_Ground_Kit_Tac_Focusfire',
+      },
+      {
+        label: 'Tactical Kit - Overwatch',
+        effect: 'Cfx_Ground_Kit_Tac_Overwatch',
+      },
+      {
+        label: 'Tactical Kit - Suppressing Fire',
+        effect: 'Cfx_Ground_Kit_Tac_Suppressingfire',
+      },
+      {
+        label: 'Universal Kit Cb32 Orbital Strike Target (2 effects)',
+        effect: 'Cfx_Ground_Kit_Univ_Cb32_Orbital_Ctb_Target,Fx_Ground_Kit_Univ_Cb32_Orbital_Ctb',
+      },
+      {
+        label: 'Reputation - Iconian Char Phase Shift System Healing',
+        effect: 'Cfx_Rep_Iconain_Char_Pss_Healing',
+      },
+      {
+        label: 'Reputation - Iconian Char Photonic Cover Charge Buff',
+        effect: 'Cfx_Rep_Iconian_Char_Photoniccovercharge_Buff',
+      },
+      {
+        label: 'Reputation - Iconian Char Photonic Overcharge Buff',
+        effect: 'Cfx_Rep_Iconian_Char_Photonicovercharge_Buff',
+      },
+      {
+        label: 'Risan Kit - Engineering - Hurricane Gen Aura Hit',
+        effect: 'Cfx_Risa_Kits_Eng_Hurricanegen_Aurahitfx',
+      },
+      {
+        label: 'Rp Dyson Char Defiance',
+        effect: 'Cfx_Rp_Dyson_Char_Defiance',
+      },
+      {
+        label: 'Aetherian Boss Bex Lance Danger Zone',
+        effect: 'Fx_Char_Aetherian_Boss_Bex_Lance_Danger_Zone',
+      },
+      {
+        label: 'Aetherian Construct Mini Lance Danger Zone',
+        effect: 'Fx_Char_Aetherian_Construct_Mini_Lance_Danger_Zone',
+      },
+      {
+        label: 'Antiproton Cb33 Weapon Proc Pistol Beam',
+        effect: 'Fx_Char_Antiproton_Cb33_Wep_Proc_Pistol_Beam',
+      },
+      {
+        label: 'Antiproton Cb33 Weapon Proc Rifle Beam',
+        effect: 'Fx_Char_Antiproton_Cb33_Wep_Proc_Rifle_Beam',
+      },
+      {
+        label: 'Device Powercell',
+        effect: 'Fx_Char_Device_Powercell',
+      },
+      {
+        label: 'Grenade Generic Targeting Ring',
+        effect: 'Fx_Char_Grenade_Generic_Targeting_Ring',
+      },
+      {
+        label: 'Arm Hologram Shared Switch',
+        effect: 'Fx_Char_Groundkits_Arm_Hologram_Shared_Switch',
+      },
+      {
+        label: 'Gamma Reputation - One Little Ship Torpedo',
+        effect: 'Fx_Char_Groundkits_Gamma_Rep_One_Little_Ship_Torpedo',
+      },
+      {
+        label: 'Universal Kit - Summer Ball Lightning Arc',
+        effect: 'Fx_Char_Kit_Univ_Summer_Ball_Lightning_Arc',
+      },
+      {
+        label: 'Mod Damage Buff',
+        effect: 'Fx_Char_Mod_Damage_Buff_Pulse',
+      },
+      {
+        label: 'Mod Debuff Speed',
+        effect: 'Fx_Char_Mod_Debuff_Speed_Pulse',
+      },
+      {
+        label: 'Mod Hold Debuff',
+        effect: 'Fx_Char_Mod_Hold_Debuff',
+      },
+      {
+        label: 'Mod Hot',
+        effect: 'Fx_Char_Mod_Hot_Pulse',
+      },
+      {
+        label: 'Mod Root Debuff',
+        effect: 'Fx_Char_Mod_Root_Debuff',
+      },
+      {
+        label: 'Personal Shield',
+        effect: 'Fx_Char_Personalshield',
+      },
+      {
+        label: 'Spec Powers Command Revitalize Activate',
+        effect: 'Fx_Char_Spec_Powers_Command_Revitalize_Activate',
+      },
+      {
+        label: 'Stun Grenade Explode Playeronly Screenmod',
+        effect: 'Fx_Char_Stun_Grenade_Explode_Playeronly_Screenmod',
+      },
+      {
+        label: 'Tribble Hold Diversity Tacbuff',
+        effect: 'Fx_Char_Tribble_Hold_Diversity_Tacbuff',
+      },
+      {
+        label: 'Winter Kit Boff Anchor Of Grethor Chain',
+        effect: 'Fx_Char_Winter_Kit_Boff_Anchor_Of_Grethor_Chain',
+      },
+      {
+        label: 'Xindi Vicious Stage 1',
+        effect: 'Fx_Char_Xindi_Vicious_Stage1',
+      },
+      {
+        label: 'Xindi Vicious Stage 2',
+        effect: 'Fx_Char_Xindi_Vicious_Stage2',
+      },
+      {
+        label: 'Xindi Vicious Stage 3',
+        effect: 'Fx_Char_Xindi_Vicious_Stage3',
+      },
+      {
+        label: 'Xindi Vicious Stage 4',
+        effect: 'Fx_Char_Xindi_Vicious_Stage4',
+      },
+      {
+        label: 'Xindi Vicious Stage 5',
+        effect: 'Fx_Char_Xindi_Vicious_Stage5',
+      },
+      {
+        label: 'Env Gnd Qadhos Arena Lightning Targeting',
+        effect: 'Fx_Env_Gnd_Qadhos_Arena_Lightning_Targeting',
+      },
+      {
+        label: 'Winter Tactical Kit - Micro Torpedo Cryo (2 effects)',
+        effect: 'Fx_Ep_Winterevent_Kit_Tac_Microtorpedo_Cryo_Holdfx,Fx_Ep_Winterevent_Kit_Tac_Microtorpedo_Cryo_Launch',
+      },
+      {
+        label: 'Er Featured Char Kuumaarke Wristgun Primary',
+        effect: 'Fx_Er_Featured_Char_Kuumaarke_Wristgun_Pri',
+      },
+      {
+        label: 'Er Featured Char Kuumaarke Wristgun Secondary',
+        effect: 'Fx_Er_Featured_Char_Kuumaarke_Wristgun_Sec',
+      },
+      {
+        label: 'Er Featured Char Kuumaarke Wristgun Tertiary',
+        effect: 'Fx_Er_Featured_Char_Kuumaarke_Wristgun_Tir_Bufffx',
+      },
+      {
+        label: 'Risan Kit - Universal - Icy Wrath (3 effects)',
+        effect: 'Fx_Er_Summer_Char_Kits_Universal_Icy_Wrath,Fx_Er_Summer_Char_Kits_Universal_Icy_Wrath_Bookfx,Fx_Er_Summer_Char_Kits_Universal_Icy_Wrath_Rev',
+      },
+      {
+        label: 'Er Winter Breen Cryoshaper Polarblast',
+        effect: 'Fx_Er_Winter_Breencryoshaper_Polarblast',
+      },
+      {
+        label: 'Event Reward Fcd Tommy Gun Primary Spray',
+        effect: 'Fx_Eventreward_Fcd_Tommygun_Pri_spray',
+      },
+      {
+        label: 'Event Reward Fcd Tommy Gun Rev Hit',
+        effect: 'Fx_Eventreward_Fcd_Tommygun_Revhit',
+      },
+      {
+        label: 'Event Reward Fcd Tommy Gun Secondary Spray',
+        effect: 'Fx_Eventreward_Fcd_Tommygun_Sec_spray',
+      },
+      {
+        label: 'Event Reward Winter Thermal Depletion Pistol Beam',
+        effect: 'Fx_Eventreward_Whinter_Thermaldepletion_Pistol_Beam',
+      },
+      {
+        label: 'Kit Cb20 Sci Cold Fusion Flash AoE Playeronly Screenmod',
+        effect: 'Fx_Ground_Kit_Cb20_Sci_Cold_Fusion_Flash_Aoe_Playeronly_Screenmod',
+      },
+      {
+        label: 'Command Kit - AoE Activate',
+        effect: 'Fx_Ground_Kit_Cmd_Aoe_Activatefx',
+      },
+      {
+        label: 'Command Kit - Strata Analysis Activate',
+        effect: 'Fx_Ground_Kit_Cmd_Stratanalysis_Activatefx',
+      },
+      {
+        label: 'Engineering Kit - Molten Terrain Targeting',
+        effect: 'Fx_Ground_Kit_Eng_Molten_Terrain_Targeting',
+      },
+      {
+        label: 'Engineering Kit - Orbital Strike Targeting',
+        effect: 'Fx_Ground_Kit_Eng_Orbitalstrike_Targeting',
+      },
+      {
+        label: 'Science Kit - Dampening Field',
+        effect: 'Fx_Ground_Kit_Sci_Dampeningfield',
+      },
+      {
+        label: 'Science Kit - Gravimetric Shift',
+        effect: 'Fx_Ground_Kit_Sci_Gravimetricshift',
+      },
+      {
+        label: 'Summer Event Kit Magmatic Deployment Lava Geyser',
+        effect: 'Fx_Ground_Kit_Summer_Event_Magmatic_Deployment_Lava_Geyser',
+      },
+      {
+        label: 'Tactical Kit - Lightning Strike',
+        effect: 'Fx_Ground_Kit_Tac_Lightning_Strike',
+      },
+      {
+        label: 'Tactical Kit - Target Optics Gen Cone Targeted',
+        effect: 'Fx_Ground_Kit_Tac_Targetoptics_Gen_Cone_Targeted',
+      },
+      {
+        label: 'Tactical Kit - Target Optics Gen Targeted',
+        effect: 'Fx_Ground_Kit_Tac_Targetoptics_Gen_Targetedfx',
+      },
+      {
+        label: 'Temporal Kit - Paradox Bomb (4 effects)',
+        effect: 'Fx_Ground_Kit_Temp_Pbomb,Fx_Ground_Kit_Temp_Pbomb_Beamhitfx,Fx_Ground_Kit_Temp_Pbomb_Explode,Fx_Ground_Kit_Temp_Pbomb_Target',
+      },
+      {
+        label: 'Universal Kit - Cb36 Hurricane Wave Cone',
+        effect: 'Fx_Ground_Kit_Univ_Cb36_Hurricane_Wave_Cone',
+      },
+      {
+        label: 'Science - Hyperonic Radiation AoE',
+        effect: 'Fx_Ground_Sci_Hyperonicradiation_Aoe',
+      },
+      {
+        label: 'Tactical - Rally Cry',
+        effect: 'Fx_Ground_Tac_Rallycry',
+      },
+      {
+        label: 'Lockboxfx Cb29 Char Make An Example',
+        effect: 'Fx_Lockboxfx_Cb29_Char_Make_An_Example',
+      },
+      {
+        label: 'P Er Nanopulse Coolant Burst',
+        effect: 'P_Er_Nanopulse_Coolant_Burst',
+      },
+      {
+        label: 'Rep S17 Kit Sci Exotic Biorifle Target',
+        effect: 'Fx_Rep_S17_Kit_Sci_Exotic_Biorifle_Target',
+      },
+      {
+        label: 'Risa Lava Geyser Explode',
+        effect: 'Fx_Risa_Lava_Geyser_Explode',
       },
     ],
   },
