@@ -211,6 +211,42 @@ describe('STOCommandParser - Function Signature Based Parsing', () => {
     })
   })
 
+  describe('TeamLootRoll Commands', () => {
+    it('should parse LootRollNeed command', () => {
+      const result = parser.parseCommandString('LootRollNeed')
+      expect(result.commands).toHaveLength(1)
+      expect(result.commands[0].signature).toBe('LootRollNeed()')
+      expect(result.commands[0].category).toBe('team')
+      expect(result.commands[0].baseCommand).toBe('TeamLootRoll')
+    })
+
+    it('should parse LootRollGreed command', () => {
+      const result = parser.parseCommandString('LootRollGreed')
+      expect(result.commands).toHaveLength(1)
+      expect(result.commands[0].signature).toBe('LootRollGreed()')
+      expect(result.commands[0].category).toBe('team')
+    })
+
+    it('should parse LootRollPass command', () => {
+      const result = parser.parseCommandString('LootRollPass')
+      expect(result.commands).toHaveLength(1)
+      expect(result.commands[0].signature).toBe('LootRollPass()')
+      expect(result.commands[0].category).toBe('team')
+    })
+
+    it('should handle case-insensitive loot roll commands', () => {
+      const result = parser.parseCommandString('lootrollneed')
+      expect(result.commands[0].signature).toBe('LootRollNeed()')
+    })
+
+    it('should parse command chain with loot roll commands', () => {
+      const result = parser.parseCommandString('LootRollNeed $$ LootRollPass')
+      expect(result.commands).toHaveLength(2)
+      expect(result.commands[0].signature).toBe('LootRollNeed()')
+      expect(result.commands[1].signature).toBe('LootRollPass()')
+    })
+  })
+
   describe('VFX Commands', () => {
     it('should parse VFX exclusion commands', () => {
       const result = parser.parseCommandString('dynFxSetFXExclusionList Fx_Explosion,Fx_Beam')

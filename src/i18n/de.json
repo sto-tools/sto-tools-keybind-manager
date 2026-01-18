@@ -158,6 +158,7 @@
     "movement": "Bewegung",
     "camera": "Kamera",
     "communication": "Kommunikation",
+    "team": "Team",
     "system": "System",
     "custom": "Benutzerdefiniert"
   },
@@ -406,6 +407,18 @@
       "name": "Zonen-Nachricht",
       "description": "Nachricht an Zone senden"
     },
+    "loot_roll_need": {
+      "name": "Auf Bedarf würfeln",
+      "description": "Auf Bedarf für Team-Beute würfeln (höchste Priorität)"
+    },
+    "loot_roll_greed": {
+      "name": "Auf Gier würfeln",
+      "description": "Auf Gier für Team-Beute würfeln (mittlere Priorität)"
+    },
+    "loot_roll_pass": {
+      "name": "Passen",
+      "description": "Auf Team-Beute passen (nicht würfeln)"
+    },
     "toggle_hud": {
       "name": "HUD umschalten",
       "description": "HUD-Sichtbarkeit umschalten"
@@ -626,6 +639,7 @@
     "movement": "Schiffsbewegung und Navigation",
     "camera": "Kamerasteuerung und Ansichtsverwaltung",
     "communication": "Chat und Teamkommunikation",
+    "team": "Team- und Multiplayer-Befehle",
     "system": "UI- und Systembefehle",
     "custom": "Benutzerdefinierte Befehle"
   },

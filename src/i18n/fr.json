@@ -158,6 +158,7 @@
     "movement": "Mouvement",
     "camera": "Caméra",
     "communication": "Communication",
+    "team": "Équipe",
     "system": "Système",
     "custom": "Personnalisé"
   },
@@ -410,6 +411,18 @@
       "name": "Message de zone",
       "description": "Envoyer un message à la zone"
     },
+    "loot_roll_need": {
+      "name": "Cuber Besoin",
+      "description": "Cuber Besoin pour le butin d'équipe (priorité la plus élevée)"
+    },
+    "loot_roll_greed": {
+      "name": "Cuber Cupidité",
+      "description": "Cuber Cupidité pour le butin d'équipe (priorité moyenne)"
+    },
+    "loot_roll_pass": {
+      "name": "Passer",
+      "description": "Passer sur le butin d'équipe (pas de cube)"
+    },
     "toggle_hud": {
       "name": "Basculer HUD",
       "description": "Basculer la visibilité du HUD"
@@ -626,6 +639,7 @@
     "movement": "Mouvement et navigation du vaisseau",
     "camera": "Contrôle de caméra et gestion de vue",
     "communication": "Chat et communication d'équipe",
+    "team": "Commandes d'équipe et multijoueur",
     "system": "Commandes UI et système",
     "custom": "Commandes personnalisées"
   },

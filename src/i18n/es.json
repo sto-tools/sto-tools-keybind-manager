@@ -167,6 +167,7 @@
     "movement": "Movimiento",
     "camera": "Cámara",
     "communication": "Comunicación",
+    "team": "Equipo",
     "system": "Sistema",
     "custom": "Personalizado"
   },
@@ -419,6 +420,18 @@
       "name": "Mensaje de zona",
       "description": "Enviar mensaje a la zona"
     },
+    "loot_roll_need": {
+      "name": "Tirar Necesidad",
+      "description": "Tirar Necesidad para botín de equipo (prioridad más alta)"
+    },
+    "loot_roll_greed": {
+      "name": "Tirar Codicia",
+      "description": "Tirar Codicia para botín de equipo (prioridad media)"
+    },
+    "loot_roll_pass": {
+      "name": "Pasar",
+      "description": "Pasar en botín de equipo (no tirar)"
+    },
     "toggle_hud": {
       "name": "Alternar HUD",
       "description": "Alternar visibilidad del HUD"
@@ -635,6 +648,7 @@
     "movement": "Movimiento y navegación de nave",
     "camera": "Control de cámara y gestión de vista",
     "communication": "Chat y comunicación de equipo",
+    "team": "Comandos de equipo y multijugador",
     "system": "Comandos de UI y sistema",
     "custom": "Comandos personalizados"
   },

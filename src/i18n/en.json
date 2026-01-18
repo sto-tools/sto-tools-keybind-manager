@@ -169,6 +169,7 @@
     "movement": "Movement",
     "camera": "Camera",
     "communication": "Communication",
+    "team": "Team",
     "system": "System",
     "custom": "Custom"
   },
@@ -432,6 +433,18 @@
       "name": "Zone Message",
       "description": "Send message to zone"
     },
+    "loot_roll_need": {
+      "name": "Roll Need on Loot",
+      "description": "Roll Need on team loot (highest priority)"
+    },
+    "loot_roll_greed": {
+      "name": "Roll Greed on Loot",
+      "description": "Roll Greed on team loot (medium priority)"
+    },
+    "loot_roll_pass": {
+      "name": "Pass on Loot",
+      "description": "Pass on team loot (no roll)"
+    },
     "toggle_hud": {
       "name": "Toggle HUD",
       "description": "Toggle HUD visibility"
@@ -649,6 +662,7 @@
     "movement": "Ship movement and navigation",
     "camera": "Camera control and view management",
     "communication": "Chat and team communication",
+    "team": "Team and multiplayer commands",
     "system": "UI and system commands",
     "custom": "Custom commands"
   },

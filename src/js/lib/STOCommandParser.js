@@ -180,6 +180,44 @@ export class STOCommandParser {
         icon: '💬'
       },
 
+      'TeamLootRoll': {
+        patterns: [
+          {
+            regex: /^LootRollNeed$/i,
+            weight: 68,
+            signature: 'LootRollNeed()',
+            extractParams: () => ({}),
+            generateDisplayText: () => ({
+              key: 'command_definitions.loot_roll_need.name',
+              fallback: 'Roll Need on Loot'
+            })
+          },
+          {
+            regex: /^LootRollGreed$/i,
+            weight: 67,
+            signature: 'LootRollGreed()',
+            extractParams: () => ({}),
+            generateDisplayText: () => ({
+              key: 'command_definitions.loot_roll_greed.name',
+              fallback: 'Roll Greed on Loot'
+            })
+          },
+          {
+            regex: /^LootRollPass$/i,
+            weight: 66,
+            signature: 'LootRollPass()',
+            extractParams: () => ({}),
+            generateDisplayText: () => ({
+              key: 'command_definitions.loot_roll_pass.name',
+              fallback: 'Pass on Loot'
+            })
+          }
+        ],
+        category: 'team',
+        baseCommand: 'TeamLootRoll',
+        icon: '🎲'
+      },
+
       'TargetWithName': {
         patterns: [
           {
