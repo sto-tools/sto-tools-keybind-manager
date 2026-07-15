@@ -1,254 +1,335 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { JSDOM } from 'jsdom'
-import KeyBrowserUI from '../../../src/js/components/ui/KeyBrowserUI.js'
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { JSDOM } from "jsdom";
+import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
 
-describe('KeyBrowserUI Bindset Header Controls Tests', () => {
-  let keyBrowserUI
-  let mockEventBus
-  let mockI18n
-  let dom
+describe("KeyBrowserUI Bindset Header Controls Tests", () => {
+  let keyBrowserUI;
+  let mockEventBus;
+  let mockI18n;
+  let dom;
 
   beforeEach(() => {
-    dom = new JSDOM('<!DOCTYPE html><div id="key-browser"></div>')
-    global.document = dom.window.document
-    global.window = dom.window
+    dom = new JSDOM('<!DOCTYPE html><div id="key-browser"></div>', {
+      url: "http://localhost",
+    });
+    global.document = dom.window.document;
+    global.window = dom.window;
 
     mockEventBus = {
       request: vi.fn(),
       respond: vi.fn(),
       on: vi.fn(),
-      off: vi.fn()
-    }
+      off: vi.fn(),
+    };
 
     mockI18n = {
-      t: vi.fn((key) => key)
-    }
+      t: vi.fn((key) => key),
+    };
 
     keyBrowserUI = new KeyBrowserUI({
       eventBus: mockEventBus,
-      container: dom.window.document.getElementById('key-browser'),
-      i18n: mockI18n
-    })
+      container: dom.window.document.getElementById("key-browser"),
+      i18n: mockI18n,
+    });
 
     // Initialize cache with test data
     keyBrowserUI.cache = {
-      selectedKey: 'F1',
-      activeBindset: 'Primary Bindset',
-      currentEnvironment: 'space',
+      selectedKey: "F1",
+      activeBindset: "Primary Bindset",
+      currentEnvironment: "space",
       profile: {
         bindsets: {
-          'Primary Bindset': {
+          "Primary Bindset": {
             space: {
               keys: {
-                'F1': ['attack'],
-                'F2': ['defend']
-              }
-            }
+                F1: ["attack"],
+                F2: ["defend"],
+              },
+            },
           },
-          'Custom Bindset': {
+          "Custom Bindset": {
             space: {
               keys: {
-                'F1': ['custom_attack'],
-                'F3': ['custom_defend']
-              }
-            }
-          }
-        }
+                F1: ["custom_attack"],
+                F3: ["custom_defend"],
+              },
+            },
+          },
+        },
       },
       preferences: {
         bindsetsEnabled: true,
-        bindToAliasMode: true
-      }
-    }
+        bindToAliasMode: true,
+      },
+    };
 
     // Mock methods
-    keyBrowserUI.emit = vi.fn()
-    keyBrowserUI.onDom = vi.fn()
-    keyBrowserUI.confirmDeleteBindset = vi.fn()
-    keyBrowserUI.request = vi.fn().mockResolvedValue({})
-  })
+    keyBrowserUI.emit = vi.fn();
+    keyBrowserUI.onDom = vi.fn();
+    keyBrowserUI.confirmDeleteBindset = vi.fn();
+    keyBrowserUI.request = vi.fn().mockResolvedValue({});
+  });
 
-  describe('createBindsetSectionElement', () => {
-    it('should create Create + Clone buttons for Primary Bindset (no Delete)', async () => {
+  describe("createBindsetSectionElement", () => {
+    it("should create a menu with Create + Clone actions for Primary Bindset (no Delete)", async () => {
       const bindsetData = {
-        keys: ['F1', 'F2'],
+        keys: ["F1", "F2"],
         keyCount: 2,
-        isCollapsed: false
-      }
+        isCollapsed: false,
+      };
 
-      const element = await keyBrowserUI.createBindsetSectionElement('Primary Bindset', bindsetData)
-      const actionsContainer = element.querySelector('.bindset-actions')
+      const element = await keyBrowserUI.createBindsetSectionElement(
+        "Primary Bindset",
+        bindsetData,
+      );
+      const actionsContainer = element.querySelector(".bindset-actions");
 
-      expect(actionsContainer).toBeTruthy()
+      expect(actionsContainer).toBeTruthy();
 
-      const buttons = actionsContainer.querySelectorAll('button.control-btn')
-      expect(buttons).toHaveLength(2)
+      const menuButton = actionsContainer.querySelector(
+        'button[data-action="bindset-menu"]',
+      );
+      const menu = actionsContainer.querySelector(".bindset-menu-dropdown");
+      const menuItems = menu.querySelectorAll(".bindset-menu-item");
 
-      const createBtn = actionsContainer.querySelector('[data-action="create-bindset"]')
-      const cloneBtn = actionsContainer.querySelector('[data-action="clone-bindset"]')
-      const deleteBtn = actionsContainer.querySelector('[data-action="delete-bindset"]')
+      expect(menuButton).toBeTruthy();
+      expect(menuButton.innerHTML).toContain("fa-ellipsis-v");
+      expect(menuItems).toHaveLength(2);
 
-      expect(createBtn).toBeTruthy()
-      expect(cloneBtn).toBeTruthy()
-      expect(deleteBtn).toBeFalsy() // Should NOT have delete button
+      const createItem = menu.querySelector('[data-action="create"]');
+      const cloneItem = menu.querySelector('[data-action="clone"]');
+      const deleteItem = menu.querySelector('[data-action="delete"]');
 
-      // Verify button content
-      expect(createBtn.innerHTML).toContain('fa-plus')
-      expect(cloneBtn.innerHTML).toContain('fa-copy')
+      expect(createItem).toBeTruthy();
+      expect(cloneItem).toBeTruthy();
+      expect(deleteItem).toBeFalsy();
 
-      // Verify event handlers are attached for primary bindset
+      expect(createItem.innerHTML).toContain("fa-plus");
+      expect(cloneItem.innerHTML).toContain("fa-copy");
+
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-create-btn', expect.any(Function)
-      )
+        expect.any(Object),
+        "click",
+        "bindset-menu-create",
+        expect.any(Function),
+      );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-clone-btn', expect.any(Function)
-      )
-    })
+        expect.any(Object),
+        "click",
+        "bindset-menu-clone",
+        expect.any(Function),
+      );
+    });
 
-    it('should create Clone + Delete buttons for User-Defined Bindset (no Create)', async () => {
+    it("should create a menu with Clone + Rename + Delete actions for User-Defined Bindset (no Create)", async () => {
       const bindsetData = {
-        keys: ['F1', 'F3'],
+        keys: ["F1", "F3"],
         keyCount: 2,
-        isCollapsed: false
-      }
+        isCollapsed: false,
+      };
 
-      const element = await keyBrowserUI.createBindsetSectionElement('Custom Bindset', bindsetData)
-      const actionsContainer = element.querySelector('.bindset-actions')
+      const element = await keyBrowserUI.createBindsetSectionElement(
+        "Custom Bindset",
+        bindsetData,
+      );
+      const actionsContainer = element.querySelector(".bindset-actions");
 
-      expect(actionsContainer).toBeTruthy()
+      expect(actionsContainer).toBeTruthy();
 
-      const buttons = actionsContainer.querySelectorAll('button.control-btn')
-      expect(buttons).toHaveLength(3) // Clone, Rename, Delete
+      const menuButton = actionsContainer.querySelector(
+        'button[data-action="bindset-menu"]',
+      );
+      const menu = actionsContainer.querySelector(".bindset-menu-dropdown");
+      const menuItems = menu.querySelectorAll(".bindset-menu-item");
 
-      const createBtn = actionsContainer.querySelector('[data-action="create-bindset"]')
-      const cloneBtn = actionsContainer.querySelector('[data-action="clone-bindset"]')
-      const renameBtn = actionsContainer.querySelector('[data-action="rename-bindset"]')
-      const deleteBtn = actionsContainer.querySelector('[data-action="delete-bindset"]')
+      expect(menuButton).toBeTruthy();
+      expect(menuItems).toHaveLength(3);
 
-      expect(createBtn).toBeFalsy() // Should NOT have create button
-      expect(cloneBtn).toBeTruthy()
-      expect(renameBtn).toBeTruthy()
-      expect(deleteBtn).toBeTruthy()
+      const createItem = menu.querySelector('[data-action="create"]');
+      const cloneItem = menu.querySelector('[data-action="clone"]');
+      const renameItem = menu.querySelector('[data-action="rename"]');
+      const deleteItem = menu.querySelector('[data-action="delete"]');
 
-      // Verify button content and styling
-      expect(cloneBtn.innerHTML).toContain('fa-copy')
-      expect(renameBtn.innerHTML).toContain('fa-edit')
-      expect(deleteBtn.innerHTML).toContain('fa-trash')
-      expect(deleteBtn.className).toContain('control-btn-danger')
+      expect(createItem).toBeFalsy();
+      expect(cloneItem).toBeTruthy();
+      expect(renameItem).toBeTruthy();
+      expect(deleteItem).toBeTruthy();
 
-      // Verify event handlers are attached for user-defined bindset
+      expect(cloneItem.innerHTML).toContain("fa-copy");
+      expect(renameItem.innerHTML).toContain("fa-edit");
+      expect(deleteItem.innerHTML).toContain("fa-trash");
+      expect(deleteItem.className).toContain("dangerous");
+
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-clone-btn', expect.any(Function)
-      )
+        expect.any(Object),
+        "click",
+        "bindset-menu-clone",
+        expect.any(Function),
+      );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-rename-btn', expect.any(Function)
-      )
+        expect.any(Object),
+        "click",
+        "bindset-menu-rename",
+        expect.any(Function),
+      );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-delete-btn', expect.any(Function)
-      )
-    })
+        expect.any(Object),
+        "click",
+        "bindset-menu-delete",
+        expect.any(Function),
+      );
+    });
 
-    it('should handle empty bindsets correctly', async () => {
+    it("should handle empty bindsets correctly", async () => {
       const bindsetData = {
         keys: [],
         keyCount: 0,
-        isCollapsed: false
-      }
+        isCollapsed: false,
+      };
 
-      const element = await keyBrowserUI.createBindsetSectionElement('Empty Bindset', bindsetData)
-      const actionsContainer = element.querySelector('.bindset-actions')
+      const element = await keyBrowserUI.createBindsetSectionElement(
+        "Empty Bindset",
+        bindsetData,
+      );
+      const actionsContainer = element.querySelector(".bindset-actions");
 
       // Should still have controls even for empty bindsets
-      expect(actionsContainer).toBeTruthy()
+      expect(actionsContainer).toBeTruthy();
 
-      const buttons = actionsContainer.querySelectorAll('button.control-btn')
-      expect(buttons).toHaveLength(3) // Clone + Rename + Delete for user-defined
-    })
-  })
+      const menuItems = actionsContainer.querySelectorAll(".bindset-menu-item");
+      expect(menuItems).toHaveLength(3);
+    });
+  });
 
-  describe('regression tests for bindset header controls bug', () => {
-    it('should not show Delete button on Primary Bindset (regression: js-bindset-header-controls)', async () => {
-      const bindsetData = { keys: ['F1'], keyCount: 1, isCollapsed: false }
+  describe("regression tests for bindset header controls bug", () => {
+    it("should not show Delete button on Primary Bindset (regression: js-bindset-header-controls)", async () => {
+      const bindsetData = { keys: ["F1"], keyCount: 1, isCollapsed: false };
 
-      const element = await keyBrowserUI.createBindsetSectionElement('Primary Bindset', bindsetData)
-      const deleteBtn = element.querySelector('[data-action="delete-bindset"]')
+      const element = await keyBrowserUI.createBindsetSectionElement(
+        "Primary Bindset",
+        bindsetData,
+      );
+      const deleteItem = element.querySelector(
+        '.bindset-menu-dropdown [data-action="delete"]',
+      );
 
-      expect(deleteBtn).toBeFalsy()
-    })
+      expect(deleteItem).toBeFalsy();
+    });
 
-    it('should not show Create button on User-Defined Bindset (regression: js-bindset-header-controls)', async () => {
-      const bindsetData = { keys: ['F1'], keyCount: 1, isCollapsed: false }
+    it("should not show Create button on User-Defined Bindset (regression: js-bindset-header-controls)", async () => {
+      const bindsetData = { keys: ["F1"], keyCount: 1, isCollapsed: false };
 
-      const element = await keyBrowserUI.createBindsetSectionElement('Custom Bindset', bindsetData)
-      const createBtn = element.querySelector('[data-action="create-bindset"]')
+      const element = await keyBrowserUI.createBindsetSectionElement(
+        "Custom Bindset",
+        bindsetData,
+      );
+      const createItem = element.querySelector(
+        '.bindset-menu-dropdown [data-action="create"]',
+      );
 
-      expect(createBtn).toBeFalsy()
-    })
+      expect(createItem).toBeFalsy();
+    });
 
-    it('should show Create and Clone buttons on Primary Bindset (regression: js-bindset-header-controls)', async () => {
-      const bindsetData = { keys: ['F1'], keyCount: 1, isCollapsed: false }
-
-      // Test createBindsetSectionElement
-      const element = await keyBrowserUI.createBindsetSectionElement('Primary Bindset', bindsetData)
-      const actionsContainer = element.querySelector('.bindset-actions')
-
-      const createBtn = actionsContainer.querySelector('[data-action="create-bindset"]')
-      const cloneBtn = actionsContainer.querySelector('[data-action="clone-bindset"]')
-
-      expect(createBtn).toBeTruthy()
-      expect(cloneBtn).toBeTruthy()
-    })
-
-    it('should show Clone and Delete buttons on User-Defined Bindset (regression: js-bindset-header-controls)', async () => {
-      const bindsetData = { keys: ['F1'], keyCount: 1, isCollapsed: false }
+    it("should show Create and Clone menu items on Primary Bindset (regression: js-bindset-header-controls)", async () => {
+      const bindsetData = { keys: ["F1"], keyCount: 1, isCollapsed: false };
 
       // Test createBindsetSectionElement
-      const element = await keyBrowserUI.createBindsetSectionElement('Custom Bindset', bindsetData)
-      const actionsContainer = element.querySelector('.bindset-actions')
+      const element = await keyBrowserUI.createBindsetSectionElement(
+        "Primary Bindset",
+        bindsetData,
+      );
+      const menu = element.querySelector(".bindset-menu-dropdown");
 
-      const cloneBtn = actionsContainer.querySelector('[data-action="clone-bindset"]')
-      const renameBtn = actionsContainer.querySelector('[data-action="rename-bindset"]')
-      const deleteBtn = actionsContainer.querySelector('[data-action="delete-bindset"]')
+      const createItem = menu.querySelector('[data-action="create"]');
+      const cloneItem = menu.querySelector('[data-action="clone"]');
 
-      expect(cloneBtn).toBeTruthy()
-      expect(renameBtn).toBeTruthy()
-      expect(deleteBtn).toBeTruthy()
-    })
-  })
+      expect(createItem).toBeTruthy();
+      expect(cloneItem).toBeTruthy();
+    });
 
-  describe('event handler verification', () => {
-    it('should attach correct event handlers for Primary Bindset controls', async () => {
-      const bindsetData = { keys: ['F1'], keyCount: 1, isCollapsed: false }
+    it("should show Clone, Rename, and Delete menu items on User-Defined Bindset (regression: js-bindset-header-controls)", async () => {
+      const bindsetData = { keys: ["F1"], keyCount: 1, isCollapsed: false };
 
-      await keyBrowserUI.createBindsetSectionElement('Primary Bindset', bindsetData)
+      // Test createBindsetSectionElement
+      const element = await keyBrowserUI.createBindsetSectionElement(
+        "Custom Bindset",
+        bindsetData,
+      );
+      const menu = element.querySelector(".bindset-menu-dropdown");
 
-      // Should have create and clone handlers, but no delete handler
+      const cloneItem = menu.querySelector('[data-action="clone"]');
+      const renameItem = menu.querySelector('[data-action="rename"]');
+      const deleteItem = menu.querySelector('[data-action="delete"]');
+
+      expect(cloneItem).toBeTruthy();
+      expect(renameItem).toBeTruthy();
+      expect(deleteItem).toBeTruthy();
+    });
+  });
+
+  describe("event handler verification", () => {
+    it("should attach correct event handlers for Primary Bindset controls", async () => {
+      const bindsetData = { keys: ["F1"], keyCount: 1, isCollapsed: false };
+
+      await keyBrowserUI.createBindsetSectionElement(
+        "Primary Bindset",
+        bindsetData,
+      );
+
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-create-btn', expect.any(Function)
-      )
+        expect.any(Object),
+        "click",
+        "bindset-menu-create",
+        expect.any(Function),
+      );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-clone-btn', expect.any(Function)
-      )
+        expect.any(Object),
+        "click",
+        "bindset-menu-clone",
+        expect.any(Function),
+      );
+      expect(keyBrowserUI.onDom).not.toHaveBeenCalledWith(
+        expect.any(Object),
+        "click",
+        "bindset-menu-delete",
+        expect.any(Function),
+      );
 
-      // Verify that delete confirmation is not called for primary bindset
-      expect(keyBrowserUI.confirmDeleteBindset).not.toHaveBeenCalled()
-    })
+      expect(keyBrowserUI.confirmDeleteBindset).not.toHaveBeenCalled();
+    });
 
-    it('should attach correct event handlers for User-Defined Bindset controls', async () => {
-      const bindsetData = { keys: ['F1'], keyCount: 1, isCollapsed: false }
+    it("should attach correct event handlers for User-Defined Bindset controls", async () => {
+      const bindsetData = { keys: ["F1"], keyCount: 1, isCollapsed: false };
 
-      await keyBrowserUI.createBindsetSectionElement('Custom Bindset', bindsetData)
+      await keyBrowserUI.createBindsetSectionElement(
+        "Custom Bindset",
+        bindsetData,
+      );
 
-      // Should have clone, rename, and delete handlers, but no create handler
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-clone-btn', expect.any(Function)
-      )
+        expect.any(Object),
+        "click",
+        "bindset-menu-clone",
+        expect.any(Function),
+      );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-rename-btn', expect.any(Function)
-      )
+        expect.any(Object),
+        "click",
+        "bindset-menu-rename",
+        expect.any(Function),
+      );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object), 'click', 'bindset-delete-btn', expect.any(Function)
-      )
-    })
-  })
-})
+        expect.any(Object),
+        "click",
+        "bindset-menu-delete",
+        expect.any(Function),
+      );
+      expect(keyBrowserUI.onDom).not.toHaveBeenCalledWith(
+        expect.any(Object),
+        "click",
+        "bindset-menu-create",
+        expect.any(Function),
+      );
+    });
+  });
+});

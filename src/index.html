@@ -48,11 +48,19 @@
               <span data-i18n="backup"></span>
             </button>
             <div class="dropdown-menu" id="backupMenu">
-              <button class="dropdown-item" id="saveProjectBtn" data-i18n-title="backup_application_state">
+              <button
+                class="dropdown-item"
+                id="saveProjectBtn"
+                data-i18n-title="backup_application_state"
+              >
                 <i class="fas fa-download"></i>
                 <span data-i18n="backup_application_state"></span>
               </button>
-              <button class="dropdown-item" id="openProjectBtn" data-i18n-title="restore_application_state">
+              <button
+                class="dropdown-item"
+                id="openProjectBtn"
+                data-i18n-title="restore_application_state"
+              >
                 <i class="fas fa-upload"></i>
                 <span data-i18n="restore_application_state"></span>
               </button>
@@ -90,16 +98,28 @@
               </button>
             </div>
           </div>
-          <button class="btn btn-secondary" id="vertigoBtn" data-i18n-title="vfx_manager">
+          <button
+            class="btn btn-secondary"
+            id="vertigoBtn"
+            data-i18n-title="vfx_manager"
+          >
             <i class="fas fa-eye-slash"></i>
             <span data-i18n="vfx"></span>
           </button>
-          <button class="btn btn-secondary" id="syncNowBtn" data-i18n-title="sync_now">
+          <button
+            class="btn btn-secondary"
+            id="syncNowBtn"
+            data-i18n-title="sync_now"
+          >
             <i class="fas fa-sync"></i>
             <span data-i18n="sync_now"></span>
           </button>
           <div class="dropdown language-select">
-            <button class="btn btn-icon dropdown-toggle" id="languageMenuBtn" data-i18n-title="language">
+            <button
+              class="btn btn-icon dropdown-toggle"
+              id="languageMenuBtn"
+              data-i18n-title="language"
+            >
               <span id="languageFlag" class="fi fi-gb"></span>
             </button>
             <div class="dropdown-menu" id="languageMenu">
@@ -163,21 +183,42 @@
             <!-- Profiles populated by JavaScript -->
           </select>
           <div class="toolbar-group">
-            <button class="toolbar-btn toolbar-btn-primary" id="newProfileBtn" data-i18n-title="new_profile">
+            <button
+              class="toolbar-btn toolbar-btn-primary"
+              id="newProfileBtn"
+              data-i18n-title="new_profile"
+            >
               <i class="fas fa-plus"></i>
             </button>
-            <button class="toolbar-btn" id="cloneProfileBtn" data-i18n-title="clone_profile">
+            <button
+              class="toolbar-btn"
+              id="cloneProfileBtn"
+              data-i18n-title="clone_profile"
+            >
               <i class="fas fa-copy"></i>
             </button>
-            <button class="toolbar-btn" id="renameProfileBtn" data-i18n-title="rename_profile">
+            <button
+              class="toolbar-btn"
+              id="renameProfileBtn"
+              data-i18n-title="rename_profile"
+            >
               <i class="fas fa-edit"></i>
             </button>
-            <button class="toolbar-btn toolbar-btn-danger" id="deleteProfileBtn" data-i18n-title="delete_profile">
+            <button
+              class="toolbar-btn toolbar-btn-danger"
+              id="deleteProfileBtn"
+              data-i18n-title="delete_profile"
+            >
               <i class="fas fa-trash"></i>
             </button>
           </div>
           <div class="toolbar-group">
-            <button class="toolbar-btn" id="bindsetManagerBtn" style="display:none" data-i18n-title="bindset_manager">
+            <button
+              class="toolbar-btn"
+              id="bindsetManagerBtn"
+              style="display: none"
+              data-i18n-title="bindset_manager"
+            >
               <i class="fas fa-tags"></i>
             </button>
           </div>
@@ -203,7 +244,13 @@
           <span class="key-count" id="keyCount" data-i18n-title="bound_keys">
             0 keys
           </span>
-          <span class="alias-count" id="aliasCount" data-i18n-title="bound_aliases" title="Bound Aliases" style="display: none;">
+          <span
+            class="alias-count"
+            id="aliasCount"
+            data-i18n-title="bound_aliases"
+            title="Bound Aliases"
+            style="display: none"
+          >
             0 aliases
           </span>
         </div>
@@ -217,11 +264,19 @@
               <i class="fas fa-rocket"></i>
               <span data-i18n="space"></span>
             </button>
-            <button class="mode-btn" data-mode="ground" data-i18n-title="ground_mode">
+            <button
+              class="mode-btn"
+              data-mode="ground"
+              data-i18n-title="ground_mode"
+            >
               <i class="fas fa-user"></i>
               <span data-i18n="ground"></span>
             </button>
-            <button class="mode-btn" data-mode="alias" data-i18n-title="alias_mode">
+            <button
+              class="mode-btn"
+              data-mode="alias"
+              data-i18n-title="alias_mode"
+            >
               <i class="fas fa-mask"></i>
               <span data-i18n="aliases"></span>
             </button>
@@ -240,13 +295,27 @@
             <div class="header-toolbar">
               <!-- Key Actions -->
               <div class="toolbar-group">
-                <button class="toolbar-btn toolbar-btn-primary" id="addKeyBtn" data-i18n-title="add_new_key">
+                <button
+                  class="toolbar-btn toolbar-btn-primary"
+                  id="addKeyBtn"
+                  data-i18n-title="add_new_key"
+                >
                   <i class="fas fa-plus"></i>
                 </button>
-                <button class="toolbar-btn toolbar-btn-danger" id="deleteKeyBtn" disabled data-i18n-title="delete_selected_key">
+                <button
+                  class="toolbar-btn toolbar-btn-danger"
+                  id="deleteKeyBtn"
+                  disabled
+                  data-i18n-title="delete_selected_key"
+                >
                   <i class="fas fa-trash"></i>
                 </button>
-                <button class="toolbar-btn" id="duplicateKeyBtn" disabled data-i18n-title="duplicate_selected_key">
+                <button
+                  class="toolbar-btn"
+                  id="duplicateKeyBtn"
+                  disabled
+                  data-i18n-title="duplicate_selected_key"
+                >
                   <i class="fas fa-copy"></i>
                 </button>
               </div>
@@ -269,11 +338,20 @@
                     data-i18n-placeholder="filter_keys"
                     class="toolbar-search-input"
                   />
-                  <button class="toolbar-btn toolbar-search-btn" id="keySearchBtn" data-i18n-title="search_keys">
+                  <button
+                    class="toolbar-btn toolbar-search-btn"
+                    id="keySearchBtn"
+                    data-i18n-title="search_keys"
+                  >
                     <i class="fas fa-search"></i>
                   </button>
                 </div>
-                <button class="toolbar-btn" id="showAllKeysBtn" data-i18n-title="show_all_keys" aria-label="Show All Keys">
+                <button
+                  class="toolbar-btn"
+                  id="showAllKeysBtn"
+                  data-i18n-title="show_all_keys"
+                  aria-label="Show All Keys"
+                >
                   <i class="fas fa-times-circle"></i>
                 </button>
               </div>
@@ -287,7 +365,11 @@
         </div>
 
         <!-- Alias Selector -->
-        <div class="alias-selector-container" id="aliasSelectorContainer" style="display: none;">
+        <div
+          class="alias-selector-container"
+          id="aliasSelectorContainer"
+          style="display: none"
+        >
           <div class="alias-selector-header">
             <div class="alias-header-left">
               <h3 data-i18n="aliases"></h3>
@@ -295,13 +377,27 @@
             <div class="header-toolbar">
               <!-- Alias Actions -->
               <div class="toolbar-group">
-                <button class="toolbar-btn toolbar-btn-primary" id="addAliasChainBtn" data-i18n-title="add_new_alias">
+                <button
+                  class="toolbar-btn toolbar-btn-primary"
+                  id="addAliasChainBtn"
+                  data-i18n-title="add_new_alias"
+                >
                   <i class="fas fa-plus"></i>
                 </button>
-                <button class="toolbar-btn toolbar-btn-danger" id="deleteAliasChainBtn" disabled data-i18n-title="delete_selected_alias">
+                <button
+                  class="toolbar-btn toolbar-btn-danger"
+                  id="deleteAliasChainBtn"
+                  disabled
+                  data-i18n-title="delete_selected_alias"
+                >
                   <i class="fas fa-trash"></i>
                 </button>
-                <button class="toolbar-btn" id="duplicateAliasChainBtn" disabled data-i18n-title="duplicate_selected_alias">
+                <button
+                  class="toolbar-btn"
+                  id="duplicateAliasChainBtn"
+                  disabled
+                  data-i18n-title="duplicate_selected_alias"
+                >
                   <i class="fas fa-copy"></i>
                 </button>
               </div>
@@ -314,11 +410,20 @@
                     data-i18n-placeholder="filter_aliases"
                     class="toolbar-search-input"
                   />
-                  <button class="toolbar-btn toolbar-search-btn" id="aliasSearchBtn" data-i18n-title="search_aliases">
+                  <button
+                    class="toolbar-btn toolbar-search-btn"
+                    id="aliasSearchBtn"
+                    data-i18n-title="search_aliases"
+                  >
                     <i class="fas fa-search"></i>
                   </button>
                 </div>
-                <button class="toolbar-btn" id="showAllAliasesBtn" data-i18n-title="clear_filter" aria-label="Clear filter">
+                <button
+                  class="toolbar-btn"
+                  id="showAllAliasesBtn"
+                  data-i18n-title="clear_filter"
+                  aria-label="Clear filter"
+                >
                   <i class="fas fa-times-circle"></i>
                 </button>
               </div>
@@ -342,7 +447,7 @@
             <div class="header-toolbar">
               <!-- Bindset selector -->
               <div class="toolbar-group">
-                <div id="bindsetSelectorContainer" style="display:none;"></div>
+                <div id="bindsetSelectorContainer" style="display: none"></div>
               </div>
               <!-- Options -->
               <div class="toolbar-group">
@@ -353,44 +458,75 @@
                 >
                   <i class="fas fa-balance-scale"></i>
                 </button>
-                <select id="bindsetSelect" class="bindset-select" style="display:none; position:absolute; z-index:1000;"></select>
+                <select
+                  id="bindsetSelect"
+                  class="bindset-select"
+                  style="display: none; position: absolute; z-index: 1000"
+                ></select>
               </div>
-              
+
               <!-- Chain Actions -->
               <div class="toolbar-group">
-                <button class="toolbar-btn" id="importFromKeyOrAliasBtn" disabled data-i18n-title="import_from_key_or_alias">
+                <button
+                  class="toolbar-btn"
+                  id="importFromKeyOrAliasBtn"
+                  disabled
+                  data-i18n-title="import_from_key_or_alias"
+                >
                   <i class="fas fa-copy"></i>
                 </button>
-                <button class="toolbar-btn" id="validateChainBtn" data-i18n-title="validate_command_chain">
+                <button
+                  class="toolbar-btn"
+                  id="validateChainBtn"
+                  data-i18n-title="validate_command_chain"
+                >
                   <i class="fas fa-check"></i>
                 </button>
-                <button class="toolbar-btn toolbar-btn-danger" id="clearChainBtn" data-i18n-title="clear_all_commands">
+                <button
+                  class="toolbar-btn toolbar-btn-danger"
+                  id="clearChainBtn"
+                  data-i18n-title="clear_all_commands"
+                >
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
             </div>
-            
+
             <!-- Hidden checkbox for stabilize (controlled by toolbar button) -->
-            <input type="checkbox" id="stabilizeExecutionOrder" style="display: none;" />
-            
-                      </div>
+            <input
+              type="checkbox"
+              id="stabilizeExecutionOrder"
+              style="display: none"
+            />
+          </div>
 
           <div class="command-list-container">
             <div class="command-list" id="commandList">
               <div class="empty-state" id="emptyState">
                 <i class="fas fa-keyboard"></i>
                 <h4 data-i18n="no_key_selected"></h4>
-                <p data-i18n="select_a_key_from_the_left_panel_to_view_and_edit_its_command_chain"></p>
+                <p
+                  data-i18n="select_a_key_from_the_left_panel_to_view_and_edit_its_command_chain"
+                ></p>
               </div>
             </div>
           </div>
 
           <!-- Generated Alias (shown when bind-to-alias mode is active) -->
-          <div class="generated-alias" id="generatedAlias" style="display: none;">
+          <div
+            class="generated-alias"
+            id="generatedAlias"
+            style="display: none"
+          >
             <div class="command-preview-header">
               <label data-i18n="generated_alias"></label>
-              <span class="command-count-display" id="aliasCommandCountDisplay" style="display: none;">
-                (<span id="aliasCommandCount">0</span> <span data-i18n="commands"></span> in chain)
+              <span
+                class="command-count-display"
+                id="aliasCommandCountDisplay"
+                style="display: none"
+              >
+                (<span id="aliasCommandCount">0</span>
+                <span data-i18n="commands"></span> in chain)
               </span>
               <button
                 class="btn btn-small"
@@ -407,7 +543,8 @@
             <div class="command-preview-header">
               <label data-i18n="generated_command"></label>
               <span class="command-count-display" id="commandCountDisplay">
-                (<span id="commandCount">0</span> <span data-i18n="commands"></span> in chain)
+                (<span id="commandCount">0</span>
+                <span data-i18n="commands"></span> in chain)
               </span>
               <button
                 class="btn btn-small"
@@ -419,8 +556,6 @@
             </div>
             <div class="command-preview" id="commandPreview"></div>
           </div>
-
-
         </div>
 
         <!-- Command Library -->
@@ -439,11 +574,20 @@
                     data-i18n-placeholder="search_commands"
                     class="toolbar-search-input"
                   />
-                  <button class="toolbar-btn toolbar-search-btn" id="commandSearchBtn" data-i18n-title="search_commands">
+                  <button
+                    class="toolbar-btn toolbar-search-btn"
+                    id="commandSearchBtn"
+                    data-i18n-title="search_commands"
+                  >
                     <i class="fas fa-search"></i>
                   </button>
                 </div>
-                <button class="toolbar-btn" id="showAllCommandsBtn" data-i18n-title="clear_filter" aria-label="Clear filter">
+                <button
+                  class="toolbar-btn"
+                  id="showAllCommandsBtn"
+                  data-i18n-title="clear_filter"
+                  aria-label="Clear filter"
+                >
                   <i class="fas fa-times-circle"></i>
                 </button>
               </div>
@@ -479,14 +623,31 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label for="duplicateAliasNameInput" data-i18n="enter_new_alias_name"></label>
+            <label
+              for="duplicateAliasNameInput"
+              data-i18n="enter_new_alias_name"
+            ></label>
             <input type="text" id="duplicateAliasNameInput" />
-            <div class="validation-error" id="duplicateAliasValidation" style="display:none;" data-i18n="alias_name_in_use"></div>
+            <div
+              class="validation-error"
+              id="duplicateAliasValidation"
+              style="display: none"
+              data-i18n="alias_name_in_use"
+            ></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="confirmDuplicateAliasBtn" disabled data-i18n="duplicate"></button>
-          <button class="btn btn-secondary" data-modal="aliasDuplicateModal" data-i18n="cancel"></button>
+          <button
+            class="btn btn-primary"
+            id="confirmDuplicateAliasBtn"
+            disabled
+            data-i18n="duplicate"
+          ></button>
+          <button
+            class="btn btn-secondary"
+            data-modal="aliasDuplicateModal"
+            data-i18n="cancel"
+          ></button>
         </div>
       </div>
     </div>
@@ -496,23 +657,36 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 data-i18n="create_alias">Create Alias</h3>
-          <button class="modal-close" data-modal="aliasCreationModal"><i class="fas fa-times"></i></button>
+          <button class="modal-close" data-modal="aliasCreationModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <label for="newAliasNameInput" data-i18n="alias_name"></label>
             <input type="text" id="newAliasNameInput" />
-            <div class="validation-error" id="createAliasValidation" style="display:none;"></div>
+            <div
+              class="validation-error"
+              id="createAliasValidation"
+              style="display: none"
+            ></div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="confirmCreateAliasBtn" disabled data-i18n="create"></button>
-          <button class="btn btn-secondary" data-modal="aliasCreationModal" data-i18n="cancel"></button>
+          <button
+            class="btn btn-primary"
+            id="confirmCreateAliasBtn"
+            disabled
+            data-i18n="create"
+          ></button>
+          <button
+            class="btn btn-secondary"
+            data-modal="aliasCreationModal"
+            data-i18n="cancel"
+          ></button>
         </div>
       </div>
     </div>
-
-
 
     <!-- Profile Modal -->
     <div class="modal" id="profileModal">
@@ -534,7 +708,10 @@
             />
           </div>
           <div class="form-group">
-            <label for="profileDescription" data-i18n="description_optional"></label>
+            <label
+              for="profileDescription"
+              data-i18n="description_optional"
+            ></label>
             <textarea
               id="profileDescription"
               data-i18n-placeholder="describe_this_keybind_profile"
@@ -543,13 +720,19 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="saveProfileBtn" data-i18n="save"></button>
-          <button class="btn btn-secondary" data-modal="profileModal" data-i18n="cancel"></button>
+          <button
+            class="btn btn-primary"
+            id="saveProfileBtn"
+            data-i18n="save"
+          ></button>
+          <button
+            class="btn btn-secondary"
+            data-modal="profileModal"
+            data-i18n="cancel"
+          ></button>
         </div>
       </div>
     </div>
-
-
 
     <!-- Enhanced Key Selection Modal -->
     <div class="modal extra-large-modal" id="keySelectionModal">
@@ -562,7 +745,7 @@
         </div>
         <div class="modal-body">
           <!-- Content dynamically generated by KeyCaptureUI -->
-            </div>
+        </div>
       </div>
     </div>
 
@@ -586,12 +769,23 @@
             <div class="vertigo-environments">
               <div class="vertigo-environment">
                 <div class="environment-header">
-                  <h4><i class="fas fa-rocket"></i> <span data-i18n="space_effects">Space Effects</span></h4>
+                  <h4>
+                    <i class="fas fa-rocket"></i>
+                    <span data-i18n="space_effects">Space Effects</span>
+                  </h4>
                   <div class="environment-controls">
-                    <button class="btn btn-small" id="spaceSelectAll" data-i18n="select_all">
+                    <button
+                      class="btn btn-small"
+                      id="spaceSelectAll"
+                      data-i18n="select_all"
+                    >
                       Select All
                     </button>
-                    <button class="btn btn-small" id="spaceClearAll" data-i18n="clear_all">
+                    <button
+                      class="btn btn-small"
+                      id="spaceClearAll"
+                      data-i18n="clear_all"
+                    >
                       Clear All
                     </button>
                     <span class="effect-count" id="spaceEffectCount">0</span>
@@ -603,12 +797,22 @@
               </div>
               <div class="vertigo-environment">
                 <div class="environment-header">
-                  <h4 data-i18n="ground_effects"><i class="fas fa-user"></i> Ground Effects</h4>
+                  <h4 data-i18n="ground_effects">
+                    <i class="fas fa-user"></i> Ground Effects
+                  </h4>
                   <div class="environment-controls">
-                    <button class="btn btn-small" id="groundSelectAll" data-i18n="select_all">
+                    <button
+                      class="btn btn-small"
+                      id="groundSelectAll"
+                      data-i18n="select_all"
+                    >
                       Select All
                     </button>
-                    <button class="btn btn-small" id="groundClearAll" data-i18n="clear_all">
+                    <button
+                      class="btn btn-small"
+                      id="groundClearAll"
+                      data-i18n="clear_all"
+                    >
                       Clear All
                     </button>
                     <span class="effect-count" id="groundEffectCount">0</span>
@@ -624,13 +828,21 @@
                 <h4 data-i18n="generated_aliases">Generated Aliases:</h4>
                 <div class="alias-preview" id="spaceAliasPreview">
                   <label data-i18n="space_alias">Space Alias:</label>
-                  <div class="command-preview" id="spaceAliasCommand" data-i18n="no_space_effects_selected">
+                  <div
+                    class="command-preview"
+                    id="spaceAliasCommand"
+                    data-i18n="no_space_effects_selected"
+                  >
                     No space effects selected
                   </div>
                 </div>
                 <div class="alias-preview" id="groundAliasPreview">
                   <label data-i18n="ground_alias">Ground Alias:</label>
-                  <div class="command-preview" id="groundAliasCommand" data-i18n="no_ground_effects_selected">
+                  <div
+                    class="command-preview"
+                    id="groundAliasCommand"
+                    data-i18n="no_ground_effects_selected"
+                  >
                     No ground effects selected
                   </div>
                 </div>
@@ -647,10 +859,18 @@
             </label>
           </div>
 
-          <button class="btn btn-primary" id="saveVertigoBtn" data-i18n="generate_aliases">
+          <button
+            class="btn btn-primary"
+            id="saveVertigoBtn"
+            data-i18n="generate_aliases"
+          >
             Generate Aliases
           </button>
-          <button class="btn btn-secondary" data-modal="vertigoModal" data-i18n="cancel">
+          <button
+            class="btn btn-secondary"
+            data-modal="vertigoModal"
+            data-i18n="cancel"
+          >
             Cancel
           </button>
         </div>
@@ -684,27 +904,57 @@
               <h4 data-i18n="features">Features:</h4>
               <ul>
                 <li data-i18n="visual_keybind_editor">Visual keybind editor</li>
-                <li data-i18n="sto_command_library_with_search_and_categorization">STO command library with search and categorization</li>
-                <li data-i18n="multiple_profile_management_create_clone_rename_delete">
+                <li
+                  data-i18n="sto_command_library_with_search_and_categorization"
+                >
+                  STO command library with search and categorization
+                </li>
+                <li
+                  data-i18n="multiple_profile_management_create_clone_rename_delete"
+                >
                   Multiple profile management (create, clone, rename, delete)
                 </li>
-                <li data-i18n="custom_alias_system_for_complex_command_sequences">Custom alias system for complex command sequences</li>
-                <li data-i18n="vertigo_inspired_vfx_manager_for_visual_effects_control">VERTIGO-inspired VFX Manager for visual effects control</li>
-                <li data-i18n="import_export_keybind_and_alias_files_and_project_backups">
+                <li
+                  data-i18n="custom_alias_system_for_complex_command_sequences"
+                >
+                  Custom alias system for complex command sequences
+                </li>
+                <li
+                  data-i18n="vertigo_inspired_vfx_manager_for_visual_effects_control"
+                >
+                  VERTIGO-inspired VFX Manager for visual effects control
+                </li>
+                <li
+                  data-i18n="import_export_keybind_and_alias_files_and_project_backups"
+                >
                   Import/export keybind and alias files, and project backups
                 </li>
-                <li data-i18n="real_time_validation_and_command_preview">Real-time validation and command preview</li>
+                <li data-i18n="real_time_validation_and_command_preview">
+                  Real-time validation and command preview
+                </li>
               </ul>
             </div>
             <div class="usage">
               <h4 data-i18n="quick_start">Quick Start:</h4>
               <ol>
-                <li data-i18n="create_a_new_profile_or_use_the_default_profile">Create a new profile or use the default profile</li>
-                <li data-i18n="select_keys_from_the_grid_and_add_commands_from_the_library">
+                <li data-i18n="create_a_new_profile_or_use_the_default_profile">
+                  Create a new profile or use the default profile
+                </li>
+                <li
+                  data-i18n="select_keys_from_the_grid_and_add_commands_from_the_library"
+                >
                   Select keys from the grid and add commands from the library
                 </li>
-                <li data-i18n="use_the_command_chain_editor_to_build_complex_sequences">Use the command chain editor to build complex sequences</li>
-                <li data-i18n="export_your_keybinds_as_txt_files_for_use_in_sto">Export your keybinds as .txt files for use in STO</li>
+                <li
+                  data-i18n="use_the_command_chain_editor_to_build_complex_sequences"
+                >
+                  Use the command chain editor to build complex sequences
+                </li>
+                <li
+                  data-i18n="export_your_keybinds_as_txt_files_for_use_in_sto"
+                >
+                  Export your keybinds as .txt files for use in STO
+                </li>
               </ol>
             </div>
             <div class="contact-info">
@@ -715,18 +965,29 @@
                   href="https://sto-tools.org/"
                   target="_blank"
                   rel="noopener noreferrer"
-                >https://sto-tools.org/</a>
+                  >https://sto-tools.org/</a
+                >
                 | <i class="fas fa-envelope"></i>
-                <a href="mailto:keybinds@sto-tools.org">keybinds@sto-tools.org</a>
+                <a href="mailto:keybinds@sto-tools.org"
+                  >keybinds@sto-tools.org</a
+                >
               </p>
             </div>
             <div class="copyright">
-              <p><small data-i18n="copyright">© 2025 STO Tools. All rights reserved.</small></p>
+              <p>
+                <small data-i18n="copyright"
+                  >© 2025 STO Tools. All rights reserved.</small
+                >
+              </p>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" data-modal="aboutModal" data-i18n="got_it"></button>
+          <button
+            class="btn btn-primary"
+            data-modal="aboutModal"
+            data-i18n="got_it"
+          ></button>
         </div>
       </div>
     </div>
@@ -755,94 +1016,143 @@
                 </div>
               </div>
             </div>
-            
+
             <!-- Settings Content -->
             <div class="preferences-content">
-                              <!-- Sync Settings -->
-                <div class="settings-panel active" id="sync-settings">
-                  <h4 data-i18n="synchronization_settings"></h4>
-                  <div class="settings-group">
-                    <div class="setting-item">
-                      <label data-i18n="sync_folder_label"></label>
-                      <div class="setting-control">
-                        <div class="folder-setting">
-                          <span id="currentSyncFolder" class="folder-path" data-i18n="no_folder_selected"></span>
-                          <button type="button" class="btn btn-secondary" id="setSyncFolderBtn">
-                            <i class="fas fa-folder-open"></i>
-                            <span data-i18n="set_sync_folder"></span>
-                          </button>
-                        </div>
-                        <span class="setting-description" data-i18n="sync_folder_description"></span>
+              <!-- Sync Settings -->
+              <div class="settings-panel active" id="sync-settings">
+                <h4 data-i18n="synchronization_settings"></h4>
+                <div class="settings-group">
+                  <div class="setting-item">
+                    <label data-i18n="sync_folder_label"></label>
+                    <div class="setting-control">
+                      <div class="folder-setting">
+                        <span
+                          id="currentSyncFolder"
+                          class="folder-path"
+                          data-i18n="no_folder_selected"
+                        ></span>
+                        <button
+                          type="button"
+                          class="btn btn-secondary"
+                          id="setSyncFolderBtn"
+                        >
+                          <i class="fas fa-folder-open"></i>
+                          <span data-i18n="set_sync_folder"></span>
+                        </button>
                       </div>
+                      <span
+                        class="setting-description"
+                        data-i18n="sync_folder_description"
+                      ></span>
                     </div>
-                    <div class="setting-item">
-                      <label data-i18n="auto_sync"></label>
-                      <div class="setting-control">
-                        <label class="toggle-switch">
-                          <input type="checkbox" id="autoSync">
-                          <span class="slider"></span>
-                        </label>
-                        <span class="setting-description" data-i18n="auto_sync_description"></span>
-                      </div>
+                  </div>
+                  <div class="setting-item">
+                    <label data-i18n="auto_sync"></label>
+                    <div class="setting-control">
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="autoSync" />
+                        <span class="slider"></span>
+                      </label>
+                      <span
+                        class="setting-description"
+                        data-i18n="auto_sync_description"
+                      ></span>
                     </div>
-                    <div class="setting-item">
-                      <label data-i18n="auto_sync_interval"></label>
-                      <div class="setting-control">
-                        <select id="autoSyncInterval" class="setting-select">
-                          <option value="change" data-i18n="after_every_change"></option>
-                          <option value="60" data-i18n="every_1_minute"></option>
-                          <option value="120" data-i18n="every_2_minutes"></option>
-                          <option value="300" data-i18n="every_5_minutes"></option>
-                        </select>
-                        <span class="setting-description" data-i18n="auto_sync_interval_description"></span>
-                      </div>
+                  </div>
+                  <div class="setting-item">
+                    <label data-i18n="auto_sync_interval"></label>
+                    <div class="setting-control">
+                      <select id="autoSyncInterval" class="setting-select">
+                        <option
+                          value="change"
+                          data-i18n="after_every_change"
+                        ></option>
+                        <option value="60" data-i18n="every_1_minute"></option>
+                        <option
+                          value="120"
+                          data-i18n="every_2_minutes"
+                        ></option>
+                        <option
+                          value="300"
+                          data-i18n="every_5_minutes"
+                        ></option>
+                      </select>
+                      <span
+                        class="setting-description"
+                        data-i18n="auto_sync_interval_description"
+                      ></span>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <!-- Advanced Settings -->
-                <div class="settings-panel" id="advanced-settings">
-                  <h4 data-i18n="advanced_settings"></h4>
-                  <div class="settings-group">
-                    <div class="setting-item">
-                      <label data-i18n="bind_to_alias_mode"></label>
-                      <div class="setting-control">
-                        <label class="toggle-switch">
-                          <input type="checkbox" id="bindToAliasModeCheckbox">
-                          <span class="slider"></span>
-                        </label>
-                        <span class="setting-description" data-i18n="bind_to_alias_mode_description"></span>
-                      </div>
+              <!-- Advanced Settings -->
+              <div class="settings-panel" id="advanced-settings">
+                <h4 data-i18n="advanced_settings"></h4>
+                <div class="settings-group">
+                  <div class="setting-item">
+                    <label data-i18n="bind_to_alias_mode"></label>
+                    <div class="setting-control">
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="bindToAliasModeCheckbox" />
+                        <span class="slider"></span>
+                      </label>
+                      <span
+                        class="setting-description"
+                        data-i18n="bind_to_alias_mode_description"
+                      ></span>
                     </div>
-                    <div class="setting-item">
-                      <label data-i18n="bindsets_enabled"></label>
-                      <div class="setting-control">
-                        <label class="toggle-switch">
-                          <input type="checkbox" id="bindsetsEnabledCheckbox" disabled>
-                          <span class="slider"></span>
-                        </label>
-                        <span class="setting-description" data-i18n="bindsets_enabled_description"></span>
-                      </div>
+                  </div>
+                  <div class="setting-item">
+                    <label data-i18n="bindsets_enabled"></label>
+                    <div class="setting-control">
+                      <label class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="bindsetsEnabledCheckbox"
+                          disabled
+                        />
+                        <span class="slider"></span>
+                      </label>
+                      <span
+                        class="setting-description"
+                        data-i18n="bindsets_enabled_description"
+                      ></span>
                     </div>
-                    <div class="setting-item">
-                      <label data-i18n="translate_generated_messages"></label>
-                      <div class="setting-control">
-                        <label class="toggle-switch">
-                          <input type="checkbox" id="translateGeneratedMessagesCheckbox">
-                          <span class="slider"></span>
-                        </label>
-                        <span class="setting-description" data-i18n="translate_generated_messages_description"></span>
-                      </div>
+                  </div>
+                  <div class="setting-item">
+                    <label data-i18n="translate_generated_messages"></label>
+                    <div class="setting-control">
+                      <label class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="translateGeneratedMessagesCheckbox"
+                        />
+                        <span class="slider"></span>
+                      </label>
+                      <span
+                        class="setting-description"
+                        data-i18n="translate_generated_messages_description"
+                      ></span>
                     </div>
                   </div>
                 </div>
-
+              </div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="savePreferencesBtn" data-i18n="save"></button>
-          <button class="btn btn-secondary" data-modal="preferencesModal" data-i18n="cancel"></button>
+          <button
+            class="btn btn-primary"
+            id="savePreferencesBtn"
+            data-i18n="save"
+          ></button>
+          <button
+            class="btn btn-secondary"
+            data-modal="preferencesModal"
+            data-i18n="cancel"
+          ></button>
         </div>
       </div>
     </div>
@@ -871,23 +1181,28 @@
                   <i class="fas fa-copy"></i>
                   <span data-i18n="copy"></span>
                 </button>
-                <button
-                  class="btn btn-small"
-                  id="downloadFileBtn"
-                >
+                <button class="btn btn-small" id="downloadFileBtn">
                   <i class="fas fa-download"></i>
                   <span data-i18n="download"></span>
                 </button>
               </div>
-              <pre class="file-content" id="fileContent" data-i18n="select_an_item_on_the_left_to_preview_export"></pre>
+              <pre
+                class="file-content"
+                id="fileContent"
+                data-i18n="select_an_item_on_the_left_to_preview_export"
+              ></pre>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" data-modal="fileExplorerModal" data-i18n="close"></button>
+          <button
+            class="btn btn-secondary"
+            data-modal="fileExplorerModal"
+            data-i18n="close"
+          ></button>
         </div>
+      </div>
     </div>
-  </div>
 
     <!-- Import from Key or Alias Modal -->
     <div class="modal" id="importFromKeyOrAliasModal">
@@ -914,13 +1229,19 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" id="confirmImportBtn" data-i18n="import"></button>
-          <button class="btn btn-secondary" data-modal="importFromKeyOrAliasModal" data-i18n="cancel"></button>
+          <button
+            class="btn btn-primary"
+            id="confirmImportBtn"
+            data-i18n="import"
+          ></button>
+          <button
+            class="btn btn-secondary"
+            data-modal="importFromKeyOrAliasModal"
+            data-i18n="cancel"
+          ></button>
         </div>
       </div>
     </div>
-
-    
 
     <!-- File input for imports (hidden) -->
     <input
@@ -930,7 +1251,7 @@
       style="display: none"
     />
 
-  <!-- Bindset Manager Modal -->
+    <!-- Bindset Manager Modal -->
     <div class="modal" id="bindsetManagerModal">
       <div class="modal-content">
         <div class="modal-header">
@@ -944,14 +1265,36 @@
             <ul id="bindsetList" class="bindset-list"></ul>
           </div>
           <div class="bindset-actions">
-            <button class="btn btn-small" id="createBindsetBtn" data-i18n="create"></button>
-            <button class="btn btn-small" id="renameBindsetBtn" data-i18n="rename" disabled></button>
-            <button class="btn btn-small btn-danger" id="deleteBindsetBtn" data-i18n="delete" disabled></button>
+            <button
+              class="btn btn-small"
+              id="createBindsetBtn"
+              data-i18n="create"
+            ></button>
+            <button
+              class="btn btn-small"
+              id="renameBindsetBtn"
+              data-i18n="rename"
+              disabled
+            ></button>
+            <button
+              class="btn btn-small btn-danger"
+              id="deleteBindsetBtn"
+              data-i18n="delete"
+              disabled
+            ></button>
           </div>
-          <span id="bindsetError" class="error-text" style="display:none"></span>
+          <span
+            id="bindsetError"
+            class="error-text"
+            style="display: none"
+          ></span>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" data-modal="bindsetManagerModal" data-i18n="close"></button>
+          <button
+            class="btn btn-primary"
+            data-modal="bindsetManagerModal"
+            data-i18n="close"
+          ></button>
         </div>
       </div>
     </div>

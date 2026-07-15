@@ -68,7 +68,7 @@
   "select_a_key_to_see_the_generated_command": "Select a key to see the generated command",
   "select_an_alias_to_see_the_generated_command": "Select an alias to see the generated command",
   "add_command": "Add Command",
-    "import_from_key_or_alias": "Import from Key or Alias",
+  "import_from_key_or_alias": "Import from Key or Alias",
   "select_source_to_import_from": "Select source to import from:",
   "clear_destination_chain_prior_to_import": "Clear destination chain prior to import",
   "no_sources_available": "No sources available",
@@ -97,7 +97,7 @@
   "space_alias": "Space Alias",
   "ground_alias": "Ground Alias",
   "about_sto_tools_keybind_manager": "About STO Tools Keybind Manager",
-    "features": "Features:",
+  "features": "Features:",
   "visual_keybind_editor": "Visual keybind editor",
   "sto_command_library_with_search_and_categorization": "STO command library with search and categorization",
   "multiple_profile_management_create_clone_rename_delete": "Multiple profile management (create, clone, rename, delete)",
@@ -646,7 +646,7 @@
       "description": "Display SND and RCV network data as text (1=enabled, 0=disabled)"
     },
 
-      "parameter_placeholders": {
+    "parameter_placeholders": {
       "any_sto_command": "Enter any STO command (e.g., Target_Enemy_Near)",
       "entity_name": "Enter entity name",
       "first_modifier": "First modifier",
@@ -666,7 +666,7 @@
     "system": "UI and system commands",
     "custom": "Custom commands"
   },
-    "no_aliases_defined": "No aliases defined",
+  "no_aliases_defined": "No aliases defined",
   "create_alias_to_get_started": "Create an alias to get started",
   "please_select_a_key_first": "Please select a key first",
   "please_select_an_alias_first": "Please select an alias first",
@@ -676,8 +676,8 @@
   "no_aliases_found_in_file": "No aliases found in file",
 
   "import_completed_keybinds": "Import completed: {{count}} keybinds",
-    "import_completed_aliases": "Import completed: {{count}} aliases",
-    "kbf_import_completed": "KBF import completed: {{bindsets}} bindset(s), {{keys}} key(s), {{aliases}} alias(es)",
+  "import_completed_aliases": "Import completed: {{count}} aliases",
+  "kbf_import_completed": "KBF import completed: {{bindsets}} bindset(s), {{keys}} key(s), {{aliases}} alias(es)",
   "kbf_import_skipped_activities": "{{count}} skipped activities",
   "kbf_import_errors_encountered": "{{count}} errors encountered",
   "kbf_import_warnings_generated": "{{count}} warnings generated",
@@ -688,7 +688,7 @@
   "kbf_import_total_errors": "{{count}} total errors",
   "kbf_import_total_warnings": "{{count}} total warnings",
   "project_imported_successfully": "Project imported successfully: {{profileCount}} profiles",
-    "sync_folder_set": "Sync folder selected",
+  "sync_folder_set": "Sync folder selected",
   "failed_to_set_sync_folder": "Failed to select sync folder: {{error}}",
   "sync_not_supported_firefox": "Sync folder functionality requires a Chromium-based browser (Chrome, Edge, etc.). Firefox does not support the required File System Access API.",
   "sync_not_supported_title": "Sync Not Supported",
@@ -729,7 +729,7 @@
 
   "vfx_manager_description": "Select visual effects to disable using dynFxSetFXExlusionList aliases. Effects are organized by environment.",
   "app_description": "A comprehensive web-based tool for creating, editing, and managing Star Trek Online keybind configurations with visual editing and advanced features.",
-    "default_export_filename": "export.txt",
+  "default_export_filename": "export.txt",
   "select_a_space_ground_build_or_aliases_to_preview_export": "Select a Space/Ground build or Aliases to preview export.",
   "no_alias_selected": "No Alias Selected",
   "select_alias_from_left_panel": "Select an alias from the left panel to view and edit its command chain.",
@@ -758,6 +758,7 @@
   "alias_not_found": "Alias \"{{name}}\" not found",
   "alias_already_exists": "Alias \"{{name}}\" already exists",
   "invalid_alias_name": "Invalid alias name",
+  "invalid_input": "Invalid input",
   "invalid_project_file": "Invalid project file",
   "invalid_kbf_file_format": "Invalid KBF file format",
   "no_commands_to_duplicate": "No commands to duplicate",
@@ -782,10 +783,10 @@
   "switched_to_profile": "Switched to profile: {{name}} ({{environment}})",
   "profile_created_from": "Profile \"{{newName}}\" created from \"{{sourceProfile}}\"",
   "no_effects_selected": "No effects selected. Please select at least one effect to generate aliases.",
-      "profile_renamed": "Profile renamed from \"{{oldName}}\" to \"{{name}}\"",
+  "profile_renamed": "Profile renamed from \"{{oldName}}\" to \"{{name}}\"",
 
   "application_reset_successfully": "Application reset successfully. All data cleared.",
-      "failed_to_copy_to_clipboard": "Failed to copy to clipboard",
+  "failed_to_copy_to_clipboard": "Failed to copy to clipboard",
   "confirm_delete_alias": "Are you sure you want to delete the alias \"{{aliasName}}\"?",
   "confirm_delete_key": "Are you sure you want to delete the key \"{{keyName}}\" and all its commands?",
   "confirm_clear": "Confirm Clear",
@@ -795,7 +796,7 @@
   "yes": "Yes",
   "no": "No",
   "ok": "OK",
-    "no_commands": "No commands",
+  "no_commands": "No commands",
   "profile_not_found": "Profile not found",
   "click_add_command_to_start_building_your_command_chain": "Select items in the Command Library to start building your key command chain for",
   "click_add_command_to_start_building_your_alias_chain": "Select items in the Command Library to start building your alias command chain for",
@@ -812,7 +813,7 @@
   "parameter_configuration": "Parameter Configuration",
   "configure_colon": "Configure:",
   "edit_colon": "Edit:",
-  
+
   "vfx_manager": "VFX Manager",
   "select_all": "Select All",
   "clear_all": "Clear All",
@@ -821,7 +822,7 @@
   "show_player_say": "Show Player Say",
   "generate_aliases": "Generate Aliases",
 
-    "delete_selected_key": "Delete Selected Key",
+  "delete_selected_key": "Delete Selected Key",
   "duplicate_selected_key": "Duplicate Selected Key",
   "show_all_keys": "Show All Keys",
   "failed_to_load_profile_data": "Failed to load profile data",
@@ -916,8 +917,8 @@
   "confirm_delete": "Are you sure you want to delete?",
   "enter_new_name": "Enter new name:",
   "failed_to_rename_profile": "Failed to rename profile: {{error}}",
-    "ground_build": "Ground Build",
-    "import_failed_invalid_json": "Import failed: Invalid JSON format",
+  "ground_build": "Ground Build",
+  "import_failed_invalid_json": "Import failed: Invalid JSON format",
   "import_failed_unsupported_format": "Import failed: Unsupported file format",
   "no_content_available": "No content available",
   "no_valid_profile": "No valid profile available",

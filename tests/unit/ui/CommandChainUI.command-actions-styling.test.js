@@ -3,74 +3,75 @@
  * Verifies that command-actions container and buttons use toolbar-group styling
  */
 
-import { describe, it, expect, beforeAll, vi } from 'vitest'
-import { JSDOM } from 'jsdom'
-import eventBus from '../../../src/js/core/eventBus.js'
-import { respond } from '../../../src/js/core/requestResponse.js'
-import CommandChainUI from '../../../src/js/components/ui/CommandChainUI.js'
+import { describe, it, expect, beforeAll, vi } from "vitest";
+import { JSDOM } from "jsdom";
+import eventBus from "../../../src/js/core/eventBus.js";
+import { respond } from "../../../src/js/core/requestResponse.js";
+import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
 
-describe('CommandChainUI Command Actions Styling', () => {
-  let document
-  let commandChainUI
+describe("CommandChainUI Command Actions Styling", () => {
+  let document;
+  let commandChainUI;
 
   beforeAll(async () => {
     // Mock request handlers used inside createCommandElement
-    respond(eventBus, 'command:find-definition', ({ command }) => {
-      const isCustomizable = /Custom/i.test(command)
+    respond(eventBus, "command:find-definition", ({ command }) => {
+      const isCustomizable = /Custom/i.test(command);
       return {
-        name: 'Test Command',
-        icon: '⚡',
-        categoryId: 'test',
-        commandId: 'test_command',
-        customizable: isCustomizable
-      }
-    })
+        name: "Test Command",
+        icon: "⚡",
+        categoryId: "test",
+        commandId: "test_command",
+        customizable: isCustomizable,
+      };
+    });
 
-    respond(eventBus, 'command:get-warning', () => null)
+    respond(eventBus, "command:get-warning", () => null);
 
     // Stub parser response to avoid request timeouts in enrichForDisplay
-    respond(eventBus, 'parser:parse-command-string', ({ commandString }) => {
+    respond(eventBus, "parser:parse-command-string", ({ commandString }) => {
       return {
         commands: [
           {
             displayText: commandString,
-            icon: '⚡',
-            category: 'test',
+            icon: "⚡",
+            category: "test",
             parameters: {},
-            signature: '',
+            signature: "",
             baseCommand: commandString,
-            id: 'test'
-          }
-        ]
-      }
-    })
+            id: "test",
+          },
+        ],
+      };
+    });
 
     // Mock empty state info response
-    respond(eventBus, 'command:get-empty-state-info', () => {
+    respond(eventBus, "command:get-empty-state-info", () => {
       return {
-        title: 'No Key Selected',
-        preview: 'Select a key to see the generated command',
-        icon: 'fas fa-keyboard',
-        emptyTitle: 'No Key Selected',
-        emptyDesc: 'Select a key from the left panel to view and edit its command chain.',
-        commandCount: '0'
-      }
-    })
+        title: "No Key Selected",
+        preview: "Select a key to see the generated command",
+        icon: "fas fa-keyboard",
+        emptyTitle: "No Key Selected",
+        emptyDesc:
+          "Select a key from the left panel to view and edit its command chain.",
+        commandCount: "0",
+      };
+    });
 
     // Mock preferences setting response
-    respond(eventBus, 'preferences:get-setting', () => {
-      return false
-    })
+    respond(eventBus, "preferences:get-setting", () => {
+      return false;
+    });
 
     // Mock command chain stabilization check
-    respond(eventBus, 'command-chain:is-stabilized', () => {
-      return true
-    })
+    respond(eventBus, "command-chain:is-stabilized", () => {
+      return true;
+    });
 
     // Mock file operations for mirrored commands
-    respond(eventBus, 'command:generate-mirrored-commands', ({ commands }) => {
-      return commands || []
-    })
+    respond(eventBus, "command:generate-mirrored-commands", ({ commands }) => {
+      return commands || [];
+    });
 
     // Setup DOM
     const dom = new JSDOM(`
@@ -101,327 +102,400 @@ describe('CommandChainUI Command Actions Styling', () => {
           </div>
         </body>
       </html>
-    `)
+    `);
 
-    document = dom.window.document
+    document = dom.window.document;
 
     // Ensure EventBus.onDom attaches to the same document used by this test
-    globalThis.window = dom.window
-    globalThis.document = dom.window.document
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
 
     commandChainUI = new CommandChainUI({
       eventBus,
       document,
-      ui: { initDragAndDrop: () => {} }
-    })
+      ui: { initDragAndDrop: () => {} },
+    });
 
     // Initialize the component to set up event listeners
-    await commandChainUI.init()
+    await commandChainUI.init();
 
     // Set up cache with a selected key so render will show command elements instead of empty state
-    commandChainUI.cache.selectedKey = 'F1'
-    commandChainUI.cache.currentEnvironment = 'space'
-  })
+    commandChainUI.cache.selectedKey = "F1";
+    commandChainUI.cache.currentEnvironment = "space";
+  });
 
-  describe('Command Actions Container Styling', () => {
-    it('should apply toolbar-group-like styling to command-actions', async () => {
+  describe("Command Actions Container Styling", () => {
+    it("should apply toolbar-group-like styling to command-actions", async () => {
       // Non-customizable command – should NOT include edit button
-      const element = await commandChainUI.createCommandElement('StaticCommand', 0, 1)
+      const element = await commandChainUI.createCommandElement(
+        "StaticCommand",
+        0,
+        1,
+      );
 
-      const commandActions = element.querySelector('.command-actions')
-      expect(commandActions).toBeTruthy()
+      const commandActions = element.querySelector(".command-actions");
+      expect(commandActions).toBeTruthy();
 
       // Get computed styles (we'll check the CSS classes since we can't get computed styles in tests)
-      const expectedClasses = ['command-actions']
-      expectedClasses.forEach(className => {
-        expect(commandActions.classList.contains(className)).toBe(true)
-      })
+      const expectedClasses = ["command-actions"];
+      expectedClasses.forEach((className) => {
+        expect(commandActions.classList.contains(className)).toBe(true);
+      });
 
       // Verify structure matches toolbar-group pattern
-      expect(commandActions.tagName).toBe('DIV')
+      expect(commandActions.tagName).toBe("DIV");
       // Static command: should still allocate space for 4 buttons (edit placeholder invisible)
-      expect(commandActions.children.length).toBe(4)
-      
-      const actionButtons = element.querySelectorAll('.command-action-btn')
-      expect(actionButtons.length).toBe(4) // edit placeholder, delete, up, down
+      expect(commandActions.children.length).toBe(4);
+
+      const actionButtons = element.querySelectorAll(".command-action-btn");
+      expect(actionButtons.length).toBe(4); // edit placeholder, delete, up, down
 
       // Verify edit placeholder is hidden
-      const editBtn = element.querySelector('.btn-edit')
-      expect(editBtn).toBeTruthy()
-      expect(editBtn.getAttribute('style')).toContain('visibility:hidden')
-    })
+      const editBtn = element.querySelector(".btn-edit");
+      expect(editBtn).toBeTruthy();
+      expect(editBtn.getAttribute("style")).toContain("visibility:hidden");
+    });
 
-    it('should have buttons with command-action-btn styling', async () => {
-      const element = await commandChainUI.createCommandElement('CustomCommand', 0, 1)
+    it("should have buttons with command-action-btn styling", async () => {
+      const element = await commandChainUI.createCommandElement(
+        "CustomCommand",
+        0,
+        1,
+      );
 
-      const actionButtons = element.querySelectorAll('.command-action-btn')
-      expect(actionButtons.length).toBe(4) // edit, delete, up, down
+      const actionButtons = element.querySelectorAll(".command-action-btn");
+      expect(actionButtons.length).toBe(4); // edit, delete, up, down
 
-      actionButtons.forEach(button => {
-        expect(button.classList.contains('command-action-btn')).toBe(true)
-        expect(button.tagName).toBe('BUTTON')
-        
+      actionButtons.forEach((button) => {
+        expect(button.classList.contains("command-action-btn")).toBe(true);
+        expect(button.tagName).toBe("BUTTON");
+
         // Check for icons
-        const icon = button.querySelector('i')
-        expect(icon).toBeTruthy()
-        expect(icon.classList.contains('fas')).toBe(true)
-      })
-    })
+        const icon = button.querySelector("i");
+        expect(icon).toBeTruthy();
+        expect(icon.classList.contains("fas")).toBe(true);
+      });
+    });
 
-    it('should apply danger styling to delete button', async () => {
-      const element = await commandChainUI.createCommandElement('CustomCommand', 0, 1)
+    it("should apply danger styling to delete button", async () => {
+      const element = await commandChainUI.createCommandElement(
+        "CustomCommand",
+        0,
+        1,
+      );
 
-      const deleteButton = element.querySelector('.btn-delete')
-      expect(deleteButton).toBeTruthy()
-      expect(deleteButton.classList.contains('command-action-btn')).toBe(true)
-      expect(deleteButton.classList.contains('command-action-btn-danger')).toBe(true)
-    })
+      const deleteButton = element.querySelector(".btn-delete");
+      expect(deleteButton).toBeTruthy();
+      expect(deleteButton.classList.contains("command-action-btn")).toBe(true);
+      expect(deleteButton.classList.contains("command-action-btn-danger")).toBe(
+        true,
+      );
+    });
 
-    it('should disable up/down buttons appropriately', async () => {
+    it("should disable up/down buttons appropriately", async () => {
       // Test first command (up button should be disabled)
-      const firstElement = await commandChainUI.createCommandElement('FirstCommand', 0, 2)
-      const firstUpButton = firstElement.querySelector('.btn-up')
-      const firstDownButton = firstElement.querySelector('.btn-down')
+      const firstElement = await commandChainUI.createCommandElement(
+        "FirstCommand",
+        0,
+        2,
+      );
+      const firstUpButton = firstElement.querySelector(".btn-up");
+      const firstDownButton = firstElement.querySelector(".btn-down");
 
-      expect(firstUpButton.disabled).toBe(true)
-      expect(firstDownButton.disabled).toBe(false)
+      expect(firstUpButton.disabled).toBe(true);
+      expect(firstDownButton.disabled).toBe(false);
 
       // Test last command (down button should be disabled)
-      const lastElement = await commandChainUI.createCommandElement('LastCommand', 1, 2)
-      const lastUpButton = lastElement.querySelector('.btn-up')
-      const lastDownButton = lastElement.querySelector('.btn-down')
+      const lastElement = await commandChainUI.createCommandElement(
+        "LastCommand",
+        1,
+        2,
+      );
+      const lastUpButton = lastElement.querySelector(".btn-up");
+      const lastDownButton = lastElement.querySelector(".btn-down");
 
-      expect(lastUpButton.disabled).toBe(false)
-      expect(lastDownButton.disabled).toBe(true)
-    })
-  })
+      expect(lastUpButton.disabled).toBe(false);
+      expect(lastDownButton.disabled).toBe(true);
+    });
+  });
 
-  describe('Command Actions Functionality', () => {
-    it('should emit edit event when edit button is clicked', async () => {
+  describe("Command Actions Functionality", () => {
+    it("should emit edit event when edit button is clicked", async () => {
       const mockCommands = [
         {
-          command: 'CustomCommand',
-          displayText: 'Custom Command',
-          icon: 'fas fa-test'
-        }
-      ]
+          command: "CustomCommand",
+          displayText: "Custom Command",
+          icon: "fas fa-test",
+        },
+      ];
 
       // Manually render into the test container to avoid full render side-effects
-      const elements = []
+      const elements = [];
       for (let i = 0; i < mockCommands.length; i++) {
-        elements.push(await commandChainUI.createCommandElement(mockCommands[i], i, mockCommands.length))
+        elements.push(
+          await commandChainUI.createCommandElement(
+            mockCommands[i],
+            i,
+            mockCommands.length,
+          ),
+        );
       }
-      const doc = commandChainUI.document
-      let container = doc.getElementById('commandList')
+      const doc = commandChainUI.document;
+      let container = doc.getElementById("commandList");
       if (!container) {
-        container = doc.createElement('div')
-        container.id = 'commandList'
-        doc.body.appendChild(container)
+        container = doc.createElement("div");
+        container.id = "commandList";
+        doc.body.appendChild(container);
       }
-      container.replaceChildren(...elements)
+      container.replaceChildren(...elements);
 
-      const editButton = doc.querySelector('.btn-edit')
-      expect(editButton).toBeTruthy()
+      const editButton = doc.querySelector(".btn-edit");
+      expect(editButton).toBeTruthy();
 
       // Spy on the component emit
-      const emitSpy = vi.spyOn(commandChainUI, 'emit')
+      const emitSpy = vi.spyOn(commandChainUI, "emit");
 
       // Dispatch a real click event (via the JSDOM window to ensure correct prototype)
-      const clickEvent = new (commandChainUI.document.defaultView).MouseEvent('click', { bubbles: true })
-      editButton.dispatchEvent(clickEvent)
+      const clickEvent = new commandChainUI.document.defaultView.MouseEvent(
+        "click",
+        { bubbles: true },
+      );
+      editButton.dispatchEvent(clickEvent);
 
-      expect(emitSpy).toHaveBeenCalledWith('commandchain:edit', { index: 0 })
-    })
+      expect(emitSpy).toHaveBeenCalledWith("commandchain:edit", { index: 0 });
+    });
 
-    it('should emit delete event when delete button is clicked', async () => {
+    it("should emit delete event when delete button is clicked", async () => {
       const mockCommands = [
         {
-          command: 'CustomCommand',
-          displayText: 'Custom Command',
-          icon: 'fas fa-test'
-        }
-      ]
+          command: "CustomCommand",
+          displayText: "Custom Command",
+          icon: "fas fa-test",
+        },
+      ];
 
-      const elements = []
+      const elements = [];
       for (let i = 0; i < mockCommands.length; i++) {
-        elements.push(await commandChainUI.createCommandElement(mockCommands[i], i, mockCommands.length))
+        elements.push(
+          await commandChainUI.createCommandElement(
+            mockCommands[i],
+            i,
+            mockCommands.length,
+          ),
+        );
       }
-      const doc = commandChainUI.document
-      let container = doc.getElementById('commandList')
+      const doc = commandChainUI.document;
+      let container = doc.getElementById("commandList");
       if (!container) {
-        container = doc.createElement('div')
-        container.id = 'commandList'
-        doc.body.appendChild(container)
+        container = doc.createElement("div");
+        container.id = "commandList";
+        doc.body.appendChild(container);
       }
-      container.replaceChildren(...elements)
+      container.replaceChildren(...elements);
 
-      const deleteButton = doc.querySelector('.btn-delete')
-      expect(deleteButton).toBeTruthy()
+      const deleteButton = doc.querySelector(".btn-delete");
+      expect(deleteButton).toBeTruthy();
 
-      const emitSpy = vi.spyOn(commandChainUI, 'emit')
+      const emitSpy = vi.spyOn(commandChainUI, "emit");
 
-      const clickEvent = new (commandChainUI.document.defaultView).MouseEvent('click', { bubbles: true })
-      deleteButton.dispatchEvent(clickEvent)
+      const clickEvent = new commandChainUI.document.defaultView.MouseEvent(
+        "click",
+        { bubbles: true },
+      );
+      deleteButton.dispatchEvent(clickEvent);
 
-      expect(emitSpy).toHaveBeenCalledWith('commandchain:delete', { index: 0 })
-    })
+      expect(emitSpy).toHaveBeenCalledWith("commandchain:delete", { index: 0 });
+    });
 
-    it('should emit move events when up/down buttons are clicked', async () => {
+    it("should emit move events when up/down buttons are clicked", async () => {
       const mockCommands = [
         {
-          command: 'FirstCommand',
-          displayText: 'First Command',
-          icon: 'fas fa-test'
+          command: "FirstCommand",
+          displayText: "First Command",
+          icon: "fas fa-test",
         },
         {
-          command: 'SecondCommand',
-          displayText: 'Second Command',
-          icon: 'fas fa-test'
-        }
-      ]
+          command: "SecondCommand",
+          displayText: "Second Command",
+          icon: "fas fa-test",
+        },
+      ];
 
-      const elements = []
+      const elements = [];
       for (let i = 0; i < mockCommands.length; i++) {
-        elements.push(await commandChainUI.createCommandElement(mockCommands[i], i, mockCommands.length))
+        elements.push(
+          await commandChainUI.createCommandElement(
+            mockCommands[i],
+            i,
+            mockCommands.length,
+          ),
+        );
       }
-      const doc = commandChainUI.document
-      let container = doc.getElementById('commandList')
+      const doc = commandChainUI.document;
+      let container = doc.getElementById("commandList");
       if (!container) {
-        container = doc.createElement('div')
-        container.id = 'commandList'
-        doc.body.appendChild(container)
+        container = doc.createElement("div");
+        container.id = "commandList";
+        doc.body.appendChild(container);
       }
-      container.replaceChildren(...elements)
+      container.replaceChildren(...elements);
 
-      const emitSpy = vi.spyOn(commandChainUI, 'emit')
+      const emitSpy = vi.spyOn(commandChainUI, "emit");
 
       // Test down button on first command
-      const firstDownButton = commandChainUI.document.querySelectorAll('.btn-down')[0]
-      const clickEvent1 = new (commandChainUI.document.defaultView).MouseEvent('click', { bubbles: true })
-      firstDownButton.dispatchEvent(clickEvent1)
+      const firstDownButton =
+        commandChainUI.document.querySelectorAll(".btn-down")[0];
+      const clickEvent1 = new commandChainUI.document.defaultView.MouseEvent(
+        "click",
+        { bubbles: true },
+      );
+      firstDownButton.dispatchEvent(clickEvent1);
 
-      expect(emitSpy).toHaveBeenCalledWith('commandchain:move', {
+      expect(emitSpy).toHaveBeenCalledWith("commandchain:move", {
         fromIndex: 0,
-        toIndex: 1
-      })
+        toIndex: 1,
+      });
 
       // Test up button on second command
-      const secondUpButton = commandChainUI.document.querySelectorAll('.btn-up')[1]
-      const clickEvent2 = new (commandChainUI.document.defaultView).MouseEvent('click', { bubbles: true })
-      secondUpButton.dispatchEvent(clickEvent2)
+      const secondUpButton =
+        commandChainUI.document.querySelectorAll(".btn-up")[1];
+      const clickEvent2 = new commandChainUI.document.defaultView.MouseEvent(
+        "click",
+        { bubbles: true },
+      );
+      secondUpButton.dispatchEvent(clickEvent2);
 
-      expect(emitSpy).toHaveBeenCalledWith('commandchain:move', {
+      expect(emitSpy).toHaveBeenCalledWith("commandchain:move", {
         fromIndex: 1,
-        toIndex: 0
-      })
-    })
-  })
+        toIndex: 0,
+      });
+    });
+  });
 
-  describe('Responsive Behavior', () => {
-    it('should maintain horizontal layout on mobile', async () => {
+  describe("Responsive Behavior", () => {
+    it("should maintain horizontal layout on mobile", async () => {
       const mockCommands = [
         {
-          command: 'CustomCommand',
-          displayText: 'Custom Command',
-          icon: 'fas fa-test'
-        }
-      ]
+          command: "CustomCommand",
+          displayText: "Custom Command",
+          icon: "fas fa-test",
+        },
+      ];
 
-      const elements = []
+      const elements = [];
       for (let i = 0; i < mockCommands.length; i++) {
-        elements.push(await commandChainUI.createCommandElement(mockCommands[i], i, mockCommands.length))
+        elements.push(
+          await commandChainUI.createCommandElement(
+            mockCommands[i],
+            i,
+            mockCommands.length,
+          ),
+        );
       }
-      const doc = commandChainUI.document
-      let container = doc.getElementById('commandList')
+      const doc = commandChainUI.document;
+      let container = doc.getElementById("commandList");
       if (!container) {
-        container = doc.createElement('div')
-        container.id = 'commandList'
-        doc.body.appendChild(container)
+        container = doc.createElement("div");
+        container.id = "commandList";
+        doc.body.appendChild(container);
       }
-      container.replaceChildren(...elements)
+      container.replaceChildren(...elements);
 
-      const commandActions = commandChainUI.document.querySelector('.command-actions')
-      expect(commandActions).toBeTruthy()
+      const commandActions =
+        commandChainUI.document.querySelector(".command-actions");
+      expect(commandActions).toBeTruthy();
 
       // Verify that command-actions maintains horizontal layout like toolbar-group
       // In a real browser, this would be flex with row direction
       // We're testing that the structure is correct for CSS to apply
-      expect(commandActions.children.length).toBe(4)
-      
+      expect(commandActions.children.length).toBe(4);
+
       // All buttons should be direct children (horizontal layout)
-      Array.from(commandActions.children).forEach(child => {
-        expect(child.tagName).toBe('BUTTON')
-        expect(child.classList.contains('command-action-btn')).toBe(true)
-      })
-    })
-  })
+      Array.from(commandActions.children).forEach((child) => {
+        expect(child.tagName).toBe("BUTTON");
+        expect(child.classList.contains("command-action-btn")).toBe(true);
+      });
+    });
+  });
 
-  describe('Accessibility', () => {
-    it('should have proper titles on action buttons', async () => {
+  describe("Accessibility", () => {
+    it("should have proper titles on action buttons", async () => {
       const mockCommands = [
         {
-          command: 'CustomCommand',
-          displayText: 'Custom Command',
-          icon: 'fas fa-test'
-        }
-      ]
+          command: "CustomCommand",
+          displayText: "Custom Command",
+          icon: "fas fa-test",
+        },
+      ];
 
-      const elements = []
+      const elements = [];
       for (let i = 0; i < mockCommands.length; i++) {
-        elements.push(await commandChainUI.createCommandElement(mockCommands[i], i, mockCommands.length))
+        elements.push(
+          await commandChainUI.createCommandElement(
+            mockCommands[i],
+            i,
+            mockCommands.length,
+          ),
+        );
       }
-      const doc = commandChainUI.document
-      let container = doc.getElementById('commandList')
+      const doc = commandChainUI.document;
+      let container = doc.getElementById("commandList");
       if (!container) {
-        container = doc.createElement('div')
-        container.id = 'commandList'
-        doc.body.appendChild(container)
+        container = doc.createElement("div");
+        container.id = "commandList";
+        doc.body.appendChild(container);
       }
-      container.replaceChildren(...elements)
+      container.replaceChildren(...elements);
 
-      const editButton = commandChainUI.document.querySelector('.btn-edit')
-      const deleteButton = commandChainUI.document.querySelector('.btn-delete')
-      const upButton = commandChainUI.document.querySelector('.btn-up')
-      const downButton = commandChainUI.document.querySelector('.btn-down')
+      const editButton = commandChainUI.document.querySelector(".btn-edit");
+      const deleteButton = commandChainUI.document.querySelector(".btn-delete");
+      const upButton = commandChainUI.document.querySelector(".btn-up");
+      const downButton = commandChainUI.document.querySelector(".btn-down");
 
-      expect(editButton.getAttribute('title')).toBe('Edit Command')
-      expect(deleteButton.getAttribute('title')).toBe('Delete Command')
-      expect(upButton.getAttribute('title')).toBe('Move Up')
-      expect(downButton.getAttribute('title')).toBe('Move Down')
-    })
+      expect(editButton.getAttribute("title")).toBe("Edit Command");
+      expect(deleteButton.getAttribute("title")).toBe("Delete Command");
+      expect(upButton.getAttribute("title")).toBe("Move Up");
+      expect(downButton.getAttribute("title")).toBe("Move Down");
+    });
 
-    it('should have proper disabled states with titles', async () => {
+    it("should have proper disabled states with titles", async () => {
       const mockCommands = [
         {
-          command: 'OnlyCommand',
-          displayText: 'Only Command',
-          icon: 'fas fa-test'
-        }
-      ]
+          command: "OnlyCommand",
+          displayText: "Only Command",
+          icon: "fas fa-test",
+        },
+      ];
 
-      const elements = []
+      const elements = [];
       for (let i = 0; i < mockCommands.length; i++) {
-        elements.push(await commandChainUI.createCommandElement(mockCommands[i], i, mockCommands.length))
+        elements.push(
+          await commandChainUI.createCommandElement(
+            mockCommands[i],
+            i,
+            mockCommands.length,
+          ),
+        );
       }
-      const doc = commandChainUI.document
-      let container = doc.getElementById('commandList')
+      const doc = commandChainUI.document;
+      let container = doc.getElementById("commandList");
       if (!container) {
-        container = doc.createElement('div')
-        container.id = 'commandList'
-        doc.body.appendChild(container)
+        container = doc.createElement("div");
+        container.id = "commandList";
+        doc.body.appendChild(container);
       }
-      container.replaceChildren(...elements)
+      container.replaceChildren(...elements);
 
-      const upButton = commandChainUI.document.querySelector('.btn-up')
-      const downButton = commandChainUI.document.querySelector('.btn-down')
+      const upButton = commandChainUI.document.querySelector(".btn-up");
+      const downButton = commandChainUI.document.querySelector(".btn-down");
 
       // Single command should have both up and down disabled
-      expect(upButton.disabled).toBe(true)
-      expect(downButton.disabled).toBe(true)
+      expect(upButton.disabled).toBe(true);
+      expect(downButton.disabled).toBe(true);
 
       // Titles should still be present for accessibility
-      expect(upButton.getAttribute('title')).toBe('Move Up')
-      expect(downButton.getAttribute('title')).toBe('Move Down')
-    })
-  })
-}) 
+      expect(upButton.getAttribute("title")).toBe("Move Up");
+      expect(downButton.getAttribute("title")).toBe("Move Down");
+    });
+  });
+});

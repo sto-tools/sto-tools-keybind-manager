@@ -1,5 +1,13 @@
-import UIComponentBase from '../UIComponentBase.js'
-import i18next from 'i18next'
+import UIComponentBase from "../UIComponentBase.js";
+import i18next from "i18next";
+import { resolveDocument } from "./uiTypes.js";
+
+const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
+  globalThis
+);
+
+/** @typedef {string | boolean | number | null | undefined} PreferenceValue */
+/** @typedef {{ type: 'boolean' | 'select', element: string }} SettingDefinition */
 
 /**
  * PreferencesUI - User preferences management component
@@ -17,314 +25,357 @@ import i18next from 'i18next'
  * were removed during refactoring as they were redundant with the event bus approach.
  */
 export default class PreferencesUI extends UIComponentBase {
+  /**
+   * @param {{
+   *   eventBus?: import('./uiTypes.js').EventBus,
+   *   ui?: import('./uiTypes.js').UIServiceLike | null,
+   *   document?: Document | null
+   * }} [options]
+   */
   constructor({ eventBus, ui = null, document = null } = {}) {
-    super(eventBus)
-    this.componentName = 'PreferencesUI'
+    super(eventBus);
+    this.componentName = "PreferencesUI";
 
-    this.ui = ui
-    this.document =
-      document || (typeof window !== 'undefined' ? window.document : null)
+    this.ui = ui;
+    this.document = resolveDocument(document);
 
-    this.eventsSetup = false
+    this.eventsSetup = false;
 
     // Adopt settingDefinitions from historical implementation
+    /** @type {Record<string, SettingDefinition>} */
     this.settingDefinitions = {
-      language: { type: 'select', element: 'languageSelect' },
+      language: { type: "select", element: "languageSelect" },
       translateGeneratedMessages: {
-        type: 'boolean',
-        element: 'translateGeneratedMessagesCheckbox',
+        type: "boolean",
+        element: "translateGeneratedMessagesCheckbox",
       },
-      autoSave: { type: 'boolean', element: 'autoSaveCheckbox' },
-      autoSync: { type: 'boolean', element: 'autoSync' },
-      autoSyncInterval: { type: 'select', element: 'autoSyncInterval' },
-      bindToAliasMode: { type: 'boolean', element: 'bindToAliasModeCheckbox' },
-      bindsetsEnabled: { type: 'boolean', element: 'bindsetsEnabledCheckbox' },
-    }
+      autoSave: { type: "boolean", element: "autoSaveCheckbox" },
+      autoSync: { type: "boolean", element: "autoSync" },
+      autoSyncInterval: { type: "select", element: "autoSyncInterval" },
+      bindToAliasMode: { type: "boolean", element: "bindToAliasModeCheckbox" },
+      bindsetsEnabled: { type: "boolean", element: "bindsetsEnabledCheckbox" },
+    };
 
     // Holds settings that should only be applied when the user clicks the Save button
-    this.pendingSettings = {}
+    /** @type {Record<string, PreferenceValue>} */
+    this.pendingSettings = {};
   }
 
   onInit() {
     // Use request/response instead of direct service call
-    this.request('preferences:init').then(() => {
-      this.populatePreferencesModal()
-    })
-    this.setupEventListeners()
+    this.request("preferences:init").then(() => {
+      this.populatePreferencesModal();
+    });
+    this.setupEventListeners();
   }
 
   // UI helpers
   setupEventListeners() {
     // Listen for preferences:show event from HeaderMenuUI
-    this.eventBus.on('preferences:show', () => {
-      this.showPreferences()
-    })
+    this.eventBus?.on("preferences:show", () => {
+      this.showPreferences();
+    });
 
     // Listen for sync folder changes
-    this.eventBus.on('sync:folder-set', () => {
-      this.updateFolderDisplay()
-    })
+    this.eventBus?.on("sync:folder-set", () => {
+      this.updateFolderDisplay();
+    });
 
     // Listen for settings changes that should update AutoSync
-    this.eventBus.on('preferences:changed', (data) => {
+    this.eventBus?.on("preferences:changed", (data) => {
       // Handle both single-setting changes and bulk changes
-      const changes = data.changes || { [data.key]: data.value }
+      /** @type {Record<string, PreferenceValue>} */
+      const changes = data.changes || { [data.key]: data.value };
 
       if (
         changes.autoSync !== undefined ||
         changes.autoSyncInterval !== undefined
       ) {
-        this.notifyAutoSyncSettingsChanged()
+        this.notifyAutoSyncSettingsChanged();
       }
-    })
+    });
 
     // Category navigation buttons
-    document.querySelectorAll('.category-item').forEach((item) => {
-      this.onDom(item, 'click', 'pref-cat', (e) => {
-        const cat = e.currentTarget.dataset.category
-        this.switchCategory(cat)
-      })
-    })
+    document.querySelectorAll(".category-item").forEach((item) => {
+      this.onDom(item, "click", "pref-cat", (e) => {
+        const currentTarget = e.currentTarget;
+        const cat =
+          currentTarget instanceof Element
+            ? currentTarget.getAttribute("data-category")
+            : null;
+        if (cat) this.switchCategory(cat);
+      });
+    });
 
     // Save button
-    this.onDom('savePreferencesBtn', 'click', 'pref-save', () => {
-      this.saveAllSettings(true)
-    })
+    this.onDom("savePreferencesBtn", "click", "pref-save", () => {
+      this.saveAllSettings(true);
+    });
 
-    this.setupSettingControls()
+    this.setupSettingControls();
 
     // Set Sync Folder button – needs direct user activation
-    const syncBtn = document.getElementById('setSyncFolderBtn')
+    const syncBtn = document.getElementById("setSyncFolderBtn");
     if (syncBtn) {
-      syncBtn.addEventListener('click', async () => {
-        console.log('[PreferencesUI] setSyncFolderBtn clicked')
-        if (window.stoSync?.setSyncFolder) {
+      syncBtn.addEventListener("click", async () => {
+        console.log("[PreferencesUI] setSyncFolderBtn clicked");
+        if (runtime.stoSync?.setSyncFolder) {
           try {
-            const handle = await window.stoSync.setSyncFolder(true)
-            console.log('[PreferencesUI] setSyncFolder returned', {
+            const handle = await runtime.stoSync.setSyncFolder(true);
+            console.log("[PreferencesUI] setSyncFolder returned", {
               hasHandle: !!handle,
               name: handle?.name,
-            })
+            });
             if (handle) {
               // Reload settings (folder name/path updated by stoSync)
-              await this.request('preferences:load-settings')
-              this.updateFolderDisplay()
+              await this.request("preferences:load-settings");
+              this.updateFolderDisplay();
               console.log(
-                '[PreferencesUI] settings reloaded after setSyncFolder'
-              )
+                "[PreferencesUI] settings reloaded after setSyncFolder",
+              );
             }
           } catch (err) {
-            console.error('[PreferencesUI] setSyncFolder failed', err)
+            console.error("[PreferencesUI] setSyncFolder failed", err);
           }
         }
-      })
+      });
     }
   }
 
   setupSettingControls() {
     Object.entries(this.settingDefinitions).forEach(([key, def]) => {
-      const el = document.getElementById(def.element)
-      if (!el) return
+      const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (
+        document.getElementById(def.element)
+      );
+      if (!el) return;
 
       // If this is the bindsetsEnabled control, ensure it's disabled until bindToAliasMode is true
-      if (key === 'bindsetsEnabled') {
+      if (key === "bindsetsEnabled") {
         // Initial state – will be updated again after load
-        el.disabled = !(this.pendingSettings.bindToAliasMode || el.checked)
+        const checkbox = /** @type {HTMLInputElement} */ (el);
+        checkbox.disabled = !(
+          this.pendingSettings.bindToAliasMode || checkbox.checked
+        );
       }
 
       switch (def.type) {
-        case 'boolean':
-          this.onDom(el, 'change', `pref-${key}`, (e) => {
-            this.handleSettingChange(key, e.target.checked)
-          })
-          break
-        case 'select':
-          this.onDom(el, 'change', `pref-${key}`, (e) => {
-            this.handleSettingChange(key, e.target.value)
-          })
-          break
+        case "boolean":
+          this.onDom(el, "change", `pref-${key}`, (e) => {
+            const target = /** @type {HTMLInputElement} */ (e.target);
+            this.handleSettingChange(key, target.checked);
+          });
+          break;
+        case "select":
+          this.onDom(el, "change", `pref-${key}`, (e) => {
+            const target = /** @type {HTMLSelectElement} */ (e.target);
+            this.handleSettingChange(key, target.value);
+          });
+          break;
       }
-    })
+    });
   }
 
+  /** @param {string} cat */
   switchCategory(cat) {
     document
-      .querySelectorAll('.category-item')
-      .forEach((i) => i.classList.remove('active'))
-    const active = document.querySelector(`[data-category="${cat}"]`)
-    active && active.classList.add('active')
+      .querySelectorAll(".category-item")
+      .forEach((i) => i.classList.remove("active"));
+    const active = document.querySelector(`[data-category="${cat}"]`);
+    active && active.classList.add("active");
 
     document
-      .querySelectorAll('.settings-panel')
-      .forEach((p) => p.classList.remove('active'))
-    const panel = document.getElementById(`${cat}-settings`)
-    panel && panel.classList.add('active')
+      .querySelectorAll(".settings-panel")
+      .forEach((p) => p.classList.remove("active"));
+    const panel = document.getElementById(`${cat}-settings`);
+    panel && panel.classList.add("active");
   }
 
+  /**
+   * @param {string} key
+   * @param {PreferenceValue} value
+   */
   async updateSetting(key, value) {
     // Use request/response instead of direct service call
-    await this.setSetting(key, value)
+    await this.setSetting(key, value);
 
-    if (key === 'syncFolderName' || key === 'syncFolderPath') {
-      this.updateFolderDisplay()
+    if (key === "syncFolderName" || key === "syncFolderPath") {
+      this.updateFolderDisplay();
     }
 
     // PreferencesService already emits 'preferences:changed' when setting is updated
   }
 
+  /**
+   * @param {string} key
+   * @param {PreferenceValue} value
+   */
   updateUI(key, value) {
-    const def = this.settingDefinitions[key]
-    if (!def) return
-    const el = document.getElementById(def.element)
-    if (!el) return
+    const def = this.settingDefinitions[key];
+    if (!def) return;
+    const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (
+      document.getElementById(def.element)
+    );
+    if (!el) return;
 
-    if (def.type === 'boolean') {
-      el.checked = !!value
-    } else if (def.type === 'select') {
-      el.value = value
+    if (def.type === "boolean") {
+      /** @type {HTMLInputElement} */ (el).checked = !!value;
+    } else if (def.type === "select") {
+      el.value = value == null ? "" : String(value);
     }
 
-    if (key === 'bindToAliasMode') {
-      this.updateBindsetsCheckboxState(value)
+    if (key === "bindToAliasMode") {
+      this.updateBindsetsCheckboxState(Boolean(value));
     }
   }
 
   async saveAllSettings(manual = true) {
-    console.log('[PreferencesUI] saveAllSettings called', {
+    console.log("[PreferencesUI] saveAllSettings called", {
       manual,
       pending: { ...this.pendingSettings },
-    })
+    });
     // First, apply any pending settings (e.g., bindToAliasMode) in bulk
     if (Object.keys(this.pendingSettings).length > 0) {
       // Get current settings and merge with pending changes
-      const currentSettings = await this.request('preferences:get-settings')
-      const newSettings = { ...currentSettings, ...this.pendingSettings }
-      await this.request('preferences:set-settings', newSettings)
+      const currentSettings = await this.request("preferences:get-settings");
+      const newSettings = { ...currentSettings, ...this.pendingSettings };
+      await this.request("preferences:set-settings", newSettings);
 
       // Clear pending settings now that they have been applied
-      this.pendingSettings = {}
-      console.log('[PreferencesUI] pending settings applied')
+      this.pendingSettings = {};
+      console.log("[PreferencesUI] pending settings applied");
     }
 
     // Use request/response instead of direct service call
-    const ok = await this.saveSettings()
-    console.log('[PreferencesUI] preferences:save-settings result', { ok })
+    const ok = await this.saveSettings();
+    console.log("[PreferencesUI] preferences:save-settings result", { ok });
     if (ok && manual && this.ui?.showToast) {
-      this.emit('toast:show', {
-        message: i18next.t('preferences_saved'),
-        type: 'success',
-      })
+      this.emit("toast:show", {
+        message: i18next.t("preferences_saved"),
+        type: "success",
+      });
     }
 
     // Notify AutoSync of setting changes
-    this.notifyAutoSyncSettingsChanged()
+    this.notifyAutoSyncSettingsChanged();
 
     // Use event bus instead of direct modalManager call
     await this.emit(
-      'modal:hide',
-      { modalId: 'preferencesModal' },
-      { synchronous: true }
-    )
+      "modal:hide",
+      { modalId: "preferencesModal" },
+      { synchronous: true },
+    );
   }
 
   async showPreferences() {
-    console.log('[PreferencesUI] showPreferences')
+    console.log("[PreferencesUI] showPreferences");
     // Use request/response to get fresh settings
-    await this.request('preferences:load-settings')
+    await this.request("preferences:load-settings");
     // Discard any unsaved changes from previous session
-    this.pendingSettings = {}
-    const settings = await this.request('preferences:get-settings')
-    Object.entries(settings).forEach(([k, v]) => this.updateUI(k, v))
-    this.updateFolderDisplay()
+    this.pendingSettings = {};
+    const settings = await this.request("preferences:get-settings");
+    Object.entries(settings).forEach(([k, v]) => this.updateUI(k, v));
+    this.updateFolderDisplay();
     // Use event bus instead of direct modalManager call
-    this.emit('modal:show', { modalId: 'preferencesModal' })
+    this.emit("modal:show", { modalId: "preferencesModal" });
   }
 
   async populatePreferencesModal() {
     // Load current settings via event bus request/response pattern
     // Settings are automatically applied to UI elements through the updateUI() method
     // Event listeners are set up in setupEventListeners() and setupSettingControls()
-    await this.request('preferences:load-settings')
+    await this.request("preferences:load-settings");
   }
 
   async updateFolderDisplay() {
-    const settings = await this.request('preferences:get-settings')
-    const { syncFolderName, syncFolderPath } = settings
-    console.log('[PreferencesUI] updateFolderDisplay', {
+    const settings = await this.request("preferences:get-settings");
+    const { syncFolderName, syncFolderPath } = settings;
+    console.log("[PreferencesUI] updateFolderDisplay", {
       syncFolderName,
       syncFolderPath,
-    })
+    });
 
     // Update folder display UI - use correct element ID from HTML
-    const folderDisplayEl = this.document.getElementById('currentSyncFolder')
+    const folderDisplayEl = this.document.getElementById("currentSyncFolder");
 
     if (folderDisplayEl) {
       if (syncFolderName) {
-        folderDisplayEl.textContent = syncFolderName
+        folderDisplayEl.textContent = syncFolderName;
         // Remove the data-i18n attribute when showing actual folder name
-        folderDisplayEl.removeAttribute('data-i18n')
+        folderDisplayEl.removeAttribute("data-i18n");
       } else {
-        folderDisplayEl.textContent = i18next.t('no_folder_selected')
-        folderDisplayEl.setAttribute('data-i18n', 'no_folder_selected')
+        folderDisplayEl.textContent = i18next.t("no_folder_selected");
+        folderDisplayEl.setAttribute("data-i18n", "no_folder_selected");
       }
     }
   }
 
   async notifyAutoSyncSettingsChanged() {
     // Emit event for AutoSync service to listen to
-    this.emit('preferences:autosync-settings-changed')
+    this.emit("preferences:autosync-settings-changed");
   }
 
+  /**
+   * @param {string} key
+   * @param {PreferenceValue} value
+   */
   async setSetting(key, value) {
     // Use request/response instead of direct service call
-    await this.request('preferences:set-setting', { key, value })
-    this.updateUI(key, value)
+    await this.request("preferences:set-setting", { key, value });
+    this.updateUI(key, value);
   }
 
   async saveSettings() {
     // Use request/response instead of direct service call
-    const ok = await this.request('preferences:save-settings')
-    return ok
+    const ok = await this.request("preferences:save-settings");
+    return ok;
   }
 
+  /**
+   * @param {string} key
+   * @param {PreferenceValue} value
+   */
   handleSettingChange(key, value) {
-    if (key === 'bindToAliasMode' || key === 'bindsetsEnabled') {
+    if (key === "bindToAliasMode" || key === "bindsetsEnabled") {
       // Defer applying until user presses Save
-      this.pendingSettings[key] = value
+      this.pendingSettings[key] = value;
 
       // Reflect change in UI but do not persist yet
-      this.updateUI(key, value)
+      this.updateUI(key, value);
 
-      if (key === 'bindToAliasMode') {
+      if (key === "bindToAliasMode") {
         // Update dependency for bindsets checkbox immediately for UX feedback
-        this.updateBindsetsCheckboxState(value)
+        this.updateBindsetsCheckboxState(Boolean(value));
         // If alias mode disabled, ensure pending bindsetsEnabled is also false
         if (!value) {
-          this.pendingSettings.bindsetsEnabled = false
+          this.pendingSettings.bindsetsEnabled = false;
         }
       }
     } else {
       // Apply other settings immediately as before
-      this.updateSetting(key, value)
+      this.updateSetting(key, value);
     }
   }
 
   // Enable/disable bindsetsEnabled checkbox depending on bindToAliasMode
+  /** @param {boolean | null} [bindToAliasMode] */
   updateBindsetsCheckboxState(bindToAliasMode = null) {
-    const checkbox = document.getElementById('bindsetsEnabledCheckbox')
-    if (!checkbox) return
+    const checkbox = /** @type {HTMLInputElement | null} */ (
+      document.getElementById("bindsetsEnabledCheckbox")
+    );
+    if (!checkbox) return;
     // Determine state if param not provided
-    let enabled = bindToAliasMode
+    /** @type {boolean | null} */
+    let enabled = bindToAliasMode;
     if (enabled === null) {
-      const pending = this.pendingSettings.bindToAliasMode
-      if (typeof pending !== 'undefined') enabled = pending
-      else enabled = checkbox.checked // fallback
+      const pending = this.pendingSettings.bindToAliasMode;
+      if (typeof pending === "boolean") enabled = pending;
+      else enabled = checkbox.checked; // fallback
     }
-    checkbox.disabled = !enabled
+    checkbox.disabled = !enabled;
     if (!enabled) {
-      checkbox.checked = false
+      checkbox.checked = false;
       // Reflect in pendingSettings so Save applies correct value
-      this.pendingSettings.bindsetsEnabled = false
+      this.pendingSettings.bindsetsEnabled = false;
     }
   }
 }

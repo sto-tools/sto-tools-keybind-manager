@@ -1,250 +1,295 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import ExportService from '../../../src/js/components/services/ExportService.js'
-import { createServiceFixture, createProfileDataFixture } from '../../fixtures/index.js'
-import { respond } from '../../../src/js/core/requestResponse.js'
-import * as SyncService from '../../../src/js/components/services/SyncService.js'
-import { vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import ExportService from "../../../src/js/components/services/ExportService.js";
+import * as SyncService from "../../../src/js/components/services/SyncService.js";
+import { respond } from "../../../src/js/core/requestResponse.js";
+import {
+  createProfileDataFixture,
+  createServiceFixture,
+} from "../../fixtures/index.js";
 
 /**
  * Unit tests – ExportService – verify keybind file generation
  */
 
 // Register a lightweight responder for parser:parse-command-string to avoid timeouts in unit tests
-respond(undefined, 'parser:parse-command-string', ({ commandString }) => {
+respond(undefined, "parser:parse-command-string", ({ commandString }) => {
   // Return minimal parse result needed by normalizeToOptimizedString
   return {
-    commands: [ { command: commandString } ]
-  }
-})
+    commands: [{ command: commandString }],
+  };
+});
 
-describe('ExportService', () => {
-  let fixture, service, profile
+describe("ExportService", () => {
+  let fixture, service, profile;
 
   beforeEach(() => {
-    fixture = createServiceFixture()
-    service = new ExportService({ eventBus: fixture.eventBus, storage: fixture.storage })
-    service.init()
+    fixture = createServiceFixture();
+    service = new ExportService({
+      eventBus: fixture.eventBus,
+      storage: fixture.storage,
+      i18n: { t: (key) => key },
+    });
+    service.init();
 
     // Register responder for parser on the fixture event bus to avoid timeouts
-    respond(fixture.eventBus, 'parser:parse-command-string', ({ commandString }) => ({ commands: [{ command: commandString }] }))
+    respond(
+      fixture.eventBus,
+      "parser:parse-command-string",
+      ({ commandString }) => ({ commands: [{ command: commandString }] }),
+    );
 
     // Build simple profile data
-    const pFix = createProfileDataFixture('basic')
-    pFix.addKey('space', 'F1', ['FireAll'])
-    profile = { id: 'prof1', name: 'TestProfile', builds: pFix.profile.builds }
-  })
+    const pFix = createProfileDataFixture("basic");
+    pFix.addKey("space", "F1", ["FireAll"]);
+    profile = { id: "prof1", name: "TestProfile", builds: pFix.profile.builds };
+  });
 
   afterEach(() => {
-    fixture.destroy()
-  })
+    fixture.destroy();
+  });
 
-  it('generateSTOKeybindFile returns header and key lines', async () => {
-    const txt = await service.generateSTOKeybindFile(profile, { environment: 'space' })
-    expect(txt).toContain('STO Keybind Configuration')
-    expect(txt).toMatch(/F1\s+"FireAll"/)
-  })
+  it("generateSTOKeybindFile returns header and key lines", async () => {
+    const txt = await service.generateSTOKeybindFile(profile, {
+      environment: "space",
+    });
+    expect(txt).toContain("STO Keybind Configuration");
+    expect(txt).toMatch(/F1\s+"FireAll"/);
+  });
 
-  it('generateKeybindSection outputs empty quote line when no commands', async () => {
+  it("generateKeybindSection outputs empty quote line when no commands", async () => {
     const keys = {
-      F4: []
-    }
+      F4: [],
+    };
 
-    const section = await service.generateKeybindSection(keys, { environment: 'space', profile: {} })
-    expect(section).toContain('F4 ""')
-  })
+    const section = await service.generateKeybindSection(keys, {
+      environment: "space",
+      profile: {},
+    });
+    expect(section).toContain('F4 ""');
+  });
 
-  describe('bind-to-alias mode – empty chains', () => {
+  describe("bind-to-alias mode – empty chains", () => {
     beforeEach(() => {
       // Set up cached preferences so bind-to-alias mode is enabled
       service.cache.preferences = {
-        bindToAliasMode: true
-      }
+        bindToAliasMode: true,
+      };
 
       // Mock preferences requests as fallback
       service.request = vi.fn().mockImplementation(async (action, payload) => {
-        if (action === 'preferences:get-setting' && payload.key === 'bindToAliasMode') {
-          return true
-        }
-        return false
-      })
-    })
+        return (
+          action === "preferences:get-setting" &&
+          payload.key === "bindToAliasMode"
+        );
+      });
+    });
 
-    it('generates key line binding to alias even when command list empty', async () => {
+    it("generates key line binding to alias even when command list empty", async () => {
       const keys = {
-        F4: []
-      }
+        F4: [],
+      };
 
-      const section = await service.generateKeybindSection(keys, { environment: 'space', profile: {} })
-      expect(section).toContain('F4 "sto_kb_space_f4"')
-    })
+      const section = await service.generateKeybindSection(keys, {
+        environment: "space",
+        profile: {},
+      });
+      expect(section).toContain('F4 "sto_kb_space_f4"');
+    });
 
-    it('generates empty alias definition for empty chain', async () => {
+    it("generates empty alias definition for empty chain", async () => {
       const profileData = {
-        name: 'EmptyAliasTest',
+        name: "EmptyAliasTest",
         builds: {
           space: {
             keys: {
-              F4: []
-            }
-          }
-        }
-      }
+              F4: [],
+            },
+          },
+        },
+      };
 
-      const aliasFile = await service.generateAliasFile(profileData)
-      expect(aliasFile).toMatch(/alias sto_kb_space_f4 <&\s*&>/)
-    })
-  })
+      const aliasFile = await service.generateAliasFile(profileData);
+      expect(aliasFile).toMatch(/alias sto_kb_space_f4 <&\s*&>/);
+    });
+  });
 
-  describe('primary bindset loader alias generation', () => {
-    it('should generate primary bindset loader that resets custom bindset keys to primary', async () => {
+  describe("primary bindset loader alias generation", () => {
+    it("should generate primary bindset loader that resets custom bindset keys to primary", async () => {
       // Enable bindsets feature and bind-to-alias mode
       service.cache.preferences = {
         bindsetsEnabled: true,
-        bindToAliasMode: true
-      }
+        bindToAliasMode: true,
+      };
 
       // Mock preferences requests as fallback
       service.request = vi.fn().mockImplementation(async (action, payload) => {
-        if (action === 'preferences:get-setting' && payload.key === 'bindsetsEnabled') {
-          return true
+        if (
+          action === "preferences:get-setting" &&
+          payload.key === "bindsetsEnabled"
+        ) {
+          return true;
         }
-        if (action === 'preferences:get-setting' && payload.key === 'bindToAliasMode') {
-          return true
+        if (
+          action === "preferences:get-setting" &&
+          payload.key === "bindToAliasMode"
+        ) {
+          return true;
         }
-        return false
-      })
+        return false;
+      });
 
       const profile = {
-        name: 'Test Profile',
+        name: "Test Profile",
         builds: {
           space: {
             keys: {
-              'F1': ['primary_command_f1'],
-              'F2': ['primary_command_f2'],
-              'F3': ['primary_command_f3']
-            }
-          }
+              F1: ["primary_command_f1"],
+              F2: ["primary_command_f2"],
+              F3: ["primary_command_f3"],
+            },
+          },
         },
         bindsets: {
-          'Custom Bindset': {
+          "Custom Bindset": {
             space: {
               keys: {
-                'F1': ['custom_command_f1'], // Overrides primary
-                'F4': ['custom_command_f4']  // Only in custom
-              }
-            }
-          }
-        }
-      }
+                F1: ["custom_command_f1"], // Overrides primary
+                F4: ["custom_command_f4"], // Only in custom
+              },
+            },
+          },
+        },
+      };
 
-      const result = await service.generateAliasFile(profile)
+      const result = await service.generateAliasFile(profile);
 
       // Should contain primary bindset loader alias
-      expect(result).toContain('alias sto_kb_bindset_enable_space_primary_bindset')
-      
+      expect(result).toContain(
+        "alias sto_kb_bindset_enable_space_primary_bindset",
+      );
+
       // Primary bindset loader should:
       // 1. Bind F1 to primary alias (resets from custom - F1 exists in both primary and custom)
       // 2. Skip F2 and F3 (they only exist in primary, never overridden, no need to reset)
       // 3. Unbind F4 (exists only in custom, not in primary)
-      expect(result).toContain('bind F1 "sto_kb_space_f1"')
-      expect(result).not.toContain('bind F2 "sto_kb_space_f2"') // F2 only in primary, not overridden
-      expect(result).not.toContain('bind F3 "sto_kb_space_f3"') // F3 only in primary, not overridden
-      expect(result).toContain('unbind F4')
+      expect(result).toContain('bind F1 "sto_kb_space_f1"');
+      expect(result).not.toContain('bind F2 "sto_kb_space_f2"'); // F2 only in primary, not overridden
+      expect(result).not.toContain('bind F3 "sto_kb_space_f3"'); // F3 only in primary, not overridden
+      expect(result).toContain("unbind F4");
 
       // Should also contain custom bindset loader
-      expect(result).toContain('alias sto_kb_bindset_enable_space_custom_bindset')
+      expect(result).toContain(
+        "alias sto_kb_bindset_enable_space_custom_bindset",
+      );
 
       // Custom bindset loader should only bind keys that exist in the custom bindset
-      expect(result).toContain('bind F1 "sto_kb_space_custom_bindset_f1"')
-      expect(result).toContain('bind F4 "sto_kb_space_custom_bindset_f4"')
-    })
+      expect(result).toContain('bind F1 "sto_kb_space_custom_bindset_f1"');
+      expect(result).toContain('bind F4 "sto_kb_space_custom_bindset_f4"');
+    });
 
-    it('should generate primary bindset loader for ground environment', async () => {
+    it("should generate primary bindset loader for ground environment", async () => {
       // Enable bindsets feature and bind-to-alias mode
       service.cache.preferences = {
         bindsetsEnabled: true,
-        bindToAliasMode: true
-      }
+        bindToAliasMode: true,
+      };
 
       // Mock preferences requests as fallback
       service.request = vi.fn().mockImplementation(async (action, payload) => {
-        if (action === 'preferences:get-setting' && payload.key === 'bindsetsEnabled') {
-          return true
+        if (
+          action === "preferences:get-setting" &&
+          payload.key === "bindsetsEnabled"
+        ) {
+          return true;
         }
-        if (action === 'preferences:get-setting' && payload.key === 'bindToAliasMode') {
-          return true
+        if (
+          action === "preferences:get-setting" &&
+          payload.key === "bindToAliasMode"
+        ) {
+          return true;
         }
-        return false
-      })
+        return false;
+      });
 
       const profile = {
-        name: 'Test Profile',
+        name: "Test Profile",
         builds: {
           ground: {
             keys: {
-              'Q': ['primary_ground_q'],
-              'W': ['primary_ground_w']
-            }
-          }
+              Q: ["primary_ground_q"],
+              W: ["primary_ground_w"],
+            },
+          },
         },
         bindsets: {
-          'Ground Combat': {
+          "Ground Combat": {
             ground: {
               keys: {
-                'Q': ['combat_ground_q'],
-                'E': ['combat_ground_e']
-              }
-            }
-          }
-        }
-      }
+                Q: ["combat_ground_q"],
+                E: ["combat_ground_e"],
+              },
+            },
+          },
+        },
+      };
 
-      const result = await service.generateAliasFile(profile)
+      const result = await service.generateAliasFile(profile);
 
       // Should contain ground primary bindset loader alias
-      expect(result).toContain('alias sto_kb_bindset_enable_ground_primary_bindset')
+      expect(result).toContain(
+        "alias sto_kb_bindset_enable_ground_primary_bindset",
+      );
 
       // Primary bindset loader should:
       // 1. Bind Q to primary alias (resets from custom - Q exists in both primary and custom)
       // 2. Skip W (only exists in primary, never overridden, no need to reset)
       // 3. Unbind E (exists only in custom, not in primary)
-      expect(result).toContain('bind Q "sto_kb_ground_q"')
-      expect(result).not.toContain('bind W "sto_kb_ground_w"') // W only in primary, not overridden
-      expect(result).toContain('unbind E')
+      expect(result).toContain('bind Q "sto_kb_ground_q"');
+      expect(result).not.toContain('bind W "sto_kb_ground_w"'); // W only in primary, not overridden
+      expect(result).toContain("unbind E");
 
       // Should also contain custom bindset loader
-      expect(result).toContain('alias sto_kb_bindset_enable_ground_ground_combat')
-    })
-  })
+      expect(result).toContain(
+        "alias sto_kb_bindset_enable_ground_ground_combat",
+      );
+    });
+  });
 
-  describe('syncToFolder', () => {
-    it('rethrows write failures without emitting toast events', async () => {
-      const writeError = new Error('sync write failed')
-      const writeSpy = vi.spyOn(SyncService, 'writeFile').mockRejectedValue(writeError)
-      const getAllDataSpy = vi.spyOn(service.storage, 'getAllData').mockReturnValue({
-        profiles: {
-          profile1: {
-            name: 'Profile One',
-            builds: {
-              space: {
-                keys: {
-                  F1: ['FireAll']
-                }
-              }
-            }
-          }
-        }
-      })
+  describe("syncToFolder", () => {
+    it("rethrows write failures without emitting toast events", async () => {
+      const writeError = new Error("sync write failed");
+      const writeSpy = vi
+        .spyOn(SyncService, "writeFile")
+        .mockRejectedValue(writeError);
+      const getAllDataSpy = vi
+        .spyOn(service.storage, "getAllData")
+        .mockReturnValue({
+          profiles: {
+            profile1: {
+              name: "Profile One",
+              builds: {
+                space: {
+                  keys: {
+                    F1: ["FireAll"],
+                  },
+                },
+              },
+            },
+          },
+        });
 
-      fixture.eventBusFixture.clearEventHistory()
+      fixture.eventBusFixture.clearEventHistory();
 
-      await expect(service.syncToFolder({})).rejects.toThrow('sync write failed')
+      await expect(service.syncToFolder({})).rejects.toThrow(
+        "sync write failed",
+      );
 
-      const toastEvents = fixture.eventBusFixture.getEventsOfType('toast:show')
-      expect(toastEvents).toHaveLength(0)
+      const toastEvents = fixture.eventBusFixture.getEventsOfType("toast:show");
+      expect(toastEvents).toHaveLength(0);
 
-      writeSpy.mockRestore()
-      getAllDataSpy.mockRestore()
-    })
-  })
-})
+      writeSpy.mockRestore();
+      getAllDataSpy.mockRestore();
+    });
+  });
+});

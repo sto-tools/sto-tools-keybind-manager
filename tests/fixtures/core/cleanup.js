@@ -1,8 +1,8 @@
 // Fixture cleanup system
 // Tracks all created fixtures and ensures proper cleanup
 
-const activeFixtures = new Set()
-const cleanupFunctions = new Map()
+const activeFixtures = new Set();
+const cleanupFunctions = new Map();
 
 /**
  * Register a fixture for cleanup
@@ -10,8 +10,8 @@ const cleanupFunctions = new Map()
  * @param {Function} cleanupFn - Function to call for cleanup
  */
 export function registerFixture(id, cleanupFn) {
-  activeFixtures.add(id)
-  cleanupFunctions.set(id, cleanupFn)
+  activeFixtures.add(id);
+  cleanupFunctions.set(id, cleanupFn);
 }
 
 /**
@@ -19,8 +19,8 @@ export function registerFixture(id, cleanupFn) {
  * @param {string} id - Unique identifier for the fixture
  */
 export function unregisterFixture(id) {
-  activeFixtures.delete(id)
-  cleanupFunctions.delete(id)
+  activeFixtures.delete(id);
+  cleanupFunctions.delete(id);
 }
 
 /**
@@ -28,39 +28,32 @@ export function unregisterFixture(id) {
  * Called by the test setup after each test
  */
 export function cleanupFixtures() {
-  const errors = []
-  
+  const errors = [];
+
   for (const id of activeFixtures) {
-    const cleanupFn = cleanupFunctions.get(id)
+    const cleanupFn = cleanupFunctions.get(id);
     if (cleanupFn) {
       try {
-        cleanupFn()
+        cleanupFn();
       } catch (error) {
-        errors.push({ id, error })
+        errors.push({ id, error });
       }
     }
   }
-  
+
   // Clear all fixtures
-  activeFixtures.clear()
-  cleanupFunctions.clear()
-  
+  activeFixtures.clear();
+  cleanupFunctions.clear();
+
   // If there were errors, log them but don't throw
   if (errors.length > 0) {
-    console.warn('Fixture cleanup errors:', errors)
+    console.warn("Fixture cleanup errors:", errors);
   }
-}
-
-/**
- * Get list of active fixtures (for debugging)
- */
-export function getActiveFixtures() {
-  return Array.from(activeFixtures)
 }
 
 /**
  * Generate a unique fixture ID
  */
-export function generateFixtureId(prefix = 'fixture') {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-} 
+export function generateFixtureId(prefix = "fixture") {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}

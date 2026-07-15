@@ -3,6 +3,11 @@
  * Used by KeyCaptureUI to render appropriate visual keyboards
  */
 
+/**
+ * @typedef {{ primary: string, secondary?: string, name?: string }} KeyDefinition
+ * @typedef {{ name: string, languages: string[], keys: Record<string, KeyDefinition> }} KeyboardLayout
+ */
+
 // Base key positions (independent of layout)
 const KEY_POSITIONS = {
   // Function keys row
@@ -18,7 +23,7 @@ const KEY_POSITIONS = {
   F10: { row: 0, col: 10, width: 1 },
   F11: { row: 0, col: 11, width: 1 },
   F12: { row: 0, col: 12, width: 1 },
-  
+
   // Number row
   Backquote: { row: 1, col: 0, width: 1 },
   Escape: { row: 0, col: 0, width: 1 },
@@ -35,8 +40,8 @@ const KEY_POSITIONS = {
   Minus: { row: 1, col: 11, width: 1 },
   Equal: { row: 1, col: 12, width: 1 },
 
-  Backspace: { row: 1, col: 13, width: 1.5 }, 
-  
+  Backspace: { row: 1, col: 13, width: 1.5 },
+
   // Top letter row
   Tab: { row: 2, col: 0, width: 1.5 },
   KeyQ: { row: 2, col: 1.5, width: 1 },
@@ -51,7 +56,7 @@ const KEY_POSITIONS = {
   KeyP: { row: 2, col: 10.5, width: 1 },
   BracketLeft: { row: 2, col: 11.5, width: 1 },
   BracketRight: { row: 2, col: 12.5, width: 1 },
-  
+
   // Middle letter row
   CapsLock: { row: 3, col: 0, width: 1.75 },
   KeyA: { row: 3, col: 1.75, width: 1 },
@@ -64,7 +69,7 @@ const KEY_POSITIONS = {
   KeyK: { row: 3, col: 8.75, width: 1 },
   KeyL: { row: 3, col: 9.75, width: 1 },
   Quote: { row: 3, col: 10.75, width: 1 },
-  
+
   // Bottom letter row
   ShiftLeft: { row: 4, col: 0, width: 2.25 },
   KeyZ: { row: 4, col: 2.25, width: 1 },
@@ -77,7 +82,7 @@ const KEY_POSITIONS = {
   Comma: { row: 4, col: 9.25, width: 1 },
   Period: { row: 4, col: 10.25, width: 1 },
   ShiftRight: { row: 4, col: 11.25, width: 2.25 },
-  
+
   // Bottom modifier row
   ControlLeft: { row: 5, col: 0, width: 1.25 },
   // gap after Ctrl-L; Alt-L right edge must butt Space
@@ -87,7 +92,7 @@ const KEY_POSITIONS = {
   AltRight: { row: 5, col: 9.5, width: 1.25 },
   // Gap between AltRight and ControlRight ensures Ctrl right-edge aligns with ShiftRight
   ControlRight: { row: 5, col: 12.25, width: 1.25 },
-  
+
   // Navigation cluster (realign to start at function key row)
   Insert: { row: 1, col: 14.5, width: 1 },
   Delete: { row: 2, col: 14.5, width: 1 },
@@ -95,15 +100,15 @@ const KEY_POSITIONS = {
   End: { row: 2, col: 15.5, width: 1 },
   PageUp: { row: 1, col: 16.5, width: 1 },
   PageDown: { row: 2, col: 16.5, width: 1 },
-  
+
   // Arrow keys (shifted up one row)
   ArrowUp: { row: 4, col: 15, width: 1 },
   ArrowLeft: { row: 5, col: 14, width: 1 },
   ArrowDown: { row: 5, col: 15, width: 1 },
   ArrowRight: { row: 5, col: 16, width: 1 },
-  
+
   // Numeric keypad (row 1 top of numpad)
-  NumpadDivide:   { row: 1, col: 18, width: 1 },
+  NumpadDivide: { row: 1, col: 18, width: 1 },
   NumpadMultiply: { row: 1, col: 19, width: 1 },
   NumpadSubtract: { row: 1, col: 20, width: 1 },
 
@@ -129,7 +134,7 @@ const KEY_POSITIONS = {
   NumpadDecimal: { row: 5, col: 19, width: 1 },
 
   // ---------------- Mouse gesture block ----------------
-  Lclick:   { row: 0, col: 22, width: 2 },
+  Lclick: { row: 0, col: 22, width: 2 },
   Mclick: { row: 0, col: 24, width: 2 },
   Rclick: { row: 0, col: 26, width: 2 },
   Ldrag: { row: 1, col: 22, width: 2 },
@@ -138,413 +143,264 @@ const KEY_POSITIONS = {
   Ldblclick: { row: 2, col: 22, width: 2 },
   Mdblclick: { row: 2, col: 24, width: 2 },
   Rdblclick: { row: 2, col: 26, width: 2 },
-  Button4:  { row: 3, col: 22, width: 2 },
-  Button5:  { row: 3, col: 24, width: 2 },
+  Button4: { row: 3, col: 22, width: 2 },
+  Button5: { row: 3, col: 24, width: 2 },
   Button6: { row: 3, col: 26, width: 2 },
-  Button7:  { row: 4, col: 22, width: 2 },
-  Button8:  { row: 4, col: 24, width: 2 },
+  Button7: { row: 4, col: 22, width: 2 },
+  Button8: { row: 4, col: 24, width: 2 },
   Button9: { row: 4, col: 26, width: 2 },
-  Button10:   { row: 5, col: 22, width: 2 },
+  Button10: { row: 5, col: 22, width: 2 },
   Wheelplus: { row: 5, col: 24, width: 2 },
   Wheelminus: { row: 5, col: 26, width: 2 },
-}
+};
 
 // QWERTY layout (English, Spanish)
+/** @type {KeyboardLayout} */
 const QWERTY_LAYOUT = {
-  name: 'QWERTY',
-  languages: ['en', 'es'],
+  name: "QWERTY",
+  languages: ["en", "es"],
   keys: {
     // Numbers only (no symbols)
-    Digit1: { primary: '1', secondary: '' },
-    Digit2: { primary: '2', secondary: '' },
-    Digit3: { primary: '3', secondary: '' },
-    Digit4: { primary: '4', secondary: '' },
-    Digit5: { primary: '5', secondary: '' },
-    Digit6: { primary: '6', secondary: '' },
-    Digit7: { primary: '7', secondary: '' },
-    Digit8: { primary: '8', secondary: '' },
-    Digit9: { primary: '9', secondary: '' },
-    Digit0: { primary: '0', secondary: '' },
+    Digit1: { primary: "1", secondary: "" },
+    Digit2: { primary: "2", secondary: "" },
+    Digit3: { primary: "3", secondary: "" },
+    Digit4: { primary: "4", secondary: "" },
+    Digit5: { primary: "5", secondary: "" },
+    Digit6: { primary: "6", secondary: "" },
+    Digit7: { primary: "7", secondary: "" },
+    Digit8: { primary: "8", secondary: "" },
+    Digit9: { primary: "9", secondary: "" },
+    Digit0: { primary: "0", secondary: "" },
 
     // Letters (uppercase only)
-    KeyQ: { primary: 'Q', secondary: '' },
-    KeyW: { primary: 'W', secondary: '' },
-    KeyE: { primary: 'E', secondary: '' },
-    KeyR: { primary: 'R', secondary: '' },
-    KeyT: { primary: 'T', secondary: '' },
-    KeyY: { primary: 'Y', secondary: '' },
-    KeyU: { primary: 'U', secondary: '' },
-    KeyI: { primary: 'I', secondary: '' },
-    KeyO: { primary: 'O', secondary: '' },
-    KeyP: { primary: 'P', secondary: '' },
-    KeyA: { primary: 'A', secondary: '' },
-    KeyS: { primary: 'S', secondary: '' },
-    KeyD: { primary: 'D', secondary: '' },
-    KeyF: { primary: 'F', secondary: '' },
-    KeyG: { primary: 'G', secondary: '' },
-    KeyH: { primary: 'H', secondary: '' },
-    KeyJ: { primary: 'J', secondary: '' },
-    KeyK: { primary: 'K', secondary: '' },
-    KeyL: { primary: 'L', secondary: '' },
-    KeyZ: { primary: 'Z', secondary: '' },
-    KeyX: { primary: 'X', secondary: '' },
-    KeyC: { primary: 'C', secondary: '' },
-    KeyV: { primary: 'V', secondary: '' },
-    KeyB: { primary: 'B', secondary: '' },
-    KeyN: { primary: 'N', secondary: '' },
-    KeyM: { primary: 'M', secondary: '' },
+    KeyQ: { primary: "Q", secondary: "" },
+    KeyW: { primary: "W", secondary: "" },
+    KeyE: { primary: "E", secondary: "" },
+    KeyR: { primary: "R", secondary: "" },
+    KeyT: { primary: "T", secondary: "" },
+    KeyY: { primary: "Y", secondary: "" },
+    KeyU: { primary: "U", secondary: "" },
+    KeyI: { primary: "I", secondary: "" },
+    KeyO: { primary: "O", secondary: "" },
+    KeyP: { primary: "P", secondary: "" },
+    KeyA: { primary: "A", secondary: "" },
+    KeyS: { primary: "S", secondary: "" },
+    KeyD: { primary: "D", secondary: "" },
+    KeyF: { primary: "F", secondary: "" },
+    KeyG: { primary: "G", secondary: "" },
+    KeyH: { primary: "H", secondary: "" },
+    KeyJ: { primary: "J", secondary: "" },
+    KeyK: { primary: "K", secondary: "" },
+    KeyL: { primary: "L", secondary: "" },
+    KeyZ: { primary: "Z", secondary: "" },
+    KeyX: { primary: "X", secondary: "" },
+    KeyC: { primary: "C", secondary: "" },
+    KeyV: { primary: "V", secondary: "" },
+    KeyB: { primary: "B", secondary: "" },
+    KeyN: { primary: "N", secondary: "" },
+    KeyM: { primary: "M", secondary: "" },
 
     // Essential symbols only
-    Minus: { primary: '-', secondary: '' },
-    Equal: { primary: '=', secondary: '' },
-    BracketLeft: { primary: '[', secondary: '' },
-    BracketRight: { primary: ']', secondary: '' },
-    Quote: { primary: "'", secondary: '' },
-    Comma: { primary: ',', secondary: '' },
-    Period: { primary: '.', secondary: '' },
-    Backquote: { primary: '`', secondary: '~' },
-    Backspace: { primary: 'Backspace', secondary: '' },
+    Minus: { primary: "-", secondary: "" },
+    Equal: { primary: "=", secondary: "" },
+    BracketLeft: { primary: "[", secondary: "" },
+    BracketRight: { primary: "]", secondary: "" },
+    Quote: { primary: "'", secondary: "" },
+    Comma: { primary: ",", secondary: "" },
+    Period: { primary: ".", secondary: "" },
+    Backquote: { primary: "`", secondary: "~" },
+    Backspace: { primary: "Backspace", secondary: "" },
 
     // Special keys
-    Space: { primary: 'Space', secondary: '' },
-    Tab: { primary: 'Tab', secondary: '' },
-    Escape: { name: 'Escape', primary: 'Esc', secondary: '' },
-    Delete: { name: 'Delete', primary: 'Del', secondary: '' },
-    CapsLock: { name: 'CapsLock', primary: 'Caps', secondary: '' },
-    ShiftLeft: { primary: 'Shift', secondary: '' },
-    ShiftRight: { primary: 'Shift', secondary: '' },
-    ControlLeft: { primary: 'Ctrl', secondary: '' },
-    ControlRight: { primary: 'Ctrl', secondary: '' },
-    AltLeft: { primary: 'Alt', secondary: '' },
-    AltRight: { primary: 'Alt', secondary: '' },
+    Space: { primary: "Space", secondary: "" },
+    Tab: { primary: "Tab", secondary: "" },
+    Escape: { name: "Escape", primary: "Esc", secondary: "" },
+    Delete: { name: "Delete", primary: "Del", secondary: "" },
+    CapsLock: { name: "CapsLock", primary: "Caps", secondary: "" },
+    ShiftLeft: { primary: "Shift", secondary: "" },
+    ShiftRight: { primary: "Shift", secondary: "" },
+    ControlLeft: { primary: "Ctrl", secondary: "" },
+    ControlRight: { primary: "Ctrl", secondary: "" },
+    AltLeft: { primary: "Alt", secondary: "" },
+    AltRight: { primary: "Alt", secondary: "" },
 
     // Navigation
-    ArrowUp: { name: "Up", primary: '↑', secondary: '' },
-    ArrowDown: { name: "Down", primary: '↓', secondary: '' },
-    ArrowLeft: { name: "Left", primary: '←', secondary: '' },
-    ArrowRight: { name: "Right", primary: '→', secondary: '' },
-    Home: { primary: 'Home', secondary: '' },
-    End: { primary: 'End', secondary: '' },
-    PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
-    PageDown: { name: 'PageDown', primary: 'PgDn', secondary: '' },
-    Insert: { name: 'Insert', primary: 'Ins', secondary: '' },
+    ArrowUp: { name: "Up", primary: "↑", secondary: "" },
+    ArrowDown: { name: "Down", primary: "↓", secondary: "" },
+    ArrowLeft: { name: "Left", primary: "←", secondary: "" },
+    ArrowRight: { name: "Right", primary: "→", secondary: "" },
+    Home: { primary: "Home", secondary: "" },
+    End: { primary: "End", secondary: "" },
+    PageUp: { name: "PageUp", primary: "PgUp", secondary: "" },
+    PageDown: { name: "PageDown", primary: "PgDn", secondary: "" },
+    Insert: { name: "Insert", primary: "Ins", secondary: "" },
 
     // Function keys
-    F1: { primary: 'F1', secondary: '' },
-    F2: { primary: 'F2', secondary: '' },
-    F3: { primary: 'F3', secondary: '' },
-    F4: { primary: 'F4', secondary: '' },
-    F5: { primary: 'F5', secondary: '' },
-    F6: { primary: 'F6', secondary: '' },
-    F7: { primary: 'F7', secondary: '' },
-    F8: { primary: 'F8', secondary: '' },
-    F9: { primary: 'F9', secondary: '' },
-    F10: { primary: 'F10', secondary: '' },
-    F11: { primary: 'F11', secondary: '' },
-    F12: { primary: 'F12', secondary: '' },
-    
+    F1: { primary: "F1", secondary: "" },
+    F2: { primary: "F2", secondary: "" },
+    F3: { primary: "F3", secondary: "" },
+    F4: { primary: "F4", secondary: "" },
+    F5: { primary: "F5", secondary: "" },
+    F6: { primary: "F6", secondary: "" },
+    F7: { primary: "F7", secondary: "" },
+    F8: { primary: "F8", secondary: "" },
+    F9: { primary: "F9", secondary: "" },
+    F10: { primary: "F10", secondary: "" },
+    F11: { primary: "F11", secondary: "" },
+    F12: { primary: "F12", secondary: "" },
+
     // ---------------- Numpad ----------------
-    NumpadDivide: { primary: '/', secondary: '' },
-    NumpadMultiply: { primary: '*', secondary: '' },
-    NumpadSubtract: { primary: '-', secondary: '' },
-    NumpadAdd: { primary: '+', secondary: '' },
-    NumpadEnter: { primary: 'Enter', secondary: '' },
-    NumpadDecimal: { primary: '.', secondary: '' },
-    Numpad0: { primary: '0', secondary: '' },
-    Numpad1: { primary: '1', secondary: '' },
-    Numpad2: { primary: '2', secondary: '' },
-    Numpad3: { primary: '3', secondary: '' },
-    Numpad4: { primary: '4', secondary: '' },
-    Numpad5: { primary: '5', secondary: '' },
-    Numpad6: { primary: '6', secondary: '' },
-    Numpad7: { primary: '7', secondary: '' },
-    Numpad8: { primary: '8', secondary: '' },
-    Numpad9: { primary: '9', secondary: '' },
-  }
+    NumpadDivide: { primary: "/", secondary: "" },
+    NumpadMultiply: { primary: "*", secondary: "" },
+    NumpadSubtract: { primary: "-", secondary: "" },
+    NumpadAdd: { primary: "+", secondary: "" },
+    NumpadEnter: { primary: "Enter", secondary: "" },
+    NumpadDecimal: { primary: ".", secondary: "" },
+    Numpad0: { primary: "0", secondary: "" },
+    Numpad1: { primary: "1", secondary: "" },
+    Numpad2: { primary: "2", secondary: "" },
+    Numpad3: { primary: "3", secondary: "" },
+    Numpad4: { primary: "4", secondary: "" },
+    Numpad5: { primary: "5", secondary: "" },
+    Numpad6: { primary: "6", secondary: "" },
+    Numpad7: { primary: "7", secondary: "" },
+    Numpad8: { primary: "8", secondary: "" },
+    Numpad9: { primary: "9", secondary: "" },
+  },
+};
+
+const LETTER_KEY_PATTERN = /^Key[A-Z]$/;
+
+/**
+ * @param {{
+ *   name: string,
+ *   languages: string[],
+ *   letterOrder: string,
+ *   keyOverrides: Record<string, Partial<KeyDefinition>>
+ * }} options
+ * @returns {KeyboardLayout}
+ */
+function createLayoutVariant({ name, languages, letterOrder, keyOverrides }) {
+  const baseEntries = Object.entries(QWERTY_LAYOUT.keys);
+  const firstLetterIndex = baseEntries.findIndex(([keyCode]) =>
+    LETTER_KEY_PATTERN.test(keyCode),
+  );
+  const prefixEntries = baseEntries.slice(0, firstLetterIndex);
+  const suffixEntries = baseEntries
+    .slice(firstLetterIndex)
+    .filter(([keyCode]) => !LETTER_KEY_PATTERN.test(keyCode));
+  const letterEntries = Array.from(letterOrder, (letter) => {
+    const keyCode = `Key${letter}`;
+    return /** @type {[string, KeyDefinition]} */ ([
+      keyCode,
+      QWERTY_LAYOUT.keys[keyCode],
+    ]);
+  });
+
+  /** @type {Record<string, KeyDefinition>} */
+  const keys = Object.fromEntries(
+    [...prefixEntries, ...letterEntries, ...suffixEntries].map(
+      ([keyCode, definition]) => [
+        keyCode,
+        { ...definition, ...(keyOverrides[keyCode] || {}) },
+      ],
+    ),
+  );
+
+  return { name, languages, keys };
 }
 
 // QWERTZ layout (German)
-const QWERTZ_LAYOUT = {
-  name: 'QWERTZ',
-  languages: ['de'],
-  keys: {
-    // Numbers only (no symbols)
-    Digit1: { primary: '1', secondary: '' },
-    Digit2: { primary: '2', secondary: '' },
-    Digit3: { primary: '3', secondary: '' },
-    Digit4: { primary: '4', secondary: '' },
-    Digit5: { primary: '5', secondary: '' },
-    Digit6: { primary: '6', secondary: '' },
-    Digit7: { primary: '7', secondary: '' },
-    Digit8: { primary: '8', secondary: '' },
-    Digit9: { primary: '9', secondary: '' },
-    Digit0: { primary: '0', secondary: '' },
-
-    // Letters (uppercase only, QWERTZ layout)
-    KeyQ: { primary: 'Q', secondary: '' },
-    KeyW: { primary: 'W', secondary: '' },
-    KeyE: { primary: 'E', secondary: '' },
-    KeyR: { primary: 'R', secondary: '' },
-    KeyT: { primary: 'T', secondary: '' },
-    KeyZ: { primary: 'Y', secondary: '' }, // Position of Y in QWERTZ
-    KeyU: { primary: 'U', secondary: '' },
-    KeyI: { primary: 'I', secondary: '' },
-    KeyO: { primary: 'O', secondary: '' },
-    KeyP: { primary: 'P', secondary: '' },
-    KeyA: { primary: 'A', secondary: '' },
-    KeyS: { primary: 'S', secondary: '' },
-    KeyD: { primary: 'D', secondary: '' },
-    KeyF: { primary: 'F', secondary: '' },
-    KeyG: { primary: 'G', secondary: '' },
-    KeyH: { primary: 'H', secondary: '' },
-    KeyJ: { primary: 'J', secondary: '' },
-    KeyK: { primary: 'K', secondary: '' },
-    KeyL: { primary: 'L', secondary: '' },
-    KeyY: { primary: 'Z', secondary: '' }, // Position of Z in QWERTZ
-    KeyX: { primary: 'X', secondary: '' },
-    KeyC: { primary: 'C', secondary: '' },
-    KeyV: { primary: 'V', secondary: '' },
-    KeyB: { primary: 'B', secondary: '' },
-    KeyN: { primary: 'N', secondary: '' },
-    KeyM: { primary: 'M', secondary: '' },
-
-    // Essential symbols only
-    Minus: { primary: '-', secondary: '' },
-    Equal: { primary: '=', secondary: '' },
-    BracketLeft: { primary: '[', secondary: '' },
-    BracketRight: { primary: ']', secondary: '' },
-    Quote: { primary: "'", secondary: '' },
-    Comma: { primary: ',', secondary: '' },
-    Period: { primary: '.', secondary: '' },
-    Backquote: { primary: '`', secondary: '~' },
-
-    Backspace: { primary: 'Backspace', secondary: '' },
-
-    // Special keys
-    Space: { primary: 'Space', secondary: '' },
-    Tab: { primary: 'Tab', secondary: '' },
-    Escape: { name: 'Escape', primary: 'Esc', secondary: '' },
-    Delete: { name: 'Delete', primary: 'Del', secondary: '' },
-    CapsLock: { name: 'CapsLock', primary: 'Caps', secondary: '' },
-    ShiftLeft: { primary: 'Shift', secondary: '' },
-    ShiftRight: { primary: 'Shift', secondary: '' },
-    ControlLeft: { primary: 'Ctrl', secondary: '' },
-    ControlRight: { primary: 'Ctrl', secondary: '' },
-    AltLeft: { primary: 'Alt', secondary: '' },
-    AltRight: { primary: 'Alt', secondary: '' },
-
-    // Navigation
-    ArrowUp: { name: "Up", primary: '↑', secondary: '' },
-    ArrowDown: { name: "Down", primary: '↓', secondary: '' },
-    ArrowLeft: { name: "Left", primary: '←', secondary: '' },
-    ArrowRight: { name: "Right", primary: '→', secondary: '' },
-    Home: { primary: 'Home', secondary: '' },
-    End: { primary: 'End', secondary: '' },
-    PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
-    PageDown: { name: 'PageDown', primary: 'PgDn', secondary: '' },
-    Insert: { name: 'Insert', primary: 'Ins', secondary: '' },
-    
-    // Function keys
-    F1: { primary: 'F1', secondary: '' },
-    F2: { primary: 'F2', secondary: '' },
-    F3: { primary: 'F3', secondary: '' },
-    F4: { primary: 'F4', secondary: '' },
-    F5: { primary: 'F5', secondary: '' },
-    F6: { primary: 'F6', secondary: '' },
-    F7: { primary: 'F7', secondary: '' },
-    F8: { primary: 'F8', secondary: '' },
-    F9: { primary: 'F9', secondary: '' },
-    F10: { primary: 'F10', secondary: '' },
-    F11: { primary: 'F11', secondary: '' },
-    F12: { primary: 'F12', secondary: '' },
-    
-    // ---------------- Numpad ----------------
-    NumpadDivide: { primary: '/', secondary: '' },
-    NumpadMultiply: { primary: '*', secondary: '' },
-    NumpadSubtract: { primary: '-', secondary: '' },
-    NumpadAdd: { primary: '+', secondary: '' },
-    NumpadEnter: { primary: 'Enter', secondary: '' },
-    NumpadDecimal: { primary: '.', secondary: '' },
-    Numpad0: { primary: '0', secondary: '' },
-    Numpad1: { primary: '1', secondary: '' },
-    Numpad2: { primary: '2', secondary: '' },
-    Numpad3: { primary: '3', secondary: '' },
-    Numpad4: { primary: '4', secondary: '' },
-    Numpad5: { primary: '5', secondary: '' },
-    Numpad6: { primary: '6', secondary: '' },
-    Numpad7: { primary: '7', secondary: '' },
-    Numpad8: { primary: '8', secondary: '' },
-    Numpad9: { primary: '9', secondary: '' },
-  }
-}
+const QWERTZ_LAYOUT = createLayoutVariant({
+  name: "QWERTZ",
+  languages: ["de"],
+  letterOrder: "QWERTZUIOPASDFGHJKLYXCVBNM",
+  keyOverrides: {
+    KeyZ: { primary: "Y" },
+    KeyY: { primary: "Z" },
+  },
+});
 
 // AZERTY layout (French)
-const AZERTY_LAYOUT = {
-  name: 'AZERTY',
-  languages: ['fr'],
-  keys: {
-    // Numbers only (no symbols)
-    Digit1: { primary: '1', secondary: '' },
-    Digit2: { primary: '2', secondary: '' },
-    Digit3: { primary: '3', secondary: '' },
-    Digit4: { primary: '4', secondary: '' },
-    Digit5: { primary: '5', secondary: '' },
-    Digit6: { primary: '6', secondary: '' },
-    Digit7: { primary: '7', secondary: '' },
-    Digit8: { primary: '8', secondary: '' },
-    Digit9: { primary: '9', secondary: '' },
-    Digit0: { primary: '0', secondary: '' },
-
-    // Letters (uppercase only, AZERTY layout)
-    KeyA: { primary: 'Q', secondary: '' }, // Physical A key shows Q
-    KeyQ: { primary: 'A', secondary: '' }, // Physical Q key shows A
-    KeyZ: { primary: 'W', secondary: '' }, // Physical Z key shows W
-    KeyW: { primary: 'Z', secondary: '' }, // Physical W key shows Z
-    KeyE: { primary: 'E', secondary: '' },
-    KeyR: { primary: 'R', secondary: '' },
-    KeyT: { primary: 'T', secondary: '' },
-    KeyY: { primary: 'Y', secondary: '' },
-    KeyU: { primary: 'U', secondary: '' },
-    KeyI: { primary: 'I', secondary: '' },
-    KeyO: { primary: 'O', secondary: '' },
-    KeyP: { primary: 'P', secondary: '' },
-    KeyS: { primary: 'S', secondary: '' },
-    KeyD: { primary: 'D', secondary: '' },
-    KeyF: { primary: 'F', secondary: '' },
-    KeyG: { primary: 'G', secondary: '' },
-    KeyH: { primary: 'H', secondary: '' },
-    KeyJ: { primary: 'J', secondary: '' },
-    KeyK: { primary: 'K', secondary: '' },
-    KeyL: { primary: 'L', secondary: '' },
-    KeyX: { primary: 'X', secondary: '' },
-    KeyC: { primary: 'C', secondary: '' },
-    KeyV: { primary: 'V', secondary: '' },
-    KeyB: { primary: 'B', secondary: '' },
-    KeyN: { primary: 'N', secondary: '' },
-    KeyM: { primary: 'M', secondary: '' },
-
-    // Essential symbols only
-    Minus: { primary: '-', secondary: '' },
-    Equal: { primary: '=', secondary: '' },
-    BracketLeft: { primary: '[', secondary: '' },
-    BracketRight: { primary: ']', secondary: '' },
-    Quote: { primary: "'", secondary: '' },
-    Comma: { primary: ',', secondary: '' },
-    Period: { primary: '.', secondary: '' },
-    Backquote: { primary: '`', secondary: '~' },
-
-    Backspace: { primary: 'Backspace', secondary: '' },
-
-    // Special keys
-    Space: { primary: 'Space', secondary: '' },
-    Tab: { primary: 'Tab', secondary: '' },
-    Escape: { name: 'Escape', primary: 'Esc', secondary: '' },
-    Delete: { name: 'Delete', primary: 'Del', secondary: '' },
-    CapsLock: { name: 'CapsLock', primary: 'Caps', secondary: '' },
-    ShiftLeft: { primary: 'Shift', secondary: '' },
-    ShiftRight: { primary: 'Shift', secondary: '' },
-    ControlLeft: { primary: 'Ctrl', secondary: '' },
-    ControlRight: { primary: 'Ctrl', secondary: '' },
-    AltLeft: { primary: 'Alt', secondary: '' },
-    AltRight: { primary: 'Alt', secondary: '' },
-
-    // Navigation
-    ArrowUp: { name: "Up", primary: '↑', secondary: '' },
-    ArrowDown: { name: "Down", primary: '↓', secondary: '' },
-    ArrowLeft: { name: "Left", primary: '←', secondary: '' },
-    ArrowRight: { name: "Right", primary: '→', secondary: '' },
-    Home: { primary: 'Home', secondary: '' },
-    End: { primary: 'End', secondary: '' },
-    PageUp: { name: 'PageUp', primary: 'PgUp', secondary: '' },
-    PageDown: { name: 'PageDown', primary: 'PgDn', secondary: '' },
-    Insert: { name: 'Insert', primary: 'Ins', secondary: '' },
-    
-    // Function keys
-    F1: { primary: 'F1', secondary: '' },
-    F2: { primary: 'F2', secondary: '' },
-    F3: { primary: 'F3', secondary: '' },
-    F4: { primary: 'F4', secondary: '' },
-    F5: { primary: 'F5', secondary: '' },
-    F6: { primary: 'F6', secondary: '' },
-    F7: { primary: 'F7', secondary: '' },
-    F8: { primary: 'F8', secondary: '' },
-    F9: { primary: 'F9', secondary: '' },
-    F10: { primary: 'F10', secondary: '' },
-    F11: { primary: 'F11', secondary: '' },
-    F12: { primary: 'F12', secondary: '' },
-    
-    // ---------------- Numpad ----------------
-    NumpadDivide: { primary: '/', secondary: '' },
-    NumpadMultiply: { primary: '*', secondary: '' },
-    NumpadSubtract: { primary: '-', secondary: '' },
-    NumpadAdd: { primary: '+', secondary: '' },
-    NumpadEnter: { primary: 'Enter', secondary: '' },
-    NumpadDecimal: { primary: '.', secondary: '' },
-    Numpad0: { primary: '0', secondary: '' },
-    Numpad1: { primary: '1', secondary: '' },
-    Numpad2: { primary: '2', secondary: '' },
-    Numpad3: { primary: '3', secondary: '' },
-    Numpad4: { primary: '4', secondary: '' },
-    Numpad5: { primary: '5', secondary: '' },
-    Numpad6: { primary: '6', secondary: '' },
-    Numpad7: { primary: '7', secondary: '' },
-    Numpad8: { primary: '8', secondary: '' },
-    Numpad9: { primary: '9', secondary: '' },
-  }
-}
+const AZERTY_LAYOUT = createLayoutVariant({
+  name: "AZERTY",
+  languages: ["fr"],
+  letterOrder: "AQZWERTYUIOPSDFGHJKLXCVBNM",
+  keyOverrides: {
+    KeyA: { primary: "Q" },
+    KeyQ: { primary: "A" },
+    KeyZ: { primary: "W" },
+    KeyW: { primary: "Z" },
+  },
+});
 
 // Mouse gesture area definition
 const MOUSE_GESTURES = {
-  Lclick: { name: 'Left Click', description: 'Single left mouse click' },
-  Rclick: { name: 'Right Click', description: 'Single right mouse click' },
-  Mclick: { name: 'Middle Click', description: 'Single middle mouse click' },
-  Ldblclick: { name: 'Left Dbl Click', description: 'Double left mouse click' },
-  Rdblclick: { name: 'Right Dbl Click', description: 'Double right mouse click' },
-  Mdblclick: { name: 'Middle Dbl Click', description: 'Double middle mouse click' },
-  Ldrag: { name: 'Left Drag', description: 'Left click and drag' },
-  Rdrag: { name: 'Right Drag', description: 'Right click and drag' },
-  Mdrag: { name: 'Middle Drag', description: 'Middle click and drag' },
-  Wheelplus: { name: 'Scroll Up', description: 'Mouse wheel scroll up' },
-  Wheelminus: { name: 'Scroll Down', description: 'Mouse wheel scroll down' },
-  Button1: { name: 'Button1', description: 'Standard left button' },
-  Button2: { name: 'Button2', description: 'Standard right button' },
-  Button3: { name: 'Button3', description: 'Middle button' },
-  Button4: { name: 'Button4', description: 'Extra mouse button 4' },
-  Button5: { name: 'Button5', description: 'Extra mouse button 5' },
-  Button6: { name: 'Button6', description: 'Extra mouse button 6' },
-  Button7: { name: 'Button7', description: 'Extra mouse button 7' },
-  Button8: { name: 'Button8', description: 'Extra mouse button 8' },
-  Button9: { name: 'Button9', description: 'Extra mouse button 9' },
-  Button10: { name: 'Button10', description: 'Extra mouse button 10' },
-}
+  Lclick: { name: "Left Click", description: "Single left mouse click" },
+  Rclick: { name: "Right Click", description: "Single right mouse click" },
+  Mclick: { name: "Middle Click", description: "Single middle mouse click" },
+  Ldblclick: { name: "Left Dbl Click", description: "Double left mouse click" },
+  Rdblclick: {
+    name: "Right Dbl Click",
+    description: "Double right mouse click",
+  },
+  Mdblclick: {
+    name: "Middle Dbl Click",
+    description: "Double middle mouse click",
+  },
+  Ldrag: { name: "Left Drag", description: "Left click and drag" },
+  Rdrag: { name: "Right Drag", description: "Right click and drag" },
+  Mdrag: { name: "Middle Drag", description: "Middle click and drag" },
+  Wheelplus: { name: "Scroll Up", description: "Mouse wheel scroll up" },
+  Wheelminus: { name: "Scroll Down", description: "Mouse wheel scroll down" },
+  Button1: { name: "Button1", description: "Standard left button" },
+  Button2: { name: "Button2", description: "Standard right button" },
+  Button3: { name: "Button3", description: "Middle button" },
+  Button4: { name: "Button4", description: "Extra mouse button 4" },
+  Button5: { name: "Button5", description: "Extra mouse button 5" },
+  Button6: { name: "Button6", description: "Extra mouse button 6" },
+  Button7: { name: "Button7", description: "Extra mouse button 7" },
+  Button8: { name: "Button8", description: "Extra mouse button 8" },
+  Button9: { name: "Button9", description: "Extra mouse button 9" },
+  Button10: { name: "Button10", description: "Extra mouse button 10" },
+};
 
 // Smart key suggestions based on usage patterns
 const SMART_SUGGESTIONS = {
   common: {
-    category: 'Common Keys',
-    keys: ['Space', 'F1', 'F2', 'F3', 'F4', 'Tab', 'Enter', 'Escape']
+    category: "Common Keys",
+    keys: ["Space", "F1", "F2", "F3", "F4", "Tab", "Enter", "Escape"],
   },
   movement: {
-    category: 'Movement',
-    keys: ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Shift+KeyW', 'Shift+KeyA', 'Shift+KeyS', 'Shift+KeyD']
-  }
-}
+    category: "Movement",
+    keys: [
+      "KeyW",
+      "KeyA",
+      "KeyS",
+      "KeyD",
+      "Shift+KeyW",
+      "Shift+KeyA",
+      "Shift+KeyS",
+      "Shift+KeyD",
+    ],
+  },
+};
 
 /**
  * Get keyboard layout for a given language
  * @param {string} language - Language code (en, de, fr, es)
- * @returns {Object} Layout object
+ * @returns {KeyboardLayout} Layout object
  */
 export function getKeyboardLayout(language) {
   switch (language) {
-    case 'de':
-      return QWERTZ_LAYOUT
-    case 'fr':
-      return AZERTY_LAYOUT
-    case 'en':
-    case 'es':
+    case "de":
+      return QWERTZ_LAYOUT;
+    case "fr":
+      return AZERTY_LAYOUT;
+    case "en":
+    case "es":
     default:
-      return QWERTY_LAYOUT
+      return QWERTY_LAYOUT;
   }
 }
 
@@ -554,10 +410,9 @@ export function getKeyboardLayout(language) {
  * @returns {string} Layout name
  */
 export function getLayoutName(language) {
-  const layout = getKeyboardLayout(language)
-  return layout.name
+  const layout = getKeyboardLayout(language);
+  return layout.name;
 }
-
 
 export {
   KEY_POSITIONS,
@@ -565,5 +420,5 @@ export {
   QWERTZ_LAYOUT,
   AZERTY_LAYOUT,
   MOUSE_GESTURES,
-  SMART_SUGGESTIONS
-} 
+  SMART_SUGGESTIONS,
+};

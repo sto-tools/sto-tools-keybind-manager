@@ -1,48 +1,40 @@
-// Sample browser test demonstrating fixture usage
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from "vitest";
 
-describe.skip('Basic UI Interactions', () => {
-  it('should load the application', async () => {
-    // Wait for app to be ready (handled by browser-setup.js)
-    expect(document.body).toBeDefined()
-    expect(document.title).toContain('STO')
-  })
+describe("Application browser smoke", () => {
+  it("boots the translated shell and handles the settings menu", () => {
+    const appContainer = document.querySelector(".app-container");
+    const translatedHeading = document.querySelector(
+      'h1 [data-i18n="sto_tools_keybind_manager"]',
+    );
+    const version = document.getElementById("appVersion");
+    const profileSelect = document.getElementById("profileSelect");
+    const settingsButton = document.getElementById("settingsBtn");
+    const settingsDropdown = settingsButton?.closest(".dropdown");
+    const importDropdown = document
+      .getElementById("importMenuBtn")
+      ?.closest(".dropdown");
 
-  it('should have main navigation elements', () => {
-    const profileSelect = document.getElementById('profileSelect')
-    const settingsBtn = document.getElementById('settingsBtn')
-    
-    expect(profileSelect).toBeTruthy()
-    expect(settingsBtn).toBeTruthy()
-  })
+    expect(appContainer).toBeTruthy();
+    expect(document.title.trim()).not.toBe("");
+    expect(translatedHeading?.textContent.trim()).toBe(document.title.trim());
+    expect(version?.textContent.trim()).not.toBe("");
+    expect(settingsButton?.title.trim()).not.toBe("");
+    expect(window.stoKeybinds?.isInitialized?.()).toBe(true);
+    expect(
+      Array.from(profileSelect?.options || []).some(
+        (option) => !option.disabled && Boolean(option.value),
+      ),
+    ).toBe(true);
 
-  it('should open settings menu on click', async () => {
-    const settingsBtn = document.getElementById('settingsBtn')
-    const settingsMenu = document.getElementById('settingsMenu')
-    
-    // Initial state
-    expect(settingsMenu.style.display).toBe('none')
-    
-    // Click settings button
-    settingsBtn.click()
-    
-    // Menu should be visible
-    await new Promise(resolve => setTimeout(resolve, 100))
-    expect(settingsMenu.style.display).not.toBe('none')
-  })
+    expect(settingsDropdown?.classList.contains("active")).toBe(false);
 
-  it('should handle keyboard navigation', async () => {
-    // Focus on profile select
-    const profileSelect = document.getElementById('profileSelect')
-    profileSelect.focus()
-    
-    expect(document.activeElement).toBe(profileSelect)
-    
-    // Test tab navigation
-    const event = new KeyboardEvent('keydown', { key: 'Tab' })
-    document.dispatchEvent(event)
-    
-    // Should move focus to next element
-    expect(document.activeElement).not.toBe(profileSelect)
-  })
-}) 
+    settingsButton?.click();
+
+    expect(settingsDropdown?.classList.contains("active")).toBe(true);
+    expect(importDropdown?.classList.contains("active")).toBe(false);
+
+    document.body.click();
+
+    expect(settingsDropdown?.classList.contains("active")).toBe(false);
+  });
+});

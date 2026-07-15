@@ -1,93 +1,116 @@
-import { defineWorkspace } from 'vitest/config'
+import { playwright } from "@vitest/browser-playwright";
+import { defineConfig } from "vitest/config";
 
-export default defineWorkspace([
+/** @type {import('vitest/config').TestProjectInlineConfiguration[]} */
+const projects = [
   // Unit tests configuration (jsdom environment)
   {
+    extends: "./vitest.config.js",
     test: {
-      name: 'unit',
-      environment: 'jsdom',
+      name: "unit",
+      environment: "jsdom",
       globals: true,
-      setupFiles: ['vitest-localstorage-mock', './tests/setup.js'],
+      setupFiles: ["vitest-localstorage-mock", "./tests/setup.js"],
+      mockReset: false,
+      testTimeout: 10000,
+      include: ["tests/unit/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    },
+    resolve: {
+      alias: {
+        "@": "./src",
+        "@js": "./src/js",
+        "@tests": "./tests",
+        "pretty-format": "./tests/browser/prettyFormatStub.js",
+      },
+    },
+    define: {
+      global: "globalThis",
+    },
+  },
+  // Integration tests configuration (jsdom environment)
+  {
+    extends: "./vitest.config.js",
+    test: {
+      name: "integration",
+      environment: "jsdom",
+      globals: true,
+      setupFiles: ["vitest-localstorage-mock", "./tests/setup.js"],
       mockReset: false,
       testTimeout: 10000,
       include: [
-        'tests/unit/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-        'tests/integration/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
+        "tests/integration/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
       ],
-      coverage: {
-        provider: 'v8',
-        reporter: ['text', 'json', 'html'],
-        exclude: [
-          'node_modules/',
-          'tests/',
-          'src/styles.css',
-          '**/*.config.js'
-        ],
-        include: ['src/js/**/*.js']
-      }
     },
     resolve: {
       alias: {
-        '@': './src',
-        '@js': './src/js',
-        '@tests': './tests',
-        'pretty-format': './tests/browser/prettyFormatStub.js'
-      }
+        "@": "./src",
+        "@js": "./src/js",
+        "@tests": "./tests",
+      },
     },
     define: {
-      global: 'globalThis'
-    }
+      global: "globalThis",
+    },
   },
   // Browser tests configuration (chromium environment)
   {
+    extends: "./vitest.config.js",
     test: {
-      name: 'browser',
-      environment: 'happy-dom', // Fallback, browser mode will override
+      name: "browser",
+      environment: "jsdom", // Fallback; browser mode overrides this with Chromium
       globals: true,
       testTimeout: 30000,
       include: [
-        'tests/browser/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
+        "tests/browser/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
       ],
       browser: {
         enabled: true,
-        name: 'chromium',
-        provider: 'playwright',
+        provider: playwright(),
         headless: true,
-        testerHtmlPath: './src/index.html',
+        instances: [{ browser: "chromium" }],
         api: {
-          host: 'localhost',
-          port: 3001
-        }
+          host: "localhost",
+          port: 3001,
+        },
       },
-      coverage: {
-        provider: 'istanbul',
-        reporter: ['text', 'json', 'html'],
-        exclude: [
-          'node_modules/',
-          'tests/',
-          'src/styles.css',
-          '**/*.config.js'
-        ],
-        include: ['src/js/**/*.js']
-      },
-      setupFiles: ['./tests/browser-setup.js']
+      setupFiles: ["./tests/browser-setup.js"],
     },
     resolve: {
       alias: {
-        '@': './src',
-        '@js': './src/js',
-        '@tests': './tests'
-      }
+        "@": "./src",
+        "@js": "./src/js",
+        "@tests": "./tests",
+      },
     },
     define: {
-      global: 'globalThis'
+      global: "globalThis",
     },
     server: {
       fs: {
-        allow: ['..']
+        allow: [".."],
       },
       middlewareMode: false,
-      publicDir: 'src'
-    }
-  }
-]) 
+    },
+  },
+];
+
+const selectedProjectNames =
+  process.env.VITEST_PROJECT?.split(",").filter(Boolean);
+const selectedProjects = selectedProjectNames
+  ? projects.filter((project) =>
+      selectedProjectNames.includes(String(project.test?.name)),
+    )
+  : projects;
+
+if (
+  selectedProjectNames &&
+  selectedProjects.length !== selectedProjectNames.length
+) {
+  throw new Error(`Unknown Vitest project: ${selectedProjectNames.join(",")}`);
+}
+
+export default defineConfig({
+  test: {
+    projects: selectedProjects,
+  },
+});

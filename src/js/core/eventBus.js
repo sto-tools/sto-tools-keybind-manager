@@ -1,167 +1,207 @@
-const listeners = new Map()
-const domListeners = new Set() // Track DOM event listeners for cleanup
+/** @typedef {(data?: any) => any} EventCallback */
+/** @typedef {(event: Event) => any} DomEventCallback */
+/** @typedef {{ synchronous?: boolean }} EmitOptions */
 
-function on(event, callback) {
-  if (!listeners.has(event)) {
-    listeners.set(event, new Set())
+/** @type {Map<string, Set<EventCallback>>} */
+const listeners = new Map();
+/** @type {Set<() => void>} */
+const domListeners = new Set(); // Track DOM event listeners for cleanup
+
+/**
+ * @param {string} event
+ * @param {EventCallback} callback
+ * @param {unknown} [_context] Retained for the legacy ComponentBase signature.
+ */
+function on(event, callback, _context) {
+  void _context;
+  let eventListeners = listeners.get(event);
+  if (!eventListeners) {
+    eventListeners = new Set();
+    listeners.set(event, eventListeners);
   }
-  listeners.get(event).add(callback)
-  
+  eventListeners.add(callback);
+
   // Return detach function
   return () => {
-    off(event, callback)
-  }
+    off(event, callback);
+  };
 }
 
+/** @param {string} event @param {EventCallback} callback */
 function off(event, callback) {
-  const eventListeners = listeners.get(event)
+  const eventListeners = listeners.get(event);
   if (eventListeners) {
-    eventListeners.delete(callback)
+    eventListeners.delete(callback);
   }
 }
 
+/**
+ * @param {string} event
+ * @param {any} [data]
+ * @param {EmitOptions} [options]
+ */
 function emit(event, data, options = {}) {
   // if (typeof window !== 'undefined') {
   //   // eslint-disable-next-line no-console
   //   console.log(`[eventBus] emit → ${event}`, data)
   // }
-  
-  const eventListeners = listeners.get(event)
-  if (!eventListeners) return Promise.resolve()
-  
+
+  const eventListeners = listeners.get(event);
+  if (!eventListeners) return Promise.resolve();
+
   if (options.synchronous) {
     // Synchronous mode: wait for all listeners to complete
-    const promises = []
-    
-    eventListeners.forEach(callback => {
+    /** @type {Promise<unknown>[]} */
+    const promises = [];
+
+    eventListeners.forEach((callback) => {
       try {
-        const result = callback(data)
+        const result = callback(data);
         // If the callback returns a Promise, collect it
-        if (result && typeof result.then === 'function') {
-          promises.push(result)
+        if (result && typeof result.then === "function") {
+          promises.push(Promise.resolve(result));
         }
       } catch (error) {
-        console.error(`Error in event listener for ${event}:`, error)
+        console.error(`Error in event listener for ${event}:`, error);
         // Include failed promises so we don't hang
-        promises.push(Promise.reject(error))
+        promises.push(Promise.reject(error));
       }
-    })
-    
+    });
+
     // Return a Promise that resolves when all listeners complete
-    return Promise.allSettled ? Promise.allSettled(promises) : Promise.all(promises.map(p => p.catch(e => e)))
+    return Promise.allSettled(promises);
   } else {
     // Asynchronous mode (default): fire and forget
-    eventListeners.forEach(callback => {
+    eventListeners.forEach((callback) => {
       try {
-        callback(data)
+        callback(data);
       } catch (error) {
-        console.error(`Error in event listener for ${event}:`, error)
+        console.error(`Error in event listener for ${event}:`, error);
       }
-    })
-    return Promise.resolve()
+    });
+    return Promise.resolve();
   }
 }
 
+/**
+ * @param {string | EventTarget} target
+ * @param {string} domEvent
+ * @param {string | DomEventCallback} busEvent
+ * @param {DomEventCallback} [handler]
+ */
 function onDom(target, domEvent, busEvent, handler) {
   // -------------------------------------------------
   // If a string is supplied we treat it as a selector / id and
   // always install a delegated listener on document so that
   // dynamically replaced elements keep working.
   // -------------------------------------------------
-  if (typeof target === 'string') {
+  if (typeof target === "string") {
     // Allow shorthand signature onDom(selector, domEvent, handler)
-    if (typeof busEvent === 'function' && handler === undefined) {
-      handler = busEvent
-      busEvent = domEvent
+    if (typeof busEvent === "function" && handler === undefined) {
+      handler = busEvent;
+      busEvent = domEvent;
     }
     // Normalise selector: if string already looks like a CSS selector (starts with '.', '#', '[') we keep it.
     // Otherwise we assume it is an element id and prefix with '#'.
-    const selector = /^[.\[#]/.test(target) ? target : `#${target}`
+    const selector = [".", "#", "["].includes(target[0])
+      ? target
+      : `#${target}`;
 
+    /** @param {Event} e */
     const delegated = (e) => {
-      const match = e.target.closest(selector)
-      if (selector === '#settingsBtn') {
+      const closestTarget =
+        /** @type {{ closest?: (selector: string) => Element | null } | null} */ (
+          e.target
+        );
+      const match =
+        typeof closestTarget?.closest === "function"
+          ? closestTarget.closest(selector)
+          : null;
+      if (selector === "#settingsBtn") {
         // console.log('[DEBUG:eventBus] click captured (capture phase) target:', e.target, 'match:', match)
       }
-      if (!match) return
+      if (!match) return;
 
       if (handler) {
         try {
-          handler(e)
+          handler(e);
         } catch (err) {
-          console.error(err)
+          console.error(err);
         }
       }
-      emit(busEvent || domEvent, e)
+      emit(typeof busEvent === "string" ? busEvent : domEvent, e);
 
       // Debug: log delegated handler fired
       // if (target === 'settingsBtn' || selector === '#settingsBtn') {
       //   console.log('[DEBUG:eventBus] delegated handler fired for settingsBtn')
       // }
-    }
-    document.addEventListener(domEvent, delegated, true)
+    };
+    document.addEventListener(domEvent, delegated, true);
 
     // Create cleanup function
     const cleanup = () => {
-      document.removeEventListener(domEvent, delegated, true)
+      document.removeEventListener(domEvent, delegated, true);
       // Remove from tracking
-      domListeners.delete(cleanup)
-    }
-    
+      domListeners.delete(cleanup);
+    };
+
     // Track cleanup function
-    domListeners.add(cleanup)
-    
-    return cleanup
+    domListeners.add(cleanup);
+
+    return cleanup;
   }
-  
-  if (!target || !target.addEventListener) return () => {}
-  if (typeof busEvent === 'function') {
-    handler = busEvent
-    busEvent = domEvent
+
+  if (!target || !target.addEventListener) return () => {};
+  if (typeof busEvent === "function") {
+    handler = busEvent;
+    busEvent = domEvent;
   }
-  if (!busEvent) busEvent = domEvent
+  if (!busEvent) busEvent = domEvent;
 
   if (handler) {
     // If a handler is provided, attach it directly to DOM event
     // and also emit the bus event for other listeners
+    /** @param {Event} e */
     const domHandler = (e) => {
       try {
         // Call the handler with the original context
-        handler(e)
+        handler(e);
       } catch (err) {
-        console.error(err)
+        console.error(err);
       }
-      emit(busEvent, e)
-    }
-    target.addEventListener(domEvent, domHandler)
+      emit(typeof busEvent === "string" ? busEvent : domEvent, e);
+    };
+    target.addEventListener(domEvent, domHandler);
 
     // Create cleanup function
     const cleanup = () => {
-      target.removeEventListener(domEvent, domHandler)
+      target.removeEventListener(domEvent, domHandler);
       // Remove from tracking
-      domListeners.delete(cleanup)
-    }
-    
+      domListeners.delete(cleanup);
+    };
+
     // Track cleanup function
-    domListeners.add(cleanup)
-    
-    return cleanup
+    domListeners.add(cleanup);
+
+    return cleanup;
   } else {
     // If no handler is provided, just emit the bus event
-    const domHandler = (e) => emit(busEvent, e)
-    target.addEventListener(domEvent, domHandler)
+    /** @param {Event} e */
+    const domHandler = (e) =>
+      emit(typeof busEvent === "string" ? busEvent : domEvent, e);
+    target.addEventListener(domEvent, domHandler);
 
     // Create cleanup function
     const cleanup = () => {
-      target.removeEventListener(domEvent, domHandler)
+      target.removeEventListener(domEvent, domHandler);
       // Remove from tracking
-      domListeners.delete(cleanup)
-    }
-    
+      domListeners.delete(cleanup);
+    };
+
     // Track cleanup function
-    domListeners.add(cleanup)
-    
-    return cleanup
+    domListeners.add(cleanup);
+
+    return cleanup;
   }
 }
 
@@ -172,12 +212,14 @@ function onDom(target, domEvent, busEvent, handler) {
  * @param {Function} callback - The callback function to execute once
  * @returns {Function} Detach function to manually remove the listener if needed
  */
+/** @param {string} event @param {EventCallback} callback */
 function once(event, callback) {
+  /** @type {EventCallback} */
   const onceCallback = (data) => {
-    off(event, onceCallback)
-    callback(data)
-  }
-  on(event, onceCallback)
+    off(event, onceCallback);
+    callback(data);
+  };
+  return on(event, onceCallback);
 }
 
 /**
@@ -193,28 +235,34 @@ function once(event, callback) {
  * @returns {void}
  */
 function clear() {
-  listeners.clear()
+  listeners.clear();
 
   // Clean up all DOM event listeners (replaces the removed cleanupDomListeners function)
-  domListeners.forEach(cleanup => {
+  domListeners.forEach((cleanup) => {
     try {
-      cleanup()
+      cleanup();
     } catch (error) {
-      console.error('Error cleaning up DOM event listener:', error)
+      console.error("Error cleaning up DOM event listener:", error);
     }
-  })
-  domListeners.clear()
+  });
+  domListeners.clear();
 }
 
 // -----------------------
 // Debounce utility
 // -----------------------
+/**
+ * @param {(...args: any[]) => void} fn
+ * @param {number} [delay]
+ */
 function debounce(fn, delay = 250) {
-  let timerId
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timerId;
+  /** @type {(...args: any[]) => void} */
   return (...args) => {
-    clearTimeout(timerId)
-    timerId = setTimeout(() => fn.apply(this, args), delay)
-  }
+    if (timerId !== undefined) clearTimeout(timerId);
+    timerId = setTimeout(() => fn(...args), delay);
+  };
 }
 
 /**
@@ -224,21 +272,27 @@ function debounce(fn, delay = 250) {
  * Examples:
  *   eventBus.onDomDebounced('#search', 'input', 'search-changed', (e)=>{...}, 300)
  */
+/**
+ * @param {string | EventTarget} target
+ * @param {string} domEvent
+ * @param {string | DomEventCallback} busEvent
+ * @param {DomEventCallback | number} [handler]
+ * @param {number} [delay]
+ */
 function onDomDebounced(target, domEvent, busEvent, handler, delay = 250) {
   // Handle optional handler omitted case similar to onDom
-  if (typeof handler === 'number') {
-    delay = handler
-    handler = undefined
+  if (typeof handler === "number") {
+    delay = handler;
+    handler = undefined;
   }
 
-  const debouncedHandler = debounce(handler || (()=>{}), delay)
+  const debouncedHandler = debounce(handler || (() => {}), delay);
 
   // Reuse onDom for attachment, but route through debounced function
   return onDom(target, domEvent, busEvent, (e) => {
-    debouncedHandler(e)
-  })
+    debouncedHandler(e);
+  });
 }
-
 
 export default {
   on,
@@ -250,7 +304,6 @@ export default {
   clear,
   // Expose listeners for debugging and testing (read-only access)
   get listeners() {
-    return listeners
-  }
-}
-
+    return listeners;
+  },
+};

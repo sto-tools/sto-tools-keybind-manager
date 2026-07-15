@@ -1,235 +1,273 @@
-import UIComponentBase from '../UIComponentBase.js'
+import UIComponentBase from "../UIComponentBase.js";
+import { eventElement, resolveI18n } from "./uiTypes.js";
+
+const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
+  globalThis
+);
 
 export default class VFXManagerUI extends UIComponentBase {
+  /**
+   * @param {{
+   *   eventBus?: import('./uiTypes.js').EventBus,
+   *   modalManager?: import('./uiTypes.js').ModalManagerLike,
+   *   i18n?: import('./uiTypes.js').I18nLike
+   * }} [options]
+   */
   constructor({ eventBus, modalManager, i18n } = {}) {
-    super(eventBus)
-    this.componentName = 'VFXManagerUI'
-    this.modalManager = modalManager
-    this.i18n = i18n
-    this.domListenersSetup = false
-    this.vfxManager = null
+    super(eventBus);
+    this.componentName = "VFXManagerUI";
+    this.modalManager = modalManager;
+    this.i18n = resolveI18n(i18n);
+    this.domListenersSetup = false;
+    /** @type {import('./uiTypes.js').VFXManagerLike | null} */
+    this.vfxManager = null;
   }
 
   // Component lifecycle hook - called by ComponentBase.init()
   onInit() {
-    this.setupEventListeners()
+    this.setupEventListeners();
   }
 
   setupEventListeners() {
     // Listen for modal population event from service
-    this.eventBus.on('vfx:modal-populate', this.handleModalPopulate.bind(this))
-    
+    this.eventBus?.on(
+      "vfx:modal-populate",
+      this.handleModalPopulate.bind(this),
+    );
+
     // Setup DOM event listeners once
-    this.setupDOMEventListeners()
+    this.setupDOMEventListeners();
   }
 
+  /** @param {{ vfxManager: import('./uiTypes.js').VFXManagerLike }} payload */
   handleModalPopulate({ vfxManager }) {
     // Populating VFX modal with effects
-    this.vfxManager = vfxManager
-    this.populateModal()
-    this.modalManager.show('vertigoModal')
+    this.vfxManager = vfxManager;
+    this.populateModal();
+    this.modalManager?.show("vertigoModal");
     // Ensure the preview reflects current selections after translations may have reset text content
-    this.updatePreview()
+    this.updatePreview();
   }
 
   populateModal() {
-    if (!this.vfxManager) return
+    if (!this.vfxManager) return;
 
     // Populate space effects (sorted alphabetically by label)
-    const spaceList = document.getElementById('spaceEffectsList')
+    const spaceList = document.getElementById("spaceEffectsList");
     if (spaceList) {
-      spaceList.innerHTML = ''
+      spaceList.innerHTML = "";
       // Explicitly access VFX_EFFECTS from window object for clarity
-      const sortedSpaceEffects = [...window.VFX_EFFECTS.space].sort((a, b) =>
-        a.label.localeCompare(b.label)
-      )
+      const sortedSpaceEffects = [...(runtime.VFX_EFFECTS?.space || [])].sort(
+        (a, b) => a.label.localeCompare(b.label),
+      );
       sortedSpaceEffects.forEach((effect) => {
-        const effectItem = this.createEffectItem('space', effect)
-        spaceList.appendChild(effectItem)
-      })
+        const effectItem = this.createEffectItem("space", effect);
+        spaceList.appendChild(effectItem);
+      });
     }
 
     // Populate ground effects (sorted alphabetically by label)
-    const groundList = document.getElementById('groundEffectsList')
+    const groundList = document.getElementById("groundEffectsList");
     if (groundList) {
-      groundList.innerHTML = ''
+      groundList.innerHTML = "";
       // Explicitly access VFX_EFFECTS from window object for clarity
-      const sortedGroundEffects = [...window.VFX_EFFECTS.ground].sort((a, b) =>
-        a.label.localeCompare(b.label)
-      )
+      const sortedGroundEffects = [...(runtime.VFX_EFFECTS?.ground || [])].sort(
+        (a, b) => a.label.localeCompare(b.label),
+      );
       sortedGroundEffects.forEach((effect) => {
-        const effectItem = this.createEffectItem('ground', effect)
-        groundList.appendChild(effectItem)
-      })
+        const effectItem = this.createEffectItem("ground", effect);
+        groundList.appendChild(effectItem);
+      });
     }
 
     // Update UI state based on loaded data
-    this.updateCheckboxes('space')
-    this.updateCheckboxes('ground')
+    this.updateCheckboxes("space");
+    this.updateCheckboxes("ground");
 
     // Update PlayerSay checkbox
-    const playerSayCheckbox = document.getElementById('vertigoShowPlayerSay')
+    const playerSayCheckbox = /** @type {HTMLInputElement | null} */ (
+      document.getElementById("vertigoShowPlayerSay")
+    );
     if (playerSayCheckbox) {
-      playerSayCheckbox.checked = this.vfxManager.showPlayerSay
+      playerSayCheckbox.checked = this.vfxManager.showPlayerSay;
     }
 
     // Update effect counts and preview
-    this.updateEffectCounts()
-    this.updatePreview()
+    this.updateEffectCounts();
+    this.updatePreview();
   }
 
+  /**
+   * @param {'space' | 'ground'} environment
+   * @param {import('./uiTypes.js').VFXEffect} effect
+   */
   createEffectItem(environment, effect) {
-    const effectItem = document.createElement('div')
-    effectItem.className = 'effect-item'
-    
-    const isSelected = this.vfxManager.isEffectSelected(environment, effect.effect)
-    
+    const manager = this.vfxManager;
+    if (!manager) {
+      throw new Error("VFX manager must be loaded before rendering effects");
+    }
+    const effectItem = document.createElement("div");
+    effectItem.className = "effect-item";
+
+    const isSelected = manager.isEffectSelected(environment, effect.effect);
+
     effectItem.innerHTML = `
       <label class="effect-label">
         <input type="checkbox" 
                class="effect-checkbox" 
                data-environment="${environment}" 
                data-effect="${effect.effect}"
-               ${isSelected ? 'checked' : ''}>
+               ${isSelected ? "checked" : ""}>
         <span class="effect-name">${effect.label}</span>
       </label>
-    `
-    
-    return effectItem
+    `;
+
+    return effectItem;
   }
 
+  /** @param {'space' | 'ground'} environment */
   updateCheckboxes(environment) {
-    const checkboxes = document.querySelectorAll(`input[data-environment="${environment}"]`)
-    checkboxes.forEach(checkbox => {
-      const effectName = checkbox.dataset.effect
-      checkbox.checked = this.vfxManager.isEffectSelected(environment, effectName)
-    })
+    const manager = this.vfxManager;
+    if (!manager) return;
+    const checkboxes = document.querySelectorAll(
+      `input[data-environment="${environment}"]`,
+    );
+    checkboxes.forEach((element) => {
+      const checkbox = /** @type {HTMLInputElement} */ (element);
+      const effectName = checkbox.dataset.effect;
+      if (effectName) {
+        checkbox.checked = manager.isEffectSelected(environment, effectName);
+      }
+    });
   }
 
   updateEffectCounts() {
+    const manager = this.vfxManager;
+    if (!manager) return;
     // Update space count
-    const spaceCount = this.vfxManager.getEffectCount('space')
-    const spaceCountEl = document.getElementById('spaceEffectCount')
+    const spaceCount = manager.getEffectCount("space");
+    const spaceCountEl = document.getElementById("spaceEffectCount");
     if (spaceCountEl) {
-      spaceCountEl.textContent = `${spaceCount} ${this.i18n.t('selected')}`
+      spaceCountEl.textContent = `${spaceCount} ${this.i18n.t("selected")}`;
     }
 
     // Update ground count
-    const groundCount = this.vfxManager.getEffectCount('ground')
-    const groundCountEl = document.getElementById('groundEffectCount')
+    const groundCount = manager.getEffectCount("ground");
+    const groundCountEl = document.getElementById("groundEffectCount");
     if (groundCountEl) {
-      groundCountEl.textContent = `${groundCount} ${this.i18n.t('selected')}`
+      groundCountEl.textContent = `${groundCount} ${this.i18n.t("selected")}`;
     }
   }
 
   updatePreview() {
     // Update space preview
-    const spacePreviewEl = document.getElementById('spaceAliasCommand')
+    const spacePreviewEl = document.getElementById("spaceAliasCommand");
     if (spacePreviewEl && this.vfxManager) {
-      const spaceAlias = this.vfxManager.generateAlias('space')
+      const spaceAlias = this.vfxManager.generateAlias("space");
       if (spaceAlias) {
-        spacePreviewEl.textContent = spaceAlias
+        spacePreviewEl.textContent = spaceAlias;
       } else {
-        spacePreviewEl.textContent = this.i18n.t('no_space_effects_selected')
+        spacePreviewEl.textContent = this.i18n.t("no_space_effects_selected");
       }
     }
 
     // Update ground preview
-    const groundPreviewEl = document.getElementById('groundAliasCommand')
+    const groundPreviewEl = document.getElementById("groundAliasCommand");
     if (groundPreviewEl && this.vfxManager) {
-      const groundAlias = this.vfxManager.generateAlias('ground')
+      const groundAlias = this.vfxManager.generateAlias("ground");
       if (groundAlias) {
-        groundPreviewEl.textContent = groundAlias
+        groundPreviewEl.textContent = groundAlias;
       } else {
-        groundPreviewEl.textContent = this.i18n.t('no_ground_effects_selected')
+        groundPreviewEl.textContent = this.i18n.t("no_ground_effects_selected");
       }
     }
   }
 
   setupDOMEventListeners() {
     if (this.domListenersSetup) {
-      return
+      return;
     }
 
     // Effect checkbox changes - using automatic cleanup pattern
-    this.onDom(
-      '.effect-checkbox',
-      'change',
-      'vfx-effect-change',
-      (e) => {
-        const environment = e.target.dataset.environment
-        const effectName = e.target.dataset.effect
+    this.onDom(".effect-checkbox", "change", "vfx-effect-change", (e) => {
+      const target = eventElement(e);
+      const environment = target?.getAttribute("data-environment");
+      const effectName = target?.getAttribute("data-effect");
 
-        if (this.vfxManager) {
-          this.vfxManager.toggleEffect(environment, effectName)
-          this.updateEffectCounts()
-          this.updatePreview()
-        }
+      if (
+        this.vfxManager &&
+        (environment === "space" || environment === "ground") &&
+        effectName
+      ) {
+        this.vfxManager.toggleEffect(environment, effectName);
+        this.updateEffectCounts();
+        this.updatePreview();
       }
-    )
+    });
 
     // PlayerSay checkbox - using automatic cleanup pattern
     this.onDom(
-      '#vertigoShowPlayerSay',
-      'change',
-      'vfx-playersay-change',
+      "#vertigoShowPlayerSay",
+      "change",
+      "vfx-playersay-change",
       (e) => {
-        if (this.vfxManager) {
-          this.vfxManager.showPlayerSay = e.target.checked
-          this.updatePreview()
+        const target = eventElement(e);
+        if (this.vfxManager && target instanceof HTMLInputElement) {
+          this.vfxManager.showPlayerSay = target.checked;
+          this.updatePreview();
         }
-      }
-    )
+      },
+    );
 
     // VFX specific buttons using automatic cleanup pattern
-    this.onDom('spaceSelectAll', 'click', 'vfx-space-select-all', () => {
+    this.onDom("spaceSelectAll", "click", "vfx-space-select-all", () => {
       if (this.vfxManager) {
-        this.vfxManager.selectAllEffects('space')
-        this.updateCheckboxes('space')
-        this.updateEffectCounts()
-        this.updatePreview()
+        this.vfxManager.selectAllEffects("space");
+        this.updateCheckboxes("space");
+        this.updateEffectCounts();
+        this.updatePreview();
       }
-    })
+    });
 
-    this.onDom('spaceClearAll', 'click', 'vfx-space-clear-all', () => {
+    this.onDom("spaceClearAll", "click", "vfx-space-clear-all", () => {
       if (this.vfxManager) {
-        this.vfxManager.selectedEffects.space.clear()
-        this.updateCheckboxes('space')
-        this.updateEffectCounts()
-        this.updatePreview()
+        this.vfxManager.selectedEffects.space.clear();
+        this.updateCheckboxes("space");
+        this.updateEffectCounts();
+        this.updatePreview();
       }
-    })
+    });
 
-    this.onDom('groundSelectAll', 'click', 'vfx-ground-select-all', () => {
+    this.onDom("groundSelectAll", "click", "vfx-ground-select-all", () => {
       if (this.vfxManager) {
-        this.vfxManager.selectAllEffects('ground')
-        this.updateCheckboxes('ground')
-        this.updateEffectCounts()
-        this.updatePreview()
+        this.vfxManager.selectAllEffects("ground");
+        this.updateCheckboxes("ground");
+        this.updateEffectCounts();
+        this.updatePreview();
       }
-    })
+    });
 
-    this.onDom('groundClearAll', 'click', 'vfx-ground-clear-all', () => {
+    this.onDom("groundClearAll", "click", "vfx-ground-clear-all", () => {
       if (this.vfxManager) {
-        this.vfxManager.selectedEffects.ground.clear()
-        this.updateCheckboxes('ground')
-        this.updateEffectCounts()
-        this.updatePreview()
+        this.vfxManager.selectedEffects.ground.clear();
+        this.updateCheckboxes("ground");
+        this.updateEffectCounts();
+        this.updatePreview();
       }
-    })
+    });
 
-    this.onDom('saveVertigoBtn', 'click', 'vfx-save', () => {
-      this.emit('vfx:save-effects')
-    })
+    this.onDom("saveVertigoBtn", "click", "vfx-save", () => {
+      this.emit("vfx:save-effects");
+    });
 
-    this.domListenersSetup = true
+    this.domListenersSetup = true;
   }
 
   // Component lifecycle hook - called by ComponentBase
   onDestroy() {
     // Reset flags
-    this.domListenersSetup = false
-    this.vfxManager = null
+    this.domListenersSetup = false;
+    this.vfxManager = null;
     // Note: DOM event listeners are automatically cleaned up by ComponentBase
   }
-} 
+}

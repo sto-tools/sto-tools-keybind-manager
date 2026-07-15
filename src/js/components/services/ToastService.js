@@ -1,110 +1,136 @@
-import ComponentBase from '../ComponentBase.js'
+import ComponentBase from "../ComponentBase.js";
 
 /*
  * ToastService – handles creation and life-cycle of toast notifications.
  */
 export default class ToastService extends ComponentBase {
-  constructor({ eventBus, i18n, containerId = 'toastContainer' } = {}) {
-    super(eventBus)
-    this.componentName = 'ToastService'
-    this.i18n = i18n
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, containerId?: string }} [options] */
+  constructor({ eventBus, i18n, containerId = "toastContainer" } = {}) {
+    super(eventBus);
+    this.componentName = "ToastService";
+    this.i18n = i18n;
 
-    this.containerId = containerId
-    
+    this.containerId = containerId;
+
     // Register request/response endpoints
     if (this.eventBus) {
-      this.respond('ui:show-toast', ({ message, type = 'info', duration = 3000 }) => {
-        this.showToast(message, type, duration)
-        return true
-      })
-      
+      this.respond(
+        "ui:show-toast",
+        (
+          /** @type {{ message: string, type?: string, duration?: number }} */ {
+            message,
+            type = "info",
+            duration = 3000,
+          },
+        ) => {
+          this.showToast(message, type, duration);
+          return true;
+        },
+      );
+
       // Also listen for toast:show events (used by most components)
-      this.addEventListener('toast:show', ({ message, type = 'info', duration = 3000 }) => {
-        this.showToast(message, type, duration)
-      })
+      this.addEventListener(
+        "toast:show",
+        (
+          /** @type {{ message: string, type?: string, duration?: number }} */ {
+            message,
+            type = "info",
+            duration = 3000,
+          },
+        ) => {
+          this.showToast(message, type, duration);
+        },
+      );
     }
   }
 
   // Show a toast message.
-  showToast(message, type = 'info', duration = 3000) {
-    const toast = this.createToast(message, type, duration)
-    const container = document.getElementById(this.containerId)
+  /** @param {string} message @param {string} [type] @param {number} [duration] */
+  showToast(message, type = "info", duration = 3000) {
+    const toast = this.createToast(message, type, duration);
+    const container = document.getElementById(this.containerId);
 
     if (container) {
-      container.appendChild(toast)
+      container.appendChild(toast);
 
       // Trigger the CSS animation frame so the toast slides/fades in
       requestAnimationFrame(() => {
-        toast.classList.add('show')
-      })
+        toast.classList.add("show");
+      });
 
       // Auto-remove after the configured duration
       setTimeout(() => {
-        this.removeToast(toast)
-      }, duration)
+        this.removeToast(toast);
+      }, duration);
     } else {
-      console.warn(`ToastService: Toast container '${this.containerId}' not found in DOM`)
+      console.warn(
+        `ToastService: Toast container '${this.containerId}' not found in DOM`,
+      );
     }
   }
 
   // Create the DOM structure for a toast.
+  /** @param {string} message @param {string} type @param {number} duration */
   createToast(message, type, duration) {
-    const toast = document.createElement('div')
-    toast.className = `toast toast-${type}`
+    void duration;
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
 
+    /** @type {Record<string, string>} */
     const iconMap = {
-      success: 'fa-check-circle',
-      error: 'fa-exclamation-circle',
-      warning: 'fa-exclamation-triangle',
-      info: 'fa-info-circle',
-    }
+      success: "fa-check-circle",
+      error: "fa-exclamation-circle",
+      warning: "fa-exclamation-triangle",
+      info: "fa-info-circle",
+    };
 
     // Create toast content container
-    const toastContent = document.createElement('div')
-    toastContent.className = 'toast-content'
+    const toastContent = document.createElement("div");
+    toastContent.className = "toast-content";
 
     // Create and add icon
-    const icon = document.createElement('i')
-    icon.className = `fas ${iconMap[type] || iconMap.info}`
-    toastContent.appendChild(icon)
+    const icon = document.createElement("i");
+    icon.className = `fas ${iconMap[type] || iconMap.info}`;
+    toastContent.appendChild(icon);
 
     // Create and add message span (safely)
-    const messageSpan = document.createElement('span')
-    messageSpan.className = 'toast-message'
-    messageSpan.textContent = message // Use textContent to prevent XSS
-    toastContent.appendChild(messageSpan)
+    const messageSpan = document.createElement("span");
+    messageSpan.className = "toast-message";
+    messageSpan.textContent = message; // Use textContent to prevent XSS
+    toastContent.appendChild(messageSpan);
 
     // Create and add close button
-    const closeButton = document.createElement('button')
-    closeButton.className = 'toast-close'
-    closeButton.setAttribute('aria-label', 'close toast')
-    
-    const closeIcon = document.createElement('i')
-    closeIcon.className = 'fas fa-times'
-    closeButton.appendChild(closeIcon)
-    
-    toastContent.appendChild(closeButton)
+    const closeButton = document.createElement("button");
+    closeButton.className = "toast-close";
+    closeButton.setAttribute("aria-label", "close toast");
+
+    const closeIcon = document.createElement("i");
+    closeIcon.className = "fas fa-times";
+    closeButton.appendChild(closeIcon);
+
+    toastContent.appendChild(closeButton);
 
     // Add content to toast
-    toast.appendChild(toastContent)
+    toast.appendChild(toastContent);
 
     // Close button behaviour
-    closeButton.addEventListener('click', () => {
-      this.removeToast(toast)
-    })
+    closeButton.addEventListener("click", () => {
+      this.removeToast(toast);
+    });
 
-    return toast
+    return toast;
   }
 
   // Internal helper that adds the removal animation and cleans up the DOM.
+  /** @param {HTMLElement | null | undefined} toast */
   removeToast(toast) {
-    if (!toast) return
+    if (!toast) return;
 
-    toast.classList.add('removing')
+    toast.classList.add("removing");
     setTimeout(() => {
       if (toast.parentNode) {
-        toast.parentNode.removeChild(toast)
+        toast.parentNode.removeChild(toast);
       }
-    }, 300)
+    }, 300);
   }
-} 
+}

@@ -1,74 +1,73 @@
 // STO Command Parser Library - Entry point for external consumption
 // Standalone library for parsing Star Trek Online keybind commands
-export { STOCommandParser } from './STOCommandParser.js'
-export { KBFParser, createKBFParser } from './KBFParser.js'
-export { respond, request } from '../core/requestResponse.js'
-export { default as eventBus } from '../core/eventBus.js'
+export { STOCommandParser } from "./STOCommandParser.js";
+export { KBFParser, createKBFParser } from "./KBFParser.js";
+export { respond, request } from "../core/requestResponse.js";
+export { default as eventBus } from "../core/eventBus.js";
 
 // Command display and normalization utilities
 export {
   enrichForDisplay,
   normalizeToString,
   normalizeToStringArray,
-  normalizeToOptimizedString
-} from './commandDisplayAdapter.js'
+  normalizeToOptimizedString,
+} from "./commandDisplayAdapter.js";
 
-export {
-  normalizeProfile,
-  needsNormalization
-} from './profileNormalizer.js'
+export { normalizeProfile, needsNormalization } from "./profileNormalizer.js";
 
 // Default configuration for external use
 export const defaultParserConfig = {
   enableCache: true,
   maxCacheSize: 1000,
   enablePerformanceMetrics: true,
-  hotPathThreshold: 10
-}
+  hotPathThreshold: 10,
+};
 
 /**
  * Creates a standalone parser instance for external library usage
- * @param {Object} options - Configuration options
- * @returns {Promise<STOCommandParser>} Configured parser instance
+ * @param {Record<string, any>} [options] - Configuration options
+ * @returns {Promise<import('./STOCommandParser.js').STOCommandParser>} Configured parser instance
  */
 export async function createStandaloneParser(options = {}) {
-  const { STOCommandParser } = await import('./STOCommandParser.js')
-  return new STOCommandParser(null, { ...defaultParserConfig, ...options })
+  const { STOCommandParser } = await import("./STOCommandParser.js");
+  return new STOCommandParser(null, { ...defaultParserConfig, ...options });
 }
 
 /**
  * Creates a parser with event bus integration
- * @param {Object} eventBus - Event bus instance
- * @param {Object} options - Configuration options
- * @returns {Promise<STOCommandParser>} Configured parser instance
+ * @param {typeof import('../core/eventBus.js').default} eventBus - Event bus instance
+ * @param {Record<string, any>} [options] - Configuration options
+ * @returns {Promise<import('./STOCommandParser.js').STOCommandParser>} Configured parser instance
  */
 export async function createIntegratedParser(eventBus, options = {}) {
-  const { STOCommandParser } = await import('./STOCommandParser.js')
-  return new STOCommandParser(eventBus, { ...defaultParserConfig, ...options })
+  const { STOCommandParser } = await import("./STOCommandParser.js");
+  return new STOCommandParser(eventBus, { ...defaultParserConfig, ...options });
 }
 
 // Export core infrastructure for library consumers
-export { default as ComponentBase } from '../components/ComponentBase.js'
+export { default as ComponentBase } from "../components/ComponentBase.js";
 
 // Version information
-export const version = '1.0.0'
-export const description = 'Standalone STO Command Parser Library with Function Signatures'
+export const version = "1.0.0";
+export const description =
+  "Standalone STO Command Parser Library with Function Signatures";
 
 // Library metadata
 export const metadata = {
-  name: 'sto-command-parser',
-  version: '1.0.0',
-  description: 'Parse Star Trek Online keybind commands with function signature validation',
+  name: "sto-command-parser",
+  version: "1.0.0",
+  description:
+    "Parse Star Trek Online keybind commands with function signature validation",
   features: [
-    'Function signature-based parsing',
-    'Performance-optimized for high-frequency commands',
-    'Built-in caching with hot path optimization',
-    'TypeScript-style parameter extraction',
-    'Extensible command signature definitions',
-    'Standalone or integrated usage'
+    "Function signature-based parsing",
+    "Performance-optimized for high-frequency commands",
+    "Built-in caching with hot path optimization",
+    "TypeScript-style parameter extraction",
+    "Extensible command signature definitions",
+    "Standalone or integrated usage",
   ],
   dependencies: {
     required: [],
-    optional: ['eventBus for integration mode']
-  }
-} 
+    optional: ["eventBus for integration mode"],
+  },
+};

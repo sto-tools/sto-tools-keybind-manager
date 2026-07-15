@@ -1,20 +1,20 @@
 /**
  * CommandFormatAdapter - Bridge between STOCommandParser output and ParameterCommandService input
- * 
+ *
  * Converts between the new rich parser format and the legacy format expected by
  * ParameterCommandService to maintain backward compatibility while leveraging
  * the enhanced parsing capabilities.
  */
 
-export class CommandFormatAdapter {
+class CommandFormatAdapter {
   /**
    * Convert STOCommandParser output to ParameterCommandService input format
-   * @param {Object} parsedCommand - Command from STOCommandParser
-   * @returns {Object} Legacy format command object
+   * @param {Record<string, any> | null | undefined} parsedCommand - Command from STOCommandParser
+   * @returns {Record<string, any> | null} Legacy format command object
    */
   static newToOld(parsedCommand) {
-    if (!parsedCommand) return null
-    
+    if (!parsedCommand) return null;
+
     return {
       command: parsedCommand.command,
       type: parsedCommand.category,
@@ -24,23 +24,23 @@ export class CommandFormatAdapter {
       baseCommand: parsedCommand.baseCommand,
       displayText: parsedCommand.displayText,
       icon: parsedCommand.icon,
-      id: parsedCommand.id
-    }
+      id: parsedCommand.id,
+    };
   }
 
   /**
    * Normalize command object to ensure consistent structure
-   * @param {Object} command - Command in any format
-   * @returns {Object} Normalized command object
+   * @param {Record<string, any> | null | undefined} command - Command in any format
+   * @returns {Record<string, any> | null} Normalized command object
    */
   static normalize(command) {
-    if (!command) return null
-    
+    if (!command) return null;
+
     // If it looks like STOCommandParser output, convert to legacy format
     if (command.signature && command.category) {
-      return this.newToOld(command)
+      return this.newToOld(command);
     }
-    
+
     // If it looks like legacy format, ensure all fields are present
     if (command.command && command.type) {
       return {
@@ -50,13 +50,13 @@ export class CommandFormatAdapter {
         signature: command.signature,
         baseCommand: command.baseCommand,
         displayText: command.displayText || command.command,
-        icon: command.icon || '⚙️',
-        id: command.id
-      }
+        icon: command.icon || "⚙️",
+        id: command.id,
+      };
     }
-    
-    return command
+
+    return command;
   }
 }
 
-export default CommandFormatAdapter 
+export default CommandFormatAdapter;

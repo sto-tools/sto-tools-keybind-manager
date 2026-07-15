@@ -1,36 +1,36 @@
-import ValidatorBase from './ValidatorBase.js'
-import { UNSAFE_KEYBINDS } from '../../../core/constants.js'
+import ValidatorBase from "./ValidatorBase.js";
+import { UNSAFE_KEYBINDS } from "../../../core/constants.js";
 
 // Pre-compute uppercase set for efficient case-insensitive matching
-const UNSAFE_SET = new Set(UNSAFE_KEYBINDS.map(k => k.toUpperCase()))
+const UNSAFE_SET = new Set(UNSAFE_KEYBINDS.map((k) => k.toUpperCase()));
 
 export default class UnsafeKeybindRule extends ValidatorBase {
-  constructor () {
+  constructor() {
     super({
-      id: 'unsafeKeybind',
-      defaultSeverity: 'warning',
+      id: "unsafeKeybind",
+      defaultSeverity: "warning",
       // Re-use generic i18n key shared with capture service.
-      messageKey: 'unsafe_keybind'
-    })
+      messageKey: "unsafe_keybind",
+    });
   }
 
   /**
    * Validate current key against UNSAFE_KEYBINDS list.
-   * @param {Object} ctx – Validation context from CommandChainValidatorService
-   * @returns {null|Object}
+   * @param {import('./ValidatorBase.js').ValidationContext} ctx – Validation context from CommandChainValidatorService
+   * @returns {import('./ValidatorBase.js').ValidationResult | null}
    */
-  validate (ctx) {
-    const { key } = ctx || {}
-    if (!key) return null
+  validate(ctx) {
+    const { key } = ctx || {};
+    if (!key) return null;
 
-    const normalized = key.trim().toUpperCase()
+    const normalized = key.trim().toUpperCase();
     if (UNSAFE_SET.has(normalized)) {
       return {
-        severity: 'warning',
-        params: { key }
-      }
+        severity: "warning",
+        params: { key },
+      };
     }
 
-    return null
+    return null;
   }
-} 
+}

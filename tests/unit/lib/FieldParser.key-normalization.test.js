@@ -1,192 +1,194 @@
-import { describe, it, expect } from 'vitest'
-import FieldParser from '../../../src/js/lib/kbf/parsers/FieldParser.js'
+import { describe, it, expect } from "vitest";
+import { FieldParser } from "../../../src/js/lib/kbf/parsers/FieldParser.js";
 
 /**
  * Unit tests – FieldParser – verify key token normalization
  * Tests that FieldParser.parseKeyTokenField normalizes uppercase keys like SPACE to Space
  */
 
-describe('FieldParser - Key Token Normalization', () => {
-  let fieldParser
+describe("FieldParser - Key Token Normalization", () => {
+  let fieldParser;
 
   beforeEach(() => {
-    fieldParser = new FieldParser()
-  })
+    fieldParser = new FieldParser();
+  });
 
-  it('should normalize SPACE to Space', () => {
+  it("should normalize SPACE to Space", () => {
     // Create a mock key field record with uppercase SPACE
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'SPACE'
-    }
+      value: "SPACE",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('Space')
-  })
+    expect(result).toBe("Space");
+  });
 
-  it('should normalize CTRL to Control', () => {
+  it("should normalize CTRL to Control", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'CTRL'
-    }
+      value: "CTRL",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('Control')
-  })
+    expect(result).toBe("Control");
+  });
 
-  it('should normalize ctrl to Control', () => {
+  it("should normalize ctrl to Control", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'ctrl'
-    }
+      value: "ctrl",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('Control')
-  })
+    expect(result).toBe("Control");
+  });
 
-  it('should normalize f1 to F1', () => {
+  it("should normalize f1 to F1", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'f1'
-    }
+      value: "f1",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('F1')
-  })
+    expect(result).toBe("F1");
+  });
 
-  it('should keep already normalized Space as Space', () => {
+  it("should keep already normalized Space as Space", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'Space'
-    }
+      value: "Space",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('Space')
-  })
+    expect(result).toBe("Space");
+  });
 
-  it('should keep already normalized Control as Control', () => {
+  it("should keep already normalized Control as Control", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'Control'
-    }
+      value: "Control",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('Control')
-  })
+    expect(result).toBe("Control");
+  });
 
-  it('should keep ALT as ALT (already in correct format)', () => {
+  it("should keep ALT as ALT (already in correct format)", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'ALT'
-    }
+      value: "ALT",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('ALT')
-  })
+    expect(result).toBe("ALT");
+  });
 
-  it('should handle special token Space as space character', () => {
+  it("should normalize the KBF Space token to the canonical key name", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'Space'
-    }
+      value: "Space",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe(' ')
-  })
+    expect(result).toBe("Space");
+  });
 
-  it('should handle special token SemiColon as semicolon', () => {
+  it("should handle special token SemiColon as semicolon", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'SemiColon'
-    }
+      value: "SemiColon",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe(';')
-  })
+    expect(result).toBe(";");
+  });
 
-  it('should return unknown keys unchanged', () => {
+  it("should return unknown keys unchanged", () => {
     const mockRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: 'UnknownKey123'
-    }
+      value: "UnknownKey123",
+    };
 
-    const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+    const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-    expect(result).toBe('UnknownKey123')
-  })
+    expect(result).toBe("UnknownKey123");
+  });
 
-  it('should return null for invalid records', () => {
+  it("should return null for invalid records", () => {
     const invalidRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: false,
-      value: 'SPACE'
-    }
+      value: "SPACE",
+    };
 
-    const result = fieldParser.parseKeyTokenField(invalidRecord, 0)
+    const result = fieldParser.parseKeyTokenField(invalidRecord, 0);
 
-    expect(result).toBeNull()
-  })
+    expect(result).toBeNull();
+  });
 
-  it('should return null for empty value', () => {
+  it("should return null for empty value", () => {
     const emptyRecord = {
-      fieldName: 'Key',
+      fieldName: "Key",
       hasColon: true,
-      value: ''
-    }
+      value: "",
+    };
 
-    const result = fieldParser.parseKeyTokenField(emptyRecord, 0)
+    const result = fieldParser.parseKeyTokenField(emptyRecord, 0);
 
-    expect(result).toBeNull()
-  })
+    expect(result).toBeNull();
+  });
 
-  it('should test comprehensive case normalization scenarios', () => {
+  it("should test comprehensive case normalization scenarios", () => {
     const testCases = [
-      { input: 'SPACE', expected: 'Space' },
-      { input: 'Space', expected: 'Space' },
-      { input: 'space', expected: 'Space' },
-      { input: 'CTRL', expected: 'Control' },
-      { input: 'Control', expected: 'Control' },
-      { input: 'control', expected: 'Control' },
-      { input: 'ALT', expected: 'ALT' },
-      { input: 'alt', expected: 'ALT' },
-      { input: 'F1', expected: 'F1' },
-      { input: 'f1', expected: 'F1' },
-      { input: 'TAB', expected: 'Tab' },
-      { input: 'tab', expected: 'Tab' },
-      { input: 'SHIFT', expected: 'Shift' },
-      { input: 'shift', expected: 'Shift' }
-    ]
+      { input: "SPACE", expected: "Space" },
+      { input: "Space", expected: "Space" },
+      { input: "space", expected: "Space" },
+      { input: "CTRL", expected: "Control" },
+      { input: "Control", expected: "Control" },
+      { input: "control", expected: "Control" },
+      { input: "ALT", expected: "ALT" },
+      { input: "alt", expected: "ALT" },
+      { input: "F1", expected: "F1" },
+      { input: "f1", expected: "F1" },
+      { input: "TAB", expected: "Tab" },
+      { input: "tab", expected: "Tab" },
+      { input: "SHIFT", expected: "Shift" },
+      { input: "shift", expected: "Shift" },
+    ];
 
     testCases.forEach(({ input, expected }) => {
       const mockRecord = {
-        fieldName: 'Key',
+        fieldName: "Key",
         hasColon: true,
-        value: input
-      }
+        value: input,
+      };
 
-      const result = fieldParser.parseKeyTokenField(mockRecord, 0)
+      const result = fieldParser.parseKeyTokenField(mockRecord, 0);
 
-      expect(result).toBe(expected)
-      console.log(`FieldParser normalization: "${input}" -> "${result}" (expected: "${expected}")`)
-    })
-  })
-})
+      expect(result).toBe(expected);
+      console.log(
+        `FieldParser normalization: "${input}" -> "${result}" (expected: "${expected}")`,
+      );
+    });
+  });
+});

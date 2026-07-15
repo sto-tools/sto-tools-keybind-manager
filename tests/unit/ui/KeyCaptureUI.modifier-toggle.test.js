@@ -1,8 +1,8 @@
-import { describe, it, beforeEach, afterEach, expect } from 'vitest'
-import { createServiceFixture } from '../../fixtures/index.js'
-import KeyCaptureUI from '../../../src/js/components/ui/KeyCaptureUI.js'
+import { describe, it, beforeEach, afterEach, expect } from "vitest";
+import { createServiceFixture } from "../../fixtures/index.js";
+import KeyCaptureUI from "../../../src/js/components/ui/KeyCaptureUI.js";
 
-function createDomFixture () {
+function createDomFixture() {
   // Minimal DOM structure required for KeyCaptureUI interactions used in this test
   document.body.innerHTML = `
     <div id="keySelectionModal">
@@ -11,41 +11,41 @@ function createDomFixture () {
       <div data-key-code="ShiftRight" class="vkey"></div>
     </div>
     <input id="distinguishModifierSide" type="checkbox" />
-  `
+  `;
   return {
-    cleanup: () => (document.body.innerHTML = '')
-  }
+    cleanup: () => (document.body.innerHTML = ""),
+  };
 }
 
-describe('KeyCaptureUI – modifier toggle behaviour', () => {
-  let fixture, eventBusFixture, ui, dom
+describe("KeyCaptureUI – modifier toggle behaviour", () => {
+  let fixture, eventBusFixture, ui, dom;
 
   beforeEach(() => {
-    dom = createDomFixture()
-    fixture = createServiceFixture()
-    eventBusFixture = fixture.eventBusFixture
+    dom = createDomFixture();
+    fixture = createServiceFixture();
+    eventBusFixture = fixture.eventBusFixture;
     // Instantiate UI with fixture event bus and jsdom document
-    ui = new KeyCaptureUI({ eventBus: eventBusFixture.eventBus, document })
-    ui.init()
-  })
+    ui = new KeyCaptureUI({ eventBus: eventBusFixture.eventBus, document });
+    ui.init();
+  });
 
   afterEach(() => {
-    dom.cleanup()
-    fixture.destroy()
-  })
+    dom.cleanup();
+    fixture.destroy();
+  });
 
-  it('should keep previously selected key in preview when a modifier is toggled off', () => {
+  it("should keep previously selected key in preview when a modifier is toggled off", () => {
     // Simulate selecting a main key via capture
-    ui.selectKey('G')
-    const preview = document.getElementById('keyPreviewDisplay')
-    expect(preview.textContent).toContain('G')
+    ui.selectKey("G");
+    const preview = document.getElementById("keyPreviewDisplay");
+    expect(preview.textContent).toContain("G");
 
     // Toggle modifier on then off
-    ui.toggleVirtualModifier('ShiftLeft') // activate
-    ui.toggleVirtualModifier('ShiftLeft') // deactivate
+    ui.toggleVirtualModifier("ShiftLeft"); // activate
+    ui.toggleVirtualModifier("ShiftLeft"); // deactivate
 
     // The preview should still display the originally selected key
-    expect(preview.textContent).toContain('G')
-    expect(preview.textContent).not.toContain('No key selected')
-  })
-}) 
+    expect(preview.textContent).toContain("G");
+    expect(preview.textContent).not.toContain("No key selected");
+  });
+});

@@ -1,184 +1,212 @@
-import UIComponentBase from '../UIComponentBase.js'
+import UIComponentBase from "../UIComponentBase.js";
+import { eventElement, resolveDocument, resolveI18n } from "./uiTypes.js";
+
+const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
+  globalThis
+);
 
 /**
  * HeaderMenuUI - Handles header dropdown menu interactions
  * Manages import, backup, language, and settings menu toggles and interactions
  */
 export default class HeaderMenuUI extends UIComponentBase {
-  constructor({ eventBus, confirmDialog = null, document = (typeof window !== 'undefined' ? window.document : undefined), i18n } = {}) {
-    super(eventBus)
-    this.componentName = 'HeaderMenuUI'
-    this.document = document
-    this.confirmDialog = confirmDialog || (typeof window !== 'undefined' ? window.confirmDialog : null)
-    this.i18n = i18n
+  /**
+   * @param {{
+   *   eventBus?: import('./uiTypes.js').EventBus,
+   *   confirmDialog?: import('./uiTypes.js').ConfirmDialogLike | null,
+   *   document?: Document,
+   *   i18n?: import('./uiTypes.js').I18nLike
+   * }} [options]
+   */
+  constructor({
+    eventBus,
+    confirmDialog = null,
+    document = typeof window !== "undefined" ? window.document : undefined,
+    i18n,
+  } = {}) {
+    super(eventBus);
+    this.componentName = "HeaderMenuUI";
+    this.document = resolveDocument(document);
+    this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
+    this.i18n = resolveI18n(i18n);
   }
 
   onInit() {
-    this.setupEventListeners()
+    this.setupEventListeners();
   }
 
   setupEventListeners() {
     if (this.eventListenersSetup) {
-      return
+      return;
     }
-    this.eventListenersSetup = true
+    this.eventListenersSetup = true;
 
     // Header menu toggles - using automatic cleanup pattern
-    this.onDom('settingsBtn', 'click', 'settings-toggle', () => {
-      this.toggleSettingsMenu()
-    })
+    this.onDom("settingsBtn", "click", "settings-toggle", () => {
+      this.toggleSettingsMenu();
+    });
 
-    this.onDom('importMenuBtn', 'click', 'import-toggle', () => {
-      this.toggleImportMenu()
-    })
+    this.onDom("importMenuBtn", "click", "import-toggle", () => {
+      this.toggleImportMenu();
+    });
 
-    this.onDom('backupMenuBtn', 'click', 'backup-toggle', () => {
-      this.toggleBackupMenu()
-    })
+    this.onDom("backupMenuBtn", "click", "backup-toggle", () => {
+      this.toggleBackupMenu();
+    });
 
-    this.onDom('languageMenuBtn', 'click', 'language-toggle', () => {
-      this.toggleLanguageMenu()
-    })
+    this.onDom("languageMenuBtn", "click", "language-toggle", () => {
+      this.toggleLanguageMenu();
+    });
 
     // VFX Button (could be moved to VFXManagerUI if preferred)
-    this.onDom('vertigoBtn', 'click', 'vfx-open', () => {
-      this.emit('vfx:show-modal')
-    })
+    this.onDom("vertigoBtn", "click", "vfx-open", () => {
+      this.emit("vfx:show-modal");
+    });
 
     // File Explorer Button
-    this.onDom('fileExplorerBtn', 'click', 'file-explorer-open', () => {
-      this.emit('file-explorer:open')
-    })
+    this.onDom("fileExplorerBtn", "click", "file-explorer-open", () => {
+      this.emit("file-explorer:open");
+    });
 
     // Sync Now Button
-    this.onDom('syncNowBtn', 'click', 'sync-now', () => {
-      this.emit('sync:sync-now')
-    })
+    this.onDom("syncNowBtn", "click", "sync-now", () => {
+      this.emit("sync:sync-now");
+    });
 
     // Settings menu items
-    this.onDom('preferencesBtn', 'click', 'preferences-open', () => {
-      this.emit('preferences:show')
-    })
+    this.onDom("preferencesBtn", "click", "preferences-open", () => {
+      this.emit("preferences:show");
+    });
 
-    this.onDom('aboutBtn', 'click', 'about-open', () => {
-      this.emit('about:show')
-    })
+    this.onDom("aboutBtn", "click", "about-open", () => {
+      this.emit("about:show");
+    });
 
     // Close all menus when clicking outside
-    this.onDom(this.document, 'click', 'document-click-outside', (e) => {
-      if (!e.target.closest('.dropdown')) {
-        this.document.querySelectorAll('.dropdown.active').forEach(dropdown => {
-          dropdown.classList.remove('active')
-        })
+    this.onDom(this.document, "click", "document-click-outside", (e) => {
+      if (!eventElement(e)?.closest(".dropdown")) {
+        this.document
+          .querySelectorAll(".dropdown.active")
+          .forEach((dropdown) => {
+            dropdown.classList.remove("active");
+          });
       }
-    })
+    });
 
     // File operations
-    this.onDom('openProjectBtn', 'click', 'project-open', () => {
-      this.emit('project:open')
-    })
+    this.onDom("openProjectBtn", "click", "project-open", () => {
+      this.emit("project:open");
+    });
 
-    this.onDom('saveProjectBtn', 'click', 'project-save', () => {
-      this.emit('project:save')
-    })
+    this.onDom("saveProjectBtn", "click", "project-save", () => {
+      this.emit("project:save");
+    });
 
-    this.onDom('exportKeybindsBtn', 'click', 'keybinds-export', () => {
-      this.emit('keybinds:export')
-    })
+    this.onDom("exportKeybindsBtn", "click", "keybinds-export", () => {
+      this.emit("keybinds:export");
+    });
 
     // Menu-specific operations
-    this.onDom('importKeybindsBtn', 'click', 'keybinds-import', () => {
-      this.emit('keybinds:import')
-    })
+    this.onDom("importKeybindsBtn", "click", "keybinds-import", () => {
+      this.emit("keybinds:import");
+    });
 
-    this.onDom('importAliasesBtn', 'click', 'aliases-import', () => {
-      this.emit('aliases:import')
-    })
+    this.onDom("importAliasesBtn", "click", "aliases-import", () => {
+      this.emit("aliases:import");
+    });
 
-    this.onDom('importKbfBtn', 'click', 'kbf-import', () => {
-      this.emit('keybinds:kbf-import')
-    })
+    this.onDom("importKbfBtn", "click", "kbf-import", () => {
+      this.emit("keybinds:kbf-import");
+    });
 
-    this.onDom('loadDefaultDataBtn', 'click', 'data-load-default', () => {
-      this.emit('data:load-default')
-    })
+    this.onDom("loadDefaultDataBtn", "click", "data-load-default", () => {
+      this.emit("data:load-default");
+    });
 
-    this.onDom('resetAppBtn', 'click', 'app-reset', () => {
-      this.confirmResetApp()
-    })
+    this.onDom("resetAppBtn", "click", "app-reset", () => {
+      this.confirmResetApp();
+    });
 
     // Language selection - using EventBus with built-in protection
-    this.onDom('[data-lang]', 'click', 'language-change', (e) => {
-      const langButton = e.target.closest('[data-lang]')
-      const lang = langButton ? langButton.getAttribute('data-lang') : null
+    this.onDom("[data-lang]", "click", "language-change", (e) => {
+      const langButton = eventElement(e)?.closest("[data-lang]");
+      const lang = langButton ? langButton.getAttribute("data-lang") : null;
       if (lang) {
-        this.emit('language:change', { language: lang })
+        this.emit("language:change", { language: lang });
       }
-    })
+    });
 
     // Listen for language changed events to show toast feedback
-    this.addEventListener('language:changed', ({ language }) => {
-      this.showToast(this.i18n.t('language_updated'), 'success')
-    })
+    this.addEventListener("language:changed", () => {
+      this.showToast(this.i18n.t("language_updated"), "success");
+    });
 
     // Theme toggle
-    this.onDom('themeToggleBtn', 'click', 'theme-toggle', () => {
-      this.emit('theme:toggle')
-    })
+    this.onDom("themeToggleBtn", "click", "theme-toggle", () => {
+      this.emit("theme:toggle");
+    });
   }
 
   // Toggle the settings menu dropdown
   toggleSettingsMenu() {
-    this.toggleDropdown('settingsBtn')
+    this.toggleDropdown("settingsBtn");
   }
 
   // Toggle the import menu dropdown
   toggleImportMenu() {
-    this.toggleDropdown('importMenuBtn')
+    this.toggleDropdown("importMenuBtn");
   }
 
   // Toggle the backup menu dropdown
   toggleBackupMenu() {
-    this.toggleDropdown('backupMenuBtn')
+    this.toggleDropdown("backupMenuBtn");
   }
 
   // Toggle the language menu dropdown
   toggleLanguageMenu() {
-    this.toggleDropdown('languageMenuBtn')
+    this.toggleDropdown("languageMenuBtn");
   }
 
   // Generic dropdown toggle helper
+  /** @param {string} buttonId */
   toggleDropdown(buttonId) {
-    const button = this.document.getElementById(buttonId)
-    if (!button) return
+    const button = this.document.getElementById(buttonId);
+    if (!button) return;
 
-    const dropdown = button.closest('.dropdown')
-    if (!dropdown) return
+    const dropdown = button.closest(".dropdown");
+    if (!dropdown) return;
 
     // Close other dropdowns
-    this.document.querySelectorAll('.dropdown.active').forEach(other => {
+    this.document.querySelectorAll(".dropdown.active").forEach((other) => {
       if (other !== dropdown) {
-        other.classList.remove('active')
+        other.classList.remove("active");
       }
-    })
+    });
 
     // Toggle this dropdown
-    dropdown.classList.toggle('active')
+    dropdown.classList.toggle("active");
   }
 
   // Confirm app reset with user
   async confirmResetApp() {
-    if (!this.confirmDialog) return
+    if (!this.confirmDialog) return;
 
-    const message = this.i18n.t('confirm_reset_application')
-    const title = this.i18n.t('confirm_reset_app')
+    const message = this.i18n.t("confirm_reset_application");
+    const title = this.i18n.t("confirm_reset_app");
 
-    if (await this.confirmDialog.confirm(message, title, 'danger', 'resetApplication')) {
-      this.emit('app:reset-confirmed')
+    if (
+      await this.confirmDialog.confirm(
+        message,
+        title,
+        "danger",
+        "resetApplication",
+      )
+    ) {
+      this.emit("app:reset-confirmed");
     }
   }
 
   onDestroy() {
     // Note: DOM event listeners are automatically cleaned up by ComponentBase
   }
-} 
+}

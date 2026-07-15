@@ -1,0 +1,27 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "src/js/main.js",
+    "src/js/core/index.js",
+    "src/js/lib/index.js",
+    "rollup.config.mjs",
+    "postcss.config.cjs",
+    "vitest.config.js",
+    "vitest.workspace.js",
+    "tests/setup.js",
+    "tests/browser-setup.js",
+    "tests/{unit,integration,browser}/**/*.test.js"
+  ],
+  "ignore": [
+    "dist/**",
+    "src/dist/**",
+    "test_browser.old-suite/**",
+    "tests.old-suite/**"
+  ],
+  "ignoreDependencies": ["prettier"],
+  "project": [
+    "src/js/**/*.js",
+    "tests/{unit,integration,browser,fixtures}/**/*.js",
+    "*.{js,mjs,cjs}"
+  ]
+}

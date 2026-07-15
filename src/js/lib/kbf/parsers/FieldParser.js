@@ -9,27 +9,30 @@
 // - Bindset name sanitization
 // - Key token normalization to match application's internal representation
 
-import { STO_KEY_NAMES } from '../../../data/stoKeyNames.js'
+import { STO_KEY_NAMES } from "../../../data/stoKeyNames.js";
+
+/** @typedef {{ fieldName: string, value: string, hasColon: boolean, [field: string]: any }} KbfRecord */
 
 /**
  * KBF Field Parser for handling field-level parsing in KBF records
  * Provides utilities for parsing individual fields within KBF data structures
  */
 export class FieldParser {
+  /** @param {{ decoder?: any, [option: string]: any }} [options] */
   constructor(options = {}) {
     this.options = {
       validateUtf8: true,
       strictMode: false, // Throw errors vs. collecting warnings
       maxFileSize: 1024 * 1024, // 1MB default limit
       ...options,
-    }
+    };
 
     // Reference to decoder for error/warning reporting
-    this.decoder = options.decoder || null
+    this.decoder = options.decoder || null;
 
     // Initialize activity translation map
-    this.activityTranslations = new Map()
-    this.keyTokenMap = new Map()
+    this.activityTranslations = new Map();
+    this.keyTokenMap = new Map();
 
     // Parse state tracking
     this.parseState = {
@@ -38,30 +41,30 @@ export class FieldParser {
       totalBytes: 0,
       errors: [],
       warnings: [],
-    }
+    };
   }
 
   /**
    * Add error to decoder's parse state
    * @param {string} message - Error message
-   * @param {Object} context - Optional context
+   * @param {Record<string, any>} context - Optional context
    * @private
    */
   addError(message, context = {}) {
-    if (this.decoder && typeof this.decoder.addError === 'function') {
-      this.decoder.addError(message, context)
+    if (this.decoder && typeof this.decoder.addError === "function") {
+      this.decoder.addError(message, context);
     }
   }
 
   /**
    * Add warning to decoder's parse state
    * @param {string} message - Warning message
-   * @param {Object} context - Optional context
+   * @param {Record<string, any>} context - Optional context
    * @private
    */
   addWarning(message, context = {}) {
-    if (this.decoder && typeof this.decoder.addWarning === 'function') {
-      this.decoder.addWarning(message, context)
+    if (this.decoder && typeof this.decoder.addWarning === "function") {
+      this.decoder.addWarning(message, context);
     }
   }
 
@@ -72,14 +75,14 @@ export class FieldParser {
    * @private
    */
   isValidBase64(base64String) {
-    if (this.decoder && typeof this.decoder.isValidBase64 === 'function') {
-      return this.decoder.isValidBase64(base64String)
+    if (this.decoder && typeof this.decoder.isValidBase64 === "function") {
+      return this.decoder.isValidBase64(base64String);
     }
     // Fallback validation if decoder not available
     try {
-      return btoa(atob(base64String)) === base64String
-    } catch (error) {
-      return false
+      return btoa(atob(base64String)) === base64String;
+    } catch {
+      return false;
     }
   }
 
@@ -87,136 +90,136 @@ export class FieldParser {
   // Layer 2: GROUPSET/KEYSET record parsing
   // ---------------------------------------------------------------------------
 
-
   /**
    * Parse semicolon-delimited records into structured objects
    * @param {string} content - Semicolon-delimited content
-   * @returns {Object[]} Array of record objects with fieldName and value
+   * @returns {KbfRecord[]} Array of record objects with fieldName and value
    * @private
    */
   parseSemicolonRecords(content) {
-    const records = []
+    /** @type {KbfRecord[]} */
+    const records = [];
 
     // Split by semicolon, handling empty final segment
-    const segments = content.split(';')
+    const segments = content.split(";");
 
     for (let i = 0; i < segments.length; i++) {
-      const segment = segments[i].trim()
+      const segment = segments[i].trim();
 
       // Skip empty segments (including trailing empty segment)
       if (segment.length === 0) {
-        continue
+        continue;
       }
 
       // Find the first colon to separate field name from value
-      const colonIndex = segment.indexOf(':')
+      const colonIndex = segment.indexOf(":");
 
       if (colonIndex === -1) {
         // Record without colon - could be malformed or just a field name
         this.addWarning(`Record without colon separator: "${segment}"`, {
           recordIndex: i,
           segment,
-        })
+        });
         records.push({
           fieldName: segment,
-          value: '',
+          value: "",
           hasColon: false,
-        })
-        continue
+        });
+        continue;
       }
 
-      const fieldName = segment.slice(0, colonIndex).trim()
-      const value = segment.slice(colonIndex + 1).trim()
+      const fieldName = segment.slice(0, colonIndex).trim();
+      const value = segment.slice(colonIndex + 1).trim();
 
       if (fieldName.length === 0) {
         this.addWarning(`Record with empty field name: "${segment}"`, {
           recordIndex: i,
           segment,
-        })
-        continue
+        });
+        continue;
       }
 
       records.push({
         fieldName,
         value,
         hasColon: true,
-      })
+      });
     }
 
-    return records
+    return records;
   }
 
   /**
    * Parse GROUPSET record to extract version information
-   * @param {Object} record - GROUPSET record object
+   * @param {KbfRecord} record - GROUPSET record object
    * @returns {string|null} Groupset version or null if invalid
    * @private
    */
   parseGroupsetRecord(record) {
     if (!record.hasColon || !record.value) {
-      this.addWarning('Invalid GROUPSET record: missing colon or value', {
+      this.addWarning("Invalid GROUPSET record: missing colon or value", {
         fieldName: record.fieldName,
         value: record.value,
-      })
-      return null
+      });
+      return null;
     }
 
-    const version = record.value.trim()
+    const version = record.value.trim();
 
     // Validate version format (should be numeric string)
     if (!/^\d+$/.test(version)) {
       this.addWarning(`Unexpected GROUPSET version format: "${version}"`, {
         version,
-        expectedFormat: 'numeric string',
-      })
+        expectedFormat: "numeric string",
+      });
       // Still return the version for compatibility, but log warning
     }
 
-    return version
+    return version;
   }
 
   /**
    * Parse KEYSET record to extract payload data
-   * @param {Object} record - KEYSET record object
+   * @param {KbfRecord} record - KEYSET record object
    * @param {number} recordIndex - Record index for error reporting
-   * @returns {Object} KEYSET record object with payload
+   * @returns {Record<string, any> | null} KEYSET record object with payload
    * @private
    */
   parseKeysetRecord(record, recordIndex) {
     if (!record.hasColon || !record.value) {
-      this.addError('Invalid KEYSET record: missing colon or value', {
+      this.addError("Invalid KEYSET record: missing colon or value", {
         fieldName: record.fieldName,
         value: record.value,
         recordIndex,
-      })
-      return null
+      });
+      return null;
     }
 
-    const payload = record.value.trim()
+    const payload = record.value.trim();
 
     if (payload.length === 0) {
-      this.addError('Empty KEYSET payload', {
+      this.addError("Empty KEYSET payload", {
         recordIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Basic validation that payload looks like Base64
     if (!this.isValidBase64(payload)) {
-      this.addWarning('KEYSET payload may not be valid Base64 data', {
+      this.addWarning("KEYSET payload may not be valid Base64 data", {
         recordIndex,
         payloadLength: payload.length,
         payloadPreview: payload.slice(0, 50),
-      })
+      });
       // Still include it - let Layer 3 handle the validation
     }
 
     return {
-      type: 'KEYSET',
+      type: "KEYSET",
       payload,
       recordIndex,
       payloadSize: payload.length,
-    }
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -225,88 +228,88 @@ export class FieldParser {
 
   /**
    * Parse NAME field from KEYSET record
-   * @param {Object} record - NAME record object
+   * @param {KbfRecord} record - NAME record object
    * @param {number} recordIndex - Record index for error reporting
-   * @returns {Object|null} Name object with sanitized and display names
+   * @returns {Record<string, string>|null} Name object with sanitized and display names
    * @private
    */
   parseNameField(record, recordIndex) {
     if (!record.hasColon || !record.value) {
-      this.addError('Invalid NAME record: missing colon or value', {
+      this.addError("Invalid NAME record: missing colon or value", {
         fieldName: record.fieldName,
         value: record.value,
         recordIndex,
-      })
-      return null
+      });
+      return null;
     }
 
-    const displayName = record.value.trim()
+    const displayName = record.value.trim();
 
     if (displayName.length === 0) {
-      this.addError('Empty NAME field', {
+      this.addError("Empty NAME field", {
         recordIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Sanitize the name for use in identifiers
-    const sanitized = this.sanitizeBindsetName(displayName)
+    const sanitized = this.sanitizeBindsetName(displayName);
 
     return {
       display: displayName,
       sanitized,
-    }
+    };
   }
 
   /**
    * Parse KEY field from KEYSET record
-   * @param {Object} record - KEY record object
+   * @param {KbfRecord} record - KEY record object
    * @param {number} recordIndex - Record index within KEYSET
    * @param {number} keysetRecordIndex - Parent KEYSET record index
-   * @returns {Object|null} Key record with payload data
+   * @returns {Record<string, any>|null} Key record with payload data
    * @private
    */
   parseKeyField(record, recordIndex, keysetRecordIndex) {
     if (!record.hasColon || !record.value) {
-      this.addError('Invalid KEY record: missing colon or value', {
+      this.addError("Invalid KEY record: missing colon or value", {
         keysetRecordIndex,
         recordIndex,
         fieldName: record.fieldName,
         value: record.value,
-      })
-      return null
+      });
+      return null;
     }
 
-    const payload = record.value.trim()
+    const payload = record.value.trim();
 
     if (payload.length === 0) {
-      this.addError('Empty KEY payload', {
+      this.addError("Empty KEY payload", {
         keysetRecordIndex,
         recordIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Basic validation that payload looks like Base64
     // Only warn if it contains characters that are clearly not base64-like
     // Allow underscores and other reasonable characters since they might be intentional
     if (!/^[A-Za-z0-9+/=_-]*$/.test(payload)) {
-      this.addWarning('KEY payload may not be valid Base64 data', {
+      this.addWarning("KEY payload may not be valid Base64 data", {
         keysetRecordIndex,
         recordIndex,
         payloadLength: payload.length,
         payloadPreview: payload.slice(0, 50),
-      })
+      });
       // Still include it - let Layer 4 handle the validation
     }
 
     return {
-      type: 'KEY',
+      type: "KEY",
       payload,
       recordIndex,
       keysetRecordIndex,
       payloadSize: payload.length,
-    }
+    };
   }
 
   /**
@@ -319,35 +322,35 @@ export class FieldParser {
    */
   sanitizeBindsetName(name) {
     if (name === null || name === undefined) {
-      return 'unknown_bindset'
+      return "unknown_bindset";
     }
 
-    if (typeof name !== 'string') {
-      return 'unknown_bindset'
+    if (typeof name !== "string") {
+      return "unknown_bindset";
     }
 
     if (name.length === 0) {
-      return 'unnamed_bindset'
+      return "unnamed_bindset";
     }
 
     // Apply established sanitization rules
     let sanitized = name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_') // Replace non-alphanumeric characters with underscores
-      .replace(/_+/g, '_') // Collapse multiple consecutive underscores
-      .replace(/^_+|_+$/g, '') // Trim leading and trailing underscores
+      .replace(/[^a-z0-9]+/g, "_") // Replace non-alphanumeric characters with underscores
+      .replace(/_+/g, "_") // Collapse multiple consecutive underscores
+      .replace(/^_+|_+$/g, ""); // Trim leading and trailing underscores
 
     // Prefix names starting with numbers with 'bs_'
     if (/^[0-9]/.test(sanitized)) {
-      sanitized = 'bs_' + sanitized
+      sanitized = "bs_" + sanitized;
     }
 
     // Ensure we have at least one character
     if (sanitized.length === 0) {
-      sanitized = 'unnamed_bindset'
+      sanitized = "unnamed_bindset";
     }
 
-    return sanitized
+    return sanitized;
   }
 
   // ---------------------------------------------------------------------------
@@ -357,116 +360,115 @@ export class FieldParser {
   /**
    * Normalize key token to match application's internal key representation
    * This method ensures that KBF tokens like "SPACE", "CTRL", "ALT" are normalized
-   * to match the application's STO_KEY_NAMES format (e.g., "Space", "Control", "Alt")
+   * to match the application's STO_KEY_NAMES format (e.g., "Space", "Control", "ALT")
    * @param {string} keyToken - Raw key token from KBF file
    * @returns {string} Normalized key token
    * @private
    */
   normalizeKeyToken(keyToken) {
     // Create a case-insensitive lookup map for STO key names
-    const lowerCaseMap = new Map()
-    STO_KEY_NAMES.forEach(stoKey => {
-      lowerCaseMap.set(stoKey.toLowerCase(), stoKey)
-    })
+    /** @type {Map<string, string>} */
+    const lowerCaseMap = new Map();
+    STO_KEY_NAMES.forEach((stoKey) => {
+      lowerCaseMap.set(stoKey.toLowerCase(), stoKey);
+    });
 
     // Try to find exact match first
     if (STO_KEY_NAMES.includes(keyToken)) {
-      return keyToken
+      return keyToken;
     }
 
     // Try case-insensitive match
-    const lowerKey = keyToken.toLowerCase()
+    const lowerKey = keyToken.toLowerCase();
     if (lowerCaseMap.has(lowerKey)) {
-      return lowerCaseMap.get(lowerKey)
+      return lowerCaseMap.get(lowerKey) || keyToken;
     }
 
     // Special case handling for common variations
+    /** @type {Map<string, string>} */
     const specialCases = new Map([
-      ['space', 'Space'],
-      ['ctrl', 'Control'],
-      ['control', 'Control'],
-      ['alt', 'ALT'],
-      ['shift', 'Shift'],
-      ['tab', 'Tab'],
-      ['enter', 'enter'],
-      ['escape', 'delete'],
-      ['esc', 'delete'],
-      ['capslock', 'CapsLock'],
-      ['backspace', 'delete'],
-      ['pageup', 'PageUp'],
-      ['pagedown', 'PageDown'],
-      ['home', 'Home'],
-      ['end', 'End'],
-      ['insert', 'insert'],
-      ['del', 'delete']
-    ])
+      ["space", "Space"],
+      ["ctrl", "Control"],
+      ["control", "Control"],
+      ["alt", "ALT"],
+      ["shift", "Shift"],
+      ["tab", "Tab"],
+      ["enter", "enter"],
+      ["escape", "Delete"],
+      ["esc", "Delete"],
+      ["capslock", "CapsLock"],
+      ["backspace", "Backspace"],
+      ["pageup", "PageUp"],
+      ["pagedown", "PageDown"],
+      ["home", "Home"],
+      ["end", "End"],
+      ["insert", "insert"],
+      ["del", "Delete"],
+    ]);
 
     if (specialCases.has(lowerKey)) {
-      return specialCases.get(lowerKey)
+      return specialCases.get(lowerKey) || keyToken;
     }
 
     // Return original if no match found
-    return keyToken
+    return keyToken;
   }
 
   /**
    * Parse Key token field from KEY record
-   * @param {Object} record - Key field record
+   * @param {KbfRecord} record - Key field record
    * @param {number} fieldIndex - Field index for error reporting
    * @returns {string|null} Key token
    * @private
    */
   parseKeyTokenField(record, fieldIndex) {
     if (!record.hasColon) {
-      this.addError('Invalid Key field: missing colon', {
+      this.addError("Invalid Key field: missing colon", {
         fieldName: record.fieldName,
         value: record.value,
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Handle the case where field has colon but no value (empty key)
     if (record.value === null || record.value === undefined) {
-      this.addError('Empty Key field: null or undefined value', {
+      this.addError("Empty Key field: null or undefined value", {
         fieldName: record.fieldName,
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
-    let keyToken = record.value.trim()
+    let keyToken = record.value.trim();
 
     if (keyToken.length === 0) {
-      this.addError('Empty Key field', {
+      this.addError("Empty Key field", {
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Handle special token "SemiColon" conversion to ";"
-    if (keyToken === 'SemiColon') {
-      keyToken = ';'
-    } else if (keyToken === 'Space') {
-      // Handle special token "Space" conversion to quoted space character
-      keyToken = ' '
+    if (keyToken === "SemiColon") {
+      keyToken = ";";
     } else {
-      // Apply key token normalization for all other keys
+      // Apply key token normalization for all other keys, including Space.
       // This ensures uppercase tokens like "SPACE", "CTRL", "ALT" are normalized
       // to match the application's internal key representation
-      keyToken = this.normalizeKeyToken(keyToken)
+      keyToken = this.normalizeKeyToken(keyToken);
     }
 
-    return keyToken
+    return keyToken;
   }
 
   /**
    * Parse numeric field with optional range validation
-   * @param {Object} record - Record object
+   * @param {KbfRecord} record - Record object
    * @param {number} fieldIndex - Field index for error reporting
    * @param {string} fieldName - Name of the field for error messages
-   * @param {number} minValue - Minimum allowed value (optional)
-   * @param {number} maxValue - Maximum allowed value (optional)
+   * @param {number | null} minValue - Minimum allowed value (optional)
+   * @param {number | null} maxValue - Maximum allowed value (optional)
    * @returns {number|null} Parsed numeric value or null if invalid
    * @private
    */
@@ -475,24 +477,24 @@ export class FieldParser {
     fieldIndex,
     fieldName,
     minValue = null,
-    maxValue = null
+    maxValue = null,
   ) {
     if (!record.hasColon || !record.value) {
       this.addError(`Invalid ${fieldName} field: missing colon or value`, {
         fieldName: record.fieldName,
         value: record.value,
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
-    const value = record.value.trim()
+    const value = record.value.trim();
 
     if (value.length === 0) {
       this.addError(`Empty ${fieldName} field`, {
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Validate that value is numeric (allow negative numbers)
@@ -500,11 +502,11 @@ export class FieldParser {
       this.addError(`Invalid ${fieldName} field: must be numeric`, {
         fieldIndex,
         value,
-      })
-      return null
+      });
+      return null;
     }
 
-    const numericValue = parseInt(value, 10)
+    const numericValue = parseInt(value, 10);
 
     // Range validation if provided
     if (minValue !== null && numericValue < minValue) {
@@ -512,8 +514,8 @@ export class FieldParser {
         fieldIndex,
         value: numericValue,
         minValue,
-      })
-      return minValue
+      });
+      return minValue;
     }
 
     if (maxValue !== null && numericValue > maxValue) {
@@ -521,16 +523,16 @@ export class FieldParser {
         fieldIndex,
         value: numericValue,
         maxValue,
-      })
-      return maxValue
+      });
+      return maxValue;
     }
 
-    return numericValue
+    return numericValue;
   }
 
   /**
    * Parse boolean field (0 or 1)
-   * @param {Object} record - Record object
+   * @param {KbfRecord} record - Record object
    * @param {number} fieldIndex - Field index for error reporting
    * @param {string} fieldName - Name of the field for error messages
    * @returns {boolean} Parsed boolean value
@@ -542,77 +544,78 @@ export class FieldParser {
         fieldName: record.fieldName,
         value: record.value,
         fieldIndex,
-      })
-      return false
+      });
+      return false;
     }
 
-    const value = record.value.trim()
+    const value = record.value.trim();
 
     if (value.length === 0) {
       this.addError(`Empty ${fieldName} field`, {
         fieldIndex,
-      })
-      return false
+      });
+      return false;
     }
 
     // Accept only "0" or "1" as valid boolean values
-    if (value === '1') {
-      return true
-    } else if (value === '0') {
-      return false
+    if (value === "1") {
+      return true;
+    } else if (value === "0") {
+      return false;
     } else {
       this.addWarning(
         `Invalid ${fieldName} field: expected 0 or 1, using false`,
         {
           fieldIndex,
           value,
-        }
-      )
-      return false
+        },
+      );
+      return false;
     }
   }
 
   /**
    * Parse Combo field with *-delimited base64 tokens
-   * @param {Object} record - Combo field record
+   * @param {KbfRecord} record - Combo field record
    * @param {number} fieldIndex - Field index for error reporting
    * @returns {string[]} Array of decoded combo tokens
    * @private
    */
   parseComboField(record, fieldIndex) {
     if (!record.hasColon) {
-      this.addError('Invalid Combo field: missing colon', {
+      this.addError("Invalid Combo field: missing colon", {
         fieldName: record.fieldName,
         value: record.value,
         fieldIndex,
-      })
-      return []
+      });
+      return [];
     }
 
-    const comboValue = record.value.trim()
+    const comboValue = record.value.trim();
 
     if (comboValue.length === 0) {
       // Empty combo field is valid (no combo)
-      return []
+      return [];
     }
 
     // Split by * delimiter and trim trailing empty entries (including trailing * delimiters)
     // Remove empty strings from the result
-    const tokens = comboValue.split('*').filter((token) => token.length > 0)
+    const tokens = comboValue.split("*").filter((token) => token.length > 0);
 
     if (tokens.length === 0) {
       // All tokens were empty after filtering (e.g., just "*" or empty)
-      return []
+      return [];
     }
 
-    const decodedTokens = []
+    /** @type {string[]} */
+    const decodedTokens = [];
 
     for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i].trim()
+      const token = tokens[i].trim();
 
       if (token.length === 0) {
         // Skip empty tokens (shouldn't happen due to filtering, but be safe)
-        continue
+        continue;
       }
 
       // Basic validation that token looks like Base64
@@ -621,78 +624,83 @@ export class FieldParser {
           fieldIndex,
           tokenIndex: i,
           token,
-        })
+        });
         // Skip invalid tokens completely
-        continue
+        continue;
       }
 
       // Base64-decode each token
       try {
-        const decodedToken = atob(token)
+        const decodedToken = atob(token);
         if (decodedToken.length > 0) {
-          decodedTokens.push(decodedToken)
+          decodedTokens.push(decodedToken);
         }
       } catch (error) {
-        this.addWarning(`Failed to decode combo token: ${error.message}`, {
-          fieldIndex,
-          tokenIndex: i,
-          token,
-          errorType: error.name,
-        })
+        const errorObject =
+          error instanceof Error ? error : new Error(String(error));
+        this.addWarning(
+          `Failed to decode combo token: ${errorObject.message}`,
+          {
+            fieldIndex,
+            tokenIndex: i,
+            token,
+            errorType: errorObject.name,
+          },
+        );
         // Skip this token and continue with others
       }
     }
 
-    return decodedTokens
+    return decodedTokens;
   }
 
   /**
    * Parse ACT field containing base64 activity payload
-   * @param {Object} record - ACT field record
+   * @param {KbfRecord} record - ACT field record
    * @param {number} fieldIndex - Field index for error reporting
-   * @returns {Object|null} Activity record with payload
+   * @returns {Record<string, any>|null} Activity record with payload
    * @private
    */
   parseActivityField(record, fieldIndex) {
     if (!record.hasColon || !record.value) {
-      this.addError('Invalid ACT field: missing colon or value', {
+      this.addError("Invalid ACT field: missing colon or value", {
         fieldName: record.fieldName,
         value: record.value,
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
-    const payload = record.value.trim()
+    const payload = record.value.trim();
 
     if (payload.length === 0) {
-      this.addError('Empty ACT payload', {
+      this.addError("Empty ACT payload", {
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Basic validation that payload looks like Base64
     if (!/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) {
-      this.addWarning('ACT payload may not be valid Base64 data', {
+      this.addWarning("ACT payload may not be valid Base64 data", {
         fieldIndex,
         payloadLength: payload.length,
         payloadPreview: payload.slice(0, 50),
-      })
+      });
       // Still include it - let Layer 5 handle the validation
     }
 
     return {
-      type: 'ACT',
+      type: "ACT",
       payload,
       fieldIndex,
       payloadSize: payload.length,
-    }
+    };
   }
 
   /**
    * Parse Base64-encoded text field from ACT record
-   * @param {Object} record - Text field record
+   * @param {KbfRecord} record - Text field record
    * @param {number} fieldIndex - Field index for error reporting
    * @returns {string|null} Decoded UTF-8 string or null if invalid
    * @private
@@ -703,21 +711,21 @@ export class FieldParser {
         fieldName: record.fieldName,
         value: record.value,
         fieldIndex,
-      })
-      return null
+      });
+      return null;
     }
 
     // Handle the case where field has colon but no value (empty text field)
     if (record.value === null || record.value === undefined) {
       // Empty text fields are valid in KBF format
-      return ''
+      return "";
     }
 
-    const base64Text = record.value.trim()
+    const base64Text = record.value.trim();
 
     if (base64Text.length === 0) {
       // Empty text fields are valid in KBF format
-      return ''
+      return "";
     }
 
     // Basic validation that text looks like Base64
@@ -728,61 +736,69 @@ export class FieldParser {
           fieldIndex,
           textLength: base64Text.length,
           textPreview: base64Text.slice(0, 50),
-        }
-      )
+        },
+      );
       // Still try to decode it - let Base64 decoding handle the error
     }
 
     // Base64 decode the text content
     try {
       // Convert base64 to binary string, then to Uint8Array for proper UTF-8 decoding
-      const binaryString = atob(base64Text)
-      const utf8Bytes = new Uint8Array(binaryString.length)
+      const binaryString = atob(base64Text);
+      const utf8Bytes = new Uint8Array(binaryString.length);
 
       for (let i = 0; i < binaryString.length; i++) {
-        utf8Bytes[i] = binaryString.charCodeAt(i)
+        utf8Bytes[i] = binaryString.charCodeAt(i);
       }
 
       // Decode UTF-8 bytes properly
       try {
-        const decoder = new TextDecoder('utf-8', { fatal: true })
-        const validUtf8Text = decoder.decode(utf8Bytes)
-        return validUtf8Text
+        const decoder = new TextDecoder("utf-8", { fatal: true });
+        const validUtf8Text = decoder.decode(utf8Bytes);
+        return validUtf8Text;
       } catch (utf8Error) {
+        const utf8ErrorObject =
+          utf8Error instanceof Error ? utf8Error : new Error(String(utf8Error));
         // If UTF-8 validation fails, fall back to non-fatal decoding
         this.addWarning(
           `${record.fieldName} field contains invalid UTF-8 data, using fallback decoding`,
           {
             fieldIndex,
-            errorType: utf8Error.name,
-            errorMessage: utf8Error.message,
-          }
-        )
+            errorType: utf8ErrorObject.name,
+            errorMessage: utf8ErrorObject.message,
+          },
+        );
 
         try {
-          const decoder = new TextDecoder('utf-8', { fatal: false })
-          const fallbackText = decoder.decode(utf8Bytes)
-          return fallbackText
+          const decoder = new TextDecoder("utf-8", { fatal: false });
+          const fallbackText = decoder.decode(utf8Bytes);
+          return fallbackText;
         } catch (fallbackError) {
+          const fallbackErrorObject =
+            fallbackError instanceof Error
+              ? fallbackError
+              : new Error(String(fallbackError));
           this.addError(
             `Complete ${record.fieldName} field UTF-8 decoding failure`,
             {
               fieldIndex,
-              errorType: fallbackError.name,
-              errorMessage: fallbackError.message,
-            }
-          )
-          return '' // Return empty string as last resort
+              errorType: fallbackErrorObject.name,
+              errorMessage: fallbackErrorObject.message,
+            },
+          );
+          return ""; // Return empty string as last resort
         }
       }
     } catch (error) {
+      const errorObject =
+        error instanceof Error ? error : new Error(String(error));
       this.addError(`Failed to Base64 decode ${record.fieldName} field`, {
         fieldIndex,
-        errorType: error.name,
-        errorMessage: error.message,
+        errorType: errorObject.name,
+        errorMessage: errorObject.message,
         textLength: base64Text.length,
-      })
-      return '' // Return empty string as last resort
+      });
+      return ""; // Return empty string as last resort
     }
   }
 
@@ -797,11 +813,6 @@ export class FieldParser {
 
 /**
  * Create a standalone KBF field parser instance
- * @param {Object} options - Configuration options
+ * @param {{ decoder?: any, [option: string]: any }} options - Configuration options
  * @returns {FieldParser} Configured field parser instance
  */
-export function createFieldParser(options = {}) {
-  return new FieldParser(options)
-}
-
-export default FieldParser

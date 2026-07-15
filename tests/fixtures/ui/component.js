@@ -1,9 +1,13 @@
 // UI Component fixture
 // Provides a configured component with testing utilities for UI components
 
-import { vi } from 'vitest'
-import { createEventBusFixture } from '../core/eventBus.js'
-import { registerFixture, unregisterFixture, generateFixtureId } from '../core/cleanup.js'
+import { vi } from "vitest";
+import { createEventBusFixture } from "../core/eventBus.js";
+import {
+  registerFixture,
+  unregisterFixture,
+  generateFixtureId,
+} from "../core/cleanup.js";
 
 /**
  * Create a UI Component fixture for testing
@@ -17,55 +21,55 @@ import { registerFixture, unregisterFixture, generateFixtureId } from '../core/c
  * @returns {Object} Component fixture with testing utilities
  */
 export function createUIComponentFixture(ComponentClass, options = {}) {
-  const eventBus = options.eventBus || null
+  const eventBus = options.eventBus || null;
 
   const document = options.document || {
     getElementById: vi.fn((id) => {
-      if (id === 'statusIndicator') {
+      if (id === "statusIndicator") {
         return {
           querySelector: vi.fn((selector) => {
-            if (selector === 'i') {
+            if (selector === "i") {
               return {
-                className: 'fas fa-check-circle'
-              }
+                className: "fas fa-check-circle",
+              };
             }
-            if (selector === 'span') {
+            if (selector === "span") {
               return {
-                textContent: 'Valid',
-                setAttribute: vi.fn()
-              }
+                textContent: "Valid",
+                setAttribute: vi.fn(),
+              };
             }
             return {
               classList: { add: vi.fn(), remove: vi.fn() },
               setAttribute: vi.fn(),
-              className: 'fas fa-check-circle',
-              textContent: 'Valid'
-            }
+              className: "fas fa-check-circle",
+              textContent: "Valid",
+            };
           }),
           classList: { add: vi.fn(), remove: vi.fn() },
           setAttribute: vi.fn(),
-          onclick: null
-        }
+          onclick: null,
+        };
       }
       return {
         querySelector: vi.fn(() => ({
           classList: { add: vi.fn(), remove: vi.fn() },
           setAttribute: vi.fn(),
           removeAttribute: vi.fn(),
-          style: { display: '' }
+          style: { display: "" },
         })),
         classList: { add: vi.fn(), remove: vi.fn() },
         setAttribute: vi.fn(),
         removeAttribute: vi.fn(),
-        style: { display: '' }
-      }
+        style: { display: "" },
+      };
     }),
     createElement: vi.fn(() => ({
-      value: '',
-      textContent: '',
-      innerHTML: '',
-      className: '',
-      id: '',
+      value: "",
+      textContent: "",
+      innerHTML: "",
+      className: "",
+      id: "",
       style: {},
       classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
       addEventListener: vi.fn(),
@@ -77,18 +81,18 @@ export function createUIComponentFixture(ComponentClass, options = {}) {
       removeChild: vi.fn(),
       querySelector: vi.fn(),
       setAttribute: vi.fn(),
-      removeAttribute: vi.fn()
+      removeAttribute: vi.fn(),
     })),
-    body: { 
-      appendChild: vi.fn(), 
+    body: {
+      appendChild: vi.fn(),
       removeChild: vi.fn(),
       querySelector: vi.fn(),
       createElement: vi.fn(() => ({
-        value: '',
-        textContent: '',
-        innerHTML: '',
-        className: '',
-        id: '',
+        value: "",
+        textContent: "",
+        innerHTML: "",
+        className: "",
+        id: "",
         style: {},
         classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
         addEventListener: vi.fn(),
@@ -100,23 +104,23 @@ export function createUIComponentFixture(ComponentClass, options = {}) {
         removeChild: vi.fn(),
         querySelector: vi.fn(),
         setAttribute: vi.fn(),
-        removeAttribute: vi.fn()
-      }))
-    }
-  }
+        removeAttribute: vi.fn(),
+      })),
+    },
+  };
 
   const i18n = options.i18n || {
-    t: vi.fn((key, params) => key)
-  }
+    t: vi.fn((key) => key),
+  };
 
-  const constructorArgs = options.constructorArgs || {}
-  const autoInit = options.autoInit || false
+  const constructorArgs = options.constructorArgs || {};
+  const autoInit = options.autoInit || false;
 
-  const fixtureId = generateFixtureId('uiComponent')
+  const fixtureId = generateFixtureId("uiComponent");
 
   // Create eventBus if not provided
-  const eventBusFixture = eventBus || createEventBusFixture()
-  const actualEventBus = eventBus || eventBusFixture.eventBus
+  const eventBusFixture = eventBus || createEventBusFixture();
+  const actualEventBus = eventBus || eventBusFixture.eventBus;
 
   // Default constructor arguments for UI components
   const defaultArgs = {
@@ -124,51 +128,51 @@ export function createUIComponentFixture(ComponentClass, options = {}) {
     document: document,
     i18n: i18n,
     modalManager: null,
-    ui: null
-  }
+    ui: null,
+  };
 
-  const finalConstructorArgs = { ...defaultArgs, ...constructorArgs }
+  const finalConstructorArgs = { ...defaultArgs, ...constructorArgs };
 
   // Create component instance
-  const component = new ComponentClass(finalConstructorArgs)
+  const component = new ComponentClass(finalConstructorArgs);
 
   // Track initialization state
-  let isInitialized = false
-  let isDestroyed = false
+  let isInitialized = false;
+  let isDestroyed = false;
 
   // Spy on lifecycle methods
-  const originalInit = component.init.bind(component)
-  const originalDestroy = component.destroy.bind(component)
+  const originalInit = component.init.bind(component);
+  const originalDestroy = component.destroy.bind(component);
 
   component.init = vi.fn((...args) => {
-    const result = originalInit(...args)
-    isInitialized = true
-    isDestroyed = false
-    return result
-  })
+    const result = originalInit(...args);
+    isInitialized = true;
+    isDestroyed = false;
+    return result;
+  });
 
   component.destroy = vi.fn((...args) => {
-    const result = originalDestroy(...args)
-    isInitialized = false
-    isDestroyed = true
-    return result
-  })
+    const result = originalDestroy(...args);
+    isInitialized = false;
+    isDestroyed = true;
+    return result;
+  });
 
   // Auto-initialize if requested
   if (autoInit) {
-    component.init()
+    component.init();
   }
 
   // Register fixture for cleanup
   const cleanupFn = () => {
     if (!isDestroyed && component.destroy) {
-      component.destroy()
+      component.destroy();
     }
     if (eventBusFixture) {
-      eventBusFixture.destroy()
+      eventBusFixture.destroy();
     }
-  }
-  registerFixture(fixtureId, cleanupFn)
+  };
+  registerFixture(fixtureId, cleanupFn);
 
   // Return fixture with component and utilities
   return {
@@ -191,14 +195,15 @@ export function createUIComponentFixture(ComponentClass, options = {}) {
     request: (topic, payload) => actualEventBus.request(topic, payload),
 
     // Mock response helper
-    mockResponse: (topic, handler) => actualEventBus.mockResponse(topic, handler),
+    mockResponse: (topic, handler) =>
+      actualEventBus.mockResponse(topic, handler),
 
     // Manual cleanup
     cleanup: () => {
-      unregisterFixture(fixtureId)
+      unregisterFixture(fixtureId);
       if (eventBusFixture) {
-        eventBusFixture.destroy()
+        eventBusFixture.destroy();
       }
-    }
-  }
+    },
+  };
 }

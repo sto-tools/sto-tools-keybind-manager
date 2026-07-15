@@ -1,276 +1,288 @@
 // EventBus fixture
 // Provides a configured eventBus with testing utilities
 
-import { vi } from 'vitest'
-import { registerFixture, unregisterFixture, generateFixtureId } from './cleanup.js'
+import { vi } from "vitest";
+import {
+  registerFixture,
+  unregisterFixture,
+  generateFixtureId,
+} from "./cleanup.js";
 
 /**
  * Create an EventBus fixture for testing
  * @param {Object} options - Configuration options
  * @param {boolean} options.trackEvents - Whether to track events for assertions
  * @param {boolean} options.mockEmit - Whether to mock emit for spying
- * @param {boolean} options.realEventBus - Whether to use the real eventBus module
  * @returns {Object} EventBus fixture with testing utilities
  */
 export function createEventBusFixture(options = {}) {
-  const {
-    trackEvents = true,
-    mockEmit = false,
-    realEventBus = false
-  } = options
+  const { trackEvents = true, mockEmit = false } = options;
 
-  const fixtureId = generateFixtureId('eventBus')
-  const listeners = new Map()
-  const eventHistory = []
+  const fixtureId = generateFixtureId("eventBus");
+  const listeners = new Map();
+  const eventHistory = [];
 
   // Core eventBus implementation
   const eventBus = {
     on: vi.fn((event, callback) => {
       if (!listeners.has(event)) {
-        listeners.set(event, new Set())
+        listeners.set(event, new Set());
       }
-      listeners.get(event).add(callback)
-      
+      listeners.get(event).add(callback);
+
       // Return detach function
       return () => {
-        const eventListeners = listeners.get(event)
+        const eventListeners = listeners.get(event);
         if (eventListeners) {
-          eventListeners.delete(callback)
+          eventListeners.delete(callback);
         }
-      }
+      };
     }),
 
     off: vi.fn((event, callback) => {
-      const eventListeners = listeners.get(event)
+      const eventListeners = listeners.get(event);
       if (eventListeners) {
-        eventListeners.delete(callback)
+        eventListeners.delete(callback);
       }
     }),
 
-    emit: mockEmit ? vi.fn() : vi.fn((event, data) => {
-      // Track event history
-      if (trackEvents) {
-        eventHistory.push({
-          event,
-          data,
-          timestamp: Date.now()
-        })
-      }
-      
-      // Call listeners
-      const eventListeners = listeners.get(event)
-      if (eventListeners) {
-        eventListeners.forEach(callback => {
-          try {
-            callback(data)
-          } catch (error) {
-            console.error(`Error in event listener for ${event}:`, error)
+    emit: mockEmit
+      ? vi.fn()
+      : vi.fn((event, data) => {
+          // Track event history
+          if (trackEvents) {
+            eventHistory.push({
+              event,
+              data,
+              timestamp: Date.now(),
+            });
           }
-        })
-      }
-    }),
+
+          // Call listeners
+          const eventListeners = listeners.get(event);
+          if (eventListeners) {
+            eventListeners.forEach((callback) => {
+              try {
+                callback(data);
+              } catch (error) {
+                console.error(`Error in event listener for ${event}:`, error);
+              }
+            });
+          }
+        }),
 
     once: vi.fn((event, callback) => {
       const onceCallback = (data) => {
-        eventBus.off(event, onceCallback)
-        callback(data)
-      }
-      eventBus.on(event, onceCallback)
+        eventBus.off(event, onceCallback);
+        callback(data);
+      };
+      eventBus.on(event, onceCallback);
     }),
 
     // Built-in request/response support
     request: vi.fn(async (topic, payload) => {
       // Generate a mock request ID and reply topic
-      const requestId = `mock_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
-      const replyTopic = `${topic}::reply::${requestId}`
+      const requestId = `mock_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const replyTopic = `${topic}::reply::${requestId}`;
 
       // Set up response listener
-      let response = null
-      let timeoutId = null
+      let timeoutId = null;
 
       return new Promise((resolve, reject) => {
         // Set up response handler
         const onResponse = (message) => {
           if (timeoutId) {
-            clearTimeout(timeoutId)
+            clearTimeout(timeoutId);
           }
-          if (message && Object.prototype.hasOwnProperty.call(message, 'error')) {
-            reject(new Error(message.error))
+          if (
+            message &&
+            Object.prototype.hasOwnProperty.call(message, "error")
+          ) {
+            reject(new Error(message.error));
           } else {
-            resolve(message ? message.data : undefined)
+            resolve(message ? message.data : undefined);
           }
-        }
+        };
 
-        eventBus.on(replyTopic, onResponse)
+        eventBus.on(replyTopic, onResponse);
 
         // Set timeout
         timeoutId = setTimeout(() => {
-          eventBus.off(replyTopic, onResponse)
-          reject(new Error('Request timed out'))
-        }, 5000)
+          eventBus.off(replyTopic, onResponse);
+          reject(new Error("Request timed out"));
+        }, 5000);
 
         // Emit the request
-        eventBus.emit(`rpc:${topic}`, { requestId, replyTopic, payload })
-      })
+        eventBus.emit(`rpc:${topic}`, { requestId, replyTopic, payload });
+      });
     }),
 
     clear: vi.fn(() => {
-      listeners.clear()
+      listeners.clear();
       if (trackEvents) {
-        eventHistory.length = 0
+        eventHistory.length = 0;
       }
     }),
 
     getListenerCount: vi.fn((event) => {
-      const eventListeners = listeners.get(event)
-      return eventListeners ? eventListeners.size : 0
+      const eventListeners = listeners.get(event);
+      return eventListeners ? eventListeners.size : 0;
     }),
 
     // Helper to mock responses for testing
     mockResponse: vi.fn((topic, handler) => {
       eventBus.on(`rpc:${topic}`, ({ requestId, replyTopic, payload }) => {
         try {
-          const result = handler(payload, requestId, replyTopic)
+          const result = handler(payload, requestId, replyTopic);
           if (result instanceof Promise) {
-            result.then(data => {
-              eventBus.emit(replyTopic, { data })
-            }).catch(error => {
-              eventBus.emit(replyTopic, { error: error.message })
-            })
+            result
+              .then((data) => {
+                eventBus.emit(replyTopic, { data });
+              })
+              .catch((error) => {
+                eventBus.emit(replyTopic, { error: error.message });
+              });
           } else {
-            eventBus.emit(replyTopic, { data: result })
+            eventBus.emit(replyTopic, { data: result });
           }
         } catch (error) {
-          eventBus.emit(replyTopic, { error: error.message })
+          eventBus.emit(replyTopic, { error: error.message });
         }
-      })
+      });
     }),
 
     getAllListenerCounts: vi.fn(() => {
-      const counts = {}
+      const counts = {};
       for (const [event, listenerSet] of listeners) {
-        counts[event] = listenerSet.size
+        counts[event] = listenerSet.size;
       }
-      return counts
+      return counts;
     }),
 
     // DOM event handling (simplified for testing)
-    onDom: vi.fn((target, domEvent, busEvent, handler) => {
+    onDom: vi.fn((target, domEvent, busEvent) => {
       // If only 3 arguments provided, treat busEvent as handler
-      if (typeof busEvent === 'function') {
-        handler = busEvent
-        busEvent = domEvent
+      if (typeof busEvent === "function") {
+        busEvent = domEvent;
       }
-      if (!busEvent) busEvent = domEvent
+      if (!busEvent) busEvent = domEvent;
 
       return vi.fn(() => {
         // Cleanup function - remove the mock listener
-      })
+      });
     }),
 
-    onDomDebounced: vi.fn((target, domEvent, busEvent, handler, delay = 250) => {
+    onDomDebounced: vi.fn(() => {
       // Mock implementation
-      return vi.fn() // Return cleanup function
+      return vi.fn(); // Return cleanup function
     }),
 
     debounce: vi.fn((fn, delay = 250) => {
       // Return a simple debounced version for testing
-      let timerId
+      let timerId;
       return (...args) => {
-        clearTimeout(timerId)
-        timerId = setTimeout(() => fn.apply(this, args), delay)
-      }
+        clearTimeout(timerId);
+        timerId = setTimeout(() => fn.apply(this, args), delay);
+      };
     }),
 
     // Expose listeners for debugging
     get listeners() {
-      return listeners
-    }
-  }
+      return listeners;
+    },
+  };
 
   // Add testing utilities
   const fixture = {
     eventBus,
-    
+
     // Testing utilities
     getEventHistory: () => [...eventHistory],
-    
+
     clearEventHistory: () => {
-      eventHistory.length = 0
+      eventHistory.length = 0;
     },
-    
+
     getEventsOfType: (eventType) => {
-      return eventHistory.filter(entry => entry.event === eventType)
+      return eventHistory.filter((entry) => entry.event === eventType);
     },
-    
+
     waitForEvent: (eventType, timeout = 1000) => {
       return new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
-          reject(new Error(`Event '${eventType}' not received within ${timeout}ms`))
-        }, timeout)
-        
+          reject(
+            new Error(`Event '${eventType}' not received within ${timeout}ms`),
+          );
+        }, timeout);
+
         const handler = (data) => {
-          clearTimeout(timeoutId)
-          eventBus.off(eventType, handler)
-          resolve(data)
-        }
-        
-        eventBus.on(eventType, handler)
-      })
+          clearTimeout(timeoutId);
+          eventBus.off(eventType, handler);
+          resolve(data);
+        };
+
+        eventBus.on(eventType, handler);
+      });
     },
-    
+
     expectEvent: (eventType, data) => {
-      const events = eventHistory.filter(entry => entry.event === eventType)
+      const events = eventHistory.filter((entry) => entry.event === eventType);
       if (events.length === 0) {
-        throw new Error(`Expected event '${eventType}' but it was not emitted`)
+        throw new Error(`Expected event '${eventType}' but it was not emitted`);
       }
-      
+
       if (data !== undefined) {
-        const matchingEvent = events.find(event => 
-          JSON.stringify(event.data) === JSON.stringify(data)
-        )
+        const matchingEvent = events.find(
+          (event) => JSON.stringify(event.data) === JSON.stringify(data),
+        );
         if (!matchingEvent) {
-          throw new Error(`Expected event '${eventType}' with data ${JSON.stringify(data)} but it was not found`)
+          throw new Error(
+            `Expected event '${eventType}' with data ${JSON.stringify(data)} but it was not found`,
+          );
         }
       }
     },
-    
+
     expectEventCount: (eventType, count) => {
-      const events = eventHistory.filter(entry => entry.event === eventType)
+      const events = eventHistory.filter((entry) => entry.event === eventType);
       if (events.length !== count) {
-        throw new Error(`Expected ${count} '${eventType}' events but got ${events.length}`)
+        throw new Error(
+          `Expected ${count} '${eventType}' events but got ${events.length}`,
+        );
       }
     },
-    
+
     expectNoEvent: (eventType) => {
-      const events = eventHistory.filter(entry => entry.event === eventType)
+      const events = eventHistory.filter((entry) => entry.event === eventType);
       if (events.length > 0) {
-        throw new Error(`Expected no '${eventType}' events but got ${events.length}`)
+        throw new Error(
+          `Expected no '${eventType}' events but got ${events.length}`,
+        );
       }
     },
-    
+
     // Mock control
     mockReset: () => {
-      Object.keys(eventBus).forEach(key => {
+      Object.keys(eventBus).forEach((key) => {
         if (vi.isMockFunction(eventBus[key])) {
-          eventBus[key].mockReset()
+          eventBus[key].mockReset();
         }
-      })
-      eventHistory.length = 0
+      });
+      eventHistory.length = 0;
     },
-    
+
     // Cleanup
     destroy: () => {
-      listeners.clear()
-      eventHistory.length = 0
-      unregisterFixture(fixtureId)
-    }
-  }
+      listeners.clear();
+      eventHistory.length = 0;
+      unregisterFixture(fixtureId);
+    },
+  };
 
   // Register for cleanup
-  registerFixture(fixtureId, fixture.destroy)
+  registerFixture(fixtureId, fixture.destroy);
 
-  return fixture
+  return fixture;
 }
 
 /**
@@ -278,39 +290,41 @@ export function createEventBusFixture(options = {}) {
  * Useful for integration tests where you need the real behavior
  */
 export async function createRealEventBusFixture() {
-  const fixtureId = generateFixtureId('realEventBus')
-  
+  const fixtureId = generateFixtureId("realEventBus");
+
   // Import the real eventBus
-  const { default: eventBus } = await import('../../../src/js/core/eventBus.js')
-  
+  const { default: eventBus } = await import(
+    "../../../src/js/core/eventBus.js"
+  );
+
   // Store original state
-  const originalListeners = new Map(eventBus.listeners)
-  
+  const originalListeners = new Map(eventBus.listeners);
+
   const fixture = {
     eventBus,
-    
+
     // Reset to clean state
     reset: () => {
-      eventBus.clear()
+      eventBus.clear();
     },
-    
+
     // Restore original state
     restore: () => {
-      eventBus.clear()
+      eventBus.clear();
       for (const [event, listeners] of originalListeners) {
         for (const listener of listeners) {
-          eventBus.on(event, listener)
+          eventBus.on(event, listener);
         }
       }
     },
-    
+
     destroy: () => {
-      eventBus.clear()
-      unregisterFixture(fixtureId)
-    }
-  }
-  
-  registerFixture(fixtureId, fixture.destroy)
-  
-  return fixture
-} 
+      eventBus.clear();
+      unregisterFixture(fixtureId);
+    },
+  };
+
+  registerFixture(fixtureId, fixture.destroy);
+
+  return fixture;
+}

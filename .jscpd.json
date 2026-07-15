@@ -1,0 +1,17 @@
+{
+  "absolute": true,
+  "gitignore": true,
+  "ignore": [
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/docs/**",
+    "**/docs_legacy/**",
+    "**/node_modules/**"
+  ],
+  "minLines": 20,
+  "minTokens": 120,
+  "pattern": ["src/js/**/*.js"],
+  "reporters": ["console"],
+  "threshold": 0
+}

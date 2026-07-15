@@ -2,28 +2,73 @@
  * ComponentBase - Base class for all application components
  * Provides common functionality including event bus access and lifecycle methods
  */
-import { request as _cbRequest, respond as _cbRespond } from '../core/requestResponse.js'
+import {
+  request as _cbRequest,
+  respond as _cbRespond,
+} from "../core/requestResponse.js";
+
+/** @typedef {typeof import('../core/eventBus.js').default} EventBus */
+/** @typedef {(data: any) => any} EventHandler */
+/** @typedef {(event: Event) => any} DomEventHandler */
+/**
+ * @typedef {Record<string, any> & {
+ *   selectedKey: string | null,
+ *   selectedAlias: string | null,
+ *   currentEnvironment: string,
+ *   currentProfile: string | null,
+ *   profile: any,
+ *   keys: Record<string, any>,
+ *   aliases: Record<string, any>,
+ *   builds: Record<string, any> | null,
+ *   preferences: Record<string, any>,
+ *   activeBindset: string,
+ *   bindsetNames: string[]
+ * }} ComponentCache
+ */
 
 export default class ComponentBase {
   // Static FinalizationRegistry for automatic cleanup when components are garbage collected
   static cleanupRegistry = new FinalizationRegistry((heldValue) => {
     if (heldValue && heldValue.component && heldValue.component.destroy) {
-      console.log(`[ComponentBase] Finalizing ${heldValue.constructorName || 'Component'}`)
-      heldValue.component.destroy()
+      console.log(
+        `[ComponentBase] Finalizing ${heldValue.constructorName || "Component"}`,
+      );
+      heldValue.component.destroy();
     }
-  })
+  });
+  /** @param {EventBus | null} [eventBus] */
   constructor(eventBus = null) {
-    this.eventBus = eventBus
-    this.initialized = false
-    this.destroyed = false
-    this.eventListeners = new Map() // Track event listeners for cleanup
-    this.domEventListeners = [] // Track DOM event listeners for cleanup
+    this.eventBus = eventBus;
+    this.componentName = this.constructor.name;
+    this.initialized = false;
+    this.destroyed = false;
+    /** @type {ComponentCache} */
+    this.cache = {
+      selectedKey: null,
+      selectedAlias: null,
+      currentEnvironment: "space",
+      currentProfile: null,
+      profile: null,
+      keys: {},
+      aliases: {},
+      builds: {},
+      preferences: {},
+      activeBindset: "Primary Bindset",
+      bindsetNames: ["Primary Bindset"],
+    };
+    this._myReplyTopic = "";
+    this._currentEnvironment = "space";
+    this._currentProfileId = null;
+    /** @type {Map<string, Array<{ handler: EventHandler, context: unknown }>>} */
+    this.eventListeners = new Map(); // Track event listeners for cleanup
+    /** @type {Array<() => void>} */
+    this.domEventListeners = []; // Track DOM event listeners for cleanup
 
     // Register this instance for automatic cleanup when garbage collected
     ComponentBase.cleanupRegistry.register(this, {
       component: this,
-      constructorName: this.constructor.name
-    })
+      constructorName: this.constructor.name,
+    });
   }
 
   /**
@@ -32,74 +77,75 @@ export default class ComponentBase {
    */
   init() {
     if (this.initialized) {
-      return
+      return;
     }
-    
-    this.initialized = true
-    this.destroyed = false
-    
+
+    this.initialized = true;
+    this.destroyed = false;
+
     // Initialize cache early to ensure it's available for event listeners
-    this.initializeCache()
-    
+    this.initializeCache();
+
     // ---------------------------------------------------------
     // Late-Join State Registration handshake setup
     // ---------------------------------------------------------
     // 1) Listen for other components registering so we can
     //    respond with our current state.
-    this.addEventListener('component:register', this._onComponentRegister.bind(this))
+    this.addEventListener(
+      "component:register",
+      this._onComponentRegister.bind(this),
+    );
 
     // 2) Prepare a unique reply topic for this component instance
-    this._myReplyTopic = `component:registered:reply:${this.getComponentName()}:${Date.now()}`
-    this.addEventListener(this._myReplyTopic, this._onInitialState.bind(this))
+    this._myReplyTopic = `component:registered:reply:${this.getComponentName()}:${Date.now()}`;
+    this.addEventListener(this._myReplyTopic, this._onInitialState.bind(this));
 
     // 3) Announce our readiness so existing components can reply
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      //console.log(`[ComponentBase] ${this.getComponentName()} sending component:register`)
-    }
-    this.emit('component:register', {
+    this.emit("component:register", {
       name: this.getComponentName(),
-      replyTopic: this._myReplyTopic
-    })
+      replyTopic: this._myReplyTopic,
+    });
 
     // 4) Set up standardized event listeners for common state
-    this._setupStandardizedEventListeners()
+    this._setupStandardizedEventListeners();
 
-    // 5) Call UI-specific initialization hook if it exists
-    if (this.uiInit) {
-      this.uiInit()
-    }
+    // 5) Call the optional UI-specific initialization hook
+    this.uiInit();
 
     // 6) Continue with component-specific initialization
-    this.onInit()
+    this.onInit();
   }
 
   // Initialize cache in constructor if needed
+  /** @param {Record<string, any>} [additionalCacheData] */
   initializeCache(additionalCacheData = {}) {
     if (!this.cache) {
       this.cache = {
         selectedKey: null,
         selectedAlias: null,
-        currentEnvironment: 'space',
+        currentEnvironment: "space",
         currentProfile: null,
         profile: null,
         keys: {},
         aliases: {},
         builds: {},
         preferences: {},
-        activeBindset: 'Primary Bindset',
-        bindsetNames: ['Primary Bindset'],
-        ...additionalCacheData
-      }
+        activeBindset: "Primary Bindset",
+        bindsetNames: ["Primary Bindset"],
+        ...additionalCacheData,
+      };
+    } else {
+      Object.assign(this.cache, additionalCacheData);
     }
   }
 
   // Extend cache with additional properties after initialization
+  /** @param {Record<string, any>} [additionalCacheData] */
   extendCache(additionalCacheData = {}) {
     if (this.cache) {
-      Object.assign(this.cache, additionalCacheData)
+      Object.assign(this.cache, additionalCacheData);
     } else {
-      this.initializeCache(additionalCacheData)
+      this.initializeCache(additionalCacheData);
     }
   }
 
@@ -109,131 +155,138 @@ export default class ComponentBase {
    */
   _setupStandardizedEventListeners() {
     // Initialize cache
-    this.initializeCache()
+    this.initializeCache();
 
     // Cache selection state from SelectionService broadcasts
-    this.addEventListener('key-selected', (data) => {
-      this.cache.selectedKey = data.key
-      this.cache.selectedAlias = null // Clear alias when key selected
-    })
+    this.addEventListener("key-selected", (data) => {
+      this.cache.selectedKey = data.key;
+      this.cache.selectedAlias = null; // Clear alias when key selected
+    });
 
-    this.addEventListener('alias-selected', (data) => {
-      this.cache.selectedAlias = data.name
-      this.cache.selectedKey = null // Clear key when alias selected
-    })
+    this.addEventListener("alias-selected", (data) => {
+      this.cache.selectedAlias = data.name;
+      this.cache.selectedKey = null; // Clear key when alias selected
+    });
 
     // Cache environment changes
-    this.addEventListener('environment:changed', (data) => {
-      const env = typeof data === 'string' ? data : data?.environment
+    this.addEventListener("environment:changed", (data) => {
+      const env = typeof data === "string" ? data : data?.environment;
       if (env) {
-        this.cache.currentEnvironment = env
+        this.cache.currentEnvironment = env;
         // Update keys cache for new environment if we have builds data
         if (this.cache.builds && this.cache.builds[env]) {
-          this.cache.keys = this.cache.builds[env].keys || {}
+          this.cache.keys = this.cache.builds[env].keys || {};
         }
       }
-    })
+    });
 
     // Cache profile updates from DataCoordinator
-    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+    this.addEventListener("profile:updated", ({ profileId, profile }) => {
       if (this.cache && profileId === this.cache.currentProfile) {
-        this.cache.profile = profile
+        this.cache.profile = profile;
         // Handle null profile gracefully
         if (!profile) {
-          this.cache.builds = null
-          this.cache.keys = {}
-          this.cache.aliases = {}
-          return
+          this.cache.builds = null;
+          this.cache.keys = {};
+          this.cache.aliases = {};
+          return;
         }
         // Update keys for current environment
         if (profile.builds) {
-          this.cache.builds = profile.builds
-          const currentBuild = profile.builds[this.cache.currentEnvironment]
-          this.cache.keys = currentBuild?.keys || {}
+          this.cache.builds = profile.builds;
+          const currentBuild = profile.builds[this.cache.currentEnvironment];
+          this.cache.keys = currentBuild?.keys || {};
         } else if (profile.keys) {
-          this.cache.keys = profile.keys
+          this.cache.keys = profile.keys;
         }
         // Update aliases
-        this.cache.aliases = profile.aliases || {}
+        this.cache.aliases = profile.aliases || {};
       }
-    })
+    });
 
     // Handle profile switches
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.cache.currentProfile = profileId
-      this.cache.profile = profile
-      this.cache.currentEnvironment = environment || 'space'
-      // Backward compatibility for components expecting underscore names
-      this._currentEnvironment = this.cache.currentEnvironment
-      this._currentProfileId = profileId
+    this.addEventListener(
+      "profile:switched",
+      ({ profileId, profile, environment }) => {
+        this.cache.currentProfile = profileId;
+        this.cache.profile = profile;
+        this.cache.currentEnvironment = environment || "space";
+        // Backward compatibility for components expecting underscore names
+        this._currentEnvironment = this.cache.currentEnvironment;
+        this._currentProfileId = profileId;
 
-      // Handle null profile gracefully
-      if (!profile) {
-        this.cache.builds = null
-        this.cache.keys = {}
-        this.cache.aliases = {}
-        return
-      }
+        // Handle null profile gracefully
+        if (!profile) {
+          this.cache.builds = null;
+          this.cache.keys = {};
+          this.cache.aliases = {};
+          return;
+        }
 
-      // CRITICAL FIX: Use virtual profile structure first
-      // DataCoordinator provides flattened keys and aliases in virtual profiles
-      if (profile.keys) {
-        // Use virtual profile's flattened keys structure
-        this.cache.keys = profile.keys
-      } else if (profile.builds) {
-        // Fallback to nested structure for backward compatibility
-        const currentBuild = profile.builds[this.cache.currentEnvironment]
-        this.cache.keys = currentBuild?.keys || {}
-        this.cache.builds = profile.builds
-      } else {
-        this.cache.keys = {}
-        this.cache.builds = null
-      }
+        // CRITICAL FIX: Use virtual profile structure first
+        // DataCoordinator provides flattened keys and aliases in virtual profiles
+        if (profile.keys) {
+          // Use virtual profile's flattened keys structure
+          this.cache.keys = profile.keys;
+        } else if (profile.builds) {
+          // Fallback to nested structure for backward compatibility
+          const currentBuild = profile.builds[this.cache.currentEnvironment];
+          this.cache.keys = currentBuild?.keys || {};
+          this.cache.builds = profile.builds;
+        } else {
+          this.cache.keys = {};
+          this.cache.builds = null;
+        }
 
-      // Use virtual profile's aliases (already flattened)
-      this.cache.aliases = profile.aliases || {}
-    })
+        // Use virtual profile's aliases (already flattened)
+        this.cache.aliases = profile.aliases || {};
+      },
+    );
 
     // Cache preference changes
-    this.addEventListener('preferences:changed', (data) => {
+    this.addEventListener("preferences:changed", (data) => {
       if (data.changes) {
         // Update cached preferences with the changes
-        Object.assign(this.cache.preferences, data.changes)
+        Object.assign(this.cache.preferences, data.changes);
       } else if (data.key && data.value !== undefined) {
         // Handle legacy single preference change format
-        this.cache.preferences[data.key] = data.value
+        this.cache.preferences[data.key] = data.value;
       }
-    })
+    });
 
     // Listen for initial preferences loading
-    this.addEventListener('preferences:loaded', (data) => {
-      console.log(`[${this.componentName}] preferences:loaded received:`, data)
+    this.addEventListener("preferences:loaded", (data) => {
+      console.log(`[${this.componentName}] preferences:loaded received:`, data);
       if (data.settings) {
-        Object.assign(this.cache.preferences, data.settings)
-        console.log(`[${this.componentName}] Updated preferences cache from preferences:loaded`)
+        Object.assign(this.cache.preferences, data.settings);
+        console.log(
+          `[${this.componentName}] Updated preferences cache from preferences:loaded`,
+        );
       }
-    })
+    });
 
     // Cache bindset state changes
-    this.addEventListener('bindset-selector:active-changed', (data) => {
-      this.cache.activeBindset = data.bindset
-    })
+    this.addEventListener("bindset-selector:active-changed", (data) => {
+      this.cache.activeBindset = data.bindset;
+    });
 
     // Cache bindset list changes
-    this.addEventListener('bindsets:changed', (data) => {
+    this.addEventListener("bindsets:changed", (data) => {
       if (data.names && Array.isArray(data.names)) {
-        this.cache.bindsetNames = data.names
+        this.cache.bindsetNames = data.names;
       }
-    })
+    });
 
     // Also listen for preferences:saved events which contain full settings
-    this.addEventListener('preferences:saved', (data) => {
-      console.log(`[${this.componentName}] preferences:saved received:`, data)
+    this.addEventListener("preferences:saved", (data) => {
+      console.log(`[${this.componentName}] preferences:saved received:`, data);
       if (data.settings) {
-        Object.assign(this.cache.preferences, data.settings)
-        console.log(`[${this.componentName}] Updated preferences cache from preferences:saved`)
+        Object.assign(this.cache.preferences, data.settings);
+        console.log(
+          `[${this.componentName}] Updated preferences cache from preferences:saved`,
+        );
       }
-    })
+    });
   }
 
   /**
@@ -242,18 +295,18 @@ export default class ComponentBase {
    */
   destroy() {
     if (this.destroyed) {
-      console.warn(`${this.constructor.name} is already destroyed`)
-      return
+      console.warn(`${this.constructor.name} is already destroyed`);
+      return;
     }
 
-    this.destroyed = true
-    this.initialized = false
+    this.destroyed = true;
+    this.initialized = false;
 
     // Clean up event listeners
-    this.cleanupEventListeners()
+    this.cleanupEventListeners();
 
     // Component-specific cleanup in subclasses
-    this.onDestroy()
+    this.onDestroy();
   }
 
   /**
@@ -262,6 +315,14 @@ export default class ComponentBase {
    */
   onInit() {
     // Override in subclasses
+  }
+
+  /**
+   * Optional hook for UI-specific initialization.
+   * UIComponentBase overrides this while service components use the no-op.
+   */
+  uiInit() {
+    // Override in UI subclasses
   }
 
   /**
@@ -277,100 +338,113 @@ export default class ComponentBase {
   /**
    * Register an event listener and track it for cleanup
    * @param {string} event - Event name
-   * @param {Function} handler - Event handler function
-   * @param {Object} context - Context for the event (optional)
+   * @param {EventHandler} handler - Event handler function
+   * @param {unknown} context - Context for the event (optional)
    */
   addEventListener(event, handler, context = null) {
     if (!this.eventBus) {
       // Silently ignore if no event bus is available – useful during unit tests
-      return
+      return;
     }
 
-    this.eventBus.on(event, handler, context)
-    
+    this.eventBus.on(event, handler, context);
+
     // Track for cleanup
-    if (!this.eventListeners.has(event)) {
-      this.eventListeners.set(event, [])
+    let listeners = this.eventListeners.get(event);
+    if (!listeners) {
+      listeners = [];
+      this.eventListeners.set(event, listeners);
     }
-    this.eventListeners.get(event).push({ handler, context })
+    listeners.push({ handler, context });
   }
 
   /**
    * Register a DOM event listener and track it for cleanup
-   * @param {Function} detachFn - The cleanup function returned by eventBus.onDom
+   * @param {() => void} detachFn - The cleanup function returned by eventBus.onDom
    */
   addDomEventListener(detachFn) {
-    if (typeof detachFn === 'function') {
-      this.domEventListeners.push(detachFn)
+    if (typeof detachFn === "function") {
+      this.domEventListeners.push(detachFn);
     }
   }
 
   /**
    * Wrapper for eventBus.onDom that automatically tracks the cleanup function
-   * @param {string|Element} target - DOM element or selector
+   * @param {string|EventTarget} target - DOM event target or selector
    * @param {string} domEvent - DOM event name
-   * @param {string|Function} busEventOrHandler - Bus event name or handler function
-   * @param {Function} handler - Optional handler function
-   * @returns {Function} The cleanup function from eventBus.onDom
+   * @param {string|DomEventHandler} busEventOrHandler - Bus event name or handler function
+   * @param {DomEventHandler} [handler] - Optional handler function
+   * @returns {() => void} The cleanup function from eventBus.onDom
    */
   onDom(target, domEvent, busEventOrHandler, handler) {
     if (!this.eventBus) {
       // Silently ignore if no event bus is available – useful during unit tests
-      return () => {}
+      return () => {};
     }
 
     // Call eventBus.onDom and get the cleanup function
-    const cleanupFn = this.eventBus.onDom(target, domEvent, busEventOrHandler, handler)
-    
+    const cleanupFn = this.eventBus.onDom(
+      target,
+      domEvent,
+      busEventOrHandler,
+      handler,
+    );
+
     // Track the cleanup function for automatic cleanup
-    this.addDomEventListener(cleanupFn)
-    
-    return cleanupFn
+    this.addDomEventListener(cleanupFn);
+
+    return cleanupFn;
   }
 
   /**
    * Wrapper for eventBus.onDomDebounced that automatically tracks the cleanup function
-   * @param {string|Element} target - DOM element or selector
+   * @param {string|EventTarget} target - DOM event target or selector
    * @param {string} domEvent - DOM event name
-   * @param {string|Function} busEventOrHandler - Bus event name or handler function
-   * @param {Function|number} handlerOrDelay - Optional handler function or delay
-   * @param {number} delay - Optional delay in milliseconds
-   * @returns {Function} The cleanup function from eventBus.onDomDebounced
+   * @param {string|DomEventHandler} busEventOrHandler - Bus event name or handler function
+   * @param {DomEventHandler|number} [handlerOrDelay] - Optional handler function or delay
+   * @param {number} [delay] - Optional delay in milliseconds
+   * @returns {() => void} The cleanup function from eventBus.onDomDebounced
    */
   onDomDebounced(target, domEvent, busEventOrHandler, handlerOrDelay, delay) {
     if (!this.eventBus) {
       // Silently ignore if no event bus is available – useful during unit tests
-      return () => {}
+      return () => {};
     }
 
     // Call eventBus.onDomDebounced and get the cleanup function
-    const cleanupFn = this.eventBus.onDomDebounced(target, domEvent, busEventOrHandler, handlerOrDelay, delay)
-    
+    const cleanupFn = this.eventBus.onDomDebounced(
+      target,
+      domEvent,
+      busEventOrHandler,
+      handlerOrDelay,
+      delay,
+    );
+
     // Track the cleanup function for automatic cleanup
-    this.addDomEventListener(cleanupFn)
-    
-    return cleanupFn
+    this.addDomEventListener(cleanupFn);
+
+    return cleanupFn;
   }
 
   /**
    * Remove an event listener
    * @param {string} event - Event name
-   * @param {Function} handler - Event handler function
+   * @param {EventHandler} handler - Event handler function
    */
   removeEventListener(event, handler) {
     if (!this.eventBus) {
       // Silently ignore if no event bus is available – useful during unit tests
-      return
+      return;
     }
 
-    this.eventBus.off(event, handler)
+    this.eventBus.off(event, handler);
 
     // Remove from tracking
-    const listeners = this.eventListeners.get(event)
+    const listeners = this.eventListeners.get(event);
     if (listeners) {
-      const index = listeners.findIndex(l => l.handler === handler)
+      const index = listeners.findIndex((l) => l.handler === handler);
       if (index !== -1) {
-        listeners.splice(index, 1)
+        listeners.splice(index, 1);
       }
     }
   }
@@ -379,49 +453,52 @@ export default class ComponentBase {
    * Emit an event through the event bus
    * @param {string} event - Event name
    * @param {*} data - Event data
-   * @param {Object} options - Options object { synchronous: boolean }
-   * @returns {Promise} - Promise that resolves when all listeners complete (if synchronous)
+   * @param {{ synchronous?: boolean }} options - Options object
+   * @returns {Promise<unknown>} Promise that resolves when listeners complete
    */
   emit(event, data = null, options = {}) {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[${this.getComponentName()}] emit → ${event} (options: ${JSON.stringify(options)})`, data)
-    }
-    
-    // Emit via event bus if available
-    if (this.eventBus && typeof this.eventBus.emit === 'function') {
-      return this.eventBus.emit(event, data, options)
-    } else if (!this.eventBus) {
-      // No event bus – skip routing
-      return Promise.resolve()
+    if (typeof window !== "undefined") {
+      console.log(
+        `[${this.getComponentName()}] emit → ${event} (options: ${JSON.stringify(options)})`,
+        data,
+      );
     }
 
-    return Promise.resolve()
+    // Emit via event bus if available
+    if (this.eventBus && typeof this.eventBus.emit === "function") {
+      return this.eventBus.emit(event, data, options);
+    } else if (!this.eventBus) {
+      // No event bus – skip routing
+      return Promise.resolve();
+    }
+
+    return Promise.resolve();
   }
 
   /**
    * Clean up all tracked event listeners
    */
   cleanupEventListeners() {
-    if (!this.eventBus) return
+    if (!this.eventBus) return;
+    const eventBus = this.eventBus;
 
     // Clean up regular event listeners
     for (const [event, listeners] of this.eventListeners) {
       listeners.forEach(({ handler }) => {
-        this.eventBus.off(event, handler)
-      })
+        eventBus.off(event, handler);
+      });
     }
-    this.eventListeners.clear()
+    this.eventListeners.clear();
 
     // Clean up DOM event listeners
-    this.domEventListeners.forEach(detachFn => {
+    this.domEventListeners.forEach((detachFn) => {
       try {
-        detachFn()
+        detachFn();
       } catch (error) {
-        console.error('Error cleaning up DOM event listener:', error)
+        console.error("Error cleaning up DOM event listener:", error);
       }
-    })
-    this.domEventListeners = []
+    });
+    this.domEventListeners = [];
   }
 
   /**
@@ -429,36 +506,33 @@ export default class ComponentBase {
    * @returns {boolean}
    */
   isInitialized() {
-    return this.initialized && !this.destroyed
+    return this.initialized && !this.destroyed;
   }
 
-  
   /**
    * Get component name for debugging
    * @returns {string}
    */
   getComponentName() {
-    return this.componentName || this.constructor.name
+    return this.componentName || this.constructor.name;
   }
 
   // ---------------------------------------------------------
   // Late-Join State Registration internal handlers
   // ---------------------------------------------------------
+  /**
+   * @param {{ name?: string, replyTopic?: string }} registration
+   */
   _onComponentRegister({ name, replyTopic } = {}) {
     // Ignore our own registration messages
-    if (name === this.getComponentName()) return
-
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-     //console.log(`[ComponentBase] ${this.getComponentName()} received component:register from ${name} → replying on ${replyTopic}`)
-    }
+    if (name === this.getComponentName()) return;
 
     // If we are active, provide our current state to the requester
-    if (this.initialized && !this.destroyed) {
+    if (this.initialized && !this.destroyed && replyTopic) {
       this.emit(replyTopic, {
         sender: this.getComponentName(),
-        state: this.getCurrentState()
-      })
+        state: this.getCurrentState(),
+      });
     }
   }
 
@@ -466,119 +540,136 @@ export default class ComponentBase {
    * Centralized handling of common state from DataCoordinator and SelectionService
    * This eliminates repetitive caching code in individual components
    */
+  /** @param {string} sender @param {any} state */
   _handleInitialState(sender, state) {
-    if (!state) return
-
-    // Initialize cache if it doesn't exist
-    if (!this.cache) {
-      this.cache = {}
-    }
+    if (!state) return;
 
     // Handle DataCoordinator state
-    if (sender === 'DataCoordinator') {
+    if (sender === "DataCoordinator") {
       // Handle profile ID from both sources
-      const profileId = state.currentProfile || (state.currentProfileData && state.currentProfileData.id)
-      const profile = state.currentProfileData
-      
+      const profileId =
+        state.currentProfile ||
+        (state.currentProfileData && state.currentProfileData.id);
+      const profile = state.currentProfileData;
+
       if (profileId) {
         // Cache profile ID
-        this.cache.currentProfile = profileId
+        this.cache.currentProfile = profileId;
       }
-      
+
       if (profile) {
         // Cache profile data
-        this.cache.profile = profile
-        this.cache.currentEnvironment = profile.environment || 'space'
+        this.cache.profile = profile;
+        this.cache.currentEnvironment = profile.environment || "space";
       } else if (state.currentEnvironment) {
         // Handle environment without profile data
-        this.cache.currentEnvironment = state.currentEnvironment
+        this.cache.currentEnvironment = state.currentEnvironment;
       }
-      
+
       // Cache build-specific data if profile exists
       if (profile) {
         if (profile.builds) {
-          this.cache.builds = profile.builds
+          this.cache.builds = profile.builds;
           // Cache keys for current environment
-          const currentBuild = profile.builds[this.cache.currentEnvironment]
-          this.cache.keys = currentBuild?.keys || {}
+          const currentBuild = profile.builds[this.cache.currentEnvironment];
+          this.cache.keys = currentBuild?.keys || {};
         } else if (profile.keys) {
           // Legacy format support
-          this.cache.keys = profile.keys
+          this.cache.keys = profile.keys;
         }
-        
+
         // Cache aliases
-        this.cache.aliases = profile.aliases || {}
+        this.cache.aliases = profile.aliases || {};
       }
-      
-      console.log(`[ComponentBase] ${this.getComponentName()} cached DataCoordinator state:`, {
-        currentProfile: this.cache.currentProfile,
-        currentEnvironment: this.cache.currentEnvironment
-      })
+
+      console.log(
+        `[ComponentBase] ${this.getComponentName()} cached DataCoordinator state:`,
+        {
+          currentProfile: this.cache.currentProfile,
+          currentEnvironment: this.cache.currentEnvironment,
+        },
+      );
     }
 
     // Handle SelectionService state
-    if (sender === 'SelectionService' && state) {
+    if (sender === "SelectionService" && state) {
       // Cache selection properties
       if (state.selectedKey !== undefined) {
-        this.cache.selectedKey = state.selectedKey
+        this.cache.selectedKey = state.selectedKey;
       }
       if (state.selectedAlias !== undefined) {
-        this.cache.selectedAlias = state.selectedAlias
+        this.cache.selectedAlias = state.selectedAlias;
       }
       if (state.currentEnvironment !== undefined) {
-        this.cache.currentEnvironment = state.currentEnvironment
+        this.cache.currentEnvironment = state.currentEnvironment;
       }
       if (state.editingContext !== undefined) {
-        this.cache.editingContext = state.editingContext
+        this.cache.editingContext = state.editingContext;
       }
       if (state.cachedSelections !== undefined) {
-        this.cache.cachedSelections = state.cachedSelections
+        this.cache.cachedSelections = state.cachedSelections;
       }
-      
-      console.log(`[ComponentBase] ${this.getComponentName()} cached SelectionService state:`, {
-        selectedKey: this.cache.selectedKey,
-        selectedAlias: this.cache.selectedAlias,
-        currentEnvironment: this.cache.currentEnvironment
-      })
+
+      console.log(
+        `[ComponentBase] ${this.getComponentName()} cached SelectionService state:`,
+        {
+          selectedKey: this.cache.selectedKey,
+          selectedAlias: this.cache.selectedAlias,
+          currentEnvironment: this.cache.currentEnvironment,
+        },
+      );
     }
 
     // Handle PreferencesService state
-    if (sender === 'PreferencesService' && state) {
+    if (sender === "PreferencesService" && state) {
       // Cache preferences settings
-      if (state.settings && typeof state.settings === 'object') {
-        Object.assign(this.cache.preferences, state.settings)
-        console.log(`[ComponentBase] ${this.getComponentName()} cached PreferencesService state:`, {
-          bindToAliasMode: this.cache.preferences.bindToAliasMode,
-          bindsetsEnabled: this.cache.preferences.bindsetsEnabled,
-          settingsCount: Object.keys(state.settings).length
-        })
+      if (state.settings && typeof state.settings === "object") {
+        Object.assign(this.cache.preferences, state.settings);
+        console.log(
+          `[ComponentBase] ${this.getComponentName()} cached PreferencesService state:`,
+          {
+            bindToAliasMode: this.cache.preferences.bindToAliasMode,
+            bindsetsEnabled: this.cache.preferences.bindsetsEnabled,
+            settingsCount: Object.keys(state.settings).length,
+          },
+        );
       }
     }
 
     // Handle BindsetService state
-    if (sender === 'BindsetService' && state) {
+    if (sender === "BindsetService" && state) {
       // Cache bindset names
       if (state.bindsets && Array.isArray(state.bindsets)) {
-        this.cache.bindsetNames = state.bindsets
-        console.log(`[ComponentBase] ${this.getComponentName()} cached BindsetService state:`, {
-          bindsetNames: this.cache.bindsetNames
-        })
+        this.cache.bindsetNames = state.bindsets;
+        console.log(
+          `[ComponentBase] ${this.getComponentName()} cached BindsetService state:`,
+          {
+            bindsetNames: this.cache.bindsetNames,
+          },
+        );
       }
     }
   }
 
+  /**
+   * @param {{ sender?: string, state?: any }} message
+   */
   _onInitialState({ sender, state } = {}) {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`, state)
+    if (!sender) return;
+
+    if (typeof window !== "undefined") {
+      console.log(
+        `[ComponentBase] ${this.getComponentName()} received initial state from ${sender}`,
+        state,
+      );
     }
 
     // Handle common state first
-    this._handleInitialState(sender, state)
+    this._handleInitialState(sender, state);
 
     // Then call component-specific handler
-    if (typeof this.handleInitialState === 'function') {
-      this.handleInitialState(sender, state)
+    if (typeof this.handleInitialState === "function") {
+      this.handleInitialState(sender, state);
     }
   }
 
@@ -588,7 +679,7 @@ export default class ComponentBase {
    * @returns {*}
    */
   getCurrentState() {
-    return null // Default: no state – subclasses should override
+    return null; // Default: no state – subclasses should override
   }
 
   /**
@@ -609,30 +700,32 @@ export default class ComponentBase {
    * @param {*} payload
    */
   async request(topic, payload = {}) {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.log(`[${this.getComponentName()}] request → ${topic}`, payload)
+    if (typeof window !== "undefined") {
+      console.log(`[${this.getComponentName()}] request → ${topic}`, payload);
     }
-    return await _cbRequest(this.eventBus, topic, payload)
+    if (!this.eventBus) {
+      throw new Error(`Cannot request "${topic}" without an event bus`);
+    }
+    return await _cbRequest(this.eventBus, topic, payload);
   }
 
   /**
    * Wrapper around requestResponse.respond that prefixes logs with component name
    * Returns the detach function from respond().
    * @param {string} topic
-   * @param {Function} handler
+   * @param {EventHandler} handler
    */
   respond(topic, handler) {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      //console.log(`[${this.getComponentName()}] respond ← ${topic} (handler registered)`)
-    }
+    if (!this.eventBus) return () => {};
+
     return _cbRespond(this.eventBus, topic, async (payload) => {
-      if (typeof window !== 'undefined') {
-        // eslint-disable-next-line no-console
-        console.log(`[${this.getComponentName()}] respond handler → ${topic}`, payload)
+      if (typeof window !== "undefined") {
+        console.log(
+          `[${this.getComponentName()}] respond handler → ${topic}`,
+          payload,
+        );
       }
-      return await handler(payload)
-    })
+      return await handler(payload);
+    });
   }
 }

@@ -1,193 +1,204 @@
 // Integration test to verify selection restoration fix on page reload
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import eventBus from '../../src/js/core/eventBus.js'
-import SelectionService from '../../src/js/components/services/SelectionService.js'
-import DataCoordinator from '../../src/js/components/services/DataCoordinator.js'
-import StorageService from '../../src/js/components/services/StorageService.js'
-import InterfaceModeService from '../../src/js/components/services/InterfaceModeService.js'
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import eventBus from "../../src/js/core/eventBus.js";
+import SelectionService from "../../src/js/components/services/SelectionService.js";
+import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
+import StorageService from "../../src/js/components/services/StorageService.js";
+import InterfaceModeService from "../../src/js/components/services/InterfaceModeService.js";
 
-describe('Selection Restoration Fix - Page Reload', () => {
-  let selectionService, dataCoordinator, storageService, interfaceModeService
-  let emittedEvents = []
+describe("Selection Restoration Fix - Page Reload", () => {
+  let selectionService, dataCoordinator, storageService, interfaceModeService;
+  let emittedEvents = [];
 
   beforeEach(async () => {
     // Clear events log
-    emittedEvents = []
+    emittedEvents = [];
 
     // Monitor events
-    const originalEmit = eventBus.emit
-    eventBus.emit = function(event, data) {
-      emittedEvents.push({ event, data })
-      return originalEmit.call(this, event, data)
-    }
+    const originalEmit = eventBus.emit;
+    eventBus.emit = function (event, data) {
+      emittedEvents.push({ event, data });
+      return originalEmit.call(this, event, data);
+    };
 
     // Set up storage with profile containing selections
-    storageService = new StorageService({ eventBus })
-    await storageService.init()
+    storageService = new StorageService({ eventBus });
+    await storageService.init();
 
     const testProfile = {
-      name: 'Test Profile',
-      description: 'Test profile with selections',
-      currentEnvironment: 'ground',
+      name: "Test Profile",
+      description: "Test profile with selections",
+      currentEnvironment: "ground",
       builds: {
-        space: { keys: { 'F1': [{ command: 'space_command' }] } },
-        ground: { keys: { 'F2': [{ command: 'ground_command' }] } }
+        space: { keys: { F1: [{ command: "space_command" }] } },
+        ground: { keys: { F2: [{ command: "ground_command" }] } },
       },
-      aliases: { 'TestAlias': { commands: ['say "Hello"'], description: 'Test alias' } },
+      aliases: {
+        TestAlias: { commands: ['say "Hello"'], description: "Test alias" },
+      },
       selections: {
-        space: 'F1',
-        ground: 'F2',
-        alias: 'TestAlias'
+        space: "F1",
+        ground: "F2",
+        alias: "TestAlias",
       },
       created: new Date().toISOString(),
-      lastModified: new Date().toISOString()
-    }
+      lastModified: new Date().toISOString(),
+    };
 
-    await storageService.saveProfile('test-profile', testProfile)
-    const allData = storageService.getAllData()
-    allData.currentProfile = 'test-profile'
-    await storageService.saveAllData(allData)
+    await storageService.saveProfile("test-profile", testProfile);
+    const allData = storageService.getAllData();
+    allData.currentProfile = "test-profile";
+    await storageService.saveAllData(allData);
 
     // Initialize DataCoordinator first (simulates app startup order)
-    dataCoordinator = new DataCoordinator({ eventBus, storage: storageService })
-    await dataCoordinator.init()
+    dataCoordinator = new DataCoordinator({
+      eventBus,
+      storage: storageService,
+    });
+    await dataCoordinator.init();
 
     // InterfaceModeService emits the environment change in the real app
-    interfaceModeService = new InterfaceModeService({ eventBus })
+    interfaceModeService = new InterfaceModeService({ eventBus });
     interfaceModeService.request = vi.fn(async (topic) => {
-      if (topic === 'data:update-profile') {
-        return { success: true }
+      if (topic === "data:update-profile") {
+        return { success: true };
       }
-      return null
-    })
-    interfaceModeService.init()
+      return null;
+    });
+    interfaceModeService.init();
 
     // Initialize SelectionService second (simulates app startup order)
-    selectionService = new SelectionService({ eventBus })
-    await selectionService.init()
+    selectionService = new SelectionService({ eventBus });
+    await selectionService.init();
 
     // Wait for handshake to complete before switching mode
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const restoredEnv = dataCoordinator.getCurrentState().currentEnvironment
+    const restoredEnv = dataCoordinator.getCurrentState().currentEnvironment;
     if (restoredEnv) {
-      await interfaceModeService.switchMode(restoredEnv)
+      await interfaceModeService.switchMode(restoredEnv);
     }
 
     // Wait for all async operations to complete
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-  })
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
 
   afterEach(() => {
-    interfaceModeService?.destroy?.()
-    selectionService?.destroy?.()
-    dataCoordinator?.destroy?.()
-    vi.clearAllMocks()
-  })
+    interfaceModeService?.destroy?.();
+    selectionService?.destroy?.();
+    dataCoordinator?.destroy?.();
+    vi.clearAllMocks();
+  });
 
-  it('should restore key selection from profile during initialization', () => {
+  it("should restore key selection from profile during initialization", () => {
     // During initialization/late-join, state is set directly without emitting events
     // This is the correct behavior - events are for user actions, not initialization
 
     // Verify the selection was restored correctly in the cache
-    expect(selectionService.cache.selectedKey).toBe('F2')
-    expect(selectionService.cache.currentEnvironment).toBe('ground')
-    expect(selectionService.cachedSelections.ground).toBe('F2')
+    expect(selectionService.cache.selectedKey).toBe("F2");
+    expect(selectionService.cache.currentEnvironment).toBe("ground");
+    expect(selectionService.cachedSelections.ground).toBe("F2");
 
     // Verify that validateKeyExists works correctly for the restored selection
-    expect(selectionService.validateKeyExists('F2', 'ground')).toBe(true)
-    expect(selectionService.validateKeyExists('F1', 'ground')).toBe(false)
-  })
+    expect(selectionService.validateKeyExists("F2", "ground")).toBe(true);
+    expect(selectionService.validateKeyExists("F1", "ground")).toBe(false);
+  });
 
-  it('should correctly restore all selection state from profile', () => {
+  it("should correctly restore all selection state from profile", () => {
     // Verify the SelectionService state matches the profile
-    expect(selectionService.cache.currentEnvironment).toBe('ground')
-    expect(selectionService.cache.selectedKey).toBe('F2')
-    expect(selectionService.cache.selectedAlias).toBe(null) // Should be null since environment is 'ground', not 'alias'
+    expect(selectionService.cache.currentEnvironment).toBe("ground");
+    expect(selectionService.cache.selectedKey).toBe("F2");
+    expect(selectionService.cache.selectedAlias).toBe(null); // Should be null since environment is 'ground', not 'alias'
     expect(selectionService.cachedSelections).toEqual({
-      space: 'F1',
-      ground: 'F2',
-      alias: 'TestAlias'
-    })
-  })
+      space: "F1",
+      ground: "F2",
+      alias: "TestAlias",
+    });
+  });
 
-  it('should handle alias environment restoration', async () => {
+  it("should handle alias environment restoration", async () => {
     // Test with alias environment
     const aliasProfile = {
-      name: 'Alias Profile',
-      description: 'Test profile with alias selection',
-      currentEnvironment: 'alias',
+      name: "Alias Profile",
+      description: "Test profile with alias selection",
+      currentEnvironment: "alias",
       builds: {
         space: { keys: {} },
-        ground: { keys: {} }
+        ground: { keys: {} },
       },
-      aliases: { 'TestAlias': { commands: ['say "Hello"'], description: 'Test alias' } },
+      aliases: {
+        TestAlias: { commands: ['say "Hello"'], description: "Test alias" },
+      },
       selections: {
         space: null,
         ground: null,
-        alias: 'TestAlias'
+        alias: "TestAlias",
       },
       created: new Date().toISOString(),
-      lastModified: new Date().toISOString()
-    }
+      lastModified: new Date().toISOString(),
+    };
 
-    await storageService.saveProfile('alias-profile', aliasProfile)
-    const allData = storageService.getAllData()
-    allData.currentProfile = 'alias-profile'
-    await storageService.saveAllData(allData)
+    await storageService.saveProfile("alias-profile", aliasProfile);
+    const allData = storageService.getAllData();
+    allData.currentProfile = "alias-profile";
+    await storageService.saveAllData(allData);
 
     // Create new instances to simulate page reload
-    const newDataCoordinator = new DataCoordinator({ eventBus, storage: storageService })
-    await newDataCoordinator.init()
+    const newDataCoordinator = new DataCoordinator({
+      eventBus,
+      storage: storageService,
+    });
+    await newDataCoordinator.init();
 
-    const newInterfaceModeService = new InterfaceModeService({ eventBus })
+    const newInterfaceModeService = new InterfaceModeService({ eventBus });
     newInterfaceModeService.request = vi.fn(async (topic) => {
-      if (topic === 'data:update-profile') {
-        return { success: true }
+      if (topic === "data:update-profile") {
+        return { success: true };
       }
-      return null
-    })
-    newInterfaceModeService.init()
+      return null;
+    });
+    newInterfaceModeService.init();
 
-    const newSelectionService = new SelectionService({ eventBus })
-    await newSelectionService.init()
+    const newSelectionService = new SelectionService({ eventBus });
+    await newSelectionService.init();
 
-    await new Promise(resolve => setTimeout(resolve, 50))
-    await newInterfaceModeService.switchMode('alias')
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await newInterfaceModeService.switchMode("alias");
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Should restore alias selection
-    expect(newSelectionService.cache.currentEnvironment).toBe('alias')
-    expect(newSelectionService.cache.selectedAlias).toBe('TestAlias')
-    expect(newSelectionService.cache.selectedKey).toBe(null) // Should be null in alias environment
-    expect(newSelectionService.cachedSelections.alias).toBe('TestAlias')
+    expect(newSelectionService.cache.currentEnvironment).toBe("alias");
+    expect(newSelectionService.cache.selectedAlias).toBe("TestAlias");
+    expect(newSelectionService.cache.selectedKey).toBe(null); // Should be null in alias environment
+    expect(newSelectionService.cachedSelections.alias).toBe("TestAlias");
 
     // Verify that validateAliasExists works correctly for the restored selection
-    expect(newSelectionService.validateAliasExists('TestAlias')).toBe(true)
-    expect(newSelectionService.validateAliasExists('NonExistentAlias')).toBe(false)
+    expect(newSelectionService.validateAliasExists("TestAlias")).toBe(true);
+    expect(newSelectionService.validateAliasExists("NonExistentAlias")).toBe(
+      false,
+    );
 
-    newInterfaceModeService.destroy()
-    newSelectionService.destroy()
-    newDataCoordinator.destroy()
-  })
+    newInterfaceModeService.destroy();
+    newSelectionService.destroy();
+    newDataCoordinator.destroy();
+  });
 
-  it('should work with DataCoordinator late-join handshake mechanism', () => {
+  it("should work with DataCoordinator late-join handshake mechanism", () => {
     // The test setup itself validates the late-join handshake works
     // If we get here with correct state, the handshake succeeded
-    
+
     // Verify DataCoordinator has the profile data
-    const dcState = dataCoordinator.getCurrentState()
-    expect(dcState.currentProfileData).toBeDefined()
+    const dcState = dataCoordinator.getCurrentState();
+    expect(dcState.currentProfileData).toBeDefined();
     expect(dcState.currentProfileData.selections).toEqual({
-      space: 'F1',
-      ground: 'F2',
-      alias: 'TestAlias'
-    })
-    
+      space: "F1",
+      ground: "F2",
+      alias: "TestAlias",
+    });
+
     // Verify SelectionService received and processed this data
-    expect(selectionService.cache.currentProfile).toBe('test-profile')
-    expect(selectionService.cache.profile).toBeDefined()
-  })
-})
+    expect(selectionService.cache.currentProfile).toBe("test-profile");
+    expect(selectionService.cache.profile).toBeDefined();
+  });
+});

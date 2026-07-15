@@ -1,66 +1,83 @@
-import UIComponentBase from '../UIComponentBase.js'
+import UIComponentBase from "../UIComponentBase.js";
+import { resolveDocument } from "./uiTypes.js";
 
 /**
  * HeaderToolbarUI - Manages toolbar button visibility based on preferences
  * Handles dynamic showing/hiding of toolbar buttons like bindset manager
  */
 export default class HeaderToolbarUI extends UIComponentBase {
-  constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(eventBus)
-    this.componentName = 'HeaderToolbarUI'
-    this.document = document
-
+  /**
+   * @param {{ eventBus?: import('./uiTypes.js').EventBus, document?: Document }} [options]
+   */
+  constructor({
+    eventBus,
+    document = typeof window !== "undefined" ? window.document : undefined,
+  } = {}) {
+    super(eventBus);
+    this.componentName = "HeaderToolbarUI";
+    this.document = resolveDocument(document);
   }
 
   init() {
     // Call ComponentBase.init() to set up event listeners for preferences:saved
-    super.init()
-    this.setupEventListeners()
+    super.init();
+    this.setupEventListeners();
     // Initial update
-    this.updateBindsetButtonVisibility()
+    this.updateBindsetButtonVisibility();
   }
 
   setupEventListeners() {
     // Listen for preference changes to update button visibility
-    this.addEventListener('preferences:changed', (data) => {
-      if (data.changes && (data.changes.bindsetsEnabled !== undefined || data.changes.bindToAliasMode !== undefined)) {
-        this.updateBindsetButtonVisibility()
+    this.addEventListener("preferences:changed", (data) => {
+      if (
+        data.changes &&
+        (data.changes.bindsetsEnabled !== undefined ||
+          data.changes.bindToAliasMode !== undefined)
+      ) {
+        this.updateBindsetButtonVisibility();
       }
-    })
+    });
   }
 
   updateBindsetButtonVisibility() {
     try {
       // Use cached preference values from ComponentBase
-      const aliasMode = this.getPreference('bindToAliasMode', false)
-      const bindsets = this.getPreference('bindsetsEnabled', false)
-      const btn = this.document.getElementById('bindsetManagerBtn')
-      
-      console.log('[HeaderToolbarUI] updateBindsetButtonVisibility:', {
+      const aliasMode = this.getPreference("bindToAliasMode", false);
+      const bindsets = this.getPreference("bindsetsEnabled", false);
+      const btn = this.document.getElementById("bindsetManagerBtn");
+
+      console.log("[HeaderToolbarUI] updateBindsetButtonVisibility:", {
         aliasMode,
         bindsets,
         buttonFound: !!btn,
         cacheExists: !!this.cache,
         preferencesCache: this.cache?.preferences,
-        fullCache: this.cache
-      })
-      
+        fullCache: this.cache,
+      });
+
       if (btn) {
-        const show = aliasMode && bindsets
-        btn.style.display = show ? '' : 'none'
-        
+        const show = aliasMode && bindsets;
+        btn.style.display = show ? "" : "none";
+
         // Hide parent toolbar-group if empty
-        const group = btn.closest('.toolbar-group')
+        const group = /** @type {HTMLElement | null} */ (
+          btn.closest(".toolbar-group")
+        );
         if (group) {
-          group.style.display = show ? '' : 'none'
+          group.style.display = show ? "" : "none";
         }
-        
-        console.log('[HeaderToolbarUI] Button visibility updated:', { show })
+
+        console.log("[HeaderToolbarUI] Button visibility updated:", { show });
       } else {
-        console.log('[HeaderToolbarUI] bindsetManagerBtn element not found in DOM')
+        console.log(
+          "[HeaderToolbarUI] bindsetManagerBtn element not found in DOM",
+        );
       }
     } catch (e) {
-      console.warn('[HeaderToolbarUI] Failed to update bindset button visibility:', e)
+      console.warn(
+        "[HeaderToolbarUI] Failed to update bindset button visibility:",
+        e,
+      );
     }
   }
 
@@ -68,20 +85,28 @@ export default class HeaderToolbarUI extends UIComponentBase {
    * Handle late-join state from other components
    * ComponentBase now handles PreferencesService automatically
    */
-  handleInitialState(sender, state) {
+  /** @param {string} sender */
+  handleInitialState(sender) {
     // ComponentBase automatically handles PreferencesService late-join
-    if (sender === 'PreferencesService' && this.cache.preferences) {
-      console.log('[HeaderToolbarUI] Received preferences via ComponentBase, updating UI')
+    if (sender === "PreferencesService" && this.cache.preferences) {
+      console.log(
+        "[HeaderToolbarUI] Received preferences via ComponentBase, updating UI",
+      );
       // Update button visibility with the new preferences
-      this.updateBindsetButtonVisibility()
+      this.updateBindsetButtonVisibility();
     }
   }
 
   /**
    * Helper to get preference values with fallback
    */
+  /**
+   * @param {string} key
+   * @param {boolean} [defaultValue]
+   * @returns {unknown}
+   */
   getPreference(key, defaultValue = false) {
     // Use cached preference values from ComponentBase
-    return this.cache?.preferences?.[key] ?? defaultValue
+    return this.cache?.preferences?.[key] ?? defaultValue;
   }
 }

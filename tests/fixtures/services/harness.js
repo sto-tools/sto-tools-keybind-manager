@@ -2,10 +2,17 @@
 // Provides a convenient way to spin-up common service dependencies (eventBus + storage)
 // for unit/integration tests while keeping everything fixture-managed.
 
-import { createEventBusFixture } from '../core/eventBus.js'
-import { createStorageFixture } from '../core/storage.js'
-import { registerFixture, unregisterFixture, generateFixtureId } from '../core/cleanup.js'
-import { createFSFixture } from '../core/fs.js'
+import {
+  createEventBusFixture,
+  createRealEventBusFixture,
+} from "../core/eventBus.js";
+import { createStorageFixture } from "../core/storage.js";
+import {
+  registerFixture,
+  unregisterFixture,
+  generateFixtureId,
+} from "../core/cleanup.js";
+import { createFSFixture } from "../core/fs.js";
 
 /**
  * Create a basic service fixture.
@@ -21,14 +28,16 @@ export function createServiceFixture(options = {}) {
     trackEvents = true,
     enableFS = false,
     fsSeed = null,
-  } = options
+  } = options;
 
-  const fixtureId = generateFixtureId('service')
+  const fixtureId = generateFixtureId("service");
 
   // Underlying fixtures
-  const eventBusFixture = createEventBusFixture({ trackEvents })
-  const storageFixture  = createStorageFixture({ initialData: initialStorageData })
-  const fsFixture       = enableFS ? createFSFixture(fsSeed || {}) : null
+  const eventBusFixture = createEventBusFixture({ trackEvents });
+  const storageFixture = createStorageFixture({
+    initialData: initialStorageData,
+  });
+  const fsFixture = enableFS ? createFSFixture(fsSeed || {}) : null;
 
   // Aggregate object returned to tests
   const fixture = {
@@ -51,24 +60,26 @@ export function createServiceFixture(options = {}) {
 
     // Helper destroy to clean up both
     destroy: () => {
-      eventBusFixture.destroy()
-      storageFixture.destroy()
-      fsFixture && fsFixture.destroy()
-      unregisterFixture(fixtureId)
+      eventBusFixture.destroy();
+      storageFixture.destroy();
+      fsFixture && fsFixture.destroy();
+      unregisterFixture(fixtureId);
     },
 
-    ...(fsFixture ? {
-      rootDir: fsFixture.rootHandle,
-      fsWriteText: fsFixture.writeText,
-      fsReadText: fsFixture.readText,
-      fsExists: fsFixture.exists,
-    } : {}),
-  }
+    ...(fsFixture
+      ? {
+          rootDir: fsFixture.rootHandle,
+          fsWriteText: fsFixture.writeText,
+          fsReadText: fsFixture.readText,
+          fsExists: fsFixture.exists,
+        }
+      : {}),
+  };
 
   // Register for global cleanup so tests don't leak mocks
-  registerFixture(fixtureId, fixture.destroy)
+  registerFixture(fixtureId, fixture.destroy);
 
-  return fixture
+  return fixture;
 }
 
 /**
@@ -82,16 +93,17 @@ export async function createRealServiceFixture(options = {}) {
     trackEvents = true,
     enableFS = false,
     fsSeed = null,
-  } = options
+  } = options;
 
   // Use the real singleton eventBus fixture (async)
-  const { createRealEventBusFixture } = await import('../core/eventBus.js')
-  const eventBusFixture = await createRealEventBusFixture({ trackEvents })
+  const eventBusFixture = await createRealEventBusFixture({ trackEvents });
 
-  const storageFixture  = createStorageFixture({ initialData: initialStorageData })
-  const fsFixture       = enableFS ? createFSFixture(fsSeed || {}) : null
+  const storageFixture = createStorageFixture({
+    initialData: initialStorageData,
+  });
+  const fsFixture = enableFS ? createFSFixture(fsSeed || {}) : null;
 
-  const fixtureId = generateFixtureId('real-service')
+  const fixtureId = generateFixtureId("real-service");
 
   const fixture = {
     eventBus: eventBusFixture.eventBus,
@@ -109,21 +121,23 @@ export async function createRealServiceFixture(options = {}) {
     expectOperationCount: storageFixture.expectOperationCount,
 
     destroy: () => {
-      eventBusFixture.destroy()
-      storageFixture.destroy()
-      fsFixture && fsFixture.destroy()
-      unregisterFixture(fixtureId)
+      eventBusFixture.destroy();
+      storageFixture.destroy();
+      fsFixture && fsFixture.destroy();
+      unregisterFixture(fixtureId);
     },
 
-    ...(fsFixture ? {
-      rootDir: fsFixture.rootHandle,
-      fsWriteText: fsFixture.writeText,
-      fsReadText: fsFixture.readText,
-      fsExists: fsFixture.exists,
-    } : {}),
-  }
+    ...(fsFixture
+      ? {
+          rootDir: fsFixture.rootHandle,
+          fsWriteText: fsFixture.writeText,
+          fsReadText: fsFixture.readText,
+          fsExists: fsFixture.exists,
+        }
+      : {}),
+  };
 
-  registerFixture(fixtureId, fixture.destroy)
+  registerFixture(fixtureId, fixture.destroy);
 
-  return fixture
-} 
+  return fixture;
+}

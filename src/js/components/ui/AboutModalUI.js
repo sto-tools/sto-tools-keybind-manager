@@ -1,5 +1,6 @@
-import UIComponentBase from '../UIComponentBase.js'
-import { DISPLAY_VERSION } from '../../core/constants.js'
+import UIComponentBase from "../UIComponentBase.js";
+import { DISPLAY_VERSION } from "../../core/constants.js";
+import { resolveDocument } from "./uiTypes.js";
 
 /*
  * AboutModalUI - Handles the about modal display and interactions
@@ -7,52 +8,61 @@ import { DISPLAY_VERSION } from '../../core/constants.js'
  * Manages about-specific content while leaving generic modal behavior to ModalManagerService
  */
 export default class AboutModalUI extends UIComponentBase {
-  constructor({ eventBus, document = (typeof window !== 'undefined' ? window.document : undefined) } = {}) {
-    super(eventBus)
-    this.componentName = 'AboutModalUI'
-    this.document = document
+  /**
+   * @param {{ eventBus?: import('./uiTypes.js').EventBus, document?: Document }} [options]
+   */
+  constructor({
+    eventBus,
+    document = typeof window !== "undefined" ? window.document : undefined,
+  } = {}) {
+    super(eventBus);
+    this.componentName = "AboutModalUI";
+    this.document = resolveDocument(document);
   }
 
   onInit() {
-    this.setupEventListeners()
-    this.populateAboutContent()
+    this.setupEventListeners();
+    this.populateAboutContent();
   }
 
   setupEventListeners() {
     if (this.eventListenersSetup) {
-      return
+      return;
     }
-    this.eventListenersSetup = true
+    this.eventListenersSetup = true;
 
     // Listen for about:show event from HeaderMenuUI
-    this.eventBus.on('about:show', () => {
-      this.showAboutModal()
-    })
+    this.eventBus?.on("about:show", () => {
+      this.showAboutModal();
+    });
 
     // Listen for modal regeneration events to update content
-    this.eventBus.on('modal:regenerated', ({ modalId }) => {
-      if (modalId === 'aboutModal') {
-        this.populateAboutContent()
-      }
-    })
+    this.eventBus?.on(
+      "modal:regenerated",
+      (/** @type {{ modalId?: string }} */ { modalId }) => {
+        if (modalId === "aboutModal") {
+          this.populateAboutContent();
+        }
+      },
+    );
   }
 
   // Show the about modal
   showAboutModal() {
     // Ensure content is up-to-date before showing
-    this.populateAboutContent()
-    
+    this.populateAboutContent();
+
     // Use the modal manager service to show the about modal
-    this.emit('modal:show', { modalId: 'aboutModal' })
+    this.emit("modal:show", { modalId: "aboutModal" });
   }
 
   // Populate about modal with dynamic content (version, etc.)
   // This handles about-specific content while ModalManagerService handles generic behavior
   populateAboutContent() {
     // Update version display
-    const aboutVersionElement = this.document.getElementById('aboutVersion')
+    const aboutVersionElement = this.document?.getElementById("aboutVersion");
     if (aboutVersionElement) {
-      aboutVersionElement.textContent = ` ${DISPLAY_VERSION}`
+      aboutVersionElement.textContent = ` ${DISPLAY_VERSION}`;
     }
   }
-} 
+}

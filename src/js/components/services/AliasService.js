@@ -1,215 +1,308 @@
-import ComponentBase from '../ComponentBase.js'
+import ComponentBase from "../ComponentBase.js";
 
 /**
  * AliasService – the authoritative service for creating, deleting and duplicating
  * alias rows in a profile. This service mirrors KeyService but focuses
  * exclusively on alias level operations so other components (AliasBrowser,
  * UI components, etc.) can delegate all alias data mutations here.
- * 
+ *
  * Uses DataCoordinator broadcast/cache pattern.
  */
 export default class AliasService extends ComponentBase {
-  constructor ({ eventBus, i18n, ui } = {}) {
-    super(eventBus)
-    this.componentName = 'AliasService'
-    this.i18n = i18n
-    this.ui = ui
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n, ui?: import('./serviceTypes.js').ToastUI }} [options] */
+  constructor({ eventBus, i18n, ui } = {}) {
+    super(eventBus);
+    this.componentName = "AliasService";
+    this.i18n = i18n;
+    this.ui = ui;
 
     if (this.eventBus) {
       // Register request/response endpoints for alias operations
-      this.respond('alias:add', ({ name, description } = {}) => this.addAlias(name, description))
-      this.respond('alias:delete', ({ name } = {}) => this.deleteAlias(name))
-      this.respond('alias:duplicate-with-name', ({ sourceName, newName } = {}) => this.duplicateAliasWithName(sourceName, newName))
-      this.respond('alias:validate-name', ({ name } = {}) => this.isValidAliasName(name))
-      this.respond('alias:import-file', ({ content } = {}) => this.importAliasFile(content))
+      this.respond(
+        "alias:add",
+        (
+          {
+            name,
+            description,
+          } = /** @type {{ name?: string, description?: string }} */ ({}),
+        ) => this.addAlias(name, description),
+      );
+      this.respond(
+        "alias:delete",
+        ({ name } = /** @type {{ name?: string }} */ ({})) =>
+          this.deleteAlias(name),
+      );
+      this.respond(
+        "alias:duplicate-with-name",
+        (
+          {
+            sourceName,
+            newName,
+          } = /** @type {{ sourceName?: string, newName?: string }} */ ({}),
+        ) => this.duplicateAliasWithName(sourceName, newName),
+      );
+      this.respond(
+        "alias:validate-name",
+        ({ name } = /** @type {{ name?: string }} */ ({})) =>
+          this.isValidAliasName(name),
+      );
+      this.respond(
+        "alias:import-file",
+        ({ content } = /** @type {{ content?: string }} */ ({})) =>
+          this.importAliasFile(content),
+      );
     }
+  }
+
+  /** @returns {import('./serviceTypes.js').ServiceCache} */
+  get serviceCache() {
+    this.initializeCache();
+    if (!this.cache)
+      throw new Error("AliasService cache initialization failed");
+    return /** @type {import('./serviceTypes.js').ServiceCache} */ (this.cache);
   }
 
   onInit() {
-    this.setupEventListeners()
+    this.setupEventListeners();
   }
 
-  
   // Event listeners for DataCoordinator integration
-  setupEventListeners () {
-    if (!this.eventBus) return
+  setupEventListeners() {
+    if (!this.eventBus) return;
 
     // Listen for profile updates
-    this.addEventListener('profile:updated', ({ profileId, profile }) => {
-      if (profileId === this.cache.currentProfile) {
-        this.updateCacheFromProfile(profile)
-      }
-    })
+    this.addEventListener(
+      "profile:updated",
+      (
+        {
+          profileId,
+          profile,
+        } = /** @type {{ profileId?: string, profile?: import('./serviceTypes.js').ProfileData | null }} */ ({}),
+      ) => {
+        if (profileId === this.serviceCache.currentProfile) {
+          this.updateCacheFromProfile(profile);
+        }
+      },
+    );
 
-    this.addEventListener('profile:switched', ({ profileId, profile, environment }) => {
-      this.cache.currentProfile = profileId
-      this.cache.currentEnvironment = environment || 'space'
-      
-      this.updateCacheFromProfile(profile)
-    })
+    this.addEventListener(
+      "profile:switched",
+      (
+        {
+          profileId,
+          profile,
+          environment,
+        } = /** @type {{ profileId?: string, profile?: import('./serviceTypes.js').ProfileData | null, environment?: string }} */ ({}),
+      ) => {
+        this.serviceCache.currentProfile = profileId || null;
+        this.serviceCache.currentEnvironment = environment || "space";
+
+        this.updateCacheFromProfile(profile);
+      },
+    );
 
     // Listen for environment changes
-    this.addEventListener('environment:changed', ({ environment }) => {
-      if (environment) {
-        this.cache.currentEnvironment = environment || 'space'
-      }
-    })
-
-    
+    this.addEventListener(
+      "environment:changed",
+      ({ environment } = /** @type {{ environment?: string }} */ ({})) => {
+        if (environment) {
+          this.serviceCache.currentEnvironment = environment;
+        }
+      },
+    );
   }
 
   // Update local cache from profile data
+  /** @param {import('./serviceTypes.js').ProfileData | null | undefined} profile */
   updateCacheFromProfile(profile) {
-    if (!profile) return
-    
-    this.cache.aliases = profile.aliases || {}
-    this.cache.profile = profile
+    if (!profile) return;
+
+    this.serviceCache.aliases = profile.aliases || {};
+    this.serviceCache.profile = profile;
   }
 
-  
   // Core alias operations now use DataCoordinator
-  async addAlias (name, description = '') {
-    if (!await this.isValidAliasName(name)) {
-      return { success: false, error: 'invalid_alias_name', params: { name } }
+  /**
+   * @param {string | undefined} name
+   * @param {string | undefined} description
+   */
+  async addAlias(name, description = "") {
+    if (!name || !(await this.isValidAliasName(name))) {
+      return { success: false, error: "invalid_alias_name", params: { name } };
     }
 
-    if (!this.cache.currentProfile) {
-      return { success: false, error: 'no_profile_selected' }
+    if (!this.serviceCache.currentProfile) {
+      return { success: false, error: "no_profile_selected" };
     }
 
     // Check if alias already exists in cache
-    if (this.cache.aliases[name]) {
-      return { success: false, error: 'alias_already_exists', params: { name } }
+    if (this.serviceCache.aliases[name]) {
+      return {
+        success: false,
+        error: "alias_already_exists",
+        params: { name },
+      };
     }
 
     try {
       // Set selection before updating profile so profile:updated refreshes with the new alias
-      await this.request('selection:select-alias', { aliasName: name, skipPersistence: true })
+      await this.request("selection:select-alias", {
+        aliasName: name,
+        skipPersistence: true,
+      });
 
       // Add new alias using explicit operations API
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
+      await this.request("data:update-profile", {
+        profileId: this.serviceCache.currentProfile,
         add: {
           aliases: {
             [name]: {
               description,
               commands: [], // Use array format for commands
-              type: 'alias' // Set proper type
-            }
-          }
-        }
-      })
+              type: "alias", // Set proper type
+            },
+          },
+        },
+      });
 
-      this.emit('alias-created', { name })
-      return { success: true, message: 'alias_created', data: { name } }
+      this.emit("alias-created", { name });
+      return { success: true, message: "alias_created", data: { name } };
     } catch (error) {
-      console.error('[AliasService] Failed to add alias:', error)
-      return { success: false, error: 'failed_to_add_alias' }
+      console.error("[AliasService] Failed to add alias:", error);
+      return { success: false, error: "failed_to_add_alias" };
     }
   }
 
   // Delete an alias from the current profile
-  async deleteAlias (name) {
-    if (!this.cache.currentProfile) {
-      return { success: false, error: 'no_profile_selected' }
+  /** @param {string | undefined} name */
+  async deleteAlias(name) {
+    if (!this.serviceCache.currentProfile) {
+      return { success: false, error: "no_profile_selected" };
     }
 
-    if (!this.cache.aliases[name]) {
-      return { success: false, error: 'alias_not_found', params: { name } }
+    if (!name || !this.serviceCache.aliases[name]) {
+      return { success: false, error: "alias_not_found", params: { name } };
     }
 
     try {
       // Delete alias using explicit operations API
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
+      await this.request("data:update-profile", {
+        profileId: this.serviceCache.currentProfile,
         delete: {
-          aliases: [name]
-        }
-      })
+          aliases: [name],
+        },
+      });
 
-      this.emit('alias-deleted', { name })
-      return { success: true, message: 'alias_deleted', data: { name } }
+      this.emit("alias-deleted", { name });
+      return { success: true, message: "alias_deleted", data: { name } };
     } catch (error) {
-      console.error('[AliasService] Failed to delete alias:', error)
-      return { success: false, error: 'failed_to_delete_alias' }
+      console.error("[AliasService] Failed to delete alias:", error);
+      return { success: false, error: "failed_to_delete_alias" };
     }
   }
 
-  
   // Duplicate an existing alias to an explicit new alias name
-  async duplicateAliasWithName (sourceName, newName) {
+  /**
+   * @param {string | undefined} sourceName
+   * @param {string | undefined} newName
+   */
+  async duplicateAliasWithName(sourceName, newName) {
     if (!sourceName || !newName) {
-      return { success: false, error: 'invalid_alias_name' }
+      return { success: false, error: "invalid_alias_name" };
     }
 
     // Validate source exists
-    if (!this.cache.aliases[sourceName]) {
-      return { success: false, error: 'alias_not_found', params: { name: sourceName } }
+    if (!this.serviceCache.aliases[sourceName]) {
+      return {
+        success: false,
+        error: "alias_not_found",
+        params: { name: sourceName },
+      };
     }
 
     // Validate new alias name and not duplicate
-    if (!await this.isValidAliasName(newName)) {
-      return { success: false, error: 'invalid_alias_name', params: { name: newName } }
+    if (!(await this.isValidAliasName(newName))) {
+      return {
+        success: false,
+        error: "invalid_alias_name",
+        params: { name: newName },
+      };
     }
-    if (this.cache.aliases[newName]) {
-      return { success: false, error: 'alias_already_exists', params: { name: newName } }
+    if (this.serviceCache.aliases[newName]) {
+      return {
+        success: false,
+        error: "alias_already_exists",
+        params: { name: newName },
+      };
     }
 
-    const original = this.cache.aliases[sourceName]
+    const original = this.serviceCache.aliases[sourceName];
 
     try {
-      await this.request('data:update-profile', {
-        profileId: this.cache.currentProfile,
+      await this.request("data:update-profile", {
+        profileId: this.serviceCache.currentProfile,
         add: {
           aliases: {
             [newName]: {
               description: original.description,
               commands: original.commands,
-              type: original.type || 'alias' // Preserve type or default to 'alias'
-            }
-          }
-        }
-      })
+              type: original.type || "alias", // Preserve type or default to 'alias'
+            },
+          },
+        },
+      });
 
       // Update local cache
-      this.cache.aliases[newName] = {
+      this.serviceCache.aliases[newName] = {
         description: original.description,
         commands: original.commands,
-        type: original.type || 'alias'
-      }
+        type: original.type || "alias",
+      };
 
-      this.emit('alias-created', { name: newName })
-      this.emit('alias-duplicated', { from: sourceName, to: newName })
-      return { success: true, message: 'alias_duplicated', data: { from: sourceName, to: newName } }
+      this.emit("alias-created", { name: newName });
+      this.emit("alias-duplicated", { from: sourceName, to: newName });
+      return {
+        success: true,
+        message: "alias_duplicated",
+        data: { from: sourceName, to: newName },
+      };
     } catch (error) {
-      console.error('[AliasService] Failed to duplicate alias with name:', error)
-      return { success: false, error: 'failed_to_duplicate_alias' }
+      console.error(
+        "[AliasService] Failed to duplicate alias with name:",
+        error,
+      );
+      return { success: false, error: "failed_to_duplicate_alias" };
     }
   }
 
   // Validation helpers
-  async isValidAliasName (name) {
-    if (!name || typeof name !== 'string') return false
-    
+  /** @param {string | undefined} name */
+  async isValidAliasName(name) {
+    if (!name || typeof name !== "string") return false;
+
     try {
       // Use the comprehensive alias validation library
-      const { isAliasNameAllowed } = await import('../../lib/aliasNameValidator.js')
-      return isAliasNameAllowed(name)
+      const { isAliasNameAllowed } = await import(
+        "../../lib/aliasNameValidator.js"
+      );
+      return isAliasNameAllowed(name);
     } catch (error) {
+      void error;
       // Fallback to basic pattern validation if library not available
-      const pattern = /^[A-Za-z][A-Za-z0-9_]*$/
-      return pattern.test(name) && name.length <= 50
+      const pattern = /^[A-Za-z][A-Za-z0-9_]*$/;
+      return pattern.test(name) && name.length <= 50;
     }
   }
 
   // Import operations
-  importAliasFile (content) {
-    const profileId = this.cache.currentProfile
+  /** @param {string | undefined} content */
+  importAliasFile(content) {
+    const profileId = this.serviceCache.currentProfile;
 
     // Delegate to ImportService for complete import handling
-    return request(this.eventBus, 'import:alias-file', {
+    return this.request("import:alias-file", {
       content,
-      profileId
-    })
+      profileId,
+    });
   }
 }

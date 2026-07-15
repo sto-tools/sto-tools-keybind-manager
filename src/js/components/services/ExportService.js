@@ -1,160 +1,219 @@
-import ComponentBase from '../ComponentBase.js'
-import { writeFile } from './SyncService.js'
-import i18next from 'i18next'
-import { formatAliasLine, formatKeybindLine } from '../../lib/STOFormatter.js'
-import { normalizeToStringArray, normalizeToOptimizedString } from '../../lib/commandDisplayAdapter.js'
+import ComponentBase from "../ComponentBase.js";
+import { writeFile } from "./SyncService.js";
+import { formatAliasLine, formatKeybindLine } from "../../lib/STOFormatter.js";
+import { normalizeToOptimizedString } from "../../lib/commandDisplayAdapter.js";
 
-const STO_DATA = globalThis.STO_DATA || {}
+/** @type {{ settings?: { version?: string } }} */
+const STO_DATA =
+  /** @type {import('./serviceTypes.js').AppWindow} */ (globalThis).STO_DATA ||
+  {};
 
 /**
  * ExportService – encapsulates all business-logic for exporting / importing
- * profiles, keybind data and project archives.  
+ * profiles, keybind data and project archives.
  */
 export default class ExportService extends ComponentBase {
-  constructor ({ eventBus, storage, i18n } = {}) {
-    super(eventBus)
-    this.componentName = 'ExportService'
-    this.storage = storage
-    this.i18n = i18n
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, i18n?: import('./serviceTypes.js').I18n }} [options] */
+  constructor({ eventBus, storage, i18n } = {}) {
+    super(eventBus);
+    this.componentName = "ExportService";
+    this.storage = storage;
+    this.i18n = i18n;
+  }
+
+  /** @returns {import('./serviceTypes.js').ExportCache} */
+  get exportCache() {
+    return /** @type {import('./serviceTypes.js').ExportCache} */ (this.cache);
+  }
+
+  /**
+   * @param {string} key
+   * @param {Record<string, unknown>} [options]
+   */
+  translate(key, options = {}) {
+    return this.i18n?.t(key, options) ?? key;
   }
 
   onInit() {
     // Initialize ExportService-specific cache properties
     this.extendCache({
-      profiles: {} // ExportService needs to cache multiple profiles
-    })
+      profiles: {}, // ExportService needs to cache multiple profiles
+    });
 
-    this.setupRequestHandlers()
-    this.setupEventListeners()
+    this.setupRequestHandlers();
+    this.setupEventListeners();
   }
 
   setupRequestHandlers() {
     // Export generation requests
-   
-    this.respond('export:generate-filename', async ({ profile, extension, environment }) => 
-      await this.generateFileName(profile, extension, environment))
-    this.respond('export:generate-alias-filename', ({ profile, extension }) => 
-      this.generateAliasFileName(profile, extension))
-    this.respond('export:import-from-file', async ({ file }) =>
-      await this.importFromFile(file))
-    this.respond('export:extract-keys', ({ profile, environment }) =>
-      this.extractKeys(profile, environment))
-    this.respond('export:generate-keybind-file', async ({ profileId, environment = 'space', syncMode = false }) => {
-      const prof = this.getProfileFromCache(profileId)
-      if (!prof) throw new Error(`Profile ${profileId} not found in ExportService cache`)
-      return await this.generateSTOKeybindFile(prof, { environment, syncMode })
-    })
-    this.respond('export:generate-alias-file', async ({ profileId }) => {
-      const prof = this.getProfileFromCache(profileId)
-      if (!prof) throw new Error(`Profile ${profileId} not found`)
-      return await this.generateAliasFile(prof)
-    })
-    this.respond('export:sync-to-folder', async ({ dirHandle }) => {
-      return await this.syncToFolder(dirHandle)
-    })
+
+    this.respond(
+      "export:generate-filename",
+      async ({ profile, extension, environment }) =>
+        await this.generateFileName(profile, extension, environment),
+    );
+    this.respond("export:generate-alias-filename", ({ profile, extension }) =>
+      this.generateAliasFileName(profile, extension),
+    );
+    this.respond("export:import-from-file", ({ file }) =>
+      this.request("import:from-file", { file }),
+    );
+    this.respond("export:extract-keys", ({ profile, environment }) =>
+      this.extractKeys(profile, environment),
+    );
+    this.respond(
+      "export:generate-keybind-file",
+      async ({ profileId, environment = "space", syncMode = false }) => {
+        const prof = this.getProfileFromCache(profileId);
+        if (!prof)
+          throw new Error(
+            `Profile ${profileId} not found in ExportService cache`,
+          );
+        return await this.generateSTOKeybindFile(prof, {
+          environment,
+          syncMode,
+        });
+      },
+    );
+    this.respond("export:generate-alias-file", async ({ profileId }) => {
+      const prof = this.getProfileFromCache(profileId);
+      if (!prof) throw new Error(`Profile ${profileId} not found`);
+      return await this.generateAliasFile(prof);
+    });
+    this.respond("export:sync-to-folder", async ({ dirHandle }) => {
+      return await this.syncToFolder(dirHandle);
+    });
   }
 
-  setupEventListeners () {
+  setupEventListeners() {
     // Keep cache in sync when DataCoordinator broadcasts changes
-    this.addEventListener('profile:updated', ({ profileId, profile }) => {
+    this.addEventListener("profile:updated", ({ profileId, profile }) => {
       if (profileId && profile) {
-        this.cache.profiles[profileId] = profile
+        this.exportCache.profiles[profileId] = profile;
       }
-    })
+    });
 
-    this.addEventListener('profile:switched', ({ profileId, environment, profile }) => {
+    this.addEventListener("profile:switched", ({ profileId, profile }) => {
       // ComponentBase handles currentProfile and currentEnvironment automatically
-      if (profile) this.cache.profiles[profileId] = profile
-    })
+      if (profileId && profile) this.exportCache.profiles[profileId] = profile;
+    });
   }
 
   // Check if bind-to-alias mode is enabled from cached preferences (internal method)
   _getBindToAliasMode() {
-    console.log('[ExportService] _getBindToAliasMode called')
-    console.log('[ExportService] cache:', this.cache)
-    console.log('[ExportService] preferences:', this.cache?.preferences)
-    console.log('[ExportService] bindToAliasMode:', this.cache?.preferences?.bindToAliasMode)
+    console.log("[ExportService] _getBindToAliasMode called");
+    console.log("[ExportService] cache:", this.cache);
+    console.log("[ExportService] preferences:", this.cache?.preferences);
+    console.log(
+      "[ExportService] bindToAliasMode:",
+      this.cache?.preferences?.bindToAliasMode,
+    );
 
     // Use cached preferences from ComponentBase instead of making requests
-    return this.cache?.preferences?.bindToAliasMode || false
+    return this.cache?.preferences?.bindToAliasMode || false;
   }
-  
+
   // Check if bindsets feature is enabled from cached preferences (internal method)
   _getBindsetsEnabled() {
-    console.log('[ExportService] _getBindsetsEnabled called')
-    console.log('[ExportService] cache:', this.cache)
-    console.log('[ExportService] preferences:', this.cache?.preferences)
-    console.log('[ExportService] bindsetsEnabled:', this.cache?.preferences?.bindsetsEnabled)
+    console.log("[ExportService] _getBindsetsEnabled called");
+    console.log("[ExportService] cache:", this.cache);
+    console.log("[ExportService] preferences:", this.cache?.preferences);
+    console.log(
+      "[ExportService] bindsetsEnabled:",
+      this.cache?.preferences?.bindsetsEnabled,
+    );
 
     // Use cached preferences from ComponentBase instead of making requests
-    return this.cache?.preferences?.bindsetsEnabled || false
+    return this.cache?.preferences?.bindsetsEnabled || false;
   }
 
   // Sanitize a bindset name into a valid alias component (lower snake)
-  sanitizeBindsetName(name = '') {
-    if (!name) return ''
-    let s = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '')
-    if (/^[0-9]/.test(s)) s = `bs_${s}`
-    return s
+  sanitizeBindsetName(name = "") {
+    if (!name) return "";
+    let s = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    if (/^[0-9]/.test(s)) s = `bs_${s}`;
+    return s;
   }
 
   // Generate alias name for a key within a specific bindset
   // Primary bindset returns same as generateBindToAliasName()
+  /**
+   * @param {string} environment
+   * @param {string | null | undefined} bindsetName
+   * @param {string} keyName
+   */
   async generateBindsetAliasName(environment, bindsetName, keyName) {
-    const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
-    
+    const { generateBindToAliasName } = await import(
+      "../../lib/aliasNameValidator.js"
+    );
+    const generateName =
+      /** @type {(environment: string, keyName: string, bindsetName?: string | null) => string} */ (
+        generateBindToAliasName
+      );
+
     // For primary bindset, use the standard bind-to-alias name (already has sto_kb_ prefix)
-    if (!bindsetName || bindsetName === 'Primary Bindset') {
-      return generateBindToAliasName(environment, keyName)
+    if (!bindsetName || bindsetName === "Primary Bindset") {
+      return generateName(environment, keyName);
     }
-    
+
     // For custom bindsets, use the generateBindToAliasName with bindsetName parameter
-    return generateBindToAliasName(environment, keyName, bindsetName)
+    return generateName(environment, keyName, bindsetName);
   }
-  
+
   // Keybind file generation
-  async generateSTOKeybindFile (profile, options = {}) {
-    const { environment = 'space', syncMode = false } = options
-    const keys = this.extractKeys(profile, environment)
-    
-    const hasKeys = keys && Object.keys(keys).length > 0
+  /**
+   * @param {import('./serviceTypes.js').ProfileData & { name: string }} profile
+   * @param {{ environment?: string, syncMode?: boolean }} [options]
+   */
+  async generateSTOKeybindFile(profile, options = {}) {
+    const { environment = "space", syncMode = false } = options;
+    const keys = this.extractKeys(profile, environment);
+
+    const hasKeys = keys && Object.keys(keys).length > 0;
 
     if (!hasKeys) {
-      return '; ' + this.i18n.t('no_keybinds_to_export') + '\n'
+      return "; " + this.translate("no_keybinds_to_export") + "\n";
     }
 
-    const filename = `${profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${environment}.txt`
-    let content = await this.generateFileHeader(profile, filename, environment)
-    
-   
+    const filename = `${profile.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${environment}.txt`;
+    let content = await this.generateFileHeader(profile, filename, environment);
+
     // Add keybind section
-    content += await this.generateKeybindSection(keys, { 
-      environment, 
-      profile, 
-      syncMode 
-    })
-    
+    content += await this.generateKeybindSection(keys, {
+      environment,
+      profile,
+      syncMode,
+    });
+
     // Add footer
     //content += this.generateFileFooter()
-    
-    return content
+
+    return content;
   }
 
-  async generateFileHeader (profile, syncFilename = null, environment = null) {
-    const timestamp = new Date().toLocaleString()
-    const env = environment || profile.currentEnvironment || 'space'
-    const keyCount = Object.keys(this.extractKeys(profile, env)).length
-    const aliasCount = Object.keys(profile.aliases || {}).length
+  /**
+   * @param {import('./serviceTypes.js').ProfileData & { name: string }} profile
+   * @param {string | null} syncFilename
+   * @param {string | null} environment
+   */
+  async generateFileHeader(profile, syncFilename = null, environment = null) {
+    const timestamp = new Date().toLocaleString();
+    const env = environment || profile.currentEnvironment || "space";
+    const keyCount = Object.keys(this.extractKeys(profile, env)).length;
 
     let header = `; ================================================================
 ; ${profile.name} - STO Keybind Configuration
 ; ================================================================
-; ${this.i18n.t('environment')} ${env.toUpperCase()}
-; ${this.i18n.t('generated')} ${timestamp}
-; ${this.i18n.t('created_by')} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
+; ${this.translate("environment")} ${env.toUpperCase()}
+; ${this.translate("generated")} ${timestamp}
+; ${this.translate("created_by")} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? "unknown"}
 ;
-; ${this.i18n.t('statistics')}:
-; - ${this.i18n.t('total_commands')}: ${keyCount}
+; ${this.translate("statistics")}:
+; - ${this.translate("total_commands")}: ${keyCount}
 ;
 ; To use this keybind file in Star Trek Online:
 ; 1. Save this file in your STO Live folder as a .txt file
@@ -162,76 +221,83 @@ export default class ExportService extends ComponentBase {
 ; 3. Your keybinds will be applied immediately
 ; ================================================================
 
-`
-    return header
+`;
+    return header;
   }
 
-  async generateKeybindSection (keys, options = {}) {
-    const { environment = 'space', syncMode = false, profile } = options
-    
+  /**
+   * @param {Record<string, import('./serviceTypes.js').StoredCommand[]>} keys
+   * @param {{ environment?: string, profile?: import('./serviceTypes.js').ProfileData, syncMode?: boolean }} [options]
+   */
+  async generateKeybindSection(keys, options = {}) {
+    const { environment = "space", profile } = options;
+
     if (!keys || Object.keys(keys).length === 0) {
-      return '; ' + this.i18n.t('no_keybinds_to_export') + '\n'
+      return "; " + this.translate("no_keybinds_to_export") + "\n";
     }
 
     // Check if bind-to-alias mode is enabled
-    const bindToAliasMode = this._getBindToAliasMode()
-    console.log('[ExportService] this: ', this)
+    const bindToAliasMode = this._getBindToAliasMode();
+    console.log("[ExportService] this: ", this);
 
-    let content = `; ==============================================================================\n`
-    content += `; ${environment.toUpperCase()} KEYBINDS\n`
-    content += `; ==============================================================================\n\n`
-    
+    let content = `; ==============================================================================\n`;
+    content += `; ${environment.toUpperCase()} KEYBINDS\n`;
+    content += `; ==============================================================================\n\n`;
+
     if (bindToAliasMode) {
       // In bind-to-alias mode, only generate keybind lines that call the aliases
       // The actual alias definitions should be handled in generateAliasFile
-      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
-      
-      content += `; ${this.i18n.t('export_generated_aliases_note')}\n`
-      content += `; ${this.i18n.t('export_alias_definitions_note')}\n`
-      content += `; ------------------------------------------------------------------------------\n`
-      
+      const { generateBindToAliasName } = await import(
+        "../../lib/aliasNameValidator.js"
+      );
+
+      content += `; ${this.translate("export_generated_aliases_note")}\n`;
+      content += `; ${this.translate("export_alias_definitions_note")}\n`;
+      content += `; ------------------------------------------------------------------------------\n`;
+
       // Generate keybind lines that call the aliases
-      for (const [key, commands] of Object.entries(keys)) {
+      for (const key of Object.keys(keys)) {
         // Always generate a keybind line that calls its alias – even when the
         // command list is empty – so that "defined-but-empty" keybinds are
         // preserved in exported files.
-        const aliasName = generateBindToAliasName(environment, key)
-        if (!aliasName) continue
+        const aliasName = generateBindToAliasName(environment, key);
+        if (!aliasName) continue;
         // Encode the key for export (e.g., backtick becomes 0x29)
-        const { encodeKeyForExport } = await import('../../lib/keyEncoding.js')
-        const encodedKey = encodeKeyForExport(key)
-        content += `${encodedKey} "${aliasName}"\n`
+        const { encodeKeyForExport } = await import("../../lib/keyEncoding.js");
+        const encodedKey = encodeKeyForExport(key);
+        content += `${encodedKey} "${aliasName}"\n`;
       }
     } else {
       // Original behavior - generate keybind commands directly
       for (const [key, commands] of Object.entries(keys)) {
-        let cmds = commands || []
-        const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
-          profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
+        let cmds = commands || [];
+        const shouldStabilize =
+          profile?.keybindMetadata &&
+          profile.keybindMetadata[environment] &&
+          profile.keybindMetadata[environment][key] &&
+          profile.keybindMetadata[environment][key].stabilizeExecutionOrder;
 
         if (shouldStabilize && Array.isArray(cmds) && cmds.length > 1) {
-          cmds = this.mirrorCommands(cmds, shouldStabilize)
+          cmds = this.mirrorCommands(cmds, shouldStabilize);
         }
 
         // Optimise each command string
-        const optimisedCmds = []
+        const optimisedCmds = [];
         for (const cmd of cmds) {
-          /* eslint-disable no-await-in-loop */
-          const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
-          /* eslint-enable no-await-in-loop */
-          optimisedCmds.push(opt)
+          const opt = await normalizeToOptimizedString(cmd, {
+            eventBus: this.eventBus || undefined,
+          });
+          optimisedCmds.push(opt);
         }
 
-        content += formatKeybindLine(key, optimisedCmds)
+        content += formatKeybindLine(key, optimisedCmds);
       }
     }
-    
-    content += '\n'
-    return content
+
+    content += "\n";
+    return content;
   }
 
-  
-  
   /* ---------------------------------------------------------- */
   /* Import delegation methods removed - use ImportService directly */
   /* Use: await this.request('import:from-file', { file })          */
@@ -239,48 +305,61 @@ export default class ExportService extends ComponentBase {
   /* Use: await this.request('import:profile-file', { content })    */
   /* ---------------------------------------------------------- */
 
-
   /* ---------------------------------------------------------- */
   /* Alias file generation                                      */
   /* ---------------------------------------------------------- */
-  async generateAliasFile (profile) {
-    const aliases = profile.aliases || {}
-    
+  /** @param {import('./serviceTypes.js').ProfileData & { name: string }} profile */
+  async generateAliasFile(profile) {
+    const aliases = profile.aliases || {};
+
     // Get current virtual VFX aliases from VFXManagerService
-    let vfxAliases = {}
+    /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
+    let vfxAliases = {};
     try {
-      vfxAliases = await this.request('vfx:get-virtual-aliases') || {}
-    } catch (error) {
+      vfxAliases = (await this.request("vfx:get-virtual-aliases")) || {};
+    } catch {
       // VFXManagerService might not be available - continue without VFX aliases
-      console.log('[ExportService] VFXManagerService not available, skipping VFX aliases')
+      console.log(
+        "[ExportService] VFXManagerService not available, skipping VFX aliases",
+      );
     }
-    
+
     // Check if bind-to-alias mode is enabled and add generated aliases
-    const bindToAliasMode = this._getBindToAliasMode()
-    const generatedAliases = {}
-    
+    const bindToAliasMode = this._getBindToAliasMode();
+    /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
+    const generatedAliases = {};
+
     if (bindToAliasMode) {
       // Generate aliases from keybinds when bind-to-alias mode is enabled
-      const { generateBindToAliasName } = await import('../../lib/aliasNameValidator.js')
-      
+      const { generateBindToAliasName } = await import(
+        "../../lib/aliasNameValidator.js"
+      );
+
       // Process all environments to generate aliases
-      const environments = ['space', 'ground']
+      const environments = ["space", "ground"];
       for (const environment of environments) {
-        const keys = this.extractKeys(profile, environment)
-        if (!keys || Object.keys(keys).length === 0) continue
-        
+        const keys = this.extractKeys(profile, environment);
+        if (!keys || Object.keys(keys).length === 0) continue;
+
         for (const [key, commands] of Object.entries(keys)) {
-          const aliasName = generateBindToAliasName(environment, key)
-          if (!aliasName) continue
-          
+          const aliasName = generateBindToAliasName(environment, key);
+          if (!aliasName) continue;
+
           // Use an empty array when commands is falsy to allow generation of
           // empty alias definitions.
-          let cmds = commands || []
-          const shouldStabilize = (profile.keybindMetadata && profile.keybindMetadata[environment] &&
-            profile.keybindMetadata[environment][key] && profile.keybindMetadata[environment][key].stabilizeExecutionOrder)
+          let cmds = commands || [];
+          const shouldStabilize =
+            profile.keybindMetadata &&
+            profile.keybindMetadata[environment] &&
+            profile.keybindMetadata[environment][key] &&
+            profile.keybindMetadata[environment][key].stabilizeExecutionOrder;
 
-          if (shouldStabilize && Array.isArray(commands) && commands.length > 1) {
-            cmds = this.mirrorCommands(commands, shouldStabilize)
+          if (
+            shouldStabilize &&
+            Array.isArray(commands) &&
+            commands.length > 1
+          ) {
+            cmds = this.mirrorCommands(commands, shouldStabilize);
           }
 
           // Store as generated alias
@@ -288,202 +367,253 @@ export default class ExportService extends ComponentBase {
             name: aliasName,
             commands: cmds,
             description: `Generated alias for ${environment} key: ${key}`,
-            isGenerated: true
-          }
+            isGenerated: true,
+          };
         }
       }
     }
-    
+
     // --------------------------------------------------------
     // Bindsets support – generate aliases per bindset & loaders
     // --------------------------------------------------------
-    const bindsetsEnabled = this._getBindsetsEnabled()
-    const bindsetAliases = {}
-    const loaderAliases = {}
+    const bindsetsEnabled = this._getBindsetsEnabled();
+    /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
+    const bindsetAliases = {};
+    /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
+    const loaderAliases = {};
 
     if (bindsetsEnabled) {
-      const bindsets = profile.bindsets || {}
-      const bindsetNames = Object.keys(bindsets)
+      const bindsets = profile.bindsets || {};
+      const bindsetNames = Object.keys(bindsets);
 
-      const environments = ['space', 'ground']
+      const environments = ["space", "ground"];
       for (const environment of environments) {
         // Collect union of all keys across bindsets and primary build
-        const primaryKeys = Object.keys(profile.builds?.[environment]?.keys || {})
-        const keyUnion = new Set(primaryKeys)
+        const primaryKeys = Object.keys(
+          profile.builds?.[environment]?.keys || {},
+        );
+        const keyUnion = new Set(primaryKeys);
 
         for (const bsName of bindsetNames) {
-          const bsKeys = Object.keys(bindsets[bsName]?.[environment]?.keys || {})
-          bsKeys.forEach(k => keyUnion.add(k))
+          const bsKeys = Object.keys(
+            bindsets[bsName]?.[environment]?.keys || {},
+          );
+          bsKeys.forEach((k) => keyUnion.add(k));
         }
 
         // Generate per-bindset key aliases (non-primary)
         for (const bsName of bindsetNames) {
-          const bsKeys = bindsets[bsName]?.[environment]?.keys || {}
+          const bsKeys = bindsets[bsName]?.[environment]?.keys || {};
           for (const [key, commands] of Object.entries(bsKeys)) {
             // Ensure array
-            let cmds = commands || []
-            if (!Array.isArray(cmds)) cmds = [cmds]
+            let cmds = commands || [];
+            if (!Array.isArray(cmds)) cmds = [cmds];
 
             // Mirror when stabilization enabled for this bindset key
-            const shouldStabilize = (profile.bindsetMetadata && profile.bindsetMetadata[bsName] &&
+            const shouldStabilize =
+              profile.bindsetMetadata &&
+              profile.bindsetMetadata[bsName] &&
               profile.bindsetMetadata[bsName][environment] &&
               profile.bindsetMetadata[bsName][environment][key] &&
-              profile.bindsetMetadata[bsName][environment][key].stabilizeExecutionOrder)
+              profile.bindsetMetadata[bsName][environment][key]
+                .stabilizeExecutionOrder;
 
             if (shouldStabilize && cmds.length > 1) {
-              cmds = this.mirrorCommands(cmds, shouldStabilize)
+              cmds = this.mirrorCommands(cmds, shouldStabilize);
             }
 
-            const aliasName = await this.generateBindsetAliasName(environment, bsName, key)
-            if (!aliasName) continue
+            const aliasName = await this.generateBindsetAliasName(
+              environment,
+              bsName,
+              key,
+            );
+            if (!aliasName) continue;
 
             bindsetAliases[aliasName] = {
               name: aliasName,
               commands: cmds,
               description: `Bindset ${bsName} – ${environment} key ${key}`,
-              isGenerated: true
-            }
+              isGenerated: true,
+            };
           }
         }
 
         // Build loader aliases for EACH bindset (including Primary Bindset)
-        const allBindsetForLoaders = ['Primary Bindset', ...bindsetNames]
+        const allBindsetForLoaders = ["Primary Bindset", ...bindsetNames];
         for (const bsName of allBindsetForLoaders) {
-          const loaderAliasName = `sto_kb_bindset_enable_${environment}_${this.sanitizeBindsetName(bsName)}`
+          const loaderAliasName = `sto_kb_bindset_enable_${environment}_${this.sanitizeBindsetName(bsName)}`;
 
           // Build command string for loader alias: series of bind commands separated by $$
-          const bindCmds = []
+          const bindCmds = [];
           for (const key of keyUnion) {
-            let targetAliasName
-            const inBs = bsName !== 'Primary Bindset' && (bindsets[bsName]?.[environment]?.keys?.[key])
-            const inPrimary = (profile.builds?.[environment]?.keys?.[key])
-            
+            let targetAliasName;
+            const inBs =
+              bsName !== "Primary Bindset" &&
+              bindsets[bsName]?.[environment]?.keys?.[key];
+            const inPrimary = profile.builds?.[environment]?.keys?.[key];
+
             // Determine if we need to rebind this key in loader
-            if (bsName === 'Primary Bindset') {
+            if (bsName === "Primary Bindset") {
               // For Primary Bindset loader: only reset keys that exist in custom bindsets
               // Check if this key exists in any non-primary bindset
-              const existsInCustomBindset = bindsetNames.some(customBsName => 
-                bindsets[customBsName]?.[environment]?.keys?.[key]
-              )
-              
+              const existsInCustomBindset = bindsetNames.some(
+                (customBsName) =>
+                  bindsets[customBsName]?.[environment]?.keys?.[key],
+              );
+
               if (existsInCustomBindset) {
                 if (inPrimary) {
                   // Key exists in both primary and custom bindsets - reset to primary
-                  targetAliasName = await this.generateBindsetAliasName(environment, 'Primary Bindset', key)
+                  targetAliasName = await this.generateBindsetAliasName(
+                    environment,
+                    "Primary Bindset",
+                    key,
+                  );
                 } else {
                   // Key exists only in custom bindsets, not in primary - unbind it
-                  bindCmds.push(`unbind ${key}`)
-                  continue
+                  bindCmds.push(`unbind ${key}`);
+                  continue;
                 }
               }
               // If key doesn't exist in any custom bindset, skip it (no need to reset)
             } else {
               // For custom bindset loaders: only bind keys that exist in this specific bindset
               if (inBs) {
-                targetAliasName = await this.generateBindsetAliasName(environment, bsName, key)
+                targetAliasName = await this.generateBindsetAliasName(
+                  environment,
+                  bsName,
+                  key,
+                );
               }
             }
-            
+
             if (targetAliasName) {
               // Encode the key for export (e.g., backtick becomes 0x29)
-              const { encodeKeyForExport } = await import('../../lib/keyEncoding.js')
-              const encodedKey = encodeKeyForExport(key)
-              bindCmds.push(`bind ${encodedKey} \"${targetAliasName}\"`)
+              const { encodeKeyForExport } = await import(
+                "../../lib/keyEncoding.js"
+              );
+              const encodedKey = encodeKeyForExport(key);
+              bindCmds.push(`bind ${encodedKey} "${targetAliasName}"`);
             }
           }
 
           if (bindCmds.length > 0) {
-            const cmdStr = bindCmds.join(' $$ ')
+            const cmdStr = bindCmds.join(" $$ ");
             loaderAliases[loaderAliasName] = {
               name: loaderAliasName,
-              commands: [ cmdStr ],
+              commands: [cmdStr],
               description: `Enable ${bsName} for ${environment}`,
               isLoader: true,
-              category: 'Bindsets'
-            }
+              category: "Bindsets",
+            };
           }
         }
       }
     }
 
     // Combine all aliases: user aliases, VFX aliases, generated bind-to-alias, bindset key aliases and loader aliases
-    const allAliases = { ...aliases, ...vfxAliases, ...generatedAliases, ...bindsetAliases, ...loaderAliases }
-    
+    /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
+    const allAliases = {
+      ...aliases,
+      ...vfxAliases,
+      ...generatedAliases,
+      ...bindsetAliases,
+      ...loaderAliases,
+    };
+
     if (Object.keys(allAliases).length === 0) {
-      return '; ' + this.i18n.t('no_aliases_to_export') + '\n'
+      return "; " + this.translate("no_aliases_to_export") + "\n";
     }
 
-    let content = await this.generateAliasFileHeader(profile)
-    
+    let content = await this.generateAliasFileHeader(profile);
+
     // Add note about generated aliases if any exist
     if (Object.keys(generatedAliases).length > 0) {
-      content += `; ${this.i18n.t('export_user_and_generated_aliases')}\n`
-      content += `; ${this.i18n.t('export_generated_aliases_count', { count: Object.keys(generatedAliases).length })}\n`
-      content += `; ================================================================\n\n`
+      content += `; ${this.translate("export_user_and_generated_aliases")}\n`;
+      content += `; ${this.translate("export_generated_aliases_count", { count: Object.keys(generatedAliases).length })}\n`;
+      content += `; ================================================================\n\n`;
     }
-    
+
     // Generate alias content directly (sorted)
-    const sorted = Object.entries(allAliases).sort(([a], [b]) => a.localeCompare(b))
-    
+    const sorted = Object.entries(allAliases).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+
     for (const [name, alias] of sorted) {
-      let commandsArray = Array.isArray(alias.commands) ? alias.commands : []
+      let commandsArray = Array.isArray(alias.commands) ? alias.commands : [];
 
       // Apply mirroring if aliasMetadata says so (but not for generated aliases, they're already processed)
-      const shouldStabilize = !alias.isGenerated && !alias.isLoader && (profile.aliasMetadata && profile.aliasMetadata[name] && profile.aliasMetadata[name].stabilizeExecutionOrder)
+      const shouldStabilize =
+        !alias.isGenerated &&
+        !alias.isLoader &&
+        profile.aliasMetadata &&
+        profile.aliasMetadata[name] &&
+        profile.aliasMetadata[name].stabilizeExecutionOrder;
 
       if (shouldStabilize && commandsArray.length > 1) {
         // PROPERLY normalize: preserve existing objects, convert strings to objects
-        const cmdParts = commandsArray.map(c => {
-          if (typeof c === 'string') {
-            return { command: c }  // String → object
-          } else if (c && typeof c.command === 'string') {
-            return c  // Already an object, preserve metadata
-          }
-          return null
-        }).filter(Boolean)
+        const cmdParts = commandsArray
+          .map((/** @type {import('./serviceTypes.js').StoredCommand} */ c) => {
+            if (typeof c === "string") {
+              return { command: c }; // String → object
+            } else if (c && typeof c.command === "string") {
+              return c; // Already an object, preserve metadata
+            }
+            return "";
+          })
+          .filter(Boolean);
 
-        const mirroredStr = await this.request('command:generate-mirrored-commands', { commands: cmdParts })
-        commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean)
+        const mirroredStr = await this.request(
+          "command:generate-mirrored-commands",
+          { commands: cmdParts },
+        );
+        commandsArray = mirroredStr.split(/\s*\$\$\s*/).filter(Boolean);
       } else {
         // ALSO normalize when not stabilizing - extract command strings from objects
-        commandsArray = commandsArray.map(c => {
-          if (typeof c === 'string') {
-            return c
-          } else if (c && typeof c.command === 'string') {
-            return c.command  // Extract command string from object
-          }
-          return null
-        }).filter(Boolean)
+        commandsArray = commandsArray
+          .map((/** @type {import('./serviceTypes.js').StoredCommand} */ c) => {
+            if (typeof c === "string") {
+              return c;
+            } else if (c && typeof c.command === "string") {
+              return c.command; // Extract command string from object
+            }
+            return "";
+          })
+          .filter(Boolean);
       }
 
       // Optimise each command (e.g., TrayExecByTray / TrayExecByTrayWithBackup)
-      const optimisedCommands = []
+      const optimisedCommands = [];
       for (const cmd of commandsArray) {
         // normalise + optimise each command string
-        /* eslint-disable no-await-in-loop */
-        const opt = await normalizeToOptimizedString(cmd, { eventBus: this.eventBus })
-        /* eslint-enable no-await-in-loop */
-        optimisedCommands.push(opt)
+        const opt = await normalizeToOptimizedString(cmd, {
+          eventBus: this.eventBus || undefined,
+        });
+        optimisedCommands.push(opt);
       }
 
       // Pass array directly to formatAliasLine which will handle joining
-      content += formatAliasLine(name, { ...alias, commands: optimisedCommands })
-      content += '\n'
+      content += formatAliasLine(name, {
+        ...alias,
+        commands: optimisedCommands,
+      });
+      content += "\n";
     }
-    
-    return content
+
+    return content;
   }
 
-  async generateAliasFileHeader (profile) {
-    const timestamp = new Date().toLocaleString()
-    const aliasCount = Object.keys(profile.aliases || {}).length
+  /** @param {import('./serviceTypes.js').ProfileData & { name: string }} profile */
+  async generateAliasFileHeader(profile) {
+    const timestamp = new Date().toLocaleString();
+    const aliasCount = Object.keys(profile.aliases || {}).length;
 
     return `; ================================================================
 ; ${profile.name} - STO Alias Configuration
 ; ================================================================
-; ${this.i18n.t('environment')} Alias
-; ${this.i18n.t('generated')} ${timestamp}
-; ${this.i18n.t('created_by')} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? 'unknown'}
+; ${this.translate("environment")} Alias
+; ${this.translate("generated")} ${timestamp}
+; ${this.translate("created_by")} STO Tools Keybind Manager v${STO_DATA?.settings?.version ?? "unknown"}
 ;
 ; Alias Statistics:
 ; - Total aliases: ${aliasCount}
@@ -503,172 +633,223 @@ export default class ExportService extends ComponentBase {
 ; - Arc: C:\\Program Files (x86)\\Perfect World Entertainment\\Arc Games\\Star Trek Online
 ; ================================================================
 
-`
+`;
   }
 
   /* ---------------------------------------------------------- */
   /* Sync to folder                                            */
   /* ---------------------------------------------------------- */
-  async syncToFolder (dirHandle) {
-    const data = this.storage.getAllData()
-    const profiles = data.profiles || {}
+  /** @param {FileSystemDirectoryHandle} dirHandle */
+  async syncToFolder(dirHandle) {
+    if (!this.storage) throw new Error("Storage is required to sync exports");
+    const data = this.storage.getAllData();
+    const profiles = data.profiles || {};
 
-    try {
-      // Generate files for each profile
-      for (const [profileId, profile] of Object.entries(profiles)) {
-        if (!profile || !profile.name) continue
+    // Generate files for each profile
+    for (const profile of Object.values(profiles)) {
+      if (!profile || !profile.name) continue;
 
-        const sanitizedName = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
-        
-        // Create profile directory
-        const profileDir = `${sanitizedName}`
-        
-        // Generate keybind files for each environment
-        for (const environment of ['space', 'ground']) {
-          if (profile.builds?.[environment]?.keys && Object.keys(profile.builds[environment].keys).length > 0) {
-            const keybindContent = await this.generateSTOKeybindFile(profile, {
-              environment,
-              profile,
-              syncMode: true
-            })
-            const filename = `${profileDir}/${sanitizedName}_${environment}.txt`
-            await writeFile(dirHandle, filename, keybindContent)
-          }
-        }
-        
-        // Generate alias file (includes user aliases, VFX aliases, bind-to-alias, and bindset aliases)
-        const aliasContent = await this.generateAliasFile(profile)
-        const filename = `${profileDir}/${sanitizedName}_aliases.txt`
-        await writeFile(dirHandle, filename, aliasContent)
-      }
+      const sanitizedName = profile.name.replace(/[^a-zA-Z0-9_-]/g, "_");
 
-      // Generate project.json with complete data
-      const projectData = {
-        version: STO_DATA?.settings?.version || '1.0.0',
-        exported: new Date().toISOString(),
-        type: 'project',
-        data: {
-          profiles,
-          settings: data.settings || {},
-          currentProfile: data.currentProfile
+      // Create profile directory
+      const profileDir = `${sanitizedName}`;
+
+      // Generate keybind files for each environment
+      for (const environment of ["space", "ground"]) {
+        if (
+          profile.builds?.[environment]?.keys &&
+          Object.keys(profile.builds[environment].keys).length > 0
+        ) {
+          const keybindContent = await this.generateSTOKeybindFile(profile, {
+            environment,
+            syncMode: true,
+          });
+          const filename = `${profileDir}/${sanitizedName}_${environment}.txt`;
+          await writeFile(dirHandle, filename, keybindContent);
         }
       }
-      await writeFile(dirHandle, 'project.json', JSON.stringify(projectData, null, 2))
 
-      // Toast is handled by SyncService to respect autosync settings
-    } catch (error) {
-      throw error
+      // Generate alias file (includes user aliases, VFX aliases, bind-to-alias, and bindset aliases)
+      const aliasContent = await this.generateAliasFile(profile);
+      const filename = `${profileDir}/${sanitizedName}_aliases.txt`;
+      await writeFile(dirHandle, filename, aliasContent);
     }
+
+    // Generate project.json with complete data
+    const projectData = {
+      version: STO_DATA?.settings?.version || "1.0.0",
+      exported: new Date().toISOString(),
+      type: "project",
+      data: {
+        profiles,
+        settings: data.settings || {},
+        currentProfile: data.currentProfile,
+      },
+    };
+    await writeFile(
+      dirHandle,
+      "project.json",
+      JSON.stringify(projectData, null, 2),
+    );
+
+    // Toast is handled by SyncService to respect autosync settings
   }
 
-  generateFileName (profile, extension, environment = profile.currentEnvironment || 'space') {
-    const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
-    const timestamp = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
-    return `${sanitized}_${environment}_${timestamp}.${extension}`
+  /**
+   * @param {import('./serviceTypes.js').ProfileData & { name: string }} profile
+   * @param {string} extension
+   * @param {string} environment
+   */
+  generateFileName(
+    profile,
+    extension,
+    environment = profile.currentEnvironment || "space",
+  ) {
+    const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const timestamp = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+    return `${sanitized}_${environment}_${timestamp}.${extension}`;
   }
 
-  generateAliasFileName (profile, extension) {
-    const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, '_')
-    return `${sanitized}_aliases.${extension}`
+  /**
+   * @param {import('./serviceTypes.js').ProfileData & { name: string }} profile
+   * @param {string} extension
+   */
+  generateAliasFileName(profile, extension) {
+    const sanitized = profile.name.replace(/[^a-zA-Z0-9_-]/g, "_");
+    return `${sanitized}_aliases.${extension}`;
   }
 
-  extractKeys (profile = {}, environment = 'space') {
+  /**
+   * @param {import('./serviceTypes.js').ProfileData} [profile]
+   * @param {string} environment
+   */
+  extractKeys(profile = {}, environment = "space") {
     // Handle flat structure first (for direct calls with extracted keys)
     if (profile.keys && !profile.builds) {
-      return profile.keys
+      return profile.keys;
     }
-    
+
     // Handle builds structure
-    if (profile.builds && profile.builds[environment] && profile.builds[environment].keys) {
-      return profile.builds[environment].keys
+    if (
+      profile.builds &&
+      profile.builds[environment] &&
+      profile.builds[environment].keys
+    ) {
+      return profile.builds[environment].keys;
     }
-    
+
     // Handle legacy keybinds structure
     if (profile.keybinds && profile.keybinds[environment]) {
-      return profile.keybinds[environment]
+      return profile.keybinds[environment];
     }
-    
-    return {}
+
+    return {};
   }
 
   /* helper to mirror command strings array with TrayExec-aware palindromic generation */
+  /**
+   * @param {import('./serviceTypes.js').StoredCommand[]} commands
+   * @param {boolean} stabilize
+   * @param {boolean} includePostPivot
+   */
   mirrorCommands(commands, stabilize = false, includePostPivot = true) {
     if (!Array.isArray(commands) || commands.length <= 1) {
       // For single commands or non-stabilized mode, just extract command strings
-      return commands.map(cmd => typeof cmd === 'string' ? cmd : cmd.command)
+      return commands
+        .map((cmd) => (typeof cmd === "string" ? cmd : cmd.command || ""))
+        .filter(Boolean);
     }
 
     if (!stabilize) {
       // No stabilization - just extract command strings
-      return commands.map(cmd => typeof cmd === 'string' ? cmd : cmd.command)
+      return commands
+        .map((cmd) => (typeof cmd === "string" ? cmd : cmd.command || ""))
+        .filter(Boolean);
     }
 
-    const beforePrePivot = []  // Non-TrayExec + excluded TrayExec (before)
-    const palindromic = []     // TrayExec for mirroring (pre-pivot candidates)
-    const pivotGroup = []      // Excluded TrayExec (in pivot)
+    /** @type {string[]} */
+    const beforePrePivot = []; // Non-TrayExec + excluded TrayExec (before)
+    /** @type {string[]} */
+    const palindromic = []; // TrayExec for mirroring (pre-pivot candidates)
+    /** @type {string[]} */
+    const pivotGroup = []; // Excluded TrayExec (in pivot)
 
-    commands.forEach(cmd => {
-      const cmdStr = typeof cmd === 'string' ? cmd : cmd.command
-      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/)
-      const isExcluded = typeof cmd === 'object' && cmd.palindromicGeneration === false
+    commands.forEach((cmd) => {
+      const cmdStr = typeof cmd === "string" ? cmd : cmd.command;
+      if (!cmdStr) return;
+      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/);
+      const isExcluded =
+        typeof cmd === "object" && cmd.palindromicGeneration === false;
 
       if (!isTrayExec) {
-        beforePrePivot.push(cmdStr)  // Non-TrayExec first
+        beforePrePivot.push(cmdStr); // Non-TrayExec first
       } else if (isExcluded) {
-        if (cmd.placement === 'in-pivot-group') {
-          pivotGroup.push(cmdStr)
+        if (cmd.placement === "in-pivot-group") {
+          pivotGroup.push(cmdStr);
         } else {
-          beforePrePivot.push(cmdStr)  // before-pre-pivot
+          beforePrePivot.push(cmdStr); // before-pre-pivot
         }
       } else {
-        palindromic.push(cmdStr)  // Normal TrayExec palindrome
+        palindromic.push(cmdStr); // Normal TrayExec palindrome
       }
-    })
+    });
 
     // Determine pivot/pivot group + pre-pivot
-    let pivot = []
-    let prePivot = palindromic
+    /** @type {string[]} */
+    let pivot = [];
+    let prePivot = palindromic;
 
     if (pivotGroup.length > 0) {
-      pivot = pivotGroup  // Use specified pivot group
+      pivot = pivotGroup; // Use specified pivot group
     } else if (palindromic.length > 0) {
-      pivot = [palindromic[palindromic.length - 1]]  // Last item becomes pivot
-      prePivot = palindromic.slice(0, -1)  // All others are pre-pivot
+      pivot = [palindromic[palindromic.length - 1]]; // Last item becomes pivot
+      prePivot = palindromic.slice(0, -1); // All others are pre-pivot
     }
 
     // Build sequence: [non-TrayExec + before-pre-pivot] + [pre-pivot] + [pivot]
-    let result = [...beforePrePivot, ...prePivot, ...pivot]
-    
+    let result = [...beforePrePivot, ...prePivot, ...pivot];
+
     // Optionally add post-pivot mirror
     if (includePostPivot) {
-      const postPivot = [...prePivot].reverse()  // Mirror pre-pivot to create post-pivot
-      result = [...result, ...postPivot]
+      const postPivot = [...prePivot].reverse(); // Mirror pre-pivot to create post-pivot
+      result = [...result, ...postPivot];
     }
-    
-    return result
+
+    return result;
   }
 
   // Late-join state sync
-  getCurrentState () {
+  getCurrentState() {
     return {
       currentProfile: this.cache.currentProfile,
       currentEnvironment: this.cache.currentEnvironment,
-      profiles: this.cache.profiles
-    }
+      profiles: this.exportCache.profiles,
+    };
   }
 
-  handleInitialState (sender, state) {
+  /**
+   * @param {string} sender
+   * @param {unknown} state
+   */
+  handleInitialState(sender, state) {
+    void sender;
+    void state;
   }
 
   // Utility
-  getProfileFromCache (profileId) {
-    if (profileId && this.cache.profiles[profileId]) {
-      return this.cache.profiles[profileId]
+  /** @param {string | undefined} profileId */
+  getProfileFromCache(profileId) {
+    if (profileId && this.exportCache.profiles[profileId]) {
+      return this.exportCache.profiles[profileId];
     }
     // Fallback to storage if available
-    if (this.storage && typeof this.storage.getProfile === 'function') {
-      return this.storage.getProfile(profileId)
+    if (
+      profileId &&
+      this.storage &&
+      typeof this.storage.getProfile === "function"
+    ) {
+      return this.storage.getProfile(profileId);
     }
-    return null
+    return null;
   }
-} 
+}

@@ -1,91 +1,104 @@
-import ValidatorBase from './ValidatorBase.js'
+import ValidatorBase from "./ValidatorBase.js";
 
-const CMD_MAP = (typeof window !== 'undefined' && window.COMMANDS) ? window.COMMANDS : {}
+const appWindow =
+  typeof window === "undefined"
+    ? null
+    : /** @type {import('../serviceTypes.js').AppWindow} */ (window);
+const CMD_MAP = appWindow?.COMMANDS || {};
 
-function getCmdDefFromString(commandStr){
-  if(!commandStr) return null
-  const normalized = commandStr.trim().toLowerCase()
+/** @param {string} commandStr */
+function getCmdDefFromString(commandStr) {
+  if (!commandStr) return null;
+  const normalized = commandStr.trim().toLowerCase();
 
-  for(const key in CMD_MAP){
-    const def = CMD_MAP[key]
-    if(!def || !def.command) continue
-    const defCmd = def.command.trim().toLowerCase()
+  for (const key in CMD_MAP) {
+    const def = CMD_MAP[key];
+    if (!def || !def.command) continue;
+    const defCmd = def.command.trim().toLowerCase();
 
     // Direct equal match
-    if(normalized === defCmd){
-      return { ...def, _id: key }
+    if (normalized === defCmd) {
+      return { ...def, _id: key };
     }
 
     // Starts-with match handles parameter strings (e.g. '+power_exec Distribute_Shields')
-    if(normalized.startsWith(defCmd)){
-      return { ...def, _id: key }
+    if (normalized.startsWith(defCmd)) {
+      return { ...def, _id: key };
     }
 
     // Also handle first token equal (legacy behaviour)
-    const firstToken = normalized.split(/\s+/)[0]
-    if(firstToken === defCmd){
-      return { ...def, _id: key }
+    const firstToken = normalized.split(/\s+/)[0];
+    if (firstToken === defCmd) {
+      return { ...def, _id: key };
     }
   }
-  return null
+  return null;
 }
 
-export default class CommandWarnRule extends ValidatorBase{
-  constructor(){
+export default class CommandWarnRule extends ValidatorBase {
+  constructor() {
     super({
-      id:'commandWarnings',
-      defaultSeverity:'warning',
-      messageKey:'_internal_command_warning'
-    })
+      id: "commandWarnings",
+      defaultSeverity: "warning",
+      messageKey: "_internal_command_warning",
+    });
   }
 
   get i18n() {
-    return (typeof window !== 'undefined' && window.i18next) ? window.i18next : null
+    return appWindow?.i18next || null;
   }
 
-  validate(ctx){
-    const { commands } = ctx
-    if(!Array.isArray(commands) || commands.length === 0) return null
+  /**
+   * @param {import('./ValidatorBase.js').ValidationContext} ctx
+   * @returns {import('./ValidatorBase.js').CommandWarning[] | null}
+   */
+  validate(ctx) {
+    const { commands } = ctx;
+    if (!Array.isArray(commands) || commands.length === 0) return null;
 
-    const warnings = []
+    const warnings = [];
 
-    for(const c of commands){
-      const str = typeof c==='string'?c:(c.command||'')
-      const def = getCmdDefFromString(str)
-      if(def && def.warning){
+    for (const c of commands) {
+      const str = typeof c === "string" ? c : c.command || "";
+      const def = getCmdDefFromString(str);
+      if (def && def.warning) {
         // Translate command name if possible
-        let name = def.name || str
-        if(def._id && this.i18n){
-          const nameKey = `command_definitions.${def._id}.name`
-          const translatedName = this.i18n.t(nameKey)
-          if(translatedName && translatedName !== nameKey){
-            name = translatedName
+        let name = def.name || str;
+        if (def._id && this.i18n) {
+          const nameKey = `command_definitions.${def._id}.name`;
+          const translatedName = this.i18n.t(nameKey);
+          if (translatedName && translatedName !== nameKey) {
+            name = translatedName;
           }
         }
 
         // Translate warning text
-        let warnText = def.warning
-        if(this.i18n){
-          const t = this.i18n.t(def.warning)
-          warnText = t && t !== def.warning ? t : def.warning
+        let warnText = def.warning;
+        if (this.i18n) {
+          const t = this.i18n.t(def.warning);
+          warnText = t && t !== def.warning ? t : def.warning;
         }
 
-        warnings.push({ name, warnText })
+        warnings.push({ name, warnText });
       }
     }
 
-    return warnings
+    return warnings;
   }
 
-  run(ctx){
-    const warnings = this.validate(ctx)
-    if(!warnings || warnings.length === 0) return null
+  /**
+   * @param {import('./ValidatorBase.js').ValidationContext} ctx
+   * @returns {import('./ValidatorBase.js').ValidationIssue[] | null}
+   */
+  run(ctx) {
+    const warnings = this.validate(ctx);
+    if (!warnings || warnings.length === 0) return null;
 
     // Produce one issue per warning
     return warnings.map(({ name, warnText }) => ({
       id: this.id,
-      severity: 'warning',
-      defaultMessage: `${name} - ${warnText}`
-    }))
+      severity: "warning",
+      defaultMessage: `${name} - ${warnText}`,
+    }));
   }
-} 
+}
