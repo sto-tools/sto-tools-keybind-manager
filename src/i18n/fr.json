@@ -629,6 +629,10 @@
       "first_modifier": "Premier modificateur",
       "second_modifier": "Deuxième modificateur",
       "entity_name_optional": "Nom de l'entité (optionnel)"
+    },
+    "refine_dilithium": {
+      "name": "Raffiner le dilithium",
+      "description": "Raffiner le minerai de dilithium de votre inventaire"
     }
   },
   "category_descriptions": {
@@ -1097,5 +1101,6 @@
   "overwrite_all_action": "Tout écraser",
   "import_result_skipped": "{{imported}} importés, {{skipped}} conflits ignorés.",
   "import_result_overwrote": "{{imported}} importés, {{overwritten}} éléments écrasés.",
-  "import_result_overwrite_all": "{{imported}} importés après avoir effacé {{cleared}} éléments existants."
+  "import_result_overwrite_all": "{{imported}} importés après avoir effacé {{cleared}} éléments existants.",
+  "invalid_input": "Saisie invalide"
 }

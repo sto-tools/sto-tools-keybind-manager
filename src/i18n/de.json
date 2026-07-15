@@ -629,6 +629,10 @@
       "first_modifier": "Erster Modifikator",
       "second_modifier": "Zweiter Modifikator",
       "entity_name_optional": "Entitätsname (optional)"
+    },
+    "refine_dilithium": {
+      "name": "Dilithium veredeln",
+      "description": "Dilithiumerz aus Ihrem Inventar veredeln"
     }
   },
   "category_descriptions": {
@@ -1097,5 +1101,6 @@
   "overwrite_all_action": "Alle überschreiben",
   "import_result_skipped": "{{imported}} importiert, {{skipped}} Konflikte übersprungen.",
   "import_result_overwrote": "{{imported}} importiert, {{overwritten}} Elemente überschrieben.",
-  "import_result_overwrite_all": "{{imported}} nach dem Löschen von {{cleared}} vorhandenen Elementen importiert."
+  "import_result_overwrite_all": "{{imported}} nach dem Löschen von {{cleared}} vorhandenen Elementen importiert.",
+  "invalid_input": "Ungültige Eingabe"
 }

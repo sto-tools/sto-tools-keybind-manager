@@ -638,6 +638,10 @@
       "first_modifier": "Primer modificador",
       "second_modifier": "Segundo modificador",
       "entity_name_optional": "Nombre de entidad (opcional)"
+    },
+    "refine_dilithium": {
+      "name": "Refinar dilitio",
+      "description": "Refinar mineral de dilitio de tu inventario"
     }
   },
   "category_descriptions": {
@@ -1097,5 +1101,6 @@
   "overwrite_all_action": "Sobrescribir todo",
   "import_result_skipped": "Importados {{imported}}, omitidos {{skipped}} conflictos.",
   "import_result_overwrote": "Importados {{imported}}, sobrescritos {{overwritten}} elementos.",
-  "import_result_overwrite_all": "Importados {{imported}} después de limpiar {{cleared}} elementos existentes."
+  "import_result_overwrite_all": "Importados {{imported}} después de limpiar {{cleared}} elementos existentes.",
+  "invalid_input": "Entrada no válida"
 }
