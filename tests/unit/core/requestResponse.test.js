@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import eventBus from "../../../src/js/core/eventBus.js";
 import { request, respond } from "../../../src/js/core/requestResponse.js";
 
 describe("requestResponse - Simple Implementation Tests", () => {
   afterEach(() => {
+    vi.useRealTimers();
     // Clear all event listeners after each test
     eventBus.clear();
   });
@@ -134,6 +135,44 @@ describe("requestResponse - Simple Implementation Tests", () => {
       } finally {
         detach();
       }
+    });
+
+    it("should reject on timeout and remove the ephemeral reply listener", async () => {
+      vi.useFakeTimers();
+      let requestEnvelope;
+      eventBus.on("rpc:test:timeout", (message) => {
+        requestEnvelope = message;
+      });
+
+      const pendingRequest = request(eventBus, "test:timeout", {}, 25);
+
+      expect(requestEnvelope).toEqual({
+        requestId: expect.any(String),
+        replyTopic: expect.stringMatching(/^test:timeout::reply::/),
+        payload: {},
+      });
+      expect(eventBus.listeners.get(requestEnvelope.replyTopic)?.size).toBe(1);
+
+      const rejection =
+        expect(pendingRequest).rejects.toThrow("Request timed out");
+      await vi.advanceTimersByTimeAsync(25);
+      await rejection;
+
+      expect(eventBus.listeners.get(requestEnvelope.replyTopic)?.size).toBe(0);
+    });
+
+    it("should stop handling requests after the responder is detached", async () => {
+      const detach = respond(eventBus, "test:detached", () => ({ ok: true }));
+
+      await expect(request(eventBus, "test:detached", {})).resolves.toEqual({
+        ok: true,
+      });
+
+      detach();
+
+      expect(() => request(eventBus, "test:detached", {})).toThrow(
+        'Request failed: No handler registered for topic "test:detached". Component may not be properly initialized.',
+      );
     });
   });
 });
