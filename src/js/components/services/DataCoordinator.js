@@ -3,6 +3,7 @@ import {
   normalizeProfile,
   needsNormalization,
 } from "../../lib/profileNormalizer.js";
+import persist from "./storageWrites.js";
 
 const appWindow =
   typeof window === "undefined"
@@ -330,8 +331,8 @@ export default class DataCoordinator extends ComponentBase {
       const data = this.storage.getAllData();
 
       this.state.currentProfile = data.currentProfile;
-      this.state.profiles = data.profiles || {};
-      this.state.settings = data.settings || {};
+      this.state.profiles = structuredClone(data.profiles || {});
+      this.state.settings = structuredClone(data.settings || {});
 
       // Normalize all profiles to use canonical string commands
       await this.normalizeAllProfiles();
@@ -363,12 +364,11 @@ export default class DataCoordinator extends ComponentBase {
         !this.state.currentProfile &&
         Object.keys(this.state.profiles).length > 0
       ) {
-        this.state.currentProfile = Object.keys(this.state.profiles)[0];
+        const firstProfileId = Object.keys(this.state.profiles)[0];
 
         // Save current profile to storage
-        const updatedData = this.storage.getAllData();
-        updatedData.currentProfile = this.state.currentProfile;
-        await this.storage.saveAllData(updatedData);
+        await persist.currentProfile(this.storage, firstProfileId, this.i18n);
+        this.state.currentProfile = firstProfileId;
       }
 
       // Get current environment from profile
@@ -511,13 +511,12 @@ export default class DataCoordinator extends ComponentBase {
     }
 
     const oldProfileId = this.state.currentProfile;
-    this.state.currentProfile = profileId;
-    this.state.currentEnvironment = profile.currentEnvironment || "space";
 
     // Persist current profile change
-    const data = this.storage.getAllData();
-    data.currentProfile = profileId;
-    await this.storage.saveAllData(data);
+    await persist.currentProfile(this.storage, profileId, this.i18n);
+
+    this.state.currentProfile = profileId;
+    this.state.currentEnvironment = profile.currentEnvironment || "space";
 
     // Update metadata
     this.state.metadata.lastModified = new Date().toISOString();
@@ -596,7 +595,7 @@ export default class DataCoordinator extends ComponentBase {
 
     try {
       // Save to storage
-      await this.storage.saveProfile(profileId, profile);
+      await persist.profile(this.storage, profileId, profile, this.i18n);
 
       // Update cache
       this.state.profiles[profileId] = profile;
@@ -660,7 +659,7 @@ export default class DataCoordinator extends ComponentBase {
 
     try {
       // Save to storage
-      await this.storage.saveProfile(profileId, clonedProfile);
+      await persist.profile(this.storage, profileId, clonedProfile, this.i18n);
 
       // Update cache
       this.state.profiles[profileId] = clonedProfile;
@@ -720,7 +719,7 @@ export default class DataCoordinator extends ComponentBase {
 
     try {
       // Save to storage
-      await this.storage.saveProfile(profileId, updatedProfile);
+      await persist.profile(this.storage, profileId, updatedProfile, this.i18n);
 
       // Update cache
       this.state.profiles[profileId] = updatedProfile;
@@ -771,7 +770,7 @@ export default class DataCoordinator extends ComponentBase {
 
     try {
       // Delete from storage
-      await this.storage.deleteProfile(profileId);
+      await persist.deleteProfile(this.storage, profileId, this.i18n);
 
       // Remove from cache
       delete this.state.profiles[profileId];
@@ -786,11 +785,6 @@ export default class DataCoordinator extends ComponentBase {
         const newProfile = this.state.profiles[this.state.currentProfile];
         this.state.currentEnvironment =
           newProfile.currentEnvironment || "space";
-
-        // Save new current profile
-        const data = this.storage.getAllData();
-        data.currentProfile = this.state.currentProfile;
-        await this.storage.saveAllData(data);
 
         switchedProfile = this.buildVirtualProfile(
           newProfile,
@@ -1130,7 +1124,7 @@ export default class DataCoordinator extends ComponentBase {
         `[${this.componentName}] Saving profile ${profileId} to storage:`,
         updatedProfile,
       );
-      await this.storage.saveProfile(profileId, updatedProfile);
+      await persist.profile(this.storage, profileId, updatedProfile, this.i18n);
 
       // Update in-memory cache regardless of what changed
       this.state.profiles[profileId] = updatedProfile;
@@ -1171,13 +1165,14 @@ export default class DataCoordinator extends ComponentBase {
     }
 
     const oldEnvironment = this.state.currentEnvironment;
-    this.state.currentEnvironment = environment;
 
     // Update profile's current environment if we have one
     if (this.state.currentProfile) {
       const updates = { properties: { currentEnvironment: environment } };
       await this.updateProfile(this.state.currentProfile, updates);
     }
+
+    this.state.currentEnvironment = environment;
 
     // Broadcast environment change synchronously after storage operation completes
     this.emit(
@@ -1244,10 +1239,12 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error("Settings are required");
     }
 
-    this.state.settings = { ...this.state.settings, ...settings };
+    const nextSettings = { ...this.state.settings, ...settings };
 
     // Save to storage
-    await this.storage.saveSettings(this.state.settings);
+    await persist.settings(this.storage, nextSettings, this.i18n);
+
+    this.state.settings = nextSettings;
 
     this.state.metadata.lastModified = new Date().toISOString();
 
@@ -1404,7 +1401,7 @@ export default class DataCoordinator extends ComponentBase {
     // Save each profile to storage and cache
     for (const [profileId, profile] of Object.entries(profiles)) {
       try {
-        await this.storage.saveProfile(profileId, profile);
+        await persist.profile(this.storage, profileId, profile, this.i18n);
         this.state.profiles[profileId] = profile;
       } catch (error) {
         const message = this.i18n.t("failed_to_save_profile", {
@@ -1417,13 +1414,12 @@ export default class DataCoordinator extends ComponentBase {
     // Set current profile to first one if none set
     let profileActivated = false;
     if (!this.state.currentProfile && Object.keys(profiles).length > 0) {
-      this.state.currentProfile = Object.keys(profiles)[0];
-      profileActivated = true;
+      const firstProfileId = Object.keys(profiles)[0];
 
       // Save current profile to storage
-      const updatedData = this.storage.getAllData();
-      updatedData.currentProfile = this.state.currentProfile;
-      await this.storage.saveAllData(updatedData);
+      await persist.currentProfile(this.storage, firstProfileId, this.i18n);
+      this.state.currentProfile = firstProfileId;
+      profileActivated = true;
 
       // Set current environment from the activated profile
       const activatedProfile = this.state.profiles[this.state.currentProfile];
@@ -1503,7 +1499,7 @@ export default class DataCoordinator extends ComponentBase {
     for (const [profileId, profile] of Object.entries(fallbackProfiles)) {
       normalizeProfile(profile);
       try {
-        await this.storage.saveProfile(profileId, profile);
+        await persist.profile(this.storage, profileId, profile, this.i18n);
         this.state.profiles[profileId] = profile;
       } catch (error) {
         const message = this.i18n.t("failed_to_save_profile", {
@@ -1516,13 +1512,10 @@ export default class DataCoordinator extends ComponentBase {
     // Set current profile
     let profileActivated = false;
     if (!this.state.currentProfile) {
+      // Save current profile to storage
+      await persist.currentProfile(this.storage, "default", this.i18n);
       this.state.currentProfile = "default";
       profileActivated = true;
-
-      // Save current profile to storage
-      const updatedData = this.storage.getAllData();
-      updatedData.currentProfile = this.state.currentProfile;
-      await this.storage.saveAllData(updatedData);
 
       // Set current environment from the activated profile
       const activatedProfile = this.state.profiles[this.state.currentProfile];
@@ -1589,12 +1582,19 @@ export default class DataCoordinator extends ComponentBase {
       if (needsNormalization(profile)) {
         console.log(`[${this.componentName}] Migrating profile: ${profileId}`);
         const originalVersion = profile.migrationVersion || "2.0.0";
-        normalizeProfile(profile);
-        const newVersion = profile.migrationVersion;
+        const normalizedProfile = structuredClone(profile);
+        normalizeProfile(normalizedProfile);
+        const newVersion = normalizedProfile.migrationVersion;
 
         // Save normalized profile back to storage
         try {
-          await this.storage.saveProfile(profileId, profile);
+          await persist.profile(
+            this.storage,
+            profileId,
+            normalizedProfile,
+            this.i18n,
+          );
+          this.state.profiles[profileId] = normalizedProfile;
           profilesNormalized++;
 
           console.log(
@@ -1625,9 +1625,9 @@ export default class DataCoordinator extends ComponentBase {
       const allData = this.storage.getAllData();
 
       // Update our state
-      this.state.profiles = allData.profiles || {};
+      this.state.profiles = structuredClone(allData.profiles || {});
       this.state.currentProfile = allData.currentProfile || null;
-      this.state.settings = allData.settings || {};
+      this.state.settings = structuredClone(allData.settings || {});
 
       // Normalize any newly imported profiles
       await this.normalizeAllProfiles();

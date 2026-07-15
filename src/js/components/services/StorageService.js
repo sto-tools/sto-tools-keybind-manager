@@ -187,7 +187,7 @@ export default class StorageService extends ComponentBase {
   /** @param {string} profileId @param {any} profile */
   saveProfile(profileId, profile) {
     // Always fetch fresh to avoid stale cache overwriting newer changes
-    const data = this.getAllData(true);
+    const data = structuredClone(this.getAllData(true));
     data.profiles[profileId] = {
       ...profile,
       lastModified: new Date().toISOString(),
@@ -199,7 +199,7 @@ export default class StorageService extends ComponentBase {
   // Delete profile
   /** @param {string} profileId */
   deleteProfile(profileId) {
-    const data = this.getAllData();
+    const data = structuredClone(this.getAllData());
     if (data.profiles[profileId]) {
       delete data.profiles[profileId];
 

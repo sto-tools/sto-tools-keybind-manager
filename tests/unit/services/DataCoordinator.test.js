@@ -82,7 +82,12 @@ describe("DataCoordinator Service", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(dataCoordinator.state.currentProfile).toBe("test-profile");
-      expect(dataCoordinator.state.profiles).toEqual(mockData.profiles);
+      expect(dataCoordinator.state.profiles).not.toBe(mockData.profiles);
+      expect(dataCoordinator.state.profiles["test-profile"]).toMatchObject({
+        name: "Test Profile",
+        description: "Test Description",
+        migrationVersion: "2.1.1",
+      });
       expect(dataCoordinator.state.settings).toEqual(mockData.settings);
     });
 
@@ -365,7 +370,14 @@ describe("DataCoordinator Service", () => {
 
       expect(result.success).toBe(true);
       expect(dataCoordinator.state.currentProfile).toBe("reloaded-profile");
-      expect(dataCoordinator.state.profiles).toEqual(newData.profiles);
+      expect(dataCoordinator.state.profiles["reloaded-profile"]).toMatchObject({
+        name: "Reloaded",
+        migrationVersion: "2.1.1",
+        builds: {
+          space: { keys: {} },
+          ground: { keys: {} },
+        },
+      });
       expect(dataCoordinator.state.settings).toEqual(newData.settings);
     });
   });

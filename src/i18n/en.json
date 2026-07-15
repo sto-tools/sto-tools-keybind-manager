@@ -776,6 +776,7 @@
   "no_profile_selected_to_rename": "No profile selected to rename",
   "profile_name_is_required": "Profile name is required",
   "failed_to_save_profile": "Failed to save profile: {{error}}",
+  "storage_write_failed": "Storage write failed",
   "no_profile_selected_to_delete": "No profile selected to delete",
   "no_keybinds_to_export": "No keybinds to export",
   "no_aliases_to_export": "No aliases to export",
