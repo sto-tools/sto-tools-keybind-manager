@@ -293,6 +293,17 @@ describe("ComponentBase Regression Tests", () => {
   });
 
   describe("Backward compatibility tests", () => {
+    it("caches the legacy active bindset payload", () => {
+      component.init();
+      const [, handler] = mockEventBus.on.mock.calls.find(
+        ([topic]) => topic === "bindset-selector:active-changed",
+      );
+
+      handler({ name: "Legacy Bindset" });
+
+      expect(component.cache.activeBindset).toBe("Legacy Bindset");
+    });
+
     it("should maintain backward compatibility with underscore property names", () => {
       component.init(); // Initialize to set up cache
 

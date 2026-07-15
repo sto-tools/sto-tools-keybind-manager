@@ -2,7 +2,18 @@ import ComponentBase from "../ComponentBase.js";
 
 /** @typedef {Record<string, string | null>} CachedSelections */
 /** @typedef {{ skipPersistence?: boolean, isAuto?: boolean, forceEmit?: boolean, bindset?: string | null }} SelectionOptions */
-/** @typedef {import('./serviceTypes.js').ProfileData & { selections?: Record<string, string | null> }} SelectionProfile */
+/** @typedef {import('./serviceTypes.js').ProfileData} SelectionProfile */
+
+/**
+ * Read a persisted selection only after validating the profile boundary value.
+ * @param {SelectionProfile} profile
+ * @param {string} environment
+ * @returns {string | null}
+ */
+function readProfileSelection(profile, environment) {
+  const selection = profile.selections?.[environment];
+  return typeof selection === "string" ? selection : null;
+}
 
 /**
  * SelectionService - Centralized selection state management
@@ -21,7 +32,7 @@ export default class SelectionService extends ComponentBase {
     super(eventBus);
     this.componentName = "SelectionService";
 
-    /** @type {{ isEditing?: boolean, editIndex?: number, existingCommand?: any } | null} */
+    /** @type {{ isEditing?: boolean, editIndex?: number, existingCommand?: unknown } | null} */
     this.editingContext = null;
 
     // Environment-specific cached selections for persistence
@@ -115,17 +126,20 @@ export default class SelectionService extends ComponentBase {
 
         // Restore cached selections from the new profile
         if (profile.selections) {
-          if (profile.selections.space) {
-            this.cachedSelections.space = profile.selections.space;
-            this.setCachedSelection("space", profile.selections.space);
+          const spaceSelection = readProfileSelection(profile, "space");
+          const groundSelection = readProfileSelection(profile, "ground");
+          const aliasSelection = readProfileSelection(profile, "alias");
+          if (spaceSelection) {
+            this.cachedSelections.space = spaceSelection;
+            this.setCachedSelection("space", spaceSelection);
           }
-          if (profile.selections.ground) {
-            this.cachedSelections.ground = profile.selections.ground;
-            this.setCachedSelection("ground", profile.selections.ground);
+          if (groundSelection) {
+            this.cachedSelections.ground = groundSelection;
+            this.setCachedSelection("ground", groundSelection);
           }
-          if (profile.selections.alias) {
-            this.cachedSelections.alias = profile.selections.alias;
-            this.setCachedSelection("alias", profile.selections.alias);
+          if (aliasSelection) {
+            this.cachedSelections.alias = aliasSelection;
+            this.setCachedSelection("alias", aliasSelection);
           }
 
           console.log(
@@ -206,9 +220,9 @@ export default class SelectionService extends ComponentBase {
 
     // Listen for environment changes
     this.addEventListener("environment:changed", async (data) => {
-      const env = typeof data === "string" ? data : data?.environment;
+      const env = data.environment;
       const previousEnv =
-        typeof data === "object" && data?.fromEnvironment
+        "fromEnvironment" in data && data.fromEnvironment
           ? data.fromEnvironment
           : this.cache.currentEnvironment;
 
@@ -473,7 +487,7 @@ export default class SelectionService extends ComponentBase {
   }
 
   // Clear selection of specified type or all
-  /** @param {string} [type] */
+  /** @param {string} [type] @returns {undefined} */
   clearSelection(type = "all") {
     switch (type) {
       case "key":
@@ -526,7 +540,7 @@ export default class SelectionService extends ComponentBase {
   }
 
   // Set parameter editing context
-  /** @param {{ isEditing?: boolean, editIndex?: number, existingCommand?: any } | null} context */
+  /** @param {{ isEditing?: boolean, editIndex?: number, existingCommand?: unknown } | null} context */
   setEditingContext(context) {
     this.editingContext = context;
     this.emit("editing-context-changed", { context });

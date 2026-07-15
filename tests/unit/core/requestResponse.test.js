@@ -151,14 +151,14 @@ describe("requestResponse - Simple Implementation Tests", () => {
         replyTopic: expect.stringMatching(/^test:timeout::reply::/),
         payload: {},
       });
-      expect(eventBus.listeners.get(requestEnvelope.replyTopic)?.size).toBe(1);
+      expect(eventBus.hasListeners(requestEnvelope.replyTopic)).toBe(true);
 
       const rejection =
         expect(pendingRequest).rejects.toThrow("Request timed out");
       await vi.advanceTimersByTimeAsync(25);
       await rejection;
 
-      expect(eventBus.listeners.get(requestEnvelope.replyTopic)?.size).toBe(0);
+      expect(eventBus.hasListeners(requestEnvelope.replyTopic)).toBe(false);
     });
 
     it("should stop handling requests after the responder is detached", async () => {

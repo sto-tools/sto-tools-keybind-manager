@@ -1,0 +1,257 @@
+import type {
+  AliasDefinition,
+  CodedFailure,
+  KBFImportConfiguration,
+  KBFParseResult,
+  Profile,
+  RequiredRpc,
+  ResponderOnlyRequiredRpc,
+  StoredCommand,
+  UnknownRecord,
+} from "./base.js";
+import type { AliasImportResult } from "./aliases.js";
+
+export type ImportStrategy =
+  | "merge_keep"
+  | "merge_overwrite"
+  | "overwrite_all"
+  | (string & {});
+
+export type NamedProfile = Profile & { name: string };
+
+export type KeybindImportResult =
+  | {
+      success: true;
+      imported: { keys: number };
+      skipped: number;
+      overwritten: number;
+      cleared: number;
+      errors: string[];
+      message: string;
+    }
+  | CodedFailure<
+      | "no_keybinds_found_in_file"
+      | "storage_not_available"
+      | "no_active_profile"
+      | "invalid_environment"
+      | "import_failed"
+    >;
+
+export type ProjectImportResult =
+  | {
+      success: true;
+      message: string;
+      imported: { profiles: number; settings: boolean };
+      currentProfile: string | null;
+    }
+  | CodedFailure<
+      | "storage_not_available"
+      | "invalid_project_file"
+      | "import_failed_invalid_json"
+    >;
+
+export type ProfileImportResult =
+  | { success: true; profileId: string; profile: unknown }
+  | CodedFailure<
+      | "storage_not_available"
+      | "invalid_profile_file"
+      | "import_failed_invalid_json"
+    >;
+
+export type ImportFromFileResult =
+  | ProjectImportResult
+  | ProfileImportResult
+  | KeybindImportResult;
+
+export type KBFImportError =
+  | "invalid_kbf_file_content"
+  | "storage_not_available"
+  | "no_active_profile"
+  | "invalid_environment"
+  | "invalid_kbf_file_format"
+  | "no_valid_bindsets_found"
+  | "profile_not_found"
+  | "multiple_bindsets_not_allowed"
+  | "non_primary_mapping_not_allowed"
+  | "kbf_import_critical_error";
+
+export type KBFImportResult =
+  | {
+      success: true;
+      message: string;
+      imported: { bindsets: number; keys: number; aliases: number };
+      skipped: number;
+      overwritten: number;
+      cleared: number;
+      stats: {
+        processedLayers?: number;
+        skippedActivities?: number;
+        totalActivities: number;
+        totalErrors: number;
+        totalWarnings: number;
+      };
+      errors: string[];
+      warnings: string[];
+      bindsetNames: string[];
+      masterBindset: {
+        hasMasterBindset: boolean;
+        masterBindsetName?: string;
+        mappedToPrimary: boolean;
+        displayName: string | null;
+      };
+      singleBindsetFile: {
+        isSingleBindset: boolean;
+        onlyBindsetIsMaster: boolean;
+        requiresBindsetSelection: boolean;
+        totalBindsetsAvailable: number;
+        selectedBindsetsCount: number;
+      };
+    }
+  | {
+      success: false;
+      error: KBFImportError;
+      message?: string;
+      errors?: string[];
+      warnings?: string[];
+      params?: Record<string, unknown>;
+    };
+
+export type KBFValidationResult =
+  | {
+      valid: boolean;
+      format?: string;
+      isKBF?: boolean;
+      stats?: {
+        estimatedSize: number;
+        estimatedKeysets: number;
+        processingTime: number;
+        errors: number;
+        warnings: number;
+      };
+      errors: string[];
+      warnings?: string[];
+      supportedFormat?: boolean;
+      rejectionReason?: string | null;
+      error?: string;
+    }
+  | { valid: false; error: string; errors: string[] };
+
+export type KBFParseForUiResult =
+  | {
+      valid: true;
+      bindsets: KBFParseResult["bindsets"];
+      bindsetNames: string[];
+      bindsetKeyCounts: Record<string, number>;
+      hasMasterBindset: boolean;
+      masterDisplayName: string;
+      metadata: {
+        totalBindsets: number;
+        estimatedSize: number;
+        hasAliases: boolean | undefined;
+      };
+      validation: { valid: true; errors: string[]; warnings: string[] };
+      singleBindsetFile: {
+        isSingleBindset: boolean;
+        onlyBindsetIsMaster: boolean;
+        requiresBindsetSelection: boolean;
+      };
+      requiresBindsetSelection: boolean;
+    }
+  | {
+      valid: false;
+      error:
+        | "invalid_kbf_file_content"
+        | "invalid_environment"
+        | "invalid_kbf_file_format"
+        | "no_valid_bindsets_found"
+        | "kbf_parse_critical_error";
+      message: string;
+      errors?: string[];
+      warnings?: string[];
+      params?: Record<string, unknown>;
+    };
+
+export interface ImportExportRpcProtocol {
+  "environment:switch": RequiredRpc<
+    { mode?: string },
+    | { success: true; mode: string }
+    | { success: false; error: "No mode provided" }
+  >;
+  "export:extract-keys": ResponderOnlyRequiredRpc<
+    { profile: Profile; environment: string },
+    Record<string, StoredCommand[]>
+  >;
+  "export:generate-alias-file": RequiredRpc<{ profileId: string }, string>;
+  "export:generate-alias-filename": RequiredRpc<
+    { profile: NamedProfile; extension: string },
+    string
+  >;
+  "export:generate-filename": RequiredRpc<
+    { profile: NamedProfile; extension: string; environment?: string },
+    string
+  >;
+  "export:generate-keybind-file": RequiredRpc<
+    { profileId: string; environment?: string; syncMode?: boolean },
+    string
+  >;
+  "export:import-from-file": ResponderOnlyRequiredRpc<
+    { file: File },
+    ImportFromFileResult
+  >;
+  "export:sync-to-folder": RequiredRpc<
+    { dirHandle: FileSystemDirectoryHandle },
+    undefined
+  >;
+  "import:alias-file": RequiredRpc<
+    {
+      content: string;
+      profileId: string | null;
+      options?: { strategy?: string };
+      strategy?: ImportStrategy;
+    },
+    AliasImportResult
+  >;
+  "import:from-file": RequiredRpc<{ file: File }, ImportFromFileResult>;
+  "import:kbf-file": RequiredRpc<
+    {
+      content: string;
+      profileId: string | null;
+      environment?: "space" | "ground";
+      options?: UnknownRecord;
+      strategy?: string;
+      configuration?: KBFImportConfiguration;
+    },
+    KBFImportResult
+  >;
+  "import:keybind-file": RequiredRpc<
+    {
+      content: string;
+      profileId: string | null;
+      environment?: "space" | "ground";
+      options?: { strategy?: string };
+      strategy?: string;
+    },
+    KeybindImportResult
+  >;
+  "import:project-file": RequiredRpc<
+    { content: string; options?: { importSettings?: boolean } },
+    ProjectImportResult
+  >;
+  "import:validate-kbf-file": ResponderOnlyRequiredRpc<
+    { content: string },
+    KBFValidationResult
+  >;
+  "import:validate-keybind-file": ResponderOnlyRequiredRpc<
+    { content: string },
+    | {
+        valid: true;
+        stats: { keybinds: number; aliases: number; errors: number };
+        errors: string[];
+      }
+    | { valid: false; error: string }
+  >;
+  "parse-kbf-file": RequiredRpc<
+    { content: string; environment?: "space" | "ground" },
+    KBFParseForUiResult
+  >;
+}

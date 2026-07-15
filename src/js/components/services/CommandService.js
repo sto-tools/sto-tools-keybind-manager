@@ -146,6 +146,8 @@ export default class CommandService extends ComponentBase {
       this.ui?.showToast?.(this.i18n.t("no_valid_profile"), "error");
       return false;
     }
+    const profileId = this.cache.currentProfile;
+    if (!profileId) return false;
 
     // Determine if we should use a bindset (when bindset is specified and not in alias mode)
     const useBindset =
@@ -195,7 +197,6 @@ export default class CommandService extends ComponentBase {
       /** @type {import('./serviceTypes.js').ProfileOperations} */
       const ops = {};
       if (this.cache.currentEnvironment === "alias") {
-        console.log("[CommandService] addCommand: alias");
         const aliasExists = !!profile.aliases?.[key];
         if (aliasExists) {
           ops.modify = {
@@ -242,9 +243,6 @@ export default class CommandService extends ComponentBase {
         const bindsetExists = !!profile.bindsets?.[bindset];
         const envExists =
           !!profile.bindsets?.[bindset]?.[this.cache.currentEnvironment];
-        const bsSection =
-          profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys ||
-          {};
         // If bindset or environment does not exist, use add; otherwise always use modify
         if (!bindsetExists || !envExists) {
           ops.add = {
@@ -267,21 +265,10 @@ export default class CommandService extends ComponentBase {
             },
           };
         }
-        console.log("[CommandService] addCommand: bindset update", {
-          bindset,
-          environment: this.cache.currentEnvironment,
-          key,
-          bindsetExists,
-          envExists,
-          ops,
-          currentKeys: bsSection,
-          profileBindsets:
-            profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys,
-        });
       }
 
       await this.request("data:update-profile", {
-        profileId: this.cache.currentProfile,
+        profileId,
         ...ops,
       });
 
@@ -309,6 +296,8 @@ export default class CommandService extends ComponentBase {
 
     const profile = this.getCurrentProfile();
     if (!profile) return false;
+    const profileId = this.cache.currentProfile;
+    if (!profileId) return false;
 
     if (!key || index === undefined) return false;
 
@@ -318,7 +307,8 @@ export default class CommandService extends ComponentBase {
         Object.prototype.hasOwnProperty.call(this.cache.aliases, key));
 
     let payload = null;
-    let updatedCommands = null; // capture latest commands for event emission
+    /** @type {import('./serviceTypes.js').StoredCommand[]} */
+    let updatedCommands = []; // capture latest commands for event emission
 
     if (isAliasContext) {
       const aliasObj = this.cache.aliases[key];
@@ -391,7 +381,7 @@ export default class CommandService extends ComponentBase {
 
     try {
       await this.request("data:update-profile", {
-        profileId: this.cache.currentProfile,
+        profileId,
         ...payload,
       });
 
@@ -420,6 +410,8 @@ export default class CommandService extends ComponentBase {
 
     const profile = this.getCurrentProfile();
     if (!profile) return false;
+    const profileId = this.cache.currentProfile;
+    if (!profileId) return false;
 
     let payload = null;
 
@@ -496,7 +488,7 @@ export default class CommandService extends ComponentBase {
 
     try {
       await this.request("data:update-profile", {
-        profileId: this.cache.currentProfile,
+        profileId,
         ...payload,
       });
 
@@ -522,12 +514,6 @@ export default class CommandService extends ComponentBase {
    * @param {string | null} bindset
    */
   async editCommand(key, index, updatedCommand, bindset = null) {
-    console.log("[CommandService] editCommand called with:", {
-      key,
-      index,
-      updatedCommand,
-    });
-
     if (!key || index === undefined || !updatedCommand) {
       console.warn(
         "CommandService: Cannot edit command - missing key, index, or updated command",
@@ -545,6 +531,8 @@ export default class CommandService extends ComponentBase {
       this.ui?.showToast?.("No valid profile", "error");
       return false;
     }
+    const profileId = this.cache.currentProfile;
+    if (!profileId) return false;
 
     let payload = null;
 
@@ -608,15 +596,12 @@ export default class CommandService extends ComponentBase {
       }
     }
 
-    console.log("[CommandService] editCommand updates:", payload);
-
     try {
       await this.request("data:update-profile", {
-        profileId: this.cache.currentProfile,
+        profileId,
         ...payload,
       });
 
-      console.log("[CommandService] editCommand completed successfully");
       const updatedCmds = await this.fetchCommandsForKey(key, bindset);
       this.emit("command-edited", {
         key,
@@ -635,54 +620,25 @@ export default class CommandService extends ComponentBase {
   // Set up event listeners for DataCoordinator integration
   setupEventListeners() {
     // Listen for command addition events from UI components (broadcast pattern)
-    this.addEventListener("command:add", async (data) => {
-      console.log("[CommandService] command:add received:", data);
-      const { command, key, bindset } = data;
-      console.log("[CommandService] extracted:", { command, key, bindset });
-      const result = await this.addCommand(key, command, bindset);
-      console.log("[CommandService] addCommand result:", result);
+    this.addEventListener("command:add", async ({ command, key, bindset }) => {
+      await this.addCommand(key, command, bindset);
     });
 
     // Listen for command edit events from UI components (broadcast pattern)
-    this.addEventListener("command:edit", async (data) => {
-      console.log("[CommandService] command:edit received:", data);
-      const { key, index, updatedCommand, bindset = null } = data;
-      console.log("[CommandService] extracted:", {
-        key,
-        index,
-        updatedCommand,
-        bindset,
-      });
-      const result = await this.editCommand(
-        key,
-        index,
-        updatedCommand,
-        bindset,
-      );
-      console.log("[CommandService] editCommand result:", result);
-    });
-
-    // Listen for active bindset changes from BindsetSelectorService
-    this.addEventListener("bindset-selector:active-changed", ({ bindset }) => {
-      console.log(
-        "[CommandService] bindset-selector:active-changed received:",
-        bindset,
-      );
-      // ComponentBase handles this.cache.activeBindset automatically
-    });
-
-    // Listen for key selection changes - reset to Primary Bindset when new key selected
-    // No automatic bindset resetting in key-selected event - let KeyBrowserUI handle bindset changes
-    this.addEventListener("key-selected", ({ key, name }) => {
-      const selectedKey = key || name;
-      console.log("[CommandService] key-selected received:", selectedKey);
-      // Don't automatically reset to Primary Bindset - let KeyBrowserUI handle bindset changes
-    });
+    this.addEventListener(
+      "command:edit",
+      async ({ key, index, updatedCommand, bindset = null }) => {
+        await this.editCommand(key, index, updatedCommand, bindset);
+      },
+    );
   }
 
   // Placeholder command validator – always returns true.
   // Can be expanded later with proper validation logic.
-  /** @param {unknown} command */
+  /**
+   * @param {unknown} command
+   * @returns {import('../../types/rpc/commands.js').CommandValidationResult}
+   */
   validateCommand(command) {
     if (!command) return { valid: false, reason: "empty" };
     return { valid: true };
@@ -729,6 +685,7 @@ export default class CommandService extends ComponentBase {
   }
 
   // Get empty state information
+  /** @returns {Promise<import('../../types/rpc/commands.js').EmptyStateInfo>} */
   async getEmptyStateInfo() {
     // Use cached selection state from ComponentBase (SelectionService broadcasts)
     const selectedKey =
@@ -906,7 +863,7 @@ export default class CommandService extends ComponentBase {
   }
 
   // Get commands for the currently selected key/alias using cached data
-  /** @param {{ environment?: string, key?: string }} [params] */
+  /** @param {{ environment?: string, key?: string | null, bindset?: string | null }} [params] */
   async getCommandsForSelectedKey(params = {}) {
     console.log(
       "[CommandService] getCommandsForSelectedKey called with params:",
@@ -1117,7 +1074,9 @@ export default class CommandService extends ComponentBase {
             if (parsedCmd.signature.includes("TrayExecByTrayWithBackup")) {
               // Handle TrayExecByTrayWithBackup normalization
               const baseCommand =
-                params.baseCommand || "TrayExecByTrayWithBackup";
+                typeof params.baseCommand === "string"
+                  ? params.baseCommand
+                  : "TrayExecByTrayWithBackup";
               const commandType = baseCommand.replace(/^\+/, "");
               if (active === 1) {
                 normalizedCommands.push(
@@ -1130,7 +1089,10 @@ export default class CommandService extends ComponentBase {
               }
             } else {
               // Regular TrayExecByTray normalization
-              const baseCommand = params.baseCommand || "TrayExecByTray";
+              const baseCommand =
+                typeof params.baseCommand === "string"
+                  ? params.baseCommand
+                  : "TrayExecByTray";
               const commandType = baseCommand.replace(/^\+/, "");
               if (active === 1) {
                 normalizedCommands.push(
@@ -1309,7 +1271,7 @@ export default class CommandService extends ComponentBase {
   // Get available import sources for command import
   /**
    * @param {string} currentEnvironment
-   * @param {string | undefined} currentKey
+   * @param {string | null | undefined} currentKey
    */
   async getImportSources(currentEnvironment, currentKey) {
     /** @type {import('./serviceTypes.js').CommandImportSource[]} */
@@ -1423,6 +1385,7 @@ export default class CommandService extends ComponentBase {
    * @param {string} targetKey
    * @param {boolean} clearDestination
    * @param {string} currentEnvironment
+   * @returns {Promise<import('../../types/rpc/commands.js').CommandImportResult>}
    */
   async importFromSource(
     sourceValue,
@@ -1515,7 +1478,19 @@ export default class CommandService extends ComponentBase {
 
       // Perform the import
       if (clearDestination) {
-        await clearImportTarget(this, currentEnvironment, targetKey);
+        await clearImportTarget(
+          {
+            cache: {
+              ...this.cache,
+              activeBindset: this.cache.activeBindset || "Primary Bindset",
+            },
+            i18n: this.i18n,
+            request: (_topic, payload) =>
+              this.request("data:update-profile", payload),
+          },
+          currentEnvironment,
+          targetKey,
+        );
       }
 
       // Add the filtered commands

@@ -17,19 +17,22 @@ describe("VFX Virtual Alias Integration Flow", () => {
 
   beforeEach(async () => {
     // Create mock event bus
+    const rpcListeners = new Map();
     mockEventBus = {
       events: {},
-      listeners: new Map(), // Add listeners Map for requestResponse handler detection
+      hasListeners: vi.fn(
+        (topic) => (rpcListeners.get(topic)?.length ?? 0) > 0,
+      ),
       on: vi.fn((event, callback) => {
         if (!mockEventBus.events[event]) mockEventBus.events[event] = [];
         mockEventBus.events[event].push(callback);
 
-        // Special handling for RPC events - also store in listeners Map
+        // Special handling for RPC events - also store readiness privately.
         if (event.startsWith("rpc:")) {
-          if (!mockEventBus.listeners.has(event)) {
-            mockEventBus.listeners.set(event, []);
+          if (!rpcListeners.has(event)) {
+            rpcListeners.set(event, []);
           }
-          mockEventBus.listeners.get(event).push(callback);
+          rpcListeners.get(event).push(callback);
         }
 
         return () => mockEventBus.off(event, callback);
@@ -38,6 +41,11 @@ describe("VFX Virtual Alias Integration Flow", () => {
         if (mockEventBus.events[event]) {
           const index = mockEventBus.events[event].indexOf(callback);
           if (index > -1) mockEventBus.events[event].splice(index, 1);
+        }
+        if (rpcListeners.has(event)) {
+          const handlers = rpcListeners.get(event);
+          const index = handlers.indexOf(callback);
+          if (index > -1) handlers.splice(index, 1);
         }
       }),
       emit: vi.fn((event, data) => {
@@ -49,9 +57,9 @@ describe("VFX Virtual Alias Integration Flow", () => {
         }
 
         // Handle RPC pattern for all events
-        if (event.startsWith("rpc:") && mockEventBus.listeners.has(event)) {
+        if (event.startsWith("rpc:") && rpcListeners.has(event)) {
           // Call the registered RPC handlers
-          const handlers = mockEventBus.listeners.get(event);
+          const handlers = rpcListeners.get(event);
           handlers.forEach((handler) => {
             try {
               // Simulate async handler behavior
@@ -71,15 +79,15 @@ describe("VFX Virtual Alias Integration Flow", () => {
       // Add mock respond function for VFX service
       respond: vi.fn((topic, handler) => {
         const rpcTopic = `rpc:${topic}`;
-        if (!mockEventBus.listeners.has(rpcTopic)) {
-          mockEventBus.listeners.set(rpcTopic, []);
+        if (!rpcListeners.has(rpcTopic)) {
+          rpcListeners.set(rpcTopic, []);
         }
-        mockEventBus.listeners.get(rpcTopic).push(handler);
+        rpcListeners.get(rpcTopic).push(handler);
 
         return () => {
           // Return detach function
-          if (mockEventBus.listeners.has(rpcTopic)) {
-            const handlers = mockEventBus.listeners.get(rpcTopic);
+          if (rpcListeners.has(rpcTopic)) {
+            const handlers = rpcListeners.get(rpcTopic);
             const index = handlers.indexOf(handler);
             if (index > -1) {
               handlers.splice(index, 1);

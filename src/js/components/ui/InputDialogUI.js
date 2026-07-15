@@ -1,6 +1,8 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { resolveI18n } from "./uiTypes.js";
 
+/** @typedef {import('../../types/events/legacy-dom.js').InputDialogDomMirrorTopic} InputDialogDomMirrorTopic */
+
 /**
  * @typedef {{
  *   message: string,
@@ -24,7 +26,7 @@ import { resolveI18n } from "./uiTypes.js";
  *   errorDiv: HTMLElement,
  *   validate: ((value: string) => true | string) | null,
  *   resolve: (value: string | null) => void,
- *   topicSuffix?: string
+ *   topicSuffix?: "" | "regen"
  * }} InputModalControls
  */
 
@@ -189,9 +191,14 @@ export default class InputDialogUI extends UIComponentBase {
     topicSuffix = "",
   }) {
     const modalId = modalElement.id;
-    /** @param {string} name */
+    /**
+     * @param {"submit" | "cancel" | "input" | "keydown"} name
+     * @returns {InputDialogDomMirrorTopic}
+     */
     const topic = (name) =>
-      `input-dialog-${name}${topicSuffix ? `-${topicSuffix}` : ""}`;
+      /** @type {InputDialogDomMirrorTopic} */ (
+        `input-dialog-${name}${topicSuffix ? `-${topicSuffix}` : ""}`
+      );
 
     const handleCancel = () => {
       this.closeModal(modalElement, modalId);

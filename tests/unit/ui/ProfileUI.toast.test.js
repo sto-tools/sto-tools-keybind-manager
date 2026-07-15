@@ -147,6 +147,82 @@ describe("ProfileUI Toast Tests", () => {
       );
     });
 
+    it("should reject clone and rename saves when the cached profile id is absent", async () => {
+      const nameInput = { value: "Valid profile name" };
+      const descriptionInput = { value: "Description" };
+      component.document.getElementById = vi.fn((id) => {
+        if (id === "profileName") return nameInput;
+        if (id === "profileDescription") return descriptionInput;
+        return null;
+      });
+      component.cache.profile = { name: "Cached profile" };
+      component.cache.currentProfile = null;
+      component.request = vi.fn();
+
+      component.currentModal = "clone";
+      await component.handleProfileSave();
+      expect(showToastSpy).toHaveBeenCalledWith(
+        "No profile selected to clone",
+        "warning",
+      );
+
+      showToastSpy.mockClear();
+      component.currentModal = "rename";
+      await component.handleProfileSave();
+      expect(showToastSpy).toHaveBeenCalledWith(
+        "No profile selected to rename",
+        "warning",
+      );
+      expect(component.request).not.toHaveBeenCalled();
+    });
+
+    it("should reject delete when the cached profile id is absent", async () => {
+      component.cache.profile = { name: "Cached profile" };
+      component.cache.currentProfile = null;
+      component.request = vi.fn();
+      component.confirmDialog = { confirm: vi.fn() };
+
+      await component.confirmDeleteProfile();
+      expect(component.confirmDialog.confirm).not.toHaveBeenCalled();
+
+      showToastSpy.mockClear();
+      await component.deleteCurrentProfile();
+
+      expect(showToastSpy).toHaveBeenCalledWith(
+        "No profile selected to delete",
+        "warning",
+      );
+      expect(component.request).not.toHaveBeenCalled();
+    });
+
+    it("should use the profile id when an external profile has no name", async () => {
+      const select = { innerHTML: "", appendChild: vi.fn() };
+      const option = { value: "", textContent: "", selected: false };
+      component.document.getElementById = vi.fn((id) =>
+        id === "profileSelect" ? select : null,
+      );
+      component.document.createElement = vi.fn(() => option);
+      component.request = vi.fn().mockResolvedValue({ orphan: {} });
+
+      await component.renderProfiles();
+
+      expect(option.textContent).toBe("orphan");
+      expect(select.appendChild).toHaveBeenCalledWith(option);
+    });
+
+    it("should render an empty rename value when an external profile has no name", () => {
+      const nameInput = { value: "stale", placeholder: "" };
+      component.cache.profile = {};
+      component.document.getElementById = vi.fn((id) => {
+        if (id === "profileName") return nameInput;
+        return null;
+      });
+
+      component.showRenameProfileModal();
+
+      expect(nameInput.value).toBe("");
+    });
+
     it("should show error toast when profile name is required but empty", async () => {
       // Mock DOM element with empty value
       const mockNameInput = { value: "" };

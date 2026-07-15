@@ -42,6 +42,15 @@
  * @property {Record<string, Record<string, BindsetKeyMetadata>>} [keybindMetadata]
  * @property {Record<string, Record<string, Record<string, BindsetKeyMetadata>>>} [bindsetMetadata]
  *
+ * @typedef {Object} BindsetModifyEnvironmentData
+ * @property {Record<string, StoredCommand[] | null>} [keys]
+ *
+ * @typedef {Record<string, BindsetModifyEnvironmentData>} BindsetModifyData
+ *
+ * @typedef {Omit<ProfileOperationPatch, 'bindsets'> & {
+ *   bindsets?: Record<string, BindsetModifyData>
+ * }} ProfileModifyPatch
+ *
  * @typedef {Object} ProfileDeletePatch
  * @property {string[]} [aliases]
  * @property {Record<string, { keys?: string[] }>} [builds]
@@ -53,10 +62,11 @@
  * @property {string} [description]
  * @property {string} [currentEnvironment]
  * @property {string} [lastModified]
+ * @property {Record<string, string>} [selections]
  *
  * @typedef {Object} ProfileOperations
  * @property {ProfileOperationPatch} [add]
- * @property {ProfileOperationPatch} [modify]
+ * @property {ProfileModifyPatch} [modify]
  * @property {ProfileDeletePatch} [delete]
  * @property {ProfileProperties} [properties]
  * @property {string} [updateSource]
@@ -141,7 +151,7 @@
  * @property {Record<string, Record<string, BindsetKeyMetadata>>} [keybindMetadata]
  * @property {Record<string, StoredCommand[]>} [keys]
  * @property {Record<string, Record<string, StoredCommand[]>>} [keybinds]
- * @property {Record<string, unknown>} [selections]
+ * @property {Record<string, string>} [selections]
  * @property {string} [created]
  * @property {string} [lastModified]
  * @property {string} [migrationVersion]
@@ -192,9 +202,17 @@
  * @property {string} [name]
  * @property {string} [description]
  * @property {string} [text]
+ * @property {string} [baseCommand]
+ * @property {string} [icon]
+ * @property {boolean} [customizable]
+ * @property {Record<string, unknown>} [parameters]
+ * @property {string} [syntax]
  *
  * @typedef {Object} CommandCategory
- * @property {Record<string, CommandDefinition>} [commands]
+ * @property {Record<string, CommandDefinition>} commands
+ * @property {string} [description]
+ * @property {string} [icon]
+ * @property {string} [name]
  *
  * @typedef {Object} STOData
  * @property {Record<string, CommandCategory>} [commands]

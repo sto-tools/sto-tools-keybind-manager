@@ -1,27 +1,108 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  extensionPreferenceKey,
+  isKnownPreferenceKey,
+} from "./preferenceKeys.js";
+
+/** @typedef {import('../../types/events/base.js').KnownPreferenceKey} KnownPreferenceKey */
+/** @typedef {import('../../types/events/base.js').KnownPreferencesSettings} KnownPreferencesSettings */
+/** @typedef {import('../../types/events/base.js').PreferenceMutation} PreferenceMutation */
+/** @typedef {import('../../types/events/base.js').PreferencesSettings} PreferencesSettings */
+/** @typedef {import('../../types/events/base.js').SettingsRecord} SettingsRecord */
+
+/** @type {Record<KnownPreferenceKey, (value: unknown) => boolean>} */
+const knownSettingValidators = {
+  theme: (value) => typeof value === "string",
+  autoSave: (value) => typeof value === "boolean",
+  showTooltips: (value) => typeof value === "boolean",
+  confirmDeletes: (value) => typeof value === "boolean",
+  maxUndoSteps: (value) => typeof value === "number",
+  defaultMode: (value) => typeof value === "string",
+  compactView: (value) => typeof value === "boolean",
+  language: (value) => typeof value === "string",
+  syncFolderName: (value) => value === null || typeof value === "string",
+  syncFolderPath: (value) => value === null || typeof value === "string",
+  autoSync: (value) => typeof value === "boolean",
+  autoSyncInterval: (value) => typeof value === "string",
+  bindToAliasMode: (value) => typeof value === "boolean",
+  bindsetsEnabled: (value) => typeof value === "boolean",
+  translateGeneratedMessages: (value) => typeof value === "boolean",
+};
+
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** @param {string} key @returns {key is KnownPreferenceKey} */
+function isKnownSettingKey(key) {
+  return isKnownPreferenceKey(key);
+}
+
+/** @param {KnownPreferenceKey} key @param {unknown} value */
+function hasValidKnownSettingValue(key, value) {
+  return knownSettingValidators[key](value);
+}
+
+/** @param {unknown} value @returns {value is PreferenceMutation} */
+function isPreferenceMutation(value) {
+  if (!isRecord(value) || typeof value.key !== "string") return false;
+  if (isKnownSettingKey(value.key)) {
+    return (
+      value.extension !== true &&
+      hasValidKnownSettingValue(value.key, value.value)
+    );
+  }
+  return value.extension === true;
+}
+
+/** @param {unknown} value @returns {value is SettingsRecord} */
+function isSettingsRecord(value) {
+  if (!isRecord(value)) return false;
+  return Object.entries(value).every(
+    ([key, settingValue]) =>
+      !isKnownSettingKey(key) || hasValidKnownSettingValue(key, settingValue),
+  );
+}
 
 /**
- * Settings remain string-addressable because preference keys cross the event
- * bus, but the known application settings retain their concrete types.
- *
- * @typedef {Record<string, any> & {
- *   theme: string,
- *   autoSave: boolean,
- *   showTooltips: boolean,
- *   confirmDeletes: boolean,
- *   maxUndoSteps: number,
- *   defaultMode: string,
- *   compactView: boolean,
- *   language: string,
- *   syncFolderName: string | null,
- *   syncFolderPath: string | null,
- *   autoSync: boolean,
- *   autoSyncInterval: string,
- *   bindToAliasMode: boolean,
- *   bindsetsEnabled: boolean,
- *   translateGeneratedMessages: boolean,
- * }} PreferencesSettings
+ * Keep extension settings while replacing invalid or missing known values with
+ * their defaults. Stored data is external input, so it is filtered rather than
+ * trusted as a complete PreferencesSettings object.
+ * @param {unknown} value
+ * @param {KnownPreferencesSettings} defaults
+ * @returns {PreferencesSettings}
  */
+function sanitizeStoredSettings(value, defaults) {
+  /** @type {Record<string, unknown>} */
+  const settings = { ...defaults };
+  if (!isRecord(value)) return /** @type {PreferencesSettings} */ (settings);
+
+  for (const [key, settingValue] of Object.entries(value)) {
+    if (
+      !isKnownSettingKey(key) ||
+      hasValidKnownSettingValue(key, settingValue)
+    ) {
+      Object.defineProperty(settings, key, {
+        value: settingValue,
+        configurable: true,
+        enumerable: true,
+        writable: true,
+      });
+    }
+  }
+  return /** @type {PreferencesSettings} */ (settings);
+}
+
+/** @param {unknown} value */
+function invalidMutationError(value) {
+  const key = isRecord(value) && typeof value.key === "string" ? value.key : "";
+  return new TypeError(
+    key
+      ? `Invalid value or mutation path for preference "${key}"`
+      : "Invalid preference mutation payload",
+  );
+}
 
 const appWindow =
   typeof window === "undefined"
@@ -69,16 +150,29 @@ export default class PreferencesService extends ComponentBase {
       this.respond("preferences:init", () => {
         this.loadSettings();
         this.applySettings();
+        return undefined;
       });
-      this.respond("preferences:load-settings", () => this.loadSettings());
+      this.respond("preferences:load-settings", () => {
+        this.loadSettings();
+        return undefined;
+      });
       this.respond("preferences:save-settings", () => this.saveSettings());
       this.respond("preferences:get-settings", () => this.getSettings());
-      this.respond("preferences:set-setting", ({ key, value }) =>
-        this.setSetting(key, value),
-      );
-      this.respond("preferences:set-settings", (newSettings) =>
-        this.setSettings(newSettings),
-      );
+      this.respond("preferences:set-setting", (mutation) => {
+        if (!isPreferenceMutation(mutation)) {
+          throw invalidMutationError(mutation);
+        }
+        if (mutation.extension === true) {
+          this.setExtensionSetting(mutation.key, mutation.value);
+          return undefined;
+        }
+        this.setSetting(mutation.key, mutation.value);
+        return undefined;
+      });
+      this.respond("preferences:set-settings", (newSettings) => {
+        this.setSettings(newSettings);
+        return undefined;
+      });
       this.respond("preferences:get-setting", ({ key }) =>
         this.getSetting(key),
       );
@@ -115,7 +209,7 @@ export default class PreferencesService extends ComponentBase {
     try {
       if (!this.storage) return;
       const stored = this.storage.getSettings();
-      this.settings = { ...this.defaultSettings, ...stored };
+      this.settings = sanitizeStoredSettings(stored, this.defaultSettings);
       console.log("[PreferencesService] loadSettings", {
         settings: { ...this.settings },
       });
@@ -152,19 +246,49 @@ export default class PreferencesService extends ComponentBase {
     return this.settings[key];
   }
 
-  /** @param {string} key @param {any} value */
+  /**
+   * @template {KnownPreferenceKey} Key
+   * @param {Key} key
+   * @param {KnownPreferencesSettings[Key]} value
+   */
   setSetting(key, value) {
-    this.settings[key] = value;
+    if (!isKnownSettingKey(key) || !hasValidKnownSettingValue(key, value)) {
+      throw invalidMutationError({ key, value });
+    }
+    this.commitSetting(key, value);
+  }
+
+  /**
+   * Explicit mutation path for application-defined extension preferences.
+   * @param {string} key
+   * @param {unknown} value
+   */
+  setExtensionSetting(key, value) {
+    const extensionKey = extensionPreferenceKey(key);
+    this.commitSetting(extensionKey, value);
+  }
+
+  /** @param {string} key @param {unknown} value */
+  commitSetting(key, value) {
+    Object.defineProperty(this.settings, key, {
+      value,
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
     console.log("[PreferencesService] setSetting", { key, value });
     this.saveSettings();
     this.applySettings();
     this.emit("preferences:changed", { key, value });
   }
 
-  /** @param {Partial<PreferencesSettings>} [newSettings] */
+  /** @param {SettingsRecord} [newSettings] */
   setSettings(newSettings = {}) {
+    if (!isSettingsRecord(newSettings)) {
+      throw new TypeError("Invalid preferences settings payload");
+    }
     const oldSettings = { ...this.settings };
-    this.settings = { ...this.defaultSettings, ...newSettings };
+    this.settings = sanitizeStoredSettings(newSettings, this.defaultSettings);
     console.log("[PreferencesService] setSettings", {
       changed: Object.keys(newSettings),
     });
@@ -172,7 +296,7 @@ export default class PreferencesService extends ComponentBase {
     this.applySettings();
 
     // Emit a single event with all the changes
-    /** @type {Record<string, any>} */
+    /** @type {Record<string, unknown>} */
     const changes = {};
     for (const [key, value] of Object.entries(newSettings)) {
       if (oldSettings[key] !== value) {

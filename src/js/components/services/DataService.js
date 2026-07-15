@@ -1,6 +1,56 @@
 import ComponentBase from "../ComponentBase.js";
 
 /**
+ * @param {unknown} value
+ * @returns {value is import('./serviceTypes.js').ProfileData}
+ */
+function isProfileData(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const profile = /** @type {Record<string, unknown>} */ (value);
+  if (typeof profile.name !== "string" || !profile.name.trim()) return false;
+  if (
+    profile.description !== undefined &&
+    typeof profile.description !== "string"
+  ) {
+    return false;
+  }
+  if (
+    profile.currentEnvironment !== undefined &&
+    typeof profile.currentEnvironment !== "string"
+  ) {
+    return false;
+  }
+  if (
+    profile.builds !== undefined &&
+    (typeof profile.builds !== "object" ||
+      profile.builds === null ||
+      Array.isArray(profile.builds))
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Validate the externally supplied STO_DATA profile dictionary before it
+ * crosses the RPC boundary.
+ * @param {Record<string, unknown> | undefined} profiles
+ * @returns {Record<string, import('./serviceTypes.js').ProfileData>}
+ */
+function validProfiles(profiles) {
+  /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
+  const result = {};
+  for (const [profileId, profile] of Object.entries(profiles || {})) {
+    if (isProfileData(profile)) result[profileId] = profile;
+  }
+  return result;
+}
+
+/**
  * DataService - Centralizes access to STO_DATA using request/response pattern
  * Eliminates direct globalThis.STO_DATA references throughout the codebase
  * All communication happens via event bus request/response
@@ -133,7 +183,7 @@ export default class DataService extends ComponentBase {
 
     this.responseHandlers.push(
       this.respond("data:get-default-profiles", () => {
-        return this.data.defaultProfiles || {};
+        return validProfiles(this.data.defaultProfiles);
       }),
     );
 
@@ -142,7 +192,7 @@ export default class DataService extends ComponentBase {
         "data:get-default-profile",
         ({ profileId } = /** @type {{ profileId?: string }} */ ({})) => {
           if (!profileId) return null;
-          return this.data.defaultProfiles?.[profileId] || null;
+          return validProfiles(this.data.defaultProfiles)[profileId] || null;
         },
       ),
     );
@@ -161,7 +211,7 @@ export default class DataService extends ComponentBase {
   // Provide current state for late-join handshake
   getCurrentState() {
     return {
-      defaultProfiles: this.data.defaultProfiles || {},
+      defaultProfiles: validProfiles(this.data.defaultProfiles),
       hasCommands: !!(this.data && this.data.commands),
       dataAvailable: Object.keys(this.data).length > 0,
     };

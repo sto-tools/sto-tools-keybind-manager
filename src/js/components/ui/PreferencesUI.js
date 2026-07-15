@@ -7,7 +7,61 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 );
 
 /** @typedef {string | boolean | number | null | undefined} PreferenceValue */
+/** @typedef {'language' | 'translateGeneratedMessages' | 'autoSave' | 'autoSync' | 'autoSyncInterval' | 'bindToAliasMode' | 'bindsetsEnabled'} SettingKey */
 /** @typedef {{ type: 'boolean' | 'select', element: string }} SettingDefinition */
+/** @typedef {import('../../types/events/base.js').KnownPreferenceMutation} KnownPreferenceMutation */
+
+/**
+ * @param {unknown} value
+ * @returns {value is PreferenceValue}
+ */
+function isPreferenceValue(value) {
+  return (
+    value == null ||
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    typeof value === "number"
+  );
+}
+
+/**
+ * @param {string} value
+ * @returns {value is SettingKey}
+ */
+function isSettingKey(value) {
+  return (
+    value === "language" ||
+    value === "translateGeneratedMessages" ||
+    value === "autoSave" ||
+    value === "autoSync" ||
+    value === "autoSyncInterval" ||
+    value === "bindToAliasMode" ||
+    value === "bindsetsEnabled"
+  );
+}
+
+/**
+ * Preserve the setting-key/value correlation before entering the typed RPC.
+ * @param {string} key
+ * @param {PreferenceValue} value
+ * @returns {KnownPreferenceMutation | null}
+ */
+function createKnownPreferenceMutation(key, value) {
+  if (!isSettingKey(key)) return null;
+  const expectsBoolean =
+    key === "translateGeneratedMessages" ||
+    key === "autoSave" ||
+    key === "autoSync" ||
+    key === "bindToAliasMode" ||
+    key === "bindsetsEnabled";
+  if (
+    (expectsBoolean && typeof value !== "boolean") ||
+    (!expectsBoolean && typeof value !== "string")
+  ) {
+    return null;
+  }
+  return /** @type {KnownPreferenceMutation} */ ({ key, value });
+}
 
 /**
  * PreferencesUI - User preferences management component
@@ -42,7 +96,7 @@ export default class PreferencesUI extends UIComponentBase {
     this.eventsSetup = false;
 
     // Adopt settingDefinitions from historical implementation
-    /** @type {Record<string, SettingDefinition>} */
+    /** @type {Record<SettingKey, SettingDefinition>} */
     this.settingDefinitions = {
       language: { type: "select", element: "languageSelect" },
       translateGeneratedMessages: {
@@ -84,8 +138,8 @@ export default class PreferencesUI extends UIComponentBase {
     // Listen for settings changes that should update AutoSync
     this.eventBus?.on("preferences:changed", (data) => {
       // Handle both single-setting changes and bulk changes
-      /** @type {Record<string, PreferenceValue>} */
-      const changes = data.changes || { [data.key]: data.value };
+      const changes =
+        data.changes || (data.key ? { [data.key]: data.value } : {});
 
       if (
         changes.autoSync !== undefined ||
@@ -144,6 +198,7 @@ export default class PreferencesUI extends UIComponentBase {
 
   setupSettingControls() {
     Object.entries(this.settingDefinitions).forEach(([key, def]) => {
+      if (!isSettingKey(key)) return;
       const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (
         document.getElementById(def.element)
       );
@@ -210,8 +265,8 @@ export default class PreferencesUI extends UIComponentBase {
    * @param {PreferenceValue} value
    */
   updateUI(key, value) {
+    if (!isSettingKey(key)) return;
     const def = this.settingDefinitions[key];
-    if (!def) return;
     const el = /** @type {HTMLInputElement | HTMLSelectElement | null} */ (
       document.getElementById(def.element)
     );
@@ -273,7 +328,9 @@ export default class PreferencesUI extends UIComponentBase {
     // Discard any unsaved changes from previous session
     this.pendingSettings = {};
     const settings = await this.request("preferences:get-settings");
-    Object.entries(settings).forEach(([k, v]) => this.updateUI(k, v));
+    Object.entries(settings).forEach(([key, value]) => {
+      if (isPreferenceValue(value)) this.updateUI(key, value);
+    });
     this.updateFolderDisplay();
     // Use event bus instead of direct modalManager call
     this.emit("modal:show", { modalId: "preferencesModal" });
@@ -298,7 +355,7 @@ export default class PreferencesUI extends UIComponentBase {
     const folderDisplayEl = this.document.getElementById("currentSyncFolder");
 
     if (folderDisplayEl) {
-      if (syncFolderName) {
+      if (typeof syncFolderName === "string" && syncFolderName) {
         folderDisplayEl.textContent = syncFolderName;
         // Remove the data-i18n attribute when showing actual folder name
         folderDisplayEl.removeAttribute("data-i18n");
@@ -319,8 +376,10 @@ export default class PreferencesUI extends UIComponentBase {
    * @param {PreferenceValue} value
    */
   async setSetting(key, value) {
+    const mutation = createKnownPreferenceMutation(key, value);
+    if (!mutation) throw new TypeError(`Invalid preference value for "${key}"`);
     // Use request/response instead of direct service call
-    await this.request("preferences:set-setting", { key, value });
+    await this.request("preferences:set-setting", mutation);
     this.updateUI(key, value);
   }
 

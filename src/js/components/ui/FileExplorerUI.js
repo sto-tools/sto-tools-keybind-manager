@@ -121,11 +121,14 @@ export default class FileExplorerUI extends UIComponentBase {
         if (this.storage) {
           const profile = this.storage.getProfile(profileId);
           try {
+            if (!profile?.name) {
+              throw new Error(`Profile ${profileId} is unavailable`);
+            }
             if (type === "build") {
               filename = await this.request("export:generate-filename", {
                 profile,
                 extension: "txt",
-                environment,
+                environment: environment || undefined,
               });
             } else if (type === "aliases") {
               filename = await this.request("export:generate-alias-filename", {

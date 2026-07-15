@@ -249,6 +249,18 @@ describe("SyncService", () => {
       expect(handle.requestPermission).not.toHaveBeenCalled();
     });
 
+    it("accepts an already-granted handle without requestPermission", async () => {
+      const handle = {
+        name: "alreadyGranted",
+        queryPermission: vi.fn().mockResolvedValue("granted"),
+      };
+
+      await expect(service.ensurePermission(handle)).resolves.toBe(true);
+      expect(handle.queryPermission).toHaveBeenCalledWith({
+        mode: "readwrite",
+      });
+    });
+
     describe("syncProject - Browser and Context Detection", () => {
       it("shows Firefox error for Firefox regardless of protocol", async () => {
         // Setup Firefox environment

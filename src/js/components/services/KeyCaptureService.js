@@ -72,18 +72,13 @@ export default class KeyCaptureService extends ComponentBase {
   }
 
   setupEventListeners() {
-    this.addEventListener(
-      "keycapture:start",
-      ({ context } = /** @type {{ context?: string }} */ ({})) =>
-        this.startCapture(context),
+    this.addEventListener("keycapture:start", ({ context }) =>
+      this.startCapture(context),
     );
     this.addEventListener("keycapture:stop", () => this.stopCapture());
-    this.addEventListener(
-      "keycapture:set-location-specific",
-      ({ value } = /** @type {{ value?: boolean }} */ ({})) => {
-        this.setLocationSpecific(value);
-      },
-    );
+    this.addEventListener("keycapture:set-location-specific", ({ value }) => {
+      this.setLocationSpecific(value);
+    });
   }
 
   // Start listening for keyboard events.

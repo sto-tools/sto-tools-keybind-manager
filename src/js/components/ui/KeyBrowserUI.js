@@ -1,20 +1,19 @@
 import UIComponentBase from "../UIComponentBase.js";
 import BindsetDeleteConfirmUI from "./BindsetDeleteConfirmUI.js";
+import { legacyFilter, legacyViewMode } from "../../core/eventPayloads.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
   globalThis
 );
 
-/** @typedef {string | { command?: string }} KeyCommand */
+/** @typedef {import('../services/serviceTypes.js').StoredCommand} KeyCommand */
 /** @typedef {Record<string, KeyCommand[]>} KeyMap */
 /** @typedef {{ name: string, icon: string, keys: string[], priority?: number }} KeyCategory */
 /** @typedef {Record<string, KeyCategory>} KeyCategories */
 /** @typedef {{ keys: string[], keyCount: number, isCollapsed: boolean }} BindsetSection */
 /** @typedef {Record<string, BindsetSection>} BindsetSections */
-/** @typedef {{ keys: KeyMap }} BindsetEnvironment */
-/** @typedef {Record<string, BindsetEnvironment>} BindsetEnvironments */
-/** @typedef {{ bindsets?: Record<string, BindsetEnvironments> }} KeyProfile */
+/** @typedef {import('../services/serviceTypes.js').ProfileData} KeyProfile */
 /**
  * @typedef {{
  *   selectedKey: string | null,
@@ -31,8 +30,6 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
  * }} KeyBrowserCache
  */
 /** @typedef {{ environment?: string, newMode?: string, mode?: string }} EnvironmentChange */
-/** @typedef {{ viewMode?: string }} ViewModeUpdate */
-/** @typedef {{ value?: string }} FilterUpdate */
 /** @typedef {{ key?: string, value?: unknown, changes?: Record<string, unknown> }} PreferenceChange */
 /** @typedef {{ selectedKey?: string, environment?: string, currentEnvironment?: string }} BrowserInitialState */
 
@@ -214,17 +211,11 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     // Listen for view mode toggles and update events from other components
     this.addEventListener("key-view:toggle", () => this.toggleKeyView());
-    this.addEventListener(
-      "key-view:update-toggle",
-      /** @param {ViewModeUpdate} d */ (d) =>
-        this.updateViewToggleButton(d?.viewMode ?? "grid"),
+    this.addEventListener("key-view:update-toggle", (data) =>
+      this.updateViewToggleButton(legacyViewMode(data) ?? "grid"),
     );
-    this.addEventListener(
-      "keys:filter",
-      /** @param {string | FilterUpdate} d */ (d) => {
-        const val = typeof d === "string" ? d : d?.value || "";
-        this.filterKeys(val);
-      },
+    this.addEventListener("keys:filter", (data) =>
+      this.filterKeys(legacyFilter(data)),
     );
     this.addEventListener("keys:show-all", () => this.showAllKeys());
 
@@ -1208,17 +1199,19 @@ export default class KeyBrowserUI extends UIComponentBase {
       /** @param {string} env */
       const hasKeys = (env) => {
         const envData = bindset?.[env]?.keys;
-        const hasEnvKeys = Boolean(envData && Object.keys(envData).length > 0);
+        const envKeyCount = Object.keys(envData ?? {}).length;
+        const hasEnvKeys = envKeyCount > 0;
         console.log(
-          `[KeyBrowserUI] countBindsetKeys: env "${env}" has keys: ${hasEnvKeys}, key count: ${hasEnvKeys ? Object.keys(envData).length : 0}`,
+          `[KeyBrowserUI] countBindsetKeys: env "${env}" has keys: ${hasEnvKeys}, key count: ${envKeyCount}`,
         );
         return hasEnvKeys;
       };
 
       // Use the same logic as BindsetService.deleteBindset for consistency
-      if (hasKeys("space")) keyCount += Object.keys(bindset.space.keys).length;
+      if (hasKeys("space"))
+        keyCount += Object.keys(bindset.space?.keys ?? {}).length;
       if (hasKeys("ground"))
-        keyCount += Object.keys(bindset.ground.keys).length;
+        keyCount += Object.keys(bindset.ground?.keys ?? {}).length;
 
       console.log(
         `[KeyBrowserUI] countBindsetKeys: final count for "${bindsetName}" = ${keyCount}`,
@@ -1605,7 +1598,7 @@ export default class KeyBrowserUI extends UIComponentBase {
   // Bindset menu helper methods
   /**
    * @param {HTMLElement} menu
-   * @param {string} action
+   * @param {'create' | 'clone' | 'rename' | 'delete'} action
    * @param {string} icon
    * @param {string} text
    * @param {() => void} handler

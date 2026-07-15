@@ -29,13 +29,7 @@ export default class CommandChainValidatorService extends ComponentBase {
     // Listen for validate events coming from the UI
     this.addEventListener(
       "command-chain:validate",
-      async (
-        {
-          key,
-          stabilized,
-          isAlias,
-        } = /** @type {{ key?: string, stabilized?: boolean, isAlias?: boolean }} */ ({}),
-      ) => {
+      async ({ key, stabilized, isAlias }) => {
         if (!key) return;
         await this.validateChain(key, stabilized, isAlias);
       },

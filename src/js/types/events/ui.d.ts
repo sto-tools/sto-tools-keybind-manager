@@ -1,0 +1,49 @@
+import type STOToolsKeybindManager from "../../app.js";
+import type {
+  ClipboardOperationResult,
+  DragDropOptions,
+  ToastKind,
+  VfxManagerCapability,
+  VfxSettingsSnapshot,
+} from "./base.js";
+import type { ComponentReplyTopic } from "./dynamic.js";
+
+export interface UiEventProtocol {
+  "vfx:settings-changed": VfxSettingsSnapshot;
+  "about:show": null;
+  "file-explorer:open": null;
+  "modal:hide": { modalId: string };
+  "modal:show": { modalId: string };
+  "toast:show": { message: string; type: ToastKind; duration?: number };
+  "ui:copy-to-clipboard": { text: string };
+  "ui:init-drag-drop": {
+    container?: Element | null;
+    containerId?: string;
+    options?: DragDropOptions;
+  };
+  "vfx:save-effects": null;
+  "vfx:show-modal": null;
+  "component:register": {
+    name: string;
+    replyTopic: ComponentReplyTopic<string, unknown>;
+  };
+  "modal:hidden": { modalId: string; success: boolean };
+  "modal:regenerated": { modalId: string };
+  "modal:shown": { modalId: string; success: boolean };
+  "sto-app-ready": { app: STOToolsKeybindManager };
+  "vfx:modal-populate": { vfxManager: VfxManagerCapability };
+  "confirm:show": {
+    message: string;
+    callback: (...args: unknown[]) => unknown;
+  };
+  "sto-app-error": { error: unknown };
+  "ui:clipboard-result": {
+    success: ClipboardOperationResult;
+    text: string;
+  };
+  "ui:drag-drop-initialized": {
+    containerId: string | undefined;
+    options: DragDropOptions;
+  };
+  "vfx:modal-regenerate-requested": null;
+}

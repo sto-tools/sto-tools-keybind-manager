@@ -1,6 +1,28 @@
 import ComponentBase from "../ComponentBase.js";
 
 /**
+ * Normalize the current string response and the legacy `{ pattern }` test seam.
+ * @param {unknown} response
+ * @returns {string | RegExp}
+ */
+function resolveKeyNamePattern(response) {
+  if (typeof response === "string" || response instanceof RegExp) {
+    return response;
+  }
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "pattern" in response
+  ) {
+    const pattern = response.pattern;
+    if (typeof pattern === "string" || pattern instanceof RegExp) {
+      return pattern;
+    }
+  }
+  return /^[A-Za-z0-9_+]+$/;
+}
+
+/**
  * KeyService – the authoritative service for creating, deleting and duplicating
  * key-bind rows in a profile. This service mirrors CommandService but focuses
  * exclusively on key level operations so other components (KeyBrowser,
@@ -89,7 +111,11 @@ export default class KeyService extends ComponentBase {
   }
 
   // Core key operations now use DataCoordinator
-  /** @param {string | undefined} keyName @param {string | null} [bindset] */
+  /**
+   * @param {string | undefined} keyName
+   * @param {string | null} [bindset]
+   * @returns {Promise<import('../../types/rpc/keys.js').KeyAddResult>}
+   */
   async addKey(keyName, bindset = null) {
     if (!(await this.isValidKeyName(keyName))) {
       return { success: false, error: "invalid_key_name", params: { keyName } };
@@ -136,7 +162,7 @@ export default class KeyService extends ComponentBase {
       await this.request("selection:select-key", {
         keyName,
         environment,
-        bindset: targetBindset,
+        ...(targetBindset ? { bindset: targetBindset } : {}),
         skipPersistence: true, // Skip persistence to avoid duplicate profile:updated events
       });
 
@@ -164,19 +190,19 @@ export default class KeyService extends ComponentBase {
         // Keep local cache in sync so UI can immediately render the new bindset key
         this.cache.profile = this.cache.profile || {};
         this.cache.profile.bindsets = this.cache.profile.bindsets || {};
-        if (!this.cache.profile.bindsets[targetBindset]) {
-          this.cache.profile.bindsets[targetBindset] = {
+        const bindsetData =
+          this.cache.profile.bindsets[targetBindset] ??
+          (this.cache.profile.bindsets[targetBindset] = {
             space: { keys: {} },
             ground: { keys: {} },
-          };
-        }
-        if (!this.cache.profile.bindsets[targetBindset][environment]) {
-          this.cache.profile.bindsets[targetBindset][environment] = {
+          });
+        const environmentData =
+          bindsetData[environment] ??
+          (bindsetData[environment] = {
             keys: {},
-          };
-        }
-        this.cache.profile.bindsets[targetBindset][environment].keys[keyName] =
-          [];
+          });
+        const targetKeys = environmentData.keys ?? (environmentData.keys = {});
+        targetKeys[keyName] = [];
       } else {
         // Add to primary bindset (original path)
         await this.request("data:update-profile", {
@@ -215,7 +241,10 @@ export default class KeyService extends ComponentBase {
   }
 
   // Delete a key row from the current profile
-  /** @param {string | undefined} keyName */
+  /**
+   * @param {string | undefined} keyName
+   * @returns {Promise<import('../../types/rpc/keys.js').KeyDeleteResult>}
+   */
   async deleteKey(keyName) {
     if (!this.cache.currentProfile) {
       return { success: false, error: "no_profile_selected" };
@@ -252,7 +281,10 @@ export default class KeyService extends ComponentBase {
   }
 
   // Duplicate an existing key row (clone commands with new ids)
-  /** @param {string | undefined} keyName */
+  /**
+   * @param {string | undefined} keyName
+   * @returns {Promise<import('../../types/rpc/keys.js').KeyDuplicateResult>}
+   */
   async duplicateKey(keyName) {
     if (!this.cache.currentProfile) {
       return { success: false, error: "no_profile_selected" };
@@ -278,7 +310,8 @@ export default class KeyService extends ComponentBase {
 
       // Clone commands with new IDs
       const cloned = commands.map(
-        /** @param {any} cmd */ (cmd) => ({ ...cmd, id: this.generateKeyId() }),
+        /** @param {import('./serviceTypes.js').StoredCommand} cmd */ (cmd) =>
+          typeof cmd === "string" ? cmd : { ...cmd, id: this.generateKeyId() },
       );
 
       // Add duplicated key using explicit operations API
@@ -309,7 +342,11 @@ export default class KeyService extends ComponentBase {
   }
 
   // Duplicate an existing key to an explicit new key name
-  /** @param {string | undefined} sourceKey @param {string | undefined} newKey */
+  /**
+   * @param {string | null | undefined} sourceKey
+   * @param {string | undefined} newKey
+   * @returns {Promise<import('../../types/rpc/keys.js').KeyDuplicateResult>}
+   */
   async duplicateKeyWithName(sourceKey, newKey) {
     if (!this.cache.currentProfile) {
       return { success: false, error: "no_profile_selected" };
@@ -395,9 +432,9 @@ export default class KeyService extends ComponentBase {
   async isValidKeyName(keyName) {
     if (!keyName || typeof keyName !== "string") return false;
     try {
-      const patternResponse =
-        (await this.request("data:get-key-name-pattern")) || /^[A-Za-z0-9_+]+$/;
-      const pattern = patternResponse?.pattern ?? patternResponse;
+      const pattern = resolveKeyNamePattern(
+        await this.request("data:get-key-name-pattern"),
+      );
 
       // Special case: if pattern is 'USE_STO_KEY_NAMES', use the STO key names list
       if (pattern === "USE_STO_KEY_NAMES") {

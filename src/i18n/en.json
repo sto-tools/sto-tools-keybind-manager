@@ -764,6 +764,7 @@
   "invalid_alias_name": "Invalid alias name",
   "invalid_input": "Invalid input",
   "invalid_project_file": "Invalid project file",
+  "invalid_profile_file": "Invalid profile file",
   "invalid_kbf_file_format": "Invalid KBF file format",
   "no_commands_to_duplicate": "No commands to duplicate",
   "command_chain_is_valid": "Command chain is valid",

@@ -23,10 +23,10 @@ describe("Bind-to-Alias Mode", () => {
     };
 
     // Create a mock event bus that properly handles the RPC pattern
-    const eventListeners = new Map();
+    const [eventListeners, rpcListeners] = [new Map(), new Map()];
 
     mockEventBus = {
-      listeners: new Map(), // Add listeners Map for requestResponse handler detection
+      hasListeners: vi.fn((topic) => Boolean(rpcListeners.get(topic)?.length)),
       on: vi.fn((topic, handler) => {
         if (!eventListeners.has(topic)) {
           eventListeners.set(topic, []);
@@ -43,9 +43,8 @@ describe("Bind-to-Alias Mode", () => {
             handlers.splice(index, 1);
           }
         }
-        // Remove from listeners Map
-        if (mockEventBus.listeners.has(topic)) {
-          const handlers = mockEventBus.listeners.get(topic);
+        if (rpcListeners.has(topic)) {
+          const handlers = rpcListeners.get(topic);
           const index = handlers.indexOf(handler);
           if (index > -1) {
             handlers.splice(index, 1);
@@ -118,15 +117,15 @@ describe("Bind-to-Alias Mode", () => {
       // Mock respond function to track RPC handlers
       respond: vi.fn((topic, handler) => {
         const rpcTopic = `rpc:${topic}`;
-        if (!mockEventBus.listeners.has(rpcTopic)) {
-          mockEventBus.listeners.set(rpcTopic, []);
+        if (!rpcListeners.has(rpcTopic)) {
+          rpcListeners.set(rpcTopic, []);
         }
-        mockEventBus.listeners.get(rpcTopic).push(handler);
+        rpcListeners.get(rpcTopic).push(handler);
 
         return () => {
           // Return detach function
-          if (mockEventBus.listeners.has(rpcTopic)) {
-            const handlers = mockEventBus.listeners.get(rpcTopic);
+          if (rpcListeners.has(rpcTopic)) {
+            const handlers = rpcListeners.get(rpcTopic);
             const index = handlers.indexOf(handler);
             if (index > -1) {
               handlers.splice(index, 1);
@@ -135,10 +134,9 @@ describe("Bind-to-Alias Mode", () => {
         };
       }),
 
-      // Expose listeners for requestResponse handler detection
       clear: vi.fn(() => {
         eventListeners.clear();
-        mockEventBus.listeners.clear();
+        rpcListeners.clear();
       }),
     };
 

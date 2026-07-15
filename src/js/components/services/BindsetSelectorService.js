@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import { selectedKeyFromPayload } from "../../core/eventPayloads.js";
 import KeyService from "./KeyService.js";
 
 export default class BindsetSelectorService extends ComponentBase {
@@ -119,8 +120,9 @@ export default class BindsetSelectorService extends ComponentBase {
     });
 
     // Listen for key selection changes - update membership when user selects different key
-    this.addEventListener("key-selected", ({ key, name, bindset }) => {
-      const selectedKey = key || name;
+    this.addEventListener("key-selected", (payload) => {
+      const selectedKey = selectedKeyFromPayload(payload);
+      const bindset = "bindset" in payload ? payload.bindset : null;
       console.log(
         "[BindsetSelectorService] key-selected received:",
         selectedKey,
@@ -161,15 +163,16 @@ export default class BindsetSelectorService extends ComponentBase {
   }
 
   // State Management - ComponentBase handles selectedKey caching
-  /** @param {string | undefined} key */
+  /** @param {string | undefined} key @returns {undefined} */
   setSelectedKey(key) {
     void key;
     // ComponentBase will handle this.cache.selectedKey automatically via events
     // We just need to update the key membership
     this.updateKeyMembership();
+    return undefined;
   }
 
-  /** @param {string | undefined} bindsetName */
+  /** @param {string | undefined} bindsetName @returns {undefined} */
   setActiveBindset(bindsetName) {
     console.log(
       `[BindsetSelectorService] setActiveBindset called: ${this.cache.activeBindset} -> ${bindsetName}`,
@@ -188,6 +191,7 @@ export default class BindsetSelectorService extends ComponentBase {
       `[BindsetSelectorService] Successfully emitted bindset-selector:active-changed with bindset:`,
       bindsetName,
     );
+    return undefined;
   }
 
   // Key Membership Management
@@ -226,7 +230,7 @@ export default class BindsetSelectorService extends ComponentBase {
   /**
    * Helper method to find a key in a bindset using normalized comparison
    * @param {Record<string, import('./serviceTypes.js').StoredCommand[]> | undefined} keysObject - The keys object from profile data
-   * @param {string} selectedKey - The selected key to find
+   * @param {string | undefined} selectedKey - The selected key to find
    * @returns {import('./serviceTypes.js').StoredCommand[] | null} - The commands array if found, null if not found
    */
   findKeyInBindset(keysObject, selectedKey) {
@@ -289,7 +293,10 @@ export default class BindsetSelectorService extends ComponentBase {
   }
 
   // Key Addition/Removal
-  /** @param {string | undefined} bindsetName */
+  /**
+   * @param {string | undefined} bindsetName
+   * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_operation' | 'no_profile' | 'add_failed'>>}
+   */
   async addKeyToBindset(bindsetName) {
     if (
       !this.cache.selectedKey ||
@@ -374,7 +381,10 @@ export default class BindsetSelectorService extends ComponentBase {
     }
   }
 
-  /** @param {string | undefined} bindsetName */
+  /**
+   * @param {string | undefined} bindsetName
+   * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_operation' | 'no_profile' | 'remove_failed'>>}
+   */
   async removeKeyFromBindset(bindsetName) {
     if (
       !this.cache.selectedKey ||
@@ -432,10 +442,10 @@ export default class BindsetSelectorService extends ComponentBase {
 
   // Display Logic
   shouldDisplay() {
-    return (
+    return Boolean(
       this.cache.preferences.bindsetsEnabled &&
-      this.cache.preferences.bindToAliasMode &&
-      this.cache.currentEnvironment !== "alias"
+        this.cache.preferences.bindToAliasMode &&
+        this.cache.currentEnvironment !== "alias",
     );
   }
 

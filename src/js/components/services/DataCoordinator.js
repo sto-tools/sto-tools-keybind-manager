@@ -274,8 +274,8 @@ export default class DataCoordinator extends ComponentBase {
     this.respond("data:delete-profile", ({ profileId }) =>
       this.deleteProfile(profileId),
     );
-    this.respond("data:update-profile", (payload = {}) => {
-      const { profileId, updates } = payload || {};
+    this.respond("data:update-profile", (payload) => {
+      const { profileId, updates } = payload;
 
       // If caller used legacy shape without "updates" wrapper, treat the remaining
       // keys (add/delete/modify/properties) as the updates object.
@@ -405,6 +405,7 @@ export default class DataCoordinator extends ComponentBase {
 
   /**
    * Get current complete state (ComponentBase late-join method)
+   * @returns {import('../../types/rpc/data.js').CurrentDataState}
    */
   getCurrentState() {
     // Build current profile data for late-join
@@ -436,6 +437,7 @@ export default class DataCoordinator extends ComponentBase {
 
   /**
    * Get all profiles
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:get-all-profiles'>>}
    */
   async getAllProfiles() {
     return { ...this.state.profiles };
@@ -480,8 +482,9 @@ export default class DataCoordinator extends ComponentBase {
 
   /**
    * Switch to a different profile
+   * @param {string} profileId
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:switch-profile'>>}
    */
-  /** @param {string} profileId */
   async switchProfile(profileId) {
     if (profileId === this.state.currentProfile) {
       // Build current profile data manually since getCurrentProfile() was removed
@@ -559,6 +562,7 @@ export default class DataCoordinator extends ComponentBase {
    * @param {string} name
    * @param {string} description
    * @param {string} mode
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:create-profile'>>}
    */
   async createProfile(name, description = "", mode = "space") {
     if (!name || !name.trim()) {
@@ -628,6 +632,7 @@ export default class DataCoordinator extends ComponentBase {
   /**
    * @param {string} sourceId
    * @param {string} newName
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:clone-profile'>>}
    */
   async cloneProfile(sourceId, newName) {
     if (!sourceId || !newName || !newName.trim()) {
@@ -697,6 +702,7 @@ export default class DataCoordinator extends ComponentBase {
    * @param {string} profileId
    * @param {string} newName
    * @param {string} description
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:rename-profile'>>}
    */
   async renameProfile(profileId, newName, description = "") {
     if (!profileId || !newName || !newName.trim()) {
@@ -748,8 +754,9 @@ export default class DataCoordinator extends ComponentBase {
 
   /**
    * Delete a profile
+   * @param {string} profileId
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:delete-profile'>>}
    */
-  /** @param {string} profileId */
   async deleteProfile(profileId) {
     if (!profileId) {
       const message = this.i18n.t("profile_id_required");
@@ -1079,6 +1086,7 @@ export default class DataCoordinator extends ComponentBase {
   /**
    * @param {string} profileId
    * @param {import('./serviceTypes.js').ProfileOperations | null | undefined} updates
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:update-profile'>>}
    */
   async updateProfile(profileId, updates) {
     if (!profileId) {
@@ -1158,7 +1166,10 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   // Set current environment
-  /** @param {string} environment */
+  /**
+   * @param {string} environment
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:set-environment'>>}
+   */
   async setEnvironment(environment) {
     if (!environment || !["space", "ground", "alias"].includes(environment)) {
       throw new Error("Invalid environment");
@@ -1233,7 +1244,10 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   // Update application settings
-  /** @param {Record<string, unknown> | null | undefined} settings */
+  /**
+   * @param {Record<string, unknown> | null | undefined} settings
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:update-settings'>>}
+   */
   async updateSettings(settings) {
     if (!settings) {
       throw new Error("Settings are required");
@@ -1259,6 +1273,7 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   // Load default data (called explicitly by user via "Load Default Data" button)
+  /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:load-default-data'>>} */
   async loadDefaultData() {
     console.log(`[${this.componentName}] Explicitly loading default data...`);
 
@@ -1617,6 +1632,7 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   // Reload state from storage (used after data import/restore)
+  /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:reload-state'>>} */
   async reloadState() {
     console.log(`[${this.componentName}] Reloading state from storage...`);
 

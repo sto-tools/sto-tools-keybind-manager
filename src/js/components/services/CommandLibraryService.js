@@ -123,6 +123,7 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   // Get combined aliases (real profile aliases + virtual VFX aliases)
+  /** @returns {Promise<Record<string, import('../../types/rpc/base.js').CombinedAlias>>} */
   async getCombinedAliases() {
     const realAliases = { ...(this.cache?.aliases || {}) };
 
@@ -167,7 +168,9 @@ export default class CommandLibraryService extends ComponentBase {
 
       // First pass: exact matches only
       for (const [categoryId, category] of Object.entries(categories)) {
-        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
+        for (const [cmdId, cmdData] of Object.entries(
+          category.commands || {},
+        )) {
           if (cmdData.command === cmdString || cmdData.name === cmdDisplay) {
             // Apply i18n translation to the command definition
             const translatedDef = this.translateCommandDefinition(
@@ -181,8 +184,10 @@ export default class CommandLibraryService extends ComponentBase {
 
       // Second pass: containment matches (only for specific known cases like tray commands)
       for (const [categoryId, category] of Object.entries(categories)) {
-        for (const [cmdId, cmdData] of Object.entries(category.commands)) {
-          if (cmdString) {
+        for (const [cmdId, cmdData] of Object.entries(
+          category.commands || {},
+        )) {
+          if (cmdString && typeof cmdData.command === "string") {
             // Build a base pattern (command keyword only, no parameters)
             const basePatternRaw = cmdData.command.split(/\s+/)[0]; // e.g. '+STOTrayExecByTray'
             // Build relaxed patterns – remove leading '+STO' or '+' so that
@@ -277,7 +282,7 @@ export default class CommandLibraryService extends ComponentBase {
 
       // First pass: exact matches only
       for (const category of Object.values(categories)) {
-        for (const cmdData of Object.values(category.commands)) {
+        for (const cmdData of Object.values(category.commands || {})) {
           if (
             (cmdStr && cmdData.command === cmdStr) ||
             (typeof command === "object" &&
@@ -291,10 +296,14 @@ export default class CommandLibraryService extends ComponentBase {
 
       // Second pass: containment matches (only for specific known cases like tray commands)
       for (const category of Object.values(categories)) {
-        for (const cmdData of Object.values(category.commands)) {
+        for (const cmdData of Object.values(category.commands || {})) {
           const target =
             cmdStr || (typeof command === "string" ? "" : command?.command);
-          if (target && target.includes(cmdData.command)) {
+          if (
+            target &&
+            typeof cmdData.command === "string" &&
+            target.includes(cmdData.command)
+          ) {
             // Only allow partial matching for specific cases:
             // 1. Tray execution commands (contain "TrayExec")
             // 2. Commands that start with the definition command (for parameterized commands)
@@ -357,7 +366,7 @@ export default class CommandLibraryService extends ComponentBase {
         // Find the command definition
         let commandDef = null;
         for (const catData of Object.values(commands)) {
-          if (catData.commands[commandId]) {
+          if (catData.commands?.[commandId]) {
             commandDef = catData.commands[commandId];
             break;
           }

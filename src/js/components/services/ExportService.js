@@ -81,7 +81,7 @@ export default class ExportService extends ComponentBase {
       return await this.generateAliasFile(prof);
     });
     this.respond("export:sync-to-folder", async ({ dirHandle }) => {
-      return await this.syncToFolder(dirHandle);
+      return this.syncToFolder(dirHandle).then(() => undefined);
     });
   }
 

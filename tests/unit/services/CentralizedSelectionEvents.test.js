@@ -116,6 +116,22 @@ describe("Centralized Selection Events", () => {
       expect(aliasSelectedEvents[0].data.name).toBe("TestAlias");
       expect(aliasSelectedEvents[0].data.source).toBe("SelectionService");
     });
+
+    it("does not select an alias when creation fails", async () => {
+      aliasBrowserService.request = vi.fn().mockResolvedValue({
+        success: false,
+        error: "alias_already_exists",
+      });
+      const selectAlias = vi.spyOn(aliasBrowserService, "selectAlias");
+
+      const result = await aliasBrowserService.createAlias("TestAlias");
+
+      expect(result).toEqual({
+        success: false,
+        error: "alias_already_exists",
+      });
+      expect(selectAlias).not.toHaveBeenCalled();
+    });
   });
 
   describe("Selection State Ownership", () => {

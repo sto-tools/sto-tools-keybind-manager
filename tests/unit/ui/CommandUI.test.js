@@ -135,5 +135,13 @@ describe("CommandUI", () => {
 
       expect(commandUI._activeBindset).toBe("Test Bindset");
     });
+
+    it("should cache the legacy active bindset payload", () => {
+      eventBus.emit("bindset-selector:active-changed", {
+        name: "Legacy Bindset",
+      });
+
+      expect(commandUI._activeBindset).toBe("Legacy Bindset");
+    });
   });
 });

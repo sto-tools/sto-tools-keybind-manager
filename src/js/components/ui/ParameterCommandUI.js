@@ -25,7 +25,8 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
  *   name: string,
  *   parameters: Record<string, ParameterDefinition>,
  *   categoryId?: string,
- *   commandId?: string
+ *   commandId?: string,
+ *   [field: string]: unknown
  * }} ParameterCommandDefinition
  */
 /**
@@ -38,6 +39,32 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
  *   isEditing?: boolean
  * }} CurrentParameterCommand
  */
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is ParameterCommandDefinition}
+ */
+export function isParameterDef(value) {
+  if (!isRecord(value)) return false;
+  return typeof value.name === "string" && isRecord(value.parameters);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is string | { command: string, [field: string]: unknown }}
+ */
+function isBuiltCommand(value) {
+  if (typeof value === "string") return true;
+  return isRecord(value) && typeof value.command === "string";
+}
 
 /*
  * ParameterCommandUI – a UI component for editing parameterized commands.
@@ -147,7 +174,7 @@ export default class ParameterCommandUI extends UIComponentBase {
     this.addEventListener(
       "parameter-command:edit",
       ({ index, command, commandDef, categoryId, commandId }) => {
-        if (commandDef && categoryId && commandId) {
+        if (categoryId && commandId && isParameterDef(commandDef)) {
           this.editParameterizedCommand(index, command, commandDef);
         }
       },
@@ -436,6 +463,7 @@ export default class ParameterCommandUI extends UIComponentBase {
     if (!this.currentParameterCommand) return;
 
     const { categoryId, commandId, commandDef } = this.currentParameterCommand;
+    if (!categoryId || !commandId) return;
 
     let params;
     try {
@@ -463,21 +491,16 @@ export default class ParameterCommandUI extends UIComponentBase {
 
       if (Array.isArray(cmd)) {
         previewEl.textContent = cmd
-          .map((c) => c.command || c)
-          .filter((c) => c)
+          .filter(isBuiltCommand)
+          .map((command) =>
+            typeof command === "string" ? command : command.command,
+          )
           .join(" $$ ");
+      } else if (isBuiltCommand(cmd)) {
+        previewEl.textContent = typeof cmd === "string" ? cmd : cmd.command;
       } else {
-        // Handle both string commands and command objects
-        let commandText = "";
-        if (typeof cmd === "string") {
-          commandText = cmd;
-        } else if (cmd.command) {
-          commandText = cmd.command;
-        } else {
-          // Fallback for malformed command objects
-          commandText = "Error: Invalid command format";
-        }
-        previewEl.textContent = commandText;
+        // Fallback for malformed command objects
+        previewEl.textContent = "Error: Invalid command format";
       }
       // Reset color to default on successful preview
       previewEl.style.color = "";
@@ -550,6 +573,7 @@ export default class ParameterCommandUI extends UIComponentBase {
     }
 
     const { categoryId, commandId, commandDef } = this.currentParameterCommand;
+    if (!categoryId || !commandId) return;
 
     let params;
     try {
@@ -572,29 +596,29 @@ export default class ParameterCommandUI extends UIComponentBase {
       });
       if (!cmd) return;
 
+      const builtCommand = Array.isArray(cmd)
+        ? cmd.filter(isBuiltCommand)
+        : isBuiltCommand(cmd)
+          ? cmd
+          : null;
+      if (!builtCommand) return;
+      if (Array.isArray(builtCommand) && !builtCommand.length) return;
+
       // Check if we're editing an existing command or adding a new one
       if (
         this.currentParameterCommand.isEditing &&
         this.currentParameterCommand.editIndex !== undefined
       ) {
+        if (Array.isArray(builtCommand)) return;
         // Editing existing command - emit update event
         const bindset =
           this.cache.currentEnvironment === "alias"
             ? null
             : this.cache.activeBindset;
-        console.log(
-          "[ParameterCommandUI] emitting command:edit [parameterized]",
-          {
-            key: selectedKey,
-            index: this.currentParameterCommand.editIndex,
-            updatedCommand: cmd,
-            bindset,
-          },
-        );
         this.emit("command:edit", {
           key: selectedKey,
           index: this.currentParameterCommand.editIndex,
-          updatedCommand: cmd,
+          updatedCommand: builtCommand,
           bindset,
         });
       } else {
@@ -604,19 +628,11 @@ export default class ParameterCommandUI extends UIComponentBase {
           this.cache.currentEnvironment === "alias"
             ? null
             : this.cache.activeBindset;
-        if (Array.isArray(cmd)) {
-          console.log(
-            "[ParameterCommandUI] emitting command:add [bulk parameterized]",
-            { commands: cmd, key: selectedKey },
-          );
-          this.emit("command:add", { command: cmd, key: selectedKey, bindset });
-        } else {
-          console.log(
-            "[ParameterCommandUI] emitting command:add [single parameterized]",
-            { command: cmd, key: selectedKey },
-          );
-          this.emit("command:add", { command: cmd, key: selectedKey, bindset });
-        }
+        this.emit("command:add", {
+          command: builtCommand,
+          key: selectedKey,
+          bindset,
+        });
       }
     } catch (error) {
       console.error("Error building parameterized command:", error);

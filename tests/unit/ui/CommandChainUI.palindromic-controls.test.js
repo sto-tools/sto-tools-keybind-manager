@@ -46,9 +46,13 @@ describe("CommandChainUI Palindromic Controls", () => {
 
     // Create a mock event bus that properly handles the RPC pattern
     const eventListeners = new Map();
+    const rpcListeners = new Map();
 
     mockEventBus = {
-      listeners: new Map(), // Add listeners Map for requestResponse handler detection
+      hasListeners: vi.fn((topic) => {
+        const handlers = rpcListeners.get(topic);
+        return (handlers?.length ?? handlers?.size ?? 0) > 0;
+      }),
       on: vi.fn((topic, handler) => {
         if (!eventListeners.has(topic)) {
           eventListeners.set(topic, []);
@@ -65,9 +69,9 @@ describe("CommandChainUI Palindromic Controls", () => {
             handlers.splice(index, 1);
           }
         }
-        // Remove from listeners Map
-        if (mockEventBus.listeners.has(topic)) {
-          const handlers = mockEventBus.listeners.get(topic);
+        // Remove from the mock RPC readiness registry
+        if (rpcListeners.has(topic)) {
+          const handlers = rpcListeners.get(topic);
           const index = handlers.indexOf(handler);
           if (index > -1) {
             handlers.splice(index, 1);
@@ -143,26 +147,23 @@ describe("CommandChainUI Palindromic Controls", () => {
       }),
       requestResponse: vi.fn((endpoint, handler) => {
         // Store handler for request-response pattern
-        if (!mockEventBus.listeners.has(endpoint)) {
-          mockEventBus.listeners.set(endpoint, []);
+        if (!rpcListeners.has(endpoint)) {
+          rpcListeners.set(endpoint, []);
         }
-        mockEventBus.listeners.get(endpoint).push(handler);
+        rpcListeners.get(endpoint).push(handler);
       }),
       respond: vi.fn((endpoint, handler) => {
         // Store endpoint response handler
-        if (!mockEventBus.listeners.has(endpoint)) {
-          mockEventBus.listeners.set(endpoint, []);
+        if (!rpcListeners.has(endpoint)) {
+          rpcListeners.set(endpoint, []);
         }
-        mockEventBus.listeners.get(endpoint).push(handler);
+        rpcListeners.get(endpoint).push(handler);
       }),
     };
 
     // enrichForDisplay uses the low-level request/response helper directly.
     // Register a marker so its parser request can complete through the mock bus.
-    mockEventBus.listeners.set(
-      "rpc:parser:parse-command-string",
-      new Set([vi.fn()]),
-    );
+    rpcListeners.set("rpc:parser:parse-command-string", new Set([vi.fn()]));
 
     // Initialize i18next
     await i18next.init({

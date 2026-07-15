@@ -103,32 +103,17 @@ export default class BindsetService extends ComponentBase {
 
     // ComponentBase automatically handles profile and environment caching
     // We only need to listen for these events to update our specific business logic
-    this.addEventListener(
-      "profile:updated",
-      (
-        {
-          profileId,
-          profile,
-        } = /** @type {{ profileId?: string, profile?: import('./serviceTypes.js').ProfileData | null }} */ ({}),
-      ) => {
-        if (profileId === this.serviceCache.currentProfile) {
-          this.updateCacheFromProfile(profile);
-        }
-      },
-    );
+    this.addEventListener("profile:updated", ({ profileId, profile }) => {
+      if (profileId === this.serviceCache.currentProfile) {
+        this.updateCacheFromProfile(profile);
+      }
+    });
 
     // When profile switch happens
-    this.addEventListener(
-      "profile:switched",
-      (
-        {
-          profile,
-        } = /** @type {{ profile?: import('./serviceTypes.js').ProfileData | null }} */ ({}),
-      ) => {
-        // ComponentBase handles currentProfile and currentEnvironment caching
-        this.updateCacheFromProfile(profile);
-      },
-    );
+    this.addEventListener("profile:switched", ({ profile }) => {
+      // ComponentBase handles currentProfile and currentEnvironment caching
+      this.updateCacheFromProfile(profile);
+    });
   }
 
   /** @param {import('./serviceTypes.js').ProfileData | null | undefined} profile */
@@ -169,7 +154,10 @@ export default class BindsetService extends ComponentBase {
     return prof;
   }
 
-  /** @param {string | undefined} name */
+  /**
+   * @param {string | undefined} name
+   * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'name_exists'>>}
+   */
   async createBindset(name) {
     if (!name || name === "Primary Bindset")
       return { success: false, error: "invalid_name" };
@@ -217,6 +205,7 @@ export default class BindsetService extends ComponentBase {
   /**
    * @param {string | undefined} sourceBindset
    * @param {string | undefined} targetBindset
+   * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'name_exists' | 'source_not_found'>>}
    */
   async cloneBindset(sourceBindset, targetBindset) {
     if (!sourceBindset || !targetBindset)
@@ -287,6 +276,7 @@ export default class BindsetService extends ComponentBase {
   /**
    * @param {string | undefined} oldName
    * @param {string | undefined} newName
+   * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'not_found' | 'name_exists'>>}
    */
   async renameBindset(oldName, newName) {
     if (
@@ -303,6 +293,10 @@ export default class BindsetService extends ComponentBase {
     }
     if (profile.bindsets[newName]) {
       return { success: false, error: "name_exists" };
+    }
+    const profileId = profile.id || this.serviceCache.currentProfile;
+    if (!profileId) {
+      return { success: false, error: "no_profile" };
     }
 
     // Add new bindset data
@@ -326,7 +320,7 @@ export default class BindsetService extends ComponentBase {
     }
 
     const res = await this.request("data:update-profile", {
-      profileId: profile.id,
+      profileId,
       updates,
     });
     if (res?.success) {
@@ -339,14 +333,28 @@ export default class BindsetService extends ComponentBase {
   }
 
   /**
+   * @overload
    * @param {string | undefined} name
-   * @param {boolean} force
+   * @param {true} force
+   * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'not_found'>>}
+   */
+  /**
+   * @overload
+   * @param {string | undefined} name
+   * @param {false} [force]
+   * @returns {Promise<import('../../types/rpc/bindsets.js').BindsetUpdateResult<'invalid_name' | 'no_profile' | 'not_found' | 'not_empty'>>}
+   */
+  /**
+   * @param {string | undefined} name
+   * @param {boolean} [force]
    */
   async deleteBindset(name, force = false) {
     if (!name || name === "Primary Bindset")
       return { success: false, error: "invalid_name" };
     const profile = await this.getProfile();
     if (!profile) return { success: false, error: "no_profile" };
+    const profileId = profile.id || this.serviceCache.currentProfile;
+    if (!profileId) return { success: false, error: "no_profile" };
     const target = profile.bindsets?.[name];
     if (!target) return { success: false, error: "not_found" };
 
@@ -366,7 +374,7 @@ export default class BindsetService extends ComponentBase {
       },
     };
     const res = await this.request("data:update-profile", {
-      profileId: profile.id,
+      profileId,
       updates,
     });
     if (res?.success) {

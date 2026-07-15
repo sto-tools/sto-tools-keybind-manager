@@ -85,10 +85,6 @@ describe("CommandUI Validation Toast Tests", () => {
       if (key === "valid") return "valid";
       return key;
     });
-
-    // Debug: Check if event listeners are set up
-    console.log("Event listeners:", component.eventListeners);
-    console.log("EventBus listeners:", component.eventBus.listeners);
   });
 
   afterEach(() => {

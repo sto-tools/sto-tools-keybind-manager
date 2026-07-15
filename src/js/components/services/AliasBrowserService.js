@@ -40,36 +40,22 @@ export default class AliasBrowserService extends ComponentBase {
 
   setupEventListeners() {
     // Listen for profile updates
-    this.addEventListener(
-      "profile:updated",
-      (
-        {
-          profileId,
-          profile,
-        } = /** @type {{ profileId?: string, profile?: import('./serviceTypes.js').ProfileData | null }} */ ({}),
-      ) => {
-        if (typeof window !== "undefined") {
-          console.log(
-            `[AliasBrowserService] profile:updated received. profileId: ${profileId}, cache.currentProfile: ${this.serviceCache.currentProfile}, match: ${profileId === this.serviceCache.currentProfile}`,
-          );
-        }
-        if (profileId === this.serviceCache.currentProfile) {
-          this.updateCacheFromProfile(profile);
-          this.emit("aliases-changed", { aliases: this.serviceCache.aliases });
-        }
-      },
-    );
+    this.addEventListener("profile:updated", ({ profileId, profile }) => {
+      if (typeof window !== "undefined") {
+        console.log(
+          `[AliasBrowserService] profile:updated received. profileId: ${profileId}, cache.currentProfile: ${this.serviceCache.currentProfile}, match: ${profileId === this.serviceCache.currentProfile}`,
+        );
+      }
+      if (profileId === this.serviceCache.currentProfile) {
+        this.updateCacheFromProfile(profile);
+        this.emit("aliases-changed", { aliases: this.serviceCache.aliases });
+      }
+    });
 
     // Listen for profile switched
     this.addEventListener(
       "profile:switched",
-      (
-        {
-          profileId,
-          profile,
-          environment,
-        } = /** @type {{ profileId?: string, profile?: import('./serviceTypes.js').ProfileData | null, environment?: string }} */ ({}),
-      ) => {
+      ({ profileId, profile, environment }) => {
         this.serviceCache.currentProfile = profileId || null;
 
         if (environment) {
@@ -82,25 +68,19 @@ export default class AliasBrowserService extends ComponentBase {
     );
 
     // Listen for environment changes
-    this.addEventListener(
-      "environment:changed",
-      async (
-        /** @type {string | { environment?: string } | null | undefined} */ payload,
-      ) => {
-        const env =
-          typeof payload === "string" ? payload : payload?.environment;
-        if (typeof window !== "undefined") {
-          console.log(
-            `[AliasBrowserService] environment:changed received. payload:`,
-            payload,
-            `parsed env: ${env}`,
-          );
-        }
-        if (env) {
-          this.serviceCache.currentEnvironment = env;
-        }
-      },
-    );
+    this.addEventListener("environment:changed", async (payload) => {
+      const env = payload.environment;
+      if (typeof window !== "undefined") {
+        console.log(
+          `[AliasBrowserService] environment:changed received. payload:`,
+          payload,
+          `parsed env: ${env}`,
+        );
+      }
+      if (env) {
+        this.serviceCache.currentEnvironment = env;
+      }
+    });
   }
 
   /** @param {import('./serviceTypes.js').ProfileData | null | undefined} profile */
@@ -137,7 +117,7 @@ export default class AliasBrowserService extends ComponentBase {
   async createAlias(name, description = "") {
     const result = await this.request("alias:add", { name, description });
 
-    if (result && name) {
+    if (result?.success === true && name) {
       // Auto-select the newly created alias
       await this.selectAlias(name);
     }

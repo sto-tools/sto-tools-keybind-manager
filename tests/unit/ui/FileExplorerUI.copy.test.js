@@ -33,6 +33,12 @@ describe("FileExplorerUI – copy preview content", () => {
     return match ? match[3] : null;
   }
 
+  function getDownloadHandler() {
+    const calls = fixture.eventBus.onDom.mock.calls;
+    const match = calls.find((call) => call[0] === "downloadFileBtn");
+    return match ? match[3] : null;
+  }
+
   it("requests clipboard copy and shows success toast on success", async () => {
     component.request = vi.fn().mockResolvedValue({
       success: true,
@@ -98,5 +104,33 @@ describe("FileExplorerUI – copy preview content", () => {
     await handler();
 
     expect(showToastSpy).toHaveBeenCalledWith("nothing_to_copy", "warning");
+  });
+
+  it("uses the default filename when the selected profile is unavailable", async () => {
+    const handler = getDownloadHandler();
+    expect(handler).toBeTypeOf("function");
+    component.selectedNode = {
+      type: "build",
+      profileId: "missing-profile",
+      environment: "space",
+    };
+    component.storage = { getProfile: vi.fn(() => null) };
+    component.request = vi.fn();
+    component.downloadFile = vi.fn();
+    component.document = {
+      getElementById: vi.fn((id) =>
+        id === component.contentId ? { textContent: "preview content" } : null,
+      ),
+    };
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await handler();
+
+    expect(component.request).not.toHaveBeenCalled();
+    expect(component.downloadFile).toHaveBeenCalledWith(
+      "preview content",
+      "default_export_filename",
+      "text/plain",
+    );
   });
 });

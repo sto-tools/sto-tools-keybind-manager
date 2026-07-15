@@ -35,8 +35,10 @@ export default class SyncService extends ComponentBase {
     console.log("[SyncService] constructed");
 
     // Indirection for request calls (simplifies testing)
-    /** @type {(event: string, data?: any) => Promise<any>} */
-    this.invokeRequest = this.request.bind(this);
+    this.invokeRequest =
+      /** @type {import('../../types/rpc/index.js').RpcRequester} */ (
+        this.request.bind(this)
+      );
 
     // Ensure FileSystemService instance
     if (!this.fs) this.fs = new FileSystemService({ eventBus });
@@ -45,8 +47,10 @@ export default class SyncService extends ComponentBase {
     if (this.eventBus) {
       this.respond(
         "sync:sync-project",
-        ({ source } = /** @type {{ source?: string }} */ ({})) =>
-          this.syncProject(source),
+        async ({ source } = /** @type {{ source?: string }} */ ({})) => {
+          await this.syncProject(source);
+          return undefined;
+        },
       );
 
       // Handle deferred import/overwrite on preferences save/cancel
@@ -430,10 +434,13 @@ export default class SyncService extends ComponentBase {
       const opts = { mode: "readwrite" };
       // Permission methods are implemented by File System Access API handles,
       // but are not yet included in every TypeScript DOM library release.
-      const permissionHandle = /** @type {any} */ (handle);
-      const perm = await permissionHandle.queryPermission(opts);
+      const queryPermission = Reflect.get(handle, "queryPermission");
+      if (typeof queryPermission !== "function") return false;
+      const perm = await queryPermission.call(handle, opts);
       if (perm === "granted") return true;
-      const req = await permissionHandle.requestPermission(opts);
+      const requestPermission = Reflect.get(handle, "requestPermission");
+      if (typeof requestPermission !== "function") return false;
+      const req = await requestPermission.call(handle, opts);
       return req === "granted";
     } catch (err) {
       console.error("[SyncService] ensurePermission failed", err);

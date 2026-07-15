@@ -17,7 +17,7 @@ export default class InterfaceModeService extends ComponentBase {
     this._modeListenersSetup = false;
 
     // Store handler references for proper cleanup
-    /** @type {((data: { profileId?: string, environment?: string }) => void) | null} */
+    /** @type {((data: import('../../types/events/profiles.js').ProfileSwitchedPayload) => void) | null} */
     this._profileSwitchedHandler = null;
     /** @type {(() => void) | null} */
     this._responseDetachFunction = null;

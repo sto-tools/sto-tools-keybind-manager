@@ -411,7 +411,7 @@ describe("STOCommandParser - RequestResponse Integration", () => {
 
   beforeEach(() => {
     // Clear any existing listeners
-    eventBus.listeners?.clear?.();
+    eventBus.clear();
 
     parser = new STOCommandParser(eventBus, {
       enableCache: true,

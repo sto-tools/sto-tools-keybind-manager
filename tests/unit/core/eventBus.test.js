@@ -4,6 +4,7 @@ import eventBus from "../../../src/js/core/eventBus.js";
 
 describe("eventBus", () => {
   afterEach(() => {
+    vi.useRealTimers();
     eventBus.clear();
   });
 
@@ -16,6 +17,16 @@ describe("eventBus", () => {
     eventBus.emit("detached-once-event");
 
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("delivers null when a nullable event payload is omitted", () => {
+    const handler = vi.fn();
+    eventBus.on("about:show", handler);
+
+    eventBus.emit("about:show");
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledWith(null);
   });
 
   it("dispatches ordinary events immediately without awaiting async listeners", async () => {
@@ -95,5 +106,72 @@ describe("eventBus", () => {
 
     expect(domHandler).toHaveBeenCalledOnce();
     expect(busHandler).toHaveBeenCalledOnce();
+  });
+
+  it("debounces the handler-only onDomDebounced signature", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<input id="debounced-input" />';
+    const handler = vi.fn();
+    const detach = eventBus.onDomDebounced(
+      "debounced-input",
+      "input",
+      handler,
+      100,
+    );
+
+    const input = document.getElementById("debounced-input");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(handler).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(99);
+    expect(handler).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler.mock.calls[0][0]).toBeInstanceOf(Event);
+
+    detach();
+  });
+
+  it("mirrors debounced DOM events immediately and cancels the local callback on detach", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<input id="debounced-mirror-input" />';
+    const localHandler = vi.fn();
+    const busHandler = vi.fn();
+    eventBus.on("debounced-mirror", busHandler);
+    const detach = eventBus.onDomDebounced(
+      "debounced-mirror-input",
+      "input",
+      "debounced-mirror",
+      localHandler,
+      100,
+    );
+
+    document
+      .getElementById("debounced-mirror-input")
+      .dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(busHandler).toHaveBeenCalledOnce();
+    expect(localHandler).not.toHaveBeenCalled();
+
+    detach();
+    vi.advanceTimersByTime(100);
+
+    expect(localHandler).not.toHaveBeenCalled();
+    expect(busHandler).toHaveBeenCalledOnce();
+  });
+
+  it("cancels pending debounced DOM callbacks when the bus is cleared", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<input id="clear-debounced-input" />';
+    const handler = vi.fn();
+    eventBus.onDomDebounced("clear-debounced-input", "input", handler, 100);
+
+    document
+      .getElementById("clear-debounced-input")
+      .dispatchEvent(new Event("input", { bubbles: true }));
+    eventBus.clear();
+    vi.advanceTimersByTime(100);
+
+    expect(handler).not.toHaveBeenCalled();
   });
 });

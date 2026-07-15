@@ -79,12 +79,13 @@ export default class StorageService extends ComponentBase {
         );
 
         // Reset internal cache to empty structure
-        this.data = this.getEmptyData();
+        const resetData = this.getEmptyData();
+        this.data = resetData;
 
         // Emit events to notify other components about the reset
         this.emit(
           "storage:data-reset",
-          { data: this.data },
+          { data: resetData },
           { synchronous: true },
         );
         this.emit("app:reset-complete", {}, { synchronous: true });

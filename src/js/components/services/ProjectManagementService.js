@@ -85,6 +85,7 @@ export default class ProjectManagementService extends ComponentBase {
       const data = this.storage.getAllData();
 
       // Use the same project.json format as sync folder
+      /** @type {import('../../types/events/base.js').ProjectBackupData} */
       const projectData = {
         version: STO_DATA?.settings?.version || "1.0.0",
         exported: new Date().toISOString(),
@@ -188,7 +189,11 @@ export default class ProjectManagementService extends ComponentBase {
   }
 
   // Unified restore helper – used by both UI file-chooser and SyncService
-  /** @param {string | undefined} text @param {string} [fileName] */
+  /**
+   * @param {string | undefined} text
+   * @param {string} [fileName]
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'project:restore-from-content'>>}
+   */
   async restoreFromProjectContent(text, fileName = "project.json") {
     try {
       console.log(
@@ -201,17 +206,21 @@ export default class ProjectManagementService extends ComponentBase {
         "[ProjectManagementService] About to call ImportService with content length:",
         text?.length,
       );
+      if (typeof text !== "string") {
+        throw new Error("invalid_project_file");
+      }
       const result = await this.request("import:project-file", {
         content: text,
       });
+      const failure = result.success ? null : result;
       console.log("[ProjectManagementService] import:project-file result", {
-        success: result?.success,
-        error: result?.error,
-        params: result?.params,
+        success: result.success,
+        error: failure?.error,
+        params: failure?.params,
       });
-      if (!result?.success) {
-        const errorMessage = result?.error || "import_failed";
-        const reason = result?.params?.reason || "";
+      if (!result.success) {
+        const errorMessage = result.error || "import_failed";
+        const reason = result.params?.reason || "";
         const fullMessage = reason
           ? `${errorMessage}: ${reason}`
           : errorMessage;

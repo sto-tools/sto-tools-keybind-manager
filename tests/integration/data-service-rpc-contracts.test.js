@@ -135,6 +135,38 @@ describe("Integration: DataService static-data RPC contracts", () => {
     ).resolves.toBeNull();
   });
 
+  it("filters malformed external default profiles before publishing them", async () => {
+    const validProfile = {
+      name: "Validated",
+      description: "A structurally valid default profile",
+      currentEnvironment: "space",
+      builds: { space: { keys: {} }, ground: { keys: {} } },
+    };
+    dataService.data.defaultProfiles = {
+      valid: validProfile,
+      array: [],
+      missingName: { builds: {} },
+      blankName: { name: "   " },
+      invalidDescription: { name: "Bad description", description: 42 },
+      invalidEnvironment: { name: "Bad environment", currentEnvironment: 42 },
+      invalidBuilds: { name: "Bad builds", builds: [] },
+      primitive: "not a profile",
+      absent: null,
+    };
+
+    await expect(
+      request(eventBusFixture.eventBus, "data:get-default-profiles", {}),
+    ).resolves.toEqual({ valid: validProfile });
+    await expect(
+      request(eventBusFixture.eventBus, "data:get-default-profile", {
+        profileId: "array",
+      }),
+    ).resolves.toBeNull();
+    expect(dataService.getCurrentState().defaultProfiles).toEqual({
+      valid: validProfile,
+    });
+  });
+
   it("characterizes compatibility validation and category responder shapes", async () => {
     await expect(
       request(eventBusFixture.eventBus, "data:get-validation-patterns", {}),

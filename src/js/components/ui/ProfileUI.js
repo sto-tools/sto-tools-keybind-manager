@@ -162,7 +162,7 @@ export default class ProfileUI extends UIComponentBase {
       profileEntries.forEach(([id, profile]) => {
         const option = this.document.createElement("option");
         option.value = id;
-        option.textContent = profile.name;
+        option.textContent = profile.name || id;
         if (id === this.cache.currentProfile) {
           option.selected = true;
         }
@@ -181,8 +181,10 @@ export default class ProfileUI extends UIComponentBase {
       const btn = /** @type {HTMLButtonElement} */ (element);
       btn.classList.toggle(
         "active",
-        this.cache.profile &&
-          btn.dataset.mode === this.cache.currentEnvironment,
+        Boolean(
+          this.cache.profile &&
+            btn.dataset.mode === this.cache.currentEnvironment,
+        ),
       );
       btn.disabled = !this.cache.currentProfile;
     });
@@ -298,7 +300,7 @@ export default class ProfileUI extends UIComponentBase {
 
     if (title) title.textContent = this.i18n.t("rename_profile");
     if (nameInput) {
-      nameInput.value = this.cache.profile.name;
+      nameInput.value = this.cache.profile.name || "";
       nameInput.placeholder = "Enter profile name";
     }
     if (descInput) {
@@ -349,9 +351,17 @@ export default class ProfileUI extends UIComponentBase {
           break;
         }
         case "clone": {
+          const sourceId = this.cache.currentProfile;
+          if (!sourceId) {
+            this.showToast(
+              this.i18n.t("no_profile_selected_to_clone"),
+              "warning",
+            );
+            break;
+          }
           // Use DataCoordinator directly for better performance
           result = await this.request("data:clone-profile", {
-            sourceId: this.cache.currentProfile,
+            sourceId,
             newName: name,
           });
           if (result?.success) {
@@ -361,9 +371,17 @@ export default class ProfileUI extends UIComponentBase {
           break;
         }
         case "rename": {
+          const profileId = this.cache.currentProfile;
+          if (!profileId) {
+            this.showToast(
+              this.i18n.t("no_profile_selected_to_rename"),
+              "warning",
+            );
+            break;
+          }
           // Use DataCoordinator directly for better performance
           result = await this.request("data:rename-profile", {
-            profileId: this.cache.currentProfile,
+            profileId,
             newName: name,
             description,
           });
@@ -389,7 +407,7 @@ export default class ProfileUI extends UIComponentBase {
   // Confirm profile deletion - using cached state (broadcast/cache pattern)
   async confirmDeleteProfile() {
     // Use cached state instead of request/response - follows broadcast/cache pattern
-    if (!this.cache.profile) {
+    if (!this.cache.profile || !this.cache.currentProfile) {
       this.showToast(this.i18n.t("no_profile_selected_to_delete"), "warning");
       return;
     }
@@ -416,9 +434,14 @@ export default class ProfileUI extends UIComponentBase {
   // Delete the current profile - using DataCoordinator directly
   async deleteCurrentProfile() {
     try {
+      const profileId = this.cache.currentProfile;
+      if (!profileId) {
+        this.showToast(this.i18n.t("no_profile_selected_to_delete"), "warning");
+        return;
+      }
       // Use DataCoordinator directly for better performance
       const result = await this.request("data:delete-profile", {
-        profileId: this.cache.currentProfile,
+        profileId,
       });
       if (result.success) {
         if (result.switchedProfile) {

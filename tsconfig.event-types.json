@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "skipLibCheck": false,
+    "strict": true,
+    "target": "ES2022"
+  },
+  "include": [
+    "src/js/core/eventBus.js",
+    "src/js/types/events/**/*.d.ts",
+    "tests/types/component-protocol.type-test.ts",
+    "tests/types/event-protocol.type-test.ts"
+  ]
+}

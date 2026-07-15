@@ -6,7 +6,7 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 /** @typedef {'merge_keep' | 'merge_overwrite' | 'overwrite_all'} ImportStrategy */
 /** @typedef {{ bindsetsEnabled?: boolean }} ImportContext */
 /** @typedef {{ environment: ImportEnvironment, strategy: ImportStrategy }} EnvironmentImportConfig */
-/** @typedef {{ currentProfile: string, currentEnvironment?: ImportEnvironment }} ImportState */
+/** @typedef {{ currentProfile: string | null, currentEnvironment: string }} ImportState */
 /** @typedef {{ bindsetsEnabled?: boolean }} ImportPreferences */
 /**
  * @typedef {{
@@ -51,7 +51,7 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 /** @typedef {(value: boolean) => void} ConfirmationResolver */
 /** @typedef {(value: string[] | null) => void} BindsetSelectionResolver */
 /** @typedef {(value: BindsetConfiguration | null) => void} ConfigurationResolver */
-/** @typedef {{ defaultEnv: ImportEnvironment, importType: ImportType, additionalContext: ImportContext, resolve: EnvironmentResolver, modalElement: HTMLDivElement }} ImportModalState */
+/** @typedef {{ defaultEnv: string, importType: ImportType, additionalContext: ImportContext, resolve: EnvironmentResolver, modalElement: HTMLDivElement }} ImportModalState */
 /** @typedef {{ resolve: StrategyResolver, modalElement: HTMLDivElement }} AliasStrategyModalState */
 /** @typedef {{ resolve: ConfirmationResolver, modalElement: HTMLDivElement, customMessage: string | null }} OverwriteModalState */
 /** @typedef {{ bindsetNames: string[], hasMasterBindset: boolean, masterDisplayName: string | null, resolve: BindsetSelectionResolver, modalElement: HTMLDivElement }} BindsetSelectionModalState */
@@ -142,6 +142,7 @@ export default class ImportUI extends UIComponentBase {
           /** @type {ImportState} */
           const state = await this.request("data:get-current-state");
           const profileId = state.currentProfile;
+          const getProfile = () => this.storage?.getProfile?.(profileId || "");
           /** @type {ImportResult | undefined} */
           let result;
           if (type === "keybinds") {
@@ -155,9 +156,8 @@ export default class ImportUI extends UIComponentBase {
             // Check for overwrite confirmation if strategy is overwrite_all
             if (importConfig.strategy === "overwrite_all") {
               // Get current key count for the environment
-              const currentProfile = this.storage?.getProfile?.(profileId);
               const currentKeys = Object.keys(
-                currentProfile?.builds?.[importConfig.environment]?.keys || {},
+                getProfile()?.builds?.[importConfig.environment]?.keys || {},
               ).length;
 
               if (currentKeys > 0) {
@@ -230,9 +230,8 @@ export default class ImportUI extends UIComponentBase {
             // Check for overwrite confirmation if strategy is overwrite_all
             if (strategy === "overwrite_all") {
               // Get current alias count
-              const currentProfile = this.storage?.getProfile?.(profileId);
               const currentAliases = Object.keys(
-                currentProfile?.aliases || {},
+                getProfile()?.aliases || {},
               ).length;
 
               if (currentAliases > 0) {
@@ -325,7 +324,7 @@ export default class ImportUI extends UIComponentBase {
   // Show a simple modal asking user whether the import is for Space or Ground.
   // Returns { environment, strategy } object or null if cancelled.
   /**
-   * @param {ImportEnvironment} [defaultEnv]
+   * @param {string} [defaultEnv]
    * @param {ImportType} [importType]
    * @param {ImportContext} [additionalContext]
    * @returns {Promise<EnvironmentImportConfig | null>}
@@ -403,7 +402,7 @@ export default class ImportUI extends UIComponentBase {
 
   // Create a standard modal for environment selection
   /**
-   * @param {ImportEnvironment} defaultEnv
+   * @param {string} defaultEnv
    * @param {ImportType} [importType]
    * @param {ImportContext} [additionalContext]
    */

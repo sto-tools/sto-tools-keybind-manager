@@ -3,10 +3,11 @@ import KeyService from "../../../src/js/components/services/KeyService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 describe("KeyService Structured Response Tests", () => {
-  let fixture, service;
+  let fixture, service, profileUpdatePayloads;
 
   beforeEach(async () => {
     fixture = createServiceFixture();
+    profileUpdatePayloads = [];
 
     // Set up request handlers on the fixture's eventBus
     const eventBus = fixture.eventBus;
@@ -47,6 +48,7 @@ describe("KeyService Structured Response Tests", () => {
     });
 
     eventBus.on("rpc:data:update-profile", ({ replyTopic, payload }) => {
+      profileUpdatePayloads.push(payload);
       // Mock the data update - return success
       const { add, delete: deleteOp, updates } = payload;
       if (updates?.modify?.bindsets) {
@@ -273,16 +275,24 @@ describe("KeyService Structured Response Tests", () => {
   });
 
   describe("duplicateKey", () => {
-    it("should return structured success response for valid duplication", async () => {
-      // First add a key with some commands
-      service.cache.keys["K1"] = ["test_command"];
+    it("should preserve strings and assign fresh ids to rich commands", async () => {
+      const richCommand = { id: "cmd_1", command: "rich_command" };
+      service.cache.keys.K1 = ["test_command", richCommand];
 
-      // Then duplicate it
       const result = await service.duplicateKey("K1");
+      const duplicatedCommands =
+        profileUpdatePayloads.at(-1).add.builds.space.keys[result.newKey];
 
       expect(result.success).toBe(true);
       expect(result.sourceKey).toBe("K1");
       expect(result.newKey).toMatch(/^K1_copy(_\d+)?$/);
+      expect(duplicatedCommands[0]).toBe("test_command");
+      expect(duplicatedCommands[1]).not.toBe(richCommand);
+      expect(duplicatedCommands[1]).toEqual({
+        command: "rich_command",
+        id: expect.stringMatching(/^key_/),
+      });
+      expect(duplicatedCommands[1].id).not.toBe(richCommand.id);
     });
 
     it("should return structured error response when no profile selected", async () => {

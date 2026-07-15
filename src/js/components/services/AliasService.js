@@ -71,29 +71,15 @@ export default class AliasService extends ComponentBase {
     if (!this.eventBus) return;
 
     // Listen for profile updates
-    this.addEventListener(
-      "profile:updated",
-      (
-        {
-          profileId,
-          profile,
-        } = /** @type {{ profileId?: string, profile?: import('./serviceTypes.js').ProfileData | null }} */ ({}),
-      ) => {
-        if (profileId === this.serviceCache.currentProfile) {
-          this.updateCacheFromProfile(profile);
-        }
-      },
-    );
+    this.addEventListener("profile:updated", ({ profileId, profile }) => {
+      if (profileId === this.serviceCache.currentProfile) {
+        this.updateCacheFromProfile(profile);
+      }
+    });
 
     this.addEventListener(
       "profile:switched",
-      (
-        {
-          profileId,
-          profile,
-          environment,
-        } = /** @type {{ profileId?: string, profile?: import('./serviceTypes.js').ProfileData | null, environment?: string }} */ ({}),
-      ) => {
+      ({ profileId, profile, environment }) => {
         this.serviceCache.currentProfile = profileId || null;
         this.serviceCache.currentEnvironment = environment || "space";
 
@@ -102,14 +88,11 @@ export default class AliasService extends ComponentBase {
     );
 
     // Listen for environment changes
-    this.addEventListener(
-      "environment:changed",
-      ({ environment } = /** @type {{ environment?: string }} */ ({})) => {
-        if (environment) {
-          this.serviceCache.currentEnvironment = environment;
-        }
-      },
-    );
+    this.addEventListener("environment:changed", ({ environment }) => {
+      if (environment) {
+        this.serviceCache.currentEnvironment = environment;
+      }
+    });
   }
 
   // Update local cache from profile data
@@ -125,6 +108,7 @@ export default class AliasService extends ComponentBase {
   /**
    * @param {string | undefined} name
    * @param {string | undefined} description
+   * @returns {Promise<import('../../types/rpc/aliases.js').AliasAddResult>}
    */
   async addAlias(name, description = "") {
     if (!name || !(await this.isValidAliasName(name))) {
@@ -174,7 +158,10 @@ export default class AliasService extends ComponentBase {
   }
 
   // Delete an alias from the current profile
-  /** @param {string | undefined} name */
+  /**
+   * @param {string | undefined} name
+   * @returns {Promise<import('../../types/rpc/aliases.js').AliasDeleteResult>}
+   */
   async deleteAlias(name) {
     if (!this.serviceCache.currentProfile) {
       return { success: false, error: "no_profile_selected" };
@@ -205,6 +192,7 @@ export default class AliasService extends ComponentBase {
   /**
    * @param {string | undefined} sourceName
    * @param {string | undefined} newName
+   * @returns {Promise<import('../../types/rpc/aliases.js').AliasDuplicateResult>}
    */
   async duplicateAliasWithName(sourceName, newName) {
     if (!sourceName || !newName) {
@@ -237,10 +225,14 @@ export default class AliasService extends ComponentBase {
     }
 
     const original = this.serviceCache.aliases[sourceName];
+    const profileId = this.serviceCache.currentProfile;
+    if (!profileId) {
+      return { success: false, error: "failed_to_duplicate_alias" };
+    }
 
     try {
       await this.request("data:update-profile", {
-        profileId: this.serviceCache.currentProfile,
+        profileId,
         add: {
           aliases: {
             [newName]: {
@@ -295,9 +287,19 @@ export default class AliasService extends ComponentBase {
   }
 
   // Import operations
-  /** @param {string | undefined} content */
+  /**
+   * @param {string | undefined} content
+   * @returns {Promise<import('../../types/rpc/aliases.js').AliasImportResult> | import('../../types/rpc/aliases.js').AliasImportResult}
+   */
   importAliasFile(content) {
     const profileId = this.serviceCache.currentProfile;
+
+    if (typeof content !== "string") {
+      return { success: false, error: "import_failed" };
+    }
+    if (!profileId) {
+      return { success: false, error: "no_active_profile" };
+    }
 
     // Delegate to ImportService for complete import handling
     return this.request("import:alias-file", {

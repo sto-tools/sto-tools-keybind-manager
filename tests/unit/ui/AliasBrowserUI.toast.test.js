@@ -157,4 +157,29 @@ describe("AliasBrowserUI Duplicate Flow", () => {
     expect(component.cache.aliases).toHaveProperty("testAlias_copy");
     expect(renderSpy).toHaveBeenCalled();
   });
+
+  it("drops malformed alias records while retaining valid aliases", async () => {
+    component.request = vi.fn().mockResolvedValue({
+      validAlias: {
+        commands: ["FireAll", { text: "Text-only command" }],
+        description: "valid",
+      },
+      malformedAlias: { commands: [42], description: "invalid" },
+    });
+
+    await component.render();
+
+    expect(component.cache.aliases).toEqual({
+      validAlias: {
+        commands: ["FireAll", { text: "Text-only command" }],
+        description: "valid",
+      },
+    });
+    expect(fixture.document.getElementById("aliasGrid").innerHTML).toContain(
+      "validAlias",
+    );
+    expect(
+      fixture.document.getElementById("aliasGrid").innerHTML,
+    ).not.toContain("malformedAlias");
+  });
 });

@@ -6,12 +6,9 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 );
 
 /**
- * @typedef {{
- *   commands?: string | Array<string | Record<string, unknown>>,
- *   description?: string,
+ * @typedef {import('../../types/rpc/base.js').CombinedAlias & {
  *   displayName?: string,
- *   _displayName?: string,
- *   type?: string
+ *   _displayName?: string
  * }} LibraryAlias
  * @typedef {[string, LibraryAlias]} LibraryAliasEntry
  */
@@ -126,9 +123,7 @@ export default class CommandLibraryUI extends UIComponentBase {
 
       const fragment = this.document.createDocumentFragment();
 
-      const categories = /** @type {Record<string, LegacyCommandCategory>} */ (
-        await this.request("command:get-categories")
-      );
+      const categories = await this.request("command:get-categories");
       Object.entries(categories).forEach(([categoryId, category]) => {
         const categoryElement = this.createCategoryElement(
           categoryId,
@@ -158,7 +153,7 @@ export default class CommandLibraryUI extends UIComponentBase {
   // Create a category element for the command library
   /**
    * @param {string} categoryId
-   * @param {LegacyCommandCategory} category
+   * @param {import('../services/serviceTypes.js').CommandCategory} category
    */
   createCategoryElement(categoryId, category) {
     const element = this.document.createElement("div");
@@ -425,16 +420,17 @@ export default class CommandLibraryUI extends UIComponentBase {
     if (!aliasContainer) return;
 
     // Get combined aliases (includes VFX virtual aliases) from CommandLibraryService
-    const combinedAliases = /** @type {Record<string, LibraryAlias>} */ (
-      (await this.request("command:get-combined-aliases")) || {}
-    );
-    const allAliasesRaw = Object.entries(combinedAliases);
+    const combinedAliases = await this.request("command:get-combined-aliases");
 
     // Resolve display names for VFX aliases async
     const allAliases = await Promise.all(
-      allAliasesRaw.map(async ([name, alias]) => {
-        if (alias.type === "vfx-alias" && !alias._displayName) {
-          alias._displayName = await this._getAliasDisplayName(name, alias);
+      Object.entries(combinedAliases).map(async ([name, alias]) => {
+        const cachedDisplayName =
+          "_displayName" in alias ? alias._displayName : null;
+        if (alias.type === "vfx-alias" && !cachedDisplayName) {
+          Object.assign(alias, {
+            _displayName: await this._getAliasDisplayName(name, alias),
+          });
         }
         return /** @type {LibraryAliasEntry} */ ([name, alias]);
       }),
@@ -707,8 +703,8 @@ export default class CommandLibraryUI extends UIComponentBase {
           commandString: name,
           options: { generateDisplayText: true },
         });
-        const first = res?.commands?.[0];
-        if (first?.displayText) return first.displayText;
+        const displayText = res?.commands?.[0]?.displayText;
+        return (typeof displayText === "string" && displayText) || name;
       } catch {
         /* ignore parse errors */
       }

@@ -168,6 +168,35 @@ describe("KeyCaptureUI", () => {
       expect(ui.resetState).toHaveBeenCalled();
     });
 
+    it.each([
+      ["legacy structured", { success: true, data: { from: "F1", to: "F7" } }],
+      ["local", { success: true }],
+    ])(
+      "uses %s duplication names when canonical fields are absent",
+      async (_source, response) => {
+        ui.isDuplicationMode = true;
+        ui.sourceKeyForDuplication = "F1";
+        ui.cache.selectedKey = "F7";
+        ui.modalManager = { hide: vi.fn() };
+        ui.resetState = vi.fn();
+        ui.i18n = {
+          t: vi.fn((key, params) => `${key}:${params.from}->${params.to}`),
+        };
+        ui.request = vi.fn().mockResolvedValue(response);
+
+        const toastSpy = vi.spyOn(ui, "showToast");
+
+        await ui.confirmSelection();
+
+        expect(toastSpy).toHaveBeenCalledWith(
+          "key_duplicated:F1->F7",
+          "success",
+        );
+        expect(ui.modalManager.hide).toHaveBeenCalledWith("keySelectionModal");
+        expect(ui.resetState).toHaveBeenCalled();
+      },
+    );
+
     it("shows error toast when duplication fails", async () => {
       ui.isDuplicationMode = true;
       ui.sourceKeyForDuplication = "F1";

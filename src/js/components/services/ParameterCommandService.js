@@ -6,11 +6,23 @@ import {
   isEditableSignature,
 } from "../../lib/CommandSignatureDefinitions.js";
 
-/** @typedef {Record<string, any>} ParameterValues */
-/** @typedef {Record<string, any>} ParameterCommandDefinition */
-/** @typedef {(parameters: ParameterValues) => any | Promise<any>} ParameterBuilder */
+/** @typedef {import('../../types/rpc/parameters-preferences.js').ParameterBuildParameters} ParameterValues */
+/** @typedef {import('../../types/rpc/parameters-preferences.js').ParameterCommandDefinition} ParameterCommandDefinition */
+/** @typedef {import('../../types/rpc/parameters-preferences.js').ParameterBuildRangeCommand} ParameterBuildRangeCommand */
+/** @typedef {{ command: string | undefined, text?: unknown, parameters?: ParameterValues, type?: string, category?: string }} ParameterCommandDraft */
+/** @typedef {ParameterCommandDraft | ParameterBuildRangeCommand[] | null} ParameterBuilderResult */
+/** @typedef {(parameters: ParameterValues) => ParameterBuilderResult | Promise<ParameterBuilderResult>} ParameterBuilder */
 
 /**
+ * @param {unknown} value
+ * @returns {value is { index: number, command: unknown }}
+ */
+function isParameterEditStartPayload(value) {
+  if (typeof value !== "object" || value === null) return false;
+  if (!("index" in value) || !("command" in value)) return false;
+  return typeof value.index === "number";
+}
+
 /**
  * ParameterCommandService – handles building, validating, and editing parameterized commands for keybinds.
  * Provides request/response endpoints for command construction, definition lookup,
@@ -18,13 +30,12 @@ import {
  */
 export default class ParameterCommandService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, dataService?: unknown }} [options] */
-  constructor({ eventBus: bus = eventBus, dataService = null } = {}) {
+  constructor({ eventBus: bus = eventBus } = {}) {
     super(bus);
     this.componentName = "ParameterCommandService";
-    void dataService;
 
     // Cache editing state from UI events (appropriate for parameter editing)
-    /** @type {{ isEditing: boolean, editIndex: number, existingCommand: any } | null} */
+    /** @type {{ isEditing: boolean, editIndex: number, existingCommand: unknown } | null} */
     this.editingContext = null;
 
     // Store detach functions for cleanup
@@ -68,6 +79,7 @@ export default class ParameterCommandService extends ComponentBase {
 
     // Listen for parameter editing events from UI
     this.addEventListener("parameter-edit:start", (data) => {
+      if (!isParameterEditStartPayload(data)) return;
       this.editingContext = {
         isEditing: true,
         editIndex: data.index,
@@ -305,7 +317,7 @@ export default class ParameterCommandService extends ComponentBase {
   }
 
   // Parse command strings through STOCommandParser for consistent format
-  /** @param {string[]} commandStrings */
+  /** @param {string[]} commandStrings @returns {Promise<ParameterBuildRangeCommand[]>} */
   async parseCommandsToObjects(commandStrings) {
     const parsePromises = commandStrings.map(async (cmdStr) => {
       try {
@@ -763,10 +775,7 @@ export default class ParameterCommandService extends ComponentBase {
       },
     };
 
-    const builder = builders[categoryId];
-    if (!builder) return null;
-
-    const result = await builder(params);
+    const result = await builders[categoryId]?.(params);
     if (!result) return null; // invalid params (e.g. empty alias name)
 
     if (Array.isArray(result)) return result; // already fully-fledged command list
@@ -832,11 +841,7 @@ export default class ParameterCommandService extends ComponentBase {
         // Flatten extracted parameters to top level for easy access
         ...parsedCommand.parameters,
       };
-    } catch (error) {
-      console.warn(
-        "[ParameterCommandService] Error finding command definition:",
-        error,
-      );
+    } catch {
       return null;
     }
   }

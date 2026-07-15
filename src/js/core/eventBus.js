@@ -1,5 +1,5 @@
-/** @typedef {(data?: any) => any} EventCallback */
-/** @typedef {(event: Event) => any} DomEventCallback */
+/** @typedef {(data: unknown) => unknown} EventCallback */
+/** @typedef {(event: Event) => unknown} DomEventCallback */
 /** @typedef {{ synchronous?: boolean }} EmitOptions */
 
 /** @type {Map<string, Set<EventCallback>>} */
@@ -32,15 +32,26 @@ function off(event, callback) {
   const eventListeners = listeners.get(event);
   if (eventListeners) {
     eventListeners.delete(callback);
+    if (eventListeners.size === 0) listeners.delete(event);
   }
 }
 
 /**
+ * Report whether a topic currently has at least one listener without exposing
+ * the invokable listener collection.
  * @param {string} event
- * @param {any} [data]
+ * @returns {boolean}
+ */
+function hasListeners(event) {
+  return (listeners.get(event)?.size ?? 0) > 0;
+}
+
+/**
+ * @param {string} event
+ * @param {unknown} [data]
  * @param {EmitOptions} [options]
  */
-function emit(event, data, options = {}) {
+function emit(event, data = null, options = {}) {
   // if (typeof window !== 'undefined') {
   //   // eslint-disable-next-line no-console
   //   console.log(`[eventBus] emit → ${event}`, data)
@@ -58,7 +69,12 @@ function emit(event, data, options = {}) {
       try {
         const result = callback(data);
         // If the callback returns a Promise, collect it
-        if (result && typeof result.then === "function") {
+        if (
+          result !== null &&
+          (typeof result === "object" || typeof result === "function") &&
+          "then" in result &&
+          typeof result.then === "function"
+        ) {
           promises.push(Promise.resolve(result));
         }
       } catch (error) {
@@ -218,6 +234,7 @@ function once(event, callback) {
   const onceCallback = (data) => {
     off(event, onceCallback);
     callback(data);
+    return undefined;
   };
   return on(event, onceCallback);
 }
@@ -252,17 +269,50 @@ function clear() {
 // Debounce utility
 // -----------------------
 /**
- * @param {(...args: any[]) => void} fn
+ * @template {unknown[]} Args
+ * @param {(...args: Args) => void} fn
  * @param {number} [delay]
+ * @returns {((...args: Args) => void) & { cancel: () => void }}
  */
 function debounce(fn, delay = 250) {
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timerId;
-  /** @type {(...args: any[]) => void} */
-  return (...args) => {
+  const debounced =
+    /** @type {((...args: Args) => void) & { cancel: () => void }} */ (
+      (...args) => {
+        if (timerId !== undefined) clearTimeout(timerId);
+        timerId = setTimeout(() => {
+          timerId = undefined;
+          fn(...args);
+        }, delay);
+      }
+    );
+  debounced.cancel = () => {
     if (timerId !== undefined) clearTimeout(timerId);
-    timerId = setTimeout(() => fn(...args), delay);
+    timerId = undefined;
   };
+  return debounced;
+}
+
+/**
+ * Couple a debounced callback to the DOM listener lifecycle so neither manual
+ * detach nor global clear can run a queued local callback afterward.
+ * @param {() => void} detachDom
+ * @param {{ cancel: () => void }} debouncedHandler
+ * @returns {() => void}
+ */
+function trackDebouncedDomCleanup(detachDom, debouncedHandler) {
+  const cleanup = () => {
+    debouncedHandler.cancel();
+    detachDom();
+    domListeners.delete(cleanup);
+  };
+
+  // onDom tracks its own cleanup. Replace that entry with the lifecycle-aware
+  // wrapper so eventBus.clear() also cancels pending debounce timers.
+  domListeners.delete(detachDom);
+  domListeners.add(cleanup);
+  return cleanup;
 }
 
 /**
@@ -280,7 +330,15 @@ function debounce(fn, delay = 250) {
  * @param {number} [delay]
  */
 function onDomDebounced(target, domEvent, busEvent, handler, delay = 250) {
-  // Handle optional handler omitted case similar to onDom
+  // Handler-only shorthand: onDomDebounced(target, event, handler, delay)
+  if (typeof busEvent === "function") {
+    if (typeof handler === "number") delay = handler;
+    const debouncedHandler = debounce(busEvent, delay);
+    const detachDom = onDom(target, domEvent, debouncedHandler);
+    return trackDebouncedDomCleanup(detachDom, debouncedHandler);
+  }
+
+  // Bus-topic form with an omitted handler: the fourth argument is the delay.
   if (typeof handler === "number") {
     delay = handler;
     handler = undefined;
@@ -288,13 +346,16 @@ function onDomDebounced(target, domEvent, busEvent, handler, delay = 250) {
 
   const debouncedHandler = debounce(handler || (() => {}), delay);
 
-  // Reuse onDom for attachment, but route through debounced function
-  return onDom(target, domEvent, busEvent, (e) => {
+  // Reuse onDom for attachment, but debounce only the local handler. onDom
+  // continues to mirror the raw DOM event onto the bus immediately.
+  const detachDom = onDom(target, domEvent, busEvent, (e) => {
     debouncedHandler(e);
   });
+  return trackDebouncedDomCleanup(detachDom, debouncedHandler);
 }
 
-export default {
+/** @type {import("../types/events/protocol.js").TypedEventBus} */
+const eventBus = {
   on,
   off,
   emit,
@@ -302,8 +363,7 @@ export default {
   onDomDebounced,
   once,
   clear,
-  // Expose listeners for debugging and testing (read-only access)
-  get listeners() {
-    return listeners;
-  },
+  hasListeners,
 };
+
+export default eventBus;

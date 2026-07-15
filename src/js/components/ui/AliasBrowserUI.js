@@ -12,10 +12,59 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 
 /**
  * @typedef {{
- *   commands?: string | Array<string | { command?: string } | null | undefined>,
+ *   commands?: string | import('../services/serviceTypes.js').StoredCommand[],
  *   description?: string
  * }} AliasRecord
  */
+/** @typedef {Record<string, AliasRecord>} AliasMap */
+
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** @param {unknown} value @returns {value is import('../services/serviceTypes.js').StoredCommand} */
+function isStoredCommand(value) {
+  return (
+    typeof value === "string" ||
+    (isRecord(value) &&
+      (typeof value.command === "string" || typeof value.text === "string"))
+  );
+}
+
+/** @param {unknown} value @returns {value is AliasRecord} */
+function isAliasRecord(value) {
+  if (!isRecord(value)) return false;
+  if (
+    value.description !== undefined &&
+    typeof value.description !== "string"
+  ) {
+    return false;
+  }
+  return (
+    value.commands === undefined ||
+    typeof value.commands === "string" ||
+    (Array.isArray(value.commands) && value.commands.every(isStoredCommand))
+  );
+}
+
+/** @param {unknown} value @returns {AliasMap} */
+function normalizeAliasEntries(value) {
+  /** @type {AliasMap} */
+  const aliases = {};
+  if (!isRecord(value)) return aliases;
+  for (const [name, alias] of Object.entries(value)) {
+    if (isAliasRecord(alias)) aliases[name] = alias;
+  }
+  return aliases;
+}
+
+/** @param {unknown} response @returns {AliasMap} */
+function normalizeAliasMap(response) {
+  const value =
+    isRecord(response) && "aliases" in response ? response.aliases : response;
+  return normalizeAliasEntries(value);
+}
 
 /** Helper to generate a non-colliding suggested alias name */
 /**
@@ -82,9 +131,8 @@ export default class AliasBrowserUI extends UIComponentBase {
     });
 
     // Toggle visibility based on current environment
-    this.eventBus?.on("environment:changed", (d = {}) => {
-      const env =
-        typeof d === "string" ? d : d.environment || d.newMode || d.mode;
+    this.eventBus?.on("environment:changed", (d) => {
+      const env = d.environment;
       // Environment changed, updating visibility
       this.toggleVisibility(env);
     });
@@ -208,8 +256,8 @@ export default class AliasBrowserUI extends UIComponentBase {
     // Prefer cached aliases (kept updated via ComponentBase). Fallback to service request.
     let aliasMap = this.cache.aliases;
     if (!aliasMap || Object.keys(aliasMap).length === 0) {
-      const response = (await this.request("alias:get-all")) || {};
-      aliasMap = response.aliases || response || {};
+      const response = await this.request("alias:get-all");
+      aliasMap = normalizeAliasMap(response);
       this.cache.aliases = aliasMap;
     }
     const suggested = generateSuggestedAlias(aliasName, aliasMap);
@@ -297,10 +345,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     if (!grid) return;
 
     const aliasResponse = await this.request("alias:get-all");
-    const aliases =
-      aliasResponse && aliasResponse.aliases
-        ? aliasResponse.aliases
-        : aliasResponse || {};
+    const aliases = normalizeAliasMap(aliasResponse);
     this.cache.aliases = aliases;
     // Use cached selected alias from event listeners instead of polling
 
@@ -326,12 +371,14 @@ export default class AliasBrowserUI extends UIComponentBase {
       grid.querySelectorAll(".alias-item").forEach((item) => {
         this.onDom(item, "click", "alias-item-click", async () => {
           const aliasItem = /** @type {HTMLElement} */ (item);
+          const aliasName = aliasItem.dataset.alias;
+          if (!aliasName) return;
           // Use correct parameter name for SelectionService
           await this.request("alias:select", {
-            aliasName: aliasItem.dataset.alias,
+            aliasName,
           });
           this.emit("alias-browser/alias-clicked", {
-            name: aliasItem.dataset.alias,
+            name: aliasName,
           });
         });
       });

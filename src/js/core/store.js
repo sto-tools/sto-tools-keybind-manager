@@ -16,7 +16,11 @@ const store = new Proxy(state, {
   set(target, prop, value) {
     Reflect.set(target, prop, value);
     if (eventBus && eventBus.emit) {
-      eventBus.emit(`store:${String(prop)}`, value);
+      const topic =
+        /** @type {import("../types/events/dynamic.js").DynamicStoreEventTopic<string, unknown>} */ (
+          `store:${String(prop)}`
+        );
+      eventBus.emit(topic, value);
     }
     return true;
   },

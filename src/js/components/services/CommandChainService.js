@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import * as eventPayloads from "../../core/eventPayloads.js";
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -108,32 +109,29 @@ export default class CommandChainService extends ComponentBase {
     console.log(
       "[CommandChainService] Setting up bindset-selector:active-changed listener",
     );
-    this.addEventListener(
-      "bindset-selector:active-changed",
-      ({ bindset, name }) => {
-        const newName = bindset || name;
+    this.addEventListener("bindset-selector:active-changed", (data) => {
+      const newName = eventPayloads.activeBindsetFromPayload(data);
+      console.log(
+        `[CommandChainService] *** bindset-selector:active-changed received: ${this.cache.activeBindset} -> ${newName} ***`,
+      );
+      if (newName) {
+        // Set flag to prevent race conditions
+        this._bindsetSwitchInProgress = true;
+        // ComponentBase handles updating this.cache.activeBindset automatically
         console.log(
-          `[CommandChainService] *** bindset-selector:active-changed received: ${this.cache.activeBindset} -> ${newName} ***`,
+          `[CommandChainService] Calling refreshCommands() for bindset: ${newName}`,
         );
-        if (newName) {
-          // Set flag to prevent race conditions
-          this._bindsetSwitchInProgress = true;
-          // ComponentBase handles updating this.cache.activeBindset automatically
+        // Refresh commands to show the chain for the new bindset
+        this.refreshCommands();
+        // Clear flag after a short delay
+        setTimeout(() => {
+          this._bindsetSwitchInProgress = false;
           console.log(
-            `[CommandChainService] Calling refreshCommands() for bindset: ${newName}`,
+            `[CommandChainService] Bindset switch completed for: ${newName}`,
           );
-          // Refresh commands to show the chain for the new bindset
-          this.refreshCommands();
-          // Clear flag after a short delay
-          setTimeout(() => {
-            this._bindsetSwitchInProgress = false;
-            console.log(
-              `[CommandChainService] Bindset switch completed for: ${newName}`,
-            );
-          }, 100);
-        }
-      },
-    );
+        }, 100);
+      }
+    });
 
     // Listen for bindset operations to prevent race conditions
     this.addEventListener(
@@ -185,11 +183,12 @@ export default class CommandChainService extends ComponentBase {
 
     // Directly emit chain data changes whenever key/alias selection changes so
     // the command-chain UI always knows what it should be displaying.
-    this.addEventListener("key-selected", async ({ key, name }) => {
+    this.addEventListener("key-selected", async (payload) => {
+      const selectedKey = eventPayloads.selectedKeyFromPayload(payload);
       console.log(
-        `[CommandChainService] key-selected event received: key=${key}, name=${name}`,
+        `[CommandChainService] key-selected event received: key=${selectedKey}`,
       );
-      debugLog("key-selected", { key, name });
+      debugLog("key-selected", { key: selectedKey });
 
       // Early debug check
       if (!this.cache) {
@@ -294,7 +293,7 @@ export default class CommandChainService extends ComponentBase {
       }
 
       // Derive editable parameters when absent
-      if (!cmd.parameters) {
+      if (!cmd.parameters && typeof cmd.command === "string") {
         try {
           const parseResult = await this.request(
             "parser:parse-command-string",
@@ -365,7 +364,11 @@ export default class CommandChainService extends ComponentBase {
           ? undefined
           : /** @type {import('./serviceTypes.js').AppWindow} */ (window).stoUI;
       if (ui?.showToast) {
-        ui.showToast(cmd.command || originalEntry, "info");
+        const message =
+          cmd.command ||
+          cmd.text ||
+          (typeof originalEntry === "string" ? originalEntry : "");
+        ui.showToast(message, "info");
       }
     });
 
@@ -458,6 +461,7 @@ export default class CommandChainService extends ComponentBase {
     });
   }
 
+  /** @returns {Promise<import('./serviceTypes.js').StoredCommand[]>} */
   async getCommandsForSelectedKey() {
     try {
       const selectedKeyName =
@@ -467,6 +471,8 @@ export default class CommandChainService extends ComponentBase {
       console.log(
         `[CommandChainService] getCommandsForSelectedKey called - activeBindset: ${this.cache.activeBindset}, selectedKey: ${this.cache.selectedKey}, selectedAlias: ${this.cache.selectedAlias}, resolvedKey: ${selectedKeyName}, environment: ${this.cache.currentEnvironment}`,
       );
+
+      if (!selectedKeyName) return [];
 
       // Alias environment handled directly
       if (this.cache.currentEnvironment === "alias") {
@@ -485,6 +491,7 @@ export default class CommandChainService extends ComponentBase {
         const startTime = Date.now();
 
         // Add a timeout to detect hanging requests
+        /** @type {Promise<never>} */
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(
             () => reject(new Error("Request timeout after 5 seconds")),
@@ -493,10 +500,6 @@ export default class CommandChainService extends ComponentBase {
         });
 
         try {
-          const selectedKeyName =
-            this.cache.currentEnvironment === "alias"
-              ? this.cache.selectedAlias
-              : this.cache.selectedKey;
           const requestPromise = this.request("bindset:get-key-commands", {
             bindset: activeBindset,
             environment: this.cache.currentEnvironment,
@@ -833,7 +836,7 @@ export default class CommandChainService extends ComponentBase {
 
   // Return whether the specified key/alias currently has stabilization enabled.
   /**
-   * @param {string} name - The key or alias name
+   * @param {string | null | undefined} name - The key or alias name
    * @param {string | null} bindset - Optional bindset name
    */
   isStabilized(name, bindset = null) {
@@ -882,6 +885,7 @@ export default class CommandChainService extends ComponentBase {
    * @param {string} name - The key or alias name
    * @param {boolean} stabilize - Whether to enable stabilization
    * @param {string | null} bindset - Optional bindset name
+   * @returns {Promise<import('../../types/rpc/commands.js').StabilizeResult>}
    */
   async setStabilize(name, stabilize = true, bindset = null) {
     try {

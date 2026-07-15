@@ -129,6 +129,8 @@ export function createEventBusFixture(options = {}) {
       return eventListeners ? eventListeners.size : 0;
     }),
 
+    hasListeners: vi.fn((event) => (listeners.get(event)?.size ?? 0) > 0),
+
     // Helper to mock responses for testing
     mockResponse: vi.fn((topic, handler) => {
       eventBus.on(`rpc:${topic}`, ({ requestId, replyTopic, payload }) => {
@@ -185,11 +187,6 @@ export function createEventBusFixture(options = {}) {
         timerId = setTimeout(() => fn.apply(this, args), delay);
       };
     }),
-
-    // Expose listeners for debugging
-    get listeners() {
-      return listeners;
-    },
   };
 
   // Add testing utilities
@@ -297,8 +294,9 @@ export async function createRealEventBusFixture() {
     "../../../src/js/core/eventBus.js"
   );
 
-  // Store original state
-  const originalListeners = new Map(eventBus.listeners);
+  // The singleton is isolated at fixture entry and exit; listener callbacks
+  // remain private implementation details of the production bus.
+  eventBus.clear();
 
   const fixture = {
     eventBus,
@@ -311,11 +309,6 @@ export async function createRealEventBusFixture() {
     // Restore original state
     restore: () => {
       eventBus.clear();
-      for (const [event, listeners] of originalListeners) {
-        for (const listener of listeners) {
-          eventBus.on(event, listener);
-        }
-      }
     },
 
     destroy: () => {

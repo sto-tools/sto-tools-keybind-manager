@@ -19,6 +19,7 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 /** @typedef {Record<number, PositionedKey[]>} KeyboardRows */
 /** @typedef {{ chord: string, codes: string[] }} CaptureUpdate */
 /** @typedef {{ chord: string }} CapturedChord */
+/** @typedef {{ data?: { from?: string, to?: string } }} LegacyDuplicateResult */
 /**
  * @typedef {{
  *   selectedKey: string | null,
@@ -132,8 +133,7 @@ export default class KeyCaptureUI extends UIComponentBase {
     this.addEventListener("capture-stop", () => this.handleCaptureStop());
 
     // Listen for key duplication requests
-    this.addEventListener("key:duplicate", (payload = {}) => {
-      const { key } = /** @type {{ key?: string }} */ (payload);
+    this.addEventListener("key:duplicate", ({ key }) => {
       this.handleKeyDuplication(key);
     });
 
@@ -689,8 +689,9 @@ export default class KeyCaptureUI extends UIComponentBase {
           newKey: targetKey,
         });
         if (result?.success) {
-          const from = result.sourceKey || result?.data?.from || sourceKey;
-          const to = result.newKey || result?.data?.to || targetKey;
+          const legacy = /** @type {LegacyDuplicateResult} */ (result);
+          const from = result.sourceKey || legacy.data?.from || sourceKey;
+          const to = result.newKey || legacy.data?.to || targetKey;
           const successMessage = this.i18n.t("key_duplicated", { from, to });
           this.showToast(successMessage, "success");
           this.isDuplicationMode = false;

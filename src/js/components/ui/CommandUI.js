@@ -1,4 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
+import { activeBindsetFromPayload } from "../../core/eventPayloads.js";
+import { isParameterDef } from "./ParameterCommandUI.js";
 import {
   errorMessage,
   eventElement,
@@ -11,7 +13,7 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 );
 
 /** @typedef {'success' | 'warning' | 'error'} ValidationSeverity */
-/** @typedef {string | { key: string, params?: import('i18next').TOptions, defaultMessage?: string }} ValidationIssue */
+/** @typedef {import('../../types/events/base.js').ValidationIssue} ValidationIssue */
 /** @typedef {{ warnings: ValidationIssue[], errors: ValidationIssue[] }} ValidationState */
 /** @typedef {{ value: string, label: string }} ImportSource */
 
@@ -80,7 +82,7 @@ export default class CommandUI extends UIComponentBase {
 
   setupUIStateEventListeners() {
     this.addEventListener("bindset-selector:active-changed", (data) => {
-      this._activeBindset = data.bindset || "Primary Bindset";
+      this._activeBindset = activeBindsetFromPayload(data) || "Primary Bindset";
     });
   }
 
@@ -174,7 +176,7 @@ export default class CommandUI extends UIComponentBase {
       this.performImport();
     });
 
-    this.addEventListener("command-add", async (payload = {}) => {
+    this.addEventListener("command-add", async (payload) => {
       const { categoryId, commandId, commandDef } = payload;
 
       if (commandDef && !categoryId && !commandId) {
@@ -209,14 +211,12 @@ export default class CommandUI extends UIComponentBase {
         }
       } else if (categoryId && commandId && commandDef) {
         // Customizable command - show parameter modal
-        if (this.parameterCommandUI) {
+        if (this.parameterCommandUI && isParameterDef(commandDef)) {
           this.parameterCommandUI.showParameterModal(
             categoryId,
             commandId,
             commandDef,
           );
-        } else {
-          console.error("CommandUI: parameterCommandUI not available");
         }
       }
     });
@@ -303,7 +303,7 @@ export default class CommandUI extends UIComponentBase {
 
         /** @param {ValidationIssue} issue */
         const resolveIssueMessage = (issue) => {
-          if (typeof issue === "string") return this.i18n.t(issue);
+          if (!issue.key) return issue.defaultMessage || issue.id;
           // Get the translation directly via i18n
           const translated = this.i18n.t(issue.key, issue.params || {});
 

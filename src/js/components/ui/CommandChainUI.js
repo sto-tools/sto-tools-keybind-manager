@@ -163,7 +163,7 @@ export default class CommandChainUI extends UIComponentBase {
         commands.length,
         "commands",
       );
-      this.render(commands);
+      this.render(normalizeCommandList(commands));
     });
 
     // Listen for environment or key/alias changes for button state and caching
@@ -185,7 +185,7 @@ export default class CommandChainUI extends UIComponentBase {
       if (selectedKey !== undefined) {
         this.cache.selectedKey = selectedKey;
       }
-      if (data?.environment) {
+      if ("environment" in data && data.environment) {
         this.cache.currentEnvironment = data.environment;
       }
 
@@ -218,9 +218,7 @@ export default class CommandChainUI extends UIComponentBase {
       this.render();
     });
 
-    // Listen for bindset selector active changes
-    this.addEventListener("bindset-selector:active-changed", ({ bindset }) => {
-      this.cache.activeBindset = bindset;
+    this.addEventListener("bindset-selector:active-changed", () => {
       this.updateBindsetBanner();
       this.updateChainActions();
       this.render();
@@ -634,7 +632,7 @@ export default class CommandChainUI extends UIComponentBase {
         titleEl.textContent = emptyStateInfo.title || "";
         previewEl.textContent = emptyStateInfo.preview || "";
         if (countSpanEl)
-          countSpanEl.textContent = emptyStateInfo.commandCount || "";
+          countSpanEl.textContent = String(emptyStateInfo.commandCount || "");
 
         // Create new container content atomically
         const newContent = this.document.createElement("div");
@@ -669,7 +667,8 @@ export default class CommandChainUI extends UIComponentBase {
     if (!selectedKeyName || commands.length === 0) {
       // Empty state - use empty state info for title and preview
       titleEl.textContent = emptyStateInfo.title;
-      if (countSpanEl) countSpanEl.textContent = emptyStateInfo.commandCount;
+      if (countSpanEl)
+        countSpanEl.textContent = String(emptyStateInfo.commandCount);
 
       // Update previews for bind-to-alias mode (handles empty commands case)
       await this.updateBindToAliasMode(
@@ -1716,6 +1715,8 @@ export default class CommandChainUI extends UIComponentBase {
         ? this.cache.selectedAlias
         : this.cache.selectedKey;
     if (!name) return;
+    const profileId = this.cache.currentProfile;
+    if (!profileId) return;
 
     const stabBtn = this.document.getElementById("stabilizeExecutionOrderBtn");
     const currentlyActive = stabBtn?.classList.contains("active");
@@ -1769,7 +1770,7 @@ export default class CommandChainUI extends UIComponentBase {
           }
 
           await this.request("data:update-profile", {
-            profileId: this.cache.currentProfile,
+            profileId,
             ...payload,
           });
         }
@@ -1908,6 +1909,8 @@ export default class CommandChainUI extends UIComponentBase {
           ? this.cache.selectedAlias
           : this.cache.selectedKey;
       if (selectedKeyName) {
+        const profileId = this.cache.currentProfile;
+        if (!profileId) return;
         const bindset =
           this.cache.currentEnvironment === "alias"
             ? null
@@ -1951,13 +1954,8 @@ export default class CommandChainUI extends UIComponentBase {
           };
         }
 
-        console.log(
-          "[CommandChainUI] Updating commands with payload:",
-          payload,
-        );
-
         await this.request("data:update-profile", {
-          profileId: this.cache.currentProfile,
+          profileId,
           ...payload,
         });
 
@@ -2150,9 +2148,8 @@ export default class CommandChainUI extends UIComponentBase {
 
       let banner = this.document.getElementById("bindsetBanner");
 
-      const shouldShow =
-        this.cache.activeBindset &&
-        this.cache.activeBindset !== "Primary Bindset";
+      const activeBindset = this.cache.activeBindset;
+      const shouldShow = activeBindset && activeBindset !== "Primary Bindset";
 
       if (!shouldShow) {
         if (banner) banner.remove();
@@ -2181,7 +2178,7 @@ export default class CommandChainUI extends UIComponentBase {
         header.appendChild(banner);
       }
 
-      banner.textContent = this.cache.activeBindset;
+      banner.textContent = activeBindset;
     } catch (err) {
       console.error("[CommandChainUI] Failed to update bindset banner", err);
     }

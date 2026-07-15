@@ -1,8 +1,9 @@
 import ComponentBase from "../ComponentBase.js";
+import { activeBindsetFromPayload } from "../../core/eventPayloads.js";
 
 /** @typedef {{ name: string, icon: string, keys: Set<string>, priority: number }} KeyCategory */
 /** @typedef {Record<string, KeyCategory>} KeyCategoryMap */
-/** @typedef {import('./serviceTypes.js').RichCommand & Record<string, any>} BrowserCommand */
+/** @typedef {import('./serviceTypes.js').StoredCommand} BrowserCommand */
 /** @typedef {Record<string, BrowserCommand[]>} CommandsByKey */
 /** @typedef {{ name: string, keys: string[], isCollapsed: boolean, keyCount: number }} BindsetSection */
 
@@ -33,7 +34,7 @@ export default class KeyBrowserService extends ComponentBase {
       this.respond("bindset:toggle-collapse", ({ bindsetName }) =>
         this.toggleBindsetCollapse(bindsetName),
       );
-      this.respond("bindset:get-collapsed-state", ({ bindsetName }) =>
+      this.respond("bindset:get-collapsed-state", ({ bindsetName } = {}) =>
         this.getBindsetCollapsedState(bindsetName),
       );
 
@@ -93,7 +94,7 @@ export default class KeyBrowserService extends ComponentBase {
     );
 
     this.addEventListener("environment:changed", async (payload) => {
-      const env = typeof payload === "string" ? payload : payload?.environment;
+      const env = payload.environment;
       if (!env) return;
 
       // ComponentBase handles currentEnvironment and keys caching
@@ -105,14 +106,19 @@ export default class KeyBrowserService extends ComponentBase {
     });
 
     // Command chain bindset coordination
-    this.addEventListener("bindset:active-changed", ({ bindset }) => {
+    this.addEventListener("bindset:active-changed", (payload) => {
+      const bindset = activeBindsetFromPayload(payload);
+      if (!bindset) return;
       // Optionally expand the active bindset section when it changes
       // Store active bindset for potential UI coordination
       this.cache.activeCommandChainBindset = bindset;
     });
 
     // Maintain cache synchronization between key browser and command chain
-    this.addEventListener("bindset:modified", ({ bindsetName }) => {
+    this.addEventListener("bindset:modified", (payload) => {
+      if (typeof payload !== "object" || payload === null) return;
+      const bindsetName = Reflect.get(payload, "bindsetName");
+      if (typeof bindsetName !== "string") return;
       // Refresh specific bindset section when modified
       this.emit("bindset-section:refresh-needed", { bindsetName });
     });
@@ -193,16 +199,24 @@ export default class KeyBrowserService extends ComponentBase {
         await Promise.all(
           commands.map(async (command) => {
             // Handle both new format (category) and legacy format (type)
-            const commandCategory = command.category || command.type;
+            const commandCategory =
+              typeof command === "string"
+                ? undefined
+                : command.category || command.type;
             if (commandCategory && categories[commandCategory]) {
               keyCats.add(commandCategory);
             } else {
               // Use STOCommandParser via event bus for command category detection
               try {
+                const commandString =
+                  typeof command === "string" ? command : command.command;
+                if (!commandString) {
+                  throw new Error("Command has no parsable text");
+                }
                 const result = await this.request(
                   "parser:parse-command-string",
                   {
-                    commandString: command.command,
+                    commandString,
                     options: { generateDisplayText: false },
                   },
                 );
@@ -547,7 +561,7 @@ export default class KeyBrowserService extends ComponentBase {
   }
 
   // Toggle bindset collapsed state
-  /** @param {string} bindsetName */
+  /** @param {string | undefined} bindsetName */
   toggleBindsetCollapse(bindsetName) {
     if (!bindsetName) return false;
 
@@ -567,7 +581,7 @@ export default class KeyBrowserService extends ComponentBase {
   }
 
   // Get bindset collapsed state
-  /** @param {string} bindsetName */
+  /** @param {string | undefined} bindsetName */
   getBindsetCollapsedState(bindsetName) {
     if (!bindsetName) return false;
 

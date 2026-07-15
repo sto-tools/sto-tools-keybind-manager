@@ -14,6 +14,23 @@ function isEnvironment(value) {
 }
 
 /**
+ * Keep accepting the historical environment/newMode/mode listener shapes
+ * while validating the value before it reaches UI state.
+ * @param {unknown} payload
+ * @returns {import('./uiTypes.js').Environment | undefined}
+ */
+function environmentFromEvent(payload) {
+  if (isEnvironment(payload)) return payload;
+  if (typeof payload !== "object" || payload === null) return undefined;
+
+  for (const field of ["environment", "newMode", "mode"]) {
+    const candidate = Reflect.get(payload, field);
+    if (isEnvironment(candidate)) return candidate;
+  }
+  return undefined;
+}
+
+/**
  * InterfaceModeUI - Handles mode toggle button UI and display updates
  * Owns the space/ground/alias toggle buttons and manages their visual state
  */
@@ -47,9 +64,9 @@ export default class InterfaceModeUI extends UIComponentBase {
     this._modeButtonsSetup = false;
 
     // Store handler references for proper cleanup
-    /** @type {((data: import('./uiTypes.js').Environment | import('./uiTypes.js').EnvironmentPayload) => void) | null} */
+    /** @type {((data: unknown) => void) | null} */
     this._modeChangedHandler = null;
-    /** @type {((data: import('./uiTypes.js').Environment | import('./uiTypes.js').EnvironmentPayload) => void) | null} */
+    /** @type {((data: import('../../types/events/profiles.js').EnvironmentChangedPayload) => void) | null} */
     this._environmentChangedHandler = null;
   }
 
@@ -67,7 +84,7 @@ export default class InterfaceModeUI extends UIComponentBase {
 
     // Create handler functions and store references for cleanup
     this._modeChangedHandler = (data) => {
-      const env = typeof data === "string" ? data : data?.newMode;
+      const env = environmentFromEvent(data);
       if (isEnvironment(env)) {
         this._currentMode = env;
         this.updateModeUI(env);
@@ -75,9 +92,8 @@ export default class InterfaceModeUI extends UIComponentBase {
     };
 
     this._environmentChangedHandler = (d) => {
-      const env =
-        typeof d === "string" ? d : d.environment || d.newMode || d.mode;
-      if (isEnvironment(env)) {
+      const env = environmentFromEvent(d);
+      if (env) {
         this._currentMode = env;
         this.updateModeUI(env);
       }

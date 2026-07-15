@@ -79,16 +79,20 @@ export default class UIUtilityService extends ComponentBase {
     this.emit("ui:clipboard-result", { success: result, text });
   }
 
-  /** @param {{ container?: HTMLElement | null, containerId?: string, options?: DragDropOptions }} payload */
+  /** @param {{ container?: Element | null, containerId?: string, options?: DragDropOptions }} payload */
   async handleInitDragDrop({ container, containerId, options = {} }) {
     const element =
       container || (containerId ? document.getElementById(containerId) : null);
+    if (!(element instanceof HTMLElement)) return;
     this.initDragAndDrop(element, options);
     this.emit("ui:drag-drop-initialized", { containerId, options });
   }
 
   // Core Utility Methods
-  /** @param {string} text */
+  /**
+   * @param {string} text
+   * @returns {Promise<import('../../types/rpc/application.js').ClipboardResult>}
+   */
   async copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);

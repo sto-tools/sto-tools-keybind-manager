@@ -5,7 +5,7 @@ import { formatAliasLine } from "../../lib/STOFormatter.js";
 /** @typedef {{ selectedEffects?: { space?: string[], ground?: string[] }, showPlayerSay?: boolean }} VertigoSettings */
 /** @typedef {import('./serviceTypes.js').ProfileData & { vertigoSettings?: VertigoSettings }} VFXProfile */
 /** @typedef {{ space: Set<string>, ground: Set<string> }} SelectedEffects */
-/** @typedef {{ commands: string[], description: string, type: string, virtual: boolean }} VirtualAlias */
+/** @typedef {import('../../types/rpc/base.js').VirtualAlias} VirtualAlias */
 
 export default class VFXManagerService extends ComponentBase {
   /**
@@ -46,13 +46,16 @@ export default class VFXManagerService extends ComponentBase {
   }
 
   // Handle initial state from other components
-  /** @param {string} sender @param {any} state */
+  /**
+   * @param {string} sender
+   * @param {{ currentProfileData?: VFXProfile } | null | undefined} state
+   */
   handleInitialState(sender, state) {
     if (!state) return;
 
     // Load VFX settings from DataCoordinator profile data
     if (sender === "DataCoordinator" && state.currentProfileData) {
-      this.cache.currentProfile = state.currentProfileData.id;
+      this.cache.currentProfile = state.currentProfileData.id ?? null;
       this.loadState(state.currentProfileData);
       console.log(
         `[${this.componentName}] Loaded initial VFX state from DataCoordinator via late-join`,

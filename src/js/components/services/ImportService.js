@@ -7,6 +7,7 @@ import {
 } from "../../lib/commandDisplayAdapter.js";
 import { decodeKeyFromImport } from "../../lib/keyEncoding.js";
 import { KBFParser } from "../../lib/KBFParser.js";
+import { parseProfileJson, parseProjectJson } from "./importJsonBoundary.js";
 import persist from "./storageWrites.js";
 
 const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
@@ -48,7 +49,7 @@ export default class ImportService extends ComponentBase {
       "import:keybind-file",
       ({ content, profileId, environment, options = {}, strategy }) => {
         // Validate strategy input with fallback to default
-        const validatedStrategy = VALID_STRATEGIES.includes(strategy)
+        const validatedStrategy = VALID_STRATEGIES.includes(strategy || "")
           ? strategy
           : "merge_keep";
         return this.importKeybindFile(content, profileId, environment, {
@@ -62,7 +63,7 @@ export default class ImportService extends ComponentBase {
       "import:alias-file",
       ({ content, profileId, options = {}, strategy }) => {
         // Validate strategy input with fallback to default
-        const validatedStrategy = VALID_STRATEGIES.includes(strategy)
+        const validatedStrategy = VALID_STRATEGIES.includes(strategy || "")
           ? strategy
           : "merge_keep";
         return this.importAliasFile(content, profileId, {
@@ -83,7 +84,7 @@ export default class ImportService extends ComponentBase {
         configuration,
       }) => {
         // Validate strategy input with fallback to default
-        const validatedStrategy = VALID_STRATEGIES.includes(strategy)
+        const validatedStrategy = VALID_STRATEGIES.includes(strategy || "")
           ? strategy
           : /** @type {{ strategy?: string }} */ (options).strategy ||
             "merge_keep";
@@ -244,9 +245,10 @@ export default class ImportService extends ComponentBase {
   // Import keybind file content
   /**
    * @param {string} content
-   * @param {string | undefined} profileId
+   * @param {string | null | undefined} profileId
    * @param {string | undefined} environment
    * @param {{ strategy?: string }} [options]
+   * @returns {Promise<import('../../types/rpc/import-export.js').KeybindImportResult>}
    */
   async importKeybindFile(
     content,
@@ -431,8 +433,9 @@ export default class ImportService extends ComponentBase {
   // Import alias file content
   /**
    * @param {string} content
-   * @param {string | undefined} profileId
+   * @param {string | null | undefined} profileId
    * @param {{ strategy?: string }} [options]
+   * @returns {Promise<import('../../types/rpc/aliases.js').AliasImportResult>}
    */
   async importAliasFile(content, profileId, { strategy = "merge_keep" } = {}) {
     try {
@@ -559,10 +562,11 @@ export default class ImportService extends ComponentBase {
   // Import KBF file content
   /**
    * @param {string} content
-   * @param {string | undefined} profileId
+   * @param {string | null | undefined} profileId
    * @param {string | undefined} environment
    * @param {{ strategy?: string }} [options]
-   * @param {import('./serviceTypes.js').KBFImportConfiguration | null} configuration
+   * @param {import('./serviceTypes.js').KBFImportConfiguration | null | undefined} configuration
+   * @returns {Promise<import('../../types/rpc/import-export.js').KBFImportResult>}
    */
   async importKBFFile(
     content,
@@ -721,7 +725,9 @@ export default class ImportService extends ComponentBase {
       let bindsetsEnabled = true; // Default to enabled
       try {
         const preferences = await this.request("preferences:get-settings");
-        bindsetsEnabled = preferences?.bindsetsEnabled ?? true;
+        const configuredValue = preferences?.bindsetsEnabled;
+        bindsetsEnabled =
+          typeof configuredValue === "boolean" ? configuredValue : true;
       } catch {
         warnings.push(
           "Could not retrieve bindsets preference, defaulting to enabled",
@@ -1093,18 +1099,19 @@ export default class ImportService extends ComponentBase {
   /**
    * @param {string} content
    * @param {{ profileId?: string }} [options]
+   * @returns {Promise<import('../../types/rpc/import-export.js').ProfileImportResult>}
    */
   async importProfileFile(content, options = {}) {
     try {
       if (!this.storage)
         return { success: false, error: "storage_not_available" };
-      const profileData =
-        /** @type {import('./serviceTypes.js').ProfileData & { name?: string, mode?: string }} */ (
-          JSON.parse(content)
-        );
-      if (!profileData.name) {
+      const parsedProfile = parseProfileJson(content);
+      if (!parsedProfile)
         return { success: false, error: "invalid_profile_file" };
-      }
+      const profileData =
+        /** @type {import('./serviceTypes.js').ProfileData & { name: string, mode?: string }} */ (
+          parsedProfile
+        );
 
       const profileId =
         options.profileId || this.generateProfileId(profileData.name);
@@ -1133,21 +1140,20 @@ export default class ImportService extends ComponentBase {
   /**
    * @param {string} content
    * @param {{ importSettings?: boolean }} [options]
+   * @returns {Promise<import('../../types/rpc/import-export.js').ProjectImportResult>}
    */
   async importProjectFile(content, options = {}) {
     try {
       if (!this.storage)
         return { success: false, error: "storage_not_available" };
-      const projectData =
-        /** @type {{ type?: string, data?: { profiles?: Record<string, import('./serviceTypes.js').ProfileData>, settings?: Record<string, unknown> & { version?: unknown, firstRun?: unknown, currentProfile?: string | null }, currentProfile?: string | null } }} */ (
-          JSON.parse(content)
-        );
-
-      if (!projectData.data || projectData.type !== "project") {
+      const parsedProject = parseProjectJson(content);
+      if (!parsedProject)
         return { success: false, error: "invalid_project_file" };
-      }
 
-      const importedData = projectData.data;
+      const importedData =
+        /** @type {{ profiles?: Record<string, import('./serviceTypes.js').ProfileData>, settings?: Record<string, unknown> & { version?: unknown, firstRun?: unknown, currentProfile?: string | null }, currentProfile?: string | null }} */ (
+          parsedProject.data
+        );
       let importedProfiles = 0;
       let importedSettings = false;
       /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
@@ -1247,7 +1253,10 @@ export default class ImportService extends ComponentBase {
   }
 
   // Import from file (auto-detect format)
-  /** @param {File} file */
+  /**
+   * @param {File} file
+   * @returns {Promise<import('../../types/rpc/import-export.js').ImportFromFileResult>}
+   */
   async importFromFile(file) {
     const content = await file.text();
     const filename = file.name.toLowerCase();
@@ -1280,7 +1289,10 @@ export default class ImportService extends ComponentBase {
   }
 
   // Validation methods
-  /** @param {string} content */
+  /**
+   * @param {string} content
+   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'import:validate-keybind-file'>>}
+   */
   async validateKeybindFile(content) {
     try {
       const parsed = await this.parseKeybindFile(content);
@@ -1304,7 +1316,7 @@ export default class ImportService extends ComponentBase {
   /**
    * Validate KBF file format using KBFParser
    * @param {string} content - File content to validate
-   * @returns {Object} Validation result with validity status and details
+   * @returns {import('../../types/rpc/import-export.js').KBFValidationResult} Validation result with validity status and details
    */
   validateKBFFile(content) {
     try {
@@ -1352,7 +1364,8 @@ export default class ImportService extends ComponentBase {
   /**
    * Parse KBF file for bindset information without importing data
    * @param {string} content - KBF file content to parse
-   * @param {string} environment - Target environment (space/ground)
+   * @param {string | undefined} environment - Target environment (space/ground)
+   * @returns {Promise<import('../../types/rpc/import-export.js').KBFParseForUiResult>}
    */
   async parseKBFFile(content, environment) {
     const errors = [];
