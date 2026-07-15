@@ -219,18 +219,32 @@ describe("KBFParser - Real File Integration Tests", () => {
 
     it("should validate file size limits with real files", () => {
       const keysetFile = readFileSync(join(fixturesPath, "keyset.KBF"), "utf8");
+      const fileSize = new TextEncoder().encode(keysetFile).byteLength;
+      const maxFileSize = fileSize - 1;
 
-      // Create parser with small file size limit
       const strictParser = new KBFParser({
-        maxFileSize: 100, // Very small limit
+        maxFileSize,
+      });
+      const expectedError = `KBF file size (${fileSize} bytes) exceeds maximum allowed size (${maxFileSize} bytes)`;
+
+      const validation = strictParser.decoder.validateFormat(keysetFile);
+      expect(validation).toMatchObject({
+        isValid: false,
+        isKBF: false,
+        estimatedSize: fileSize,
+        errors: [expectedError],
       });
 
       const result = strictParser.parseFile(keysetFile);
 
-      // May produce size-related errors or warnings depending on implementation
-      expect(
-        result.errors.length + result.warnings.length,
-      ).toBeGreaterThanOrEqual(0);
+      expect(result.bindsets).toEqual({});
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          message: expectedError,
+          contentSize: fileSize,
+          maxFileSize,
+        }),
+      ]);
     });
   });
 

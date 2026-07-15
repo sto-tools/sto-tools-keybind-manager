@@ -1,5 +1,14 @@
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
 
+/** @param {unknown} input */
+export function isArrayBuffer(input) {
+  return (
+    typeof ArrayBuffer !== "undefined" &&
+    (input instanceof ArrayBuffer ||
+      Object.prototype.toString.call(input) === "[object ArrayBuffer]")
+  );
+}
+
 /**
  * @typedef {(message: string, context?: Object) => void} DiagnosticCallback
  * @typedef {{
@@ -33,7 +42,7 @@ export function normalizeInputForDecoding(
   input,
   { addError, layerName = "Unknown", context = {} } = {},
 ) {
-  if (input instanceof ArrayBuffer) {
+  if (isArrayBuffer(input)) {
     try {
       const content = new TextDecoder("utf-8").decode(input);
       return { content, success: true };

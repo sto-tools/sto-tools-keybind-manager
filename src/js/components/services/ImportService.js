@@ -7,6 +7,9 @@ import {
 } from "../../lib/commandDisplayAdapter.js";
 import { decodeKeyFromImport } from "../../lib/keyEncoding.js";
 import { KBFParser } from "../../lib/KBFParser.js";
+import persist from "./storageWrites.js";
+
+const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
 
 const appWindow =
   typeof window === "undefined"
@@ -45,12 +48,7 @@ export default class ImportService extends ComponentBase {
       "import:keybind-file",
       ({ content, profileId, environment, options = {}, strategy }) => {
         // Validate strategy input with fallback to default
-        const validStrategies = [
-          "merge_keep",
-          "merge_overwrite",
-          "overwrite_all",
-        ];
-        const validatedStrategy = validStrategies.includes(strategy)
+        const validatedStrategy = VALID_STRATEGIES.includes(strategy)
           ? strategy
           : "merge_keep";
         return this.importKeybindFile(content, profileId, environment, {
@@ -64,12 +62,7 @@ export default class ImportService extends ComponentBase {
       "import:alias-file",
       ({ content, profileId, options = {}, strategy }) => {
         // Validate strategy input with fallback to default
-        const validStrategies = [
-          "merge_keep",
-          "merge_overwrite",
-          "overwrite_all",
-        ];
-        const validatedStrategy = validStrategies.includes(strategy)
+        const validatedStrategy = VALID_STRATEGIES.includes(strategy)
           ? strategy
           : "merge_keep";
         return this.importAliasFile(content, profileId, {
@@ -90,12 +83,7 @@ export default class ImportService extends ComponentBase {
         configuration,
       }) => {
         // Validate strategy input with fallback to default
-        const validStrategies = [
-          "merge_keep",
-          "merge_overwrite",
-          "overwrite_all",
-        ];
-        const validatedStrategy = validStrategies.includes(strategy)
+        const validatedStrategy = VALID_STRATEGIES.includes(strategy)
           ? strategy
           : /** @type {{ strategy?: string }} */ (options).strategy ||
             "merge_keep";
@@ -302,9 +290,11 @@ export default class ImportService extends ComponentBase {
       }
 
       // Get or create profile
-      const profile = this.storage.getProfile(profileId) || {
-        builds: { space: { keys: {} }, ground: { keys: {} } },
-      };
+      const profile = structuredClone(
+        this.storage.getProfile(profileId) || {
+          builds: { space: { keys: {} }, ground: { keys: {} } },
+        },
+      );
 
       // Ensure profile structure
       if (!profile.builds)
@@ -412,7 +402,7 @@ export default class ImportService extends ComponentBase {
       }
 
       // Save profile
-      this.storage.saveProfile(profileId, profile);
+      await persist.profile(this.storage, profileId, profile, this.i18n);
 
       // Emit profile updated event (standard eventBus topic)
       this.emit("profile:updated", { profileId, profile, environment: env });
@@ -462,7 +452,9 @@ export default class ImportService extends ComponentBase {
       }
 
       // Get or create profile
-      const profile = this.storage.getProfile(profileId) || { aliases: {} };
+      const profile = structuredClone(
+        this.storage.getProfile(profileId) || { aliases: {} },
+      );
       if (!profile.aliases) profile.aliases = {};
 
       // Initialize tracking variables for strategy results
@@ -538,7 +530,7 @@ export default class ImportService extends ComponentBase {
       }
 
       // Save profile
-      this.storage.saveProfile(profileId, profile);
+      await persist.profile(this.storage, profileId, profile, this.i18n);
 
       // Emit profile updated event so UIs refresh
       this.emit("profile:updated", { profileId, profile });
@@ -693,6 +685,7 @@ export default class ImportService extends ComponentBase {
           warnings,
         };
       }
+      profile = structuredClone(profile);
 
       // Ensure minimal structures for migration import without verbose scaffolding
       if (!profile.builds) profile.builds = {};
@@ -1035,7 +1028,7 @@ export default class ImportService extends ComponentBase {
       }
 
       // Save profile
-      this.storage.saveProfile(profileId, profile);
+      await persist.profile(this.storage, profileId, profile, this.i18n);
 
       // Emit profile updated event
       this.emit("profile:updated", { profileId, profile, environment });

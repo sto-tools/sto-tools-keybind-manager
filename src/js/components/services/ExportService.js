@@ -682,7 +682,7 @@ export default class ExportService extends ComponentBase {
       type: "project",
       data: {
         profiles,
-        settings: data.settings || {},
+        settings: this.storage.getSettings() || data.settings || {},
         currentProfile: data.currentProfile,
       },
     };

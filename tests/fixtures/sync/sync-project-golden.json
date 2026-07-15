@@ -1,0 +1,107 @@
+{
+  "version": "1.0.0",
+  "exported": "2025-03-04T05:06:07.000Z",
+  "type": "project",
+  "data": {
+    "profiles": {
+      "canonical-profile": {
+        "id": "canonical-profile",
+        "name": "Canonical Profile",
+        "description": "Every persisted profile feature",
+        "currentEnvironment": "ground",
+        "environment": "space",
+        "builds": {
+          "space": {
+            "keys": {
+              "F1": ["FireAll"]
+            },
+            "aliases": {
+              "SpaceScoped": {
+                "commands": ["FirePhasers"]
+              }
+            }
+          },
+          "ground": {
+            "keys": {
+              "F2": ["Jump"]
+            },
+            "aliases": {}
+          }
+        },
+        "aliases": {
+          "Alpha": {
+            "commands": ["Target_Enemy_Near"],
+            "description": "Primary alias"
+          }
+        },
+        "bindsets": {
+          "Alternate": {
+            "space": {
+              "keys": {
+                "F3": ["Target_Enemy_Near"]
+              }
+            },
+            "ground": {
+              "keys": {}
+            }
+          }
+        },
+        "selections": {
+          "space": "F1",
+          "ground": "F2",
+          "alias": "Alpha"
+        },
+        "keybindMetadata": {
+          "space": {
+            "F1": {
+              "stabilizeExecutionOrder": true
+            }
+          }
+        },
+        "aliasMetadata": {
+          "Alpha": {
+            "stabilizeExecutionOrder": true
+          }
+        },
+        "bindsetMetadata": {
+          "Alternate": {
+            "space": {
+              "F3": {
+                "stabilizeExecutionOrder": true
+              }
+            }
+          }
+        },
+        "created": "2024-02-03T04:05:06.000Z",
+        "lastModified": "2025-02-03T04:05:06.000Z",
+        "migrationVersion": "2.1.1",
+        "vertigoSettings": {
+          "selectedEffects": {
+            "space": ["fx-space"],
+            "ground": ["fx-ground"]
+          },
+          "showPlayerSay": true
+        }
+      }
+    },
+    "settings": {
+      "theme": "light",
+      "autoSave": false,
+      "showTooltips": false,
+      "confirmDeletes": false,
+      "maxUndoSteps": 75,
+      "defaultMode": "ground",
+      "compactView": true,
+      "language": "de",
+      "syncFolderName": "STO Sync",
+      "syncFolderPath": "Selected folder: STO Sync",
+      "autoSync": true,
+      "autoSyncInterval": "30-seconds",
+      "bindToAliasMode": true,
+      "bindsetsEnabled": true,
+      "translateGeneratedMessages": true,
+      "syncFolderFallback": false
+    },
+    "currentProfile": "canonical-profile"
+  }
+}

@@ -10,7 +10,24 @@ import {
   normalizeInputForDecoding,
   decodeBase64,
   isValidBase64,
+  isArrayBuffer,
 } from "./decoderUtils.js";
+
+/** @param {unknown} content @returns {number | null} */
+function getInputByteLength(content) {
+  if (typeof content === "string") {
+    return new TextEncoder().encode(content).byteLength;
+  }
+  if (isArrayBuffer(content)) {
+    return /** @type {ArrayBuffer} */ (content).byteLength;
+  }
+  return null;
+}
+
+/** @param {number} inputSize @param {number} maxFileSize */
+function formatFileSizeError(inputSize, maxFileSize) {
+  return `KBF file size (${inputSize} bytes) exceeds maximum allowed size (${maxFileSize} bytes)`;
+}
 
 export class KBFDecoder {
   /** @param {{ eventBus?: typeof eventBus, [option: string]: any }} [options] */
@@ -44,6 +61,18 @@ export class KBFDecoder {
     this.resetParseState();
 
     try {
+      const inputSize = getInputByteLength(content);
+      if (inputSize !== null && inputSize > this.options.maxFileSize) {
+        this.addError(
+          formatFileSizeError(inputSize, this.options.maxFileSize),
+          {
+            contentSize: inputSize,
+            maxFileSize: this.options.maxFileSize,
+          },
+        );
+        return this.buildParseResult();
+      }
+
       return this.pipeline.run(content, {
         targetEnvironment: options.targetEnvironment || "space",
         includeMetadata:
@@ -93,14 +122,7 @@ export class KBFDecoder {
       processingTime: 0,
     };
 
-    const originalSize =
-      typeof content === "string"
-        ? content.length
-        : content &&
-            typeof content === "object" &&
-            content.byteLength !== undefined
-          ? content.byteLength
-          : 0;
+    const originalSize = getInputByteLength(content) ?? 0;
 
     /** @param {string} message */
     const addError = (message) => result.errors.push(message);
@@ -110,6 +132,12 @@ export class KBFDecoder {
     try {
       if (!content) {
         addError("No content provided for validation");
+        return result;
+      }
+
+      result.estimatedSize = originalSize;
+      if (originalSize > this.options.maxFileSize) {
+        addError(formatFileSizeError(originalSize, this.options.maxFileSize));
         return result;
       }
 
@@ -123,7 +151,6 @@ export class KBFDecoder {
       }
 
       let base64Content = normalized.content;
-      result.estimatedSize = originalSize;
 
       if (typeof base64Content === "string") {
         result.estimatedSize = Math.max(

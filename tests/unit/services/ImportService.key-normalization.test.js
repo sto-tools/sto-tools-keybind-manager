@@ -83,9 +83,6 @@ describe("ImportService - KBF Key Token Normalization", () => {
       bindsetMetadata: {},
     });
 
-    // Get the test profile
-    const profile = fixture.storage.getProfile("test-profile");
-
     // Import the KBF content into space environment with bindset 'test-bindset'
     const result = await service.importKBFFile(
       "mock kbf content", // The actual content doesn't matter when mocking
@@ -99,6 +96,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
 
     console.log("Import result:", JSON.stringify(result, null, 2));
     expect(result.success).toBe(true);
+    const profile = fixture.storage.saveProfile.mock.calls[0][1];
 
     // Verify the imported profile structure
     expect(profile.bindsets).toBeDefined();
@@ -164,8 +162,6 @@ describe("ImportService - KBF Key Token Normalization", () => {
       bindsetMetadata: {},
     });
 
-    const profile = fixture.storage.getProfile("test-profile");
-
     const result = await service.importKBFFile(
       "mock kbf content", // The actual content doesn't matter when mocking
       "test-profile",
@@ -177,6 +173,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
     );
 
     expect(result.success).toBe(true);
+    const profile = fixture.storage.saveProfile.mock.calls[0][1];
 
     // **CRITICAL TEST**: Verify that CTRL was imported as-is (current behavior)
     const importedKeys = profile.bindsets["test-ctrl-bindset"].space.keys;
@@ -231,8 +228,6 @@ describe("ImportService - KBF Key Token Normalization", () => {
       bindsetMetadata: {},
     });
 
-    const profile = fixture.storage.getProfile("test-profile");
-
     const result = await service.importKBFFile(
       "mock kbf content", // The actual content doesn't matter when mocking
       "test-profile",
@@ -244,6 +239,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
     );
 
     expect(result.success).toBe(true);
+    const profile = fixture.storage.saveProfile.mock.calls[0][1];
 
     // Verify keys are imported as-is (current behavior - no normalization)
     const bindsetKeys = profile.bindsets["test-mixed-keys"].space.keys;
