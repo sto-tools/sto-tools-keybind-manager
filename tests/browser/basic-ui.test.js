@@ -10,6 +10,9 @@ describe("Application browser smoke", () => {
     const profileSelect = document.getElementById("profileSelect");
     const settingsButton = document.getElementById("settingsBtn");
     const settingsDropdown = settingsButton?.closest(".dropdown");
+    const refineDilithium = document.querySelector(
+      '[data-command="refine_dilithium"]',
+    );
     const importDropdown = document
       .getElementById("importMenuBtn")
       ?.closest(".dropdown");
@@ -20,6 +23,11 @@ describe("Application browser smoke", () => {
     expect(version?.textContent.trim()).not.toBe("");
     expect(settingsButton?.title.trim()).not.toBe("");
     expect(window.stoKeybinds?.isInitialized?.()).toBe(true);
+    expect(refineDilithium?.closest(".category")?.dataset.category).toBe(
+      "system",
+    );
+    expect(refineDilithium?.textContent).toContain("⛏️");
+    expect(refineDilithium?.textContent).toContain("Refine Dilithium");
     expect(
       Array.from(profileSelect?.options || []).some(
         (option) => !option.disabled && Boolean(option.value),

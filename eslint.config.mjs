@@ -19,7 +19,7 @@ const legacyMaxLineLimits = {
   "src/js/components/ui/KeyBrowserUI.js": 1221,
   "src/js/components/ui/KeyCaptureUI.js": 1164,
   "src/js/components/ui/ParameterCommandUI.js": 513,
-  "src/js/data.js": 3362,
+  "src/js/data.js": 3357,
   "src/js/lib/kbf/parsers/FieldParser.js": 511,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 931,
   "src/js/lib/kbf/translation/ActivityTranslator.js": 1772,

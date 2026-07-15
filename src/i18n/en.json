@@ -481,6 +481,10 @@
       "name": "Show/Hide Inventory",
       "description": "Show/hide your inventory"
     },
+    "refine_dilithium": {
+      "name": "Refine Dilithium",
+      "description": "Refine dilithium ore from your inventory"
+    },
     "map": {
       "name": "Show/Hide Map",
       "description": "Show/hide the map window"

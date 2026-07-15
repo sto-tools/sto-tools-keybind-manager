@@ -1,6 +1,8 @@
 // STO Tools Keybind Manager - Data Layer
 // Contains all command definitions, templates, and default configurations
 
+import inventorySystemCommands from "./data/inventorySystemCommands.js";
+
 const stoData = {
   // Command categories and definitions
   commands: {
@@ -998,13 +1000,7 @@ const stoData = {
           syntax: "missions",
           icon: "📋",
         },
-        inventory: {
-          name: "Show/Hide Inventory",
-          command: "Inventory",
-          description: "Show/hide your inventory",
-          syntax: "Inventory",
-          icon: "🎒",
-        },
+        ...inventorySystemCommands,
         map: {
           name: "Show/Hide Map",
           command: "Map",
