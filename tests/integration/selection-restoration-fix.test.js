@@ -201,4 +201,14 @@ describe("Selection Restoration Fix - Page Reload", () => {
     expect(selectionService.cache.currentProfile).toBe("test-profile");
     expect(selectionService.cache.profile).toBeDefined();
   });
+
+  it("auto-selects aliases from late-join state without a state RPC", async () => {
+    const requestSpy = vi.spyOn(selectionService, "request");
+
+    const selectedAlias = await selectionService.autoSelectFirst("alias");
+
+    expect(selectedAlias).toBe("TestAlias");
+    expect(selectionService.cache.selectedAlias).toBe("TestAlias");
+    expect(requestSpy).not.toHaveBeenCalledWith("data:get-aliases");
+  });
 });

@@ -665,21 +665,12 @@ export default class SelectionService extends ComponentBase {
     const env = environment || this.cache.currentEnvironment;
 
     if (env === "alias") {
-      // Try cached aliases first
-      let aliases = this.cache.aliases || {};
-
-      // If cache is empty, try to get from DataCoordinator
-      if (Object.keys(aliases).length === 0) {
-        try {
-          aliases = (await this.request("data:get-aliases")) || {};
-        } catch (error) {
-          console.warn(
-            "[SelectionService] Failed to get aliases for auto-selection:",
-            error,
-          );
-          return null;
-        }
-      }
+      // ComponentBase keeps this snapshot current through broadcasts and late join.
+      const cachedAliases = this.cache.aliases || {};
+      const aliases =
+        Object.keys(cachedAliases).length > 0
+          ? cachedAliases
+          : this.cache.profile?.aliases || {};
 
       // Auto-select first user-created alias (filter out VFX Manager system aliases)
       let userAliases = Object.entries(aliases).filter(

@@ -533,9 +533,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     });
 
     /** @type {KeyCategories} */
-    const categorized = await this.request("key:detect-types", {
-      keys: Object.keys(keyMap),
-    });
+    const categorized = await this.categorizeKeysByType(keyMap, keys);
 
     // Sort categories: standard, weapon, system, movement, social
     const categoryOrder = [

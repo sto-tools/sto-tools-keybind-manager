@@ -11,20 +11,13 @@ describe("SelectionService Deletion Auto-Selection", () => {
     env = harness;
     selectionService = new SelectionService({ eventBus: harness.eventBus });
 
-    // Mock request method to prevent timeouts but allow autoSelectFirst to work
+    // Mock action and legacy key requests; aliases come from the state cache.
     selectionService.request = vi.fn((topic) => {
       if (topic === "data:get-keys") {
         return {
           F1: ["FireAll"],
           F2: ["Shield"],
           F3: ["TargetNearest"],
-        };
-      }
-      if (topic === "data:get-aliases") {
-        return {
-          TestAlias1: { commands: "FireAll", type: "alias" },
-          TestAlias2: { commands: "Shield", type: "alias" },
-          TestAlias3: { commands: "TargetNearest", type: "alias" },
         };
       }
       if (topic === "data:update-profile") {
@@ -113,6 +106,9 @@ describe("SelectionService Deletion Auto-Selection", () => {
       // Cached selection should also be updated
       expect(["TestAlias2", "TestAlias3"]).toContain(
         selectionService.cachedSelections.alias,
+      );
+      expect(selectionService.request).not.toHaveBeenCalledWith(
+        "data:get-aliases",
       );
     });
 

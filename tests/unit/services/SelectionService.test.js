@@ -415,13 +415,13 @@ describe("SelectionService", () => {
     });
 
     it("should auto-select first alias in alias environment", async () => {
-      service.request.mockResolvedValueOnce({ Alias1: {}, Alias2: {} });
+      service.cache.aliases = { Alias1: {}, Alias2: {} };
 
       const result = await service.autoSelectFirst("alias");
 
       expect(result).toBe("Alias1");
       expect(service.cache.selectedAlias).toBe("Alias1");
-      expect(service.request).toHaveBeenCalledWith("data:get-aliases");
+      expect(service.request).not.toHaveBeenCalledWith("data:get-aliases");
     });
 
     it("should return null when no items available for auto-selection", async () => {

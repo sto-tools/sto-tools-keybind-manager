@@ -4,6 +4,7 @@ import {
   normalizeToStringArray,
 } from "../../lib/commandDisplayAdapter.js";
 import { formatAliasLine } from "../../lib/STOFormatter.js";
+import { clearImportTarget } from "./commandImportPayload.js";
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -1485,7 +1486,6 @@ export default class CommandService extends ComponentBase {
           // Cross-environment import: filter out environment-specific commands
           // Cross-environment import detected, filtering commands
 
-          const originalCount = sourceCommands.length;
           const compatibilityPromises = sourceCommands.map(
             async (cmdString) => {
               const isCompatible = await this.isCommandCompatible(
@@ -1504,7 +1504,7 @@ export default class CommandService extends ComponentBase {
             .filter((result) => result.isCompatible)
             .map((result) => result.command);
 
-          droppedCount = originalCount - filteredCommands.length;
+          droppedCount = sourceCommands.length - filteredCommands.length;
           // Command filtering completed
         }
       }
@@ -1515,16 +1515,13 @@ export default class CommandService extends ComponentBase {
 
       // Perform the import
       if (clearDestination) {
-        // Clear existing commands first
-        await this.request("data:clear-key-commands", {
-          environment: currentEnvironment,
-          key: targetKey,
-        });
+        await clearImportTarget(this, currentEnvironment, targetKey);
       }
 
       // Add the filtered commands
       for (const command of filteredCommands) {
-        await this.addCommand(targetKey, command);
+        const added = await this.addCommand(targetKey, command);
+        if (!added) throw new Error(this.i18n.t("storage_write_failed"));
       }
 
       return {

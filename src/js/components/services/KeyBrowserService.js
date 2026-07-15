@@ -50,9 +50,6 @@ export default class KeyBrowserService extends ComponentBase {
         this.respond("key:compare", ({ keyA, keyB }) =>
           this.compareKeys(keyA, keyB),
         ),
-        this.respond("key:detect-types", ({ keyName }) =>
-          this.detectKeyTypes(keyName),
-        ),
         this.respond("key:sort", ({ keys }) => this.sortKeys(keys)),
         this.respond("key:filter", ({ keys, filter }) =>
           this.filterKeys(keys, filter),

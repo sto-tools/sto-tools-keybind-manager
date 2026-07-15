@@ -19,6 +19,7 @@ function createDomFixture() {
 
 describe("KeyBrowserUI", () => {
   let fixture, eventBus, ui, dom, storageFixture;
+  let categorizeByType;
 
   beforeEach(() => {
     dom = createDomFixture();
@@ -52,7 +53,7 @@ describe("KeyBrowserUI", () => {
       };
     });
 
-    respond(eventBus, "key:categorize-by-type", ({ allKeys }) => {
+    categorizeByType = vi.fn(({ allKeys }) => {
       return {
         function: {
           name: "Function Keys",
@@ -74,15 +75,10 @@ describe("KeyBrowserUI", () => {
         },
       };
     });
+    respond(eventBus, "key:categorize-by-type", categorizeByType);
 
     respond(eventBus, "key:compare", ({ keyA, keyB }) => {
       return keyA.localeCompare(keyB);
-    });
-
-    respond(eventBus, "key:detect-types", ({ keyName }) => {
-      if (/^F\d+$/.test(keyName)) return ["function"];
-      if (/^[A-Z0-9]$/.test(keyName)) return ["alphanumeric"];
-      return ["other"];
     });
 
     respond(eventBus, "key:toggle-category", () => {
@@ -164,6 +160,24 @@ describe("KeyBrowserUI", () => {
     expect(content.querySelector(".category-header")?.textContent).toBe(
       "combat",
     );
+    expect(content.querySelector('[data-key="F1"]')).not.toBeNull();
+  });
+
+  it("renders bindset key types through the batch categorization contract", async () => {
+    const content = document.createElement("div");
+    vi.spyOn(ui, "createKeyElement").mockImplementation((key) => {
+      const element = document.createElement("button");
+      element.dataset.key = key;
+      return element;
+    });
+
+    await ui.renderKeyTypeViewForKeys(content, {}, ["F1"], { F1: ["FireAll"] });
+
+    expect(categorizeByType).toHaveBeenCalledWith({
+      keysWithCommands: { F1: ["FireAll"] },
+      allKeys: ["F1"],
+    });
+    expect(ui.createKeyElement).toHaveBeenCalledWith("F1", ["FireAll"]);
     expect(content.querySelector('[data-key="F1"]')).not.toBeNull();
   });
 });
