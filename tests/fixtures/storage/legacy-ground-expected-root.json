@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "created": "2023-03-01T00:00:00.000Z",
+  "lastModified": "2026-07-15T12:00:00.000Z",
+  "lastBackup": "2026-07-15T12:00:00.000Z",
+  "currentProfile": "legacy-ground",
+  "profiles": {
+    "legacy-ground": {
+      "name": "Legacy Ground Profile",
+      "description": "",
+      "currentEnvironment": "ground",
+      "builds": {
+        "space": {
+          "keys": {}
+        },
+        "ground": {
+          "keys": {
+            "G": ["Sprint", "Aim"]
+          }
+        }
+      },
+      "aliases": {},
+      "keybindMetadata": {
+        "ground": {
+          "G": {
+            "stabilizeExecutionOrder": true
+          }
+        }
+      },
+      "created": "2026-07-15T12:00:00.000Z",
+      "lastModified": "2026-07-15T12:00:00.000Z"
+    }
+  },
+  "globalAliases": {},
+  "settings": {
+    "theme": "legacy-ground"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "version": "2.0.0",
+  "created": "2023-01-01T00:00:00.000Z",
+  "lastModified": "2026-07-15T12:00:00.000Z",
+  "lastBackup": "2026-07-15T12:00:00.000Z",
+  "currentProfile": "legacy-space",
+  "profiles": {
+    "legacy-space": {
+      "name": "Legacy Space Profile",
+      "description": "Old mode and keys shape",
+      "currentEnvironment": "space",
+      "builds": {
+        "space": {
+          "keys": {
+            "F1": ["FireAll"],
+            "F2": "FireTorps"
+          }
+        },
+        "ground": {
+          "keys": {}
+        }
+      },
+      "aliases": {
+        "LegacyAttack": {
+          "commands": "Target_Enemy_Near $$ FireAll",
+          "description": "Preserved alias"
+        }
+      },
+      "keybindMetadata": {
+        "space": {
+          "F1": {
+            "stabilizeExecutionOrder": true
+          }
+        }
+      },
+      "created": "2023-02-03T04:05:06.000Z",
+      "lastModified": "2026-07-15T12:00:00.000Z"
+    }
+  },
+  "globalAliases": {
+    "LegacyGlobal": {
+      "commands": ["FireAll"]
+    }
+  },
+  "settings": {
+    "theme": "legacy-space",
+    "language": "fr"
+  },
+  "legacyRootExtension": {
+    "preserved": true
+  }
+}

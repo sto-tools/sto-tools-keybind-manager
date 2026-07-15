@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "created": "2026-07-15T12:00:00.000Z",
+  "lastModified": "2026-07-15T12:00:00.000Z",
+  "lastBackup": "2026-07-15T12:00:00.000Z",
+  "currentProfile": null,
+  "profiles": {},
+  "globalAliases": {},
+  "settings": {
+    "theme": "default",
+    "autoSave": true,
+    "showTooltips": true,
+    "confirmDeletes": true,
+    "maxUndoSteps": 50,
+    "defaultMode": "space",
+    "compactView": false,
+    "language": "en",
+    "syncFolderName": null,
+    "syncFolderPath": null,
+    "autoSync": false,
+    "autoSyncInterval": "change"
+  }
+}

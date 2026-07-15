@@ -1,0 +1,18 @@
+{
+  "theme": "light",
+  "autoSave": false,
+  "showTooltips": false,
+  "confirmDeletes": false,
+  "maxUndoSteps": 75,
+  "defaultMode": "ground",
+  "compactView": true,
+  "language": "de",
+  "syncFolderName": "STO Sync",
+  "syncFolderPath": "Selected folder: STO Sync",
+  "autoSync": true,
+  "autoSyncInterval": "30-seconds",
+  "bindToAliasMode": true,
+  "bindsetsEnabled": true,
+  "translateGeneratedMessages": true,
+  "syncFolderFallback": false
+}

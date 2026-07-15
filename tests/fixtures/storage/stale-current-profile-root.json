@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "created": "2024-07-01T00:00:00.000Z",
+  "lastModified": "2024-07-02T00:00:00.000Z",
+  "currentProfile": "deleted-profile",
+  "profiles": {
+    "alpha": {
+      "name": "Alpha",
+      "builds": {
+        "space": {
+          "keys": {}
+        },
+        "ground": {
+          "keys": {}
+        }
+      }
+    },
+    "beta": {
+      "name": "Beta",
+      "builds": {
+        "space": {
+          "keys": {}
+        },
+        "ground": {
+          "keys": {}
+        }
+      }
+    }
+  },
+  "globalAliases": {},
+  "settings": {
+    "theme": "stale-current-profile"
+  }
+}

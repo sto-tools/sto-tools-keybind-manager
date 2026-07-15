@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "created": "2024-06-01T00:00:00.000Z",
+  "lastModified": "2024-06-02T00:00:00.000Z",
+  "currentProfile": "nameless",
+  "profiles": {
+    "nameless": {
+      "description": "A profile without its required name",
+      "builds": {
+        "space": {
+          "keys": {}
+        },
+        "ground": {
+          "keys": {}
+        }
+      }
+    }
+  },
+  "settings": {
+    "theme": "invalid-profile"
+  }
+}

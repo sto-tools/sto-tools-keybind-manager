@@ -1,0 +1,161 @@
+{
+  "version": "2.0.0",
+  "created": "2024-01-02T03:04:05.000Z",
+  "lastModified": "2025-01-02T03:04:05.000Z",
+  "lastBackup": "2025-01-01T03:04:05.000Z",
+  "currentProfile": "complete-profile",
+  "profiles": {
+    "complete-profile": {
+      "id": "complete-profile",
+      "name": "Complete Current Profile",
+      "description": "Exercises every known persisted and compatibility profile field",
+      "currentEnvironment": "ground",
+      "environment": "space",
+      "builds": {
+        "space": {
+          "keys": {
+            "F1": [
+              "FireAll",
+              {
+                "command": "+TrayExecByTray 0 0",
+                "text": "Tray slot",
+                "id": "rich-command",
+                "type": "tray",
+                "category": "combat",
+                "custom": true,
+                "palindromicGeneration": true,
+                "placement": "pivot",
+                "parameters": {
+                  "tray": 0,
+                  "slot": 0
+                }
+              }
+            ]
+          },
+          "aliases": {
+            "SpaceScoped": {
+              "commands": ["FirePhasers"]
+            }
+          }
+        },
+        "ground": {
+          "keys": {
+            "F2": ["Jump"]
+          },
+          "aliases": {
+            "GroundScoped": {
+              "commands": ["Aim"]
+            }
+          }
+        }
+      },
+      "aliases": {
+        "CompleteAlias": {
+          "description": "All known alias fields",
+          "commands": ["Target_Enemy_Near", "FireAll"],
+          "type": "alias",
+          "name": "CompleteAlias",
+          "isGenerated": false,
+          "isLoader": false,
+          "category": "combat",
+          "metadata": {
+            "source": "fixture"
+          }
+        }
+      },
+      "bindsets": {
+        "Alternate": {
+          "space": {
+            "keys": {
+              "F3": ["FireTorps"]
+            },
+            "aliases": {
+              "ScopedAlternate": {
+                "commands": ["FireMines"]
+              }
+            }
+          },
+          "ground": {
+            "keys": {
+              "F4": ["Sprint"]
+            },
+            "aliases": {}
+          }
+        }
+      },
+      "bindsetMetadata": {
+        "Alternate": {
+          "space": {
+            "F3": {
+              "stabilizeExecutionOrder": true
+            }
+          }
+        }
+      },
+      "aliasMetadata": {
+        "CompleteAlias": {
+          "stabilizeExecutionOrder": true
+        }
+      },
+      "keybindMetadata": {
+        "space": {
+          "F1": {
+            "stabilizeExecutionOrder": true
+          }
+        },
+        "ground": {
+          "F2": {
+            "stabilizeExecutionOrder": false
+          }
+        }
+      },
+      "keys": {
+        "F5": ["LegacyFlattenedKey"]
+      },
+      "keybinds": {
+        "space": {
+          "F6": ["LegacyEnvironmentKey"]
+        }
+      },
+      "selections": {
+        "space": "F1",
+        "ground": "F2",
+        "alias": "CompleteAlias"
+      },
+      "created": "2024-02-03T04:05:06.000Z",
+      "lastModified": "2025-02-03T04:05:06.000Z",
+      "migrationVersion": "2.1.1",
+      "vertigoSettings": {
+        "selectedEffects": {
+          "space": ["fx-space"],
+          "ground": ["fx-ground"]
+        },
+        "showPlayerSay": true
+      }
+    }
+  },
+  "globalAliases": {
+    "GlobalFixtureAlias": {
+      "commands": ["FireAll"],
+      "description": "Root-level alias compatibility field"
+    }
+  },
+  "settings": {
+    "theme": "light",
+    "autoSave": false,
+    "showTooltips": false,
+    "confirmDeletes": false,
+    "maxUndoSteps": 75,
+    "defaultMode": "ground",
+    "compactView": true,
+    "language": "de",
+    "syncFolderName": "STO Sync",
+    "syncFolderPath": "Selected folder: STO Sync",
+    "autoSync": true,
+    "autoSyncInterval": "30-seconds",
+    "bindToAliasMode": true,
+    "bindsetsEnabled": true,
+    "translateGeneratedMessages": true,
+    "syncFolderFallback": false
+  }
+}

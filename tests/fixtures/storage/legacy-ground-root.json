@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "created": "2023-03-01T00:00:00.000Z",
+  "lastModified": "2024-03-01T00:00:00.000Z",
+  "currentProfile": "legacy-ground",
+  "profiles": {
+    "legacy-ground": {
+      "name": "Legacy Ground Profile",
+      "mode": "Ground Mode",
+      "keys": {
+        "G": ["Sprint", "Aim"]
+      },
+      "aliases": {},
+      "keybindMetadata": {
+        "ground": {
+          "G": {
+            "stabilizeExecutionOrder": true
+          }
+        }
+      }
+    }
+  },
+  "globalAliases": {},
+  "settings": {
+    "theme": "legacy-ground"
+  }
+}

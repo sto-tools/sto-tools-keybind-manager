@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "created": "2024-05-01T00:00:00.000Z",
+  "lastModified": "2024-05-02T00:00:00.000Z",
+  "currentProfile": null,
+  "profiles": "profiles must be an object",
+  "settings": {
+    "theme": "invalid-profiles"
+  }
+}
