@@ -15,6 +15,8 @@ This document outlines the development standards and requirements for working on
 
 - **All updates to existing functionality MUST include updates to existing test cases**
 - **New test cases may be required** if the update introduces new behavior or edge cases
+- **Every affected test MUST be updated or retired with its requirement**
+- Retire a test only when its requirement no longer exists or equivalent coverage is identified elsewhere
 - Ensure existing tests still pass after modifications
 - Update test descriptions and assertions to reflect changes
 
