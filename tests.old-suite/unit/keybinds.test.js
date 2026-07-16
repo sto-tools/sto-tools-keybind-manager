@@ -6,7 +6,6 @@ import '../../src/js/data.js'
 // Load the modules (they create global instances)
 import eventBus from '../../src/js/core/eventBus.js'
 import store, { resetStore } from '../../src/js/core/store.js'
-import { respond } from '../../src/js/core/requestResponse.js'
 import { StorageService } from '../../src/js/components/services/index.js'
 
 import KeyService from '../../src/js/components/services/KeyService.js'
@@ -49,11 +48,6 @@ beforeEach(() => {
     ui: global.stoUI
   })
   global.fileOperationsService.init()
-
-  // Mock data service response for alias validation
-  respond(eventBus, 'data:get-alias-name-pattern', () => {
-    return /^[A-Za-z_][A-Za-z0-9_]*$/ // Valid pattern: letters/numbers/underscore, can start with letter or underscore
-  })
 
   // Set up proper storage mock that actually persists data for testing
   const testProfiles = {
@@ -572,30 +566,6 @@ alias complex_bracket <& TrayExecByTray 1 3 0 $$ alias cone_attack "cone_attack2
       expect(keybindManager.isValidKey(null)).toBe(false)
       expect(keybindManager.isValidKey(undefined)).toBe(false)
       expect(keybindManager.isValidKey(123)).toBe(false)
-    })
-  })
-
-  describe('alias name validation', () => {
-    it('should validate alias name format', async () => {
-      expect(await keybindManager.isValidAliasName('ValidAlias')).toBe(true)
-      expect(await keybindManager.isValidAliasName('_underscore')).toBe(true)
-      expect(await keybindManager.isValidAliasName('alias123')).toBe(true)
-    })
-
-    it('should reject names with spaces', async () => {
-      expect(await keybindManager.isValidAliasName('invalid alias')).toBe(false)
-      expect(await keybindManager.isValidAliasName('test alias')).toBe(false)
-    })
-
-    it('should reject names starting with numbers', async () => {
-      expect(await keybindManager.isValidAliasName('123invalid')).toBe(false)
-      expect(await keybindManager.isValidAliasName('1test')).toBe(false)
-    })
-
-    it('should accept valid alphanumeric names', async () => {
-      expect(await keybindManager.isValidAliasName('ValidAlias')).toBe(true)
-      expect(await keybindManager.isValidAliasName('test123')).toBe(true)
-      expect(await keybindManager.isValidAliasName('_private')).toBe(true)
     })
   })
 

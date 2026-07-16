@@ -42,8 +42,18 @@ const defaultProfiles = {
 
 const validation = {
   keyNamePattern: "USE_STO_KEY_NAMES",
-  aliasNamePattern: /^[A-Za-z][A-Za-z0-9_]*$/,
 };
+
+const retiredStaticTopics = [
+  "data:get-alias-name-pattern",
+  "data:get-combat-category",
+  "data:get-command-category",
+  "data:get-command-definition",
+  "data:get-communication-category",
+  "data:get-default-profile",
+  "data:get-tray-category",
+  "data:get-validation-patterns",
+];
 
 describe("Integration: DataService static-data RPC contracts", () => {
   /** @type {Awaited<ReturnType<typeof createRealEventBusFixture>>} */
@@ -83,31 +93,7 @@ describe("Integration: DataService static-data RPC contracts", () => {
     ).resolves.toEqual(defaultProfiles);
   });
 
-  it("characterizes compatibility static lookup hits and misses", async () => {
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-command-category", {
-        categoryId: "tray",
-      }),
-    ).resolves.toEqual(commands.tray);
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-command-category", {
-        categoryId: "missing",
-      }),
-    ).resolves.toBeNull();
-
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-command-definition", {
-        categoryId: "tray",
-        commandId: "execute_tray_slot",
-      }),
-    ).resolves.toEqual(trayCommand);
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-command-definition", {
-        categoryId: "tray",
-        commandId: "missing",
-      }),
-    ).resolves.toBeNull();
-
+  it("characterizes paired command lookup hits and misses", async () => {
     await expect(
       request(eventBusFixture.eventBus, "data:find-command-by-name", {
         command: "TrayExecByTray 0 1",
@@ -120,17 +106,6 @@ describe("Integration: DataService static-data RPC contracts", () => {
     await expect(
       request(eventBusFixture.eventBus, "data:find-command-by-name", {
         command: "UnknownCommand",
-      }),
-    ).resolves.toBeNull();
-
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-default-profile", {
-        profileId: "starter",
-      }),
-    ).resolves.toEqual(defaultProfiles.starter);
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-default-profile", {
-        profileId: "missing",
       }),
     ).resolves.toBeNull();
   });
@@ -157,36 +132,23 @@ describe("Integration: DataService static-data RPC contracts", () => {
     await expect(
       request(eventBusFixture.eventBus, "data:get-default-profiles", {}),
     ).resolves.toEqual({ valid: validProfile });
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-default-profile", {
-        profileId: "array",
-      }),
-    ).resolves.toBeNull();
     expect(dataService.getCurrentState().defaultProfiles).toEqual({
       valid: validProfile,
     });
   });
 
-  it("characterizes compatibility validation and category responder shapes", async () => {
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-validation-patterns", {}),
-    ).resolves.toEqual(validation);
+  it("keeps the paired key-pattern contract", async () => {
     await expect(
       request(eventBusFixture.eventBus, "data:get-key-name-pattern", {}),
     ).resolves.toBe("USE_STO_KEY_NAMES");
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-alias-name-pattern", {}),
-    ).resolves.toEqual(validation.aliasNamePattern);
+  });
 
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-tray-category", {}),
-    ).resolves.toEqual(commands.tray);
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-communication-category", {}),
-    ).resolves.toEqual(commands.communication);
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-combat-category", {}),
-    ).resolves.toEqual(commands.combat);
+  it("does not register retired responder-only static routes", () => {
+    for (const topic of retiredStaticTopics) {
+      expect(eventBusFixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(
+        false,
+      );
+    }
   });
 
   it("feeds the primitive key-pattern response into a real KeyService", async () => {

@@ -1717,7 +1717,6 @@ const stoData = {
   // Validation rules
   validation: {
     keyNamePattern: "USE_STO_KEY_NAMES", // Use STO_KEY_NAMES list for validation
-    aliasNamePattern: /^[a-zA-Z_][a-zA-Z0-9_]*$/,
     maxCommandsPerKey: 20,
     maxKeysPerProfile: 100,
   },

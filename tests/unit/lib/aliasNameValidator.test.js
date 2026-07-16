@@ -29,6 +29,7 @@ describe("aliasNameValidator", () => {
   describe("isAliasNamePatternValid", () => {
     it("enforces pattern rules", () => {
       expect(isAliasNamePatternValid("1Bad")).toBe(false);
+      expect(isAliasNamePatternValid("_Bad")).toBe(false);
       expect(isAliasNamePatternValid("Good_One")).toBe(true);
       expect(isAliasNamePatternValid("validName123")).toBe(true);
       expect(isAliasNamePatternValid("invalid-name")).toBe(false);

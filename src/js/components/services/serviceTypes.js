@@ -216,7 +216,7 @@
  *
  * @typedef {Object} STOData
  * @property {Record<string, CommandCategory>} [commands]
- * @property {{ keyNamePattern?: string, aliasNamePattern?: RegExp }} [validation]
+ * @property {{ keyNamePattern?: string }} [validation]
  * @property {Record<string, unknown>} [defaultProfiles]
  *
  * @typedef {Window & typeof globalThis & {

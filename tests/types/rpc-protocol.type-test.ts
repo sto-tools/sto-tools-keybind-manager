@@ -109,6 +109,24 @@ type RemovedCommandEmptyStateQuery = RpcRequest<"command:get-empty-state-info">;
 type RemovedCombinedAliasesQuery = RpcRequest<"command:get-combined-aliases">;
 // @ts-expect-error Virtual VFX aliases are projected from explicit settings.
 type RemovedVirtualVFXAliasesQuery = RpcRequest<"vfx:get-virtual-aliases">;
+// @ts-expect-error Alias validation is owned by direct alias libraries.
+type RemovedAliasNamePatternQuery = RpcRequest<"data:get-alias-name-pattern">;
+// @ts-expect-error Specialized categories are read from the complete catalog.
+type RemovedCombatCategoryQuery = RpcRequest<"data:get-combat-category">;
+// @ts-expect-error Category lookups have no production RPC consumer.
+type RemovedCommandCategoryQuery = RpcRequest<"data:get-command-category">;
+// @ts-expect-error Definition lookups have no production RPC consumer.
+type RemovedCommandDefinitionQuery = RpcRequest<"data:get-command-definition">;
+// @ts-expect-error Specialized categories are read from the complete catalog.
+type RemovedCommunicationQuery = RpcRequest<"data:get-communication-category">;
+// @ts-expect-error Callers use the validated default-profile map.
+type RemovedDefaultProfileQuery = RpcRequest<"data:get-default-profile">;
+// @ts-expect-error Specialized categories are read from the complete catalog.
+type RemovedTrayCategoryQuery = RpcRequest<"data:get-tray-category">;
+// @ts-expect-error Validation behavior is owned by direct validation libraries.
+type RemovedValidationQuery = RpcRequest<"data:get-validation-patterns">;
+// @ts-expect-error The legacy parameter-definition facade has no production requester.
+type RemovedParameterQuery = RpcRequest<"parameter-command:find-definition">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -121,7 +139,7 @@ declare const forwardedTopic: string;
 const parameterBuildHandler: RpcHandler<"parameter-command:build"> = () => [
   parsedCommand,
 ];
-declare const responderOnlyOptionalHandler: RpcHandler<"data:get-command-category">;
+declare const responderOnlyOptionalHandler: RpcHandler<"ui:copy-to-clipboard">;
 responderOnlyOptionalHandler();
 
 type DynamicTopicRemainsBranded = Expect<
@@ -304,6 +322,47 @@ async function exerciseCoreApi() {
   request(eventBus, "vfx:get-virtual-aliases");
   // @ts-expect-error Retired VFX state queries cannot regain responders.
   respond(eventBus, "vfx:get-virtual-aliases", () => ({}));
+  // @ts-expect-error Retired alias-pattern queries cannot be requested.
+  request(eventBus, "data:get-alias-name-pattern");
+  // @ts-expect-error Retired alias-pattern queries cannot regain responders.
+  respond(eventBus, "data:get-alias-name-pattern", () => /./);
+  // @ts-expect-error Retired specialized-category queries cannot be requested.
+  request(eventBus, "data:get-combat-category");
+  // @ts-expect-error Retired specialized-category queries cannot regain responders.
+  respond(eventBus, "data:get-combat-category", () => null);
+  // @ts-expect-error Retired category queries cannot be requested.
+  request(eventBus, "data:get-command-category", { categoryId: "system" });
+  // @ts-expect-error Retired category queries cannot regain responders.
+  respond(eventBus, "data:get-command-category", () => null);
+  // @ts-expect-error Retired definition queries cannot be requested.
+  request(eventBus, "data:get-command-definition", {
+    categoryId: "system",
+    commandId: "refine_dilithium",
+  });
+  // @ts-expect-error Retired definition queries cannot regain responders.
+  respond(eventBus, "data:get-command-definition", () => null);
+  // @ts-expect-error Retired specialized-category queries cannot be requested.
+  request(eventBus, "data:get-communication-category");
+  // @ts-expect-error Retired specialized-category queries cannot regain responders.
+  respond(eventBus, "data:get-communication-category", () => null);
+  // @ts-expect-error Retired singular-default queries cannot be requested.
+  request(eventBus, "data:get-default-profile", { profileId: "default" });
+  // @ts-expect-error Retired singular-default queries cannot regain responders.
+  respond(eventBus, "data:get-default-profile", () => null);
+  // @ts-expect-error Retired specialized-category queries cannot be requested.
+  request(eventBus, "data:get-tray-category");
+  // @ts-expect-error Retired specialized-category queries cannot regain responders.
+  respond(eventBus, "data:get-tray-category", () => null);
+  // @ts-expect-error Retired validation-pattern queries cannot be requested.
+  request(eventBus, "data:get-validation-patterns");
+  // @ts-expect-error Retired validation-pattern queries cannot regain responders.
+  respond(eventBus, "data:get-validation-patterns", () => ({}));
+  // @ts-expect-error Retired parameter-definition queries cannot be requested.
+  request(eventBus, "parameter-command:find-definition", {
+    commandString: "Target Enemy",
+  });
+  // @ts-expect-error Retired parameter-definition queries cannot regain responders.
+  respond(eventBus, "parameter-command:find-definition", () => null);
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 

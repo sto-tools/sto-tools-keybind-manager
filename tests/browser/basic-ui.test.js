@@ -46,7 +46,7 @@ describe("Application browser smoke", () => {
     expect(settingsDropdown?.classList.contains("active")).toBe(false);
   });
 
-  it("uses broadcast caches and local projections without legacy state RPCs", async () => {
+  it("uses local projections without retired state or static-data RPCs", async () => {
     const commandChainUI = window.commandChainUI;
     const bus = commandChainUI?.eventBus;
 
@@ -60,8 +60,16 @@ describe("Application browser smoke", () => {
       "selection:get-state",
       "data:get-current-state",
       "data:get-all-profiles",
+      "data:get-alias-name-pattern",
+      "data:get-combat-category",
+      "data:get-command-category",
+      "data:get-command-definition",
+      "data:get-communication-category",
+      "data:get-default-profile",
       "data:get-keys",
       "data:get-key-commands",
+      "data:get-tray-category",
+      "data:get-validation-patterns",
       "bindset:get-key-commands",
       "key:get-all",
       "bindset:get-available",
@@ -75,6 +83,7 @@ describe("Application browser smoke", () => {
       "command:get-combined-aliases",
       "command:is-stabilized",
       "command-chain:is-stabilized",
+      "parameter-command:find-definition",
       "vfx:get-virtual-aliases",
     ]) {
       expect(bus.hasListeners(`rpc:${topic}`), topic).toBe(false);

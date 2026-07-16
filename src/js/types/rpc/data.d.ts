@@ -8,7 +8,6 @@ import type {
   ProfileUpdateResult,
   RequiredRpc,
   ResponderOnlyNoPayloadRpc,
-  ResponderOnlyOptionalRpc,
   ResponderOnlyRequiredRpc,
   Settings,
 } from "./base.js";
@@ -85,29 +84,9 @@ export interface DataRpcProtocol {
     { command?: string },
     (CommandDefinition & { categoryId: string; commandId: string }) | null
   >;
-  "data:get-alias-name-pattern": ResponderOnlyNoPayloadRpc<RegExp>;
-  "data:get-combat-category": ResponderOnlyNoPayloadRpc<CommandCategory | null>;
-  "data:get-command-category": ResponderOnlyOptionalRpc<
-    { categoryId?: string },
-    CommandCategory | null
-  >;
-  "data:get-command-definition": ResponderOnlyOptionalRpc<
-    { categoryId?: string; commandId?: string },
-    CommandDefinition | null
-  >;
   "data:get-commands": NoPayloadRpc<Record<string, CommandCategory>>;
-  "data:get-communication-category": ResponderOnlyNoPayloadRpc<CommandCategory | null>;
-  "data:get-default-profile": ResponderOnlyOptionalRpc<
-    { profileId?: string },
-    Profile | null
-  >;
   "data:get-default-profiles": NoPayloadRpc<Record<string, Profile>>;
   "data:get-key-name-pattern": NoPayloadRpc<string>;
-  "data:get-tray-category": ResponderOnlyNoPayloadRpc<CommandCategory | null>;
-  "data:get-validation-patterns": ResponderOnlyNoPayloadRpc<{
-    keyNamePattern?: string;
-    aliasNamePattern?: RegExp;
-  }>;
   "data:has-commands": NoPayloadRpc<boolean>;
   "data:load-default-data": ResponderOnlyNoPayloadRpc<
     | {

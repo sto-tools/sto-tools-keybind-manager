@@ -79,33 +79,6 @@ export default class DataService extends ComponentBase {
 
     this.responseHandlers.push(
       this.respond(
-        "data:get-command-category",
-        ({ categoryId } = /** @type {{ categoryId?: string }} */ ({})) => {
-          if (!categoryId) return null;
-          return this.data.commands?.[categoryId] || null;
-        },
-      ),
-    );
-
-    this.responseHandlers.push(
-      this.respond(
-        "data:get-command-definition",
-        (
-          {
-            categoryId,
-            commandId,
-          } = /** @type {{ categoryId?: string, commandId?: string }} */ ({}),
-        ) => {
-          if (!categoryId || !commandId) return null;
-          return (
-            this.data.commands?.[categoryId]?.commands?.[commandId] || null
-          );
-        },
-      ),
-    );
-
-    this.responseHandlers.push(
-      this.respond(
         "data:find-command-by-name",
         ({ command } = /** @type {{ command?: string }} */ ({})) => {
           if (!this.data.commands || !command) return null;
@@ -139,21 +112,9 @@ export default class DataService extends ComponentBase {
     );
 
     this.responseHandlers.push(
-      this.respond("data:get-validation-patterns", () => {
-        return this.data.validation || {};
-      }),
-    );
-
-    this.responseHandlers.push(
       this.respond("data:get-key-name-pattern", () => {
         // Use STO_KEY_NAMES list for validation instead of regex pattern
         return this.data.validation?.keyNamePattern || "USE_STO_KEY_NAMES";
-      }),
-    );
-
-    this.responseHandlers.push(
-      this.respond("data:get-alias-name-pattern", () => {
-        return this.data.validation?.aliasNamePattern || /^[A-Za-z0-9_]+$/;
       }),
     );
 
@@ -164,37 +125,9 @@ export default class DataService extends ComponentBase {
     );
 
     this.responseHandlers.push(
-      this.respond("data:get-tray-category", () => {
-        return this.data.commands?.tray || null;
-      }),
-    );
-
-    this.responseHandlers.push(
-      this.respond("data:get-communication-category", () => {
-        return this.data.commands?.communication || null;
-      }),
-    );
-
-    this.responseHandlers.push(
-      this.respond("data:get-combat-category", () => {
-        return this.data.commands?.combat || null;
-      }),
-    );
-
-    this.responseHandlers.push(
       this.respond("data:get-default-profiles", () => {
         return validProfiles(this.data.defaultProfiles);
       }),
-    );
-
-    this.responseHandlers.push(
-      this.respond(
-        "data:get-default-profile",
-        ({ profileId } = /** @type {{ profileId?: string }} */ ({})) => {
-          if (!profileId) return null;
-          return validProfiles(this.data.defaultProfiles)[profileId] || null;
-        },
-      ),
     );
   }
 

@@ -1,10 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
 import eventBus from "../../core/eventBus.js";
-import CommandFormatAdapter from "../../lib/CommandFormatAdapter.js";
-import {
-  getParameterDefinition,
-  isEditableSignature,
-} from "../../lib/CommandSignatureDefinitions.js";
 
 /** @typedef {import('../../types/rpc/parameters-preferences.js').ParameterBuildParameters} ParameterValues */
 /** @typedef {import('../../types/rpc/parameters-preferences.js').ParameterCommandDefinition} ParameterCommandDefinition */
@@ -25,8 +20,8 @@ function isParameterEditStartPayload(value) {
 
 /**
  * ParameterCommandService – handles building, validating, and editing parameterized commands for keybinds.
- * Provides request/response endpoints for command construction, definition lookup,
- * and ID generation. Caches editing context for UI parameter modals.
+ * Provides request/response endpoints for command construction and ID generation.
+ * Caches editing context for UI parameter modals.
  */
 export default class ParameterCommandService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, dataService?: unknown }} [options] */
@@ -42,31 +37,32 @@ export default class ParameterCommandService extends ComponentBase {
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
 
-    // Register Request/Response endpoints for parameterized command operations
-    if (this.eventBus) {
-      this._responseDetachFunctions.push(
-        this.respond(
-          "parameter-command:build",
-          async ({ categoryId, commandId, commandDef, params }) =>
-            this.buildParameterizedCommand(
-              categoryId,
-              commandId,
-              commandDef,
-              params,
-            ),
-        ),
-        this.respond("parameter-command:find-definition", ({ commandString }) =>
-          this.findCommandDefinition(commandString),
-        ),
-        this.respond("parameter-command:generate-id", () =>
-          this.generateCommandId(),
-        ),
-      );
-    }
+    this.setupRequestHandlers();
   }
 
   onInit() {
+    this.setupRequestHandlers();
     this.setupEventListeners();
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
+      this.respond(
+        "parameter-command:build",
+        async ({ categoryId, commandId, commandDef, params }) =>
+          this.buildParameterizedCommand(
+            categoryId,
+            commandId,
+            commandDef,
+            params,
+          ),
+      ),
+      this.respond("parameter-command:generate-id", () =>
+        this.generateCommandId(),
+      ),
+    );
   }
 
   setupEventListeners() {
@@ -789,61 +785,5 @@ export default class ParameterCommandService extends ComponentBase {
       id: this.generateCommandId(),
       parameters: result.parameters || params, // Use builder's parameters if available, otherwise fall back to input params
     };
-  }
-
-  // Auxiliary helpers
-  // Attempts to find the command definition for a given command using STOCommandParser.
-  // This replaces the old DataService-dependent logic with signature-based recognition.
-  /** @param {any} command */
-  async findCommandDefinition(command) {
-    try {
-      // Normalize command to consistent format
-      const normalizedCommand = CommandFormatAdapter.normalize(command);
-      if (!normalizedCommand) return null;
-
-      // Use STOCommandParser to re-parse and get signature
-      const parseResult = await this.request("parser:parse-command-string", {
-        commandString: normalizedCommand.command,
-      });
-
-      if (!parseResult?.commands?.[0]) {
-        return null;
-      }
-
-      const parsedCommand = parseResult.commands[0];
-
-      // Check if this signature has a parameter definition
-      const parameterDefinition = getParameterDefinition(
-        parsedCommand.signature,
-      );
-      if (!parameterDefinition) {
-        return null;
-      }
-
-      // Only return definition if it has editable parameters
-      if (!isEditableSignature(parsedCommand.signature)) {
-        return null;
-      }
-
-      // Merge the signature-based definition with the parsed command data
-      // Flatten extracted parameters to the top level for UI convenience
-      return {
-        commandId: parameterDefinition.commandId,
-        categoryId: parameterDefinition.category,
-        name: parameterDefinition.name,
-        description: parameterDefinition.description,
-        icon: parameterDefinition.icon,
-        category: parameterDefinition.category,
-        parameters: parameterDefinition.parameters,
-        // Include parsed metadata for context
-        signature: parsedCommand.signature,
-        baseCommand: parsedCommand.baseCommand,
-        extractedParameters: parsedCommand.parameters,
-        // Flatten extracted parameters to top level for easy access
-        ...parsedCommand.parameters,
-      };
-    } catch {
-      return null;
-    }
   }
 }

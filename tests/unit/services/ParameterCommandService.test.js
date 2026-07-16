@@ -18,7 +18,48 @@ describe("ParameterCommandService", () => {
   });
 
   afterEach(() => {
+    if (!service.destroyed) service.destroy();
     fixture.destroy();
+  });
+
+  it("does not register the retired static definition responder", () => {
+    expect(
+      fixture.eventBus.hasListeners("rpc:parameter-command:find-definition"),
+    ).toBe(false);
+  });
+
+  it("restores only the remaining responders after same-instance reinitialization", async () => {
+    const activeTopics = [
+      "parameter-command:build",
+      "parameter-command:generate-id",
+    ];
+    const retiredTopic = "parameter-command:find-definition";
+
+    for (const topic of activeTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(true);
+    }
+    expect(fixture.eventBus.hasListeners(`rpc:${retiredTopic}`)).toBe(false);
+    await expect(
+      service.request("parameter-command:generate-id"),
+    ).resolves.toMatch(/^cmd_/);
+
+    service.destroy();
+
+    for (const topic of activeTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
+    }
+    expect(fixture.eventBus.hasListeners(`rpc:${retiredTopic}`)).toBe(false);
+
+    service.init();
+
+    expect(service._responseDetachFunctions).toHaveLength(activeTopics.length);
+    for (const topic of activeTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(true);
+    }
+    expect(fixture.eventBus.hasListeners(`rpc:${retiredTopic}`)).toBe(false);
+    await expect(
+      service.request("parameter-command:generate-id"),
+    ).resolves.toMatch(/^cmd_/);
   });
 
   it("generateCommandId should return a unique cmd_* identifier", () => {

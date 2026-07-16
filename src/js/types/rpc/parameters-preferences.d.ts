@@ -2,7 +2,6 @@ import type {
   NoPayloadRpc,
   RequiredRpc,
   ResponderOnlyNoPayloadRpc,
-  ResponderOnlyRequiredRpc,
 } from "./base.js";
 import type { PreferenceMutation, SettingsRecord } from "../events/base.js";
 
@@ -104,20 +103,6 @@ export type CommandParseResult = {
   };
 };
 
-export type EditableParameterDefinition = {
-  commandId: string;
-  categoryId: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: string;
-  parameters: unknown;
-  signature: string;
-  baseCommand: string;
-  extractedParameters: Record<string, unknown>;
-  [parameter: string]: unknown;
-};
-
 export type ParserPerformanceMetric = {
   count: number;
   totalTime: number;
@@ -133,10 +118,6 @@ export interface ParameterPreferenceRpcProtocol {
       params?: ParameterBuildParameters;
     },
     ParameterBuildResult
-  >;
-  "parameter-command:find-definition": ResponderOnlyRequiredRpc<
-    { commandString: unknown },
-    EditableParameterDefinition | null
   >;
   "parameter-command:generate-id": ResponderOnlyNoPayloadRpc<string>;
   "parser:clear-cache": NoPayloadRpc<{ success: true }>;

@@ -309,6 +309,7 @@ describe("AliasService", () => {
         "",
         123,
         "123StartWithNumber",
+        "_StartsWithUnderscore",
         "Contains Space",
         "Contains-Dash",
       ];

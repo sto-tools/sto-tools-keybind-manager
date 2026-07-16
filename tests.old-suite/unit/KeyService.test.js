@@ -26,8 +26,7 @@ Object.defineProperty(global, 'localStorage', {
 // Mock STO_DATA for DataService
 const mockStoData = {
   validation: {
-    keyNamePattern: /^[A-Za-z0-9_]+$/,
-    aliasNamePattern: /^[A-Za-z0-9_]+$/
+    keyNamePattern: /^[A-Za-z0-9_]+$/
   },
   commands: {
     tray: { commands: {} },
@@ -562,4 +561,4 @@ describe('KeyService – import functionality integration', () => {
     fileOpsMocks.push(respond(eventBus, 'import:keybind-file', () => mockFileOpsResponse))
     fileOpsMocks.push(respond(eventBus, 'import:alias-file', () => mockFileOpsResponse))
   })
-}) 
+})

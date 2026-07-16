@@ -251,27 +251,3 @@ export const SIGNATURE_DEFINITIONS = {
     },
   },
 };
-
-/**
- * Get parameter definition for a given signature
- * @param {string} signature - Command signature from STOCommandParser
- * @returns {{ parameters?: Record<string, Record<string, any>>, [field: string]: any } | null} Parameter definition or null if not found
- */
-export function getParameterDefinition(signature) {
-  return SIGNATURE_DEFINITIONS[signature] || null;
-}
-
-/**
- * Check if a signature has editable parameters
- * @param {string} signature - Command signature
- * @returns {boolean} True if signature has editable parameters
- */
-export function isEditableSignature(signature) {
-  const definition = getParameterDefinition(signature);
-  if (!definition) return false;
-
-  // Check if any parameters are not hidden
-  return Object.values(definition.parameters || {}).some(
-    (param) => param.type !== "hidden",
-  );
-}
