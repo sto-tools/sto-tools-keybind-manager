@@ -93,7 +93,6 @@ export interface KeyRpcProtocol {
     { keys: string[]; filter?: string },
     string[]
   >;
-  "key:get-all": NoPayloadRpc<Record<string, StoredCommand[]>>;
   "key:get-all-sectional": NoPayloadRpc<Record<string, BindsetSection>>;
   "key:get-category-state": RequiredRpc<
     { categoryId: string; mode: string },

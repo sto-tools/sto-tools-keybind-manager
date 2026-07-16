@@ -4,8 +4,6 @@ import type {
   OptionalRpc,
   ProfileUpdateResult,
   RequiredRpc,
-  ResponderOnlyNoPayloadRpc,
-  ResponderOnlyOptionalRpc,
   ResponderOnlyRequiredRpc,
   StoredCommand,
 } from "./base.js";
@@ -54,11 +52,6 @@ export interface BindsetRpcProtocol {
   "bindset:delete-with-keys": OptionalRpc<
     { name?: string },
     BindsetUpdateResult<"invalid_name" | "no_profile" | "not_found">
-  >;
-  "bindset:get-available": ResponderOnlyNoPayloadRpc<string[]>;
-  "bindset:get-collapsed-state": ResponderOnlyOptionalRpc<
-    { bindsetName?: string },
-    boolean
   >;
   "bindset:rename": OptionalRpc<
     { oldName?: string; newName?: string },

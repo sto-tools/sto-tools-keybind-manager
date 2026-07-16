@@ -91,6 +91,12 @@ type RemovedDataKeysQuery = RpcRequest<"data:get-keys">;
 type RemovedDataKeyCommandsQuery = RpcRequest<"data:get-key-commands">;
 // @ts-expect-error Named bindset commands are projected from cached data state.
 type RemovedBindsetKeyCommandsQuery = RpcRequest<"bindset:get-key-commands">;
+// @ts-expect-error Primary key maps are projected from the accepted data snapshot.
+type RemovedAllKeysQuery = RpcRequest<"key:get-all">;
+// @ts-expect-error Available bindsets are broadcast and cached owner state.
+type RemovedAvailableBindsetsQuery = RpcRequest<"bindset:get-available">;
+// @ts-expect-error Collapsed state is an internal localStorage projection.
+type RemovedCollapsedStateQuery = RpcRequest<"bindset:get-collapsed-state">;
 // @ts-expect-error Alias maps are projected from the accepted data snapshot.
 type RemovedAliasMapQuery = RpcRequest<"alias:get-all">;
 // @ts-expect-error Selected command lists are projected from cached state.
@@ -274,6 +280,20 @@ async function exerciseCoreApi() {
   respond(eventBus, "preferences:get-settings", () => ({}));
   // @ts-expect-error Retired state queries cannot be reintroduced by consumers.
   request(eventBus, "key:get-selected");
+  // @ts-expect-error Key maps are selected from the accepted DataCoordinator snapshot.
+  request(eventBus, "key:get-all");
+  // @ts-expect-error Bindset names are broadcast and cached rather than queried.
+  request(eventBus, "bindset:get-available");
+  // @ts-expect-error Bindset collapse state remains an internal service helper.
+  request(eventBus, "bindset:get-collapsed-state", {
+    bindsetName: "Primary Bindset",
+  });
+  // @ts-expect-error Retired key-map queries cannot regain responders.
+  respond(eventBus, "key:get-all", () => ({}));
+  // @ts-expect-error Retired bindset-list queries cannot regain responders.
+  respond(eventBus, "bindset:get-available", () => []);
+  // @ts-expect-error Retired collapse-state queries cannot regain responders.
+  respond(eventBus, "bindset:get-collapsed-state", () => false);
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 

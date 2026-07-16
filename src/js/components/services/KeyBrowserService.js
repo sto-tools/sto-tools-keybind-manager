@@ -1,5 +1,6 @@
 import ComponentBase from "../ComponentBase.js";
 import { activeBindsetFromPayload } from "../../core/eventPayloads.js";
+import { compareKeyNames, sortKeyNames } from "./keySorting.js";
 
 /** @typedef {{ name: string, icon: string, keys: Set<string>, priority: number }} KeyCategory */
 /** @typedef {Record<string, KeyCategory>} KeyCategoryMap */
@@ -24,49 +25,53 @@ export default class KeyBrowserService extends ComponentBase {
         t: (key) => key,
       });
 
-    // Register Request/Response endpoints for external callers
-    if (this.eventBus) {
-      this.respond("key:get-all", () => this.getKeys());
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
 
-      // Sectional bindset display endpoints
-      this.respond("key:get-all-sectional", () => this.getSectionalKeys());
-      this.respond("bindset:get-available", () => this.getAvailableBindsets());
+    this.setupRequestHandlers();
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
+      this.respond("key:get-all-sectional", () => this.getSectionalKeys()),
       this.respond("bindset:toggle-collapse", ({ bindsetName }) =>
         this.toggleBindsetCollapse(bindsetName),
-      );
-      this.respond("bindset:get-collapsed-state", ({ bindsetName } = {}) =>
-        this.getBindsetCollapsedState(bindsetName),
-      );
-
+      ),
       this.respond(
         "key:categorize-by-command",
         ({ keysWithCommands, allKeys }) =>
           this.categorizeKeys(keysWithCommands, allKeys),
       ),
-        this.respond(
-          "key:categorize-by-type",
-          ({ keysWithCommands, allKeys }) =>
-            this.categorizeKeysByType(keysWithCommands, allKeys),
-        ),
-        this.respond("key:compare", ({ keyA, keyB }) =>
-          this.compareKeys(keyA, keyB),
-        ),
-        this.respond("key:sort", ({ keys }) => this.sortKeys(keys)),
-        this.respond("key:filter", ({ keys, filter }) =>
-          this.filterKeys(keys, filter),
-        ),
-        this.respond("key:show-all", ({ keys }) => this.showAllKeys(keys)),
-        this.respond("key:toggle-category", ({ categoryId, mode }) =>
-          this.toggleKeyCategory(categoryId, mode),
-        ),
-        this.respond("key:get-category-state", ({ categoryId, mode }) =>
-          this.getCategoryState(categoryId, mode),
-        );
-    }
+      this.respond("key:categorize-by-type", ({ keysWithCommands, allKeys }) =>
+        this.categorizeKeysByType(keysWithCommands, allKeys),
+      ),
+      this.respond("key:compare", ({ keyA, keyB }) =>
+        this.compareKeys(keyA, keyB),
+      ),
+      this.respond("key:sort", ({ keys }) => this.sortKeys(keys)),
+      this.respond("key:filter", ({ keys, filter }) =>
+        this.filterKeys(keys, filter),
+      ),
+      this.respond("key:show-all", ({ keys }) => this.showAllKeys(keys)),
+      this.respond("key:toggle-category", ({ categoryId, mode }) =>
+        this.toggleKeyCategory(categoryId, mode),
+      ),
+      this.respond("key:get-category-state", ({ categoryId, mode }) =>
+        this.getCategoryState(categoryId, mode),
+      ),
+    );
   }
 
   onInit() {
+    this.setupRequestHandlers();
     this.setupEventListeners();
+  }
+
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
   }
 
   setupEventListeners() {
@@ -370,36 +375,13 @@ export default class KeyBrowserService extends ComponentBase {
   // Compare two key names for sorting
   /** @param {string} a @param {string} b */
   compareKeys(a, b) {
-    // Embedded synchronous key comparison logic (from stoFileHandler)
-    const aIsF = a.match(/^F(\d+)$/);
-    const bIsF = b.match(/^F(\d+)$/);
-    if (aIsF && bIsF) return parseInt(aIsF[1]) - parseInt(bIsF[1]);
-    if (aIsF && !bIsF) return -1;
-    if (!aIsF && bIsF) return 1;
-    const aIsNum = /^\d+$/.test(a);
-    const bIsNum = /^\d+$/.test(b);
-    if (aIsNum && bIsNum) return parseInt(a) - parseInt(b);
-    if (aIsNum && !bIsNum) return -1;
-    if (!aIsNum && bIsNum) return 1;
-    const aIsLetter = /^[A-Z]$/.test(a);
-    const bIsLetter = /^[A-Z]$/.test(b);
-    if (aIsLetter && bIsLetter) return a.localeCompare(b);
-    if (aIsLetter && !bIsLetter) return -1;
-    if (!aIsLetter && bIsLetter) return 1;
-    const specialOrder = ["Space", "Tab", "Enter", "Escape"];
-    const aSpecial = specialOrder.indexOf(a);
-    const bSpecial = specialOrder.indexOf(b);
-    if (aSpecial !== -1 && bSpecial !== -1) return aSpecial - bSpecial;
-    if (aSpecial !== -1 && bSpecial === -1) return -1;
-    if (aSpecial === -1 && bSpecial !== -1) return 1;
-    return a.localeCompare(b);
+    return compareKeyNames(a, b);
   }
 
   // Sort an array of keys using the compareKeys logic
   /** @param {string[] | unknown} keys */
   sortKeys(keys) {
-    if (!Array.isArray(keys)) return [];
-    return [...keys].sort((a, b) => this.compareKeys(a, b));
+    return sortKeyNames(keys);
   }
 
   // Filter keys based on search criteria

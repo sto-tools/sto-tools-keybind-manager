@@ -1,6 +1,11 @@
 import UIComponentBase from "../UIComponentBase.js";
 import BindsetDeleteConfirmUI from "./BindsetDeleteConfirmUI.js";
 import { legacyFilter, legacyViewMode } from "../../core/eventPayloads.js";
+import {
+  getSnapshotPrimaryKeys,
+  getSnapshotProfile,
+} from "../services/dataState.js";
+import { sortKeyNames } from "../services/keySorting.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -181,6 +186,14 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     this.eventBus?.on("key:list-changed", () => this.render());
 
+    // ComponentBase registers its data-state cache listener before onInit.
+    // Release only the pending first paint after that listener accepts a ready state.
+    this.addEventListener("data:state-changed", () => {
+      if (!this.pendingInitialRender || !this.hasRequiredData()) return;
+      this.pendingInitialRender = false;
+      this.performInitialRender();
+    });
+
     // Initialize view mode based on current bindset settings
     this.ensureCorrectViewMode();
 
@@ -276,7 +289,14 @@ export default class KeyBrowserUI extends UIComponentBase {
     const grid = this.document.getElementById("keyGrid");
     if (!grid) return;
 
-    const profile = this.cache.profile;
+    const snapshot = this.cache.dataState;
+    const environment = this.cache.currentEnvironment || "space";
+    const profile = getSnapshotProfile(snapshot);
+    /** @type {KeyMap} */
+    const keyMap = getSnapshotPrimaryKeys(snapshot, environment);
+
+    // Cache for child helpers, including clearing predecessor data on pre-ready state.
+    this._currentKeyMap = keyMap;
     if (!profile) {
       grid.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><h4>${this.i18n.t("no_profile_selected")}</h4></div>`;
       return;
@@ -286,9 +306,6 @@ export default class KeyBrowserUI extends UIComponentBase {
     const fragment = this.document.createDocumentFragment();
     const viewMode = this.getCurrentViewMode();
 
-    // Get key data first
-    /** @type {KeyMap} */
-    const keyMap = await this.request("key:get-all");
     const keys = Object.keys(keyMap);
     /** @type {KeyMap} */
     const keysWithCommands = {};
@@ -298,9 +315,6 @@ export default class KeyBrowserUI extends UIComponentBase {
     });
     const allKeys = [...new Set([...keys, ...Object.keys(keysWithCommands)])];
 
-    // Cache for child helpers
-    this._currentKeyMap = keyMap;
-
     // If bindsets are enabled, render bindset sections for ALL view types
     if (this.shouldShowBindsetSections()) {
       await this.renderBindsetSectionsView(
@@ -309,6 +323,7 @@ export default class KeyBrowserUI extends UIComponentBase {
         profile,
         keyMap,
         keysWithCommands,
+        environment,
       );
       grid.classList.add("categorized");
     } else {
@@ -420,6 +435,11 @@ export default class KeyBrowserUI extends UIComponentBase {
 
   /** @param {DocumentFragment} fragment */
   async renderBindsetSectionView(fragment) {
+    const snapshot = this.cache.dataState;
+    const environment = this.cache.currentEnvironment || "space";
+    const profile = getSnapshotProfile(snapshot);
+    const primaryKeyMap = getSnapshotPrimaryKeys(snapshot, environment);
+
     // Get sectional keys organized by bindset
     /** @type {BindsetSections} */
     const sectionalKeys = await this.request("key:get-all-sectional");
@@ -438,6 +458,11 @@ export default class KeyBrowserUI extends UIComponentBase {
       const sectionElement = await this.createBindsetSectionElement(
         bindsetName,
         bindsetData,
+        "grid",
+        profile,
+        primaryKeyMap,
+        {},
+        environment,
       );
       fragment.appendChild(sectionElement);
     }
@@ -450,6 +475,7 @@ export default class KeyBrowserUI extends UIComponentBase {
    * @param {KeyProfile} profile
    * @param {KeyMap} keyMap
    * @param {KeyMap} keysWithCommands
+   * @param {string} environment
    */
   async renderBindsetSectionsView(
     fragment,
@@ -457,6 +483,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     profile,
     keyMap,
     keysWithCommands,
+    environment,
   ) {
     // Get sectional keys organized by bindset
     /** @type {BindsetSections} */
@@ -483,6 +510,7 @@ export default class KeyBrowserUI extends UIComponentBase {
         profile,
         keyMap,
         keysWithCommands,
+        environment,
       );
       fragment.appendChild(sectionElement);
     }
@@ -781,19 +809,25 @@ export default class KeyBrowserUI extends UIComponentBase {
    * @param {BindsetSection} bindsetData
    * @param {string} [viewMode]
    * @param {KeyProfile | null} [profile]
-   * @param {KeyMap} [keyMap]
+   * @param {KeyMap} [primaryKeyMap]
    * @param {KeyMap} [keysWithCommands]
+   * @param {string} [environment]
    */
   async createBindsetSectionElement(
     bindsetName,
     bindsetData,
     viewMode = "grid",
     profile = null,
-    keyMap = {},
+    primaryKeyMap = {},
     keysWithCommands = {},
+    environment = "space",
   ) {
-    void profile;
-    void keyMap;
+    const sectionKeyMap =
+      bindsetName === "Primary Bindset"
+        ? primaryKeyMap
+        : profile?.bindsets?.[bindsetName]?.[environment]?.keys || {};
+    const sectionKeys = sortKeyNames(Object.keys(sectionKeyMap));
+
     const element = this.document.createElement("div");
     element.className = "bindset-section";
     element.dataset.bindset = bindsetName;
@@ -816,7 +850,7 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     const count = this.document.createElement("span");
     count.className = "bindset-count";
-    count.textContent = `(${bindsetData.keyCount})`;
+    count.textContent = `(${sectionKeys.length})`;
 
     headerInfo.appendChild(twisty);
     headerInfo.appendChild(name);
@@ -919,58 +953,9 @@ export default class KeyBrowserUI extends UIComponentBase {
     const content = this.document.createElement("div");
     content.className = `bindset-content ${bindsetData.isCollapsed ? "collapsed" : ""}`;
 
-    // Add keys to content based on current view mode
-    console.log(
-      `[KeyBrowserUI] bindsetData.keys for "${bindsetName}":`,
-      bindsetData.keys,
-    );
-    console.log(
-      `[KeyBrowserUI] bindsetData.keys.length:`,
-      bindsetData.keys.length,
-    );
-
-    if (bindsetData.keys.length > 0) {
-      // Get appropriate keyMap for this bindset
-      /** @type {KeyMap} */
-      let keyMap = {};
-      if (bindsetName === "Primary Bindset") {
-        keyMap = await this.request("key:get-all");
-      } else {
-        // Get bindset keys from profile data
-        const environment = this.cache.currentEnvironment || "space";
-        const profile = this.cache.profile;
-
-        console.log(
-          `[KeyBrowserUI] Profile bindsets for "${bindsetName}":`,
-          profile?.bindsets?.[bindsetName],
-        );
-        console.log(`[KeyBrowserUI] Environment: "${environment}"`);
-
-        keyMap = {};
-        if (profile?.bindsets?.[bindsetName]?.[environment]?.keys) {
-          keyMap = profile.bindsets[bindsetName][environment].keys;
-          console.log(
-            `[KeyBrowserUI] Created keyMap for bindset "${bindsetName}" with ${Object.keys(keyMap).length} keys:`,
-            Object.keys(keyMap),
-          );
-        } else {
-          console.log(
-            `[KeyBrowserUI] No keys found - profile.bindsets.${bindsetName}?:`,
-            !!profile?.bindsets?.[bindsetName],
-          );
-          console.log(
-            `[KeyBrowserUI] No keys found - profile.bindsets.${bindsetName}.${environment}?:`,
-            !!profile?.bindsets?.[bindsetName]?.[environment],
-          );
-          console.log(
-            `[KeyBrowserUI] Available bindsets:`,
-            Object.keys(profile?.bindsets || {}),
-          );
-        }
-      }
-
+    if (sectionKeys.length > 0) {
       // Cache keyMap for key element creation
-      this._currentKeyMap = keyMap;
+      this._currentKeyMap = sectionKeyMap;
 
       const currentViewMode = viewMode || "grid";
 
@@ -978,8 +963,8 @@ export default class KeyBrowserUI extends UIComponentBase {
         // Render key-types view for this bindset
         await this.renderKeyTypeViewForBindset(
           content,
-          bindsetData.keys,
-          keyMap,
+          sectionKeys,
+          sectionKeyMap,
           bindsetName,
           keysWithCommands,
         );
@@ -987,8 +972,8 @@ export default class KeyBrowserUI extends UIComponentBase {
         // Render command-category view for this bindset
         await this.renderCommandCategoryViewForBindset(
           content,
-          bindsetData.keys,
-          keyMap,
+          sectionKeys,
+          sectionKeyMap,
           bindsetName,
           keysWithCommands,
         );
@@ -997,7 +982,7 @@ export default class KeyBrowserUI extends UIComponentBase {
         const keyGrid = this.document.createElement("div");
         keyGrid.className = "key-grid-subsection";
 
-        bindsetData.keys.forEach((keyName) => {
+        sectionKeys.forEach((keyName) => {
           const keyElement = this.createKeyElement(keyName, bindsetName);
           keyGrid.appendChild(keyElement);
         });
@@ -1486,15 +1471,12 @@ export default class KeyBrowserUI extends UIComponentBase {
   /**
    * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState({ sender, state }) {
+  handleInitialState(reply) {
+    super.handleInitialState(reply);
+    const { sender, state } = reply;
+
     // Restore selection from SelectionService late-join
     if (sender === "SelectionService") {
-      if (state.selectedKey) {
-        // Call the same logic as the key-selected event handler
-        // Selected key now tracked by ComponentBase in this.cache.selectedKey
-        this.render();
-      }
-      // Optionally handle selectedAlias if needed for future alias mode
       return;
     }
     // Handle environment state from various sources
@@ -1504,10 +1486,6 @@ export default class KeyBrowserUI extends UIComponentBase {
     if (env) {
       // Environment now tracked by ComponentBase in this.cache.currentEnvironment
       this.toggleVisibility(env);
-      // Render if not in alias mode
-      if (env !== "alias") {
-        this.render();
-      }
     }
     // Service state is now managed internally via events - no direct access needed
   }

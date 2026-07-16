@@ -37,6 +37,14 @@ async function exerciseComponentRpc() {
   component.request("preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Preference snapshots arrive through broadcasts and late join.
   component.request("preferences:get-settings");
+  // @ts-expect-error Primary key maps come from accepted DataCoordinator snapshots.
+  component.request("key:get-all");
+  // @ts-expect-error Available bindsets arrive through cached owner state.
+  component.request("bindset:get-available");
+  // @ts-expect-error Bindset collapse reads remain internal service helpers.
+  component.request("bindset:get-collapsed-state", {
+    bindsetName: "Primary Bindset",
+  });
 
   component.respond("parser:clear-cache", () => ({ success: true }));
   // @ts-expect-error Responder results are selected by their topic.
@@ -47,6 +55,12 @@ async function exerciseComponentRpc() {
   component.respond("preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.
   component.respond("preferences:get-settings", () => ({}));
+  // @ts-expect-error Retired key-map queries cannot regain responders.
+  component.respond("key:get-all", () => ({}));
+  // @ts-expect-error Retired bindset-list queries cannot regain responders.
+  component.respond("bindset:get-available", () => []);
+  // @ts-expect-error Retired collapse-state queries cannot regain responders.
+  component.respond("bindset:get-collapsed-state", () => false);
 }
 
 declare const dynamicEvent: DynamicEventTopic<

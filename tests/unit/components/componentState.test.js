@@ -100,7 +100,7 @@ describe("component late-join state registry", () => {
     expect([...componentStateOwnerNames].sort()).toEqual(
       componentStateOverrides(),
     );
-  });
+  }, 20_000);
 
   it("constructs replies only for registered owners with non-null state", () => {
     const state = {

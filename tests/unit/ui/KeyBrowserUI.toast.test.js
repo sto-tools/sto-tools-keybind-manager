@@ -70,11 +70,6 @@ describe("KeyBrowserUI Toast Tests", () => {
     // Set up spies BEFORE initializing
     showToastSpy = vi.spyOn(component, "showToast");
 
-    // Mock request responses for key operations
-    fixture.mockResponse("key:get-all", async () => ({
-      keys: {},
-    }));
-
     fixture.mockResponse("key:delete", async ({ key }) => {
       return {
         success: true,
@@ -128,7 +123,6 @@ describe("KeyBrowserUI Toast Tests", () => {
         autoInit: false,
       });
 
-      failureFixture.mockResponse("key:get-all", async () => ({ keys: {} }));
       failureFixture.mockResponse("key:delete", async ({ key }) => {
         expect(key).toBe("testKey");
         return {
@@ -190,7 +184,6 @@ describe("KeyBrowserUI Toast Tests", () => {
         autoInit: false,
       });
 
-      failureFixture.mockResponse("key:get-all", async () => ({ keys: {} }));
       const failureComponent = failureFixture.component;
       failureComponent.confirmDialog = {
         confirm: vi.fn(() => Promise.resolve(true)),
