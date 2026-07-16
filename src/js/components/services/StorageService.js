@@ -522,7 +522,7 @@ export default class StorageService extends ComponentBase {
 
   /**
    * Get current state for late-join support
-   * @returns {Object} The storage service instance
+   * @returns {import('../../types/events/component-state.js').ComponentState<'StorageService'>}
    */
   getCurrentState() {
     return {

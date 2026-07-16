@@ -25,7 +25,7 @@ export interface UiEventProtocol {
   "vfx:show-modal": null;
   "component:register": {
     name: string;
-    replyTopic: ComponentReplyTopic<string, unknown>;
+    replyTopic: ComponentReplyTopic;
   };
   "modal:hidden": { modalId: string; success: boolean };
   "modal:regenerated": { modalId: string };

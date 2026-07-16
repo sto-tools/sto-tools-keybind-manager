@@ -8,6 +8,7 @@ export default class BindsetSelectorService extends ComponentBase {
     super(eventBus);
     this.componentName = "BindsetSelectorService";
 
+    /** @type {Map<string, boolean>} */
     this.keyBindsetMembership = new Map(); // bindset -> has key boolean
 
     // Initialize KeyService for key normalization
@@ -450,6 +451,7 @@ export default class BindsetSelectorService extends ComponentBase {
   }
 
   // Late-join state sharing
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'BindsetSelectorService'>} */
   getCurrentState() {
     return {
       selectedKey: this.cache.selectedKey,
@@ -462,11 +464,9 @@ export default class BindsetSelectorService extends ComponentBase {
   }
 
   // Late-join state handler
-  /**
-   * @param {string} sender
-   * @param {{ bindsets?: string[] } | null | undefined} state
-   */
-  handleInitialState(sender, state) {
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  handleInitialState(reply) {
+    const { sender, state } = reply;
     console.log(
       "[BindsetSelectorService] handleInitialState called:",
       sender,

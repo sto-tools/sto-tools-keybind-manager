@@ -1,4 +1,5 @@
 import type { Environment } from "./base.js";
+import type { ComponentStateReply } from "./component-state.js";
 
 declare const dynamicEventTopicBrand: unique symbol;
 
@@ -17,23 +18,16 @@ export type DynamicEventTopic<Payload, Family extends string> = string & {
 export type DynamicEventPayload<Topic> =
   Topic extends DynamicEventTopic<infer Payload, string> ? Payload : never;
 
-export interface ComponentStateReply<Sender extends string, State> {
-  sender: Sender;
-  state: State;
-}
-
 /**
- * State is intentionally generic: the late-join snapshot is discriminated by
- * sender and cannot honestly be widened to one common object shape.
+ * Component instances combine the current timestamp with a monotonic sequence
+ * so two registrations in the same millisecond still receive distinct topics.
  */
-export type ComponentReplyTopic<
-  Sender extends string,
-  State,
-> = `component:registered:reply:${string}:${number}` &
-  DynamicEventTopic<
-    ComponentStateReply<Sender, State>,
-    "component-late-join-reply"
-  >;
+export type ComponentReplyToken = `${number}-${number}`;
+
+/** One dynamic reply topic carrying the sender-discriminated state union. */
+export type ComponentReplyTopic =
+  `component:registered:reply:${string}:${ComponentReplyToken}` &
+    DynamicEventTopic<ComponentStateReply, "component-late-join-reply">;
 
 export type RpcRequestId = `${number}_${string}`;
 

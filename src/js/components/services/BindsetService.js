@@ -67,6 +67,7 @@ export default class BindsetService extends ComponentBase {
   }
 
   // Late-join state sharing
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'BindsetService'>} */
   getCurrentState() {
     return {
       bindsets: [...this.serviceCache.bindsetNames],
@@ -79,11 +80,9 @@ export default class BindsetService extends ComponentBase {
   }
 
   // Handle initial state from DataCoordinator
-  /**
-   * @param {string} sender
-   * @param {{ currentProfileData?: import('./serviceTypes.js').ProfileData } | null | undefined} state
-   */
-  handleInitialState(sender, state) {
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  handleInitialState(reply) {
+    const { sender, state } = reply;
     console.log("[BindsetService] handleInitialState called:", sender, !!state);
 
     if (sender === "DataCoordinator" && state?.currentProfileData) {

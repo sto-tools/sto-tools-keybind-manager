@@ -1970,16 +1970,9 @@ export default class CommandChainUI extends UIComponentBase {
 
   // Late-join: sync environment if InterfaceModeService broadcasts its snapshot before we registered our listeners.
   /**
-   * @param {string} sender
-   * @param {{
-   *   environment?: string,
-   *   currentEnvironment?: string,
-   *   bindsets?: string[] | Set<string>
-   * } | null | undefined} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
-    if (!state) return;
-
+  handleInitialState({ sender, state }) {
     // NEW: Handle BindsetSelectorService state
     if (sender === "BindsetSelectorService") {
       console.log(
@@ -2003,11 +1996,13 @@ export default class CommandChainUI extends UIComponentBase {
     // Only accept environment updates from authoritative sources
     const canUpdateEnvironment =
       sender === "InterfaceModeService" || sender === "DataCoordinator";
+    const environment = canUpdateEnvironment
+      ? "environment" in state
+        ? state.environment
+        : state.currentEnvironment
+      : undefined;
 
-    if (
-      (state.environment || state.currentEnvironment) &&
-      canUpdateEnvironment
-    ) {
+    if (environment) {
       // ComponentBase automatically handles environment caching
       this.updateChainActions();
       // Render to show appropriate empty state for the environment
@@ -2015,10 +2010,8 @@ export default class CommandChainUI extends UIComponentBase {
     }
 
     // Pick up bindset info from late-join broadcasts
-    if (state.bindsets) {
-      this._bindsetNames = Array.isArray(state.bindsets)
-        ? state.bindsets
-        : [...state.bindsets];
+    if (sender === "BindsetService") {
+      this._bindsetNames = state.bindsets;
     }
 
     // ComponentBase now handles PreferencesService late-join automatically

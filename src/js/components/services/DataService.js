@@ -209,6 +209,7 @@ export default class DataService extends ComponentBase {
   }
 
   // Provide current state for late-join handshake
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'DataService'>} */
   getCurrentState() {
     return {
       defaultProfiles: validProfiles(this.data.defaultProfiles),

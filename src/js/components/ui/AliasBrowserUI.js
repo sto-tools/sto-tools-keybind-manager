@@ -459,22 +459,21 @@ export default class AliasBrowserUI extends UIComponentBase {
    * paint even if the environment was set long before this UI initialised.
    * ---------------------------------------------------------- */
   /**
-   * @param {string} sender
-   * @param {{ environment?: string, currentEnvironment?: string } | null | undefined} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
-    if (!state) return;
-
+  handleInitialState({ sender, state }) {
     // Handle environment state from InterfaceModeService or other components
-    if (state.environment || state.currentEnvironment) {
-      const env = state.environment || state.currentEnvironment;
+    const environment =
+      ("environment" in state ? state.environment : undefined) ||
+      ("currentEnvironment" in state ? state.currentEnvironment : undefined);
+    if (environment) {
       console.log(
         "[AliasBrowserUI] handleInitialState from",
         sender,
         "environment:",
-        env,
+        environment,
       );
-      this.toggleVisibility(env);
+      this.toggleVisibility(environment);
     }
   }
 

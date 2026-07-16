@@ -1,5 +1,8 @@
 import eventBus from "../../src/js/core/eventBus.js";
 import type {
+  ComponentReplyTopic,
+  ComponentState,
+  ComponentStateReply,
   DynamicEventTopic,
   EventPayload,
   EventTopic,
@@ -43,6 +46,9 @@ type ToastPayloadIsRegistered = Expect<
 >;
 type SelectionSnapshotIsRegisteredExactly = Expect<
   Equal<EventPayload<"selection:state-changed">, SelectionStateSnapshot>
+>;
+type SelectionLateJoinStateIsRegisteredExactly = Expect<
+  Equal<ComponentState<"SelectionService">, SelectionStateSnapshot>
 >;
 
 const bus: TypedEventBus = eventBus;
@@ -119,6 +125,46 @@ bus.emit(dynamicTopic, { value: 1 });
 // @ts-expect-error Branded dynamic topics carry their payload contract.
 bus.emit(dynamicTopic, { value: "one" });
 
+declare const componentReplyTopic: ComponentReplyTopic;
+bus.on(componentReplyTopic, (reply) => {
+  if (reply.sender === "SelectionService") {
+    reply.state.selectedKey?.toUpperCase();
+    reply.state.cachedSelections.space?.toUpperCase();
+    // @ts-expect-error Sender narrowing excludes BindsetService state.
+    reply.state.bindsets;
+  } else if (reply.sender === "BindsetService") {
+    reply.state.bindsets.map((name) => name.toUpperCase());
+    // @ts-expect-error Sender narrowing excludes SelectionService state.
+    reply.state.selectedKey;
+  }
+});
+bus.emit(componentReplyTopic, {
+  sender: "BindsetService",
+  state: { bindsets: ["Primary Bindset"] },
+});
+bus.emit(componentReplyTopic, {
+  sender: "SelectionService",
+  state: {
+    selectedKey: "F1",
+    selectedAlias: null,
+    editingContext: null,
+    cachedSelections: { space: "F1", ground: null, alias: null },
+    currentEnvironment: "space",
+  },
+});
+
+const mismatchedComponentReply: ComponentStateReply = {
+  sender: "SelectionService",
+  // @ts-expect-error The state must belong to the discriminating sender.
+  state: { bindsets: ["Primary Bindset"] },
+};
+
+const incompleteSelectionReply: ComponentStateReply = {
+  sender: "SelectionService",
+  // @ts-expect-error SelectionService replies require the complete snapshot.
+  state: { selectedKey: "F1" },
+};
+
 declare const unionDynamicTopic: DynamicEventTopic<
   { value: number } | { value: string },
   "union-fixture"
@@ -138,3 +184,6 @@ bus.emit(`store:${stringValue}`, "space");
 
 void ({} as RegistryContainsNoAnyPayload);
 void ({} as ToastPayloadIsRegistered);
+void ({} as SelectionLateJoinStateIsRegisteredExactly);
+void mismatchedComponentReply;
+void incompleteSelectionReply;

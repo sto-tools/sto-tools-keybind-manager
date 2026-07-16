@@ -34,14 +34,11 @@ export default class UIComponentBase extends ComponentBase {
   // Handle initial state from late-join handshake
   // Checks if pending render can now proceed with available data
   /**
-   * @param {string | undefined} sender
-   * @param {import('./ui/uiTypes.js').InitialState} state
+   * @param {import('../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
+  handleInitialState(reply) {
     // Call parent to handle common state caching (DataCoordinator, SelectionService)
-    if (sender) {
-      super.handleInitialState(sender, state);
-    }
+    super.handleInitialState(reply);
 
     // Check if we can now render with the received data
     if (this.pendingInitialRender && this.hasRequiredData()) {

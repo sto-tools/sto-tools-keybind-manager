@@ -31,7 +31,6 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
  */
 /** @typedef {{ environment?: string, newMode?: string, mode?: string }} EnvironmentChange */
 /** @typedef {{ key?: string, value?: unknown, changes?: Record<string, unknown> }} PreferenceChange */
-/** @typedef {{ selectedKey?: string, environment?: string, currentEnvironment?: string }} BrowserInitialState */
 
 /**
  * KeyBrowserUI – responsible for rendering the key grid (#keyGrid).
@@ -1485,12 +1484,9 @@ export default class KeyBrowserUI extends UIComponentBase {
 
   // Late-join: sync visibility when initial state snapshot is received.
   /**
-   * @param {string | undefined} sender
-   * @param {BrowserInitialState | null | undefined} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
-    if (!state) return;
-
+  handleInitialState({ sender, state }) {
     // Restore selection from SelectionService late-join
     if (sender === "SelectionService") {
       if (state.selectedKey) {
@@ -1502,7 +1498,9 @@ export default class KeyBrowserUI extends UIComponentBase {
       return;
     }
     // Handle environment state from various sources
-    const env = state.environment || state.currentEnvironment;
+    const env =
+      ("environment" in state ? state.environment : undefined) ||
+      ("currentEnvironment" in state ? state.currentEnvironment : undefined);
     if (env) {
       // Environment now tracked by ComponentBase in this.cache.currentEnvironment
       this.toggleVisibility(env);

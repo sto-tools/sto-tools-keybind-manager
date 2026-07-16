@@ -132,13 +132,20 @@ describe("UI typecheck runtime regressions", () => {
       .spyOn(ui, "updateCommandLibrary")
       .mockResolvedValue(undefined);
 
+    const profile = {
+      id: "profile-1",
+      environment: "space",
+    };
+
     ui._onInitialState({
       sender: "DataCoordinator",
       state: {
-        currentProfileData: {
-          id: "profile-1",
-          environment: "space",
-        },
+        currentProfile: "profile-1",
+        currentEnvironment: "space",
+        currentProfileData: profile,
+        profiles: { "profile-1": profile },
+        settings: {},
+        metadata: { lastModified: null, version: "1.0.0" },
       },
     });
 

@@ -457,11 +457,10 @@ export default class BindsetSelectorUI extends UIComponentBase {
 
   // Late-join state handler
   /**
-   * @param {string} sender
-   * @param {{ keyBindsetMembership?: Map<string, boolean>, shouldDisplay?: boolean } | null | undefined} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
-    if (sender === "BindsetSelectorService" && state) {
+  handleInitialState({ sender, state }) {
+    if (sender === "BindsetSelectorService") {
       console.log(
         "[BindsetSelectorUI] handleInitialState from BindsetSelectorService:",
         state,

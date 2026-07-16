@@ -862,6 +862,7 @@ export default class SelectionService extends ComponentBase {
   }
 
   // Return owned state for late-join synchronization
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'SelectionService'>} */
   getCurrentState() {
     return {
       selectedKey: this.cache.selectedKey,
@@ -873,19 +874,11 @@ export default class SelectionService extends ComponentBase {
   }
 
   // Handle initial state from other components during late-join
-  /** @param {string} sender @param {unknown} state */
-  async handleInitialState(sender, state) {
-    if (typeof state !== "object" || state === null) return;
-
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  async handleInitialState(reply) {
     // Handle state from DataCoordinator
-    if (
-      sender === "DataCoordinator" &&
-      Object.prototype.hasOwnProperty.call(state, "currentProfileData")
-    ) {
-      const coordinatorState =
-        /** @type {import('../../types/rpc/data.js').CurrentDataState} */ (
-          state
-        );
+    if (reply.sender === "DataCoordinator") {
+      const coordinatorState = reply.state;
       const profile = coordinatorState.currentProfileData;
 
       if (!profile) {

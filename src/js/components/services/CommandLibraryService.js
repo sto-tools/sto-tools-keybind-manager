@@ -421,11 +421,9 @@ export default class CommandLibraryService extends ComponentBase {
   }
 
   // ComponentBase late-join support for DataCoordinator integration
-  /**
-   * @param {string} sender
-   * @param {unknown} state
-   */
-  handleInitialState(sender, state) {
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  handleInitialState(reply) {
+    const { sender, state } = reply;
     // Handle VFX state from VFXManagerService
     if (sender === "VFXManagerService" && state) {
       console.log(

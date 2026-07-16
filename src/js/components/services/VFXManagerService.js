@@ -46,17 +46,15 @@ export default class VFXManagerService extends ComponentBase {
   }
 
   // Handle initial state from other components
-  /**
-   * @param {string} sender
-   * @param {{ currentProfileData?: VFXProfile } | null | undefined} state
-   */
-  handleInitialState(sender, state) {
-    if (!state) return;
-
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  handleInitialState(reply) {
     // Load VFX settings from DataCoordinator profile data
-    if (sender === "DataCoordinator" && state.currentProfileData) {
-      this.cache.currentProfile = state.currentProfileData.id ?? null;
-      this.loadState(state.currentProfileData);
+    if (reply.sender === "DataCoordinator") {
+      const { currentProfileData } = reply.state;
+      if (!currentProfileData) return;
+
+      this.cache.currentProfile = currentProfileData.id ?? null;
+      this.loadState(currentProfileData);
       console.log(
         `[${this.componentName}] Loaded initial VFX state from DataCoordinator via late-join`,
       );
@@ -500,6 +498,7 @@ export default class VFXManagerService extends ComponentBase {
   }
 
   // Get current state for late-join support
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'VFXManagerService'>} */
   getCurrentState() {
     return {
       selectedEffects: {

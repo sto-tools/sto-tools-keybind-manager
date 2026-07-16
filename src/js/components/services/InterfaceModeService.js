@@ -206,6 +206,7 @@ export default class InterfaceModeService extends ComponentBase {
   }
 
   // Provide serialisable snapshot representing current mode
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'InterfaceModeService'>} */
   getCurrentState() {
     return {
       currentMode: this._currentMode,
@@ -215,15 +216,11 @@ export default class InterfaceModeService extends ComponentBase {
   }
 
   // Handle initial state from other components during late-join handshake
-  /**
-   * @param {string} sender
-   * @param {{ currentEnvironment?: string, currentProfileData?: { currentEnvironment?: string } } | null | undefined} state
-   */
-  handleInitialState(sender, state) {
-    if (!state) return;
-
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  handleInitialState(reply) {
     // Initialize mode from DataCoordinator environment data
-    if (sender === "DataCoordinator") {
+    if (reply.sender === "DataCoordinator") {
+      const state = reply.state;
       // Extract environment from profile data or state
       const env =
         state.currentEnvironment ||

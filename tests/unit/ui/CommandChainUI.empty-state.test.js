@@ -271,7 +271,14 @@ describe("CommandChainUI Empty State", () => {
 
       // Simulate late-join environment state
       ui.cache.currentEnvironment = "alias"; // Manually set environment as ComponentBase would
-      ui.handleInitialState("InterfaceModeService", { environment: "alias" });
+      ui.handleInitialState({
+        sender: "InterfaceModeService",
+        state: {
+          currentMode: "alias",
+          environment: "alias",
+          currentEnvironment: "alias",
+        },
+      });
 
       // Wait for any promises to resolve
       await new Promise((resolve) => setTimeout(resolve, 0));

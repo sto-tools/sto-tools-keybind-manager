@@ -2,6 +2,7 @@ export * from "./aliases.js";
 export * from "./base.js";
 export * from "./bindsets.js";
 export * from "./commands.js";
+export * from "./component-state.js";
 export * from "./dynamic.js";
 export * from "./keys.js";
 export * from "./legacy-dom.js";

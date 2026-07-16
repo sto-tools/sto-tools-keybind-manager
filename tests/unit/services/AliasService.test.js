@@ -2,6 +2,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 import AliasService from "../../../src/js/components/services/AliasService.js";
+import {
+  createDataCoordinatorState,
+  createSelectionState,
+} from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
 
 describe("AliasService", () => {
@@ -365,8 +369,14 @@ describe("AliasService", () => {
     it("should handle initial state from other components", () => {
       const originalCache = { ...service.cache };
 
-      service.handleInitialState("DataCoordinator", { someState: "value" });
-      service.handleInitialState("SelectionService", { selectedAlias: "test" });
+      service.handleInitialState({
+        sender: "DataCoordinator",
+        state: createDataCoordinatorState(),
+      });
+      service.handleInitialState({
+        sender: "SelectionService",
+        state: createSelectionState({ selectedAlias: "test" }),
+      });
 
       expect(service.cache).toEqual(originalCache);
     });

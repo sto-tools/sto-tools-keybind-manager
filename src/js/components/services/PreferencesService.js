@@ -312,6 +312,7 @@ export default class PreferencesService extends ComponentBase {
   // Late-join state sharing
   // Provide current settings so late-joining components can use them without
   // making explicit RPC requests that may race the service startup.
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'PreferencesService'>} */
   getCurrentState() {
     return {
       settings: { ...this.settings },

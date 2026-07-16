@@ -227,16 +227,18 @@ export default class InterfaceModeUI extends UIComponentBase {
 
   // Late-join handshake: keep UI in sync with service state even if the relevant events fired before we registered.
   /**
-   * @param {string} sender
-   * @param {{ environment?: import('./uiTypes.js').Environment } | null | undefined} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
-    if (!state) return;
+  handleInitialState({ sender, state }) {
+    if (sender !== "InterfaceModeService") return;
+
+    const { environment } = state;
     if (
-      (sender === "InterfaceModeService" || state.environment) &&
-      state.environment
+      environment === "space" ||
+      environment === "ground" ||
+      environment === "alias"
     ) {
-      this.updateModeUI(state.environment);
+      this.updateModeUI(environment);
     }
   }
 }

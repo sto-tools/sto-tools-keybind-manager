@@ -93,6 +93,7 @@ export default class ParameterCommandService extends ComponentBase {
   }
 
   // Late-join state sync
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'ParameterCommandService'>} */
   getCurrentState() {
     return {
       editingContext: this.editingContext,

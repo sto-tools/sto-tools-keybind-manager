@@ -10,6 +10,10 @@ import {
   activeBindsetFromPayload,
   selectedKeyFromPayload,
 } from "../core/eventPayloads.js";
+import {
+  createComponentStateReply,
+  nextComponentReplyTopic,
+} from "../core/componentState.js";
 
 /** @typedef {typeof import('../core/eventBus.js').default} CoreEventBus */
 /** @typedef {CoreEventBus} EventBus */
@@ -20,7 +24,8 @@ import {
 /** @typedef {import('../types/events/protocol.js').EventTopicsAllowingOmittedPayload} NullableEventTopic */
 /** @typedef {import('../types/events/legacy-dom.js').LegacyDomMirrorTopic} LegacyDomMirrorTopic */
 /** @typedef {import('../types/events/dynamic.js').DynamicEventTopic<unknown, string>} AnyDynamicEventTopic */
-/** @typedef {import('../types/events/dynamic.js').ComponentReplyTopic<string, unknown>} AnyComponentReplyTopic */
+/** @typedef {import('../types/events/dynamic.js').ComponentReplyTopic} ComponentReplyTopic */
+/** @typedef {import('../types/events/component-state.js').ComponentStateReply} ComponentStateReply */
 /** @typedef {import('../types/rpc/transport.js').RpcReadyTopic} RpcReadyTopic */
 /** @typedef {import('../types/rpc/transport.js').RpcRequiredTopic} RpcRequiredTopic */
 /** @typedef {import('../types/rpc/transport.js').RpcOptionalTopic} RpcOptionalTopic */
@@ -29,18 +34,6 @@ import {
 /** @typedef {(data: unknown) => unknown} EventHandler */
 /** @typedef {(event: Event) => unknown} DomEventHandler */
 /** @typedef {(payload: unknown) => unknown | PromiseLike<unknown>} RawRpcHandler */
-/**
- * @typedef {{
- *   currentProfile?: string | null,
- *   currentProfileData?: import('./services/serviceTypes.js').ProfileData | null,
- *   currentEnvironment?: string
- * }} DataCoordinatorInitialState
- */
-/**
- * @typedef {import('../types/events/base.js').SelectionStateSnapshot} SelectionInitialState
- */
-/** @typedef {{ settings?: Record<string, unknown> }} PreferencesInitialState */
-/** @typedef {{ bindsets?: string[] }} BindsetInitialState */
 /**
  * Runtime-only event-bus erasure used inside the typed wrapper bodies. Public
  * component calls are governed by the overloads below, never by this surface.
@@ -101,7 +94,7 @@ export default class ComponentBase {
         alias: null,
       },
     };
-    /** @type {AnyComponentReplyTopic | ""} */
+    /** @type {ComponentReplyTopic | ""} */
     this._myReplyTopic = "";
     this._currentEnvironment = "space";
     this._currentProfileId = null;
@@ -143,9 +136,7 @@ export default class ComponentBase {
     );
 
     // 2) Prepare a unique reply topic for this component instance
-    this._myReplyTopic = /** @type {AnyComponentReplyTopic} */ (
-      `component:registered:reply:${this.getComponentName()}:${Date.now()}`
-    );
+    this._myReplyTopic = nextComponentReplyTopic(this.getComponentName());
     this.addEventListener(this._myReplyTopic, this._onInitialState.bind(this));
 
     // 3) Announce our readiness so existing components can reply
@@ -694,7 +685,7 @@ export default class ComponentBase {
   // Late-Join State Registration internal handlers
   // ---------------------------------------------------------
   /**
-   * @param {{ name?: string, replyTopic?: AnyComponentReplyTopic }} registration
+   * @param {{ name?: string, replyTopic?: ComponentReplyTopic }} registration
    */
   _onComponentRegister({ name, replyTopic } = {}) {
     // Ignore our own registration messages
@@ -702,10 +693,11 @@ export default class ComponentBase {
 
     // If we are active, provide our current state to the requester
     if (this.initialized && !this.destroyed && replyTopic) {
-      this.emit(replyTopic, {
-        sender: this.getComponentName(),
-        state: this.getCurrentState(),
-      });
+      const reply = createComponentStateReply(
+        this.getComponentName(),
+        this.getCurrentState(),
+      );
+      if (reply) this.emit(replyTopic, reply);
     }
   }
 
@@ -713,21 +705,18 @@ export default class ComponentBase {
    * Centralized handling of common state from DataCoordinator and SelectionService
    * This eliminates repetitive caching code in individual components
    */
-  /** @param {string} sender @param {unknown} state */
-  _handleInitialState(sender, state) {
+  /** @param {ComponentStateReply} reply */
+  _handleInitialState(reply) {
+    const { sender, state } = reply;
     if (!state) return;
 
     // Handle DataCoordinator state
     if (sender === "DataCoordinator") {
-      const coordinatorState = /** @type {DataCoordinatorInitialState} */ (
-        state
-      );
       // Handle profile ID from both sources
       const profileId =
-        coordinatorState.currentProfile ||
-        (coordinatorState.currentProfileData &&
-          coordinatorState.currentProfileData.id);
-      const profile = coordinatorState.currentProfileData;
+        state.currentProfile ||
+        (state.currentProfileData && state.currentProfileData.id);
+      const profile = state.currentProfileData;
 
       if (profileId) {
         // Cache profile ID
@@ -738,9 +727,9 @@ export default class ComponentBase {
         // Cache profile data
         this.cache.profile = profile;
         this.cache.currentEnvironment = profile.environment || "space";
-      } else if (coordinatorState.currentEnvironment) {
+      } else if (state.currentEnvironment) {
         // Handle environment without profile data
-        this.cache.currentEnvironment = coordinatorState.currentEnvironment;
+        this.cache.currentEnvironment = state.currentEnvironment;
       }
 
       // Cache build-specific data if profile exists
@@ -770,8 +759,7 @@ export default class ComponentBase {
 
     // Handle SelectionService state
     if (sender === "SelectionService" && state) {
-      const selectionState = /** @type {SelectionInitialState} */ (state);
-      this._cacheSelectionState(selectionState);
+      this._cacheSelectionState(state);
 
       console.log(
         `[ComponentBase] ${this.getComponentName()} cached SelectionService state:`,
@@ -785,19 +773,15 @@ export default class ComponentBase {
 
     // Handle PreferencesService state
     if (sender === "PreferencesService" && state) {
-      const preferencesState = /** @type {PreferencesInitialState} */ (state);
       // Cache preferences settings
-      if (
-        preferencesState.settings &&
-        typeof preferencesState.settings === "object"
-      ) {
-        Object.assign(this.cache.preferences, preferencesState.settings);
+      if (state.settings && typeof state.settings === "object") {
+        Object.assign(this.cache.preferences, state.settings);
         console.log(
           `[ComponentBase] ${this.getComponentName()} cached PreferencesService state:`,
           {
             bindToAliasMode: this.cache.preferences.bindToAliasMode,
             bindsetsEnabled: this.cache.preferences.bindsetsEnabled,
-            settingsCount: Object.keys(preferencesState.settings).length,
+            settingsCount: Object.keys(state.settings).length,
           },
         );
       }
@@ -805,10 +789,9 @@ export default class ComponentBase {
 
     // Handle BindsetService state
     if (sender === "BindsetService" && state) {
-      const bindsetState = /** @type {BindsetInitialState} */ (state);
       // Cache bindset names
-      if (bindsetState.bindsets && Array.isArray(bindsetState.bindsets)) {
-        this.cache.bindsetNames = bindsetState.bindsets;
+      if (state.bindsets && Array.isArray(state.bindsets)) {
+        this.cache.bindsetNames = state.bindsets;
         console.log(
           `[ComponentBase] ${this.getComponentName()} cached BindsetService state:`,
           {
@@ -819,7 +802,7 @@ export default class ComponentBase {
     }
   }
 
-  /** @param {SelectionInitialState} selectionState */
+  /** @param {import('../types/events/base.js').SelectionStateSnapshot} selectionState */
   _cacheSelectionState(selectionState) {
     this.cache.selectedKey = selectionState.selectedKey;
     this.cache.selectedAlias = selectionState.selectedAlias;
@@ -829,10 +812,10 @@ export default class ComponentBase {
   }
 
   /**
-   * @param {{ sender?: string, state?: unknown }} message
+   * @param {ComponentStateReply} message
    */
-  _onInitialState({ sender, state } = {}) {
-    if (!sender) return;
+  _onInitialState(message) {
+    const { sender, state } = message;
 
     if (typeof window !== "undefined") {
       console.log(
@@ -842,11 +825,11 @@ export default class ComponentBase {
     }
 
     // Handle common state first
-    this._handleInitialState(sender, state);
+    this._handleInitialState(message);
 
     // Then call component-specific handler
     if (typeof this.handleInitialState === "function") {
-      this.handleInitialState(sender, state);
+      this.handleInitialState(message);
     }
   }
 
@@ -863,11 +846,10 @@ export default class ComponentBase {
    * Optional hook invoked when another component sends its initial state
    * during the late-join handshake. Subclasses can override to merge or
    * process the provided state.
-   * @param {string} sender - Name of the component that sent the state
-   * @param {unknown} state - Serializable state snapshot
+   * @param {ComponentStateReply} reply - Sender-discriminated state snapshot
    */
   /* eslint-disable-next-line */
-  handleInitialState(sender, state) {
+  handleInitialState(reply) {
     // No-op by default. Override in subclasses if needed.
   }
 

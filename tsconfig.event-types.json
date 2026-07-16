@@ -15,6 +15,7 @@
   "include": [
     "src/js/core/eventBus.js",
     "src/js/types/events/**/*.d.ts",
+    "tests/fixtures/core/componentState.js",
     "tests/types/component-protocol.type-test.ts",
     "tests/types/event-protocol.type-test.ts"
   ]

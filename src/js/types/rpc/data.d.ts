@@ -13,6 +13,7 @@ import type {
   Settings,
   StoredCommand,
 } from "./base.js";
+import type { DataCoordinatorStateSnapshot } from "../events/component-state.js";
 
 export type ProfileCreatedResult = {
   success: true;
@@ -28,17 +29,7 @@ export type ProfileSwitchResult = {
   profile: Profile | null;
 };
 
-export type CurrentDataState = {
-  currentProfile: string | null;
-  currentEnvironment: string;
-  currentProfileData: Profile | null;
-  profiles: Record<string, Profile>;
-  settings: Settings;
-  metadata: {
-    lastModified: string | null | undefined;
-    version: string;
-  };
-};
+export type CurrentDataState = DataCoordinatorStateSnapshot;
 
 export type ProfileUpdateRequest = {
   profileId: string;

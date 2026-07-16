@@ -819,6 +819,7 @@ export default class ExportService extends ComponentBase {
   }
 
   // Late-join state sync
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'ExportService'>} */
   getCurrentState() {
     return {
       currentProfile: this.cache.currentProfile,
@@ -827,13 +828,9 @@ export default class ExportService extends ComponentBase {
     };
   }
 
-  /**
-   * @param {string} sender
-   * @param {unknown} state
-   */
-  handleInitialState(sender, state) {
-    void sender;
-    void state;
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  handleInitialState(reply) {
+    void reply;
   }
 
   // Utility

@@ -180,11 +180,10 @@ export default class BindsetManagerUI extends UIComponentBase {
 
   // Late-join support
   /**
-   * @param {string} sender
-   * @param {{ bindsets?: string[] } | null | undefined} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
-    if (state && state.bindsets) {
+  handleInitialState({ state }) {
+    if ("bindsets" in state && state.bindsets) {
       // ComponentBase automatically handles bindset names via bindsets:changed event
       // Re-render if UI already initialized
       if (this.isInitialized()) this.render();

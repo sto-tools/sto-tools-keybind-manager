@@ -30,6 +30,13 @@ describe("PreferencesService", () => {
     expect(settings).toHaveProperty("language", "en");
   });
 
+  it("returns a detached settings snapshot for late joiners", () => {
+    const state = service.getCurrentState();
+
+    expect(state).toEqual({ settings: service.getSettings() });
+    expect(state.settings).not.toBe(service.settings);
+  });
+
   it("setSetting persists to storage and emits preferences:changed", () => {
     const spySave = fixture.storage.saveSettings;
     service.setSetting("theme", "dark");

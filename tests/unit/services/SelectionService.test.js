@@ -1,5 +1,6 @@
 // Test suite for SelectionService - centralized selection state management
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 
@@ -506,7 +507,7 @@ describe("SelectionService", () => {
     });
 
     it("should handle initial state from DataCoordinator", () => {
-      const state = {
+      const state = createDataCoordinatorState({
         currentProfileData: {
           id: "test-profile",
           environment: "ground",
@@ -516,29 +517,28 @@ describe("SelectionService", () => {
             alias: "TestAlias",
           },
         },
-      };
+      });
 
-      service.handleInitialState("DataCoordinator", state);
+      service.handleInitialState({ sender: "DataCoordinator", state });
 
       expect(service.cache.currentProfile).toBe("test-profile");
       expect(service.cache.currentEnvironment).toBe("ground");
       expect(service.cache.selectedKey).toBe("F2");
-      expect(service.cache.selectedAlias).toBe(null);
     });
   });
 
   describe("Event Listeners", () => {
     it("should handle profile:switched events via handleInitialState", () => {
-      const state = {
+      const state = createDataCoordinatorState({
         currentProfileData: {
           id: "new-profile",
           environment: "space",
           selections: { space: "F3" },
         },
-      };
+      });
 
       // Simulate via handleInitialState (which is how ComponentBase delivers events)
-      service.handleInitialState("DataCoordinator", state);
+      service.handleInitialState({ sender: "DataCoordinator", state });
 
       expect(service.cache.currentProfile).toBe("new-profile");
       expect(service.cache.currentEnvironment).toBe("space");

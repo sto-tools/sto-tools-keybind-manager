@@ -817,6 +817,7 @@ export default class CommandChainService extends ComponentBase {
   }
 
   // Get current state for ComponentBase late-join system
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'CommandChainService'>} */
   getCurrentState() {
     return {
       commands: this.commands,
@@ -1076,15 +1077,12 @@ export default class CommandChainService extends ComponentBase {
   }
 
   // Handle initial state - ComponentBase now handles PreferencesService automatically
-  /**
-   * @param {string} sender
-   * @param {Record<string, unknown> | null | undefined} state
-   */
-  handleInitialState(sender, state) {
-    super.handleInitialState(sender, state);
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  handleInitialState(reply) {
+    super.handleInitialState(reply);
 
     // ComponentBase automatically handles PreferencesService late-join
-    if (sender === "PreferencesService" && this.cache.preferences) {
+    if (reply.sender === "PreferencesService" && this.cache.preferences) {
       console.log(
         `[CommandChainService] Preferences received via ComponentBase: bindToAliasMode = ${this.cache.preferences.bindToAliasMode}`,
       );

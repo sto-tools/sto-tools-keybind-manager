@@ -1,0 +1,154 @@
+import type {
+  AliasMap,
+  CommandList,
+  PreferencesSettings,
+  ProfileData,
+  ProfileMap,
+  SelectionStateSnapshot,
+  VfxSettingsSnapshot,
+} from "./base.js";
+
+/** Complete late-join snapshot published by DataCoordinator. */
+export interface DataCoordinatorStateSnapshot {
+  currentProfile: string | null;
+  currentEnvironment: string;
+  currentProfileData: ProfileData | null;
+  profiles: ProfileMap;
+  settings: Record<string, unknown>;
+  metadata: {
+    lastModified: string | null | undefined;
+    version: string;
+  };
+}
+
+export interface DataServiceStateSnapshot {
+  defaultProfiles: ProfileMap;
+  hasCommands: boolean;
+  dataAvailable: boolean;
+}
+
+export interface BindsetSelectorPreferencesSnapshot
+  extends Record<string, unknown> {
+  bindsetsEnabled?: boolean;
+  bindToAliasMode?: boolean;
+  autoSync?: boolean;
+  autoSyncInterval?: string;
+  translateGeneratedMessages?: boolean;
+}
+
+export interface BindsetSelectorStateSnapshot {
+  selectedKey: string | null;
+  activeBindset: string | undefined;
+  bindsetNames: string[];
+  keyBindsetMembership: Map<string, boolean>;
+  shouldDisplay: boolean;
+  preferences: BindsetSelectorPreferencesSnapshot;
+}
+
+export interface BindsetStateSnapshot {
+  bindsets: string[];
+}
+
+export interface CommandChainStateSnapshot {
+  commands: CommandList;
+}
+
+export interface ExportStateSnapshot {
+  currentProfile: string | null;
+  currentEnvironment: string;
+  profiles: ProfileMap;
+}
+
+export interface InterfaceModeStateSnapshot {
+  currentMode: string;
+  environment: string;
+  currentEnvironment: string;
+}
+
+export interface ParameterCommandStateSnapshot {
+  editingContext: {
+    isEditing: boolean;
+    editIndex: number;
+    existingCommand: unknown;
+  } | null;
+}
+
+export interface PreferencesStateSnapshot {
+  settings: PreferencesSettings;
+}
+
+/**
+ * Structural storage capability retained by the legacy late-join snapshot.
+ * Naming the concrete StorageService here would recursively couple the event
+ * registry back through ComponentBase.
+ */
+export interface StorageServiceCapability {
+  isInitialized(): boolean;
+  getAllData(forceFresh?: boolean): unknown;
+  saveAllData(data: unknown): boolean;
+  getProfile(profileId: string): unknown;
+  saveProfile(profileId: string, profile: unknown): boolean;
+  deleteProfile(profileId: string): boolean;
+  getSettings(): unknown;
+  saveSettings(settings: Record<string, unknown>): boolean;
+  createBackup(): void;
+  clearAllData(): boolean;
+}
+
+export interface StorageStateSnapshot {
+  service: StorageServiceCapability;
+  isReady: boolean;
+}
+
+export interface CommandLibraryUiStateSnapshot {
+  aliases: AliasMap;
+  currentProfile: string | null;
+  currentEnvironment: string;
+  selectedKey: string | null;
+  selectedAlias: string | null;
+}
+
+export interface ProfileUiStateSnapshot {
+  currentProfile: string | null;
+  currentEnvironment: string;
+  modified: boolean;
+}
+
+/** Every component that currently overrides ComponentBase.getCurrentState. */
+export interface ComponentStateProtocol {
+  BindsetSelectorService: BindsetSelectorStateSnapshot;
+  BindsetService: BindsetStateSnapshot;
+  CommandChainService: CommandChainStateSnapshot;
+  DataCoordinator: DataCoordinatorStateSnapshot;
+  DataService: DataServiceStateSnapshot;
+  ExportService: ExportStateSnapshot;
+  InterfaceModeService: InterfaceModeStateSnapshot;
+  ParameterCommandService: ParameterCommandStateSnapshot;
+  PreferencesService: PreferencesStateSnapshot;
+  SelectionService: SelectionStateSnapshot;
+  StorageService: StorageStateSnapshot;
+  VFXManagerService: VfxSettingsSnapshot;
+  CommandLibraryUI: CommandLibraryUiStateSnapshot;
+  ProfileUI: ProfileUiStateSnapshot;
+}
+
+export type ComponentStateSender = Extract<
+  keyof ComponentStateProtocol,
+  string
+>;
+
+export type ComponentState<Sender extends ComponentStateSender> =
+  ComponentStateProtocol[Sender];
+
+/**
+ * A mapped union keeps sender and state correlated when Sender is a union.
+ * A plain `{ sender: Sender; state: ComponentState<Sender> }` would not narrow.
+ */
+export type ComponentStateReply<
+  Sender extends ComponentStateSender = ComponentStateSender,
+> = {
+  [CurrentSender in Sender]: {
+    sender: CurrentSender;
+    state: ComponentStateProtocol[CurrentSender];
+  };
+}[Sender];

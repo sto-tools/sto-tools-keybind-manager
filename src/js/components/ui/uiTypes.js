@@ -59,8 +59,6 @@
  *
  * @typedef {{ environment?: Environment, newMode?: Environment, mode?: Environment }} EnvironmentPayload
  *
- * @typedef {Record<string, unknown> | null | undefined} InitialState
- *
  * @typedef {{
  *   success?: boolean,
  *   error?: string,

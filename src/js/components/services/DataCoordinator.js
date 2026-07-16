@@ -405,7 +405,7 @@ export default class DataCoordinator extends ComponentBase {
 
   /**
    * Get current complete state (ComponentBase late-join method)
-   * @returns {import('../../types/rpc/data.js').CurrentDataState}
+   * @returns {import('../../types/events/component-state.js').ComponentState<'DataCoordinator'>}
    */
   getCurrentState() {
     // Build current profile data for late-join
@@ -1351,21 +1351,18 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   // Handle initial state from other components during late-join handshake
-  /**
-   * @param {string} sender
-   * @param {unknown} state
-   */
-  async handleInitialState(sender, state) {
+  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
+  async handleInitialState(reply) {
     console.log(
-      `[${this.componentName}] handleInitialState called - sender: "${sender}", needsDefaultProfiles: ${this.needsDefaultProfiles}`,
+      `[${this.componentName}] handleInitialState called - sender: "${reply.sender}", needsDefaultProfiles: ${this.needsDefaultProfiles}`,
     );
     console.log(
-      `[${this.componentName}] Received state from ${sender}:`,
-      state,
+      `[${this.componentName}] Received state from ${reply.sender}:`,
+      reply.state,
     );
 
     // If DataService is providing state and we need default profiles, try creating them
-    if (sender === "DataService" && this.needsDefaultProfiles) {
+    if (reply.sender === "DataService" && this.needsDefaultProfiles) {
       console.log(
         `[${this.componentName}] DataService is now available, trying to create default profiles...`,
       );

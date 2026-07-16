@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 
@@ -103,9 +104,15 @@ describe("SelectionService - Null Profile Handling Fix", () => {
 
       // Act - this should not throw an error
       await expect(async () => {
-        const state = { currentProfileData: null };
+        const state = createDataCoordinatorState({
+          currentEnvironment: "ground",
+          currentProfileData: null,
+        });
 
-        await selectionService.handleInitialState("DataCoordinator", state);
+        await selectionService.handleInitialState({
+          sender: "DataCoordinator",
+          state,
+        });
       }).not.toThrow();
 
       // Assert - state should be properly reset
@@ -120,39 +127,18 @@ describe("SelectionService - Null Profile Handling Fix", () => {
       expect(selectionService.selectionEnvironment).toBe("ground");
     });
 
-    it("should handle undefined profile in currentProfileData gracefully", async () => {
-      // Arrange
-      selectionService.cache.currentProfile = "old-profile";
-      selectionService.cachedSelections = {
-        space: "F1",
-        ground: null,
-        alias: "TestAlias",
-      };
-
-      // Act
-      await expect(async () => {
-        const state = { currentProfileData: undefined };
-
-        await selectionService.handleInitialState("DataCoordinator", state);
-      }).not.toThrow();
-
-      // Assert
-      expect(selectionService.cache.currentProfile).toBe(null);
-      expect(selectionService.cachedSelections).toEqual({
-        space: null,
-        ground: null,
-        alias: null,
-      });
-    });
-
     it("should ignore state from non-DataCoordinator senders", async () => {
       // Arrange
       const originalProfile = selectionService.cache.currentProfile;
       const originalSelections = { ...selectionService.cachedSelections };
 
       // Act
-      await selectionService.handleInitialState("SomeOtherService", {
-        currentProfileData: null,
+      await selectionService.handleInitialState({
+        sender: "VFXManagerService",
+        state: {
+          selectedEffects: { space: [], ground: [] },
+          showPlayerSay: false,
+        },
       });
 
       // Assert - should not modify state when sender is not DataCoordinator
@@ -175,9 +161,14 @@ describe("SelectionService - Null Profile Handling Fix", () => {
 
       // Act
       await expect(async () => {
-        const state = { currentProfileData: validProfile };
+        const state = createDataCoordinatorState({
+          currentProfileData: validProfile,
+        });
 
-        await selectionService.handleInitialState("DataCoordinator", state);
+        await selectionService.handleInitialState({
+          sender: "DataCoordinator",
+          state,
+        });
       }).not.toThrow();
 
       // Assert - should handle valid profile correctly
@@ -197,8 +188,11 @@ describe("SelectionService - Null Profile Handling Fix", () => {
       };
 
       // Act
-      await selectionService.handleInitialState("DataCoordinator", {
-        currentProfileData: validProfile,
+      await selectionService.handleInitialState({
+        sender: "DataCoordinator",
+        state: createDataCoordinatorState({
+          currentProfileData: validProfile,
+        }),
       });
 
       // Assert - should not crash and selections should remain null

@@ -84,9 +84,9 @@ export default class HeaderToolbarUI extends UIComponentBase {
   /**
    * Handle late-join state from other components
    * ComponentBase now handles PreferencesService automatically
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  /** @param {string} sender */
-  handleInitialState(sender) {
+  handleInitialState({ sender }) {
     // ComponentBase automatically handles PreferencesService late-join
     if (sender === "PreferencesService" && this.cache.preferences) {
       console.log(

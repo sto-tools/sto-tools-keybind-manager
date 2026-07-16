@@ -1,13 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import eventBus from "../../../src/js/core/eventBus.js";
+import {
+  createDataCoordinatorState,
+  createPreferencesState,
+} from "../../fixtures/core/componentState.js";
 
 class DataCoordinator extends ComponentBase {
   getCurrentState() {
-    return {
-      currentProfile: "captain",
-      currentEnvironment: "ground",
+    return createDataCoordinatorState({
       currentProfileData: {
         id: "captain",
         environment: "ground",
@@ -17,7 +19,7 @@ class DataCoordinator extends ComponentBase {
         },
         aliases: { engage: { commands: ["FireAll"] } },
       },
-    };
+    });
   }
 }
 
@@ -27,8 +29,8 @@ class LateJoinConsumer extends ComponentBase {
     this.receivedStates = [];
   }
 
-  handleInitialState(sender, state) {
-    this.receivedStates.push({ sender, state });
+  handleInitialState(reply) {
+    this.receivedStates.push(reply);
   }
 }
 
@@ -44,6 +46,28 @@ class SelectionService extends ComponentBase {
   }
 }
 
+class PreferencesService extends ComponentBase {
+  getCurrentState() {
+    return createPreferencesState({
+      theme: "dark",
+      bindToAliasMode: true,
+      bindsetsEnabled: true,
+    });
+  }
+}
+
+class StatelessComponent extends ComponentBase {}
+
+class RogueStateOwner extends ComponentBase {
+  getCurrentState() {
+    return { rogue: true };
+  }
+}
+
+function repliesFrom(consumer, sender) {
+  return consumer.receivedStates.filter((reply) => reply.sender === sender);
+}
+
 describe("ComponentBase late-join state synchronization", () => {
   const components = [];
 
@@ -52,6 +76,7 @@ describe("ComponentBase late-join state synchronization", () => {
       if (!component.destroyed) component.destroy();
     }
     components.length = 0;
+    vi.restoreAllMocks();
     eventBus.clear();
   });
 
@@ -73,6 +98,75 @@ describe("ComponentBase late-join state synchronization", () => {
       sender: "DataCoordinator",
       state: coordinator.getCurrentState(),
     });
+  });
+
+  it("hydrates preferences from an existing state owner", () => {
+    const preferencesService = new PreferencesService(eventBus);
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(preferencesService, consumer);
+
+    preferencesService.init();
+    consumer.init();
+
+    expect(consumer.cache.preferences).toMatchObject({
+      theme: "dark",
+      bindToAliasMode: true,
+      bindsetsEnabled: true,
+    });
+    expect(consumer.receivedStates).toContainEqual({
+      sender: "PreferencesService",
+      state: preferencesService.getCurrentState(),
+    });
+  });
+
+  it("isolates same-class reply topics created in the same millisecond", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+
+    const coordinator = new DataCoordinator(eventBus);
+    const firstConsumer = new LateJoinConsumer(eventBus);
+    const secondConsumer = new LateJoinConsumer(eventBus);
+    components.push(coordinator, firstConsumer, secondConsumer);
+
+    coordinator.init();
+    firstConsumer.init();
+    secondConsumer.init();
+
+    expect(firstConsumer._myReplyTopic).not.toBe(secondConsumer._myReplyTopic);
+    expect(repliesFrom(firstConsumer, "DataCoordinator")).toHaveLength(1);
+    expect(repliesFrom(secondConsumer, "DataCoordinator")).toHaveLength(1);
+  });
+
+  it("does not send the default null state over a reply topic", () => {
+    const stateless = new StatelessComponent(eventBus);
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(stateless, consumer);
+
+    stateless.init();
+    const emit = vi.spyOn(stateless, "emit");
+    consumer.init();
+
+    expect(stateless.getCurrentState()).toBeNull();
+    expect(repliesFrom(consumer, "StatelessComponent")).toHaveLength(0);
+    expect(
+      emit.mock.calls.filter(([topic]) => topic === consumer._myReplyTopic),
+    ).toHaveLength(0);
+  });
+
+  it("does not send non-null state from an unregistered owner", () => {
+    const rogue = new RogueStateOwner(eventBus);
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(rogue, consumer);
+
+    rogue.init();
+    const getCurrentState = vi.spyOn(rogue, "getCurrentState");
+    const emit = vi.spyOn(rogue, "emit");
+    consumer.init();
+
+    expect(getCurrentState).toHaveBeenCalledOnce();
+    expect(
+      emit.mock.calls.filter(([topic]) => topic === consumer._myReplyTopic),
+    ).toHaveLength(0);
+    expect(repliesFrom(consumer, "RogueStateOwner")).toHaveLength(0);
   });
 
   it("keeps the hydrated cache current through subsequent broadcasts", () => {
@@ -164,5 +258,48 @@ describe("ComponentBase late-join state synchronization", () => {
     eventBus.emit("environment:changed", { environment: "space" });
 
     expect(consumer.cache.currentEnvironment).toBe("ground");
+  });
+
+  it("detaches the dynamic reply listener during consumer teardown", () => {
+    const coordinator = new DataCoordinator(eventBus);
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(coordinator, consumer);
+
+    coordinator.init();
+    consumer.init();
+
+    const replyTopic = consumer._myReplyTopic;
+    const cacheAtDestroy = structuredClone(consumer.cache);
+    const repliesAtDestroy = consumer.receivedStates.length;
+    consumer.destroy();
+
+    expect(eventBus.hasListeners(replyTopic)).toBe(false);
+
+    eventBus.emit(replyTopic, {
+      sender: "DataCoordinator",
+      state: createDataCoordinatorState({
+        currentProfile: "post-destroy",
+        currentEnvironment: "space",
+        currentProfileData: null,
+      }),
+    });
+
+    expect(consumer.cache).toEqual(cacheAtDestroy);
+    expect(consumer.receivedStates).toHaveLength(repliesAtDestroy);
+  });
+
+  it("does not reply after a state owner is destroyed", () => {
+    const coordinator = new DataCoordinator(eventBus);
+    components.push(coordinator);
+    coordinator.init();
+    coordinator.destroy();
+
+    const getCurrentState = vi.spyOn(coordinator, "getCurrentState");
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(consumer);
+    consumer.init();
+
+    expect(getCurrentState).not.toHaveBeenCalled();
+    expect(repliesFrom(consumer, "DataCoordinator")).toHaveLength(0);
   });
 });

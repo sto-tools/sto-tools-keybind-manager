@@ -603,6 +603,7 @@ export default class CommandLibraryUI extends UIComponentBase {
   }
 
   // Update local cache from profile data received from DataCoordinator
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'CommandLibraryUI'>} */
   getCurrentState() {
     return {
       aliases: this.cache.aliases,
@@ -615,11 +616,10 @@ export default class CommandLibraryUI extends UIComponentBase {
 
   // ComponentBase late-join support - handle initial state from other instances
   /**
-   * @param {string} senderName
-   * @param {{ currentProfileData?: object } | null | undefined} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(senderName, state) {
-    if (senderName === "DataCoordinator" && state?.currentProfileData) {
+  handleInitialState({ sender, state }) {
+    if (sender === "DataCoordinator" && state.currentProfileData) {
       // ComponentBase already handles caching, just update the UI
       this.updateCommandLibrary();
     }

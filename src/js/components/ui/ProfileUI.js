@@ -459,12 +459,9 @@ export default class ProfileUI extends UIComponentBase {
 
   // Late-join handshake – receive initial snapshot from services
   /**
-   * @param {string} sender
-   * @param {import('./uiTypes.js').InitialState} state
+   * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState(sender, state) {
-    if (!state) return;
-
+  handleInitialState({ sender }) {
     // ComponentBase handles caching, we just need to update the UI
     if (sender === "DataCoordinator") {
       // UI hydration
@@ -474,6 +471,7 @@ export default class ProfileUI extends UIComponentBase {
   }
 
   // Provide serialisable snapshot for other late-joiners (rarely needed)
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'ProfileUI'>} */
   getCurrentState() {
     return {
       currentProfile: this.cache.currentProfile,
