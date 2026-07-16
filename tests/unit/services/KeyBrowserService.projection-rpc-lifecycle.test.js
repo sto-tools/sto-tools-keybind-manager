@@ -4,7 +4,6 @@ import KeyBrowserService from "../../../src/js/components/services/KeyBrowserSer
 import { createServiceFixture } from "../../fixtures/index.js";
 
 const responderTopics = [
-  "key:get-all-sectional",
   "bindset:toggle-collapse",
   "key:categorize-by-command",
   "key:categorize-by-type",
@@ -13,13 +12,14 @@ const responderTopics = [
   "key:filter",
   "key:show-all",
   "key:toggle-category",
-  "key:get-category-state",
 ];
 
 const retiredTopics = [
   "key:get-all",
   "bindset:get-available",
   "bindset:get-collapsed-state",
+  "key:get-all-sectional",
+  "key:get-category-state",
 ];
 
 const expectResponderState = (eventBus, topics, expected) => {

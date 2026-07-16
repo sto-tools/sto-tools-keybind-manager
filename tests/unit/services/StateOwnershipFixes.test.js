@@ -10,6 +10,23 @@ import ParameterCommandService from "../../../src/js/components/services/Paramet
 import VFXManagerService from "../../../src/js/components/services/VFXManagerService.js";
 import AliasBrowserService from "../../../src/js/components/services/AliasBrowserService.js";
 
+const createEmptyKeyBrowserStorage = () => ({
+  length: 0,
+  key: () => null,
+  getItem: () => null,
+  setItem: () => {},
+});
+
+const emptyKeyBrowserViewState = () => ({
+  authorityEpoch: expect.any(Number),
+  revision: 0,
+  collapsedCategories: {
+    command: [],
+    keyType: [],
+  },
+  collapsedBindsets: [],
+});
+
 describe("Phase 1a: State Ownership Fixes", () => {
   let harness;
 
@@ -35,18 +52,26 @@ describe("Phase 1a: State Ownership Fixes", () => {
   });
 
   describe("KeyBrowserService getCurrentState()", () => {
-    it("should return empty state (no longer owns selection)", async () => {
+    it("should return only its owned view-collapse state", async () => {
       const service = new KeyBrowserService({
-        storage: harness.storage,
         eventBus: harness.eventBus,
-        ui: { showToast: () => {} },
+        localStorage: createEmptyKeyBrowserStorage(),
       });
       await service.init();
 
       const state = service.getCurrentState();
 
-      // Should return null (uses ComponentBase default implementation)
-      expect(state).toBe(null);
+      expect(state).toEqual(emptyKeyBrowserViewState());
+      expect(state.authorityEpoch).toBeGreaterThanOrEqual(1);
+
+      // Selection, profile, environment, and key data remain with their owners.
+      expect(state).not.toHaveProperty("selectedKey");
+      expect(state).not.toHaveProperty("selectedAlias");
+      expect(state).not.toHaveProperty("currentProfile");
+      expect(state).not.toHaveProperty("currentEnvironment");
+      expect(state).not.toHaveProperty("profiles");
+      expect(state).not.toHaveProperty("keys");
+      expect(state).not.toHaveProperty("aliases");
     });
   });
 
@@ -128,9 +153,8 @@ describe("Phase 1a: State Ownership Fixes", () => {
           ui: { showToast: () => {} },
         }),
         new KeyBrowserService({
-          storage: harness.storage,
           eventBus: harness.eventBus,
-          ui: { showToast: () => {} },
+          localStorage: createEmptyKeyBrowserStorage(),
         }),
         new CommandService({
           storage: harness.storage,
@@ -153,6 +177,10 @@ describe("Phase 1a: State Ownership Fixes", () => {
         // If state is null, it's compliant (using ComponentBase default)
         if (state === null) {
           continue;
+        }
+
+        if (service instanceof KeyBrowserService) {
+          expect(state).toEqual(emptyKeyBrowserViewState());
         }
 
         // For services that return non-null state, ensure they don't return non-owned properties

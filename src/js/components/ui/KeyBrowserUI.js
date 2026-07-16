@@ -5,7 +5,16 @@ import {
   getSnapshotPrimaryKeys,
   getSnapshotProfile,
 } from "../services/dataState.js";
-import { sortKeyNames } from "../services/keySorting.js";
+import {
+  isKeyCategoryCollapsed,
+  projectBindsetSections,
+} from "../services/keyBrowserViewState.js";
+import {
+  acceptViewState,
+  cacheViewState,
+  completeInitialRender,
+  reconcileViewStateDom,
+} from "./keyBrowserViewDom.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -17,8 +26,8 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 /** @typedef {{ name: string, icon: string, keys: string[], priority?: number }} KeyCategory */
 /** @typedef {Record<string, KeyCategory>} KeyCategories */
 /** @typedef {{ keys: string[], keyCount: number, isCollapsed: boolean }} BindsetSection */
-/** @typedef {Record<string, BindsetSection>} BindsetSections */
 /** @typedef {import('../services/serviceTypes.js').ProfileData} KeyProfile */
+/** @typedef {import('../../types/events/component-state.js').KeyBrowserViewStateSnapshot} KeyBrowserViewStateSnapshot */
 /**
  * @typedef {{
  *   selectedKey: string | null,
@@ -31,7 +40,8 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
  *   builds: Record<string, unknown>,
  *   preferences: { bindsetsEnabled?: boolean, bindToAliasMode?: boolean, theme?: string },
  *   activeBindset: string,
- *   bindsetNames: string[]
+ *   bindsetNames: string[],
+ *   keyBrowserViewState: KeyBrowserViewStateSnapshot | null
  * }} KeyBrowserCache
  */
 /** @typedef {{ environment?: string, newMode?: string, mode?: string }} EnvironmentChange */
@@ -85,11 +95,13 @@ export default class KeyBrowserUI extends UIComponentBase {
       builds: {},
       preferences: {},
       activeBindset: "Primary Bindset",
+      keyBrowserViewState: null,
     };
 
     /** @type {KeyMap} */
     this._currentKeyMap = {};
     this._currentViewMode = "grid";
+    this.eventListenersSetup = false;
 
     // Initialize bindset delete confirmation modal
     this.bindsetDeleteConfirm = new BindsetDeleteConfirmUI({
@@ -106,6 +118,12 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.updateViewToggleButton(initialMode);
 
     this.setupEventListeners();
+  }
+
+  onDestroy() {
+    this.eventListenersSetup = false;
+    this.pendingInitialRender = false;
+    this.cache.keyBrowserViewState = null;
   }
 
   setupEventListeners() {
@@ -184,14 +202,16 @@ export default class KeyBrowserUI extends UIComponentBase {
       this.toggleKeySearch();
     });
 
-    this.eventBus?.on("key:list-changed", () => this.render());
+    this.addEventListener("key:list-changed", () => this.render());
+
+    this.addEventListener("key-browser:state-changed", (state) => {
+      acceptViewState(this, state);
+    });
 
     // ComponentBase registers its data-state cache listener before onInit.
     // Release only the pending first paint after that listener accepts a ready state.
     this.addEventListener("data:state-changed", () => {
-      if (!this.pendingInitialRender || !this.hasRequiredData()) return;
-      this.pendingInitialRender = false;
-      this.performInitialRender();
+      completeInitialRender(this);
     });
 
     // Initialize view mode based on current bindset settings
@@ -259,11 +279,6 @@ export default class KeyBrowserUI extends UIComponentBase {
       },
     );
 
-    // Listen for bindset section collapse changes and re-render
-    this.addEventListener("bindset-section:collapse-changed", () => {
-      this.render();
-    });
-
     // Listen for bindset changes and re-render when bindsets are enabled
     this.addEventListener("bindsets:changed", () => {
       if (this.shouldShowBindsetSections()) {
@@ -283,6 +298,18 @@ export default class KeyBrowserUI extends UIComponentBase {
         this.render();
       }
     });
+  }
+
+  /**
+   * @param {KeyBrowserViewStateSnapshot} state
+   * @returns {boolean}
+   */
+  cacheKeyBrowserViewState(state) {
+    return cacheViewState(this, state);
+  }
+
+  reconcileKeyBrowserViewState() {
+    reconcileViewStateDom(this);
   }
 
   async render() {
@@ -346,8 +373,8 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
 
     // Atomic DOM update - replace all content at once
-    grid.innerHTML = "";
-    grid.appendChild(fragment);
+    grid.replaceChildren(fragment);
+    this.reconcileKeyBrowserViewState();
   }
 
   // View mode management helpers
@@ -433,41 +460,6 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
   }
 
-  /** @param {DocumentFragment} fragment */
-  async renderBindsetSectionView(fragment) {
-    const snapshot = this.cache.dataState;
-    const environment = this.cache.currentEnvironment || "space";
-    const profile = getSnapshotProfile(snapshot);
-    const primaryKeyMap = getSnapshotPrimaryKeys(snapshot, environment);
-
-    // Get sectional keys organized by bindset
-    /** @type {BindsetSections} */
-    const sectionalKeys = await this.request("key:get-all-sectional");
-
-    // Sort bindsets: Primary Bindset first, then alphabetically
-    const sortedBindsets = Object.entries(sectionalKeys).sort(
-      ([aName], [bName]) => {
-        if (aName === "Primary Bindset") return -1;
-        if (bName === "Primary Bindset") return 1;
-        return aName.localeCompare(bName);
-      },
-    );
-
-    // Render each bindset as a collapsible section
-    for (const [bindsetName, bindsetData] of sortedBindsets) {
-      const sectionElement = await this.createBindsetSectionElement(
-        bindsetName,
-        bindsetData,
-        "grid",
-        profile,
-        primaryKeyMap,
-        {},
-        environment,
-      );
-      fragment.appendChild(sectionElement);
-    }
-  }
-
   /**
    * Renders bindset sections view that works with all view types
    * @param {DocumentFragment} fragment - The fragment to render into
@@ -485,24 +477,18 @@ export default class KeyBrowserUI extends UIComponentBase {
     keysWithCommands,
     environment,
   ) {
-    // Get sectional keys organized by bindset
-    /** @type {BindsetSections} */
-    const sectionalKeys = await this.request("key:get-all-sectional");
-
-    // Sort bindsets: Primary Bindset first, then alphabetically
-    const sortedBindsets = Object.entries(sectionalKeys).sort(
-      ([aName], [bName]) => {
-        if (aName === "Primary Bindset") return -1;
-        if (bName === "Primary Bindset") return 1;
-        return aName.localeCompare(bName);
-      },
+    const sectionalKeys = projectBindsetSections(
+      profile,
+      keyMap,
+      environment,
+      this.cache.keyBrowserViewState,
     );
 
     // Store the current view mode for use in createBindsetSectionElement
     this._currentViewMode = viewMode;
 
     // Render each bindset as a section using the working implementation
-    for (const [bindsetName, bindsetData] of sortedBindsets) {
+    for (const [bindsetName, bindsetData] of Object.entries(sectionalKeys)) {
       const sectionElement = await this.createBindsetSectionElement(
         bindsetName,
         bindsetData,
@@ -776,11 +762,11 @@ export default class KeyBrowserUI extends UIComponentBase {
     element.className = "category";
     element.dataset.category = categoryId;
 
-    // Get collapsed state from service
-    const isCollapsed = await this.request("key:get-category-state", {
+    const isCollapsed = isKeyCategoryCollapsed(
+      this.cache.keyBrowserViewState,
       categoryId,
       mode,
-    });
+    );
 
     element.innerHTML = `<h4 class="${isCollapsed ? "collapsed" : ""}" data-category="${categoryId}" data-mode="${mode}"><i class="fas fa-chevron-right category-chevron"></i><i class="${categoryData.icon}"></i>${categoryData.name}<span class="key-count">(${categoryData.keys.length})</span></h4><div class="category-commands ${isCollapsed ? "collapsed" : ""}">${categoryData.keys.map((k) => this.createKeyElement(k, bindsetContext).outerHTML).join("")}</div>`;
 
@@ -826,7 +812,7 @@ export default class KeyBrowserUI extends UIComponentBase {
       bindsetName === "Primary Bindset"
         ? primaryKeyMap
         : profile?.bindsets?.[bindsetName]?.[environment]?.keys || {};
-    const sectionKeys = sortKeyNames(Object.keys(sectionKeyMap));
+    const sectionKeys = bindsetData.keys;
 
     const element = this.document.createElement("div");
     element.className = "bindset-section";
@@ -957,9 +943,7 @@ export default class KeyBrowserUI extends UIComponentBase {
       // Cache keyMap for key element creation
       this._currentKeyMap = sectionKeyMap;
 
-      const currentViewMode = viewMode || "grid";
-
-      if (currentViewMode === "key-types") {
+      if (viewMode === "key-types") {
         // Render key-types view for this bindset
         await this.renderKeyTypeViewForBindset(
           content,
@@ -968,7 +952,7 @@ export default class KeyBrowserUI extends UIComponentBase {
           bindsetName,
           keysWithCommands,
         );
-      } else if (currentViewMode === "categorized") {
+      } else if (viewMode === "categorized") {
         // Render command-category view for this bindset
         await this.renderCommandCategoryViewForBindset(
           content,
@@ -990,9 +974,6 @@ export default class KeyBrowserUI extends UIComponentBase {
         content.appendChild(keyGrid);
       }
     } else {
-      console.log(
-        `[KeyBrowserUI] Showing empty message for bindset "${bindsetName}" - no keys found`,
-      );
       const emptyMessage = this.document.createElement("div");
       emptyMessage.className = "empty-section";
       emptyMessage.textContent = this.i18n.t("no_keys_in_bindset");
@@ -1472,8 +1453,13 @@ export default class KeyBrowserUI extends UIComponentBase {
    * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
   handleInitialState(reply) {
-    super.handleInitialState(reply);
     const { sender, state } = reply;
+    if (sender === "KeyBrowserService") {
+      acceptViewState(this, state);
+    }
+    super.handleInitialState(reply);
+
+    if (sender === "KeyBrowserService") return;
 
     // Restore selection from SelectionService late-join
     if (sender === "SelectionService") {
@@ -1558,7 +1544,8 @@ export default class KeyBrowserUI extends UIComponentBase {
     return Boolean(
       this.cache.currentProfile &&
         this.cache.currentEnvironment &&
-        this.cache.keys !== undefined,
+        this.cache.keys !== undefined &&
+        this.cache.keyBrowserViewState !== null,
     );
   }
 

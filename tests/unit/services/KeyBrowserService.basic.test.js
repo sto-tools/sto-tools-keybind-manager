@@ -203,43 +203,6 @@ describe("KeyBrowserService – data processing methods", () => {
     });
   });
 
-  describe("getCategoryState", () => {
-    beforeEach(() => {
-      localStorage.clear();
-    });
-
-    it("should return false for new category", () => {
-      const state = service.getCategoryState("new-category", "command");
-      expect(state).toBe(false);
-    });
-
-    it("should return correct state for existing category", () => {
-      // Set up a collapsed category
-      service.toggleKeyCategory("test-category", "command");
-
-      const state = service.getCategoryState("test-category", "command");
-      expect(state).toBe(true);
-    });
-
-    it("should handle different modes", () => {
-      service.toggleKeyCategory("test-category", "key-type");
-
-      const keyTypeState = service.getCategoryState(
-        "test-category",
-        "key-type",
-      );
-      expect(keyTypeState).toBe(true);
-
-      const commandState = service.getCategoryState("test-category", "command");
-      expect(commandState).toBe(false);
-    });
-
-    it("should return false for empty category ID", () => {
-      const state = service.getCategoryState("", "command");
-      expect(state).toBe(false);
-    });
-  });
-
   describe("categorizeKeysByType", () => {
     it("should categorize keys by type", () => {
       const allKeys = ["F1", "A", "1", "Ctrl+A", "Space", "MOUSE1", "!"];

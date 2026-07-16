@@ -224,6 +224,7 @@ export default class STOToolsKeybindManager {
       this.keyBrowserService = new KeyBrowserService({
         eventBus,
         i18n: this.i18n,
+        localStorage,
       });
 
       this.keyBrowserUI = new KeyBrowserUI({

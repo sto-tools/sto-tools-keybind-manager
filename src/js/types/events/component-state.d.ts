@@ -53,6 +53,16 @@ export interface BindsetStateSnapshot {
   bindsets: string[];
 }
 
+export interface KeyBrowserViewStateSnapshot {
+  authorityEpoch: number;
+  revision: number;
+  collapsedCategories: {
+    command: readonly string[];
+    keyType: readonly string[];
+  };
+  collapsedBindsets: readonly string[];
+}
+
 export interface CommandChainStateSnapshot {
   commands: CommandList;
 }
@@ -130,6 +140,7 @@ export interface ComponentStateProtocol {
   DataService: DataServiceStateSnapshot;
   ExportService: ExportStateSnapshot;
   InterfaceModeService: InterfaceModeStateSnapshot;
+  KeyBrowserService: KeyBrowserViewStateSnapshot;
   ParameterCommandService: ParameterCommandStateSnapshot;
   PreferencesService: PreferencesStateSnapshot;
   SelectionService: SelectionStateSnapshot;

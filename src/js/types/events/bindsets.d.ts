@@ -17,10 +17,6 @@ export type ActiveBindsetChangedPayload =
   | { bindset?: undefined; name: string | undefined };
 
 export interface BindsetEventProtocol {
-  "bindset-section:collapse-changed": {
-    bindsetName: string;
-    isCollapsed: boolean;
-  };
   /** The `name` arm preserves the legacy consumer compatibility fallback. */
   "bindset-selector:active-changed": ActiveBindsetChangedPayload;
   "bindset-selector:key-added": BindsetSelectionPayload;

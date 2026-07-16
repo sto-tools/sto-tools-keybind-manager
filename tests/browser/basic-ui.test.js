@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 describe("Application browser smoke", () => {
   it("boots the translated shell and handles the settings menu", () => {
@@ -66,13 +66,15 @@ describe("Application browser smoke", () => {
       "key:get-all",
       "bindset:get-available",
       "bindset:get-collapsed-state",
+      "key:get-all-sectional",
+      "key:get-category-state",
       "alias:get-all",
       "command:get-for-selected-key",
       "command:get-import-sources",
       "command:is-stabilized",
       "command-chain:is-stabilized",
     ]) {
-      expect(bus.hasListeners(`rpc:${topic}`)).toBe(false);
+      expect(bus.hasListeners(`rpc:${topic}`), topic).toBe(false);
     }
 
     const originalSnapshot = {
@@ -128,5 +130,70 @@ describe("Application browser smoke", () => {
       firstState.settings.__browser_detachment_probe__ = true;
     }).toThrow(TypeError);
     expect(secondState.settings.__browser_detachment_probe__).toBeUndefined();
+  });
+
+  it("persists category collapse through the live UI and service", async () => {
+    const ui = window.keyBrowserUI;
+    const service = window.keyBrowserService;
+    const categoryId = "__browser-collapse-probe__";
+    const storageKey = `keyCategory_${categoryId}_collapsed`;
+    const host = document.createElement("div");
+
+    expect(ui?.isInitialized?.()).toBe(true);
+    expect(service?.isInitialized?.()).toBe(true);
+    if (!ui || !service) return;
+
+    localStorage.removeItem(storageKey);
+    const category = await ui.createKeyCategoryElement(
+      categoryId,
+      {
+        name: "Browser collapse probe",
+        icon: "fas fa-folder",
+        keys: [],
+      },
+      "command",
+    );
+    host.appendChild(category);
+    document.body.appendChild(host);
+    const header = category.querySelector("h4");
+    const commands = category.querySelector(".category-commands");
+
+    try {
+      expect(header?.classList).not.toContain("collapsed");
+      expect(commands?.classList).not.toContain("collapsed");
+
+      header?.click();
+
+      await vi.waitFor(() => {
+        expect(localStorage.getItem(storageKey)).toBe("true");
+        expect(
+          ui.cache.keyBrowserViewState?.collapsedCategories.command,
+        ).toContain(categoryId);
+        expect(service.getCurrentState().collapsedCategories.command).toContain(
+          categoryId,
+        );
+        expect(header?.classList).toContain("collapsed");
+        expect(commands?.classList).toContain("collapsed");
+      });
+
+      header?.click();
+
+      await vi.waitFor(() => {
+        expect(localStorage.getItem(storageKey)).toBe("false");
+        expect(
+          ui.cache.keyBrowserViewState?.collapsedCategories.command,
+        ).not.toContain(categoryId);
+        expect(
+          service.getCurrentState().collapsedCategories.command,
+        ).not.toContain(categoryId);
+        expect(header?.classList).not.toContain("collapsed");
+        expect(commands?.classList).not.toContain("collapsed");
+      });
+    } finally {
+      localStorage.removeItem(storageKey);
+      host.remove();
+    }
+
+    expect(localStorage.getItem(storageKey)).toBeNull();
   });
 });

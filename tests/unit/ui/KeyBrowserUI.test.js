@@ -85,10 +85,6 @@ describe("KeyBrowserUI", () => {
       return true;
     });
 
-    respond(eventBus, "key:get-category-state", () => {
-      return false; // Mock collapsed state
-    });
-
     ui = new KeyBrowserUI({
       eventBus,
       document,

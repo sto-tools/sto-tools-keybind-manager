@@ -1,12 +1,22 @@
 import ComponentBase from "../ComponentBase.js";
 import { activeBindsetFromPayload } from "../../core/eventPayloads.js";
 import { compareKeyNames, sortKeyNames } from "./keySorting.js";
+import {
+  applyBindsetCollapse,
+  applyKeyCategoryCollapse,
+  cloneKeyBrowserViewState,
+  nextKeyBrowserAuthorityEpoch,
+  readNextBindsetCollapse,
+  readNextKeyCategoryCollapse,
+  readKeyBrowserViewState,
+  writeBindsetCollapse,
+  writeKeyCategoryCollapse,
+} from "./keyBrowserViewState.js";
 
 /** @typedef {{ name: string, icon: string, keys: Set<string>, priority: number }} KeyCategory */
 /** @typedef {Record<string, KeyCategory>} KeyCategoryMap */
 /** @typedef {import('./serviceTypes.js').StoredCommand} BrowserCommand */
 /** @typedef {Record<string, BrowserCommand[]>} CommandsByKey */
-/** @typedef {{ name: string, keys: string[], isCollapsed: boolean, keyCount: number }} BindsetSection */
 
 /**
  * KeyBrowserService – source-of-truth for the key grid.
@@ -15,8 +25,14 @@ import { compareKeyNames, sortKeyNames } from "./keySorting.js";
  * in a decoupled, event-driven manner.
  */
 export default class KeyBrowserService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ eventBus, i18n } = {}) {
+  /**
+   * @param {{
+   *   eventBus?: import('./serviceTypes.js').EventBus,
+   *   i18n?: import('./serviceTypes.js').I18n,
+   *   localStorage?: import('./keyBrowserViewState.js').KeyBrowserStorage
+   * }} [options]
+   */
+  constructor({ eventBus, i18n, localStorage = globalThis.localStorage } = {}) {
     super(eventBus);
     this.componentName = "KeyBrowserService";
     this.i18n =
@@ -24,6 +40,13 @@ export default class KeyBrowserService extends ComponentBase {
       /** @type {import('./serviceTypes.js').I18n} */ ({
         t: (key) => key,
       });
+    this.localStorage = localStorage;
+    // Collapse persistence is required for availability; bootstrap scan
+    // failures intentionally abort construction and lifecycle initialization.
+    this.viewState = readKeyBrowserViewState(this.localStorage, {
+      authorityEpoch: nextKeyBrowserAuthorityEpoch(),
+      revision: 0,
+    });
 
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
@@ -35,7 +58,6 @@ export default class KeyBrowserService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond("key:get-all-sectional", () => this.getSectionalKeys()),
       this.respond("bindset:toggle-collapse", ({ bindsetName }) =>
         this.toggleBindsetCollapse(bindsetName),
       ),
@@ -58,20 +80,32 @@ export default class KeyBrowserService extends ComponentBase {
       this.respond("key:toggle-category", ({ categoryId, mode }) =>
         this.toggleKeyCategory(categoryId, mode),
       ),
-      this.respond("key:get-category-state", ({ categoryId, mode }) =>
-        this.getCategoryState(categoryId, mode),
-      ),
     );
   }
 
   onInit() {
     this.setupRequestHandlers();
+    this.viewState = readKeyBrowserViewState(this.localStorage, {
+      authorityEpoch: nextKeyBrowserAuthorityEpoch(),
+      revision: 0,
+    });
     this.setupEventListeners();
+    this.publishViewState();
   }
 
   onDestroy() {
     for (const detach of this._responseDetachFunctions) detach();
     this._responseDetachFunctions = [];
+  }
+
+  /** @param {import('../../types/events/component-state.js').KeyBrowserViewStateSnapshot} [state] */
+  publishViewState(state = this.getCurrentState()) {
+    this.emit("key-browser:state-changed", state);
+  }
+
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'KeyBrowserService'>} */
+  getCurrentState() {
+    return cloneKeyBrowserViewState(this.viewState);
   }
 
   setupEventListeners() {
@@ -408,166 +442,39 @@ export default class KeyBrowserService extends ComponentBase {
   /** @param {string} categoryId @param {string} [mode] */
   toggleKeyCategory(categoryId, mode = "command") {
     if (!categoryId) return false;
-
-    const storageKey =
-      mode === "key-type"
-        ? `keyTypeCategory_${categoryId}_collapsed`
-        : `keyCategory_${categoryId}_collapsed`;
-
-    const currentState = localStorage.getItem(storageKey) === "true";
-    const newState = !currentState;
-
-    localStorage.setItem(storageKey, String(newState));
-    return newState;
-  }
-
-  // Get category collapsed state
-  /** @param {string} categoryId @param {string} [mode] */
-  getCategoryState(categoryId, mode = "command") {
-    if (!categoryId) return false;
-
-    const storageKey =
-      mode === "key-type"
-        ? `keyTypeCategory_${categoryId}_collapsed`
-        : `keyCategory_${categoryId}_collapsed`;
-
-    return localStorage.getItem(storageKey) === "true";
-  }
-
-  // Sectional Bindset Display Methods
-
-  // Get all bindsets available for sectional display
-  async getAvailableBindsets() {
-    try {
-      // Get bindset names from cache (ComponentBase handles this caching)
-      console.log(
-        "[KeyBrowserService] Raw cache.bindsetNames:",
-        this.cache.bindsetNames,
-      );
-      const bindsetNames = this.cache.bindsetNames || [];
-
-      // Ensure Primary Bindset is always included and first
-      const allBindsets = [
-        "Primary Bindset",
-        ...bindsetNames.filter((name) => name !== "Primary Bindset"),
-      ];
-      console.log("[KeyBrowserService] Available bindsets:", allBindsets);
-      return allBindsets;
-    } catch (error) {
-      console.warn(
-        "[KeyBrowserService] Failed to get available bindsets:",
-        error,
-      );
-      return ["Primary Bindset"];
-    }
-  }
-
-  // Get sectional keys organized by bindset
-  async getSectionalKeys() {
-    try {
-      const bindsets = await this.getAvailableBindsets();
-      console.log(
-        "[KeyBrowserService] Processing bindsets for sections:",
-        bindsets,
-      );
-      /** @type {Record<string, BindsetSection>} */
-      const sectionalKeys = {};
-
-      // Process each bindset
-      for (const bindsetName of bindsets) {
-        const isCollapsed = this.getBindsetCollapsedState(bindsetName);
-        /** @type {string[]} */
-        let keys = [];
-
-        if (bindsetName === "Primary Bindset") {
-          // Primary Bindset uses current profile's keys
-          keys = Object.keys(this.getKeys() || {});
-        } else {
-          // User-defined bindsets - get data directly from profile
-          try {
-            const profile = this.cache.profile;
-            const environment = this.cache.currentEnvironment || "space";
-
-            console.log(
-              `[KeyBrowserService] Getting keys for bindset "${bindsetName}" in environment "${environment}"`,
-            );
-
-            if (profile?.bindsets?.[bindsetName]?.[environment]?.keys) {
-              keys = Object.keys(
-                profile.bindsets[bindsetName][environment].keys,
-              );
-              console.log(
-                `[KeyBrowserService] Found ${keys.length} keys for bindset "${bindsetName}":`,
-                keys,
-              );
-            } else {
-              console.log(
-                `[KeyBrowserService] No keys found for bindset "${bindsetName}" in environment "${environment}"`,
-              );
-              keys = [];
-            }
-          } catch (error) {
-            console.warn(
-              `[KeyBrowserService] Failed to get keys for bindset "${bindsetName}":`,
-              error,
-            );
-            keys = [];
-          }
-        }
-
-        // Sort keys for consistent display
-        const sortedKeys = this.sortKeys(keys);
-
-        sectionalKeys[bindsetName] = {
-          name: bindsetName,
-          keys: sortedKeys,
-          isCollapsed,
-          keyCount: sortedKeys.length,
-        };
-      }
-
-      return sectionalKeys;
-    } catch (error) {
-      console.error("[KeyBrowserService] Failed to get sectional keys:", error);
-      // Fallback to Primary Bindset only
-      const primaryKeys = this.sortKeys(Object.keys(this.getKeys() || {}));
-      return {
-        "Primary Bindset": {
-          name: "Primary Bindset",
-          keys: primaryKeys,
-          isCollapsed: false,
-          keyCount: primaryKeys.length,
-        },
-      };
-    }
+    const isCollapsed = readNextKeyCategoryCollapse(
+      this.localStorage,
+      categoryId,
+      mode,
+    );
+    const nextState = applyKeyCategoryCollapse(
+      this.viewState,
+      categoryId,
+      mode,
+      isCollapsed,
+    );
+    const publishedState = cloneKeyBrowserViewState(nextState);
+    writeKeyCategoryCollapse(this.localStorage, categoryId, mode, isCollapsed);
+    this.viewState = nextState;
+    this.publishViewState(publishedState);
+    return isCollapsed;
   }
 
   // Toggle bindset collapsed state
   /** @param {string | undefined} bindsetName */
   toggleBindsetCollapse(bindsetName) {
     if (!bindsetName) return false;
-
-    const storageKey = `bindsetSection_${bindsetName}_collapsed`;
-    const currentState = localStorage.getItem(storageKey) === "true";
-    const newState = !currentState;
-
-    localStorage.setItem(storageKey, String(newState));
-
-    // Emit event to notify UI of state change
-    this.emit("bindset-section:collapse-changed", {
+    const isCollapsed = readNextBindsetCollapse(this.localStorage, bindsetName);
+    const nextState = applyBindsetCollapse(
+      this.viewState,
       bindsetName,
-      isCollapsed: newState,
-    });
+      isCollapsed,
+    );
+    const publishedState = cloneKeyBrowserViewState(nextState);
+    writeBindsetCollapse(this.localStorage, bindsetName, isCollapsed);
+    this.viewState = nextState;
+    this.publishViewState(publishedState);
 
-    return newState;
-  }
-
-  // Get bindset collapsed state
-  /** @param {string | undefined} bindsetName */
-  getBindsetCollapsedState(bindsetName) {
-    if (!bindsetName) return false;
-
-    const storageKey = `bindsetSection_${bindsetName}_collapsed`;
-    return localStorage.getItem(storageKey) === "true";
+    return isCollapsed;
   }
 }

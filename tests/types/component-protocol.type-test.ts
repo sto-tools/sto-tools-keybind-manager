@@ -10,6 +10,31 @@ component.addEventListener("toast:show", (payload) => {
   payload.duration?.toFixed();
 });
 component.emit("toast:show", { message: "Saved", type: "success" });
+component.addEventListener("key-browser:state-changed", (state) => {
+  state.authorityEpoch.toFixed();
+  state.revision.toFixed();
+  state.collapsedCategories.command.map((id) => id.toUpperCase());
+  state.collapsedCategories.keyType.map((id) => id.toUpperCase());
+  state.collapsedBindsets.map((name) => name.toUpperCase());
+});
+component.emit("key-browser:state-changed", {
+  authorityEpoch: 1,
+  revision: 0,
+  collapsedCategories: { command: [], keyType: ["function"] },
+  collapsedBindsets: ["Primary Bindset"],
+});
+// @ts-expect-error KeyBrowser state requires both category namespaces.
+component.emit("key-browser:state-changed", {
+  authorityEpoch: 1,
+  revision: 0,
+  collapsedCategories: { command: [] },
+  collapsedBindsets: [],
+});
+// @ts-expect-error KeyBrowser state requires owner ordering metadata.
+component.emit("key-browser:state-changed", {
+  collapsedCategories: { command: [], keyType: [] },
+  collapsedBindsets: [],
+});
 
 // @ts-expect-error Component event topics are registry-checked.
 component.emit("toast:typo", { message: "Saved" });
@@ -45,6 +70,13 @@ async function exerciseComponentRpc() {
   component.request("bindset:get-collapsed-state", {
     bindsetName: "Primary Bindset",
   });
+  // @ts-expect-error Bindset sections are projected from accepted owner snapshots.
+  component.request("key:get-all-sectional");
+  // @ts-expect-error Category collapse is part of KeyBrowserService owned state.
+  component.request("key:get-category-state", {
+    categoryId: "system",
+    mode: "command",
+  });
 
   component.respond("parser:clear-cache", () => ({ success: true }));
   // @ts-expect-error Responder results are selected by their topic.
@@ -61,6 +93,10 @@ async function exerciseComponentRpc() {
   component.respond("bindset:get-available", () => []);
   // @ts-expect-error Retired collapse-state queries cannot regain responders.
   component.respond("bindset:get-collapsed-state", () => false);
+  // @ts-expect-error Retired sectional queries cannot regain responders.
+  component.respond("key:get-all-sectional", () => ({}));
+  // @ts-expect-error Retired category-state queries cannot regain responders.
+  component.respond("key:get-category-state", () => false);
 }
 
 declare const dynamicEvent: DynamicEventTopic<

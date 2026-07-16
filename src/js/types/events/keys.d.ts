@@ -4,6 +4,7 @@ import type {
   KeyViewMode,
   SelectionSource,
 } from "./base.js";
+import type { KeyBrowserViewStateSnapshot } from "./component-state.js";
 
 export type KeySelectionPayload =
   | {
@@ -33,6 +34,7 @@ export type KeySelectionPayload =
     };
 
 export interface KeyEventProtocol {
+  "key-browser:state-changed": KeyBrowserViewStateSnapshot;
   "key-deleted": { keyName: string };
   "key-selected": KeySelectionPayload;
   "key-view:mode-changed": { mode: KeyViewMode };

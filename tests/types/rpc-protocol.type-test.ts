@@ -97,6 +97,10 @@ type RemovedAllKeysQuery = RpcRequest<"key:get-all">;
 type RemovedAvailableBindsetsQuery = RpcRequest<"bindset:get-available">;
 // @ts-expect-error Collapsed state is an internal localStorage projection.
 type RemovedCollapsedStateQuery = RpcRequest<"bindset:get-collapsed-state">;
+// @ts-expect-error Bindset sections are projected from accepted owner snapshots.
+type RemovedSectionalKeysQuery = RpcRequest<"key:get-all-sectional">;
+// @ts-expect-error Category collapse is part of KeyBrowserService owned state.
+type RemovedCategoryStateQuery = RpcRequest<"key:get-category-state">;
 // @ts-expect-error Alias maps are projected from the accepted data snapshot.
 type RemovedAliasMapQuery = RpcRequest<"alias:get-all">;
 // @ts-expect-error Selected command lists are projected from cached state.
@@ -294,6 +298,17 @@ async function exerciseCoreApi() {
   respond(eventBus, "bindset:get-available", () => []);
   // @ts-expect-error Retired collapse-state queries cannot regain responders.
   respond(eventBus, "bindset:get-collapsed-state", () => false);
+  // @ts-expect-error Retired sectional queries cannot be reintroduced by consumers.
+  request(eventBus, "key:get-all-sectional");
+  // @ts-expect-error Retired category-state queries cannot be reintroduced by consumers.
+  request(eventBus, "key:get-category-state", {
+    categoryId: "system",
+    mode: "command",
+  });
+  // @ts-expect-error Retired sectional queries cannot regain responders.
+  respond(eventBus, "key:get-all-sectional", () => ({}));
+  // @ts-expect-error Retired category-state queries cannot regain responders.
+  respond(eventBus, "key:get-category-state", () => false);
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 

@@ -13,6 +13,7 @@ import type {
   DynamicEventTopic,
   EventPayload,
   EventTopic,
+  KeyBrowserViewStateSnapshot,
   SelectionStateSnapshot,
   StoreEventTopic,
   TypedEventBus,
@@ -63,6 +64,12 @@ type DataSnapshotIsRegisteredExactly = Expect<
 type DataStateEventIsRegisteredExactly = Expect<
   Equal<EventPayload<"data:state-changed">, DataStateChangedPayload>
 >;
+type KeyBrowserStateEventIsRegisteredExactly = Expect<
+  Equal<EventPayload<"key-browser:state-changed">, KeyBrowserViewStateSnapshot>
+>;
+type KeyBrowserLateJoinStateIsRegisteredExactly = Expect<
+  Equal<ComponentState<"KeyBrowserService">, KeyBrowserViewStateSnapshot>
+>;
 type DataStateReasonsAreClosed = Expect<
   Equal<
     DataStateChangeReason,
@@ -85,7 +92,15 @@ type DataStateReasonsAreClosed = Expect<
 const bus: TypedEventBus = eventBus;
 const dataCoordinatorState = createDataCoordinatorState();
 const preferencesSettings = createPreferencesState().settings;
+const keyBrowserViewState: KeyBrowserViewStateSnapshot = {
+  authorityEpoch: 1,
+  revision: 0,
+  collapsedCategories: { command: ["system"], keyType: ["function"] },
+  collapsedBindsets: ["Primary Bindset"],
+};
 dataCoordinatorState.authorityEpoch.toFixed();
+keyBrowserViewState.authorityEpoch.toFixed();
+keyBrowserViewState.revision.toFixed();
 
 bus.hasListeners("toast:show");
 // @ts-expect-error Listener callbacks are private implementation details.
@@ -141,6 +156,23 @@ bus.emit("selection:state-changed", {
   editingContext: null,
   cachedSelections: { space: "F1", ground: null, alias: null },
   currentEnvironment: "space",
+});
+bus.emit("key-browser:state-changed", keyBrowserViewState);
+// @ts-expect-error KeyBrowser state is a complete snapshot, not a category patch.
+bus.emit("key-browser:state-changed", {
+  authorityEpoch: 1,
+  revision: 1,
+  collapsedCategories: { command: ["system"] },
+});
+// @ts-expect-error KeyBrowser snapshots require owner ordering metadata.
+bus.emit("key-browser:state-changed", {
+  collapsedCategories: { command: [], keyType: [] },
+  collapsedBindsets: [],
+});
+// @ts-expect-error Complete KeyBrowser state replaced the bindset collapse delta.
+bus.emit("bindset-section:collapse-changed", {
+  bindsetName: "Primary Bindset",
+  isCollapsed: true,
 });
 // @ts-expect-error Selection snapshots require the complete owned state.
 bus.emit("selection:state-changed", { selectedKey: "F1" });
@@ -207,6 +239,14 @@ bus.on(componentReplyTopic, (reply) => {
     reply.state.bindsets.map((name) => name.toUpperCase());
     // @ts-expect-error Sender narrowing excludes SelectionService state.
     reply.state.selectedKey;
+  } else if (reply.sender === "KeyBrowserService") {
+    reply.state.authorityEpoch.toFixed();
+    reply.state.revision.toFixed();
+    reply.state.collapsedCategories.command.map((id) => id.toUpperCase());
+    reply.state.collapsedCategories.keyType.map((id) => id.toUpperCase());
+    reply.state.collapsedBindsets.map((name) => name.toUpperCase());
+    // @ts-expect-error Sender narrowing excludes SelectionService state.
+    reply.state.selectedKey;
   }
 });
 bus.emit(componentReplyTopic, {
@@ -226,6 +266,10 @@ bus.emit(componentReplyTopic, {
     cachedSelections: { space: "F1", ground: null, alias: null },
     currentEnvironment: "space",
   },
+});
+bus.emit(componentReplyTopic, {
+  sender: "KeyBrowserService",
+  state: keyBrowserViewState,
 });
 
 const mismatchedComponentReply: ComponentStateReply = {
@@ -262,6 +306,8 @@ void ({} as ToastPayloadIsRegistered);
 void ({} as SelectionLateJoinStateIsRegisteredExactly);
 void ({} as DataSnapshotIsRegisteredExactly);
 void ({} as DataStateEventIsRegisteredExactly);
+void ({} as KeyBrowserStateEventIsRegisteredExactly);
+void ({} as KeyBrowserLateJoinStateIsRegisteredExactly);
 void ({} as DataStateReasonsAreClosed);
 void mismatchedComponentReply;
 void incompleteSelectionReply;

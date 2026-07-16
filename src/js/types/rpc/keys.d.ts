@@ -1,6 +1,5 @@
 import type {
   CodedFailure,
-  NoPayloadRpc,
   OptionalRpc,
   RequiredRpc,
   ResponderOnlyOptionalRpc,
@@ -16,13 +15,6 @@ export type KeyCategory = {
 };
 
 export type KeyCategories = Record<string, KeyCategory>;
-
-export type BindsetSection = {
-  name: string;
-  keys: string[];
-  keyCount: number;
-  isCollapsed: boolean;
-};
 
 export type KeyAddResult =
   | {
@@ -92,11 +84,6 @@ export interface KeyRpcProtocol {
   "key:filter": ResponderOnlyRequiredRpc<
     { keys: string[]; filter?: string },
     string[]
-  >;
-  "key:get-all-sectional": NoPayloadRpc<Record<string, BindsetSection>>;
-  "key:get-category-state": RequiredRpc<
-    { categoryId: string; mode: string },
-    boolean
   >;
   "key:select": RequiredRpc<
     {

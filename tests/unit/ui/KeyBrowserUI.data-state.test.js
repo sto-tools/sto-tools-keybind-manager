@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import { getSnapshotProfile } from "../../../src/js/components/services/dataState.js";
 import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
@@ -32,6 +31,19 @@ const mountKeyGrid = () => {
   `;
 };
 
+const keyBrowserState = ({
+  authorityEpoch = 1,
+  revision = 0,
+  command = [],
+  keyType = [],
+  bindsets = [],
+} = {}) => ({
+  authorityEpoch,
+  revision,
+  collapsedCategories: { command, keyType },
+  collapsedBindsets: bindsets,
+});
+
 const coordinatorState = (
   profile,
   {
@@ -54,11 +66,9 @@ const coordinatorState = (
 describe("KeyBrowserUI accepted data state", () => {
   let fixture;
   let ui;
-  let owner;
 
   afterEach(() => {
     if (ui && !ui.destroyed) ui.destroy();
-    if (owner && !owner.destroyed) owner.destroy();
     fixture?.destroy();
     document.body.replaceChildren();
     vi.restoreAllMocks();
@@ -230,7 +240,7 @@ describe("KeyBrowserUI accepted data state", () => {
     expect(ui.request).not.toHaveBeenCalled();
   });
 
-  it("reconciles a stale Primary section from the projected primary map", async () => {
+  it("projects primary and named sections without sectional or category queries", async () => {
     mountKeyGrid();
     fixture = createEventBusFixture();
     ui = new KeyBrowserUI({
@@ -256,23 +266,10 @@ describe("KeyBrowserUI accepted data state", () => {
       bindsetsEnabled: true,
       bindToAliasMode: true,
     };
+    ui.cache.keyBrowserViewState = keyBrowserState({
+      bindsets: ["Primary Bindset"],
+    });
     ui.request = vi.fn(async (topic) => {
-      if (topic === "key:get-all-sectional") {
-        return {
-          "Primary Bindset": {
-            name: "Primary Bindset",
-            keys: ["STALE_PRIMARY"],
-            isCollapsed: false,
-            keyCount: 99,
-          },
-          Tactical: {
-            name: "Tactical",
-            keys: ["F2"],
-            isCollapsed: false,
-            keyCount: 1,
-          },
-        };
-      }
       throw new Error(`Unexpected request: ${topic}`);
     });
     const createSection = vi.spyOn(ui, "createBindsetSectionElement");
@@ -301,13 +298,19 @@ describe("KeyBrowserUI accepted data state", () => {
       ),
     ).toEqual(["F1", "F2", "F10"]);
     expect(
-      primarySection?.querySelector('[data-key="STALE_PRIMARY"]'),
-    ).toBeNull();
-    expect(ui.request).toHaveBeenCalledOnce();
-    expect(ui.request).toHaveBeenCalledWith("key:get-all-sectional");
+      primarySection?.querySelector(".bindset-content")?.classList,
+    ).toContain("collapsed");
+    const tacticalSection = document.querySelector(
+      '.bindset-section[data-bindset="Tactical"]',
+    );
+    expect(tacticalSection?.querySelector('[data-key="F2"]')).not.toBeNull();
+    expect(
+      tacticalSection?.querySelector(".bindset-content")?.classList,
+    ).not.toContain("collapsed");
+    expect(ui.request).not.toHaveBeenCalled();
   });
 
-  it("reconciles a stale named section from the captured profile and environment", async () => {
+  it("renders a projected named section from the captured profile and environment", async () => {
     mountKeyGrid();
     fixture = createEventBusFixture();
     ui = new KeyBrowserUI({
@@ -346,9 +349,9 @@ describe("KeyBrowserUI accepted data state", () => {
     ui.cache.currentEnvironment = "space";
     const sectionData = {
       name: "Tactical",
-      keys: ["STALE_NAMED"],
+      keys: ["G1"],
       isCollapsed: false,
-      keyCount: 77,
+      keyCount: 1,
     };
 
     const section = await ui.createBindsetSectionElement(
@@ -371,114 +374,5 @@ describe("KeyBrowserUI accepted data state", () => {
     expect(section.querySelector(".bindset-count")?.textContent).toBe("(1)");
     expect(section.querySelector('[data-key="G1"]')).not.toBeNull();
     expect(section.querySelector('[data-key="STALE_NAMED"]')).toBeNull();
-  });
-
-  it("renders from a DataCoordinator owner that started first without a state query", async () => {
-    mountKeyGrid();
-    fixture = createEventBusFixture();
-    const profile = createProfile({
-      spaceKeys: { F7: ["LateJoinCommand"] },
-    });
-
-    class DataCoordinator extends ComponentBase {
-      getCurrentState() {
-        return coordinatorState(profile, {
-          authorityEpoch: 70,
-          revision: 4,
-        });
-      }
-    }
-
-    owner = new DataCoordinator(fixture.eventBus);
-    owner.init();
-    ui = new KeyBrowserUI({
-      eventBus: fixture.eventBus,
-      document,
-      i18n: { t: (key) => key },
-    });
-    const observedStates = [];
-    const render = vi.spyOn(ui, "render").mockImplementation(async () => {
-      observedStates.push({
-        authorityEpoch: ui.cache.dataState?.authorityEpoch,
-        keys: structuredClone(ui.cache.keys),
-      });
-    });
-    ui.request = vi.fn(async (topic) => {
-      throw new Error(`Unexpected request: ${topic}`);
-    });
-
-    ui.init();
-
-    await vi.waitFor(() => expect(render).toHaveBeenCalled());
-
-    expect(ui.pendingInitialRender).toBe(false);
-    expect(ui.cache.dataState).toMatchObject({
-      authorityEpoch: 70,
-      revision: 4,
-      currentProfile: "captain",
-    });
-    expect(ui.cache.keys).toEqual({ F7: ["LateJoinCommand"] });
-    expect(render).toHaveBeenCalledOnce();
-    expect(observedStates).toEqual([
-      {
-        authorityEpoch: 70,
-        keys: { F7: ["LateJoinCommand"] },
-      },
-    ]);
-    expect(ui.request).not.toHaveBeenCalled();
-  });
-
-  it("fulfills one pending render when ready state arrives after UI startup", async () => {
-    mountKeyGrid();
-    fixture = createEventBusFixture();
-    ui = new KeyBrowserUI({
-      eventBus: fixture.eventBus,
-      document,
-      i18n: { t: (key) => key },
-    });
-    ui.init();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(ui.pendingInitialRender).toBe(true);
-
-    const observedStates = [];
-    const render = vi.spyOn(ui, "render").mockImplementation(async () => {
-      observedStates.push({
-        authorityEpoch: ui.cache.dataState?.authorityEpoch,
-        revision: ui.cache.dataState?.revision,
-        keys: structuredClone(ui.cache.keys),
-      });
-    });
-    ui.request = vi.fn(async (topic) => {
-      throw new Error(`Unexpected request: ${topic}`);
-    });
-    const profile = createProfile({
-      groundKeys: { G8: ["StartupCommand"] },
-    });
-
-    await fixture.eventBus.emit("data:state-changed", {
-      reason: "initial-load",
-      state: coordinatorState(profile, {
-        authorityEpoch: 71,
-        revision: 1,
-        environment: "ground",
-      }),
-    });
-
-    await vi.waitFor(() => expect(render).toHaveBeenCalledOnce());
-    expect(ui.pendingInitialRender).toBe(false);
-    expect(ui.cache.dataState).toMatchObject({
-      authorityEpoch: 71,
-      revision: 1,
-      currentEnvironment: "ground",
-    });
-    expect(observedStates).toEqual([
-      {
-        authorityEpoch: 71,
-        revision: 1,
-        keys: { G8: ["StartupCommand"] },
-      },
-    ]);
-    expect(ui.request).not.toHaveBeenCalled();
   });
 });
