@@ -4,6 +4,7 @@ import BindsetDeleteConfirmUI from "../../../src/js/components/ui/BindsetDeleteC
 import CommandLibraryUI from "../../../src/js/components/ui/CommandLibraryUI.js";
 import InputDialogUI from "../../../src/js/components/ui/InputDialogUI.js";
 import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 
 function createEventBus() {
   return {
@@ -139,14 +140,15 @@ describe("UI typecheck runtime regressions", () => {
 
     ui._onInitialState({
       sender: "DataCoordinator",
-      state: {
+      state: createDataCoordinatorState({
+        authorityEpoch: 1,
+        ready: true,
+        revision: 1,
         currentProfile: "profile-1",
         currentEnvironment: "space",
         currentProfileData: profile,
         profiles: { "profile-1": profile },
-        settings: {},
-        metadata: { lastModified: null, version: "1.0.0" },
-      },
+      }),
     });
 
     expect(ui.cache.currentProfile).toBe("profile-1");

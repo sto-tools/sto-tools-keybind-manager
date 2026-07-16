@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createPreferencesState } from "../../fixtures/core/componentState.js";
-import { createServiceFixture } from "../../fixtures/index.js";
+import {
+  createServiceFixture,
+  respondWithImportedProfileCommits,
+} from "../../fixtures/index.js";
 
 const profileId = "captain";
 const profile = {
@@ -38,6 +41,7 @@ describe("ImportService persistence failures", () => {
       storage: fixture.storage,
     });
     service.init();
+    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
     fixture.eventBus.emit(
       "preferences:loaded",
       createPreferencesState({ bindsetsEnabled: true }),

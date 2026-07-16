@@ -2,7 +2,10 @@
 // Tests that stabilization metadata is correctly set based on TrayExec-generating activities (13, 26, 95)
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
-import { createServiceFixture } from "../../fixtures/index.js";
+import {
+  createServiceFixture,
+  respondWithImportedProfileCommits,
+} from "../../fixtures/index.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 
 // Register a lightweight responder for parser operations
@@ -22,6 +25,7 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
       storage: fixture.storage,
     });
     importService.init();
+    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
 
     // Register responder for parser on the fixture event bus
     respond(

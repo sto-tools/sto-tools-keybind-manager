@@ -14,6 +14,7 @@ import {
   createComponentStateReply,
   nextComponentReplyTopic,
 } from "../core/componentState.js";
+import { adoptDataStateSnapshot } from "./services/dataState.js";
 
 /** @typedef {typeof import('../core/eventBus.js').default} CoreEventBus */
 /** @typedef {CoreEventBus} EventBus */
@@ -55,7 +56,8 @@ import {
  *   cachedSelections: import('../types/events/base.js').SelectionCache,
  *   editingContext?: import('../types/events/base.js').EditingContext | null,
  *   activeCommandChainBindset?: string,
- *   profiles?: Record<string, import('./services/serviceTypes.js').ProfileData>
+ *   profiles?: Record<string, import('./services/serviceTypes.js').ProfileData>,
+ *   dataState: import('../types/events/component-state.js').DataCoordinatorStateSnapshot | null
  * }} ComponentCache
  */
 
@@ -88,6 +90,7 @@ export default class ComponentBase {
       preferences: {},
       activeBindset: "Primary Bindset",
       bindsetNames: ["Primary Bindset"],
+      dataState: null,
       cachedSelections: {
         space: null,
         ground: null,
@@ -98,6 +101,7 @@ export default class ComponentBase {
     this._myReplyTopic = "";
     this._currentEnvironment = "space";
     this._currentProfileId = null;
+    this._lastDataStateRevision = -1;
     /** @type {Map<string, Array<{ handler: EventHandler, context: unknown }>>} */
     this.eventListeners = new Map(); // Track event listeners for cleanup
     /** @type {Array<() => void>} */
@@ -171,6 +175,7 @@ export default class ComponentBase {
         preferences: {},
         activeBindset: "Primary Bindset",
         bindsetNames: ["Primary Bindset"],
+        dataState: null,
         cachedSelections: {
           space: null,
           ground: null,
@@ -220,6 +225,10 @@ export default class ComponentBase {
       this._cacheSelectionState(state);
     });
 
+    this.addEventListener("data:state-changed", ({ state }) => {
+      this._cacheDataState(state);
+    });
+
     // Cache environment changes
     this.addEventListener("environment:changed", (data) => {
       const env = typeof data === "string" ? data : data?.environment;
@@ -235,24 +244,11 @@ export default class ComponentBase {
     // Cache profile updates from DataCoordinator
     this.addEventListener("profile:updated", ({ profileId, profile }) => {
       if (this.cache && profileId === this.cache.currentProfile) {
-        this.cache.profile = profile;
-        // Handle null profile gracefully
-        if (!profile) {
-          this.cache.builds = null;
-          this.cache.keys = {};
-          this.cache.aliases = {};
-          return;
-        }
-        // Update keys for current environment
-        if (profile.builds) {
-          this.cache.builds = profile.builds;
-          const currentBuild = profile.builds[this.cache.currentEnvironment];
-          this.cache.keys = currentBuild?.keys || {};
-        } else if (profile.keys) {
-          this.cache.keys = profile.keys;
-        }
-        // Update aliases
-        this.cache.aliases = profile.aliases || {};
+        this._replaceProfileCompatibility(
+          profileId,
+          this.cache.currentEnvironment,
+          profile,
+        );
       }
     });
 
@@ -260,38 +256,7 @@ export default class ComponentBase {
     this.addEventListener(
       "profile:switched",
       ({ profileId, profile, environment }) => {
-        this.cache.currentProfile = profileId;
-        this.cache.profile = profile;
-        this.cache.currentEnvironment = environment || "space";
-        // Backward compatibility for components expecting underscore names
-        this._currentEnvironment = this.cache.currentEnvironment;
-        this._currentProfileId = profileId;
-
-        // Handle null profile gracefully
-        if (!profile) {
-          this.cache.builds = null;
-          this.cache.keys = {};
-          this.cache.aliases = {};
-          return;
-        }
-
-        // CRITICAL FIX: Use virtual profile structure first
-        // DataCoordinator provides flattened keys and aliases in virtual profiles
-        if (profile.keys) {
-          // Use virtual profile's flattened keys structure
-          this.cache.keys = profile.keys;
-        } else if (profile.builds) {
-          // Fallback to nested structure for backward compatibility
-          const currentBuild = profile.builds[this.cache.currentEnvironment];
-          this.cache.keys = currentBuild?.keys || {};
-          this.cache.builds = profile.builds;
-        } else {
-          this.cache.keys = {};
-          this.cache.builds = null;
-        }
-
-        // Use virtual profile's aliases (already flattened)
-        this.cache.aliases = profile.aliases || {};
+        this._replaceProfileCompatibility(profileId, environment, profile);
       },
     );
 
@@ -718,41 +683,7 @@ export default class ComponentBase {
 
     // Handle DataCoordinator state
     if (sender === "DataCoordinator") {
-      // Handle profile ID from both sources
-      const profileId =
-        state.currentProfile ||
-        (state.currentProfileData && state.currentProfileData.id);
-      const profile = state.currentProfileData;
-
-      if (profileId) {
-        // Cache profile ID
-        this.cache.currentProfile = profileId;
-      }
-
-      if (profile) {
-        // Cache profile data
-        this.cache.profile = profile;
-        this.cache.currentEnvironment = profile.environment || "space";
-      } else if (state.currentEnvironment) {
-        // Handle environment without profile data
-        this.cache.currentEnvironment = state.currentEnvironment;
-      }
-
-      // Cache build-specific data if profile exists
-      if (profile) {
-        if (profile.builds) {
-          this.cache.builds = profile.builds;
-          // Cache keys for current environment
-          const currentBuild = profile.builds[this.cache.currentEnvironment];
-          this.cache.keys = currentBuild?.keys || {};
-        } else if (profile.keys) {
-          // Legacy format support
-          this.cache.keys = profile.keys;
-        }
-
-        // Cache aliases
-        this.cache.aliases = profile.aliases || {};
-      }
+      this._cacheDataState(state);
 
       console.log(
         `[ComponentBase] ${this.getComponentName()} cached DataCoordinator state:`,
@@ -815,6 +746,78 @@ export default class ComponentBase {
     this.cache.currentEnvironment = selectionState.currentEnvironment;
     this.cache.editingContext = selectionState.editingContext;
     this.cache.cachedSelections = { ...selectionState.cachedSelections };
+  }
+
+  /**
+   * Replace the complete DataCoordinator snapshot and its compatibility views.
+   * Older authority epochs are rejected after a replacement owner publishes.
+   * Within one authority, duplicate or stale revisions cannot roll a consumer
+   * back. A newer authority can restart its revision sequence from zero.
+   * @param {import('../types/events/component-state.js').DataCoordinatorStateSnapshot} state
+   * @returns {boolean}
+   */
+  _cacheDataState(state) {
+    const dataState = adoptDataStateSnapshot(state, this.cache.dataState);
+    if (!dataState) return false;
+    const profileState = this._profileCompatibilityState(
+      dataState.currentProfile,
+      dataState.currentEnvironment,
+      dataState.currentProfileData,
+    );
+
+    Object.assign(this.cache, profileState, { dataState });
+    this._lastDataStateRevision = dataState.revision;
+    this._syncLegacyProfileFields(profileState);
+    return true;
+  }
+
+  /**
+   * @param {string | null} currentProfile
+   * @param {string | null | undefined} currentEnvironment
+   * @param {import('./services/serviceTypes.js').ProfileData | null} profile
+   */
+  _replaceProfileCompatibility(currentProfile, currentEnvironment, profile) {
+    const profileState = this._profileCompatibilityState(
+      currentProfile,
+      currentEnvironment,
+      profile,
+    );
+    Object.assign(this.cache, profileState);
+    this._syncLegacyProfileFields(profileState);
+  }
+
+  /**
+   * @param {string | null} currentProfile
+   * @param {string | null | undefined} currentEnvironment
+   * @param {import('./services/serviceTypes.js').ProfileData | null} profile
+   */
+  _profileCompatibilityState(currentProfile, currentEnvironment, profile) {
+    const environment = currentEnvironment || "space";
+    const detachedProfile = profile ? structuredClone(profile) : null;
+    const builds = detachedProfile?.builds || null;
+    const keys = detachedProfile?.keys || builds?.[environment]?.keys || {};
+    if (detachedProfile) {
+      if (currentProfile) detachedProfile.id = currentProfile;
+      detachedProfile.environment = environment;
+      detachedProfile.keys = keys;
+      detachedProfile.aliases = detachedProfile.aliases || {};
+      detachedProfile.keybindMetadata = detachedProfile.keybindMetadata || {};
+      detachedProfile.aliasMetadata = detachedProfile.aliasMetadata || {};
+    }
+    return {
+      currentProfile,
+      currentEnvironment: environment,
+      profile: detachedProfile,
+      builds,
+      keys,
+      aliases: detachedProfile?.aliases || {},
+    };
+  }
+
+  /** @param {{ currentProfile: string | null, currentEnvironment: string }} state */
+  _syncLegacyProfileFields(state) {
+    this._currentProfileId = state.currentProfile;
+    this._currentEnvironment = state.currentEnvironment;
   }
 
   /**

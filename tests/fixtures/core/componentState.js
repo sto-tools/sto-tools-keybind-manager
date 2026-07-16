@@ -36,6 +36,9 @@ export function createDataCoordinatorState(overrides = {}) {
     "space";
 
   return {
+    authorityEpoch: overrides.authorityEpoch ?? 1,
+    ready: overrides.ready ?? true,
+    revision: overrides.revision ?? 1,
     currentProfile,
     currentEnvironment,
     currentProfileData,

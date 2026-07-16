@@ -1,9 +1,15 @@
 import eventBus from "../../src/js/core/eventBus.js";
-import { createPreferencesState } from "../fixtures/core/componentState.js";
+import {
+  createDataCoordinatorState,
+  createPreferencesState,
+} from "../fixtures/core/componentState.js";
 import type {
   ComponentReplyTopic,
   ComponentState,
   ComponentStateReply,
+  DataCoordinatorStateSnapshot,
+  DataStateChangedPayload,
+  DataStateChangeReason,
   DynamicEventTopic,
   EventPayload,
   EventTopic,
@@ -51,9 +57,35 @@ type SelectionSnapshotIsRegisteredExactly = Expect<
 type SelectionLateJoinStateIsRegisteredExactly = Expect<
   Equal<ComponentState<"SelectionService">, SelectionStateSnapshot>
 >;
+type DataSnapshotIsRegisteredExactly = Expect<
+  Equal<ComponentState<"DataCoordinator">, DataCoordinatorStateSnapshot>
+>;
+type DataStateEventIsRegisteredExactly = Expect<
+  Equal<EventPayload<"data:state-changed">, DataStateChangedPayload>
+>;
+type DataStateReasonsAreClosed = Expect<
+  Equal<
+    DataStateChangeReason,
+    | "initial-load"
+    | "storage-reset"
+    | "profile-switched"
+    | "profile-created"
+    | "profile-cloned"
+    | "profile-renamed"
+    | "profile-deleted"
+    | "profile-updated"
+    | "environment-changed"
+    | "settings-updated"
+    | "default-profiles-created"
+    | "fallback-profiles-created"
+    | "state-reloaded"
+  >
+>;
 
 const bus: TypedEventBus = eventBus;
+const dataCoordinatorState = createDataCoordinatorState();
 const preferencesSettings = createPreferencesState().settings;
+dataCoordinatorState.authorityEpoch.toFixed();
 
 bus.hasListeners("toast:show");
 // @ts-expect-error Listener callbacks are private implementation details.
@@ -80,6 +112,29 @@ bus.emit("preferences:loaded", { settings: { language: "en" } });
 // @ts-expect-error Changed events retain their delta and carry a full snapshot.
 bus.emit("preferences:changed", { key: "language", value: "de" });
 bus.emit("storage:settings-changed", { settings: { autoSync: true } });
+bus.emit("data:state-changed", {
+  reason: "initial-load",
+  state: dataCoordinatorState,
+});
+// @ts-expect-error Data state broadcasts require a closed publication reason.
+bus.emit("data:state-changed", {
+  reason: "unknown-change",
+  state: dataCoordinatorState,
+});
+// @ts-expect-error Data state broadcasts require the complete snapshot envelope.
+bus.emit("data:state-changed", { reason: "profile-updated" });
+// @ts-expect-error Complete snapshots include authority, readiness, and revision.
+bus.emit("data:state-changed", {
+  reason: "profile-updated",
+  state: {
+    currentProfile: null,
+    currentEnvironment: "space",
+    currentProfileData: null,
+    profiles: {},
+    settings: {},
+    metadata: { lastModified: null, version: "1.0.0" },
+  },
+});
 bus.emit("selection:state-changed", {
   selectedKey: "F1",
   selectedAlias: null,
@@ -155,6 +210,10 @@ bus.on(componentReplyTopic, (reply) => {
   }
 });
 bus.emit(componentReplyTopic, {
+  sender: "DataCoordinator",
+  state: dataCoordinatorState,
+});
+bus.emit(componentReplyTopic, {
   sender: "BindsetService",
   state: { bindsets: ["Primary Bindset"] },
 });
@@ -201,5 +260,8 @@ bus.emit(`store:${stringValue}`, "space");
 void ({} as RegistryContainsNoAnyPayload);
 void ({} as ToastPayloadIsRegistered);
 void ({} as SelectionLateJoinStateIsRegisteredExactly);
+void ({} as DataSnapshotIsRegisteredExactly);
+void ({} as DataStateEventIsRegisteredExactly);
+void ({} as DataStateReasonsAreClosed);
 void mismatchedComponentReply;
 void incompleteSelectionReply;

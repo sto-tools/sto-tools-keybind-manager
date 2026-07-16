@@ -8,7 +8,7 @@ import {
 import { decodeKeyFromImport } from "../../lib/keyEncoding.js";
 import { KBFParser } from "../../lib/KBFParser.js";
 import { parseProfileJson, parseProjectJson } from "./importJsonBoundary.js";
-import persist from "./storageWrites.js";
+import { commitImportedProfile } from "./importProfileCommit.js";
 
 const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
 
@@ -403,11 +403,7 @@ export default class ImportService extends ComponentBase {
         imported++;
       }
 
-      // Save profile
-      await persist.profile(this.storage, profileId, profile, this.i18n);
-
-      // Emit profile updated event (standard eventBus topic)
-      this.emit("profile:updated", { profileId, profile, environment: env });
+      await commitImportedProfile(this, profileId, profile, env);
 
       // Set app modified state if available
       this.markAppModified();
@@ -532,11 +528,7 @@ export default class ImportService extends ComponentBase {
         imported++;
       }
 
-      // Save profile
-      await persist.profile(this.storage, profileId, profile, this.i18n);
-
-      // Emit profile updated event so UIs refresh
-      this.emit("profile:updated", { profileId, profile });
+      await commitImportedProfile(this, profileId, profile);
 
       // Set app modified state if available
       this.markAppModified();
@@ -1034,11 +1026,7 @@ export default class ImportService extends ComponentBase {
         }
       }
 
-      // Save profile
-      await persist.profile(this.storage, profileId, profile, this.i18n);
-
-      // Emit profile updated event
-      this.emit("profile:updated", { profileId, profile, environment });
+      await commitImportedProfile(this, profileId, profile, environment);
 
       // Set app modified state if available
       this.markAppModified();

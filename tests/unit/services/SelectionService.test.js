@@ -519,7 +519,7 @@ describe("SelectionService", () => {
         },
       });
 
-      service.handleInitialState({ sender: "DataCoordinator", state });
+      service._onInitialState({ sender: "DataCoordinator", state });
 
       expect(service.cache.currentProfile).toBe("test-profile");
       expect(service.cache.currentEnvironment).toBe("ground");
@@ -537,8 +537,8 @@ describe("SelectionService", () => {
         },
       });
 
-      // Simulate via handleInitialState (which is how ComponentBase delivers events)
-      service.handleInitialState({ sender: "DataCoordinator", state });
+      // Exercise ComponentBase acceptance before SelectionService business state.
+      service._onInitialState({ sender: "DataCoordinator", state });
 
       expect(service.cache.currentProfile).toBe("new-profile");
       expect(service.cache.currentEnvironment).toBe("space");

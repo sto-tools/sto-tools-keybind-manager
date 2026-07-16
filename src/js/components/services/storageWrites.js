@@ -13,9 +13,10 @@ const storageWrites = {
     requireSuccess(await storage.saveAllData(data), i18n);
   },
 
-  /** @param {import('./serviceTypes.js').Storage} storage @param {string} profileId @param {import('./serviceTypes.js').ProfileData} profile @param {import('./serviceTypes.js').I18n | null | undefined} i18n */
+  /** @param {import('./serviceTypes.js').Storage} storage @param {string} profileId @param {import('./serviceTypes.js').ProfileData} profile @param {import('./serviceTypes.js').I18n | null | undefined} i18n @returns {Promise<import('./serviceTypes.js').ProfileData>} */
   async profile(storage, profileId, profile, i18n) {
     requireSuccess(await storage.saveProfile(profileId, profile), i18n);
+    return structuredClone(storage.getProfile(profileId) || profile);
   },
 
   /** @param {import('./serviceTypes.js').Storage} storage @param {string} profileId @param {import('./serviceTypes.js').I18n | null | undefined} i18n */

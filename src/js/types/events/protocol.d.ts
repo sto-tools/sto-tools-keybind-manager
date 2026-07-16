@@ -1,6 +1,7 @@
 import type { AliasEventProtocol } from "./aliases.js";
 import type { BindsetEventProtocol } from "./bindsets.js";
 import type { CommandEventProtocol } from "./commands.js";
+import type { DataEventProtocol } from "./data.js";
 import type { DynamicEventTopic, DynamicEventPayload } from "./dynamic.js";
 import type { KeyEventProtocol } from "./keys.js";
 import type { LegacyDomMirrorSurface } from "./legacy-dom.js";
@@ -19,6 +20,7 @@ export interface EventProtocol
   extends AliasEventProtocol,
     BindsetEventProtocol,
     CommandEventProtocol,
+    DataEventProtocol,
     KeyEventProtocol,
     PreferencesEventProtocol,
     ProfileEventProtocol,

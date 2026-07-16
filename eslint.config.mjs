@@ -7,7 +7,7 @@ import globals from "globals";
 const legacyMaxLineLimits = {
   "src/js/components/services/CommandChainService.js": 824,
   "src/js/components/services/CommandService.js": 1187,
-  "src/js/components/services/DataCoordinator.js": 1234,
+  "src/js/components/services/DataCoordinator.js": 1089,
   "src/js/components/services/ExportService.js": 594,
   "src/js/components/services/ImportService.js": 1266,
   "src/js/components/services/ParameterCommandService.js": 626,

@@ -152,7 +152,7 @@ describe("Regression: Import from Key or Alias request routing", () => {
   });
 
   it("clears an alias without overwriting its metadata", async () => {
-    eventBus.emit("environment:changed", { environment: "alias" });
+    await dataCoordinator.setEnvironment("alias");
     fixture.storage.saveProfile.mockClear();
 
     const result = await request(eventBus, "command:import-from-source", {

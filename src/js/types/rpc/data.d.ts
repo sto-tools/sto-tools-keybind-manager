@@ -31,16 +31,41 @@ export type ProfileSwitchResult = {
 
 export type CurrentDataState = DataCoordinatorStateSnapshot;
 
-export type ProfileUpdateRequest = {
+type ExistingProfileUpdateRequest = {
   profileId: string;
+  createIfMissing?: never;
   updates?: ProfileOperations;
   add?: ProfileOperations["add"];
   delete?: ProfileOperations["delete"];
   modify?: ProfileOperations["modify"];
   properties?: NonNullable<ProfileOperations["properties"]> &
     Partial<Pick<Profile, "selections" | "vertigoSettings">>;
+  replacement?: ProfileOperations["replacement"];
   updateSource?: string;
 };
+
+type CreateMissingProfileFromReplacementRequest = {
+  profileId: string;
+  /**
+   * Explicitly permits creation only from a complete replacement operation.
+   * Ordinary update requests remain update-only and reject a missing profile.
+   */
+  createIfMissing: true;
+  updates: {
+    replacement: NonNullable<ProfileOperations["replacement"]>;
+    updateSource?: string;
+  };
+  add?: never;
+  delete?: never;
+  modify?: never;
+  properties?: never;
+  replacement?: never;
+  updateSource?: string;
+};
+
+export type ProfileUpdateRequest =
+  | ExistingProfileUpdateRequest
+  | CreateMissingProfileFromReplacementRequest;
 
 export interface DataRpcProtocol {
   "data:clone-profile": RequiredRpc<

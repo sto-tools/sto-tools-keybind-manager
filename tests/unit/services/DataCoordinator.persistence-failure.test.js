@@ -85,12 +85,19 @@ describe("DataCoordinator persistence failure gating", () => {
 
   it("does not delete a profile when storage rejects the deletion", async () => {
     const before = structuredClone(coordinator.state);
-    fixture.storage.deleteProfile.mockReturnValueOnce(false);
+    fixture.storage.saveAllData.mockReturnValueOnce(false);
 
     await expect(coordinator.deleteProfile("captain")).rejects.toThrow(
       "failed_to_delete_profile",
     );
 
+    expect(fixture.storage.saveAllData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentProfile: "first_officer",
+        profiles: expect.not.objectContaining({ captain: expect.anything() }),
+      }),
+    );
+    expect(fixture.storage.deleteProfile).not.toHaveBeenCalled();
     expect(coordinator.state).toEqual(before);
     expect(
       fixture

@@ -142,6 +142,12 @@ describe("CommandService mutations", () => {
       environment: "space",
     });
     await service.addCommand("F1", { command: "Cmd3" });
+    // The coordinator owns profile state and publishes a detached update after
+    // persistence; consumers no longer share the mock storage object's graph.
+    eventBus.emit("profile:updated", {
+      profileId: profile.id,
+      profile,
+    });
 
     const spy = vi.fn();
     eventBus.on("command-moved", spy);

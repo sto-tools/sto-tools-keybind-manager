@@ -13,6 +13,7 @@ import {
   generateFixtureId,
 } from "../core/cleanup.js";
 import { createFSFixture } from "../core/fs.js";
+import { respondWithImportedProfileCommits } from "./importedProfileCommit.js";
 
 /**
  * Create a basic service fixture.
@@ -79,6 +80,13 @@ export function createServiceFixture(options = {}) {
   // Register for global cleanup so tests don't leak mocks
   registerFixture(fixtureId, fixture.destroy);
 
+  return fixture;
+}
+
+/** Create a service fixture with ImportService's coordinator seam wired. */
+export function createImportServiceFixture(options = {}) {
+  const fixture = createServiceFixture(options);
+  respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
   return fixture;
 }
 

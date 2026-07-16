@@ -10,6 +10,10 @@ import type {
 
 /** Complete late-join snapshot published by DataCoordinator. */
 export interface DataCoordinatorStateSnapshot {
+  /** Monotonic identity of the DataCoordinator instance that owns this state. */
+  authorityEpoch: number;
+  ready: boolean;
+  revision: number;
   currentProfile: string | null;
   currentEnvironment: string;
   currentProfileData: ProfileData | null;

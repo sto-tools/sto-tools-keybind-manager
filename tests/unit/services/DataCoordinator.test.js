@@ -127,6 +127,9 @@ describe("DataCoordinator Service", () => {
       const state = dataCoordinator.getCurrentState();
 
       expect(state).toEqual({
+        authorityEpoch: expect.any(Number),
+        ready: false,
+        revision: 0,
         currentProfile: null,
         currentEnvironment: "space",
         currentProfileData: null,
@@ -378,6 +381,15 @@ describe("DataCoordinator Service", () => {
       expect(dataCoordinator.state.profiles["reloaded-profile"]).toMatchObject({
         name: "Reloaded",
         migrationVersion: "2.1.1",
+      });
+      expect(
+        dataCoordinator.state.profiles["reloaded-profile"],
+      ).not.toHaveProperty("builds");
+      expect(
+        dataCoordinator.getCurrentState().currentProfileData,
+      ).toMatchObject({
+        id: "reloaded-profile",
+        environment: "space",
         builds: {
           space: { keys: {} },
           ground: { keys: {} },
@@ -404,6 +416,21 @@ describe("DataCoordinator Service", () => {
           properties: { description: "Updated" },
         }),
       ).rejects.toThrow("Profile non-existent not found");
+    });
+
+    it("does not turn partial updates into missing-profile upserts", async () => {
+      await expect(
+        dataCoordinator.updateProfile(
+          "non-existent",
+          { properties: { description: "Not a complete profile" } },
+          { createIfMissing: true },
+        ),
+      ).rejects.toThrow(
+        "createIfMissing requires a replacement-only profile update",
+      );
+
+      expect(mockStorage.saveProfile).not.toHaveBeenCalled();
+      expect(dataCoordinator.state.profiles).not.toHaveProperty("non-existent");
     });
 
     it("should handle null updates parameter correctly", async () => {
@@ -434,7 +461,7 @@ describe("DataCoordinator Service", () => {
       await expect(
         dataCoordinator.updateProfile("test-profile", {}),
       ).rejects.toThrow(
-        "Explicit operations (add/delete/modify/properties) required",
+        "Explicit operations (add/delete/modify/properties/replacement) required",
       );
     });
 

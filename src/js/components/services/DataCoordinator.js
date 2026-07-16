@@ -4,15 +4,24 @@ import {
   needsNormalization,
 } from "../../lib/profileNormalizer.js";
 import persist from "./storageWrites.js";
-
-const appWindow =
-  typeof window === "undefined"
-    ? null
-    : /** @type {import('./serviceTypes.js').AppWindow} */ (window);
+import {
+  createDataStateSnapshot,
+  createVirtualProfile,
+  getPrimaryKeyCommands,
+  getPrimaryKeys,
+  nextDataStateAuthorityEpoch,
+} from "./dataState.js";
+import { registerDataCoordinatorResponders } from "./dataCoordinatorResponders.js";
+import { handleLoadDefaultDataUi } from "./dataCoordinatorDefaultUi.js";
+import { loadInitialCoordinatorState } from "./dataCoordinatorInitialState.js";
+import { applyProfileOperations } from "./profileOperations.js";
 
 /** @param {unknown} error */
 const getErrorMessage = (error) =>
   error instanceof Error ? error.message : String(error);
+
+/** @param {object} value @param {PropertyKey} key */
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
 
 /**
  * DataCoordinator - Single source of truth for all data operations
@@ -116,12 +125,17 @@ export default class DataCoordinator extends ComponentBase {
       currentEnvironment: "space",
       profiles: {},
       settings: {},
-      metadata: {
-        lastModified: null,
-        version: "1.0.0",
-      },
+      metadata: { lastModified: null, version: "1.0.0" },
     };
+    this._stateAuthorityEpoch = nextDataStateAuthorityEpoch();
+    this._lifecycleGeneration = 0;
+    this._stateReady = false;
+    this._stateRevision = 0;
+    /** @type {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null} */
+    this._currentStateSnapshot = null;
     this.needsDefaultProfiles = false;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
 
     // Late-join support is handled by ComponentBase automatically
 
@@ -130,12 +144,16 @@ export default class DataCoordinator extends ComponentBase {
 
   async onInit() {
     console.log(`[${this.componentName}] Initializing...`);
+    const operation = this._captureOperationGeneration();
+
+    this.setupRequestHandlers();
 
     // Set up event listeners
     this.setupEventListeners();
 
     // Load initial state from storage
     await this.loadInitialState();
+    if (!this._isCurrentOperation(operation)) return;
 
     console.log(`[${this.componentName}] Initialization complete`);
   }
@@ -148,8 +166,14 @@ export default class DataCoordinator extends ComponentBase {
       // Update our state to empty/reset state
       this.state.currentProfile = null;
       this.state.profiles = {};
-      this.state.settings = data?.settings || {};
+      this.state.settings = structuredClone(data?.settings || {});
       this.state.currentEnvironment = "space"; // Reset to default environment
+      this.state.metadata = {
+        lastModified: data?.lastModified,
+        version: data?.version || "1.0.0",
+      };
+
+      this._publishState("storage-reset");
 
       // Broadcast the reset to all components synchronously
       this.emit(
@@ -178,147 +202,45 @@ export default class DataCoordinator extends ComponentBase {
     this.addEventListener("data:load-default", () => {
       this.handleLoadDefaultData();
     });
+
+    // ComponentBase announces registration before a component's onInit hook.
+    // Defer the retry so DataService can install its responders first.
+    this.addEventListener("component:register", ({ name }) => {
+      if (name !== "DataService" || !this.needsDefaultProfiles) return;
+
+      queueMicrotask(() => {
+        if (!this.destroyed && this.needsDefaultProfiles) {
+          void this.tryCreateDefaultProfiles();
+        }
+      });
+    });
   }
 
   // Handle loading default data with profile existence check
   async handleLoadDefaultData() {
-    console.log("[DataCoordinator] Handling load default data request");
+    await handleLoadDefaultDataUi(this);
+  }
 
-    try {
-      // Check if any profile named "Default" already exists
-      const existingDefaultProfile = Object.entries(this.state.profiles).find(
-        ([, profile]) =>
-          profile.name && profile.name.toLowerCase() === "default",
-      );
+  _captureOperationGeneration() {
+    return this._lifecycleGeneration;
+  }
 
-      if (existingDefaultProfile) {
-        const [profileId, profile] = existingDefaultProfile;
-        console.log(
-          `[DataCoordinator] Default profile already exists: ${profileId} - "${profile.name}"`,
-        );
+  /** @param {number} generation */
+  _isCurrentOperation(generation) {
+    return !this.destroyed && generation === this._lifecycleGeneration;
+  }
 
-        // Show modal asking if user wants to overwrite
-        if (appWindow?.confirmDialog) {
-          const message = this.i18n.t("default_profile_exists_message");
-          const title = this.i18n.t("default_profile_exists_title");
-
-          const confirmed = await appWindow.confirmDialog.confirm(
-            message,
-            title,
-            "warning",
-            "loadDefaultData",
-          );
-          if (!confirmed) {
-            console.log("[DataCoordinator] User cancelled default data load");
-            return;
-          }
-        } else {
-          // Fallback if no confirm dialog available
-          if (appWindow?.stoUI) {
-            appWindow.stoUI.showToast(
-              "Default profile already exists. Will not overwrite.",
-              "warning",
-            );
-          }
-          return;
-        }
-      }
-
-      // Proceed with loading default data
-      console.log("[DataCoordinator] Loading default data...");
-      const result = await this.loadDefaultData();
-
-      if (result.success) {
-        if (appWindow?.stoUI) {
-          appWindow.stoUI.showToast(
-            "Default data loaded successfully.",
-            "success",
-          );
-        }
-        console.log("[DataCoordinator] Default data loaded successfully");
-      } else {
-        if (appWindow?.stoUI) {
-          appWindow.stoUI.showToast("Failed to load default data.", "error");
-        }
-        console.error(
-          "[DataCoordinator] Failed to load default data:",
-          result.error,
-        );
-      }
-    } catch (error) {
-      console.error(
-        "[DataCoordinator] Error handling load default data:",
-        error,
-      );
-      if (appWindow?.stoUI) {
-        appWindow.stoUI.showToast("Error loading default data.", "error");
-      }
+  /** @param {number} generation */
+  _assertCurrentOperation(generation) {
+    if (!this._isCurrentOperation(generation)) {
+      throw new Error("operation_cancelled");
     }
   }
 
   setupRequestHandlers() {
-    this.respond("data:get-current-state", () => this.getCurrentState());
-    this.respond("data:get-all-profiles", () => this.getAllProfiles());
-    this.respond("data:switch-profile", ({ profileId }) =>
-      this.switchProfile(profileId),
-    );
-    this.respond("data:create-profile", ({ name, description, mode }) =>
-      this.createProfile(name, description, mode),
-    );
-    this.respond("data:clone-profile", ({ sourceId, newName }) =>
-      this.cloneProfile(sourceId, newName),
-    );
-    this.respond("data:rename-profile", ({ profileId, newName, description }) =>
-      this.renameProfile(profileId, newName, description),
-    );
-    this.respond("data:delete-profile", ({ profileId }) =>
-      this.deleteProfile(profileId),
-    );
-    this.respond("data:update-profile", (payload) => {
-      const { profileId, updates } = payload;
-
-      // If caller used legacy shape without "updates" wrapper, treat the remaining
-      // keys (add/delete/modify/properties) as the updates object.
-      let normalizedUpdates = updates;
-      if (!normalizedUpdates) {
-        const { add, delete: del, modify, properties } = payload;
-        if (add || del || modify || properties) {
-          normalizedUpdates = { add, delete: del, modify, properties };
-        }
-      }
-
-      // Forward updateSource if caller included it (used for loop-suppression in some services)
-      if (
-        payload.updateSource &&
-        (!normalizedUpdates || !normalizedUpdates.updateSource)
-      ) {
-        if (!normalizedUpdates) normalizedUpdates = {};
-        normalizedUpdates.updateSource = payload.updateSource;
-      }
-
-      return this.updateProfile(profileId, normalizedUpdates);
-    });
-    this.respond("data:set-environment", ({ environment }) =>
-      this.setEnvironment(environment),
-    );
-    this.respond("data:update-settings", ({ settings }) =>
-      this.updateSettings(settings),
-    );
-    this.respond("data:load-default-data", () => this.loadDefaultData());
-    this.respond("data:reload-state", () => this.reloadState());
-    this.respond(
-      "data:get-keys",
-      ({ environment } = /** @type {{ environment?: string }} */ ({})) =>
-        this.getKeys(environment),
-    );
-    this.respond(
-      "data:get-key-commands",
-      (
-        {
-          environment,
-          key,
-        } = /** @type {{ environment?: string, key?: string }} */ ({}),
-      ) => this.getKeyCommands(environment, key),
+    if (this._responseDetachFunctions.length > 0) return;
+    this._responseDetachFunctions.push(
+      ...registerDataCoordinatorResponders(this),
     );
   }
 
@@ -326,80 +248,7 @@ export default class DataCoordinator extends ComponentBase {
    * Load initial state from storage
    */
   async loadInitialState() {
-    try {
-      const data = this.storage.getAllData();
-
-      this.state.currentProfile = data.currentProfile;
-      this.state.profiles = structuredClone(data.profiles || {});
-      this.state.settings = structuredClone(data.settings || {});
-
-      // Normalize all profiles to use canonical string commands
-      await this.normalizeAllProfiles();
-
-      // If no profiles exist, only create default profiles on first run
-      if (Object.keys(this.state.profiles).length === 0) {
-        // Check if this is the first time running the application
-        const isFirstTime = !localStorage.getItem(
-          "sto_keybind_manager_visited",
-        );
-
-        if (isFirstTime) {
-          this.needsDefaultProfiles = true;
-          console.log(
-            `[${this.componentName}] First time run - no profiles found, will create defaults when DataService is available`,
-          );
-
-          // Try to create default profiles immediately if DataService is available
-          this.tryCreateDefaultProfiles();
-        } else {
-          console.log(
-            `[${this.componentName}] No profiles found, but not first run - leaving empty (user may have reset)`,
-          );
-        }
-      }
-
-      // If no current profile set, set to first available
-      if (
-        !this.state.currentProfile &&
-        Object.keys(this.state.profiles).length > 0
-      ) {
-        const firstProfileId = Object.keys(this.state.profiles)[0];
-
-        // Save current profile to storage
-        await persist.currentProfile(this.storage, firstProfileId, this.i18n);
-        this.state.currentProfile = firstProfileId;
-      }
-
-      // Get current environment from profile
-      if (
-        this.state.currentProfile &&
-        this.state.profiles[this.state.currentProfile]
-      ) {
-        this.state.currentEnvironment =
-          this.state.profiles[this.state.currentProfile].currentEnvironment ||
-          "space";
-      }
-
-      this.state.metadata = {
-        lastModified: data.lastModified,
-        version: data.version || "1.0.0",
-      };
-
-      console.log(`[${this.componentName}] Loaded initial state:`, {
-        currentProfile: this.state.currentProfile,
-        environment: this.state.currentEnvironment,
-        profileCount: Object.keys(this.state.profiles).length,
-      });
-    } catch (error) {
-      console.error(
-        `[${this.componentName}] Failed to load initial state:`,
-        error,
-      );
-      const message = this.i18n.t("failed_to_load_profile_data", {
-        error: getErrorMessage(error),
-      });
-      throw new Error(message);
-    }
+    await loadInitialCoordinatorState(this);
   }
 
   /**
@@ -407,29 +256,38 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {import('../../types/events/component-state.js').ComponentState<'DataCoordinator'>}
    */
   getCurrentState() {
-    // Build current profile data for late-join
-    let currentProfile = null;
-    if (
-      this.state.currentProfile &&
-      this.state.profiles[this.state.currentProfile]
-    ) {
-      const profile = this.state.profiles[this.state.currentProfile];
-      currentProfile = this.buildVirtualProfile(
-        profile,
-        this.state.currentEnvironment,
-      );
-      if (currentProfile) currentProfile.id = this.state.currentProfile;
+    if (this._stateReady && this._currentStateSnapshot) {
+      return this._currentStateSnapshot;
     }
 
-    return {
-      currentProfile: this.state.currentProfile,
-      currentEnvironment: this.state.currentEnvironment,
-      profiles: { ...this.state.profiles },
-      settings: { ...this.state.settings },
-      metadata: { ...this.state.metadata },
-      // For late-join: provide the built profile data
-      currentProfileData: currentProfile,
-    };
+    const snapshot = createDataStateSnapshot(this.state, {
+      authorityEpoch: this._stateAuthorityEpoch,
+      ready: this._stateReady,
+      revision: this._stateRevision,
+    });
+
+    if (this._stateReady) this._currentStateSnapshot = snapshot;
+    return snapshot;
+  }
+
+  /**
+   * Publish the authoritative coordinator snapshot after a durable logical
+   * commit. Mutations that finish while initial storage loading is still in
+   * progress are represented by the final initial-load snapshot instead.
+   *
+   * @param {import('../../types/events/data.js').DataStateChangeReason} reason
+   * @returns {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null}
+   */
+  _publishState(reason) {
+    if (!this._stateReady || this.destroyed) return null;
+
+    this._stateRevision += 1;
+    this._currentStateSnapshot = null;
+    const state = this.getCurrentState();
+    this.emit("data:state-changed", Object.freeze({ reason, state }), {
+      synchronous: true,
+    });
+    return state;
   }
 
   // getCurrentProfile method removed - components should use broadcast/cache pattern instead
@@ -439,44 +297,20 @@ export default class DataCoordinator extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:get-all-profiles'>>}
    */
   async getAllProfiles() {
-    return { ...this.state.profiles };
+    return structuredClone(this.state.profiles);
   }
 
   /**
    * Build virtual profile with current build data
    */
   /**
+   * @param {string} profileId
    * @param {import('./serviceTypes.js').ProfileData | null | undefined} profile
    * @param {string} environment
    * @returns {import('./serviceTypes.js').ProfileData | null}
    */
-  buildVirtualProfile(profile, environment) {
-    if (!profile) return null;
-
-    // Ensure builds structure exists
-    if (!profile.builds) {
-      profile.builds = {
-        space: { keys: {} },
-        ground: { keys: {} },
-      };
-    }
-
-    if (!profile.builds[environment]) {
-      profile.builds[environment] = { keys: {} };
-    }
-
-    // Just return the primary build keys - UI components will handle bindset overlaying
-    let mergedKeys = { ...(profile.builds[environment].keys || {}) };
-
-    // Return virtual profile with flattened keys for current environment
-    return {
-      ...profile,
-      keys: mergedKeys,
-      aliases: profile.aliases || {},
-      keybindMetadata: profile.keybindMetadata || {},
-      aliasMetadata: profile.aliasMetadata || {},
-      environment: environment,
-    };
+  buildVirtualProfile(profileId, profile, environment) {
+    return createVirtualProfile(profileId, profile, environment);
   }
 
   /**
@@ -490,10 +324,11 @@ export default class DataCoordinator extends ComponentBase {
       let currentProfile = null;
       if (
         this.state.currentProfile &&
-        this.state.profiles[this.state.currentProfile]
+        hasOwn(this.state.profiles, this.state.currentProfile)
       ) {
         const profile = this.state.profiles[this.state.currentProfile];
         currentProfile = this.buildVirtualProfile(
+          this.state.currentProfile,
           profile,
           this.state.currentEnvironment,
         );
@@ -507,15 +342,19 @@ export default class DataCoordinator extends ComponentBase {
       };
     }
 
-    const profile = this.state.profiles[profileId];
+    const profile = hasOwn(this.state.profiles, profileId)
+      ? this.state.profiles[profileId]
+      : null;
     if (!profile) {
       throw new Error(`Profile ${profileId} not found`);
     }
 
     const oldProfileId = this.state.currentProfile;
+    const operation = this._captureOperationGeneration();
 
     // Persist current profile change
     await persist.currentProfile(this.storage, profileId, this.i18n);
+    this._assertCurrentOperation(operation);
 
     this.state.currentProfile = profileId;
     this.state.currentEnvironment = profile.currentEnvironment || "space";
@@ -525,9 +364,12 @@ export default class DataCoordinator extends ComponentBase {
 
     // Build virtual profile for response
     const virtualProfile = this.buildVirtualProfile(
+      profileId,
       profile,
       this.state.currentEnvironment,
     );
+
+    this._publishState("profile-switched");
 
     // Broadcast profile switch synchronously
     this.emit(
@@ -536,7 +378,7 @@ export default class DataCoordinator extends ComponentBase {
         fromProfile: oldProfileId,
         toProfile: profileId,
         profileId: profileId,
-        profile: virtualProfile,
+        profile: structuredClone(virtualProfile),
         environment: this.state.currentEnvironment,
         timestamp: Date.now(),
       },
@@ -572,7 +414,7 @@ export default class DataCoordinator extends ComponentBase {
     const profileId = this.generateProfileId(name);
 
     // Check if profile already exists
-    if (this.state.profiles[profileId]) {
+    if (hasOwn(this.state.profiles, profileId)) {
       const message = this.i18n.t("profile_already_exists");
       throw new Error(message);
     }
@@ -595,26 +437,35 @@ export default class DataCoordinator extends ComponentBase {
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
     };
+    const operation = this._captureOperationGeneration();
 
     try {
       // Save to storage
-      await persist.profile(this.storage, profileId, profile, this.i18n);
+      const persistedProfile = await persist.profile(
+        this.storage,
+        profileId,
+        profile,
+        this.i18n,
+      );
+      this._assertCurrentOperation(operation);
 
       // Update cache
-      this.state.profiles[profileId] = profile;
+      this.state.profiles[profileId] = persistedProfile;
       this.state.metadata.lastModified = new Date().toISOString();
+
+      this._publishState("profile-created");
 
       // Broadcast profile creation
       this.emit("profile:created", {
         profileId,
-        profile,
+        profile: structuredClone(persistedProfile),
         timestamp: Date.now(),
       });
 
       return {
         success: true,
         profileId,
-        profile,
+        profile: structuredClone(persistedProfile),
         message: this.i18n.t("profile_created", { name }),
       };
     } catch (error) {
@@ -639,7 +490,9 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
 
-    const sourceProfile = this.state.profiles[sourceId];
+    const sourceProfile = hasOwn(this.state.profiles, sourceId)
+      ? this.state.profiles[sourceId]
+      : null;
     if (!sourceProfile) {
       const message = this.i18n.t("source_profile_not_found");
       throw new Error(message);
@@ -648,7 +501,7 @@ export default class DataCoordinator extends ComponentBase {
     const profileId = this.generateProfileId(newName);
 
     // Check if profile already exists
-    if (this.state.profiles[profileId]) {
+    if (hasOwn(this.state.profiles, profileId)) {
       const message = this.i18n.t("profile_already_exists");
       throw new Error(message);
     }
@@ -660,19 +513,28 @@ export default class DataCoordinator extends ComponentBase {
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
     };
+    const operation = this._captureOperationGeneration();
 
     try {
       // Save to storage
-      await persist.profile(this.storage, profileId, clonedProfile, this.i18n);
+      const persistedProfile = await persist.profile(
+        this.storage,
+        profileId,
+        clonedProfile,
+        this.i18n,
+      );
+      this._assertCurrentOperation(operation);
 
       // Update cache
-      this.state.profiles[profileId] = clonedProfile;
+      this.state.profiles[profileId] = persistedProfile;
       this.state.metadata.lastModified = new Date().toISOString();
+
+      this._publishState("profile-cloned");
 
       // Broadcast profile creation
       this.emit("profile:created", {
         profileId,
-        profile: clonedProfile,
+        profile: structuredClone(persistedProfile),
         clonedFrom: sourceId,
         timestamp: Date.now(),
       });
@@ -680,7 +542,7 @@ export default class DataCoordinator extends ComponentBase {
       return {
         success: true,
         profileId,
-        profile: clonedProfile,
+        profile: structuredClone(persistedProfile),
         message: this.i18n.t("profile_created_from", {
           newName,
           sourceProfile: sourceProfile.name,
@@ -709,7 +571,9 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
 
-    const profile = this.state.profiles[profileId];
+    const profile = hasOwn(this.state.profiles, profileId)
+      ? this.state.profiles[profileId]
+      : null;
     if (!profile) {
       const message = this.i18n.t("profile_not_found");
       throw new Error(message);
@@ -721,26 +585,35 @@ export default class DataCoordinator extends ComponentBase {
       description: description.trim(),
       lastModified: new Date().toISOString(),
     };
+    const operation = this._captureOperationGeneration();
 
     try {
       // Save to storage
-      await persist.profile(this.storage, profileId, updatedProfile, this.i18n);
+      const persistedProfile = await persist.profile(
+        this.storage,
+        profileId,
+        updatedProfile,
+        this.i18n,
+      );
+      this._assertCurrentOperation(operation);
 
       // Update cache
-      this.state.profiles[profileId] = updatedProfile;
+      this.state.profiles[profileId] = persistedProfile;
       this.state.metadata.lastModified = new Date().toISOString();
+
+      this._publishState("profile-renamed");
 
       // Broadcast profile update
       this.emit("profile:updated", {
         profileId,
-        profile: updatedProfile,
+        profile: structuredClone(persistedProfile),
         changes: { name: newName, description },
         timestamp: Date.now(),
       });
 
       return {
         success: true,
-        profile: updatedProfile,
+        profile: structuredClone(persistedProfile),
         message: `Profile renamed to "${newName}"`,
       };
     } catch (error) {
@@ -762,7 +635,9 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
 
-    const profile = this.state.profiles[profileId];
+    const profile = hasOwn(this.state.profiles, profileId)
+      ? this.state.profiles[profileId]
+      : null;
     if (!profile) {
       const message = this.i18n.t("profile_not_found");
       throw new Error(message);
@@ -775,57 +650,83 @@ export default class DataCoordinator extends ComponentBase {
     }
 
     try {
-      // Delete from storage
-      await persist.deleteProfile(this.storage, profileId, this.i18n);
+      const nextProfiles = structuredClone(this.state.profiles);
+      delete nextProfiles[profileId];
 
-      // Remove from cache
-      delete this.state.profiles[profileId];
-
+      let nextCurrentProfile = this.state.currentProfile;
+      let nextCurrentEnvironment = this.state.currentEnvironment;
       let switchedProfile = null;
 
       // If this was the current profile, switch to another
       if (this.state.currentProfile === profileId) {
-        const remaining = Object.keys(this.state.profiles);
-        this.state.currentProfile = remaining[0];
+        const remaining = Object.keys(nextProfiles);
+        nextCurrentProfile = remaining[0];
 
-        const newProfile = this.state.profiles[this.state.currentProfile];
-        this.state.currentEnvironment =
-          newProfile.currentEnvironment || "space";
+        const newProfile = nextProfiles[nextCurrentProfile];
+        nextCurrentEnvironment = newProfile.currentEnvironment || "space";
 
         switchedProfile = this.buildVirtualProfile(
+          nextCurrentProfile,
           newProfile,
-          this.state.currentEnvironment,
+          nextCurrentEnvironment,
         );
+      }
 
+      // Deletion and replacement-profile selection are one logical durable
+      // commit. A single root write prevents either half from becoming visible
+      // on its own.
+      const nextRoot = structuredClone(this.storage.getAllData());
+      nextRoot.profiles = structuredClone(nextProfiles);
+      nextRoot.currentProfile = nextCurrentProfile;
+      const operation = this._captureOperationGeneration();
+      await persist.all(this.storage, nextRoot, this.i18n);
+      this._assertCurrentOperation(operation);
+
+      const durableRoot = this.storage.getAllData();
+      this.state.profiles = nextProfiles;
+      this.state.currentProfile = nextCurrentProfile;
+      this.state.currentEnvironment = nextCurrentEnvironment;
+      this.state.metadata = {
+        lastModified:
+          durableRoot.lastModified ??
+          nextRoot.lastModified ??
+          new Date().toISOString(),
+        version:
+          durableRoot.version ||
+          nextRoot.version ||
+          this.state.metadata.version,
+      };
+
+      this._publishState("profile-deleted");
+
+      if (switchedProfile && nextCurrentProfile) {
         // Broadcast profile switch synchronously
         this.emit(
           "profile:switched",
           {
             fromProfile: profileId,
-            toProfile: this.state.currentProfile,
-            profileId: this.state.currentProfile,
-            profile: switchedProfile,
-            environment: this.state.currentEnvironment,
+            toProfile: nextCurrentProfile,
+            profileId: nextCurrentProfile,
+            profile: structuredClone(switchedProfile),
+            environment: nextCurrentEnvironment,
             timestamp: Date.now(),
           },
           { synchronous: true },
         );
       }
 
-      this.state.metadata.lastModified = new Date().toISOString();
-
       // Broadcast profile deletion
       this.emit("profile:deleted", {
         profileId,
-        profile,
-        switchedProfile,
+        profile: structuredClone(profile),
+        switchedProfile: structuredClone(switchedProfile),
         timestamp: Date.now(),
       });
 
       return {
         success: true,
-        deletedProfile: profile,
-        switchedProfile,
+        deletedProfile: structuredClone(profile),
+        switchedProfile: structuredClone(switchedProfile),
         message: this.i18n.t("profile_deleted", { profileName: profile.name }),
       };
     } catch (error) {
@@ -845,285 +746,85 @@ export default class DataCoordinator extends ComponentBase {
    * @param {import('./serviceTypes.js').ProfileOperations} operations
    */
   processUpdateOperations(currentProfile, operations) {
-    const result = /** @type {import('./serviceTypes.js').ProfileData} */ (
-      JSON.parse(JSON.stringify(currentProfile))
-    ); // Deep clone
-
-    if (operations.delete) {
-      // Delete operations - remove specified items
-      if (operations.delete.aliases) {
-        operations.delete.aliases.forEach((aliasName) => {
-          if (result.aliases) {
-            delete result.aliases[aliasName];
-          }
-        });
-      }
-
-      if (operations.delete.builds) {
-        for (const [env, envData] of Object.entries(operations.delete.builds)) {
-          const targetBuild = result.builds?.[env];
-          const targetKeys = targetBuild?.keys;
-          if (targetKeys && envData.keys) {
-            envData.keys.forEach((keyName) => {
-              delete targetKeys[keyName];
-            });
-          }
-        }
-      }
-
-      // Delete bindsets
-      if (
-        operations.delete.bindsets &&
-        Array.isArray(operations.delete.bindsets)
-      ) {
-        operations.delete.bindsets.forEach((bsName) => {
-          if (result.bindsets) {
-            delete result.bindsets[bsName];
-          }
-        });
-      }
-
-      // Delete bindsetMetadata
-      if (
-        operations.delete.bindsetMetadata &&
-        Array.isArray(operations.delete.bindsetMetadata)
-      ) {
-        operations.delete.bindsetMetadata.forEach((bsName) => {
-          if (result.bindsetMetadata) {
-            delete result.bindsetMetadata[bsName];
-          }
-        });
-      }
-    }
-
-    if (operations.add) {
-      // Add operations - merge new items into existing collections
-      if (operations.add.aliases) {
-        result.aliases = {
-          ...(result.aliases || {}),
-          ...operations.add.aliases,
-        };
-      }
-
-      if (operations.add.builds) {
-        result.builds = result.builds || {
-          space: { keys: {} },
-          ground: { keys: {} },
-        };
-        for (const [env, envData] of Object.entries(operations.add.builds)) {
-          result.builds[env] = result.builds[env] || { keys: {} };
-          if (envData.keys) {
-            result.builds[env].keys = {
-              ...(result.builds[env].keys || {}),
-              ...envData.keys,
-            };
-          }
-        }
-      }
-
-      if (operations.add.bindsets) {
-        result.bindsets = {
-          ...(result.bindsets || {}),
-          ...operations.add.bindsets,
-        };
-      }
-
-      if (operations.add.bindsetMetadata) {
-        result.bindsetMetadata = {
-          ...(result.bindsetMetadata || {}),
-          ...operations.add.bindsetMetadata,
-        };
-      }
-    }
-
-    if (operations.modify) {
-      // Modify operations - update existing items
-      if (operations.modify.aliases) {
-        result.aliases = result.aliases || {};
-        for (const [aliasName, aliasData] of Object.entries(
-          operations.modify.aliases,
-        )) {
-          if (result.aliases[aliasName]) {
-            result.aliases[aliasName] = {
-              ...result.aliases[aliasName],
-              ...aliasData,
-            };
-          }
-        }
-      }
-
-      if (operations.modify.keybindMetadata) {
-        result.keybindMetadata = result.keybindMetadata || {};
-        for (const [env, envData] of Object.entries(
-          operations.modify.keybindMetadata,
-        )) {
-          result.keybindMetadata[env] = result.keybindMetadata[env] || {};
-          for (const [keyName, keyData] of Object.entries(envData)) {
-            // If empty object is sent, it means clear this key metadata
-            if (Object.keys(keyData).length === 0) {
-              delete result.keybindMetadata[env][keyName];
-            } else {
-              result.keybindMetadata[env][keyName] = keyData;
-            }
-          }
-        }
-      }
-
-      if (operations.modify.aliasMetadata) {
-        result.aliasMetadata = result.aliasMetadata || {};
-        for (const [aliasName, aliasData] of Object.entries(
-          operations.modify.aliasMetadata,
-        )) {
-          // If empty object is sent, it means clear this alias metadata
-          if (Object.keys(aliasData).length === 0) {
-            delete result.aliasMetadata[aliasName];
-          } else {
-            // Alias metadata is flat - aliasData IS the metadata object
-            result.aliasMetadata[aliasName] = aliasData;
-          }
-        }
-      }
-
-      if (operations.modify.builds) {
-        result.builds = result.builds || {
-          space: { keys: {} },
-          ground: { keys: {} },
-        };
-        for (const [env, envData] of Object.entries(operations.modify.builds)) {
-          result.builds[env] = result.builds[env] || { keys: {} };
-          if (envData.keys) {
-            result.builds[env].keys = result.builds[env].keys || {};
-            for (const [keyName, keyData] of Object.entries(envData.keys)) {
-              if (result.builds[env].keys[keyName]) {
-                result.builds[env].keys[keyName] = keyData;
-              }
-            }
-          }
-        }
-      }
-
-      // ---------------- Bindsets (modify) ------------------
-      if (operations.modify.bindsets) {
-        result.bindsets = result.bindsets || {};
-        for (const [bsName, bsData] of Object.entries(
-          operations.modify.bindsets,
-        )) {
-          // Ensure existing bindset structure
-          result.bindsets[bsName] = result.bindsets[bsName] || {
-            space: { keys: {} },
-            ground: { keys: {} },
-          };
-
-          for (const [env, envData] of Object.entries(bsData)) {
-            result.bindsets[bsName][env] = result.bindsets[bsName][env] || {
-              keys: {},
-            };
-
-            if (envData.keys) {
-              result.bindsets[bsName][env].keys =
-                result.bindsets[bsName][env].keys || {};
-              console.log(
-                "[DataCoordinator] Incoming envData.keys for bindset",
-                bsName,
-                env,
-                JSON.stringify(envData.keys),
-              );
-              for (const [keyName, keyData] of Object.entries(envData.keys)) {
-                if (keyData === null) {
-                  // Delete the key if value is null
-                  delete result.bindsets[bsName][env].keys[keyName];
-                } else {
-                  // Merge: set/replace the key with the provided value (including empty array)
-                  result.bindsets[bsName][env].keys[keyName] = keyData;
-                }
-              }
-              console.log(
-                "[DataCoordinator] Resulting keys for bindset",
-                bsName,
-                env,
-                JSON.stringify(result.bindsets[bsName][env].keys),
-              );
-            }
-          }
-        }
-      }
-
-      // ----------- Bindset key metadata (stabilization etc.) ------------
-      if (operations.modify.bindsetMetadata) {
-        result.bindsetMetadata = result.bindsetMetadata || {};
-        for (const [bsName, bsData] of Object.entries(
-          operations.modify.bindsetMetadata,
-        )) {
-          result.bindsetMetadata[bsName] = result.bindsetMetadata[bsName] || {};
-          for (const [env, envData] of Object.entries(bsData)) {
-            result.bindsetMetadata[bsName][env] =
-              result.bindsetMetadata[bsName][env] || {};
-            for (const [keyName, keyMeta] of Object.entries(envData)) {
-              if (Object.keys(keyMeta).length === 0) {
-                // Clear metadata entry
-                delete result.bindsetMetadata[bsName][env][keyName];
-              } else {
-                result.bindsetMetadata[bsName][env][keyName] = {
-                  ...(result.bindsetMetadata[bsName][env][keyName] || {}),
-                  ...keyMeta,
-                };
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Handle regular property updates (non-collection fields)
-    if (operations.properties) {
-      Object.assign(result, operations.properties);
-    }
-
-    return result;
+    return applyProfileOperations(currentProfile, operations);
   }
 
   /**
    * @param {string} profileId
    * @param {import('./serviceTypes.js').ProfileOperations | null | undefined} updates
+   * @param {{ publishState?: boolean, createIfMissing?: true }} [options]
    * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:update-profile'>>}
    */
-  async updateProfile(profileId, updates) {
+  async updateProfile(
+    profileId,
+    updates,
+    { publishState = true, createIfMissing } = {},
+  ) {
     if (!profileId) {
       throw new Error("Profile ID is required");
+    }
+
+    if (createIfMissing !== undefined && createIfMissing !== true) {
+      throw new TypeError("createIfMissing must be true when supplied");
     }
 
     if (!updates || updates === null) {
       throw new Error("Updates are required");
     }
 
-    const currentProfile = this.state.profiles[profileId];
-    if (!currentProfile) {
-      throw new Error(`Profile ${profileId} not found`);
-    }
+    // Detach caller-owned values before they can become part of canonical
+    // owner state or be shared with a legacy event payload.
+    const detachedUpdates = structuredClone(updates);
 
     // Extract updateSource for broadcast but don't persist it
-    const { updateSource, ...persistableUpdates } = updates;
+    const { updateSource, ...persistableUpdates } = detachedUpdates;
 
     if (
       !(
         persistableUpdates.add ||
         persistableUpdates.delete ||
         persistableUpdates.modify ||
-        persistableUpdates.properties
+        persistableUpdates.properties ||
+        persistableUpdates.replacement
       )
     ) {
       throw new Error(
-        "Explicit operations (add/delete/modify/properties) required",
+        "Explicit operations (add/delete/modify/properties/replacement) required",
       );
     }
 
-    const updatedProfile = this.processUpdateOperations(currentProfile, {
+    const replacementOnlyCreate = !!(
+      persistableUpdates.replacement &&
+      !persistableUpdates.add &&
+      !persistableUpdates.delete &&
+      !persistableUpdates.modify &&
+      !persistableUpdates.properties
+    );
+    if (createIfMissing && !replacementOnlyCreate) {
+      throw new Error(
+        "createIfMissing requires a replacement-only profile update",
+      );
+    }
+
+    const currentProfile = hasOwn(this.state.profiles, profileId)
+      ? this.state.profiles[profileId]
+      : null;
+    if (!currentProfile && !createIfMissing) {
+      throw new Error(`Profile ${profileId} not found`);
+    }
+    const operationBase = currentProfile || persistableUpdates.replacement;
+    if (!operationBase) {
+      throw new Error(`Profile ${profileId} not found`);
+    }
+
+    const updatedProfile = this.processUpdateOperations(operationBase, {
       ...persistableUpdates,
       properties: {
         ...(persistableUpdates.properties || {}),
         lastModified: new Date().toISOString(),
       },
     });
+    const operation = this._captureOperationGeneration();
 
     try {
       // Persist to storage first (without updateSource)
@@ -1131,11 +832,27 @@ export default class DataCoordinator extends ComponentBase {
         `[${this.componentName}] Saving profile ${profileId} to storage:`,
         updatedProfile,
       );
-      await persist.profile(this.storage, profileId, updatedProfile, this.i18n);
+      const persistedProfile = await persist.profile(
+        this.storage,
+        profileId,
+        updatedProfile,
+        this.i18n,
+      );
+      this._assertCurrentOperation(operation);
 
       // Update in-memory cache regardless of what changed
-      this.state.profiles[profileId] = updatedProfile;
+      this.state.profiles[profileId] = persistedProfile;
+      if (
+        profileId === this.state.currentProfile &&
+        persistedProfile.currentEnvironment
+      ) {
+        this.state.currentEnvironment = persistedProfile.currentEnvironment;
+      }
       this.state.metadata.lastModified = new Date().toISOString();
+
+      if (publishState) {
+        this._publishState("profile-updated");
+      }
 
       // Determine if any structural collections were touched
       const touchedCollections = !!(
@@ -1148,14 +865,14 @@ export default class DataCoordinator extends ComponentBase {
         // Notify other services when aliases / builds changed
         this.emit("profile:updated", {
           profileId,
-          profile: updatedProfile,
-          updates: persistableUpdates,
+          profile: structuredClone(persistedProfile),
+          updates: structuredClone(persistableUpdates),
           updateSource,
           timestamp: Date.now(),
         });
       }
 
-      return { success: true, profile: updatedProfile };
+      return { success: true, profile: structuredClone(persistedProfile) };
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
         error: getErrorMessage(error),
@@ -1175,14 +892,20 @@ export default class DataCoordinator extends ComponentBase {
     }
 
     const oldEnvironment = this.state.currentEnvironment;
+    const operation = this._captureOperationGeneration();
 
     // Update profile's current environment if we have one
     if (this.state.currentProfile) {
       const updates = { properties: { currentEnvironment: environment } };
-      await this.updateProfile(this.state.currentProfile, updates);
+      await this.updateProfile(this.state.currentProfile, updates, {
+        publishState: false,
+      });
+      this._assertCurrentOperation(operation);
     }
 
     this.state.currentEnvironment = environment;
+
+    this._publishState("environment-changed");
 
     // Broadcast environment change synchronously after storage operation completes
     this.emit(
@@ -1202,26 +925,10 @@ export default class DataCoordinator extends ComponentBase {
   // Get keys for a specific environment from the current profile
   /** @param {string | undefined} environment */
   getKeys(environment) {
-    if (!this.state.currentProfile) {
-      return {};
-    }
-
-    if (!environment) return {};
+    if (!this.state.currentProfile || !environment) return {};
+    if (!hasOwn(this.state.profiles, this.state.currentProfile)) return {};
     const profile = this.state.profiles[this.state.currentProfile];
-    if (!profile || !profile.builds || !profile.builds[environment]) {
-      return {};
-    }
-
-    const primaryKeys = profile.builds[environment].keys || {};
-
-    // Overlay active bindset keys
-    const activeBindset = this.state.currentBindset || "Primary Bindset";
-    if (activeBindset === "Primary Bindset") {
-      return primaryKeys;
-    }
-
-    const bsKeys = profile.bindsets?.[activeBindset]?.[environment]?.keys || {};
-    return { ...primaryKeys, ...bsKeys };
+    return getPrimaryKeys(profile, environment);
   }
 
   // Get commands for a specific key in a specific environment
@@ -1230,16 +937,15 @@ export default class DataCoordinator extends ComponentBase {
    * @param {string | undefined} key
    */
   getKeyCommands(environment, key) {
-    if (!key) return [];
-    const keys = this.getKeys(environment);
-    const cmds = keys[key] || [];
-    // Return shallow copy to avoid accidental mutation of state
-    return Array.isArray(cmds) ? [...cmds] : cmds;
+    if (!this.state.currentProfile || !environment || !key) return [];
+    if (!hasOwn(this.state.profiles, this.state.currentProfile)) return [];
+    const profile = this.state.profiles[this.state.currentProfile];
+    return getPrimaryKeyCommands(profile, environment, key);
   }
 
   // Get application settings
   async getSettings() {
-    return { ...this.state.settings };
+    return structuredClone(this.state.settings);
   }
 
   // Update application settings
@@ -1252,35 +958,45 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error("Settings are required");
     }
 
-    const nextSettings = { ...this.state.settings, ...settings };
+    const detachedSettings = structuredClone(settings);
+    const nextSettings = structuredClone({
+      ...this.state.settings,
+      ...detachedSettings,
+    });
+    const operation = this._captureOperationGeneration();
 
     // Save to storage
     await persist.settings(this.storage, nextSettings, this.i18n);
+    this._assertCurrentOperation(operation);
 
     this.state.settings = nextSettings;
 
     this.state.metadata.lastModified = new Date().toISOString();
 
+    this._publishState("settings-updated");
+
     // Broadcast settings change
     this.emit("settings:changed", {
-      settings: this.state.settings,
-      updates: settings,
+      settings: structuredClone(this.state.settings),
+      updates: structuredClone(detachedSettings),
       timestamp: Date.now(),
     });
 
-    return { success: true, settings: this.state.settings };
+    return { success: true, settings: structuredClone(this.state.settings) };
   }
 
   // Load default data (called explicitly by user via "Load Default Data" button)
   /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:load-default-data'>>} */
   async loadDefaultData() {
     console.log(`[${this.componentName}] Explicitly loading default data...`);
+    const operation = this._captureOperationGeneration();
 
     try {
       // Get default profiles from DataService
       const defaultProfilesData = await this.request(
         "data:get-default-profiles",
       );
+      this._assertCurrentOperation(operation);
 
       if (
         !defaultProfilesData ||
@@ -1294,6 +1010,7 @@ export default class DataCoordinator extends ComponentBase {
 
       // Create default profiles (this will overwrite existing if any)
       await this.createDefaultProfilesFromData(defaultProfilesData);
+      this._assertCurrentOperation(operation);
 
       console.log(`[${this.componentName}] Successfully loaded default data`);
 
@@ -1303,6 +1020,9 @@ export default class DataCoordinator extends ComponentBase {
         currentProfile: this.state.currentProfile,
       };
     } catch (error) {
+      if (!this._isCurrentOperation(operation)) {
+        return { success: false, error: "operation_cancelled" };
+      }
       console.error(
         `[${this.componentName}] Failed to load default data:`,
         error,
@@ -1316,6 +1036,7 @@ export default class DataCoordinator extends ComponentBase {
     if (!this.needsDefaultProfiles) {
       return;
     }
+    const operation = this._captureOperationGeneration();
 
     try {
       console.log(
@@ -1326,12 +1047,14 @@ export default class DataCoordinator extends ComponentBase {
       const defaultProfilesData = await this.request(
         "data:get-default-profiles",
       );
+      this._assertCurrentOperation(operation);
 
       if (defaultProfilesData && Object.keys(defaultProfilesData).length > 0) {
         console.log(
           `[${this.componentName}] Got default profiles from DataService, creating...`,
         );
         await this.createDefaultProfilesFromData(defaultProfilesData);
+        this._assertCurrentOperation(operation);
         this.needsDefaultProfiles = false;
       } else {
         console.log(
@@ -1339,6 +1062,7 @@ export default class DataCoordinator extends ComponentBase {
         );
       }
     } catch (error) {
+      if (!this._isCurrentOperation(operation)) return;
       console.error(
         `[${this.componentName}] Failed to create default profiles:`,
         getErrorMessage(error),
@@ -1372,11 +1096,13 @@ export default class DataCoordinator extends ComponentBase {
   // Create default profiles from DataService data
   /** @param {Record<string, import('./serviceTypes.js').ProfileData> | null | undefined} defaultProfilesData */
   async createDefaultProfilesFromData(defaultProfilesData) {
+    const operation = this._captureOperationGeneration();
     if (!defaultProfilesData || Object.keys(defaultProfilesData).length === 0) {
       console.warn(
         `[${this.componentName}] No default profiles data available, creating minimal fallback`,
       );
       await this.createFallbackProfiles();
+      this._assertCurrentOperation(operation);
       return;
     }
 
@@ -1386,21 +1112,22 @@ export default class DataCoordinator extends ComponentBase {
     for (const [profileId, sourceProfile] of Object.entries(
       defaultProfilesData,
     )) {
+      const detachedSource = structuredClone(sourceProfile);
       const rawProfile = {
-        name: sourceProfile.name,
-        description: sourceProfile.description || "",
-        currentEnvironment: sourceProfile.currentEnvironment || "space",
-        builds: sourceProfile.builds || {
+        name: detachedSource.name,
+        description: detachedSource.description || "",
+        currentEnvironment: detachedSource.currentEnvironment || "space",
+        builds: detachedSource.builds || {
           space: { keys: {} },
           ground: { keys: {} },
         },
-        bindsets: sourceProfile.bindsets || {}, // Add bindsets property for KBF import support
-        aliases: sourceProfile.aliases || {},
-        selections: sourceProfile.selections || {},
+        bindsets: detachedSource.bindsets || {}, // Add bindsets property for KBF import support
+        aliases: detachedSource.aliases || {},
+        selections: detachedSource.selections || {},
         // Preserve metadata fields for stabilizeExecutionOrder and other settings
-        keybindMetadata: sourceProfile.keybindMetadata || {},
-        aliasMetadata: sourceProfile.aliasMetadata || {},
-        bindsetMetadata: sourceProfile.bindsetMetadata || {},
+        keybindMetadata: detachedSource.keybindMetadata || {},
+        aliasMetadata: detachedSource.aliasMetadata || {},
+        bindsetMetadata: detachedSource.bindsetMetadata || {},
         created: new Date().toISOString(),
         lastModified: new Date().toISOString(),
       };
@@ -1409,37 +1136,56 @@ export default class DataCoordinator extends ComponentBase {
       profiles[profileId] = rawProfile;
     }
 
-    // Save each profile to storage and cache
-    for (const [profileId, profile] of Object.entries(profiles)) {
-      try {
-        await persist.profile(this.storage, profileId, profile, this.i18n);
-        this.state.profiles[profileId] = profile;
-      } catch (error) {
-        const message = this.i18n.t("failed_to_save_profile", {
-          error: getErrorMessage(error),
-        });
-        throw new Error(message);
-      }
-    }
+    const nextProfiles = {
+      ...this.state.profiles,
+      ...profiles,
+    };
 
     // Set current profile to first one if none set
     let profileActivated = false;
+    let nextCurrentProfile = this.state.currentProfile;
+    let nextCurrentEnvironment = this.state.currentEnvironment;
     if (!this.state.currentProfile && Object.keys(profiles).length > 0) {
       const firstProfileId = Object.keys(profiles)[0];
 
-      // Save current profile to storage
-      await persist.currentProfile(this.storage, firstProfileId, this.i18n);
-      this.state.currentProfile = firstProfileId;
+      nextCurrentProfile = firstProfileId;
       profileActivated = true;
 
       // Set current environment from the activated profile
-      const activatedProfile = this.state.profiles[this.state.currentProfile];
-      this.state.currentEnvironment =
-        activatedProfile.currentEnvironment || "space";
+      const activatedProfile = nextProfiles[firstProfileId];
+      nextCurrentEnvironment = activatedProfile.currentEnvironment || "space";
     }
 
-    // Update metadata
-    this.state.metadata.lastModified = new Date().toISOString();
+    // Persist the complete profile batch and any initial activation as one root
+    // write before exposing either through owner state.
+    const nextRoot = structuredClone(this.storage.getAllData());
+    nextRoot.profiles = structuredClone(nextProfiles);
+    nextRoot.currentProfile = nextCurrentProfile;
+    try {
+      await persist.all(this.storage, nextRoot, this.i18n);
+    } catch (error) {
+      const message = this.i18n.t("failed_to_save_profile", {
+        error: getErrorMessage(error),
+      });
+      throw new Error(message);
+    }
+    this._assertCurrentOperation(operation);
+
+    const durableRoot = this.storage.getAllData();
+
+    this.state.profiles = nextProfiles;
+    this.state.currentProfile = nextCurrentProfile;
+    this.state.currentEnvironment = nextCurrentEnvironment;
+    this.state.metadata = {
+      lastModified:
+        durableRoot.lastModified ??
+        nextRoot.lastModified ??
+        new Date().toISOString(),
+      version:
+        durableRoot.version || nextRoot.version || this.state.metadata.version,
+    };
+
+    this._publishState("default-profiles-created");
 
     console.log(
       `[${this.componentName}] Created ${Object.keys(profiles).length} default profiles from DataService`,
@@ -1447,7 +1193,7 @@ export default class DataCoordinator extends ComponentBase {
 
     // Broadcast that profiles are now available
     this.emit("profiles:initialized", {
-      profiles: this.state.profiles,
+      profiles: structuredClone(this.state.profiles),
       currentProfile: this.state.currentProfile,
       timestamp: Date.now(),
     });
@@ -1460,6 +1206,7 @@ export default class DataCoordinator extends ComponentBase {
     ) {
       const activatedProfile = this.state.profiles[this.state.currentProfile];
       const virtualProfile = this.buildVirtualProfile(
+        this.state.currentProfile,
         activatedProfile,
         this.state.currentEnvironment,
       );
@@ -1490,6 +1237,7 @@ export default class DataCoordinator extends ComponentBase {
 
   // Create minimal fallback profiles when DataService is not available
   async createFallbackProfiles() {
+    const operation = this._captureOperationGeneration();
     const fallbackProfiles = {
       default: {
         name: "Default",
@@ -1506,36 +1254,62 @@ export default class DataCoordinator extends ComponentBase {
       },
     };
 
-    // Save fallback profile to storage and cache
+    /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
+    const normalizedFallbackProfiles = {};
+
+    // Normalize the fallback draft before persisting or owning it.
     for (const [profileId, profile] of Object.entries(fallbackProfiles)) {
       normalizeProfile(profile);
-      try {
-        await persist.profile(this.storage, profileId, profile, this.i18n);
-        this.state.profiles[profileId] = profile;
-      } catch (error) {
-        const message = this.i18n.t("failed_to_save_profile", {
-          error: getErrorMessage(error),
-        });
-        throw new Error(message);
-      }
+      normalizedFallbackProfiles[profileId] = profile;
     }
 
     // Set current profile
     let profileActivated = false;
+    let nextCurrentProfile = this.state.currentProfile;
+    let nextCurrentEnvironment = this.state.currentEnvironment;
     if (!this.state.currentProfile) {
-      // Save current profile to storage
-      await persist.currentProfile(this.storage, "default", this.i18n);
-      this.state.currentProfile = "default";
+      nextCurrentProfile = "default";
       profileActivated = true;
 
       // Set current environment from the activated profile
-      const activatedProfile = this.state.profiles[this.state.currentProfile];
-      this.state.currentEnvironment =
-        activatedProfile.currentEnvironment || "space";
+      const activatedProfile = normalizedFallbackProfiles.default;
+      nextCurrentEnvironment = activatedProfile.currentEnvironment || "space";
     }
 
-    // Update metadata
-    this.state.metadata.lastModified = new Date().toISOString();
+    const nextProfiles = {
+      ...this.state.profiles,
+      ...normalizedFallbackProfiles,
+    };
+
+    // The fallback profile and its initial activation form one durable root
+    // commit, so neither can survive independently after a failed write.
+    const nextRoot = structuredClone(this.storage.getAllData());
+    nextRoot.profiles = structuredClone(nextProfiles);
+    nextRoot.currentProfile = nextCurrentProfile;
+    try {
+      await persist.all(this.storage, nextRoot, this.i18n);
+    } catch (error) {
+      const message = this.i18n.t("failed_to_save_profile", {
+        error: getErrorMessage(error),
+      });
+      throw new Error(message);
+    }
+    this._assertCurrentOperation(operation);
+
+    const durableRoot = this.storage.getAllData();
+    this.state.profiles = nextProfiles;
+    this.state.currentProfile = nextCurrentProfile;
+    this.state.currentEnvironment = nextCurrentEnvironment;
+    this.state.metadata = {
+      lastModified:
+        durableRoot.lastModified ??
+        nextRoot.lastModified ??
+        new Date().toISOString(),
+      version:
+        durableRoot.version || nextRoot.version || this.state.metadata.version,
+    };
+
+    this._publishState("fallback-profiles-created");
 
     console.log(
       `[${this.componentName}] Created ${Object.keys(fallbackProfiles).length} fallback profiles`,
@@ -1543,7 +1317,7 @@ export default class DataCoordinator extends ComponentBase {
 
     // Broadcast that profiles are now available
     this.emit("profiles:initialized", {
-      profiles: this.state.profiles,
+      profiles: structuredClone(this.state.profiles),
       currentProfile: this.state.currentProfile,
       timestamp: Date.now(),
     });
@@ -1552,6 +1326,7 @@ export default class DataCoordinator extends ComponentBase {
     if (profileActivated && this.state.currentProfile) {
       const activatedProfile = this.state.profiles[this.state.currentProfile];
       const virtualProfile = this.buildVirtualProfile(
+        this.state.currentProfile,
         activatedProfile,
         this.state.currentEnvironment,
       );
@@ -1586,78 +1361,104 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   // Normalize all profiles to use canonical string commands
-  async normalizeAllProfiles() {
-    let profilesNormalized = 0;
+  /**
+   * @param {Record<string, import('./serviceTypes.js').ProfileData>} [profiles]
+   * @param {{ rootData?: any }} [options]
+   * @returns {Promise<number>}
+   */
+  async normalizeAllProfiles(
+    profiles = this.state.profiles,
+    { rootData } = {},
+  ) {
+    const operation = this._captureOperationGeneration();
+    /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
+    const normalizedProfiles = {};
 
-    for (const [profileId, profile] of Object.entries(this.state.profiles)) {
-      if (needsNormalization(profile)) {
-        console.log(`[${this.componentName}] Migrating profile: ${profileId}`);
-        const originalVersion = profile.migrationVersion || "2.0.0";
-        const normalizedProfile = structuredClone(profile);
-        normalizeProfile(normalizedProfile);
-        const newVersion = normalizedProfile.migrationVersion;
+    for (const [profileId, profile] of Object.entries(profiles)) {
+      if (!needsNormalization(profile)) continue;
 
-        // Save normalized profile back to storage
-        try {
-          await persist.profile(
-            this.storage,
-            profileId,
-            normalizedProfile,
-            this.i18n,
-          );
-          this.state.profiles[profileId] = normalizedProfile;
-          profilesNormalized++;
+      console.log(`[${this.componentName}] Migrating profile: ${profileId}`);
+      const originalVersion = profile.migrationVersion || "2.0.0";
+      const normalizedProfile = structuredClone(profile);
+      normalizeProfile(normalizedProfile);
+      normalizedProfiles[profileId] = normalizedProfile;
 
-          console.log(
-            `[${this.componentName}] Profile ${profileId} migrated from ${originalVersion} to ${newVersion}`,
-          );
-        } catch (error) {
-          const message = this.i18n.t("failed_to_save_profile", {
-            error: getErrorMessage(error),
-          });
-          throw new Error(message);
-        }
-      }
-    }
-
-    if (profilesNormalized > 0) {
       console.log(
-        `[${this.componentName}] Migrated ${profilesNormalized} profiles`,
+        `[${this.componentName}] Profile ${profileId} migrated from ${originalVersion} to ${normalizedProfile.migrationVersion}`,
       );
     }
+
+    const profilesNormalized = Object.keys(normalizedProfiles).length;
+    if (profilesNormalized === 0) return 0;
+
+    // Persist every normalization as one root replacement. Only adopt the
+    // normalized drafts after that durable write succeeds.
+    const nextRoot = structuredClone(rootData ?? this.storage.getAllData());
+    nextRoot.profiles = structuredClone({
+      ...profiles,
+      ...normalizedProfiles,
+    });
+
+    try {
+      await persist.all(this.storage, nextRoot, this.i18n);
+    } catch (error) {
+      const message = this.i18n.t("failed_to_save_profile", {
+        error: getErrorMessage(error),
+      });
+      throw new Error(message);
+    }
+    this._assertCurrentOperation(operation);
+
+    Object.assign(profiles, normalizedProfiles);
+    console.log(
+      `[${this.componentName}] Migrated ${profilesNormalized} profiles`,
+    );
+    return profilesNormalized;
   }
 
   // Reload state from storage (used after data import/restore)
   /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:reload-state'>>} */
   async reloadState() {
     console.log(`[${this.componentName}] Reloading state from storage...`);
+    const operation = this._captureOperationGeneration();
 
     try {
       // Get fresh data from storage
       const allData = this.storage.getAllData();
 
-      // Update our state
-      this.state.profiles = structuredClone(allData.profiles || {});
-      this.state.currentProfile = allData.currentProfile || null;
-      this.state.settings = structuredClone(allData.settings || {});
+      const nextProfiles = structuredClone(allData.profiles || {});
+      const nextCurrentProfile = allData.currentProfile || null;
+      const nextSettings = structuredClone(allData.settings || {});
 
       // Normalize any newly imported profiles
-      await this.normalizeAllProfiles();
+      const profilesNormalized = await this.normalizeAllProfiles(nextProfiles, {
+        rootData: allData,
+      });
+      this._assertCurrentOperation(operation);
+      const durableRoot =
+        profilesNormalized > 0 ? this.storage.getAllData() : allData;
 
       // Set current environment from current profile if available
+      let nextCurrentEnvironment = "space";
       if (
-        this.state.currentProfile &&
-        this.state.profiles[this.state.currentProfile]
+        nextCurrentProfile &&
+        Object.prototype.hasOwnProperty.call(nextProfiles, nextCurrentProfile)
       ) {
-        const currentProfile = this.state.profiles[this.state.currentProfile];
-        this.state.currentEnvironment =
-          currentProfile.currentEnvironment || "space";
-      } else {
-        this.state.currentEnvironment = "space";
+        const currentProfile = nextProfiles[nextCurrentProfile];
+        nextCurrentEnvironment = currentProfile.currentEnvironment || "space";
       }
 
-      // Update metadata
-      this.state.metadata.lastModified = new Date().toISOString();
+      // Commit the fully normalized draft as one owner-state transition.
+      this.state.profiles = nextProfiles;
+      this.state.currentProfile = nextCurrentProfile;
+      this.state.settings = nextSettings;
+      this.state.currentEnvironment = nextCurrentEnvironment;
+      this.state.metadata = {
+        lastModified: durableRoot.lastModified,
+        version: durableRoot.version || "1.0.0",
+      };
+
+      this._publishState("state-reloaded");
 
       console.log(
         `[${this.componentName}] State reloaded. Current profile: ${this.state.currentProfile}, Environment: ${this.state.currentEnvironment}`,
@@ -1667,7 +1468,7 @@ export default class DataCoordinator extends ComponentBase {
 
       // 1. Emit profiles:initialized to refresh profile lists
       this.emit("profiles:initialized", {
-        profiles: this.state.profiles,
+        profiles: structuredClone(this.state.profiles),
         currentProfile: this.state.currentProfile,
         timestamp: Date.now(),
       });
@@ -1679,6 +1480,7 @@ export default class DataCoordinator extends ComponentBase {
       ) {
         const currentProfile = this.state.profiles[this.state.currentProfile];
         const virtualProfile = this.buildVirtualProfile(
+          this.state.currentProfile,
           currentProfile,
           this.state.currentEnvironment,
         );
@@ -1689,7 +1491,7 @@ export default class DataCoordinator extends ComponentBase {
             fromProfile: null, // We don't know the previous profile after reload
             toProfile: this.state.currentProfile,
             profileId: this.state.currentProfile,
-            profile: virtualProfile,
+            profile: structuredClone(virtualProfile),
             environment: this.state.currentEnvironment,
             timestamp: Date.now(),
           },
@@ -1711,8 +1513,8 @@ export default class DataCoordinator extends ComponentBase {
 
       // 4. Emit settings change to refresh settings UI
       this.emit("settings:changed", {
-        settings: this.state.settings,
-        updates: this.state.settings, // All settings are "new" after reload
+        settings: structuredClone(this.state.settings),
+        updates: structuredClone(this.state.settings), // All settings are "new" after reload
         timestamp: Date.now(),
       });
 
@@ -1727,8 +1529,17 @@ export default class DataCoordinator extends ComponentBase {
         environment: this.state.currentEnvironment,
       };
     } catch (error) {
+      if (!this._isCurrentOperation(operation)) {
+        return { success: false, error: "operation_cancelled" };
+      }
       console.error(`[${this.componentName}] Failed to reload state:`, error);
       return { success: false, error: getErrorMessage(error) };
     }
+  }
+
+  onDestroy() {
+    this._lifecycleGeneration += 1;
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
   }
 }

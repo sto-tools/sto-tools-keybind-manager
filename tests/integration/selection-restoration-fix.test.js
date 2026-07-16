@@ -154,44 +154,48 @@ describe("Selection Restoration Fix - Page Reload", () => {
     allData.currentProfile = "alias-profile";
     await storageService.saveAllData(allData);
 
+    // Tear down the old authority before creating the replacement, matching the
+    // application's single-writer lifecycle during a page reload.
+    interfaceModeService.destroy();
+    selectionConsumer.destroy();
+    selectionConsumer = null;
+    selectionService.destroy();
+    dataCoordinator.destroy();
+
     // Create new instances to simulate page reload
-    const newDataCoordinator = new DataCoordinator({
+    dataCoordinator = new DataCoordinator({
       eventBus,
       storage: storageService,
     });
-    await newDataCoordinator.init();
+    await dataCoordinator.init();
 
-    const newInterfaceModeService = new InterfaceModeService({ eventBus });
-    newInterfaceModeService.request = vi.fn(async (topic) => {
+    interfaceModeService = new InterfaceModeService({ eventBus });
+    interfaceModeService.request = vi.fn(async (topic) => {
       if (topic === "data:update-profile") {
         return { success: true };
       }
       return null;
     });
-    newInterfaceModeService.init();
+    interfaceModeService.init();
 
-    const newSelectionService = new SelectionService({ eventBus });
-    await newSelectionService.init();
+    selectionService = new SelectionService({ eventBus });
+    await selectionService.init();
 
     await new Promise((resolve) => setTimeout(resolve, 50));
-    await newInterfaceModeService.switchMode("alias");
+    await interfaceModeService.switchMode("alias");
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Should restore alias selection
-    expect(newSelectionService.cache.currentEnvironment).toBe("alias");
-    expect(newSelectionService.cache.selectedAlias).toBe("TestAlias");
-    expect(newSelectionService.cache.selectedKey).toBe(null); // Should be null in alias environment
-    expect(newSelectionService.cachedSelections.alias).toBe("TestAlias");
+    expect(selectionService.cache.currentEnvironment).toBe("alias");
+    expect(selectionService.cache.selectedAlias).toBe("TestAlias");
+    expect(selectionService.cache.selectedKey).toBe(null); // Should be null in alias environment
+    expect(selectionService.cachedSelections.alias).toBe("TestAlias");
 
     // Verify that validateAliasExists works correctly for the restored selection
-    expect(newSelectionService.validateAliasExists("TestAlias")).toBe(true);
-    expect(newSelectionService.validateAliasExists("NonExistentAlias")).toBe(
+    expect(selectionService.validateAliasExists("TestAlias")).toBe(true);
+    expect(selectionService.validateAliasExists("NonExistentAlias")).toBe(
       false,
     );
-
-    newInterfaceModeService.destroy();
-    newSelectionService.destroy();
-    newDataCoordinator.destroy();
   });
 
   it("should work with DataCoordinator late-join handshake mechanism", () => {

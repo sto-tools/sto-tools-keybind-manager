@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { createPreferencesState } from "../../fixtures/core/componentState.js";
-import { createServiceFixture } from "../../fixtures/index.js";
+import {
+  createServiceFixture,
+  respondWithImportedProfileCommits,
+} from "../../fixtures/index.js";
 
 const profileId = "captain";
 const sourceProfile = {
@@ -66,6 +69,7 @@ describe("ImportService KBF merge strategies", () => {
       storage: fixture.storage,
     });
     service.init();
+    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
     fixture.eventBus.emit(
       "preferences:loaded",
       createPreferencesState({ bindsetsEnabled: true }),

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
-import { createServiceFixture } from "../../fixtures/index.js";
+import { createImportServiceFixture } from "../../fixtures/index.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { vi } from "vitest";
 
@@ -19,7 +19,7 @@ describe("ImportService", () => {
   let fixture, service;
 
   beforeEach(() => {
-    fixture = createServiceFixture();
+    fixture = createImportServiceFixture();
     service = new ImportService({
       eventBus: fixture.eventBus,
       storage: fixture.storage,
@@ -824,7 +824,7 @@ describe("ImportService", () => {
 
   describe("import:kbf-file endpoint", () => {
     beforeEach(() => {
-      fixture = createServiceFixture();
+      fixture = createImportServiceFixture();
       service = new ImportService({
         eventBus: fixture.eventBus,
         storage: fixture.storage,
@@ -1420,7 +1420,7 @@ describe("ImportService", () => {
     let fixture, service, mockProfile;
 
     beforeEach(() => {
-      fixture = createServiceFixture();
+      fixture = createImportServiceFixture();
       service = new ImportService({
         eventBus: fixture.eventBus,
         storage: fixture.storage,

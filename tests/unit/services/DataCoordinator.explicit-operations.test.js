@@ -389,7 +389,7 @@ describe("DataCoordinator explicit profile operations", () => {
     expect(source).toEqual(sourceSnapshot);
   });
 
-  it("persists, returns, caches, and broadcasts the same explicit-operation result", async () => {
+  it("persists equivalent detached return and event values without exposing owner state", async () => {
     const operations = createOperations();
     const updateSource = "explicit-operation-characterization";
     coordinator.state.currentProfile = PROFILE_ID;
@@ -403,7 +403,9 @@ describe("DataCoordinator explicit profile operations", () => {
 
     expect(result.success).toBe(true);
     expectCharacterizedProfile(result.profile);
-    expect(coordinator.state.profiles[PROFILE_ID]).toBe(result.profile);
+    const ownerProfile = coordinator.state.profiles[PROFILE_ID];
+    expect(ownerProfile).toEqual(result.profile);
+    expect(ownerProfile).not.toBe(result.profile);
     expect(fixture.storage.saveProfile).toHaveBeenCalledTimes(1);
     expect(fixture.storage.saveProfile).toHaveBeenCalledWith(
       PROFILE_ID,
@@ -419,5 +421,20 @@ describe("DataCoordinator explicit profile operations", () => {
       updateSource,
       timestamp: Date.parse(FIXED_TIME),
     });
+
+    const eventPayload = emitSpy.mock.calls[0][1];
+    expect(eventPayload.profile).toEqual(ownerProfile);
+    expect(eventPayload.profile).not.toBe(ownerProfile);
+    expect(eventPayload.updates).not.toBe(operations);
+
+    const ownerSnapshot = structuredClone(ownerProfile);
+    const revision = coordinator.getCurrentState().revision;
+    result.profile.builds.space.keys.AddedKey.push("return mutation");
+    eventPayload.profile.aliases.AddedAlias.commands.push("event mutation");
+    eventPayload.updates.add.builds.space.keys.AddedKey.push("update mutation");
+    operations.properties.selections.space = "caller mutation";
+
+    expect(coordinator.state.profiles[PROFILE_ID]).toEqual(ownerSnapshot);
+    expect(coordinator.getCurrentState().revision).toBe(revision);
   });
 });

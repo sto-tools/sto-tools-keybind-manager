@@ -22,6 +22,8 @@ coverage/
 # Vitest Browser Mode
 test-results/
 playwright-report/
+.vitest-attachments/
+tests/browser/__screenshots__/
 
 # Vitest
 coverage/

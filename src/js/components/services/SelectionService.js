@@ -1,6 +1,10 @@
 import ComponentBase from "../ComponentBase.js";
 import { syncSelectionBindset } from "./selectionBindset.js";
 import {
+  adoptCoordinatorSelectionState,
+  shouldAdoptLiveCoordinatorState,
+} from "./selectionCoordinatorState.js";
+import {
   handleSelectedAliasDeleted,
   handleSelectedKeyDeleted,
 } from "./selectionDeletion.js";
@@ -52,6 +56,9 @@ export default class SelectionService extends ComponentBase {
       alias: null, // Last selected alias
     };
     this.selectionEnvironment = "space";
+    /** @type {number | null} */
+    this._selectionAuthorityEpoch = null;
+    this._selectionAuthorityReady = false;
     // Store detach functions for cleanup
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
@@ -127,6 +134,12 @@ export default class SelectionService extends ComponentBase {
 
   // Set up event listeners for integration with other services
   setupEventListeners() {
+    this.addEventListener("data:state-changed", ({ state }) => {
+      if (shouldAdoptLiveCoordinatorState(this, state)) {
+        adoptCoordinatorSelectionState(this, state);
+      }
+    });
+
     // ComponentBase automatically handles profile and environment caching
     // We only need to listen for these events to update our specific business logic
     this.addEventListener("profile:updated", ({ profileId, profile }) => {
@@ -876,51 +889,8 @@ export default class SelectionService extends ComponentBase {
   // Handle initial state from other components during late-join
   /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
   async handleInitialState(reply) {
-    // Handle state from DataCoordinator
     if (reply.sender === "DataCoordinator") {
-      const coordinatorState = reply.state;
-      const profile = coordinatorState.currentProfileData;
-
-      if (!profile) {
-        this.cache.currentProfile = null;
-        this.selectionEnvironment =
-          coordinatorState.currentEnvironment ||
-          this.selectionEnvironment ||
-          "space";
-        this.cache.currentEnvironment = this.selectionEnvironment;
-        this.replaceCachedSelections(null);
-        this.cache.selectedKey = null;
-        this.cache.selectedAlias = null;
-        this.broadcastState();
-        return;
-      }
-
-      this.cache.currentProfile =
-        coordinatorState.currentProfile || profile.id || null;
-      this.selectionEnvironment =
-        coordinatorState.currentEnvironment ||
-        profile.environment ||
-        profile.currentEnvironment ||
-        "space";
-      this.cache.currentEnvironment = this.selectionEnvironment;
-
-      this.updateCacheFromProfile(profile);
-      this.replaceCachedSelections(profile);
-
-      // Validate and restore selection for current environment with fallback
-      const cachedSelection =
-        this.getCachedSelection(this.selectionEnvironment) ?? null;
-
-      // Set initial selection state immediately to prevent UI flicker
-      applyActiveSelection(
-        this.cache,
-        this.selectionEnvironment,
-        cachedSelection,
-      );
-      this.broadcastState();
-
-      // Note: No need for delayed validation here - the profile:switched event will handle restoration
-      // when DataCoordinator emits it synchronously
+      adoptCoordinatorSelectionState(this, reply.state);
     }
   }
 

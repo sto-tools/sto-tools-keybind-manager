@@ -109,7 +109,7 @@ describe("SelectionService - Null Profile Handling Fix", () => {
           currentProfileData: null,
         });
 
-        await selectionService.handleInitialState({
+        await selectionService._onInitialState({
           sender: "DataCoordinator",
           state,
         });
@@ -165,7 +165,7 @@ describe("SelectionService - Null Profile Handling Fix", () => {
           currentProfileData: validProfile,
         });
 
-        await selectionService.handleInitialState({
+        await selectionService._onInitialState({
           sender: "DataCoordinator",
           state,
         });
@@ -188,7 +188,7 @@ describe("SelectionService - Null Profile Handling Fix", () => {
       };
 
       // Act
-      await selectionService.handleInitialState({
+      await selectionService._onInitialState({
         sender: "DataCoordinator",
         state: createDataCoordinatorState({
           currentProfileData: validProfile,

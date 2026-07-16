@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
-import { createServiceFixture } from "../../fixtures/index.js";
+import {
+  createServiceFixture,
+  respondWithImportedProfileCommits,
+} from "../../fixtures/index.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { vi } from "vitest";
 
@@ -26,6 +29,7 @@ describe("ImportService - KBF Key Token Normalization", () => {
       storage: fixture.storage,
     });
     service.init();
+    respondWithImportedProfileCommits(fixture.eventBus, fixture.storage);
 
     // Register responder for parser on the fixture event bus
     respond(

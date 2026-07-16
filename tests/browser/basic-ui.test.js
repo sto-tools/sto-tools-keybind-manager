@@ -91,4 +91,29 @@ describe("Application browser smoke", () => {
     bus.emit("selection:state-changed", originalSnapshot);
     expect(commandChainUI.cache).toMatchObject(originalSnapshot);
   });
+
+  it("hydrates one immutable DataCoordinator snapshot in consumers", () => {
+    const firstState = window.commandChainUI?.cache.dataState;
+    const secondState = window.keyBrowserUI?.cache.dataState;
+
+    expect(firstState?.ready).toBe(true);
+    expect(firstState?.revision).toBeGreaterThanOrEqual(1);
+    expect(firstState?.currentProfile).toBeTruthy();
+    expect(firstState?.currentProfileData?.id).toBe(firstState?.currentProfile);
+    expect(firstState?.profiles).toBeTruthy();
+    expect(firstState?.settings).toBeTruthy();
+    expect(firstState?.metadata.version).toBeTruthy();
+
+    expect(secondState?.revision).toBe(firstState?.revision);
+    expect(secondState).toBe(firstState);
+    expect(Object.isFrozen(firstState)).toBe(true);
+    expect(Object.isFrozen(firstState?.profiles)).toBe(true);
+    expect(Object.isFrozen(firstState?.settings)).toBe(true);
+
+    if (!firstState || !secondState) return;
+    expect(() => {
+      firstState.settings.__browser_detachment_probe__ = true;
+    }).toThrow(TypeError);
+    expect(secondState.settings.__browser_detachment_probe__).toBeUndefined();
+  });
 });

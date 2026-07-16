@@ -162,6 +162,49 @@ async function exerciseCoreApi() {
     maxUndoSteps: 100,
     "plugin:layout": { density: "comfortable" },
   });
+  await request(eventBus, "data:update-profile", {
+    profileId: "captain",
+    updates: {
+      replacement: {
+        name: "Imported Captain",
+        builds: { space: { keys: {} }, ground: { keys: {} } },
+      },
+      updateSource: "type-fixture",
+    },
+  });
+  await request(eventBus, "data:update-profile", {
+    profileId: "imported-captain",
+    createIfMissing: true,
+    updates: {
+      replacement: {
+        name: "Imported Captain",
+        builds: { space: { keys: {} }, ground: { keys: {} } },
+      },
+      updateSource: "ImportService",
+    },
+  });
+  // @ts-expect-error Missing-profile creation requires a complete replacement.
+  request(eventBus, "data:update-profile", {
+    profileId: "imported-captain",
+    createIfMissing: true,
+    updates: { properties: { description: "not an upsert" } },
+  });
+  // @ts-expect-error createIfMissing is an explicit literal capability.
+  request(eventBus, "data:update-profile", {
+    profileId: "imported-captain",
+    createIfMissing: false,
+    updates: {
+      replacement: {
+        name: "Imported Captain",
+        builds: { space: { keys: {} }, ground: { keys: {} } },
+      },
+    },
+  });
+  // @ts-expect-error Full-profile replacement is an explicit typed operation.
+  request(eventBus, "data:update-profile", {
+    profileId: "captain",
+    updates: { replacement: "not-a-profile" },
+  });
   // @ts-expect-error Known preference keys determine their accepted value type.
   request(eventBus, "preferences:set-setting", {
     key: "autoSave",

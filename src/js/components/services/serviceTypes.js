@@ -69,6 +69,7 @@
  * @property {ProfileModifyPatch} [modify]
  * @property {ProfileDeletePatch} [delete]
  * @property {ProfileProperties} [properties]
+ * @property {ProfileData} [replacement]
  * @property {string} [updateSource]
  *
  * @typedef {Object} CoordinatorMetadata
