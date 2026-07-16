@@ -7,6 +7,7 @@ import ExportService from "../../../src/js/components/services/ExportService.js"
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 
 const goldenProject = JSON.parse(
   readFileSync(
@@ -40,7 +41,10 @@ describe("ExportService sync project fidelity", () => {
     vi.restoreAllMocks();
   });
 
-  function createSource() {
+  function createSource({
+    profiles = goldenProject.data.profiles,
+    currentProfile = goldenProject.data.currentProfile,
+  } = {}) {
     const fixture = createServiceFixture({
       enableFS: true,
       initialStorageData: {
@@ -48,8 +52,8 @@ describe("ExportService sync project fidelity", () => {
           version: "1.0.0",
           created: "2024-01-02T03:04:05.000Z",
           lastModified: "2025-01-02T03:04:05.000Z",
-          currentProfile: goldenProject.data.currentProfile,
-          profiles: structuredClone(goldenProject.data.profiles),
+          currentProfile,
+          profiles: structuredClone(profiles),
           globalAliases: {},
           settings: staleRootSettings,
         },
@@ -59,7 +63,6 @@ describe("ExportService sync project fidelity", () => {
     fixtures.push(fixture);
 
     detachResponders.push(
-      respond(fixture.eventBus, "vfx:get-virtual-aliases", () => ({})),
       respond(
         fixture.eventBus,
         "parser:parse-command-string",
@@ -97,6 +100,212 @@ describe("ExportService sync project fidelity", () => {
     expect(project.data.profiles).toEqual(goldenProject.data.profiles);
     expect(project.data.currentProfile).toBe(goldenProject.data.currentProfile);
     expect(fixture.storage.getSettings).toHaveBeenCalled();
+  });
+
+  it("projects each synced profile's VFX aliases without cross-contamination or a VFX responder", async () => {
+    const profiles = {
+      alpha: {
+        id: "alpha",
+        name: "Alpha Profile",
+        currentEnvironment: "space",
+        builds: { space: { keys: {} }, ground: { keys: {} } },
+        aliases: {},
+        vertigoSettings: {
+          selectedEffects: {
+            space: ["fx-alpha-only"],
+            ground: [],
+          },
+          showPlayerSay: false,
+        },
+      },
+      beta: {
+        id: "beta",
+        name: "Beta Profile",
+        currentEnvironment: "ground",
+        builds: { space: { keys: {} }, ground: { keys: {} } },
+        aliases: {},
+        vertigoSettings: {
+          selectedEffects: {
+            space: [],
+            ground: ["fx-beta-only"],
+          },
+          showPlayerSay: false,
+        },
+      },
+    };
+    const { fixture, exporter } = createSource({
+      profiles,
+      currentProfile: "alpha",
+    });
+
+    expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
+      false,
+    );
+
+    await exporter.syncToFolder(fixture.rootDir);
+
+    const alphaAliases = await fixture.fsReadText(
+      "Alpha_Profile/Alpha_Profile_aliases.txt",
+    );
+    const betaAliases = await fixture.fsReadText(
+      "Beta_Profile/Beta_Profile_aliases.txt",
+    );
+
+    expect(alphaAliases).toContain(
+      "alias dynFxSetFXExclusionList_Space <& dynFxSetFXExlusionList fx-alpha-only &>",
+    );
+    expect(alphaAliases).not.toContain("fx-beta-only");
+    expect(betaAliases).toContain(
+      "alias dynFxSetFXExclusionList_Ground <& dynFxSetFXExlusionList fx-beta-only &>",
+    );
+    expect(betaAliases).not.toContain("fx-alpha-only");
+    expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
+      false,
+    );
+  });
+
+  it("exports the latest accepted VFX property commit instead of a stale profile cache", async () => {
+    const stale = {
+      id: "alpha",
+      name: "Alpha Profile",
+      currentEnvironment: "space",
+      builds: { space: { keys: {} }, ground: { keys: {} } },
+      aliases: {},
+      vertigoSettings: {
+        selectedEffects: { space: ["fx-stale"], ground: [] },
+        showPlayerSay: false,
+      },
+    };
+    const current = structuredClone(stale);
+    current.vertigoSettings.selectedEffects.space = ["fx-current"];
+    const { fixture, exporter } = createSource({
+      profiles: { alpha: stale },
+      currentProfile: "alpha",
+    });
+
+    fixture.eventBus.emit("profile:switched", {
+      fromProfile: null,
+      toProfile: "alpha",
+      profileId: "alpha",
+      profile: stale,
+      environment: "space",
+      timestamp: Date.now(),
+    });
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: createDataCoordinatorState({
+        authorityEpoch: 90,
+        revision: 2,
+        currentProfile: "alpha",
+        currentProfileData: current,
+        profiles: { alpha: current },
+      }),
+    });
+
+    const aliasFile = await exporter.request("export:generate-alias-file", {
+      profileId: "alpha",
+    });
+
+    expect(aliasFile).toContain("dynFxSetFXExlusionList fx-current");
+    expect(aliasFile).not.toContain("fx-stale");
+    expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
+      false,
+    );
+  });
+
+  it("rejects missing profile identifiers instead of exporting the active profile", async () => {
+    const current = structuredClone(
+      goldenProject.data.profiles[goldenProject.data.currentProfile],
+    );
+    const { fixture, exporter } = createSource({
+      profiles: { alpha: current },
+      currentProfile: "alpha",
+    });
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        authorityEpoch: 90,
+        revision: 1,
+        currentProfile: "alpha",
+        currentProfileData: current,
+        profiles: { alpha: current },
+      }),
+    });
+
+    await expect(
+      exporter.request("export:generate-alias-file", {}),
+    ).rejects.toThrow("Profile undefined not found");
+    await expect(
+      exporter.request("export:generate-keybind-file", {}),
+    ).rejects.toThrow("Profile undefined not found in ExportService cache");
+    expect(exporter.getProfileFromCache(undefined)).toBeNull();
+  });
+
+  it("does not resurrect a stale cached profile after an authoritative pre-ready replacement", async () => {
+    const stale = {
+      id: "alpha",
+      name: "Alpha Profile",
+      currentEnvironment: "space",
+      builds: { space: { keys: {} }, ground: { keys: {} } },
+      aliases: {},
+      vertigoSettings: {
+        selectedEffects: { space: ["fx-predecessor"], ground: [] },
+        showPlayerSay: false,
+      },
+    };
+    const { fixture, exporter } = createSource({
+      profiles: { alpha: stale },
+      currentProfile: "alpha",
+    });
+    fixture.eventBus.emit("profile:switched", {
+      fromProfile: null,
+      toProfile: "alpha",
+      profileId: "alpha",
+      profile: stale,
+      environment: "space",
+      timestamp: Date.now(),
+    });
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        authorityEpoch: 91,
+        ready: false,
+        revision: 0,
+      }),
+    });
+
+    await expect(
+      exporter.request("export:generate-alias-file", { profileId: "alpha" }),
+    ).rejects.toThrow("Profile alpha not found");
+    expect(exporter.getProfileFromCache("alpha")).toBeNull();
+  });
+
+  it("passes translated generated-message preferences into profile-local export", async () => {
+    const profile = {
+      id: "translated",
+      name: "Translated",
+      currentEnvironment: "space",
+      builds: { space: { keys: {} }, ground: { keys: {} } },
+      aliases: {},
+      vertigoSettings: {
+        selectedEffects: { space: ["fx-translated"], ground: [] },
+        showPlayerSay: true,
+      },
+    };
+    const { exporter } = createSource({
+      profiles: { translated: profile },
+      currentProfile: "translated",
+    });
+    exporter.cache.preferences.translateGeneratedMessages = true;
+    exporter.i18n = {
+      t: (key) =>
+        key === "vfx_suppression_loaded" ? "Suppression traduite" : key,
+    };
+
+    const aliasFile = await exporter.generateAliasFile(profile);
+
+    expect(aliasFile).toContain("PlayerSay Suppression traduite");
+    expect(aliasFile).not.toContain("PlayerSay VFX Suppression Loaded");
   });
 
   it("round-trips the exact synced project through ImportService", async () => {

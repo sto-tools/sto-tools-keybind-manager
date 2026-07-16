@@ -1,12 +1,15 @@
 import ComponentBase from "../ComponentBase.js";
 import { formatAliasLine } from "../../lib/STOFormatter.js";
 import { getSnapshotProfile } from "./dataState.js";
+import {
+  generateVFXAliasCommands,
+  normalizeVFXSettings,
+} from "./vfxAliasProjection.js";
 
 /** @typedef {'space' | 'ground'} VFXEnvironment */
 /** @typedef {{ selectedEffects?: { space?: string[], ground?: string[] }, showPlayerSay?: boolean }} VertigoSettings */
 /** @typedef {import('./serviceTypes.js').ProfileData & { vertigoSettings?: VertigoSettings }} VFXProfile */
 /** @typedef {{ space: Set<string>, ground: Set<string> }} SelectedEffects */
-/** @typedef {import('../../types/rpc/base.js').VirtualAlias} VirtualAlias */
 
 export default class VFXManagerService extends ComponentBase {
   /**
@@ -30,25 +33,10 @@ export default class VFXManagerService extends ComponentBase {
     this._vfxDataRevision = -1;
     /** @type {string | null} */
     this._acceptedVFXStateSignature = null;
-    /** @type {Array<() => void>} */
-    this._responseDetachFunctions = [];
     this._vfxSettingsPublishScheduled = false;
     /** @type {import('../../types/events/base.js').VfxSettingsSnapshot | null} */
     this._pendingVFXSettingsEvent = null;
     this._vfxPublishGeneration = 0;
-
-    // Register request/response handlers for virtual VFX aliases
-    this.setupRequestHandlers();
-  }
-
-  setupRequestHandlers() {
-    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
-
-    this._responseDetachFunctions.push(
-      this.respond("vfx:get-virtual-aliases", () =>
-        this.getVirtualVFXAliases(),
-      ),
-    );
   }
 
   onInit() {
@@ -57,15 +45,12 @@ export default class VFXManagerService extends ComponentBase {
       return;
     }
 
-    this.setupRequestHandlers();
     this.setupEventListeners();
     this._vfxInitialized = true;
     console.log(`[${this.componentName}] Initialized`);
   }
 
   onDestroy() {
-    for (const detach of this._responseDetachFunctions) detach();
-    this._responseDetachFunctions = [];
     this._vfxInitialized = false;
     this._vfxDataAuthorityEpoch = 0;
     this._vfxDataRevision = -1;
@@ -142,96 +127,21 @@ export default class VFXManagerService extends ComponentBase {
   // Generate just the command part (without alias definition) for storage
   /** @param {VFXEnvironment} environment */
   generateAliasCommand(environment) {
-    // Defensive check to ensure selectedEffects is properly initialized
-    if (!this.selectedEffects || !this.selectedEffects[environment]) {
-      console.warn(
-        `[${this.componentName}] generateAliasCommand: selectedEffects not properly initialized for ${environment}`,
-      );
-      console.warn(
-        `[${this.componentName}] selectedEffects state:`,
-        this.selectedEffects,
-      );
-      return [];
-    }
-
-    const effects = Array.from(this.selectedEffects[environment]);
-    console.log(
-      `[${this.componentName}] generateAliasCommand(${environment}): found ${effects.length} effects:`,
-      effects,
-    );
-
-    if (effects.length === 0) {
-      console.log(
-        `[${this.componentName}] generateAliasCommand(${environment}): No effects selected, returning empty command`,
-      );
-      return [];
-    }
-
-    const commands = [`dynFxSetFXExlusionList ${effects.join(",")}`];
-
-    if (this.showPlayerSay) {
-      // Check translateGeneratedMessages preference - only translate if enabled
-      const shouldTranslate = this.cache.preferences.translateGeneratedMessages;
-      const message = shouldTranslate
-        ? this.i18n.t("vfx_suppression_loaded")
-        : "VFX Suppression Loaded";
-      commands.push(`PlayerSay ${message}`);
-    }
-
-    console.log(
-      `[${this.componentName}] generateAliasCommand(${environment}): generated commands:`,
-      commands,
-    );
-    return commands;
+    return generateVFXAliasCommands(this.getCurrentState(), environment, {
+      translate: (key, options) => this.i18n.t(key, options),
+      translateGeneratedMessages:
+        this.cache.preferences.translateGeneratedMessages === true,
+    });
   }
 
   // Generate just the command part (without alias definition) for storage
   /** @param {VFXEnvironment | VFXEnvironment[]} environments */
   generateCombinedAliasCommand(environments) {
-    // Ensure environments is an array
-    const envArray = Array.isArray(environments)
-      ? environments
-      : [environments];
-
-    // Defensive check to ensure selectedEffects is properly initialized
-    if (!this.selectedEffects) {
-      console.warn(
-        `[${this.componentName}] generateCombinedAliasCommand: selectedEffects not properly initialized, returning empty command`,
-      );
-      return [];
-    }
-
-    /** @type {string[]} */
-    const allEffects = [];
-
-    for (const environment of envArray) {
-      if (!this.selectedEffects[environment]) {
-        console.warn(
-          `[${this.componentName}] generateCombinedAliasCommand: selectedEffects not properly initialized for ${environment}, skipping`,
-        );
-        continue;
-      }
-
-      const environmentEffects = Array.from(this.selectedEffects[environment]);
-      if (environmentEffects.length === 0) continue;
-
-      allEffects.push(...environmentEffects);
-    }
-
-    if (allEffects.length === 0) return [];
-
-    const commands = [`dynFxSetFXExlusionList ${allEffects.join(",")}`];
-
-    if (this.showPlayerSay) {
-      // Check translateGeneratedMessages preference - only translate if enabled
-      const shouldTranslate = this.cache.preferences.translateGeneratedMessages;
-      const message = shouldTranslate
-        ? this.i18n.t("vfx_suppression_loaded")
-        : "VFX Suppression Loaded";
-      commands.push(`PlayerSay ${message}`);
-    }
-
-    return commands;
+    return generateVFXAliasCommands(this.getCurrentState(), environments, {
+      translate: (key, options) => this.i18n.t(key, options),
+      translateGeneratedMessages:
+        this.cache.preferences.translateGeneratedMessages === true,
+    });
   }
 
   // Toggle an effect
@@ -310,13 +220,11 @@ export default class VFXManagerService extends ComponentBase {
     }
 
     const settings = profile?.vertigoSettings;
+    const normalizedSettings = normalizeVFXSettings(settings);
     const nextState = {
       profileId,
-      selectedEffects: {
-        space: [...(settings?.selectedEffects?.space || [])],
-        ground: [...(settings?.selectedEffects?.ground || [])],
-      },
-      showPlayerSay: settings?.showPlayerSay || false,
+      selectedEffects: normalizedSettings.selectedEffects,
+      showPlayerSay: normalizedSettings.showPlayerSay,
     };
     const signature = JSON.stringify(nextState);
     const changed = signature !== this._acceptedVFXStateSignature;
@@ -392,41 +300,6 @@ export default class VFXManagerService extends ComponentBase {
       this._pendingVFXSettingsEvent = null;
       if (pending) this.emit("vfx:settings-changed", pending);
     });
-  }
-
-  // Get virtual VFX aliases for CommandLibrary display
-  // These are NOT stored in profile - only generated dynamically
-  getVirtualVFXAliases() {
-    /** @type {Record<string, VirtualAlias>} */
-    const virtualAliases = {};
-
-    // Generate environment-specific aliases
-    /** @type {VFXEnvironment[]} */
-    const environments = ["space", "ground"];
-    environments.forEach((environment) => {
-      const commands = this.generateAliasCommand(environment);
-      // Always create virtual aliases, even when empty (for export consistency)
-      const aliasName = `dynFxSetFXExclusionList_${environment.charAt(0).toUpperCase() + environment.slice(1)}`;
-      virtualAliases[aliasName] = {
-        commands,
-        description: this.i18n.t("vfx_suppression_for_environment", {
-          environment,
-        }),
-        type: "vfx-alias",
-        virtual: true, // Mark as virtual
-      };
-    });
-
-    // Generate combined alias (always create, even when empty)
-    const combinedCommands = this.generateCombinedAliasCommand(environments);
-    virtualAliases.dynFxSetFXExclusionList_Combined = {
-      commands: combinedCommands,
-      description: this.i18n.t("vfx_suppression_for_all_environments"),
-      type: "vfx-alias",
-      virtual: true, // Mark as virtual
-    };
-
-    return virtualAliases;
   }
 
   async showModal() {

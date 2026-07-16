@@ -172,7 +172,6 @@
  * @property {ProfileData | null} profile
  * @property {Record<string, StoredCommand[]>} keys
  * @property {Record<string, AliasDefinition>} aliases
- * @property {Record<string, AliasDefinition>} [combinedAliases]
  * @property {Record<string, EnvironmentBindingData> | null} builds
  * @property {ServicePreferences} preferences
  * @property {string} activeBindset

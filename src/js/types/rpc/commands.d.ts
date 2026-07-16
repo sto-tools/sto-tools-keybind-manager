@@ -1,5 +1,4 @@
 import type {
-  CombinedAlias,
   CommandCategory,
   CommandDefinition,
   NoPayloadRpc,
@@ -89,7 +88,6 @@ export interface CommandRpcProtocol {
     string
   >;
   "command:get-categories": NoPayloadRpc<Record<string, CommandCategory>>;
-  "command:get-combined-aliases": NoPayloadRpc<Record<string, CombinedAlias>>;
   "command:get-warning": OptionalRpc<
     { command?: CommandReference },
     string | null

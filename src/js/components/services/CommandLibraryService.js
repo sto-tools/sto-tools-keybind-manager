@@ -18,42 +18,40 @@ export default class CommandLibraryService extends ComponentBase {
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
 
-    // Register Request/Response endpoints for external callers
-    if (this.eventBus) {
-      this._responseDetachFunctions.push(
-        this.respond(
-          "command:find-definition",
-          (
-            {
-              command,
-            } = /** @type {{ command?: string | { command?: string, text?: string } }} */ ({}),
-          ) => this.findCommandDefinition(command),
-        ),
-        this.respond(
-          "command:get-warning",
-          (
-            {
-              command,
-            } = /** @type {{ command?: string | { command?: string, text?: string } }} */ ({}),
-          ) => this.getCommandWarning(command),
-        ),
-        this.respond("command:get-categories", () =>
-          this.getCommandCategories(),
-        ),
-        this.respond("command:generate-id", () => this.generateCommandId()),
-        this.respond(
-          "command:get-combined-aliases",
-          async () => await this.getCombinedAliases(),
-        ),
-        this.respond("command:filter-library", () => {
-          this.filterCommandLibrary();
-          return true;
-        }),
-      );
-    }
+    this.setupRequestHandlers();
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
+      this.respond(
+        "command:find-definition",
+        (
+          {
+            command,
+          } = /** @type {{ command?: string | { command?: string, text?: string } }} */ ({}),
+        ) => this.findCommandDefinition(command),
+      ),
+      this.respond(
+        "command:get-warning",
+        (
+          {
+            command,
+          } = /** @type {{ command?: string | { command?: string, text?: string } }} */ ({}),
+        ) => this.getCommandWarning(command),
+      ),
+      this.respond("command:get-categories", () => this.getCommandCategories()),
+      this.respond("command:generate-id", () => this.generateCommandId()),
+      this.respond("command:filter-library", () => {
+        this.filterCommandLibrary();
+        return true;
+      }),
+    );
   }
 
   onInit() {
+    this.setupRequestHandlers();
     this.setupEventListeners();
   }
 
@@ -105,46 +103,12 @@ export default class CommandLibraryService extends ComponentBase {
         );
       }
 
-      // Clear cached display names for VFX aliases and regenerate
-      await this.updateCombinedAliases();
+      // Signal that translated alias display names can now be rebuilt from the
+      // accepted profile snapshot.
       this.emit("aliases-changed", {
-        aliases: this.cache?.combinedAliases || {},
+        aliases: { ...(this.cache?.aliases || {}) },
       });
     });
-
-    // Listen for VFX settings changes to update virtual aliases
-    this.addEventListener("vfx:settings-changed", async () => {
-      await this.updateCombinedAliases();
-      // Emit event to notify UI components that aliases have changed
-      this.emit("aliases-changed", {
-        aliases: this.cache?.combinedAliases || {},
-      });
-    });
-  }
-
-  // Get combined aliases (real profile aliases + virtual VFX aliases)
-  /** @returns {Promise<Record<string, import('../../types/rpc/base.js').CombinedAlias>>} */
-  async getCombinedAliases() {
-    const realAliases = { ...(this.cache?.aliases || {}) };
-
-    // Get virtual VFX aliases from VFXManagerService
-    try {
-      const virtualVFXAliases =
-        (await this.request("vfx:get-virtual-aliases")) || {};
-      return { ...realAliases, ...virtualVFXAliases };
-    } catch {
-      // VFXManagerService might not be available - just return real aliases
-      return realAliases;
-    }
-  }
-
-  // Update the combined aliases cache
-  async updateCombinedAliases() {
-    // This will be called whenever profile changes or VFX settings change
-    this.initializeCache();
-    if (this.cache) {
-      this.cache.combinedAliases = await this.getCombinedAliases();
-    }
   }
 
   // Find command definition and apply i18n translations
@@ -417,36 +381,6 @@ export default class CommandLibraryService extends ComponentBase {
         "CommandLibraryService: filterCommandLibrary failed:",
         error,
       );
-    }
-  }
-
-  // ComponentBase late-join support for DataCoordinator integration
-  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
-  handleInitialState(reply) {
-    const { sender, state } = reply;
-    // Handle VFX state from VFXManagerService
-    if (sender === "VFXManagerService" && state) {
-      console.log(
-        `[CommandLibraryService] Received VFX state via late-join:`,
-        state,
-      );
-
-      // Update combined aliases when VFX state is received
-      this.updateCombinedAliases()
-        .then(() => {
-          console.log(
-            `[CommandLibraryService] Updated combined aliases after VFX late-join`,
-          );
-          this.emit("aliases-changed", {
-            aliases: this.cache?.combinedAliases || {},
-          });
-        })
-        .catch((error) => {
-          console.error(
-            "[CommandLibraryService] Failed to update combined aliases after VFX late-join:",
-            error,
-          );
-        });
     }
   }
 

@@ -1,244 +1,341 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import VFXManagerService from "../../src/js/components/services/VFXManagerService.js";
-import CommandLibraryService from "../../src/js/components/services/CommandLibraryService.js";
-import CommandLibraryUI from "../../src/js/components/ui/CommandLibraryUI.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock VFX effects data
-global.VFX_EFFECTS = {
-  space: [{ effect: "FX_SpaceTest", name: "Test Space Effect" }],
-  ground: [{ effect: "FX_GroundTest", name: "Test Ground Effect" }],
+import CommandLibraryService from "../../src/js/components/services/CommandLibraryService.js";
+import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
+import VFXManagerService from "../../src/js/components/services/VFXManagerService.js";
+import CommandLibraryUI from "../../src/js/components/ui/CommandLibraryUI.js";
+import { respond } from "../../src/js/core/requestResponse.js";
+import { createServiceFixture } from "../fixtures/index.js";
+import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
+
+const i18n = {
+  t: (key, options = {}) =>
+    options.environment ? `${key}:${options.environment}` : key,
 };
 
-describe("VFX Virtual Alias Integration Flow", () => {
-  let mockEventBus;
-  let vfxService;
+function profile(id, aliasName, effect) {
+  return {
+    id,
+    name: id,
+    currentEnvironment: "space",
+    builds: { space: { keys: {} }, ground: { keys: {} } },
+    aliases: {
+      [aliasName]: {
+        commands: ["FireAll"],
+        description: `${aliasName} description`,
+      },
+    },
+    vertigoSettings: {
+      selectedEffects: { space: [effect], ground: [] },
+      showPlayerSay: false,
+    },
+  };
+}
+
+describe("VFX virtual alias projection flow", () => {
+  let fixture;
   let commandLibraryService;
+  let vfxManagerService;
   let commandLibraryUI;
+  let dataCoordinator;
+  let detachResponders;
 
-  beforeEach(async () => {
-    // Create mock event bus
-    const rpcListeners = new Map();
-    mockEventBus = {
-      events: {},
-      hasListeners: vi.fn(
-        (topic) => (rpcListeners.get(topic)?.length ?? 0) > 0,
+  beforeEach(() => {
+    dataCoordinator = null;
+    document.body.innerHTML = `
+      <input id="commandSearch" value="">
+      <div id="commandCategoriesList"></div>
+      <div id="aliasCategoriesList"></div>
+    `;
+    localStorage.clear();
+
+    fixture = createServiceFixture();
+    detachResponders = [
+      respond(fixture.eventBus, "data:has-commands", () => false),
+      respond(
+        fixture.eventBus,
+        "parser:parse-command-string",
+        ({ commandString }) => ({
+          commands: [{ displayText: commandString }],
+        }),
       ),
-      on: vi.fn((event, callback) => {
-        if (!mockEventBus.events[event]) mockEventBus.events[event] = [];
-        mockEventBus.events[event].push(callback);
+    ];
+  });
 
-        // Special handling for RPC events - also store readiness privately.
-        if (event.startsWith("rpc:")) {
-          if (!rpcListeners.has(event)) {
-            rpcListeners.set(event, []);
-          }
-          rpcListeners.get(event).push(callback);
-        }
+  afterEach(() => {
+    commandLibraryUI?.destroy();
+    commandLibraryService?.destroy();
+    vfxManagerService?.destroy();
+    dataCoordinator?.destroy();
+    detachResponders.splice(0).forEach((detach) => detach());
+    fixture.destroy();
+    document.body.replaceChildren();
+    vi.restoreAllMocks();
+  });
 
-        return () => mockEventBus.off(event, callback);
-      }),
-      off: vi.fn((event, callback) => {
-        if (mockEventBus.events[event]) {
-          const index = mockEventBus.events[event].indexOf(callback);
-          if (index > -1) mockEventBus.events[event].splice(index, 1);
-        }
-        if (rpcListeners.has(event)) {
-          const handlers = rpcListeners.get(event);
-          const index = handlers.indexOf(callback);
-          if (index > -1) handlers.splice(index, 1);
-        }
-      }),
-      emit: vi.fn((event, data) => {
-        // Handle VFX virtual alias emission
-        if (event === "vfx:virtual-aliases-updated" && data.aliases) {
-          mockEventBus.events["vfx:virtual-aliases-updated"]?.forEach(
-            (callback) => callback(data),
-          );
-        }
+  function initApplicationOwners() {
+    vfxManagerService = new VFXManagerService(fixture.eventBus, i18n);
+    commandLibraryService = new CommandLibraryService({
+      eventBus: fixture.eventBus,
+      i18n,
+    });
+    commandLibraryUI = new CommandLibraryUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n,
+    });
 
-        // Handle RPC pattern for all events
-        if (event.startsWith("rpc:") && rpcListeners.has(event)) {
-          // Call the registered RPC handlers
-          const handlers = rpcListeners.get(event);
-          handlers.forEach((handler) => {
-            try {
-              // Simulate async handler behavior
-              setTimeout(() => handler(data), 0);
-            } catch (error) {
-              console.error(`Error in RPC handler for ${event}:`, error);
-            }
-          });
-        }
+    vfxManagerService.init();
+    commandLibraryService.init();
+    commandLibraryUI.init();
+  }
 
-        // Regular event handling
-        if (mockEventBus.events[event]) {
-          mockEventBus.events[event].forEach((callback) => callback(data));
-        }
-      }),
+  it("hydrates saved VFX aliases on first paint and reprojects them after a real coordinator save", async () => {
+    const alpha = {
+      ...profile("alpha", "UserAlias", "Bloom"),
+      migrationVersion: "2.1.1",
+      bindsets: {},
+      keybindMetadata: { space: {}, ground: {} },
+      aliasMetadata: {},
+      bindsetMetadata: {},
+    };
+    fixture.storageFixture.setData("sto_keybind_manager", {
+      currentProfile: "alpha",
+      profiles: { alpha },
+      settings: {},
+      version: "1.0.0",
+      lastModified: "2026-07-16T00:00:00.000Z",
+    });
 
-      // Add mock respond function for VFX service
-      respond: vi.fn((topic, handler) => {
-        const rpcTopic = `rpc:${topic}`;
-        if (!rpcListeners.has(rpcTopic)) {
-          rpcListeners.set(rpcTopic, []);
-        }
-        rpcListeners.get(rpcTopic).push(handler);
+    dataCoordinator = new DataCoordinator({
+      eventBus: fixture.eventBus,
+      storage: fixture.storage,
+      i18n,
+    });
+    dataCoordinator.init();
+    await vi.waitFor(() => {
+      expect(dataCoordinator.getCurrentState()).toMatchObject({
+        ready: true,
+        currentProfile: "alpha",
+      });
+    });
 
-        return () => {
-          // Return detach function
-          if (rpcListeners.has(rpcTopic)) {
-            const handlers = rpcListeners.get(rpcTopic);
-            const index = handlers.indexOf(handler);
-            if (index > -1) {
-              handlers.splice(index, 1);
-            }
-          }
-        };
-      }),
+    vfxManagerService = new VFXManagerService(fixture.eventBus, i18n);
+    commandLibraryService = new CommandLibraryService({
+      eventBus: fixture.eventBus,
+      i18n,
+    });
+    commandLibraryUI = new CommandLibraryUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n,
+    });
+    const categorySpy = vi.spyOn(
+      commandLibraryUI,
+      "createAliasCategoryElement",
+    );
+
+    vfxManagerService.init();
+    commandLibraryService.init();
+    commandLibraryUI.init();
+
+    const projectedAlias = (name) => {
+      const category = categorySpy.mock.calls
+        .filter((call) => call[1] === "vertigo-aliases")
+        .at(-1);
+      return category?.[0].find(([aliasName]) => aliasName === name)?.[1];
     };
 
-    // Create services
-    const mockI18n = { t: vi.fn((key) => key) };
-    vfxService = new VFXManagerService(mockEventBus, mockI18n);
-    await vfxService.init();
-
-    commandLibraryService = new CommandLibraryService({
-      storage: {},
-      eventBus: mockEventBus,
-      i18n: { t: (key, opts) => opts?.defaultValue || key },
-      ui: {},
-      modalManager: {},
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-alias="UserAlias"]')).toBeTruthy();
+      expect(document.querySelectorAll(".vertigo-alias-item")).toHaveLength(3);
+      expect(projectedAlias("dynFxSetFXExclusionList_Space")?.commands).toEqual(
+        ["dynFxSetFXExlusionList Bloom"],
+      );
+      expect(
+        projectedAlias("dynFxSetFXExclusionList_Combined")?.commands,
+      ).toEqual(["dynFxSetFXExlusionList Bloom"]);
     });
-    await commandLibraryService.init();
+    expect(vfxManagerService.cache.dataState).toBe(
+      dataCoordinator.getCurrentState(),
+    );
+    expect(commandLibraryUI.cache.dataState).toBe(
+      dataCoordinator.getCurrentState(),
+    );
 
-    commandLibraryUI = new CommandLibraryUI({
-      service: commandLibraryService,
-      eventBus: mockEventBus,
-      ui: {},
-      modalManager: {},
-      document: {
-        getElementById: vi.fn(() => null),
-        createElement: vi.fn(() => ({ className: "", dataset: {} })),
-        createDocumentFragment: vi.fn(() => ({ appendChild: vi.fn() })),
-      },
+    const initialRevision = dataCoordinator.getCurrentState().revision;
+    vfxManagerService.toggleEffect("space", "FX_A");
+    await vfxManagerService.saveEffects();
+
+    await vi.waitFor(() => {
+      expect(dataCoordinator.getCurrentState().revision).toBe(
+        initialRevision + 1,
+      );
+      expect(
+        dataCoordinator.getCurrentState().profiles.alpha.vertigoSettings,
+      ).toEqual({
+        selectedEffects: { space: ["Bloom", "FX_A"], ground: [] },
+        showPlayerSay: false,
+      });
+      expect(projectedAlias("dynFxSetFXExclusionList_Space")?.commands).toEqual(
+        ["dynFxSetFXExlusionList Bloom,FX_A"],
+      );
+      expect(
+        projectedAlias("dynFxSetFXExclusionList_Combined")?.commands,
+      ).toEqual(["dynFxSetFXExlusionList Bloom,FX_A"]);
     });
-    await commandLibraryUI.init();
+    expect(commandLibraryUI.cache.dataState).toBe(
+      dataCoordinator.getCurrentState(),
+    );
+    expect(vfxManagerService.cache.dataState).toBe(
+      dataCoordinator.getCurrentState(),
+    );
+    expect(
+      fixture.eventBus.hasListeners("rpc:command:get-combined-aliases"),
+    ).toBe(false);
+    expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
+      false,
+    );
   });
 
-  it("should propagate VFX virtual aliases to CommandLibraryUI when VFX settings change", async () => {
-    // Set up spies
-    const commandLibraryUpdateSpy = vi.spyOn(
+  it("renders one accepted profile revision and clears it for a replacement authority", async () => {
+    initApplicationOwners();
+    const categorySpy = vi.spyOn(
       commandLibraryUI,
-      "updateCommandLibrary",
+      "createAliasCategoryElement",
     );
+    const alpha = profile("alpha", "OldAlias", "Bloom");
 
-    // Add some VFX effects
-    vfxService.toggleEffect("space", "FX_SpaceTest");
-    vfxService.toggleEffect("ground", "FX_GroundTest");
-
-    // Verify initial virtual aliases exist
-    const virtualAliases = vfxService.getVirtualVFXAliases();
-    expect(virtualAliases).toHaveProperty("dynFxSetFXExclusionList_Space");
-    expect(virtualAliases).toHaveProperty("dynFxSetFXExclusionList_Ground");
-    expect(virtualAliases).toHaveProperty("dynFxSetFXExclusionList_Combined");
-
-    // Clear the emit call history before the test
-    mockEventBus.emit.mockClear();
-
-    // Simulate VFX settings change (like when user saves VFX effects)
-    mockEventBus.emit("vfx:settings-changed", {
-      selectedEffects: {
-        space: ["FX_SpaceTest"],
-        ground: ["FX_GroundTest"],
-      },
-      showPlayerSay: false,
-    });
-
-    // Wait for async operations to complete - RPC requests and responses
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    // Find the aliases-changed event call among all emit calls
-    const aliasesChangedCalls = mockEventBus.emit.mock.calls.filter(
-      (call) => call[0] === "aliases-changed",
-    );
-    expect(aliasesChangedCalls.length).toBeGreaterThan(0);
-
-    // Verify that aliases-changed event was emitted with correct structure
-    const aliasesChangedCall =
-      aliasesChangedCalls[aliasesChangedCalls.length - 1];
-    expect(aliasesChangedCall[0]).toBe("aliases-changed");
-    expect(aliasesChangedCall[1]).toEqual(
-      expect.objectContaining({
-        aliases: expect.objectContaining({
-          dynFxSetFXExclusionList_Space: expect.objectContaining({
-            type: "vfx-alias",
-            virtual: true,
-            commands: ["dynFxSetFXExlusionList FX_SpaceTest"],
-          }),
-          dynFxSetFXExclusionList_Ground: expect.objectContaining({
-            type: "vfx-alias",
-            virtual: true,
-            commands: ["dynFxSetFXExlusionList FX_GroundTest"],
-          }),
-          dynFxSetFXExclusionList_Combined: expect.objectContaining({
-            type: "vfx-alias",
-            virtual: true,
-            commands: ["dynFxSetFXExlusionList FX_SpaceTest,FX_GroundTest"],
-          }),
-        }),
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        authorityEpoch: 60,
+        revision: 1,
+        currentProfileData: alpha,
+        profiles: { alpha },
       }),
-    );
-
-    // Verify that CommandLibraryUI received the event and updated
-    expect(commandLibraryUpdateSpy).toHaveBeenCalled();
-
-    // Verify that the UI can get the virtual aliases via the service (actual behavior)
-    const combinedAliases = await commandLibraryService.getCombinedAliases();
-    expect(combinedAliases).toHaveProperty("dynFxSetFXExclusionList_Space");
-    expect(combinedAliases.dynFxSetFXExclusionList_Space.type).toBe(
-      "vfx-alias",
-    );
-    expect(combinedAliases.dynFxSetFXExclusionList_Space.virtual).toBe(true);
-    expect(combinedAliases.dynFxSetFXExclusionList_Space.commands).toEqual([
-      "dynFxSetFXExlusionList FX_SpaceTest",
-    ]);
-  });
-
-  it("should handle VFX virtual aliases request from CommandLibraryService", async () => {
-    // Add VFX effects
-    vfxService.toggleEffect("space", "FX_SpaceTest");
-
-    // Debug: Check what's actually happening
-    const combinedAliases = await commandLibraryService.getCombinedAliases();
-    console.log("Combined aliases:", JSON.stringify(combinedAliases, null, 2));
-
-    expect(combinedAliases).toHaveProperty("dynFxSetFXExclusionList_Space");
-    expect(combinedAliases.dynFxSetFXExclusionList_Space).toEqual({
-      commands: ["dynFxSetFXExlusionList FX_SpaceTest"],
-      description: "vfx_suppression_for_environment",
-      type: "vfx-alias",
-      virtual: true,
     });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-alias="OldAlias"]')).toBeTruthy();
+      expect(document.querySelectorAll(".vertigo-alias-item")).toHaveLength(3);
+    });
+
+    const beta = profile("beta", "NewAlias", "FX_A");
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: createDataCoordinatorState({
+        authorityEpoch: 60,
+        revision: 2,
+        currentProfileData: beta,
+        profiles: { alpha, beta },
+      }),
+    });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-alias="NewAlias"]')).toBeTruthy();
+      expect(document.querySelector('[data-alias="OldAlias"]')).toBeNull();
+      const latestVFXCategory = categorySpy.mock.calls
+        .filter((call) => call[1] === "vertigo-aliases")
+        .at(-1);
+      const spaceAlias = latestVFXCategory?.[0].find(
+        ([name]) => name === "dynFxSetFXExclusionList_Space",
+      );
+      expect(spaceAlias?.[1].commands).toEqual(["dynFxSetFXExlusionList FX_A"]);
+    });
+
+    // A delayed predecessor cannot restore either half of the old projection.
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: createDataCoordinatorState({
+        authorityEpoch: 59,
+        revision: 100,
+        currentProfileData: alpha,
+        profiles: { alpha },
+      }),
+    });
+    await Promise.resolve();
+    expect(document.querySelector('[data-alias="NewAlias"]')).toBeTruthy();
+    expect(document.querySelector('[data-alias="OldAlias"]')).toBeNull();
+
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        authorityEpoch: 61,
+        ready: false,
+        revision: 0,
+      }),
+    });
+
+    await vi.waitFor(() => {
+      expect(
+        document.getElementById("aliasCategoriesList")?.children,
+      ).toHaveLength(0);
+    });
+    expect(
+      fixture.eventBus.hasListeners("rpc:command:get-combined-aliases"),
+    ).toBe(false);
+    expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
+      false,
+    );
   });
 
-  it("should generate virtual aliases with correct command format", () => {
-    // Add multiple effects
-    vfxService.toggleEffect("space", "FX_SpaceTest");
-    vfxService.toggleEffect("ground", "FX_GroundTest");
-    vfxService.showPlayerSay = true;
+  it("prevents a delayed parser result from committing an older profile", async () => {
+    detachResponders.at(-1)?.();
+    detachResponders.pop();
 
-    const virtualAliases = vfxService.getVirtualVFXAliases();
+    /** @type {Record<string, Array<() => void>>} */
+    const releases = { alpha: [], beta: [] };
+    let phase = "alpha";
+    detachResponders.push(
+      respond(
+        fixture.eventBus,
+        "parser:parse-command-string",
+        ({ commandString }) =>
+          new Promise((resolve) => {
+            releases[phase].push(() =>
+              resolve({ commands: [{ displayText: commandString }] }),
+            );
+          }),
+      ),
+    );
+    initApplicationOwners();
 
-    // Check space alias
-    expect(virtualAliases.dynFxSetFXExclusionList_Space.commands).toEqual([
-      "dynFxSetFXExlusionList FX_SpaceTest",
-      "PlayerSay VFX Suppression Loaded",
-    ]);
+    const alpha = profile("alpha", "OldAlias", "Bloom");
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        authorityEpoch: 70,
+        revision: 1,
+        currentProfileData: alpha,
+        profiles: { alpha },
+      }),
+    });
+    expect(releases.alpha).toHaveLength(3);
 
-    // Check combined alias
-    expect(virtualAliases.dynFxSetFXExclusionList_Combined.commands).toEqual([
-      "dynFxSetFXExlusionList FX_SpaceTest,FX_GroundTest",
-      "PlayerSay VFX Suppression Loaded",
-    ]);
+    phase = "beta";
+    const beta = profile("beta", "NewAlias", "FX_A");
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "profile-updated",
+      state: createDataCoordinatorState({
+        authorityEpoch: 70,
+        revision: 2,
+        currentProfileData: beta,
+        profiles: { alpha, beta },
+      }),
+    });
+    expect(releases.beta).toHaveLength(3);
+
+    releases.beta.forEach((release) => release());
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-alias="NewAlias"]')).toBeTruthy();
+    });
+
+    releases.alpha.forEach((release) => release());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(document.querySelector('[data-alias="NewAlias"]')).toBeTruthy();
+    expect(document.querySelector('[data-alias="OldAlias"]')).toBeNull();
   });
 });

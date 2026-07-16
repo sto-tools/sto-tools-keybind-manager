@@ -1,10 +1,8 @@
 import type {
-  NoPayloadRpc,
   OptionalRpc,
   RequiredRpc,
   ResponderOnlyOptionalRpc,
   ResponderOnlyRequiredRpc,
-  VirtualAlias,
 } from "./base.js";
 import type { EditingContext } from "../events/base.js";
 
@@ -66,5 +64,4 @@ export interface ApplicationRpcProtocol {
     boolean
   >;
   "utility:copy-to-clipboard": OptionalRpc<{ text?: string }, ClipboardResult>;
-  "vfx:get-virtual-aliases": NoPayloadRpc<Record<string, VirtualAlias>>;
 }

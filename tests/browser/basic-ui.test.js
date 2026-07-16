@@ -46,7 +46,7 @@ describe("Application browser smoke", () => {
     expect(settingsDropdown?.classList.contains("active")).toBe(false);
   });
 
-  it("uses the selection broadcast cache without legacy state RPCs", () => {
+  it("uses broadcast caches and local projections without legacy state RPCs", async () => {
     const commandChainUI = window.commandChainUI;
     const bus = commandChainUI?.eventBus;
 
@@ -72,11 +72,18 @@ describe("Application browser smoke", () => {
       "command:get-empty-state-info",
       "command:get-for-selected-key",
       "command:get-import-sources",
+      "command:get-combined-aliases",
       "command:is-stabilized",
       "command-chain:is-stabilized",
+      "vfx:get-virtual-aliases",
     ]) {
       expect(bus.hasListeners(`rpc:${topic}`), topic).toBe(false);
     }
+
+    expect(window.dataCoordinator?.getCurrentState?.().ready).toBe(true);
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll(".vertigo-alias-item")).toHaveLength(3);
+    });
 
     const originalSnapshot = {
       selectedKey: commandChainUI.cache.selectedKey,

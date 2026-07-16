@@ -2,6 +2,8 @@ import ComponentBase from "../ComponentBase.js";
 import { writeFile } from "./SyncService.js";
 import { formatAliasLine, formatKeybindLine } from "../../lib/STOFormatter.js";
 import { normalizeToOptimizedString } from "../../lib/commandDisplayAdapter.js";
+import { projectVirtualVFXAliases } from "./vfxAliasProjection.js";
+import { getSnapshotProfile } from "./dataState.js";
 
 /** @type {{ settings?: { version?: string } }} */
 const STO_DATA =
@@ -312,17 +314,13 @@ export default class ExportService extends ComponentBase {
   async generateAliasFile(profile) {
     const aliases = profile.aliases || {};
 
-    // Get current virtual VFX aliases from VFXManagerService
-    /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */
-    let vfxAliases = {};
-    try {
-      vfxAliases = (await this.request("vfx:get-virtual-aliases")) || {};
-    } catch {
-      // VFXManagerService might not be available - continue without VFX aliases
-      console.log(
-        "[ExportService] VFXManagerService not available, skipping VFX aliases",
-      );
-    }
+    // Export from the explicit profile argument so folder sync cannot leak the
+    // active profile's VFX draft or saved settings into another profile.
+    const vfxAliases = projectVirtualVFXAliases(profile.vertigoSettings, {
+      translate: (key, options) => this.translate(key, options),
+      translateGeneratedMessages:
+        this.cache.preferences.translateGeneratedMessages === true,
+    });
 
     // Check if bind-to-alias mode is enabled and add generated aliases
     const bindToAliasMode = this._getBindToAliasMode();
@@ -828,14 +826,13 @@ export default class ExportService extends ComponentBase {
     };
   }
 
-  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
-  handleInitialState(reply) {
-    void reply;
-  }
-
   // Utility
   /** @param {string | undefined} profileId */
   getProfileFromCache(profileId) {
+    if (!profileId) return null;
+    if (this.cache.dataState)
+      return getSnapshotProfile(this.cache.dataState, profileId);
+
     if (profileId && this.exportCache.profiles[profileId]) {
       return this.exportCache.profiles[profileId];
     }

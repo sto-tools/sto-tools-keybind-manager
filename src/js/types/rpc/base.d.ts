@@ -19,14 +19,6 @@ export type KBFImportConfiguration =
 export type KBFParseResult =
   import("../../components/services/serviceTypes.js").KBFParseResult;
 
-export type VirtualAlias = {
-  commands: string[];
-  description: string;
-  type: "vfx-alias";
-  virtual: true;
-};
-export type CombinedAlias = AliasDefinition | VirtualAlias;
-
 export type Settings = Record<string, unknown>;
 export type UnknownRecord = Record<string, unknown>;
 export type Environment = "space" | "ground" | "alias" | (string & {});

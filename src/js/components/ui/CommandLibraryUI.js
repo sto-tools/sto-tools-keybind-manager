@@ -1,14 +1,24 @@
 ﻿import UIComponentBase from "../UIComponentBase.js";
 import { eventElement, resolveDocument, resolveI18n } from "./uiTypes.js";
+import {
+  getSnapshotProfile,
+  getSnapshotUserAliases,
+} from "../services/dataState.js";
+import { projectCombinedAliases } from "../services/vfxAliasProjection.js";
+import {
+  createCommandLibraryAliasCategory,
+  projectCommandLibraryBindsetAliases,
+} from "./commandLibraryAliasDom.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
   globalThis
 );
 
 /**
- * @typedef {import('../../types/rpc/base.js').CombinedAlias & {
+ * @typedef {import('../services/serviceTypes.js').AliasDefinition & {
  *   displayName?: string,
- *   _displayName?: string
+ *   _displayName?: string,
+ *   virtual?: boolean
  * }} LibraryAlias
  * @typedef {[string, LibraryAlias]} LibraryAliasEntry
  */
@@ -40,10 +50,13 @@ export default class CommandLibraryUI extends UIComponentBase {
 
     this._rebuilding = false;
     this._rebuildQueued = false;
+    this._libraryLifecycleGeneration = 0;
+    this._aliasRenderGeneration = 0;
   }
 
   // Initialize the CommandLibraryUI component
   onInit() {
+    this._libraryLifecycleGeneration += 1;
     this.setupEventListeners();
     this.setupCommandLibrary();
   }
@@ -61,6 +74,10 @@ export default class CommandLibraryUI extends UIComponentBase {
     });
 
     this.addEventListener("profile:switched", () => {
+      this.updateCommandLibrary();
+    });
+
+    this.addEventListener("data:state-changed", () => {
       this.updateCommandLibrary();
     });
 
@@ -86,11 +103,8 @@ export default class CommandLibraryUI extends UIComponentBase {
     });
 
     // Listen for alias changes to update command library with new aliases
-    this.addEventListener("aliases-changed", ({ aliases }) => {
-      if (aliases) {
-        // ComponentBase handles this.cache.aliases automatically via profile:updated
-        this.updateCommandLibrary();
-      }
+    this.addEventListener("aliases-changed", () => {
+      this.updateCommandLibrary();
     });
 
     // Listen for search filter events from CommandUI
@@ -113,6 +127,11 @@ export default class CommandLibraryUI extends UIComponentBase {
       return;
     }
     this._rebuilding = true;
+    const generation = this._libraryLifecycleGeneration;
+    const isCurrent = () =>
+      generation === this._libraryLifecycleGeneration &&
+      this.initialized &&
+      !this.destroyed;
 
     try {
       // Build non-alias command categories into dedicated list container
@@ -124,6 +143,7 @@ export default class CommandLibraryUI extends UIComponentBase {
       const fragment = this.document.createDocumentFragment();
 
       const categories = await this.request("command:get-categories");
+      if (!isCurrent()) return;
       Object.entries(categories).forEach(([categoryId, category]) => {
         const categoryElement = this.createCategoryElement(
           categoryId,
@@ -136,16 +156,19 @@ export default class CommandLibraryUI extends UIComponentBase {
       container.replaceChildren(fragment);
 
       // Apply environment filtering after replacing elements
+      if (!isCurrent()) return;
       this.filterCommandLibrary();
 
       // Re-add aliases after rebuilding the command library
       await this.updateCommandLibrary();
     } finally {
-      this._rebuilding = false;
-      if (this._rebuildQueued) {
-        this._rebuildQueued = false;
-        // Run queued rebuild once current completes
-        this.setupCommandLibrary();
+      if (isCurrent()) {
+        this._rebuilding = false;
+        if (this._rebuildQueued) {
+          this._rebuildQueued = false;
+          // Run queued rebuild once current completes
+          this.setupCommandLibrary();
+        }
       }
     }
   }
@@ -286,54 +309,22 @@ export default class CommandLibraryUI extends UIComponentBase {
     titleKey = "command_aliases",
     iconClass = "fas fa-mask",
   ) {
-    const element = document.createElement("div");
-    element.className = "category";
-    element.dataset.category = categoryType;
+    const element = createCommandLibraryAliasCategory({
+      document: this.document,
+      translate: (key) => this.i18n.t(key),
+      aliases,
+      categoryType,
+      titleKey,
+      iconClass,
+    });
+    const header = /** @type {HTMLElement | null} */ (
+      element.querySelector("h4")
+    );
+    if (!header) return element;
 
-    const storageKey = `commandCategory_${categoryType}_collapsed`;
-    const isCollapsed = localStorage.getItem(storageKey) === "true";
-
-    const isVertigo = categoryType === "vertigo-aliases";
-    const isBindset = categoryType === "bindset-aliases";
-
-    let itemIcon, itemClass;
-    if (isVertigo) {
-      itemIcon = "👁️";
-      itemClass = "command-item vertigo-alias-item";
-    } else if (isBindset) {
-      itemIcon = "🔧";
-      itemClass = "command-item bindset-alias-item";
-    } else {
-      itemIcon = "🎭";
-      itemClass = "command-item alias-item";
-    }
-
-    element.innerHTML = `
-            <h4 class="${isCollapsed ? "collapsed" : ""}" data-category="${categoryType}">
-                <i class="fas fa-chevron-right category-chevron"></i>
-                <i class="${iconClass}"></i>
-                ${this.i18n.t(titleKey)}
-                <span class="command-count">(${aliases.length})</span>
-            </h4>
-            <div class="category-commands ${isCollapsed ? "collapsed" : ""}">
-                ${aliases
-                  .map(
-                    ([name, alias]) => `
-                    <div class="${itemClass}" data-alias="${name}" title="${alias.description || alias.commands}">
-                        ${itemIcon} ${alias.displayName || alias._displayName || name}
-                    </div>
-                `,
-                  )
-                  .join("")}
-            </div>
-        `;
-
-    const header = element.querySelector("h4");
-    if (header) {
-      this.onDom(header, "click", "alias-category-header", () => {
-        this.toggleAliasCategory(categoryType, element);
-      });
-    }
+    this.onDom(header, "click", "alias-category-header", () => {
+      this.toggleAliasCategory(categoryType, element);
+    });
 
     this.onDom(element, "click", "alias-item-click", (e) => {
       const target = eventElement(e);
@@ -409,18 +400,32 @@ export default class CommandLibraryUI extends UIComponentBase {
 
   // Update the command library using cached profile data
   async updateCommandLibrary() {
-    // Use cached profile data instead of making requests
-    const profile = this.cache.profile;
-    if (!profile) return;
+    const generation = ++this._aliasRenderGeneration;
+    const isCurrent = () =>
+      generation === this._aliasRenderGeneration && !this.destroyed;
 
-    // Alias containers lives inside dedicated list under commandCategories
     const aliasContainer =
       this.document.getElementById("aliasCategoriesList") ||
       this.document.getElementById("commandCategories");
     if (!aliasContainer) return;
 
-    // Get combined aliases (includes VFX virtual aliases) from CommandLibraryService
-    const combinedAliases = await this.request("command:get-combined-aliases");
+    const snapshot = this.cache.dataState;
+    const profile = getSnapshotProfile(snapshot);
+    if (!profile) {
+      if (isCurrent()) aliasContainer.replaceChildren();
+      return;
+    }
+
+    const preferences = { ...this.cache.preferences };
+    const combinedAliases = projectCombinedAliases(
+      getSnapshotUserAliases(snapshot),
+      profile.vertigoSettings,
+      {
+        translate: (key, options) => this.i18n.t(key, options),
+        translateGeneratedMessages:
+          preferences.translateGeneratedMessages === true,
+      },
+    );
 
     // Resolve display names for VFX aliases async
     const allAliases = await Promise.all(
@@ -428,13 +433,18 @@ export default class CommandLibraryUI extends UIComponentBase {
         const cachedDisplayName =
           "_displayName" in alias ? alias._displayName : null;
         if (alias.type === "vfx-alias" && !cachedDisplayName) {
-          Object.assign(alias, {
-            _displayName: await this._getAliasDisplayName(name, alias),
-          });
+          return /** @type {LibraryAliasEntry} */ ([
+            name,
+            {
+              ...alias,
+              _displayName: await this._getAliasDisplayName(name, alias),
+            },
+          ]);
         }
         return /** @type {LibraryAliasEntry} */ ([name, alias]);
       }),
     );
+    if (!isCurrent()) return;
 
     const regularAliases = allAliases.filter(
       ([, alias]) => alias.type !== "vfx-alias",
@@ -443,58 +453,11 @@ export default class CommandLibraryUI extends UIComponentBase {
       ([, alias]) => alias.type === "vfx-alias",
     );
 
-    // ---------------- Bindset activation aliases -----------------
-    // Only include when preferences allow (bindsetsEnabled && bindToAliasMode)
-    /** @type {LibraryAliasEntry[]} */
-    let bindsetAliasItems = [];
-    try {
-      // Use cached preferences from ComponentBase instead of making requests
-      const bindsetsEnabled = this.cache.preferences.bindsetsEnabled;
-      const aliasMode = this.cache.preferences.bindToAliasMode;
-
-      if (bindsetsEnabled && aliasMode) {
-        const profile = this.cache.profile || {};
-        const bindsets = profile.bindsets || {};
-        const envs = ["space", "ground"];
-
-        /** @param {string} n */
-        const sanitizeName = (n = "") => {
-          let s = n
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "_")
-            .replace(/_+/g, "_")
-            .replace(/^_+|_+$/g, "");
-          if (/^[0-9]/.test(s)) s = `bs_${s}`;
-          return s;
-        };
-
-        for (const env of envs) {
-          const allBs = ["Primary Bindset", ...Object.keys(bindsets)];
-          allBs.forEach((bsName) => {
-            const loaderAlias = `sto_kb_bindset_enable_${env}_${sanitizeName(bsName)}`;
-            // Format: "Bindset: Space - Enable Primary Bindset" or "Bindset: Ground - Enable <User specified name>"
-            const envTranslated = this.i18n.t(env);
-            const bindsetNameTranslated =
-              bsName === "Primary Bindset"
-                ? this.i18n.t("primary_bindset")
-                : bsName;
-            const enableText = this.i18n.t("bindset_enable");
-            const displayName = `${this.i18n.t("bindsets")}: ${envTranslated} - ${enableText} ${bindsetNameTranslated}`;
-            bindsetAliasItems.push([
-              loaderAlias,
-              {
-                type: "bindset-alias",
-                description: displayName,
-                commands: loaderAlias,
-                displayName: displayName, // Add explicit display name
-              },
-            ]);
-          });
-        }
-      }
-    } catch {
-      /* ignore */
-    }
+    const bindsetAliasItems = projectCommandLibraryBindsetAliases(
+      profile,
+      preferences,
+      (key) => this.i18n.t(key),
+    );
 
     // Build DOM in a detached fragment then atomically replace
     const fragment = this.document.createDocumentFragment();
@@ -532,7 +495,7 @@ export default class CommandLibraryUI extends UIComponentBase {
       );
     }
 
-    aliasContainer.replaceChildren(fragment);
+    if (isCurrent()) aliasContainer.replaceChildren(fragment);
   }
 
   // Filter command library based on current environment
@@ -618,11 +581,18 @@ export default class CommandLibraryUI extends UIComponentBase {
   /**
    * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState({ sender, state }) {
-    if (sender === "DataCoordinator" && state.currentProfileData) {
-      // ComponentBase already handles caching, just update the UI
+  handleInitialState({ sender }) {
+    if (sender === "DataCoordinator") {
       this.updateCommandLibrary();
     }
+  }
+
+  onDestroy() {
+    this._libraryLifecycleGeneration += 1;
+    this._aliasRenderGeneration += 1;
+    this.eventListenersSetup = false;
+    this._rebuilding = false;
+    this._rebuildQueued = false;
   }
 
   // Apply text search filter to command library items

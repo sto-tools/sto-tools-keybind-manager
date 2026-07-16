@@ -1,7 +1,6 @@
 import type {
   AliasAddResult,
   CommandParseResult,
-  CombinedAlias,
   DynamicRpcTopic,
   ParameterBuildResult,
   ParsedCommand,
@@ -9,7 +8,6 @@ import type {
   RpcKnownTopic,
   RpcRequest,
   RpcResult,
-  VirtualAlias,
 } from "../../src/js/types/rpc/index.js";
 import type { ExtensionPreferenceKey } from "../../src/js/types/events/base.js";
 import { extensionPreferenceKey } from "../../src/js/components/services/preferenceKeys.js";
@@ -30,12 +28,6 @@ type AliasRequest = Expect<
 type AliasResult = Expect<Equal<RpcResult<"alias:add">, AliasAddResult>>;
 type ParameterCommandBuildResult = Expect<
   Equal<RpcResult<"parameter-command:build">, ParameterBuildResult>
->;
-type CombinedAliasResult = Expect<
-  Equal<
-    RpcResult<"command:get-combined-aliases">,
-    Record<string, CombinedAlias>
-  >
 >;
 type KnownTopic = Expect<
   "parser:clear-cache" extends RpcKnownTopic ? true : false
@@ -113,6 +105,10 @@ type RemovedCommandStabilizedQuery = RpcRequest<"command:is-stabilized">;
 type RemovedChainStabilizedQuery = RpcRequest<"command-chain:is-stabilized">;
 // @ts-expect-error Command-chain empty state is projected from accepted cache state.
 type RemovedCommandEmptyStateQuery = RpcRequest<"command:get-empty-state-info">;
+// @ts-expect-error Combined aliases are projected from accepted profile state.
+type RemovedCombinedAliasesQuery = RpcRequest<"command:get-combined-aliases">;
+// @ts-expect-error Virtual VFX aliases are projected from explicit settings.
+type RemovedVirtualVFXAliasesQuery = RpcRequest<"vfx:get-virtual-aliases">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -125,17 +121,6 @@ declare const forwardedTopic: string;
 const parameterBuildHandler: RpcHandler<"parameter-command:build"> = () => [
   parsedCommand,
 ];
-const virtualAlias: VirtualAlias = {
-  commands: [],
-  description: "Generated VFX alias",
-  type: "vfx-alias",
-  virtual: true,
-};
-const combinedAliasHandler: RpcHandler<
-  "command:get-combined-aliases"
-> = () => ({
-  generated: virtualAlias,
-});
 declare const responderOnlyOptionalHandler: RpcHandler<"data:get-command-category">;
 responderOnlyOptionalHandler();
 
@@ -311,6 +296,14 @@ async function exerciseCoreApi() {
   respond(eventBus, "key:get-all-sectional", () => ({}));
   // @ts-expect-error Retired category-state queries cannot regain responders.
   respond(eventBus, "key:get-category-state", () => false);
+  // @ts-expect-error Combined alias state is a local projection, not a query.
+  request(eventBus, "command:get-combined-aliases");
+  // @ts-expect-error Retired combined-alias queries cannot regain responders.
+  respond(eventBus, "command:get-combined-aliases", () => ({}));
+  // @ts-expect-error Virtual VFX aliases are projected from explicit settings.
+  request(eventBus, "vfx:get-virtual-aliases");
+  // @ts-expect-error Retired VFX state queries cannot regain responders.
+  respond(eventBus, "vfx:get-virtual-aliases", () => ({}));
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 
@@ -323,8 +316,6 @@ void aliasHandler;
 void noPayloadHandler;
 void invalidAliasHandler;
 void parameterBuildHandler;
-void combinedAliasHandler;
 void exerciseCoreApi;
 void (0 as unknown as ParameterCommandBuildResult);
-void (0 as unknown as CombinedAliasResult);
 void (0 as unknown as PreferenceInitResult);

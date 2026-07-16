@@ -3,7 +3,6 @@ import { createServiceFixture } from "../../fixtures/index.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
 import VFXManagerService from "../../../src/js/components/services/VFXManagerService.js";
-import CommandLibraryService from "../../../src/js/components/services/CommandLibraryService.js";
 
 // Mock VFX_EFFECTS data for testing
 const VFX_EFFECTS = {
@@ -16,7 +15,7 @@ const VFX_EFFECTS = {
 };
 
 describe("VFXManagerService", () => {
-  let fixture, service, eventBusFixture, coordinator, commandLibraryService;
+  let fixture, service, eventBusFixture, coordinator;
 
   const profileWithVFX = (
     effect,
@@ -55,7 +54,6 @@ describe("VFXManagerService", () => {
   });
 
   afterEach(() => {
-    commandLibraryService?.destroy();
     coordinator?.destroy();
     if (service && !service.destroyed) service.destroy();
     fixture.destroy();
@@ -232,6 +230,35 @@ describe("VFXManagerService", () => {
     expect(service.showPlayerSay).toBe(false);
   });
 
+  it("normalizes malformed persisted VFX settings at the accepted-state boundary", async () => {
+    const malformed = profileWithVFX(null);
+    malformed.vertigoSettings = {
+      selectedEffects: {
+        space: { invalid: true },
+        ground: [null, "FX_B", "FX_B", 42],
+      },
+      showPlayerSay: "yes",
+    };
+
+    await emitDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 35,
+        revision: 1,
+        currentProfileData: malformed,
+      }),
+      "initial-load",
+    );
+    await Promise.resolve();
+
+    expect(Array.from(service.selectedEffects.space)).toEqual([]);
+    expect(Array.from(service.selectedEffects.ground)).toEqual(["FX_B"]);
+    expect(service.showPlayerSay).toBe(false);
+    eventBusFixture.expectEvent("vfx:settings-changed", {
+      selectedEffects: { space: [], ground: ["FX_B"] },
+      showPlayerSay: false,
+    });
+  });
+
   it("resets unsaved effects when profiles have identical saved VFX settings", async () => {
     const alpha = profileWithVFX(null, false, "alpha");
     await emitDataState(
@@ -323,92 +350,38 @@ describe("VFXManagerService", () => {
     eventBusFixture.expectEventCount("vfx:settings-changed", 2);
   });
 
-  it("publishes VFX-derived aliases after profile consumers adopt the same revision", async () => {
-    commandLibraryService = new CommandLibraryService({
-      eventBus: fixture.eventBus,
-      i18n: { t: (key) => key },
-    });
-    commandLibraryService.init();
-    const combinedAliasEvents = [];
-    fixture.eventBus.on("aliases-changed", ({ aliases }) => {
-      combinedAliasEvents.push(aliases);
-    });
-
-    const alpha = profileWithVFX("Bloom", false, "alpha", {
-      OldAlias: { commands: ["FireAll"] },
-    });
-    await emitDataState(
-      createDataCoordinatorState({
-        authorityEpoch: 60,
-        revision: 1,
-        currentProfile: "alpha",
-        currentProfileData: alpha,
-        profiles: { alpha },
-      }),
-      "initial-load",
-    );
-    await vi.waitFor(() => {
-      expect(commandLibraryService.cache.combinedAliases).toHaveProperty(
-        "OldAlias",
-      );
-    });
-    combinedAliasEvents.length = 0;
-
-    const beta = profileWithVFX("FX_A", false, "beta", {
-      NewAlias: { commands: ["Target_Enemy_Near"] },
-    });
-    await emitDataState(
-      createDataCoordinatorState({
-        authorityEpoch: 60,
-        revision: 2,
-        currentProfile: "beta",
-        currentProfileData: beta,
-        profiles: { alpha, beta },
-      }),
-      "profile-switched",
-    );
-
-    await vi.waitFor(() => {
-      const aliases = combinedAliasEvents.at(-1);
-      expect(aliases).toHaveProperty("NewAlias");
-      expect(aliases).not.toHaveProperty("OldAlias");
-      expect(aliases.dynFxSetFXExclusionList_Space.commands).toEqual([
-        "dynFxSetFXExlusionList FX_A",
-      ]);
-    });
-  });
-
-  it("transfers virtual-alias responder ownership across destroy and reinit", async () => {
-    const retiredService = service;
-    const retiredResponder = vi.spyOn(retiredService, "getVirtualVFXAliases");
-    expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
-      true,
-    );
-
-    retiredService.destroy();
+  it("never restores the retired alias query across destroy and reinit", async () => {
     expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
       false,
     );
 
-    service = new VFXManagerService(fixture.eventBus, {
-      t: (key) => key,
+    const pending = createDataCoordinatorState({
+      authorityEpoch: 80,
+      revision: 1,
+      currentProfileData: profileWithVFX("Bloom"),
     });
-    const replacementResponder = vi.spyOn(service, "getVirtualVFXAliases");
-    service.init();
-
-    await expect(
-      service.request("vfx:get-virtual-aliases"),
-    ).resolves.toHaveProperty("dynFxSetFXExclusionList_Combined");
-    expect(retiredResponder).not.toHaveBeenCalled();
-    expect(replacementResponder).toHaveBeenCalledOnce();
-
+    emitDataState(pending, "initial-load");
     service.destroy();
-    service.init();
-    await service.request("vfx:get-virtual-aliases");
-
-    expect(replacementResponder).toHaveBeenCalledTimes(2);
     expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
-      true,
+      false,
+    );
+
+    service.init();
+    await Promise.resolve();
+    eventBusFixture.expectNoEvent("vfx:settings-changed");
+
+    emitDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 80,
+        revision: 2,
+        currentProfileData: profileWithVFX("FX_A"),
+      }),
+    );
+    await Promise.resolve();
+
+    eventBusFixture.expectEventCount("vfx:settings-changed", 1);
+    expect(fixture.eventBus.hasListeners("rpc:vfx:get-virtual-aliases")).toBe(
+      false,
     );
   });
 
