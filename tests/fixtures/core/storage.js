@@ -190,11 +190,14 @@ export function createStorageFixture(options = {}) {
       };
     }),
 
-    saveSettings: vi.fn((settings) => {
+    saveSettings: vi.fn((settings, { replace = false } = {}) => {
       try {
+        const persistedSettings = replace
+          ? { ...settings }
+          : { ...mockStorageService.getSettings(), ...settings };
         mockLocalStorage.setItem(
           "sto_keybind_settings",
-          JSON.stringify(settings),
+          JSON.stringify(persistedSettings),
         );
         return true;
       } catch {

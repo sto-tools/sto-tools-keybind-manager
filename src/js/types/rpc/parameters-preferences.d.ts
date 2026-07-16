@@ -4,11 +4,7 @@ import type {
   ResponderOnlyNoPayloadRpc,
   ResponderOnlyRequiredRpc,
 } from "./base.js";
-import type {
-  PreferenceMutation,
-  PreferencesSettings,
-  SettingsRecord,
-} from "../events/base.js";
+import type { PreferenceMutation, SettingsRecord } from "../events/base.js";
 
 export type ParameterCommandDefinition = Record<string, unknown> & {
   baseCommand?: string;
@@ -157,8 +153,6 @@ export interface ParameterPreferenceRpcProtocol {
     },
     CommandParseResult
   >;
-  "preferences:get-setting": ResponderOnlyRequiredRpc<{ key: string }, unknown>;
-  "preferences:get-settings": NoPayloadRpc<PreferencesSettings>;
   "preferences:init": NoPayloadRpc<undefined>;
   "preferences:load-settings": NoPayloadRpc<undefined>;
   "preferences:save-settings": NoPayloadRpc<boolean>;

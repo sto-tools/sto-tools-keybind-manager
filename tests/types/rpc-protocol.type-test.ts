@@ -83,6 +83,12 @@ type RemovedCachedSelectionQuery = RpcRequest<"selection:get-cached">;
 type RemovedEditingContextQuery = RpcRequest<"selection:get-editing-context">;
 // @ts-expect-error The selected item is held in each component cache.
 type RemovedSelectedItemQuery = RpcRequest<"selection:get-selected">;
+// @ts-expect-error Settings are broadcast/cache state, not DataCoordinator RPC state.
+type RemovedDataSettingsQuery = RpcRequest<"data:get-settings">;
+// @ts-expect-error Individual preferences are read from each component cache.
+type RemovedPreferenceSettingQuery = RpcRequest<"preferences:get-setting">;
+// @ts-expect-error Preference snapshots arrive through broadcasts and late join.
+type RemovedPreferencesSettingsQuery = RpcRequest<"preferences:get-settings">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -106,9 +112,7 @@ const combinedAliasHandler: RpcHandler<
 > = () => ({
   generated: virtualAlias,
 });
-declare const responderOnlyNoPayloadHandler: RpcHandler<"data:get-settings">;
 declare const responderOnlyOptionalHandler: RpcHandler<"data:get-command-category">;
-responderOnlyNoPayloadHandler();
 responderOnlyOptionalHandler();
 
 type DynamicTopicRemainsBranded = Expect<
@@ -201,8 +205,18 @@ async function exerciseCoreApi() {
 
   // @ts-expect-error Unregistered literals require an explicitly branded topic.
   request(eventBus, "parser:typo", {});
-  // @ts-expect-error Responder-only inventory entries cannot gain consumers accidentally.
+  // @ts-expect-error Settings snapshots are no longer requestable from DataCoordinator.
   request(eventBus, "data:get-settings");
+  // @ts-expect-error Retired preference queries cannot be reintroduced by consumers.
+  request(eventBus, "preferences:get-setting", { key: "autoSave" });
+  // @ts-expect-error Retired preference snapshots cannot be reintroduced by consumers.
+  request(eventBus, "preferences:get-settings");
+  // @ts-expect-error Retired settings state queries cannot regain responders.
+  respond(eventBus, "data:get-settings", () => ({}));
+  // @ts-expect-error Retired preference queries cannot regain responders.
+  respond(eventBus, "preferences:get-setting", () => true);
+  // @ts-expect-error Retired preference snapshots cannot regain responders.
+  respond(eventBus, "preferences:get-settings", () => ({}));
   // @ts-expect-error Retired state queries cannot be reintroduced by consumers.
   request(eventBus, "key:get-selected");
   // @ts-expect-error Widened strings are not an untyped forwarding escape.

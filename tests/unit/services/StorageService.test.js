@@ -115,6 +115,29 @@ describe("StorageService", () => {
       expect(settings.language).toBe("es");
       expect(settings.theme).toBe("default"); // Unchanged
     });
+
+    it("should replace a complete authoritative settings snapshot", () => {
+      storageService.saveSettings({
+        language: "de",
+        "plugin:layout": "compact",
+      });
+      const replacement = {
+        ...storageService.getDefaultSettings(),
+        language: "fr",
+      };
+      eventBusFixture.clearEventHistory();
+
+      const ok = storageService.saveSettings(replacement, { replace: true });
+
+      expect(ok).toBe(true);
+      expect(JSON.parse(localStorage.getItem("sto_keybind_settings"))).toEqual(
+        replacement,
+      );
+      expect(storageService.getSettings()).not.toHaveProperty("plugin:layout");
+      eventBusFixture.expectEvent("storage:settings-changed", {
+        settings: replacement,
+      });
+    });
   });
 
   describe("Error handling", () => {

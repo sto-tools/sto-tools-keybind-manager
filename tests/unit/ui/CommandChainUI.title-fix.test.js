@@ -122,9 +122,6 @@ describe("CommandChainUI Title Fix", () => {
             commandCount: "0",
           });
         }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
-        }
         return Promise.resolve({});
       });
 
@@ -193,9 +190,6 @@ describe("CommandChainUI Title Fix", () => {
             commandCount: "0",
           });
         }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
-        }
         return Promise.resolve({});
       });
 
@@ -263,9 +257,6 @@ describe("CommandChainUI Title Fix", () => {
               "Select a key from the left panel to view and edit its command chain.",
             commandCount: "0",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve({});
       });
@@ -361,9 +352,6 @@ describe("CommandChainUI Title Fix", () => {
             });
           }
         }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
-        }
         return Promise.resolve({});
       });
 
@@ -437,9 +425,6 @@ describe("CommandChainUI Title Fix", () => {
               "Select a key from the left panel to view and edit its command chain.",
             commandCount: "0",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve({});
       });
@@ -526,9 +511,6 @@ describe("CommandChainUI Title Fix", () => {
               "Select a key from the left panel to view and edit its command chain.",
             commandCount: "0",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve({});
       });
@@ -627,9 +609,6 @@ describe("CommandChainUI Title Fix", () => {
               "Select a key from the left panel to view and edit its command chain.",
             commandCount: "0",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve({});
       });

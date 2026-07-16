@@ -230,15 +230,22 @@ export default class StorageService extends ComponentBase {
   }
 
   // Save application settings
-  /** @param {Record<string, any>} settings */
-  saveSettings(settings) {
+  /**
+   * Partial callers retain the historical merge behavior. An authoritative
+   * owner can explicitly replace the complete snapshot so removed extension
+   * keys do not reappear on the next load.
+   * @param {Record<string, any>} settings
+   * @param {{ replace?: boolean }} [options]
+   */
+  saveSettings(settings, { replace = false } = {}) {
     try {
-      const current = this.getSettings();
-      const merged = { ...current, ...settings };
-      localStorage.setItem(this.settingsKey, JSON.stringify(merged));
+      const persistedSettings = replace
+        ? { ...settings }
+        : { ...this.getSettings(), ...settings };
+      localStorage.setItem(this.settingsKey, JSON.stringify(persistedSettings));
 
       // Emit settings changed event
-      this.emit("storage:settings-changed", { settings: merged });
+      this.emit("storage:settings-changed", { settings: persistedSettings });
 
       return true;
     } catch (error) {

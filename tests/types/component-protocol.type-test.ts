@@ -31,12 +31,22 @@ async function exerciseComponentRpc() {
   component.request("parser:parse-command-string");
   // @ts-expect-error RPC payloads are selected by their topic.
   component.request("parser:parse-command-string", { commandString: 42 });
-  // @ts-expect-error Responder-only inventory entries are not requestable.
+  // @ts-expect-error Settings snapshots are broadcast/cache state, not RPC state.
   component.request("data:get-settings");
+  // @ts-expect-error Preference values are read from the component cache.
+  component.request("preferences:get-setting", { key: "autoSave" });
+  // @ts-expect-error Preference snapshots arrive through broadcasts and late join.
+  component.request("preferences:get-settings");
 
   component.respond("parser:clear-cache", () => ({ success: true }));
   // @ts-expect-error Responder results are selected by their topic.
   component.respond("parser:clear-cache", () => ({ success: false }));
+  // @ts-expect-error Retired settings state queries cannot regain responders.
+  component.respond("data:get-settings", () => ({}));
+  // @ts-expect-error Retired preference queries cannot regain responders.
+  component.respond("preferences:get-setting", () => true);
+  // @ts-expect-error Retired preference snapshots cannot regain responders.
+  component.respond("preferences:get-settings", () => ({}));
 }
 
 declare const dynamicEvent: DynamicEventTopic<

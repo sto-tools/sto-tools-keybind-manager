@@ -92,7 +92,6 @@ export interface DataRpcProtocol {
     { environment?: string },
     Record<string, StoredCommand[]>
   >;
-  "data:get-settings": ResponderOnlyNoPayloadRpc<Settings>;
   "data:get-tray-category": ResponderOnlyNoPayloadRpc<CommandCategory | null>;
   "data:get-validation-patterns": ResponderOnlyNoPayloadRpc<{
     keyNamePattern?: string;

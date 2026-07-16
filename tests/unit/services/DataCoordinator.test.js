@@ -49,6 +49,11 @@ describe("DataCoordinator Service", () => {
       expect(dataCoordinator.componentName).toBe("DataCoordinator");
     });
 
+    it("does not register the retired settings snapshot RPC", async () => {
+      expect(mockEventBus.hasListeners("rpc:data:get-settings")).toBe(false);
+      await expect(dataCoordinator.getSettings()).resolves.toEqual({});
+    });
+
     it("should initialize with empty state", () => {
       expect(dataCoordinator.state).toEqual({
         currentProfile: null,

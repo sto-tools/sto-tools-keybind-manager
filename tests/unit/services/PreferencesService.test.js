@@ -42,10 +42,13 @@ describe("PreferencesService", () => {
     service.setSetting("theme", "dark");
 
     expect(service.getSetting("theme")).toBe("dark");
-    expect(spySave).toHaveBeenCalled();
+    expect(spySave).toHaveBeenCalledWith(service.getSettings(), {
+      replace: true,
+    });
     fixture.eventBusFixture.expectEvent("preferences:changed", {
       key: "theme",
       value: "dark",
+      settings: service.getSettings(),
     });
   });
 
@@ -86,6 +89,7 @@ describe("PreferencesService", () => {
     fixture.eventBusFixture.expectEvent("preferences:changed", {
       key: "autoSave",
       value: false,
+      settings: service.getSettings(),
     });
   });
 
@@ -157,12 +161,110 @@ describe("PreferencesService", () => {
     expect(fixture.storage.saveSettings).toHaveBeenCalledTimes(1);
     fixture.eventBusFixture.expectEvent("preferences:changed", {
       changes: {
+        theme: "default",
         autoSave: false,
         maxUndoSteps: 25,
         syncFolderName: "Keybinds",
         "plugin:layout": extensionValue,
       },
+      settings: service.getSettings(),
     });
+  });
+
+  it("publishes complete defaults when loading without storage", () => {
+    const serviceWithoutStorage = new PreferencesService({
+      eventBus: fixture.eventBus,
+    });
+
+    try {
+      fixture.eventBusFixture.clearEventHistory();
+      serviceWithoutStorage.loadSettings();
+
+      const [loaded] =
+        fixture.eventBusFixture.getEventsOfType("preferences:loaded");
+      expect(loaded.data).toEqual({
+        settings: serviceWithoutStorage.defaultSettings,
+      });
+      expect(loaded.data.settings).not.toBe(serviceWithoutStorage.settings);
+      expect(Object.keys(loaded.data.settings)).toHaveLength(15);
+
+      loaded.data.settings.theme = "changed-outside-service";
+      expect(serviceWithoutStorage.getSetting("theme")).toBe("default");
+    } finally {
+      serviceWithoutStorage.destroy();
+    }
+  });
+
+  it("resets and publishes complete defaults when stored settings cannot be read", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      service.setExtensionSetting("plugin:layout", { density: "compact" });
+      fixture.storage.getSettings.mockImplementationOnce(() => {
+        throw new Error("settings unavailable");
+      });
+      fixture.eventBusFixture.clearEventHistory();
+
+      service.loadSettings();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[PreferencesService] loadSettings failed",
+        expect.any(Error),
+      );
+      expect(service.getSettings()).toEqual(service.defaultSettings);
+      const [loaded] =
+        fixture.eventBusFixture.getEventsOfType("preferences:loaded");
+      expect(loaded.data).toEqual({ settings: service.defaultSettings });
+      expect(loaded.data.settings).not.toBe(service.settings);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("removes state-query responders while retaining direct snapshot accessors", () => {
+    expect(fixture.eventBus.hasListeners("rpc:preferences:get-settings")).toBe(
+      false,
+    );
+    expect(fixture.eventBus.hasListeners("rpc:preferences:get-setting")).toBe(
+      false,
+    );
+
+    expect(service.getSettings()).toEqual(service.getCurrentState().settings);
+    expect(service.getSetting("language")).toBe("en");
+  });
+
+  it("reports canonical resets and extension deletions from bulk replacement", () => {
+    service.setSettings({
+      theme: "dark",
+      autoSave: false,
+      "plugin:layout": { density: "compact" },
+    });
+    fixture.eventBusFixture.clearEventHistory();
+
+    service.setSettings({ autoSave: false });
+
+    const [changed] = fixture.eventBusFixture.getEventsOfType(
+      "preferences:changed",
+    );
+    expect(changed.data.changes).toEqual({
+      theme: "default",
+      "plugin:layout": undefined,
+    });
+    expect(changed.data.changes).toHaveProperty("plugin:layout", undefined);
+    expect(changed.data.settings).toEqual(service.getSettings());
+    expect(changed.data.settings).not.toHaveProperty("plugin:layout");
+  });
+
+  it("does not announce a change when the canonical bulk state is unchanged", () => {
+    const current = service.getSettings();
+    fixture.storage.saveSettings.mockClear();
+    fixture.eventBusFixture.clearEventHistory();
+
+    service.setSettings(current);
+
+    expect(fixture.storage.saveSettings).toHaveBeenCalledTimes(1);
+    expect(
+      fixture.eventBusFixture.getEventsOfType("preferences:changed"),
+    ).toHaveLength(0);
   });
 
   it("defaults invalid stored known values and preserves stored extensions", () => {

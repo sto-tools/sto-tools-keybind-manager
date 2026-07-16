@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
-import { respond } from "../../../src/js/core/requestResponse.js";
+import { createPreferencesState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 const profileId = "captain";
@@ -56,7 +56,6 @@ function createParseResult() {
 describe("ImportService KBF merge strategies", () => {
   let fixture;
   let service;
-  let detachPreferences;
 
   beforeEach(() => {
     fixture = createServiceFixture();
@@ -67,12 +66,11 @@ describe("ImportService KBF merge strategies", () => {
       storage: fixture.storage,
     });
     service.init();
-
-    detachPreferences = respond(
-      fixture.eventBus,
-      "preferences:get-settings",
-      () => ({ bindsetsEnabled: true }),
+    fixture.eventBus.emit(
+      "preferences:loaded",
+      createPreferencesState({ bindsetsEnabled: true }),
     );
+
     vi.spyOn(service.kbfParser.decoder, "validateFormat").mockReturnValue({
       isValid: true,
       isKBF: true,
@@ -84,7 +82,6 @@ describe("ImportService KBF merge strategies", () => {
   });
 
   afterEach(() => {
-    detachPreferences?.();
     service?.destroy();
     fixture?.destroy();
     vi.restoreAllMocks();
@@ -147,4 +144,44 @@ describe("ImportService KBF merge strategies", () => {
       });
     },
   );
+
+  it("uses the cached bindsets preference without issuing a settings query", async () => {
+    fixture.eventBus.emit(
+      "preferences:loaded",
+      createPreferencesState({ bindsetsEnabled: false }),
+    );
+    service.kbfParser.parseFile.mockResolvedValue({
+      ...createParseResult(),
+      bindsets: {
+        ...createParseResult().bindsets,
+        Secondary: {
+          keys: { F4: ["ImportedSecondary"] },
+          metadata: {},
+        },
+      },
+    });
+
+    const result = await service.importKBFFile(
+      "valid KBF data",
+      profileId,
+      "space",
+      { strategy: "merge_keep" },
+      {
+        selectedBindsets: ["Master", "Secondary"],
+        bindsetMappings: { Master: "primary", Secondary: "primary" },
+        bindsetRenames: {},
+      },
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      error: "multiple_bindsets_not_allowed",
+    });
+    expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
+    expect(
+      fixture
+        .getEventHistory()
+        .filter(({ event }) => event === "rpc:preferences:get-settings"),
+    ).toHaveLength(0);
+  });
 });

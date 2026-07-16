@@ -301,7 +301,6 @@ export default class DataCoordinator extends ComponentBase {
     this.respond("data:set-environment", ({ environment }) =>
       this.setEnvironment(environment),
     );
-    this.respond("data:get-settings", () => this.getSettings());
     this.respond("data:update-settings", ({ settings }) =>
       this.updateSettings(settings),
     );

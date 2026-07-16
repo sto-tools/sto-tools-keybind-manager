@@ -64,12 +64,7 @@ describe("Bind-to-Alias Mode", () => {
           setTimeout(() => {
             let result;
 
-            if (
-              actualTopic === "preferences:get-setting" &&
-              payload?.key === "bindToAliasMode"
-            ) {
-              result = false;
-            } else if (actualTopic === "command-chain:is-stabilized") {
+            if (actualTopic === "command-chain:is-stabilized") {
               result = false;
             } else if (actualTopic === "command:is-stabilized") {
               if (payload.name === "F1") {

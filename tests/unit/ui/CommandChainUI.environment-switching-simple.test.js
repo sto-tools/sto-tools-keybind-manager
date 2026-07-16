@@ -75,9 +75,6 @@ describe("CommandChainUI Environment Switching - Simple", () => {
           commandCount: "0",
         });
       }
-      if (topic === "preferences:get-setting") {
-        return Promise.resolve(false);
-      }
       if (topic === "command-chain:is-stabilized") {
         return Promise.resolve(true);
       }
@@ -138,9 +135,6 @@ describe("CommandChainUI Environment Switching - Simple", () => {
               "Select a key from the left panel to view and edit its command chain.",
             commandCount: "0",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve({});
       });
@@ -208,9 +202,6 @@ describe("CommandChainUI Environment Switching - Simple", () => {
             preview: 'F2 "FireAll"',
             commandCount: "1",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve([{ command: "FireAll" }]);
       });
@@ -283,9 +274,6 @@ describe("CommandChainUI Environment Switching - Simple", () => {
               "Select an alias from the left panel to view and edit its command chain.",
             commandCount: "0",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve({});
       });

@@ -90,7 +90,10 @@ export interface StorageServiceCapability {
   saveProfile(profileId: string, profile: unknown): boolean;
   deleteProfile(profileId: string): boolean;
   getSettings(): unknown;
-  saveSettings(settings: Record<string, unknown>): boolean;
+  saveSettings(
+    settings: Record<string, unknown>,
+    options?: { replace?: boolean },
+  ): boolean;
   createBackup(): void;
   clearAllData(): boolean;
 }

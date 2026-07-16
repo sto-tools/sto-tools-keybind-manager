@@ -58,11 +58,6 @@ describe("CommandChainUI Command Actions Styling", () => {
       };
     });
 
-    // Mock preferences setting response
-    respond(eventBus, "preferences:get-setting", () => {
-      return false;
-    });
-
     // Mock command chain stabilization check
     respond(eventBus, "command-chain:is-stabilized", () => {
       return true;

@@ -106,16 +106,74 @@ describe("ComponentBase late-join state synchronization", () => {
     components.push(preferencesService, consumer);
 
     preferencesService.init();
+    consumer.cache.preferences = { "plugin:stale": true };
     consumer.init();
 
-    expect(consumer.cache.preferences).toMatchObject({
-      theme: "dark",
-      bindToAliasMode: true,
-      bindsetsEnabled: true,
-    });
+    expect(consumer.cache.preferences).toEqual(
+      preferencesService.getCurrentState().settings,
+    );
+    expect(consumer.cache.preferences).not.toHaveProperty("plugin:stale");
     expect(consumer.receivedStates).toContainEqual({
       sender: "PreferencesService",
       state: preferencesService.getCurrentState(),
+    });
+  });
+
+  it("replaces preference caches from complete lifecycle broadcasts", () => {
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(consumer);
+    consumer.init();
+
+    const loaded = createPreferencesState({
+      theme: "dark",
+      "plugin:loaded": true,
+    }).settings;
+    consumer.cache.preferences = { "plugin:stale": true };
+    eventBus.emit("preferences:loaded", { settings: loaded });
+
+    expect(consumer.cache.preferences).toEqual(loaded);
+    expect(consumer.cache.preferences).not.toBe(loaded);
+    expect(consumer.cache.preferences).not.toHaveProperty("plugin:stale");
+
+    loaded.theme = "mutated-after-publication";
+    expect(consumer.cache.preferences.theme).toBe("dark");
+
+    const saved = createPreferencesState({ language: "de" }).settings;
+    eventBus.emit("preferences:saved", { settings: saved });
+
+    expect(consumer.cache.preferences).toEqual(saved);
+    expect(consumer.cache.preferences).not.toHaveProperty("plugin:loaded");
+
+    const changed = createPreferencesState({
+      bindsetsEnabled: true,
+      "plugin:current": "yes",
+    }).settings;
+    eventBus.emit("preferences:changed", {
+      key: "bindsetsEnabled",
+      value: true,
+      settings: changed,
+    });
+
+    expect(consumer.cache.preferences).toEqual(changed);
+    expect(consumer.cache.preferences).not.toHaveProperty("plugin:loaded");
+  });
+
+  it("keeps a narrow runtime fallback for legacy preference patches", () => {
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(consumer);
+    consumer.init();
+
+    eventBus.emit("preferences:changed", {
+      key: "language",
+      value: "fr",
+    });
+    eventBus.emit("preferences:changed", {
+      changes: { bindsetsEnabled: true },
+    });
+
+    expect(consumer.cache.preferences).toEqual({
+      language: "fr",
+      bindsetsEnabled: true,
     });
   });
 

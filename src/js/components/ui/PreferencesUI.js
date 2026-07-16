@@ -67,11 +67,11 @@ function createKnownPreferenceMutation(key, value) {
  * PreferencesUI - User preferences management component
  *
  * This component manages the preferences modal and user settings through a modern
- * event bus architecture. Settings are loaded and saved via request/response
- * pattern to the PreferencesService, not through direct DOM manipulation.
+ * event bus architecture. Mutating actions are sent to PreferencesService,
+ * while settings state is consumed from ComponentBase's broadcast-backed cache.
  *
  * Architecture:
- * - Settings loading: showPreferences() → preferences:load-settings → preferences:get-settings → updateUI()
+ * - Settings loading: showPreferences() → preferences:load-settings → preferences:loaded → cache → updateUI()
  * - User interactions: handleSettingChange() → updateSetting() → preferences:set-setting
  * - Save action: saveAllSettings() → preferences:save-settings
  *
@@ -290,8 +290,8 @@ export default class PreferencesUI extends UIComponentBase {
     });
     // First, apply any pending settings (e.g., bindToAliasMode) in bulk
     if (Object.keys(this.pendingSettings).length > 0) {
-      // Get current settings and merge with pending changes
-      const currentSettings = await this.request("preferences:get-settings");
+      // Merge pending changes with the latest published settings snapshot.
+      const currentSettings = { ...this.cache.preferences };
       const newSettings = { ...currentSettings, ...this.pendingSettings };
       await this.request("preferences:set-settings", newSettings);
 
@@ -323,11 +323,12 @@ export default class PreferencesUI extends UIComponentBase {
 
   async showPreferences() {
     console.log("[PreferencesUI] showPreferences");
-    // Use request/response to get fresh settings
+    // Ask the owner to reload; preferences:loaded synchronously refreshes the
+    // standardized ComponentBase cache before this action reply resolves.
     await this.request("preferences:load-settings");
     // Discard any unsaved changes from previous session
     this.pendingSettings = {};
-    const settings = await this.request("preferences:get-settings");
+    const settings = { ...this.cache.preferences };
     Object.entries(settings).forEach(([key, value]) => {
       if (isPreferenceValue(value)) this.updateUI(key, value);
     });
@@ -344,8 +345,7 @@ export default class PreferencesUI extends UIComponentBase {
   }
 
   async updateFolderDisplay() {
-    const settings = await this.request("preferences:get-settings");
-    const { syncFolderName, syncFolderPath } = settings;
+    const { syncFolderName, syncFolderPath } = this.cache.preferences;
     console.log("[PreferencesUI] updateFolderDisplay", {
       syncFolderName,
       syncFolderPath,

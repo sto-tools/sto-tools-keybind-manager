@@ -75,9 +75,6 @@ describe("CommandChainUI Environment Switching", () => {
           commandCount: "0",
         });
       }
-      if (topic === "preferences:get-setting") {
-        return Promise.resolve(false);
-      }
       if (topic === "command-chain:is-stabilized") {
         return Promise.resolve(true);
       }
@@ -191,9 +188,6 @@ describe("CommandChainUI Environment Switching", () => {
             commandCount: "1",
           });
         }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
-        }
         if (topic === "data:get-key-commands") {
           return Promise.resolve([{ command: "FireAll" }]);
         }
@@ -272,9 +266,6 @@ describe("CommandChainUI Environment Switching", () => {
               "Select a key from the left panel to view and edit its command chain.",
             commandCount: "0",
           });
-        }
-        if (topic === "preferences:get-setting") {
-          return Promise.resolve(false);
         }
         return Promise.resolve({});
       });

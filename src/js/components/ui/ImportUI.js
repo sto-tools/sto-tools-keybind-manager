@@ -7,7 +7,6 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 /** @typedef {{ bindsetsEnabled?: boolean }} ImportContext */
 /** @typedef {{ environment: ImportEnvironment, strategy: ImportStrategy }} EnvironmentImportConfig */
 /** @typedef {{ currentProfile: string | null, currentEnvironment: string }} ImportState */
-/** @typedef {{ bindsetsEnabled?: boolean }} ImportPreferences */
 /**
  * @typedef {{
  *   valid: true,
@@ -120,6 +119,17 @@ export default class ImportUI extends UIComponentBase {
     );
   }
 
+  /**
+   * PreferencesService hydrates ComponentBase's cache by startup broadcast or
+   * late-join snapshot. Default to the historically safe enabled mode until a
+   * valid snapshot is available.
+   * @returns {boolean}
+   */
+  isBindsetsEnabled() {
+    const configured = this.cache.preferences.bindsetsEnabled;
+    return typeof configured === "boolean" ? configured : true;
+  }
+
   // Opens a hidden file input, waits for selection and forwards content to ImportService.
   /** @param {ImportType} type */
   async openFileDialog(type) {
@@ -178,10 +188,8 @@ export default class ImportUI extends UIComponentBase {
               strategy: importConfig.strategy,
             });
           } else if (type === "kbf") {
-            // Get bindsets preference to provide context-aware descriptions
-            /** @type {ImportPreferences} */
-            const preferences = await this.request("preferences:get-settings");
-            const bindsetsEnabled = preferences?.bindsetsEnabled ?? true;
+            // Use the published preference snapshot for context-aware descriptions
+            const bindsetsEnabled = this.isBindsetsEnabled();
 
             // Ask user which environment to import into and what strategy to use
             const importConfig = await this.promptEnvironment(
@@ -1200,11 +1208,7 @@ export default class ImportUI extends UIComponentBase {
    */
   async promptEnhancedBindsetSelection(parseResult) {
     // Check if bindsets are disabled - if so, use single-keyset selection
-    /** @type {ImportPreferences} */
-    const preferences = await this.request("preferences:get-settings");
-    const bindsetsEnabled = preferences?.bindsetsEnabled ?? true; // Default to enabled if undefined
-
-    const modal = bindsetsEnabled
+    const modal = this.isBindsetsEnabled()
       ? this.createEnhancedBindsetSelectionModal(parseResult)
       : this.createSingleBindsetSelectionModal(parseResult);
     const modalId = "enhancedBindsetSelectionModal";

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import ExportService from "../../../src/js/components/services/ExportService.js";
 import * as SyncService from "../../../src/js/components/services/SyncService.js";
@@ -75,14 +75,6 @@ describe("ExportService", () => {
       service.cache.preferences = {
         bindToAliasMode: true,
       };
-
-      // Mock preferences requests as fallback
-      service.request = vi.fn().mockImplementation(async (action, payload) => {
-        return (
-          action === "preferences:get-setting" &&
-          payload.key === "bindToAliasMode"
-        );
-      });
     });
 
     it("generates key line binding to alias even when command list empty", async () => {
@@ -121,23 +113,6 @@ describe("ExportService", () => {
         bindsetsEnabled: true,
         bindToAliasMode: true,
       };
-
-      // Mock preferences requests as fallback
-      service.request = vi.fn().mockImplementation(async (action, payload) => {
-        if (
-          action === "preferences:get-setting" &&
-          payload.key === "bindsetsEnabled"
-        ) {
-          return true;
-        }
-        if (
-          action === "preferences:get-setting" &&
-          payload.key === "bindToAliasMode"
-        ) {
-          return true;
-        }
-        return false;
-      });
 
       const profile = {
         name: "Test Profile",
@@ -194,23 +169,6 @@ describe("ExportService", () => {
         bindsetsEnabled: true,
         bindToAliasMode: true,
       };
-
-      // Mock preferences requests as fallback
-      service.request = vi.fn().mockImplementation(async (action, payload) => {
-        if (
-          action === "preferences:get-setting" &&
-          payload.key === "bindsetsEnabled"
-        ) {
-          return true;
-        }
-        if (
-          action === "preferences:get-setting" &&
-          payload.key === "bindToAliasMode"
-        ) {
-          return true;
-        }
-        return false;
-      });
 
       const profile = {
         name: "Test Profile",

@@ -297,10 +297,16 @@ export default class ComponentBase {
 
     // Cache preference changes
     this.addEventListener("preferences:changed", (data) => {
-      if (data.changes) {
+      if (data.settings) {
+        this._replacePreferences(data.settings);
+      } else if (data.changes) {
+        // Narrow runtime compatibility for older patch-only producers.
         // Update cached preferences with the changes
         Object.assign(this.cache.preferences, data.changes);
-      } else if (data.key && data.value !== undefined) {
+      } else if (
+        data.key &&
+        Object.prototype.hasOwnProperty.call(data, "value")
+      ) {
         // Handle legacy single preference change format
         this.cache.preferences[data.key] = data.value;
       }
@@ -310,7 +316,7 @@ export default class ComponentBase {
     this.addEventListener("preferences:loaded", (data) => {
       console.log(`[${this.componentName}] preferences:loaded received:`, data);
       if (data.settings) {
-        Object.assign(this.cache.preferences, data.settings);
+        this._replacePreferences(data.settings);
         console.log(
           `[${this.componentName}] Updated preferences cache from preferences:loaded`,
         );
@@ -333,7 +339,7 @@ export default class ComponentBase {
     this.addEventListener("preferences:saved", (data) => {
       console.log(`[${this.componentName}] preferences:saved received:`, data);
       if (data.settings) {
-        Object.assign(this.cache.preferences, data.settings);
+        this._replacePreferences(data.settings);
         console.log(
           `[${this.componentName}] Updated preferences cache from preferences:saved`,
         );
@@ -775,7 +781,7 @@ export default class ComponentBase {
     if (sender === "PreferencesService" && state) {
       // Cache preferences settings
       if (state.settings && typeof state.settings === "object") {
-        Object.assign(this.cache.preferences, state.settings);
+        this._replacePreferences(state.settings);
         console.log(
           `[ComponentBase] ${this.getComponentName()} cached PreferencesService state:`,
           {
@@ -809,6 +815,16 @@ export default class ComponentBase {
     this.cache.currentEnvironment = selectionState.currentEnvironment;
     this.cache.editingContext = selectionState.editingContext;
     this.cache.cachedSelections = { ...selectionState.cachedSelections };
+  }
+
+  /**
+   * Replace a complete preferences snapshot instead of merging it. Extension
+   * settings absent from the new authoritative state must not survive in a
+   * consumer cache.
+   * @param {import('../types/events/base.js').PreferencesSettings} settings
+   */
+  _replacePreferences(settings) {
+    this.cache.preferences = { ...settings };
   }
 
   /**

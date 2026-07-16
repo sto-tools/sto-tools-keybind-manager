@@ -1,4 +1,5 @@
 import eventBus from "../../src/js/core/eventBus.js";
+import { createPreferencesState } from "../fixtures/core/componentState.js";
 import type {
   ComponentReplyTopic,
   ComponentState,
@@ -52,6 +53,7 @@ type SelectionLateJoinStateIsRegisteredExactly = Expect<
 >;
 
 const bus: TypedEventBus = eventBus;
+const preferencesSettings = createPreferencesState().settings;
 
 bus.hasListeners("toast:show");
 // @ts-expect-error Listener callbacks are private implementation details.
@@ -62,7 +64,21 @@ bus.on("toast:show", (payload) => {
   payload.duration?.toFixed();
 });
 bus.emit("toast:show", { message: "Saved", type: "success" });
+bus.emit("preferences:loaded", { settings: preferencesSettings });
+bus.emit("preferences:saved", { settings: preferencesSettings });
+bus.emit("preferences:changed", {
+  key: "language",
+  value: "de",
+  settings: { ...preferencesSettings, language: "de" },
+});
+bus.emit("preferences:changed", {
+  changes: { language: "fr" },
+  settings: { ...preferencesSettings, language: "fr" },
+});
+// @ts-expect-error Loaded events carry the complete authoritative snapshot.
 bus.emit("preferences:loaded", { settings: { language: "en" } });
+// @ts-expect-error Changed events retain their delta and carry a full snapshot.
+bus.emit("preferences:changed", { key: "language", value: "de" });
 bus.emit("storage:settings-changed", { settings: { autoSync: true } });
 bus.emit("selection:state-changed", {
   selectedKey: "F1",

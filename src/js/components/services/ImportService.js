@@ -721,14 +721,15 @@ export default class ImportService extends ComponentBase {
       const onlyBindsetIsMaster =
         isSingleBindsetFile && bindsetNames[0].toLowerCase() === "master";
 
-      // Get bindsetsEnabled preference for validation
-      let bindsetsEnabled = true; // Default to enabled
-      try {
-        const preferences = await this.request("preferences:get-settings");
-        const configuredValue = preferences?.bindsetsEnabled;
-        bindsetsEnabled =
-          typeof configuredValue === "boolean" ? configuredValue : true;
-      } catch {
+      // PreferencesService publishes a complete settings snapshot during
+      // startup and through the late-join handshake. Keep imports safe if this
+      // service is ever invoked before either path has hydrated its cache.
+      const configuredBindsetsEnabled = this.cache.preferences.bindsetsEnabled;
+      const bindsetsEnabled =
+        typeof configuredBindsetsEnabled === "boolean"
+          ? configuredBindsetsEnabled
+          : true;
+      if (typeof configuredBindsetsEnabled !== "boolean") {
         warnings.push(
           "Could not retrieve bindsets preference, defaulting to enabled",
         );

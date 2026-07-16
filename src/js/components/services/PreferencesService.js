@@ -157,7 +157,6 @@ export default class PreferencesService extends ComponentBase {
         return undefined;
       });
       this.respond("preferences:save-settings", () => this.saveSettings());
-      this.respond("preferences:get-settings", () => this.getSettings());
       this.respond("preferences:set-setting", (mutation) => {
         if (!isPreferenceMutation(mutation)) {
           throw invalidMutationError(mutation);
@@ -173,9 +172,6 @@ export default class PreferencesService extends ComponentBase {
         this.setSettings(newSettings);
         return undefined;
       });
-      this.respond("preferences:get-setting", ({ key }) =>
-        this.getSetting(key),
-      );
 
       // Set up event listeners for theme and language changes
       this.setupEventListeners();
@@ -207,22 +203,27 @@ export default class PreferencesService extends ComponentBase {
   // Persistence helpers
   loadSettings() {
     try {
-      if (!this.storage) return;
-      const stored = this.storage.getSettings();
-      this.settings = sanitizeStoredSettings(stored, this.defaultSettings);
+      if (this.storage) {
+        const stored = this.storage.getSettings();
+        this.settings = sanitizeStoredSettings(stored, this.defaultSettings);
+      }
       console.log("[PreferencesService] loadSettings", {
         settings: { ...this.settings },
       });
-      this.emit("preferences:loaded", { settings: this.getSettings() });
     } catch (err) {
       console.error("[PreferencesService] loadSettings failed", err);
       this.settings = { ...this.defaultSettings };
     }
+
+    // Loading is also the startup publication path. Always announce the
+    // complete current snapshot so consumers initialized before this service
+    // receive defaults even when storage is absent or unreadable.
+    this.emit("preferences:loaded", { settings: this.getSettings() });
   }
 
   async saveSettings() {
     if (!this.storage) return false;
-    const ok = this.storage.saveSettings(this.settings);
+    const ok = this.storage.saveSettings(this.settings, { replace: true });
     console.log("[PreferencesService] saveSettings", {
       ok,
       settings: { ...this.settings },
@@ -279,7 +280,11 @@ export default class PreferencesService extends ComponentBase {
     console.log("[PreferencesService] setSetting", { key, value });
     this.saveSettings();
     this.applySettings();
-    this.emit("preferences:changed", { key, value });
+    this.emit("preferences:changed", {
+      key,
+      value,
+      settings: this.getSettings(),
+    });
   }
 
   /** @param {SettingsRecord} [newSettings] */
@@ -287,8 +292,12 @@ export default class PreferencesService extends ComponentBase {
     if (!isSettingsRecord(newSettings)) {
       throw new TypeError("Invalid preferences settings payload");
     }
-    const oldSettings = { ...this.settings };
-    this.settings = sanitizeStoredSettings(newSettings, this.defaultSettings);
+    const oldSettings = this.getSettings();
+    const nextSettings = sanitizeStoredSettings(
+      newSettings,
+      this.defaultSettings,
+    );
+    this.settings = nextSettings;
     console.log("[PreferencesService] setSettings", {
       changed: Object.keys(newSettings),
     });
@@ -298,14 +307,28 @@ export default class PreferencesService extends ComponentBase {
     // Emit a single event with all the changes
     /** @type {Record<string, unknown>} */
     const changes = {};
-    for (const [key, value] of Object.entries(newSettings)) {
-      if (oldSettings[key] !== value) {
-        changes[key] = value;
+    const candidateKeys = new Set([
+      ...Object.keys(oldSettings),
+      ...Object.keys(nextSettings),
+    ]);
+    for (const key of candidateKeys) {
+      const existed = Object.prototype.hasOwnProperty.call(oldSettings, key);
+      const exists = Object.prototype.hasOwnProperty.call(nextSettings, key);
+      if (
+        existed !== exists ||
+        !Object.is(oldSettings[key], nextSettings[key])
+      ) {
+        // An absent extension setting is represented as undefined in the
+        // delta. The complete settings snapshot remains authoritative.
+        changes[key] = nextSettings[key];
       }
     }
 
     if (Object.keys(changes).length > 0) {
-      this.emit("preferences:changed", { changes });
+      this.emit("preferences:changed", {
+        changes,
+        settings: this.getSettings(),
+      });
     }
   }
 

@@ -25,6 +25,7 @@ describe("ImportService", () => {
       storage: fixture.storage,
     });
     service.init();
+    service.cache.preferences.bindsetsEnabled = true;
 
     // Register responder for parser on the fixture event bus
     respond(
@@ -32,11 +33,6 @@ describe("ImportService", () => {
       "parser:parse-command-string",
       ({ commandString }) => ({ commands: [{ command: commandString }] }),
     );
-
-    // Register responder for preferences to avoid hanging calls
-    respond(fixture.eventBus, "preferences:get-settings", () => ({
-      bindsetsEnabled: true,
-    }));
   });
 
   afterEach(() => {
@@ -834,6 +830,7 @@ describe("ImportService", () => {
         storage: fixture.storage,
       });
       service.init();
+      service.cache.preferences.bindsetsEnabled = true;
 
       // Register responder for parser on the fixture event bus
       respond(
@@ -1429,6 +1426,7 @@ describe("ImportService", () => {
         storage: fixture.storage,
       });
       service.init();
+      service.cache.preferences.bindsetsEnabled = true;
 
       // Register responder for parser on the fixture event bus
       respond(
