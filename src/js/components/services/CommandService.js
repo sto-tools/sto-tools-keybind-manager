@@ -6,9 +6,9 @@ import {
 import { formatAliasLine } from "../../lib/STOFormatter.js";
 import { clearImportTarget } from "./commandImportPayload.js";
 import {
-  getSnapshotBindsetKeyCommands,
-  getSnapshotPrimaryKeyCommands,
-  getSnapshotPrimaryKeys,
+  getSnapshotCommandImportSources,
+  getSnapshotCommands,
+  getSnapshotUserAliases,
 } from "./dataState.js";
 
 /**
@@ -39,72 +39,65 @@ export default class CommandService extends ComponentBase {
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
 
-    // Register Request/Response endpoints for editing commands
-    if (this.eventBus) {
-      this._responseDetachFunctions.push(
-        this.respond(
-          "command:add",
-          async ({ command, key, position, bindset }) =>
-            this.addCommand(key, command, bindset || position),
-        ),
-        this.respond(
-          "command:edit",
-          async ({ key, index, updatedCommand, bindset }) =>
-            this.editCommand(key, index, updatedCommand, bindset),
-        ),
-        this.respond("command:validate", ({ command }) =>
-          this.validateCommand(command),
-        ),
-        this.respond("command:delete", async ({ key, index, bindset }) =>
-          this.deleteCommand(key, index, bindset),
-        ),
-        this.respond(
-          "command:move",
-          async ({ key, fromIndex, toIndex, bindset }) =>
-            this.moveCommand(key, fromIndex, toIndex, bindset),
-        ),
-        this.respond(
-          "command:get-for-selected-key",
-          this.getCommandsForSelectedKey.bind(this),
-        ),
-        this.respond(
-          "command:get-empty-state-info",
-          async () => await this.getEmptyStateInfo(),
-        ),
-        this.respond(
-          "command:check-environment-compatibility",
-          ({ command, environment }) =>
-            this.isCommandCompatible(command, environment),
-        ),
-        this.respond(
-          "command:get-import-sources",
-          ({ environment, currentKey }) =>
-            this.getImportSources(environment, currentKey),
-        ),
-        this.respond(
-          "command:import-from-source",
-          ({ sourceValue, targetKey, clearDestination, currentEnvironment }) =>
-            this.importFromSource(
-              sourceValue,
-              targetKey,
-              clearDestination,
-              currentEnvironment,
-            ),
-        ),
-        this.respond(
-          "command:generate-command-preview",
-          ({ key, commands, stabilize = false }) =>
-            this.generateCommandPreview(key, commands, stabilize),
-        ),
-        this.respond(
-          "command:generate-mirrored-commands",
-          async ({ commands = [] }) => this.generateMirroredCommands(commands),
-        ),
-      );
-    }
+    this.setupRequestHandlers();
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
+      this.respond("command:add", async ({ command, key, position, bindset }) =>
+        this.addCommand(key, command, bindset || position),
+      ),
+      this.respond(
+        "command:edit",
+        async ({ key, index, updatedCommand, bindset }) =>
+          this.editCommand(key, index, updatedCommand, bindset),
+      ),
+      this.respond("command:validate", ({ command }) =>
+        this.validateCommand(command),
+      ),
+      this.respond("command:delete", async ({ key, index, bindset }) =>
+        this.deleteCommand(key, index, bindset),
+      ),
+      this.respond(
+        "command:move",
+        async ({ key, fromIndex, toIndex, bindset }) =>
+          this.moveCommand(key, fromIndex, toIndex, bindset),
+      ),
+      this.respond(
+        "command:get-empty-state-info",
+        async () => await this.getEmptyStateInfo(),
+      ),
+      this.respond(
+        "command:check-environment-compatibility",
+        ({ command, environment }) =>
+          this.isCommandCompatible(command, environment),
+      ),
+      this.respond(
+        "command:import-from-source",
+        ({ sourceValue, targetKey, clearDestination, currentEnvironment }) =>
+          this.importFromSource(
+            sourceValue,
+            targetKey,
+            clearDestination,
+            currentEnvironment,
+          ),
+      ),
+      this.respond(
+        "command:generate-command-preview",
+        ({ key, commands, stabilize = false }) =>
+          this.generateCommandPreview(key, commands, stabilize),
+      ),
+      this.respond(
+        "command:generate-mirrored-commands",
+        async ({ commands = [] }) => this.generateMirroredCommands(commands),
+      ),
+    );
   }
 
   onInit() {
+    this.setupRequestHandlers();
     this.setupEventListeners();
   }
 
@@ -668,22 +661,11 @@ export default class CommandService extends ComponentBase {
    */
   async fetchCommandsForKey(key, bindset = null) {
     try {
-      if (this.cache.currentEnvironment === "alias") {
-        return this.getCommandsForSelectedKey({ key });
-      }
-      const useBindset = bindset && bindset !== "Primary Bindset";
-      if (useBindset) {
-        return getSnapshotBindsetKeyCommands(
-          this.cache.dataState,
-          bindset,
-          this.cache.currentEnvironment,
-          key,
-        );
-      }
-      return getSnapshotPrimaryKeyCommands(
+      return getSnapshotCommands(
         this.cache.dataState,
         this.cache.currentEnvironment,
         key,
+        bindset,
       );
     } catch {
       return [];
@@ -905,52 +887,20 @@ export default class CommandService extends ComponentBase {
 
     if (!selectedKey) return [];
 
-    const profile = this.cache.profile;
-    if (!profile) {
-      console.warn("[CommandService] No profile in cache");
-      return [];
-    }
-
-    if (environment === "alias") {
-      const alias = profile.aliases && profile.aliases[selectedKey];
-      if (!alias || !Array.isArray(alias.commands)) return [];
-      // Return shallow copy to avoid external mutation
-      return [...alias.commands];
-    }
-
-    // Keybinds path – check if we're using a non-primary bindset
-    const bindsetsEnabled = this.cache.preferences?.bindsetsEnabled === true;
-    if (
-      bindsetsEnabled &&
-      this.cache.activeBindset &&
-      this.cache.activeBindset !== "Primary Bindset"
-    ) {
-      const commands = getSnapshotBindsetKeyCommands(
-        this.cache.dataState,
-        this.cache.activeBindset,
-        environment,
-        selectedKey,
-      );
-      console.log(
-        "[CommandService] Using active bindset from accepted snapshot:",
-        this.cache.activeBindset,
-        "commands:",
-        commands,
-      );
-      if (Array.isArray(commands)) {
-        return [...commands];
-      }
-      console.warn(
-        "[CommandService] Active bindset missing commands for key; falling back to Primary Bindset",
-      );
-    }
-
-    // Primary bindset path – keys arrays are already canonical string[]
-    const keyCommands =
-      this.cache.keys && this.cache.keys[selectedKey]
-        ? this.cache.keys[selectedKey]
-        : [];
-    return Array.isArray(keyCommands) ? [...keyCommands] : [];
+    const bindset =
+      environment === "alias"
+        ? null
+        : params.bindset !== undefined
+          ? params.bindset
+          : this.cache.preferences?.bindsetsEnabled === true
+            ? this.cache.activeBindset
+            : null;
+    return getSnapshotCommands(
+      this.cache.dataState,
+      environment,
+      selectedKey,
+      bindset,
+    );
   }
 
   // Get command chain preview text
@@ -1280,109 +1230,11 @@ export default class CommandService extends ComponentBase {
    * @param {string | null | undefined} currentKey
    */
   async getImportSources(currentEnvironment, currentKey) {
-    /** @type {import('./serviceTypes.js').CommandImportSource[]} */
-    const sources = [];
-
-    try {
-      if (currentEnvironment === "alias") {
-        // In alias mode, show keys from all environments and other aliases
-
-        // Add space keys
-        const spaceKeys = getSnapshotPrimaryKeys(this.cache.dataState, "space");
-        Object.keys(spaceKeys).forEach((key) => {
-          if (Object.keys(spaceKeys[key] || {}).length > 0) {
-            // Only show keys with commands
-            sources.push({
-              value: `space:${key}`,
-              label: `Space: ${key}`,
-              type: "key",
-            });
-          }
-        });
-
-        // Add ground keys
-        const groundKeys = getSnapshotPrimaryKeys(
-          this.cache.dataState,
-          "ground",
-        );
-        Object.keys(groundKeys).forEach((key) => {
-          if (Object.keys(groundKeys[key] || {}).length > 0) {
-            // Only show keys with commands
-            sources.push({
-              value: `ground:${key}`,
-              label: `Ground: ${key}`,
-              type: "key",
-            });
-          }
-        });
-
-        // Add other aliases
-        const aliases = (await this.request("alias:get-all")) || {};
-        Object.keys(aliases).forEach((aliasName) => {
-          if (aliasName !== currentKey && aliases[aliasName]?.commands) {
-            // Exclude current alias and empty aliases
-            sources.push({
-              value: `alias:${aliasName}`,
-              label: `Alias: ${aliasName}`,
-              type: "alias",
-            });
-          }
-        });
-      } else {
-        // In key mode, show keys from both environments and aliases
-
-        // Add space keys
-        const spaceKeys = getSnapshotPrimaryKeys(this.cache.dataState, "space");
-        Object.keys(spaceKeys).forEach((key) => {
-          const isCurrentKey =
-            currentEnvironment === "space" && key === currentKey;
-          if (!isCurrentKey && Object.keys(spaceKeys[key] || {}).length > 0) {
-            // Exclude current key and empty keys
-            sources.push({
-              value: `space:${key}`,
-              label: `Space: ${key}`,
-              type: "key",
-            });
-          }
-        });
-
-        // Add ground keys
-        const groundKeys = getSnapshotPrimaryKeys(
-          this.cache.dataState,
-          "ground",
-        );
-        Object.keys(groundKeys).forEach((key) => {
-          const isCurrentKey =
-            currentEnvironment === "ground" && key === currentKey;
-          if (!isCurrentKey && Object.keys(groundKeys[key] || {}).length > 0) {
-            // Exclude current key and empty keys
-            sources.push({
-              value: `ground:${key}`,
-              label: `Ground: ${key}`,
-              type: "key",
-            });
-          }
-        });
-
-        // Add aliases
-        const aliases = (await this.request("alias:get-all")) || {};
-        Object.keys(aliases).forEach((aliasName) => {
-          if (aliases[aliasName]?.commands) {
-            // Only show aliases with commands
-            sources.push({
-              value: `alias:${aliasName}`,
-              label: `Alias: ${aliasName}`,
-              type: "alias",
-            });
-          }
-        });
-      }
-
-      return sources;
-    } catch (error) {
-      console.error("CommandService: Failed to get import sources:", error);
-      return [];
-    }
+    return getSnapshotCommandImportSources(
+      this.cache.dataState,
+      currentEnvironment,
+      currentKey,
+    );
   }
 
   // Import commands from a source to a target key
@@ -1412,7 +1264,7 @@ export default class CommandService extends ComponentBase {
 
       if (sourceType === "alias") {
         // Get commands from alias
-        const aliases = (await this.request("alias:get-all")) || {};
+        const aliases = getSnapshotUserAliases(this.cache.dataState);
         const alias = aliases[sourceName];
         if (alias && alias.commands) {
           // Handle both legacy string format and new canonical array format
@@ -1434,7 +1286,7 @@ export default class CommandService extends ComponentBase {
         }
       } else {
         // Get commands from key
-        sourceCommands = getSnapshotPrimaryKeyCommands(
+        sourceCommands = getSnapshotCommands(
           this.cache.dataState,
           sourceType,
           sourceName,

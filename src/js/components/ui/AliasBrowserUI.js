@@ -4,6 +4,7 @@ import {
   isAliasNameAllowed,
   isAliasNamePatternValid,
 } from "../../lib/aliasNameValidator.js";
+import { getSnapshotUserAliases } from "../services/dataState.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -253,13 +254,9 @@ export default class AliasBrowserUI extends UIComponentBase {
   async duplicateAlias(aliasName) {
     if (!aliasName || !this.modalManager) return;
 
-    // Prefer cached aliases (kept updated via ComponentBase). Fallback to service request.
-    let aliasMap = this.cache.aliases;
-    if (!aliasMap || Object.keys(aliasMap).length === 0) {
-      const response = await this.request("alias:get-all");
-      aliasMap = normalizeAliasMap(response);
-      this.cache.aliases = aliasMap;
-    }
+    const snapshot = this.cache.dataState;
+    const aliasMap = normalizeAliasMap(getSnapshotUserAliases(snapshot));
+    this.cache.aliases = aliasMap;
     const suggested = generateSuggestedAlias(aliasName, aliasMap);
 
     // Get modal elements
@@ -344,8 +341,8 @@ export default class AliasBrowserUI extends UIComponentBase {
     const grid = this.document.getElementById("aliasGrid");
     if (!grid) return;
 
-    const aliasResponse = await this.request("alias:get-all");
-    const aliases = normalizeAliasMap(aliasResponse);
+    const snapshot = this.cache.dataState;
+    const aliases = normalizeAliasMap(getSnapshotUserAliases(snapshot));
     this.cache.aliases = aliases;
     // Use cached selected alias from event listeners instead of polling
 
@@ -482,7 +479,8 @@ export default class AliasBrowserUI extends UIComponentBase {
     if (!this.modalManager) return;
     const modalManager = this.modalManager;
 
-    const aliases = await this.request("alias:get-all");
+    const snapshot = this.cache.dataState;
+    const aliases = normalizeAliasMap(getSnapshotUserAliases(snapshot));
 
     const modal = this.document.getElementById("aliasCreationModal");
     if (!modal) return;

@@ -91,6 +91,16 @@ type RemovedDataKeysQuery = RpcRequest<"data:get-keys">;
 type RemovedDataKeyCommandsQuery = RpcRequest<"data:get-key-commands">;
 // @ts-expect-error Named bindset commands are projected from cached data state.
 type RemovedBindsetKeyCommandsQuery = RpcRequest<"bindset:get-key-commands">;
+// @ts-expect-error Alias maps are projected from the accepted data snapshot.
+type RemovedAliasMapQuery = RpcRequest<"alias:get-all">;
+// @ts-expect-error Selected command lists are projected from cached state.
+type RemovedSelectedCommandsQuery = RpcRequest<"command:get-for-selected-key">;
+// @ts-expect-error Import sources are projected from one accepted snapshot.
+type RemovedImportSourcesQuery = RpcRequest<"command:get-import-sources">;
+// @ts-expect-error Stabilization state is projected from profile metadata.
+type RemovedCommandStabilizedQuery = RpcRequest<"command:is-stabilized">;
+// @ts-expect-error Command-chain stabilization uses the shared projection.
+type RemovedChainStabilizedQuery = RpcRequest<"command-chain:is-stabilized">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },

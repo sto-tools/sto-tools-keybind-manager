@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import AliasBrowserUI from "../../../src/js/components/ui/AliasBrowserUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createUIComponentFixture } from "../../fixtures/ui/component.js";
 
 function createDocumentMock() {
@@ -103,6 +104,25 @@ const noopModalManager = {
 describe("AliasBrowserUI Duplicate Flow", () => {
   let fixture, component;
 
+  const adoptAliases = (aliases, { authorityEpoch = 1, revision = 1 } = {}) => {
+    const profile = {
+      name: "Captain",
+      currentEnvironment: "alias",
+      builds: { space: { keys: {} }, ground: { keys: {} } },
+      aliases,
+    };
+    component._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch,
+        revision,
+        currentProfile: "captain",
+        currentEnvironment: "alias",
+        currentProfileData: profile,
+        profiles: { captain: profile },
+      }),
+    );
+  };
+
   beforeEach(() => {
     fixture = createUIComponentFixture(AliasBrowserUI, {
       i18n: {
@@ -121,14 +141,10 @@ describe("AliasBrowserUI Duplicate Flow", () => {
     component = fixture.component;
     component.modalManager = noopModalManager;
     component.confirmDialog = { confirm: vi.fn(() => Promise.resolve(true)) };
-    component.cache = component.cache || {};
-    component.cache.aliases = {
+    adoptAliases({
       testAlias: { commands: ["FireAll"], description: "desc" },
-    };
+    });
 
-    fixture.mockResponse("alias:get-all", async () => ({
-      aliases: { testAlias: { commands: ["FireAll"], description: "desc" } },
-    }));
     fixture.mockResponse(
       "alias:duplicate-with-name",
       async ({ sourceName, newName }) => ({
@@ -159,13 +175,16 @@ describe("AliasBrowserUI Duplicate Flow", () => {
   });
 
   it("drops malformed alias records while retaining valid aliases", async () => {
-    component.request = vi.fn().mockResolvedValue({
-      validAlias: {
-        commands: ["FireAll", { text: "Text-only command" }],
-        description: "valid",
+    adoptAliases(
+      {
+        validAlias: {
+          commands: ["FireAll", { text: "Text-only command" }],
+          description: "valid",
+        },
+        malformedAlias: { commands: [42], description: "invalid" },
       },
-      malformedAlias: { commands: [42], description: "invalid" },
-    });
+      { revision: 2 },
+    );
 
     await component.render();
 
@@ -181,5 +200,41 @@ describe("AliasBrowserUI Duplicate Flow", () => {
     expect(
       fixture.document.getElementById("aliasGrid").innerHTML,
     ).not.toContain("malformedAlias");
+  });
+
+  it("renders the pre-ready fallback without querying alias state", async () => {
+    component.cache.dataState = null;
+    component.request = vi.fn(async (topic) => {
+      throw new Error(`Unexpected request: ${topic}`);
+    });
+
+    await component.render();
+
+    expect(component.cache.aliases).toEqual({});
+    expect(fixture.document.getElementById("aliasGrid").innerHTML).toContain(
+      "no_aliases_defined",
+    );
+    expect(component.request).not.toHaveBeenCalled();
+  });
+
+  it("replaces aliases when a new snapshot authority is accepted", async () => {
+    await component.render();
+    expect(component.cache.aliases).toHaveProperty("testAlias");
+
+    adoptAliases(
+      { replacementAlias: { commands: ["Target_Enemy_Near"] } },
+      { authorityEpoch: 2, revision: 0 },
+    );
+    await component.render();
+
+    expect(component.cache.aliases).toEqual({
+      replacementAlias: { commands: ["Target_Enemy_Near"] },
+    });
+    expect(fixture.document.getElementById("aliasGrid").innerHTML).toContain(
+      "replacementAlias",
+    );
+    expect(
+      fixture.document.getElementById("aliasGrid").innerHTML,
+    ).not.toContain("testAlias");
   });
 });

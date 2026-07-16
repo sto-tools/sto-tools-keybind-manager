@@ -9,6 +9,7 @@ import AliasBrowserService from "../../../src/js/components/services/AliasBrowse
 import CommandService from "../../../src/js/components/services/CommandService.js";
 import CommandLibraryService from "../../../src/js/components/services/CommandLibraryService.js";
 import ParameterCommandService from "../../../src/js/components/services/ParameterCommandService.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 
 describe("Centralized Selection Events", () => {
   let harness;
@@ -184,14 +185,26 @@ describe("Centralized Selection Events", () => {
       const requestSpy = vi.fn();
       commandService.request = requestSpy;
 
-      // Set cached state directly on CommandService (simulating ComponentBase caching)
-      commandService.cache = {
-        profile: mockProfile,
-        keys: { F1: ["Target_Enemy_Near"] },
-        aliases: {},
+      // Publish the authoritative snapshots that ComponentBase caches in
+      // production. Legacy profile/keys cache fields are compatibility views,
+      // not command read authority.
+      harness.eventBus.emit("data:state-changed", {
+        reason: "profile-updated",
+        state: createDataCoordinatorState({
+          authorityEpoch: 20,
+          revision: 1,
+          currentProfile: "test-profile",
+          currentProfileData: mockProfile,
+          profiles: { "test-profile": mockProfile },
+        }),
+      });
+      harness.eventBus.emit("selection:state-changed", {
         selectedKey: "F1",
+        selectedAlias: null,
+        editingContext: null,
+        cachedSelections: { space: "F1", ground: null, alias: null },
         currentEnvironment: "space",
-      };
+      });
 
       // Call the method and verify it returns cached commands
       const commands = await commandService.getCommandsForSelectedKey();

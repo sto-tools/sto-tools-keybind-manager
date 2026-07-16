@@ -1,7 +1,5 @@
 import type {
-  AliasDefinition,
   CodedFailure,
-  NoPayloadRpc,
   OptionalRpc,
   RequiredRpc,
   ResponderOnlyOptionalRpc,
@@ -71,7 +69,6 @@ export interface AliasRpcProtocol {
     { sourceName?: string; newName?: string },
     AliasDuplicateResult
   >;
-  "alias:get-all": NoPayloadRpc<Record<string, AliasDefinition>>;
   "alias:import-file": ResponderOnlyOptionalRpc<
     { content?: string },
     AliasImportResult

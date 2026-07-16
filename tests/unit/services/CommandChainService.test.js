@@ -17,7 +17,7 @@ function baseProfile() {
       },
       ground: { keys: {} },
     },
-    aliases: {},
+    aliases: { engage: { commands: ["FireAll", "Target_Enemy_Near"] } },
     bindsets: {
       Weapons: {
         space: { keys: { F1: ["FirePhasers", "FireTorpedoes"] } },
@@ -35,7 +35,6 @@ describe("CommandChainService", () => {
     eventBus = fixture.eventBus;
 
     // stub request endpoints used internally
-    respond(eventBus, "command:get-for-selected-key", () => []);
     respond(eventBus, "command:get-empty-state-info", () => ({
       title: "Empty",
     }));
@@ -100,6 +99,7 @@ describe("CommandChainService", () => {
   it("reads named-bindset commands from the accepted snapshot", async () => {
     service.cache.selectedKey = "F1";
     service.cache.activeBindset = "Weapons";
+    service.cache.preferences.bindsetsEnabled = true;
     const requestSpy = vi.spyOn(service, "request");
 
     const commands = await service.getCommandsForSelectedKey();
@@ -112,6 +112,40 @@ describe("CommandChainService", () => {
     expect(requestSpy).not.toHaveBeenCalledWith(
       "bindset:get-key-commands",
       expect.anything(),
+    );
+  });
+
+  it("broadcasts primary commands when a disabled named bindset remains cached", async () => {
+    service.cache.activeBindset = "Weapons";
+    service.cache.preferences.bindsetsEnabled = false;
+    const handler = vi.fn();
+    eventBus.on("chain-data-changed", handler);
+
+    eventBus.emit("key-selected", { key: "F1" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(handler).toHaveBeenLastCalledWith({
+      commands: [{ command: "FireAll" }],
+    });
+  });
+
+  it("reads primary and alias commands without the retired query", async () => {
+    service.cache.selectedKey = "F1";
+    service.cache.activeBindset = "Primary Bindset";
+    await expect(service.getCommandsForSelectedKey()).resolves.toEqual([
+      { command: "FireAll" },
+    ]);
+
+    service.cache.currentEnvironment = "alias";
+    service.cache.selectedAlias = "engage";
+    const aliases = await service.getCommandsForSelectedKey();
+    expect(aliases).toEqual(["FireAll", "Target_Enemy_Near"]);
+    aliases.push("Local change");
+    expect(
+      service.cache.dataState.profiles.profile1.aliases.engage.commands,
+    ).toEqual(["FireAll", "Target_Enemy_Near"]);
+    expect(eventBus.hasListeners("rpc:command:get-for-selected-key")).toBe(
+      false,
     );
   });
 

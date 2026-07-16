@@ -369,3 +369,181 @@ export function getSnapshotBindsetKeyCommands(
     key,
   );
 }
+
+/**
+ * Project detached user-authored aliases from accepted profile state. Legacy
+ * persisted VFX aliases remain hidden exactly as they were by the retired
+ * compatibility projection.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @returns {Record<string, import('./serviceTypes.js').AliasDefinition>}
+ */
+export function getSnapshotUserAliases(snapshot) {
+  const profile = getSnapshotProfile(snapshot);
+  if (!profile || !isRecord(profile.aliases)) return {};
+
+  return /** @type {Record<string, import('./serviceTypes.js').AliasDefinition>} */ (
+    Object.fromEntries(
+      Object.entries(profile.aliases).filter(
+        ([, alias]) => alias?.type !== "vfx-alias",
+      ),
+    )
+  );
+}
+
+/**
+ * Project the detached command list for one explicit command location.
+ * Alias commands take their canonical profile path; key commands use either
+ * the named bindset or the primary build selected by the caller.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @param {string | null | undefined} environment
+ * @param {string | null | undefined} name
+ * @param {string | null | undefined} [bindset]
+ * @returns {StoredCommand[]}
+ */
+export function getSnapshotCommands(
+  snapshot,
+  environment,
+  name,
+  bindset = null,
+) {
+  if (!environment || !name) return [];
+  if (environment !== "alias") {
+    return getSnapshotBindsetKeyCommands(snapshot, bindset, environment, name);
+  }
+
+  const profile = getSnapshotProfile(snapshot);
+  if (!profile || !isRecord(profile.aliases)) return [];
+  if (!hasOwn(profile.aliases, name)) return [];
+  const commands = profile.aliases[name]?.commands;
+  return Array.isArray(commands) ? clone(commands) : [];
+}
+
+/**
+ * Resolve the command location visible to the user. A cached named bindset is
+ * not authoritative while bindsets are disabled, and aliases never use a
+ * bindset location.
+ *
+ * @param {string | null | undefined} environment
+ * @param {string | null | undefined} activeBindset
+ * @param {boolean | null | undefined} bindsetsEnabled
+ * @returns {string | null}
+ */
+export function getEffectiveCommandBindset(
+  environment,
+  activeBindset,
+  bindsetsEnabled,
+) {
+  if (environment === "alias" || bindsetsEnabled !== true) return null;
+  return activeBindset || "Primary Bindset";
+}
+
+/**
+ * Build the detached import-source view from one accepted profile revision.
+ * Ordering and labels intentionally preserve the retired command responder.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @param {string | null | undefined} currentEnvironment
+ * @param {string | null | undefined} currentKey
+ * @returns {import('./serviceTypes.js').CommandImportSource[]}
+ */
+export function getSnapshotCommandImportSources(
+  snapshot,
+  currentEnvironment,
+  currentKey,
+) {
+  if (!snapshot?.ready || !currentEnvironment) return [];
+
+  /** @type {import('./serviceTypes.js').CommandImportSource[]} */
+  const sources = [];
+  for (const [environment, label] of [
+    ["space", "Space"],
+    ["ground", "Ground"],
+  ]) {
+    const keys = getSnapshotPrimaryKeys(snapshot, environment);
+    for (const [key, commands] of Object.entries(keys)) {
+      const isCurrentKey =
+        currentEnvironment !== "alias" &&
+        currentEnvironment === environment &&
+        key === currentKey;
+      if (!isCurrentKey && Object.keys(commands || {}).length > 0) {
+        sources.push({
+          value: `${environment}:${key}`,
+          label: `${label}: ${key}`,
+          type: "key",
+        });
+      }
+    }
+  }
+
+  for (const [aliasName, alias] of Object.entries(
+    getSnapshotUserAliases(snapshot),
+  )) {
+    const isCurrentAlias =
+      currentEnvironment === "alias" && aliasName === currentKey;
+    if (!isCurrentAlias && alias?.commands) {
+      sources.push({
+        value: `alias:${aliasName}`,
+        label: `Alias: ${aliasName}`,
+        type: "alias",
+      });
+    }
+  }
+
+  return sources;
+}
+
+/**
+ * Read stabilization metadata for one command location. Alias metadata keeps
+ * its historical precedence even when a same-named key or bindset is passed.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @param {string | null | undefined} environment
+ * @param {string | null | undefined} name
+ * @param {string | null | undefined} [bindset]
+ * @returns {boolean}
+ */
+export function isSnapshotCommandStabilized(
+  snapshot,
+  environment,
+  name,
+  bindset = null,
+) {
+  if (!name) return false;
+  const profile = getSnapshotProfile(snapshot);
+  if (!profile) return false;
+
+  const aliasMetadata = profile.aliasMetadata;
+  if (
+    isRecord(aliasMetadata) &&
+    hasOwn(aliasMetadata, name) &&
+    isRecord(aliasMetadata[name]) &&
+    aliasMetadata[name].stabilizeExecutionOrder === true
+  ) {
+    return true;
+  }
+  if (environment === "alias" || !environment) return false;
+
+  if (bindset && bindset !== "Primary Bindset") {
+    const bindsetMetadata = profile.bindsetMetadata;
+    if (!isRecord(bindsetMetadata) || !hasOwn(bindsetMetadata, bindset)) {
+      return false;
+    }
+    const environmentMetadata = bindsetMetadata[bindset]?.[environment];
+    return Boolean(
+      isRecord(environmentMetadata) &&
+        hasOwn(environmentMetadata, name) &&
+        isRecord(environmentMetadata[name]) &&
+        environmentMetadata[name].stabilizeExecutionOrder === true,
+    );
+  }
+
+  const environmentMetadata = profile.keybindMetadata?.[environment];
+  return Boolean(
+    isRecord(environmentMetadata) &&
+      hasOwn(environmentMetadata, name) &&
+      isRecord(environmentMetadata[name]) &&
+      environmentMetadata[name].stabilizeExecutionOrder === true,
+  );
+}

@@ -63,6 +63,11 @@ describe("Application browser smoke", () => {
       "data:get-keys",
       "data:get-key-commands",
       "bindset:get-key-commands",
+      "alias:get-all",
+      "command:get-for-selected-key",
+      "command:get-import-sources",
+      "command:is-stabilized",
+      "command-chain:is-stabilized",
     ]) {
       expect(bus.hasListeners(`rpc:${topic}`)).toBe(false);
     }

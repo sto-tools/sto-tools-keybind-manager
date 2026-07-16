@@ -1,4 +1,8 @@
 import ComponentBase from "../ComponentBase.js";
+import {
+  getEffectiveCommandBindset,
+  getSnapshotCommands,
+} from "./dataState.js";
 import RULES from "./validators/index.js";
 
 /**
@@ -46,8 +50,21 @@ export default class CommandChainValidatorService extends ComponentBase {
     if (this._busy) return;
     this._busy = true;
     try {
-      // Retrieve the command list for the CURRENTLY SELECTED key
-      const commands = await this.request("command:get-for-selected-key");
+      const snapshot = this.cache.dataState;
+      const environment =
+        aliasFlag === true ? "alias" : this.cache.currentEnvironment || "space";
+      const name = key;
+      const bindset = getEffectiveCommandBindset(
+        environment,
+        this.cache.activeBindset,
+        this.cache.preferences?.bindsetsEnabled,
+      );
+      const commands = getSnapshotCommands(
+        snapshot,
+        environment,
+        name,
+        bindset,
+      );
 
       // Normalize commands – even an empty/null response should allow validation rules
       if (!Array.isArray(commands)) {
@@ -69,7 +86,8 @@ export default class CommandChainValidatorService extends ComponentBase {
 
       // Determine if stabilization (mirroring) is enabled for this key
       const stabilized = stabilizedFlag !== undefined ? stabilizedFlag : false;
-      const isAlias = aliasFlag !== undefined ? aliasFlag : false;
+      const isAlias =
+        aliasFlag !== undefined ? aliasFlag : environment === "alias";
 
       /** @type {number} */
       let length;

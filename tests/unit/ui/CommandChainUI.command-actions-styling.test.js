@@ -58,11 +58,6 @@ describe("CommandChainUI Command Actions Styling", () => {
       };
     });
 
-    // Mock command chain stabilization check
-    respond(eventBus, "command-chain:is-stabilized", () => {
-      return true;
-    });
-
     // Mock file operations for mirrored commands
     respond(eventBus, "command:generate-mirrored-commands", ({ commands }) => {
       return commands || [];

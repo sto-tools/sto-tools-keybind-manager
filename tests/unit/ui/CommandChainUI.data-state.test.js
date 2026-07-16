@@ -74,6 +74,11 @@ describe("CommandChainUI accepted data state", () => {
     await expect(ui.getCommandsForCurrentSelection()).resolves.toEqual([
       "Target_Enemy_Near",
     ]);
+    ui.cache.preferences.bindsetsEnabled = false;
+    await expect(ui.getCommandsForCurrentSelection()).resolves.toEqual([
+      "FireAll",
+      { command: "Target_Enemy_Near" },
+    ]);
     expect(ui.request).not.toHaveBeenCalled();
   });
 
@@ -93,5 +98,161 @@ describe("CommandChainUI accepted data state", () => {
 
     await expect(ui.getCommandsForCurrentSelection()).resolves.toEqual([]);
     expect(ui.request).not.toHaveBeenCalled();
+  });
+
+  it("uses commands and stabilization from an accepted replacement authority", async () => {
+    fixture = createEventBusFixture();
+    const stabilizeButton = {
+      disabled: false,
+      classList: { toggle: vi.fn(), remove: vi.fn() },
+    };
+    const document = documentStub();
+    document.getElementById.mockImplementation((id) =>
+      id === "stabilizeExecutionOrderBtn" ? stabilizeButton : null,
+    );
+    ui = new CommandChainUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n: { t: (key) => key },
+      ui: { showToast: vi.fn() },
+    });
+    const originalProfile = {
+      name: "Captain",
+      currentEnvironment: "space",
+      builds: { space: { keys: { F1: ["OldCommand"] } }, ground: { keys: {} } },
+      aliases: {},
+      keybindMetadata: { space: { F1: { stabilizeExecutionOrder: false } } },
+    };
+    ui._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 40,
+        revision: 8,
+        currentProfile: "captain",
+        currentProfileData: originalProfile,
+        profiles: { captain: originalProfile },
+      }),
+    );
+    ui.cache.selectedKey = "F1";
+    ui.cache.activeBindset = "Primary Bindset";
+    ui.cache.preferences.bindsetsEnabled = true;
+    ui.request = vi.fn(async (topic) => {
+      throw new Error(`Unexpected request: ${topic}`);
+    });
+
+    await expect(ui.getCommandsForCurrentSelection()).resolves.toEqual([
+      "OldCommand",
+    ]);
+    await ui.updateChainActions();
+    expect(stabilizeButton.classList.toggle).toHaveBeenLastCalledWith(
+      "active",
+      false,
+    );
+
+    const replacementProfile = {
+      ...originalProfile,
+      builds: {
+        space: { keys: { F1: ["ReplacementCommand"] } },
+        ground: { keys: {} },
+      },
+      keybindMetadata: { space: { F1: { stabilizeExecutionOrder: true } } },
+    };
+    ui._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 41,
+        revision: 0,
+        currentProfile: "captain",
+        currentProfileData: replacementProfile,
+        profiles: { captain: replacementProfile },
+      }),
+    );
+
+    await expect(ui.getCommandsForCurrentSelection()).resolves.toEqual([
+      "ReplacementCommand",
+    ]);
+    await ui.updateChainActions();
+    expect(stabilizeButton.classList.toggle).toHaveBeenLastCalledWith(
+      "active",
+      true,
+    );
+    expect(ui.request).not.toHaveBeenCalled();
+  });
+
+  it("uses the primary command and metadata location for disabled-bindset actions", async () => {
+    fixture = createEventBusFixture();
+    const stabilizeButton = {
+      disabled: false,
+      classList: {
+        contains: vi.fn(() => true),
+        toggle: vi.fn(),
+        remove: vi.fn(),
+      },
+    };
+    const bindsetBanner = { remove: vi.fn() };
+    const document = documentStub();
+    document.querySelector.mockReturnValue({ style: {} });
+    document.getElementById.mockImplementation((id) => {
+      if (id === "stabilizeExecutionOrderBtn") return stabilizeButton;
+      return id === "bindsetBanner" ? bindsetBanner : null;
+    });
+    ui = new CommandChainUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n: { t: (key) => key },
+      ui: { showToast: vi.fn() },
+    });
+    const profile = {
+      name: "Captain",
+      currentEnvironment: "space",
+      builds: { space: { keys: { F1: ["primary"] } }, ground: { keys: {} } },
+      bindsets: {
+        Tactical: {
+          space: { keys: { F1: ["named"] } },
+          ground: { keys: {} },
+        },
+      },
+      aliases: {},
+      keybindMetadata: { space: { F1: { stabilizeExecutionOrder: true } } },
+      bindsetMetadata: {
+        Tactical: {
+          space: { F1: { stabilizeExecutionOrder: false } },
+        },
+      },
+    };
+    ui._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 42,
+        revision: 1,
+        currentProfile: "captain",
+        currentProfileData: profile,
+        profiles: { captain: profile },
+      }),
+    );
+    ui.cache.selectedKey = "F1";
+    ui.cache.activeBindset = "Tactical";
+    ui.cache.preferences.bindsetsEnabled = false;
+    ui.request = vi.fn().mockResolvedValue({ success: true });
+    ui.render = vi.fn();
+
+    await ui.updateChainActions();
+    expect(stabilizeButton.classList.toggle).toHaveBeenLastCalledWith(
+      "active",
+      true,
+    );
+    ui.updateBindsetBanner();
+    expect(bindsetBanner.remove).toHaveBeenCalledOnce();
+
+    await ui.toggleStabilize();
+
+    expect(ui.request).toHaveBeenCalledWith("data:update-profile", {
+      profileId: "captain",
+      modify: {
+        builds: { space: { keys: { F1: ["primary"] } } },
+      },
+    });
+    expect(ui.request).toHaveBeenCalledWith("command:set-stabilize", {
+      name: "F1",
+      stabilize: false,
+      bindset: null,
+    });
   });
 });

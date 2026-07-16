@@ -24,11 +24,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRealServiceFixture } from "../fixtures";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
-import { respond } from "../../src/js/core/requestResponse.js";
 
 describe("Integration: Add Key/Alias Display Regression", () => {
   let fixture, eventBus, chainService;
-  let detachGetCommands, currentProfile;
+  let currentProfile;
 
   beforeEach(async () => {
     // Profile that will be mutated during tests
@@ -61,17 +60,6 @@ describe("Integration: Add Key/Alias Display Regression", () => {
       },
     });
     eventBus = fixture.eventBus;
-
-    // Stub command:get-for-selected-key to return commands from currentProfile
-    detachGetCommands = respond(
-      eventBus,
-      "command:get-for-selected-key",
-      ({ key, environment }) => {
-        const env = environment || "space";
-        const commands = currentProfile.builds?.[env]?.keys?.[key] || [];
-        return commands;
-      },
-    );
 
     // Create CommandChainService
     chainService = new CommandChainService({ eventBus });
@@ -109,7 +97,6 @@ describe("Integration: Add Key/Alias Display Regression", () => {
   });
 
   afterEach(() => {
-    detachGetCommands?.();
     chainService?.destroy?.();
     fixture?.destroy?.();
   });

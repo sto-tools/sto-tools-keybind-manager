@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { generateBindToAliasName } from "../../../src/js/lib/aliasNameValidator.js";
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import i18next from "i18next";
 
 describe("Bind-to-Alias Mode", () => {
@@ -64,21 +65,7 @@ describe("Bind-to-Alias Mode", () => {
           setTimeout(() => {
             let result;
 
-            if (actualTopic === "command-chain:is-stabilized") {
-              result = false;
-            } else if (actualTopic === "command:is-stabilized") {
-              if (payload.name === "F1") {
-                if (payload.bindset === "Primary Bindset") {
-                  result = false;
-                } else if (payload.bindset === "Custom Bindset") {
-                  result = true;
-                } else {
-                  result = false;
-                }
-              } else {
-                result = false;
-              }
-            } else if (actualTopic === "command:generate-mirrored-commands") {
+            if (actualTopic === "command:generate-mirrored-commands") {
               result = null;
             } else if (actualTopic === "command-chain:generate-alias-name") {
               result = "sto_kb_space_q";
@@ -153,10 +140,6 @@ describe("Bind-to-Alias Mode", () => {
         }
       },
     );
-
-    mockEventBus.respond("command-chain:is-stabilized", async () => {
-      return false;
-    });
 
     // Mock i18n
     const mockI18n = { t: vi.fn((key) => key) };
@@ -528,27 +511,14 @@ describe("Bind-to-Alias Mode", () => {
   describe("bindset dropdown behavior", () => {
     beforeEach(() => {
       // Setup bindsets feature
-      ui._bindsetsEnabled = true;
+      ui.cache.preferences.bindsetsEnabled = true;
       ui._bindsetNames = ["Primary Bindset", "Custom Bindset"];
-      ui.activeBindset = "Primary Bindset";
-      ui._selectedKey = "F1";
+      ui.cache.activeBindset = "Primary Bindset";
+      ui.cache.selectedKey = "F1";
       ui.cache.currentEnvironment = "space";
     });
 
     it("should update stabilization button state when switching bindsets", async () => {
-      // Mock different stabilization states for different bindsets
-      ui.request = vi.fn().mockImplementation(async (action, payload) => {
-        if (action === "command:is-stabilized") {
-          if (payload.bindset === "Custom Bindset") {
-            return true; // Stabilized in custom bindset
-          } else {
-            return false; // Not stabilized in primary bindset
-          }
-        }
-        return [];
-      });
-
-      // Setup DOM elements
       const mockButton = {
         disabled: false,
         classList: {
@@ -557,56 +527,40 @@ describe("Bind-to-Alias Mode", () => {
           contains: vi.fn().mockReturnValue(false),
         },
       };
-      const mockDropdownBtn = {
-        style: { display: "" },
-        addEventListener: vi.fn(),
-        getBoundingClientRect: () => ({ left: 0, bottom: 0 }),
+      ui.document.getElementById = vi.fn((id) =>
+        id === "stabilizeExecutionOrderBtn" ? mockButton : null,
+      );
+      const profile = {
+        name: "Captain",
+        currentEnvironment: "space",
+        builds: { space: { keys: { F1: [] } }, ground: { keys: {} } },
+        aliases: {},
+        keybindMetadata: {
+          space: { F1: { stabilizeExecutionOrder: false } },
+        },
+        bindsetMetadata: {
+          "Custom Bindset": {
+            space: { F1: { stabilizeExecutionOrder: true } },
+          },
+        },
       };
-
-      ui.document.getElementById = vi.fn().mockImplementation((id) => {
-        if (id === "stabilizeExecutionOrderBtn") return mockButton;
-        if (id === "bindsetDropdownBtn") return mockDropdownBtn;
-        if (id === "bindsetSelect") return { style: { display: "none" } };
-        if (id === "bindsetOptionsMenu") return null;
-        return null;
-      });
-
-      ui.document.body = { appendChild: vi.fn() };
-      ui.document.querySelector = vi.fn().mockReturnValue(null); // Mock for updateBindsetBanner
-      ui.document.createElement = vi.fn().mockReturnValue({
-        id: "",
-        className: "",
-        style: {},
-        innerHTML: "",
-        textContent: "",
-        addEventListener: vi.fn(),
-        appendChild: vi.fn(),
-      });
-      ui.document.addEventListener = vi.fn();
-
-      // Setup the dropdown
-      await ui.setupBindsetDropdown();
-
-      // Set up a selected key to trigger stabilization logic
+      ui._cacheDataState(
+        createDataCoordinatorState({
+          authorityEpoch: 80,
+          revision: 1,
+          currentProfile: "captain",
+          currentProfileData: profile,
+          profiles: { captain: profile },
+        }),
+      );
       ui.cache.selectedKey = "F1";
-
-      // Simulate initial state - primary bindset (not stabilized)
+      ui.cache.activeBindset = "Primary Bindset";
       await ui.updateChainActions();
       expect(mockButton.classList.toggle).toHaveBeenCalledWith("active", false);
-
-      // Reset mock calls
       mockButton.classList.toggle.mockClear();
-
-      // Simulate switching to custom bindset (stabilized)
       ui.cache.activeBindset = "Custom Bindset";
       await ui.updateChainActions();
-
-      // Verify button state was updated to active
       expect(mockButton.classList.toggle).toHaveBeenCalledWith("active", true);
-      expect(ui.request).toHaveBeenCalledWith("command:is-stabilized", {
-        name: "F1",
-        bindset: "Custom Bindset",
-      });
     });
 
     it("should call updateChainActions when activeBindset changes", async () => {

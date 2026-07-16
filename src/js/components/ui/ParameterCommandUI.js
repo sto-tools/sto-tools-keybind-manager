@@ -4,6 +4,7 @@ import {
   normalizeToString,
 } from "../../lib/commandDisplayAdapter.js";
 import { STOError } from "../../core/errors.js";
+import { getEffectiveCommandBindset } from "../services/dataState.js";
 import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 
 /** @typedef {string | number | undefined} ParameterValue */
@@ -611,27 +612,27 @@ export default class ParameterCommandUI extends UIComponentBase {
       ) {
         if (Array.isArray(builtCommand)) return;
         // Editing existing command - emit update event
-        const bindset =
-          this.cache.currentEnvironment === "alias"
-            ? null
-            : this.cache.activeBindset;
         this.emit("command:edit", {
           key: selectedKey,
           index: this.currentParameterCommand.editIndex,
           updatedCommand: builtCommand,
-          bindset,
+          bindset: getEffectiveCommandBindset(
+            this.cache.currentEnvironment,
+            this.cache.activeBindset,
+            this.cache.preferences?.bindsetsEnabled,
+          ),
         });
       } else {
         // Adding new command - handle arrays as single batch to avoid race conditions
         // Include active bindset when not in alias mode
-        const bindset =
-          this.cache.currentEnvironment === "alias"
-            ? null
-            : this.cache.activeBindset;
         this.emit("command:add", {
           command: builtCommand,
           key: selectedKey,
-          bindset,
+          bindset: getEffectiveCommandBindset(
+            this.cache.currentEnvironment,
+            this.cache.activeBindset,
+            this.cache.preferences?.bindsetsEnabled,
+          ),
         });
       }
     } catch (error) {
@@ -662,9 +663,6 @@ export default class ParameterCommandUI extends UIComponentBase {
     if (saveBtn) {
       saveBtn.textContent = this.i18n.t("add_command");
     }
-
-    // Unregister regeneration callback when cancelling
-    this.modalManager?.unregisterRegenerateCallback?.("parameterModal");
   }
 
   // DRY helpers for parameter input generation

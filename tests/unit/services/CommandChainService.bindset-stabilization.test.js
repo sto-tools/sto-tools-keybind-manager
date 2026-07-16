@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import CommandChainService from "../../../src/js/components/services/CommandChainService.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { eventBus } from "../../fixtures/core/eventBus.js";
 
 describe("CommandChainService - Bindset Stabilization", () => {
@@ -63,6 +64,14 @@ describe("CommandChainService - Bindset Stabilization", () => {
     service.cache.currentProfile = "test_profile";
     service.currentEnvironment = "space";
     service.cache.currentEnvironment = "space";
+    service._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: "test_profile",
+        currentEnvironment: "space",
+        currentProfileData: mockProfile,
+        profiles: { test_profile: mockProfile },
+      }),
+    );
   });
 
   describe("isStabilized with bindset parameter", () => {
@@ -196,6 +205,15 @@ describe("CommandChainService - Bindset Stabilization", () => {
         commands: ["test"],
         description: "test",
       };
+      service._cacheDataState(
+        createDataCoordinatorState({
+          revision: 2,
+          currentProfile: "test_profile",
+          currentEnvironment: "space",
+          currentProfileData: mockProfile,
+          profiles: { test_profile: mockProfile },
+        }),
+      );
 
       const result = await service.setStabilize(
         "NewAlias",
@@ -228,6 +246,7 @@ describe("CommandChainService - Bindset Stabilization", () => {
     it("should emit stabilize-changed event for alias without bindset", async () => {
       // Set current environment to alias
       service.currentEnvironment = "alias";
+      service.cache.currentEnvironment = "alias";
 
       await service.setStabilize("TestAlias", false);
 
@@ -240,13 +259,12 @@ describe("CommandChainService - Bindset Stabilization", () => {
     });
   });
 
-  describe("request handlers with bindset parameter", () => {
+  describe("projection and action handlers with bindset parameter", () => {
     beforeEach(() => {
       service.onInit();
     });
 
-    it("should handle command:is-stabilized with bindset parameter", () => {
-      // Test the method directly since request/response is complex to mock
+    it("projects bindset stabilization from accepted state", () => {
       const result = service.isStabilized("F2", "Custom Bindset");
       expect(result).toBe(true);
     });
@@ -259,12 +277,6 @@ describe("CommandChainService - Bindset Stabilization", () => {
       const result = await service.setStabilize("F4", true, "Custom Bindset");
       expect(result.success).toBe(true);
     });
-
-    it("should handle command-chain:is-stabilized with bindset parameter", () => {
-      // Test the method directly since request/response is complex to mock
-      const result = service.isStabilized("F2", "Custom Bindset");
-      expect(result).toBe(true);
-    });
   });
 
   describe("environment handling", () => {
@@ -276,6 +288,16 @@ describe("CommandChainService - Bindset Stabilization", () => {
       mockProfile.bindsetMetadata["Custom Bindset"].ground = {
         G1: { stabilizeExecutionOrder: true },
       };
+      service._cacheDataState(
+        createDataCoordinatorState({
+          authorityEpoch: 2,
+          revision: 1,
+          currentProfile: "test_profile",
+          currentEnvironment: "ground",
+          currentProfileData: mockProfile,
+          profiles: { test_profile: mockProfile },
+        }),
+      );
 
       expect(service.isStabilized("G1", "Custom Bindset")).toBe(true);
       expect(service.isStabilized("F2", "Custom Bindset")).toBe(false); // F2 is in space

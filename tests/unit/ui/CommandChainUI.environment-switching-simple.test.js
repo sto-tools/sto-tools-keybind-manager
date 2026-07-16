@@ -75,9 +75,6 @@ describe("CommandChainUI Environment Switching - Simple", () => {
           commandCount: "0",
         });
       }
-      if (topic === "command-chain:is-stabilized") {
-        return Promise.resolve(true);
-      }
       if (topic === "command:generate-mirrored-commands") {
         return Promise.resolve([]);
       }

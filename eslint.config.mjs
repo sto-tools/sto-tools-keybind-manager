@@ -5,14 +5,14 @@ import globals from "globals";
 // Existing oversized files cannot grow. Lower a limit whenever the file shrinks
 // until every entry reaches the repository-wide 500-line policy.
 const legacyMaxLineLimits = {
-  "src/js/components/services/CommandChainService.js": 802,
-  "src/js/components/services/CommandService.js": 1170,
+  "src/js/components/services/CommandChainService.js": 754,
+  "src/js/components/services/CommandService.js": 1050,
   "src/js/components/services/DataCoordinator.js": 1046,
   "src/js/components/services/ExportService.js": 594,
   "src/js/components/services/ImportService.js": 1266,
   "src/js/components/services/ParameterCommandService.js": 626,
   "src/js/components/services/SelectionService.js": 711,
-  "src/js/components/ui/CommandChainUI.js": 1665,
+  "src/js/components/ui/CommandChainUI.js": 1602,
   "src/js/components/ui/CommandLibraryUI.js": 523,
   "src/js/components/ui/CommandUI.js": 538,
   "src/js/components/ui/ImportUI.js": 1502,
@@ -26,7 +26,7 @@ const legacyMaxLineLimits = {
   "tests/unit/lib/ActivityTranslator.test.js": 3250,
   "tests/unit/services/ImportService.test.js": 1349,
   "tests/unit/services/SelectionService.test.js": 580,
-  "tests/unit/ui/CommandChainUI.test.js": 506,
+  "tests/unit/ui/CommandChainUI.test.js": 473,
   "tests/unit/ui/CommandChainUI.title-fix.test.js": 528,
   "tests/unit/ui/ImportUI.toast.test.js": 638,
   "tests/unit/ui/ParameterCommandUI.test.js": 534,

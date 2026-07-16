@@ -2,7 +2,6 @@ import type {
   CombinedAlias,
   CommandCategory,
   CommandDefinition,
-  CommandImportSource,
   NoPayloadRpc,
   OptionalRpc,
   RequiredRpc,
@@ -12,11 +11,6 @@ import type {
 } from "./base.js";
 
 type CommandReference = string | { command?: string; text?: string };
-type CommandLocation = {
-  name?: string | null;
-  bindset?: string | null;
-};
-
 export type CommandDefinitionMatch = CommandDefinition & {
   categoryId: string;
   commandId: string;
@@ -63,7 +57,6 @@ export interface CommandRpcProtocol {
     { aliasName: string; commands?: StoredCommand[] },
     string
   >;
-  "command-chain:is-stabilized": RequiredRpc<CommandLocation, boolean>;
   "command:add": ResponderOnlyRequiredRpc<
     {
       command: StoredCommand | StoredCommand[];
@@ -107,18 +100,6 @@ export interface CommandRpcProtocol {
   "command:get-categories": NoPayloadRpc<Record<string, CommandCategory>>;
   "command:get-combined-aliases": NoPayloadRpc<Record<string, CombinedAlias>>;
   "command:get-empty-state-info": NoPayloadRpc<EmptyStateInfo>;
-  "command:get-for-selected-key": OptionalRpc<
-    {
-      key?: string | null;
-      environment?: string;
-      bindset?: string | null;
-    },
-    StoredCommand[]
-  >;
-  "command:get-import-sources": RequiredRpc<
-    { environment: string; currentKey?: string | null },
-    CommandImportSource[]
-  >;
   "command:get-warning": OptionalRpc<
     { command?: CommandReference },
     string | null
@@ -132,7 +113,6 @@ export interface CommandRpcProtocol {
     },
     CommandImportResult
   >;
-  "command:is-stabilized": RequiredRpc<CommandLocation, boolean>;
   "command:move": RequiredRpc<
     {
       key: string;

@@ -1,5 +1,10 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { activeBindsetFromPayload } from "../../core/eventPayloads.js";
+import {
+  getEffectiveCommandBindset,
+  getSnapshotCommandImportSources,
+  isSnapshotCommandStabilized,
+} from "../services/dataState.js";
 import { isParameterDef } from "./ParameterCommandUI.js";
 import {
   errorMessage,
@@ -15,7 +20,6 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 /** @typedef {'success' | 'warning' | 'error'} ValidationSeverity */
 /** @typedef {import('../../types/events/base.js').ValidationIssue} ValidationIssue */
 /** @typedef {{ warnings: ValidationIssue[], errors: ValidationIssue[] }} ValidationState */
-/** @typedef {{ value: string, label: string }} ImportSource */
 
 /**
  * CommandUI – owns the parameter-editing modal and acts as the bridge between
@@ -190,21 +194,19 @@ export default class CommandUI extends UIComponentBase {
               env === "alias"
                 ? "please_select_an_alias_first"
                 : "please_select_a_key_first";
-            const message = this.i18n.t(msgKey);
-
-            await this.showToast(message, "warning");
+            await this.showToast(this.i18n.t(msgKey), "warning");
             return;
           }
 
           // Include active bindset when not in alias mode
-          const bindset =
-            this.cache.currentEnvironment === "alias"
-              ? null
-              : this._activeBindset;
           this.emit("command:add", {
             command: commandDef,
             key: selectedKey,
-            bindset,
+            bindset: getEffectiveCommandBindset(
+              this.cache.currentEnvironment,
+              this._activeBindset,
+              this.cache.preferences?.bindsetsEnabled,
+            ),
           });
         } catch (error) {
           console.error("CommandUI: Failed to handle static command:", error);
@@ -423,20 +425,16 @@ export default class CommandUI extends UIComponentBase {
   // Validate the current command chain
   /** @param {string} key */
   async validateCurrentChain(key) {
-    if (key) {
-      // Determine whether Stabilize Execution Order is enabled for this key/alias
-      let stabilized = false;
-      try {
-        stabilized = await this.request("command-chain:is-stabilized", {
-          name: key,
-        });
-      } catch {
-        // Validation remains available with its default unstabilized state.
-      }
-
-      const isAlias = this.getCurrentEnvironment() === "alias";
-      this.emit("command-chain:validate", { key, stabilized, isAlias });
-    }
+    if (!key) return;
+    const environment = this.getCurrentEnvironment();
+    const stabilized = isSnapshotCommandStabilized(
+      this.cache.dataState,
+      environment,
+      key,
+      null,
+    );
+    const isAlias = environment === "alias";
+    this.emit("command-chain:validate", { key, stabilized, isAlias });
   }
 
   // Filter commands by search term
@@ -506,16 +504,11 @@ export default class CommandUI extends UIComponentBase {
     // Clear existing options
     select.innerHTML = "";
 
-    const currentEnv = this.getCurrentEnvironment();
-    const currentKey = this.getSelectedKey();
-
     try {
-      // Get import sources from CommandService
-      const sources = /** @type {ImportSource[]} */ (
-        await this.request("command:get-import-sources", {
-          environment: currentEnv,
-          currentKey,
-        })
+      const sources = getSnapshotCommandImportSources(
+        this.cache.dataState,
+        this.getCurrentEnvironment(),
+        this.getSelectedKey(),
       );
 
       // Populate the dropdown with sources

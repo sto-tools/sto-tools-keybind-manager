@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import { getSnapshotUserAliases } from "./dataState.js";
 
 /**
  * AliasBrowserService – source-of-truth for alias CRUD & selection.
@@ -10,10 +11,16 @@ export default class AliasBrowserService extends ComponentBase {
     super(eventBus);
     this.componentName = "AliasBrowserService";
     this.ui = ui;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
 
-    if (this.eventBus) {
-      // Register request/response endpoints for alias operations
-      this.respond("alias:get-all", () => this.getAliases());
+    this.setupRequestHandlers();
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
       this.respond(
         "alias-browser:create",
         (
@@ -22,8 +29,8 @@ export default class AliasBrowserService extends ComponentBase {
             description = "",
           } = /** @type {{ name?: string, description?: string }} */ ({}),
         ) => this.createAlias(name, description),
-      );
-    }
+      ),
+    );
   }
 
   /** @returns {import('./serviceTypes.js').ServiceCache} */
@@ -35,7 +42,13 @@ export default class AliasBrowserService extends ComponentBase {
   }
 
   onInit() {
+    this.setupRequestHandlers();
     this.setupEventListeners();
+  }
+
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
   }
 
   setupEventListeners() {
@@ -94,11 +107,7 @@ export default class AliasBrowserService extends ComponentBase {
   }
 
   getAliases() {
-    return Object.fromEntries(
-      Object.entries(this.serviceCache.aliases).filter(
-        ([, value]) => value.type !== "vfx-alias",
-      ),
-    );
+    return getSnapshotUserAliases(this.cache.dataState);
   }
 
   /** @param {string} name */

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 
 describe("CommandChainUI Stabilized Ordering", () => {
   let ui, mockDocument, mockEventBus, mockUI;
@@ -308,9 +309,24 @@ describe("CommandChainUI Stabilized Ordering", () => {
       beforeEach(() => {
         // Rendering an explicit chain still requires the selected-key context used
         // by the production chain-data broadcast/cache flow.
-        ui.cache.currentEnvironment = "space";
-        ui.cache.currentProfile = "test-profile";
-        ui.cache.profile = { id: "test-profile" };
+        const profile = {
+          name: "Test Profile",
+          currentEnvironment: "space",
+          builds: { space: { keys: {} }, ground: { keys: {} } },
+          aliases: {},
+          keybindMetadata: {
+            space: { F1: { stabilizeExecutionOrder: true } },
+          },
+        };
+        ui._cacheDataState(
+          createDataCoordinatorState({
+            authorityEpoch: 70,
+            revision: 1,
+            currentProfile: "test-profile",
+            currentProfileData: profile,
+            profiles: { "test-profile": profile },
+          }),
+        );
         ui.cache.selectedKey = "F1";
 
         // Mock stabilization check to return true
@@ -345,9 +361,6 @@ describe("CommandChainUI Stabilized Ordering", () => {
           if (endpoint === "command:find-definition") {
             return Promise.resolve({ customizable: false });
           }
-          if (endpoint === "command-chain:is-stabilized") {
-            return Promise.resolve(true);
-          }
           return Promise.resolve({});
         });
 
@@ -378,8 +391,26 @@ describe("CommandChainUI Stabilized Ordering", () => {
         await ui.render(stabilizedCommands);
         expect(ui.currentGroups).toBeDefined();
 
-        // Then render in unstabilized mode
-        ui.request = vi.fn().mockResolvedValue(false); // Mock unstabilized
+        // Then render an accepted unstabilized replacement state
+        const profile = {
+          name: "Replacement Profile",
+          currentEnvironment: "space",
+          builds: { space: { keys: {} }, ground: { keys: {} } },
+          aliases: {},
+          keybindMetadata: {
+            space: { F1: { stabilizeExecutionOrder: false } },
+          },
+        };
+        ui._cacheDataState(
+          createDataCoordinatorState({
+            authorityEpoch: 71,
+            revision: 0,
+            currentProfile: "test-profile",
+            currentProfileData: profile,
+            profiles: { "test-profile": profile },
+          }),
+        );
+        ui.cache.selectedKey = "F1";
         const unstabilizedCommands = ["Cmd1", "Cmd2", "Cmd3"];
         await ui.render(unstabilizedCommands);
 

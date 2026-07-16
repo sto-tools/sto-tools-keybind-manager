@@ -5,6 +5,7 @@ import ExportService from "../../src/js/components/services/ExportService.js";
 import { respond } from "../../src/js/core/requestResponse.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
+import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
 
 describe("Bind-to-Alias Mode Integration", () => {
   let fixture;
@@ -394,14 +395,17 @@ describe("Bind-to-Alias Mode Integration", () => {
         currentEnvironment: "space",
         builds: {
           space: {
-            F1: ["command1", "command2"],
+            keys: { F1: ["command1", "command2"] },
           },
+          ground: { keys: {} },
         },
+        aliases: {},
         bindsets: {
           "Custom Bindset": {
             space: {
-              F1: ["command1", "command2"],
+              keys: { F1: ["command1", "command2"] },
             },
+            ground: { keys: {} },
           },
         },
         bindsetMetadata: {
@@ -411,6 +415,20 @@ describe("Bind-to-Alias Mode Integration", () => {
             },
           },
         },
+      };
+      let dataRevision = 1;
+      const publishAcceptedProfile = () => {
+        fixture.eventBus.emit("data:state-changed", {
+          reason: "profile-updated",
+          state: createDataCoordinatorState({
+            authorityEpoch: 30,
+            revision: dataRevision,
+            currentProfile: "test_profile",
+            currentEnvironment: "space",
+            currentProfileData: profileData,
+            profiles: { test_profile: profileData },
+          }),
+        });
       };
 
       // Mock the request to return updated profile data based on the modify payload
@@ -443,14 +461,17 @@ describe("Bind-to-Alias Mode Integration", () => {
                 ...profileData,
                 bindsetMetadata: updatedBindsetMetadata,
               };
+              dataRevision += 1;
+              publishAcceptedProfile();
             }
             return { success: true, profile: profileData };
           }
           return { success: true, profile: profileData };
         });
 
-      // Initialize services with the profile via broadcast to match production flow
-      await dataCoordinator.updateProfile(profileData);
+      // Publish the same accepted coordinator snapshot that production emits
+      // before the mutation action resolves.
+      publishAcceptedProfile();
       fixture.eventBus.emit("profile:switched", {
         profileId: "test_profile",
         profile: profileData,

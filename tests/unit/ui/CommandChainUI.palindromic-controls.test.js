@@ -4,7 +4,7 @@ import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
 import i18next from "i18next";
 
 describe("CommandChainUI Palindromic Controls", () => {
-  let ui, mockDocument, mockEventBus, mockUI, dom, isStabilized;
+  let ui, mockDocument, mockEventBus, mockUI, dom;
 
   beforeEach(async () => {
     // Set up DOM environment
@@ -41,8 +41,6 @@ describe("CommandChainUI Palindromic Controls", () => {
     mockUI = {
       showToast: vi.fn(),
     };
-
-    isStabilized = false;
 
     // Create a mock event bus that properly handles the RPC pattern
     const eventListeners = new Map();
@@ -91,9 +89,7 @@ describe("CommandChainUI Palindromic Controls", () => {
           setTimeout(() => {
             let result;
 
-            if (actualTopic === "command-chain:is-stabilized") {
-              result = false;
-            } else if (actualTopic === "command-chain:update-commands") {
+            if (actualTopic === "command-chain:update-commands") {
               result = { success: true };
             } else {
               result = {};
@@ -125,9 +121,6 @@ describe("CommandChainUI Palindromic Controls", () => {
         }
         if (endpoint === "command:get-warning") {
           return Promise.resolve(null);
-        }
-        if (endpoint === "command-chain:is-stabilized") {
-          return Promise.resolve(isStabilized);
         }
         if (endpoint === "data:update-profile") {
           return Promise.resolve({ success: true });
@@ -207,12 +200,13 @@ describe("CommandChainUI Palindromic Controls", () => {
 
   describe("Palindromic Controls Display", () => {
     it("should show an active palindromic toggle for TrayExec commands when stabilization is enabled", async () => {
-      isStabilized = true;
-
       const element = await ui.createCommandElement(
         "+TrayExecByTray 1 0",
         0,
         3,
+        null,
+        null,
+        true,
       );
       const palindromicButton = element.querySelector(
         ".btn-palindromic-toggle",
@@ -225,8 +219,6 @@ describe("CommandChainUI Palindromic Controls", () => {
     });
 
     it("should not show palindromic controls for non-TrayExec commands", async () => {
-      isStabilized = true;
-
       const element = await ui.createCommandElement("Target_Enemy_Near", 0, 3);
 
       expect(element.querySelector(".btn-palindromic-toggle")).toBeFalsy();
@@ -245,15 +237,20 @@ describe("CommandChainUI Palindromic Controls", () => {
     });
 
     it("should show active placement control for an excluded command in the pivot group", async () => {
-      isStabilized = true;
-
       const richCommand = {
         command: "+TrayExecByTray 1 0",
         palindromicGeneration: false,
         placement: "in-pivot-group",
       };
 
-      const element = await ui.createCommandElement(richCommand, 0, 3);
+      const element = await ui.createCommandElement(
+        richCommand,
+        0,
+        3,
+        null,
+        null,
+        true,
+      );
       const palindromicButton = element.querySelector(
         ".btn-palindromic-toggle",
       );
@@ -267,12 +264,13 @@ describe("CommandChainUI Palindromic Controls", () => {
     });
 
     it("should hide placement control while a command is included in the palindrome", async () => {
-      isStabilized = true;
-
       const element = await ui.createCommandElement(
         "+TrayExecByTray 1 0",
         0,
         3,
+        null,
+        null,
+        true,
       );
 
       expect(element.querySelector(".btn-palindromic-toggle")).toBeTruthy();

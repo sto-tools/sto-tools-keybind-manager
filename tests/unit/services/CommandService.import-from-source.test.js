@@ -41,6 +41,9 @@ const retiredProjectionTopics = new Set([
   "data:get-keys",
   "data:get-key-commands",
   "bindset:get-key-commands",
+  "alias:get-all",
+  "command:get-for-selected-key",
+  "command:get-import-sources",
 ]);
 
 describe("CommandService importFromSource clear destination", () => {
@@ -134,7 +137,6 @@ describe("CommandService importFromSource clear destination", () => {
       .spyOn(service, "request")
       .mockImplementation(async (topic) => {
         timeline.push(topic);
-        if (topic === "alias:get-all") return createProfile().aliases;
         if (topic === "parser:parse-command-string") {
           return { commands: ["AliasOne", "AliasTwo"] };
         }
@@ -168,7 +170,6 @@ describe("CommandService importFromSource clear destination", () => {
       ["targetAlias", "AliasTwo"],
     ]);
     expect(timeline).toEqual([
-      "alias:get-all",
       "parser:parse-command-string",
       "data:update-profile",
       "add:AliasOne",
@@ -272,12 +273,7 @@ describe("CommandService importFromSource clear destination", () => {
   });
 
   it("builds import sources from the accepted profile snapshot", async () => {
-    const requestSpy = vi
-      .spyOn(service, "request")
-      .mockImplementation(async (topic) => {
-        if (topic === "alias:get-all") return createProfile().aliases;
-        throw new Error(`Unexpected request: ${topic}`);
-      });
+    const requestSpy = vi.spyOn(service, "request");
 
     const sources = await service.getImportSources("space", "F1");
 
@@ -291,8 +287,9 @@ describe("CommandService importFromSource clear destination", () => {
         },
       ]),
     );
-    expect(requestSpy.mock.calls.map(([topic]) => topic)).toEqual([
-      "alias:get-all",
-    ]);
+    expect(requestSpy).not.toHaveBeenCalled();
+    expect(
+      fixture.eventBus.hasListeners("rpc:command:get-import-sources"),
+    ).toBe(false);
   });
 });

@@ -3,15 +3,20 @@ import { describe, expect, it } from "vitest";
 import {
   createDataStateSnapshot,
   createVirtualProfile,
+  getEffectiveCommandBindset,
   getBindsetKeyCommands,
   getPrimaryKeyCommands,
   getPrimaryKeys,
   getSnapshotBindsetKeyCommands,
+  getSnapshotCommandImportSources,
+  getSnapshotCommands,
   getSnapshotPrimaryKeyCommands,
   getSnapshotPrimaryKeys,
   getSnapshotProfile,
   getSnapshotProfiles,
+  getSnapshotUserAliases,
   immutableDataStateSnapshot,
+  isSnapshotCommandStabilized,
 } from "../../../src/js/components/services/dataState.js";
 
 function expectRecursivelyFrozen(value, seen = new WeakSet()) {
@@ -45,9 +50,21 @@ function createProfile() {
         },
       },
     },
-    aliases: { engage: { commands: ["FireAll"] } },
+    aliases: {
+      engage: { commands: ["FireAll"] },
+      empty: { commands: [] },
+      legacyVfx: { commands: ["FXCommand"], type: "vfx-alias" },
+    },
     keybindMetadata: { space: { F1: { stabilizeExecutionOrder: true } } },
-    aliasMetadata: {},
+    bindsetMetadata: {
+      Weapons: {
+        space: { F2: { stabilizeExecutionOrder: true } },
+      },
+    },
+    aliasMetadata: {
+      engage: { stabilizeExecutionOrder: true },
+      F2: { stabilizeExecutionOrder: true },
+    },
   };
 }
 
@@ -359,5 +376,127 @@ describe("data-state projections", () => {
     expect(snapshot.profiles.captain.bindsets.Weapons.space.keys.F1).toEqual([
       "FirePhasers",
     ]);
+  });
+
+  it("projects detached user aliases while filtering persisted VFX entries", () => {
+    const snapshot = createDataStateSnapshot(createCoordinatorState(), {
+      authorityEpoch: 8,
+      ready: true,
+      revision: 1,
+    });
+
+    const aliases = getSnapshotUserAliases(snapshot);
+
+    expect(aliases).toEqual({
+      engage: { commands: ["FireAll"] },
+      empty: { commands: [] },
+    });
+    aliases.engage.commands.push("Local change");
+    expect(snapshot.profiles.captain.aliases.engage.commands).toEqual([
+      "FireAll",
+    ]);
+    expect(getSnapshotUserAliases(null)).toEqual({});
+  });
+
+  it("projects primary, named-bindset, and alias commands from one snapshot", () => {
+    const snapshot = createDataStateSnapshot(createCoordinatorState(), {
+      authorityEpoch: 9,
+      ready: true,
+      revision: 1,
+    });
+
+    const primary = getSnapshotCommands(snapshot, "space", "F1");
+    const named = getSnapshotCommands(snapshot, "space", "F2", "Weapons");
+    const alias = getSnapshotCommands(snapshot, "alias", "engage");
+
+    expect(primary).toEqual([
+      "FireAll",
+      { command: "Target_Enemy_Near", parameters: {} },
+    ]);
+    expect(named).toEqual(["FireTorps"]);
+    expect(alias).toEqual(["FireAll"]);
+    primary[1].command = "Local change";
+    alias.push("Local change");
+    expect(snapshot.profiles.captain.builds.space.keys.F1[1].command).toBe(
+      "Target_Enemy_Near",
+    );
+    expect(snapshot.profiles.captain.aliases.engage.commands).toEqual([
+      "FireAll",
+    ]);
+    expect(getSnapshotCommands(snapshot, "alias", "missing")).toEqual([]);
+    expect(getSnapshotCommands(null, "space", "F1")).toEqual([]);
+  });
+
+  it("resolves a named bindset only while bindsets are enabled", () => {
+    expect(getEffectiveCommandBindset("space", "Weapons", true)).toBe(
+      "Weapons",
+    );
+    expect(getEffectiveCommandBindset("space", null, true)).toBe(
+      "Primary Bindset",
+    );
+    expect(getEffectiveCommandBindset("space", "Weapons", false)).toBeNull();
+    expect(
+      getEffectiveCommandBindset("space", "Weapons", undefined),
+    ).toBeNull();
+    expect(getEffectiveCommandBindset("alias", "Weapons", true)).toBeNull();
+  });
+
+  it("builds import sources with current-item and VFX filtering", () => {
+    const snapshot = createDataStateSnapshot(createCoordinatorState(), {
+      authorityEpoch: 10,
+      ready: true,
+      revision: 1,
+    });
+
+    expect(getSnapshotCommandImportSources(snapshot, "space", "F1")).toEqual([
+      { value: "ground:G", label: "Ground: G", type: "key" },
+      { value: "alias:engage", label: "Alias: engage", type: "alias" },
+      { value: "alias:empty", label: "Alias: empty", type: "alias" },
+    ]);
+    expect(
+      getSnapshotCommandImportSources(snapshot, "alias", "engage"),
+    ).toEqual([
+      { value: "space:F1", label: "Space: F1", type: "key" },
+      { value: "ground:G", label: "Ground: G", type: "key" },
+      { value: "alias:empty", label: "Alias: empty", type: "alias" },
+    ]);
+    expect(getSnapshotCommandImportSources(null, "space", "F1")).toEqual([]);
+  });
+
+  it("projects stabilization metadata with alias and bindset precedence", () => {
+    const snapshot = createDataStateSnapshot(createCoordinatorState(), {
+      authorityEpoch: 11,
+      ready: true,
+      revision: 1,
+    });
+
+    expect(isSnapshotCommandStabilized(snapshot, "space", "F1")).toBe(true);
+    expect(
+      isSnapshotCommandStabilized(snapshot, "space", "F2", "Weapons"),
+    ).toBe(true);
+    expect(
+      isSnapshotCommandStabilized(snapshot, "space", "F1", "Missing"),
+    ).toBe(false);
+    expect(
+      isSnapshotCommandStabilized(snapshot, "space", "F2", "Missing"),
+    ).toBe(true);
+    expect(isSnapshotCommandStabilized(snapshot, "alias", "engage")).toBe(true);
+    expect(isSnapshotCommandStabilized(snapshot, "alias", "missing")).toBe(
+      false,
+    );
+    expect(isSnapshotCommandStabilized(null, "space", "F1")).toBe(false);
+  });
+
+  it("keeps all command projections empty before accepted state is ready", () => {
+    const loading = createDataStateSnapshot(createCoordinatorState(), {
+      authorityEpoch: 12,
+      ready: false,
+      revision: 0,
+    });
+
+    expect(getSnapshotUserAliases(loading)).toEqual({});
+    expect(getSnapshotCommands(loading, "space", "F1")).toEqual([]);
+    expect(getSnapshotCommandImportSources(loading, "space", "F1")).toEqual([]);
+    expect(isSnapshotCommandStabilized(loading, "space", "F1")).toBe(false);
   });
 });
