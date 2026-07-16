@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ImportUI from "../../../src/js/components/ui/ImportUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createUIComponentFixture } from "../../fixtures/ui/component.js";
 
 describe("ImportUI Toast Tests", () => {
@@ -71,11 +72,9 @@ describe("ImportUI Toast Tests", () => {
     // Set up spies BEFORE initializing
     showToastSpy = vi.spyOn(component, "showToast");
 
-    // Mock request responses for data operations
-    fixture.mockResponse("data:get-current-state", async () => ({
-      currentProfile: "default",
-      currentEnvironment: "space",
-    }));
+    component._cacheDataState(
+      createDataCoordinatorState({ currentProfile: "default" }),
+    );
 
     // Mock promptEnvironment to return a value
     component.promptEnvironment = vi.fn((currentEnv) =>

@@ -60,10 +60,6 @@ export interface BindsetRpcProtocol {
     { bindsetName?: string },
     boolean
   >;
-  "bindset:get-key-commands": OptionalRpc<
-    { bindset?: string; environment?: string; key?: string },
-    StoredCommand[]
-  >;
   "bindset:rename": OptionalRpc<
     { oldName?: string; newName?: string },
     BindsetUpdateResult<

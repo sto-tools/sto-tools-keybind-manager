@@ -58,6 +58,11 @@ describe("Application browser smoke", () => {
       "selection:get-editing-context",
       "selection:get-selected",
       "selection:get-state",
+      "data:get-current-state",
+      "data:get-all-profiles",
+      "data:get-keys",
+      "data:get-key-commands",
+      "bindset:get-key-commands",
     ]) {
       expect(bus.hasListeners(`rpc:${topic}`)).toBe(false);
     }

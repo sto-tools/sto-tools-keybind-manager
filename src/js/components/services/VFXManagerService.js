@@ -1,5 +1,6 @@
 import ComponentBase from "../ComponentBase.js";
 import { formatAliasLine } from "../../lib/STOFormatter.js";
+import { getSnapshotProfile } from "./dataState.js";
 
 /** @typedef {'space' | 'ground'} VFXEnvironment */
 /** @typedef {{ selectedEffects?: { space?: string[], ground?: string[] }, showPlayerSay?: boolean }} VertigoSettings */
@@ -25,13 +26,29 @@ export default class VFXManagerService extends ComponentBase {
     this.showPlayerSay = false;
 
     this._vfxInitialized = false;
+    this._vfxDataAuthorityEpoch = 0;
+    this._vfxDataRevision = -1;
+    /** @type {string | null} */
+    this._acceptedVFXStateSignature = null;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
+    this._vfxSettingsPublishScheduled = false;
+    /** @type {import('../../types/events/base.js').VfxSettingsSnapshot | null} */
+    this._pendingVFXSettingsEvent = null;
+    this._vfxPublishGeneration = 0;
 
     // Register request/response handlers for virtual VFX aliases
-    if (this.eventBus) {
+    this.setupRequestHandlers();
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
       this.respond("vfx:get-virtual-aliases", () =>
         this.getVirtualVFXAliases(),
-      );
-    }
+      ),
+    );
   }
 
   onInit() {
@@ -40,24 +57,29 @@ export default class VFXManagerService extends ComponentBase {
       return;
     }
 
+    this.setupRequestHandlers();
     this.setupEventListeners();
     this._vfxInitialized = true;
     console.log(`[${this.componentName}] Initialized`);
   }
 
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
+    this._vfxInitialized = false;
+    this._vfxDataAuthorityEpoch = 0;
+    this._vfxDataRevision = -1;
+    this._acceptedVFXStateSignature = null;
+    this._vfxSettingsPublishScheduled = false;
+    this._pendingVFXSettingsEvent = null;
+    this._vfxPublishGeneration += 1;
+  }
+
   // Handle initial state from other components
   /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
   handleInitialState(reply) {
-    // Load VFX settings from DataCoordinator profile data
     if (reply.sender === "DataCoordinator") {
-      const { currentProfileData } = reply.state;
-      if (!currentProfileData) return;
-
-      this.cache.currentProfile = currentProfileData.id ?? null;
-      this.loadState(currentProfileData);
-      console.log(
-        `[${this.componentName}] Loaded initial VFX state from DataCoordinator via late-join`,
-      );
+      this.adoptCoordinatorVFXState(reply.state);
     }
   }
 
@@ -66,51 +88,41 @@ export default class VFXManagerService extends ComponentBase {
     if (!eventBus) return;
 
     // Simple VFX Manager operations - no request/response overhead
-    eventBus.on("vfx:show-modal", this.showModal.bind(this));
-    eventBus.on("vfx:save-effects", this.saveEffects.bind(this));
+    this.addEventListener("vfx:show-modal", () => this.showModal());
+    this.addEventListener("vfx:save-effects", () => this.saveEffects());
 
-    // Listen for profile changes to update current profile and reload VFX state
-    this.addEventListener(
-      "profile:switched",
-      ({ profileId, profile, updateSource }) => {
-        // Don't respond to profile updates we caused ourselves
-        if (updateSource === "VFXManagerService") {
-          console.log(
-            `[${this.componentName}] Ignoring profile:switched event from our own update`,
-          );
-          return;
-        }
+    this.addEventListener("data:state-changed", ({ state }) => {
+      this.adoptCoordinatorVFXState(state);
+    });
+  }
 
-        this.cache.currentProfile = profileId;
-        if (profile) {
-          this.loadState(profile);
-          console.log(
-            `[${this.componentName}] Loaded VFX state for switched profile: ${profileId}`,
-          );
-        }
-      },
-    );
+  /**
+   * Derive VFX state only from the exact DataCoordinator snapshot accepted by
+   * ComponentBase. Ready revisions from a replacement authority are admitted,
+   * while duplicate or stale predecessor deliveries are ignored.
+   *
+   * @param {import('../../types/events/component-state.js').DataCoordinatorStateSnapshot} delivered
+   */
+  adoptCoordinatorVFXState(delivered) {
+    const accepted = this.cache.dataState;
+    if (
+      !accepted ||
+      accepted.authorityEpoch !== delivered.authorityEpoch ||
+      accepted.revision !== delivered.revision ||
+      (accepted.authorityEpoch === this._vfxDataAuthorityEpoch &&
+        accepted.revision === this._vfxDataRevision)
+    ) {
+      return;
+    }
 
-    // Listen for profile updates to refresh VFX state if current profile was updated
-    this.addEventListener(
-      "profile:updated",
-      ({ profileId, profile, updateSource }) => {
-        // Don't respond to profile updates we caused ourselves
-        if (updateSource === "VFXManagerService") {
-          console.log(
-            `[${this.componentName}] Ignoring profile:updated event from our own update`,
-          );
-          return;
-        }
-
-        if (profileId === this.cache.currentProfile && profile) {
-          this.loadState(profile);
-          console.log(
-            `[${this.componentName}] Refreshed VFX state for updated profile: ${profileId}`,
-          );
-        }
-      },
-    );
+    const replacementAuthority =
+      accepted.authorityEpoch !== this._vfxDataAuthorityEpoch;
+    this._vfxDataAuthorityEpoch = accepted.authorityEpoch;
+    this._vfxDataRevision = accepted.revision;
+    this.loadState(getSnapshotProfile(accepted), {
+      force: replacementAuthority,
+      profileId: accepted.ready ? accepted.currentProfile : null,
+    });
   }
 
   // Generate alias line for display (formatted for STO export only)
@@ -281,8 +293,11 @@ export default class VFXManagerService extends ComponentBase {
   }
 
   // Load state from current profile
-  /** @param {VFXProfile | null | undefined} profile */
-  loadState(profile) {
+  /**
+   * @param {VFXProfile | null | undefined} profile
+   * @param {{ force?: boolean, profileId?: string | null }} [options]
+   */
+  loadState(profile, { force = false, profileId = profile?.id ?? null } = {}) {
     // Ensure selectedEffects is properly initialized
     if (!this.selectedEffects) {
       this.selectedEffects = {
@@ -294,20 +309,28 @@ export default class VFXManagerService extends ComponentBase {
       );
     }
 
-    if (profile && profile.vertigoSettings) {
-      const settings = profile.vertigoSettings;
+    const settings = profile?.vertigoSettings;
+    const nextState = {
+      profileId,
+      selectedEffects: {
+        space: [...(settings?.selectedEffects?.space || [])],
+        ground: [...(settings?.selectedEffects?.ground || [])],
+      },
+      showPlayerSay: settings?.showPlayerSay || false,
+    };
+    const signature = JSON.stringify(nextState);
+    const changed = signature !== this._acceptedVFXStateSignature;
+    if (!changed && !force) return;
+
+    if (settings) {
       console.log(
         `[${this.componentName}] loadState: Found vertigoSettings in profile:`,
         settings,
       );
 
       // Restore selected effects
-      this.selectedEffects.space = new Set(
-        settings.selectedEffects?.space || [],
-      );
-      this.selectedEffects.ground = new Set(
-        settings.selectedEffects?.ground || [],
-      );
+      this.selectedEffects.space = new Set(nextState.selectedEffects.space);
+      this.selectedEffects.ground = new Set(nextState.selectedEffects.ground);
 
       console.log(
         `[${this.componentName}] loadState: Loaded space effects:`,
@@ -319,7 +342,7 @@ export default class VFXManagerService extends ComponentBase {
       );
 
       // Restore PlayerSay setting
-      this.showPlayerSay = settings.showPlayerSay || false;
+      this.showPlayerSay = nextState.showPlayerSay;
     } else {
       console.log(
         `[${this.componentName}] loadState: No vertigoSettings found in profile, resetting to defaults`,
@@ -334,13 +357,40 @@ export default class VFXManagerService extends ComponentBase {
       this.showPlayerSay = false;
     }
 
-    // VFX state loaded - emit event so CommandLibrary can update virtual aliases
-    this.emit("vfx:settings-changed", {
-      selectedEffects: {
-        space: Array.from(this.selectedEffects.space),
-        ground: Array.from(this.selectedEffects.ground),
-      },
-      showPlayerSay: this.showPlayerSay,
+    this._acceptedVFXStateSignature = signature;
+    if (changed) {
+      // Publish after the complete data:state-changed fanout so downstream
+      // consumers combine the new VFX projection with the same profile revision.
+      this.scheduleVFXSettingsChanged({
+        selectedEffects: {
+          space: Array.from(this.selectedEffects.space),
+          ground: Array.from(this.selectedEffects.ground),
+        },
+        showPlayerSay: this.showPlayerSay,
+      });
+    }
+  }
+
+  /**
+   * Coalesce derived state while the authoritative data snapshot is fanning out.
+   * The generation prevents a queued publication from escaping a destroy/reinit
+   * boundary and reviving a retired service owner.
+   *
+   * @param {import('../../types/events/base.js').VfxSettingsSnapshot} settings
+   */
+  scheduleVFXSettingsChanged(settings) {
+    this._pendingVFXSettingsEvent = settings;
+    if (this._vfxSettingsPublishScheduled) return;
+
+    this._vfxSettingsPublishScheduled = true;
+    const generation = this._vfxPublishGeneration;
+    queueMicrotask(() => {
+      if (generation !== this._vfxPublishGeneration || this.destroyed) return;
+
+      this._vfxSettingsPublishScheduled = false;
+      const pending = this._pendingVFXSettingsEvent;
+      this._pendingVFXSettingsEvent = null;
+      if (pending) this.emit("vfx:settings-changed", pending);
     });
   }
 
@@ -382,23 +432,16 @@ export default class VFXManagerService extends ComponentBase {
   async showModal() {
     console.log(`[${this.componentName}] Showing VFX modal`);
 
-    // Load state from current profile via DataCoordinator
-    if (this.cache.currentProfile) {
-      try {
-        const profiles = await this.request("data:get-all-profiles");
-        const profile = profiles[this.cache.currentProfile];
-        if (profile) {
-          this.loadState(profile);
-          console.log(
-            `[${this.componentName}] Loaded VFX state from profile via DataCoordinator`,
-          );
-        }
-      } catch (error) {
-        console.error(
-          `[${this.componentName}] Failed to load profile state:`,
-          error,
-        );
-      }
+    const snapshot = this.cache.dataState;
+    const profile = getSnapshotProfile(snapshot);
+    if (profile) {
+      this.loadState(profile, {
+        force: true,
+        profileId: snapshot?.ready ? snapshot.currentProfile : null,
+      });
+      console.log(
+        `[${this.componentName}] Loaded VFX state from accepted coordinator snapshot`,
+      );
     }
 
     // Emit event to populate and show the modal
@@ -433,60 +476,35 @@ export default class VFXManagerService extends ComponentBase {
       this.cache.currentProfile,
     );
 
+    const snapshot = this.cache.dataState;
+    const profileId = snapshot?.ready ? snapshot.currentProfile : null;
+    const profile = getSnapshotProfile(snapshot);
+
     // Save to current profile via DataCoordinator
-    if (this.cache.currentProfile) {
+    if (profileId && profile) {
       try {
-        // Get current profile to update
-        const profiles = await this.request("data:get-all-profiles");
-        const profile = profiles[this.cache.currentProfile];
+        const vertigoSettings = {
+          selectedEffects: {
+            space: Array.from(this.selectedEffects.space),
+            ground: Array.from(this.selectedEffects.ground),
+          },
+          showPlayerSay: this.showPlayerSay,
+        };
 
-        if (profile) {
-          console.log(
-            `[${this.componentName}] Retrieved profile via DataCoordinator`,
-          );
+        await this.request("data:update-profile", {
+          profileId,
+          properties: {
+            vertigoSettings,
+          },
+          updateSource: "VFXManagerService",
+        });
 
-          // Save VFX state
-          const vertigoSettings = {
-            selectedEffects: {
-              space: Array.from(this.selectedEffects.space),
-              ground: Array.from(this.selectedEffects.ground),
-            },
-            showPlayerSay: this.showPlayerSay,
-          };
-
-          // Update profile via DataCoordinator - save VFX settings
-          try {
-            await this.request("data:update-profile", {
-              profileId: this.cache.currentProfile,
-              properties: {
-                vertigoSettings,
-              },
-              updateSource: "VFXManagerService",
-            });
-
-            console.log(
-              `[${this.componentName}] VFX settings saved to profile: ${this.cache.currentProfile}`,
-            );
-
-            // Emit VFX state change for CommandLibrary to regenerate virtual aliases
-            this.emit("vfx:settings-changed", {
-              selectedEffects: vertigoSettings.selectedEffects,
-              showPlayerSay: this.showPlayerSay,
-            });
-          } catch (error) {
-            console.error(
-              `[${this.componentName}] ERROR: Failed to update profile:`,
-              error,
-            );
-          }
-        } else {
-          console.error(
-            `[${this.componentName}] ERROR: Could not retrieve profile: ${this.cache.currentProfile}`,
-          );
-        }
+        console.log(
+          `[${this.componentName}] VFX settings saved to profile: ${profileId}`,
+        );
       } catch (error) {
         console.error(
-          `[${this.componentName}] ERROR: Failed to save VFX effects:`,
+          `[${this.componentName}] ERROR: Failed to update profile:`,
           error,
         );
       }

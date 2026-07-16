@@ -1,5 +1,6 @@
 // Test to verify SelectionService handles auto-selection when selected items are deleted
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 
@@ -11,15 +12,8 @@ describe("SelectionService Deletion Auto-Selection", () => {
     env = harness;
     selectionService = new SelectionService({ eventBus: harness.eventBus });
 
-    // Mock action and legacy key requests; aliases come from the state cache.
+    // Only mutation actions use RPC; profile projections come from dataState.
     selectionService.request = vi.fn((topic) => {
-      if (topic === "data:get-keys") {
-        return {
-          F1: ["FireAll"],
-          F2: ["Shield"],
-          F3: ["TargetNearest"],
-        };
-      }
       if (topic === "data:update-profile") {
         return { success: true };
       }
@@ -67,6 +61,18 @@ describe("SelectionService Deletion Auto-Selection", () => {
       },
     });
     selectionService.selectionEnvironment = "space";
+    const profile = {
+      ...selectionService.cache.profile,
+      aliases: selectionService.cache.aliases,
+    };
+    selectionService._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: "test-profile",
+        currentEnvironment: "space",
+        currentProfileData: profile,
+        profiles: { "test-profile": profile },
+      }),
+    );
   });
 
   afterEach(() => {
@@ -189,6 +195,10 @@ describe("SelectionService Deletion Auto-Selection", () => {
 
       // Should auto-select one of the remaining keys
       expect(["F2", "F3"]).toContain(selectionService.cache.selectedKey);
+      expect(selectionService.request).not.toHaveBeenCalledWith(
+        "data:get-keys",
+        expect.anything(),
+      );
     });
 
     it("should clear selection but not auto-select when selected key is deleted outside key environment", async () => {

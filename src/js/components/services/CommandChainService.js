@@ -1,5 +1,6 @@
 import ComponentBase from "../ComponentBase.js";
 import * as eventPayloads from "../../core/eventPayloads.js";
+import { getSnapshotBindsetKeyCommands } from "./dataState.js";
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -486,49 +487,19 @@ export default class CommandChainService extends ComponentBase {
 
       if (activeBindset !== "Primary Bindset") {
         console.log(
-          `[CommandChainService] Requesting commands from bindset: ${activeBindset}`,
+          `[CommandChainService] Reading commands from bindset snapshot: ${activeBindset}`,
         );
-        const startTime = Date.now();
-
-        // Add a timeout to detect hanging requests
-        /** @type {Promise<never>} */
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(
-            () => reject(new Error("Request timeout after 5 seconds")),
-            5000,
-          );
-        });
-
-        try {
-          const requestPromise = this.request("bindset:get-key-commands", {
-            bindset: activeBindset,
-            environment: this.cache.currentEnvironment,
-            key: selectedKeyName,
-          });
-
-          const cmds = await Promise.race([requestPromise, timeoutPromise]);
-          const duration = Date.now() - startTime;
-          console.log(
-            `[CommandChainService] Received ${cmds?.length || 0} commands from bindset in ${duration}ms:`,
-            cmds,
-          );
-          return Array.isArray(cmds) ? cmds : [];
-        } catch (error) {
-          const duration = Date.now() - startTime;
-          console.error(
-            `[CommandChainService] bindset:get-key-commands failed after ${duration}ms:`,
-            error,
-          );
-          console.error(
-            `[CommandChainService] This suggests BindsetService is not responding. Check if BindsetService is initialized.`,
-          );
-
-          // Fallback to empty array for now to prevent UI from being stuck
-          console.warn(
-            `[CommandChainService] Falling back to empty commands array for bindset: ${activeBindset}`,
-          );
-          return [];
-        }
+        const cmds = getSnapshotBindsetKeyCommands(
+          this.cache.dataState,
+          activeBindset,
+          this.cache.currentEnvironment,
+          selectedKeyName,
+        );
+        console.log(
+          `[CommandChainService] Read ${cmds.length} commands from bindset snapshot:`,
+          cmds,
+        );
+        return cmds;
       }
 
       // Primary bindset path

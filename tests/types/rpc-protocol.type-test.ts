@@ -5,8 +5,6 @@ import type {
   DynamicRpcTopic,
   ParameterBuildResult,
   ParsedCommand,
-  Profile,
-  RpcEmptyPayload,
   RpcHandler,
   RpcKnownTopic,
   RpcRequest,
@@ -30,12 +28,6 @@ type AliasRequest = Expect<
   Equal<RpcRequest<"alias:add">, { name?: string; description?: string }>
 >;
 type AliasResult = Expect<Equal<RpcResult<"alias:add">, AliasAddResult>>;
-type NoPayload = Expect<
-  Equal<RpcRequest<"data:get-all-profiles">, RpcEmptyPayload>
->;
-type ProfileResult = Expect<
-  Equal<RpcResult<"data:get-all-profiles">, Record<string, Profile>>
->;
 type ParameterCommandBuildResult = Expect<
   Equal<RpcResult<"parameter-command:build">, ParameterBuildResult>
 >;
@@ -89,6 +81,16 @@ type RemovedDataSettingsQuery = RpcRequest<"data:get-settings">;
 type RemovedPreferenceSettingQuery = RpcRequest<"preferences:get-setting">;
 // @ts-expect-error Preference snapshots arrive through broadcasts and late join.
 type RemovedPreferencesSettingsQuery = RpcRequest<"preferences:get-settings">;
+// @ts-expect-error Complete DataCoordinator state is broadcast and cached.
+type RemovedDataStateQuery = RpcRequest<"data:get-current-state">;
+// @ts-expect-error Profile maps are projected from the accepted data snapshot.
+type RemovedAllProfilesQuery = RpcRequest<"data:get-all-profiles">;
+// @ts-expect-error Environment key maps are projected from cached data state.
+type RemovedDataKeysQuery = RpcRequest<"data:get-keys">;
+// @ts-expect-error Primary command lists are projected from cached data state.
+type RemovedDataKeyCommandsQuery = RpcRequest<"data:get-key-commands">;
+// @ts-expect-error Named bindset commands are projected from cached data state.
+type RemovedBindsetKeyCommandsQuery = RpcRequest<"bindset:get-key-commands">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },

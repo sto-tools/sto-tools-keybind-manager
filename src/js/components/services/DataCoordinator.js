@@ -7,8 +7,6 @@ import persist from "./storageWrites.js";
 import {
   createDataStateSnapshot,
   createVirtualProfile,
-  getPrimaryKeyCommands,
-  getPrimaryKeys,
   nextDataStateAuthorityEpoch,
 } from "./dataState.js";
 import { registerDataCoordinatorResponders } from "./dataCoordinatorResponders.js";
@@ -288,16 +286,6 @@ export default class DataCoordinator extends ComponentBase {
       synchronous: true,
     });
     return state;
-  }
-
-  // getCurrentProfile method removed - components should use broadcast/cache pattern instead
-
-  /**
-   * Get all profiles
-   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:get-all-profiles'>>}
-   */
-  async getAllProfiles() {
-    return structuredClone(this.state.profiles);
   }
 
   /**
@@ -920,32 +908,6 @@ export default class DataCoordinator extends ComponentBase {
     );
 
     return { success: true, environment };
-  }
-
-  // Get keys for a specific environment from the current profile
-  /** @param {string | undefined} environment */
-  getKeys(environment) {
-    if (!this.state.currentProfile || !environment) return {};
-    if (!hasOwn(this.state.profiles, this.state.currentProfile)) return {};
-    const profile = this.state.profiles[this.state.currentProfile];
-    return getPrimaryKeys(profile, environment);
-  }
-
-  // Get commands for a specific key in a specific environment
-  /**
-   * @param {string | undefined} environment
-   * @param {string | undefined} key
-   */
-  getKeyCommands(environment, key) {
-    if (!this.state.currentProfile || !environment || !key) return [];
-    if (!hasOwn(this.state.profiles, this.state.currentProfile)) return [];
-    const profile = this.state.profiles[this.state.currentProfile];
-    return getPrimaryKeyCommands(profile, environment, key);
-  }
-
-  // Get application settings
-  async getSettings() {
-    return structuredClone(this.state.settings);
   }
 
   // Update application settings

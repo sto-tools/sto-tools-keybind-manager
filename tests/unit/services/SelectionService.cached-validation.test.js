@@ -1,5 +1,6 @@
 // Test to verify SelectionService validates cached selections exist before restoring
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createBasicTestEnvironment } from "../../fixtures";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 
@@ -64,6 +65,18 @@ describe("SelectionService Cached Selection Validation", () => {
     };
 
     await selectionService.init();
+    const profile = {
+      ...selectionService.cache.profile,
+      aliases: selectionService.cache.aliases,
+    };
+    selectionService._cacheDataState(
+      createDataCoordinatorState({
+        currentProfile: "test-profile",
+        currentEnvironment: "space",
+        currentProfileData: profile,
+        profiles: { "test-profile": profile },
+      }),
+    );
   });
 
   afterEach(() => {
@@ -206,6 +219,10 @@ describe("SelectionService Cached Selection Validation", () => {
         "space",
         expect.objectContaining({ isAuto: true }),
       );
+      expect(selectionService.request).not.toHaveBeenCalledWith(
+        "data:get-keys",
+        expect.anything(),
+      );
     });
 
     it("should auto-select first available alias from cached data", async () => {
@@ -223,9 +240,7 @@ describe("SelectionService Cached Selection Validation", () => {
     it("should return null when no items available for auto-selection", async () => {
       // Clear cached aliases
       selectionService.cache.aliases = {};
-
-      // Ensure alias fetch returns an empty set (no items to auto-select)
-      selectionService.request.mockResolvedValueOnce({});
+      selectionService.cache.profile.aliases = {};
 
       const result = await selectionService.autoSelectFirst("alias");
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import ProfileUI from "../../../src/js/components/ui/ProfileUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createUIComponentFixture } from "../../fixtures/ui/component.js";
 
 describe("ProfileUI Toast Tests", () => {
@@ -202,12 +203,21 @@ describe("ProfileUI Toast Tests", () => {
         id === "profileSelect" ? select : null,
       );
       component.document.createElement = vi.fn(() => option);
-      component.request = vi.fn().mockResolvedValue({ orphan: {} });
+      component._cacheDataState(
+        createDataCoordinatorState({
+          authorityEpoch: 2,
+          currentProfile: "orphan",
+          currentProfileData: {},
+          profiles: { orphan: {} },
+        }),
+      );
+      component.request = vi.fn();
 
       await component.renderProfiles();
 
       expect(option.textContent).toBe("orphan");
       expect(select.appendChild).toHaveBeenCalledWith(option);
+      expect(component.request).not.toHaveBeenCalled();
     });
 
     it("should render an empty rename value when an external profile has no name", () => {

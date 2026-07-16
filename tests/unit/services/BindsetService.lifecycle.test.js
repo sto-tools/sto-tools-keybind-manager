@@ -9,8 +9,8 @@ const responderTopics = [
   "bindset:rename",
   "bindset:delete",
   "bindset:delete-with-keys",
-  "bindset:get-key-commands",
 ];
+const retiredResponderTopic = "bindset:get-key-commands";
 
 describe("BindsetService responder lifecycle", () => {
   let fixture;
@@ -27,12 +27,18 @@ describe("BindsetService responder lifecycle", () => {
   });
 
   it("owns all responders only while initialized", () => {
+    expect(fixture.eventBus.hasListeners(`rpc:${retiredResponderTopic}`)).toBe(
+      false,
+    );
     for (const topic of responderTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
     }
 
     service.init();
 
+    expect(fixture.eventBus.hasListeners(`rpc:${retiredResponderTopic}`)).toBe(
+      false,
+    );
     expect(service._responseDetachFunctions).toHaveLength(
       responderTopics.length,
     );
@@ -54,6 +60,9 @@ describe("BindsetService responder lifecycle", () => {
 
     service.init();
 
+    expect(fixture.eventBus.hasListeners(`rpc:${retiredResponderTopic}`)).toBe(
+      false,
+    );
     expect(service._responseDetachFunctions).toHaveLength(
       responderTopics.length,
     );

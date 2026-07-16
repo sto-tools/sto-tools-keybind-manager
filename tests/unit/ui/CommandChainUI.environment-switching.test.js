@@ -188,9 +188,6 @@ describe("CommandChainUI Environment Switching", () => {
             commandCount: "1",
           });
         }
-        if (topic === "data:get-key-commands") {
-          return Promise.resolve([{ command: "FireAll" }]);
-        }
         return Promise.resolve([]);
       });
 

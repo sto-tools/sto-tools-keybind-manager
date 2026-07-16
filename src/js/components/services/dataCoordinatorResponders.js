@@ -13,12 +13,6 @@ import {
  */
 export function registerDataCoordinatorResponders(coordinator) {
   return [
-    coordinator.respond("data:get-current-state", () =>
-      coordinator.getCurrentState(),
-    ),
-    coordinator.respond("data:get-all-profiles", () =>
-      coordinator.getAllProfiles(),
-    ),
     coordinator.respond("data:switch-profile", ({ profileId }) =>
       coordinator.switchProfile(profileId),
     ),
@@ -92,19 +86,5 @@ export function registerDataCoordinatorResponders(coordinator) {
       coordinator.loadDefaultData(),
     ),
     coordinator.respond("data:reload-state", () => coordinator.reloadState()),
-    coordinator.respond(
-      "data:get-keys",
-      ({ environment } = /** @type {{ environment?: string }} */ ({})) =>
-        coordinator.getKeys(environment),
-    ),
-    coordinator.respond(
-      "data:get-key-commands",
-      (
-        {
-          environment,
-          key,
-        } = /** @type {{ environment?: string, key?: string }} */ ({}),
-      ) => coordinator.getKeyCommands(environment, key),
-    ),
   ];
 }

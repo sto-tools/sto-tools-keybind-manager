@@ -71,11 +71,11 @@ describe("CommandChainService request/response – command-chain:clear", () => {
     const ok = await request(eventBus, "command-chain:clear", { key: "F1" });
     expect(ok).toBe(true);
 
-    // Verify key commands now empty
-    const cmds = await request(eventBus, "data:get-key-commands", {
-      environment: "space",
-      key: "F1",
-    });
-    expect(cmds).toEqual([]);
+    // The durable mutation publishes a new accepted snapshot; no compatibility
+    // query route is needed to verify the result.
+    expect(
+      chainService.cache.dataState.profiles.testProfile.builds.space.keys.F1,
+    ).toEqual([]);
+    expect(eventBus.hasListeners("rpc:data:get-key-commands")).toBe(false);
   });
 });

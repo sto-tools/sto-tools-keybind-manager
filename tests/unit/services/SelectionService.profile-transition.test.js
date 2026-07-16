@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createRealEventBusFixture } from "../../fixtures/core/eventBus.js";
 
 class ProfileTransitionConsumer extends ComponentBase {
@@ -44,7 +45,25 @@ function createProfile({
   };
 }
 
-function emitProfileSwitch(eventBus, fromProfile, profile) {
+const dataStateRevisions = new WeakMap();
+
+async function emitProfileSwitch(eventBus, fromProfile, profile) {
+  const revision = (dataStateRevisions.get(eventBus) || 0) + 1;
+  dataStateRevisions.set(eventBus, revision);
+  await eventBus.emit(
+    "data:state-changed",
+    {
+      reason: "profile-switched",
+      state: createDataCoordinatorState({
+        revision,
+        currentProfile: profile.id,
+        currentEnvironment: profile.environment,
+        currentProfileData: profile,
+        profiles: { [profile.id]: profile },
+      }),
+    },
+    { synchronous: true },
+  );
   return eventBus.emit("profile:switched", {
     fromProfile,
     toProfile: profile.id,

@@ -225,13 +225,26 @@ export function createVirtualProfile(profileId, profile, environment) {
 }
 
 /**
+ * Read a detached profile map from a ready, accepted state snapshot.
+ * Pre-ready and absent snapshots deliberately project the same empty state the
+ * legacy query responders exposed before coordinator initialization completed.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @returns {Record<string, ProfileData>}
+ */
+export function getSnapshotProfiles(snapshot) {
+  return snapshot?.ready ? clone(snapshot.profiles) : {};
+}
+
+/**
  * Read a detached canonical profile from a complete state snapshot.
  *
- * @param {DataStateSnapshot} snapshot
+ * @param {DataStateSnapshot | null | undefined} snapshot
  * @param {string | null | undefined} [profileId]
  * @returns {ProfileData | null}
  */
 export function getSnapshotProfile(snapshot, profileId = undefined) {
+  if (!snapshot?.ready) return null;
   const resolvedProfileId =
     profileId === undefined ? snapshot.currentProfile : profileId;
   if (!resolvedProfileId) return null;
@@ -308,4 +321,51 @@ export function getBindsetKeyCommands(profile, bindset, environment, key) {
   }
   const commands = build.keys[key];
   return Array.isArray(commands) ? clone(commands) : [];
+}
+
+/**
+ * Project one environment's primary key map directly from accepted state.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @param {string | null | undefined} environment
+ * @returns {Record<string, StoredCommand[]>}
+ */
+export function getSnapshotPrimaryKeys(snapshot, environment) {
+  return getPrimaryKeys(getSnapshotProfile(snapshot), environment);
+}
+
+/**
+ * Project one primary-bindset command list directly from accepted state.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @param {string | null | undefined} environment
+ * @param {string | null | undefined} key
+ * @returns {StoredCommand[]}
+ */
+export function getSnapshotPrimaryKeyCommands(snapshot, environment, key) {
+  return getPrimaryKeyCommands(getSnapshotProfile(snapshot), environment, key);
+}
+
+/**
+ * Project one named or primary bindset command list directly from accepted
+ * state. Returned commands are detached from the recursively frozen snapshot.
+ *
+ * @param {DataStateSnapshot | null | undefined} snapshot
+ * @param {string | null | undefined} bindset
+ * @param {string | null | undefined} environment
+ * @param {string | null | undefined} key
+ * @returns {StoredCommand[]}
+ */
+export function getSnapshotBindsetKeyCommands(
+  snapshot,
+  bindset,
+  environment = "space",
+  key,
+) {
+  return getBindsetKeyCommands(
+    getSnapshotProfile(snapshot),
+    bindset,
+    environment,
+    key,
+  );
 }

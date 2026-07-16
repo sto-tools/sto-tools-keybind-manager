@@ -4,6 +4,7 @@ import BindsetService from "../../src/js/components/services/BindsetService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import { request, respond } from "../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../fixtures/index.js";
+import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
 
 const profile = {
   id: "captain",
@@ -115,16 +116,31 @@ describe("BindsetService replacement ownership", () => {
 
     oldService = new BindsetService({ eventBus: fixture.eventBus });
     oldService.init();
-    oldService.cache.currentProfile = profile.id;
-    oldService.cache.profile = structuredClone(profile);
+    fixture.eventBus.emit(
+      "data:state-changed",
+      {
+        reason: "initial-load",
+        state: createDataCoordinatorState({ currentProfileData: profile }),
+      },
+      { synchronous: true },
+    );
     const oldCreate = vi.spyOn(oldService, "createBindset");
 
     oldService.destroy();
 
     replacementService = new BindsetService({ eventBus: fixture.eventBus });
     replacementService.init();
-    replacementService.cache.currentProfile = profile.id;
-    replacementService.cache.profile = structuredClone(profile);
+    fixture.eventBus.emit(
+      "data:state-changed",
+      {
+        reason: "initial-load",
+        state: createDataCoordinatorState({
+          authorityEpoch: 2,
+          currentProfileData: profile,
+        }),
+      },
+      { synchronous: true },
+    );
     const replacementCreate = vi.spyOn(replacementService, "createBindset");
 
     await expect(
@@ -170,6 +186,109 @@ describe("BindsetService replacement ownership", () => {
       "Primary Bindset",
       "Tactical",
     ]);
+  });
+
+  it("projects pre-ready state and then admits the ready revision from the same authority", () => {
+    fixture = createServiceFixture();
+    oldService = new BindsetService({ eventBus: fixture.eventBus });
+    oldService.init();
+    const changed = vi.fn();
+    fixture.eventBus.on("bindsets:changed", changed);
+
+    const loading = createDataCoordinatorState({
+      authorityEpoch: 10,
+      ready: false,
+      revision: 0,
+      currentProfileData: profileWithBindset("LoadingOnly"),
+    });
+    fixture.eventBus.emit(
+      "data:state-changed",
+      { reason: "initial-load", state: loading },
+      { synchronous: true },
+    );
+
+    expect(oldService.cache.bindsetNames).toEqual(["Primary Bindset"]);
+    expect(oldService._bindsetDataAuthorityEpoch).toBe(10);
+    expect(oldService._bindsetDataRevision).toBe(0);
+    expect(changed).not.toHaveBeenCalled();
+
+    const ready = createDataCoordinatorState({
+      authorityEpoch: 10,
+      ready: true,
+      revision: 1,
+      currentProfileData: profileWithBindset("Tactical"),
+    });
+    fixture.eventBus.emit(
+      "data:state-changed",
+      { reason: "initial-load", state: ready },
+      { synchronous: true },
+    );
+
+    expect(oldService.cache.bindsetNames).toEqual([
+      "Primary Bindset",
+      "Tactical",
+    ]);
+    expect(oldService._bindsetDataRevision).toBe(1);
+    expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it("tracks every accepted revision and emits only for an ordered name change", () => {
+    fixture = createServiceFixture();
+    oldService = new BindsetService({ eventBus: fixture.eventBus });
+    oldService.init();
+    const changed = vi.fn();
+    fixture.eventBus.on("bindsets:changed", changed);
+
+    const emitState = (revision, nextProfile) => {
+      fixture.eventBus.emit(
+        "data:state-changed",
+        {
+          reason: "profile-updated",
+          state: createDataCoordinatorState({
+            authorityEpoch: 20,
+            revision,
+            currentProfileData: nextProfile,
+          }),
+        },
+        { synchronous: true },
+      );
+    };
+
+    emitState(1, {
+      ...profileWithBindset("Tactical"),
+      bindsets: {
+        Tactical: profileWithBindset("Tactical").bindsets.Tactical,
+        Science: profileWithBindset("Science").bindsets.Science,
+      },
+    });
+    expect(changed).toHaveBeenCalledOnce();
+    changed.mockClear();
+
+    emitState(2, {
+      ...profileWithBindset("Tactical"),
+      description: "Property-only commit",
+      bindsets: {
+        Tactical: profileWithBindset("Tactical").bindsets.Tactical,
+        Science: profileWithBindset("Science").bindsets.Science,
+      },
+    });
+    expect(oldService._bindsetDataRevision).toBe(2);
+    expect(changed).not.toHaveBeenCalled();
+
+    emitState(3, {
+      ...profileWithBindset("Science"),
+      bindsets: {
+        Science: profileWithBindset("Science").bindsets.Science,
+        Tactical: profileWithBindset("Tactical").bindsets.Tactical,
+      },
+    });
+    expect(oldService.cache.bindsetNames).toEqual([
+      "Primary Bindset",
+      "Science",
+      "Tactical",
+    ]);
+    expect(oldService._bindsetDataRevision).toBe(3);
+    expect(changed).toHaveBeenCalledOnce();
   });
 
   it("adopts a replacement owner and rejects a delayed high-revision predecessor", async () => {

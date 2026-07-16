@@ -3,6 +3,10 @@ import { createRealServiceFixture } from "../fixtures";
 import AliasBrowserService from "../../src/js/components/services/AliasBrowserService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import CommandService from "../../src/js/components/services/CommandService.js";
+import {
+  getSnapshotPrimaryKeyCommands,
+  getSnapshotPrimaryKeys,
+} from "../../src/js/components/services/dataState.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import { STOCommandParser } from "../../src/js/lib/STOCommandParser.js";
 
@@ -90,19 +94,17 @@ describe("Regression: Import from Key or Alias request routing", () => {
     fixture.destroy();
   });
 
-  it("responds to data:get-keys without timing out", async () => {
-    const keys = await request(eventBus, "data:get-keys", {
-      environment: "space",
-    });
-    expect(keys).toHaveProperty("F1");
-  });
+  it("projects complete key state without compatibility query responders", () => {
+    expect(eventBus.hasListeners("rpc:data:get-keys")).toBe(false);
+    expect(eventBus.hasListeners("rpc:data:get-key-commands")).toBe(false);
 
-  it("responds to data:get-key-commands without timing out", async () => {
-    const commands = await request(eventBus, "data:get-key-commands", {
-      environment: "space",
-      key: "F1",
-    });
-    expect(commands).toEqual(["FireAll", "FirePhasers"]);
+    const snapshot = commandService.cache.dataState;
+    const keys = getSnapshotPrimaryKeys(snapshot, "space");
+    expect(keys).toHaveProperty("F1");
+    expect(getSnapshotPrimaryKeyCommands(snapshot, "space", "F1")).toEqual([
+      "FireAll",
+      "FirePhasers",
+    ]);
   });
 
   it("clears, persists, and broadcasts each imported command in order", async () => {

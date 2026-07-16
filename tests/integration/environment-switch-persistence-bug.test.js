@@ -54,7 +54,7 @@ describe("Environment Switch Selection Persistence Bug Fix", () => {
       description: testProfile.description,
     });
 
-    const profiles = await dataCoordinator.request("data:get-all-profiles");
+    const profiles = dataCoordinator.getCurrentState().profiles;
     const profileId = Object.keys(profiles).find(
       (id) => profiles[id].name === testProfile.name,
     );
@@ -133,7 +133,7 @@ describe("Environment Switch Selection Persistence Bug Fix", () => {
     );
 
     // CRITICAL CHECK: Verify that F2 was persisted to Space selections
-    const profiles = await dataCoordinator.request("data:get-all-profiles");
+    const profiles = dataCoordinator.getCurrentState().profiles;
     const currentProfileId = dataCoordinator.state.currentProfile;
     const currentProfile = profiles[currentProfileId];
     console.log(
@@ -182,9 +182,7 @@ describe("Environment Switch Selection Persistence Bug Fix", () => {
     }
 
     // Final verification: Check what's in the profile
-    const finalProfiles = await dataCoordinator.request(
-      "data:get-all-profiles",
-    );
+    const finalProfiles = dataCoordinator.getCurrentState().profiles;
     const finalProfileId = dataCoordinator.state.currentProfile;
     const finalProfile = finalProfiles[finalProfileId];
     console.log(

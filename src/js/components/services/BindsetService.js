@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import { getSnapshotProfile } from "./dataState.js";
 
 export default class BindsetService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus }} [options] */
@@ -8,6 +9,7 @@ export default class BindsetService extends ComponentBase {
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
     this._bindsetDataAuthorityEpoch = 0;
+    this._bindsetDataRevision = -1;
 
     // ComponentBase handles bindset names caching via this.cache.bindsetNames
   }
@@ -49,16 +51,6 @@ export default class BindsetService extends ComponentBase {
         ({ name } = /** @type {{ name?: string }} */ ({})) =>
           this.deleteBindset(name, true),
       ),
-      this.respond(
-        "bindset:get-key-commands",
-        (
-          {
-            bindset,
-            environment,
-            key,
-          } = /** @type {{ bindset?: string, environment?: string, key?: string }} */ ({}),
-        ) => this.getKeyCommands(bindset, environment, key),
-      ),
     );
   }
 
@@ -90,6 +82,7 @@ export default class BindsetService extends ComponentBase {
     this._responseDetachFunctions = [];
     this._listenersSetup = false;
     this._bindsetDataAuthorityEpoch = 0;
+    this._bindsetDataRevision = -1;
   }
 
   // Handle initial state from DataCoordinator
@@ -98,14 +91,7 @@ export default class BindsetService extends ComponentBase {
     const { sender, state } = reply;
     console.log("[BindsetService] handleInitialState called:", sender, !!state);
 
-    if (sender === "DataCoordinator" && state?.currentProfileData) {
-      console.log(
-        "[BindsetService] Received initial profile data from DataCoordinator",
-      );
-      this.adoptCoordinatorBindsetState(state);
-    } else if (sender === "DataCoordinator") {
-      this.adoptCoordinatorBindsetState(state);
-    }
+    if (sender === "DataCoordinator") this.adoptCoordinatorBindsetState(state);
   }
 
   // Broadcast / Cache integration
@@ -113,20 +99,6 @@ export default class BindsetService extends ComponentBase {
     // Prevent double registration in case constructor called twice in tests
     if (this._listenersSetup) return;
     this._listenersSetup = true;
-
-    // ComponentBase automatically handles profile and environment caching
-    // We only need to listen for these events to update our specific business logic
-    this.addEventListener("profile:updated", ({ profileId, profile }) => {
-      if (profileId === this.serviceCache.currentProfile) {
-        this.updateCacheFromProfile(profile);
-      }
-    });
-
-    // When profile switch happens
-    this.addEventListener("profile:switched", ({ profile }) => {
-      // ComponentBase handles currentProfile and currentEnvironment caching
-      this.updateCacheFromProfile(profile);
-    });
 
     this.addEventListener("data:state-changed", ({ state }) => {
       this.adoptCoordinatorBindsetState(state);
@@ -143,16 +115,18 @@ export default class BindsetService extends ComponentBase {
   adoptCoordinatorBindsetState(delivered) {
     const accepted = this.cache.dataState;
     if (
-      !accepted?.ready ||
+      !accepted ||
       accepted.authorityEpoch !== delivered.authorityEpoch ||
       accepted.revision !== delivered.revision ||
-      accepted.authorityEpoch === this._bindsetDataAuthorityEpoch
+      (accepted.authorityEpoch === this._bindsetDataAuthorityEpoch &&
+        accepted.revision === this._bindsetDataRevision)
     ) {
       return;
     }
 
     this._bindsetDataAuthorityEpoch = accepted.authorityEpoch;
-    this.updateCacheFromProfile(accepted.currentProfileData);
+    this._bindsetDataRevision = accepted.revision;
+    this.updateCacheFromProfile(getSnapshotProfile(accepted));
   }
 
   /** @param {import('./serviceTypes.js').ProfileData | null | undefined} profile */
@@ -163,37 +137,32 @@ export default class BindsetService extends ComponentBase {
       "id =",
       profile && profile.id,
     );
-    if (!profile) {
-      this.serviceCache.bindsetNames = ["Primary Bindset"];
-      this.emit("bindsets:changed", {
-        names: [...this.serviceCache.bindsetNames],
-      });
-      return;
-    }
-    // ComponentBase handles profile caching automatically
-    this.serviceCache.bindsetNames = [
+    const nextNames = [
       "Primary Bindset",
-      ...Object.keys(profile.bindsets || {}),
+      ...Object.keys(profile?.bindsets || {}),
     ];
+    const currentNames = this.serviceCache.bindsetNames;
+    const namesChanged =
+      currentNames.length !== nextNames.length ||
+      currentNames.some((name, index) => name !== nextNames[index]);
+    if (!namesChanged) return;
+
+    this.serviceCache.bindsetNames = nextNames;
     this.emit("bindsets:changed", {
       names: [...this.serviceCache.bindsetNames],
     });
   }
 
-  // Return cached profile when available; fallback to request on first call
-  async getProfile() {
-    if (this.serviceCache.profile) return this.serviceCache.profile;
-    // Fallback: ask DataCoordinator for current state (includes profile data)
-    const state =
-      /** @type {{ currentProfileData?: import('./serviceTypes.js').ProfileData } | null} */ (
-        await this.request("data:get-current-state").catch(() => null)
-      );
-    const prof = state?.currentProfileData || null;
-    if (prof) {
-      // ComponentBase handles currentProfile caching automatically
-      this.updateCacheFromProfile(prof);
-    }
-    return prof;
+  /** @returns {import('./serviceTypes.js').ProfileData | null} */
+  getProfile() {
+    return getSnapshotProfile(this.cache.dataState);
+  }
+
+  /** @returns {string | null} */
+  getProfileId() {
+    return this.cache.dataState?.ready
+      ? this.cache.dataState.currentProfile
+      : null;
   }
 
   /**
@@ -203,8 +172,8 @@ export default class BindsetService extends ComponentBase {
   async createBindset(name) {
     if (!name || name === "Primary Bindset")
       return { success: false, error: "invalid_name" };
-    const profile = await this.getProfile();
-    const profileId = profile?.id || this.serviceCache.currentProfile;
+    const profile = this.getProfile();
+    const profileId = this.getProfileId();
     console.log(
       "[BindsetService] createBindset: profile =",
       profile,
@@ -236,12 +205,6 @@ export default class BindsetService extends ComponentBase {
       profileId,
       updates,
     });
-    if (res?.success) {
-      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
-      this.emit("bindsets:changed", {
-        names: [...this.serviceCache.bindsetNames],
-      });
-    }
     return res;
   }
 
@@ -256,8 +219,8 @@ export default class BindsetService extends ComponentBase {
     if (targetBindset === "Primary Bindset")
       return { success: false, error: "invalid_name" };
 
-    const profile = await this.getProfile();
-    const profileId = profile?.id || this.serviceCache.currentProfile;
+    const profile = this.getProfile();
+    const profileId = this.getProfileId();
     console.log(
       "[BindsetService] cloneBindset: profile =",
       profile,
@@ -308,12 +271,6 @@ export default class BindsetService extends ComponentBase {
       profileId,
       updates,
     });
-    if (res?.success) {
-      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
-      this.emit("bindsets:changed", {
-        names: [...this.serviceCache.bindsetNames],
-      });
-    }
     return res;
   }
 
@@ -331,14 +288,14 @@ export default class BindsetService extends ComponentBase {
     ) {
       return { success: false, error: "invalid_name" };
     }
-    const profile = await this.getProfile();
+    const profile = this.getProfile();
     if (!profile || !profile.bindsets || !profile.bindsets[oldName]) {
       return { success: false, error: "not_found" };
     }
     if (profile.bindsets[newName]) {
       return { success: false, error: "name_exists" };
     }
-    const profileId = profile.id || this.serviceCache.currentProfile;
+    const profileId = this.getProfileId();
     if (!profileId) {
       return { success: false, error: "no_profile" };
     }
@@ -367,12 +324,6 @@ export default class BindsetService extends ComponentBase {
       profileId,
       updates,
     });
-    if (res?.success) {
-      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
-      this.emit("bindsets:changed", {
-        names: [...this.serviceCache.bindsetNames],
-      });
-    }
     return res;
   }
 
@@ -395,9 +346,9 @@ export default class BindsetService extends ComponentBase {
   async deleteBindset(name, force = false) {
     if (!name || name === "Primary Bindset")
       return { success: false, error: "invalid_name" };
-    const profile = await this.getProfile();
+    const profile = this.getProfile();
     if (!profile) return { success: false, error: "no_profile" };
-    const profileId = profile.id || this.serviceCache.currentProfile;
+    const profileId = this.getProfileId();
     if (!profileId) return { success: false, error: "no_profile" };
     const target = profile.bindsets?.[name];
     if (!target) return { success: false, error: "not_found" };
@@ -421,75 +372,6 @@ export default class BindsetService extends ComponentBase {
       profileId,
       updates,
     });
-    if (res?.success) {
-      // Update cached names and broadcast (cache already updated by updateCacheFromProfile)
-      this.emit("bindsets:changed", {
-        names: [...this.serviceCache.bindsetNames],
-      });
-    }
     return res;
-  }
-
-  /**
-   * @param {string | undefined} bindset
-   * @param {string} environment
-   * @param {string | undefined} key
-   */
-  async getKeyCommands(bindset, environment = "space", key) {
-    console.log(
-      `[BindsetService] *** getKeyCommands called: bindset=${bindset}, environment=${environment}, key=${key} ***`,
-    );
-
-    if (!key) {
-      console.log(
-        `[BindsetService] *** No key provided, returning empty array ***`,
-      );
-      return [];
-    }
-
-    // Always fetch the latest profile snapshot from DataCoordinator to avoid
-    // stale cache issues when bindsets are modified by other services.
-    console.log(`[BindsetService] *** Requesting data:get-current-state ***`);
-    const state =
-      /** @type {{ currentProfile?: string, profiles?: Record<string, import('./serviceTypes.js').ProfileData> } | null} */ (
-        await this.request("data:get-current-state").catch((error) => {
-          console.error(
-            `[BindsetService] *** Failed to get current state: ***`,
-            error,
-          );
-          return null;
-        })
-      );
-
-    const profileId = state?.currentProfile;
-    const profile =
-      profileId && state?.profiles ? state.profiles[profileId] : null;
-
-    console.log(
-      `[BindsetService] *** Profile data retrieved: profileId=${profileId}, hasProfile=${!!profile} ***`,
-    );
-
-    if (!profile) {
-      console.log(
-        `[BindsetService] *** No profile data, returning empty array ***`,
-      );
-      return [];
-    }
-
-    if (!bindset || bindset === "Primary Bindset") {
-      const cmds = profile.builds?.[environment]?.keys?.[key] || [];
-      console.log(
-        `[BindsetService] *** Primary bindset commands for key ${key}:`,
-        cmds,
-      );
-      return Array.isArray(cmds) ? [...cmds] : [];
-    }
-
-    const cmds = profile.bindsets?.[bindset]?.[environment]?.keys?.[key] || [];
-    console.log(
-      `[BindsetService] *** Bindset "${bindset}" commands for key ${key}:`,
-      cmds,
-    );
-    return Array.isArray(cmds) ? [...cmds] : [];
   }
 }

@@ -6,7 +6,11 @@ import {
   getBindsetKeyCommands,
   getPrimaryKeyCommands,
   getPrimaryKeys,
+  getSnapshotBindsetKeyCommands,
+  getSnapshotPrimaryKeyCommands,
+  getSnapshotPrimaryKeys,
   getSnapshotProfile,
+  getSnapshotProfiles,
   immutableDataStateSnapshot,
 } from "../../../src/js/components/services/dataState.js";
 
@@ -238,6 +242,30 @@ describe("data-state projections", () => {
     expect(snapshot.profiles.captain.name).toBe("Captain");
   });
 
+  it("projects only ready profile state and returns detached maps", () => {
+    const state = createCoordinatorState();
+    const loading = createDataStateSnapshot(state, {
+      authorityEpoch: 1,
+      ready: false,
+      revision: 0,
+    });
+    const ready = createDataStateSnapshot(state, {
+      authorityEpoch: 1,
+      ready: true,
+      revision: 1,
+    });
+
+    expect(getSnapshotProfiles(null)).toEqual({});
+    expect(getSnapshotProfiles(loading)).toEqual({});
+    expect(getSnapshotProfile(loading)).toBeNull();
+
+    const profiles = getSnapshotProfiles(ready);
+    expect(profiles).toEqual(ready.profiles);
+    expect(profiles).not.toBe(ready.profiles);
+    profiles.captain.name = "Local change";
+    expect(ready.profiles.captain.name).toBe("Captain");
+  });
+
   it("projects detached primary keys without applying a named bindset", () => {
     const profile = createProfile();
 
@@ -285,5 +313,51 @@ describe("data-state projections", () => {
     const commands = getBindsetKeyCommands(profile, "Weapons", "space", "F1");
     commands.push("Changed locally");
     expect(profile.bindsets.Weapons.space.keys.F1).toEqual(["FirePhasers"]);
+  });
+
+  it("projects detached primary and named-bindset data from accepted snapshots", () => {
+    const state = createCoordinatorState();
+    state.profiles.captain.builds.space.keys.Legacy = "FireAll";
+    const snapshot = createDataStateSnapshot(state, {
+      authorityEpoch: 4,
+      ready: true,
+      revision: 9,
+    });
+
+    const keys = getSnapshotPrimaryKeys(snapshot, "space");
+    const primary = getSnapshotPrimaryKeyCommands(snapshot, "space", "F1");
+    const named = getSnapshotBindsetKeyCommands(
+      snapshot,
+      "Weapons",
+      "space",
+      "F1",
+    );
+
+    expect(keys).toEqual(snapshot.profiles.captain.builds.space.keys);
+    expect(primary).toEqual(snapshot.profiles.captain.builds.space.keys.F1);
+    expect(named).toEqual(["FirePhasers"]);
+    expect(
+      getSnapshotBindsetKeyCommands(snapshot, "Weapons", undefined, "F1"),
+    ).toEqual(["FirePhasers"]);
+    expect(getSnapshotPrimaryKeyCommands(snapshot, "space", "Legacy")).toEqual(
+      [],
+    );
+    expect(
+      getSnapshotBindsetKeyCommands(snapshot, "Missing", "space", "F1"),
+    ).toEqual([]);
+    expect(getSnapshotPrimaryKeys(null, "space")).toEqual({});
+    expect(getSnapshotPrimaryKeyCommands(null, "space", "F1")).toEqual([]);
+    expect(
+      getSnapshotBindsetKeyCommands(null, "Weapons", "space", "F1"),
+    ).toEqual([]);
+
+    primary[1].command = "Local change";
+    named.push("Local change");
+    expect(snapshot.profiles.captain.builds.space.keys.F1[1].command).toBe(
+      "Target_Enemy_Near",
+    );
+    expect(snapshot.profiles.captain.bindsets.Weapons.space.keys.F1).toEqual([
+      "FirePhasers",
+    ]);
   });
 });

@@ -14,8 +14,6 @@ class DataStateConsumer extends ComponentBase {
 }
 
 const coordinatorTopics = [
-  "data:get-current-state",
-  "data:get-all-profiles",
   "data:switch-profile",
   "data:create-profile",
   "data:clone-profile",
@@ -26,6 +24,11 @@ const coordinatorTopics = [
   "data:update-settings",
   "data:load-default-data",
   "data:reload-state",
+];
+
+const retiredProjectionTopics = [
+  "data:get-current-state",
+  "data:get-all-profiles",
   "data:get-keys",
   "data:get-key-commands",
 ];
@@ -115,6 +118,10 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     fixture.storage.saveProfile.mockClear();
     fixture.storage.deleteProfile.mockClear();
     fixture.storage.saveSettings.mockClear();
+
+    for (const topic of retiredProjectionTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
+    }
 
     coordinator.destroy();
 

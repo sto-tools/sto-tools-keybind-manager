@@ -1,6 +1,7 @@
 // Integration test for VFX virtual alias loading on page reload
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import VFXManagerService from "../../../src/js/components/services/VFXManagerService.js";
 import CommandLibraryService from "../../../src/js/components/services/CommandLibraryService.js";
 
@@ -76,10 +77,12 @@ describe("VFX Virtual Alias Loading on Page Reload", () => {
     // Clear captured events
     capturedEvents.length = 0;
 
-    // Simulate profile being loaded (emitted by DataCoordinator)
-    harness.eventBus.emit("profile:switched", {
-      profileId: "test_profile",
-      profile: profileWithVFX,
+    // Simulate the authoritative profile snapshot published by DataCoordinator.
+    harness.eventBus.emit("data:state-changed", {
+      reason: "profile-switched",
+      state: createDataCoordinatorState({
+        currentProfileData: profileWithVFX,
+      }),
     });
 
     // Wait for async operations
@@ -143,9 +146,11 @@ describe("VFX Virtual Alias Loading on Page Reload", () => {
     capturedEvents.length = 0;
 
     // Simulate profile being loaded
-    harness.eventBus.emit("profile:switched", {
-      profileId: "test_profile",
-      profile: profileWithEmptyVFX,
+    harness.eventBus.emit("data:state-changed", {
+      reason: "profile-switched",
+      state: createDataCoordinatorState({
+        currentProfileData: profileWithEmptyVFX,
+      }),
     });
 
     // Wait for async operations
@@ -180,9 +185,11 @@ describe("VFX Virtual Alias Loading on Page Reload", () => {
     capturedEvents.length = 0;
 
     // Simulate profile being loaded
-    harness.eventBus.emit("profile:switched", {
-      profileId: "test_profile",
-      profile: profileWithoutVFX,
+    harness.eventBus.emit("data:state-changed", {
+      reason: "profile-switched",
+      state: createDataCoordinatorState({
+        currentProfileData: profileWithoutVFX,
+      }),
     });
 
     // Wait for async operations

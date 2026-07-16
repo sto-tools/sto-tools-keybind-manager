@@ -1,4 +1,5 @@
 import UIComponentBase from "../UIComponentBase.js";
+import { getSnapshotProfile } from "../services/dataState.js";
 import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 
 /** @typedef {'keybinds' | 'aliases' | 'kbf'} ImportType */
@@ -6,7 +7,6 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 /** @typedef {'merge_keep' | 'merge_overwrite' | 'overwrite_all'} ImportStrategy */
 /** @typedef {{ bindsetsEnabled?: boolean }} ImportContext */
 /** @typedef {{ environment: ImportEnvironment, strategy: ImportStrategy }} EnvironmentImportConfig */
-/** @typedef {{ currentProfile: string | null, currentEnvironment: string }} ImportState */
 /**
  * @typedef {{
  *   valid: true,
@@ -75,23 +75,15 @@ export default class ImportUI extends UIComponentBase {
    *   eventBus?: import('./uiTypes.js').EventBus,
    *   document?: Document,
    *   i18n?: import('./uiTypes.js').I18nLike,
-   *   modalManager?: import('./uiTypes.js').ModalManagerLike | null,
-   *   storage?: import('../services/StorageService.js').default | null
+   *   modalManager?: import('./uiTypes.js').ModalManagerLike | null
    * }} [options]
    */
-  constructor({
-    eventBus,
-    document,
-    i18n,
-    modalManager = null,
-    storage = null,
-  } = {}) {
+  constructor({ eventBus, document, i18n, modalManager = null } = {}) {
     super(eventBus);
     this.componentName = "ImportUI";
     this.document = resolveDocument(document);
     this.i18n = resolveI18n(i18n);
     this.modalManager = modalManager;
-    this.storage = storage;
 
     // Store current modal data for regeneration
     /** @type {ImportModalState | null} */
@@ -149,16 +141,21 @@ export default class ImportUI extends UIComponentBase {
         try {
           const content =
             typeof reader.result === "string" ? reader.result : "";
-          /** @type {ImportState} */
-          const state = await this.request("data:get-current-state");
-          const profileId = state.currentProfile;
-          const getProfile = () => this.storage?.getProfile?.(profileId || "");
+          // Capture one accepted authority snapshot for the complete import
+          // decision. Profile, environment, and overwrite counts must not come
+          // from independently timed reads.
+          const dataState = this.cache.dataState;
+          const profileId = dataState?.ready ? dataState.currentProfile : null;
+          const currentEnvironment = dataState?.ready
+            ? dataState.currentEnvironment
+            : "space";
+          const profile = getSnapshotProfile(dataState, profileId);
           /** @type {ImportResult | undefined} */
           let result;
           if (type === "keybinds") {
             // Ask user which environment to import into and what strategy to use
             const importConfig = await this.promptEnvironment(
-              state.currentEnvironment || "space",
+              currentEnvironment,
               "keybinds",
             );
             if (!importConfig) return; // user cancelled
@@ -167,7 +164,7 @@ export default class ImportUI extends UIComponentBase {
             if (importConfig.strategy === "overwrite_all") {
               // Get current key count for the environment
               const currentKeys = Object.keys(
-                getProfile()?.builds?.[importConfig.environment]?.keys || {},
+                profile?.builds?.[importConfig.environment]?.keys || {},
               ).length;
 
               if (currentKeys > 0) {
@@ -193,7 +190,7 @@ export default class ImportUI extends UIComponentBase {
 
             // Ask user which environment to import into and what strategy to use
             const importConfig = await this.promptEnvironment(
-              state.currentEnvironment || "space",
+              currentEnvironment,
               "kbf",
               { bindsetsEnabled }, // Pass context for better descriptions
             );
@@ -238,9 +235,7 @@ export default class ImportUI extends UIComponentBase {
             // Check for overwrite confirmation if strategy is overwrite_all
             if (strategy === "overwrite_all") {
               // Get current alias count
-              const currentAliases = Object.keys(
-                getProfile()?.aliases || {},
-              ).length;
+              const currentAliases = Object.keys(profile?.aliases || {}).length;
 
               if (currentAliases > 0) {
                 const confirmed = await this.showOverwriteConfirmation(

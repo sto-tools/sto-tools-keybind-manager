@@ -48,6 +48,30 @@ describe("SelectionService", () => {
     service.selectionEnvironment = "space";
   });
 
+  function hydrateProfileKeys(
+    spaceKeys,
+    groundKeys = {},
+    { ready = true } = {},
+  ) {
+    const profile = {
+      id: "test-profile",
+      builds: {
+        space: { keys: spaceKeys },
+        ground: { keys: groundKeys },
+      },
+      aliases: service.cache.aliases,
+    };
+    service._cacheDataState(
+      createDataCoordinatorState({
+        ready,
+        revision: ready ? 1 : 0,
+        currentProfile: ready ? "test-profile" : null,
+        currentProfileData: ready ? profile : null,
+        profiles: ready ? { "test-profile": profile } : {},
+      }),
+    );
+  }
+
   describe("Initialization", () => {
     it("should initialize with correct default state", () => {
       expect(service.cache.selectedKey).toBe(null);
@@ -174,11 +198,7 @@ describe("SelectionService", () => {
     });
 
     it("should emit when manual selection repeats an auto-selected key", async () => {
-      service.cache.builds = {
-        space: { keys: { F1: [{ command: "TestCommand" }] } },
-        ground: { keys: {} },
-      };
-      service.cache.keys = { F1: [{ command: "TestCommand" }] };
+      hydrateProfileKeys({ F1: [{ command: "TestCommand" }] });
 
       await service.autoSelectFirst("space");
 
@@ -410,47 +430,6 @@ describe("SelectionService", () => {
             e.data.source === "SelectionService",
         ),
       ).toBe(true);
-    });
-  });
-
-  describe("Auto-selection", () => {
-    it("should auto-select first key in key environment", async () => {
-      service.request.mockResolvedValueOnce({ F1: [], F2: [] });
-
-      const result = await service.autoSelectFirst("space");
-
-      expect(result).toBe("F1");
-      expect(service.cache.selectedKey).toBe("F1");
-      expect(service.request).toHaveBeenCalledWith("data:get-keys", {
-        environment: "space",
-      });
-    });
-
-    it("should auto-select first alias in alias environment", async () => {
-      service.cache.aliases = { Alias1: {}, Alias2: {} };
-
-      const result = await service.autoSelectFirst("alias");
-
-      expect(result).toBe("Alias1");
-      expect(service.cache.selectedAlias).toBe("Alias1");
-      expect(service.request).not.toHaveBeenCalledWith("data:get-aliases");
-    });
-
-    it("should return null when no items available for auto-selection", async () => {
-      service.request.mockResolvedValueOnce({});
-
-      const result = await service.autoSelectFirst("space");
-
-      expect(result).toBe(null);
-      expect(service.cache.selectedKey).toBe(null);
-    });
-
-    it("should handle auto-selection errors gracefully", async () => {
-      service.request.mockRejectedValueOnce(new Error("Data service error"));
-
-      const result = await service.autoSelectFirst("space");
-
-      expect(result).toBe(null);
     });
   });
 

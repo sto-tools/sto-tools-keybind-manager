@@ -1,4 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import CommandChainService from "../../../src/js/components/services/CommandChainService.js";
@@ -17,6 +18,12 @@ function baseProfile() {
       ground: { keys: {} },
     },
     aliases: {},
+    bindsets: {
+      Weapons: {
+        space: { keys: { F1: ["FirePhasers", "FireTorpedoes"] } },
+        ground: { keys: {} },
+      },
+    },
   };
 }
 
@@ -44,6 +51,15 @@ describe("CommandChainService", () => {
       profileId: profile.id,
       profile,
       environment: "space",
+    });
+    eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        currentProfile: profile.id,
+        currentEnvironment: "space",
+        currentProfileData: profile,
+        profiles: { [profile.id]: profile },
+      }),
     });
   });
 
@@ -79,6 +95,41 @@ describe("CommandChainService", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(spy).toHaveBeenCalled();
+  });
+
+  it("reads named-bindset commands from the accepted snapshot", async () => {
+    service.cache.selectedKey = "F1";
+    service.cache.activeBindset = "Weapons";
+    const requestSpy = vi.spyOn(service, "request");
+
+    const commands = await service.getCommandsForSelectedKey();
+
+    expect(commands).toEqual(["FirePhasers", "FireTorpedoes"]);
+    commands.push("consumer mutation");
+    expect(
+      service.cache.dataState.profiles.profile1.bindsets.Weapons.space.keys.F1,
+    ).toEqual(["FirePhasers", "FireTorpedoes"]);
+    expect(requestSpy).not.toHaveBeenCalledWith(
+      "bindset:get-key-commands",
+      expect.anything(),
+    );
+  });
+
+  it("keeps the empty fallback before a ready data snapshot", async () => {
+    service.cache.dataState = createDataCoordinatorState({
+      authorityEpoch: 2,
+      ready: false,
+      revision: 0,
+    });
+    service.cache.selectedKey = "F1";
+    service.cache.activeBindset = "Weapons";
+    const requestSpy = vi.spyOn(service, "request");
+
+    await expect(service.getCommandsForSelectedKey()).resolves.toEqual([]);
+    expect(requestSpy).not.toHaveBeenCalledWith(
+      "bindset:get-key-commands",
+      expect.anything(),
+    );
   });
 });
 

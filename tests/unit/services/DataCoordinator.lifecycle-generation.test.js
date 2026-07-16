@@ -32,8 +32,6 @@ const mutationEvents = new Set([
 ]);
 
 const responderTopics = [
-  "data:get-current-state",
-  "data:get-all-profiles",
   "data:switch-profile",
   "data:create-profile",
   "data:clone-profile",
@@ -44,6 +42,11 @@ const responderTopics = [
   "data:update-settings",
   "data:load-default-data",
   "data:reload-state",
+];
+
+const retiredProjectionTopics = [
+  "data:get-current-state",
+  "data:get-all-profiles",
   "data:get-keys",
   "data:get-key-commands",
 ];
@@ -149,6 +152,9 @@ describe("DataCoordinator lifecycle generation", () => {
     for (const topic of responderTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(true);
     }
+    for (const topic of retiredProjectionTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
+    }
 
     for (let cycle = 0; cycle < 2; cycle += 1) {
       const revisionBefore = coordinator.getCurrentState().revision;
@@ -168,6 +174,9 @@ describe("DataCoordinator lifecycle generation", () => {
       });
       for (const topic of responderTopics) {
         expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(true);
+      }
+      for (const topic of retiredProjectionTopics) {
+        expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
       }
 
       await expect(

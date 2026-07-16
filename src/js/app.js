@@ -452,7 +452,6 @@ export default class STOToolsKeybindManager {
         document,
         i18n: this.i18n,
         modalManager: this.modalManagerService,
-        storage: storageService,
       });
       this.importUI.init();
 

@@ -49,9 +49,16 @@ describe("DataCoordinator Service", () => {
       expect(dataCoordinator.componentName).toBe("DataCoordinator");
     });
 
-    it("does not register the retired settings snapshot RPC", async () => {
-      expect(mockEventBus.hasListeners("rpc:data:get-settings")).toBe(false);
-      await expect(dataCoordinator.getSettings()).resolves.toEqual({});
+    it("does not register retired state projection RPCs", () => {
+      for (const topic of [
+        "data:get-settings",
+        "data:get-current-state",
+        "data:get-all-profiles",
+        "data:get-keys",
+        "data:get-key-commands",
+      ]) {
+        expect(mockEventBus.hasListeners(`rpc:${topic}`)).toBe(false);
+      }
     });
 
     it("should initialize with empty state", () => {
@@ -142,15 +149,16 @@ describe("DataCoordinator Service", () => {
       });
     });
 
-    it("should return all profiles", async () => {
+    it("includes a detached complete profile map in its state snapshot", () => {
       dataCoordinator.state.profiles = {
         profile1: { name: "Profile 1" },
         profile2: { name: "Profile 2" },
       };
 
-      const profiles = await dataCoordinator.getAllProfiles();
+      const snapshot = dataCoordinator.getCurrentState();
 
-      expect(profiles).toEqual(dataCoordinator.state.profiles);
+      expect(snapshot.profiles).toEqual(dataCoordinator.state.profiles);
+      expect(snapshot.profiles).not.toBe(dataCoordinator.state.profiles);
     });
 
     it("should return current profile data in state", () => {
@@ -312,12 +320,13 @@ describe("DataCoordinator Service", () => {
   });
 
   describe("Settings Management", () => {
-    it("should get settings", async () => {
+    it("includes detached settings in its complete state snapshot", () => {
       dataCoordinator.state.settings = { theme: "dark", language: "en" };
 
-      const settings = await dataCoordinator.getSettings();
+      const snapshot = dataCoordinator.getCurrentState();
 
-      expect(settings).toEqual({ theme: "dark", language: "en" });
+      expect(snapshot.settings).toEqual({ theme: "dark", language: "en" });
+      expect(snapshot.settings).not.toBe(dataCoordinator.state.settings);
     });
 
     it("should update settings", async () => {

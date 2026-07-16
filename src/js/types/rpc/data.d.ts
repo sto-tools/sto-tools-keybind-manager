@@ -11,9 +11,7 @@ import type {
   ResponderOnlyOptionalRpc,
   ResponderOnlyRequiredRpc,
   Settings,
-  StoredCommand,
 } from "./base.js";
-import type { DataCoordinatorStateSnapshot } from "../events/component-state.js";
 
 export type ProfileCreatedResult = {
   success: true;
@@ -28,8 +26,6 @@ export type ProfileSwitchResult = {
   message: string;
   profile: Profile | null;
 };
-
-export type CurrentDataState = DataCoordinatorStateSnapshot;
 
 type ExistingProfileUpdateRequest = {
   profileId: string;
@@ -90,7 +86,6 @@ export interface DataRpcProtocol {
     (CommandDefinition & { categoryId: string; commandId: string }) | null
   >;
   "data:get-alias-name-pattern": ResponderOnlyNoPayloadRpc<RegExp>;
-  "data:get-all-profiles": NoPayloadRpc<Record<string, Profile>>;
   "data:get-combat-category": ResponderOnlyNoPayloadRpc<CommandCategory | null>;
   "data:get-command-category": ResponderOnlyOptionalRpc<
     { categoryId?: string },
@@ -102,21 +97,12 @@ export interface DataRpcProtocol {
   >;
   "data:get-commands": NoPayloadRpc<Record<string, CommandCategory>>;
   "data:get-communication-category": ResponderOnlyNoPayloadRpc<CommandCategory | null>;
-  "data:get-current-state": NoPayloadRpc<CurrentDataState>;
   "data:get-default-profile": ResponderOnlyOptionalRpc<
     { profileId?: string },
     Profile | null
   >;
   "data:get-default-profiles": NoPayloadRpc<Record<string, Profile>>;
-  "data:get-key-commands": OptionalRpc<
-    { environment?: string; key?: string },
-    StoredCommand[]
-  >;
   "data:get-key-name-pattern": NoPayloadRpc<string>;
-  "data:get-keys": OptionalRpc<
-    { environment?: string },
-    Record<string, StoredCommand[]>
-  >;
   "data:get-tray-category": ResponderOnlyNoPayloadRpc<CommandCategory | null>;
   "data:get-validation-patterns": ResponderOnlyNoPayloadRpc<{
     keyNamePattern?: string;

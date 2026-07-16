@@ -5,6 +5,11 @@ import {
 } from "../../lib/commandDisplayAdapter.js";
 import { formatAliasLine } from "../../lib/STOFormatter.js";
 import { clearImportTarget } from "./commandImportPayload.js";
+import {
+  getSnapshotBindsetKeyCommands,
+  getSnapshotPrimaryKeyCommands,
+  getSnapshotPrimaryKeys,
+} from "./dataState.js";
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -668,17 +673,18 @@ export default class CommandService extends ComponentBase {
       }
       const useBindset = bindset && bindset !== "Primary Bindset";
       if (useBindset) {
-        const cmds = await this.request("bindset:get-key-commands", {
+        return getSnapshotBindsetKeyCommands(
+          this.cache.dataState,
           bindset,
-          environment: this.cache.currentEnvironment,
+          this.cache.currentEnvironment,
           key,
-        });
-        return Array.isArray(cmds) ? cmds : [];
+        );
       }
-      return await this.request("data:get-key-commands", {
-        environment: this.cache.currentEnvironment,
+      return getSnapshotPrimaryKeyCommands(
+        this.cache.dataState,
+        this.cache.currentEnvironment,
         key,
-      });
+      );
     } catch {
       return [];
     }
@@ -919,14 +925,14 @@ export default class CommandService extends ComponentBase {
       this.cache.activeBindset &&
       this.cache.activeBindset !== "Primary Bindset"
     ) {
-      // Fetch latest commands from BindsetService (avoids stale cache)
-      const commands = await this.request("bindset:get-key-commands", {
-        bindset: this.cache.activeBindset,
+      const commands = getSnapshotBindsetKeyCommands(
+        this.cache.dataState,
+        this.cache.activeBindset,
         environment,
-        key: selectedKey,
-      });
+        selectedKey,
+      );
       console.log(
-        "[CommandService] Using active bindset via service lookup:",
+        "[CommandService] Using active bindset from accepted snapshot:",
         this.cache.activeBindset,
         "commands:",
         commands,
@@ -1282,8 +1288,7 @@ export default class CommandService extends ComponentBase {
         // In alias mode, show keys from all environments and other aliases
 
         // Add space keys
-        const spaceKeys =
-          (await this.request("data:get-keys", { environment: "space" })) || {};
+        const spaceKeys = getSnapshotPrimaryKeys(this.cache.dataState, "space");
         Object.keys(spaceKeys).forEach((key) => {
           if (Object.keys(spaceKeys[key] || {}).length > 0) {
             // Only show keys with commands
@@ -1296,9 +1301,10 @@ export default class CommandService extends ComponentBase {
         });
 
         // Add ground keys
-        const groundKeys =
-          (await this.request("data:get-keys", { environment: "ground" })) ||
-          {};
+        const groundKeys = getSnapshotPrimaryKeys(
+          this.cache.dataState,
+          "ground",
+        );
         Object.keys(groundKeys).forEach((key) => {
           if (Object.keys(groundKeys[key] || {}).length > 0) {
             // Only show keys with commands
@@ -1326,8 +1332,7 @@ export default class CommandService extends ComponentBase {
         // In key mode, show keys from both environments and aliases
 
         // Add space keys
-        const spaceKeys =
-          (await this.request("data:get-keys", { environment: "space" })) || {};
+        const spaceKeys = getSnapshotPrimaryKeys(this.cache.dataState, "space");
         Object.keys(spaceKeys).forEach((key) => {
           const isCurrentKey =
             currentEnvironment === "space" && key === currentKey;
@@ -1342,9 +1347,10 @@ export default class CommandService extends ComponentBase {
         });
 
         // Add ground keys
-        const groundKeys =
-          (await this.request("data:get-keys", { environment: "ground" })) ||
-          {};
+        const groundKeys = getSnapshotPrimaryKeys(
+          this.cache.dataState,
+          "ground",
+        );
         Object.keys(groundKeys).forEach((key) => {
           const isCurrentKey =
             currentEnvironment === "ground" && key === currentKey;
@@ -1428,11 +1434,11 @@ export default class CommandService extends ComponentBase {
         }
       } else {
         // Get commands from key
-        sourceCommands =
-          (await this.request("data:get-key-commands", {
-            environment: sourceType,
-            key: sourceName,
-          })) || [];
+        sourceCommands = getSnapshotPrimaryKeyCommands(
+          this.cache.dataState,
+          sourceType,
+          sourceName,
+        );
       }
 
       if (sourceCommands.length === 0) {

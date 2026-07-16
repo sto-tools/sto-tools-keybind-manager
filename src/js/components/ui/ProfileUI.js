@@ -1,4 +1,5 @@
 import UIComponentBase from "../UIComponentBase.js";
+import { getSnapshotProfiles } from "../services/dataState.js";
 import {
   errorMessage,
   eventElement,
@@ -104,7 +105,6 @@ export default class ProfileUI extends UIComponentBase {
     this.addEventListener("profile:switched", () => {
       // ComponentBase handles caching automatically
       this._isModified = false; // new profile starts clean
-      this.renderProfiles();
       this.updateProfileInfo();
     });
 
@@ -122,6 +122,23 @@ export default class ProfileUI extends UIComponentBase {
     this.addEventListener("current-profile:updated", () => {
       // ComponentBase handles caching automatically
       this.updateProfileInfo();
+    });
+
+    this.addEventListener("data:state-changed", ({ reason, state }) => {
+      if (reason === "environment-changed" || reason === "settings-updated") {
+        return;
+      }
+
+      const accepted = this.cache.dataState;
+      if (
+        !accepted ||
+        accepted.authorityEpoch !== state.authorityEpoch ||
+        accepted.revision !== state.revision
+      ) {
+        return;
+      }
+
+      void this.renderProfiles();
     });
   }
 
@@ -142,13 +159,14 @@ export default class ProfileUI extends UIComponentBase {
     }
   }
 
-  // Render the profiles dropdown - using DataCoordinator directly
+  // Render the profiles dropdown from the accepted coordinator snapshot.
   async renderProfiles() {
     const select = this.document.getElementById("profileSelect");
     if (!select) return;
 
-    // Use DataCoordinator directly for better performance
-    const profiles = await this.request("data:get-all-profiles");
+    const dataState = this.cache.dataState;
+    const profiles = getSnapshotProfiles(dataState);
+    const currentProfile = dataState?.ready ? dataState.currentProfile : null;
     select.innerHTML = "";
 
     const profileEntries = Object.entries(profiles || {});
@@ -163,7 +181,7 @@ export default class ProfileUI extends UIComponentBase {
         const option = this.document.createElement("option");
         option.value = id;
         option.textContent = profile.name || id;
-        if (id === this.cache.currentProfile) {
+        if (id === currentProfile) {
           option.selected = true;
         }
         select.appendChild(option);
@@ -343,7 +361,6 @@ export default class ProfileUI extends UIComponentBase {
             await this.request("data:switch-profile", {
               profileId: result.profileId,
             });
-            await this.renderProfiles();
             // Key grid will be updated automatically via events
             this.updateProfileInfo();
             this.showToast(result.message, "success");
@@ -365,7 +382,6 @@ export default class ProfileUI extends UIComponentBase {
             newName: name,
           });
           if (result?.success) {
-            await this.renderProfiles();
             this.showToast(result.message, "success");
           }
           break;
@@ -386,7 +402,6 @@ export default class ProfileUI extends UIComponentBase {
             description,
           });
           if (result?.success) {
-            await this.renderProfiles();
             this.updateProfileInfo();
             this.showToast(
               result.message || this.i18n.t("profile_renamed"),
@@ -449,7 +464,6 @@ export default class ProfileUI extends UIComponentBase {
           // Command chain rendering is now handled by CommandChainUI via events
           this.updateProfileInfo();
         }
-        this.renderProfiles();
         this.showToast(result.message, "success");
       }
     } catch (error) {
@@ -478,5 +492,10 @@ export default class ProfileUI extends UIComponentBase {
       currentEnvironment: this.cache.currentEnvironment,
       modified: this._isModified,
     };
+  }
+
+  onDestroy() {
+    this.eventListenersSetup = false;
+    super.onDestroy();
   }
 }

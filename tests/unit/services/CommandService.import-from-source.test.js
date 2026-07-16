@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 import CommandService from "../../../src/js/components/services/CommandService.js";
 
@@ -27,8 +28,20 @@ function createProfile() {
         type: "custom",
       },
     },
+    bindsets: {
+      Weapons: {
+        space: { keys: { F1: ["NamedSource"] } },
+        ground: { keys: {} },
+      },
+    },
   };
 }
+
+const retiredProjectionTopics = new Set([
+  "data:get-keys",
+  "data:get-key-commands",
+  "bindset:get-key-commands",
+]);
 
 describe("CommandService importFromSource clear destination", () => {
   let fixture;
@@ -41,10 +54,20 @@ describe("CommandService importFromSource clear destination", () => {
       i18n: { t: (key) => key },
     });
     service.init();
+    const profile = createProfile();
     fixture.eventBus.emit("profile:switched", {
       profileId: "profile1",
-      profile: createProfile(),
+      profile,
       environment: "space",
+    });
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        currentProfile: "profile1",
+        currentEnvironment: "space",
+        currentProfileData: profile,
+        profiles: { profile1: profile },
+      }),
     });
   });
 
@@ -60,9 +83,6 @@ describe("CommandService importFromSource clear destination", () => {
       .spyOn(service, "request")
       .mockImplementation(async (topic) => {
         timeline.push(topic);
-        if (topic === "data:get-key-commands") {
-          return ["SourceOne", "SourceTwo"];
-        }
         if (topic === "data:update-profile") return { success: true };
         throw new Error(`Unexpected request: ${topic}`);
       });
@@ -89,11 +109,15 @@ describe("CommandService importFromSource clear destination", () => {
       ["F2", "SourceTwo"],
     ]);
     expect(timeline).toEqual([
-      "data:get-key-commands",
       "data:update-profile",
       "add:SourceOne",
       "add:SourceTwo",
     ]);
+    expect(
+      requestSpy.mock.calls.some(([topic]) =>
+        retiredProjectionTopics.has(topic),
+      ),
+    ).toBe(false);
     expect(result).toEqual({
       success: true,
       importedCount: 2,
@@ -158,9 +182,6 @@ describe("CommandService importFromSource clear destination", () => {
       .spyOn(service, "request")
       .mockImplementation(async (topic) => {
         timeline.push(topic);
-        if (topic === "data:get-key-commands") {
-          return ["SourceOne", "SourceTwo"];
-        }
         throw new Error(`Unexpected request: ${topic}`);
       });
     const addSpy = vi
@@ -172,21 +193,14 @@ describe("CommandService importFromSource clear destination", () => {
 
     await service.importFromSource("space:F1", "F2", false, "space");
 
-    expect(requestSpy.mock.calls.map(([topic]) => topic)).toEqual([
-      "data:get-key-commands",
-    ]);
+    expect(requestSpy).not.toHaveBeenCalled();
     expect(addSpy).toHaveBeenCalledTimes(2);
-    expect(timeline).toEqual([
-      "data:get-key-commands",
-      "add:SourceOne",
-      "add:SourceTwo",
-    ]);
+    expect(timeline).toEqual(["add:SourceOne", "add:SourceTwo"]);
   });
 
   it("surfaces a failed clearing update and performs no additions", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(service, "request").mockImplementation(async (topic) => {
-      if (topic === "data:get-key-commands") return ["SourceOne"];
       if (topic === "data:update-profile") return { success: false };
       throw new Error(`Unexpected request: ${topic}`);
     });
@@ -201,9 +215,6 @@ describe("CommandService importFromSource clear destination", () => {
   it("rejects when a sequential addition fails after clearing", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(service, "request").mockImplementation(async (topic) => {
-      if (topic === "data:get-key-commands") {
-        return ["SourceOne", "SourceTwo"];
-      }
       if (topic === "data:update-profile") return { success: true };
       throw new Error(`Unexpected request: ${topic}`);
     });
@@ -226,7 +237,6 @@ describe("CommandService importFromSource clear destination", () => {
     const requestSpy = vi
       .spyOn(service, "request")
       .mockImplementation(async (topic) => {
-        if (topic === "data:get-key-commands") return ["SourceOne"];
         throw new Error(`Unexpected request: ${topic}`);
       });
     const addSpy = vi.spyOn(service, "addCommand");
@@ -234,7 +244,55 @@ describe("CommandService importFromSource clear destination", () => {
     await expect(
       service.importFromSource("space:F1", "Missing", true, "space"),
     ).rejects.toThrow("not_found");
-    expect(requestSpy).toHaveBeenCalledTimes(1);
+    expect(requestSpy).not.toHaveBeenCalled();
     expect(addSpy).not.toHaveBeenCalled();
+  });
+
+  it("projects primary and named-bindset commands without retired queries", async () => {
+    const requestSpy = vi.spyOn(service, "request");
+
+    const primary = await service.fetchCommandsForKey("F1");
+    const named = await service.fetchCommandsForKey("F1", "Weapons");
+
+    expect(primary).toEqual(["SourceOne", "SourceTwo"]);
+    expect(named).toEqual(["NamedSource"]);
+    primary.push("consumer mutation");
+    named.push("consumer mutation");
+    expect(service.cache.dataState.profiles.profile1).toMatchObject({
+      builds: { space: { keys: { F1: ["SourceOne", "SourceTwo"] } } },
+      bindsets: {
+        Weapons: { space: { keys: { F1: ["NamedSource"] } } },
+      },
+    });
+    expect(
+      requestSpy.mock.calls.some(([topic]) =>
+        retiredProjectionTopics.has(topic),
+      ),
+    ).toBe(false);
+  });
+
+  it("builds import sources from the accepted profile snapshot", async () => {
+    const requestSpy = vi
+      .spyOn(service, "request")
+      .mockImplementation(async (topic) => {
+        if (topic === "alias:get-all") return createProfile().aliases;
+        throw new Error(`Unexpected request: ${topic}`);
+      });
+
+    const sources = await service.getImportSources("space", "F1");
+
+    expect(sources).toEqual(
+      expect.arrayContaining([
+        { value: "space:F2", label: "Space: F2", type: "key" },
+        {
+          value: "alias:sourceAlias",
+          label: "Alias: sourceAlias",
+          type: "alias",
+        },
+      ]),
+    );
+    expect(requestSpy.mock.calls.map(([topic]) => topic)).toEqual([
+      "alias:get-all",
+    ]);
   });
 });

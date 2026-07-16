@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import { getSnapshotPrimaryKeys } from "./dataState.js";
 import { syncSelectionBindset } from "./selectionBindset.js";
 import {
   adoptCoordinatorSelectionState,
@@ -633,29 +634,11 @@ export default class SelectionService extends ComponentBase {
         return firstAlias;
       }
     } else {
-      // Auto-select first key for space/ground using cached data
-
-      // Use current environment keys if available, otherwise try to get from builds
-      let keys = this.cache.keys || {};
-
-      // If we're switching environments or current keys are empty, look at builds data
-      if (
-        (env !== this.selectionEnvironment || Object.keys(keys).length === 0) &&
-        this.cache.builds
-      ) {
-        keys = this.cache.builds[env]?.keys || {};
-      }
-
-      // If cache is still empty, try to get from DataCoordinator
-      if (Object.keys(keys).length === 0) {
-        try {
-          keys =
-            (await this.request("data:get-keys", { environment: env })) || {};
-          if (!isCurrent()) return null;
-        } catch {
-          return null;
-        }
-      }
+      // Auto-select from the accepted DataCoordinator snapshot. The selector
+      // preserves the legacy empty fallback while preventing stale authority
+      // or revision data from winning through compatibility caches.
+      const keys = getSnapshotPrimaryKeys(this.cache.dataState, env);
+      if (!isCurrent()) return null;
 
       // Exclude last deleted key if present
       let keyNames = Object.keys(keys);

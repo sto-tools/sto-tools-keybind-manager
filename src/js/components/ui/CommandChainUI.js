@@ -3,6 +3,10 @@ import {
   enrichForDisplay,
   normalizeToString,
 } from "../../lib/commandDisplayAdapter.js";
+import {
+  getSnapshotBindsetKeyCommands,
+  getSnapshotPrimaryKeyCommands,
+} from "../services/dataState.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -2094,28 +2098,19 @@ export default class CommandChainUI extends UIComponentBase {
     const keyName = this.cache.selectedKey;
     if (!keyName) return [];
 
-    const bindsetsEnabled = this.cache.preferences?.bindsetsEnabled === true;
-    if (
-      !bindsetsEnabled ||
-      !this.cache.activeBindset ||
-      this.cache.activeBindset === "Primary Bindset"
-    ) {
-      // Use DataCoordinator directly for primary bindset
-      return normalizeCommandList(
-        await this.request("data:get-key-commands", {
-          environment: this.cache.currentEnvironment,
-          key: keyName,
-        }),
-      );
-    }
-
-    // For user-defined bindsets, ask BindsetService
-    const cmds = await this.request("bindset:get-key-commands", {
-      bindset: this.cache.activeBindset,
-      environment: this.cache.currentEnvironment,
-      key: keyName,
-    });
-    return normalizeCommandList(cmds);
+    const { activeBindset, currentEnvironment, dataState } = this.cache;
+    const commands =
+      this.cache.preferences?.bindsetsEnabled !== true ||
+      !activeBindset ||
+      activeBindset === "Primary Bindset"
+        ? getSnapshotPrimaryKeyCommands(dataState, currentEnvironment, keyName)
+        : getSnapshotBindsetKeyCommands(
+            dataState,
+            activeBindset,
+            currentEnvironment,
+            keyName,
+          );
+    return normalizeCommandList(commands);
   }
 
   // Ensure a banner element exists beneath the chain header content showing the currently-active bindset
