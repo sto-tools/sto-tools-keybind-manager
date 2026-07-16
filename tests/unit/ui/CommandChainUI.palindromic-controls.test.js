@@ -125,14 +125,6 @@ describe("CommandChainUI Palindromic Controls", () => {
         if (endpoint === "data:update-profile") {
           return Promise.resolve({ success: true });
         }
-        if (endpoint === "command:get-empty-state-info") {
-          return Promise.resolve({
-            title: "Test Title",
-            preview: "Test Preview",
-            emptyTitle: "Test Empty",
-            icon: "fas fa-test",
-          });
-        }
         return Promise.resolve(null);
       }),
       requestResponse: vi.fn((endpoint, handler) => {

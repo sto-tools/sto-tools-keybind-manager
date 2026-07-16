@@ -8,6 +8,14 @@ import {
   getSnapshotCommands,
   isSnapshotCommandStabilized,
 } from "../services/dataState.js";
+import {
+  normalizeCommandList,
+  projectCommandChainViewState,
+} from "../services/commandChainViewState.js";
+import {
+  createCommandChainEmptyState,
+  materializeCommandChainViewCopy,
+} from "./commandChainViewDom.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -43,32 +51,6 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
  *   className: string
  * }} ActionButtonTarget
  */
-
-/**
- * @param {unknown} value
- * @returns {value is RichChainCommand}
- */
-function isRichChainCommand(value) {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "command" in value &&
-    typeof value.command === "string"
-  );
-}
-
-/**
- * Normalize service output at the UI boundary.
- * @param {unknown} value
- * @returns {ChainCommand[]}
- */
-function normalizeCommandList(value) {
-  return Array.isArray(value)
-    ? value.filter(
-        (item) => typeof item === "string" || isRichChainCommand(item),
-      )
-    : [];
-}
 
 /**
  * Event targets can come from an injected document in another Window realm.
@@ -150,25 +132,34 @@ export default class CommandChainUI extends UIComponentBase {
     /** @type {string[]} */
     this._bindsetNames = [];
     this._bindsetDropdownReady = false;
+    this.eventListenersSetup = false;
+    this._hasSelectionState = false;
+    this._renderGeneration = 0;
   }
 
   async onInit() {
     await this.setupEventListeners();
-    this.render();
   }
 
   async setupEventListeners() {
     if (this.eventListenersSetup) return;
     this.eventListenersSetup = true;
 
-    // Listen for chain-data updates broadcast by service
-    this.addEventListener("chain-data-changed", ({ commands }) => {
-      console.log(
-        "[CommandChainUI] chain-data-changed received with",
-        commands.length,
-        "commands",
-      );
-      this.render(normalizeCommandList(commands));
+    // The accepted DataCoordinator snapshot is the command authority. This
+    // compatibility event is now only a render signal; its uncorrelated command
+    // payload must not overwrite a newer selection or coordinator revision.
+    this.addEventListener("chain-data-changed", () => {
+      this.reconcileAcceptedState();
+    });
+
+    // ComponentBase adopts these broadcasts before component-specific
+    // listeners run. Reconcile only from the resulting accepted caches.
+    this.addEventListener("data:state-changed", () => {
+      this.reconcileAcceptedState();
+    });
+    this.addEventListener("selection:state-changed", () => {
+      this._hasSelectionState = true;
+      this.reconcileAcceptedState();
     });
 
     // Listen for environment or key/alias changes for button state and caching
@@ -179,8 +170,7 @@ export default class CommandChainUI extends UIComponentBase {
         this.updateChainActions();
         this.updatePreviewLabel();
         this.setupBindsetDropdown().catch(() => {});
-        // Re-render to show correct empty state info for new environment
-        this.render().catch(() => {});
+        this.reconcileAcceptedState();
       }
     });
 
@@ -193,6 +183,7 @@ export default class CommandChainUI extends UIComponentBase {
       if ("environment" in data && data.environment) {
         this.cache.currentEnvironment = data.environment;
       }
+      this._hasSelectionState = true;
 
       this.updateChainActions();
 
@@ -201,8 +192,13 @@ export default class CommandChainUI extends UIComponentBase {
 
       await this.refreshActiveBindset();
 
-      // FIX: Render to refresh command chain display with new selection
-      this.render().catch(() => {});
+      this.reconcileAcceptedState();
+    });
+
+    this.addEventListener("alias-selected", () => {
+      this._hasSelectionState = true;
+      this.updateChainActions();
+      this.reconcileAcceptedState();
     });
 
     // Listen for profile switching to clear cached state and show empty state
@@ -214,19 +210,18 @@ export default class CommandChainUI extends UIComponentBase {
       });
       // updateBindsetBanner and updateChainActions will be called by the bindset-selector:active-changed listener
 
-      // Render immediately to show empty state (don't wait for key selection)
-      this.render().catch(() => {});
+      this.reconcileAcceptedState();
     });
 
     // Listen for language changes to re-render command items with new translations
     this.addEventListener("language:changed", () => {
-      this.render();
+      this.reconcileAcceptedState();
     });
 
     this.addEventListener("bindset-selector:active-changed", () => {
       this.updateBindsetBanner();
       this.updateChainActions();
-      this.render();
+      this.reconcileAcceptedState();
     });
 
     if (!this.cache.currentEnvironment) {
@@ -546,6 +541,7 @@ export default class CommandChainUI extends UIComponentBase {
         if (key === "bindsetsEnabled") {
           // Use centralized cache instead of local variable
           needsDropdownUpdate = true;
+          needsRender = true;
           if (!value && this._bindsetDropdownReady) {
             const sel = this.document.getElementById("bindsetSelect");
             if (sel) sel.style.display = "none";
@@ -565,7 +561,7 @@ export default class CommandChainUI extends UIComponentBase {
       }
 
       if (needsRender) {
-        this.render().catch(() => {});
+        this.reconcileAcceptedState();
       }
     });
 
@@ -578,130 +574,159 @@ export default class CommandChainUI extends UIComponentBase {
     }
   }
 
-  // Render the command chain
-  /** @param {ChainCommand[] | null} [commandsArg] */
-  async render(commandsArg = null) {
+  /**
+   * Reconcile a state signal after ComponentBase has updated its accepted
+   * caches. The initial paint waits for both DataCoordinator and selection
+   * state; subsequent signals start a generation-guarded render.
+   */
+  reconcileAcceptedState() {
+    if (!this.hasRequiredData()) return;
+    if (this.pendingInitialRender) {
+      this.pendingInitialRender = false;
+      this.performInitialRender();
+      return;
+    }
+    this.render().catch(() => {});
+  }
+
+  // Render the command chain from one captured accepted-state projection.
+  async render() {
+    const generation = ++this._renderGeneration;
+    const isCurrent = () =>
+      generation === this._renderGeneration && !this.destroyed;
     const container = this.document.getElementById("commandList");
     const titleEl = this.document.getElementById("chainTitle");
     const previewEl = this.document.getElementById("commandPreview");
     const countSpanEl = this.document.getElementById("commandCount");
-    const emptyState = this.document.getElementById("emptyState");
 
     if (!container || !titleEl || !previewEl) return;
 
-    if (!this.cache.activeBindset) {
-      this.cache.activeBindset = "Primary Bindset";
-    }
     const snapshot = this.cache.dataState;
     const environment = this.cache.currentEnvironment || "space";
-    const selectedKeyName =
+    const selectedName =
       environment === "alias"
         ? this.cache.selectedAlias
         : this.cache.selectedKey;
-    const commandBindset = this.getEffectiveCommandBindset();
-    const isStabilized = isSnapshotCommandStabilized(
+    const activeBindset = this.cache.activeBindset || "Primary Bindset";
+    const bindsetsEnabled = this.cache.preferences?.bindsetsEnabled === true;
+    const bindToAliasMode = this.cache.preferences?.bindToAliasMode === true;
+    const view = projectCommandChainViewState({
       snapshot,
       environment,
-      selectedKeyName,
-      commandBindset,
-    );
+      selectedName,
+      activeBindset,
+      bindsetsEnabled,
+    });
+    const copy = materializeCommandChainViewCopy(this.i18n, view);
 
-    // Check if bind-to-alias mode is enabled
-    const bindToAliasMode = this.cache.preferences.bindToAliasMode === true;
-    console.log(
-      `[CommandChainUI] render: bindToAliasMode = ${bindToAliasMode} (type: ${typeof bindToAliasMode})`,
-    );
-    console.log(
-      `[CommandChainUI] render: full preferences cache:`,
-      this.cache.preferences,
-    );
-
-    // When render is called with explicit commands (from chain-data-changed),
-    // use those. When called without commands (from environment:changed),
-    // only render if we have a selected key/alias to avoid race conditions
-    // during initialization.
-    const hasExplicitCommands = commandsArg !== null;
-    let commands = commandsArg ?? [];
-    if (!hasExplicitCommands) {
-      // CRITICAL: Add explicit profile validation to prevent undefined display during initialization
-      if (
-        !selectedKeyName ||
-        !this.cache.profile ||
-        !this.cache.currentProfile
-      ) {
-        // No selection or profile data yet - show clean empty state without attempting to resolve undefined data
-        const emptyStateInfo = await this.request(
-          "command:get-empty-state-info",
-        );
-        titleEl.textContent = emptyStateInfo.title || "";
-        previewEl.textContent = emptyStateInfo.preview || "";
-        if (countSpanEl)
-          countSpanEl.textContent = String(emptyStateInfo.commandCount || "");
-
-        // Create new container content atomically
-        const newContent = this.document.createElement("div");
-        newContent.innerHTML = `
-            <div class="empty-state show" id="emptyState">
-              <i class="${emptyStateInfo.icon}"></i>
-              <h4>${emptyStateInfo.emptyTitle}</h4>
-              <p>${emptyStateInfo.emptyDesc}</p>
-            </div>`;
-
-        // Atomic replacement
-        container.replaceChildren(...newContent.children);
-        return;
-      }
-      commands = normalizeCommandList(
-        getSnapshotCommands(
-          snapshot,
-          environment,
-          selectedKeyName,
-          commandBindset,
-        ),
+    if (
+      view.status === "unavailable" ||
+      view.status === "no-selection" ||
+      view.status === "stale-selection"
+    ) {
+      if (!isCurrent() || !copy.empty) return;
+      const generatedAlias = this.document.getElementById("generatedAlias");
+      const aliasPreview = this.document.getElementById("aliasPreview");
+      if (generatedAlias) generatedAlias.style.display = "none";
+      if (aliasPreview) aliasPreview.textContent = "";
+      titleEl.textContent = copy.title;
+      previewEl.textContent = copy.preview;
+      if (countSpanEl) countSpanEl.textContent = copy.count;
+      this.currentGroups = null;
+      container.replaceChildren(
+        createCommandChainEmptyState(this.document, copy.empty),
       );
-    }
-
-    const emptyStateInfo = await this.request("command:get-empty-state-info");
-
-    if (!selectedKeyName || commands.length === 0) {
-      // Empty state - use empty state info for title and preview
-      titleEl.textContent = emptyStateInfo.title;
-      if (countSpanEl)
-        countSpanEl.textContent = String(emptyStateInfo.commandCount);
-
-      // Update previews for bind-to-alias mode (handles empty commands case)
-      await this.updateBindToAliasMode(
-        bindToAliasMode,
-        selectedKeyName,
-        commands,
-        isStabilized,
-      );
-
-      // Create new container content atomically
-      const newContent = this.document.createElement("div");
-      newContent.innerHTML = `
-          <div class="empty-state ${commands.length === 0 ? "show" : ""}" id="emptyState">
-            <i class="${emptyStateInfo.icon}"></i>
-            <h4>${emptyStateInfo.emptyTitle}</h4>
-            <p>${emptyStateInfo.emptyDesc}</p>
-          </div>`;
-
-      // Atomic replacement
-      container.replaceChildren(...newContent.children);
-
-      this.emit("command-chain:validate", {
-        key: selectedKeyName,
-        stabilized: isStabilized,
-        isAlias: environment === "alias",
-      });
-
+      this.updatePreviewLabel();
+      this.updateBindsetBanner();
       return;
     }
 
-    // Non-empty state - use emptyStateInfo which actually contains the correct title/preview for selected keys
-    titleEl.textContent = emptyStateInfo.title;
+    await this.updateBindToAliasMode(
+      bindToAliasMode,
+      view.selectedName,
+      view.commands,
+      view.stabilized,
+      {
+        snapshot,
+        environment: view.environment,
+        bindset: view.bindset,
+        bindToAliasMode,
+        isCurrent,
+      },
+    );
+    if (!isCurrent()) return;
 
-    // Update command counts based on bind-to-alias mode
+    if (view.status === "empty") {
+      if (!copy.empty) return;
+      titleEl.textContent = copy.title;
+      if (countSpanEl) countSpanEl.textContent = copy.count;
+      this.currentGroups = null;
+      container.replaceChildren(
+        createCommandChainEmptyState(this.document, copy.empty),
+      );
+      if (!isCurrent()) return;
+      this.emit("command-chain:validate", {
+        key: view.selectedName,
+        stabilized: view.stabilized,
+        isAlias: view.environment === "alias",
+      });
+      this.updateBindsetBanner();
+      return;
+    }
+
+    /** @type {Element[]} */
+    const newCommandElements = [];
+    /** @type {CommandGroups | null} */
+    let nextGroups = null;
+
+    if (view.stabilized) {
+      nextGroups = this.groupCommands(view.commands);
+      /** @type {CommandGroupType[]} */
+      const groupOrder = ["non-trayexec", "palindromic", "pivot"];
+      for (const groupType of groupOrder) {
+        const groupData = nextGroups[groupType];
+        if (!groupData || groupData.commands.length === 0) continue;
+        const separator = this.renderGroupSeparator(groupType, groupData);
+        if (separator) {
+          const separatorEl = this.document.createElement("div");
+          separatorEl.innerHTML = separator;
+          newCommandElements.push(...separatorEl.children);
+        }
+        if (groupData.isCollapsed) continue;
+        for (
+          let groupIndex = 0;
+          groupIndex < groupData.commands.length;
+          groupIndex++
+        ) {
+          const { command, index } = groupData.commands[groupIndex];
+          const element = await this.createCommandElement(
+            command,
+            index,
+            view.commandCount,
+            groupType,
+            groupIndex + 1,
+            view.stabilized,
+          );
+          if (!isCurrent()) return;
+          newCommandElements.push(element);
+        }
+      }
+    } else {
+      for (let index = 0; index < view.commands.length; index++) {
+        const element = await this.createCommandElement(
+          view.commands[index],
+          index,
+          view.commandCount,
+          null,
+          null,
+          view.stabilized,
+        );
+        if (!isCurrent()) return;
+        newCommandElements.push(element);
+      }
+    }
+
+    if (!isCurrent()) return;
     const aliasCountSpanEl = this.document.getElementById("aliasCommandCount");
     const commandCountDisplay = this.document.getElementById(
       "commandCountDisplay",
@@ -709,22 +734,18 @@ export default class CommandChainUI extends UIComponentBase {
     const aliasCommandCountDisplay = this.document.getElementById(
       "aliasCommandCountDisplay",
     );
-
-    // Find the translation key spans for pluralization
     const commandTranslationSpan = commandCountDisplay?.querySelector(
       '[data-i18n="commands"], [data-i18n="command_singular"]',
     );
     const aliasCommandTranslationSpan = aliasCommandCountDisplay?.querySelector(
       '[data-i18n="commands"], [data-i18n="command_singular"]',
     );
+    const translationKey =
+      view.commandCount === 1 ? "command_singular" : "commands";
 
-    const commandCount = commands.length;
-    const translationKey = commandCount === 1 ? "command_singular" : "commands";
-
-    if (bindToAliasMode && selectedKeyName && environment !== "alias") {
-      // Show count on Generated Alias section
-      if (aliasCountSpanEl)
-        aliasCountSpanEl.textContent = commandCount.toString();
+    titleEl.textContent = copy.title;
+    if (bindToAliasMode && view.environment !== "alias") {
+      if (aliasCountSpanEl) aliasCountSpanEl.textContent = copy.count;
       if (aliasCommandTranslationSpan) {
         aliasCommandTranslationSpan.setAttribute("data-i18n", translationKey);
         aliasCommandTranslationSpan.textContent = this.i18n.t(translationKey);
@@ -732,8 +753,7 @@ export default class CommandChainUI extends UIComponentBase {
       if (aliasCommandCountDisplay) aliasCommandCountDisplay.style.display = "";
       if (commandCountDisplay) commandCountDisplay.style.display = "none";
     } else {
-      // Show count on Generated Command section (normal mode)
-      if (countSpanEl) countSpanEl.textContent = commandCount.toString();
+      if (countSpanEl) countSpanEl.textContent = copy.count;
       if (commandTranslationSpan) {
         commandTranslationSpan.setAttribute("data-i18n", translationKey);
         commandTranslationSpan.textContent = this.i18n.t(translationKey);
@@ -742,132 +762,14 @@ export default class CommandChainUI extends UIComponentBase {
       if (aliasCommandCountDisplay)
         aliasCommandCountDisplay.style.display = "none";
     }
-
-    // Update previews based on bind-to-alias mode
-    await this.updateBindToAliasMode(
-      bindToAliasMode,
-      selectedKeyName,
-      commands,
-      isStabilized,
-    );
-
-    // For non-bind-to-alias mode, ensure key preview shows mirrored commands when stabilized
-    // CRITICAL: This should only apply when NOT in bind-to-alias mode to prevent conflicts
-    // ADDITIONAL SAFEGUARD: Double-check bindToAliasMode to prevent race conditions
-    const currentBindToAliasMode =
-      this.cache.preferences?.bindToAliasMode ?? false;
-    if (
-      !bindToAliasMode &&
-      !currentBindToAliasMode &&
-      selectedKeyName &&
-      environment !== "alias"
-    ) {
-      console.log(
-        "[CommandChainUI] Applying mirroring for non-bind-to-alias mode",
-      );
-      try {
-        if (isStabilized && commands.length > 1) {
-          const cmdParts = commands.map((c) =>
-            typeof c === "string" ? { command: c } : c,
-          );
-          const mirroredStr = await this.request(
-            "command:generate-mirrored-commands",
-            { commands: cmdParts },
-          );
-          if (mirroredStr) {
-            previewEl.textContent = `${selectedKeyName} "${mirroredStr}"`;
-          }
-        }
-      } catch (err) {
-        console.warn(
-          "[CommandChainUI] Failed to generate mirrored preview",
-          err,
-        );
-      }
-    } else if (bindToAliasMode || currentBindToAliasMode) {
-      console.log(
-        "[CommandChainUI] Skipping mirroring logic - bind-to-alias mode is active",
-      );
-    }
-
-    // Hide any existing empty state
-    if (emptyState) emptyState.classList.remove("show");
-
-    // Build the complete new command list structure atomically
-    /** @type {Element[]} */
-    const newCommandElements = [];
-
-    if (isStabilized && commands.length > 0) {
-      // Use grouped rendering for stabilized chains
-      const groups = this.groupCommands(commands);
-      // Store group structure for event handlers
-      this.currentGroups = groups;
-      // Render groups in order: non-trayexec, palindromic, pivot
-      /** @type {CommandGroupType[]} */
-      const groupOrder = ["non-trayexec", "palindromic", "pivot"];
-      for (const groupType of groupOrder) {
-        const groupData = groups[groupType];
-        // Only render groups that have commands
-        if (groupData && groupData.commands.length > 0) {
-          // Render group separator
-          const separator = this.renderGroupSeparator(groupType, groupData);
-          if (separator) {
-            const separatorEl = this.document.createElement("div");
-            separatorEl.innerHTML = separator;
-            newCommandElements.push(...separatorEl.children);
-          }
-
-          // Render commands in group (if not collapsed)
-          if (!groupData.isCollapsed) {
-            for (
-              let groupIndex = 0;
-              groupIndex < groupData.commands.length;
-              groupIndex++
-            ) {
-              const { command, index } = groupData.commands[groupIndex];
-              // Pass group-relative index (1-based) for display when stabilized
-              const displayIndex = groupIndex + 1;
-              const el = await this.createCommandElement(
-                command,
-                index,
-                commands.length,
-                groupType,
-                displayIndex,
-                isStabilized,
-              );
-              newCommandElements.push(el);
-            }
-          }
-        }
-      }
-    } else {
-      // Clear group structure for unstabilized mode
-      this.currentGroups = null;
-      // Use flat rendering for unstabilized chains
-      for (let i = 0; i < commands.length; i++) {
-        const el = await this.createCommandElement(
-          commands[i],
-          i,
-          commands.length,
-          null,
-          null,
-          isStabilized,
-        );
-        newCommandElements.push(el);
-      }
-    }
-
-    // Atomic replacement - this is the only DOM mutation that affects the command list
+    this.currentGroups = nextGroups;
     container.replaceChildren(...newCommandElements);
-
-    // After rendering, automatically validate current chain so the status beacon stays up-to-date
+    if (!isCurrent()) return;
     this.emit("command-chain:validate", {
-      key: selectedKeyName,
-      stabilized: isStabilized,
-      isAlias: environment === "alias",
+      key: view.selectedName,
+      stabilized: view.stabilized,
+      isAlias: view.environment === "alias",
     });
-
-    // Update / insert bindset banner (always do this early so header is correct)
     this.updateBindsetBanner();
   }
 
@@ -1352,29 +1254,21 @@ export default class CommandChainUI extends UIComponentBase {
   }
 
   // Update previews for bind-to-alias mode
-  updatePreviewLabel() {
+  /** @param {string | null | undefined} [environment] */
+  updatePreviewLabel(environment = this.cache.currentEnvironment) {
     const labelEl = this.document.querySelector(
       ".generated-command label[data-i18n]",
     );
     if (labelEl) {
       const newKey =
-        this.cache.currentEnvironment === "alias"
-          ? "generated_alias"
-          : "generated_command";
+        environment === "alias" ? "generated_alias" : "generated_command";
       labelEl.setAttribute("data-i18n", newKey);
 
       // Apply translation immediately using multiple fallback methods
       if (runtime.applyTranslations) {
         runtime.applyTranslations(labelEl.parentElement);
-      } else if (this.i18n && this.i18n.t) {
-        // Fallback: apply translation directly
-        labelEl.textContent = this.i18n.t(newKey);
       } else {
-        // Last resort: use English fallback
-        labelEl.textContent =
-          newKey === "generated_alias"
-            ? "Generated Alias:"
-            : "Generated Command:";
+        labelEl.textContent = this.i18n.t(newKey);
       }
     }
   }
@@ -1384,17 +1278,29 @@ export default class CommandChainUI extends UIComponentBase {
    * @param {string | null | undefined} selectedKeyName
    * @param {ChainCommand[]} commands
    * @param {boolean} [stabilized]
+   * @param {{
+   *   snapshot?: import('../../types/events/component-state.js').DataCoordinatorStateSnapshot | null,
+   *   environment?: string,
+   *   bindset?: string | null,
+   *   bindToAliasMode?: boolean,
+   *   isCurrent?: () => boolean
+   * }} [renderContext]
    */
   async updateBindToAliasMode(
     bindToAliasMode,
     selectedKeyName,
     commands,
     stabilized = undefined,
+    renderContext = {},
   ) {
-    const snapshot = this.cache.dataState;
-    const environment = this.cache.currentEnvironment || "space";
+    const snapshot = renderContext.snapshot ?? this.cache.dataState;
+    const environment =
+      renderContext.environment || this.cache.currentEnvironment || "space";
     const name = selectedKeyName;
-    const bindset = this.getEffectiveCommandBindset();
+    const bindset =
+      renderContext.bindset === undefined
+        ? this.getEffectiveCommandBindset()
+        : renderContext.bindset;
     const isStabilized =
       stabilized ??
       isSnapshotCommandStabilized(snapshot, environment, name, bindset);
@@ -1404,8 +1310,11 @@ export default class CommandChainUI extends UIComponentBase {
 
     // Double-check current bindToAliasMode preference to handle race conditions
     const currentBindToAliasMode =
-      this.cache.preferences?.bindToAliasMode ?? false;
+      renderContext.bindToAliasMode ??
+      this.cache.preferences?.bindToAliasMode ??
+      false;
     const effectiveBindToAliasMode = bindToAliasMode || currentBindToAliasMode;
+    const isCurrent = renderContext.isCurrent || (() => true);
 
     console.log(
       `[CommandChainUI] updateBindToAliasMode: bindToAliasMode=${bindToAliasMode}, current=${currentBindToAliasMode}, effective=${effectiveBindToAliasMode}, selectedKeyName=${selectedKeyName}, environment=${environment}, activeBindset=${bindset}`,
@@ -1415,7 +1324,7 @@ export default class CommandChainUI extends UIComponentBase {
       console.log(
         `[CommandChainUI] Missing UI elements: generatedAlias=${!!generatedAlias}, aliasPreviewEl=${!!aliasPreviewEl}, previewEl=${!!previewEl}`,
       );
-      return;
+      return false;
     }
 
     if (
@@ -1423,9 +1332,6 @@ export default class CommandChainUI extends UIComponentBase {
       selectedKeyName &&
       environment !== "alias"
     ) {
-      // Show generated alias section
-      generatedAlias.style.display = "";
-
       try {
         // Generate alias name using CommandChainService
         const aliasName = await this.request(
@@ -1436,6 +1342,7 @@ export default class CommandChainUI extends UIComponentBase {
             bindsetName: bindset,
           },
         );
+        if (!isCurrent()) return false;
 
         if (aliasName) {
           // Generate alias preview using CommandChainService (with mirroring support)
@@ -1446,6 +1353,7 @@ export default class CommandChainUI extends UIComponentBase {
               commands,
             },
           );
+          if (!isCurrent()) return false;
 
           // Apply mirroring when stabilized
           try {
@@ -1469,19 +1377,19 @@ export default class CommandChainUI extends UIComponentBase {
                 "command:generate-mirrored-commands",
                 { commands: commandObjects },
               );
+              if (!isCurrent()) return false;
               if (mirroredStr) {
                 aliasPreview = `alias ${aliasName} <& ${mirroredStr} &>`;
               }
             }
           } catch (error) {
+            if (!isCurrent()) return false;
             console.warn("[CommandChainUI] Failed to apply mirroring:", error);
           }
 
-          // Update alias preview to show the generated alias definition
+          if (!isCurrent()) return false;
+          generatedAlias.style.display = "";
           aliasPreviewEl.textContent = aliasPreview;
-
-          // Update main preview to show keybind that calls the alias
-          // CRITICAL: In bind-to-alias mode, main preview should ALWAYS show alias name, never raw commands
           previewEl.textContent = `${selectedKeyName} "${aliasName}"`;
 
           // ADDITIONAL SAFEGUARD: Ensure bind-to-alias mode takes precedence over any subsequent mirroring logic
@@ -1491,25 +1399,22 @@ export default class CommandChainUI extends UIComponentBase {
             );
           }
         } else {
+          if (!isCurrent()) return false;
+          generatedAlias.style.display = "";
           aliasPreviewEl.textContent = "Invalid key name for alias generation";
           previewEl.textContent = `${selectedKeyName} "..."`;
         }
       } catch (error) {
+        if (!isCurrent()) return false;
         console.error(
           "[CommandChainUI] Failed to generate alias preview:",
           error,
         );
+        generatedAlias.style.display = "";
         aliasPreviewEl.textContent = "Error generating alias preview";
         previewEl.textContent = `${selectedKeyName} "..."`;
       }
     } else {
-      // Hide generated alias section
-      generatedAlias.style.display = "none";
-
-      // Update label based on current environment
-      this.updatePreviewLabel();
-
-      // Show normal command preview
       const commandStrings = commands
         .map((cmd) => (typeof cmd === "string" ? cmd : cmd.command))
         .filter(Boolean);
@@ -1537,13 +1442,17 @@ export default class CommandChainUI extends UIComponentBase {
             "command:generate-mirrored-commands",
             { commands: commandObjects },
           );
+          if (!isCurrent()) return false;
           if (mirroredStr) previewString = mirroredStr;
         }
       } catch {
+        if (!isCurrent()) return false;
         // Keep the locally generated preview when the service is not ready.
       }
 
-      // Format preview based on current environment
+      if (!isCurrent()) return false;
+      generatedAlias.style.display = "none";
+      this.updatePreviewLabel(environment);
       if (selectedKeyName) {
         if (environment === "alias") {
           // In alias mode, show alias format: alias aliasName <& commands &>
@@ -1556,6 +1465,7 @@ export default class CommandChainUI extends UIComponentBase {
         previewEl.textContent = "";
       }
     }
+    return true;
   }
 
   // Enable/disable chain-related buttons depending on environment & selection.
@@ -1884,7 +1794,7 @@ export default class CommandChainUI extends UIComponentBase {
         console.log("[CommandChainUI] Commands after update:", commands);
 
         // Trigger re-render to show updated button state with the current placement data
-        await this.render(commands);
+        await this.render();
       }
     } catch (err) {
       console.error(
@@ -1896,17 +1806,25 @@ export default class CommandChainUI extends UIComponentBase {
 
   // Clean up event listeners when component is destroyed
   onDestroy() {
-    // Event cleanup is now handled automatically by ComponentBase
-    // Both this.addEventListener() and this.onDom() listeners are cleaned up automatically
-    // Additional cleanup logic can be added here if needed
+    this._renderGeneration += 1;
+    this.currentGroups = null;
+    this.eventListenersSetup = false;
+    this._bindsetDropdownReady = false;
+    this._hasSelectionState = false;
+    this.pendingInitialRender = false;
   }
 
   // Late-join: sync environment if InterfaceModeService broadcasts its snapshot before we registered our listeners.
   /**
    * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState({ sender, state }) {
-    // NEW: Handle BindsetSelectorService state
+  handleInitialState(reply) {
+    const { sender, state } = reply;
+    if (sender === "SelectionService") {
+      this._hasSelectionState = true;
+    }
+    super.handleInitialState(reply);
+
     if (sender === "BindsetSelectorService") {
       console.log(
         "[CommandChainUI] Received initial state from BindsetSelectorService:",
@@ -1916,30 +1834,27 @@ export default class CommandChainUI extends UIComponentBase {
       // Update any UI-specific state if needed
       this.updateBindsetBanner();
       this.updateChainActions();
-      this.render();
       return;
     }
 
-    // Restore selection from SelectionService late-join
     if (sender === "SelectionService") {
-      this.render().catch(() => {});
       return;
     }
 
     // Only accept environment updates from authoritative sources
-    const canUpdateEnvironment =
-      sender === "InterfaceModeService" || sender === "DataCoordinator";
-    const environment = canUpdateEnvironment
-      ? "environment" in state
-        ? state.environment
-        : state.currentEnvironment
-      : undefined;
+    const initialEnvironment = /** @type {{
+      environment?: string,
+      currentEnvironment?: string
+    }} */ (state);
+    const environment =
+      sender === "InterfaceModeService"
+        ? initialEnvironment.environment ||
+          initialEnvironment.currentEnvironment
+        : undefined;
 
     if (environment) {
-      // ComponentBase automatically handles environment caching
+      this.cache.currentEnvironment = environment;
       this.updateChainActions();
-      // Render to show appropriate empty state for the environment
-      this.render().catch(() => {});
     }
 
     // Pick up bindset info from late-join broadcasts
@@ -2146,9 +2061,11 @@ export default class CommandChainUI extends UIComponentBase {
    * CommandChainUI needs basic cache data to render properly
    */
   hasRequiredData() {
-    // We need at least some basic environment data to render
-    // The component can render empty state without specific key/alias selection
-    return Boolean(this.cache.currentEnvironment);
+    return Boolean(
+      this.cache.dataState &&
+        this._hasSelectionState &&
+        this.cache.currentEnvironment,
+    );
   }
 
   /**

@@ -9,7 +9,6 @@ const responderTopics = [
   "command:validate",
   "command:delete",
   "command:move",
-  "command:get-empty-state-info",
   "command:check-environment-compatibility",
   "command:import-from-source",
   "command:generate-command-preview",
@@ -18,6 +17,7 @@ const responderTopics = [
 const retiredTopics = [
   "command:get-for-selected-key",
   "command:get-import-sources",
+  "command:get-empty-state-info",
 ];
 
 const expectResponderState = (eventBus, topics, expected) => {

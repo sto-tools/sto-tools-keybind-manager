@@ -69,6 +69,7 @@ describe("Application browser smoke", () => {
       "key:get-all-sectional",
       "key:get-category-state",
       "alias:get-all",
+      "command:get-empty-state-info",
       "command:get-for-selected-key",
       "command:get-import-sources",
       "command:is-stabilized",
@@ -105,6 +106,95 @@ describe("Application browser smoke", () => {
 
     bus.emit("selection:state-changed", originalSnapshot);
     expect(commandChainUI.cache).toMatchObject(originalSnapshot);
+  });
+
+  it("renders translated key and alias empty states from accepted caches", async () => {
+    const commandChainUI = window.commandChainUI;
+    const chainTitle = document.getElementById("chainTitle");
+    const commandList = document.getElementById("commandList");
+    const commandPreview = document.getElementById("commandPreview");
+    const commandCount = document.getElementById("commandCount");
+
+    expect(commandChainUI?.isInitialized?.()).toBe(true);
+    expect(chainTitle).toBeTruthy();
+    expect(commandList).toBeTruthy();
+    expect(commandPreview).toBeTruthy();
+    expect(commandCount).toBeTruthy();
+    if (
+      !commandChainUI ||
+      !chainTitle ||
+      !commandList ||
+      !commandPreview ||
+      !commandCount
+    ) {
+      return;
+    }
+
+    const originalSelection = {
+      selectedKey: commandChainUI.cache.selectedKey,
+      selectedAlias: commandChainUI.cache.selectedAlias,
+      currentEnvironment: commandChainUI.cache.currentEnvironment,
+    };
+    const cases = [
+      {
+        environment: "space",
+        titleKey: "select_a_key_to_edit",
+        previewKey: "select_a_key_to_see_the_generated_command",
+        emptyTitleKey: "no_key_selected",
+        emptyDescriptionKey: "select_key_from_left_panel",
+        iconClass: "fa-keyboard",
+      },
+      {
+        environment: "ground",
+        titleKey: "select_a_key_to_edit",
+        previewKey: "select_a_key_to_see_the_generated_command",
+        emptyTitleKey: "no_key_selected",
+        emptyDescriptionKey: "select_key_from_left_panel",
+        iconClass: "fa-keyboard",
+      },
+      {
+        environment: "alias",
+        titleKey: "select_an_alias_to_edit",
+        previewKey: "select_an_alias_to_see_the_generated_command",
+        emptyTitleKey: "no_alias_selected",
+        emptyDescriptionKey: "select_alias_from_left_panel",
+        iconClass: "fa-mask",
+      },
+    ];
+
+    try {
+      for (const testCase of cases) {
+        Object.assign(commandChainUI.cache, {
+          selectedKey: null,
+          selectedAlias: null,
+          currentEnvironment: testCase.environment,
+        });
+
+        await commandChainUI.render();
+
+        const emptyState = commandList.querySelector("#emptyState");
+        expect(chainTitle.textContent).toBe(
+          commandChainUI.i18n.t(testCase.titleKey),
+        );
+        expect(commandPreview.textContent).toBe(
+          commandChainUI.i18n.t(testCase.previewKey),
+        );
+        expect(commandCount.textContent).toBe("0");
+        expect(emptyState?.classList).toContain("show");
+        expect(emptyState?.querySelector("i")?.classList).toContain(
+          testCase.iconClass,
+        );
+        expect(emptyState?.querySelector("h4")?.textContent).toBe(
+          commandChainUI.i18n.t(testCase.emptyTitleKey),
+        );
+        expect(emptyState?.querySelector("p")?.textContent).toBe(
+          commandChainUI.i18n.t(testCase.emptyDescriptionKey),
+        );
+      }
+    } finally {
+      Object.assign(commandChainUI.cache, originalSelection);
+      await commandChainUI.render();
+    }
   });
 
   it("hydrates one immutable DataCoordinator snapshot in consumers", () => {

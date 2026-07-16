@@ -498,22 +498,6 @@ export default class CommandChainService extends ComponentBase {
     );
   }
 
-  async getEmptyStateInfo() {
-    try {
-      return await this.request("command:get-empty-state-info");
-    } catch (error) {
-      console.error("Failed to get empty state info:", error);
-      return {
-        title: "",
-        preview: "",
-        commandCount: 0,
-        icon: "",
-        emptyTitle: "",
-        emptyDesc: "",
-      };
-    }
-  }
-
   /** @param {import('./serviceTypes.js').StoredCommand} command */
   async findCommandDefinition(command) {
     try {

@@ -19,15 +19,6 @@ export type CommandDefinitionMatch = CommandDefinition & {
   parameters?: Record<string, unknown>;
 };
 
-export type EmptyStateInfo = {
-  title: string;
-  preview: string;
-  commandCount: string | number;
-  icon?: string;
-  emptyTitle?: string;
-  emptyDesc?: string;
-};
-
 export type CommandImportResult = {
   success: true;
   importedCount: number;
@@ -99,7 +90,6 @@ export interface CommandRpcProtocol {
   >;
   "command:get-categories": NoPayloadRpc<Record<string, CommandCategory>>;
   "command:get-combined-aliases": NoPayloadRpc<Record<string, CombinedAlias>>;
-  "command:get-empty-state-info": NoPayloadRpc<EmptyStateInfo>;
   "command:get-warning": OptionalRpc<
     { command?: CommandReference },
     string | null

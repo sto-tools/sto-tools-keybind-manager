@@ -77,6 +77,8 @@ async function exerciseComponentRpc() {
     categoryId: "system",
     mode: "command",
   });
+  // @ts-expect-error Command-chain empty state is projected from accepted cache state.
+  component.request("command:get-empty-state-info");
 
   component.respond("parser:clear-cache", () => ({ success: true }));
   // @ts-expect-error Responder results are selected by their topic.
@@ -97,6 +99,8 @@ async function exerciseComponentRpc() {
   component.respond("key:get-all-sectional", () => ({}));
   // @ts-expect-error Retired category-state queries cannot regain responders.
   component.respond("key:get-category-state", () => false);
+  // @ts-expect-error Retired empty-state queries cannot regain responders.
+  component.respond("command:get-empty-state-info", () => ({}));
 }
 
 declare const dynamicEvent: DynamicEventTopic<

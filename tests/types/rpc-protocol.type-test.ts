@@ -111,6 +111,8 @@ type RemovedImportSourcesQuery = RpcRequest<"command:get-import-sources">;
 type RemovedCommandStabilizedQuery = RpcRequest<"command:is-stabilized">;
 // @ts-expect-error Command-chain stabilization uses the shared projection.
 type RemovedChainStabilizedQuery = RpcRequest<"command-chain:is-stabilized">;
+// @ts-expect-error Command-chain empty state is projected from accepted cache state.
+type RemovedCommandEmptyStateQuery = RpcRequest<"command:get-empty-state-info">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },

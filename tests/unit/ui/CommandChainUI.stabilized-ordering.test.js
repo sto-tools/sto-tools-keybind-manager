@@ -307,12 +307,16 @@ describe("CommandChainUI Stabilized Ordering", () => {
   describe("Integration Tests", () => {
     describe("Stabilized Mode Rendering", () => {
       beforeEach(() => {
-        // Rendering an explicit chain still requires the selected-key context used
-        // by the production chain-data broadcast/cache flow.
+        // Rendering reads the selected chain from accepted DataCoordinator state.
         const profile = {
           name: "Test Profile",
           currentEnvironment: "space",
-          builds: { space: { keys: {} }, ground: { keys: {} } },
+          builds: {
+            space: {
+              keys: { F1: ["Cmd1", "TrayExecByTray", "Pivot1"] },
+            },
+            ground: { keys: {} },
+          },
           aliases: {},
           keybindMetadata: {
             space: { F1: { stabilizeExecutionOrder: true } },
@@ -379,7 +383,7 @@ describe("CommandChainUI Stabilized Ordering", () => {
       it("should store currentGroups when rendering stabilized chains", async () => {
         const commands = ["Cmd1", "TrayExecByTray", "Pivot1"];
 
-        await ui.render(commands);
+        await ui.render();
 
         expect(ui.currentGroups).toBeDefined();
         expect(ui.groupCommands).toHaveBeenCalledWith(commands);
@@ -387,15 +391,17 @@ describe("CommandChainUI Stabilized Ordering", () => {
 
       it("should clear currentGroups when rendering unstabilized chains", async () => {
         // First render in stabilized mode
-        const stabilizedCommands = ["Cmd1", "TrayExecByTray", "Pivot1"];
-        await ui.render(stabilizedCommands);
+        await ui.render();
         expect(ui.currentGroups).toBeDefined();
 
         // Then render an accepted unstabilized replacement state
         const profile = {
           name: "Replacement Profile",
           currentEnvironment: "space",
-          builds: { space: { keys: {} }, ground: { keys: {} } },
+          builds: {
+            space: { keys: { F1: ["Cmd1", "Cmd2", "Cmd3"] } },
+            ground: { keys: {} },
+          },
           aliases: {},
           keybindMetadata: {
             space: { F1: { stabilizeExecutionOrder: false } },
@@ -411,8 +417,7 @@ describe("CommandChainUI Stabilized Ordering", () => {
           }),
         );
         ui.cache.selectedKey = "F1";
-        const unstabilizedCommands = ["Cmd1", "Cmd2", "Cmd3"];
-        await ui.render(unstabilizedCommands);
+        await ui.render();
 
         expect(ui.currentGroups).toBeNull();
       });

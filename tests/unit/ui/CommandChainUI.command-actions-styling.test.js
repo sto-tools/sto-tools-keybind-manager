@@ -45,19 +45,6 @@ describe("CommandChainUI Command Actions Styling", () => {
       };
     });
 
-    // Mock empty state info response
-    respond(eventBus, "command:get-empty-state-info", () => {
-      return {
-        title: "No Key Selected",
-        preview: "Select a key to see the generated command",
-        icon: "fas fa-keyboard",
-        emptyTitle: "No Key Selected",
-        emptyDesc:
-          "Select a key from the left panel to view and edit its command chain.",
-        commandCount: "0",
-      };
-    });
-
     // Mock file operations for mirrored commands
     respond(eventBus, "command:generate-mirrored-commands", ({ commands }) => {
       return commands || [];

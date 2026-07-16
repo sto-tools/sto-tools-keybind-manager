@@ -35,9 +35,6 @@ describe("CommandChainService", () => {
     eventBus = fixture.eventBus;
 
     // stub request endpoints used internally
-    respond(eventBus, "command:get-empty-state-info", () => ({
-      title: "Empty",
-    }));
     respond(eventBus, "command:find-definition", () => null);
     respond(eventBus, "command:get-warning", () => null);
 
