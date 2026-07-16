@@ -37,13 +37,7 @@ import {
  * }} DataCoordinatorInitialState
  */
 /**
- * @typedef {{
- *   selectedKey?: string | null,
- *   selectedAlias?: string | null,
- *   currentEnvironment?: string,
- *   editingContext?: import('../types/events/base.js').EditingContext | null,
- *   cachedSelections?: Record<string, string | null>
- * }} SelectionInitialState
+ * @typedef {import('../types/events/base.js').SelectionStateSnapshot} SelectionInitialState
  */
 /** @typedef {{ settings?: Record<string, unknown> }} PreferencesInitialState */
 /** @typedef {{ bindsets?: string[] }} BindsetInitialState */
@@ -65,7 +59,7 @@ import {
  *   preferences: import('./services/serviceTypes.js').ServicePreferences & Record<string, unknown> & {
  *     translateGeneratedMessages?: boolean
  *   },
- *   cachedSelections?: Record<string, string | null>,
+ *   cachedSelections: import('../types/events/base.js').SelectionCache,
  *   editingContext?: import('../types/events/base.js').EditingContext | null,
  *   activeCommandChainBindset?: string,
  *   profiles?: Record<string, import('./services/serviceTypes.js').ProfileData>
@@ -101,6 +95,11 @@ export default class ComponentBase {
       preferences: {},
       activeBindset: "Primary Bindset",
       bindsetNames: ["Primary Bindset"],
+      cachedSelections: {
+        space: null,
+        ground: null,
+        alias: null,
+      },
     };
     /** @type {AnyComponentReplyTopic | ""} */
     this._myReplyTopic = "";
@@ -181,6 +180,11 @@ export default class ComponentBase {
         preferences: {},
         activeBindset: "Primary Bindset",
         bindsetNames: ["Primary Bindset"],
+        cachedSelections: {
+          space: null,
+          ground: null,
+          alias: null,
+        },
         ...additionalCacheData,
       };
     } else {
@@ -215,6 +219,14 @@ export default class ComponentBase {
     this.addEventListener("alias-selected", (data) => {
       this.cache.selectedAlias = data.name;
       this.cache.selectedKey = null; // Clear key when alias selected
+    });
+
+    this.addEventListener("editing-context-changed", ({ context }) => {
+      this.cache.editingContext = context;
+    });
+
+    this.addEventListener("selection:state-changed", (state) => {
+      this._cacheSelectionState(state);
     });
 
     // Cache environment changes
@@ -759,22 +771,7 @@ export default class ComponentBase {
     // Handle SelectionService state
     if (sender === "SelectionService" && state) {
       const selectionState = /** @type {SelectionInitialState} */ (state);
-      // Cache selection properties
-      if (selectionState.selectedKey !== undefined) {
-        this.cache.selectedKey = selectionState.selectedKey;
-      }
-      if (selectionState.selectedAlias !== undefined) {
-        this.cache.selectedAlias = selectionState.selectedAlias;
-      }
-      if (selectionState.currentEnvironment !== undefined) {
-        this.cache.currentEnvironment = selectionState.currentEnvironment;
-      }
-      if (selectionState.editingContext !== undefined) {
-        this.cache.editingContext = selectionState.editingContext;
-      }
-      if (selectionState.cachedSelections !== undefined) {
-        this.cache.cachedSelections = selectionState.cachedSelections;
-      }
+      this._cacheSelectionState(selectionState);
 
       console.log(
         `[ComponentBase] ${this.getComponentName()} cached SelectionService state:`,
@@ -820,6 +817,15 @@ export default class ComponentBase {
         );
       }
     }
+  }
+
+  /** @param {SelectionInitialState} selectionState */
+  _cacheSelectionState(selectionState) {
+    this.cache.selectedKey = selectionState.selectedKey;
+    this.cache.selectedAlias = selectionState.selectedAlias;
+    this.cache.currentEnvironment = selectionState.currentEnvironment;
+    this.cache.editingContext = selectionState.editingContext;
+    this.cache.cachedSelections = { ...selectionState.cachedSelections };
   }
 
   /**

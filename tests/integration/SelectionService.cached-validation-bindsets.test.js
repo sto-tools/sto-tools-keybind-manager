@@ -34,6 +34,8 @@ describe("SelectionService Cached Validation with Bindsets Integration", () => {
 
     // Set current environment
     selectionService.currentEnvironment = profile.currentEnvironment || "space";
+    selectionService.selectionEnvironment =
+      profile.currentEnvironment || "space";
 
     return profile;
   }
@@ -323,6 +325,7 @@ describe("SelectionService Cached Validation with Bindsets Integration", () => {
       selectionService.cache.preferences.bindsetsEnabled = true;
       selectionService.cache.preferences.bindToAliasMode = true;
       selectionService.cache.currentEnvironment = "space";
+      selectionService.selectionEnvironment = "space";
       selectionService.cache.activeBindset = "Primary Bindset";
     });
 

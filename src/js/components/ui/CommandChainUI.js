@@ -224,19 +224,6 @@ export default class CommandChainUI extends UIComponentBase {
       this.render();
     });
 
-    // Late-join state sync: ensure we have the current selection in cache even if the initial event fired before listeners were ready
-    try {
-      const currentSelectedKey = await this.request("key:get-selected");
-      if (currentSelectedKey) {
-        this.cache.selectedKey = currentSelectedKey;
-      }
-    } catch (err) {
-      console.warn(
-        "[CommandChainUI] Failed to sync initial selected key state",
-        err,
-      );
-    }
-
     if (!this.cache.currentEnvironment) {
       this.cache.currentEnvironment = "space";
     }

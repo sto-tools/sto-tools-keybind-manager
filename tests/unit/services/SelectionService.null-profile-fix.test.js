@@ -94,6 +94,7 @@ describe("SelectionService - Null Profile Handling Fix", () => {
       // Arrange - set up initial state
       selectionService.cache.currentProfile = "old-profile";
       selectionService.cache.currentEnvironment = "ground";
+      selectionService.selectionEnvironment = "ground";
       selectionService.cachedSelections = {
         space: "F1",
         ground: "G1",
@@ -116,6 +117,7 @@ describe("SelectionService - Null Profile Handling Fix", () => {
       });
       // Environment should remain unchanged
       expect(selectionService.cache.currentEnvironment).toBe("ground");
+      expect(selectionService.selectionEnvironment).toBe("ground");
     });
 
     it("should handle undefined profile in currentProfileData gracefully", async () => {

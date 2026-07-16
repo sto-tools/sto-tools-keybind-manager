@@ -62,7 +62,7 @@
  * @property {string} [description]
  * @property {string} [currentEnvironment]
  * @property {string} [lastModified]
- * @property {Record<string, string>} [selections]
+ * @property {Record<string, string | null>} [selections]
  *
  * @typedef {Object} ProfileOperations
  * @property {ProfileOperationPatch} [add]
@@ -151,7 +151,7 @@
  * @property {Record<string, Record<string, BindsetKeyMetadata>>} [keybindMetadata]
  * @property {Record<string, StoredCommand[]>} [keys]
  * @property {Record<string, Record<string, StoredCommand[]>>} [keybinds]
- * @property {Record<string, string>} [selections]
+ * @property {Record<string, string | null>} [selections]
  * @property {string} [created]
  * @property {string} [lastModified]
  * @property {string} [migrationVersion]

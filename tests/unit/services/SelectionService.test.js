@@ -44,6 +44,7 @@ describe("SelectionService", () => {
       keys: {},
       aliases: {},
     });
+    service.selectionEnvironment = "space";
   });
 
   describe("Initialization", () => {
@@ -151,6 +152,7 @@ describe("SelectionService", () => {
     it("should attempt to persist selection to profile", async () => {
       service.cache.currentProfile = "test-profile";
       service.cache.profile = { selections: { ground: "F8" } };
+      service.replaceCachedSelections(service.cache.profile);
 
       await service.selectKey("F4");
 
@@ -224,6 +226,7 @@ describe("SelectionService", () => {
     it("should persist alias selection to profile", async () => {
       service.cache.currentProfile = "test-profile";
       service.cache.profile = { selections: { space: "F5" } };
+      service.replaceCachedSelections(service.cache.profile);
 
       await service.selectAlias("TestAlias");
 
@@ -305,6 +308,10 @@ describe("SelectionService", () => {
       expect(service.editingContext).toBe(null);
       expect(service.cache.selectedKey).toBe("F1"); // Should remain
       expect(service.cache.selectedAlias).toBe(null); // Always null when key is selected
+      expect(capturedEvents).toContainEqual({
+        event: "editing-context-changed",
+        data: { context: null },
+      });
     });
 
     it("should clear all selections", async () => {
@@ -326,6 +333,10 @@ describe("SelectionService", () => {
       expect(capturedEvents).toContainEqual({
         event: "alias-selected",
         data: { name: null, source: "SelectionService" },
+      });
+      expect(capturedEvents).toContainEqual({
+        event: "editing-context-changed",
+        data: { context: null },
       });
     });
   });
@@ -457,46 +468,6 @@ describe("SelectionService", () => {
     });
   });
 
-  describe("State Queries", () => {
-    beforeEach(() => {
-      // Set selections directly to avoid mutual exclusion
-      service.cache.selectedKey = "F1";
-      service.cache.selectedAlias = "TestAlias";
-      service.cachedSelections.space = "F1";
-      service.cachedSelections.alias = "TestAlias";
-      service.setEditingContext({ param: "test" });
-    });
-
-    it("should return complete selection state", () => {
-      const state = service.getSelectionState();
-
-      expect(state).toEqual({
-        selectedKey: "F1",
-        selectedAlias: "TestAlias",
-        editingContext: { param: "test" },
-        cachedSelections: {
-          space: "F1",
-          ground: null,
-          alias: "TestAlias",
-        },
-        currentEnvironment: "space",
-      });
-    });
-
-    it("should return selected item for current environment", () => {
-      service.cache.currentEnvironment = "space";
-      expect(service.getSelectedItem()).toBe("F1");
-
-      service.cache.currentEnvironment = "alias";
-      expect(service.getSelectedItem()).toBe("TestAlias");
-    });
-
-    it("should return selected item for specified environment", () => {
-      expect(service.getSelectedItem("space")).toBe("F1");
-      expect(service.getSelectedItem("alias")).toBe("TestAlias");
-    });
-  });
-
   describe("Profile Integration", () => {
     it("should handle profile updates from DataCoordinator", () => {
       const profile = { id: "test", name: "Test Profile" };
@@ -590,25 +561,13 @@ describe("SelectionService", () => {
     });
   });
 
-  describe("Legacy Compatibility", () => {
-    it("should provide legacy key:get-selected response", async () => {
-      service.cache.selectedKey = "F1";
-
-      // This would be called via request/response system
-      const handlers = service._responseDetachFunctions;
-      expect(handlers.length).toBeGreaterThan(0);
-
-      // Verify the service has the right component name for identification
-      expect(service.componentName).toBe("SelectionService");
-    });
-  });
-
   describe("Regression Tests", () => {
     describe("Cross-Bindset Key Selection (js-bindset-selection-blocking)", () => {
       it("should allow same key selection in different bindsets", async () => {
         // Simulate selecting a key in Primary Bindset
         service.cache.selectedKey = "F1";
         service.cache.currentEnvironment = "space";
+        service.selectionEnvironment = "space";
         service.cache.activeBindset = "Primary Bindset";
 
         // Select same key in different bindset - should not be treated as duplicate

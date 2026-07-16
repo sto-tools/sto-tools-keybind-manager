@@ -6,6 +6,7 @@ import type { KeyEventProtocol } from "./keys.js";
 import type { LegacyDomMirrorSurface } from "./legacy-dom.js";
 import type { PreferencesEventProtocol } from "./preferences.js";
 import type { ProfileEventProtocol } from "./profiles.js";
+import type { SelectionEventProtocol } from "./selection.js";
 import type { StorageEventProtocol } from "./storage.js";
 import type { UiEventProtocol } from "./ui.js";
 
@@ -21,6 +22,7 @@ export interface EventProtocol
     KeyEventProtocol,
     PreferencesEventProtocol,
     ProfileEventProtocol,
+    SelectionEventProtocol,
     StorageEventProtocol,
     UiEventProtocol {}
 

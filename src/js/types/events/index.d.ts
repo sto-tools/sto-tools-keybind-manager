@@ -8,5 +8,6 @@ export * from "./legacy-dom.js";
 export * from "./preferences.js";
 export * from "./profiles.js";
 export * from "./protocol.js";
+export * from "./selection.js";
 export * from "./storage.js";
 export * from "./ui.js";

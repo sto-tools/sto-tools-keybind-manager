@@ -54,11 +54,9 @@ describe("CommandChainUI Stabilized Ordering", () => {
       document: mockDocument,
       i18n: { t: vi.fn((key) => key) },
     });
+    ui.request = vi.fn().mockResolvedValue({});
 
     await ui.init();
-
-    // Set up request method on the ui instance
-    ui.request = vi.fn().mockResolvedValue({});
   });
 
   afterEach(() => {

@@ -132,9 +132,6 @@ describe("CommandChainUI Palindromic Controls", () => {
         if (endpoint === "data:update-profile") {
           return Promise.resolve({ success: true });
         }
-        if (endpoint === "key:get-selected") {
-          return Promise.resolve(null);
-        }
         if (endpoint === "command:get-empty-state-info") {
           return Promise.resolve({
             title: "Test Title",

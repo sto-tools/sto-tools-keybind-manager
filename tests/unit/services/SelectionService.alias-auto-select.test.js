@@ -22,6 +22,7 @@ describe("SelectionService alias auto-selection state access", () => {
       },
       aliases: {},
     });
+    service.selectionEnvironment = "alias";
   });
 
   afterEach(() => {

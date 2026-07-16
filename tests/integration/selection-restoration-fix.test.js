@@ -6,9 +6,16 @@ import SelectionService from "../../src/js/components/services/SelectionService.
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import StorageService from "../../src/js/components/services/StorageService.js";
 import InterfaceModeService from "../../src/js/components/services/InterfaceModeService.js";
+import ComponentBase from "../../src/js/components/ComponentBase.js";
+
+class SelectionCacheConsumer extends ComponentBase {}
 
 describe("Selection Restoration Fix - Page Reload", () => {
-  let selectionService, dataCoordinator, storageService, interfaceModeService;
+  let selectionService,
+    selectionConsumer,
+    dataCoordinator,
+    storageService,
+    interfaceModeService;
   let emittedEvents = [];
 
   beforeEach(async () => {
@@ -71,6 +78,8 @@ describe("Selection Restoration Fix - Page Reload", () => {
     // Initialize SelectionService second (simulates app startup order)
     selectionService = new SelectionService({ eventBus });
     await selectionService.init();
+    selectionConsumer = new SelectionCacheConsumer(eventBus);
+    await selectionConsumer.init();
 
     // Wait for handshake to complete before switching mode
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -86,6 +95,7 @@ describe("Selection Restoration Fix - Page Reload", () => {
 
   afterEach(() => {
     interfaceModeService?.destroy?.();
+    selectionConsumer?.destroy?.();
     selectionService?.destroy?.();
     dataCoordinator?.destroy?.();
     vi.clearAllMocks();
@@ -210,5 +220,44 @@ describe("Selection Restoration Fix - Page Reload", () => {
     expect(selectedAlias).toBe("TestAlias");
     expect(selectionService.cache.selectedAlias).toBe("TestAlias");
     expect(requestSpy).not.toHaveBeenCalledWith("data:get-aliases");
+  });
+
+  it("does not expose retired selection snapshot RPCs", () => {
+    for (const topic of [
+      "key:get-selected",
+      "selection:get-cached",
+      "selection:get-editing-context",
+      "selection:get-selected",
+      "selection:get-state",
+    ]) {
+      expect(eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
+    }
+  });
+
+  it("propagates a complete live owner snapshot to component caches", () => {
+    selectionService.cache.selectedKey = "F1";
+    selectionService.cache.selectedAlias = null;
+    selectionService.cache.currentEnvironment = "space";
+    selectionService.selectionEnvironment = "space";
+    selectionService.editingContext = { isEditing: true, editIndex: 3 };
+    selectionService.cachedSelections = {
+      space: "F1",
+      ground: "F2",
+      alias: "TestAlias",
+    };
+
+    selectionService.broadcastState();
+
+    expect(selectionConsumer.cache).toMatchObject({
+      selectedKey: "F1",
+      selectedAlias: null,
+      currentEnvironment: "space",
+      editingContext: { isEditing: true, editIndex: 3 },
+      cachedSelections: {
+        space: "F1",
+        ground: "F2",
+        alias: "TestAlias",
+      },
+    });
   });
 });

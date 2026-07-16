@@ -70,6 +70,7 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     /** @type {KeyBrowserCache} */
     this.cache = {
+      ...this.cache,
       selectedKey: null,
       selectedAlias: null,
       currentEnvironment: "space",
@@ -80,7 +81,6 @@ export default class KeyBrowserUI extends UIComponentBase {
       builds: {},
       preferences: {},
       activeBindset: "Primary Bindset",
-      bindsetNames: ["Primary Bindset"],
     };
 
     /** @type {KeyMap} */

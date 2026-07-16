@@ -32,6 +32,18 @@ class LateJoinConsumer extends ComponentBase {
   }
 }
 
+class SelectionService extends ComponentBase {
+  getCurrentState() {
+    return {
+      selectedKey: "F8",
+      selectedAlias: null,
+      editingContext: { isEditing: true, editIndex: 2 },
+      cachedSelections: { space: "F8", ground: "G", alias: null },
+      currentEnvironment: "space",
+    };
+  }
+}
+
 describe("ComponentBase late-join state synchronization", () => {
   const components = [];
 
@@ -87,6 +99,57 @@ describe("ComponentBase late-join state synchronization", () => {
       keys: { F2: ["TrayExecByTray 0 0"] },
       aliases: {},
     });
+  });
+
+  it("hydrates selection state without a state-query RPC", () => {
+    const selectionService = new SelectionService(eventBus);
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(selectionService, consumer);
+
+    selectionService.init();
+    consumer.init();
+
+    expect(consumer.cache).toMatchObject({
+      selectedKey: "F8",
+      selectedAlias: null,
+      editingContext: { isEditing: true, editIndex: 2 },
+      cachedSelections: { space: "F8", ground: "G", alias: null },
+      currentEnvironment: "space",
+    });
+    expect(eventBus.hasListeners("rpc:key:get-selected")).toBe(false);
+
+    eventBus.emit("alias-selected", {
+      name: "EmergencyPower",
+      source: "SelectionService",
+    });
+
+    expect(consumer.cache.selectedKey).toBe(null);
+    expect(consumer.cache.selectedAlias).toBe("EmergencyPower");
+    expect(consumer.cache.cachedSelections.alias).toBe(null);
+
+    eventBus.emit("key-selected", {
+      key: "G",
+      environment: "ground",
+      source: "SelectionService",
+    });
+    eventBus.emit("editing-context-changed", { context: null });
+
+    expect(consumer.cache.cachedSelections.ground).toBe("G");
+    expect(consumer.cache.editingContext).toBe(null);
+
+    eventBus.emit("selection:state-changed", {
+      selectedKey: "G",
+      selectedAlias: null,
+      editingContext: null,
+      cachedSelections: {
+        space: "F8",
+        ground: "G",
+        alias: "EmergencyPower",
+      },
+      currentEnvironment: "ground",
+    });
+
+    expect(consumer.cache.cachedSelections.alias).toBe("EmergencyPower");
   });
 
   it("stops updating the cache after component teardown", () => {

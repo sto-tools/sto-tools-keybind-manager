@@ -45,4 +45,50 @@ describe("Application browser smoke", () => {
 
     expect(settingsDropdown?.classList.contains("active")).toBe(false);
   });
+
+  it("uses the selection broadcast cache without legacy state RPCs", () => {
+    const commandChainUI = window.commandChainUI;
+    const bus = commandChainUI?.eventBus;
+
+    expect(commandChainUI?.isInitialized?.()).toBe(true);
+    expect(bus).toBeTruthy();
+    for (const topic of [
+      "key:get-selected",
+      "selection:get-cached",
+      "selection:get-editing-context",
+      "selection:get-selected",
+      "selection:get-state",
+    ]) {
+      expect(bus.hasListeners(`rpc:${topic}`)).toBe(false);
+    }
+
+    const originalSnapshot = {
+      selectedKey: commandChainUI.cache.selectedKey,
+      selectedAlias: commandChainUI.cache.selectedAlias,
+      editingContext: commandChainUI.cache.editingContext ?? null,
+      cachedSelections: {
+        ...(commandChainUI.cache.cachedSelections || {}),
+        space: commandChainUI.cache.cachedSelections?.space ?? null,
+        ground: commandChainUI.cache.cachedSelections?.ground ?? null,
+        alias: commandChainUI.cache.cachedSelections?.alias ?? null,
+      },
+      currentEnvironment: commandChainUI.cache.currentEnvironment,
+    };
+    const probeSnapshot = {
+      selectedKey: "__selection-broadcast-probe__",
+      selectedAlias: null,
+      editingContext: { isEditing: true, editIndex: 9876 },
+      cachedSelections: {
+        ...originalSnapshot.cachedSelections,
+        space: "__selection-broadcast-probe__",
+      },
+      currentEnvironment: "space",
+    };
+
+    bus.emit("selection:state-changed", probeSnapshot);
+    expect(commandChainUI.cache).toMatchObject(probeSnapshot);
+
+    bus.emit("selection:state-changed", originalSnapshot);
+    expect(commandChainUI.cache).toMatchObject(originalSnapshot);
+  });
 });

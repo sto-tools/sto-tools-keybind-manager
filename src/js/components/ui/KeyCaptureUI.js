@@ -80,6 +80,7 @@ export default class KeyCaptureUI extends UIComponentBase {
 
     /** @type {KeyCaptureCache} */
     this.cache = {
+      ...this.cache,
       selectedKey: null,
       selectedAlias: null,
       currentEnvironment: "space",
@@ -90,7 +91,6 @@ export default class KeyCaptureUI extends UIComponentBase {
       builds: {},
       preferences: {},
       activeBindset: "Primary Bindset",
-      bindsetNames: ["Primary Bindset"],
     };
 
     /** @type {KeyboardLayout | null} */

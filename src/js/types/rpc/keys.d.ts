@@ -99,7 +99,6 @@ export interface KeyRpcProtocol {
     { categoryId: string; mode: string },
     boolean
   >;
-  "key:get-selected": NoPayloadRpc<string | null>;
   "key:select": RequiredRpc<
     {
       keyName: string | null;

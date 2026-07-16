@@ -73,6 +73,16 @@ const invalidAliasHandler: RpcHandler<"alias:add"> = () => ({
 
 // @ts-expect-error Removed defect topics are not part of the corrected registry.
 type RemovedTopic = RpcRequest<"data:get-aliases">;
+// @ts-expect-error Selection snapshots are broadcast/cache state, not RPCs.
+type RemovedSelectedKeyQuery = RpcRequest<"key:get-selected">;
+// @ts-expect-error Late-join hydration replaces the legacy selection state RPC.
+type RemovedSelectionStateQuery = RpcRequest<"selection:get-state">;
+// @ts-expect-error Cached selections are part of the selection snapshot.
+type RemovedCachedSelectionQuery = RpcRequest<"selection:get-cached">;
+// @ts-expect-error Editing context changes are broadcast state.
+type RemovedEditingContextQuery = RpcRequest<"selection:get-editing-context">;
+// @ts-expect-error The selected item is held in each component cache.
+type RemovedSelectedItemQuery = RpcRequest<"selection:get-selected">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -193,6 +203,8 @@ async function exerciseCoreApi() {
   request(eventBus, "parser:typo", {});
   // @ts-expect-error Responder-only inventory entries cannot gain consumers accidentally.
   request(eventBus, "data:get-settings");
+  // @ts-expect-error Retired state queries cannot be reintroduced by consumers.
+  request(eventBus, "key:get-selected");
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 

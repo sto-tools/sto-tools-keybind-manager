@@ -13,6 +13,7 @@ describe("SelectionService Environment Regression", () => {
 
     selectionService.cache.currentProfile = "test-profile";
     selectionService.cache.currentEnvironment = "space";
+    selectionService.selectionEnvironment = "space";
     selectionService.cache.builds = {
       space: { keys: { F10: ["FireAll"], F12: ["Spare"] } },
       ground: { keys: { F11: ["Sprint"], F13: ["Jump"] } },

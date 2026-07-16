@@ -2,25 +2,13 @@ import type {
   NoPayloadRpc,
   OptionalRpc,
   RequiredRpc,
-  ResponderOnlyNoPayloadRpc,
   ResponderOnlyOptionalRpc,
   ResponderOnlyRequiredRpc,
   VirtualAlias,
 } from "./base.js";
+import type { EditingContext } from "../events/base.js";
 
-export type EditingContext = {
-  isEditing?: boolean;
-  editIndex?: number;
-  existingCommand?: unknown;
-};
-
-export type SelectionState = {
-  selectedKey: string | null;
-  selectedAlias: string | null;
-  editingContext: EditingContext | null;
-  cachedSelections: Record<string, string | null>;
-  currentEnvironment: string;
-};
+export type { EditingContext } from "../events/base.js";
 
 export type ClipboardResult =
   | { success: true; message: "content_copied_to_clipboard" }
@@ -44,16 +32,6 @@ export interface ApplicationRpcProtocol {
     { type?: "key" | "alias" | "editing" | "all" },
     undefined
   >;
-  "selection:get-cached": ResponderOnlyRequiredRpc<
-    { environment: string },
-    string | null | undefined
-  >;
-  "selection:get-editing-context": ResponderOnlyNoPayloadRpc<EditingContext | null>;
-  "selection:get-selected": ResponderOnlyRequiredRpc<
-    { environment?: string },
-    string | null
-  >;
-  "selection:get-state": ResponderOnlyNoPayloadRpc<SelectionState>;
   "selection:select-alias": RequiredRpc<
     {
       aliasName: string | null;

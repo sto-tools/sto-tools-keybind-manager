@@ -135,6 +135,7 @@ describe("SelectionService Bindset Validation Fix", () => {
       },
       currentEnvironment: "space",
     };
+    selectionService.selectionEnvironment = "space";
 
     // Should validate against space environment
     expect(selectionService.validateKeyExists("F1")).toBe(true);
@@ -142,6 +143,7 @@ describe("SelectionService Bindset Validation Fix", () => {
 
     // Change current environment to ground
     selectionService.cache.currentEnvironment = "ground";
+    selectionService.selectionEnvironment = "ground";
 
     // Should validate against ground environment
     expect(selectionService.validateKeyExists("F1")).toBe(false);

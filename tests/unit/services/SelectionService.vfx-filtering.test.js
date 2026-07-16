@@ -1,5 +1,5 @@
 // Test to verify SelectionService filters out VFX Manager system aliases during auto-selection
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBasicTestEnvironment } from "../../fixtures";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 
@@ -15,6 +15,9 @@ describe("SelectionService VFX Alias Filtering", () => {
 
     // Mock ComponentBase cache with test data including VFX aliases
     selectionService.cache = {
+      selectedKey: null,
+      selectedAlias: null,
+      currentEnvironment: "alias",
       currentProfile: "test-profile",
       profile: {
         id: "test-profile",
@@ -47,9 +50,16 @@ describe("SelectionService VFX Alias Filtering", () => {
           description: "Third user alias",
         },
       },
+      builds: {},
+      keys: {},
+      preferences: {},
+      activeBindset: "Primary Bindset",
+      bindsetNames: ["Primary Bindset"],
+      cachedSelections: { space: null, ground: null, alias: null },
     };
 
     await selectionService.init();
+    selectionService.request = vi.fn().mockResolvedValue({ success: true });
   });
 
   afterEach(() => {
@@ -103,7 +113,10 @@ describe("SelectionService VFX Alias Filtering", () => {
       expect(selectAliasSpy).not.toHaveBeenCalledWith(
         "dynFxSetFXExclusionList_Space",
       );
-      expect(autoSelectSpy).toHaveBeenCalledWith("alias");
+      expect(autoSelectSpy).toHaveBeenCalledWith(
+        "alias",
+        expect.objectContaining({ isCurrent: expect.any(Function) }),
+      );
 
       // Auto-selection should pick a valid user alias
       const selectedAlias = selectAliasSpy.mock.calls[0]?.[0];

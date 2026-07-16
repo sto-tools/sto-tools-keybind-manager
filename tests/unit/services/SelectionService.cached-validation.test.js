@@ -1,5 +1,5 @@
 // Test to verify SelectionService validates cached selections exist before restoring
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBasicTestEnvironment } from "../../fixtures";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 
@@ -134,7 +134,10 @@ describe("SelectionService Cached Selection Validation", () => {
       await selectionService.validateAndRestoreSelection("space", "F99");
 
       // Should NOT directly select the invalid key, but SHOULD call autoSelect which then selects first available
-      expect(autoSelectSpy).toHaveBeenCalledWith("space");
+      expect(autoSelectSpy).toHaveBeenCalledWith(
+        "space",
+        expect.objectContaining({ isCurrent: expect.any(Function) }),
+      );
       expect(selectKeySpy).toHaveBeenCalledWith(
         "F1",
         "space",
@@ -167,7 +170,10 @@ describe("SelectionService Cached Selection Validation", () => {
       await selectionService.validateAndRestoreSelection("alias", "TestAlias");
 
       // Should NOT directly select the invalid alias, but SHOULD call autoSelect which then selects first available
-      expect(autoSelectSpy).toHaveBeenCalledWith("alias");
+      expect(autoSelectSpy).toHaveBeenCalledWith(
+        "alias",
+        expect.objectContaining({ isCurrent: expect.any(Function) }),
+      );
       expect(selectAliasSpy).toHaveBeenCalledWith(
         "ValidAlias",
         expect.objectContaining({ isAuto: true }),
@@ -181,7 +187,10 @@ describe("SelectionService Cached Selection Validation", () => {
       // Test with no cached selection
       await selectionService.validateAndRestoreSelection("space", null);
 
-      expect(autoSelectSpy).toHaveBeenCalledWith("space");
+      expect(autoSelectSpy).toHaveBeenCalledWith(
+        "space",
+        expect.objectContaining({ isCurrent: expect.any(Function) }),
+      );
     });
   });
 
@@ -241,7 +250,14 @@ describe("SelectionService Cached Selection Validation", () => {
       // Switch to ground environment (has invalid cached selection)
       await selectionService.switchEnvironment("ground");
 
-      expect(validateSpy).toHaveBeenCalledWith("ground", "F99");
+      expect(validateSpy).toHaveBeenCalledWith(
+        "ground",
+        "F99",
+        expect.objectContaining({
+          isCurrent: expect.any(Function),
+          skipPersistence: true,
+        }),
+      );
     });
   });
 
@@ -263,6 +279,7 @@ describe("SelectionService Cached Selection Validation", () => {
         builds: selectionService.cache.builds,
       };
       selectionService.cache.currentEnvironment = "space";
+      selectionService.selectionEnvironment = "space";
       selectionService.cache.keys = selectionService.cache.builds.space.keys;
 
       await selectionService.selectKey("F10", "space");

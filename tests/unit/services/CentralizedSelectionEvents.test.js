@@ -308,6 +308,10 @@ describe("Centralized Selection Events", () => {
 
       // Clear events from profile loading
       capturedEvents = [];
+      selectionService.request = vi.fn().mockResolvedValue({
+        success: true,
+        profile: mockProfile,
+      });
 
       // Simulate key selection via SelectionService
       await selectionService.selectKey("F1", "space");

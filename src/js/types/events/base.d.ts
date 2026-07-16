@@ -193,6 +193,20 @@ export interface EditingContext {
   existingCommand?: unknown;
 }
 
+export type SelectionCache = {
+  space: string | null;
+  ground: string | null;
+  alias: string | null;
+} & Record<string, string | null>;
+
+export interface SelectionStateSnapshot {
+  selectedKey: string | null;
+  selectedAlias: string | null;
+  editingContext: EditingContext | null;
+  cachedSelections: SelectionCache;
+  currentEnvironment: Environment;
+}
+
 export interface VfxSettingsSnapshot {
   selectedEffects: {
     space: string[];

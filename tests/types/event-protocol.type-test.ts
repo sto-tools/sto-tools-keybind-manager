@@ -3,6 +3,7 @@ import type {
   DynamicEventTopic,
   EventPayload,
   EventTopic,
+  SelectionStateSnapshot,
   StoreEventTopic,
   TypedEventBus,
 } from "../../src/js/types/events/index.js";
@@ -40,6 +41,9 @@ type ToastPayloadIsRegistered = Expect<
     }
   >
 >;
+type SelectionSnapshotIsRegisteredExactly = Expect<
+  Equal<EventPayload<"selection:state-changed">, SelectionStateSnapshot>
+>;
 
 const bus: TypedEventBus = eventBus;
 
@@ -54,6 +58,23 @@ bus.on("toast:show", (payload) => {
 bus.emit("toast:show", { message: "Saved", type: "success" });
 bus.emit("preferences:loaded", { settings: { language: "en" } });
 bus.emit("storage:settings-changed", { settings: { autoSync: true } });
+bus.emit("selection:state-changed", {
+  selectedKey: "F1",
+  selectedAlias: null,
+  editingContext: null,
+  cachedSelections: { space: "F1", ground: null, alias: null },
+  currentEnvironment: "space",
+});
+// @ts-expect-error Selection snapshots require the complete owned state.
+bus.emit("selection:state-changed", { selectedKey: "F1" });
+// @ts-expect-error All three durable selection slots are required.
+bus.emit("selection:state-changed", {
+  selectedKey: null,
+  selectedAlias: null,
+  editingContext: null,
+  cachedSelections: {},
+  currentEnvironment: "space",
+});
 
 // Null-bearing topics may omit their payload at the runtime bus boundary.
 bus.emit("about:show");

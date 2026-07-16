@@ -1,5 +1,5 @@
 // Test to verify SelectionService handles auto-selection when selected items are deleted
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/services/harness.js";
 import SelectionService from "../../../src/js/components/services/SelectionService.js";
 
@@ -66,6 +66,7 @@ describe("SelectionService Deletion Auto-Selection", () => {
         TestAlias3: { commands: "TargetNearest", type: "alias" },
       },
     });
+    selectionService.selectionEnvironment = "space";
   });
 
   afterEach(() => {
@@ -160,6 +161,7 @@ describe("SelectionService Deletion Auto-Selection", () => {
     it("should auto-select another key when selected key is deleted in key environment", async () => {
       // Set up: select a key in space environment
       selectionService.cache.currentEnvironment = "space";
+      selectionService.selectionEnvironment = "space";
       await selectionService.selectKey("F1");
 
       const originalAutoSelect =
@@ -192,6 +194,7 @@ describe("SelectionService Deletion Auto-Selection", () => {
     it("should clear selection but not auto-select when selected key is deleted outside key environment", async () => {
       // Set up: select a key but switch to alias environment
       selectionService.cache.currentEnvironment = "alias";
+      selectionService.selectionEnvironment = "alias";
       await selectionService.selectKey("F1", "space");
 
       const autoSelectSpy = vi.spyOn(selectionService, "autoSelectFirst");
