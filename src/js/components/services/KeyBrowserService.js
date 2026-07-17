@@ -1,5 +1,4 @@
 import ComponentBase from "../ComponentBase.js";
-import { activeBindsetFromPayload } from "../../core/eventPayloads.js";
 import commandCategories from "../../data/commandCatalog.js";
 import { compareKeyNames, sortKeyNames } from "./keySorting.js";
 import {
@@ -132,28 +131,6 @@ export default class KeyBrowserService extends ComponentBase {
 
       // ComponentBase handles currentEnvironment and keys caching
       this.emit("key:list-changed", { keys: this.getKeys() });
-    });
-
-    this.addEventListener("profile-modified", () => {
-      this.emit("key:list-changed", { keys: this.getKeys() });
-    });
-
-    // Command chain bindset coordination
-    this.addEventListener("bindset:active-changed", (payload) => {
-      const bindset = activeBindsetFromPayload(payload);
-      if (!bindset) return;
-      // Optionally expand the active bindset section when it changes
-      // Store active bindset for potential UI coordination
-      this.cache.activeCommandChainBindset = bindset;
-    });
-
-    // Maintain cache synchronization between key browser and command chain
-    this.addEventListener("bindset:modified", (payload) => {
-      if (typeof payload !== "object" || payload === null) return;
-      const bindsetName = Reflect.get(payload, "bindsetName");
-      if (typeof bindsetName !== "string") return;
-      // Refresh specific bindset section when modified
-      this.emit("bindset-section:refresh-needed", { bindsetName });
     });
   }
 

@@ -79,14 +79,6 @@ export interface InterfaceModeStateSnapshot {
   currentEnvironment: string;
 }
 
-export interface ParameterCommandStateSnapshot {
-  editingContext: {
-    isEditing: boolean;
-    editIndex: number;
-    existingCommand: unknown;
-  } | null;
-}
-
 export interface PreferencesStateSnapshot {
   settings: PreferencesSettings;
 }
@@ -128,7 +120,6 @@ export interface CommandLibraryUiStateSnapshot {
 export interface ProfileUiStateSnapshot {
   currentProfile: string | null;
   currentEnvironment: string;
-  modified: boolean;
 }
 
 /** Every component that currently overrides ComponentBase.getCurrentState. */
@@ -141,7 +132,6 @@ export interface ComponentStateProtocol {
   ExportService: ExportStateSnapshot;
   InterfaceModeService: InterfaceModeStateSnapshot;
   KeyBrowserService: KeyBrowserViewStateSnapshot;
-  ParameterCommandService: ParameterCommandStateSnapshot;
   PreferencesService: PreferencesStateSnapshot;
   SelectionService: SelectionStateSnapshot;
   StorageService: StorageStateSnapshot;

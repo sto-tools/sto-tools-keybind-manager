@@ -27,18 +27,3 @@ export function activeBindsetFromPayload(payload) {
   const name = Reflect.get(payload, "name");
   return typeof name === "string" ? name : undefined;
 }
-
-/** @param {unknown} payload @returns {string | undefined} */
-export function legacyViewMode(payload) {
-  if (typeof payload !== "object" || payload === null) return undefined;
-  const viewMode = Reflect.get(payload, "viewMode");
-  return typeof viewMode === "string" ? viewMode : undefined;
-}
-
-/** @param {unknown} payload @returns {string} */
-export function legacyFilter(payload) {
-  if (typeof payload === "string") return payload;
-  if (typeof payload !== "object" || payload === null) return "";
-  const filter = Reflect.get(payload, "value");
-  return typeof filter === "string" ? filter : "";
-}

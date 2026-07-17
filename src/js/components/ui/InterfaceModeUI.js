@@ -14,20 +14,14 @@ function isEnvironment(value) {
 }
 
 /**
- * Keep accepting the historical environment/newMode/mode listener shapes
- * while validating the value before it reaches UI state.
+ * Validate the canonical environment broadcast before it reaches UI state.
  * @param {unknown} payload
  * @returns {import('./uiTypes.js').Environment | undefined}
  */
 function environmentFromEvent(payload) {
-  if (isEnvironment(payload)) return payload;
   if (typeof payload !== "object" || payload === null) return undefined;
-
-  for (const field of ["environment", "newMode", "mode"]) {
-    const candidate = Reflect.get(payload, field);
-    if (isEnvironment(candidate)) return candidate;
-  }
-  return undefined;
+  const environment = Reflect.get(payload, "environment");
+  return isEnvironment(environment) ? environment : undefined;
 }
 
 /**
@@ -62,12 +56,6 @@ export default class InterfaceModeUI extends UIComponentBase {
     // Internal state
     this._uiListenersSetup = false;
     this._modeButtonsSetup = false;
-
-    // Store handler references for proper cleanup
-    /** @type {((data: unknown) => void) | null} */
-    this._modeChangedHandler = null;
-    /** @type {((data: import('../../types/events/profiles.js').EnvironmentChangedPayload) => void) | null} */
-    this._environmentChangedHandler = null;
   }
 
   // Component lifecycle hook - called by ComponentBase.init()
@@ -82,29 +70,13 @@ export default class InterfaceModeUI extends UIComponentBase {
       return;
     }
 
-    // Create handler functions and store references for cleanup
-    this._modeChangedHandler = (data) => {
-      const env = environmentFromEvent(data);
-      if (isEnvironment(env)) {
-        this._currentMode = env;
-        this.updateModeUI(env);
-      }
-    };
-
-    this._environmentChangedHandler = (d) => {
+    this.addEventListener("environment:changed", (d) => {
       const env = environmentFromEvent(d);
       if (env) {
         this._currentMode = env;
         this.updateModeUI(env);
       }
-    };
-
-    // Listen for mode change events from service
-    this.eventBus?.on("mode-changed", this._modeChangedHandler);
-
-    // Also respond to generic environment change events that other services
-    // emit (InterfaceModeService uses this topic as its primary broadcast).
-    this.eventBus?.on("environment:changed", this._environmentChangedHandler);
+    });
 
     this._uiListenersSetup = true;
   }
@@ -206,23 +178,8 @@ export default class InterfaceModeUI extends UIComponentBase {
 
   // Component lifecycle hook - called by ComponentBase
   onDestroy() {
-    if (this._uiListenersSetup) {
-      // Properly remove event listeners using stored handler references
-      if (this._modeChangedHandler) {
-        this.eventBus?.off("mode-changed", this._modeChangedHandler);
-      }
-      if (this._environmentChangedHandler) {
-        this.eventBus?.off(
-          "environment:changed",
-          this._environmentChangedHandler,
-        );
-      }
-      this._uiListenersSetup = false;
-    }
-
-    // Reset flags
+    this._uiListenersSetup = false;
     this._modeButtonsSetup = false;
-    // Note: DOM event listeners are automatically cleaned up by ComponentBase
   }
 
   // Late-join handshake: keep UI in sync with service state even if the relevant events fired before we registered.

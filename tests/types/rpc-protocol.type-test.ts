@@ -393,6 +393,8 @@ async function exerciseCoreApi() {
   request(eventBus, "selection:clear", { type: "key" });
   // @ts-expect-error Editing context changes are internal and broadcast.
   request(eventBus, "selection:set-editing-context", { context: null });
+  // @ts-expect-error Selected keys arrive through the canonical key-selected event.
+  request(eventBus, "bindset-selector:set-key", { key: "F1" });
   // @ts-expect-error Retired preference queries cannot be reintroduced by consumers.
   request(eventBus, "preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Retired preference snapshots cannot be reintroduced by consumers.
@@ -441,6 +443,8 @@ async function exerciseCoreApi() {
   respond(eventBus, "selection:clear", () => undefined);
   // @ts-expect-error Editing context cannot regain an RPC responder.
   respond(eventBus, "selection:set-editing-context", () => null);
+  // @ts-expect-error Selected-key membership cannot regain an RPC responder.
+  respond(eventBus, "bindset-selector:set-key", () => undefined);
   // @ts-expect-error Retired preference queries cannot regain responders.
   respond(eventBus, "preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

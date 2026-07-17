@@ -402,13 +402,6 @@ describe('ProfileService (Migrated to DataCoordinator)', () => {
       expect(profileSwitchedEvents).toHaveLength(1)
     })
 
-    it('should emit profile-modified events when appropriate', async () => {
-      const events = []
-      eventBus.on('profile-modified', (event) => events.push(event))
-
-      profileService.setModified(true)
-      // Note: profile-modified is now emitted by DataCoordinator events, not directly by ProfileService
-    })
   })
 
   describe('Integration with DataCoordinator', () => {
@@ -451,4 +444,4 @@ describe('ProfileService (Migrated to DataCoordinator)', () => {
       expect(profileService.currentEnvironment).toBe('ground')
     })
   })
-}) 
+})

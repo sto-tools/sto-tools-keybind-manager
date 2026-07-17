@@ -44,6 +44,8 @@ component.emit("key-browser:state-changed", {
 component.emit("toast:typo", { message: "Saved" });
 // @ts-expect-error Component event payloads are registry-checked.
 component.emit("toast:show", { message: "Saved" });
+// @ts-expect-error Orphan compatibility listeners are retired.
+component.addEventListener("bindset:modified", () => undefined);
 
 component.onDom(document, "click", "about-open", () => undefined);
 // @ts-expect-error DOM mirrors and direct application events are separate.
@@ -169,6 +171,10 @@ async function exerciseComponentRpc() {
   component.respond("selection:clear", () => undefined);
   // @ts-expect-error Editing context cannot regain an RPC responder.
   component.respond("selection:set-editing-context", () => null);
+  // @ts-expect-error Selected-key membership is driven by key-selected events.
+  component.request("bindset-selector:set-key", { key: "F1" });
+  // @ts-expect-error Selected-key membership cannot regain an RPC responder.
+  component.respond("bindset-selector:set-key", () => undefined);
   // @ts-expect-error Retired preference queries cannot regain responders.
   component.respond("preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

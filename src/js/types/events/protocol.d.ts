@@ -42,28 +42,7 @@ export interface EventEmitOptions {
 }
 export type EventEmitResult = Promise<void | PromiseSettledResult<unknown>[]>;
 
-/**
- * These topics have live listeners but no production payload authority. They
- * remain available to listeners during compatibility cleanup, but a typed
- * producer cannot invent a payload for them.
- */
-export type LegacyListenerTopic =
-  | "bindset-manager:open"
-  | "bindset:active-changed"
-  | "bindset:created"
-  | "bindset:deleted"
-  | "bindset:modified"
-  | "current-profile:updated"
-  | "key-view:toggle"
-  | "key-view:update-toggle"
-  | "key:selected"
-  | "keys:filter"
-  | "keys:show-all"
-  | "mode-changed"
-  | "parameter-edit:start"
-  | "profile-modified";
-
-export type EventEmitTopic = Exclude<EventTopic, LegacyListenerTopic>;
+export type EventEmitTopic = EventTopic;
 
 export type EventEmitArguments<Topic extends EventEmitTopic> =
   null extends EventPayload<Topic>

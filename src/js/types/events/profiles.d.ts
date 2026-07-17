@@ -106,9 +106,4 @@ export interface ProfileEventProtocol {
     currentProfile: string | null;
     timestamp: number;
   };
-
-  /** Producer authority is absent for the following compatibility topics. */
-  "current-profile:updated": unknown;
-  "mode-changed": unknown;
-  "profile-modified": unknown;
 }

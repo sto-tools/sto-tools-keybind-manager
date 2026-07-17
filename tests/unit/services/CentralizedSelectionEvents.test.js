@@ -151,11 +151,7 @@ describe("Centralized Selection Events", () => {
     it("should not expose selection state in ParameterCommandService.getCurrentState()", () => {
       const state = parameterCommandService.getCurrentState();
 
-      expect(state).not.toHaveProperty("selectedKey");
-      expect(state).not.toHaveProperty("selectedAlias");
-      expect(state).not.toHaveProperty("currentEnvironment"); // Not owned by this service
-      // editingContext is still appropriate for parameter editing
-      expect(state).toHaveProperty("editingContext");
+      expect(state).toBeNull();
     });
 
     it("should only expose selection state in SelectionService.getCurrentState()", () => {
@@ -216,10 +212,7 @@ describe("Centralized Selection Events", () => {
       expect(requestSpy).not.toHaveBeenCalled();
     });
 
-    it("should use request/response for parameterized command operations in ParameterCommandService", async () => {
-      // The test should verify that ParameterCommandService follows request/response pattern
-      // and doesn't maintain its own selection state
-
+    it("builds parameterized commands without owning selection state", async () => {
       // Mock command definition
       const mockCommandDef = {
         command: "Target",
@@ -239,10 +232,8 @@ describe("Centralized Selection Events", () => {
       expect(result.command).toBe('Target "TestTarget"');
       expect(result.displayText).toBe("Target: TestTarget");
 
-      // Verify the service doesn't expose selection state in its getCurrentState()
       const state = parameterCommandService.getCurrentState();
-      expect(state).not.toHaveProperty("selectedKey");
-      expect(state).not.toHaveProperty("selectedAlias");
+      expect(state).toBeNull();
     });
   });
 

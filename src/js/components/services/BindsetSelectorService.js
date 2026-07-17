@@ -13,34 +13,22 @@ export default class BindsetSelectorService extends ComponentBase {
 
     // Initialize KeyService for key normalization
     this.keyService = new KeyService({ eventBus });
-
-    if (this.eventBus) {
-      this.respond("bindset-selector:set-key", ({ key }) =>
-        this.setSelectedKey(key),
-      );
-      // REMOVED: this.respond('bindset-selector:get-state', () => this.getCurrentState())
-      this.respond("bindset-selector:add-key-to-bindset", ({ bindset }) =>
-        this.addKeyToBindset(bindset),
-      );
-      this.respond("bindset-selector:remove-key-from-bindset", ({ bindset }) =>
-        this.removeKeyFromBindset(bindset),
-      );
-      this.respond("bindset-selector:set-active-bindset", ({ bindset }) =>
-        this.setActiveBindset(bindset),
-      );
-    }
-
-    this.setupEventListeners();
+    this._lateJoinWarningTimer = null;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
   }
 
   async onInit() {
+    this.setupRequestHandlers();
+    this.setupEventListeners();
+
     console.log("[BindsetSelectorService] onInit called");
     console.log("[BindsetSelectorService] Initial cache state:", this.cache);
     console.log("[BindsetSelectorService] Component name:", this.componentName);
 
     // ComponentBase should automatically trigger late-join sync
     // Let's see if we get any handleInitialState calls
-    setTimeout(() => {
+    this._lateJoinWarningTimer = setTimeout(() => {
       if (!this.cache.profile) {
         console.warn(
           "[BindsetSelectorService] No profile data received after 1 second - late-join sync may have failed",
@@ -51,6 +39,33 @@ export default class BindsetSelectorService extends ComponentBase {
         );
       }
     }, 1000);
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
+      this.respond("bindset-selector:add-key-to-bindset", ({ bindset }) =>
+        this.addKeyToBindset(bindset),
+      ),
+      this.respond("bindset-selector:remove-key-from-bindset", ({ bindset }) =>
+        this.removeKeyFromBindset(bindset),
+      ),
+      this.respond("bindset-selector:set-active-bindset", ({ bindset }) =>
+        this.setActiveBindset(bindset),
+      ),
+    );
+  }
+
+  onDestroy() {
+    this._listenersSetup = false;
+    this._responseDetachFunctions.forEach((detach) => detach());
+    this._responseDetachFunctions = [];
+    if (this._lateJoinWarningTimer !== null) {
+      clearTimeout(this._lateJoinWarningTimer);
+      this._lateJoinWarningTimer = null;
+    }
+    super.onDestroy();
   }
 
   // Event Listeners
@@ -130,42 +145,21 @@ export default class BindsetSelectorService extends ComponentBase {
         this.cache.selectedKey,
       );
 
-      if (selectedKey !== this.cache.selectedKey) {
-        // ComponentBase automatically updates this.cache.selectedKey
-        // BUT there might be a timing issue here!
+      // ComponentBase may have cached this delivery first, depending on whether
+      // this is an initial or reinitialized lifecycle. Membership still needs
+      // one refresh for every canonical selection delivery.
+      this.cache.selectedKey = selectedKey;
+      this.updateKeyMembership();
 
-        // Force update cache immediately to ensure consistency
-        this.cache.selectedKey = selectedKey;
+      // Respect bindset context provided in key-selected events. SelectionService
+      // remains the sole owner of active-bindset synchronization.
+      if (bindset && bindset !== this.cache.activeBindset) {
         console.log(
-          "[BindsetSelectorService] FORCE UPDATED: cache.selectedKey =",
-          this.cache.selectedKey,
+          "[BindsetSelectorService] Respecting bindset context from key-selected event:",
+          bindset,
         );
-
-        // Now update membership with the correct key
-        this.updateKeyMembership();
-
-        // Respect bindset context provided in key-selected events
-        // Don't automatically reset to Primary Bindset - let SelectionService manage bindset context
-        if (bindset && bindset !== this.cache.activeBindset) {
-          console.log(
-            "[BindsetSelectorService] Respecting bindset context from key-selected event:",
-            bindset,
-          );
-          // Note: We don't call setActiveBindset here to avoid conflicting with SelectionService's
-          // _syncBindsetContextForSelection() which properly manages bindset context
-        }
       }
     });
-  }
-
-  // State Management - ComponentBase handles selectedKey caching
-  /** @param {string | undefined} key @returns {undefined} */
-  setSelectedKey(key) {
-    void key;
-    // ComponentBase will handle this.cache.selectedKey automatically via events
-    // We just need to update the key membership
-    this.updateKeyMembership();
-    return undefined;
   }
 
   /** @param {string | undefined} bindsetName @returns {undefined} */
@@ -196,6 +190,11 @@ export default class BindsetSelectorService extends ComponentBase {
       console.log(
         `[BindsetSelectorService] updateKeyMembership: early return - no selectedKey`,
       );
+      this.keyBindsetMembership.clear();
+      this.emit("bindset-selector:membership-updated", {
+        key: null,
+        membership: new Map(),
+      });
       return;
     }
 

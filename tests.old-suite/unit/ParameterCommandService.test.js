@@ -88,26 +88,6 @@ describe('ParameterCommandService', () => {
       expect(result.command).toBe('+STOTrayExecByTray 1 2')
     })
 
-    it('should handle editing mode when currentParameterCommand is properly set', async () => {
-      // Set up the service state to simulate editing mode using events
-      service.selectedKey = 'testKey'
-      
-      // Emit parameter editing start event with existing command
-      eventBus.emit('parameter-edit:start', {
-        index: 0,
-        key: 'testKey',
-        command: { command: '+TrayExecByTray 0 0', type: 'tray' },
-        commandDef: { icon: 'test', name: 'Test Command' }
-      })
-      
-      const result = await service.buildParameterizedCommand('tray', 'custom_tray', 
-        { icon: 'test', name: 'Test Command' }, 
-        { tray: 1, slot: 2 }
-      )
-      
-      expect(result).toBeDefined()
-      expect(result.command).toBe('+STOTrayExecByTray 1 2')
-    })
   })
 
   describe('active parameter handling consistency', () => {
@@ -325,28 +305,6 @@ describe('ParameterCommandService', () => {
       expect(service.currentEnvironment).toBe('space')
     })
 
-    it('should handle parameter editing events correctly', () => {
-      const editData = {
-        index: 1,
-        key: 'F2',
-        command: { command: '+TrayExecByTray 2 3', type: 'tray' },
-        commandDef: { icon: 'test', name: 'Test Tray Command' }
-      }
-
-      // Start editing
-      eventBus.emit('parameter-edit:start', editData)
-      
-      expect(service.editingContext).toEqual({
-        isEditing: true,
-        editIndex: 1,
-        selectedKey: 'F2',
-        existingCommand: editData.command
-      })
-
-      // End editing
-      eventBus.emit('parameter-edit:end')
-      expect(service.editingContext).toBeNull()
-    })
   })
 
   /* ------------------------------------------------------------
@@ -366,4 +324,4 @@ describe('ParameterCommandService', () => {
       expect(result.command).toBe('team "Attack now!"')
     })
   })
-}) 
+})

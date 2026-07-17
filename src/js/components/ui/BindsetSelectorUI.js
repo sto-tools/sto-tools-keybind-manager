@@ -1,5 +1,4 @@
 import UIComponentBase from "../UIComponentBase.js";
-import { selectedKeyFromPayload } from "../../core/eventPayloads.js";
 import { eventElement, resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -91,16 +90,6 @@ export default class BindsetSelectorUI extends UIComponentBase {
       this.render();
     });
 
-    // Listen for key selection changes
-    this.addEventListener("key:selected", (payload) => {
-      const key = selectedKeyFromPayload(payload);
-      console.log(
-        `[BindsetSelectorUI] key:selected received: key="${key}", current cache.selectedKey="${this.cache.selectedKey}"`,
-      );
-      // ComponentBase handles this.cache.selectedKey automatically via key-selected events
-      if (key !== null) this.request("bindset-selector:set-key", { key });
-    });
-
     // Listen for environment changes - service handles this directly
     this.addEventListener("environment:changed", ({ environment }) => {
       console.log(
@@ -109,11 +98,6 @@ export default class BindsetSelectorUI extends UIComponentBase {
       );
       // Service handles environment changes directly, UI just needs to re-render
       this.render();
-    });
-
-    // Listen for bindset manager open requests
-    this.addEventListener("bindset-manager:open", () => {
-      this.openBindsetManager();
     });
 
     // DOM Event Listeners using EventBus onDom facility

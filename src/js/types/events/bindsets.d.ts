@@ -22,20 +22,12 @@ export interface BindsetEventProtocol {
   "bindset-selector:key-added": BindsetSelectionPayload;
   "bindset-selector:key-removed": BindsetSelectionPayload;
   "bindset-selector:membership-updated": {
-    key: string;
+    key: string | null;
     membership: Map<string, boolean>;
   };
   "bindset-selector:visibility-changed": { visible: boolean };
   "bindsets:changed": { names: string[] };
   "bindset-operation:completed": BindsetOperationPayload;
   "bindset-operation:started": BindsetOperationPayload;
-  "bindset-section:refresh-needed": { bindsetName: string };
   "bindset-selector:set-selected-key": { key: string | null };
-
-  /** Producer authority is absent for the following compatibility topics. */
-  "bindset-manager:open": unknown;
-  "bindset:active-changed": unknown;
-  "bindset:created": unknown;
-  "bindset:deleted": unknown;
-  "bindset:modified": unknown;
 }

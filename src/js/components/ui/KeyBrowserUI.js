@@ -1,6 +1,5 @@
 import UIComponentBase from "../UIComponentBase.js";
 import BindsetDeleteConfirmUI from "./BindsetDeleteConfirmUI.js";
-import { legacyFilter, legacyViewMode } from "../../core/eventPayloads.js";
 import {
   getSnapshotPrimaryKeys,
   getSnapshotProfile,
@@ -241,17 +240,7 @@ export default class KeyBrowserUI extends UIComponentBase {
       this.render();
     });
 
-    // Listen for view mode toggles and update events from other components
-    this.addEventListener("key-view:toggle", () => this.toggleKeyView());
-    this.addEventListener("key-view:update-toggle", (data) =>
-      this.updateViewToggleButton(legacyViewMode(data) ?? "grid"),
-    );
-    this.addEventListener("keys:filter", (data) =>
-      this.filterKeys(legacyFilter(data)),
-    );
-    this.addEventListener("keys:show-all", () => this.showAllKeys());
-
-    // Also re-render on explicit mode-changed events.
+    // Re-render after an explicit key-view mode change.
     this.addEventListener("key-view:mode-changed", () => this.render());
 
     // Listen for language changes and re-render with new translations
@@ -281,19 +270,6 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     // Listen for bindset changes and re-render when bindsets are enabled
     this.addEventListener("bindsets:changed", () => {
-      if (this.shouldShowBindsetSections()) {
-        this.render();
-      }
-    });
-
-    // Listen for bindset management events
-    this.addEventListener("bindset:created", () => {
-      if (this.shouldShowBindsetSections()) {
-        this.render();
-      }
-    });
-
-    this.addEventListener("bindset:deleted", () => {
       if (this.shouldShowBindsetSections()) {
         this.render();
       }

@@ -23,7 +23,6 @@ export interface BindsetRpcProtocol {
     { bindset?: string },
     undefined
   >;
-  "bindset-selector:set-key": RequiredRpc<{ key?: string }, undefined>;
   "bindset:clone": OptionalRpc<
     { sourceBindset?: string; targetBindset?: string },
     BindsetUpdateResult<

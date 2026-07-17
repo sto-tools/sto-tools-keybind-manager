@@ -147,11 +147,14 @@ describe("InterfaceModeUI", () => {
     });
   });
 
-  it("should update UI when mode changes", () => {
+  it("should update UI from the canonical environment broadcast", () => {
     interfaceModeUI.init();
 
-    // Simulate mode change event
-    eventBusFixture.eventBus.emit("mode-changed", "ground");
+    eventBusFixture.eventBus.emit("environment:changed", {
+      fromEnvironment: "space",
+      toEnvironment: "ground",
+      environment: "ground",
+    });
 
     // Check that ground button is active
     const groundButton = document.querySelector('[data-mode="ground"]');
@@ -214,25 +217,38 @@ describe("InterfaceModeUI", () => {
     expect(() => spaceButton.click()).not.toThrow();
   });
 
-  it("should preserve existing EventBus event listeners after mode button cleanup", () => {
+  it("owns only the canonical environment listener across reinitialization", () => {
+    const externalListener = vi.fn();
+    const detachExternal = eventBusFixture.eventBus.on(
+      "environment:changed",
+      externalListener,
+    );
     interfaceModeUI.init();
 
-    // Verify EventBus listeners are set up
-    expect(eventBusFixture.eventBus.on).toHaveBeenCalledWith(
-      "mode-changed",
-      expect.any(Function),
-    );
-    expect(eventBusFixture.eventBus.on).toHaveBeenCalledWith(
-      "environment:changed",
-      expect.any(Function),
-    );
+    expect(eventBusFixture.eventBus.getListenerCount("mode-changed")).toBe(0);
+    expect(
+      eventBusFixture.eventBus.getListenerCount("environment:changed"),
+    ).toBe(3);
 
-    // Cleanup mode button listeners
-    interfaceModeUI.onDestroy();
+    interfaceModeUI.destroy();
 
-    // EventBus listeners should still be available until full destroy
-    // (This tests that cleanup is targeted to DOM listeners only)
-    expect(interfaceModeUI._modeChangedHandler).not.toBeNull();
-    expect(interfaceModeUI._environmentChangedHandler).not.toBeNull();
+    expect(
+      eventBusFixture.eventBus.getListenerCount("environment:changed"),
+    ).toBe(1);
+    eventBusFixture.eventBus.emit("environment:changed", {
+      environment: "ground",
+    });
+    expect(externalListener).toHaveBeenCalledOnce();
+
+    interfaceModeUI.init();
+
+    expect(eventBusFixture.eventBus.getListenerCount("mode-changed")).toBe(0);
+    expect(
+      eventBusFixture.eventBus.getListenerCount("environment:changed"),
+    ).toBe(3);
+    detachExternal();
+    expect(
+      eventBusFixture.eventBus.getListenerCount("environment:changed"),
+    ).toBe(2);
   });
 });

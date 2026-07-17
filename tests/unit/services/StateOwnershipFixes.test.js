@@ -92,7 +92,7 @@ describe("Phase 1a: State Ownership Fixes", () => {
   });
 
   describe("ParameterCommandService getCurrentState()", () => {
-    it("should only return owned state (selection and editing context)", async () => {
+    it("should return null after editing state moved to its live owners", async () => {
       const service = new ParameterCommandService({
         eventBus: harness.eventBus,
       });
@@ -100,14 +100,7 @@ describe("Phase 1a: State Ownership Fixes", () => {
 
       const state = service.getCurrentState();
 
-      // Should only contain owned state (editingContext)
-      expect(state).toHaveProperty("editingContext");
-      expect(state.editingContext).toBe(null); // Initial state
-
-      // Should NOT contain selection state (delegated to SelectionService)
-      expect(state).not.toHaveProperty("selectedKey");
-      expect(state).not.toHaveProperty("selectedAlias");
-      expect(state).not.toHaveProperty("currentEnvironment");
+      expect(state).toBeNull();
     });
   });
 

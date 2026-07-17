@@ -1,8 +1,4 @@
-import type {
-  EventPayload,
-  EventTopic,
-  LegacyListenerTopic,
-} from "./protocol.js";
+import type { EventPayload, EventTopic } from "./protocol.js";
 import type { LegacyDomMirrorTopic } from "./legacy-dom.js";
 
 type Equal<Left, Right> =
@@ -33,7 +29,7 @@ type TopicsWithoutProducerAuthority = {
     : never;
 }[EventTopic];
 
-/** Every `unknown` payload belongs to the explicit listen-only surface. */
-export type AssertUnknownPayloadsAreListenOnly = Assert<
-  Equal<TopicsWithoutProducerAuthority, LegacyListenerTopic>
+/** Every maintained direct topic has an explicit producer-owned payload. */
+export type AssertNoUnknownEventPayloads = Assert<
+  Equal<TopicsWithoutProducerAuthority, never>
 >;

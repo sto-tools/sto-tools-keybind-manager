@@ -13,8 +13,6 @@ describe("ParameterCommandService", () => {
   beforeEach(() => {
     fixture = createServiceFixture();
     service = new ParameterCommandService({ eventBus: fixture.eventBus });
-    // Ensure lifecycle listeners are registered
-    if (typeof service.init === "function") service.init();
   });
 
   afterEach(() => {
@@ -41,6 +39,14 @@ describe("ParameterCommandService", () => {
     ];
 
     for (const topic of activeTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
+    }
+    expect(fixture.eventBus.hasListeners("parameter-edit:start")).toBe(false);
+    expect(fixture.eventBus.hasListeners("parameter-edit:end")).toBe(false);
+
+    service.init();
+
+    for (const topic of activeTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(true);
     }
     for (const topic of retiredTopics) {
@@ -65,6 +71,23 @@ describe("ParameterCommandService", () => {
     for (const topic of retiredTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
     }
+    expect(fixture.eventBus.hasListeners("parameter-edit:start")).toBe(false);
+    expect(fixture.eventBus.hasListeners("parameter-edit:end")).toBe(false);
+
+    service.destroy();
+    const replacement = new ParameterCommandService({
+      eventBus: fixture.eventBus,
+    });
+    expect(
+      fixture.eventBus.getListenerCount("rpc:parameter-command:build"),
+    ).toBe(0);
+
+    replacement.init();
+
+    expect(
+      fixture.eventBus.getListenerCount("rpc:parameter-command:build"),
+    ).toBe(1);
+    service = replacement;
   });
 
   it("generateCommandId should return a unique cmd_* identifier", () => {

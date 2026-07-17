@@ -44,8 +44,6 @@ export default class ProfileUI extends UIComponentBase {
 
     this.i18n = resolveI18n(i18n);
 
-    this._isModified = false;
-
     this.currentModal = null;
 
     this.eventListenersSetup = false;
@@ -104,22 +102,10 @@ export default class ProfileUI extends UIComponentBase {
     // -------------------------------------------
     this.addEventListener("profile:switched", () => {
       // ComponentBase handles caching automatically
-      this._isModified = false; // new profile starts clean
       this.updateProfileInfo();
     });
 
     this.addEventListener("environment:changed", () => {
-      // ComponentBase handles caching automatically
-      this.updateProfileInfo();
-    });
-
-    this.addEventListener("profile-modified", () => {
-      this._isModified = true;
-      this.updateProfileInfo();
-    });
-
-    // Listen for profile updates to keep cached data fresh
-    this.addEventListener("current-profile:updated", () => {
       // ComponentBase handles caching automatically
       this.updateProfileInfo();
     });
@@ -239,12 +225,6 @@ export default class ProfileUI extends UIComponentBase {
       } else {
         keyCount.textContent = this.i18n.t("no_profile");
       }
-    }
-
-    // Update modified indicator
-    const indicator = this.document.getElementById("modifiedIndicator");
-    if (indicator) {
-      indicator.style.display = this._isModified ? "inline" : "none";
     }
   }
 
@@ -490,7 +470,6 @@ export default class ProfileUI extends UIComponentBase {
     return {
       currentProfile: this.cache.currentProfile,
       currentEnvironment: this.cache.currentEnvironment,
-      modified: this._isModified,
     };
   }
 

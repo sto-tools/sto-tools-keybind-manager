@@ -97,6 +97,7 @@ describe("Application browser smoke", () => {
       "command-chain:clear",
       "command-chain:is-stabilized",
       "bindset-selector:find-key-in-bindset",
+      "bindset-selector:set-key",
       "parameter-command:find-definition",
       "parameter-command:generate-id",
       "parser:get-performance-metrics",
@@ -134,6 +135,27 @@ describe("Application browser smoke", () => {
     expect(bus.hasListeners("rpc:command:import-from-source")).toBe(true);
     expect(bus.hasListeners("rpc:key:duplicate-with-name")).toBe(true);
     expect(bus.hasListeners("rpc:selection:select-key")).toBe(true);
+
+    for (const topic of [
+      "bindset-manager:open",
+      "bindset-section:refresh-needed",
+      "bindset:active-changed",
+      "bindset:created",
+      "bindset:deleted",
+      "bindset:modified",
+      "current-profile:updated",
+      "key-view:toggle",
+      "key-view:update-toggle",
+      "key:selected",
+      "keys:filter",
+      "keys:show-all",
+      "mode-changed",
+      "parameter-edit:end",
+      "parameter-edit:start",
+      "profile-modified",
+    ]) {
+      expect(bus.hasListeners(topic), topic).toBe(false);
+    }
 
     expect(window.dataCoordinator?.getCurrentState?.().ready).toBe(true);
     await vi.waitFor(() => {

@@ -275,41 +275,6 @@ describe('KeyBrowserService', () => {
     })
   })
 
-  describe('Mode Changed Event Handling', () => {
-    it('should handle mode-changed events with caching', () => {
-      keyBrowserService.currentEnvironment = 'space'
-      keyBrowserService.cache.currentEnvironment = 'space'
-      keyBrowserService.selectedKeyName = 'F1'
-
-      // Simulate mode-changed event by calling the handler logic directly
-      if (keyBrowserService.currentEnvironment !== 'alias' && keyBrowserService.selectedKeyName) {
-        keyBrowserService._cachedSelections[keyBrowserService.currentEnvironment] = keyBrowserService.selectedKeyName
-      }
-      keyBrowserService.currentEnvironment = 'alias'
-      keyBrowserService.cache.currentEnvironment = 'alias'
-      keyBrowserService.selectedKeyName = null
-
-      expect(keyBrowserService._cachedSelections.space).toBe('F1')
-      expect(keyBrowserService.selectedKeyName).toBe(null)
-    })
-
-    it('should restore selection on mode-changed events', async () => {
-      keyBrowserService._cachedSelections.ground = 'G'
-      keyBrowserService.cache.currentEnvironment = 'ground'
-      keyBrowserService.cache.keys = mockProfile.builds.ground.keys
-
-      const selectKeySpy = vi.spyOn(keyBrowserService, 'selectKey')
-
-      // Simulate mode-changed event by calling the handler directly
-      keyBrowserService.currentEnvironment = 'ground'
-      keyBrowserService.cache.currentEnvironment = 'ground'
-      keyBrowserService.selectedKeyName = null
-      keyBrowserService._restoreOrAutoSelectKey('ground')
-
-      expect(selectKeySpy).toHaveBeenCalledWith('G')
-    })
-  })
-
   describe('Key Selection', () => {
     it('should emit key-selected event when selecting a key', () => {
       const emitSpy = vi.spyOn(keyBrowserService, 'emit')
@@ -375,4 +340,4 @@ describe('KeyBrowserService', () => {
       expect(keyBrowserService.selectedKeyName).toBe('F1')
     })
   })
-}) 
+})

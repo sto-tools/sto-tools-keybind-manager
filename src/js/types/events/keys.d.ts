@@ -50,11 +50,4 @@ export interface KeyEventProtocol {
   "key-added": { key: string };
   "key-duplicated": { from: string; to: string };
   "key:filter": { filter: "" };
-
-  /** Producer authority is absent for the following compatibility topics. */
-  "key-view:toggle": unknown;
-  "key-view:update-toggle": unknown;
-  "key:selected": unknown;
-  "keys:filter": unknown;
-  "keys:show-all": unknown;
 }

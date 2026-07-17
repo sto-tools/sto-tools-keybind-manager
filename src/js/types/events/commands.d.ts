@@ -65,7 +65,6 @@ export interface CommandEventProtocol {
   "commandchain:edit": { index: number };
   "commandchain:move": { fromIndex: number; toIndex: number };
   "parameter-command:edit": ParameterCommandEditPayload;
-  "parameter-edit:end": null;
   "command-chain:validation-result": {
     key: string;
     length: number;
@@ -81,7 +80,4 @@ export interface CommandEventProtocol {
     isAlias: boolean;
     bindset: string | null;
   };
-
-  /** Producer authority is absent for this compatibility topic. */
-  "parameter-edit:start": unknown;
 }

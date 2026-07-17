@@ -9,19 +9,8 @@ import eventBus from "../../core/eventBus.js";
 /** @typedef {(parameters: ParameterValues) => ParameterBuilderResult | Promise<ParameterBuilderResult>} ParameterBuilder */
 
 /**
- * @param {unknown} value
- * @returns {value is { index: number, command: unknown }}
- */
-function isParameterEditStartPayload(value) {
-  if (typeof value !== "object" || value === null) return false;
-  if (!("index" in value) || !("command" in value)) return false;
-  return typeof value.index === "number";
-}
-
-/**
  * ParameterCommandService – handles building, validating, and editing parameterized commands for keybinds.
  * Provides a request/response endpoint for command construction.
- * Caches editing context for UI parameter modals.
  */
 export default class ParameterCommandService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus }} [options] */
@@ -29,20 +18,13 @@ export default class ParameterCommandService extends ComponentBase {
     super(bus);
     this.componentName = "ParameterCommandService";
 
-    // Cache editing state from UI events (appropriate for parameter editing)
-    /** @type {{ isEditing: boolean, editIndex: number, existingCommand: unknown } | null} */
-    this.editingContext = null;
-
     // Store detach functions for cleanup
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
-
-    this.setupRequestHandlers();
   }
 
   onInit() {
     this.setupRequestHandlers();
-    this.setupEventListeners();
   }
 
   setupRequestHandlers() {
@@ -60,37 +42,6 @@ export default class ParameterCommandService extends ComponentBase {
           ),
       ),
     );
-  }
-
-  setupEventListeners() {
-    // REMOVED: Selection state management now handled by SelectionService
-
-    this.addEventListener("environment:changed", (data) => {
-      const env = typeof data === "string" ? data : data.environment;
-      if (env) this.cache.currentEnvironment = env;
-    });
-
-    // Listen for parameter editing events from UI
-    this.addEventListener("parameter-edit:start", (data) => {
-      if (!isParameterEditStartPayload(data)) return;
-      this.editingContext = {
-        isEditing: true,
-        editIndex: data.index,
-        existingCommand: data.command,
-      };
-    });
-
-    this.addEventListener("parameter-edit:end", () => {
-      this.editingContext = null;
-    });
-  }
-
-  // Late-join state sync
-  /** @returns {import('../../types/events/component-state.js').ComponentState<'ParameterCommandService'>} */
-  getCurrentState() {
-    return {
-      editingContext: this.editingContext,
-    };
   }
 
   // Cleanup method to detach all request/response handlers

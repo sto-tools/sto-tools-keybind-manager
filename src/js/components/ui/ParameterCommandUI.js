@@ -258,9 +258,6 @@ export default class ParameterCommandUI extends UIComponentBase {
   }
 
   cancelParameterCommand() {
-    // Emit event to notify services that editing has ended
-    this.emit("parameter-edit:end");
-
     this.currentParameterCommand = null;
 
     // Reset button text (i18n ready)
@@ -652,9 +649,6 @@ export default class ParameterCommandUI extends UIComponentBase {
 
     // Close modal
     this.modalManager?.hide("parameterModal");
-
-    // Emit event to notify services that editing has ended
-    this.emit("parameter-edit:end");
 
     this.currentParameterCommand = null;
 

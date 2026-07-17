@@ -18,7 +18,6 @@ const mountProfileControls = () => {
     <select id="profileSelect"></select>
     <span id="keyCount"></span>
     <span id="aliasCount"></span>
-    <span id="modifiedIndicator"></span>
     <button class="mode-btn" data-mode="space"></button>
     <button class="mode-btn" data-mode="ground"></button>
     <input id="profileName" />
@@ -49,6 +48,7 @@ describe("ProfileUI accepted data state", () => {
       throw new Error(`Unexpected request: ${topic}`);
     });
     ui.init();
+    expect(ui.getCurrentState()).not.toHaveProperty("modified");
 
     const select = /** @type {HTMLSelectElement} */ (
       document.getElementById("profileSelect")
@@ -127,7 +127,7 @@ describe("ProfileUI accepted data state", () => {
     expect(ui.request).not.toHaveBeenCalled();
   });
 
-  it("renders one authoritative profile switch while clearing modified state", async () => {
+  it("renders one authoritative profile switch", async () => {
     mountProfileControls();
     fixture = createEventBusFixture();
     ui = new ProfileUI({
@@ -137,7 +137,6 @@ describe("ProfileUI accepted data state", () => {
     });
     ui.init();
     const renderProfiles = vi.spyOn(ui, "renderProfiles");
-    ui._isModified = true;
     const beta = profile("beta", "Beta");
 
     fixture.eventBus.emit("data:state-changed", {
@@ -163,7 +162,6 @@ describe("ProfileUI accepted data state", () => {
       expect(document.querySelector("option")?.textContent).toBe("Beta");
     });
     expect(renderProfiles).toHaveBeenCalledOnce();
-    expect(ui._isModified).toBe(false);
   });
 
   it("repaints profile actions once per accepted state revision", async () => {

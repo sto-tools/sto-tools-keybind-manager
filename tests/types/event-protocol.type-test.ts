@@ -37,6 +37,26 @@ type EventTopicsWithAnyPayload = {
 type RegistryContainsNoAnyPayload = Expect<
   Equal<EventTopicsWithAnyPayload, never>
 >;
+type RetiredListenerTopics =
+  | "bindset-manager:open"
+  | "bindset-section:refresh-needed"
+  | "bindset:active-changed"
+  | "bindset:created"
+  | "bindset:deleted"
+  | "bindset:modified"
+  | "current-profile:updated"
+  | "key-view:toggle"
+  | "key-view:update-toggle"
+  | "key:selected"
+  | "keys:filter"
+  | "keys:show-all"
+  | "mode-changed"
+  | "parameter-edit:end"
+  | "parameter-edit:start"
+  | "profile-modified";
+type RetiredListenersAreAbsent = Expect<
+  Equal<Extract<EventTopic, RetiredListenerTopics>, never>
+>;
 type ToastPayloadIsRegistered = Expect<
   Equal<
     EventPayload<"toast:show">,
@@ -194,11 +214,11 @@ bus.emit("selection:state-changed", {
 bus.emit("about:show");
 bus.emit("app:reset-failed", { error: new Error("reset failed") });
 
-// Listener-only compatibility topics cannot acquire invented producer shapes.
+// @ts-expect-error Orphan compatibility listeners are retired from the registry.
 bus.on("bindset:modified", (payload) => {
   void payload;
 });
-// @ts-expect-error No producer authority exists for compatibility listeners.
+// @ts-expect-error Retired listener topics cannot acquire a producer.
 bus.emit("bindset:modified", { bindsetName: "Primary Bindset" });
 
 // DOM mirror topics remain confined to the DOM-listener surface.
