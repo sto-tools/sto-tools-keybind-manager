@@ -4,6 +4,12 @@ import SelectionService from "../../../src/js/components/services/SelectionServi
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createRealEventBusFixture } from "../../fixtures/core/eventBus.js";
 
+const retiredSelectionActionTopics = [
+  "selection:auto-select-first",
+  "selection:clear",
+  "selection:set-editing-context",
+];
+
 class SelectionLifecycleConsumer extends ComponentBase {
   constructor(eventBus) {
     super(eventBus);
@@ -69,6 +75,13 @@ describe("SelectionService lifecycle", () => {
     eventBusFixture.destroy();
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it("keeps internal selection actions off the RPC surface", () => {
+    expect(eventBus.hasListeners("rpc:selection:select-key")).toBe(true);
+    for (const topic of retiredSelectionActionTopics) {
+      expect(eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
+    }
   });
 
   it("drops queued persistence and state commits after destruction", async () => {

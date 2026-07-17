@@ -274,17 +274,6 @@ export default class SelectionService extends ComponentBase {
           return this.selectAlias(aliasName, options);
         },
       ),
-      this.respond("selection:clear", ({ type }) => this.clearSelection(type)),
-      // Auto-selection
-      this.respond("selection:auto-select-first", ({ environment }) =>
-        this.autoSelectFirst(environment),
-      ),
-
-      // Editing context
-      this.respond("selection:set-editing-context", ({ context }) =>
-        this.setEditingContext(context),
-      ),
-
       // Legacy compatibility handlers
       this.respond("key:select", ({ keyName, environment, bindset }) =>
         this.selectKey(keyName, environment, { bindset }),

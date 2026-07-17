@@ -82,6 +82,24 @@ async function exerciseComponentRpc() {
   component.request("ui:copy-to-clipboard", { text: "Copy me" });
   // @ts-expect-error Toast delivery uses the toast:show event.
   component.request("ui:show-toast", { message: "Saved" });
+  // @ts-expect-error Chain clearing uses the command-chain:clear event.
+  component.request("command-chain:clear", { key: "F1" });
+  // @ts-expect-error Command addition uses the command:add event.
+  component.request("command:add", { key: "F1", command: "FireAll" });
+  // @ts-expect-error Command editing uses the command:edit event.
+  component.request("command:edit", {
+    key: "F1",
+    index: 0,
+    updatedCommand: "FirePhasers",
+  });
+  // @ts-expect-error Key duplication uses the key:duplicate event.
+  component.request("key:duplicate", { key: "F1" });
+  // @ts-expect-error Auto-selection remains internal to SelectionService.
+  component.request("selection:auto-select-first", { environment: "space" });
+  // @ts-expect-error Selection clearing remains internal to SelectionService.
+  component.request("selection:clear", { type: "key" });
+  // @ts-expect-error Editing context changes are internal and broadcast.
+  component.request("selection:set-editing-context", { context: null });
   // @ts-expect-error Preference values are read from the component cache.
   component.request("preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Preference snapshots arrive through broadcasts and late join.
@@ -137,6 +155,20 @@ async function exerciseComponentRpc() {
   component.respond("ui:copy-to-clipboard", () => undefined);
   // @ts-expect-error Toast delivery cannot regain a request/response responder.
   component.respond("ui:show-toast", () => undefined);
+  // @ts-expect-error Chain clearing cannot regain an RPC responder.
+  component.respond("command-chain:clear", () => true);
+  // @ts-expect-error Command addition cannot regain an RPC responder.
+  component.respond("command:add", () => true);
+  // @ts-expect-error Command editing cannot regain an RPC responder.
+  component.respond("command:edit", () => true);
+  // @ts-expect-error Key duplication cannot regain an RPC responder.
+  component.respond("key:duplicate", () => ({ success: false }));
+  // @ts-expect-error Auto-selection cannot regain an RPC responder.
+  component.respond("selection:auto-select-first", () => null);
+  // @ts-expect-error Selection clearing cannot regain an RPC responder.
+  component.respond("selection:clear", () => undefined);
+  // @ts-expect-error Editing context cannot regain an RPC responder.
+  component.respond("selection:set-editing-context", () => null);
   // @ts-expect-error Retired preference queries cannot regain responders.
   component.respond("preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

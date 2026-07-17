@@ -30,8 +30,6 @@ export default class CommandChainService extends ComponentBase {
     // Store detach functions for cleanup
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
-
-    this.setupRequestHandlers();
   }
 
   setupRequestHandlers() {
@@ -40,9 +38,6 @@ export default class CommandChainService extends ComponentBase {
     this._responseDetachFunctions.push(
       this.respond("command:set-stabilize", ({ name, stabilize, bindset }) =>
         this.setStabilize(name, stabilize, bindset),
-      ),
-      this.respond("command-chain:clear", ({ key, bindset }) =>
-        this.clearCommandChain(key, bindset),
       ),
       this.respond(
         "command-chain:generate-alias-name",

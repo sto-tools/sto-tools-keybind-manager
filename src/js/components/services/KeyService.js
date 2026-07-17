@@ -21,8 +21,14 @@ export default class KeyService extends ComponentBase {
     // Generate valid key list once
     this.validKeys = this.generateValidKeys();
 
-    // Register Request/Response topics for key state and actions
-    if (this.eventBus) {
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
       this.respond(
         "key:add",
         (
@@ -31,16 +37,11 @@ export default class KeyService extends ComponentBase {
             bindset,
           } = /** @type {{ key?: string, bindset?: string }} */ ({}),
         ) => this.addKey(key, bindset),
-      );
+      ),
       this.respond(
         "key:delete",
         ({ key } = /** @type {{ key?: string }} */ ({})) => this.deleteKey(key),
-      );
-      this.respond(
-        "key:duplicate",
-        ({ key } = /** @type {{ key?: string }} */ ({})) =>
-          this.duplicateKey(key),
-      );
+      ),
       this.respond(
         "key:duplicate-with-name",
         (
@@ -49,8 +50,8 @@ export default class KeyService extends ComponentBase {
             newKey,
           } = /** @type {{ sourceKey?: string, newKey?: string }} */ ({}),
         ) => this.duplicateKeyWithName(sourceKey, newKey),
-      );
-    }
+      ),
+    );
   }
 
   // Event listeners for DataCoordinator integration
@@ -506,6 +507,12 @@ export default class KeyService extends ComponentBase {
   }
 
   onInit() {
+    this.setupRequestHandlers();
     this.setupEventListeners();
+  }
+
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
   }
 }

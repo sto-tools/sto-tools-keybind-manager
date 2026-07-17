@@ -2,7 +2,6 @@ import { describe, it, beforeEach, afterEach, expect } from "vitest";
 import { createRealServiceFixture } from "../fixtures";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
-import { request } from "../../src/js/core/requestResponse.js";
 
 function createProfileWithKey() {
   return {
@@ -23,7 +22,7 @@ function createProfileWithKey() {
   };
 }
 
-describe("CommandChainService request/response – command-chain:clear", () => {
+describe("CommandChainService command-chain:clear event", () => {
   let fixture, eventBus, dataCoordinator, chainService;
 
   beforeEach(async () => {
@@ -67,9 +66,12 @@ describe("CommandChainService request/response – command-chain:clear", () => {
     fixture.destroy();
   });
 
-  it("clears command chain successfully through request/response", async () => {
-    const ok = await request(eventBus, "command-chain:clear", { key: "F1" });
-    expect(ok).toBe(true);
+  it("clears the selected command chain through the UI event path", async () => {
+    await eventBus.emit(
+      "command-chain:clear",
+      { key: "F1" },
+      { synchronous: true },
+    );
 
     // The durable mutation publishes a new accepted snapshot; no compatibility
     // query route is needed to verify the result.

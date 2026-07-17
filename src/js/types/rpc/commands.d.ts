@@ -1,9 +1,4 @@
-import type {
-  NoPayloadRpc,
-  RequiredRpc,
-  ResponderOnlyRequiredRpc,
-  StoredCommand,
-} from "./base.js";
+import type { NoPayloadRpc, RequiredRpc, StoredCommand } from "./base.js";
 
 export type CommandImportResult = {
   success: true;
@@ -18,10 +13,6 @@ export type StabilizeResult =
   | { success: false; error?: string };
 
 export interface CommandRpcProtocol {
-  "command-chain:clear": ResponderOnlyRequiredRpc<
-    { key: string; bindset?: string | null },
-    boolean
-  >;
   "command-chain:generate-alias-name": RequiredRpc<
     { environment: string; keyName: string; bindsetName?: string | null },
     string | null
@@ -30,26 +21,8 @@ export interface CommandRpcProtocol {
     { aliasName: string; commands?: StoredCommand[] },
     string
   >;
-  "command:add": ResponderOnlyRequiredRpc<
-    {
-      command: StoredCommand | StoredCommand[];
-      key: string;
-      position?: string;
-      bindset?: string | null;
-    },
-    boolean
-  >;
   "command:delete": RequiredRpc<
     { key: string; index: number; bindset?: string | null },
-    boolean
-  >;
-  "command:edit": ResponderOnlyRequiredRpc<
-    {
-      key: string;
-      index: number;
-      updatedCommand: StoredCommand;
-      bindset?: string | null;
-    },
     boolean
   >;
   "command:filter-library": NoPayloadRpc<boolean>;

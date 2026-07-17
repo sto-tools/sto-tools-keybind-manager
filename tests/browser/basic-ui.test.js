@@ -92,6 +92,9 @@ describe("Application browser smoke", () => {
       "command:check-environment-compatibility",
       "command:generate-id",
       "command:validate",
+      "command:add",
+      "command:edit",
+      "command-chain:clear",
       "command-chain:is-stabilized",
       "bindset-selector:find-key-in-bindset",
       "parameter-command:find-definition",
@@ -108,8 +111,12 @@ describe("Application browser smoke", () => {
       "import:validate-kbf-file",
       "import:validate-keybind-file",
       "key:compare",
+      "key:duplicate",
       "key:filter",
       "key:show-all",
+      "selection:auto-select-first",
+      "selection:clear",
+      "selection:set-editing-context",
       "ui:copy-to-clipboard",
       "ui:show-toast",
       "vfx:get-virtual-aliases",
@@ -119,7 +126,14 @@ describe("Application browser smoke", () => {
 
     expect(bus.hasListeners("ui:copy-to-clipboard")).toBe(true);
     expect(bus.hasListeners("toast:show")).toBe(true);
+    expect(bus.hasListeners("command:add")).toBe(true);
+    expect(bus.hasListeners("command:edit")).toBe(true);
+    expect(bus.hasListeners("command-chain:clear")).toBe(true);
+    expect(bus.hasListeners("key:duplicate")).toBe(true);
     expect(bus.hasListeners("rpc:utility:copy-to-clipboard")).toBe(true);
+    expect(bus.hasListeners("rpc:command:import-from-source")).toBe(true);
+    expect(bus.hasListeners("rpc:key:duplicate-with-name")).toBe(true);
+    expect(bus.hasListeners("rpc:selection:select-key")).toBe(true);
 
     expect(window.dataCoordinator?.getCurrentState?.().ready).toBe(true);
     await vi.waitFor(() => {

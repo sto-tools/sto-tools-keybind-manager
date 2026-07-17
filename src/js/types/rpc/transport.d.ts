@@ -11,12 +11,8 @@ export type RpcReadyTopic = {
   [K in RpcKnownTopic]: RpcProtocol[K] extends { kind: "ready" } ? K : never;
 }[RpcKnownTopic];
 
-/** Topics with an observed requester and responder in the Phase 0 inventory. */
-export type RpcRequestableTopic = {
-  [K in RpcReadyTopic]: RpcProtocol[K] extends { availability: "paired" }
-    ? K
-    : never;
-}[RpcReadyTopic];
+/** Every maintained RPC topic has both an observed requester and responder. */
+export type RpcRequestableTopic = RpcReadyTopic;
 
 export type RpcTopicWithMode<M extends RpcPayloadMode> = {
   [K in RpcRequestableTopic]: RpcProtocol[K] extends { mode: M } ? K : never;
@@ -34,22 +30,12 @@ export type RpcResponderOptionalTopic = RpcResponderTopicWithMode<"optional">;
 export type RpcResponderNoPayloadTopic = RpcResponderTopicWithMode<"none">;
 
 export type RpcRequest<K extends RpcReadyTopic> =
-  RpcProtocol[K] extends RpcSpec<
-    infer Request,
-    unknown,
-    RpcPayloadMode,
-    "paired" | "responder-only"
-  >
+  RpcProtocol[K] extends RpcSpec<infer Request, unknown, RpcPayloadMode>
     ? Request
     : never;
 
 export type RpcResult<K extends RpcReadyTopic> =
-  RpcProtocol[K] extends RpcSpec<
-    unknown,
-    infer Result,
-    RpcPayloadMode,
-    "paired" | "responder-only"
-  >
+  RpcProtocol[K] extends RpcSpec<unknown, infer Result, RpcPayloadMode>
     ? Result
     : never;
 

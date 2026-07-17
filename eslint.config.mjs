@@ -5,13 +5,13 @@ import globals from "globals";
 // Existing oversized files cannot grow. Lower a limit whenever the file shrinks
 // until every entry reaches the repository-wide 500-line policy.
 const legacyMaxLineLimits = {
-  "src/js/components/services/CommandChainService.js": 723,
-  "src/js/components/services/CommandService.js": 813,
+  "src/js/components/services/CommandChainService.js": 719,
+  "src/js/components/services/CommandService.js": 804,
   "src/js/components/services/DataCoordinator.js": 1032,
   "src/js/components/services/ExportService.js": 581,
   "src/js/components/services/ImportService.js": 1125,
   "src/js/components/services/ParameterCommandService.js": 580,
-  "src/js/components/services/SelectionService.js": 711,
+  "src/js/components/services/SelectionService.js": 704,
   "src/js/components/ui/CommandChainUI.js": 1587,
   "src/js/components/ui/CommandLibraryUI.js": 508,
   "src/js/components/ui/CommandUI.js": 538,

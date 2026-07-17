@@ -24,45 +24,19 @@ export type UnknownRecord = Record<string, unknown>;
 export type Environment = "space" | "ground" | "alias" | (string & {});
 
 export type RpcPayloadMode = "none" | "optional" | "required";
-export type RpcAvailability = "paired" | "responder-only";
 export type RpcEmptyPayload = undefined | Readonly<Record<PropertyKey, never>>;
 export type MaybePromise<T> = T | PromiseLike<T>;
 
-export interface RpcSpec<
-  Request,
-  Result,
-  Mode extends RpcPayloadMode,
-  Availability extends RpcAvailability = "paired",
-> {
+export interface RpcSpec<Request, Result, Mode extends RpcPayloadMode> {
   readonly kind: "ready";
   readonly request: Request;
   readonly result: Result;
   readonly mode: Mode;
-  readonly availability: Availability;
 }
 
 export type RequiredRpc<Request, Result> = RpcSpec<Request, Result, "required">;
 export type OptionalRpc<Request, Result> = RpcSpec<Request, Result, "optional">;
 export type NoPayloadRpc<Result> = RpcSpec<RpcEmptyPayload, Result, "none">;
-
-export type ResponderOnlyRequiredRpc<Request, Result> = RpcSpec<
-  Request,
-  Result,
-  "required",
-  "responder-only"
->;
-export type ResponderOnlyOptionalRpc<Request, Result> = RpcSpec<
-  Request,
-  Result,
-  "optional",
-  "responder-only"
->;
-export type ResponderOnlyNoPayloadRpc<Result> = RpcSpec<
-  RpcEmptyPayload,
-  Result,
-  "none",
-  "responder-only"
->;
 
 export type CodedFailure<Code extends string> = {
   success: false;

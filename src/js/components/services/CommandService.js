@@ -38,22 +38,12 @@ export default class CommandService extends ComponentBase {
     // Store detach functions for cleanup
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
-
-    this.setupRequestHandlers();
   }
 
   setupRequestHandlers() {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond("command:add", async ({ command, key, position, bindset }) =>
-        this.addCommand(key, command, bindset || position),
-      ),
-      this.respond(
-        "command:edit",
-        async ({ key, index, updatedCommand, bindset }) =>
-          this.editCommand(key, index, updatedCommand, bindset),
-      ),
       this.respond("command:delete", async ({ key, index, bindset }) =>
         this.deleteCommand(key, index, bindset),
       ),

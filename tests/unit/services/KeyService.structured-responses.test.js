@@ -427,15 +427,8 @@ describe("KeyService Structured Response Tests", () => {
       expect(result.key).toBe("F7");
     });
 
-    it("should handle key:duplicate request via event bus", async () => {
-      // First add a key
-      service.cache.keys.F7 = ["test_command"];
-
-      // Then duplicate via request
-      const result = await service.request("key:duplicate", { key: "F7" });
-
-      expect(result.success).toBe(true);
-      expect(result.sourceKey).toBe("F7");
+    it("does not expose event-driven key duplication as an RPC", () => {
+      expect(fixture.eventBus.hasListeners("rpc:key:duplicate")).toBe(false);
     });
 
     it("should handle invalid requests gracefully", async () => {

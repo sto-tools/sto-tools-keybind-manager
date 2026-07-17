@@ -186,6 +186,20 @@ type RemovedImportFromFile = RpcRequest<"import:from-file">;
 type RemovedUiClipboardRequest = RpcRequest<"ui:copy-to-clipboard">;
 // @ts-expect-error Toast delivery is an event, not a request/response action.
 type RemovedUiToastRequest = RpcRequest<"ui:show-toast">;
+// @ts-expect-error Chain clearing is driven by the command-chain event.
+type RemovedCommandChainClearRequest = RpcRequest<"command-chain:clear">;
+// @ts-expect-error Command addition is driven by the command event.
+type RemovedCommandAddRequest = RpcRequest<"command:add">;
+// @ts-expect-error Command editing is driven by the command event.
+type RemovedCommandEditRequest = RpcRequest<"command:edit">;
+// @ts-expect-error Key duplication opens capture through an event.
+type RemovedKeyDuplicateRequest = RpcRequest<"key:duplicate">;
+// @ts-expect-error Auto-selection remains an internal selection operation.
+type RemovedAutoSelect = RpcRequest<"selection:auto-select-first">;
+// @ts-expect-error Selection clearing remains an internal selection operation.
+type RemovedSelectionClearRequest = RpcRequest<"selection:clear">;
+// @ts-expect-error Editing context is owned and broadcast by SelectionService.
+type RemovedEditingAction = RpcRequest<"selection:set-editing-context">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -361,6 +375,24 @@ async function exerciseCoreApi() {
   request(eventBus, "ui:copy-to-clipboard", { text: "copy" });
   // @ts-expect-error Toast delivery uses the toast:show event.
   request(eventBus, "ui:show-toast", { message: "Saved" });
+  // @ts-expect-error Chain clearing uses the command-chain:clear event.
+  request(eventBus, "command-chain:clear", { key: "F1" });
+  // @ts-expect-error Command addition uses the command:add event.
+  request(eventBus, "command:add", { key: "F1", command: "FireAll" });
+  // @ts-expect-error Command editing uses the command:edit event.
+  request(eventBus, "command:edit", {
+    key: "F1",
+    index: 0,
+    updatedCommand: "FirePhasers",
+  });
+  // @ts-expect-error Key duplication starts through the key:duplicate event.
+  request(eventBus, "key:duplicate", { key: "F1" });
+  // @ts-expect-error Auto-selection is an internal selection operation.
+  request(eventBus, "selection:auto-select-first", { environment: "space" });
+  // @ts-expect-error Selection clearing is an internal selection operation.
+  request(eventBus, "selection:clear", { type: "key" });
+  // @ts-expect-error Editing context changes are internal and broadcast.
+  request(eventBus, "selection:set-editing-context", { context: null });
   // @ts-expect-error Retired preference queries cannot be reintroduced by consumers.
   request(eventBus, "preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Retired preference snapshots cannot be reintroduced by consumers.
@@ -395,6 +427,20 @@ async function exerciseCoreApi() {
   respond(eventBus, "ui:copy-to-clipboard", () => undefined);
   // @ts-expect-error Toast delivery cannot regain a request/response responder.
   respond(eventBus, "ui:show-toast", () => undefined);
+  // @ts-expect-error Chain clearing cannot regain an RPC responder.
+  respond(eventBus, "command-chain:clear", () => true);
+  // @ts-expect-error Command addition cannot regain an RPC responder.
+  respond(eventBus, "command:add", () => true);
+  // @ts-expect-error Command editing cannot regain an RPC responder.
+  respond(eventBus, "command:edit", () => true);
+  // @ts-expect-error Key duplication cannot regain an RPC responder.
+  respond(eventBus, "key:duplicate", () => ({ success: false }));
+  // @ts-expect-error Auto-selection cannot regain an RPC responder.
+  respond(eventBus, "selection:auto-select-first", () => null);
+  // @ts-expect-error Selection clearing cannot regain an RPC responder.
+  respond(eventBus, "selection:clear", () => undefined);
+  // @ts-expect-error Editing context cannot regain an RPC responder.
+  respond(eventBus, "selection:set-editing-context", () => null);
   // @ts-expect-error Retired preference queries cannot regain responders.
   respond(eventBus, "preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

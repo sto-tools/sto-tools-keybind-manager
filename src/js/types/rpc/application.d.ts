@@ -1,9 +1,4 @@
-import type {
-  OptionalRpc,
-  RequiredRpc,
-  ResponderOnlyRequiredRpc,
-} from "./base.js";
-import type { EditingContext } from "../events/base.js";
+import type { OptionalRpc, RequiredRpc } from "./base.js";
 
 export type { EditingContext } from "../events/base.js";
 
@@ -20,14 +15,6 @@ export interface ApplicationRpcProtocol {
         imported: { profiles: number; settings: boolean };
       }
     | { success: false; error: string }
-  >;
-  "selection:auto-select-first": ResponderOnlyRequiredRpc<
-    { environment?: string },
-    string | null
-  >;
-  "selection:clear": ResponderOnlyRequiredRpc<
-    { type?: "key" | "alias" | "editing" | "all" },
-    undefined
   >;
   "selection:select-alias": RequiredRpc<
     {
@@ -48,10 +35,6 @@ export interface ApplicationRpcProtocol {
       forceEmit?: boolean;
     },
     string | null
-  >;
-  "selection:set-editing-context": ResponderOnlyRequiredRpc<
-    { context: EditingContext | null },
-    EditingContext | null
   >;
   "sync:sync-project": OptionalRpc<{ source?: string }, undefined>;
   "utility:copy-to-clipboard": OptionalRpc<{ text?: string }, ClipboardResult>;

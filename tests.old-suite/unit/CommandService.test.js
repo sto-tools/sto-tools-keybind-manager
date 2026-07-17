@@ -370,18 +370,17 @@ describe('CommandService', () => {
     })
   })
 
-  describe('Request/Response Endpoints', () => {
-    it('should have command:add endpoint functionality', async () => {
+  describe('Command mutation methods', () => {
+    it('should add a command directly', async () => {
       const addCommandSpy = vi.spyOn(commandService, 'addCommand')
       const command = { command: 'test command' }
-      
-      // Test the method directly since we can't easily test the respond endpoint
+
       await commandService.addCommand('F1', command)
-      
+
       expect(addCommandSpy).toHaveBeenCalledWith('F1', command)
     })
 
-    it('should have command:delete endpoint functionality', async () => {
+    it('should delete a command directly', async () => {
       const deleteCommandSpy = vi.spyOn(commandService, 'deleteCommand')
       
       await commandService.deleteCommand('F1', 0)

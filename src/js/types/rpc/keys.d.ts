@@ -2,7 +2,6 @@ import type {
   CodedFailure,
   OptionalRpc,
   RequiredRpc,
-  ResponderOnlyOptionalRpc,
   StoredCommand,
 } from "./base.js";
 
@@ -68,10 +67,6 @@ export interface KeyRpcProtocol {
     KeyCategories
   >;
   "key:delete": OptionalRpc<{ key?: string }, KeyDeleteResult>;
-  "key:duplicate": ResponderOnlyOptionalRpc<
-    { key?: string },
-    KeyDuplicateResult
-  >;
   "key:duplicate-with-name": OptionalRpc<
     { sourceKey?: string | null; newKey?: string },
     KeyDuplicateResult
