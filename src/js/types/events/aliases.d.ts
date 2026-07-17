@@ -5,6 +5,4 @@ export interface AliasEventProtocol {
   "alias-selected": { name: string | null; source: SelectionSource };
   "aliases-changed": { aliases: AliasMap };
   "aliases:import": null;
-  "alias-created": { name: string };
-  "alias-duplicated": { from: string; to: string };
 }

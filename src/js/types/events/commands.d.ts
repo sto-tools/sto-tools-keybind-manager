@@ -72,12 +72,5 @@ export interface CommandEventProtocol {
     warnings: ValidationIssue[];
     errors: ValidationIssue[];
   };
-  "command-chain-cleared": { key: string };
   "editing-context-changed": { context: EditingContext | null };
-  "stabilize-changed": {
-    name: string;
-    stabilize: boolean;
-    isAlias: boolean;
-    bindset: string | null;
-  };
 }

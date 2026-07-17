@@ -1,6 +1,5 @@
 import type STOToolsKeybindManager from "../../app.js";
 import type {
-  ClipboardOperationResult,
   DragDropOptions,
   ToastKind,
   VfxManagerCapability,
@@ -32,17 +31,4 @@ export interface UiEventProtocol {
   "modal:shown": { modalId: string; success: boolean };
   "sto-app-ready": { app: STOToolsKeybindManager };
   "vfx:modal-populate": { vfxManager: VfxManagerCapability };
-  "confirm:show": {
-    message: string;
-    callback: (...args: unknown[]) => unknown;
-  };
-  "sto-app-error": { error: unknown };
-  "ui:clipboard-result": {
-    success: ClipboardOperationResult;
-    text: string;
-  };
-  "ui:drag-drop-initialized": {
-    containerId: string | undefined;
-    options: DragDropOptions;
-  };
 }

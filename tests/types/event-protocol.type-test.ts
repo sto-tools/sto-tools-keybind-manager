@@ -1,4 +1,5 @@
 import eventBus from "../../src/js/core/eventBus.js";
+import type StorageService from "../../src/js/components/services/StorageService.js";
 import {
   createDataCoordinatorState,
   createPreferencesState,
@@ -228,6 +229,42 @@ bus.emit("bindset-selector:set-selected-key", { key: "F1" });
 bus.emit("key:filter", { filter: "" });
 // @ts-expect-error VFX regeneration is a UI-owned modal callback, not a bus topic.
 bus.emit("vfx:modal-regenerate-requested");
+// @ts-expect-error Alias creation is observed through authoritative profile state and the action result.
+bus.emit("alias-created", { name: "Engage" });
+// @ts-expect-error Alias duplication is observed through authoritative profile state and the action result.
+bus.emit("alias-duplicated", { from: "Engage", to: "EngageCopy" });
+// @ts-expect-error Key creation is observed through authoritative profile state and the action result.
+bus.emit("key-added", { key: "F1" });
+// @ts-expect-error Key duplication is observed through authoritative profile state and the action result.
+bus.emit("key-duplicated", { from: "F1", to: "F2" });
+// @ts-expect-error Chain clearing uses the retained action, state broadcast, and chain projection.
+bus.emit("command-chain-cleared", { key: "F1" });
+// @ts-expect-error Stabilization is observed through authoritative profile state and the action result.
+bus.emit("stabilize-changed", {
+  name: "F1",
+  stabilize: true,
+  isAlias: false,
+  bindset: null,
+});
+// @ts-expect-error Import readiness is represented by direct initialization and registered action responders.
+bus.emit("import-service-ready");
+declare const retiredStorageServicePayload: StorageService;
+// @ts-expect-error Storage readiness is represented by direct synchronous initialization and injection.
+bus.emit("storage:ready", { service: retiredStorageServicePayload });
+// @ts-expect-error Clipboard actions return their result through the canonical RPC.
+bus.emit("ui:clipboard-result", {
+  success: {
+    success: true,
+    message: "content_copied_to_clipboard",
+  },
+  text: "probe",
+});
+// @ts-expect-error Drag-and-drop initialization is invoked directly or through its retained input action.
+bus.emit("ui:drag-drop-initialized", { containerId: "probe", options: {} });
+// @ts-expect-error Confirmation is owned by ConfirmDialogUI and is not callback transport.
+bus.emit("confirm:show", { message: "Proceed?", callback: () => undefined });
+// @ts-expect-error Application initialization failures reject their owning promise after showing a toast.
+bus.emit("sto-app-error", { error: new Error("startup failed") });
 
 // DOM registration remains a typed local-handler surface.
 bus.onDom(document, "click", (event) => event.type);

@@ -76,8 +76,7 @@ export default class UIUtilityService extends ComponentBase {
   // Event Handlers
   /** @param {{ text: string }} payload */
   async handleCopyToClipboard({ text }) {
-    const result = await this.copyToClipboard(text);
-    this.emit("ui:clipboard-result", { success: result, text });
+    await this.copyToClipboard(text);
   }
 
   /** @param {{ container?: Element | null, containerId?: string, options?: DragDropOptions }} payload */
@@ -86,7 +85,6 @@ export default class UIUtilityService extends ComponentBase {
       container || (containerId ? document.getElementById(containerId) : null);
     if (!(element instanceof HTMLElement)) return;
     this.initDragAndDrop(element, options);
-    this.emit("ui:drag-drop-initialized", { containerId, options });
   }
 
   // Core Utility Methods

@@ -61,13 +61,6 @@ describe('Environment Switching Tests', () => {
           resolve(payload.app)
         }
 
-        const handleError = (payload) => {
-          clearTimeout(timeout)
-          eventBus.off('sto-app-ready', handleReady)
-          eventBus.off('sto-app-error', handleError)
-          reject(payload.error)
-        }
-
         // Check if already loaded (in case event fired before we started listening)
         if (
           window.app &&
@@ -81,7 +74,6 @@ describe('Environment Switching Tests', () => {
         }
 
         eventBus.on('sto-app-ready', handleReady)
-        eventBus.on('sto-app-error', handleError)
       })
     }
 

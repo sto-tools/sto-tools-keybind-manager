@@ -69,9 +69,74 @@ describe("UIUtilityService", () => {
     addEventListenerSpy.mockRestore();
   });
 
+  it("tracks the retained drag lifecycle and invokes drop callbacks", () => {
+    const container = document.createElement("div");
+    const draggable = document.createElement("div");
+    const child = document.createElement("span");
+    draggable.className = "draggable";
+    draggable.dataset.commandId = "command-1";
+    draggable.appendChild(child);
+    container.appendChild(draggable);
+    document.body.appendChild(container);
+
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    const onDrop = vi.fn();
+    service.initDragAndDrop(container, {
+      draggableSelector: ".draggable",
+      dropZoneSelector: ".draggable",
+      onDragStart,
+      onDragEnd,
+      onDrop,
+    });
+
+    const setData = vi.fn();
+    const dataTransfer = { effectAllowed: "", setData };
+    const dragStart = new Event("dragstart", {
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(dragStart, "dataTransfer", { value: dataTransfer });
+    child.dispatchEvent(dragStart);
+
+    expect(service.dragState).toEqual({
+      isDragging: true,
+      dragElement: draggable,
+      dragData: draggable.dataset,
+    });
+    expect(dataTransfer.effectAllowed).toBe("move");
+    expect(setData).toHaveBeenCalledWith("text/html", draggable.outerHTML);
+    expect(onDragStart).toHaveBeenCalledWith(dragStart, service.dragState);
+
+    const dragOver = new MouseEvent("dragover", {
+      bubbles: true,
+      cancelable: true,
+    });
+    child.dispatchEvent(dragOver);
+    expect(dragOver.defaultPrevented).toBe(true);
+
+    const drop = new MouseEvent("drop", {
+      bubbles: true,
+      cancelable: true,
+    });
+    child.dispatchEvent(drop);
+    expect(drop.defaultPrevented).toBe(true);
+    expect(onDrop).toHaveBeenCalledWith(drop, service.dragState, draggable);
+
+    const dragEnd = new Event("dragend", { bubbles: true });
+    child.dispatchEvent(dragEnd);
+    expect(service.dragState).toEqual({
+      isDragging: false,
+      dragElement: null,
+      dragData: null,
+    });
+    expect(onDragEnd).toHaveBeenCalledWith(dragEnd, service.dragState);
+
+    container.remove();
+  });
+
   describe("Event Handlers", () => {
     it("should handle copy to clipboard events", async () => {
-      const emitSpy = vi.spyOn(service, "emit");
       const copyToClipboardSpy = vi
         .spyOn(service, "copyToClipboard")
         .mockResolvedValue({ success: true });
@@ -79,33 +144,25 @@ describe("UIUtilityService", () => {
       await service.handleCopyToClipboard({ text: "test text" });
 
       expect(copyToClipboardSpy).toHaveBeenCalledWith("test text");
-      expect(emitSpy).toHaveBeenCalledWith("ui:clipboard-result", {
-        success: { success: true },
-        text: "test text",
-      });
 
       copyToClipboardSpy.mockRestore();
-      emitSpy.mockRestore();
     });
 
     it("should handle init drag drop events", async () => {
-      const emitSpy = vi.spyOn(service, "emit");
       const container = document.createElement("div");
       container.id = "drag-container";
       document.body.appendChild(container);
+      const initDragAndDrop = vi.spyOn(service, "initDragAndDrop");
 
       await service.handleInitDragDrop({
         containerId: "drag-container",
         options: { test: true },
       });
 
-      expect(emitSpy).toHaveBeenCalledWith("ui:drag-drop-initialized", {
-        containerId: "drag-container",
-        options: { test: true },
-      });
+      expect(initDragAndDrop).toHaveBeenCalledWith(container, { test: true });
 
       document.body.removeChild(container);
-      emitSpy.mockRestore();
+      initDragAndDrop.mockRestore();
     });
   });
 
@@ -157,7 +214,6 @@ describe("UIUtilityService", () => {
       fixture.eventBus.emit(retainedEvent, { text: "event copy" });
       await vi.waitFor(() => {
         expect(predecessorCopy).toHaveBeenCalledWith("event copy");
-        expect(fixture.getEventsOfType("ui:clipboard-result")).toHaveLength(1);
       });
 
       const dragContainer = document.createElement("div");
@@ -169,9 +225,6 @@ describe("UIUtilityService", () => {
       expect(initDragAndDrop).toHaveBeenCalledWith(dragContainer, {
         draggableSelector: ".drag-probe",
       });
-      expect(fixture.getEventsOfType("ui:drag-drop-initialized")).toHaveLength(
-        1,
-      );
       dragContainer.remove();
 
       await expect(

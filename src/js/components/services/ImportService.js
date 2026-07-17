@@ -1446,7 +1446,6 @@ export default class ImportService extends ComponentBase {
 
   onInit() {
     this.setupRequestHandlers();
-    this.emit("import-service-ready");
   }
 
   onDestroy() {

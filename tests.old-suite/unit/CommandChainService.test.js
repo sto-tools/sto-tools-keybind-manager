@@ -262,12 +262,7 @@ describe('CommandChainService', () => {
         }
       })
 
-      // Verify events were emitted
-      expect(emitSpy).toHaveBeenCalledWith('stabilize-changed', {
-        name: 'AttackCall',
-        stabilize: false,
-        isAlias: true
-      })
+      // Verify the canonical profile update was emitted
       expect(emitSpy).toHaveBeenCalledWith('profile:updated', {
         profileId: 'test_profile',
         profile: mockDataCoordinatorResponse.profile

@@ -172,10 +172,6 @@ const dataService = new DataService({
       /** @type {string} */ message,
       /** @type {string} */ type = "info",
     ) => eventBus.emit("toast:show", { message, type }),
-    confirm: (
-      /** @type {string} */ message,
-      /** @type {(...args: any[]) => any} */ callback,
-    ) => eventBus.emit("confirm:show", { message, callback }),
     showModal: (/** @type {string} */ modalId) =>
       eventBus.emit("modal:show", { modalId }),
     hideModal: (/** @type {string} */ modalId) =>

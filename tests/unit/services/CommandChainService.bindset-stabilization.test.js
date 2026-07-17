@@ -129,6 +129,10 @@ describe("CommandChainService - Bindset Stabilization", () => {
           },
         },
       });
+      expect(service.emit).toHaveBeenCalledWith("profile:updated", {
+        profileId: "test_profile",
+        profile: mockProfile,
+      });
     });
 
     it("should set primary bindset stabilization when Primary Bindset specified", async () => {
@@ -229,32 +233,6 @@ describe("CommandChainService - Bindset Stabilization", () => {
             NewAlias: { stabilizeExecutionOrder: true },
           },
         },
-      });
-    });
-
-    it("should emit stabilize-changed event with bindset parameter", async () => {
-      await service.setStabilize("F4", true, "Custom Bindset");
-
-      expect(service.emit).toHaveBeenCalledWith("stabilize-changed", {
-        name: "F4",
-        stabilize: true,
-        isAlias: false,
-        bindset: "Custom Bindset",
-      });
-    });
-
-    it("should emit stabilize-changed event for alias without bindset", async () => {
-      // Set current environment to alias
-      service.currentEnvironment = "alias";
-      service.cache.currentEnvironment = "alias";
-
-      await service.setStabilize("TestAlias", false);
-
-      expect(service.emit).toHaveBeenCalledWith("stabilize-changed", {
-        name: "TestAlias",
-        stabilize: false,
-        isAlias: true,
-        bindset: null,
       });
     });
   });

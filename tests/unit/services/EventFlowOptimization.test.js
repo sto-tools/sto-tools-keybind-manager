@@ -103,7 +103,7 @@ describe("Phase 2.1: Event Flow Optimization - keys:changed Elimination", () => 
       expect(keysChangedEvents).toHaveLength(0);
     });
 
-    it("should NOT emit keys:changed during duplicateKeyWithName", async () => {
+    it("should return the duplicate while omitting redundant key result events", async () => {
       // Setup service with profile and keys
       keyService.cache.currentProfile = "test-profile";
       keyService.cache.keys = { F1: ["command1"] };
@@ -116,17 +116,13 @@ describe("Phase 2.1: Event Flow Optimization - keys:changed Elimination", () => 
       // Call duplicateKeyWithName
       const result = await keyService.duplicateKeyWithName("F1", "F2");
 
-      // Verify keys:changed was NOT emitted (but key-duplicated should be)
-      const keysChangedEvents = capturedEvents.filter(
-        (e) => e.event === "keys:changed",
+      // Authoritative profile state and the structured result supersede both
+      // legacy completion notifications.
+      const redundantKeyEvents = capturedEvents.filter(
+        (event) =>
+          event.event === "keys:changed" || event.event === "key-duplicated",
       );
-      const keyDuplicatedEvents = capturedEvents.filter(
-        (e) => e.event === "key-duplicated",
-      );
-
-      expect(keysChangedEvents).toHaveLength(0);
-      expect(keyDuplicatedEvents).toHaveLength(1);
-      expect(keyDuplicatedEvents[0].data).toEqual({ from: "F1", to: "F2" });
+      expect(redundantKeyEvents).toHaveLength(0);
       expect(result).toEqual({
         success: true,
         sourceKey: "F1",

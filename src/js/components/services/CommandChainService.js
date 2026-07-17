@@ -628,7 +628,6 @@ export default class CommandChainService extends ComponentBase {
       });
 
       if (result?.success) {
-        this.emit("command-chain-cleared", { key });
         // Emit chain-data-changed with empty commands to update UI immediately
         this.emit("chain-data-changed", { commands: [] });
         return true;
@@ -865,7 +864,6 @@ export default class CommandChainService extends ComponentBase {
           this.updateCacheFromProfile({ ...result.profile, id: profileId });
         }
 
-        this.emit("stabilize-changed", { name, stabilize, isAlias, bindset });
         // Broadcast profile update for listeners that rely on metadata
         this.emit("profile:updated", { profileId, profile: result.profile });
         return { success: true };

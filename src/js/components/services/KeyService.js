@@ -205,9 +205,6 @@ export default class KeyService extends ComponentBase {
         }
       }
 
-      // DataCoordinator already emitted profile:updated, so we only emit key-added
-      this.emit("key-added", { key: keyName });
-
       return {
         success: true,
         key: keyName,
@@ -308,7 +305,6 @@ export default class KeyService extends ComponentBase {
         },
       });
 
-      this.emit("key-duplicated", { from: keyName, to: newKeyName });
       return {
         success: true,
         sourceKey: keyName,
@@ -393,8 +389,6 @@ export default class KeyService extends ComponentBase {
 
       // Update local cache so dependent services remain in sync until broadcast arrives
       this.cache.keys[newKey] = JSON.parse(JSON.stringify(clonedCommands));
-      this.emit("key-duplicated", { from: sourceKey, to: newKey });
-
       return {
         success: true,
         sourceKey,

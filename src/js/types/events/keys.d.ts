@@ -47,6 +47,4 @@ export interface KeyEventProtocol {
   "capture-stop": { context: string };
   "chord-captured": { chord: string; context: string };
   update: { chord: string; codes: string[]; context: string };
-  "key-added": { key: string };
-  "key-duplicated": { from: string; to: string };
 }

@@ -27,10 +27,6 @@ describe("StorageService", () => {
   });
 
   describe("Initialization", () => {
-    it("should emit storage:ready event", () => {
-      eventBusFixture.expectEvent("storage:ready");
-    });
-
     it("should populate localStorage with default structure", () => {
       const raw = localStorage.getItem("sto_keybind_manager");
       expect(raw).toBeTruthy();

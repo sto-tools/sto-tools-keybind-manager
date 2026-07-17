@@ -1,4 +1,3 @@
-import type StorageService from "../../components/services/StorageService.js";
 import type {
   EmptyObjectPayload,
   ProjectBackupData,
@@ -27,7 +26,6 @@ export interface StorageEventProtocol {
   "sync:sync-now": null;
   "app:reset-complete": EmptyObjectPayload;
   "app:reset-failed": null | { error: unknown };
-  "import-service-ready": null;
   "keybinds:export": null;
   "project-backup-created": { filename: string; data: ProjectBackupData };
   "project-backup-failed": { error: unknown };
@@ -39,6 +37,5 @@ export interface StorageEventProtocol {
   "project-synced": null;
   "storage:backup-created": { backup: StorageBackup };
   "storage:data-cleared": null;
-  "storage:ready": { service: StorageService };
   "storage:settings-changed": { settings: SettingsRecord };
 }

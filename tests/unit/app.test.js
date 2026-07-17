@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import STOToolsKeybindManager from "../../src/js/app.js";
 
@@ -35,13 +35,19 @@ describe("STOToolsKeybindManager dependencies", () => {
     window.storageService = { name: "legacy storage" };
     window.dataService = { name: "legacy data" };
     window.stoUI = { showToast: () => {} };
+    const showToast = vi.fn();
 
     const app = new STOToolsKeybindManager({
       i18n: { t: (key) => key },
+      ui: { showToast },
     });
 
     await expect(app.init()).rejects.toThrow(
       "Required dependencies not loaded",
+    );
+    expect(showToast).toHaveBeenCalledWith(
+      "failed_to_load_application",
+      "error",
     );
   });
 });

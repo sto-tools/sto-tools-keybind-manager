@@ -53,9 +53,6 @@ export default class StorageService extends ComponentBase {
 
     // Set up event listeners
     this.setupEventListeners();
-
-    // Emit storage ready event
-    this.emit("storage:ready", { service: this });
   }
 
   setupEventListeners() {

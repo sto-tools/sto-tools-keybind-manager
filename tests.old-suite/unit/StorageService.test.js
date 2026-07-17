@@ -41,7 +41,6 @@ describe('StorageService', () => {
     it('should initialize properly', () => {
       storageService.init()
       expect(storageService.isInitialized()).toBe(true)
-      expect(mockEventBus.emit).toHaveBeenCalledWith('storage:ready', { service: storageService })
     })
 
     it('should have correct component name', () => {
@@ -606,4 +605,4 @@ describe('StorageService', () => {
       }
     })
   })
-}) 
+})

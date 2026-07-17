@@ -493,8 +493,6 @@ export default class STOToolsKeybindManager {
         stoUI.showToast(this.i18n.t("failed_to_load_application"), "error");
       }
 
-      // Dispatch error event through eventBus
-      eventBus.emit("sto-app-error", { error });
       throw error; // Re-throw to ensure the error is visible
     }
   }

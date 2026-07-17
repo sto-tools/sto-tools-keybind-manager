@@ -126,10 +126,6 @@ describe("AliasService", () => {
           },
         },
       );
-      expect(capturedEvents).toContainEqual({
-        event: "alias-created",
-        data: { name: "NewAlias" },
-      });
     });
 
     it("should create alias with empty description if not provided", async () => {

@@ -144,7 +144,6 @@ export default class AliasService extends ComponentBase {
         },
       });
 
-      this.emit("alias-created", { name });
       return { success: true, message: "alias_created", data: { name } };
     } catch (error) {
       console.error("[AliasService] Failed to add alias:", error);
@@ -246,8 +245,6 @@ export default class AliasService extends ComponentBase {
         type: original.type || "alias",
       };
 
-      this.emit("alias-created", { name: newName });
-      this.emit("alias-duplicated", { from: sourceName, to: newName });
       return {
         success: true,
         message: "alias_duplicated",
