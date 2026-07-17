@@ -4,6 +4,7 @@ import {
   isAliasNameAllowed,
   isAliasNamePatternValid,
 } from "../../lib/aliasNameValidator.js";
+import { escapeHtml } from "../../lib/htmlEscape.js";
 import { getSnapshotUserAliases } from "../services/dataState.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
@@ -411,6 +412,8 @@ export default class AliasBrowserUI extends UIComponentBase {
     const selectedName = this._selectedAliasName || null;
     const isSelected = selectedName === name;
     const description = alias.description || "";
+    const escapedName = escapeHtml(name);
+    const escapedDescription = escapeHtml(description);
     const lengthClass =
       name.length <= 8
         ? "short"
@@ -422,8 +425,8 @@ export default class AliasBrowserUI extends UIComponentBase {
 
     // Use consistent CSS classes: 'alias-item' (to match tests) and 'active' (to match selection pattern)
     return `
-      <div class="alias-item ${isSelected ? "active" : ""}" data-alias="${name}" data-length="${lengthClass}" title="${description}">
-        <div class="alias-name">${name}</div>
+      <div class="alias-item ${isSelected ? "active" : ""}" data-alias="${escapedName}" data-length="${lengthClass}" title="${escapedDescription}">
+        <div class="alias-name">${escapedName}</div>
         <div class="alias-command-count">${commandCount} <span data-i18n="${commandCount === 1 ? "command_singular" : "commands"}">${this.i18n.t(commandCount === 1 ? "command_singular" : "commands")}</span></div>
       </div>`;
   }

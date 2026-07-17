@@ -59,29 +59,15 @@ export type KeyCommandMap = Record<string, CommandList>;
 export type ProfileMap = Record<string, ProfileData>;
 
 /** Known application settings and the value type accepted for each key. */
-export interface KnownPreferencesSettings {
-  theme: string;
-  autoSave: boolean;
-  showTooltips: boolean;
-  confirmDeletes: boolean;
-  maxUndoSteps: number;
-  defaultMode: string;
-  compactView: boolean;
-  language: string;
-  syncFolderName: string | null;
-  syncFolderPath: string | null;
-  autoSync: boolean;
-  autoSyncInterval: string;
-  bindToAliasMode: boolean;
-  bindsetsEnabled: boolean;
-  translateGeneratedMessages: boolean;
-}
+export type KnownPreferencesSettings =
+  import("../data-contracts.js").KnownPreferencesSettings;
 
 /** Complete known settings plus application-defined extension settings. */
 export type PreferencesSettings = KnownPreferencesSettings &
   Record<string, unknown>;
 
-export type KnownPreferenceKey = keyof KnownPreferencesSettings;
+export type KnownPreferenceKey =
+  import("../data-contracts.js").KnownPreferenceKey;
 
 declare const extensionPreferenceKeyBrand: unique symbol;
 

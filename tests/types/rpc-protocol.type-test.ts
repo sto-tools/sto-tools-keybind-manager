@@ -11,6 +11,7 @@ import type {
 } from "../../src/js/types/rpc/index.js";
 import type { ExtensionPreferenceKey } from "../../src/js/types/events/base.js";
 import type { SyncProjectResult } from "../../src/js/types/rpc/application.js";
+import type { ProjectImportResult } from "../../src/js/types/rpc/import-export.js";
 import { extensionPreferenceKey } from "../../src/js/components/services/preferenceKeys.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { request, respond } from "../../src/js/core/requestResponse.js";
@@ -59,6 +60,52 @@ const unknownSyncFailure: SyncProjectResult = {
   // @ts-expect-error Sync failures use a closed error-code vocabulary.
   error: "unknown_sync_failure",
 };
+
+const invalidProjectFailure: ProjectImportResult = {
+  success: false,
+  error: "invalid_project_file",
+  params: { path: "$.data.profiles.captain.name" },
+};
+// @ts-expect-error Schema failures always identify the rejected path.
+const invalidProjectWithoutPath: ProjectImportResult = {
+  success: false,
+  error: "invalid_project_file",
+};
+const invalidProjectOptionsFailure: ProjectImportResult = {
+  success: false,
+  error: "invalid_project_options",
+  params: { path: "$.options.importSettings" },
+};
+// @ts-expect-error Options failures always identify the rejected option path.
+const invalidProjectOptionsWithoutPath: ProjectImportResult = {
+  success: false,
+  error: "invalid_project_options",
+};
+const profileWriteFailure: ProjectImportResult = {
+  success: false,
+  error: "storage_write_failed",
+  params: { operation: "profile", profileId: "captain" },
+  partial: true,
+  committed: {
+    profiles: ["first-officer"],
+    settings: false,
+    project: false,
+  },
+};
+const invalidProfileWriteFailure: ProjectImportResult = {
+  success: false,
+  error: "storage_write_failed",
+  // @ts-expect-error A profile write failure identifies the affected profile.
+  params: { operation: "profile" },
+  partial: false,
+  committed: { profiles: [], settings: false, project: false },
+};
+void invalidProjectFailure;
+void invalidProjectWithoutPath;
+void invalidProjectOptionsFailure;
+void invalidProjectOptionsWithoutPath;
+void profileWriteFailure;
+void invalidProfileWriteFailure;
 
 const aliasHandler: RpcHandler<"alias:add"> = (payload = {}) =>
   payload.name
@@ -271,6 +318,41 @@ async function exerciseCoreApi() {
   }
   // @ts-expect-error Optional payloads are still validated when supplied.
   request(eventBus, "project:restore-from-content", { content: 42 });
+
+  const importResult = await request(eventBus, "import:project-file", {
+    content: '{"type":"project","data":{}}',
+    options: { importSettings: false },
+  });
+  if (!importResult.success) {
+    if (importResult.error === "invalid_project_file") {
+      importResult.params.path.toUpperCase();
+    } else if (importResult.error === "invalid_project_options") {
+      const optionPath: "$.options" | "$.options.importSettings" =
+        importResult.params.path;
+      void optionPath;
+    } else if (importResult.error === "storage_write_failed") {
+      importResult.params.operation.toUpperCase();
+      importResult.committed.profiles.map((profileId) =>
+        profileId.toUpperCase(),
+      );
+      const partial: boolean = importResult.partial;
+      void partial;
+      if (importResult.params.operation === "profile") {
+        importResult.params.profileId.toUpperCase();
+      }
+    }
+  }
+  // @ts-expect-error Project content is raw text, never a parsed object.
+  request(eventBus, "import:project-file", { content: {} });
+  request(eventBus, "import:project-file", {
+    content: '{"type":"project","data":{}}',
+    options: { importSettings: undefined },
+  });
+  // @ts-expect-error Null is not a valid project-import options record.
+  request(eventBus, "import:project-file", {
+    content: '{"type":"project","data":{}}',
+    options: null,
+  });
 
   const syncResult = await request(eventBus, "sync:sync-project", {
     source: "manual",

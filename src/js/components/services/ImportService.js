@@ -7,8 +7,8 @@ import {
 } from "../../lib/commandDisplayAdapter.js";
 import { decodeKeyFromImport } from "../../lib/keyEncoding.js";
 import { KBFParser } from "../../lib/KBFParser.js";
-import { parseProjectJson } from "./importJsonBoundary.js";
 import { commitImportedProfile } from "./importProfileCommit.js";
+import { importProjectToStorage } from "./projectImportOrchestrator.js";
 
 /** @typedef {import('./serviceTypes.js').AppWindow} AppWindow */
 
@@ -1078,113 +1078,9 @@ export default class ImportService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/import-export.js').ProjectImportResult>}
    */
   async importProjectFile(content, options = {}) {
-    try {
-      if (!this.storage)
-        return { success: false, error: "storage_not_available" };
-      const parsedProject = parseProjectJson(content);
-      if (!parsedProject)
-        return { success: false, error: "invalid_project_file" };
-
-      const importedData =
-        /** @type {{ profiles?: Record<string, import('./serviceTypes.js').ProfileData>, settings?: Record<string, unknown> & { version?: unknown, firstRun?: unknown, currentProfile?: string | null }, currentProfile?: string | null }} */ (
-          parsedProject.data
-        );
-      let importedProfiles = 0;
-      let importedSettings = false;
-      /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
-      const sanitizedProfiles = {};
-
-      const hasTopLevelCurrentProfile = Object.prototype.hasOwnProperty.call(
-        importedData,
-        "currentProfile",
-      );
-      const hasLegacyCurrentProfile = Object.prototype.hasOwnProperty.call(
-        importedData.settings || {},
-        "currentProfile",
-      );
-      const rawCurrentProfile = hasTopLevelCurrentProfile
-        ? importedData.currentProfile
-        : importedData.settings?.currentProfile;
-      const currentProfile =
-        typeof rawCurrentProfile === "string" ? rawCurrentProfile : null;
-
-      // Import profiles
-      if (importedData.profiles) {
-        for (const [profileId, profileData] of Object.entries(
-          importedData.profiles,
-        )) {
-          const sanitizedProfile = this.sanitizeProfileData(profileData);
-          sanitizedProfiles[profileId] = sanitizedProfile;
-          if (
-            (await this.storage.saveProfile(profileId, sanitizedProfile)) ===
-            false
-          ) {
-            throw new Error(`Storage rejected profile "${profileId}"`);
-          }
-          importedProfiles++;
-        }
-      }
-
-      // Import settings
-      if (importedData.settings && options.importSettings !== false) {
-        // Merge settings carefully to avoid overwriting critical app state
-        const currentSettings = this.storage.getSettings() || {};
-        const mergedSettings = {
-          ...currentSettings,
-          ...importedData.settings,
-          // Preserve critical app state
-          version: currentSettings.version || importedData.settings.version,
-          firstRun: currentSettings.firstRun,
-        };
-        if ((await this.storage.saveSettings(mergedSettings)) === false) {
-          throw new Error("Storage rejected project settings");
-        }
-        importedSettings = true;
-      }
-
-      // saveProfile intentionally refreshes lastModified for ordinary edits. A
-      // project restore must instead preserve the canonical exported profile,
-      // including its timestamps, and restore the active profile at data level.
-      if (
-        importedProfiles > 0 ||
-        hasTopLevelCurrentProfile ||
-        hasLegacyCurrentProfile
-      ) {
-        const storedData = this.storage.getAllData();
-        const restoredData = {
-          ...storedData,
-          profiles: {
-            ...(storedData.profiles || {}),
-            ...sanitizedProfiles,
-          },
-          ...(hasTopLevelCurrentProfile || hasLegacyCurrentProfile
-            ? { currentProfile }
-            : {}),
-        };
-        if ((await this.storage.saveAllData(restoredData)) === false) {
-          throw new Error("Storage rejected restored project state");
-        }
-      }
-
-      // Set app modified state
-      this.markAppModified();
-
-      return {
-        success: true,
-        message: "project_imported_successfully",
-        imported: {
-          profiles: importedProfiles,
-          settings: importedSettings,
-        },
-        currentProfile,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: "import_failed_invalid_json",
-        params: { reason: getErrorMessage(error) },
-      };
-    }
+    const result = await importProjectToStorage(this.storage, content, options);
+    if (result.success) this.markAppModified();
+    return result;
   }
 
   /**
@@ -1362,86 +1258,6 @@ export default class ImportService extends ComponentBase {
 
     const mid = Math.floor(commands.length / 2);
     return commands.slice(0, mid + 1);
-  }
-
-  /** @param {import('./serviceTypes.js').ProfileData & { mode?: string }} profileData */
-  sanitizeProfileData(profileData) {
-    // Create a clean profile structure
-    /** @type {import('./serviceTypes.js').ProfileData & { builds: { space: import('./serviceTypes.js').EnvironmentBindingData, ground: import('./serviceTypes.js').EnvironmentBindingData } }} */
-    const sanitized = {
-      name: profileData.name,
-      description: profileData.description || "",
-      currentEnvironment:
-        profileData.currentEnvironment || profileData.mode || "space",
-      builds: {
-        space: { keys: {}, aliases: {} },
-        ground: { keys: {}, aliases: {} },
-      },
-      aliases: {},
-      bindsets: profileData.bindsets || {},
-      selections: profileData.selections || {},
-      keybindMetadata: {},
-      aliasMetadata: {},
-      bindsetMetadata: {},
-    };
-
-    // Handle different profile formats
-    if (profileData.builds) {
-      // New format with builds
-      if (profileData.builds.space) {
-        sanitized.builds.space = {
-          keys: profileData.builds.space.keys || {},
-          aliases: profileData.builds.space.aliases || {},
-        };
-      }
-      if (profileData.builds.ground) {
-        sanitized.builds.ground = {
-          keys: profileData.builds.ground.keys || {},
-          aliases: profileData.builds.ground.aliases || {},
-        };
-      }
-    } else if (profileData.keys || profileData.keybinds) {
-      // Legacy format - put keys in space environment
-      const keys =
-        profileData.keys ||
-        /** @type {Record<string, import('./serviceTypes.js').StoredCommand[]>} */ (
-          /** @type {unknown} */ (profileData.keybinds)
-        ) ||
-        {};
-      sanitized.builds.space.keys = keys;
-    }
-
-    // Handle aliases
-    if (profileData.aliases) {
-      sanitized.aliases = profileData.aliases;
-    }
-
-    // Handle metadata
-    if (profileData.keybindMetadata) {
-      sanitized.keybindMetadata = profileData.keybindMetadata;
-    }
-    if (profileData.aliasMetadata) {
-      sanitized.aliasMetadata = profileData.aliasMetadata;
-    }
-    if (profileData.bindsetMetadata) {
-      sanitized.bindsetMetadata = profileData.bindsetMetadata;
-    }
-
-    // Preserve canonical identity, lifecycle, migration, and VFX state. These
-    // fields are consumed directly by profile switching and feature services.
-    if (profileData.id !== undefined) sanitized.id = profileData.id;
-    if (profileData.environment !== undefined)
-      sanitized.environment = profileData.environment;
-    if (profileData.created !== undefined)
-      sanitized.created = profileData.created;
-    if (profileData.lastModified !== undefined)
-      sanitized.lastModified = profileData.lastModified;
-    if (profileData.migrationVersion !== undefined)
-      sanitized.migrationVersion = profileData.migrationVersion;
-    if (profileData.vertigoSettings !== undefined)
-      sanitized.vertigoSettings = profileData.vertigoSettings;
-
-    return sanitized;
   }
 
   onInit() {

@@ -1,8 +1,12 @@
 import ComponentBase from "../ComponentBase.js";
+import { extensionPreferenceKey } from "./preferenceKeys.js";
 import {
-  extensionPreferenceKey,
-  isKnownPreferenceKey,
-} from "./preferenceKeys.js";
+  hasValidKnownSettingValue,
+  isDataRecord,
+  isKnownSettingKey,
+  isSettingsRecord,
+  sanitizeStoredSettings,
+} from "./settingsDataBoundary.js";
 
 /** @typedef {import('../../types/events/base.js').KnownPreferenceKey} KnownPreferenceKey */
 /** @typedef {import('../../types/events/base.js').KnownPreferencesSettings} KnownPreferencesSettings */
@@ -10,43 +14,9 @@ import {
 /** @typedef {import('../../types/events/base.js').PreferencesSettings} PreferencesSettings */
 /** @typedef {import('../../types/events/base.js').SettingsRecord} SettingsRecord */
 
-/** @type {Record<KnownPreferenceKey, (value: unknown) => boolean>} */
-const knownSettingValidators = {
-  theme: (value) => typeof value === "string",
-  autoSave: (value) => typeof value === "boolean",
-  showTooltips: (value) => typeof value === "boolean",
-  confirmDeletes: (value) => typeof value === "boolean",
-  maxUndoSteps: (value) => typeof value === "number",
-  defaultMode: (value) => typeof value === "string",
-  compactView: (value) => typeof value === "boolean",
-  language: (value) => typeof value === "string",
-  syncFolderName: (value) => value === null || typeof value === "string",
-  syncFolderPath: (value) => value === null || typeof value === "string",
-  autoSync: (value) => typeof value === "boolean",
-  autoSyncInterval: (value) => typeof value === "string",
-  bindToAliasMode: (value) => typeof value === "boolean",
-  bindsetsEnabled: (value) => typeof value === "boolean",
-  translateGeneratedMessages: (value) => typeof value === "boolean",
-};
-
-/** @param {unknown} value @returns {value is Record<string, unknown>} */
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** @param {string} key @returns {key is KnownPreferenceKey} */
-function isKnownSettingKey(key) {
-  return isKnownPreferenceKey(key);
-}
-
-/** @param {KnownPreferenceKey} key @param {unknown} value */
-function hasValidKnownSettingValue(key, value) {
-  return knownSettingValidators[key](value);
-}
-
 /** @param {unknown} value @returns {value is PreferenceMutation} */
 function isPreferenceMutation(value) {
-  if (!isRecord(value) || typeof value.key !== "string") return false;
+  if (!isDataRecord(value) || typeof value.key !== "string") return false;
   if (isKnownSettingKey(value.key)) {
     return (
       value.extension !== true &&
@@ -56,47 +26,10 @@ function isPreferenceMutation(value) {
   return value.extension === true;
 }
 
-/** @param {unknown} value @returns {value is SettingsRecord} */
-function isSettingsRecord(value) {
-  if (!isRecord(value)) return false;
-  return Object.entries(value).every(
-    ([key, settingValue]) =>
-      !isKnownSettingKey(key) || hasValidKnownSettingValue(key, settingValue),
-  );
-}
-
-/**
- * Keep extension settings while replacing invalid or missing known values with
- * their defaults. Stored data is external input, so it is filtered rather than
- * trusted as a complete PreferencesSettings object.
- * @param {unknown} value
- * @param {KnownPreferencesSettings} defaults
- * @returns {PreferencesSettings}
- */
-function sanitizeStoredSettings(value, defaults) {
-  /** @type {Record<string, unknown>} */
-  const settings = { ...defaults };
-  if (!isRecord(value)) return /** @type {PreferencesSettings} */ (settings);
-
-  for (const [key, settingValue] of Object.entries(value)) {
-    if (
-      !isKnownSettingKey(key) ||
-      hasValidKnownSettingValue(key, settingValue)
-    ) {
-      Object.defineProperty(settings, key, {
-        value: settingValue,
-        configurable: true,
-        enumerable: true,
-        writable: true,
-      });
-    }
-  }
-  return /** @type {PreferencesSettings} */ (settings);
-}
-
 /** @param {unknown} value */
 function invalidMutationError(value) {
-  const key = isRecord(value) && typeof value.key === "string" ? value.key : "";
+  const key =
+    isDataRecord(value) && typeof value.key === "string" ? value.key : "";
   return new TypeError(
     key
       ? `Invalid value or mutation path for preference "${key}"`

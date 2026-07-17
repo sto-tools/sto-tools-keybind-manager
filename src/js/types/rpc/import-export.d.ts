@@ -42,11 +42,31 @@ export type ProjectImportResult =
       imported: { profiles: number; settings: boolean };
       currentProfile: string | null;
     }
-  | CodedFailure<
-      | "storage_not_available"
-      | "invalid_project_file"
-      | "import_failed_invalid_json"
-    >;
+  | { success: false; error: "storage_not_available" }
+  | { success: false; error: "import_failed_invalid_json" }
+  | {
+      success: false;
+      error: "invalid_project_file";
+      params: { path: string };
+    }
+  | {
+      success: false;
+      error: "invalid_project_options";
+      params: { path: "$.options" | "$.options.importSettings" };
+    }
+  | {
+      success: false;
+      error: "storage_write_failed";
+      params:
+        | { operation: "profile"; profileId: string }
+        | { operation: "settings" | "project" };
+      partial: boolean;
+      committed: {
+        profiles: string[];
+        settings: boolean;
+        project: boolean;
+      };
+    };
 
 export type KBFImportError =
   | "invalid_kbf_file_content"

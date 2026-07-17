@@ -1,5 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import BindsetDeleteConfirmUI from "./BindsetDeleteConfirmUI.js";
+import { escapeHtml } from "../../lib/htmlEscape.js";
 import {
   getSnapshotPrimaryKeys,
   getSnapshotProfile,
@@ -634,7 +635,7 @@ export default class KeyBrowserUI extends UIComponentBase {
 
   /** @param {string} keyName */
   formatKeyName(keyName) {
-    return keyName.replace(/\+/g, "<br>+");
+    return escapeHtml(keyName).replace(/\+/g, "<br>+");
   }
 
   /**

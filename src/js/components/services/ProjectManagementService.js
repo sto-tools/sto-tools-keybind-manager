@@ -212,14 +212,21 @@ export default class ProjectManagementService extends ComponentBase {
         content: text,
       });
       const failure = result.success ? null : result;
+      const failureParams =
+        failure && "params" in failure ? failure.params : undefined;
       console.log("[ProjectManagementService] import:project-file result", {
         success: result.success,
         error: failure?.error,
-        params: failure?.params,
+        params: failureParams,
       });
       if (!result.success) {
         const errorMessage = result.error || "import_failed";
-        const reason = result.params?.reason || "";
+        const reason =
+          failureParams &&
+          "reason" in failureParams &&
+          typeof failureParams.reason === "string"
+            ? failureParams.reason
+            : "";
         const fullMessage = reason
           ? `${errorMessage}: ${reason}`
           : errorMessage;

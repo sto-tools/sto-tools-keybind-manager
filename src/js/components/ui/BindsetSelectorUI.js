@@ -1,4 +1,5 @@
 import UIComponentBase from "../UIComponentBase.js";
+import { escapeHtml } from "../../lib/htmlEscape.js";
 import { eventElement, resolveDocument, resolveI18n } from "./uiTypes.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -235,23 +236,24 @@ export default class BindsetSelectorUI extends UIComponentBase {
       const isActive = activeBindset === bindset;
       const hasKey = this.keyBindsetMembership.get(bindset) || false;
       const greyedOut = !hasKey ? "greyed-out" : "";
+      const escapedBindset = escapeHtml(bindset);
 
       console.log(
         `[BindsetSelectorUI] Bindset: ${bindset}, hasKey: ${hasKey}, selectedKey: ${this.cache.selectedKey}`,
       );
 
       html += `
-        <div class="bindset-option ${isActive ? "active" : ""} ${greyedOut}" data-bindset="${bindset}">
-          <span class="bindset-name">${this.escapeHtml(bindset)}</span>
+        <div class="bindset-option ${isActive ? "active" : ""} ${greyedOut}" data-bindset="${escapedBindset}">
+          <span class="bindset-name">${escapedBindset}</span>
           <div class="toolbar-group">
-            <button class="toolbar-btn-small add-key-btn" 
-                    data-bindset="${this.escapeHtml(bindset)}" 
+            <button class="toolbar-btn-small add-key-btn"
+                    data-bindset="${escapedBindset}"
                     title="${this.i18n.t("add_key_to_bindset")}"
                     ${hasKey ? "disabled" : ""}>
               <i class="fas fa-plus"></i>
             </button>
-            <button class="toolbar-btn-small remove-key-btn" 
-                    data-bindset="${this.escapeHtml(bindset)}" 
+            <button class="toolbar-btn-small remove-key-btn"
+                    data-bindset="${escapedBindset}"
                     title="${this.i18n.t("remove_key_from_bindset")}"
                     ${!hasKey ? "disabled" : ""}>
               <i class="fas fa-minus"></i>
@@ -409,26 +411,6 @@ export default class BindsetSelectorUI extends UIComponentBase {
       menu.style.display = "none";
       this.isOpen = false;
     }
-  }
-
-  /** @param {string} text */
-  escapeHtml(text) {
-    const div = this.document?.createElement("div");
-    if (div) {
-      div.textContent = text;
-      return div.innerHTML;
-    }
-    return String(text).replace(/[&<>"']/g, (match) => {
-      /** @type {Record<string, string>} */
-      const escapeMap = {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      };
-      return escapeMap[match];
-    });
   }
 
   // Late-join state handler
