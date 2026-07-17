@@ -74,15 +74,6 @@ async function emitProfileSwitch(eventBus, fromProfile, profile) {
   });
 }
 
-function waitForEvent(eventBus, topic) {
-  return new Promise((resolve) => {
-    const detach = eventBus.on(topic, (payload) => {
-      detach();
-      resolve(payload);
-    });
-  });
-}
-
 function nextTimer() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -233,13 +224,15 @@ describe("SelectionService profile transitions", () => {
   it("preserves the cached alias when switching to ground before profile readiness", async () => {
     await initServiceBeforeConsumer();
 
-    const aliasReady = waitForEvent(eventBus, "environment:switched");
-    await eventBus.emit("environment:changed", {
-      environment: "alias",
-      fromEnvironment: "space",
-      source: "test",
-    });
-    await aliasReady;
+    await eventBus.emit(
+      "environment:changed",
+      {
+        environment: "alias",
+        fromEnvironment: "space",
+        source: "test",
+      },
+      { synchronous: true },
+    );
 
     await service.selectAlias("Alpha", { skipPersistence: true });
     expect(service.cache.currentProfile).toBe(null);
@@ -255,13 +248,15 @@ describe("SelectionService profile transitions", () => {
       ),
     );
 
-    const groundReady = waitForEvent(eventBus, "environment:switched");
-    await eventBus.emit("environment:changed", {
-      environment: "ground",
-      fromEnvironment: "alias",
-      source: "test",
-    });
-    await groundReady;
+    await eventBus.emit(
+      "environment:changed",
+      {
+        environment: "ground",
+        fromEnvironment: "alias",
+        source: "test",
+      },
+      { synchronous: true },
+    );
 
     expect(aliasEvents).toContainEqual({
       name: null,
@@ -300,12 +295,14 @@ describe("SelectionService profile transitions", () => {
     await emitProfileSwitch(eventBus, null, profile);
     await nextTimer();
 
-    const groundReady = waitForEvent(eventBus, "environment:switched");
-    await eventBus.emit("environment:changed", {
-      environment: "ground",
-      source: "InterfaceMode",
-    });
-    await groundReady;
+    await eventBus.emit(
+      "environment:changed",
+      {
+        environment: "ground",
+        source: "InterfaceMode",
+      },
+      { synchronous: true },
+    );
 
     expect(service.selectionEnvironment).toBe("ground");
     expect(service.cache).toMatchObject({
@@ -434,13 +431,15 @@ describe("SelectionService profile transitions", () => {
     );
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const groundReady = waitForEvent(eventBus, "environment:switched");
-    await eventBus.emit("environment:changed", {
-      environment: "ground",
-      fromEnvironment: "space",
-      source: "test",
-    });
-    await groundReady;
+    await eventBus.emit(
+      "environment:changed",
+      {
+        environment: "ground",
+        fromEnvironment: "space",
+        source: "test",
+      },
+      { synchronous: true },
+    );
 
     expect(compatibilityTopics.at(-1)).toBe("key-selected");
     expect(service.cache).toMatchObject({

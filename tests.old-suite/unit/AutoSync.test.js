@@ -23,7 +23,7 @@ describe('AutoSync', () => {
     }
 
     mockSyncManager = {
-      syncProject: vi.fn().mockResolvedValue()
+      syncProject: vi.fn().mockResolvedValue({ success: true })
     }
 
     mockUI = {}
@@ -321,4 +321,4 @@ describe('AutoSync', () => {
       expect(autoSync._intervalId).toBe(null)
     })
   })
-}) 
+})

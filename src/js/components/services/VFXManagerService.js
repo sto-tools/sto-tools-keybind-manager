@@ -33,10 +33,6 @@ export default class VFXManagerService extends ComponentBase {
     this._vfxDataRevision = -1;
     /** @type {string | null} */
     this._acceptedVFXStateSignature = null;
-    this._vfxSettingsPublishScheduled = false;
-    /** @type {import('../../types/events/base.js').VfxSettingsSnapshot | null} */
-    this._pendingVFXSettingsEvent = null;
-    this._vfxPublishGeneration = 0;
   }
 
   onInit() {
@@ -55,9 +51,6 @@ export default class VFXManagerService extends ComponentBase {
     this._vfxDataAuthorityEpoch = 0;
     this._vfxDataRevision = -1;
     this._acceptedVFXStateSignature = null;
-    this._vfxSettingsPublishScheduled = false;
-    this._pendingVFXSettingsEvent = null;
-    this._vfxPublishGeneration += 1;
   }
 
   // Handle initial state from other components
@@ -266,40 +259,6 @@ export default class VFXManagerService extends ComponentBase {
     }
 
     this._acceptedVFXStateSignature = signature;
-    if (changed) {
-      // Publish after the complete data:state-changed fanout so downstream
-      // consumers combine the new VFX projection with the same profile revision.
-      this.scheduleVFXSettingsChanged({
-        selectedEffects: {
-          space: Array.from(this.selectedEffects.space),
-          ground: Array.from(this.selectedEffects.ground),
-        },
-        showPlayerSay: this.showPlayerSay,
-      });
-    }
-  }
-
-  /**
-   * Coalesce derived state while the authoritative data snapshot is fanning out.
-   * The generation prevents a queued publication from escaping a destroy/reinit
-   * boundary and reviving a retired service owner.
-   *
-   * @param {import('../../types/events/base.js').VfxSettingsSnapshot} settings
-   */
-  scheduleVFXSettingsChanged(settings) {
-    this._pendingVFXSettingsEvent = settings;
-    if (this._vfxSettingsPublishScheduled) return;
-
-    this._vfxSettingsPublishScheduled = true;
-    const generation = this._vfxPublishGeneration;
-    queueMicrotask(() => {
-      if (generation !== this._vfxPublishGeneration || this.destroyed) return;
-
-      this._vfxSettingsPublishScheduled = false;
-      const pending = this._pendingVFXSettingsEvent;
-      this._pendingVFXSettingsEvent = null;
-      if (pending) this.emit("vfx:settings-changed", pending);
-    });
   }
 
   async showModal() {

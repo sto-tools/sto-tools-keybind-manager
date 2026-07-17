@@ -4,13 +4,16 @@ import ComponentBase from "../ComponentBase.js";
  * AutoSync – watches for storage changes and triggers stoSync operations.
  */
 export default class AutoSync extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, syncManager?: import('./SyncService.js').default, ui?: import('./serviceTypes.js').ToastUI }} [options] */
-  constructor({ eventBus, storage, syncManager, ui } = {}) {
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, syncManager?: import('./SyncService.js').default, ui?: import('./serviceTypes.js').ToastUI, i18n?: import('./serviceTypes.js').I18n }} [options] */
+  constructor({ eventBus, storage, syncManager, ui, i18n } = {}) {
     super(eventBus);
     this.componentName = "AutoSync";
     this.storage = storage;
     this.syncManager = syncManager; // instance of SyncService
     this.ui = ui;
+    this.i18n =
+      i18n ??
+      /** @type {import('./serviceTypes.js').I18n} */ ({ t: (key) => key });
     this.isEnabled = false;
     this.interval = "change"; // 'change' or seconds string
     /** @type {ReturnType<typeof setInterval> | null} */
@@ -22,27 +25,27 @@ export default class AutoSync extends ComponentBase {
     /** @type {ReturnType<typeof setTimeout> | null} */
     this._syncDebounceTimeout = null;
     this._syncDebounceDelay = 500; // 500ms debounce delay
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    this._indicatorTimeout = null;
 
     // Bind for off()
     this._onStorageChange = () => this.debouncedSync();
-
-    // Listen for preferences changes
-    this.setupPreferencesListeners();
   }
 
   onInit() {
+    this.setupPreferencesListeners();
     this.setupFromSettings();
   }
 
   // Setup helpers
   setupPreferencesListeners() {
     // Listen for AutoSync settings changes from PreferencesUI
-    this.eventBus?.on("preferences:autosync-settings-changed", () => {
+    this.addEventListener("preferences:autosync-settings-changed", () => {
       this.setupFromSettings();
     });
 
     // Listen for individual setting changes
-    this.eventBus?.on(
+    this.addEventListener(
       "preferences:changed",
       (
         /** @type {{ changes?: { autoSync?: boolean, autoSyncInterval?: string }, key?: string, value?: unknown }} */ data,
@@ -67,6 +70,21 @@ export default class AutoSync extends ComponentBase {
         }
       },
     );
+  }
+
+  onDestroy() {
+    this.disable();
+    if (this._indicatorTimeout !== null) {
+      clearTimeout(this._indicatorTimeout);
+      this._indicatorTimeout = null;
+    }
+    if (typeof document !== "undefined") {
+      const indicator = document.getElementById("modifiedIndicator");
+      if (indicator) {
+        indicator.style.display = "none";
+        indicator.classList.remove("syncing", "synced", "error");
+      }
+    }
   }
 
   setupFromSettings() {
@@ -142,12 +160,22 @@ export default class AutoSync extends ComponentBase {
   async sync() {
     if (!this.isEnabled || !this.syncManager) return;
     try {
-      await this.syncManager.syncProject("auto");
+      const result = await this.syncManager.syncProject("auto");
+      if (!result.success) {
+        this._updateIndicator("error");
+        return result;
+      }
       this.lastSync = new Date();
       this._updateIndicator("synced");
+      return result;
     } catch (err) {
       console.error("[AutoSync] sync failed", err);
       this._updateIndicator("error");
+      return {
+        success: false,
+        error: "failed_to_sync_project",
+        params: { error: err instanceof Error ? err.message : String(err) },
+      };
     }
   }
 
@@ -158,13 +186,23 @@ export default class AutoSync extends ComponentBase {
     const indicator = document.getElementById("modifiedIndicator");
     if (!indicator) return;
 
+    if (this._indicatorTimeout !== null) {
+      clearTimeout(this._indicatorTimeout);
+      this._indicatorTimeout = null;
+    }
     indicator.classList.remove("syncing", "synced", "error");
+    const icon = document.createElement("i");
     switch (state) {
       case "synced":
         indicator.style.display = "inline";
         indicator.classList.add("synced");
-        indicator.innerHTML = '<i class="fas fa-check"></i> Synced';
-        setTimeout(() => {
+        icon.className = "fas fa-check";
+        indicator.replaceChildren(
+          icon,
+          document.createTextNode(` ${this.i18n.t("sync_status_synced")}`),
+        );
+        this._indicatorTimeout = setTimeout(() => {
+          this._indicatorTimeout = null;
           indicator.style.display = "none";
           indicator.classList.remove("synced");
         }, 2000);
@@ -172,9 +210,13 @@ export default class AutoSync extends ComponentBase {
       case "error":
         indicator.style.display = "inline";
         indicator.classList.add("error");
-        indicator.innerHTML =
-          '<i class="fas fa-exclamation-triangle"></i> Sync Error';
-        setTimeout(() => {
+        icon.className = "fas fa-exclamation-triangle";
+        indicator.replaceChildren(
+          icon,
+          document.createTextNode(` ${this.i18n.t("sync_status_error")}`),
+        );
+        this._indicatorTimeout = setTimeout(() => {
+          this._indicatorTimeout = null;
           indicator.style.display = "none";
           indicator.classList.remove("error");
         }, 5000);

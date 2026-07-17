@@ -22,7 +22,7 @@ describe('AutoSync Interval Validation Integration', () => {
     }
 
     mockSyncManager = {
-      syncProject: vi.fn().mockResolvedValue()
+      syncProject: vi.fn().mockResolvedValue({ success: true })
     }
 
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -165,4 +165,4 @@ describe('AutoSync Interval Validation Integration', () => {
       })
     })
   })
-}) 
+})

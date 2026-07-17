@@ -23,9 +23,4 @@ export interface PreferencesEventProtocol {
   "preferences:autosync-settings-changed": null;
   "preferences:show": null;
   "theme:toggle": null;
-  "settings:changed": {
-    settings: SettingsRecord;
-    updates: SettingsRecord;
-    timestamp: number;
-  };
 }

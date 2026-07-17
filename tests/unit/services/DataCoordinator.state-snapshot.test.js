@@ -295,7 +295,7 @@ describe("DataCoordinator complete state snapshots", () => {
     expect(
       events.findIndex(({ event }) => event === "data:state-changed"),
     ).toBeLessThan(
-      events.findIndex(({ event }) => event === "profiles:initialized"),
+      events.findIndex(({ event }) => event === "profile:switched"),
     );
   });
 
@@ -383,9 +383,7 @@ describe("DataCoordinator complete state snapshots", () => {
       expect(
         fixture
           .getEventHistory()
-          .filter(({ event }) =>
-            ["profiles:initialized", "profile:switched"].includes(event),
-          ),
+          .filter(({ event }) => event === "profile:switched"),
       ).toEqual([]);
     },
   );

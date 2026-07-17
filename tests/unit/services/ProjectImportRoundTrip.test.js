@@ -10,6 +10,7 @@ describe("project backup and import profile contract", () => {
   afterEach(() => {
     services.splice(0).forEach((service) => service.destroy());
     fixtures.splice(0).forEach((fixture) => fixture.destroy());
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -82,19 +83,33 @@ describe("project backup and import profile contract", () => {
     producer.init();
     consumer.init();
 
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    const emitSpy = vi.spyOn(producer, "emit");
+    /** @type {string[]} */
+    let artifactParts = [];
+    class CapturedBlob {
+      /** @param {string[]} parts @param {{ type?: string }} options */
+      constructor(parts = [], options = {}) {
+        artifactParts = [...parts];
+        this.size = parts.reduce((size, part) => size + part.length, 0);
+        this.type = options.type || "";
+      }
+    }
+    vi.stubGlobal("Blob", CapturedBlob);
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
 
     const backupResult = await producer.backupApplicationState();
-    const backupEvent = emitSpy.mock.calls.find(
-      ([topic]) => topic === "project-backup-created",
-    );
-    const projectData = backupEvent?.[1]?.data;
+    const projectData = JSON.parse(artifactParts.join(""));
     const importResult = await consumer.importProjectFile(
-      JSON.stringify(projectData),
+      artifactParts.join(""),
     );
 
     expect(backupResult.success).toBe(true);
+    expect(click).toHaveBeenCalledOnce();
+    expect(URL.createObjectURL).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "application/json" }),
+    );
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("mock-object-url");
     expect(projectData.data.currentProfile).toBe("canonical-profile");
     expect(projectData.data.settings).toEqual({
       theme: "light",
@@ -116,5 +131,45 @@ describe("project backup and import profile contract", () => {
     expect(destination.storage.getSettings()).toMatchObject(
       projectData.data.settings,
     );
+  });
+
+  it("returns a localized failure without starting a download when artifact creation fails", async () => {
+    const fixture = createServiceFixture();
+    fixtures.push(fixture);
+    const ui = { showToast: vi.fn() };
+    const i18n = {
+      t: vi.fn((key, params = {}) => `${key}:${params.error || ""}`),
+    };
+    const producer = new ProjectManagementService({
+      eventBus: fixture.eventBus,
+      storage: fixture.storage,
+      ui,
+      i18n,
+    });
+    services.push(producer);
+    producer.init();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    vi.stubGlobal(
+      "Blob",
+      class FailingBlob {
+        constructor() {
+          throw new Error("artifact unavailable");
+        }
+      },
+    );
+
+    await expect(producer.backupApplicationState()).resolves.toEqual({
+      success: false,
+      error: "artifact unavailable",
+    });
+    expect(ui.showToast).toHaveBeenCalledWith(
+      "failed_to_create_backup:artifact unavailable",
+      "error",
+    );
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
   });
 });

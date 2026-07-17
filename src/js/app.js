@@ -406,6 +406,7 @@ export default class STOToolsKeybindManager {
         storage: storageService,
         syncManager: this.syncService,
         ui: stoUI,
+        i18n: this.i18n,
       });
       this.autoSyncManager.init();
 

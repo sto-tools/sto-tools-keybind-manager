@@ -17,7 +17,8 @@ function createDomFixture() {
       <button id="languageMenuBtn">Language</button>
       <button data-lang="en">EN</button>
       <button data-lang="de">DE</button>
-    </div>`;
+    </div>
+    <button id="fileExplorerBtn">Explorer</button>`;
   document.body.appendChild(container);
   return {
     container,
@@ -135,5 +136,42 @@ describe("HeaderMenuUI", () => {
       (call) => call[0] === "[data-lang]",
     ).length;
     expect(langOnDomCalls).toBe(1); // Should be called once during component init
+  });
+
+  it("routes Explorer through its canonical event without the retired export action", () => {
+    document.getElementById("fileExplorerBtn").click();
+
+    eventBusFixture.expectEventCount("file-explorer:open", 1);
+    expect(
+      eventBusFixture.eventBus.onDom.mock.calls.filter(
+        ([target]) => target === "exportKeybindsBtn",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("restores exactly one Explorer emitter across reinit and replacement", () => {
+    const explorerButton = document.getElementById("fileExplorerBtn");
+
+    explorerButton.click();
+    eventBusFixture.expectEventCount("file-explorer:open", 1);
+
+    ui.destroy();
+    explorerButton.click();
+    eventBusFixture.expectEventCount("file-explorer:open", 1);
+
+    ui.init();
+    explorerButton.click();
+    eventBusFixture.expectEventCount("file-explorer:open", 2);
+
+    ui.destroy();
+    const replacement = new HeaderMenuUI({
+      eventBus: eventBusFixture.eventBus,
+      document,
+    });
+    replacement.init();
+    ui = replacement;
+
+    explorerButton.click();
+    eventBusFixture.expectEventCount("file-explorer:open", 3);
   });
 });

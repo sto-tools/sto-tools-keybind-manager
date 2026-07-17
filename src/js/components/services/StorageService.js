@@ -78,6 +78,7 @@ export default class StorageService extends ComponentBase {
         // Reset internal cache to empty structure
         const resetData = this.getEmptyData();
         this.data = resetData;
+        this._cachedData = resetData;
 
         // Emit events to notify other components about the reset
         this.emit(
@@ -85,7 +86,6 @@ export default class StorageService extends ComponentBase {
           { data: resetData },
           { synchronous: true },
         );
-        this.emit("app:reset-complete", {}, { synchronous: true });
 
         // Show success message
         if (appWindow?.stoUI) {
@@ -94,14 +94,14 @@ export default class StorageService extends ComponentBase {
             "application_reset_successfully";
           appWindow.stoUI.showToast(message, "success");
         }
+        return true;
       } else {
         console.error("[StorageService] Application reset failed");
-        // Emit error event for UI feedback
-        this.emit("app:reset-failed");
+        return false;
       }
     } catch (error) {
       console.error("[StorageService] Error during application reset:", error);
-      this.emit("app:reset-failed", { error });
+      return false;
     }
   }
 
@@ -241,9 +241,6 @@ export default class StorageService extends ComponentBase {
         : { ...this.getSettings(), ...settings };
       localStorage.setItem(this.settingsKey, JSON.stringify(persistedSettings));
 
-      // Emit settings changed event
-      this.emit("storage:settings-changed", { settings: persistedSettings });
-
       return true;
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -262,9 +259,6 @@ export default class StorageService extends ComponentBase {
           version: this.version,
         };
         localStorage.setItem(this.backupKey, JSON.stringify(backup));
-
-        // Emit backup created event
-        this.emit("storage:backup-created", { backup });
       }
     } catch (error) {
       console.error("Error creating backup:", error);
@@ -281,11 +275,15 @@ export default class StorageService extends ComponentBase {
       // Set reset flag to prevent loading default data on next startup
       localStorage.setItem("sto_app_reset", "true");
 
-      // Emit data cleared event
-      this.emit("storage:data-cleared");
+      // The persisted authority is now empty. Do not allow a pre-reset cache
+      // to outlive the successful clear and resurrect removed profiles.
+      this._cachedData = null;
 
       return true;
     } catch (error) {
+      // A storage mutation may have partially succeeded before the exception;
+      // force the next read to reconcile with the actual persisted state.
+      this._cachedData = null;
       console.error("Error clearing data:", error);
       return false;
     }

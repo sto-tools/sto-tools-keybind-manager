@@ -558,12 +558,6 @@ export default class SelectionService extends ComponentBase {
       isCurrent,
       skipPersistence: true,
     });
-    if (!isCurrent()) return;
-    this.emit("environment:switched", {
-      from: previousEnvResolved,
-      to: newEnvironment,
-      source: "SelectionService",
-    });
   }
 
   /** @param {string} environment */

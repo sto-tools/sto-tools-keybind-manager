@@ -102,10 +102,6 @@ export default class HeaderMenuUI extends UIComponentBase {
       this.emit("project:save");
     });
 
-    this.onDom("exportKeybindsBtn", "click", () => {
-      this.emit("keybinds:export");
-    });
-
     // Menu-specific operations
     this.onDom("importKeybindsBtn", "click", () => {
       this.emit("keybinds:import");
@@ -207,6 +203,8 @@ export default class HeaderMenuUI extends UIComponentBase {
   }
 
   onDestroy() {
-    // Note: DOM event listeners are automatically cleaned up by ComponentBase
+    // DOM and application listeners are cleaned up by ComponentBase. Reset the
+    // installation guard so the same instance can own them again after reinit.
+    this.eventListenersSetup = false;
   }
 }

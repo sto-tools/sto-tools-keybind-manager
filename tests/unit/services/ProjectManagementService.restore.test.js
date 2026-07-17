@@ -5,9 +5,11 @@ import { createServiceFixture } from "../../fixtures/index.js";
 describe("ProjectManagementService.restoreFromProjectContent", () => {
   let fixture;
   let service;
+  let services;
 
   beforeEach(() => {
     fixture = createServiceFixture();
+    services = [];
     service = new ProjectManagementService({
       eventBus: fixture.eventBus,
       storage: fixture.storage,
@@ -19,16 +21,20 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
         },
       },
     });
+    services.push(service);
     service.ui = { showToast: vi.fn() };
     service.init();
   });
 
   afterEach(() => {
+    services.forEach((candidate) => {
+      if (!candidate.destroyed) candidate.destroy();
+    });
     vi.restoreAllMocks();
     fixture.destroy();
   });
 
-  it("delegates restore to ImportService and emits success events", async () => {
+  it("delegates restore and returns the accepted import outcome", async () => {
     const requestMock = vi
       .spyOn(service, "request")
       .mockImplementation(async (topic, payload) => {
@@ -49,8 +55,6 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
         }
         return { success: true };
       });
-    const emitSpy = vi.spyOn(service, "emit");
-
     const result = await service.restoreFromProjectContent(
       '{"fake":true}',
       "backup.json",
@@ -66,15 +70,6 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
     expect(service.ui.showToast).toHaveBeenCalledWith(
       "Application state restored successfully",
       "success",
-    );
-    expect(emitSpy).toHaveBeenCalledWith(
-      "project-backup-restored",
-      {
-        filename: "backup.json",
-        currentProfile: "profile-42",
-        imported: { profiles: 2 },
-      },
-      { synchronous: true },
     );
     expect(result).toEqual({
       success: true,
@@ -96,8 +91,6 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
         }
         throw new Error(`Unexpected request for topic ${topic}`);
       });
-    const emitSpy = vi.spyOn(service, "emit");
-
     const result = await service.restoreFromProjectContent(
       "bad-data",
       "broken.json",
@@ -108,11 +101,67 @@ describe("ProjectManagementService.restoreFromProjectContent", () => {
       error: "project_invalid: corrupt",
     });
     expect(service.ui.showToast).not.toHaveBeenCalled();
-    expect(emitSpy).not.toHaveBeenCalledWith(
-      "project-backup-restored",
-      expect.anything(),
-      expect.anything(),
-    );
     expect(requestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("owns project actions and restore RPC across init, teardown, reinit, and replacement", async () => {
+    const expectOwnerCount = (expected) => {
+      expect(fixture.eventBus.getListenerCount("project:save")).toBe(expected);
+      expect(fixture.eventBus.getListenerCount("project:open")).toBe(expected);
+      expect(
+        fixture.eventBus.getListenerCount("rpc:project:restore-from-content"),
+      ).toBe(expected);
+    };
+    const backup = vi
+      .spyOn(service, "backupApplicationState")
+      .mockResolvedValue({ success: true, filename: "backup.json" });
+    const restore = vi
+      .spyOn(service, "restoreApplicationState")
+      .mockResolvedValue({ success: false, cancelled: true });
+
+    service.init();
+    expectOwnerCount(1);
+    fixture.eventBus.emit("project:save");
+    fixture.eventBus.emit("project:open");
+    expect(backup).toHaveBeenCalledOnce();
+    expect(restore).toHaveBeenCalledOnce();
+
+    service.destroy();
+    expectOwnerCount(0);
+    fixture.eventBus.emit("project:save");
+    fixture.eventBus.emit("project:open");
+    expect(backup).toHaveBeenCalledOnce();
+    expect(restore).toHaveBeenCalledOnce();
+
+    service.init();
+    expectOwnerCount(1);
+    service.destroy();
+    expectOwnerCount(0);
+
+    const replacement = new ProjectManagementService({
+      eventBus: fixture.eventBus,
+      storage: fixture.storage,
+      i18n: { t: (key) => key },
+    });
+    services.push(replacement);
+    const replacementResult = {
+      success: true,
+      currentProfile: null,
+      imported: { profiles: 0, settings: false },
+    };
+    const replacementRestore = vi
+      .spyOn(replacement, "restoreFromProjectContent")
+      .mockResolvedValue(replacementResult);
+
+    expectOwnerCount(0);
+    replacement.init();
+    expectOwnerCount(1);
+    await expect(
+      replacement.request("project:restore-from-content", {
+        content: "{}",
+        fileName: "project.json",
+      }),
+    ).resolves.toEqual(replacementResult);
+    expect(replacementRestore).toHaveBeenCalledWith("{}", "project.json");
   });
 });

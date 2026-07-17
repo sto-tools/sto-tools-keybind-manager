@@ -3,12 +3,10 @@ import type {
   DragDropOptions,
   ToastKind,
   VfxManagerCapability,
-  VfxSettingsSnapshot,
 } from "./base.js";
 import type { ComponentReplyTopic } from "./dynamic.js";
 
 export interface UiEventProtocol {
-  "vfx:settings-changed": VfxSettingsSnapshot;
   "about:show": null;
   "file-explorer:open": null;
   "modal:hide": { modalId: string };

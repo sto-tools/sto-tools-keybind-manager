@@ -151,6 +151,7 @@ describe("Application browser smoke", () => {
     expect(bus.hasListeners("rpc:command:import-from-source")).toBe(true);
     expect(bus.hasListeners("rpc:key:duplicate-with-name")).toBe(true);
     expect(bus.hasListeners("rpc:selection:select-key")).toBe(true);
+    expect(bus.hasListeners("rpc:sync:sync-project")).toBe(true);
 
     for (const topic of [
       "bindset-manager:open",

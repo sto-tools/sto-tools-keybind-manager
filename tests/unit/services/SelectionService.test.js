@@ -394,8 +394,8 @@ describe("SelectionService", () => {
       expect(service.cache.selectedAlias).toBe(null);
 
       expect(capturedEvents).toContainEqual({
-        event: "environment:switched",
-        data: { from: "space", to: "ground", source: "SelectionService" },
+        event: "selection:state-changed",
+        data: service.getCurrentState(),
       });
     });
 
@@ -407,8 +407,8 @@ describe("SelectionService", () => {
       expect(service.cache.selectedKey).toBe(null);
 
       expect(capturedEvents).toContainEqual({
-        event: "environment:switched",
-        data: { from: "space", to: "alias", source: "SelectionService" },
+        event: "selection:state-changed",
+        data: service.getCurrentState(),
       });
     });
 

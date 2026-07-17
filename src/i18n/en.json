@@ -719,6 +719,8 @@
   "failed_to_import_project": "Failed to import project: {{error}}",
   "permission_denied_to_folder": "Permission denied to write to folder",
   "failed_to_sync_project": "Failed to sync project: {{error}}",
+  "sync_status_synced": "Synced",
+  "sync_status_error": "Sync Error",
   "synchronization": "Synchronization",
   "advanced": "Advanced",
   "synchronization_settings": "Synchronization Settings",

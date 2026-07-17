@@ -86,8 +86,8 @@ describe("Persistence failure state integration", () => {
   });
 
   it("keeps settings unchanged and silent after quota failure", async () => {
-    const settingsChanged = vi.fn();
-    eventBus.on("settings:changed", settingsChanged);
+    const stateChanged = vi.fn();
+    eventBus.on("data:state-changed", stateChanged);
     const before = structuredClone(coordinator.state.settings);
 
     await expect(coordinator.updateSettings({ theme: "dark" })).rejects.toThrow(
@@ -96,12 +96,12 @@ describe("Persistence failure state integration", () => {
 
     expect(coordinator.state.settings).toEqual(before);
     expect(localStorage.getItem("sto_keybind_settings")).toBeNull();
-    expect(settingsChanged).not.toHaveBeenCalled();
+    expect(stateChanged).not.toHaveBeenCalled();
   });
 
   it("keeps profile state and the storage cache intact after delete failure", async () => {
-    const profileDeleted = vi.fn();
-    eventBus.on("profile:deleted", profileDeleted);
+    const stateChanged = vi.fn();
+    eventBus.on("data:state-changed", stateChanged);
 
     await expect(coordinator.deleteProfile("captain")).rejects.toThrow(
       "failed_to_delete_profile",
@@ -120,6 +120,6 @@ describe("Persistence failure state integration", () => {
         JSON.parse(localStorage.getItem("sto_keybind_manager")).profiles,
       ),
     ).toEqual(["captain", "first_officer"]);
-    expect(profileDeleted).not.toHaveBeenCalled();
+    expect(stateChanged).not.toHaveBeenCalled();
   });
 });

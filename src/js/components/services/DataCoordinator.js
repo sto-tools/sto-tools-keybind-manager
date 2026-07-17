@@ -447,13 +447,6 @@ export default class DataCoordinator extends ComponentBase {
 
       this._publishState("profile-created");
 
-      // Broadcast profile creation
-      this.emit("profile:created", {
-        profileId,
-        profile: structuredClone(persistedProfile),
-        timestamp: Date.now(),
-      });
-
       return {
         success: true,
         profileId,
@@ -522,14 +515,6 @@ export default class DataCoordinator extends ComponentBase {
       this.state.metadata.lastModified = new Date().toISOString();
 
       this._publishState("profile-cloned");
-
-      // Broadcast profile creation
-      this.emit("profile:created", {
-        profileId,
-        profile: structuredClone(persistedProfile),
-        clonedFrom: sourceId,
-        timestamp: Date.now(),
-      });
 
       return {
         success: true,
@@ -706,14 +691,6 @@ export default class DataCoordinator extends ComponentBase {
           { synchronous: true },
         );
       }
-
-      // Broadcast profile deletion
-      this.emit("profile:deleted", {
-        profileId,
-        profile: structuredClone(profile),
-        switchedProfile: structuredClone(switchedProfile),
-        timestamp: Date.now(),
-      });
 
       return {
         success: true,
@@ -941,13 +918,6 @@ export default class DataCoordinator extends ComponentBase {
 
     this._publishState("settings-updated");
 
-    // Broadcast settings change
-    this.emit("settings:changed", {
-      settings: structuredClone(this.state.settings),
-      updates: structuredClone(detachedSettings),
-      timestamp: Date.now(),
-    });
-
     return { success: true, settings: structuredClone(this.state.settings) };
   }
 
@@ -1033,7 +1003,6 @@ export default class DataCoordinator extends ComponentBase {
       );
       // For storage failures, we should not retry indefinitely
       // The application can function without default profiles if storage is broken
-      this.emit("profiles:creation-failed", { error: getErrorMessage(error) });
     }
   }
 
@@ -1134,13 +1103,6 @@ export default class DataCoordinator extends ComponentBase {
     console.log(
       `[${this.componentName}] Created ${Object.keys(profiles).length} built-in default profiles`,
     );
-
-    // Broadcast that profiles are now available
-    this.emit("profiles:initialized", {
-      profiles: structuredClone(this.state.profiles),
-      currentProfile: this.state.currentProfile,
-      timestamp: Date.now(),
-    });
 
     // CRITICAL: Only emit profile:switched when profile data is actually ready
     if (
@@ -1258,13 +1220,6 @@ export default class DataCoordinator extends ComponentBase {
     console.log(
       `[${this.componentName}] Created ${Object.keys(fallbackProfiles).length} fallback profiles`,
     );
-
-    // Broadcast that profiles are now available
-    this.emit("profiles:initialized", {
-      profiles: structuredClone(this.state.profiles),
-      currentProfile: this.state.currentProfile,
-      timestamp: Date.now(),
-    });
 
     // If we activated a profile for the first time, emit profile:switched event
     if (profileActivated && this.state.currentProfile) {
@@ -1408,16 +1363,10 @@ export default class DataCoordinator extends ComponentBase {
         `[${this.componentName}] State reloaded. Current profile: ${this.state.currentProfile}, Environment: ${this.state.currentEnvironment}`,
       );
 
-      // Emit events to refresh UI components
+      // Refresh the retained compatibility projections after publishing the
+      // complete authoritative state snapshot.
 
-      // 1. Emit profiles:initialized to refresh profile lists
-      this.emit("profiles:initialized", {
-        profiles: structuredClone(this.state.profiles),
-        currentProfile: this.state.currentProfile,
-        timestamp: Date.now(),
-      });
-
-      // 2. If we have a current profile, emit profile:switched to refresh profile-specific UI
+      // 1. If we have a current profile, emit profile:switched to refresh profile-specific UI
       if (
         this.state.currentProfile &&
         this.state.profiles[this.state.currentProfile]
@@ -1443,7 +1392,7 @@ export default class DataCoordinator extends ComponentBase {
         );
       }
 
-      // 3. Emit environment change synchronously to refresh environment-specific UI
+      // 2. Emit environment change synchronously to refresh environment-specific UI
       this.emit(
         "environment:changed",
         {
@@ -1454,13 +1403,6 @@ export default class DataCoordinator extends ComponentBase {
         },
         { synchronous: true },
       );
-
-      // 4. Emit settings change to refresh settings UI
-      this.emit("settings:changed", {
-        settings: structuredClone(this.state.settings),
-        updates: structuredClone(this.state.settings), // All settings are "new" after reload
-        timestamp: Date.now(),
-      });
 
       console.log(
         `[${this.componentName}] Emitted refresh events after state reload`,

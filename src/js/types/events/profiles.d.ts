@@ -1,9 +1,4 @@
-import type {
-  Environment,
-  ProfileData,
-  ProfileMap,
-  ProfileOperations,
-} from "./base.js";
+import type { Environment, ProfileData, ProfileOperations } from "./base.js";
 
 export type EnvironmentChangedPayload =
   | {
@@ -71,39 +66,8 @@ export type ProfileUpdatedPayload =
       updateSource?: string;
     };
 
-export type ProfileCreatedPayload =
-  | {
-      profileId: string;
-      profile: ProfileData;
-      timestamp: number;
-    }
-  | {
-      profileId: string;
-      profile: ProfileData;
-      clonedFrom: string;
-      timestamp: number;
-    };
-
 export interface ProfileEventProtocol {
   "environment:changed": EnvironmentChangedPayload;
   "profile:switched": ProfileSwitchedPayload;
   "profile:updated": ProfileUpdatedPayload;
-  "environment:switched": {
-    from: Environment;
-    to: Environment;
-    source: "SelectionService";
-  };
-  "profile:created": ProfileCreatedPayload;
-  "profile:deleted": {
-    profileId: string;
-    profile: ProfileData;
-    switchedProfile: ProfileData | null;
-    timestamp: number;
-  };
-  "profiles:creation-failed": { error: string };
-  "profiles:initialized": {
-    profiles: ProfileMap;
-    currentProfile: string | null;
-    timestamp: number;
-  };
 }

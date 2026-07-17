@@ -133,7 +133,7 @@ describe("DataCoordinator durable state ownership", () => {
       durableWhenPublished.push(fixture.storage.getAllData());
     });
 
-    await coordinator.deleteProfile("alpha");
+    const result = await coordinator.deleteProfile("alpha");
 
     expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
     expect(fixture.storage.deleteProfile).not.toHaveBeenCalled();
@@ -158,12 +158,13 @@ describe("DataCoordinator durable state ownership", () => {
     const switchedIndex = events.findIndex(
       ({ event }) => event === "profile:switched",
     );
-    const deletedIndex = events.findIndex(
-      ({ event }) => event === "profile:deleted",
-    );
     expect(stateIndex).toBeGreaterThanOrEqual(0);
     expect(stateIndex).toBeLessThan(switchedIndex);
-    expect(switchedIndex).toBeLessThan(deletedIndex);
+    expect(result).toMatchObject({
+      success: true,
+      deletedProfile: { name: "Alpha" },
+      switchedProfile: { id: "beta", name: "Beta" },
+    });
     expect(stateEvents()[0].data).toMatchObject({
       reason: "profile-deleted",
       state: {
@@ -178,7 +179,7 @@ describe("DataCoordinator durable state ownership", () => {
     expect(coordinator.state.currentProfile).toBe("beta");
   });
 
-  it("detaches nested update and settings inputs from owner state", async () => {
+  it("detaches nested update and settings inputs and results from owner state", async () => {
     await initialize();
     clearEvents();
 
@@ -210,15 +211,13 @@ describe("DataCoordinator durable state ownership", () => {
       ui: { density: "compact" },
       columns: ["command"],
     };
-    await coordinator.updateSettings(settings);
+    const settingsResult = await coordinator.updateSettings(settings);
     const settingsRevision = coordinator.getCurrentState().revision;
-    const settingsEvent = fixture
-      .getEventHistory()
-      .findLast(({ event }) => event === "settings:changed");
 
     settings.ui.density = "comfortable";
     settings.columns.push("description");
-    settingsEvent.data.updates.ui.density = "listener mutation";
+    settingsResult.settings.ui.density = "result mutation";
+    settingsResult.settings.columns.push("result column");
 
     expect(coordinator.state.settings).toMatchObject({
       ui: { density: "compact" },

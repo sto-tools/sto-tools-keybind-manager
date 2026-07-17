@@ -204,6 +204,7 @@ const dataService = new DataService({
     ui: stoUI,
     i18n: i18next,
   });
+  stoSync.init();
 
   // Minimal global assignments - only what's absolutely necessary for legacy compatibility
   Object.assign(window, {

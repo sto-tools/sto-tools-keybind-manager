@@ -36,15 +36,6 @@ function nextTimer() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function waitForEvent(eventBus, topic) {
-  return new Promise((resolve) => {
-    const detach = eventBus.on(topic, (payload) => {
-      detach();
-      resolve(payload);
-    });
-  });
-}
-
 function createDeferred() {
   let resolve;
   const promise = new Promise((resolvePromise) => {
@@ -114,16 +105,19 @@ describe("SelectionService intent races", () => {
     const pendingSelection = service.selectKey("S1");
     await vi.waitFor(() => expect(updateRequests).toHaveLength(1));
 
-    const environmentSwitched = waitForEvent(eventBus, "environment:switched");
-    await eventBus.emit("environment:changed", {
-      environment: "ground",
-      fromEnvironment: "space",
-      source: "test",
-    });
+    const environmentSwitch = eventBus.emit(
+      "environment:changed",
+      {
+        environment: "ground",
+        fromEnvironment: "space",
+        source: "test",
+      },
+      { synchronous: true },
+    );
     expect(updateRequests).toHaveLength(1);
 
     blockedWrite.resolve();
-    await Promise.all([pendingSelection, environmentSwitched]);
+    await Promise.all([pendingSelection, environmentSwitch]);
     await nextTimer();
 
     expect(updateRequests).toHaveLength(1);

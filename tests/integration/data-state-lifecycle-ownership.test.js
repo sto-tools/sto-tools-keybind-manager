@@ -303,9 +303,6 @@ describe("DataCoordinator lifecycle and state ownership", () => {
         states.push({ reason, state });
         eventOrder.push(`state:${reason}:${state.revision}`);
       });
-      fixture.eventBus.on("profiles:initialized", () => {
-        eventOrder.push("profiles:initialized");
-      });
       fixture.eventBus.on("profile:switched", () => {
         eventOrder.push("profile:switched");
       });
@@ -359,7 +356,6 @@ describe("DataCoordinator lifecycle and state ownership", () => {
       expect(eventOrder).toEqual([
         "state:initial-load:1",
         "state:default-profiles-created:2",
-        "profiles:initialized",
         "profile:switched",
       ]);
     },

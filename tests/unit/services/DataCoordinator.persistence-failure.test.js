@@ -63,7 +63,7 @@ describe("DataCoordinator persistence failure gating", () => {
         fixture
           .getEventHistory()
           .filter(({ event }) =>
-            ["profile:created", "profile:updated"].includes(event),
+            ["data:state-changed", "profile:updated"].includes(event),
           ),
       ).toEqual([]);
     },
@@ -103,7 +103,7 @@ describe("DataCoordinator persistence failure gating", () => {
       fixture
         .getEventHistory()
         .filter(({ event }) =>
-          ["profile:deleted", "profile:switched"].includes(event),
+          ["data:state-changed", "profile:switched"].includes(event),
         ),
     ).toEqual([]);
   });
@@ -134,7 +134,7 @@ describe("DataCoordinator persistence failure gating", () => {
       autoSave: true,
     });
     expect(fixture.getEventHistory()).not.toContainEqual(
-      expect.objectContaining({ event: "settings:changed" }),
+      expect.objectContaining({ event: "data:state-changed" }),
     );
   });
 });

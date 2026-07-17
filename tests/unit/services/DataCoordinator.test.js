@@ -340,22 +340,6 @@ describe("DataCoordinator Service", () => {
       expect(result.success).toBe(true);
       expect(dataCoordinator.state.settings).toEqual(newSettings);
     });
-
-    it("should emit settings change event", async () => {
-      const newSettings = { theme: "light" };
-
-      await dataCoordinator.updateSettings(newSettings);
-
-      expect(mockEventBus.emit).toHaveBeenCalledWith(
-        "settings:changed",
-        expect.objectContaining({
-          settings: newSettings,
-          updates: newSettings,
-          timestamp: expect.any(Number),
-        }),
-        {},
-      );
-    });
   });
 
   describe("Storage Operations", () => {

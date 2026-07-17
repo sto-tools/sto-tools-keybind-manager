@@ -19,18 +19,19 @@ function createHandle(name) {
 }
 
 describe("SyncService", () => {
-  let fixture, service, uiMock;
+  let fixture, service, uiMock, fsMock, i18nMock, services;
 
   beforeEach(() => {
     fixture = createServiceFixture({ enableFS: false });
+    services = [];
     uiMock = { showToast: vi.fn() };
 
-    const fsMock = {
+    fsMock = {
       saveDirectoryHandle: vi.fn().mockResolvedValue(undefined),
       getDirectoryHandle: vi.fn().mockResolvedValue(createHandle("syncDir")),
     };
 
-    const i18nMock = { t: vi.fn((key) => key) };
+    i18nMock = { t: vi.fn((key) => key) };
 
     service = new SyncService({
       eventBus: fixture.eventBus,
@@ -39,9 +40,14 @@ describe("SyncService", () => {
       fs: fsMock,
       i18n: i18nMock,
     });
+    services.push(service);
+    service.init();
   });
 
   afterEach(() => {
+    services.forEach((candidate) => {
+      if (!candidate.destroyed) candidate.destroy();
+    });
     fixture.destroy();
     vi.restoreAllMocks();
   });
@@ -268,8 +274,12 @@ describe("SyncService", () => {
         global.window.location = { protocol: "https:", hostname: "localhost" };
         global.window.isSecureContext = true;
 
-        await service.syncProject("manual");
+        const result = await service.syncProject("manual");
 
+        expect(result).toEqual({
+          success: false,
+          error: "sync_not_supported_firefox",
+        });
         expect(uiMock.showToast).toHaveBeenCalledWith(
           "sync_not_supported_firefox",
           "warning",
@@ -282,8 +292,12 @@ describe("SyncService", () => {
         global.window.location = { protocol: "http:", hostname: "example.com" };
         global.window.isSecureContext = false;
 
-        await service.syncProject("manual");
+        const result = await service.syncProject("manual");
 
+        expect(result).toEqual({
+          success: false,
+          error: "sync_not_supported_secure_context",
+        });
         expect(uiMock.showToast).toHaveBeenCalledWith(
           "sync_not_supported_secure_context",
           "warning",
@@ -301,8 +315,12 @@ describe("SyncService", () => {
         // Mock getDirectoryHandle to return null (no folder set)
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(null);
 
-        await service.syncProject("manual");
+        const result = await service.syncProject("manual");
 
+        expect(result).toEqual({
+          success: false,
+          error: "no_sync_folder_selected",
+        });
         expect(uiMock.showToast).toHaveBeenCalledWith(
           "no_sync_folder_selected",
           "warning",
@@ -321,13 +339,69 @@ describe("SyncService", () => {
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle);
 
         // Mock the export:sync-to-folder request to prevent errors
-        service.request = vi.fn().mockResolvedValue(undefined);
+        service.invokeRequest = vi.fn().mockResolvedValue(undefined);
 
-        await service.syncProject("manual");
+        const result = await service.syncProject("manual");
 
-        // Should show success message
-        expect(service.pendingSyncAction).toBe(null);
-        expect(service.awaitingSyncDecisionApply).toBe(false);
+        expect(result).toEqual({ success: true });
+        expect(service.invokeRequest).toHaveBeenCalledWith(
+          "export:sync-to-folder",
+          { dirHandle: handle },
+        );
+        expect(uiMock.showToast).toHaveBeenCalledWith(
+          "project_synced_successfully",
+          "success",
+        );
+      });
+
+      it("returns a stable permission failure without exporting", async () => {
+        global.navigator = { userAgent: "Chrome/91.0" };
+        global.window.location = {
+          protocol: "https:",
+          hostname: "example.com",
+        };
+        global.window.isSecureContext = true;
+        const handle = {
+          name: "syncDir",
+          queryPermission: vi.fn().mockResolvedValue("denied"),
+          requestPermission: vi.fn().mockResolvedValue("denied"),
+        };
+        service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle);
+        service.invokeRequest = vi.fn();
+
+        await expect(service.syncProject("manual")).resolves.toEqual({
+          success: false,
+          error: "permission_denied_to_folder",
+        });
+        expect(service.invokeRequest).not.toHaveBeenCalled();
+        expect(uiMock.showToast).toHaveBeenCalledWith(
+          "permission_denied_to_folder",
+          "error",
+        );
+      });
+
+      it("returns an export failure with diagnostic parameters", async () => {
+        global.navigator = { userAgent: "Chrome/91.0" };
+        global.window.location = {
+          protocol: "https:",
+          hostname: "example.com",
+        };
+        global.window.isSecureContext = true;
+        const handle = createHandle("syncDir");
+        service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle);
+        service.invokeRequest = vi
+          .fn()
+          .mockRejectedValue(new Error("disk full"));
+
+        await expect(service.syncProject("manual")).resolves.toEqual({
+          success: false,
+          error: "failed_to_sync_project",
+          params: { error: "disk full" },
+        });
+        expect(uiMock.showToast).toHaveBeenCalledWith(
+          "failed_to_sync_project",
+          "error",
+        );
       });
     });
 

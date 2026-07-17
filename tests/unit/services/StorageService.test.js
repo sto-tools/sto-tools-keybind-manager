@@ -4,6 +4,7 @@ import StorageService from "../../../src/js/components/services/StorageService.j
 
 describe("StorageService", () => {
   let fixture, storageService, eventBusFixture, mockEventBus;
+  let originalStoUI;
 
   beforeEach(() => {
     // Ensure a clean slate before each test
@@ -16,11 +17,14 @@ describe("StorageService", () => {
       eventBus: mockEventBus,
       version: "test-1.0.0",
     });
+    originalStoUI = window.stoUI;
     // Trigger onInit via ComponentBase.init()
     storageService.init();
   });
 
   afterEach(() => {
+    if (originalStoUI === undefined) delete window.stoUI;
+    else window.stoUI = originalStoUI;
     vi.clearAllMocks();
     localStorage.clear();
     fixture.destroy();
@@ -130,9 +134,86 @@ describe("StorageService", () => {
         replacement,
       );
       expect(storageService.getSettings()).not.toHaveProperty("plugin:layout");
-      eventBusFixture.expectEvent("storage:settings-changed", {
-        settings: replacement,
+    });
+  });
+
+  describe("Application reset", () => {
+    it("clears persisted and cached state before publishing the canonical reset snapshot", async () => {
+      const showToast = vi.fn();
+      window.stoUI = { showToast };
+      storageService.saveAllData({
+        ...storageService.getAllData(),
+        currentProfile: "captain",
+        profiles: {
+          captain: {
+            id: "captain",
+            name: "Captain",
+            builds: { space: { keys: {} }, ground: { keys: {} } },
+            aliases: {},
+          },
+        },
       });
+      storageService.saveSettings({ theme: "dark" });
+      expect(storageService.getAllData().currentProfile).toBe("captain");
+      eventBusFixture.clearEventHistory();
+
+      const result = await storageService.handleAppReset();
+
+      expect(result).toBe(true);
+      expect(localStorage.getItem(storageService.storageKey)).toBeNull();
+      expect(localStorage.getItem(storageService.backupKey)).toBeNull();
+      expect(localStorage.getItem(storageService.settingsKey)).toBeNull();
+      expect(localStorage.getItem("sto_app_reset")).toBe("true");
+      const [reset] = eventBusFixture.getEventsOfType("storage:data-reset");
+      expect(storageService.data).toEqual(reset.data.data);
+      expect(storageService.getAllData()).toBe(reset.data.data);
+      expect(reset.data.data).toMatchObject({
+        version: "test-1.0.0",
+        currentProfile: null,
+        profiles: {},
+        globalAliases: {},
+        settings: storageService.getDefaultSettings(),
+      });
+      expect(reset.data.data.created).toEqual(expect.any(String));
+      expect(reset.data.data.lastModified).toEqual(expect.any(String));
+      expect(showToast).toHaveBeenCalledWith(
+        "application_reset_successfully",
+        "success",
+      );
+    });
+
+    it("returns false without publishing reset state when clearing is rejected", async () => {
+      const showToast = vi.fn();
+      window.stoUI = { showToast };
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(storageService, "clearAllData").mockReturnValue(false);
+      eventBusFixture.clearEventHistory();
+
+      await expect(storageService.handleAppReset()).resolves.toBe(false);
+
+      expect(
+        eventBusFixture.getEventsOfType("storage:data-reset"),
+      ).toHaveLength(0);
+      expect(showToast).not.toHaveBeenCalled();
+    });
+
+    it("returns false without publishing reset state when clearing throws", async () => {
+      const failure = new Error("storage unavailable");
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(storageService, "clearAllData").mockImplementation(() => {
+        throw failure;
+      });
+      eventBusFixture.clearEventHistory();
+
+      await expect(storageService.handleAppReset()).resolves.toBe(false);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[StorageService] Error during application reset:",
+        failure,
+      );
+      expect(
+        eventBusFixture.getEventsOfType("storage:data-reset"),
+      ).toHaveLength(0);
     });
   });
 

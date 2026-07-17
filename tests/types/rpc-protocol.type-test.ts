@@ -10,6 +10,7 @@ import type {
   RpcResult,
 } from "../../src/js/types/rpc/index.js";
 import type { ExtensionPreferenceKey } from "../../src/js/types/events/base.js";
+import type { SyncProjectResult } from "../../src/js/types/rpc/application.js";
 import { extensionPreferenceKey } from "../../src/js/components/services/preferenceKeys.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { request, respond } from "../../src/js/core/requestResponse.js";
@@ -38,6 +39,26 @@ type PreferenceInitResult = Expect<
 type UtilityClipboardRequest = Expect<
   Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
 >;
+type SyncProjectResultIsExact = Expect<
+  Equal<RpcResult<"sync:sync-project">, SyncProjectResult>
+>;
+
+// @ts-expect-error Export failures always retain their diagnostic message.
+const syncFailureWithoutDiagnostic: SyncProjectResult = {
+  success: false,
+  error: "failed_to_sync_project",
+};
+const syncPreflightWithDiagnostic: SyncProjectResult = {
+  success: false,
+  error: "no_sync_folder_selected",
+  // @ts-expect-error Preflight failures never carry export diagnostics.
+  params: { error: "not exported" },
+};
+const unknownSyncFailure: SyncProjectResult = {
+  success: false,
+  // @ts-expect-error Sync failures use a closed error-code vocabulary.
+  error: "unknown_sync_failure",
+};
 
 const aliasHandler: RpcHandler<"alias:add"> = (payload = {}) =>
   payload.name
@@ -250,6 +271,22 @@ async function exerciseCoreApi() {
   }
   // @ts-expect-error Optional payloads are still validated when supplied.
   request(eventBus, "project:restore-from-content", { content: 42 });
+
+  const syncResult = await request(eventBus, "sync:sync-project", {
+    source: "manual",
+  });
+  if (syncResult.success) {
+    const accepted: true = syncResult.success;
+    void accepted;
+  } else {
+    syncResult.error.toUpperCase();
+    if (syncResult.error === "failed_to_sync_project") {
+      syncResult.params.error.toUpperCase();
+    } else {
+      // @ts-expect-error Preflight failures do not carry export diagnostics.
+      syncResult.params.error;
+    }
+  }
 
   await request(eventBus, "preferences:set-setting", {
     key: "autoSave",
@@ -628,5 +665,9 @@ void noPayloadHandler;
 void invalidAliasHandler;
 void parameterBuildHandler;
 void exerciseCoreApi;
+void syncFailureWithoutDiagnostic;
+void syncPreflightWithDiagnostic;
+void unknownSyncFailure;
 void (0 as unknown as ParameterCommandBuildResult);
 void (0 as unknown as PreferenceInitResult);
+void (0 as unknown as SyncProjectResultIsExact);

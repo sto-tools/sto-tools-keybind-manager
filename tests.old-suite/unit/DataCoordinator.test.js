@@ -211,9 +211,6 @@ describe('DataCoordinator', () => {
 
     describe('Profile Creation', () => {
       it('should create new profile', async () => {
-        const events = []
-        eventBus.on('profile:created', (event) => events.push(event))
-
         const result = await request(eventBus, 'data:create-profile', {
           name: 'New Profile',
           description: 'Test description',
@@ -229,9 +226,6 @@ describe('DataCoordinator', () => {
           space: { keys: {} },
           ground: { keys: {} }
         })
-        // Events should contain exactly one profile:created event
-        const createdEvents = events.filter(e => e.profileId === 'new_profile')
-        expect(createdEvents).toHaveLength(1)
         expect(mockStorage.saveProfile).toHaveBeenCalledWith('new_profile', expect.any(Object))
       })
 
@@ -251,9 +245,6 @@ describe('DataCoordinator', () => {
 
     describe('Profile Cloning', () => {
       it('should clone existing profile', async () => {
-        const events = []
-        eventBus.on('profile:created', (event) => events.push(event))
-
         const result = await request(eventBus, 'data:clone-profile', {
           sourceId: 'default_space',
           newName: 'Cloned Profile'
@@ -263,10 +254,6 @@ describe('DataCoordinator', () => {
         expect(result.profileId).toBe('cloned_profile')
         expect(result.profile.name).toBe('Cloned Profile')
         expect(result.profile.description).toBe('Copy of Default Space')
-        // Check for the specific cloned profile event
-        const clonedEvents = events.filter(e => e.profileId === 'cloned_profile')
-        expect(clonedEvents).toHaveLength(1)
-        expect(clonedEvents[0].clonedFrom).toBe('default_space')
       })
 
       it('should throw error for non-existent source profile', async () => {
@@ -332,7 +319,6 @@ describe('DataCoordinator', () => {
 
       it('should delete profile and switch to another', async () => {
         const events = []
-        eventBus.on('profile:deleted', (event) => events.push(event))
         eventBus.on('profile:switched', (event) => events.push(event))
 
         const result = await request(eventBus, 'data:delete-profile', { profileId: 'profile1' })

@@ -22,13 +22,8 @@ const profile = (name, currentEnvironment = "space") => ({
 const mutationEvents = new Set([
   "data:state-changed",
   "environment:changed",
-  "profile:created",
-  "profile:deleted",
   "profile:switched",
   "profile:updated",
-  "profiles:creation-failed",
-  "profiles:initialized",
-  "settings:changed",
 ]);
 
 const responderTopics = [

@@ -1,11 +1,4 @@
-import type {
-  EmptyObjectPayload,
-  ProjectBackupData,
-  ProjectImportCounts,
-  SettingsRecord,
-  StorageBackup,
-  StoredApplicationData,
-} from "./base.js";
+import type { StoredApplicationData } from "./base.js";
 
 export interface SavedStorageData extends Record<string, unknown> {
   version: string;
@@ -24,18 +17,4 @@ export interface StorageEventProtocol {
   "project:open": null;
   "project:save": null;
   "sync:sync-now": null;
-  "app:reset-complete": EmptyObjectPayload;
-  "app:reset-failed": null | { error: unknown };
-  "keybinds:export": null;
-  "project-backup-created": { filename: string; data: ProjectBackupData };
-  "project-backup-failed": { error: unknown };
-  "project-backup-restored": {
-    filename: string;
-    currentProfile: string | null;
-    imported: ProjectImportCounts;
-  };
-  "project-synced": null;
-  "storage:backup-created": { backup: StorageBackup };
-  "storage:data-cleared": null;
-  "storage:settings-changed": { settings: SettingsRecord };
 }

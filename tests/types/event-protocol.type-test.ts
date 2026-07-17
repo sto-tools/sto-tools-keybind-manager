@@ -5,6 +5,13 @@ import {
   createPreferencesState,
 } from "../fixtures/core/componentState.js";
 import type {
+  ProfileData,
+  ProjectBackupData,
+  ProjectImportCounts,
+  StorageBackup,
+  VfxSettingsSnapshot,
+} from "../../src/js/types/events/base.js";
+import type {
   ComponentReplyTopic,
   ComponentState,
   ComponentStateReply,
@@ -57,6 +64,27 @@ type RetiredListenerTopics =
   | "profile-modified";
 type RetiredListenersAreAbsent = Expect<
   Equal<Extract<EventTopic, RetiredListenerTopics>, never>
+>;
+type RetiredProducerTopics =
+  | "app:reset-complete"
+  | "app:reset-failed"
+  | "environment:switched"
+  | "keybinds:export"
+  | "profile:created"
+  | "profile:deleted"
+  | "profiles:creation-failed"
+  | "profiles:initialized"
+  | "project-backup-created"
+  | "project-backup-failed"
+  | "project-backup-restored"
+  | "project-synced"
+  | "settings:changed"
+  | "storage:backup-created"
+  | "storage:data-cleared"
+  | "storage:settings-changed"
+  | "vfx:settings-changed";
+type RetiredProducersAreAbsent = Expect<
+  Equal<Extract<EventTopic, RetiredProducerTopics>, never>
 >;
 type ToastPayloadIsRegistered = Expect<
   Equal<
@@ -152,7 +180,6 @@ bus.emit("preferences:changed", {
 bus.emit("preferences:loaded", { settings: { language: "en" } });
 // @ts-expect-error Changed events retain their delta and carry a full snapshot.
 bus.emit("preferences:changed", { key: "language", value: "de" });
-bus.emit("storage:settings-changed", { settings: { autoSync: true } });
 bus.emit("data:state-changed", {
   reason: "initial-load",
   state: dataCoordinatorState,
@@ -213,7 +240,6 @@ bus.emit("selection:state-changed", {
 
 // Null-bearing topics may omit their payload at the runtime bus boundary.
 bus.emit("about:show");
-bus.emit("app:reset-failed", { error: new Error("reset failed") });
 
 // @ts-expect-error Orphan compatibility listeners are retired from the registry.
 bus.on("bindset:modified", (payload) => {
@@ -265,6 +291,74 @@ bus.emit("ui:drag-drop-initialized", { containerId: "probe", options: {} });
 bus.emit("confirm:show", { message: "Proceed?", callback: () => undefined });
 // @ts-expect-error Application initialization failures reject their owning promise after showing a toast.
 bus.emit("sto-app-error", { error: new Error("startup failed") });
+
+declare const retiredProfilePayload: ProfileData;
+declare const retiredProjectBackup: ProjectBackupData;
+declare const retiredProjectImportCounts: ProjectImportCounts;
+declare const retiredStorageBackup: StorageBackup;
+declare const retiredVfxSettings: VfxSettingsSnapshot;
+// @ts-expect-error Reset completion is represented by the authoritative storage reset publication.
+bus.emit("app:reset-complete", {});
+// @ts-expect-error Reset failure is returned by the owning operation and logged directly.
+bus.emit("app:reset-failed", { error: new Error("reset failed") });
+// @ts-expect-error Environment completion is represented by canonical selection state and awaited actions.
+bus.emit("environment:switched", {
+  from: "space",
+  to: "ground",
+  source: "SelectionService",
+});
+// @ts-expect-error Keybind export is owned by the File Explorer workflow.
+bus.emit("keybinds:export");
+// @ts-expect-error Profile creation is represented by its action result and authoritative state.
+bus.emit("profile:created", {
+  profileId: "profile-1",
+  profile: retiredProfilePayload,
+  timestamp: 1,
+});
+// @ts-expect-error Profile deletion is represented by its action result and authoritative state.
+bus.emit("profile:deleted", {
+  profileId: "profile-1",
+  profile: retiredProfilePayload,
+  switchedProfile: null,
+  timestamp: 1,
+});
+// @ts-expect-error Default-profile failure is returned by the owning operation.
+bus.emit("profiles:creation-failed", { error: "storage unavailable" });
+// @ts-expect-error Profile initialization is represented by a complete authoritative snapshot.
+bus.emit("profiles:initialized", {
+  profiles: { "profile-1": retiredProfilePayload },
+  currentProfile: "profile-1",
+  timestamp: 1,
+});
+// @ts-expect-error Backup creation is represented by the downloaded artifact and action result.
+bus.emit("project-backup-created", {
+  filename: "backup.json",
+  data: retiredProjectBackup,
+});
+// @ts-expect-error Backup failure is represented by the action result and localized toast.
+bus.emit("project-backup-failed", { error: new Error("backup failed") });
+// @ts-expect-error Project restore is represented by the typed restore result and authoritative state.
+bus.emit("project-backup-restored", {
+  filename: "backup.json",
+  currentProfile: "profile-1",
+  imported: retiredProjectImportCounts,
+});
+// @ts-expect-error Project sync completion is represented by its discriminated action result.
+bus.emit("project-synced");
+// @ts-expect-error Settings updates are represented by their action result and authoritative state.
+bus.emit("settings:changed", {
+  settings: { autoSync: true },
+  updates: { autoSync: true },
+  timestamp: 1,
+});
+// @ts-expect-error Storage backup success is proven by the persisted backup artifact.
+bus.emit("storage:backup-created", { backup: retiredStorageBackup });
+// @ts-expect-error Direct clearing returns its result; application reset publishes storage:data-reset.
+bus.emit("storage:data-cleared");
+// @ts-expect-error Storage writes return a boolean; preferences own runtime settings broadcasts.
+bus.emit("storage:settings-changed", { settings: { autoSync: true } });
+// @ts-expect-error VFX state is projected from the accepted coordinator snapshot.
+bus.emit("vfx:settings-changed", retiredVfxSettings);
 
 // DOM registration remains a typed local-handler surface.
 bus.onDom(document, "click", (event) => event.type);
@@ -375,6 +469,8 @@ declare const stringValue: string;
 bus.emit(`store:${stringValue}`, "space");
 
 void ({} as RegistryContainsNoAnyPayload);
+void ({} as RetiredListenersAreAbsent);
+void ({} as RetiredProducersAreAbsent);
 void ({} as ToastPayloadIsRegistered);
 void ({} as SelectionLateJoinStateIsRegisteredExactly);
 void ({} as DataSnapshotIsRegisteredExactly);

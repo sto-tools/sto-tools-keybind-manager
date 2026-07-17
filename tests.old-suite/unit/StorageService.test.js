@@ -236,11 +236,6 @@ describe('StorageService', () => {
       expect(finalSettings.autoSave).toBe(false)
     })
 
-    it('should emit settings-changed event when saving settings', () => {
-      storageService.saveSettings({ theme: 'dark' })
-      
-      expect(mockEventBus.emit).toHaveBeenCalledWith('storage:settings-changed', expect.any(Object))
-    })
   })
 
   describe('Backup Operations', () => {
@@ -271,12 +266,6 @@ describe('StorageService', () => {
       expect(parsedBackup).toHaveProperty('data')
       expect(parsedBackup).toHaveProperty('timestamp')
       expect(parsedBackup).toHaveProperty('version')
-    })
-
-    it('should emit backup-created event', () => {
-      storageService.createBackup()
-      
-      expect(mockEventBus.emit).toHaveBeenCalledWith('storage:backup-created', expect.any(Object))
     })
 
     it('should restore from backup successfully', () => {
@@ -423,17 +412,6 @@ describe('StorageService', () => {
       expect(localStorage.getItem('sto_app_reset')).toBe('true')
     })
 
-    it('should emit data-cleared event', () => {
-      // Clear the mock to start fresh
-      mockEventBus.emit.mockClear()
-      
-      storageService.clearAllData()
-      
-      // Check that the event was emitted (it should be the last call)
-      const calls = mockEventBus.emit.mock.calls
-      const lastCall = calls[calls.length - 1]
-      expect(lastCall[0]).toBe('storage:data-cleared')
-    })
   })
 
   describe('Storage Information', () => {

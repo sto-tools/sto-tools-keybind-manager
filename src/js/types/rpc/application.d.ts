@@ -6,6 +6,23 @@ export type ClipboardResult =
   | { success: true; message: "content_copied_to_clipboard" }
   | { success: false; message: "failed_to_copy_to_clipboard" };
 
+export type SyncProjectResult =
+  | { success: true }
+  | {
+      success: false;
+      error:
+        | "sync_not_supported_firefox"
+        | "sync_not_supported_secure_context"
+        | "no_sync_folder_selected"
+        | "permission_denied_to_folder";
+      params?: never;
+    }
+  | {
+      success: false;
+      error: "failed_to_sync_project";
+      params: { error: string };
+    };
+
 export interface ApplicationRpcProtocol {
   "project:restore-from-content": OptionalRpc<
     { content?: string; fileName?: string },
@@ -36,6 +53,6 @@ export interface ApplicationRpcProtocol {
     },
     string | null
   >;
-  "sync:sync-project": OptionalRpc<{ source?: string }, undefined>;
+  "sync:sync-project": OptionalRpc<{ source?: string }, SyncProjectResult>;
   "utility:copy-to-clipboard": OptionalRpc<{ text?: string }, ClipboardResult>;
 }

@@ -31,48 +31,49 @@ export default class ProjectManagementService extends ComponentBase {
     this.ui = ui;
     this.i18n = i18n;
     this.app = app;
-
-    // Only setup event handlers if eventBus is available
-    if (this.eventBus) {
-      this.setupEventHandlers();
-      this.setupRequestHandlers();
-    }
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
   }
 
   onInit() {
+    this.setupEventHandlers();
+    this.setupRequestHandlers();
     console.log("[ProjectManagementService] Initialized and ready");
   }
 
   setupEventHandlers() {
-    const eventBus = this.eventBus;
-    if (!eventBus) return;
+    if (!this.eventBus) return;
 
     // Listen for backup/restore application state events from HeaderMenuUI
-    eventBus.on("project:save", () => {
+    this.addEventListener("project:save", () => {
       this.backupApplicationState();
     });
 
-    eventBus.on("project:open", () => {
+    this.addEventListener("project:open", () => {
       this.restoreApplicationState();
     });
   }
 
   setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
     // Expose a unified restore endpoint for other services (e.g., SyncService)
-    this.respond(
-      "project:restore-from-content",
-      async (
-        {
-          content,
-          fileName,
-        } = /** @type {{ content?: string, fileName?: string }} */ ({}),
-      ) => {
-        console.log(
-          "[ProjectManagementService] request project:restore-from-content",
-          { fileName, size: content?.length },
-        );
-        return await this.restoreFromProjectContent(content, fileName);
-      },
+    this._responseDetachFunctions.push(
+      this.respond(
+        "project:restore-from-content",
+        async (
+          {
+            content,
+            fileName,
+          } = /** @type {{ content?: string, fileName?: string }} */ ({}),
+        ) => {
+          console.log(
+            "[ProjectManagementService] request project:restore-from-content",
+            { fileName, size: content?.length },
+          );
+          return await this.restoreFromProjectContent(content, fileName);
+        },
+      ),
     );
   }
 
@@ -114,7 +115,6 @@ export default class ProjectManagementService extends ComponentBase {
 
       this.ui?.showToast(this.i18n.t("backup_created_successfully"), "success");
 
-      this.emit("project-backup-created", { filename, data: projectData });
       return { success: true, filename };
     } catch (error) {
       console.error(
@@ -127,7 +127,6 @@ export default class ProjectManagementService extends ComponentBase {
         }) ?? getErrorMessage(error),
         "error",
       );
-      this.emit("project-backup-failed", { error });
       return { success: false, error: getErrorMessage(error) };
     }
   }
@@ -262,15 +261,6 @@ export default class ProjectManagementService extends ComponentBase {
         "success",
       );
 
-      await this.emit(
-        "project-backup-restored",
-        {
-          filename: fileName,
-          currentProfile: result.currentProfile,
-          imported: result.imported,
-        },
-        { synchronous: true },
-      );
       console.log(
         "[ProjectManagementService] restoreFromProjectContent: success",
       );
@@ -292,4 +282,8 @@ export default class ProjectManagementService extends ComponentBase {
   // High-level helpers (trimmed to backup/restore only)
 
   // Legacy openProject() removed in favor of restoreApplicationState()
+
+  onDestroy() {
+    this._responseDetachFunctions.splice(0).forEach((detach) => detach());
+  }
 }

@@ -32,6 +32,10 @@ export default class SyncService extends ComponentBase {
     this.pendingSyncAction = null;
     /** @type {{ content: string, fileName: string } | null} */
     this.deferredImportContent = null;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    this._modalCloseTimeout = null;
     console.log("[SyncService] constructed");
 
     // Indirection for request calls (simplifies testing)
@@ -42,178 +46,189 @@ export default class SyncService extends ComponentBase {
 
     // Ensure FileSystemService instance
     if (!this.fs) this.fs = new FileSystemService({ eventBus });
+  }
 
-    // Register Request/Response endpoints for UI components
-    if (this.eventBus) {
+  onInit() {
+    this.setupRequestHandlers();
+    this.setupEventListeners();
+  }
+
+  setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
+    this._responseDetachFunctions.push(
       this.respond(
         "sync:sync-project",
-        async ({ source } = /** @type {{ source?: string }} */ ({})) => {
-          await this.syncProject(source);
-          return undefined;
-        },
-      );
+        ({ source } = /** @type {{ source?: string }} */ ({})) =>
+          this.syncProject(source),
+      ),
+    );
+  }
 
-      // Handle deferred import/overwrite on preferences save/cancel
-      this.addEventListener("preferences:saved", async () => {
-        console.log("[SyncService] preferences:saved received", {
-          awaiting: this.awaitingSyncDecisionApply,
-          pending: this.pendingSyncAction,
-        });
-        if (!this.awaitingSyncDecisionApply) return;
-        try {
-          const handle = await this.getSyncFolderHandle();
-          if (!handle) return;
-          const action = this.pendingSyncAction;
-          console.log("[SyncService] applying pending action", { action });
-          if (action === "import") {
-            try {
-              // Prefer deferred content from selection-time prompt
-              /** @type {string} */
-              let content;
-              /** @type {string} */
-              let fileName;
-              if (
-                this.deferredImportContent &&
-                this.deferredImportContent.content
-              ) {
-                content = this.deferredImportContent.content;
-                fileName =
-                  this.deferredImportContent.fileName || "project.json";
-              } else {
-                const fileHandle = await handle.getFileHandle("project.json", {
-                  create: false,
-                });
-                const file = await fileHandle.getFile();
-                content = await file.text();
-                fileName = "project.json";
-              }
-              // Try immediate restore; if handler not ready, defer to app-ready
-              try {
-                console.log(
-                  "[SyncService] invoking project:restore-from-content",
-                  { size: content?.length },
-                );
-                const result = await this.invokeRequest(
-                  "project:restore-from-content",
-                  { content, fileName },
-                );
-                console.log(
-                  "[SyncService] project:restore-from-content result",
-                  result,
-                );
-                if (!result?.success) {
-                  const errMsg = result?.error || "Unknown error";
-                  this.ui?.showToast(
-                    this.i18n.t("failed_to_import_project", { error: errMsg }),
-                    "error",
-                  );
-                } else {
-                  // Clear any stashed content now that import succeeded
-                  this.deferredImportContent = null;
-                  this.ui?.showToast(
-                    this.i18n.t("project_imported_from_sync_folder"),
-                    "success",
-                  );
-                }
-              } catch {
-                // Handler may not be ready yet – defer until app is ready
-                this.deferredImportContent = { content, fileName };
-                console.log(
-                  "[SyncService] deferring import until sto-app-ready",
-                );
-              }
-            } catch (e) {
-              this.ui?.showToast(
-                this.i18n.t("failed_to_import_project", {
-                  error: getErrorMessage(e),
-                }),
-                "error",
-              );
-            }
-          } else if (action === "overwrite") {
-            try {
-              await this.invokeRequest("export:sync-to-folder", {
-                dirHandle: handle,
+  setupEventListeners() {
+    if (!this.eventBus) return;
+
+    // Handle deferred import/overwrite on preferences save/cancel
+    this.addEventListener("preferences:saved", async () => {
+      console.log("[SyncService] preferences:saved received", {
+        awaiting: this.awaitingSyncDecisionApply,
+        pending: this.pendingSyncAction,
+      });
+      if (!this.awaitingSyncDecisionApply) return;
+      try {
+        const handle = await this.getSyncFolderHandle();
+        if (!handle) return;
+        const action = this.pendingSyncAction;
+        console.log("[SyncService] applying pending action", { action });
+        if (action === "import") {
+          try {
+            // Prefer deferred content from selection-time prompt
+            /** @type {string} */
+            let content;
+            /** @type {string} */
+            let fileName;
+            if (
+              this.deferredImportContent &&
+              this.deferredImportContent.content
+            ) {
+              content = this.deferredImportContent.content;
+              fileName = this.deferredImportContent.fileName || "project.json";
+            } else {
+              const fileHandle = await handle.getFileHandle("project.json", {
+                create: false,
               });
-              console.log(
-                "[SyncService] overwrite: export:sync-to-folder completed",
-              );
-              this.ui?.showToast(
-                this.i18n.t("project_synced_successfully"),
-                "success",
-              );
-            } catch (e) {
-              this.ui?.showToast(
-                this.i18n.t("failed_to_sync_project", {
-                  error: getErrorMessage(e),
-                }),
-                "error",
-              );
+              const file = await fileHandle.getFile();
+              content = await file.text();
+              fileName = "project.json";
             }
-          }
-        } finally {
-          // Clear pending action and awaiting flag
-          this.pendingSyncAction = null;
-          this.awaitingSyncDecisionApply = false;
-          console.log("[SyncService] cleared pending action and awaiting flag");
-        }
-      });
-
-      this.addEventListener("modal:hidden", ({ modalId }) => {
-        console.log("[SyncService] modal:hidden received", {
-          modalId,
-          awaiting: this.awaitingSyncDecisionApply,
-          pending: this.pendingSyncAction,
-        });
-        if (modalId !== "preferencesModal") return;
-        // Defer clearing to allow preferences:saved to fire first, if it will
-        setTimeout(() => {
-          if (this.awaitingSyncDecisionApply) {
-            // Preferences were closed without save – clear pending action
-            this.pendingSyncAction = null;
-            this.awaitingSyncDecisionApply = false;
-            console.log(
-              "[SyncService] preferences modal closed without save; pending cleared (deferred)",
-            );
-          }
-        }, 0);
-      });
-
-      // Handle deferred import once the app is fully initialized
-      this.addEventListener("sto-app-ready", async () => {
-        console.log(
-          "[SyncService] sto-app-ready received; checking deferred import",
-          { hasDeferred: !!this.deferredImportContent },
-        );
-        if (!this.deferredImportContent) return;
-        const { content, fileName } = this.deferredImportContent;
-        this.deferredImportContent = null;
-        try {
-          const result = await this.invokeRequest(
-            "project:restore-from-content",
-            { content, fileName },
-          );
-          console.log(
-            "[SyncService] deferred project:restore-from-content result",
-            result,
-          );
-          if (!result?.success) {
-            const errMsg = result?.error || "Unknown error";
+            // Try immediate restore; if handler not ready, defer to app-ready
+            try {
+              console.log(
+                "[SyncService] invoking project:restore-from-content",
+                { size: content?.length },
+              );
+              const result = await this.invokeRequest(
+                "project:restore-from-content",
+                { content, fileName },
+              );
+              console.log(
+                "[SyncService] project:restore-from-content result",
+                result,
+              );
+              if (!result?.success) {
+                const errMsg = result?.error || "Unknown error";
+                this.ui?.showToast(
+                  this.i18n.t("failed_to_import_project", { error: errMsg }),
+                  "error",
+                );
+              } else {
+                // Clear any stashed content now that import succeeded
+                this.deferredImportContent = null;
+                this.ui?.showToast(
+                  this.i18n.t("project_imported_from_sync_folder"),
+                  "success",
+                );
+              }
+            } catch {
+              // Handler may not be ready yet – defer until app is ready
+              this.deferredImportContent = { content, fileName };
+              console.log("[SyncService] deferring import until sto-app-ready");
+            }
+          } catch (e) {
             this.ui?.showToast(
-              this.i18n.t("failed_to_import_project", { error: errMsg }),
+              this.i18n.t("failed_to_import_project", {
+                error: getErrorMessage(e),
+              }),
               "error",
             );
           }
-        } catch (e) {
+        } else if (action === "overwrite") {
+          try {
+            await this.invokeRequest("export:sync-to-folder", {
+              dirHandle: handle,
+            });
+            console.log(
+              "[SyncService] overwrite: export:sync-to-folder completed",
+            );
+            this.ui?.showToast(
+              this.i18n.t("project_synced_successfully"),
+              "success",
+            );
+          } catch (e) {
+            this.ui?.showToast(
+              this.i18n.t("failed_to_sync_project", {
+                error: getErrorMessage(e),
+              }),
+              "error",
+            );
+          }
+        }
+      } finally {
+        // Clear pending action and awaiting flag
+        this.pendingSyncAction = null;
+        this.awaitingSyncDecisionApply = false;
+        console.log("[SyncService] cleared pending action and awaiting flag");
+      }
+    });
+
+    this.addEventListener("modal:hidden", ({ modalId }) => {
+      console.log("[SyncService] modal:hidden received", {
+        modalId,
+        awaiting: this.awaitingSyncDecisionApply,
+        pending: this.pendingSyncAction,
+      });
+      if (modalId !== "preferencesModal") return;
+      // Defer clearing to allow preferences:saved to fire first, if it will
+      if (this._modalCloseTimeout !== null) {
+        clearTimeout(this._modalCloseTimeout);
+      }
+      this._modalCloseTimeout = setTimeout(() => {
+        this._modalCloseTimeout = null;
+        if (this.awaitingSyncDecisionApply) {
+          // Preferences were closed without save – clear pending action
+          this.pendingSyncAction = null;
+          this.awaitingSyncDecisionApply = false;
+          console.log(
+            "[SyncService] preferences modal closed without save; pending cleared (deferred)",
+          );
+        }
+      }, 0);
+    });
+
+    // Handle deferred import once the app is fully initialized
+    this.addEventListener("sto-app-ready", async () => {
+      console.log(
+        "[SyncService] sto-app-ready received; checking deferred import",
+        { hasDeferred: !!this.deferredImportContent },
+      );
+      if (!this.deferredImportContent) return;
+      const { content, fileName } = this.deferredImportContent;
+      this.deferredImportContent = null;
+      try {
+        const result = await this.invokeRequest(
+          "project:restore-from-content",
+          { content, fileName },
+        );
+        console.log(
+          "[SyncService] deferred project:restore-from-content result",
+          result,
+        );
+        if (!result?.success) {
+          const errMsg = result?.error || "Unknown error";
           this.ui?.showToast(
-            this.i18n.t("failed_to_import_project", {
-              error: getErrorMessage(e),
-            }),
+            this.i18n.t("failed_to_import_project", { error: errMsg }),
             "error",
           );
         }
-      });
-    }
+      } catch (e) {
+        this.ui?.showToast(
+          this.i18n.t("failed_to_import_project", {
+            error: getErrorMessage(e),
+          }),
+          "error",
+        );
+      }
+    });
   }
 
   // Browser detection utilities
@@ -448,14 +463,17 @@ export default class SyncService extends ComponentBase {
     }
   }
 
-  /** @param {string} [source] */
+  /**
+   * @param {string} [source]
+   * @returns {Promise<import('../../types/rpc/application.js').SyncProjectResult>}
+   */
   async syncProject(source = "auto") {
     // Apply the same browser and context detection logic as setSyncFolder
     console.log("[SyncService] syncProject called", { source });
     if (this.isFirefox()) {
       // Firefox: File System Access API not supported regardless of protocol
       this.ui?.showToast(this.i18n.t("sync_not_supported_firefox"), "warning");
-      return;
+      return { success: false, error: "sync_not_supported_firefox" };
     }
 
     // Non-Firefox browsers: Check security context
@@ -465,19 +483,19 @@ export default class SyncService extends ComponentBase {
         this.i18n.t("sync_not_supported_secure_context"),
         "warning",
       );
-      return;
+      return { success: false, error: "sync_not_supported_secure_context" };
     }
 
     // Secure context: Check if sync folder exists
     const handle = await this.getSyncFolderHandle();
     if (!handle) {
       this.ui?.showToast(this.i18n.t("no_sync_folder_selected"), "warning");
-      return;
+      return { success: false, error: "no_sync_folder_selected" };
     }
     const allowed = await this.ensurePermission(handle);
     if (!allowed) {
       this.ui?.showToast(this.i18n.t("permission_denied_to_folder"), "error");
-      return;
+      return { success: false, error: "permission_denied_to_folder" };
     }
     try {
       // Proceed with sync without interactive prompts
@@ -504,12 +522,29 @@ export default class SyncService extends ComponentBase {
         );
       }
 
-      await this.emit("project-synced", null, { synchronous: true });
+      return { success: true };
     } catch (err) {
+      const error = getErrorMessage(err);
       this.ui?.showToast(
-        this.i18n.t("failed_to_sync_project", { error: getErrorMessage(err) }),
+        this.i18n.t("failed_to_sync_project", { error }),
         "error",
       );
+      return {
+        success: false,
+        error: "failed_to_sync_project",
+        params: { error },
+      };
     }
+  }
+
+  onDestroy() {
+    this._responseDetachFunctions.splice(0).forEach((detach) => detach());
+    if (this._modalCloseTimeout !== null) {
+      clearTimeout(this._modalCloseTimeout);
+      this._modalCloseTimeout = null;
+    }
+    this.pendingSyncAction = null;
+    this.awaitingSyncDecisionApply = false;
+    this.deferredImportContent = null;
   }
 }
