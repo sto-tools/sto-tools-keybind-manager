@@ -143,6 +143,28 @@ type RemovedCommandByNameQuery = RpcRequest<"data:find-command-by-name">;
 type RemovedCommandCatalogQuery = RpcRequest<"data:get-commands">;
 // @ts-expect-error Catalog availability is guaranteed by its module import.
 type RemovedHasCommandsQuery = RpcRequest<"data:has-commands">;
+// @ts-expect-error Bindset membership lookup remains an internal service helper.
+type NoBindsetLookup = RpcRequest<"bindset-selector:find-key-in-bindset">;
+// @ts-expect-error Environment compatibility is called directly inside command import.
+type NoCommandCompat = RpcRequest<"command:check-environment-compatibility">;
+// @ts-expect-error Command-library IDs have no supported RPC consumer.
+type RemovedCommandIdQuery = RpcRequest<"command:generate-id">;
+// @ts-expect-error The placeholder validator is superseded by command-chain validation.
+type RemovedCommandValidationQuery = RpcRequest<"command:validate">;
+// @ts-expect-error Export key extraction remains an internal export helper.
+type RemovedExportKeyExtractionQuery = RpcRequest<"export:extract-keys">;
+// @ts-expect-error Standalone KBF validation is superseded by canonical parse/import paths.
+type RemovedKbfValidationQuery = RpcRequest<"import:validate-kbf-file">;
+// @ts-expect-error Standalone keybind validation is superseded by canonical import paths.
+type RemovedKeybindValidationQuery = RpcRequest<"import:validate-keybind-file">;
+// @ts-expect-error Key comparison remains an internal sort helper.
+type RemovedKeyComparisonQuery = RpcRequest<"key:compare">;
+// @ts-expect-error Key filtering is owned by the UI projection.
+type RemovedKeyFilterQuery = RpcRequest<"key:filter">;
+// @ts-expect-error Showing every key is owned by the UI projection.
+type RemovedShowAllKeysQuery = RpcRequest<"key:show-all">;
+// @ts-expect-error Parameter command IDs are generated directly during construction.
+type NoParameterId = RpcRequest<"parameter-command:generate-id">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -411,6 +433,64 @@ async function exerciseCoreApi() {
   request(eventBus, "data:get-default-profiles");
   // @ts-expect-error Retired default-profile queries cannot regain responders.
   respond(eventBus, "data:get-default-profiles", () => ({}));
+  // @ts-expect-error Internal bindset lookup helpers are not requestable.
+  request(eventBus, "bindset-selector:find-key-in-bindset", {
+    keysObject: { F1: ["FireAll"] },
+    selectedKey: "F1",
+  });
+  // @ts-expect-error Internal bindset lookup helpers cannot regain responders.
+  respond(eventBus, "bindset-selector:find-key-in-bindset", () => []);
+  // @ts-expect-error Command compatibility is not an application RPC.
+  request(eventBus, "command:check-environment-compatibility", {
+    command: "FireAll",
+    environment: "space",
+  });
+  // @ts-expect-error Command compatibility cannot regain an RPC responder.
+  respond(eventBus, "command:check-environment-compatibility", () => true);
+  // @ts-expect-error Command-library IDs are not requested over RPC.
+  request(eventBus, "command:generate-id");
+  // @ts-expect-error Command-library ID generation cannot regain a responder.
+  respond(eventBus, "command:generate-id", () => "cmd_1");
+  // @ts-expect-error The retired placeholder command validator is not requestable.
+  request(eventBus, "command:validate", { command: "FireAll" });
+  // @ts-expect-error The retired placeholder validator cannot regain a responder.
+  respond(eventBus, "command:validate", () => ({ valid: true }));
+  // @ts-expect-error Export key extraction is an internal helper.
+  request(eventBus, "export:extract-keys", {
+    profile: {},
+    environment: "space",
+  });
+  // @ts-expect-error Export key extraction cannot regain a responder.
+  respond(eventBus, "export:extract-keys", () => ({}));
+  // @ts-expect-error Standalone KBF validation is not requestable.
+  request(eventBus, "import:validate-kbf-file", { content: "KBF" });
+  // @ts-expect-error Standalone KBF validation cannot regain a responder.
+  respond(eventBus, "import:validate-kbf-file", () => ({
+    valid: false,
+    errors: [],
+  }));
+  // @ts-expect-error Standalone keybind validation is not requestable.
+  request(eventBus, "import:validate-keybind-file", {
+    content: 'F1 "FireAll"',
+  });
+  // @ts-expect-error Standalone keybind validation cannot regain a responder.
+  respond(eventBus, "import:validate-keybind-file", () => ({ valid: false }));
+  // @ts-expect-error Key comparison remains internal to sorting projections.
+  request(eventBus, "key:compare", { keyA: "F1", keyB: "F2" });
+  // @ts-expect-error Key comparison cannot regain a responder.
+  respond(eventBus, "key:compare", () => -1);
+  // @ts-expect-error UI filtering is not requestable as a key-service RPC.
+  request(eventBus, "key:filter", { keys: ["F1"], filter: "F" });
+  // @ts-expect-error UI filtering cannot regain a key-service responder.
+  respond(eventBus, "key:filter", () => []);
+  // @ts-expect-error Showing every key is a direct UI projection.
+  request(eventBus, "key:show-all", { keys: ["F1"] });
+  // @ts-expect-error Showing every key cannot regain a responder.
+  respond(eventBus, "key:show-all", () => []);
+  // @ts-expect-error Parameter command IDs are generated directly.
+  request(eventBus, "parameter-command:generate-id");
+  // @ts-expect-error Parameter command ID generation cannot regain a responder.
+  respond(eventBus, "parameter-command:generate-id", () => "cmd_1");
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 

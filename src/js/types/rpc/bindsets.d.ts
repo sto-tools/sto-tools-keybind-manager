@@ -4,8 +4,6 @@ import type {
   OptionalRpc,
   ProfileUpdateResult,
   RequiredRpc,
-  ResponderOnlyRequiredRpc,
-  StoredCommand,
 } from "./base.js";
 
 export type BindsetUpdateResult<Code extends string> =
@@ -16,13 +14,6 @@ export interface BindsetRpcProtocol {
   "bindset-selector:add-key-to-bindset": RequiredRpc<
     { bindset?: string },
     BindsetUpdateResult<"invalid_operation" | "no_profile" | "add_failed">
-  >;
-  "bindset-selector:find-key-in-bindset": ResponderOnlyRequiredRpc<
-    {
-      keysObject?: Record<string, StoredCommand[]>;
-      selectedKey?: string;
-    },
-    StoredCommand[] | null
   >;
   "bindset-selector:remove-key-from-bindset": RequiredRpc<
     { bindset?: string },

@@ -57,6 +57,24 @@ describe("ExportService", () => {
     expect(txt).toMatch(/F1\s+"FireAll"/);
   });
 
+  it("selects flat, build, legacy, and empty key maps", () => {
+    const flatKeys = { F1: ["FlatCommand"] };
+    const buildKeys = { F2: ["BuildCommand"] };
+    const legacyKeys = { F3: ["LegacyCommand"] };
+
+    expect(service.extractKeys({ keys: flatKeys }, "ground")).toBe(flatKeys);
+    expect(
+      service.extractKeys(
+        { builds: { ground: { keys: buildKeys } } },
+        "ground",
+      ),
+    ).toBe(buildKeys);
+    expect(
+      service.extractKeys({ keybinds: { space: legacyKeys } }, "space"),
+    ).toBe(legacyKeys);
+    expect(service.extractKeys({}, "space")).toEqual({});
+  });
+
   it("generateKeybindSection outputs empty quote line when no commands", async () => {
     const keys = {
       F4: [],

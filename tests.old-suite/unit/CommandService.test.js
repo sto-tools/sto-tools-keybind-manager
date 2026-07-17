@@ -370,21 +370,6 @@ describe('CommandService', () => {
     })
   })
 
-  describe('Command Validation', () => {
-    it('should validate valid command', () => {
-      const result = commandService.validateCommand({ command: 'say test' })
-
-      expect(result.valid).toBe(true)
-    })
-
-    it('should reject empty command', () => {
-      const result = commandService.validateCommand(null)
-
-      expect(result.valid).toBe(false)
-      expect(result.reason).toBe('empty')
-    })
-  })
-
   describe('Request/Response Endpoints', () => {
     it('should have command:add endpoint functionality', async () => {
       const addCommandSpy = vi.spyOn(commandService, 'addCommand')
@@ -404,4 +389,4 @@ describe('CommandService', () => {
       expect(deleteCommandSpy).toHaveBeenCalledWith('F1', 0)
     })
   })
-}) 
+})

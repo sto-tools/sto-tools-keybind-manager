@@ -6,7 +6,6 @@ import type {
   Profile,
   RequiredRpc,
   ResponderOnlyRequiredRpc,
-  StoredCommand,
   UnknownRecord,
 } from "./base.js";
 import type { AliasImportResult } from "./aliases.js";
@@ -116,26 +115,6 @@ export type KBFImportResult =
       params?: Record<string, unknown>;
     };
 
-export type KBFValidationResult =
-  | {
-      valid: boolean;
-      format?: string;
-      isKBF?: boolean;
-      stats?: {
-        estimatedSize: number;
-        estimatedKeysets: number;
-        processingTime: number;
-        errors: number;
-        warnings: number;
-      };
-      errors: string[];
-      warnings?: string[];
-      supportedFormat?: boolean;
-      rejectionReason?: string | null;
-      error?: string;
-    }
-  | { valid: false; error: string; errors: string[] };
-
 export type KBFParseForUiResult =
   | {
       valid: true;
@@ -176,10 +155,6 @@ export interface ImportExportRpcProtocol {
     { mode?: string },
     | { success: true; mode: string }
     | { success: false; error: "No mode provided" }
-  >;
-  "export:extract-keys": ResponderOnlyRequiredRpc<
-    { profile: Profile; environment: string },
-    Record<string, StoredCommand[]>
   >;
   "export:generate-alias-file": RequiredRpc<{ profileId: string }, string>;
   "export:generate-alias-filename": RequiredRpc<
@@ -236,19 +211,6 @@ export interface ImportExportRpcProtocol {
   "import:project-file": RequiredRpc<
     { content: string; options?: { importSettings?: boolean } },
     ProjectImportResult
-  >;
-  "import:validate-kbf-file": ResponderOnlyRequiredRpc<
-    { content: string },
-    KBFValidationResult
-  >;
-  "import:validate-keybind-file": ResponderOnlyRequiredRpc<
-    { content: string },
-    | {
-        valid: true;
-        stats: { keybinds: number; aliases: number; errors: number };
-        errors: string[];
-      }
-    | { valid: false; error: string }
   >;
   "parse-kbf-file": RequiredRpc<
     { content: string; environment?: "space" | "ground" },

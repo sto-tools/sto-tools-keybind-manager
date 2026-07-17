@@ -7,14 +7,14 @@ const responderTopics = [
   "bindset:toggle-collapse",
   "key:categorize-by-command",
   "key:categorize-by-type",
-  "key:compare",
   "key:sort",
-  "key:filter",
-  "key:show-all",
   "key:toggle-category",
 ];
 
 const retiredTopics = [
+  "key:compare",
+  "key:filter",
+  "key:show-all",
   "key:get-all",
   "bindset:get-available",
   "bindset:get-collapsed-state",
@@ -54,7 +54,7 @@ describe("KeyBrowserService projection responder lifecycle", () => {
     return service;
   };
 
-  it("never restores retired queries while reinitializing one responder set", async () => {
+  it("never restores retired routes while reinitializing one responder set", async () => {
     const service = createService();
     const sortKeys = vi.spyOn(service, "sortKeys");
 

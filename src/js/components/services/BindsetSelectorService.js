@@ -28,11 +28,6 @@ export default class BindsetSelectorService extends ComponentBase {
       this.respond("bindset-selector:set-active-bindset", ({ bindset }) =>
         this.setActiveBindset(bindset),
       );
-      this.respond(
-        "bindset-selector:find-key-in-bindset",
-        ({ keysObject, selectedKey }) =>
-          this.findKeyInBindset(keysObject, selectedKey),
-      );
     }
 
     this.setupEventListeners();

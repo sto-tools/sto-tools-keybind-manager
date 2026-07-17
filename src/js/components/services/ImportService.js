@@ -104,15 +104,6 @@ export default class ImportService extends ComponentBase {
 
     this.respond("import:from-file", ({ file }) => this.importFromFile(file));
 
-    // Validation operations
-    this.respond("import:validate-keybind-file", ({ content }) =>
-      this.validateKeybindFile(content),
-    );
-
-    this.respond("import:validate-kbf-file", ({ content }) =>
-      this.validateKBFFile(content),
-    );
-
     this.respond("parse-kbf-file", ({ content, environment }) =>
       this.parseKBFFile(content, environment),
     );
@@ -1274,79 +1265,6 @@ export default class ImportService extends ComponentBase {
       return this.importKeybindFile(content, profileId);
     } else {
       throw new Error(this.translate("import_failed_unsupported_format"));
-    }
-  }
-
-  // Validation methods
-  /**
-   * @param {string} content
-   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'import:validate-keybind-file'>>}
-   */
-  async validateKeybindFile(content) {
-    try {
-      const parsed = await this.parseKeybindFile(content);
-      return {
-        valid: true,
-        stats: {
-          keybinds: Object.keys(parsed.keybinds).length,
-          aliases: Object.keys(parsed.aliases).length,
-          errors: parsed.errors.length,
-        },
-        errors: parsed.errors,
-      };
-    } catch (error) {
-      return {
-        valid: false,
-        error: getErrorMessage(error),
-      };
-    }
-  }
-
-  /**
-   * Validate KBF file format using KBFParser
-   * @param {string} content - File content to validate
-   * @returns {import('../../types/rpc/import-export.js').KBFValidationResult} Validation result with validity status and details
-   */
-  validateKBFFile(content) {
-    try {
-      // Validate input parameters
-      if (!content || typeof content !== "string") {
-        return {
-          valid: false,
-          error: "Invalid file content: expected string",
-          errors: ["No content provided for validation"],
-        };
-      }
-
-      // Use KBF parser for format validation
-      const validationResult = this.kbfParser.decoder.validateFormat(content);
-
-      // Return standardized validation result
-      return {
-        valid: validationResult.isValid,
-        format: validationResult.format,
-        isKBF: validationResult.isKBF,
-        stats: {
-          estimatedSize: validationResult.estimatedSize,
-          estimatedKeysets: validationResult.estimatedKeysets,
-          processingTime: validationResult.processingTime,
-          errors: validationResult.errors.length,
-          warnings: validationResult.warnings.length,
-        },
-        errors: validationResult.errors,
-        warnings: validationResult.warnings,
-        // Additional context for UI
-        supportedFormat: validationResult.isKBF,
-        rejectionReason: validationResult.isKBF
-          ? null
-          : "Invalid KBF file format",
-      };
-    } catch (error) {
-      return {
-        valid: false,
-        error: `KBF validation error: ${getErrorMessage(error)}`,
-        errors: [getErrorMessage(error)],
-      };
     }
   }
 

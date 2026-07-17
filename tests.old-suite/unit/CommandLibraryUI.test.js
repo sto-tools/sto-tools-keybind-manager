@@ -584,8 +584,6 @@ describe('CommandLibraryUI', () => {
       mockElement = mockCategoryElement
       mockDocument.createElement.mockReturnValue(mockElement)
 
-      // Mock generateCommandId
-      mockService.generateCommandId = vi.fn().mockReturnValue('test-id-123')
     })
 
     afterEach(() => {

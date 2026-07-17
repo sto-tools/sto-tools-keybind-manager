@@ -11,6 +11,9 @@ function createDomFixture() {
   document.body.innerHTML = `
     <div class="key-selector-container">
       <button id="toggleKeyViewBtn"><i></i></button>
+      <button id="keySearchBtn" aria-pressed="false"></button>
+      <input id="keyFilter" />
+      <button id="showAllKeysBtn"></button>
       <div id="keyGrid"></div>
     </div>
   `;
@@ -32,14 +35,6 @@ describe("KeyBrowserUI", () => {
     // Mock KeyBrowserService endpoints that the UI now delegates to
     respond(eventBus, "key:sort", ({ keys }) => {
       return keys ? keys.sort() : [];
-    });
-
-    respond(eventBus, "key:filter", ({ keys, filter }) => {
-      if (!keys) return [];
-      if (!filter) return keys;
-      return keys.filter((key) =>
-        key.toLowerCase().includes(filter.toLowerCase()),
-      );
     });
 
     respond(eventBus, "key:categorize-by-command", ({ allKeys }) => {
@@ -76,10 +71,6 @@ describe("KeyBrowserUI", () => {
       };
     });
     respond(eventBus, "key:categorize-by-type", categorizeByType);
-
-    respond(eventBus, "key:compare", ({ keyA, keyB }) => {
-      return keyA.localeCompare(keyB);
-    });
 
     respond(eventBus, "key:toggle-category", () => {
       return true;
@@ -127,6 +118,82 @@ describe("KeyBrowserUI", () => {
     ui.toggleVisibility("space");
     await new Promise((r) => setTimeout(r, 0));
     expect(container.style.display).not.toBe("none");
+  });
+
+  it("filters rendered keys, commands, and empty categories case-insensitively", () => {
+    const grid = document.getElementById("keyGrid");
+    grid.innerHTML = `
+      <section class="category" data-category="function">
+        <button class="key-item" data-key="F1"></button>
+        <div class="command-item" data-key="F1"></div>
+      </section>
+      <section class="category" data-category="letter">
+        <button class="key-item" data-key="A"></button>
+        <div class="command-item" data-key="A"></div>
+      </section>
+    `;
+
+    ui.filterKeys("f1");
+
+    expect(grid.querySelector('.key-item[data-key="F1"]').style.display).toBe(
+      "flex",
+    );
+    expect(grid.querySelector('.key-item[data-key="A"]').style.display).toBe(
+      "none",
+    );
+    expect(
+      grid.querySelector('.command-item[data-key="F1"]').style.display,
+    ).toBe("flex");
+    expect(
+      grid.querySelector('.command-item[data-key="A"]').style.display,
+    ).toBe("none");
+    expect(grid.querySelector('[data-category="function"]').style.display).toBe(
+      "block",
+    );
+    expect(grid.querySelector('[data-category="letter"]').style.display).toBe(
+      "none",
+    );
+    expect(document.getElementById("keySearchBtn").classList).toContain(
+      "active",
+    );
+    expect(
+      document.getElementById("keySearchBtn").getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("shows every rendered key and clears the active filter state", () => {
+    const grid = document.getElementById("keyGrid");
+    const filterInput = document.getElementById("keyFilter");
+    grid.innerHTML = `
+      <section class="category" data-category="function">
+        <button class="key-item" data-key="F1"></button>
+        <div class="command-item" data-key="F1"></div>
+      </section>
+      <section class="category" data-category="letter">
+        <button class="key-item" data-key="A"></button>
+        <div class="command-item" data-key="A"></div>
+      </section>
+    `;
+    filterInput.value = "F1";
+    ui.filterKeys(filterInput.value);
+
+    ui.showAllKeys();
+
+    for (const item of grid.querySelectorAll(
+      ".key-item, .command-item[data-key]",
+    )) {
+      expect(item.style.display).toBe("flex");
+    }
+    for (const category of grid.querySelectorAll(".category")) {
+      expect(category.style.display).toBe("block");
+    }
+    expect(filterInput.value).toBe("");
+    expect(document.getElementById("keySearchBtn").classList).not.toContain(
+      "active",
+    );
+    expect(
+      document.getElementById("keySearchBtn").getAttribute("aria-pressed"),
+    ).toBe("false");
   });
 
   it("renders bindset command categories from category objects", async () => {

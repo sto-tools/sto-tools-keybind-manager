@@ -3,7 +3,6 @@ import type {
   OptionalRpc,
   RequiredRpc,
   ResponderOnlyOptionalRpc,
-  ResponderOnlyRequiredRpc,
   StoredCommand,
 } from "./base.js";
 
@@ -68,10 +67,6 @@ export interface KeyRpcProtocol {
     },
     KeyCategories
   >;
-  "key:compare": ResponderOnlyRequiredRpc<
-    { keyA: string; keyB: string },
-    number
-  >;
   "key:delete": OptionalRpc<{ key?: string }, KeyDeleteResult>;
   "key:duplicate": ResponderOnlyOptionalRpc<
     { key?: string },
@@ -81,10 +76,6 @@ export interface KeyRpcProtocol {
     { sourceKey?: string | null; newKey?: string },
     KeyDuplicateResult
   >;
-  "key:filter": ResponderOnlyRequiredRpc<
-    { keys: string[]; filter?: string },
-    string[]
-  >;
   "key:select": RequiredRpc<
     {
       keyName: string | null;
@@ -93,7 +84,6 @@ export interface KeyRpcProtocol {
     },
     string | null
   >;
-  "key:show-all": ResponderOnlyRequiredRpc<{ keys: string[] }, string[]>;
   "key:sort": RequiredRpc<{ keys: string[] }, string[]>;
   "key:toggle-category": RequiredRpc<
     { categoryId: string; mode: string },

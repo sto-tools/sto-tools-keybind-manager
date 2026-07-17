@@ -22,33 +22,39 @@ describe("ParameterCommandService", () => {
     fixture.destroy();
   });
 
-  it("does not register the retired static definition responder", () => {
-    expect(
-      fixture.eventBus.hasListeners("rpc:parameter-command:find-definition"),
-    ).toBe(false);
-  });
-
-  it("restores only the remaining responders after same-instance reinitialization", async () => {
-    const activeTopics = [
-      "parameter-command:build",
+  it("does not register retired responders", () => {
+    const retiredTopics = [
+      "parameter-command:find-definition",
       "parameter-command:generate-id",
     ];
-    const retiredTopic = "parameter-command:find-definition";
+
+    for (const topic of retiredTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
+    }
+  });
+
+  it("restores only the remaining responder after same-instance reinitialization", () => {
+    const activeTopics = ["parameter-command:build"];
+    const retiredTopics = [
+      "parameter-command:find-definition",
+      "parameter-command:generate-id",
+    ];
 
     for (const topic of activeTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(true);
     }
-    expect(fixture.eventBus.hasListeners(`rpc:${retiredTopic}`)).toBe(false);
-    await expect(
-      service.request("parameter-command:generate-id"),
-    ).resolves.toMatch(/^cmd_/);
+    for (const topic of retiredTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
+    }
 
     service.destroy();
 
     for (const topic of activeTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
     }
-    expect(fixture.eventBus.hasListeners(`rpc:${retiredTopic}`)).toBe(false);
+    for (const topic of retiredTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
+    }
 
     service.init();
 
@@ -56,10 +62,9 @@ describe("ParameterCommandService", () => {
     for (const topic of activeTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(true);
     }
-    expect(fixture.eventBus.hasListeners(`rpc:${retiredTopic}`)).toBe(false);
-    await expect(
-      service.request("parameter-command:generate-id"),
-    ).resolves.toMatch(/^cmd_/);
+    for (const topic of retiredTopics) {
+      expect(fixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(false);
+    }
   });
 
   it("generateCommandId should return a unique cmd_* identifier", () => {

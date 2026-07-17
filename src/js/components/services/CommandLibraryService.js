@@ -10,7 +10,6 @@ export default class CommandLibraryService extends ComponentBase {
   constructor({ eventBus, i18n, ui, modalManager }) {
     super(eventBus);
     this.componentName = "CommandLibraryService";
-    this._instanceId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     this.i18n = i18n;
     this.ui = ui;
     this.modalManager = modalManager;
@@ -26,7 +25,6 @@ export default class CommandLibraryService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond("command:generate-id", () => this.generateCommandId()),
       this.respond("command:filter-library", () => {
         this.filterCommandLibrary();
         return true;
@@ -93,11 +91,6 @@ export default class CommandLibraryService extends ComponentBase {
         aliases: { ...(this.cache?.aliases || {}) },
       });
     });
-  }
-
-  // Generate a unique command ID
-  generateCommandId() {
-    return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   // Filter command library based on current environment

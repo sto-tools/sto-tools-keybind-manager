@@ -119,7 +119,6 @@ export interface ParameterPreferenceRpcProtocol {
     },
     ParameterBuildResult
   >;
-  "parameter-command:generate-id": ResponderOnlyNoPayloadRpc<string>;
   "parser:clear-cache": NoPayloadRpc<{ success: true }>;
   "parser:get-performance-metrics": ResponderOnlyNoPayloadRpc<
     Array<[string, ParserPerformanceMetric]>

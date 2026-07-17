@@ -70,14 +70,7 @@ export default class KeyBrowserService extends ComponentBase {
       this.respond("key:categorize-by-type", ({ keysWithCommands, allKeys }) =>
         this.categorizeKeysByType(keysWithCommands, allKeys),
       ),
-      this.respond("key:compare", ({ keyA, keyB }) =>
-        this.compareKeys(keyA, keyB),
-      ),
       this.respond("key:sort", ({ keys }) => this.sortKeys(keys)),
-      this.respond("key:filter", ({ keys, filter }) =>
-        this.filterKeys(keys, filter),
-      ),
-      this.respond("key:show-all", ({ keys }) => this.showAllKeys(keys)),
       this.respond("key:toggle-category", ({ categoryId, mode }) =>
         this.toggleKeyCategory(categoryId, mode),
       ),
@@ -401,26 +394,6 @@ export default class KeyBrowserService extends ComponentBase {
   /** @param {string[] | unknown} keys */
   sortKeys(keys) {
     return sortKeyNames(keys);
-  }
-
-  // Filter keys based on search criteria
-  /** @param {string[] | unknown} keys @param {string} [filter] */
-  filterKeys(keys, filter = "") {
-    if (!Array.isArray(keys)) return [];
-    if (!filter) return keys;
-
-    const filterLower = filter.toString().toLowerCase();
-    return keys.filter((key) => {
-      const keyName = (key || "").toLowerCase();
-      return keyName.includes(filterLower);
-    });
-  }
-
-  // Show all keys (no filtering)
-  /** @param {string[] | unknown} keys */
-  showAllKeys(keys) {
-    if (!Array.isArray(keys)) return [];
-    return keys;
   }
 
   // Toggle category collapsed state

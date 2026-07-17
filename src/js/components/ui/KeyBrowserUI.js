@@ -1345,7 +1345,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     const grid = this.document.getElementById("keyGrid");
     if (!grid) return;
 
-    // Use service for business logic - determine which keys should be visible
+    // Determine which rendered keys should remain visible.
     const allKeys = Array.from(grid.querySelectorAll(".key-item"))
       .map((item) => {
         const keyItem = /** @type {HTMLElement} */ (item);

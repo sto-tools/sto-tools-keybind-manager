@@ -139,44 +139,6 @@ describe("KeyBrowserService – data processing methods", () => {
     });
   });
 
-  describe("filterKeys", () => {
-    it("should filter keys by substring match", () => {
-      const keys = ["F1", "F2", "A", "B"];
-      const filtered = service.filterKeys(keys, "F");
-      expect(filtered).toEqual(["F1", "F2"]);
-    });
-
-    it("should be case insensitive", () => {
-      const keys = ["Ctrl+A", "Alt+B"];
-      const filtered = service.filterKeys(keys, "ctrl");
-      expect(filtered).toEqual(["Ctrl+A"]);
-    });
-
-    it("should return all keys when filter is empty", () => {
-      const keys = ["F1", "F2", "A"];
-      const filtered = service.filterKeys(keys, "");
-      expect(filtered).toEqual(keys);
-    });
-
-    it("should handle non-array input", () => {
-      const filtered = service.filterKeys(null, "F");
-      expect(filtered).toEqual([]);
-    });
-  });
-
-  describe("showAllKeys", () => {
-    it("should return all keys unchanged", () => {
-      const keys = ["F1", "F2", "A"];
-      const result = service.showAllKeys(keys);
-      expect(result).toEqual(keys);
-    });
-
-    it("should handle non-array input", () => {
-      const result = service.showAllKeys(null);
-      expect(result).toEqual([]);
-    });
-  });
-
   describe("toggleKeyCategory", () => {
     beforeEach(() => {
       // Clear localStorage before each test

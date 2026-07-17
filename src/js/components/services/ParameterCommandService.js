@@ -20,7 +20,7 @@ function isParameterEditStartPayload(value) {
 
 /**
  * ParameterCommandService – handles building, validating, and editing parameterized commands for keybinds.
- * Provides request/response endpoints for command construction and ID generation.
+ * Provides a request/response endpoint for command construction.
  * Caches editing context for UI parameter modals.
  */
 export default class ParameterCommandService extends ComponentBase {
@@ -58,9 +58,6 @@ export default class ParameterCommandService extends ComponentBase {
             commandDef,
             params,
           ),
-      ),
-      this.respond("parameter-command:generate-id", () =>
-        this.generateCommandId(),
       ),
     );
   }

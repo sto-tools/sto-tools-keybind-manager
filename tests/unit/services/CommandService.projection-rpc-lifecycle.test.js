@@ -6,10 +6,8 @@ import { createServiceFixture } from "../../fixtures/index.js";
 const responderTopics = [
   "command:add",
   "command:edit",
-  "command:validate",
   "command:delete",
   "command:move",
-  "command:check-environment-compatibility",
   "command:import-from-source",
   "command:generate-command-preview",
   "command:generate-mirrored-commands",
@@ -18,6 +16,8 @@ const retiredTopics = [
   "command:get-for-selected-key",
   "command:get-import-sources",
   "command:get-empty-state-info",
+  "command:validate",
+  "command:check-environment-compatibility",
 ];
 
 const expectResponderState = (eventBus, topics, expected) => {

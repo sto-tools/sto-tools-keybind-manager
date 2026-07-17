@@ -299,7 +299,7 @@ describe('Command Library Integration', () => {
       const groundCmd = STO_DATA.commands.ground.commands.ground_cmd
       const fullyHydratedCommandDef = {
         ...groundCmd,
-        id: service.generateCommandId(),
+        id: 'test-command-id',
         type: 'ground'
       }
       

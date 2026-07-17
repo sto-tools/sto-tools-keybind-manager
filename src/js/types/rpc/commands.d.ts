@@ -1,7 +1,6 @@
 import type {
   NoPayloadRpc,
   RequiredRpc,
-  ResponderOnlyNoPayloadRpc,
   ResponderOnlyRequiredRpc,
   StoredCommand,
 } from "./base.js";
@@ -13,10 +12,6 @@ export type CommandImportResult = {
   sourceType: string;
   sourceName: string;
 };
-
-export type CommandValidationResult =
-  | { valid: true }
-  | { valid: false; reason: "empty" };
 
 export type StabilizeResult =
   | { success: true }
@@ -44,10 +39,6 @@ export interface CommandRpcProtocol {
     },
     boolean
   >;
-  "command:check-environment-compatibility": ResponderOnlyRequiredRpc<
-    { command: StoredCommand; environment: string },
-    boolean
-  >;
   "command:delete": RequiredRpc<
     { key: string; index: number; bindset?: string | null },
     boolean
@@ -66,7 +57,6 @@ export interface CommandRpcProtocol {
     { key: string; commands: StoredCommand[]; stabilize?: boolean },
     string
   >;
-  "command:generate-id": ResponderOnlyNoPayloadRpc<string>;
   "command:generate-mirrored-commands": RequiredRpc<
     { commands?: StoredCommand[] },
     string
@@ -92,9 +82,5 @@ export interface CommandRpcProtocol {
   "command:set-stabilize": RequiredRpc<
     { name: string; stabilize: boolean; bindset?: string | null },
     StabilizeResult
-  >;
-  "command:validate": ResponderOnlyRequiredRpc<
-    { command?: unknown },
-    CommandValidationResult
   >;
 }

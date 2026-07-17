@@ -60,9 +60,6 @@ export default class ExportService extends ComponentBase {
     this.respond("export:import-from-file", ({ file }) =>
       this.request("import:from-file", { file }),
     );
-    this.respond("export:extract-keys", ({ profile, environment }) =>
-      this.extractKeys(profile, environment),
-    );
     this.respond(
       "export:generate-keybind-file",
       async ({ profileId, environment = "space", syncMode = false }) => {

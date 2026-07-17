@@ -54,9 +54,6 @@ export default class CommandService extends ComponentBase {
         async ({ key, index, updatedCommand, bindset }) =>
           this.editCommand(key, index, updatedCommand, bindset),
       ),
-      this.respond("command:validate", ({ command }) =>
-        this.validateCommand(command),
-      ),
       this.respond("command:delete", async ({ key, index, bindset }) =>
         this.deleteCommand(key, index, bindset),
       ),
@@ -64,11 +61,6 @@ export default class CommandService extends ComponentBase {
         "command:move",
         async ({ key, fromIndex, toIndex, bindset }) =>
           this.moveCommand(key, fromIndex, toIndex, bindset),
-      ),
-      this.respond(
-        "command:check-environment-compatibility",
-        ({ command, environment }) =>
-          this.isCommandCompatible(command, environment),
       ),
       this.respond(
         "command:import-from-source",
@@ -625,17 +617,6 @@ export default class CommandService extends ComponentBase {
         await this.editCommand(key, index, updatedCommand, bindset);
       },
     );
-  }
-
-  // Placeholder command validator – always returns true.
-  // Can be expanded later with proper validation logic.
-  /**
-   * @param {unknown} command
-   * @returns {import('../../types/rpc/commands.js').CommandValidationResult}
-   */
-  validateCommand(command) {
-    if (!command) return { valid: false, reason: "empty" };
-    return { valid: true };
   }
 
   // Cleanup method to detach all request/response handlers

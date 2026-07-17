@@ -23,12 +23,6 @@ describe("CommandLibraryService", () => {
     fixture.destroy();
   });
 
-  it("should generate unique command IDs", () => {
-    const id1 = service.generateCommandId();
-    const id2 = service.generateCommandId();
-    expect(id1).not.toEqual(id2);
-  });
-
   it("filters catalog commands using the cached environment", () => {
     document.body.innerHTML = `
       <div class="category">

@@ -404,16 +404,6 @@ describe('CommandLibraryService', () => {
     })
   })
 
-  describe('generateCommandId', () => {
-    it('should generate unique command IDs', () => {
-      const id1 = service.generateCommandId()
-      const id2 = service.generateCommandId()
-      expect(id1).not.toBe(id2)
-      expect(typeof id1).toBe('string')
-      expect(id1.length).toBeGreaterThan(0)
-    })
-  })
-
   describe('getCommandChainPreview', () => {
     it('should return select message when no key is selected', async () => {
       service.selectedKey = null

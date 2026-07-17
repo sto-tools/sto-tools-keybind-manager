@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandLibraryService from "../../../src/js/components/services/CommandLibraryService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
-const responderTopics = ["command:generate-id", "command:filter-library"];
+const responderTopics = ["command:filter-library"];
 const retiredTopics = [
+  "command:generate-id",
   "command:get-combined-aliases",
   "command:find-definition",
   "command:get-warning",
