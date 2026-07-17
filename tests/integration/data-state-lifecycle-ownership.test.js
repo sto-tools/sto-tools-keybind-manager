@@ -75,7 +75,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     vi.restoreAllMocks();
   });
 
-  async function createCoordinator({ firstRun = false } = {}) {
+  async function createCoordinator({ firstRun = false, defaultProfiles } = {}) {
     if (firstRun) {
       localStorage.removeItem("sto_keybind_manager_visited");
     } else {
@@ -92,6 +92,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
       eventBus: fixture.eventBus,
       storage: fixture.storage,
       i18n: { t: (key) => key },
+      defaultProfiles,
     });
     components.push(coordinator);
     return coordinator;
@@ -280,12 +281,17 @@ describe("DataCoordinator lifecycle and state ownership", () => {
   it.each(["data-service-first", "coordinator-first"])(
     "creates first-run defaults once in exact publication order (%s)",
     async (startupOrder) => {
-      const coordinator = await createCoordinator({ firstRun: true });
+      const coordinator = await createCoordinator({
+        firstRun: true,
+        defaultProfiles: {
+          default_space: createProfile("Default Space"),
+        },
+      });
       const dataService = new DataService({
         eventBus: fixture.eventBus,
         data: {
           defaultProfiles: {
-            default_space: createProfile("Default Space"),
+            ignored_data_service_profile: createProfile("Ignored"),
           },
         },
       });
@@ -312,8 +318,8 @@ describe("DataCoordinator lifecycle and state ownership", () => {
         await vi.waitFor(() => {
           expect(coordinator.getCurrentState()).toMatchObject({
             ready: true,
-            revision: 1,
-            currentProfile: null,
+            revision: 2,
+            currentProfile: "default_space",
           });
         });
         dataService.init();
@@ -329,6 +335,9 @@ describe("DataCoordinator lifecycle and state ownership", () => {
       });
 
       expect(states).toHaveLength(2);
+      expect(coordinator.getCurrentState().profiles).not.toHaveProperty(
+        "ignored_data_service_profile",
+      );
       expect(states[0]).toMatchObject({
         reason: "initial-load",
         state: {

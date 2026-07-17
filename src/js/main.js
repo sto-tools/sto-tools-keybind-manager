@@ -25,7 +25,8 @@ import { DISPLAY_VERSION } from "./core/constants.js";
 import { CommandChainValidatorService } from "./components/services/index.js";
 import devMonitor from "./dev/DevMonitor.js";
 
-// Create DataService first so it's available for DataCoordinator
+// Retain the retirement-bound DataService compatibility snapshot/global.
+// Runtime static-data consumers import their catalogs directly.
 const dataService = new DataService({
   eventBus,
   data: typeof window !== "undefined" ? window.STO_DATA : null,
@@ -50,7 +51,7 @@ const dataService = new DataService({
   const storageService = new StorageService({ eventBus, i18n: i18next });
   storageService.init();
 
-  // Initialize DataService now that storage service is available
+  // Initialize the compatibility late-join owner.
   dataService.init();
 
   // Create DataCoordinator - the single source of truth for data operations

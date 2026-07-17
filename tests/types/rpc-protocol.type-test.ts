@@ -121,6 +121,8 @@ type RemovedCommandDefinitionQuery = RpcRequest<"data:get-command-definition">;
 type RemovedCommunicationQuery = RpcRequest<"data:get-communication-category">;
 // @ts-expect-error Callers use the validated default-profile map.
 type RemovedDefaultProfileQuery = RpcRequest<"data:get-default-profile">;
+// @ts-expect-error Complete default profiles are selected from the imported catalog.
+type RemovedDefaultProfilesQuery = RpcRequest<"data:get-default-profiles">;
 // @ts-expect-error Key validation imports the canonical STO key list directly.
 type RemovedKeyNamePatternQuery = RpcRequest<"data:get-key-name-pattern">;
 // @ts-expect-error Specialized categories are read from the complete catalog.
@@ -405,6 +407,10 @@ async function exerciseCoreApi() {
   request(eventBus, "data:has-commands");
   // @ts-expect-error Retired catalog-presence queries cannot regain responders.
   respond(eventBus, "data:has-commands", () => true);
+  // @ts-expect-error Retired default-profile queries cannot be requested.
+  request(eventBus, "data:get-default-profiles");
+  // @ts-expect-error Retired default-profile queries cannot regain responders.
+  respond(eventBus, "data:get-default-profiles", () => ({}));
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 

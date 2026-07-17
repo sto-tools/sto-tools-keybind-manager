@@ -38,7 +38,7 @@ export async function loadInitialCoordinatorState(coordinator) {
       if (isFirstTime) {
         needsDefaultProfiles = true;
         console.log(
-          `[${coordinator.componentName}] First time run - no profiles found, will create defaults when DataService is available`,
+          `[${coordinator.componentName}] First time run - no profiles found, will create built-in defaults`,
         );
       } else {
         console.log(

@@ -1,6 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
+
+const defaultProfilesData = {
+  default: {
+    name: "Default",
+    description: "Default keybind configuration",
+    currentEnvironment: "space",
+    builds: {
+      space: { keys: { F1: ["+TrayExecByTray 9 0"] } },
+      ground: { keys: { F1: ["+TrayExecByTray 6 0"] } },
+    },
+    aliases: { toggle_combatlog: { commands: ["combatlog"] } },
+    selections: { space: "F1", ground: "F1", alias: "toggle_combatlog" },
+  },
+};
 
 describe("DataCoordinator default profiles - selections propagation", () => {
   let fixture;
@@ -22,7 +36,11 @@ describe("DataCoordinator default profiles - selections propagation", () => {
     });
     eventBus = fixture.eventBus;
     storage = fixture.storage;
-    dataCoordinator = new DataCoordinator({ eventBus, storage });
+    dataCoordinator = new DataCoordinator({
+      eventBus,
+      storage,
+      defaultProfiles: defaultProfilesData,
+    });
   });
 
   afterEach(() => {
@@ -30,20 +48,6 @@ describe("DataCoordinator default profiles - selections propagation", () => {
   });
 
   it("copies selections from defaultProfiles into created profile", async () => {
-    const defaultProfilesData = {
-      default: {
-        name: "Default",
-        description: "Default keybind configuration",
-        currentEnvironment: "space",
-        builds: {
-          space: { keys: { F1: ["+TrayExecByTray 9 0"] } },
-          ground: { keys: { F1: ["+TrayExecByTray 6 0"] } },
-        },
-        aliases: { toggle_combatlog: { commands: ["combatlog"] } },
-        selections: { space: "F1", ground: "F1", alias: "toggle_combatlog" },
-      },
-    };
-
     await dataCoordinator.createDefaultProfilesFromData(defaultProfilesData);
 
     // Verify state contains selections copied over
@@ -63,5 +67,21 @@ describe("DataCoordinator default profiles - selections propagation", () => {
       ground: "F1",
       alias: "toggle_combatlog",
     });
+  });
+
+  it("loads validated defaults directly without consulting RPC transport", async () => {
+    const request = vi.spyOn(dataCoordinator, "request");
+
+    await expect(dataCoordinator.loadDefaultData()).resolves.toEqual({
+      success: true,
+      profilesCreated: 1,
+      currentProfile: "default",
+    });
+
+    expect(request).not.toHaveBeenCalled();
+    expect(storage.saveAllData).toHaveBeenCalledTimes(1);
+    expect(dataCoordinator.state.profiles.default.selections).toEqual(
+      defaultProfilesData.default.selections,
+    );
   });
 });

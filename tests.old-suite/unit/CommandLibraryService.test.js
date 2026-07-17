@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 
 import CommandLibraryService from '../../src/js/components/services/CommandLibraryService.js'
-import DataService from '../../src/js/components/services/DataService.js'
 import { respond } from '../../src/js/core/requestResponse.js'
 import eventBus from '../../src/js/core/eventBus.js'
 
@@ -27,98 +26,6 @@ const mockI18n = {
   t: vi.fn((key) => key)
 }
 
-// Mock STO_DATA for DataService
-const mockStoData = {
-  commands: {
-    space: {
-      name: 'Space Commands',
-      icon: 'fas fa-rocket',
-      environments: ['space'],
-      commands: {
-        tray_exec: {
-          name: 'Execute Tray',
-          command: '+STOTrayExec 0 0',
-          icon: '🎯',
-          description: 'Execute tray command',
-          customizable: true,
-          parameters: {
-            tray: { type: 'number', min: 0, max: 9 },
-            slot: { type: 'number', min: 0, max: 9 }
-          }
-        },
-        target: {
-          name: 'Target Entity',
-          command: 'Target "Entity Name"',
-          icon: '🎯',
-          description: 'Target an entity',
-          customizable: true,
-          parameters: {
-            entityName: { type: 'string' }
-          }
-        }
-      }
-    },
-    ground: {
-      name: 'Ground Commands',
-      icon: 'fas fa-mountain',
-      environments: ['ground'],
-      commands: {
-        ground_cmd: {
-          name: 'Ground Command',
-          command: 'GroundCommand',
-          icon: '🏔️',
-          description: 'Ground command',
-          customizable: false
-        }
-      }
-    },
-    tray: {
-      name: 'Tray Execution',
-      icon: 'fas fa-th',
-      commands: {
-        custom_tray: {
-          name: 'Tray Execution',
-          command: '+STOTrayExecByTray 0 0',
-          icon: '⚡',
-          description: 'Execute specific tray slot',
-          customizable: true,
-          parameters: {
-            tray: { type: 'number', min: 0, max: 9, default: 0 },
-            slot: { type: 'number', min: 0, max: 9, default: 0 },
-          },
-        },
-        tray_with_backup: {
-          name: 'Tray Execution with Backup',
-          command: 'TrayExecByTrayWithBackup 1 0 0 0 0',
-          icon: '⚡',
-          description: 'Execute specific tray slot with backup ability',
-          customizable: true,
-        },
-        tray_range: {
-          name: 'Tray Range Execution',
-          command: '+STOTrayExecByTray 0 0',
-          icon: '⚡',
-          description: 'Execute a range of tray slots',
-          customizable: true,
-        },
-        tray_range_with_backup: {
-          name: 'Tray Range with Backup',
-          command: 'TrayExecByTrayWithBackup 1 0 0 0 0',
-          icon: '⚡',
-          description: 'Execute a range of tray slots with backup',
-          customizable: true,
-        },
-      }
-    }
-  },
-  validationPatterns: {
-    keyName: /^[A-Za-z0-9_]+$/,
-    aliasName: /^[A-Za-z0-9_]+$/
-  }
-}
-
-// Mock legacy global for any remaining references in tests
-global.STO_DATA = mockStoData
 
 // Mock profile data for tests
 const mockProfile = {
@@ -144,7 +51,7 @@ const mockProfile = {
 }
 
 describe('CommandLibraryService', () => {
-  let service, dataService, mockProfileUpdateResponder, detachFunctions
+  let service, mockProfileUpdateResponder, detachFunctions
 
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -181,10 +88,6 @@ describe('CommandLibraryService', () => {
       return `${forwardCommands.join(' $$ ')} $$ ${reverseCommands.join(' $$ ')}`
     })
     detachFunctions.push(detachFileOps3)
-    
-    // Set up DataService with mock data
-    dataService = new DataService({ eventBus, data: mockStoData })
-    await dataService.init()
     
     service = new CommandLibraryService({
       storage: mockStorage,
@@ -224,7 +127,6 @@ describe('CommandLibraryService', () => {
     }
     
     if (service) await service.destroy()
-    if (dataService) await dataService.destroy()
   })
 
   describe('DataCoordinator Integration', () => {
@@ -604,12 +506,6 @@ describe('CommandLibraryService', () => {
       expect(true).toBe(true)
     })
 
-    it('should handle missing STO_DATA gracefully', async () => {
-      service.currentEnvironment = 'space'
-      await service.filterCommandLibrary()
-      // If it doesn't throw, the test passes
-      expect(true).toBe(true)
-    })
   })
 
   describe('getEmptyStateInfo', () => {

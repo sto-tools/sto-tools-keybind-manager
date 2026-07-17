@@ -24,7 +24,7 @@ function isParameterEditStartPayload(value) {
  * Caches editing context for UI parameter modals.
  */
 export default class ParameterCommandService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, dataService?: unknown }} [options] */
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus }} [options] */
   constructor({ eventBus: bus = eventBus } = {}) {
     super(bus);
     this.componentName = "ParameterCommandService";

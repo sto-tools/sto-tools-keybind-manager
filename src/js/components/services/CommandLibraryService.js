@@ -160,7 +160,7 @@ export default class CommandLibraryService extends ComponentBase {
         category.style.display = categoryVisible ? "block" : "none";
       });
     } catch (error) {
-      // Fallback if DataService not available
+      // Keep UI filtering non-fatal if DOM or catalog access fails.
       console.warn(
         "CommandLibraryService: filterCommandLibrary failed:",
         error,

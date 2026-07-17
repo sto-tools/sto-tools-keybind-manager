@@ -9,6 +9,9 @@ import {
   createVirtualProfile,
   nextDataStateAuthorityEpoch,
 } from "./dataState.js";
+import builtInDefaultProfiles, {
+  getDefaultProfiles,
+} from "../../data/defaultProfiles.js";
 import { registerDataCoordinatorResponders } from "./dataCoordinatorResponders.js";
 import { handleLoadDefaultDataUi } from "./dataCoordinatorDefaultUi.js";
 import { loadInitialCoordinatorState } from "./dataCoordinatorInitialState.js";
@@ -109,12 +112,25 @@ const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
  * })
  */
 export default class DataCoordinator extends ComponentBase {
-  /** @param {{ eventBus: import('./serviceTypes.js').EventBus, storage: import('./serviceTypes.js').Storage, i18n: import('./serviceTypes.js').I18n }} options */
-  constructor({ eventBus, storage, i18n }) {
+  /**
+   * @param {{
+   *   eventBus: import('./serviceTypes.js').EventBus,
+   *   storage: import('./serviceTypes.js').Storage,
+   *   i18n: import('./serviceTypes.js').I18n,
+   *   defaultProfiles?: Record<string, unknown>
+   * }} options
+   */
+  constructor({
+    eventBus,
+    storage,
+    i18n,
+    defaultProfiles = builtInDefaultProfiles,
+  }) {
     super(eventBus);
     this.componentName = "DataCoordinator";
     this.storage = storage;
     this.i18n = i18n;
+    this.defaultProfileDefinitions = defaultProfiles;
 
     // Cache current state
     /** @type {import('./serviceTypes.js').CoordinatorState} */
@@ -199,18 +215,6 @@ export default class DataCoordinator extends ComponentBase {
     // Listen for load default data events
     this.addEventListener("data:load-default", () => {
       this.handleLoadDefaultData();
-    });
-
-    // ComponentBase announces registration before a component's onInit hook.
-    // Defer the retry so DataService can install its responders first.
-    this.addEventListener("component:register", ({ name }) => {
-      if (name !== "DataService" || !this.needsDefaultProfiles) return;
-
-      queueMicrotask(() => {
-        if (!this.destroyed && this.needsDefaultProfiles) {
-          void this.tryCreateDefaultProfiles();
-        }
-      });
     });
   }
 
@@ -954,9 +958,8 @@ export default class DataCoordinator extends ComponentBase {
     const operation = this._captureOperationGeneration();
 
     try {
-      // Get default profiles from DataService
-      const defaultProfilesData = await this.request(
-        "data:get-default-profiles",
+      const defaultProfilesData = getDefaultProfiles(
+        this.defaultProfileDefinitions,
       );
       this._assertCurrentOperation(operation);
 
@@ -965,7 +968,7 @@ export default class DataCoordinator extends ComponentBase {
         Object.keys(defaultProfilesData).length === 0
       ) {
         console.warn(
-          `[${this.componentName}] No default profiles available from DataService`,
+          `[${this.componentName}] No built-in default profiles available`,
         );
         return { success: false, error: "No default profiles available" };
       }
@@ -993,7 +996,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  // Try to create default profiles using DataService
+  // Try to create profiles from the built-in static catalog.
   async tryCreateDefaultProfiles() {
     if (!this.needsDefaultProfiles) {
       return;
@@ -1002,25 +1005,24 @@ export default class DataCoordinator extends ComponentBase {
 
     try {
       console.log(
-        `[${this.componentName}] Attempting to get default profiles from DataService...`,
+        `[${this.componentName}] Attempting to load built-in default profiles...`,
       );
 
-      // Use request/response to get default profiles from DataService
-      const defaultProfilesData = await this.request(
-        "data:get-default-profiles",
+      const defaultProfilesData = getDefaultProfiles(
+        this.defaultProfileDefinitions,
       );
       this._assertCurrentOperation(operation);
 
       if (defaultProfilesData && Object.keys(defaultProfilesData).length > 0) {
         console.log(
-          `[${this.componentName}] Got default profiles from DataService, creating...`,
+          `[${this.componentName}] Got built-in default profiles, creating...`,
         );
         await this.createDefaultProfilesFromData(defaultProfilesData);
         this._assertCurrentOperation(operation);
         this.needsDefaultProfiles = false;
       } else {
         console.log(
-          `[${this.componentName}] No default profiles from DataService, will try again later`,
+          `[${this.componentName}] No built-in default profiles available`,
         );
       }
     } catch (error) {
@@ -1035,27 +1037,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  // Handle initial state from other components during late-join handshake
-  /** @param {import('../../types/events/component-state.js').ComponentStateReply} reply */
-  async handleInitialState(reply) {
-    console.log(
-      `[${this.componentName}] handleInitialState called - sender: "${reply.sender}", needsDefaultProfiles: ${this.needsDefaultProfiles}`,
-    );
-    console.log(
-      `[${this.componentName}] Received state from ${reply.sender}:`,
-      reply.state,
-    );
-
-    // If DataService is providing state and we need default profiles, try creating them
-    if (reply.sender === "DataService" && this.needsDefaultProfiles) {
-      console.log(
-        `[${this.componentName}] DataService is now available, trying to create default profiles...`,
-      );
-      await this.tryCreateDefaultProfiles();
-    }
-  }
-
-  // Create default profiles from DataService data
+  // Create default profiles from validated static data.
   /** @param {Record<string, import('./serviceTypes.js').ProfileData> | null | undefined} defaultProfilesData */
   async createDefaultProfilesFromData(defaultProfilesData) {
     const operation = this._captureOperationGeneration();
@@ -1150,7 +1132,7 @@ export default class DataCoordinator extends ComponentBase {
     this._publishState("default-profiles-created");
 
     console.log(
-      `[${this.componentName}] Created ${Object.keys(profiles).length} default profiles from DataService`,
+      `[${this.componentName}] Created ${Object.keys(profiles).length} built-in default profiles`,
     );
 
     // Broadcast that profiles are now available
@@ -1197,7 +1179,7 @@ export default class DataCoordinator extends ComponentBase {
     }
   }
 
-  // Create minimal fallback profiles when DataService is not available
+  // Create minimal fallback profiles when built-in definitions are unavailable.
   async createFallbackProfiles() {
     const operation = this._captureOperationGeneration();
     const fallbackProfiles = {

@@ -77,7 +77,6 @@ export interface DataRpcProtocol {
       message: string;
     }
   >;
-  "data:get-default-profiles": NoPayloadRpc<Record<string, Profile>>;
   "data:load-default-data": ResponderOnlyNoPayloadRpc<
     | {
         success: true;

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
-import { request, respond } from "../../../src/js/core/requestResponse.js";
+import { request } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 const profile = (name, currentEnvironment = "space") => ({
@@ -63,7 +63,6 @@ describe("DataCoordinator lifecycle generation", () => {
   let fixture;
   let coordinator;
   let durableRoot;
-  const detachFunctions = [];
 
   beforeEach(async () => {
     localStorage.setItem("sto_keybind_manager_visited", "true");
@@ -100,7 +99,6 @@ describe("DataCoordinator lifecycle generation", () => {
   });
 
   afterEach(() => {
-    for (const detach of detachFunctions.splice(0)) detach();
     if (!coordinator.destroyed) coordinator.destroy();
     fixture.destroy();
     localStorage.removeItem("sto_keybind_manager_visited");
@@ -228,24 +226,21 @@ describe("DataCoordinator lifecycle generation", () => {
     },
   );
 
-  it("does not continue a default-profile request after teardown", async () => {
+  it("does not complete an explicit default-profile load after teardown", async () => {
     const stateBefore = structuredClone(coordinator.state);
-    const pendingProfiles = deferred();
-    const getDefaults = vi.fn(() => pendingProfiles.promise);
-    detachFunctions.push(
-      respond(fixture.eventBus, "data:get-default-profiles", getDefaults),
-    );
+    const pendingWrite = holdWrite("saveAllData");
 
     const result = coordinator.loadDefaultData();
-    await vi.waitFor(() => expect(getDefaults).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
+    });
     coordinator.destroy();
-    pendingProfiles.resolve({ default_space: profile("Default") });
+    pendingWrite.resolve(true);
 
     await expect(result).resolves.toEqual({
       success: false,
       error: "operation_cancelled",
     });
-    expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
     expect(coordinator.state).toEqual(stateBefore);
     expect(emittedMutations()).toEqual([]);
   });

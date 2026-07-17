@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import DataService from "../../src/js/components/services/DataService.js";
-import KeyService from "../../src/js/components/services/KeyService.js";
-import { request } from "../../src/js/core/requestResponse.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
 
 const defaultProfiles = {
@@ -22,6 +20,7 @@ const retiredStaticTopics = [
   "data:get-command-definition",
   "data:get-communication-category",
   "data:get-default-profile",
+  "data:get-default-profiles",
   "data:get-key-name-pattern",
   "data:get-tray-category",
   "data:get-validation-patterns",
@@ -30,18 +29,15 @@ const retiredStaticTopics = [
   "data:has-commands",
 ];
 
-describe("Integration: DataService static-data RPC contracts", () => {
+describe("Integration: DataService compatibility state", () => {
   /** @type {Awaited<ReturnType<typeof createRealEventBusFixture>>} */
   let eventBusFixture;
   /** @type {DataService} */
   let dataService;
-  /** @type {KeyService | null} */
-  let keyService;
 
   beforeEach(async () => {
     eventBusFixture = await createRealEventBusFixture();
     eventBusFixture.reset();
-    keyService = null;
 
     dataService = new DataService({
       eventBus: eventBusFixture.eventBus,
@@ -51,18 +47,11 @@ describe("Integration: DataService static-data RPC contracts", () => {
   });
 
   afterEach(() => {
-    keyService?.destroy();
     dataService.destroy();
     eventBusFixture.destroy();
   });
 
-  it("characterizes the validated default-profile response shape", async () => {
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-default-profiles", {}),
-    ).resolves.toEqual(defaultProfiles);
-  });
-
-  it("filters malformed external default profiles before publishing them", async () => {
+  it("retains the validated compatibility snapshot", () => {
     const validProfile = {
       name: "Validated",
       description: "A structurally valid default profile",
@@ -81,20 +70,32 @@ describe("Integration: DataService static-data RPC contracts", () => {
       absent: null,
     };
 
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-default-profiles", {}),
-    ).resolves.toEqual({ valid: validProfile });
-    expect(dataService.getCurrentState().defaultProfiles).toEqual({
-      valid: validProfile,
+    const state = dataService.getCurrentState();
+
+    expect(state).toMatchObject({
+      defaultProfiles: { valid: validProfile },
+      hasCommands: false,
+      dataAvailable: true,
     });
+    expect(state.defaultProfiles.valid).toBe(validProfile);
   });
 
-  it("does not register retired static routes", () => {
+  it("does not register any retired static-data responder", () => {
     for (const topic of retiredStaticTopics) {
       expect(eventBusFixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(
         false,
       );
     }
+  });
+
+  it("preserves the empty compatibility snapshot when profiles are absent", () => {
+    dataService.data = {};
+
+    expect(dataService.getCurrentState()).toEqual({
+      defaultProfiles: {},
+      hasCommands: false,
+      dataAvailable: false,
+    });
   });
 
   it("never restores retired static routes across same-instance reinitialization", async () => {
@@ -113,20 +114,8 @@ describe("Integration: DataService static-data RPC contracts", () => {
         false,
       );
     }
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-default-profiles", {}),
-    ).resolves.toEqual(defaultProfiles);
-  });
-
-  it("lets a real KeyService validate the canonical list without a data query", async () => {
-    keyService = new KeyService({ eventBus: eventBusFixture.eventBus });
-
-    await expect(keyService.isValidKeyName("F1")).resolves.toBe(true);
-    await expect(keyService.isValidKeyName("control+space")).resolves.toBe(
-      true,
-    );
-    await expect(keyService.isValidKeyName("Not A Real STO Key")).resolves.toBe(
-      false,
+    expect(dataService.getCurrentState().defaultProfiles).toEqual(
+      defaultProfiles,
     );
   });
 });

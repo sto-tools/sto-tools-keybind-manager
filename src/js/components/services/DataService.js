@@ -1,59 +1,11 @@
 import ComponentBase from "../ComponentBase.js";
+import { getDefaultProfiles } from "../../data/defaultProfiles.js";
 
 /**
- * @param {unknown} value
- * @returns {value is import('./serviceTypes.js').ProfileData}
- */
-function isProfileData(value) {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const profile = /** @type {Record<string, unknown>} */ (value);
-  if (typeof profile.name !== "string" || !profile.name.trim()) return false;
-  if (
-    profile.description !== undefined &&
-    typeof profile.description !== "string"
-  ) {
-    return false;
-  }
-  if (
-    profile.currentEnvironment !== undefined &&
-    typeof profile.currentEnvironment !== "string"
-  ) {
-    return false;
-  }
-  if (
-    profile.builds !== undefined &&
-    (typeof profile.builds !== "object" ||
-      profile.builds === null ||
-      Array.isArray(profile.builds))
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Validate the externally supplied STO_DATA profile dictionary before it
- * crosses the RPC boundary.
- * @param {Record<string, unknown> | undefined} profiles
- * @returns {Record<string, import('./serviceTypes.js').ProfileData>}
- */
-function validProfiles(profiles) {
-  /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
-  const result = {};
-  for (const [profileId, profile] of Object.entries(profiles || {})) {
-    if (isProfileData(profile)) result[profileId] = profile;
-  }
-  return result;
-}
-
-/**
- * DataService - Centralizes access to STO_DATA using request/response pattern
- * Eliminates direct globalThis.STO_DATA references throughout the codebase
- * All communication happens via event bus request/response
+ * DataService - retirement-bound compatibility view over STO_DATA.
+ * Runtime static-data consumers use direct module imports; this shell retains
+ * the existing app dependency, global exposure, and late-join snapshot until
+ * the storage/global compatibility phases explicitly retire it.
  */
 export default class DataService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, data?: import('./serviceTypes.js').STOData | null }} [options] */
@@ -63,36 +15,13 @@ export default class DataService extends ComponentBase {
 
     /** @type {import('./serviceTypes.js').STOData} */
     this.data = data || {};
-
-    // Track response handlers for cleanup
-    /** @type {Array<() => void>} */
-    this.responseHandlers = [];
-  }
-
-  onInit() {
-    // Set up request/response handlers for data access
-    this.responseHandlers.push(
-      this.respond("data:get-default-profiles", () => {
-        return validProfiles(this.data.defaultProfiles);
-      }),
-    );
-  }
-
-  onDestroy() {
-    // Clean up response handlers
-    this.responseHandlers.forEach((detach) => {
-      if (typeof detach === "function") {
-        detach();
-      }
-    });
-    this.responseHandlers = [];
   }
 
   // Provide current state for late-join handshake
   /** @returns {import('../../types/events/component-state.js').ComponentState<'DataService'>} */
   getCurrentState() {
     return {
-      defaultProfiles: validProfiles(this.data.defaultProfiles),
+      defaultProfiles: getDefaultProfiles(this.data.defaultProfiles),
       hasCommands: !!(this.data && this.data.commands),
       dataAvailable: Object.keys(this.data).length > 0,
     };

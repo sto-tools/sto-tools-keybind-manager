@@ -7,7 +7,7 @@ import globals from "globals";
 const legacyMaxLineLimits = {
   "src/js/components/services/CommandChainService.js": 723,
   "src/js/components/services/CommandService.js": 825,
-  "src/js/components/services/DataCoordinator.js": 1046,
+  "src/js/components/services/DataCoordinator.js": 1032,
   "src/js/components/services/ExportService.js": 594,
   "src/js/components/services/ImportService.js": 1266,
   "src/js/components/services/ParameterCommandService.js": 626,
@@ -19,7 +19,7 @@ const legacyMaxLineLimits = {
   "src/js/components/ui/KeyBrowserUI.js": 1194,
   "src/js/components/ui/KeyCaptureUI.js": 1164,
   "src/js/components/ui/ParameterCommandUI.js": 513,
-  "src/js/data.js": 2151,
+  "src/js/data.js": 1902,
   "src/js/lib/kbf/parsers/FieldParser.js": 511,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 931,
   "src/js/lib/kbf/translation/ActivityTranslator.js": 1772,

@@ -90,6 +90,7 @@ describe("Application browser smoke", () => {
       "parameter-command:find-definition",
       "data:find-command-by-name",
       "data:get-commands",
+      "data:get-default-profiles",
       "data:has-commands",
       "vfx:get-virtual-aliases",
     ]) {
