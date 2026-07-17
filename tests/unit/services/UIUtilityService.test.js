@@ -1,17 +1,25 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import UIUtilityService from "../../../src/js/components/services/UIUtilityService.js";
-import { createEventBusFixture } from "../../fixtures";
+import { createEventBusFixture } from "../../fixtures/index.js";
 
 /**
  * Unit tests – UIUtilityService (clipboard and drag-drop utilities)
  */
 
 describe("UIUtilityService", () => {
+  let fixture;
   let service;
 
   beforeEach(() => {
-    const { eventBus } = createEventBusFixture();
-    service = new UIUtilityService(eventBus);
+    fixture = createEventBusFixture();
+    service = new UIUtilityService(fixture.eventBus);
+  });
+
+  afterEach(() => {
+    if (!service.destroyed) service.destroy();
+    fixture.destroy();
+    vi.restoreAllMocks();
   });
 
   it("should have drag state initialized", () => {
@@ -98,6 +106,132 @@ describe("UIUtilityService", () => {
 
       document.body.removeChild(container);
       emitSpy.mockRestore();
+    });
+  });
+
+  describe("transport lifecycle", () => {
+    const retainedEvent = "ui:copy-to-clipboard";
+    const retainedDragDropEvent = "ui:init-drag-drop";
+    const canonicalRpc = "utility:copy-to-clipboard";
+    const retiredRpc = "ui:copy-to-clipboard";
+
+    const expectTransportState = ({ event, dragDrop, canonical, retired }) => {
+      expect(fixture.eventBus.getListenerCount(retainedEvent)).toBe(event);
+      expect(fixture.eventBus.getListenerCount(retainedDragDropEvent)).toBe(
+        dragDrop,
+      );
+      expect(fixture.eventBus.getListenerCount(`rpc:${canonicalRpc}`)).toBe(
+        canonical,
+      );
+      expect(fixture.eventBus.getListenerCount(`rpc:${retiredRpc}`)).toBe(
+        retired,
+      );
+    };
+
+    it("keeps retained UI events and the canonical clipboard RPC live across teardown, reinitialization, and replacement", async () => {
+      const predecessorCopy = vi
+        .spyOn(service, "copyToClipboard")
+        .mockResolvedValue({
+          success: true,
+          message: "content_copied_to_clipboard",
+        });
+      const initDragAndDrop = vi.spyOn(service, "initDragAndDrop");
+
+      expectTransportState({
+        event: 0,
+        dragDrop: 0,
+        canonical: 0,
+        retired: 0,
+      });
+
+      service.init();
+      service.init();
+
+      expectTransportState({
+        event: 1,
+        dragDrop: 1,
+        canonical: 1,
+        retired: 0,
+      });
+
+      fixture.eventBus.emit(retainedEvent, { text: "event copy" });
+      await vi.waitFor(() => {
+        expect(predecessorCopy).toHaveBeenCalledWith("event copy");
+        expect(fixture.getEventsOfType("ui:clipboard-result")).toHaveLength(1);
+      });
+
+      const dragContainer = document.createElement("div");
+      document.body.appendChild(dragContainer);
+      fixture.eventBus.emit(retainedDragDropEvent, {
+        container: dragContainer,
+        options: { draggableSelector: ".drag-probe" },
+      });
+      expect(initDragAndDrop).toHaveBeenCalledWith(dragContainer, {
+        draggableSelector: ".drag-probe",
+      });
+      expect(fixture.getEventsOfType("ui:drag-drop-initialized")).toHaveLength(
+        1,
+      );
+      dragContainer.remove();
+
+      await expect(
+        service.request(canonicalRpc, { text: "rpc copy" }),
+      ).resolves.toEqual({
+        success: true,
+        message: "content_copied_to_clipboard",
+      });
+      expect(predecessorCopy).toHaveBeenCalledWith("rpc copy");
+
+      service.destroy();
+      expectTransportState({
+        event: 0,
+        dragDrop: 0,
+        canonical: 0,
+        retired: 0,
+      });
+
+      fixture.eventBus.emit(retainedEvent, { text: "after destroy" });
+      await Promise.resolve();
+      expect(predecessorCopy).not.toHaveBeenCalledWith("after destroy");
+
+      service.init();
+      expectTransportState({
+        event: 1,
+        dragDrop: 1,
+        canonical: 1,
+        retired: 0,
+      });
+
+      fixture.eventBus.emit(retainedEvent, { text: "after reinit" });
+      await vi.waitFor(() => {
+        expect(predecessorCopy).toHaveBeenCalledWith("after reinit");
+      });
+
+      service.destroy();
+      const predecessorCallCount = predecessorCopy.mock.calls.length;
+      const replacement = new UIUtilityService(fixture.eventBus);
+      service = replacement;
+      const replacementCopy = vi
+        .spyOn(replacement, "copyToClipboard")
+        .mockResolvedValue({
+          success: true,
+          message: "content_copied_to_clipboard",
+        });
+      replacement.init();
+
+      expectTransportState({
+        event: 1,
+        dragDrop: 1,
+        canonical: 1,
+        retired: 0,
+      });
+
+      fixture.eventBus.emit(retainedEvent, { text: "replacement copy" });
+      await vi.waitFor(() => {
+        expect(replacementCopy).toHaveBeenCalledOnce();
+      });
+      expect(replacementCopy).toHaveBeenCalledWith("replacement copy");
+      expect(predecessorCopy).toHaveBeenCalledTimes(predecessorCallCount);
     });
   });
 

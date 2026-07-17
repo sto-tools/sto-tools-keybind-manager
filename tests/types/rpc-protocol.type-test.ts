@@ -35,6 +35,9 @@ type KnownTopic = Expect<
 type PreferenceInitResult = Expect<
   Equal<RpcResult<"preferences:init">, undefined>
 >;
+type UtilityClipboardRequest = Expect<
+  Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
+>;
 
 const aliasHandler: RpcHandler<"alias:add"> = (payload = {}) =>
   payload.name
@@ -173,6 +176,16 @@ type RemovedSettingsAction = RpcRequest<"data:update-settings">;
 type RemovedDefaultDataAction = RpcRequest<"data:load-default-data">;
 // @ts-expect-error Parser metrics remain direct diagnostic instrumentation.
 type RemovedParserMetricsQuery = RpcRequest<"parser:get-performance-metrics">;
+// @ts-expect-error Alias file import is owned by the canonical import action.
+type RemovedAliasImportFile = RpcRequest<"alias:import-file">;
+// @ts-expect-error The legacy export import bridge has been retired.
+type RemovedExportImportFile = RpcRequest<"export:import-from-file">;
+// @ts-expect-error Automatic file detection has no shipped RPC consumer.
+type RemovedImportFromFile = RpcRequest<"import:from-file">;
+// @ts-expect-error Clipboard requests use the canonical utility namespace.
+type RemovedUiClipboardRequest = RpcRequest<"ui:copy-to-clipboard">;
+// @ts-expect-error Toast delivery is an event, not a request/response action.
+type RemovedUiToastRequest = RpcRequest<"ui:show-toast">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -185,8 +198,13 @@ declare const forwardedTopic: string;
 const parameterBuildHandler: RpcHandler<"parameter-command:build"> = () => [
   parsedCommand,
 ];
-declare const responderOnlyOptionalHandler: RpcHandler<"ui:copy-to-clipboard">;
-responderOnlyOptionalHandler();
+const utilityClipboardHandler: RpcHandler<
+  "utility:copy-to-clipboard"
+> = () => ({
+  success: true,
+  message: "content_copied_to_clipboard",
+});
+utilityClipboardHandler();
 
 type DynamicTopicRemainsBranded = Expect<
   Equal<typeof dynamicTopic extends string ? true : false, true>
@@ -331,6 +349,18 @@ async function exerciseCoreApi() {
   request(eventBus, "data:load-default-data");
   // @ts-expect-error Parser metrics are inspected directly by diagnostics and tests.
   request(eventBus, "parser:get-performance-metrics");
+  // @ts-expect-error Alias import uses import:alias-file directly.
+  request(eventBus, "alias:import-file", { content: "alias test test" });
+  // @ts-expect-error The legacy export import bridge is retired.
+  request(eventBus, "export:import-from-file", {
+    file: new File([], "x.json"),
+  });
+  // @ts-expect-error Automatic file detection is not an application RPC.
+  request(eventBus, "import:from-file", { file: new File([], "x.json") });
+  // @ts-expect-error Clipboard requests use utility:copy-to-clipboard.
+  request(eventBus, "ui:copy-to-clipboard", { text: "copy" });
+  // @ts-expect-error Toast delivery uses the toast:show event.
+  request(eventBus, "ui:show-toast", { message: "Saved" });
   // @ts-expect-error Retired preference queries cannot be reintroduced by consumers.
   request(eventBus, "preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Retired preference snapshots cannot be reintroduced by consumers.
@@ -355,6 +385,16 @@ async function exerciseCoreApi() {
   }));
   // @ts-expect-error Internal parser metrics cannot regain a responder.
   respond(eventBus, "parser:get-performance-metrics", () => []);
+  // @ts-expect-error Alias import cannot regain its legacy forwarding responder.
+  respond(eventBus, "alias:import-file", () => undefined);
+  // @ts-expect-error Export cannot regain its legacy import forwarding responder.
+  respond(eventBus, "export:import-from-file", () => undefined);
+  // @ts-expect-error Automatic file detection cannot regain an RPC responder.
+  respond(eventBus, "import:from-file", () => undefined);
+  // @ts-expect-error Clipboard cannot regain the retired UI-namespaced responder.
+  respond(eventBus, "ui:copy-to-clipboard", () => undefined);
+  // @ts-expect-error Toast delivery cannot regain a request/response responder.
+  respond(eventBus, "ui:show-toast", () => undefined);
   // @ts-expect-error Retired preference queries cannot regain responders.
   respond(eventBus, "preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

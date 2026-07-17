@@ -10,6 +10,10 @@ component.addEventListener("toast:show", (payload) => {
   payload.duration?.toFixed();
 });
 component.emit("toast:show", { message: "Saved", type: "success" });
+component.addEventListener("ui:copy-to-clipboard", ({ text }) => {
+  text.toUpperCase();
+});
+component.emit("ui:copy-to-clipboard", { text: "Copy me" });
 component.addEventListener("key-browser:state-changed", (state) => {
   state.authorityEpoch.toFixed();
   state.revision.toFixed();
@@ -66,6 +70,18 @@ async function exerciseComponentRpc() {
   component.request("data:load-default-data");
   // @ts-expect-error Parser metrics remain direct diagnostic instrumentation.
   component.request("parser:get-performance-metrics");
+  // @ts-expect-error Alias import uses the canonical import action.
+  component.request("alias:import-file", { content: "alias test test" });
+  // @ts-expect-error The legacy export import bridge is retired.
+  component.request("export:import-from-file", {
+    file: new File([], "x.json"),
+  });
+  // @ts-expect-error Automatic file detection is not an application RPC.
+  component.request("import:from-file", { file: new File([], "x.json") });
+  // @ts-expect-error Clipboard requests use utility:copy-to-clipboard.
+  component.request("ui:copy-to-clipboard", { text: "Copy me" });
+  // @ts-expect-error Toast delivery uses the toast:show event.
+  component.request("ui:show-toast", { message: "Saved" });
   // @ts-expect-error Preference values are read from the component cache.
   component.request("preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Preference snapshots arrive through broadcasts and late join.
@@ -111,6 +127,16 @@ async function exerciseComponentRpc() {
   }));
   // @ts-expect-error Internal parser metrics cannot regain a responder.
   component.respond("parser:get-performance-metrics", () => []);
+  // @ts-expect-error Alias import cannot regain its forwarding responder.
+  component.respond("alias:import-file", () => undefined);
+  // @ts-expect-error Export cannot regain its import forwarding responder.
+  component.respond("export:import-from-file", () => undefined);
+  // @ts-expect-error Automatic file detection cannot regain an RPC responder.
+  component.respond("import:from-file", () => undefined);
+  // @ts-expect-error Clipboard cannot regain the retired UI responder.
+  component.respond("ui:copy-to-clipboard", () => undefined);
+  // @ts-expect-error Toast delivery cannot regain a request/response responder.
+  component.respond("ui:show-toast", () => undefined);
   // @ts-expect-error Retired preference queries cannot regain responders.
   component.respond("preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

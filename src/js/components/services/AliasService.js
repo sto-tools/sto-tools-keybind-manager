@@ -46,11 +46,6 @@ export default class AliasService extends ComponentBase {
         ({ name } = /** @type {{ name?: string }} */ ({})) =>
           this.isValidAliasName(name),
       );
-      this.respond(
-        "alias:import-file",
-        ({ content } = /** @type {{ content?: string }} */ ({})) =>
-          this.importAliasFile(content),
-      );
     }
   }
 
@@ -284,27 +279,5 @@ export default class AliasService extends ComponentBase {
       const pattern = /^[A-Za-z][A-Za-z0-9_]*$/;
       return pattern.test(name) && name.length <= 50;
     }
-  }
-
-  // Import operations
-  /**
-   * @param {string | undefined} content
-   * @returns {Promise<import('../../types/rpc/aliases.js').AliasImportResult> | import('../../types/rpc/aliases.js').AliasImportResult}
-   */
-  importAliasFile(content) {
-    const profileId = this.serviceCache.currentProfile;
-
-    if (typeof content !== "string") {
-      return { success: false, error: "import_failed" };
-    }
-    if (!profileId) {
-      return { success: false, error: "no_active_profile" };
-    }
-
-    // Delegate to ImportService for complete import handling
-    return this.request("import:alias-file", {
-      content,
-      profileId,
-    });
   }
 }

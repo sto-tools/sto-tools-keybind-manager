@@ -188,7 +188,6 @@
  *
  * @typedef {Object} AppFacade
  * @property {(modified: boolean) => void} [setModified]
- * @property {() => string | null | undefined} [getCurrentProfileId]
  * @property {(definition: unknown) => void} [populateParameterModal]
  * @property {(tab: string) => void} [populateKeyTab]
  * @property {() => void} [populateVertigoModal]

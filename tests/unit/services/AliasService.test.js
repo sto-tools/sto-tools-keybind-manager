@@ -467,20 +467,4 @@ describe("AliasService", () => {
       expect(aliasData.description).toBe(""); // Default description
     });
   });
-
-  describe("Alias Import", () => {
-    it("should delegate alias files through the component request API", async () => {
-      const importResult = { success: true, imported: 2 };
-      service.request.mockResolvedValueOnce(importResult);
-
-      await expect(
-        service.importAliasFile("alias Test <& FireAll &>"),
-      ).resolves.toBe(importResult);
-
-      expect(service.request).toHaveBeenCalledWith("import:alias-file", {
-        content: "alias Test <& FireAll &>",
-        profileId: "test-profile",
-      });
-    });
-  });
 });

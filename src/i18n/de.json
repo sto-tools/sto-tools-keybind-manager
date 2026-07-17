@@ -827,7 +827,6 @@
   "failed_to_rename_profile": "Fehler beim Umbenennen des Profils: {{error}}",
   "ground_build": "Boden-Build",
   "import_failed_invalid_json": "Import fehlgeschlagen: Ungültiges JSON-Format",
-  "import_failed_unsupported_format": "Import fehlgeschlagen: Nicht unterstütztes Dateiformat",
   "no_content_available": "Kein Inhalt verfügbar",
   "no_valid_profile": "Kein gültiges Profil verfügbar",
   "profile_already_exists": "Profil existiert bereits",

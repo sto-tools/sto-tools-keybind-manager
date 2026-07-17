@@ -62,9 +62,6 @@ export default class ExportService extends ComponentBase {
       this.respond("export:generate-alias-filename", ({ profile, extension }) =>
         this.generateAliasFileName(profile, extension),
       ),
-      this.respond("export:import-from-file", ({ file }) =>
-        this.request("import:from-file", { file }),
-      ),
       this.respond(
         "export:generate-keybind-file",
         async ({ profileId, environment = "space", syncMode = false }) => {
@@ -285,13 +282,6 @@ export default class ExportService extends ComponentBase {
     content += "\n";
     return content;
   }
-
-  /* ---------------------------------------------------------- */
-  /* Import delegation methods removed - use ImportService directly */
-  /* Use: await this.request('import:from-file', { file })          */
-  /* Use: await this.request('import:project-file', { content })    */
-  /* Use: await this.request('import:profile-file', { content })    */
-  /* ---------------------------------------------------------- */
 
   /* ---------------------------------------------------------- */
   /* Alias file generation                                      */

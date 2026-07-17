@@ -142,6 +142,7 @@ const dataService = new DataService({
   // ExportService is now created and managed by app.js - remove duplicate instance
   // Create UI utility service
   const uiUtilityService = new UIUtilityService(eventBus);
+  uiUtilityService.init();
 
   // Helper to bridge legacy UI components with the new utility service
   /**

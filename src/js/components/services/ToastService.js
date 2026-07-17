@@ -11,37 +11,24 @@ export default class ToastService extends ComponentBase {
     this.i18n = i18n;
 
     this.containerId = containerId;
+  }
 
-    // Register request/response endpoints
-    if (this.eventBus) {
-      this.respond(
-        "ui:show-toast",
-        (
-          /** @type {{ message: string, type?: string, duration?: number }} */ {
-            message,
-            type = "info",
-            duration = 3000,
-          },
-        ) => {
-          this.showToast(message, type, duration);
-          return true;
-        },
-      );
+  onInit() {
+    if (!this.eventBus) return;
 
-      // Also listen for toast:show events (used by most components)
-      this.addEventListener(
-        "toast:show",
-        (
-          /** @type {{ message: string, type?: string, duration?: number }} */ {
-            message,
-            type = "info",
-            duration = 3000,
-          },
-        ) => {
-          this.showToast(message, type, duration);
+    // Listen for toast:show events (used by most components)
+    this.addEventListener(
+      "toast:show",
+      (
+        /** @type {{ message: string, type?: string, duration?: number }} */ {
+          message,
+          type = "info",
+          duration = 3000,
         },
-      );
-    }
+      ) => {
+        this.showToast(message, type, duration);
+      },
+    );
   }
 
   // Show a toast message.

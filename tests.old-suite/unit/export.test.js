@@ -807,21 +807,6 @@ describe('ExportService', () => {
   })
 
   describe('import functionality', () => {
-    it('should import from file', () => {
-      // Test the import method exists and can handle file types
-      expect(typeof exportManager.importFromFile).toBe('function')
-
-      // Test JSON import directly
-      const validJSON = JSON.stringify({
-        type: 'profile',
-        profile: { name: 'Test', keys: {}, aliases: {} },
-      })
-
-      expect(() => {
-        exportManager.importJSONFile(validJSON)
-      }).not.toThrow()
-    })
-
     it('should validate imported JSON structure', () => {
       const validJSON = JSON.stringify({
         type: 'profile',

@@ -7,24 +7,6 @@ function isJsonObject(value) {
 }
 
 /**
- * Apply only the top-level gate needed before the legacy profile sanitizer.
- * Recursive profile validation is intentionally deferred to Phase 2.
- * @param {string} content
- * @returns {(Record<string, unknown> & { name: string }) | null}
- */
-export function parseProfileJson(content) {
-  const parsed = /** @type {unknown} */ (JSON.parse(content));
-  if (
-    !isJsonObject(parsed) ||
-    typeof parsed.name !== "string" ||
-    !parsed.name.trim()
-  ) {
-    return null;
-  }
-  return /** @type {Record<string, unknown> & { name: string }} */ (parsed);
-}
-
-/**
  * Apply only the project-envelope gate needed before legacy field handling.
  * Recursive project validation is intentionally deferred to Phase 2.
  * @param {string} content

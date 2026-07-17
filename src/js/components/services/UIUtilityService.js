@@ -29,8 +29,11 @@ export default class UIUtilityService extends ComponentBase {
     };
     /** @type {DetachFunction[]} */
     this.requestDetachers = [];
+  }
 
+  onInit() {
     this.setupEventListeners();
+    this.setupRequestHandlers();
   }
 
   onDestroy() {
@@ -44,29 +47,27 @@ export default class UIUtilityService extends ComponentBase {
   }
 
   setupEventListeners() {
-    const eventBus = this.eventBus;
-    if (!eventBus) return;
+    if (!this.eventBus) return;
 
     // Clipboard operations
-    eventBus.on("ui:copy-to-clipboard", this.handleCopyToClipboard.bind(this));
+    this.addEventListener(
+      "ui:copy-to-clipboard",
+      this.handleCopyToClipboard.bind(this),
+    );
 
     // Drag and drop
-    eventBus.on("ui:init-drag-drop", this.handleInitDragDrop.bind(this));
-
-    // Request/Response handlers for operations that need return values
-    this.setupRequestHandlers();
+    this.addEventListener(
+      "ui:init-drag-drop",
+      this.handleInitDragDrop.bind(this),
+    );
   }
 
   setupRequestHandlers() {
-    // Store detach functions for cleanup
-    this.requestDetachers = [];
+    if (!this.eventBus || this.requestDetachers.length > 0) return;
 
     const copyHandler = async (
       { text = "" } = /** @type {{ text?: string }} */ ({}),
     ) => this.copyToClipboard(text);
-    this.requestDetachers.push(
-      this.respond("ui:copy-to-clipboard", copyHandler),
-    );
     this.requestDetachers.push(
       this.respond("utility:copy-to-clipboard", copyHandler),
     );

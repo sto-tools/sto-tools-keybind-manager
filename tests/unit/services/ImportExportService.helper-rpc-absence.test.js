@@ -7,7 +7,6 @@ import { createServiceFixture } from "../../fixtures/index.js";
 const activeTopics = [
   "export:generate-filename",
   "export:generate-alias-filename",
-  "export:import-from-file",
   "export:generate-keybind-file",
   "export:generate-alias-file",
   "export:sync-to-folder",
@@ -15,12 +14,13 @@ const activeTopics = [
   "import:alias-file",
   "import:kbf-file",
   "import:project-file",
-  "import:from-file",
   "parse-kbf-file",
 ];
 
 const retiredTopics = [
   "export:extract-keys",
+  "export:import-from-file",
+  "import:from-file",
   "import:validate-kbf-file",
   "import:validate-keybind-file",
 ];

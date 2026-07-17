@@ -7,7 +7,6 @@ import { createServiceFixture } from "../fixtures/index.js";
 const activeTopics = [
   "export:generate-filename",
   "export:generate-alias-filename",
-  "export:import-from-file",
   "export:generate-keybind-file",
   "export:generate-alias-file",
   "export:sync-to-folder",
@@ -15,12 +14,13 @@ const activeTopics = [
   "import:alias-file",
   "import:kbf-file",
   "import:project-file",
-  "import:from-file",
   "parse-kbf-file",
 ];
 
 const retiredTopics = [
   "export:extract-keys",
+  "export:import-from-file",
+  "import:from-file",
   "import:validate-kbf-file",
   "import:validate-keybind-file",
 ];
@@ -66,8 +66,8 @@ describe("ImportService and ExportService RPC lifecycle", () => {
 
   it("transfers one complete responder set to replacement services", async () => {
     const predecessor = createServicePair();
-    const predecessorImportFromFile = vi
-      .spyOn(predecessor.importService, "importFromFile")
+    const predecessorImportProjectFile = vi
+      .spyOn(predecessor.importService, "importProjectFile")
       .mockResolvedValue({
         success: true,
         message: "predecessor_imported",
@@ -101,8 +101,8 @@ describe("ImportService and ExportService RPC lifecycle", () => {
       imported: { profiles: 1, settings: false },
       currentProfile: "replacement",
     };
-    const replacementImportFromFile = vi
-      .spyOn(replacement.importService, "importFromFile")
+    const replacementImportProjectFile = vi
+      .spyOn(replacement.importService, "importProjectFile")
       .mockResolvedValue(replacementResult);
 
     replacement.exportService.init();
@@ -113,15 +113,16 @@ describe("ImportService and ExportService RPC lifecycle", () => {
     expectResponderCount(fixture.eventBus, activeTopics, 1);
     expectResponderCount(fixture.eventBus, retiredTopics, 0);
 
-    const file = new File(["{}"], "replacement.json", {
-      type: "application/json",
+    const content = JSON.stringify({
+      app: "sto-keybind-manager",
+      data: { profiles: {} },
     });
 
     await expect(
-      replacement.exportService.request("export:import-from-file", { file }),
+      replacement.importService.request("import:project-file", { content }),
     ).resolves.toEqual(replacementResult);
-    expect(predecessorImportFromFile).not.toHaveBeenCalled();
-    expect(replacementImportFromFile).toHaveBeenCalledOnce();
-    expect(replacementImportFromFile).toHaveBeenCalledWith(file);
+    expect(predecessorImportProjectFile).not.toHaveBeenCalled();
+    expect(replacementImportProjectFile).toHaveBeenCalledOnce();
+    expect(replacementImportProjectFile).toHaveBeenCalledWith(content, {});
   });
 });

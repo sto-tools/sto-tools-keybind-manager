@@ -825,7 +825,6 @@
   "failed_to_rename_profile": "Échec du renommage du profil : {{error}}",
   "ground_build": "Construction Sol",
   "import_failed_invalid_json": "Importation échouée : Format JSON invalide",
-  "import_failed_unsupported_format": "Importation échouée : Format de fichier non pris en charge",
   "no_content_available": "Aucun contenu disponible",
   "no_valid_profile": "Aucun profil valide disponible",
   "profile_already_exists": "Le profil existe déjà",

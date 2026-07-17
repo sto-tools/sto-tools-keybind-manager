@@ -17,8 +17,7 @@ describe('ExportService Storage Dependency Injection', () => {
         version: '1.0.0',
         profiles: {},
         settings: {}
-      }),
-      importData: vi.fn().mockReturnValue(true)
+      })
     }
 
     // Create ExportService with storage dependency
@@ -34,51 +33,6 @@ describe('ExportService Storage Dependency Injection', () => {
     it('should work without storage dependency (for backward compatibility)', () => {
       const serviceWithoutStorage = new ExportService({})
       expect(serviceWithoutStorage.storage).toBeUndefined()
-    })
-  })
-
-  describe('importJSONFile', () => {
-    it('should use injected storage service for project imports', () => {
-      const projectData = {
-        type: 'project',
-        data: { profiles: {}, settings: {} }
-      }
-
-      const result = exportService.importJSONFile(JSON.stringify(projectData))
-
-      expect(mockStorage.importData).toHaveBeenCalledWith(JSON.stringify(projectData.data))
-      expect(result).toBe(true)
-    })
-
-    it('should throw error when storage is not available for project imports', () => {
-      const serviceWithoutStorage = new ExportService({})
-      const projectData = {
-        type: 'project',
-        data: { profiles: {}, settings: {} }
-      }
-
-      expect(() => {
-        serviceWithoutStorage.importJSONFile(JSON.stringify(projectData))
-      }).toThrow('Storage service not available')
-    })
-
-    it('should handle profile imports without storage dependency', () => {
-      // Profile imports use window.app.profileService, not storage directly
-      const profileData = {
-        type: 'profile',
-        profile: { name: 'Test Profile', keys: {}, aliases: {} }
-      }
-
-      // Mock window.app.profileService
-      global.window = global.window || {}
-      global.window.app = {
-        profileService: {
-          createProfile: vi.fn().mockReturnValue({ success: true, profileId: 'test' })
-        }
-      }
-
-      const result = exportService.importJSONFile(JSON.stringify(profileData))
-      expect(result).toEqual({ success: true, profileId: 'test' })
     })
   })
 
@@ -101,19 +55,11 @@ describe('ExportService Storage Dependency Injection', () => {
   })
 
   describe('regression test for original bug', () => {
-    it('should not throw ReferenceError when calling methods that need storage', () => {
+    it('should not throw ReferenceError when syncing with injected storage', () => {
       // This test verifies that the original bug (ReferenceError: storageService is not defined) is fixed
-      expect(() => {
-        const projectData = {
-          type: 'project',
-          data: { profiles: {}, settings: {} }
-        }
-        exportService.importJSONFile(JSON.stringify(projectData))
-      }).not.toThrow('storageService is not defined')
-
       expect(() => {
         exportService.syncToFolder({})
       }).not.toThrow('storageService is not defined')
     })
   })
-}) 
+})

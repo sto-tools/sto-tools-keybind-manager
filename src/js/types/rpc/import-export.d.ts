@@ -5,7 +5,6 @@ import type {
   KBFParseResult,
   Profile,
   RequiredRpc,
-  ResponderOnlyRequiredRpc,
   UnknownRecord,
 } from "./base.js";
 import type { AliasImportResult } from "./aliases.js";
@@ -48,19 +47,6 @@ export type ProjectImportResult =
       | "invalid_project_file"
       | "import_failed_invalid_json"
     >;
-
-export type ProfileImportResult =
-  | { success: true; profileId: string; profile: unknown }
-  | CodedFailure<
-      | "storage_not_available"
-      | "invalid_profile_file"
-      | "import_failed_invalid_json"
-    >;
-
-export type ImportFromFileResult =
-  | ProjectImportResult
-  | ProfileImportResult
-  | KeybindImportResult;
 
 export type KBFImportError =
   | "invalid_kbf_file_content"
@@ -169,10 +155,6 @@ export interface ImportExportRpcProtocol {
     { profileId: string; environment?: string; syncMode?: boolean },
     string
   >;
-  "export:import-from-file": ResponderOnlyRequiredRpc<
-    { file: File },
-    ImportFromFileResult
-  >;
   "export:sync-to-folder": RequiredRpc<
     { dirHandle: FileSystemDirectoryHandle },
     undefined
@@ -186,7 +168,6 @@ export interface ImportExportRpcProtocol {
     },
     AliasImportResult
   >;
-  "import:from-file": RequiredRpc<{ file: File }, ImportFromFileResult>;
   "import:kbf-file": RequiredRpc<
     {
       content: string;

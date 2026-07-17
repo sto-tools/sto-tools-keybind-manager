@@ -1,9 +1,4 @@
-import type {
-  CodedFailure,
-  OptionalRpc,
-  RequiredRpc,
-  ResponderOnlyOptionalRpc,
-} from "./base.js";
+import type { CodedFailure, OptionalRpc, RequiredRpc } from "./base.js";
 
 export type AliasMutationInput = {
   name?: string;
@@ -68,10 +63,6 @@ export interface AliasRpcProtocol {
   "alias:duplicate-with-name": OptionalRpc<
     { sourceName?: string; newName?: string },
     AliasDuplicateResult
-  >;
-  "alias:import-file": ResponderOnlyOptionalRpc<
-    { content?: string },
-    AliasImportResult
   >;
   "alias:select": RequiredRpc<{ aliasName: string | null }, string | null>;
   "alias:validate-name": OptionalRpc<{ name?: string }, boolean>;

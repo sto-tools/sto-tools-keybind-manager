@@ -7,7 +7,7 @@ import {
 } from "../../lib/commandDisplayAdapter.js";
 import { decodeKeyFromImport } from "../../lib/keyEncoding.js";
 import { KBFParser } from "../../lib/KBFParser.js";
-import { parseProfileJson, parseProjectJson } from "./importJsonBoundary.js";
+import { parseProjectJson } from "./importJsonBoundary.js";
 import { commitImportedProfile } from "./importProfileCommit.js";
 
 /** @typedef {import('./serviceTypes.js').AppWindow} AppWindow */
@@ -99,7 +99,6 @@ export default class ImportService extends ComponentBase {
       this.respond("import:project-file", ({ content, options = {} }) =>
         this.importProjectFile(content, options),
       ),
-      this.respond("import:from-file", ({ file }) => this.importFromFile(file)),
       this.respond("parse-kbf-file", ({ content, environment }) =>
         this.parseKBFFile(content, environment),
       ),
@@ -1072,47 +1071,6 @@ export default class ImportService extends ComponentBase {
     }
   }
 
-  // Import a standalone JSON profile file
-  /**
-   * @param {string} content
-   * @param {{ profileId?: string }} [options]
-   * @returns {Promise<import('../../types/rpc/import-export.js').ProfileImportResult>}
-   */
-  async importProfileFile(content, options = {}) {
-    try {
-      if (!this.storage)
-        return { success: false, error: "storage_not_available" };
-      const parsedProfile = parseProfileJson(content);
-      if (!parsedProfile)
-        return { success: false, error: "invalid_profile_file" };
-      const profileData =
-        /** @type {import('./serviceTypes.js').ProfileData & { name: string, mode?: string }} */ (
-          parsedProfile
-        );
-
-      const profileId =
-        options.profileId || this.generateProfileId(profileData.name);
-      const sanitizedProfile = this.sanitizeProfileData(profileData);
-      if (
-        (await this.storage.saveProfile(profileId, sanitizedProfile)) === false
-      ) {
-        throw new Error(`Storage rejected profile "${profileId}"`);
-      }
-
-      this.markAppModified();
-
-      return { success: true, profileId, profile: sanitizedProfile };
-    } catch (error) {
-      return {
-        success: false,
-        error: "import_failed_invalid_json",
-        params: {
-          reason: error instanceof Error ? error.message : String(error),
-        },
-      };
-    }
-  }
-
   // Import a complete project file
   /**
    * @param {string} content
@@ -1226,42 +1184,6 @@ export default class ImportService extends ComponentBase {
         error: "import_failed_invalid_json",
         params: { reason: getErrorMessage(error) },
       };
-    }
-  }
-
-  // Import from file (auto-detect format)
-  /**
-   * @param {File} file
-   * @returns {Promise<import('../../types/rpc/import-export.js').ImportFromFileResult>}
-   */
-  async importFromFile(file) {
-    const content = await file.text();
-    const filename = file.name.toLowerCase();
-
-    if (filename.endsWith(".json")) {
-      // Try to determine if it's a profile or project file
-      try {
-        const data = JSON.parse(content);
-        if (data.type === "project") {
-          return this.importProjectFile(content);
-        } else if (data.name) {
-          return this.importProfileFile(content);
-        } else {
-          throw new Error("Unknown JSON file format");
-        }
-      } catch {
-        throw new Error(this.translate("import_failed_invalid_json"));
-      }
-    } else if (filename.endsWith(".txt")) {
-      // Determine the current profile for import
-      const profileId = this.getCurrentProfileId();
-      if (!profileId) {
-        throw new Error(this.translate("no_profile_selected_for_import"));
-      }
-
-      return this.importKeybindFile(content, profileId);
-    } else {
-      throw new Error(this.translate("import_failed_unsupported_format"));
     }
   }
 
@@ -1431,23 +1353,6 @@ export default class ImportService extends ComponentBase {
         warnings,
       };
     }
-  }
-
-  getCurrentProfileId() {
-    // Get current profile ID from storage or app state
-    if (appWindow?.app?.getCurrentProfileId) {
-      return appWindow.app.getCurrentProfileId();
-    }
-
-    // Fallback: try to get from storage settings
-    const settings = this.storage?.getSettings?.();
-    return settings?.currentProfile;
-  }
-
-  /** @param {string} name */
-  generateProfileId(name) {
-    const base = name.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    return `${base}_${Date.now()}`;
   }
 
   /** @param {string} commandString */

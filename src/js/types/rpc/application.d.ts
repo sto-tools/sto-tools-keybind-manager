@@ -1,7 +1,6 @@
 import type {
   OptionalRpc,
   RequiredRpc,
-  ResponderOnlyOptionalRpc,
   ResponderOnlyRequiredRpc,
 } from "./base.js";
 import type { EditingContext } from "../events/base.js";
@@ -55,13 +54,5 @@ export interface ApplicationRpcProtocol {
     EditingContext | null
   >;
   "sync:sync-project": OptionalRpc<{ source?: string }, undefined>;
-  "ui:copy-to-clipboard": ResponderOnlyOptionalRpc<
-    { text?: string },
-    ClipboardResult
-  >;
-  "ui:show-toast": ResponderOnlyRequiredRpc<
-    { message: string; type?: string; duration?: number },
-    boolean
-  >;
   "utility:copy-to-clipboard": OptionalRpc<{ text?: string }, ClipboardResult>;
 }

@@ -52,6 +52,9 @@ type ToastPayloadIsRegistered = Expect<
     }
   >
 >;
+type ClipboardEventIsRegistered = Expect<
+  Equal<EventPayload<"ui:copy-to-clipboard">, { text: string }>
+>;
 type SelectionSnapshotIsRegisteredExactly = Expect<
   Equal<EventPayload<"selection:state-changed">, SelectionStateSnapshot>
 >;
@@ -111,6 +114,8 @@ bus.on("toast:show", (payload) => {
   payload.duration?.toFixed();
 });
 bus.emit("toast:show", { message: "Saved", type: "success" });
+bus.on("ui:copy-to-clipboard", ({ text }) => text.toUpperCase());
+bus.emit("ui:copy-to-clipboard", { text: "Copy me" });
 bus.emit("preferences:loaded", { settings: preferencesSettings });
 bus.emit("preferences:saved", { settings: preferencesSettings });
 bus.emit("preferences:changed", {
@@ -212,6 +217,8 @@ bus.emit("not-a-registered-event", null);
 bus.emit("toast:show");
 // @ts-expect-error Known event payloads are checked at the call site.
 bus.emit("toast:show", { message: "Saved" });
+// @ts-expect-error Clipboard event payloads require text.
+bus.emit("ui:copy-to-clipboard", {});
 
 declare const untypedTopic: string;
 // @ts-expect-error Widened strings must be registered or explicitly branded.

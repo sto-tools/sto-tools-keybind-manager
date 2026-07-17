@@ -102,15 +102,24 @@ describe("Application browser smoke", () => {
       "data:get-default-profiles",
       "data:has-commands",
       "export:extract-keys",
+      "alias:import-file",
+      "export:import-from-file",
+      "import:from-file",
       "import:validate-kbf-file",
       "import:validate-keybind-file",
       "key:compare",
       "key:filter",
       "key:show-all",
+      "ui:copy-to-clipboard",
+      "ui:show-toast",
       "vfx:get-virtual-aliases",
     ]) {
       expect(bus.hasListeners(`rpc:${topic}`), topic).toBe(false);
     }
+
+    expect(bus.hasListeners("ui:copy-to-clipboard")).toBe(true);
+    expect(bus.hasListeners("toast:show")).toBe(true);
+    expect(bus.hasListeners("rpc:utility:copy-to-clipboard")).toBe(true);
 
     expect(window.dataCoordinator?.getCurrentState?.().ready).toBe(true);
     await vi.waitFor(() => {

@@ -323,26 +323,6 @@ describe("ImportService", () => {
     });
   });
 
-  describe("importProfileFile", () => {
-    it("should fail when storage rejects a standalone profile write", async () => {
-      fixture.storage.saveProfile.mockReturnValueOnce(false);
-
-      const result = await service.importProfileFile(
-        JSON.stringify({
-          name: "Rejected Profile",
-          builds: { space: { keys: {} }, ground: { keys: {} } },
-        }),
-        { profileId: "rejected-profile" },
-      );
-
-      expect(result).toEqual({
-        success: false,
-        error: "import_failed_invalid_json",
-        params: { reason: 'Storage rejected profile "rejected-profile"' },
-      });
-    });
-  });
-
   describe("importKBFFile", () => {
     it("should reject invalid KBF format with validation error", async () => {
       const kbfContent = "SGVsbG8gV29ybGQ="; // Base64 encoded "Hello World" - not valid KBF

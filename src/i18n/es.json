@@ -828,7 +828,6 @@
   "failed_to_rename_profile": "Error al renombrar perfil: {{error}}",
   "ground_build": "Construcción Terrestre",
   "import_failed_invalid_json": "Importación falló: Formato JSON inválido",
-  "import_failed_unsupported_format": "Importación falló: Formato de archivo no soportado",
   "no_content_available": "No hay contenido disponible",
   "no_valid_profile": "No hay perfil válido disponible",
   "profile_already_exists": "El perfil ya existe",

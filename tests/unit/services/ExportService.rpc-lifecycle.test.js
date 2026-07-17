@@ -6,13 +6,12 @@ import { createServiceFixture } from "../../fixtures/index.js";
 const responderTopics = [
   "export:generate-filename",
   "export:generate-alias-filename",
-  "export:import-from-file",
   "export:generate-keybind-file",
   "export:generate-alias-file",
   "export:sync-to-folder",
 ];
 
-const retiredTopics = ["export:extract-keys"];
+const retiredTopics = ["export:extract-keys", "export:import-from-file"];
 
 const expectResponderCount = (eventBus, topics, expected) => {
   for (const topic of topics) {

@@ -8,11 +8,11 @@ const responderTopics = [
   "import:alias-file",
   "import:kbf-file",
   "import:project-file",
-  "import:from-file",
   "parse-kbf-file",
 ];
 
 const retiredTopics = [
+  "import:from-file",
   "import:validate-kbf-file",
   "import:validate-keybind-file",
 ];
