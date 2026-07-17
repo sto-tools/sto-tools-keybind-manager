@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import commandCategories from "../../data/commandCatalog.js";
 
 /**
  * CommandLibraryService - Handles all command library business logic
@@ -25,23 +26,6 @@ export default class CommandLibraryService extends ComponentBase {
     if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     this._responseDetachFunctions.push(
-      this.respond(
-        "command:find-definition",
-        (
-          {
-            command,
-          } = /** @type {{ command?: string | { command?: string, text?: string } }} */ ({}),
-        ) => this.findCommandDefinition(command),
-      ),
-      this.respond(
-        "command:get-warning",
-        (
-          {
-            command,
-          } = /** @type {{ command?: string | { command?: string, text?: string } }} */ ({}),
-        ) => this.getCommandWarning(command),
-      ),
-      this.respond("command:get-categories", () => this.getCommandCategories()),
       this.respond("command:generate-id", () => this.generateCommandId()),
       this.respond("command:filter-library", () => {
         this.filterCommandLibrary();
@@ -111,217 +95,17 @@ export default class CommandLibraryService extends ComponentBase {
     });
   }
 
-  // Find command definition and apply i18n translations
-  /** @param {string | { command?: string, text?: string } | undefined} command */
-  async findCommandDefinition(command) {
-    try {
-      const hasCommands = await this.request("data:has-commands");
-      if (!hasCommands) return null;
-
-      const categories = await this.request("data:get-commands");
-
-      // Support rich command objects or canonical strings (arrays already normalized)
-      const cmdString =
-        typeof command === "string"
-          ? command.trim()
-          : (command?.command || "").trim();
-      const cmdDisplay =
-        typeof command === "string"
-          ? command.trim()
-          : (command?.text || "").trim();
-
-      // First pass: exact matches only
-      for (const [categoryId, category] of Object.entries(categories)) {
-        for (const [cmdId, cmdData] of Object.entries(
-          category.commands || {},
-        )) {
-          if (cmdData.command === cmdString || cmdData.name === cmdDisplay) {
-            // Apply i18n translation to the command definition
-            const translatedDef = this.translateCommandDefinition(
-              cmdData,
-              cmdId,
-            );
-            return { ...translatedDef, commandId: cmdId, categoryId };
-          }
-        }
-      }
-
-      // Second pass: containment matches (only for specific known cases like tray commands)
-      for (const [categoryId, category] of Object.entries(categories)) {
-        for (const [cmdId, cmdData] of Object.entries(
-          category.commands || {},
-        )) {
-          if (cmdString && typeof cmdData.command === "string") {
-            // Build a base pattern (command keyword only, no parameters)
-            const basePatternRaw = cmdData.command.split(/\s+/)[0]; // e.g. '+STOTrayExecByTray'
-            // Build relaxed patterns – remove leading '+STO' or '+' so that
-            // '+TrayExecByTray', 'TrayExecByTray', '+STOTrayExecByTray' all match
-            const basePatternNoPlus = basePatternRaw.replace(/^\+/, "");
-            const basePatternNoStoPlus = basePatternRaw.replace(/^\+?STO/, "");
-            const basePatternPlusNoSto = basePatternRaw.replace(/^\+?STO/, "+"); // keeps leading '+' but drops STO
-
-            const variants = new Set([
-              basePatternRaw,
-              basePatternNoPlus,
-              basePatternNoStoPlus,
-              basePatternPlusNoSto,
-            ]);
-
-            // Escape regex special characters to avoid errors (e.g. leading '+')
-            /** @param {string} str */
-            const escapeRegex = (str) =>
-              str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-            const wordBoundaryRegexes = Array.from(variants)
-              .filter(Boolean)
-              .map((v) => new RegExp(`^${escapeRegex(v)}(\\s|$)`, "i"));
-
-            // Also test against cmdString without leading '+' so +Command matches definitions without plus.
-            const cmdStringNoPlus = cmdString.replace(/^\+/, "");
-            const startsWithBase = wordBoundaryRegexes.some(
-              (r) => r.test(cmdString) || r.test(cmdStringNoPlus),
-            );
-
-            // Only allow partial matching for specific cases:
-            // 1. Tray execution commands (contain "TrayExec")
-            // 2. Commands that start with the definition command (for parameterized commands)
-            const isTrayCommand = /TrayExec/i.test(cmdString);
-
-            if ((isTrayCommand && startsWithBase) || startsWithBase) {
-              // Apply i18n translation to the command definition
-              const translatedDef = this.translateCommandDefinition(
-                cmdData,
-                cmdId,
-              );
-              return { ...translatedDef, commandId: cmdId, categoryId };
-            }
-          }
-        }
-      }
-
-      return null;
-    } catch {
-      // Fallback if DataService not available
-      return null;
-    }
-  }
-
-  // Translate a command definition using i18n
-  /**
-   * @param {import('./serviceTypes.js').CommandDefinition} cmdData
-   * @param {string} cmdId
-   */
-  translateCommandDefinition(cmdData, cmdId) {
-    if (!this.i18n) return cmdData;
-
-    const translatedDef = { ...cmdData };
-
-    // Translate name – fall back to original if no translation available
-    const nameKey = `command_definitions.${cmdId}.name`;
-    translatedDef.name = this.i18n.t(nameKey, { defaultValue: cmdData.name });
-
-    // Translate description – fall back to original if no translation available
-    const descKey = `command_definitions.${cmdId}.description`;
-    translatedDef.description = this.i18n.t(descKey, {
-      defaultValue: cmdData.description,
-    });
-
-    return translatedDef;
-  }
-
-  // Get command warning information
-  /** @param {string | { command?: string, text?: string } | undefined} command */
-  async getCommandWarning(command) {
-    try {
-      const hasCommands = await this.request("data:has-commands");
-      if (!hasCommands) return null;
-
-      const categories = await this.request("data:get-commands");
-
-      // Normalize input – support canonical string or rich object
-      const cmdStr =
-        typeof command === "string"
-          ? command.trim()
-          : (command?.command || "").trim();
-
-      // First pass: exact matches only
-      for (const category of Object.values(categories)) {
-        for (const cmdData of Object.values(category.commands || {})) {
-          if (
-            (cmdStr && cmdData.command === cmdStr) ||
-            (typeof command === "object" &&
-              (cmdData.command === command.command ||
-                cmdData.name === command.text))
-          ) {
-            return cmdData.warning || null;
-          }
-        }
-      }
-
-      // Second pass: containment matches (only for specific known cases like tray commands)
-      for (const category of Object.values(categories)) {
-        for (const cmdData of Object.values(category.commands || {})) {
-          const target =
-            cmdStr || (typeof command === "string" ? "" : command?.command);
-          if (
-            target &&
-            typeof cmdData.command === "string" &&
-            target.includes(cmdData.command)
-          ) {
-            // Only allow partial matching for specific cases:
-            // 1. Tray execution commands (contain "TrayExec")
-            // 2. Commands that start with the definition command (for parameterized commands)
-            const isTrayCommand = target.includes("TrayExec");
-            const startsWithDefinition = target.startsWith(cmdData.command);
-
-            if (isTrayCommand || startsWithDefinition) {
-              return cmdData.warning || null;
-            }
-          }
-        }
-      }
-
-      return null;
-    } catch {
-      // Fallback if DataService not available
-      return null;
-    }
-  }
-
   // Generate a unique command ID
   generateCommandId() {
     return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
-  // Get command categories for the library
-  async getCommandCategories() {
-    try {
-      const hasCommands = await this.request("data:has-commands");
-      if (!hasCommands) return {};
-
-      // Deep-clone commands so we do NOT mutate the shared STO_DATA structure
-      const baseCategories = await this.request("data:get-commands");
-      const categories =
-        typeof structuredClone === "function"
-          ? structuredClone(baseCategories)
-          : JSON.parse(JSON.stringify(baseCategories));
-
-      return categories;
-    } catch {
-      return {};
-    }
-  }
-
   // Filter command library based on current environment
-  async filterCommandLibrary() {
+  filterCommandLibrary() {
     try {
-      const hasCommands = await this.request("data:has-commands");
-      if (!hasCommands) return;
-
       const commandItems = /** @type {NodeListOf<HTMLElement>} */ (
         document.querySelectorAll(".command-item")
       );
-      const commands = await this.request("data:get-commands");
 
       commandItems.forEach((item) => {
         const commandId = item.dataset.command;
@@ -329,7 +113,7 @@ export default class CommandLibraryService extends ComponentBase {
 
         // Find the command definition
         let commandDef = null;
-        for (const catData of Object.values(commands)) {
+        for (const catData of Object.values(commandCategories)) {
           if (catData.commands?.[commandId]) {
             commandDef = catData.commands[commandId];
             break;

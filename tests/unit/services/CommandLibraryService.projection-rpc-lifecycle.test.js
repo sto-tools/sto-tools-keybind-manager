@@ -3,14 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandLibraryService from "../../../src/js/components/services/CommandLibraryService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
-const responderTopics = [
+const responderTopics = ["command:generate-id", "command:filter-library"];
+const retiredTopics = [
+  "command:get-combined-aliases",
   "command:find-definition",
   "command:get-warning",
   "command:get-categories",
-  "command:generate-id",
-  "command:filter-library",
 ];
-const retiredTopics = ["command:get-combined-aliases"];
 
 const expectResponderState = (eventBus, topics, expected) => {
   for (const topic of topics) {
@@ -37,16 +36,14 @@ describe("CommandLibraryService projection responder lifecycle", () => {
   });
 
   it("never restores the retired query while transferring remaining responders", async () => {
-    const getCategories = vi
-      .spyOn(service, "getCommandCategories")
-      .mockResolvedValue({});
+    const filter = vi.spyOn(service, "filterCommandLibrary");
 
     expectResponderState(fixture.eventBus, responderTopics, true);
     expectResponderState(fixture.eventBus, retiredTopics, false);
 
     service.init();
-    await service.request("command:get-categories");
-    expect(getCategories).toHaveBeenCalledOnce();
+    await service.request("command:filter-library");
+    expect(filter).toHaveBeenCalledOnce();
 
     service.destroy();
     expectResponderState(fixture.eventBus, responderTopics, false);
@@ -55,7 +52,7 @@ describe("CommandLibraryService projection responder lifecycle", () => {
     service.init();
     expectResponderState(fixture.eventBus, responderTopics, true);
     expectResponderState(fixture.eventBus, retiredTopics, false);
-    await service.request("command:get-categories");
-    expect(getCategories).toHaveBeenCalledTimes(2);
+    await service.request("command:filter-library");
+    expect(filter).toHaveBeenCalledTimes(2);
   });
 });

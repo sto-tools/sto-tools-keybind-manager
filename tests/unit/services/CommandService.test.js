@@ -172,4 +172,28 @@ describe("CommandService mutations", () => {
       expect(val.command).toBe("FireAll");
     }
   });
+
+  it("checks environment restrictions through the imported command catalog", async () => {
+    await expect(service.isCommandCompatible("FireAll", "space")).resolves.toBe(
+      true,
+    );
+    await expect(
+      service.isCommandCompatible("FireAll", "ground"),
+    ).resolves.toBe(false);
+    await expect(service.isCommandCompatible("aim", "ground")).resolves.toBe(
+      true,
+    );
+    await expect(service.isCommandCompatible("aim", "space")).resolves.toBe(
+      false,
+    );
+  });
+
+  it("keeps universal and unknown commands compatible", async () => {
+    await expect(
+      service.isCommandCompatible("Target_Enemy_Near", "ground"),
+    ).resolves.toBe(true);
+    await expect(
+      service.isCommandCompatible("UnknownCommand", "space"),
+    ).resolves.toBe(true);
+  });
 });

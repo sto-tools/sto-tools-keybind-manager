@@ -1,0 +1,53 @@
+export default {
+  name: "Shield Management",
+  icon: "fas fa-shield-alt",
+  description: "Shield power and distribution management",
+  commands: {
+    distribute_shields: {
+      name: "Distribute Shields",
+      command: "+power_exec Distribute_Shields",
+      description:
+        "Evenly distributes shields as if clicking in the middle of the ship and shields icon",
+      syntax: "+power_exec Distribute_Shields",
+      environment: "space",
+      icon: "🛡️",
+      warning: "spam_bar_warning",
+    },
+    reroute_shields_rear: {
+      name: "Reroute Shields Rear",
+      command: "+power_exec reroute_shields_rear",
+      description: "Route shield power to rear facing",
+      syntax: "+power_exec reroute_shields_rear",
+      environment: "space",
+      icon: "🛡️",
+      warning: "spam_bar_warning",
+    },
+    reroute_shields_left: {
+      name: "Reroute Shields Left",
+      command: "+power_exec reroute_shields_left",
+      description: "Route shield power to left side",
+      syntax: "+power_exec reroute_shields_left",
+      environment: "space",
+      icon: "🛡️",
+      warning: "spam_bar_warning",
+    },
+    reroute_shields_right: {
+      name: "Reroute Shields Right",
+      command: "+power_exec reroute_shields_right",
+      description: "Route shield power to right side",
+      syntax: "+power_exec reroute_shields_right",
+      environment: "space",
+      icon: "🛡️",
+      warning: "spam_bar_warning",
+    },
+    reroute_shields_forward: {
+      name: "Reroute Shields Forward",
+      command: "+power_exec reroute_shields_forward",
+      description: "Route shield power to forward facing",
+      syntax: "+power_exec reroute_shields_forward",
+      environment: "space",
+      icon: "🛡️",
+      warning: "spam_bar_warning",
+    },
+  },
+};

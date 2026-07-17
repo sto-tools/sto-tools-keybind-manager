@@ -1,22 +1,10 @@
 import type {
-  CommandCategory,
-  CommandDefinition,
   NoPayloadRpc,
-  OptionalRpc,
   RequiredRpc,
   ResponderOnlyNoPayloadRpc,
   ResponderOnlyRequiredRpc,
   StoredCommand,
 } from "./base.js";
-
-type CommandReference = string | { command?: string; text?: string };
-export type CommandDefinitionMatch = CommandDefinition & {
-  categoryId: string;
-  commandId: string;
-  customizable?: boolean;
-  icon?: string;
-  parameters?: Record<string, unknown>;
-};
 
 export type CommandImportResult = {
   success: true;
@@ -74,10 +62,6 @@ export interface CommandRpcProtocol {
     boolean
   >;
   "command:filter-library": NoPayloadRpc<boolean>;
-  "command:find-definition": OptionalRpc<
-    { command?: CommandReference },
-    CommandDefinitionMatch | null
-  >;
   "command:generate-command-preview": RequiredRpc<
     { key: string; commands: StoredCommand[]; stabilize?: boolean },
     string
@@ -86,11 +70,6 @@ export interface CommandRpcProtocol {
   "command:generate-mirrored-commands": RequiredRpc<
     { commands?: StoredCommand[] },
     string
-  >;
-  "command:get-categories": NoPayloadRpc<Record<string, CommandCategory>>;
-  "command:get-warning": OptionalRpc<
-    { command?: CommandReference },
-    string | null
   >;
   "command:import-from-source": RequiredRpc<
     {

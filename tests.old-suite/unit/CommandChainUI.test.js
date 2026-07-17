@@ -58,8 +58,6 @@ describe('CommandChainUI', () => {
     }))
 
     respond(eventBus, 'command:get-for-selected-key', () => [])
-    respond(eventBus, 'command:find-definition', () => null)
-    respond(eventBus, 'command:get-warning', () => null)
   })
 
   afterEach(() => {
@@ -166,4 +164,4 @@ describe('CommandChainUI', () => {
       })
     })
   })
-}) 
+})

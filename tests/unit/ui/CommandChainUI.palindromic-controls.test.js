@@ -116,12 +116,6 @@ describe("CommandChainUI Palindromic Controls", () => {
         }
       }),
       request: vi.fn((endpoint) => {
-        if (endpoint === "command:find-definition") {
-          return Promise.resolve({ categoryId: "tray", customizable: false });
-        }
-        if (endpoint === "command:get-warning") {
-          return Promise.resolve(null);
-        }
         if (endpoint === "data:update-profile") {
           return Promise.resolve({ success: true });
         }

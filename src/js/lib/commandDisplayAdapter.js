@@ -10,6 +10,7 @@
 
 import { request } from "../core/requestResponse.js";
 import eventBus from "../core/eventBus.js";
+import { findCommandDefinition } from "../data/commandCatalog.js";
 
 /** @typedef {{ t: (key: string, options?: any) => string }} I18nLike */
 /** @typedef {Record<string, any>} CommandRecord */
@@ -58,17 +59,9 @@ export async function enrichForDisplay(commandString, i18n, options = {}) {
     const parsedCommand = parseResult.commands[0];
 
     // Try to get command definition for additional metadata
-    /** @type {CommandRecord | null} */
-    let commandDef = null;
-    try {
-      commandDef = /** @type {CommandRecord} */ (
-        await request(bus, "command:find-definition", {
-          command: commandString,
-        })
-      );
-    } catch {
-      // Command definition lookup failed, continue with parser data
-    }
+    const commandDef = /** @type {CommandRecord | null} */ (
+      findCommandDefinition(commandString, i18n)
+    );
 
     // Build the rich object
     const richObject = {

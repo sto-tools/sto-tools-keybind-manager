@@ -9,6 +9,7 @@ import {
   getSnapshotCommands,
   getSnapshotUserAliases,
 } from "./dataState.js";
+import { findCommandByName } from "../../data/commandCatalog.js";
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -921,9 +922,7 @@ export default class CommandService extends ComponentBase {
     }
 
     try {
-      const commandData = await this.request("data:find-command-by-name", {
-        command: normalizeToString(commandName),
-      });
+      const commandData = findCommandByName(normalizeToString(commandName));
 
       // Check command environment compatibility
 

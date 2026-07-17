@@ -82,9 +82,15 @@ describe("Application browser smoke", () => {
       "command:get-for-selected-key",
       "command:get-import-sources",
       "command:get-combined-aliases",
+      "command:find-definition",
+      "command:get-categories",
+      "command:get-warning",
       "command:is-stabilized",
       "command-chain:is-stabilized",
       "parameter-command:find-definition",
+      "data:find-command-by-name",
+      "data:get-commands",
+      "data:has-commands",
       "vfx:get-virtual-aliases",
     ]) {
       expect(bus.hasListeners(`rpc:${topic}`), topic).toBe(false);

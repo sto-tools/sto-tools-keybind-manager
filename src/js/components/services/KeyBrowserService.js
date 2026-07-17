@@ -1,5 +1,6 @@
 import ComponentBase from "../ComponentBase.js";
 import { activeBindsetFromPayload } from "../../core/eventPayloads.js";
+import commandCategories from "../../data/commandCatalog.js";
 import { compareKeyNames, sortKeyNames } from "./keySorting.js";
 import {
   applyBindsetCollapse,
@@ -196,30 +197,14 @@ export default class KeyBrowserService extends ComponentBase {
       },
     };
 
-    // Get command categories from data service
-    try {
-      const hasCommands = await this.request("data:has-commands");
-      if (hasCommands) {
-        const commandCategories = await this.request("data:get-commands");
-        Object.entries(
-          /** @type {Record<string, { name: string, icon: string }>} */ (
-            commandCategories
-          ),
-        ).forEach(([catId, catData]) => {
-          categories[catId] = {
-            name: catData.name,
-            icon: catData.icon,
-            keys: new Set(),
-            priority: 1,
-          };
-        });
-      }
-    } catch (error) {
-      console.warn(
-        "KeyBrowserService: Failed to get command categories:",
-        error,
-      );
-    }
+    Object.entries(commandCategories).forEach(([categoryId, category]) => {
+      categories[categoryId] = {
+        name: category.name || categoryId,
+        icon: category.icon || "",
+        keys: new Set(),
+        priority: 1,
+      };
+    });
 
     // Process each key's commands async
     await Promise.all(

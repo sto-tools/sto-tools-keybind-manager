@@ -51,7 +51,6 @@ describe("VFX virtual alias projection flow", () => {
 
     fixture = createServiceFixture();
     detachResponders = [
-      respond(fixture.eventBus, "data:has-commands", () => false),
       respond(
         fixture.eventBus,
         "parser:parse-command-string",

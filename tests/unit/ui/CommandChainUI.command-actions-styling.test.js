@@ -14,20 +14,6 @@ describe("CommandChainUI Command Actions Styling", () => {
   let commandChainUI;
 
   beforeAll(async () => {
-    // Mock request handlers used inside createCommandElement
-    respond(eventBus, "command:find-definition", ({ command }) => {
-      const isCustomizable = /Custom/i.test(command);
-      return {
-        name: "Test Command",
-        icon: "⚡",
-        categoryId: "test",
-        commandId: "test_command",
-        customizable: isCustomizable,
-      };
-    });
-
-    respond(eventBus, "command:get-warning", () => null);
-
     // Stub parser response to avoid request timeouts in enrichForDisplay
     respond(eventBus, "parser:parse-command-string", ({ commandString }) => {
       return {
@@ -105,7 +91,7 @@ describe("CommandChainUI Command Actions Styling", () => {
     it("should apply toolbar-group-like styling to command-actions", async () => {
       // Non-customizable command – should NOT include edit button
       const element = await commandChainUI.createCommandElement(
-        "StaticCommand",
+        "FireAll",
         0,
         1,
       );
@@ -135,7 +121,7 @@ describe("CommandChainUI Command Actions Styling", () => {
 
     it("should have buttons with command-action-btn styling", async () => {
       const element = await commandChainUI.createCommandElement(
-        "CustomCommand",
+        'Target "Enemy"',
         0,
         1,
       );
@@ -156,7 +142,7 @@ describe("CommandChainUI Command Actions Styling", () => {
 
     it("should apply danger styling to delete button", async () => {
       const element = await commandChainUI.createCommandElement(
-        "CustomCommand",
+        'Target "Enemy"',
         0,
         1,
       );
@@ -200,8 +186,8 @@ describe("CommandChainUI Command Actions Styling", () => {
     it("should emit edit event when edit button is clicked", async () => {
       const mockCommands = [
         {
-          command: "CustomCommand",
-          displayText: "Custom Command",
+          command: 'Target "Enemy"',
+          displayText: "Target Enemy",
           icon: "fas fa-test",
         },
       ];
@@ -245,8 +231,8 @@ describe("CommandChainUI Command Actions Styling", () => {
     it("should emit delete event when delete button is clicked", async () => {
       const mockCommands = [
         {
-          command: "CustomCommand",
-          displayText: "Custom Command",
+          command: 'Target "Enemy"',
+          displayText: "Target Enemy",
           icon: "fas fa-test",
         },
       ];
@@ -353,8 +339,8 @@ describe("CommandChainUI Command Actions Styling", () => {
     it("should maintain horizontal layout on mobile", async () => {
       const mockCommands = [
         {
-          command: "CustomCommand",
-          displayText: "Custom Command",
+          command: 'Target "Enemy"',
+          displayText: "Target Enemy",
           icon: "fas fa-test",
         },
       ];
@@ -399,8 +385,8 @@ describe("CommandChainUI Command Actions Styling", () => {
     it("should have proper titles on action buttons", async () => {
       const mockCommands = [
         {
-          command: "CustomCommand",
-          displayText: "Custom Command",
+          command: 'Target "Enemy"',
+          displayText: "Target Enemy",
           icon: "fas fa-test",
         },
       ];

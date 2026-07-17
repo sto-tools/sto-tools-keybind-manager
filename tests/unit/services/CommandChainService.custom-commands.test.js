@@ -108,11 +108,6 @@ describe("CommandChainService - Custom Commands", () => {
         };
       },
     );
-
-    respond(fixture.eventBus, "command:find-definition", () => {
-      // Return null for custom commands (no definition found)
-      return null;
-    });
   });
 
   afterEach(() => {

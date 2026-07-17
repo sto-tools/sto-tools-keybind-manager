@@ -9,6 +9,7 @@ import {
   createCommandLibraryAliasCategory,
   projectCommandLibraryBindsetAliases,
 } from "./commandLibraryAliasDom.js";
+import { getCommandCategories } from "../../data/commandCatalog.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
   globalThis
@@ -142,7 +143,7 @@ export default class CommandLibraryUI extends UIComponentBase {
 
       const fragment = this.document.createDocumentFragment();
 
-      const categories = await this.request("command:get-categories");
+      const categories = getCommandCategories();
       if (!isCurrent()) return;
       Object.entries(categories).forEach(([categoryId, category]) => {
         const categoryElement = this.createCategoryElement(

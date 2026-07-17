@@ -360,13 +360,8 @@ describe("CommandChainUI Stabilized Ordering", () => {
           .fn()
           .mockReturnValue('<div class="group-separator">Test Group</div>');
 
-        // Mock enrichForDisplay and command:find-definition
-        ui.request = vi.fn((endpoint) => {
-          if (endpoint === "command:find-definition") {
-            return Promise.resolve({ customizable: false });
-          }
-          return Promise.resolve({});
-        });
+        // Keep unrelated action requests isolated from this rendering test.
+        ui.request = vi.fn().mockResolvedValue({});
 
         // Mock enrichForDisplay by setting up global mock
         global.enrichForDisplay = vi.fn().mockResolvedValue({

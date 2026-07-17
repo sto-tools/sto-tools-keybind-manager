@@ -199,7 +199,6 @@ describe("CommandLibraryUI alias projection", () => {
 
   it("reattaches exactly one data-state render listener on same-instance reinit", async () => {
     detachResponders.push(
-      respond(fixture.eventBus, "command:get-categories", () => ({})),
       respond(fixture.eventBus, "command:filter-library", () => true),
     );
     const update = vi
@@ -227,48 +226,6 @@ describe("CommandLibraryUI alias projection", () => {
       }),
     });
     expect(update).toHaveBeenCalledOnce();
-  });
-
-  it("prevents a predecessor library rebuild from crossing destroy and reinit", async () => {
-    let phase = "old";
-    const releases = { old: [], current: [] };
-    detachResponders.push(
-      respond(
-        fixture.eventBus,
-        "command:get-categories",
-        () =>
-          new Promise((resolve) => {
-            releases[phase].push(resolve);
-          }),
-      ),
-      respond(fixture.eventBus, "command:filter-library", () => true),
-    );
-    vi.spyOn(ui, "updateCommandLibrary").mockResolvedValue(undefined);
-    vi.spyOn(ui, "createCategoryElement").mockImplementation((categoryId) => {
-      const element = document.createElement("div");
-      element.dataset.category = categoryId;
-      return element;
-    });
-
-    ui.init();
-    expect(releases.old).toHaveLength(1);
-    ui.destroy();
-    phase = "current";
-    ui.init();
-    expect(releases.current).toHaveLength(1);
-
-    releases.old[0]({ old: { commands: {} } });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(ui._rebuilding).toBe(true);
-    expect(document.querySelector('[data-category="old"]')).toBeNull();
-
-    releases.current[0]({ current: { commands: {} } });
-    await vi.waitFor(() => {
-      expect(document.querySelector('[data-category="current"]')).toBeTruthy();
-      expect(ui._rebuilding).toBe(false);
-    });
-    expect(document.querySelector('[data-category="old"]')).toBeNull();
   });
 
   it("clears alias DOM for a pre-ready DataCoordinator late-join reply", async () => {

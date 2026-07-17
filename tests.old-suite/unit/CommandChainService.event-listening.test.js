@@ -41,8 +41,6 @@ describe('CommandChainService Event Listening', () => {
         preview: 'test preview',
         commandCount: '2'
       })),
-      respond(eventBus, 'command:find-definition', () => null),
-      respond(eventBus, 'command:get-warning', () => null),
       // DataCoordinator integration - replace old profile:get-current and profile:save
       respond(eventBus, 'data:update-profile', () => ({ success: true }))
     )
@@ -121,4 +119,4 @@ describe('CommandChainService Event Listening', () => {
     // Verify that CommandChainService updated environment
     expect(commandChainService.currentEnvironment).toBe('ground')
   })
-}) 
+})

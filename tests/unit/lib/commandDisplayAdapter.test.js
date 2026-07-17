@@ -9,7 +9,7 @@ import {
 } from "../../../src/js/lib/commandDisplayAdapter.js";
 
 describe("Command Display Adapter", () => {
-  let fixture, eventBus, detachParserHandler, detachCommandDefHandler, mockI18n;
+  let fixture, eventBus, detachParserHandler, mockI18n;
 
   beforeEach(() => {
     fixture = createServiceFixture();
@@ -133,48 +133,20 @@ describe("Command Display Adapter", () => {
       },
     );
 
-    // Mock command definition lookup
-    detachCommandDefHandler = respond(
-      eventBus,
-      "command:find-definition",
-      ({ command }) => {
-        if (command === "FireAll") {
-          return {
-            command: "FireAll",
-            name: "Fire All Weapons",
-            description: "Fire all weapons",
-            icon: "🔥",
-            categoryId: "combat",
-            commandId: "fire_all",
-          };
-        }
-        if (command === "+TrayExecByTray 0 0") {
-          return {
-            command: "+TrayExecByTray 0 0",
-            name: "Tray Execution",
-            description: "Execute tray slot",
-            icon: "⚡",
-            categoryId: "trays",
-            commandId: "tray_exec",
-          };
-        }
-        return null;
-      },
-    );
-
     mockI18n = {
-      t: (key) => {
+      t: (key, { defaultValue } = {}) => {
         if (key === "unknown_command") return "Unknown Command";
         if (key === "command_definitions.fire_all.name")
           return "Fire All Weapons";
-        return key;
+        if (key === "command_definitions.custom_tray.name")
+          return "Tray Execution";
+        return defaultValue ?? key;
       },
     };
   });
 
   afterEach(() => {
     detachParserHandler();
-    detachCommandDefHandler();
     fixture.destroy();
   });
 
@@ -215,8 +187,8 @@ describe("Command Display Adapter", () => {
       expect(result2.command).toBe("");
       expect(result3.command).toBe("");
 
-      // For empty string from parser, we get the parsed result
-      expect(result1.text).toBe("");
+      // The empty catalog entry represents the customizable raw-command form.
+      expect(result1.text).toBe("Add Custom Command");
       // For null/undefined, fallback creates Unknown Command
       expect(result2.text).toBe("Unknown Command");
       expect(result3.text).toBe("Unknown Command");
@@ -359,7 +331,7 @@ describe("Command Display Adapter", () => {
       expect(enrichedObjects[0].command).toBe("FireAll");
       expect(enrichedObjects[0].text).toBe("Fire All Weapons");
       expect(enrichedObjects[1].command).toBe("+TrayExecByTray 0 0");
-      expect(enrichedObjects[1].text).toBe("Tray Execution");
+      expect(enrichedObjects[1].text).toBe("Tray Execution (0 0)");
     });
 
     it("should handle mixed legacy and canonical formats", () => {

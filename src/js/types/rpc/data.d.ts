@@ -1,8 +1,5 @@
 import type {
-  CommandCategory,
-  CommandDefinition,
   NoPayloadRpc,
-  OptionalRpc,
   Profile,
   ProfileOperations,
   ProfileUpdateResult,
@@ -80,13 +77,7 @@ export interface DataRpcProtocol {
       message: string;
     }
   >;
-  "data:find-command-by-name": OptionalRpc<
-    { command?: string },
-    (CommandDefinition & { categoryId: string; commandId: string }) | null
-  >;
-  "data:get-commands": NoPayloadRpc<Record<string, CommandCategory>>;
   "data:get-default-profiles": NoPayloadRpc<Record<string, Profile>>;
-  "data:has-commands": NoPayloadRpc<boolean>;
   "data:load-default-data": ResponderOnlyNoPayloadRpc<
     | {
         success: true;

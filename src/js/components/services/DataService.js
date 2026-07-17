@@ -72,52 +72,6 @@ export default class DataService extends ComponentBase {
   onInit() {
     // Set up request/response handlers for data access
     this.responseHandlers.push(
-      this.respond("data:get-commands", () => {
-        return this.data.commands || {};
-      }),
-    );
-
-    this.responseHandlers.push(
-      this.respond(
-        "data:find-command-by-name",
-        ({ command } = /** @type {{ command?: string }} */ ({})) => {
-          if (!this.data.commands || !command) return null;
-
-          // Search for command in library
-
-          // Search through all categories to find the command
-          for (const [categoryId, category] of Object.entries(
-            this.data.commands,
-          )) {
-            if (category.commands) {
-              for (const [commandId, commandDef] of Object.entries(
-                category.commands,
-              )) {
-                if (commandDef.command === command) {
-                  // Command found in library
-                  return {
-                    ...commandDef,
-                    categoryId,
-                    commandId,
-                  };
-                }
-              }
-            }
-          }
-
-          // Command not found in library
-          return null;
-        },
-      ),
-    );
-
-    this.responseHandlers.push(
-      this.respond("data:has-commands", () => {
-        return !!(this.data && this.data.commands);
-      }),
-    );
-
-    this.responseHandlers.push(
       this.respond("data:get-default-profiles", () => {
         return validProfiles(this.data.defaultProfiles);
       }),

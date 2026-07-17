@@ -50,8 +50,6 @@ describe('CommandChainService', () => {
     responseCleanups.push(
       respond(eventBus, 'command:get-for-selected-key', () => []),
       respond(eventBus, 'command:get-empty-state-info', () => ({ title: 'Test' })),
-      respond(eventBus, 'command:find-definition', () => null),
-      respond(eventBus, 'command:get-warning', () => null),
       // DataCoordinator integration - replace old profile:get-current and profile:save
       respond(eventBus, 'data:update-profile', () => ({ success: true }))
     )
@@ -384,4 +382,4 @@ describe('CommandChainService', () => {
       expect(modifyPayload.AttackCall.customProperty).toBe('keep_this')
     })
   })
-}) 
+})

@@ -17,6 +17,10 @@ import {
   materializeCommandChainViewCopy,
 } from "./commandChainViewDom.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
+import {
+  findCommandDefinition,
+  getCommandWarning,
+} from "../../data/commandCatalog.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
   globalThis
@@ -1045,9 +1049,7 @@ export default class CommandChainUI extends UIComponentBase {
     console.log("[CommandChainUI] enriched command:", richCommand);
 
     // Look up definition for display helpers
-    const commandDef = await this.request("command:find-definition", {
-      command: commandString,
-    });
+    const commandDef = findCommandDefinition(commandString, this.i18n);
     // Determine if this command should expose parameter editing
     const isCustomCmd =
       richCommand.type === "custom" || richCommand.category === "custom";
@@ -1158,9 +1160,7 @@ export default class CommandChainUI extends UIComponentBase {
     }
 
     // Pass the command string (not object) to get-warning
-    const warningInfo = await this.request("command:get-warning", {
-      command: commandString,
-    });
+    const warningInfo = getCommandWarning(commandString);
 
     // Resolve tooltip text using the central i18n service so that dynamic language switching works
     let warningText = null;

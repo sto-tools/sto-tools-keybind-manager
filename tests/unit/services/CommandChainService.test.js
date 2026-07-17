@@ -34,10 +34,6 @@ describe("CommandChainService", () => {
     fixture = createServiceFixture();
     eventBus = fixture.eventBus;
 
-    // stub request endpoints used internally
-    respond(eventBus, "command:find-definition", () => null);
-    respond(eventBus, "command:get-warning", () => null);
-
     service = new CommandChainService({ i18n: mockI18n, eventBus });
     service.init();
 

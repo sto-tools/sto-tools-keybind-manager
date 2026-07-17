@@ -1,0 +1,131 @@
+export default {
+  name: "Targeting",
+  icon: "fas fa-crosshairs",
+  description: "Target selection and management",
+  commands: {
+    target: {
+      name: "Target by Name",
+      command: "Target",
+      description: "Target entity by name (requires quotes)",
+      syntax: 'Target "EntityName"',
+      icon: "🎯",
+      customizable: true,
+      parameters: {
+        entityName: {
+          type: "text",
+          default: "EntityName",
+          placeholder: "command_definitions.parameter_placeholders.entity_name",
+        },
+      },
+    },
+    target_enemy_near: {
+      name: "Target Nearest Enemy",
+      command: "Target_Enemy_Near",
+      description: "Target the nearest enemy in view",
+      syntax: "Target_Enemy_Near",
+      icon: "🎯",
+    },
+    // Note: "ForArc" is STO's spelling (means "Fore Arc" or front arc)
+    target_enemy_near_forarc: {
+      name: "Target Nearest Enemy (Fore Arc)",
+      command: "Target_Enemy_Near_ForArc",
+      description: "Target nearest enemy within a forward-facing cone",
+      syntax: "Target_Enemy_Near_ForArc <degrees>",
+      icon: "🎯",
+      customizable: true,
+      parameters: {
+        degrees: {
+          type: "number",
+          min: 0,
+          max: 360,
+          default: 90,
+          step: 15,
+        },
+      },
+    },
+    target_enemy_near_aftarc: {
+      name: "Target Nearest Enemy (Aft Arc)",
+      command: "Target_Enemy_Near_AftArc",
+      description: "Target nearest enemy within a rear-facing cone",
+      syntax: "Target_Enemy_Near_AftArc <degrees>",
+      icon: "🎯",
+      customizable: true,
+      parameters: {
+        degrees: {
+          type: "number",
+          min: 0,
+          max: 360,
+          default: 90,
+          step: 15,
+        },
+      },
+    },
+    target_enemy_near_sidearc: {
+      name: "Target Nearest Enemy (Side Arc)",
+      command: "Target_Enemy_Near_SideArc",
+      description:
+        "Target nearest enemy within side arcs (both port and starboard)",
+      syntax: "Target_Enemy_Near_SideArc <degrees>",
+      icon: "🎯",
+      customizable: true,
+      parameters: {
+        degrees: {
+          type: "number",
+          min: 0,
+          max: 360,
+          default: 90,
+          step: 15,
+        },
+      },
+    },
+    target_friend_near: {
+      name: "Target Nearest Friend",
+      command: "Target_Friend_Near",
+      description: "Target the nearest friendly entity",
+      syntax: "Target_Friend_Near",
+      icon: "🤝",
+    },
+    target_self: {
+      name: "Target Self",
+      command: "Target_Self",
+      description: "Target your own ship/character",
+      syntax: "Target_Self",
+      icon: "👤",
+    },
+    target_clear: {
+      name: "Clear Target",
+      command: "Target_Clear",
+      description: "Remove current target lock",
+      syntax: "Target_Clear",
+      icon: "❌",
+    },
+    target_teammate_1: {
+      name: "Target Teammate 1",
+      command: "Target_Teammate 1",
+      description: "Target first team member",
+      syntax: "Target_Teammate 1",
+      icon: "👥",
+    },
+    target_teammate_2: {
+      name: "Target Teammate 2",
+      command: "Target_Teammate 2",
+      description: "Target second team member",
+      syntax: "Target_Teammate 2",
+      icon: "👥",
+    },
+    target_teammate_3: {
+      name: "Target Teammate 3",
+      command: "Target_Teammate 3",
+      description: "Target third team member",
+      syntax: "Target_Teammate 3",
+      icon: "👥",
+    },
+    target_teammate_4: {
+      name: "Target Teammate 4",
+      command: "Target_Teammate 4",
+      description: "Target fourth team member",
+      syntax: "Target_Teammate 4",
+      icon: "👥",
+    },
+  },
+};

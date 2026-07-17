@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
+import { describe, it, beforeEach, afterEach, expect } from "vitest";
 import { createServiceFixture } from "../../fixtures/index.js";
 import CommandLibraryService from "../../../src/js/components/services/CommandLibraryService.js";
 
@@ -16,47 +16,44 @@ describe("CommandLibraryService", () => {
       eventBus: eventBusFixture.eventBus,
       i18n: i18nStub,
     });
-
-    const mockCommands = {
-      general: {
-        commands: {
-          FireAll: {
-            command: "FireAll",
-            name: "Fire All Weapons",
-            description: "Fire everything",
-          },
-        },
-      },
-    };
-
-    // Stub the request helper so the service thinks DataService is available
-    service.request = vi.fn(async (topic) => {
-      if (topic === "data:has-commands") return true;
-      if (topic === "data:get-commands") return mockCommands;
-      return null;
-    });
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    document.body.replaceChildren();
     fixture.destroy();
-  });
-
-  it("should return command categories via getCommandCategories", async () => {
-    const categories = await service.getCommandCategories();
-    expect(categories).toHaveProperty("general");
-  });
-
-  it("should find command definition when provided with a command string", async () => {
-    const def = await service.findCommandDefinition("FireAll");
-    expect(def).toBeTruthy();
-    expect(def.name).toBe("Fire All Weapons");
-    expect(def.commandId).toBe("FireAll");
   });
 
   it("should generate unique command IDs", () => {
     const id1 = service.generateCommandId();
     const id2 = service.generateCommandId();
     expect(id1).not.toEqual(id2);
+  });
+
+  it("filters catalog commands using the cached environment", () => {
+    document.body.innerHTML = `
+      <div class="category">
+        <div class="command-item" data-command="fire_all"></div>
+        <div class="command-item" data-command="aim"></div>
+      </div>
+    `;
+    const fireAll = document.querySelector('[data-command="fire_all"]');
+    const aim = document.querySelector('[data-command="aim"]');
+
+    service.cache.currentEnvironment = "space";
+    service.filterCommandLibrary();
+    expect(fireAll?.style.display).toBe("flex");
+    expect(fireAll?.dataset.envHidden).toBe("false");
+    expect(aim?.style.display).toBe("none");
+    expect(aim?.dataset.envHidden).toBe("true");
+
+    service.cache.currentEnvironment = "ground";
+    service.filterCommandLibrary();
+    expect(fireAll?.style.display).toBe("none");
+    expect(aim?.style.display).toBe("flex");
+
+    service.cache.currentEnvironment = "alias";
+    service.filterCommandLibrary();
+    expect(fireAll?.style.display).toBe("flex");
+    expect(aim?.style.display).toBe("flex");
   });
 });

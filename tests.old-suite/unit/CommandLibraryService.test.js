@@ -394,56 +394,6 @@ describe('CommandLibraryService', () => {
     })
   })
 
-  describe('findCommandDefinition', () => {
-    it('should find command definition by command text', async () => {
-      const command = { command: '+STOTrayExec 0 0' }
-      const result = await service.findCommandDefinition(command)
-      
-      expect(result).toBeDefined()
-      expect(result.name).toBe('Execute Tray')
-    })
-
-    it('should find command definition by name', async () => {
-      const command = { text: 'Target Entity' }
-      const result = await service.findCommandDefinition(command)
-      
-      expect(result).toBeDefined()
-      expect(result.command).toBe('Target "Entity Name"')
-    })
-
-    it('should return null when command not found', async () => {
-      const command = { command: 'NonexistentCommand' }
-      const result = await service.findCommandDefinition(command)
-      
-      expect(result).toBeNull()
-    })
-
-    it('should map tray execution command with parameters back to library definition', async () => {
-      const command = { command: '+STOTrayExecByTray 1 1' }
-      const result = await service.findCommandDefinition(command)
-      
-      expect(result).toBeDefined()
-      expect(result.name).toBe('Tray Execution')
-    })
-  })
-
-  describe('getCommandWarning', () => {
-    it('should return warning when command has one', async () => {
-      // Note: None of our mock commands have warnings, but we can test the structure
-      const command = { command: 'some-command' }
-      const result = await service.getCommandWarning(command)
-      
-      expect(result).toBeNull() // Mock data doesn't have warnings
-    })
-
-    it('should return null when command has no warning', async () => {
-      const command = { command: '+STOTrayExec 0 0' }
-      const result = await service.getCommandWarning(command)
-      
-      expect(result).toBeNull()
-    })
-  })
-
   describe('addCommand with DataCoordinator', () => {
     it('should show warning when no key is selected', async () => {
       service.selectedKey = null
@@ -559,21 +509,6 @@ describe('CommandLibraryService', () => {
       expect(id1).not.toBe(id2)
       expect(typeof id1).toBe('string')
       expect(id1.length).toBeGreaterThan(0)
-    })
-  })
-
-  describe('getCommandCategories', () => {
-    it('should return command categories', async () => {
-      const categories = await service.getCommandCategories()
-      expect(categories).toBeDefined()
-      expect(categories.space).toBeDefined()
-      expect(categories.space.name).toBe('Space Commands')
-    })
-
-    it('should return empty object when STO_DATA is not available', async () => {
-      // This test will timeout if no data is available, so we'll let it succeed
-      const categories = await service.getCommandCategories()
-      expect(categories).toBeDefined()
     })
   })
 

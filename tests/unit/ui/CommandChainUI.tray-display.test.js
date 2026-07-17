@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { JSDOM } from "jsdom";
 
 import eventBus from "../../../src/js/core/eventBus.js";
-import { respond } from "../../../src/js/core/requestResponse.js";
 import { STOCommandParser } from "../../../src/js/lib/STOCommandParser.js";
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
 
@@ -30,23 +29,6 @@ describe("CommandChainUI – tray execution display titles", () => {
   beforeAll(() => {
     // Attach parser RPC handlers once for the shared event bus
     new STOCommandParser(eventBus);
-
-    // Mock request handlers used inside createCommandElement
-    respond(eventBus, "command:find-definition", ({ command }) => {
-      // Return a minimal command definition for tray commands
-      if (/TrayExecByTray/i.test(command)) {
-        return {
-          name: "Tray Execution",
-          icon: "⚡",
-          categoryId: "tray",
-          commandId: "custom_tray",
-          customizable: false,
-        };
-      }
-      return null;
-    });
-
-    respond(eventBus, "command:get-warning", () => null);
   });
 
   // Setup fresh DOM and UI instance for each test
@@ -69,6 +51,12 @@ describe("CommandChainUI – tray execution display titles", () => {
       eventBus,
       document,
       ui: { initDragAndDrop: () => {} },
+      i18n: {
+        t: (key, options = {}) =>
+          key === "command_definitions.custom_tray.name"
+            ? "Tray Execution"
+            : (options.defaultValue ?? key),
+      },
     });
   });
 

@@ -129,6 +129,18 @@ type RemovedTrayCategoryQuery = RpcRequest<"data:get-tray-category">;
 type RemovedValidationQuery = RpcRequest<"data:get-validation-patterns">;
 // @ts-expect-error The legacy parameter-definition facade has no production requester.
 type RemovedParameterQuery = RpcRequest<"parameter-command:find-definition">;
+// @ts-expect-error Command definitions are projected from the imported catalog.
+type RemovedCatalogDefinitionQuery = RpcRequest<"command:find-definition">;
+// @ts-expect-error Command categories are projected from the imported catalog.
+type RemovedCommandCategoriesQuery = RpcRequest<"command:get-categories">;
+// @ts-expect-error Command warnings are projected from the imported catalog.
+type RemovedCommandWarningQuery = RpcRequest<"command:get-warning">;
+// @ts-expect-error Exact command lookup uses the imported catalog.
+type RemovedCommandByNameQuery = RpcRequest<"data:find-command-by-name">;
+// @ts-expect-error The complete command catalog is imported directly.
+type RemovedCommandCatalogQuery = RpcRequest<"data:get-commands">;
+// @ts-expect-error Catalog availability is guaranteed by its module import.
+type RemovedHasCommandsQuery = RpcRequest<"data:has-commands">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -369,6 +381,30 @@ async function exerciseCoreApi() {
   });
   // @ts-expect-error Retired parameter-definition queries cannot regain responders.
   respond(eventBus, "parameter-command:find-definition", () => null);
+  // @ts-expect-error Retired definition queries cannot be requested.
+  request(eventBus, "command:find-definition", { command: "FireAll" });
+  // @ts-expect-error Retired definition queries cannot regain responders.
+  respond(eventBus, "command:find-definition", () => null);
+  // @ts-expect-error Retired category queries cannot be requested.
+  request(eventBus, "command:get-categories");
+  // @ts-expect-error Retired category queries cannot regain responders.
+  respond(eventBus, "command:get-categories", () => ({}));
+  // @ts-expect-error Retired warning queries cannot be requested.
+  request(eventBus, "command:get-warning", { command: "FireAll" });
+  // @ts-expect-error Retired warning queries cannot regain responders.
+  respond(eventBus, "command:get-warning", () => null);
+  // @ts-expect-error Retired exact-name queries cannot be requested.
+  request(eventBus, "data:find-command-by-name", { command: "FireAll" });
+  // @ts-expect-error Retired exact-name queries cannot regain responders.
+  respond(eventBus, "data:find-command-by-name", () => null);
+  // @ts-expect-error Retired catalog queries cannot be requested.
+  request(eventBus, "data:get-commands");
+  // @ts-expect-error Retired catalog queries cannot regain responders.
+  respond(eventBus, "data:get-commands", () => ({}));
+  // @ts-expect-error Retired catalog-presence queries cannot be requested.
+  request(eventBus, "data:has-commands");
+  // @ts-expect-error Retired catalog-presence queries cannot regain responders.
+  respond(eventBus, "data:has-commands", () => true);
   // @ts-expect-error Widened strings are not an untyped forwarding escape.
   request(eventBus, forwardedTopic, {});
 

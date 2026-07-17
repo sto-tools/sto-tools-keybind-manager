@@ -274,22 +274,6 @@ describe('Command Library Integration', () => {
     })
   })
 
-  describe('Command Library Setup Integration', () => {
-    it('should setup command library with categories from service', () => {
-      const categories = service.getCommandCategories()
-      expect(categories).toBe(STO_DATA.commands)
-
-      const mockCategoryElement = { innerHTML: '' }
-      mockDocument.createElement.mockReturnValue(mockCategoryElement)
-
-      ui.setupCommandLibrary()
-
-      expect(mockContainer.innerHTML).toBe('')
-      expect(mockDocument.createElement).toHaveBeenCalledWith('div')
-      expect(mockContainer.appendChild).toHaveBeenCalledWith(mockCategoryElement)
-    })
-  })
-
   describe('Command Operations Integration', () => {
     beforeEach(() => {
       service.setCurrentProfile('profile-1')
@@ -465,4 +449,4 @@ describe('Command Library Integration', () => {
       expect(mockDocument.getElementById).toHaveBeenCalledWith('duplicateAliasChainBtn')
     })
   })
-}) 
+})

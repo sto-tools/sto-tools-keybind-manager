@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import KeyBrowserService from "../../../src/js/components/services/KeyBrowserService.js";
+import { respond } from "../../../src/js/core/requestResponse.js";
+import { createServiceFixture } from "../../fixtures/index.js";
 
 const i18n = { t: (key) => key };
 
@@ -227,6 +229,51 @@ describe("KeyBrowserService – data processing methods", () => {
     it("should handle empty input", () => {
       const categories = service.categorizeKeysByType({}, []);
       expect(categories.function.keys).toEqual([]);
+    });
+  });
+
+  describe("categorizeKeys", () => {
+    it("seeds canonical command categories without DataService", async () => {
+      const categories = await service.categorizeKeys(
+        {
+          F1: [{ command: "FireAll", category: "combat" }],
+          F2: [],
+        },
+        ["F1", "F2"],
+      );
+
+      expect(categories.combat).toMatchObject({
+        name: "Combat",
+        icon: "fas fa-fire",
+        keys: ["F1"],
+      });
+      expect(categories.system.name).toBe("System");
+      expect(categories.unknown.keys).toEqual(["F2"]);
+    });
+
+    it("combines imported categories with parser classification", async () => {
+      const fixture = createServiceFixture();
+      const detach = respond(
+        fixture.eventBus,
+        "parser:parse-command-string",
+        () => ({ commands: [{ category: "combat" }] }),
+      );
+      const serviceWithBus = new KeyBrowserService({
+        eventBus: fixture.eventBus,
+        i18n,
+      });
+
+      try {
+        const categories = await serviceWithBus.categorizeKeys(
+          { F3: ["FireAll"] },
+          ["F3"],
+        );
+        expect(categories.combat.keys).toEqual(["F3"]);
+      } finally {
+        serviceWithBus.destroy();
+        detach();
+        fixture.destroy();
+      }
     });
   });
 });

@@ -8,12 +8,9 @@ const mockService = {
   currentEnvironment: 'space',
   getCommandsForSelectedKey: vi.fn().mockReturnValue([]),
   getEmptyStateInfo: vi.fn(),
-  findCommandDefinition: vi.fn(),
-  getCommandWarning: vi.fn(),
 
   filterCommandLibrary: vi.fn(),
   moveCommand: vi.fn(),
-  getCommandCategories: vi.fn(),
   emit: vi.fn(),
   i18n: {
     t: vi.fn((key) => key)
@@ -246,32 +243,6 @@ describe('CommandLibraryUI', () => {
       expect(mockElement.innerHTML).toContain('🎯')
     })
 
-    it('should handle parameterized commands', () => {
-      const command = { command: '+STOTrayExec 0 0', type: 'space', icon: '🎯', text: 'Execute Tray' }
-      mockService.findCommandDefinition.mockReturnValue({
-        name: 'Execute Tray',
-        icon: '🎯',
-        customizable: true,
-        commandId: 'tray_exec'
-      })
-      
-      const result = ui.createCommandElement(command, 0, 1)
-      
-      expect(result.dataset.parameters).toBe('true')
-      expect(result.classList.add).toHaveBeenCalledWith('customizable')
-      expect(result.innerHTML).toContain('param-indicator')
-    })
-
-    it('should handle commands with warnings', () => {
-      const command = { command: 'test', type: 'space', icon: '🎯', text: 'Test Command' }
-      mockService.getCommandWarning.mockReturnValue('Test warning')
-      
-      const result = ui.createCommandElement(command, 0, 1)
-      
-      expect(result.innerHTML).toContain('command-warning-icon')
-      expect(result.innerHTML).toContain('Test warning')
-    })
-
     it('should disable move buttons appropriately', () => {
       const command = { command: 'test', type: 'space', icon: '🎯', text: 'Test Command' }
       
@@ -282,44 +253,6 @@ describe('CommandLibraryUI', () => {
       // Last command (index 1 of 2) - down button should be disabled
       const result2 = ui.createCommandElement(command, 1, 2)
       expect(result2.innerHTML).toContain('disabled')
-    })
-  })
-
-  describe('setupCommandLibrary', () => {
-    it('should return early if container is missing', () => {
-      mockDocument.getElementById.mockReturnValue(null)
-      ui.setupCommandLibrary()
-      expect(mockService.getCommandCategories).not.toHaveBeenCalled()
-    })
-
-    it('should setup command library with categories', () => {
-      const mockCategories = {
-        space: {
-          name: 'Space Commands',
-          icon: 'fas fa-rocket',
-          commands: {
-            cmd1: { name: 'Command 1', icon: '🎯', description: 'Test', customizable: false }
-          }
-        }
-      }
-      mockService.getCommandCategories.mockReturnValue(mockCategories)
-      
-      const mockCategoryElement = { 
-        innerHTML: '',
-        dataset: {},
-        querySelector: vi.fn().mockReturnValue({
-          addEventListener: vi.fn()
-        }),
-        addEventListener: vi.fn()
-      }
-      mockDocument.createElement.mockReturnValue(mockCategoryElement)
-      
-      ui.setupCommandLibrary()
-      
-      expect(mockContainer.innerHTML).toBe('')
-      expect(mockDocument.createElement).toHaveBeenCalledWith('div')
-      expect(mockContainer.appendChild).toHaveBeenCalledWith(mockCategoryElement)
-      expect(mockService.filterCommandLibrary).toHaveBeenCalled()
     })
   })
 
@@ -770,4 +703,4 @@ describe('CommandLibraryUI', () => {
       expect(mockEventBus.emit).not.toHaveBeenCalledWith('command:add', expect.anything())
     })
   })
-}) 
+})

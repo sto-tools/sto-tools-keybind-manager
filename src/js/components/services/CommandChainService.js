@@ -6,6 +6,7 @@ import {
   getSnapshotProfile,
   isSnapshotCommandStabilized,
 } from "./dataState.js";
+import { findCommandDefinition } from "../../data/commandCatalog.js";
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -500,26 +501,7 @@ export default class CommandChainService extends ComponentBase {
 
   /** @param {import('./serviceTypes.js').StoredCommand} command */
   async findCommandDefinition(command) {
-    try {
-      console.log(
-        "[CommandChainService] findCommandDefinition command:find-definition",
-        { command },
-      );
-      return await this.request("command:find-definition", { command });
-    } catch (error) {
-      console.error("Failed to find command definition:", error);
-      return null;
-    }
-  }
-
-  /** @param {import('./serviceTypes.js').StoredCommand} command */
-  async getCommandWarning(command) {
-    try {
-      return await this.request("command:get-warning", { command });
-    } catch (error) {
-      console.error("Failed to get command warning:", error);
-      return null;
-    }
+    return findCommandDefinition(command, this.i18n || null);
   }
 
   /** @param {string} command */
