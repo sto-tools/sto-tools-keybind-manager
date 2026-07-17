@@ -165,6 +165,14 @@ type RemovedKeyFilterQuery = RpcRequest<"key:filter">;
 type RemovedShowAllKeysQuery = RpcRequest<"key:show-all">;
 // @ts-expect-error Parameter command IDs are generated directly during construction.
 type NoParameterId = RpcRequest<"parameter-command:generate-id">;
+// @ts-expect-error Environment mutation is a direct DataCoordinator action.
+type RemovedEnvironmentAction = RpcRequest<"data:set-environment">;
+// @ts-expect-error Settings mutation is a direct DataCoordinator action.
+type RemovedSettingsAction = RpcRequest<"data:update-settings">;
+// @ts-expect-error Built-in profile loading is called directly by its UI flow.
+type RemovedDefaultDataAction = RpcRequest<"data:load-default-data">;
+// @ts-expect-error Parser metrics remain direct diagnostic instrumentation.
+type RemovedParserMetricsQuery = RpcRequest<"parser:get-performance-metrics">;
 
 declare const dynamicTopic: DynamicRpcTopic<
   { value: number },
@@ -315,12 +323,38 @@ async function exerciseCoreApi() {
   request(eventBus, "parser:typo", {});
   // @ts-expect-error Settings snapshots are no longer requestable from DataCoordinator.
   request(eventBus, "data:get-settings");
+  // @ts-expect-error Environment mutation is a direct DataCoordinator action.
+  request(eventBus, "data:set-environment", { environment: "ground" });
+  // @ts-expect-error Settings mutation is a direct DataCoordinator action.
+  request(eventBus, "data:update-settings", { settings: { theme: "dark" } });
+  // @ts-expect-error Built-in profile loading is not an application RPC.
+  request(eventBus, "data:load-default-data");
+  // @ts-expect-error Parser metrics are inspected directly by diagnostics and tests.
+  request(eventBus, "parser:get-performance-metrics");
   // @ts-expect-error Retired preference queries cannot be reintroduced by consumers.
   request(eventBus, "preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Retired preference snapshots cannot be reintroduced by consumers.
   request(eventBus, "preferences:get-settings");
   // @ts-expect-error Retired settings state queries cannot regain responders.
   respond(eventBus, "data:get-settings", () => ({}));
+  // @ts-expect-error Direct environment mutation cannot regain a responder.
+  respond(eventBus, "data:set-environment", () => ({
+    success: true,
+    environment: "ground",
+  }));
+  // @ts-expect-error Direct settings mutation cannot regain a responder.
+  respond(eventBus, "data:update-settings", () => ({
+    success: true,
+    settings: {},
+  }));
+  // @ts-expect-error Direct default loading cannot regain a responder.
+  respond(eventBus, "data:load-default-data", () => ({
+    success: true,
+    profilesCreated: 1,
+    currentProfile: "default",
+  }));
+  // @ts-expect-error Internal parser metrics cannot regain a responder.
+  respond(eventBus, "parser:get-performance-metrics", () => []);
   // @ts-expect-error Retired preference queries cannot regain responders.
   respond(eventBus, "preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

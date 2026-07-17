@@ -876,7 +876,7 @@ export default class DataCoordinator extends ComponentBase {
   // Set current environment
   /**
    * @param {string} environment
-   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:set-environment'>>}
+   * @returns {Promise<import('../../types/rpc/data.js').EnvironmentUpdateResult>}
    */
   async setEnvironment(environment) {
     if (!environment || !["space", "ground", "alias"].includes(environment)) {
@@ -917,7 +917,7 @@ export default class DataCoordinator extends ComponentBase {
   // Update application settings
   /**
    * @param {Record<string, unknown> | null | undefined} settings
-   * @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:update-settings'>>}
+   * @returns {Promise<import('../../types/rpc/data.js').SettingsUpdateResult>}
    */
   async updateSettings(settings) {
     if (!settings) {
@@ -952,7 +952,7 @@ export default class DataCoordinator extends ComponentBase {
   }
 
   // Load default data (called explicitly by user via "Load Default Data" button)
-  /** @returns {Promise<import('../../types/rpc/index.js').RpcResult<'data:load-default-data'>>} */
+  /** @returns {Promise<import('../../types/rpc/data.js').DefaultDataLoadResult>} */
   async loadDefaultData() {
     console.log(`[${this.componentName}] Explicitly loading default data...`);
     const operation = this._captureOperationGeneration();

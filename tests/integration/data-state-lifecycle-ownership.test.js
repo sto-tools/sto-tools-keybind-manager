@@ -20,17 +20,17 @@ const coordinatorTopics = [
   "data:rename-profile",
   "data:delete-profile",
   "data:update-profile",
-  "data:set-environment",
-  "data:update-settings",
-  "data:load-default-data",
   "data:reload-state",
 ];
 
-const retiredProjectionTopics = [
+const retiredTopics = [
   "data:get-current-state",
   "data:get-all-profiles",
   "data:get-keys",
   "data:get-key-commands",
+  "data:set-environment",
+  "data:update-settings",
+  "data:load-default-data",
 ];
 
 const createProfile = (name, currentEnvironment = "space") => ({
@@ -120,7 +120,7 @@ describe("DataCoordinator lifecycle and state ownership", () => {
     fixture.storage.deleteProfile.mockClear();
     fixture.storage.saveSettings.mockClear();
 
-    for (const topic of retiredProjectionTopics) {
+    for (const topic of retiredTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
     }
 

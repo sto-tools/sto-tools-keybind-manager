@@ -429,6 +429,15 @@ describe("STOCommandParser - RequestResponse Integration", () => {
     expect(result.commands[0].category).toBe("tray");
   });
 
+  it("keeps performance metrics as direct parser instrumentation", () => {
+    parser.parseCommandString("FireAll");
+
+    expect(parser.performanceMetrics.has("parse_complete")).toBe(true);
+    expect(eventBus.hasListeners("rpc:parser:get-performance-metrics")).toBe(
+      false,
+    );
+  });
+
   it("should clear cache on request", async () => {
     // Add something to cache first
     parser.parseCommandString("FireAll");

@@ -49,13 +49,16 @@ describe("DataCoordinator Service", () => {
       expect(dataCoordinator.componentName).toBe("DataCoordinator");
     });
 
-    it("does not register retired state projection RPCs", () => {
+    it("does not register retired projection or direct-action RPCs", () => {
       for (const topic of [
         "data:get-settings",
         "data:get-current-state",
         "data:get-all-profiles",
         "data:get-keys",
         "data:get-key-commands",
+        "data:set-environment",
+        "data:update-settings",
+        "data:load-default-data",
       ]) {
         expect(mockEventBus.hasListeners(`rpc:${topic}`)).toBe(false);
       }

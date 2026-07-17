@@ -4,8 +4,6 @@ import type {
   ProfileOperations,
   ProfileUpdateResult,
   RequiredRpc,
-  ResponderOnlyNoPayloadRpc,
-  ResponderOnlyRequiredRpc,
   Settings,
 } from "./base.js";
 
@@ -22,6 +20,24 @@ export type ProfileSwitchResult = {
   message: string;
   profile: Profile | null;
 };
+
+export type EnvironmentUpdateResult = {
+  success: true;
+  environment: string;
+};
+
+export type SettingsUpdateResult = {
+  success: true;
+  settings: Settings;
+};
+
+export type DefaultDataLoadResult =
+  | {
+      success: true;
+      profilesCreated: number;
+      currentProfile: string | null;
+    }
+  | { success: false; error: string };
 
 type ExistingProfileUpdateRequest = {
   profileId: string;
@@ -77,14 +93,6 @@ export interface DataRpcProtocol {
       message: string;
     }
   >;
-  "data:load-default-data": ResponderOnlyNoPayloadRpc<
-    | {
-        success: true;
-        profilesCreated: number;
-        currentProfile: string | null;
-      }
-    | { success: false; error: string }
-  >;
   "data:reload-state": NoPayloadRpc<
     | {
         success: true;
@@ -98,17 +106,9 @@ export interface DataRpcProtocol {
     { profileId: string; newName: string; description?: string },
     { success: true; profile: Profile; message: string }
   >;
-  "data:set-environment": ResponderOnlyRequiredRpc<
-    { environment: string },
-    { success: true; environment: string }
-  >;
   "data:switch-profile": RequiredRpc<
     { profileId: string },
     ProfileSwitchResult
   >;
   "data:update-profile": RequiredRpc<ProfileUpdateRequest, ProfileUpdateResult>;
-  "data:update-settings": ResponderOnlyRequiredRpc<
-    { settings: Settings },
-    { success: true; settings: Settings }
-  >;
 }

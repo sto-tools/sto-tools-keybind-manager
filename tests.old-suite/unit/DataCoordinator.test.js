@@ -409,57 +409,6 @@ describe('DataCoordinator', () => {
     })
   })
 
-  describe('Environment Management', () => {
-    it('should set environment and update profile', async () => {
-      const events = []
-      eventBus.on('environment:changed', (event) => events.push(event))
-
-      const result = await request(eventBus, 'data:set-environment', { environment: 'ground' })
-
-      expect(result.success).toBe(true)
-      expect(result.environment).toBe('ground')
-      expect(dataCoordinator.state.currentEnvironment).toBe('ground')
-      // Check for environment change event
-      const envEvents = events.filter(e => e.toEnvironment === 'ground')
-      expect(envEvents.length).toBeGreaterThan(0)
-    })
-
-    it('should throw error for invalid environment', async () => {
-      await expect(request(eventBus, 'data:set-environment', { environment: 'invalid' }))
-        .rejects.toThrow('Invalid environment')
-    })
-  })
-
-  describe('Settings Management', () => {
-    it('should get current settings', async () => {
-      const settings = await request(eventBus, 'data:get-settings')
-      
-      expect(settings.theme).toBe('light')
-      expect(settings.language).toBe('en')
-    })
-
-    it('should update settings', async () => {
-      const events = []
-      eventBus.on('settings:changed', (event) => events.push(event))
-
-      const newSettings = { theme: 'dark', newSetting: 'value' }
-      const result = await request(eventBus, 'data:update-settings', { settings: newSettings })
-
-      expect(result.success).toBe(true)
-      expect(result.settings.theme).toBe('dark')
-      expect(result.settings.newSetting).toBe('value')
-      // Check for settings change event
-      const settingsEvents = events.filter(e => e.settings?.theme === 'dark')
-      expect(settingsEvents.length).toBeGreaterThan(0)
-      expect(mockStorage.saveSettings).toHaveBeenCalled()
-    })
-
-    it('should throw error for missing settings', async () => {
-      await expect(request(eventBus, 'data:update-settings', {}))
-        .rejects.toThrow('Settings are required')
-    })
-  })
-
   describe('Late Join Support', () => {
     it('should provide current state when other components register', async () => {
       const events = []

@@ -1,8 +1,4 @@
-import type {
-  NoPayloadRpc,
-  RequiredRpc,
-  ResponderOnlyNoPayloadRpc,
-} from "./base.js";
+import type { NoPayloadRpc, RequiredRpc } from "./base.js";
 import type { PreferenceMutation, SettingsRecord } from "../events/base.js";
 
 export type ParameterCommandDefinition = Record<string, unknown> & {
@@ -103,12 +99,6 @@ export type CommandParseResult = {
   };
 };
 
-export type ParserPerformanceMetric = {
-  count: number;
-  totalTime: number;
-  avgTime: number;
-};
-
 export interface ParameterPreferenceRpcProtocol {
   "parameter-command:build": RequiredRpc<
     {
@@ -120,9 +110,6 @@ export interface ParameterPreferenceRpcProtocol {
     ParameterBuildResult
   >;
   "parser:clear-cache": NoPayloadRpc<{ success: true }>;
-  "parser:get-performance-metrics": ResponderOnlyNoPayloadRpc<
-    Array<[string, ParserPerformanceMetric]>
-  >;
   "parser:parse-command-string": RequiredRpc<
     {
       commandString: string;

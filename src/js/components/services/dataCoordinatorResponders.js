@@ -76,15 +76,6 @@ export function registerDataCoordinatorResponders(coordinator) {
         createIfMissing,
       });
     }),
-    coordinator.respond("data:set-environment", ({ environment }) =>
-      coordinator.setEnvironment(environment),
-    ),
-    coordinator.respond("data:update-settings", ({ settings }) =>
-      coordinator.updateSettings(settings),
-    ),
-    coordinator.respond("data:load-default-data", () =>
-      coordinator.loadDefaultData(),
-    ),
     coordinator.respond("data:reload-state", () => coordinator.reloadState()),
   ];
 }

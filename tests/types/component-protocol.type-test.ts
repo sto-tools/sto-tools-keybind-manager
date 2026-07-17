@@ -58,6 +58,14 @@ async function exerciseComponentRpc() {
   component.request("parser:parse-command-string", { commandString: 42 });
   // @ts-expect-error Settings snapshots are broadcast/cache state, not RPC state.
   component.request("data:get-settings");
+  // @ts-expect-error Environment mutation is a direct DataCoordinator action.
+  component.request("data:set-environment", { environment: "ground" });
+  // @ts-expect-error Settings mutation is a direct DataCoordinator action.
+  component.request("data:update-settings", { settings: { theme: "dark" } });
+  // @ts-expect-error Built-in profile loading is called directly by its UI flow.
+  component.request("data:load-default-data");
+  // @ts-expect-error Parser metrics remain direct diagnostic instrumentation.
+  component.request("parser:get-performance-metrics");
   // @ts-expect-error Preference values are read from the component cache.
   component.request("preferences:get-setting", { key: "autoSave" });
   // @ts-expect-error Preference snapshots arrive through broadcasts and late join.
@@ -85,6 +93,24 @@ async function exerciseComponentRpc() {
   component.respond("parser:clear-cache", () => ({ success: false }));
   // @ts-expect-error Retired settings state queries cannot regain responders.
   component.respond("data:get-settings", () => ({}));
+  // @ts-expect-error Direct environment mutation cannot regain a responder.
+  component.respond("data:set-environment", () => ({
+    success: true,
+    environment: "ground",
+  }));
+  // @ts-expect-error Direct settings mutation cannot regain a responder.
+  component.respond("data:update-settings", () => ({
+    success: true,
+    settings: {},
+  }));
+  // @ts-expect-error Direct default loading cannot regain a responder.
+  component.respond("data:load-default-data", () => ({
+    success: true,
+    profilesCreated: 1,
+    currentProfile: "default",
+  }));
+  // @ts-expect-error Internal parser metrics cannot regain a responder.
+  component.respond("parser:get-performance-metrics", () => []);
   // @ts-expect-error Retired preference queries cannot regain responders.
   component.respond("preferences:get-setting", () => true);
   // @ts-expect-error Retired preference snapshots cannot regain responders.

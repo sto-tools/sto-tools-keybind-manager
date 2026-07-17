@@ -248,28 +248,6 @@ describe('DataCoordinator + ProfileService Migration Integration', () => {
     })
   })
 
-  describe('Environment Management', () => {
-    it('should handle environment changes', async () => {
-      const events = []
-      eventBus.on('environment:changed', (event) => events.push(event))
-
-      const result = await request(eventBus, 'data:set-environment', {
-        environment: 'ground'
-      })
-
-      expect(result.success).toBe(true)
-      expect(result.environment).toBe('ground')
-      expect(events).toHaveLength(1)
-      expect(events[0].environment).toBe('ground')
-    })
-
-    it('should reject invalid environments', async () => {
-      await expect(request(eventBus, 'data:set-environment', {
-        environment: 'invalid'
-      })).rejects.toThrow('Invalid environment')
-    })
-  })
-
   describe('Data Consistency', () => {
     it('should maintain data consistency between DataCoordinator and ProfileService', async () => {
       // Get profile through DataCoordinator
@@ -333,32 +311,4 @@ describe('DataCoordinator + ProfileService Migration Integration', () => {
     })
   })
 
-  describe('Settings Management', () => {
-    it('should handle settings updates', async () => {
-      const events = []
-      eventBus.on('settings:changed', (event) => events.push(event))
-
-      const result = await request(eventBus, 'data:update-settings', {
-        settings: {
-          theme: 'dark',
-          language: 'en'
-        }
-      })
-
-      expect(result.success).toBe(true)
-      expect(events).toHaveLength(1)
-      expect(events[0].settings.theme).toBe('dark')
-      expect(events[0].settings.language).toBe('en')
-    })
-
-    it('should get current settings', async () => {
-      // Update settings first
-      await request(eventBus, 'data:update-settings', {
-        settings: { testSetting: 'testValue' }
-      })
-
-      const settings = await request(eventBus, 'data:get-settings')
-      expect(settings.testSetting).toBe('testValue')
-    })
-  })
-}) 
+})

@@ -58,6 +58,7 @@ export class STOCommandParser {
     this.parseCache = new Map();
     this.hotPathCache = new Map(); // Ultra-fast cache for frequent commands
     this.frequencyTracker = new Map();
+    /** @type {Map<string, { count: number, totalTime: number, avgTime: number }>} */
     this.performanceMetrics = new Map();
 
     // Initialize command signatures
@@ -77,10 +78,6 @@ export class STOCommandParser {
     // Pure parsing operations (no application logic)
     respond(bus, "parser:parse-command-string", ({ commandString, options }) =>
       this.parseCommandString(commandString, options),
-    );
-
-    respond(bus, "parser:get-performance-metrics", () =>
-      Array.from(this.performanceMetrics.entries()),
     );
 
     respond(bus, "parser:clear-cache", () => {

@@ -38,17 +38,17 @@ const responderTopics = [
   "data:rename-profile",
   "data:delete-profile",
   "data:update-profile",
-  "data:set-environment",
-  "data:update-settings",
-  "data:load-default-data",
   "data:reload-state",
 ];
 
-const retiredProjectionTopics = [
+const retiredTopics = [
   "data:get-current-state",
   "data:get-all-profiles",
   "data:get-keys",
   "data:get-key-commands",
+  "data:set-environment",
+  "data:update-settings",
+  "data:load-default-data",
 ];
 
 function deferred() {
@@ -144,13 +144,13 @@ describe("DataCoordinator lifecycle generation", () => {
   });
 
   it("restores exactly one functional responder set across reinitialization cycles", async () => {
-    const updateSettings = vi.spyOn(coordinator, "updateSettings");
+    const reloadState = vi.spyOn(coordinator, "reloadState");
     let expectedCalls = 0;
 
     for (const topic of responderTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(true);
     }
-    for (const topic of retiredProjectionTopics) {
+    for (const topic of retiredTopics) {
       expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
     }
 
@@ -173,17 +173,15 @@ describe("DataCoordinator lifecycle generation", () => {
       for (const topic of responderTopics) {
         expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(true);
       }
-      for (const topic of retiredProjectionTopics) {
+      for (const topic of retiredTopics) {
         expect(fixture.eventBus.hasListeners(`rpc:${topic}`)).toBe(false);
       }
 
       await expect(
-        request(fixture.eventBus, "data:update-settings", {
-          settings: { cycle },
-        }),
-      ).resolves.toMatchObject({ success: true, settings: { cycle } });
+        request(fixture.eventBus, "data:reload-state"),
+      ).resolves.toMatchObject({ success: true, currentProfile: "alpha" });
       expectedCalls += 1;
-      expect(updateSettings).toHaveBeenCalledTimes(expectedCalls);
+      expect(reloadState).toHaveBeenCalledTimes(expectedCalls);
     }
   });
 
