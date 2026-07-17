@@ -221,15 +221,16 @@ bus.on("bindset:modified", (payload) => {
 // @ts-expect-error Retired listener topics cannot acquire a producer.
 bus.emit("bindset:modified", { bindsetName: "Primary Bindset" });
 
-// DOM mirror topics remain confined to the DOM-listener surface.
-bus.onDom(document, "click", "about-open");
+// DOM registration remains a typed local-handler surface.
+bus.onDom(document, "click", (event) => event.type);
 bus.onDomDebounced(document, "input", (event) => event.type, 100);
-// @ts-expect-error DOM mirror topics are not direct application events.
+// @ts-expect-error Retired DOM mirror topics are not direct application events.
 bus.on("about-open", () => undefined);
 
-declare const untypedDomMirror: string;
-// @ts-expect-error DOM mirror strings must be present in the captured surface.
-bus.onDom(document, "click", untypedDomMirror);
+// @ts-expect-error DOM registrations require a local handler, not a bus topic.
+bus.onDom(document, "click", "about-open");
+// @ts-expect-error Debounced DOM registrations cannot restore the retired bus-topic argument.
+bus.onDomDebounced(document, "input", "alias-filter", () => undefined, 100);
 
 // @ts-expect-error Literal topics must be present in EventProtocol.
 bus.emit("not-a-registered-event", null);

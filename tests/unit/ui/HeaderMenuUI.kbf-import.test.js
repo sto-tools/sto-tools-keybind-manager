@@ -37,68 +37,55 @@ describe("HeaderMenuUI - KBF Import Functionality (Task 36)", () => {
       mockEmit: false,
     });
 
-    // Mock onDom to actually trigger DOM events and emit to bus
-    eventBusFixture.eventBus.onDom = vi.fn(
-      (target, event, busEvent, handler) => {
-        if (typeof busEvent === "function") {
-          handler = busEvent;
-          busEvent = event;
-        }
-        if (!busEvent) busEvent = event;
-
-        // Handle string selector (delegated)
-        if (typeof target === "string") {
-          // Normalize selector like real EventBus - handle attribute selectors
-          const finalSelector = /^[.#]/.test(target)
+    // Mock onDom to attach the local handler with real delegation semantics.
+    eventBusFixture.eventBus.onDom = vi.fn((target, event, handler) => {
+      // Handle string selector (delegated)
+      if (typeof target === "string") {
+        // Normalize selector like real EventBus - handle attribute selectors
+        const finalSelector = /^[.#]/.test(target)
+          ? target
+          : /^\[/.test(target)
             ? target
-            : /^\[/.test(target)
-              ? target
-              : `#${target}`;
+            : `#${target}`;
 
-          // Add actual DOM listener
-          const domHandler = (e) => {
-            const match = e.target.closest(finalSelector);
-            if (match) {
-              // Call handler (which will emit the actual event)
-              if (handler) {
-                try {
-                  handler(e);
-                } catch (error) {
-                  console.error(error);
-                }
-              }
+        // Add actual DOM listener
+        const domHandler = (e) => {
+          const match = e.target.closest(finalSelector);
+          if (match) {
+            try {
+              handler(e);
+            } catch (error) {
+              console.error(error);
             }
-          };
+          }
+        };
 
-          document.addEventListener(event, domHandler, true);
+        document.addEventListener(event, domHandler, true);
 
-          return () => {
-            document.removeEventListener(event, domHandler, true);
-          };
-        }
+        return () => {
+          document.removeEventListener(event, domHandler, true);
+        };
+      }
 
-        // Handle direct element/document reference
-        if (target && target.addEventListener) {
-          const domHandler = (e) => {
-            if (handler) {
-              try {
-                handler(e);
-              } catch (error) {
-                console.error(error);
-              }
-            }
-          };
+      // Handle direct element/document reference
+      if (target && target.addEventListener) {
+        const domHandler = (e) => {
+          try {
+            handler(e);
+          } catch (error) {
+            console.error(error);
+          }
+        };
 
-          target.addEventListener(event, domHandler);
+        target.addEventListener(event, domHandler);
 
-          return () => {
-            target.removeEventListener(event, domHandler);
-          };
-        }
+        return () => {
+          target.removeEventListener(event, domHandler);
+        };
+      }
 
-        return () => {};
-      },
-    );
+      return () => {};
+    });
 
     ui = new HeaderMenuUI({ eventBus: eventBusFixture.eventBus, document });
     ui.init();
@@ -128,8 +115,7 @@ describe("HeaderMenuUI - KBF Import Functionality (Task 36)", () => {
       // Verify the event listener parameters
       const kbfCall = kbfOnDomCalls[0];
       expect(kbfCall[1]).toBe("click"); // event type
-      expect(kbfCall[2]).toBe("kbf-import"); // bus event name
-      expect(typeof kbfCall[3]).toBe("function"); // handler function
+      expect(typeof kbfCall[2]).toBe("function"); // local handler
     });
 
     it("should emit keybinds:kbf-import event when KBF import button is clicked", () => {

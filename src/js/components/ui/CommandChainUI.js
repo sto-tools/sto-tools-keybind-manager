@@ -299,32 +299,22 @@ export default class CommandChainUI extends UIComponentBase {
     });
 
     // Listen for stabilization button click
-    this.onDom(
-      "stabilizeExecutionOrderBtn",
-      "click",
-      "commandchain-stabilize",
-      async () => {
-        await this.toggleStabilize();
-      },
-    );
+    this.onDom("stabilizeExecutionOrderBtn", "click", async () => {
+      await this.toggleStabilize();
+    });
 
     // Listen for copy alias button click
-    this.onDom("copyAliasBtn", "click", "commandchain-copy-alias", async () => {
+    this.onDom("copyAliasBtn", "click", async () => {
       await this.copyAliasToClipboard();
     });
 
     // Listen for copy command preview button click
-    this.onDom(
-      "copyPreviewBtn",
-      "click",
-      "commandchain-copy-preview",
-      async () => {
-        await this.copyCommandPreviewToClipboard();
-      },
-    );
+    this.onDom("copyPreviewBtn", "click", async () => {
+      await this.copyCommandPreviewToClipboard();
+    });
 
     // Listen for command action button clicks (using delegation)
-    this.onDom("#commandList", "click", "commandchain-action", (e) => {
+    this.onDom("#commandList", "click", (e) => {
       const target = closestEventTarget(e);
       const editBtn = target?.closest(".btn-edit:not(.btn-placeholder)");
       const deleteBtn = target?.closest(".btn-delete");
@@ -401,121 +391,106 @@ export default class CommandChainUI extends UIComponentBase {
     });
 
     // Listen for double-click on customizable commands
-    this.onDom(
-      "#commandList",
-      "dblclick",
-      "commandchain-edit-customizable",
-      (e) => {
-        const target = closestEventTarget(e);
-        const commandItem = target?.closest(".command-item-row.customizable");
-        if (isDatasetTarget(commandItem)) {
-          const index = Number.parseInt(commandItem.dataset.index ?? "", 10);
-          if (!Number.isNaN(index)) {
-            console.log("[CommandChainUI] DOUBLE-CLICK on command element:", {
-              index,
-              target,
-              targetClass: target?.className,
-            });
-            this.emit("commandchain:edit", { index });
-          }
+    this.onDom("#commandList", "dblclick", (e) => {
+      const target = closestEventTarget(e);
+      const commandItem = target?.closest(".command-item-row.customizable");
+      if (isDatasetTarget(commandItem)) {
+        const index = Number.parseInt(commandItem.dataset.index ?? "", 10);
+        if (!Number.isNaN(index)) {
+          console.log("[CommandChainUI] DOUBLE-CLICK on command element:", {
+            index,
+            target,
+            targetClass: target?.className,
+          });
+          this.emit("commandchain:edit", { index });
         }
-      },
-    );
+      }
+    });
 
     // Listen for palindromic toggle button clicks
-    this.onDom(
-      "#commandList",
-      "click",
-      "commandchain-palindromic-toggle",
-      async (e) => {
-        const palindromicBtn = closestEventTarget(e)?.closest(
-          ".btn-palindromic-toggle",
+    this.onDom("#commandList", "click", async (e) => {
+      const palindromicBtn = closestEventTarget(e)?.closest(
+        ".btn-palindromic-toggle",
+      );
+      if (isDatasetTarget(palindromicBtn)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = Number.parseInt(
+          palindromicBtn.dataset.commandIndex ?? "",
+          10,
         );
-        if (isDatasetTarget(palindromicBtn)) {
-          e.preventDefault();
-          e.stopPropagation();
-          const index = Number.parseInt(
-            palindromicBtn.dataset.commandIndex ?? "",
-            10,
-          );
-          if (!Number.isNaN(index)) {
-            // Get the actual command to determine current state
-            const commands = await this.getCommandsForCurrentSelection();
-            if (commands && index >= 0 && index < commands.length) {
-              const command = commands[index];
-              // Determine current state: included if string or palindromicGeneration !== false
-              const isCurrentlyIncluded =
-                typeof command !== "object" ||
-                command.palindromicGeneration !== false;
-              // Toggle: if currently included, exclude it (set to false)
-              const newValue = !isCurrentlyIncluded;
-              console.log("[CommandChainUI] Toggling palindromic:", {
-                index,
-                command,
-                isCurrentlyIncluded,
-                newValue,
-              });
-              await this.updateCommandPalindromicSetting(
-                index,
-                "palindromicGeneration",
-                newValue,
-              );
-            }
+        if (!Number.isNaN(index)) {
+          // Get the actual command to determine current state
+          const commands = await this.getCommandsForCurrentSelection();
+          if (commands && index >= 0 && index < commands.length) {
+            const command = commands[index];
+            // Determine current state: included if string or palindromicGeneration !== false
+            const isCurrentlyIncluded =
+              typeof command !== "object" ||
+              command.palindromicGeneration !== false;
+            // Toggle: if currently included, exclude it (set to false)
+            const newValue = !isCurrentlyIncluded;
+            console.log("[CommandChainUI] Toggling palindromic:", {
+              index,
+              command,
+              isCurrentlyIncluded,
+              newValue,
+            });
+            await this.updateCommandPalindromicSetting(
+              index,
+              "palindromicGeneration",
+              newValue,
+            );
           }
         }
-      },
-    );
+      }
+    });
 
     // Listen for placement toggle button clicks
-    this.onDom(
-      "#commandList",
-      "click",
-      "commandchain-placement-toggle",
-      async (e) => {
-        const placementBtn = closestEventTarget(e)?.closest(
-          ".btn-placement-toggle",
+    this.onDom("#commandList", "click", async (e) => {
+      const placementBtn = closestEventTarget(e)?.closest(
+        ".btn-placement-toggle",
+      );
+      if (isDatasetTarget(placementBtn)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = Number.parseInt(
+          placementBtn.dataset.commandIndex ?? "",
+          10,
         );
-        if (isDatasetTarget(placementBtn)) {
-          e.preventDefault();
-          e.stopPropagation();
-          const index = Number.parseInt(
-            placementBtn.dataset.commandIndex ?? "",
-            10,
-          );
-          if (!Number.isNaN(index)) {
-            // Get the actual command to determine current state
-            const commands = await this.getCommandsForCurrentSelection();
-            if (commands && index >= 0 && index < commands.length) {
-              const command = commands[index];
-              // Determine current placement
-              const currentPlacement =
-                typeof command === "object" && command.placement
-                  ? command.placement
-                  : "before-pre-pivot";
-              // Toggle: if in pivot group, move to before-pre-pivot, otherwise move to pivot group
-              const newPlacement =
-                currentPlacement === "in-pivot-group"
-                  ? "before-pre-pivot"
-                  : "in-pivot-group";
-              console.log("[CommandChainUI] Toggling placement:", {
-                index,
-                command,
-                currentPlacement,
-                newPlacement,
-              });
-              await this.updateCommandPalindromicSetting(
-                index,
-                "placement",
-                newPlacement,
-              );
-            }
+        if (!Number.isNaN(index)) {
+          // Get the actual command to determine current state
+          const commands = await this.getCommandsForCurrentSelection();
+          if (commands && index >= 0 && index < commands.length) {
+            const command = commands[index];
+            // Determine current placement
+            const currentPlacement =
+              typeof command === "object" && command.placement
+                ? command.placement
+                : "before-pre-pivot";
+            // Toggle: if in pivot group, move to before-pre-pivot, otherwise move to pivot group
+            const newPlacement =
+              currentPlacement === "in-pivot-group"
+                ? "before-pre-pivot"
+                : "in-pivot-group";
+            console.log("[CommandChainUI] Toggling placement:", {
+              index,
+              command,
+              currentPlacement,
+              newPlacement,
+            });
+            await this.updateCommandPalindromicSetting(
+              index,
+              "placement",
+              newPlacement,
+            );
           }
         }
-      },
-    );
+      }
+    });
 
     // Listen for group header clicks to toggle collapse
-    this.onDom("#commandList", "click", "commandchain-group-header", (e) => {
+    this.onDom("#commandList", "click", (e) => {
       const groupHeader = closestEventTarget(e)?.closest(".group-header");
       if (isDatasetTarget(groupHeader)) {
         const groupType = this.normalizeGroupType(groupHeader.dataset.group);

@@ -219,13 +219,13 @@ export default class CommandLibraryUI extends UIComponentBase {
     // Add click handler for category header using EventBus
     const header = element.querySelector("h4");
     if (header) {
-      this.onDom(header, "click", "command-category-header", () => {
+      this.onDom(header, "click", () => {
         this.toggleCommandCategory(categoryId, element);
       });
     }
 
     // Add click handlers for commands using EventBus
-    this.onDom(element, "click", "command-item-click", (e) => {
+    this.onDom(element, "click", (e) => {
       const target = /** @type {HTMLElement} */ (e.target);
       if (target.classList.contains("command-item")) {
         const commandId = target.dataset.command;
@@ -323,11 +323,11 @@ export default class CommandLibraryUI extends UIComponentBase {
     );
     if (!header) return element;
 
-    this.onDom(header, "click", "alias-category-header", () => {
+    this.onDom(header, "click", () => {
       this.toggleAliasCategory(categoryType, element);
     });
 
-    this.onDom(element, "click", "alias-item-click", (e) => {
+    this.onDom(element, "click", (e) => {
       const target = eventElement(e);
       if (!(target instanceof HTMLElement)) return;
       if (

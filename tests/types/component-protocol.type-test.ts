@@ -47,9 +47,11 @@ component.emit("toast:show", { message: "Saved" });
 // @ts-expect-error Orphan compatibility listeners are retired.
 component.addEventListener("bindset:modified", () => undefined);
 
+component.onDom(document, "click", () => undefined);
+// @ts-expect-error The legacy DOM-mirror topic argument is retired.
 component.onDom(document, "click", "about-open", () => undefined);
-// @ts-expect-error DOM mirrors and direct application events are separate.
-component.onDom(document, "click", "toast:show", () => undefined);
+// @ts-expect-error The debounced legacy DOM-mirror topic argument is retired.
+component.onDomDebounced(document, "input", "alias-filter", () => {}, 100);
 
 async function exerciseComponentRpc() {
   const parsed = await component.request("parser:parse-command-string", {

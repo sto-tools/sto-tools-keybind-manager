@@ -25,7 +25,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     component.init();
 
     // Use component.onDom instead of eventBus.onDom
-    component.onDom("testBtn", "click", "test-event", handler);
+    component.onDom("testBtn", "click", handler);
 
     // Verify listener works
     document.getElementById("testBtn").click();
@@ -40,6 +40,33 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("reattaches exactly one DOM handler after same-instance reinitialization", () => {
+    document.body.innerHTML = '<button id="testBtn"></button>';
+    const handler = vi.fn();
+
+    class DomLifecycleComponent extends ComponentBase {
+      onInit() {
+        this.onDom("testBtn", "click", handler);
+      }
+    }
+
+    component = new DomLifecycleComponent(eventBus);
+    component.init();
+    document.getElementById("testBtn").click();
+    expect(handler).toHaveBeenCalledOnce();
+    expect(component.domEventListeners).toHaveLength(1);
+
+    component.destroy();
+    document.getElementById("testBtn").click();
+    expect(handler).toHaveBeenCalledOnce();
+    expect(component.domEventListeners).toHaveLength(0);
+
+    component.init();
+    document.getElementById("testBtn").click();
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(component.domEventListeners).toHaveLength(1);
+  });
+
   it("onDomDebounced wrapper automatically tracks cleanup function", () => {
     document.body.innerHTML = '<input id="testInput" />';
     const handler = vi.fn();
@@ -47,13 +74,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     component.init();
 
     // Use component.onDomDebounced
-    component.onDomDebounced(
-      "testInput",
-      "input",
-      "test-input-event",
-      handler,
-      100,
-    );
+    component.onDomDebounced("testInput", "input", handler, 100);
 
     // Trigger input event
     const input = document.getElementById("testInput");
@@ -94,9 +115,9 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     component.init();
 
     // Create multiple DOM listeners
-    component.onDom("btn1", "click", "event1", handler1);
-    component.onDom("btn2", "click", "event2", handler2);
-    component.onDom("btn3", "click", "event3", handler3);
+    component.onDom("btn1", "click", handler1);
+    component.onDom("btn2", "click", handler2);
+    component.onDom("btn3", "click", handler3);
 
     // Verify all listeners work
     document.getElementById("btn1").click();
@@ -126,7 +147,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     const handler = vi.fn();
 
     component.init();
-    component.onDom("testBtn", "click", "test-event", handler);
+    component.onDom("testBtn", "click", handler);
 
     // Spy on cleanupEventListeners
     const cleanupSpy = vi.spyOn(component, "cleanupEventListeners");
@@ -153,7 +174,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     component.addEventListener("test-bus-event", busHandler);
 
     // Add DOM event listener
-    component.onDom("testBtn", "click", "test-dom-event", domHandler);
+    component.onDom("testBtn", "click", domHandler);
 
     // Verify both listeners work
     eventBus.emit("test-bus-event", { data: "test" });
@@ -181,12 +202,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     const handler = vi.fn();
 
     // Should not throw and should return a function
-    const cleanup = componentWithoutBus.onDom(
-      "testBtn",
-      "click",
-      "test-event",
-      handler,
-    );
+    const cleanup = componentWithoutBus.onDom("testBtn", "click", handler);
     expect(typeof cleanup).toBe("function");
     expect(() => cleanup()).not.toThrow();
 
@@ -198,7 +214,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     const handler = vi.fn();
 
     component.init();
-    component.onDom(".test-class", "click", "test-event", handler);
+    component.onDom(".test-class", "click", handler);
 
     // Verify listener works
     document.querySelector(".test-class").click();
@@ -219,7 +235,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     const handler = vi.fn();
 
     component.init();
-    component.onDom(element, "click", "test-event", handler);
+    component.onDom(element, "click", handler);
 
     // Verify listener works
     element.click();
@@ -241,7 +257,7 @@ describe("ComponentBase DOM event listener automatic cleanup", () => {
     component.init();
 
     // Store the cleanup function
-    const cleanup = component.onDom("testBtn", "click", "test-event", handler);
+    const cleanup = component.onDom("testBtn", "click", handler);
 
     // Manually cleanup
     cleanup();

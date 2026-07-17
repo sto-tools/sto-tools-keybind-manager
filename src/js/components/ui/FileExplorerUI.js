@@ -68,85 +68,75 @@ export default class FileExplorerUI extends UIComponentBase {
     });
 
     // Open Explorer button (toolbar)
-    this.onDom("fileExplorerBtn", "click", "fileExplorer-open", () => {
+    this.onDom("fileExplorerBtn", "click", () => {
       this.openExplorer();
     });
 
     // Delegate clicks on tree nodes
-    this.onDom(this.treeId, "click", "fileExplorer-tree-click", (e) => {
+    this.onDom(this.treeId, "click", (e) => {
       const node = eventElement(e)?.closest(".tree-node");
       if (!(node instanceof HTMLElement)) return;
       this.selectNode(node);
     });
 
     // Copy preview content → clipboard
-    this.onDom(
-      "copyFileContentBtn",
-      "click",
-      "fileExplorer-copy-content",
-      async () => {
-        const contentEl = this.document.getElementById(this.contentId);
-        if (!contentEl) return;
-        const text = contentEl.textContent || "";
-        if (!text.trim()) {
-          this.showToast(this.i18n.t("nothing_to_copy"), "warning");
-          return;
-        }
-        const result = await this.request("utility:copy-to-clipboard", {
-          text,
-        });
-        if (result?.success) {
-          this.showToast(this.i18n.t(result?.message), "success");
-        } else {
-          this.showToast(this.i18n.t(result?.message), "error");
-        }
-      },
-    );
+    this.onDom("copyFileContentBtn", "click", async () => {
+      const contentEl = this.document.getElementById(this.contentId);
+      if (!contentEl) return;
+      const text = contentEl.textContent || "";
+      if (!text.trim()) {
+        this.showToast(this.i18n.t("nothing_to_copy"), "warning");
+        return;
+      }
+      const result = await this.request("utility:copy-to-clipboard", {
+        text,
+      });
+      if (result?.success) {
+        this.showToast(this.i18n.t(result?.message), "success");
+      } else {
+        this.showToast(this.i18n.t(result?.message), "error");
+      }
+    });
 
     // Download preview file
-    this.onDom(
-      "downloadFileBtn",
-      "click",
-      "fileExplorer-download",
-      async () => {
-        if (!this.selectedNode) return;
-        const { type, profileId, environment } = this.selectedNode;
-        if (!profileId) return;
-        const contentEl = this.document.getElementById(this.contentId);
-        if (!contentEl) return;
-        const text = contentEl.textContent || "";
-        if (!text.trim()) return;
+    this.onDom("downloadFileBtn", "click", async () => {
+      if (!this.selectedNode) return;
+      const { type, profileId, environment } = this.selectedNode;
+      if (!profileId) return;
+      const contentEl = this.document.getElementById(this.contentId);
+      if (!contentEl) return;
+      const text = contentEl.textContent || "";
+      if (!text.trim()) return;
 
-        let filename = this.i18n.t("default_export_filename");
-        if (this.storage) {
-          const profile = this.storage.getProfile(profileId);
-          try {
-            if (!profile?.name) {
-              throw new Error(`Profile ${profileId} is unavailable`);
-            }
-            if (type === "build") {
-              filename = await this.request("export:generate-filename", {
-                profile,
-                extension: "txt",
-                environment: environment || undefined,
-              });
-            } else if (type === "aliases") {
-              filename = await this.request("export:generate-alias-filename", {
-                profile,
-                extension: "txt",
-              });
-            }
-          } catch (error) {
-            console.error(
-              "Failed to generate filename via ExportService:",
-              error,
-            );
-            // Keep default filename
+      let filename = this.i18n.t("default_export_filename");
+      if (this.storage) {
+        const profile = this.storage.getProfile(profileId);
+        try {
+          if (!profile?.name) {
+            throw new Error(`Profile ${profileId} is unavailable`);
           }
+          if (type === "build") {
+            filename = await this.request("export:generate-filename", {
+              profile,
+              extension: "txt",
+              environment: environment || undefined,
+            });
+          } else if (type === "aliases") {
+            filename = await this.request("export:generate-alias-filename", {
+              profile,
+              extension: "txt",
+            });
+          }
+        } catch (error) {
+          console.error(
+            "Failed to generate filename via ExportService:",
+            error,
+          );
+          // Keep default filename
         }
-        this.downloadFile(text, filename, "text/plain");
-      },
-    );
+      }
+      this.downloadFile(text, filename, "text/plain");
+    });
   }
 
   // UI actions

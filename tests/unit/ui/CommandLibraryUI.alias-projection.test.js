@@ -124,11 +124,11 @@ describe("CommandLibraryUI alias projection", () => {
     const header = category?.querySelector("h4");
     const commands = category?.querySelector(".category-commands");
     const itemHandler = fixture.eventBus.onDom.mock.calls.find(
-      (call) => call[2] === "alias-item-click" && call[0] === category,
-    )?.[3];
+      (call) => call[0] === category,
+    )?.[2];
     const headerHandler = fixture.eventBus.onDom.mock.calls.find(
-      (call) => call[2] === "alias-category-header" && call[0] === header,
-    )?.[3];
+      (call) => call[0] === header,
+    )?.[2];
 
     itemHandler({ target: item });
     expect(

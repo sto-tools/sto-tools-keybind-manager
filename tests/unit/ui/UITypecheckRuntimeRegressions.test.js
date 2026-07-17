@@ -11,10 +11,9 @@ function createEventBus() {
     emit: vi.fn(() => Promise.resolve()),
     off: vi.fn(),
     on: vi.fn(() => () => {}),
-    onDom: vi.fn((target, eventName, busEventOrHandler, handler) => {
-      const listener = handler || busEventOrHandler;
-      target.addEventListener(eventName, listener);
-      return () => target.removeEventListener(eventName, listener);
+    onDom: vi.fn((target, eventName, handler) => {
+      target.addEventListener(eventName, handler);
+      return () => target.removeEventListener(eventName, handler);
     }),
   };
 }

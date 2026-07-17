@@ -272,10 +272,9 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       await ui.setupEventListeners();
 
-      const handlerCall = mockEventBus.onDom.mock.calls.find(
-        (call) => call[2] === "commandchain-palindromic-toggle",
-      );
-      const handler = handlerCall?.[3];
+      const handlers = mockEventBus.onDom.mock.calls
+        .filter((call) => call[0] === "#commandList" && call[1] === "click")
+        .map((call) => call[2]);
       const button = { dataset: { commandIndex: "0" } };
       const target = {
         closest: vi.fn((selector) =>
@@ -288,8 +287,8 @@ describe("CommandChainUI Palindromic Controls", () => {
         stopPropagation: vi.fn(),
       };
 
-      expect(handler).toEqual(expect.any(Function));
-      await handler(event);
+      expect(handlers.length).toBeGreaterThan(0);
+      for (const handler of handlers) await handler(event);
 
       expect(target.closest).toHaveBeenCalledWith(".btn-palindromic-toggle");
       expect(event.preventDefault).toHaveBeenCalled();
@@ -314,10 +313,9 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       await ui.setupEventListeners();
 
-      const handlerCall = mockEventBus.onDom.mock.calls.find(
-        (call) => call[2] === "commandchain-placement-toggle",
-      );
-      const handler = handlerCall?.[3];
+      const handlers = mockEventBus.onDom.mock.calls
+        .filter((call) => call[0] === "#commandList" && call[1] === "click")
+        .map((call) => call[2]);
       const button = { dataset: { commandIndex: "0" } };
       const target = {
         closest: vi.fn((selector) =>
@@ -330,8 +328,8 @@ describe("CommandChainUI Palindromic Controls", () => {
         stopPropagation: vi.fn(),
       };
 
-      expect(handler).toEqual(expect.any(Function));
-      await handler(event);
+      expect(handlers.length).toBeGreaterThan(0);
+      for (const handler of handlers) await handler(event);
 
       expect(target.closest).toHaveBeenCalledWith(".btn-placement-toggle");
       expect(event.preventDefault).toHaveBeenCalled();

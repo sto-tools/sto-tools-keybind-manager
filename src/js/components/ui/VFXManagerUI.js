@@ -189,7 +189,7 @@ export default class VFXManagerUI extends UIComponentBase {
     }
 
     // Effect checkbox changes - using automatic cleanup pattern
-    this.onDom(".effect-checkbox", "change", "vfx-effect-change", (e) => {
+    this.onDom(".effect-checkbox", "change", (e) => {
       const target = eventElement(e);
       const environment = target?.getAttribute("data-environment");
       const effectName = target?.getAttribute("data-effect");
@@ -206,21 +206,16 @@ export default class VFXManagerUI extends UIComponentBase {
     });
 
     // PlayerSay checkbox - using automatic cleanup pattern
-    this.onDom(
-      "#vertigoShowPlayerSay",
-      "change",
-      "vfx-playersay-change",
-      (e) => {
-        const target = eventElement(e);
-        if (this.vfxManager && target instanceof HTMLInputElement) {
-          this.vfxManager.showPlayerSay = target.checked;
-          this.updatePreview();
-        }
-      },
-    );
+    this.onDom("#vertigoShowPlayerSay", "change", (e) => {
+      const target = eventElement(e);
+      if (this.vfxManager && target instanceof HTMLInputElement) {
+        this.vfxManager.showPlayerSay = target.checked;
+        this.updatePreview();
+      }
+    });
 
     // VFX specific buttons using automatic cleanup pattern
-    this.onDom("spaceSelectAll", "click", "vfx-space-select-all", () => {
+    this.onDom("spaceSelectAll", "click", () => {
       if (this.vfxManager) {
         this.vfxManager.selectAllEffects("space");
         this.updateCheckboxes("space");
@@ -229,7 +224,7 @@ export default class VFXManagerUI extends UIComponentBase {
       }
     });
 
-    this.onDom("spaceClearAll", "click", "vfx-space-clear-all", () => {
+    this.onDom("spaceClearAll", "click", () => {
       if (this.vfxManager) {
         this.vfxManager.selectedEffects.space.clear();
         this.updateCheckboxes("space");
@@ -238,7 +233,7 @@ export default class VFXManagerUI extends UIComponentBase {
       }
     });
 
-    this.onDom("groundSelectAll", "click", "vfx-ground-select-all", () => {
+    this.onDom("groundSelectAll", "click", () => {
       if (this.vfxManager) {
         this.vfxManager.selectAllEffects("ground");
         this.updateCheckboxes("ground");
@@ -247,7 +242,7 @@ export default class VFXManagerUI extends UIComponentBase {
       }
     });
 
-    this.onDom("groundClearAll", "click", "vfx-ground-clear-all", () => {
+    this.onDom("groundClearAll", "click", () => {
       if (this.vfxManager) {
         this.vfxManager.selectedEffects.ground.clear();
         this.updateCheckboxes("ground");
@@ -256,7 +251,7 @@ export default class VFXManagerUI extends UIComponentBase {
       }
     });
 
-    this.onDom("saveVertigoBtn", "click", "vfx-save", () => {
+    this.onDom("saveVertigoBtn", "click", () => {
       this.emit("vfx:save-effects");
     });
 

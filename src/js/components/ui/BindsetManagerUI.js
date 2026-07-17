@@ -49,12 +49,12 @@ export default class BindsetManagerUI extends UIComponentBase {
     this.listenersSetup = true;
 
     // Open modal
-    this.onDom("bindsetManagerBtn", "click", "bindset-manager-open", () => {
+    this.onDom("bindsetManagerBtn", "click", () => {
       this.render();
       this.emit("modal:show", { modalId: "bindsetManagerModal" });
     });
 
-    this.onDom("createBindsetBtn", "click", "bindset-create", async () => {
+    this.onDom("createBindsetBtn", "click", async () => {
       if (!this.inputDialog) return;
 
       const title = this.i18n.t("create_bindset");
@@ -77,7 +77,7 @@ export default class BindsetManagerUI extends UIComponentBase {
       if (!res?.success) this.showError(res.error);
     });
 
-    this.onDom("renameBindsetBtn", "click", "bindset-rename", async () => {
+    this.onDom("renameBindsetBtn", "click", async () => {
       if (!this.selectedBindset || !this.inputDialog) return;
 
       const title = this.i18n.t("rename_bindset");
@@ -106,7 +106,7 @@ export default class BindsetManagerUI extends UIComponentBase {
       if (!res?.success) this.showError(res.error);
     });
 
-    this.onDom("deleteBindsetBtn", "click", "bindset-delete", async () => {
+    this.onDom("deleteBindsetBtn", "click", async () => {
       if (!this.selectedBindset || !this.confirmDialog) return;
 
       const message = this.i18n.t("confirm_delete_bindset", {

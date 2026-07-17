@@ -36,14 +36,30 @@ describe("Application browser smoke", () => {
 
     expect(settingsDropdown?.classList.contains("active")).toBe(false);
 
-    settingsButton?.click();
+    const bus = window.commandChainUI?.eventBus;
+    expect(bus).toBeTruthy();
+    const mirroredHandler = vi.fn();
+    const genericHandler = vi.fn();
+    const detachMirrored = bus.on("settings-toggle", mirroredHandler);
+    const detachGeneric = bus.on("click", genericHandler);
 
-    expect(settingsDropdown?.classList.contains("active")).toBe(true);
-    expect(importDropdown?.classList.contains("active")).toBe(false);
+    try {
+      settingsButton?.click();
 
-    document.body.click();
+      expect(settingsDropdown?.classList.contains("active")).toBe(true);
+      expect(importDropdown?.classList.contains("active")).toBe(false);
+      expect(mirroredHandler).not.toHaveBeenCalled();
+      expect(genericHandler).not.toHaveBeenCalled();
 
-    expect(settingsDropdown?.classList.contains("active")).toBe(false);
+      document.body.click();
+
+      expect(settingsDropdown?.classList.contains("active")).toBe(false);
+      expect(mirroredHandler).not.toHaveBeenCalled();
+      expect(genericHandler).not.toHaveBeenCalled();
+    } finally {
+      detachMirrored();
+      detachGeneric();
+    }
   });
 
   it("uses local projections without retired state or static-data RPCs", async () => {

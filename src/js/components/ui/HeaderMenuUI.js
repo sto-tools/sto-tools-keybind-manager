@@ -42,48 +42,48 @@ export default class HeaderMenuUI extends UIComponentBase {
     this.eventListenersSetup = true;
 
     // Header menu toggles - using automatic cleanup pattern
-    this.onDom("settingsBtn", "click", "settings-toggle", () => {
+    this.onDom("settingsBtn", "click", () => {
       this.toggleSettingsMenu();
     });
 
-    this.onDom("importMenuBtn", "click", "import-toggle", () => {
+    this.onDom("importMenuBtn", "click", () => {
       this.toggleImportMenu();
     });
 
-    this.onDom("backupMenuBtn", "click", "backup-toggle", () => {
+    this.onDom("backupMenuBtn", "click", () => {
       this.toggleBackupMenu();
     });
 
-    this.onDom("languageMenuBtn", "click", "language-toggle", () => {
+    this.onDom("languageMenuBtn", "click", () => {
       this.toggleLanguageMenu();
     });
 
     // VFX Button (could be moved to VFXManagerUI if preferred)
-    this.onDom("vertigoBtn", "click", "vfx-open", () => {
+    this.onDom("vertigoBtn", "click", () => {
       this.emit("vfx:show-modal");
     });
 
     // File Explorer Button
-    this.onDom("fileExplorerBtn", "click", "file-explorer-open", () => {
+    this.onDom("fileExplorerBtn", "click", () => {
       this.emit("file-explorer:open");
     });
 
     // Sync Now Button
-    this.onDom("syncNowBtn", "click", "sync-now", () => {
+    this.onDom("syncNowBtn", "click", () => {
       this.emit("sync:sync-now");
     });
 
     // Settings menu items
-    this.onDom("preferencesBtn", "click", "preferences-open", () => {
+    this.onDom("preferencesBtn", "click", () => {
       this.emit("preferences:show");
     });
 
-    this.onDom("aboutBtn", "click", "about-open", () => {
+    this.onDom("aboutBtn", "click", () => {
       this.emit("about:show");
     });
 
     // Close all menus when clicking outside
-    this.onDom(this.document, "click", "document-click-outside", (e) => {
+    this.onDom(this.document, "click", (e) => {
       if (!eventElement(e)?.closest(".dropdown")) {
         this.document
           .querySelectorAll(".dropdown.active")
@@ -94,41 +94,41 @@ export default class HeaderMenuUI extends UIComponentBase {
     });
 
     // File operations
-    this.onDom("openProjectBtn", "click", "project-open", () => {
+    this.onDom("openProjectBtn", "click", () => {
       this.emit("project:open");
     });
 
-    this.onDom("saveProjectBtn", "click", "project-save", () => {
+    this.onDom("saveProjectBtn", "click", () => {
       this.emit("project:save");
     });
 
-    this.onDom("exportKeybindsBtn", "click", "keybinds-export", () => {
+    this.onDom("exportKeybindsBtn", "click", () => {
       this.emit("keybinds:export");
     });
 
     // Menu-specific operations
-    this.onDom("importKeybindsBtn", "click", "keybinds-import", () => {
+    this.onDom("importKeybindsBtn", "click", () => {
       this.emit("keybinds:import");
     });
 
-    this.onDom("importAliasesBtn", "click", "aliases-import", () => {
+    this.onDom("importAliasesBtn", "click", () => {
       this.emit("aliases:import");
     });
 
-    this.onDom("importKbfBtn", "click", "kbf-import", () => {
+    this.onDom("importKbfBtn", "click", () => {
       this.emit("keybinds:kbf-import");
     });
 
-    this.onDom("loadDefaultDataBtn", "click", "data-load-default", () => {
+    this.onDom("loadDefaultDataBtn", "click", () => {
       this.emit("data:load-default");
     });
 
-    this.onDom("resetAppBtn", "click", "app-reset", () => {
+    this.onDom("resetAppBtn", "click", () => {
       this.confirmResetApp();
     });
 
     // Language selection - using EventBus with built-in protection
-    this.onDom("[data-lang]", "click", "language-change", (e) => {
+    this.onDom("[data-lang]", "click", (e) => {
       const langButton = eventElement(e)?.closest("[data-lang]");
       const lang = langButton ? langButton.getAttribute("data-lang") : null;
       if (lang) {
@@ -142,7 +142,7 @@ export default class HeaderMenuUI extends UIComponentBase {
     });
 
     // Theme toggle
-    this.onDom("themeToggleBtn", "click", "theme-toggle", () => {
+    this.onDom("themeToggleBtn", "click", () => {
       this.emit("theme:toggle");
     });
   }

@@ -102,21 +102,19 @@ function emit(event, data = null, options = {}) {
 /**
  * @param {string | EventTarget} target
  * @param {string} domEvent
- * @param {string | DomEventCallback} busEvent
- * @param {DomEventCallback} [handler]
+ * @param {DomEventCallback} handler
  */
-function onDom(target, domEvent, busEvent, handler) {
+function onDom(target, domEvent, handler) {
+  if (typeof handler !== "function") {
+    throw new TypeError("DOM event handler must be a function");
+  }
+
   // -------------------------------------------------
   // If a string is supplied we treat it as a selector / id and
   // always install a delegated listener on document so that
   // dynamically replaced elements keep working.
   // -------------------------------------------------
   if (typeof target === "string") {
-    // Allow shorthand signature onDom(selector, domEvent, handler)
-    if (typeof busEvent === "function" && handler === undefined) {
-      handler = busEvent;
-      busEvent = domEvent;
-    }
     // Normalise selector: if string already looks like a CSS selector (starts with '.', '#', '[') we keep it.
     // Otherwise we assume it is an element id and prefix with '#'.
     const selector = [".", "#", "["].includes(target[0])
@@ -138,14 +136,11 @@ function onDom(target, domEvent, busEvent, handler) {
       }
       if (!match) return;
 
-      if (handler) {
-        try {
-          handler(e);
-        } catch (err) {
-          console.error(err);
-        }
+      try {
+        handler(e);
+      } catch (err) {
+        console.error(err);
       }
-      emit(typeof busEvent === "string" ? busEvent : domEvent, e);
 
       // Debug: log delegated handler fired
       // if (target === 'settingsBtn' || selector === '#settingsBtn') {
@@ -168,57 +163,23 @@ function onDom(target, domEvent, busEvent, handler) {
   }
 
   if (!target || !target.addEventListener) return () => {};
-  if (typeof busEvent === "function") {
-    handler = busEvent;
-    busEvent = domEvent;
-  }
-  if (!busEvent) busEvent = domEvent;
+  /** @param {Event} e */
+  const domHandler = (e) => {
+    try {
+      handler(e);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  target.addEventListener(domEvent, domHandler);
 
-  if (handler) {
-    // If a handler is provided, attach it directly to DOM event
-    // and also emit the bus event for other listeners
-    /** @param {Event} e */
-    const domHandler = (e) => {
-      try {
-        // Call the handler with the original context
-        handler(e);
-      } catch (err) {
-        console.error(err);
-      }
-      emit(typeof busEvent === "string" ? busEvent : domEvent, e);
-    };
-    target.addEventListener(domEvent, domHandler);
+  const cleanup = () => {
+    target.removeEventListener(domEvent, domHandler);
+    domListeners.delete(cleanup);
+  };
 
-    // Create cleanup function
-    const cleanup = () => {
-      target.removeEventListener(domEvent, domHandler);
-      // Remove from tracking
-      domListeners.delete(cleanup);
-    };
-
-    // Track cleanup function
-    domListeners.add(cleanup);
-
-    return cleanup;
-  } else {
-    // If no handler is provided, just emit the bus event
-    /** @param {Event} e */
-    const domHandler = (e) =>
-      emit(typeof busEvent === "string" ? busEvent : domEvent, e);
-    target.addEventListener(domEvent, domHandler);
-
-    // Create cleanup function
-    const cleanup = () => {
-      target.removeEventListener(domEvent, domHandler);
-      // Remove from tracking
-      domListeners.delete(cleanup);
-    };
-
-    // Track cleanup function
-    domListeners.add(cleanup);
-
-    return cleanup;
-  }
+  domListeners.add(cleanup);
+  return cleanup;
 }
 
 /**
@@ -316,41 +277,21 @@ function trackDebouncedDomCleanup(detachDom, debouncedHandler) {
 }
 
 /**
- * Attach a DOM listener that emits through the bus, but debounced.
- * Signature mirrors onDom with an extra optional delay param at the end.
- *
- * Examples:
- *   eventBus.onDomDebounced('#search', 'input', 'search-changed', (e)=>{...}, 300)
+ * Attach a debounced DOM listener.
  */
 /**
  * @param {string | EventTarget} target
  * @param {string} domEvent
- * @param {string | DomEventCallback} busEvent
- * @param {DomEventCallback | number} [handler]
+ * @param {DomEventCallback} handler
  * @param {number} [delay]
  */
-function onDomDebounced(target, domEvent, busEvent, handler, delay = 250) {
-  // Handler-only shorthand: onDomDebounced(target, event, handler, delay)
-  if (typeof busEvent === "function") {
-    if (typeof handler === "number") delay = handler;
-    const debouncedHandler = debounce(busEvent, delay);
-    const detachDom = onDom(target, domEvent, debouncedHandler);
-    return trackDebouncedDomCleanup(detachDom, debouncedHandler);
+function onDomDebounced(target, domEvent, handler, delay = 250) {
+  if (typeof handler !== "function") {
+    throw new TypeError("DOM event handler must be a function");
   }
 
-  // Bus-topic form with an omitted handler: the fourth argument is the delay.
-  if (typeof handler === "number") {
-    delay = handler;
-    handler = undefined;
-  }
-
-  const debouncedHandler = debounce(handler || (() => {}), delay);
-
-  // Reuse onDom for attachment, but debounce only the local handler. onDom
-  // continues to mirror the raw DOM event onto the bus immediately.
-  const detachDom = onDom(target, domEvent, busEvent, (e) => {
-    debouncedHandler(e);
-  });
+  const debouncedHandler = debounce(handler, delay);
+  const detachDom = onDom(target, domEvent, debouncedHandler);
   return trackDebouncedDomCleanup(detachDom, debouncedHandler);
 }
 

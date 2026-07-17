@@ -107,44 +107,33 @@ describe("VFXManagerUI", () => {
       mockEmit: false,
     });
 
-    // Mock onDom to simulate real behavior
-    eventBusFixture.eventBus.onDom = vi.fn(
-      (selector, event, busEvent, handler) => {
-        if (typeof busEvent === "function") {
-          handler = busEvent;
-          busEvent = event;
-        }
-        if (!busEvent) busEvent = event;
-
-        // Normalize selector like real EventBus - handle attribute selectors
-        const finalSelector = /^[.#]/.test(selector)
+    // Mock onDom to attach the local handler with real delegation semantics.
+    eventBusFixture.eventBus.onDom = vi.fn((selector, event, handler) => {
+      // Normalize selector like real EventBus - handle attribute selectors
+      const finalSelector = /^[.#]/.test(selector)
+        ? selector
+        : /^\[/.test(selector)
           ? selector
-          : /^\[/.test(selector)
-            ? selector
-            : `#${selector}`;
+          : `#${selector}`;
 
-        // Add actual DOM listener
-        const domHandler = (e) => {
-          const match = e.target.closest(finalSelector);
-          if (match) {
-            // Call handler (which will emit the actual event)
-            if (handler) {
-              try {
-                handler(e);
-              } catch (error) {
-                console.error(error);
-              }
-            }
+      // Add actual DOM listener
+      const domHandler = (e) => {
+        const match = e.target.closest(finalSelector);
+        if (match) {
+          try {
+            handler(e);
+          } catch (error) {
+            console.error(error);
           }
-        };
+        }
+      };
 
-        document.addEventListener(event, domHandler, true);
+      document.addEventListener(event, domHandler, true);
 
-        return function detach() {
-          document.removeEventListener(event, domHandler, true);
-        };
-      },
-    );
+      return function detach() {
+        document.removeEventListener(event, domHandler, true);
+      };
+    });
 
     vfxManagerUI = new VFXManagerUI({
       eventBus: eventBusFixture.eventBus,

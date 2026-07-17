@@ -100,13 +100,13 @@ export default class ConfirmDialogUI extends UIComponentBase {
 
       // Use EventBus for automatic cleanup - attach directly to elements
       if (yesButton) {
-        this.onDom(yesButton, "click", "confirm-dialog-yes", () => {
+        this.onDom(yesButton, "click", () => {
           handleConfirm(true);
         });
       }
 
       if (noButton) {
-        this.onDom(noButton, "click", "confirm-dialog-no", () => {
+        this.onDom(noButton, "click", () => {
           handleConfirm(false);
         });
       }
@@ -169,7 +169,7 @@ export default class ConfirmDialogUI extends UIComponentBase {
 
       // Use EventBus for automatic cleanup - attach directly to element
       if (okButton) {
-        this.onDom(okButton, "click", "inform-dialog-ok", handleClose);
+        this.onDom(okButton, "click", handleClose);
       }
 
       // Also allow ESC key to close
@@ -282,13 +282,13 @@ export default class ConfirmDialogUI extends UIComponentBase {
     const noButton = newModal.querySelector(".confirm-no");
 
     if (yesButton) {
-      this.onDom(yesButton, "click", "confirm-dialog-regen-yes", () => {
+      this.onDom(yesButton, "click", () => {
         this.handleConfirmAction(true);
       });
     }
 
     if (noButton) {
-      this.onDom(noButton, "click", "confirm-dialog-regen-no", () => {
+      this.onDom(noButton, "click", () => {
         this.handleConfirmAction(false);
       });
     }
@@ -322,7 +322,7 @@ export default class ConfirmDialogUI extends UIComponentBase {
     // Attach listener directly to button element
     const okButton = newModal.querySelector(".inform-ok");
     if (okButton) {
-      this.onDom(okButton, "click", "inform-dialog-regen-ok", handleClose);
+      this.onDom(okButton, "click", handleClose);
     }
 
     // Re-attach ESC key listener

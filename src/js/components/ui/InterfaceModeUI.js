@@ -93,7 +93,7 @@ export default class InterfaceModeUI extends UIComponentBase {
 
     modes.forEach((mode) => {
       // Use this.onDom for automatic cleanup
-      this.onDom(`[data-mode="${mode}"]`, "click", `mode-change-${mode}`, () =>
+      this.onDom(`[data-mode="${mode}"]`, "click", () =>
         this.handleModeButtonClick(mode),
       );
     });

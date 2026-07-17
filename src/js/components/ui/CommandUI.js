@@ -97,7 +97,7 @@ export default class CommandUI extends UIComponentBase {
     this.eventListenersSetup = true;
 
     // Clear command chain button
-    this.onDom("clearChainBtn", "click", "command-chain-clear", () => {
+    this.onDom("clearChainBtn", "click", () => {
       const selectedKey = this.getSelectedKey();
       if (selectedKey) {
         this.confirmClearChain(selectedKey);
@@ -105,7 +105,7 @@ export default class CommandUI extends UIComponentBase {
     });
 
     // Validate command chain button
-    this.onDom("validateChainBtn", "click", "command-chain-validate", () => {
+    this.onDom("validateChainBtn", "click", () => {
       const selectedKey = this.getSelectedKey();
       if (selectedKey) {
         this.validateCurrentChain(selectedKey);
@@ -116,7 +116,6 @@ export default class CommandUI extends UIComponentBase {
     this.onDomDebounced(
       "commandSearch",
       "input",
-      "command-search",
       (e) => {
         const input = eventElement(e);
         if (input instanceof HTMLInputElement) {
@@ -127,7 +126,7 @@ export default class CommandUI extends UIComponentBase {
     );
 
     // Command search keydown
-    this.onDom("commandSearch", "keydown", "command-search-key", (e) => {
+    this.onDom("commandSearch", "keydown", (e) => {
       if (!(e instanceof KeyboardEvent)) return;
       const input = eventElement(e);
       if (!(input instanceof HTMLInputElement)) return;
@@ -142,7 +141,7 @@ export default class CommandUI extends UIComponentBase {
     });
 
     // Clear Filter button
-    this.onDom("showAllCommandsBtn", "click", "command-clear-filter", () => {
+    this.onDom("showAllCommandsBtn", "click", () => {
       const inp = /** @type {HTMLInputElement | null} */ (
         this.document.getElementById("commandSearch")
       );
@@ -161,22 +160,17 @@ export default class CommandUI extends UIComponentBase {
     });
 
     // Command search button - toggle command search functionality
-    this.onDom("commandSearchBtn", "click", "command-search-toggle", () => {
+    this.onDom("commandSearchBtn", "click", () => {
       this.toggleCommandSearch();
     });
 
     // Import from key or alias button - show import from key or alias modal
-    this.onDom(
-      "importFromKeyOrAliasBtn",
-      "click",
-      "import-from-key-or-alias",
-      () => {
-        this.showImportFromKeyOrAliasModal();
-      },
-    );
+    this.onDom("importFromKeyOrAliasBtn", "click", () => {
+      this.showImportFromKeyOrAliasModal();
+    });
 
     // Confirm import button - perform import from selected source
-    this.onDom("confirmImportBtn", "click", "confirm-import", () => {
+    this.onDom("confirmImportBtn", "click", () => {
       this.performImport();
     });
 
@@ -712,7 +706,7 @@ export default class CommandUI extends UIComponentBase {
     };
 
     // Use EventBus for automatic cleanup
-    this.onDom("#validationOkBtn", "click", "validation-dialog-ok", close);
+    this.onDom("#validationOkBtn", "click", close);
 
     if (this.modalManager) {
       this.modalManager.show(modalId);

@@ -1,8 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { resolveI18n } from "./uiTypes.js";
 
-/** @typedef {import('../../types/events/legacy-dom.js').InputDialogDomMirrorTopic} InputDialogDomMirrorTopic */
-
 /**
  * @typedef {{
  *   message: string,
@@ -25,8 +23,7 @@ import { resolveI18n } from "./uiTypes.js";
  *   cancelBtn: HTMLButtonElement,
  *   errorDiv: HTMLElement,
  *   validate: ((value: string) => true | string) | null,
- *   resolve: (value: string | null) => void,
- *   topicSuffix?: "" | "regen"
+ *   resolve: (value: string | null) => void
  * }} InputModalControls
  */
 
@@ -188,17 +185,8 @@ export default class InputDialogUI extends UIComponentBase {
     errorDiv,
     validate,
     resolve,
-    topicSuffix = "",
   }) {
     const modalId = modalElement.id;
-    /**
-     * @param {"submit" | "cancel" | "input" | "keydown"} name
-     * @returns {InputDialogDomMirrorTopic}
-     */
-    const topic = (name) =>
-      /** @type {InputDialogDomMirrorTopic} */ (
-        `input-dialog-${name}${topicSuffix ? `-${topicSuffix}` : ""}`
-      );
 
     const handleCancel = () => {
       this.closeModal(modalElement, modalId);
@@ -239,10 +227,10 @@ export default class InputDialogUI extends UIComponentBase {
       }
     };
 
-    this.onDom(submitBtn, "click", topic("submit"), handleSubmit);
-    this.onDom(cancelBtn, "click", topic("cancel"), handleCancel);
-    this.onDom(inputElement, "input", topic("input"), inputHandler);
-    this.onDom(inputElement, "keydown", topic("keydown"), keyHandler);
+    this.onDom(submitBtn, "click", handleSubmit);
+    this.onDom(cancelBtn, "click", handleCancel);
+    this.onDom(inputElement, "input", inputHandler);
+    this.onDom(inputElement, "keydown", keyHandler);
   }
 
   /**
@@ -369,7 +357,6 @@ export default class InputDialogUI extends UIComponentBase {
       errorDiv,
       validate,
       resolve,
-      topicSuffix: "regen",
     });
 
     // Set initial button state

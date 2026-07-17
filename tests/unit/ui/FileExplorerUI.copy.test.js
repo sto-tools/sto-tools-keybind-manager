@@ -30,13 +30,13 @@ describe("FileExplorerUI – copy preview content", () => {
   function getCopyHandler() {
     const calls = fixture.eventBus.onDom.mock.calls;
     const match = calls.find((call) => call[0] === "copyFileContentBtn");
-    return match ? match[3] : null;
+    return match ? match[2] : null;
   }
 
   function getDownloadHandler() {
     const calls = fixture.eventBus.onDom.mock.calls;
     const match = calls.find((call) => call[0] === "downloadFileBtn");
-    return match ? match[3] : null;
+    return match ? match[2] : null;
   }
 
   it("requests clipboard copy and shows success toast on success", async () => {

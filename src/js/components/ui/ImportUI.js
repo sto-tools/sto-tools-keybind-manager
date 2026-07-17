@@ -386,15 +386,9 @@ export default class ImportUI extends UIComponentBase {
       };
 
       // Use EventBus for automatic cleanup
-      this.onDom(".import-space", "click", "import-dialog-space", () =>
-        handleChoice("space"),
-      );
-      this.onDom(".import-ground", "click", "import-dialog-ground", () =>
-        handleChoice("ground"),
-      );
-      this.onDom(".import-cancel", "click", "import-dialog-cancel", () =>
-        handleChoice(null),
-      );
+      this.onDom(".import-space", "click", () => handleChoice("space"));
+      this.onDom(".import-ground", "click", () => handleChoice("ground"));
+      this.onDom(".import-cancel", "click", () => handleChoice(null));
 
       // Show modal
       requestAnimationFrame(() => {
@@ -537,15 +531,9 @@ export default class ImportUI extends UIComponentBase {
     };
 
     // Use EventBus for automatic cleanup
-    this.onDom(".import-space", "click", "import-dialog-regen-space", () =>
-      handleChoice("space"),
-    );
-    this.onDom(".import-ground", "click", "import-dialog-regen-ground", () =>
-      handleChoice("ground"),
-    );
-    this.onDom(".import-cancel", "click", "import-dialog-regen-cancel", () =>
-      handleChoice(null),
-    );
+    this.onDom(".import-space", "click", () => handleChoice("space"));
+    this.onDom(".import-ground", "click", () => handleChoice("ground"));
+    this.onDom(".import-cancel", "click", () => handleChoice(null));
   }
 
   // Show a simple modal asking user to choose import strategy for aliases
@@ -580,26 +568,16 @@ export default class ImportUI extends UIComponentBase {
       };
 
       // Use EventBus for automatic cleanup
-      this.onDom(
-        ".alias-strategy-confirm",
-        "click",
-        "alias-strategy-confirm",
-        () => {
-          const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
-            modal.querySelector('input[name="alias-import-strategy"]:checked')
-          );
-          const strategy = normalizeImportStrategy(
-            selectedStrategyRadio?.value,
-          );
-          handleStrategyChoice(strategy);
-        },
-      );
+      this.onDom(".alias-strategy-confirm", "click", () => {
+        const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
+          modal.querySelector('input[name="alias-import-strategy"]:checked')
+        );
+        const strategy = normalizeImportStrategy(selectedStrategyRadio?.value);
+        handleStrategyChoice(strategy);
+      });
 
-      this.onDom(
-        ".alias-strategy-cancel",
-        "click",
-        "alias-strategy-cancel",
-        () => handleStrategyChoice(null),
+      this.onDom(".alias-strategy-cancel", "click", () =>
+        handleStrategyChoice(null),
       );
 
       // Show modal
@@ -687,24 +665,16 @@ export default class ImportUI extends UIComponentBase {
     };
 
     // Use EventBus for automatic cleanup
-    this.onDom(
-      ".alias-strategy-confirm",
-      "click",
-      "alias-strategy-regen-confirm",
-      () => {
-        const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
-          newModal.querySelector('input[name="alias-import-strategy"]:checked')
-        );
-        const strategy = normalizeImportStrategy(selectedStrategyRadio?.value);
-        handleStrategyChoice(strategy);
-      },
-    );
+    this.onDom(".alias-strategy-confirm", "click", () => {
+      const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
+        newModal.querySelector('input[name="alias-import-strategy"]:checked')
+      );
+      const strategy = normalizeImportStrategy(selectedStrategyRadio?.value);
+      handleStrategyChoice(strategy);
+    });
 
-    this.onDom(
-      ".alias-strategy-cancel",
-      "click",
-      "alias-strategy-regen-cancel",
-      () => handleStrategyChoice(null),
+    this.onDom(".alias-strategy-cancel", "click", () =>
+      handleStrategyChoice(null),
     );
   }
 
@@ -767,14 +737,11 @@ export default class ImportUI extends UIComponentBase {
       };
 
       // Use EventBus for automatic cleanup
-      this.onDom(
-        ".overwrite-confirm-yes",
-        "click",
-        "overwrite-confirm-yes",
-        () => handleConfirmChoice(true),
+      this.onDom(".overwrite-confirm-yes", "click", () =>
+        handleConfirmChoice(true),
       );
 
-      this.onDom(".overwrite-confirm-no", "click", "overwrite-confirm-no", () =>
+      this.onDom(".overwrite-confirm-no", "click", () =>
         handleConfirmChoice(false),
       );
 
@@ -888,18 +855,12 @@ export default class ImportUI extends UIComponentBase {
     };
 
     // Use EventBus for automatic cleanup
-    this.onDom(
-      ".overwrite-confirm-yes",
-      "click",
-      "overwrite-confirm-regen-yes",
-      () => handleConfirmChoice(true),
+    this.onDom(".overwrite-confirm-yes", "click", () =>
+      handleConfirmChoice(true),
     );
 
-    this.onDom(
-      ".overwrite-confirm-no",
-      "click",
-      "overwrite-confirm-regen-no",
-      () => handleConfirmChoice(false),
+    this.onDom(".overwrite-confirm-no", "click", () =>
+      handleConfirmChoice(false),
     );
   }
 
@@ -949,27 +910,20 @@ export default class ImportUI extends UIComponentBase {
       };
 
       // Use EventBus for automatic cleanup
-      this.onDom(
-        ".bindset-confirm",
-        "click",
-        "bindset-selection-confirm",
-        () => {
-          /** @type {string[]} */
-          const selectedBindsets = [];
-          const checkboxes = modal.querySelectorAll(
-            'input[type="checkbox"]:checked',
-          );
-          checkboxes.forEach((checkbox) => {
-            const input = /** @type {HTMLInputElement} */ (checkbox);
-            selectedBindsets.push(input.value);
-          });
-          handleSelection(selectedBindsets);
-        },
-      );
+      this.onDom(".bindset-confirm", "click", () => {
+        /** @type {string[]} */
+        const selectedBindsets = [];
+        const checkboxes = modal.querySelectorAll(
+          'input[type="checkbox"]:checked',
+        );
+        checkboxes.forEach((checkbox) => {
+          const input = /** @type {HTMLInputElement} */ (checkbox);
+          selectedBindsets.push(input.value);
+        });
+        handleSelection(selectedBindsets);
+      });
 
-      this.onDom(".bindset-cancel", "click", "bindset-selection-cancel", () =>
-        handleSelection(null),
-      );
+      this.onDom(".bindset-cancel", "click", () => handleSelection(null));
 
       // Show modal
       requestAnimationFrame(() => {
@@ -1073,30 +1027,20 @@ export default class ImportUI extends UIComponentBase {
     };
 
     // Use EventBus for automatic cleanup
-    this.onDom(
-      ".bindset-confirm",
-      "click",
-      "bindset-selection-regen-confirm",
-      () => {
-        /** @type {string[]} */
-        const selectedBindsets = [];
-        const checkboxes = newModal.querySelectorAll(
-          'input[type="checkbox"]:checked',
-        );
-        checkboxes.forEach((checkbox) => {
-          const input = /** @type {HTMLInputElement} */ (checkbox);
-          selectedBindsets.push(input.value);
-        });
-        handleSelection(selectedBindsets);
-      },
-    );
+    this.onDom(".bindset-confirm", "click", () => {
+      /** @type {string[]} */
+      const selectedBindsets = [];
+      const checkboxes = newModal.querySelectorAll(
+        'input[type="checkbox"]:checked',
+      );
+      checkboxes.forEach((checkbox) => {
+        const input = /** @type {HTMLInputElement} */ (checkbox);
+        selectedBindsets.push(input.value);
+      });
+      handleSelection(selectedBindsets);
+    });
 
-    this.onDom(
-      ".bindset-cancel",
-      "click",
-      "bindset-selection-regen-cancel",
-      () => handleSelection(null),
-    );
+    this.onDom(".bindset-cancel", "click", () => handleSelection(null));
   }
 
   // Get comprehensive KBF success message with detailed statistics
@@ -1238,45 +1182,29 @@ export default class ImportUI extends UIComponentBase {
       };
 
       // Use EventBus for automatic cleanup
-      this.onDom(
-        ".enhanced-bindset-confirm",
-        "click",
-        "enhanced-bindset-selection-confirm",
-        () => {
-          const configuration = this.validateBindsetConfiguration(
-            modal,
-            parseResult,
-          );
-          if (configuration) {
-            handleConfiguration(configuration);
-          }
-        },
+      this.onDom(".enhanced-bindset-confirm", "click", () => {
+        const configuration = this.validateBindsetConfiguration(
+          modal,
+          parseResult,
+        );
+        if (configuration) {
+          handleConfiguration(configuration);
+        }
+      });
+
+      this.onDom(".single-bindset-confirm", "click", () => {
+        const configuration = this.validateSingleBindsetConfiguration(modal);
+        if (configuration) {
+          handleConfiguration(configuration);
+        }
+      });
+
+      this.onDom(".enhanced-bindset-cancel", "click", () =>
+        handleConfiguration(null),
       );
 
-      this.onDom(
-        ".single-bindset-confirm",
-        "click",
-        "single-bindset-selection-confirm",
-        () => {
-          const configuration = this.validateSingleBindsetConfiguration(modal);
-          if (configuration) {
-            handleConfiguration(configuration);
-          }
-        },
-      );
-
-      this.onDom(
-        ".enhanced-bindset-cancel",
-        "click",
-        "enhanced-bindset-selection-cancel",
-        () => handleConfiguration(null),
-      );
-
-      this.onDom(
-        ".single-bindset-cancel",
-        "click",
-        "single-bindset-selection-cancel",
-        () => handleConfiguration(null),
+      this.onDom(".single-bindset-cancel", "click", () =>
+        handleConfiguration(null),
       );
 
       // Show modal
@@ -1943,45 +1871,29 @@ export default class ImportUI extends UIComponentBase {
     };
 
     // Use EventBus for automatic cleanup
-    this.onDom(
-      ".enhanced-bindset-confirm",
-      "click",
-      "enhanced-bindset-selection-regen-confirm",
-      () => {
-        const configuration = this.validateBindsetConfiguration(
-          newModal,
-          parseResult,
-        );
-        if (configuration) {
-          handleConfiguration(configuration);
-        }
-      },
+    this.onDom(".enhanced-bindset-confirm", "click", () => {
+      const configuration = this.validateBindsetConfiguration(
+        newModal,
+        parseResult,
+      );
+      if (configuration) {
+        handleConfiguration(configuration);
+      }
+    });
+
+    this.onDom(".single-bindset-confirm", "click", () => {
+      const configuration = this.validateSingleBindsetConfiguration(newModal);
+      if (configuration) {
+        handleConfiguration(configuration);
+      }
+    });
+
+    this.onDom(".enhanced-bindset-cancel", "click", () =>
+      handleConfiguration(null),
     );
 
-    this.onDom(
-      ".single-bindset-confirm",
-      "click",
-      "single-bindset-selection-regen-confirm",
-      () => {
-        const configuration = this.validateSingleBindsetConfiguration(newModal);
-        if (configuration) {
-          handleConfiguration(configuration);
-        }
-      },
-    );
-
-    this.onDom(
-      ".enhanced-bindset-cancel",
-      "click",
-      "enhanced-bindset-selection-regen-cancel",
-      () => handleConfiguration(null),
-    );
-
-    this.onDom(
-      ".single-bindset-cancel",
-      "click",
-      "single-bindset-selection-regen-cancel",
-      () => handleConfiguration(null),
+    this.onDom(".single-bindset-cancel", "click", () =>
+      handleConfiguration(null),
     );
 
     // Re-setup appropriate handlers

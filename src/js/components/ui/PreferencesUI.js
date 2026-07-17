@@ -151,7 +151,7 @@ export default class PreferencesUI extends UIComponentBase {
 
     // Category navigation buttons
     document.querySelectorAll(".category-item").forEach((item) => {
-      this.onDom(item, "click", "pref-cat", (e) => {
+      this.onDom(item, "click", (e) => {
         const currentTarget = e.currentTarget;
         const cat =
           currentTarget instanceof Element
@@ -162,7 +162,7 @@ export default class PreferencesUI extends UIComponentBase {
     });
 
     // Save button
-    this.onDom("savePreferencesBtn", "click", "pref-save", () => {
+    this.onDom("savePreferencesBtn", "click", () => {
       this.saveAllSettings(true);
     });
 
@@ -215,13 +215,13 @@ export default class PreferencesUI extends UIComponentBase {
 
       switch (def.type) {
         case "boolean":
-          this.onDom(el, "change", `pref-${key}`, (e) => {
+          this.onDom(el, "change", (e) => {
             const target = /** @type {HTMLInputElement} */ (e.target);
             this.handleSettingChange(key, target.checked);
           });
           break;
         case "select":
-          this.onDom(el, "change", `pref-${key}`, (e) => {
+          this.onDom(el, "change", (e) => {
             const target = /** @type {HTMLSelectElement} */ (e.target);
             this.handleSettingChange(key, target.value);
           });

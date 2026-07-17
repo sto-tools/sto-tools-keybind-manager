@@ -23,7 +23,6 @@ import { adoptDataStateSnapshot } from "./services/dataState.js";
 /** @typedef {import('../types/events/protocol.js').EventEmitOptions} EventEmitOptions */
 /** @typedef {import('../types/events/protocol.js').EventEmitResult} EventEmitResult */
 /** @typedef {import('../types/events/protocol.js').EventTopicsAllowingOmittedPayload} NullableEventTopic */
-/** @typedef {import('../types/events/legacy-dom.js').LegacyDomMirrorTopic} LegacyDomMirrorTopic */
 /** @typedef {import('../types/events/dynamic.js').DynamicEventTopic<unknown, string>} AnyDynamicEventTopic */
 /** @typedef {import('../types/events/dynamic.js').ComponentReplyTopic} ComponentReplyTopic */
 /** @typedef {import('../types/events/component-state.js').ComponentStateReply} ComponentStateReply */
@@ -43,8 +42,8 @@ import { adoptDataStateSnapshot } from "./services/dataState.js";
  *   on: (event: string, handler: EventHandler, context?: unknown) => unknown,
  *   off: (event: string, handler: EventHandler) => void,
  *   emit: (event: string, data?: unknown, options?: EventEmitOptions) => EventEmitResult,
- *   onDom: (target: string | EventTarget, domEvent: string, busEventOrHandler: string | DomEventHandler, handler?: DomEventHandler) => () => void,
- *   onDomDebounced: (target: string | EventTarget, domEvent: string, busEventOrHandler: string | DomEventHandler, handlerOrDelay?: DomEventHandler | number, delay?: number) => () => void
+ *   onDom: (target: string | EventTarget, domEvent: string, handler: DomEventHandler) => () => void,
+ *   onDomDebounced: (target: string | EventTarget, domEvent: string, handler: DomEventHandler, delay?: number) => () => void
  * }} RawEventBus
  */
 /**
@@ -417,29 +416,13 @@ export default class ComponentBase {
   }
 
   /**
-   * @overload
-   * @param {string | EventTarget} target
-   * @param {string} domEvent
-   * @param {DomEventHandler} busEventOrHandler
-   * @returns {() => void}
-   */
-  /**
-   * @overload
-   * @param {string | EventTarget} target
-   * @param {string} domEvent
-   * @param {LegacyDomMirrorTopic} busEventOrHandler
-   * @param {DomEventHandler} [handler]
-   * @returns {() => void}
-   */
-  /**
    * Wrapper for eventBus.onDom that automatically tracks the cleanup function.
    * @param {string | EventTarget} target
    * @param {string} domEvent
-   * @param {LegacyDomMirrorTopic | DomEventHandler} busEventOrHandler
-   * @param {DomEventHandler} [handler]
+   * @param {DomEventHandler} handler
    * @returns {() => void}
    */
-  onDom(target, domEvent, busEventOrHandler, handler) {
+  onDom(target, domEvent, handler) {
     if (!this.eventBus) {
       // Silently ignore if no event bus is available – useful during unit tests
       return () => {};
@@ -449,12 +432,7 @@ export default class ComponentBase {
     const eventBus = /** @type {RawEventBus} */ (
       /** @type {unknown} */ (this.eventBus)
     );
-    const cleanupFn = eventBus.onDom(
-      target,
-      domEvent,
-      busEventOrHandler,
-      handler,
-    );
+    const cleanupFn = eventBus.onDom(target, domEvent, handler);
 
     // Track the cleanup function for automatic cleanup
     this.addDomEventListener(cleanupFn);
@@ -463,32 +441,14 @@ export default class ComponentBase {
   }
 
   /**
-   * @overload
-   * @param {string | EventTarget} target
-   * @param {string} domEvent
-   * @param {DomEventHandler} busEventOrHandler
-   * @param {number} [handlerOrDelay]
-   * @returns {() => void}
-   */
-  /**
-   * @overload
-   * @param {string | EventTarget} target
-   * @param {string} domEvent
-   * @param {LegacyDomMirrorTopic} busEventOrHandler
-   * @param {DomEventHandler | number} [handlerOrDelay]
-   * @param {number} [delay]
-   * @returns {() => void}
-   */
-  /**
    * Wrapper for eventBus.onDomDebounced that automatically tracks the cleanup function.
    * @param {string | EventTarget} target
    * @param {string} domEvent
-   * @param {LegacyDomMirrorTopic | DomEventHandler} busEventOrHandler
-   * @param {DomEventHandler | number} [handlerOrDelay]
+   * @param {DomEventHandler} handler
    * @param {number} [delay]
    * @returns {() => void}
    */
-  onDomDebounced(target, domEvent, busEventOrHandler, handlerOrDelay, delay) {
+  onDomDebounced(target, domEvent, handler, delay) {
     if (!this.eventBus) {
       // Silently ignore if no event bus is available – useful during unit tests
       return () => {};
@@ -498,13 +458,7 @@ export default class ComponentBase {
     const eventBus = /** @type {RawEventBus} */ (
       /** @type {unknown} */ (this.eventBus)
     );
-    const cleanupFn = eventBus.onDomDebounced(
-      target,
-      domEvent,
-      busEventOrHandler,
-      handlerOrDelay,
-      delay,
-    );
+    const cleanupFn = eventBus.onDomDebounced(target, domEvent, handler, delay);
 
     // Track the cleanup function for automatic cleanup
     this.addDomEventListener(cleanupFn);

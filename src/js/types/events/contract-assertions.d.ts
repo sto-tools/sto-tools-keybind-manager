@@ -1,5 +1,4 @@
 import type { EventPayload, EventTopic } from "./protocol.js";
-import type { LegacyDomMirrorTopic } from "./legacy-dom.js";
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <
@@ -8,11 +7,6 @@ type Equal<Left, Right> =
     ? true
     : false;
 type Assert<Condition extends true> = Condition;
-
-/** A DOM compatibility mirror must never silently enter direct on/emit. */
-export type AssertNoLegacyDomTopicsInEventProtocol = Assert<
-  Equal<Extract<EventTopic, LegacyDomMirrorTopic>, never>
->;
 
 type IsAny<Value> = 0 extends 1 & Value ? true : false;
 type IsExactlyUnknown<Value> =

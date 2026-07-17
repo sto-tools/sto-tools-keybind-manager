@@ -108,15 +108,13 @@ describe("KeyBrowserUI Bindset Header Controls Tests", () => {
       expect(cloneItem.innerHTML).toContain("fa-copy");
 
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
+        createItem,
         "click",
-        "bindset-menu-create",
         expect.any(Function),
       );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
+        cloneItem,
         "click",
-        "bindset-menu-clone",
         expect.any(Function),
       );
     });
@@ -161,21 +159,18 @@ describe("KeyBrowserUI Bindset Header Controls Tests", () => {
       expect(deleteItem.className).toContain("dangerous");
 
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
+        cloneItem,
         "click",
-        "bindset-menu-clone",
         expect.any(Function),
       );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
+        renameItem,
         "click",
-        "bindset-menu-rename",
         expect.any(Function),
       );
       expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
+        deleteItem,
         "click",
-        "bindset-menu-delete",
         expect.any(Function),
       );
     });
@@ -276,24 +271,15 @@ describe("KeyBrowserUI Bindset Header Controls Tests", () => {
         bindsetData,
       );
 
-      expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
-        "click",
-        "bindset-menu-create",
-        expect.any(Function),
-      );
-      expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
-        "click",
-        "bindset-menu-clone",
-        expect.any(Function),
-      );
-      expect(keyBrowserUI.onDom).not.toHaveBeenCalledWith(
-        expect.any(Object),
-        "click",
-        "bindset-menu-delete",
-        expect.any(Function),
-      );
+      const registeredActions = keyBrowserUI.onDom.mock.calls
+        .filter(
+          ([target, eventName, handler]) =>
+            eventName === "click" &&
+            typeof handler === "function" &&
+            target?.classList?.contains("bindset-menu-item"),
+        )
+        .map(([target]) => target.dataset.action);
+      expect(registeredActions).toEqual(["create", "clone"]);
 
       expect(keyBrowserUI.confirmDeleteBindset).not.toHaveBeenCalled();
     });
@@ -306,30 +292,15 @@ describe("KeyBrowserUI Bindset Header Controls Tests", () => {
         bindsetData,
       );
 
-      expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
-        "click",
-        "bindset-menu-clone",
-        expect.any(Function),
-      );
-      expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
-        "click",
-        "bindset-menu-rename",
-        expect.any(Function),
-      );
-      expect(keyBrowserUI.onDom).toHaveBeenCalledWith(
-        expect.any(Object),
-        "click",
-        "bindset-menu-delete",
-        expect.any(Function),
-      );
-      expect(keyBrowserUI.onDom).not.toHaveBeenCalledWith(
-        expect.any(Object),
-        "click",
-        "bindset-menu-create",
-        expect.any(Function),
-      );
+      const registeredActions = keyBrowserUI.onDom.mock.calls
+        .filter(
+          ([target, eventName, handler]) =>
+            eventName === "click" &&
+            typeof handler === "function" &&
+            target?.classList?.contains("bindset-menu-item"),
+        )
+        .map(([target]) => target.dataset.action);
+      expect(registeredActions).toEqual(["clone", "rename", "delete"]);
     });
   });
 });

@@ -2,9 +2,9 @@ import type { AliasEventProtocol } from "./aliases.js";
 import type { BindsetEventProtocol } from "./bindsets.js";
 import type { CommandEventProtocol } from "./commands.js";
 import type { DataEventProtocol } from "./data.js";
+import type { DomEventSurface } from "./dom.js";
 import type { DynamicEventTopic, DynamicEventPayload } from "./dynamic.js";
 import type { KeyEventProtocol } from "./keys.js";
-import type { LegacyDomMirrorSurface } from "./legacy-dom.js";
 import type { PreferencesEventProtocol } from "./preferences.js";
 import type { ProfileEventProtocol } from "./profiles.js";
 import type { SelectionEventProtocol } from "./selection.js";
@@ -14,7 +14,7 @@ import type { UiEventProtocol } from "./ui.js";
 /**
  * The complete direct application-event registry captured for Phase 1.
  * Each literal production topic is declared in exactly one domain interface.
- * Dynamic transport topics and legacy DOM mirrors are deliberately separate.
+ * Dynamic transport topics are deliberately separate.
  */
 export interface EventProtocol
   extends AliasEventProtocol,
@@ -58,7 +58,7 @@ export type EventTopicsAllowingOmittedPayload = {
  * EventProtocol. Dynamic topics must carry an explicit payload-bearing brand;
  * a plain or template-literal `string` is deliberately not an escape hatch.
  */
-export interface TypedEventBus extends LegacyDomMirrorSurface {
+export interface TypedEventBus extends DomEventSurface {
   on<Topic extends EventTopic>(
     topic: Topic,
     handler: EventHandler<Topic>,

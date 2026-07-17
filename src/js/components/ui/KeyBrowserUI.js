@@ -132,17 +132,17 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.eventListenersSetup = true;
 
     // Key management DOM events
-    this.onDom("addKeyBtn", "click", "key-add", () => {
+    this.onDom("addKeyBtn", "click", () => {
       this.showKeySelectionModal();
     });
 
-    this.onDom("deleteKeyBtn", "click", "key-delete", () => {
+    this.onDom("deleteKeyBtn", "click", () => {
       if (this.cache.selectedKey) {
         this.confirmDeleteKey(this.cache.selectedKey);
       }
     });
 
-    this.onDom("duplicateKeyBtn", "click", "key-duplicate", () => {
+    this.onDom("duplicateKeyBtn", "click", () => {
       if (this.cache.selectedKey) {
         this.duplicateKey(this.cache.selectedKey);
       }
@@ -152,8 +152,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.onDomDebounced(
       "keyFilter",
       "input",
-      "key-filter",
-      /** @param {Event} e */ (e) => {
+      (e) => {
         if (e.target instanceof HTMLInputElement) {
           this.filterKeys(e.target.value);
         }
@@ -162,42 +161,37 @@ export default class KeyBrowserUI extends UIComponentBase {
     );
 
     // Escape / Enter keys within search input
-    this.onDom(
-      "keyFilter",
-      "keydown",
-      "key-filter-key",
-      /** @param {Event} e */ (e) => {
-        if (
-          !(e.target instanceof HTMLInputElement) ||
-          !("key" in e) ||
-          typeof e.key !== "string"
-        )
-          return;
-        if (e.key === "Escape") {
-          e.preventDefault();
-          const input = e.target;
-          input.value = "";
-          input.classList.remove("expanded");
-          this.emit("key:filter", { filter: "" });
-        } else if (e.key === "Enter") {
-          const input = e.target;
-          input.classList.remove("expanded");
-          // keep current filter; focus out
-          input.blur();
-        }
-      },
-    );
+    this.onDom("keyFilter", "keydown", (e) => {
+      if (
+        !(e.target instanceof HTMLInputElement) ||
+        !("key" in e) ||
+        typeof e.key !== "string"
+      )
+        return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        const input = e.target;
+        input.value = "";
+        input.classList.remove("expanded");
+        this.emit("key:filter", { filter: "" });
+      } else if (e.key === "Enter") {
+        const input = e.target;
+        input.classList.remove("expanded");
+        // keep current filter; focus out
+        input.blur();
+      }
+    });
 
-    this.onDom("showAllKeysBtn", "click", "show-all-keys", () => {
+    this.onDom("showAllKeysBtn", "click", () => {
       this.showAllKeys();
     });
 
-    this.onDom("toggleKeyViewBtn", "click", "toggle-key-view", () => {
+    this.onDom("toggleKeyViewBtn", "click", () => {
       this.toggleKeyView();
     });
 
     // Key search button
-    this.onDom("keySearchBtn", "click", "key-search-toggle", () => {
+    this.onDom("keySearchBtn", "click", () => {
       this.toggleKeySearch();
     });
 
@@ -682,7 +676,7 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     el.innerHTML = `<div class="key-label">${formatted}</div>${nonBlank.length > 0 ? `<div class="activity-bar" style="width:${Math.min(nonBlank.length * 15, 100)}%"></div><div class="command-count-badge">${nonBlank.length}</div>` : ""}`;
 
-    this.onDom(el, "click", "key-element-click", () => {
+    this.onDom(el, "click", () => {
       // Check if this key is within a bindset section
       const bindsetSection = /** @type {HTMLElement | null} */ (
         el.closest(".bindset-section")
@@ -749,7 +743,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     // Attach header click to collapse/expand using EventBus
     const header = element.querySelector("h4");
     if (header) {
-      this.onDom(header, "click", "category-header-click", () => {
+      this.onDom(header, "click", () => {
         this.toggleKeyCategory(categoryId, element, mode);
       });
     }
@@ -882,30 +876,20 @@ export default class KeyBrowserUI extends UIComponentBase {
     actions.appendChild(menuDropdown);
 
     // Attach menu button handler
-    this.onDom(
-      menuBtn,
-      "click",
-      "bindset-menu-btn",
-      /** @param {Event} e */ (e) => {
-        e.stopPropagation();
-        this.toggleBindsetMenu(menuDropdown);
-      },
-    );
+    this.onDom(menuBtn, "click", (e) => {
+      e.stopPropagation();
+      this.toggleBindsetMenu(menuDropdown);
+    });
 
     // Close menu when clicking outside
-    this.onDom(
-      this.document,
-      "click",
-      "bindset-menu-outside",
-      /** @param {Event} e */ (e) => {
-        if (
-          !(e.target instanceof Element) ||
-          !e.target.closest(".bindset-actions")
-        ) {
-          this.closeAllBindsetMenus();
-        }
-      },
-    );
+    this.onDom(this.document, "click", (e) => {
+      if (
+        !(e.target instanceof Element) ||
+        !e.target.closest(".bindset-actions")
+      ) {
+        this.closeAllBindsetMenus();
+      }
+    });
 
     header.appendChild(actions);
 
@@ -959,7 +943,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     element.appendChild(content);
 
     // Attach header click handler for collapse/expand
-    this.onDom(header, "click", "bindset-section-header-click", () => {
+    this.onDom(header, "click", () => {
       this.toggleBindsetSection(bindsetName, element);
     });
 
@@ -1549,16 +1533,11 @@ export default class KeyBrowserUI extends UIComponentBase {
     item.dataset.action = action;
     item.innerHTML = `<i class="${icon}"></i><span>${text}</span>`;
 
-    this.onDom(
-      item,
-      "click",
-      `bindset-menu-${action}`,
-      /** @param {Event} e */ (e) => {
-        e.stopPropagation();
-        handler();
-        this.closeAllBindsetMenus();
-      },
-    );
+    this.onDom(item, "click", (e) => {
+      e.stopPropagation();
+      handler();
+      this.closeAllBindsetMenus();
+    });
 
     menu.appendChild(item);
   }

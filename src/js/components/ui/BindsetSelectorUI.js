@@ -102,37 +102,29 @@ export default class BindsetSelectorUI extends UIComponentBase {
 
     // DOM Event Listeners using EventBus onDom facility
     // Button events - use element selectors with EventBus delegation
-    this.onDom("bindsetSelectorBtn", "click", "bindset-toggle", (e) => {
+    this.onDom("bindsetSelectorBtn", "click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       this.toggleDropdown();
     });
 
     // Bindset selection events - use delegation on the dropdown menu
-    this.onDom(
-      "#bindsetOptionsMenu",
-      "click",
-      "bindset-option-selected",
-      (e) => {
-        const target = eventElement(e);
-        const option = target?.closest(".bindset-option");
-        if (
-          option instanceof HTMLElement &&
-          !target?.closest(".toolbar-group")
-        ) {
-          // Don't allow selection of greyed-out bindsets (where key doesn't exist)
-          if (option.classList.contains("greyed-out")) {
-            return;
-          }
-          const bindset = option.dataset.bindset;
-          this.request("bindset-selector:set-active-bindset", { bindset });
-          this.close();
+    this.onDom("#bindsetOptionsMenu", "click", (e) => {
+      const target = eventElement(e);
+      const option = target?.closest(".bindset-option");
+      if (option instanceof HTMLElement && !target?.closest(".toolbar-group")) {
+        // Don't allow selection of greyed-out bindsets (where key doesn't exist)
+        if (option.classList.contains("greyed-out")) {
+          return;
         }
-      },
-    );
+        const bindset = option.dataset.bindset;
+        this.request("bindset-selector:set-active-bindset", { bindset });
+        this.close();
+      }
+    });
 
     // Add key buttons - handle click events on add-key-btn class
-    this.onDom("#bindsetOptionsMenu", "click", "bindset-add-key", (e) => {
+    this.onDom("#bindsetOptionsMenu", "click", (e) => {
       const addBtn = eventElement(e)?.closest(".add-key-btn");
       if (addBtn instanceof HTMLButtonElement && !addBtn.disabled) {
         e.preventDefault();
@@ -143,7 +135,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     });
 
     // Remove key buttons - handle click events on remove-key-btn class
-    this.onDom("#bindsetOptionsMenu", "click", "bindset-remove-key", (e) => {
+    this.onDom("#bindsetOptionsMenu", "click", (e) => {
       const removeBtn = eventElement(e)?.closest(".remove-key-btn");
       if (removeBtn instanceof HTMLButtonElement && !removeBtn.disabled) {
         e.preventDefault();
@@ -154,7 +146,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     });
 
     // Manage bindsets link - use element selector
-    this.onDom("manageBindsetsLink", "click", "bindset-manage", (e) => {
+    this.onDom("manageBindsetsLink", "click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       this.openBindsetManager();
@@ -162,7 +154,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
     });
 
     // Document events - use document with proper cleanup and unique bus events
-    this.onDom(this.document, "click", "bindset-outside-click", (e) => {
+    this.onDom(this.document, "click", (e) => {
       const target = eventElement(e);
       // Close if click is outside both the container and the dropdown menu
       if (
@@ -173,7 +165,7 @@ export default class BindsetSelectorUI extends UIComponentBase {
       }
     });
 
-    this.onDom(this.document, "keydown", "bindset-escape", (e) => {
+    this.onDom(this.document, "keydown", (e) => {
       if (e instanceof KeyboardEvent && e.key === "Escape" && this.isOpen) {
         this.close();
       }

@@ -331,14 +331,9 @@ export default class ParameterCommandUI extends UIComponentBase {
    */
   attachModalEventHandlers() {
     // Save button handler
-    this.onDom(
-      "saveParameterCommandBtn",
-      "click",
-      "parameter-command-save",
-      () => {
-        this.saveParameterCommand();
-      },
-    );
+    this.onDom("saveParameterCommandBtn", "click", () => {
+      this.saveParameterCommand();
+    });
 
     // Modal close handlers
     const modal = this.document.getElementById("parameterModal");
@@ -346,7 +341,7 @@ export default class ParameterCommandUI extends UIComponentBase {
       modal
         .querySelectorAll('.modal-close, [data-modal="parameterModal"]')
         .forEach((btn) => {
-          this.onDom(btn, "click", "parameter-modal-close", () => {
+          this.onDom(btn, "click", () => {
             this.cancelParameterCommand();
           });
         });

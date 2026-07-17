@@ -150,32 +150,26 @@ export default class AliasBrowserUI extends UIComponentBase {
     this.eventListenersSetup = true;
 
     // Alias management DOM events
-    this.onDom("addAliasChainBtn", "click", "alias-chain-add", () => {
+    this.onDom("addAliasChainBtn", "click", () => {
       this.createAliasModal();
     });
 
-    this.onDom("deleteAliasChainBtn", "click", "alias-chain-delete", () => {
+    this.onDom("deleteAliasChainBtn", "click", () => {
       if (this._selectedAliasName) {
         this.confirmDeleteAlias(this._selectedAliasName);
       }
     });
 
-    this.onDom(
-      "duplicateAliasChainBtn",
-      "click",
-      "alias-chain-duplicate",
-      () => {
-        if (this._selectedAliasName) {
-          this.duplicateAlias(this._selectedAliasName);
-        }
-      },
-    );
+    this.onDom("duplicateAliasChainBtn", "click", () => {
+      if (this._selectedAliasName) {
+        this.duplicateAlias(this._selectedAliasName);
+      }
+    });
 
     // Debounced alias search input via eventBus helper
     this.onDomDebounced(
       "aliasFilter",
       "input",
-      "alias-filter",
       (e) => {
         const input = /** @type {HTMLInputElement} */ (e.target);
         this.filterAliases(input.value);
@@ -184,7 +178,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     );
 
     // keydown Escape/Enter
-    this.onDom("aliasFilter", "keydown", "alias-filter-key", (e) => {
+    this.onDom("aliasFilter", "keydown", (e) => {
       if (!(e instanceof KeyboardEvent)) return;
       const input = e.target;
       if (!(input instanceof HTMLInputElement)) return;
@@ -199,7 +193,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     });
 
     // show all aliases button
-    this.onDom("showAllAliasesBtn", "click", "alias-show-all", () => {
+    this.onDom("showAllAliasesBtn", "click", () => {
       const input = /** @type {HTMLInputElement | null} */ (
         this.document.getElementById("aliasFilter")
       );
@@ -207,7 +201,7 @@ export default class AliasBrowserUI extends UIComponentBase {
       this.filterAliases("");
     });
 
-    this.onDom("aliasSearchBtn", "click", "alias-search-toggle", () => {
+    this.onDom("aliasSearchBtn", "click", () => {
       this.toggleAliasSearch();
     });
   }
@@ -366,7 +360,7 @@ export default class AliasBrowserUI extends UIComponentBase {
     // Use EventBus for automatic cleanup
     if (typeof grid.querySelectorAll === "function") {
       grid.querySelectorAll(".alias-item").forEach((item) => {
-        this.onDom(item, "click", "alias-item-click", async () => {
+        this.onDom(item, "click", async () => {
           const aliasItem = /** @type {HTMLElement} */ (item);
           const aliasName = aliasItem.dataset.alias;
           if (!aliasName) return;

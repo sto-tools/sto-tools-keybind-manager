@@ -157,90 +157,65 @@ export default class KeyCaptureUI extends UIComponentBase {
     this.eventListenersSetup = true;
 
     // Capture mode toggle
-    this.onDom("toggleCaptureMode", "click", "toggle-capture-mode", () => {
+    this.onDom("toggleCaptureMode", "click", () => {
       this.toggleCaptureMode();
     });
 
     // Main action buttons
-    this.onDom(
-      "confirm-key-selection",
-      "click",
-      "confirm-key-selection",
-      () => {
-        this.confirmSelection();
-      },
-    );
+    this.onDom("confirm-key-selection", "click", () => {
+      this.confirmSelection();
+    });
 
-    this.onDom("cancel-key-selection", "click", "cancel-key-selection", () => {
+    this.onDom("cancel-key-selection", "click", () => {
       this.cancelSelection();
     });
 
     // Virtual keyboard key clicks (manual mode only)
-    this.onDom(
-      ".vkey",
-      "click",
-      "virtual-key-click",
-      /** @param {Event} e */ (e) => {
-        // Ignore clicks while we are in live capture mode
-        if (this.isCapturing) return;
+    this.onDom(".vkey", "click", (e) => {
+      // Ignore clicks while we are in live capture mode
+      if (this.isCapturing) return;
 
-        // Support clicks on inner span elements by finding the nearest .vkey ancestor
-        if (!(e.target instanceof Element)) return;
-        const keyButton = /** @type {HTMLElement | null} */ (
-          e.target.closest(".vkey")
-        );
-        if (!keyButton) return;
+      // Support clicks on inner span elements by finding the nearest .vkey ancestor
+      if (!(e.target instanceof Element)) return;
+      const keyButton = /** @type {HTMLElement | null} */ (
+        e.target.closest(".vkey")
+      );
+      if (!keyButton) return;
 
-        const keyCode = keyButton.dataset.keyCode;
-        if (keyCode) {
-          this.selectKeyFromVirtualKeyboard(keyCode);
-        }
-      },
-    );
+      const keyCode = keyButton.dataset.keyCode;
+      if (keyCode) {
+        this.selectKeyFromVirtualKeyboard(keyCode);
+      }
+    });
 
     // Keyboard layout selector
-    this.onDom(
-      "keyboardLayoutSelector",
-      "change",
-      "layout-change",
-      /** @param {Event} e */ (e) => {
-        if (!(e.target instanceof HTMLSelectElement)) return;
-        const selector = e.target;
-        this.changeKeyboardLayout(selector.value);
-      },
-    );
+    this.onDom("keyboardLayoutSelector", "change", (e) => {
+      if (!(e.target instanceof HTMLSelectElement)) return;
+      const selector = e.target;
+      this.changeKeyboardLayout(selector.value);
+    });
 
     // Bindset target selector (only rendered when bindsets are enabled)
-    this.onDom(
-      "bindsetTargetSelector",
-      "change",
-      "bindset-target-change",
-      /** @param {Event} e */ (e) => {
-        if (!(e.target instanceof HTMLSelectElement)) return;
-        const selector = e.target;
-        this.captureTargetBindset = selector.value || "Primary Bindset";
-      },
-    );
+    this.onDom("bindsetTargetSelector", "change", (e) => {
+      if (!(e.target instanceof HTMLSelectElement)) return;
+      const selector = e.target;
+      this.captureTargetBindset = selector.value || "Primary Bindset";
+    });
 
     // Location-specific modifier toggle
-    this.onDom(
-      "distinguishModifierSide",
-      "change",
-      "location-specific-toggle",
-      /** @param {Event} e */ (e) => {
-        if (!(e.target instanceof HTMLInputElement)) return;
-        const checkbox = e.target;
-        this.emit("keycapture:set-location-specific", {
-          value: checkbox.checked,
-        });
-        // Update current selection if there is one
-        if (this.cache.selectedKey) {
-          this.updateChordWithLocationSpecific(checkbox.checked);
-        }
-        // Update modifier highlighting when the setting changes
-        this.updateModifierHighlighting();
-      },
-    );
+    this.onDom("distinguishModifierSide", "change", (e) => {
+      if (!(e.target instanceof HTMLInputElement)) return;
+      const checkbox = e.target;
+      this.emit("keycapture:set-location-specific", {
+        value: checkbox.checked,
+      });
+      // Update current selection if there is one
+      if (this.cache.selectedKey) {
+        this.updateChordWithLocationSpecific(checkbox.checked);
+      }
+      // Update modifier highlighting when the setting changes
+      this.updateModifierHighlighting();
+    });
   }
 
   // Initialize the modal when shown
