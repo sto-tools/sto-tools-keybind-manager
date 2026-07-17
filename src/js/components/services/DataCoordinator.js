@@ -1299,7 +1299,11 @@ export default class DataCoordinator extends ComponentBase {
     });
 
     try {
-      await persist.all(this.storage, nextRoot, this.i18n);
+      await persist.all(this.storage, nextRoot, this.i18n, {
+        // StorageService or the import path already captured the exact source
+        // root. Keep that evidence through the follow-up normalization write.
+        preserveBackup: true,
+      });
     } catch (error) {
       const message = this.i18n.t("failed_to_save_profile", {
         error: getErrorMessage(error),

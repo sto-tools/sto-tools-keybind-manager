@@ -7,18 +7,6 @@
   "profiles": {
     "legacy-ground": {
       "name": "Legacy Ground Profile",
-      "description": "",
-      "currentEnvironment": "ground",
-      "builds": {
-        "space": {
-          "keys": {}
-        },
-        "ground": {
-          "keys": {
-            "G": ["Sprint", "Aim"]
-          }
-        }
-      },
       "aliases": {},
       "keybindMetadata": {
         "ground": {
@@ -27,8 +15,22 @@
           }
         }
       },
-      "created": "2026-07-15T12:00:00.000Z",
-      "lastModified": "2026-07-15T12:00:00.000Z"
+      "description": "",
+      "currentEnvironment": "ground",
+      "builds": {
+        "ground": {
+          "keys": {
+            "G": ["Sprint", "Aim"]
+          }
+        },
+        "space": {
+          "keys": {}
+        }
+      },
+      "bindsets": {},
+      "aliasMetadata": {},
+      "bindsetMetadata": {},
+      "selections": {}
     }
   },
   "globalAliases": {},

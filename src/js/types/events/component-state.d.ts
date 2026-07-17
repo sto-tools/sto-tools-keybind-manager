@@ -91,7 +91,7 @@ export interface PreferencesStateSnapshot {
 export interface StorageServiceCapability {
   isInitialized(): boolean;
   getAllData(forceFresh?: boolean): unknown;
-  saveAllData(data: unknown): boolean;
+  saveAllData(data: unknown, options?: { preserveBackup?: boolean }): boolean;
   getProfile(profileId: string): unknown;
   saveProfile(profileId: string, profile: unknown): boolean;
   deleteProfile(profileId: string): boolean;

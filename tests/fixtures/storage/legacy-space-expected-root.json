@@ -8,21 +8,9 @@
     "legacy-space": {
       "name": "Legacy Space Profile",
       "description": "Old mode and keys shape",
-      "currentEnvironment": "space",
-      "builds": {
-        "space": {
-          "keys": {
-            "F1": ["FireAll"],
-            "F2": "FireTorps"
-          }
-        },
-        "ground": {
-          "keys": {}
-        }
-      },
       "aliases": {
         "LegacyAttack": {
-          "commands": "Target_Enemy_Near $$ FireAll",
+          "commands": ["Target_Enemy_Near", "FireAll"],
           "description": "Preserved alias"
         }
       },
@@ -33,8 +21,59 @@
           }
         }
       },
+      "bindsets": {
+        "Lost Bindset": {
+          "space": {
+            "keys": {
+              "F3": ["FireMines"]
+            }
+          }
+        }
+      },
+      "aliasMetadata": {
+        "LegacyAttack": {
+          "stabilizeExecutionOrder": true
+        }
+      },
+      "bindsetMetadata": {
+        "Lost Bindset": {
+          "space": {
+            "F3": {
+              "stabilizeExecutionOrder": true
+            }
+          }
+        }
+      },
+      "selections": {
+        "space": "F1",
+        "ground": null,
+        "alias": "LegacyAttack"
+      },
       "created": "2023-02-03T04:05:06.000Z",
-      "lastModified": "2026-07-15T12:00:00.000Z"
+      "lastModified": "2024-02-03T04:05:06.000Z",
+      "migrationVersion": "2.0.0",
+      "vertigoSettings": {
+        "selectedEffects": {
+          "space": ["legacy-fx"],
+          "ground": []
+        },
+        "showPlayerSay": true
+      },
+      "legacyExtension": {
+        "lost": true
+      },
+      "currentEnvironment": "space",
+      "builds": {
+        "space": {
+          "keys": {
+            "F1": ["FireAll"],
+            "F2": ["FireTorps"]
+          }
+        },
+        "ground": {
+          "keys": {}
+        }
+      }
     }
   },
   "globalAliases": {

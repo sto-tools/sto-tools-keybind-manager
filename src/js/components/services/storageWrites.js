@@ -8,9 +8,13 @@ function requireSuccess(result, i18n) {
 }
 
 const storageWrites = {
-  /** @param {import('./serviceTypes.js').Storage} storage @param {any} data @param {import('./serviceTypes.js').I18n | null | undefined} i18n */
-  async all(storage, data, i18n) {
-    requireSuccess(await storage.saveAllData(data), i18n);
+  /** @param {import('./serviceTypes.js').Storage} storage @param {any} data @param {import('./serviceTypes.js').I18n | null | undefined} i18n @param {{ preserveBackup?: boolean }} [options] */
+  async all(storage, data, i18n, options) {
+    const result =
+      options === undefined
+        ? await storage.saveAllData(data)
+        : await storage.saveAllData(data, options);
+    requireSuccess(result, i18n);
   },
 
   /** @param {import('./serviceTypes.js').Storage} storage @param {string} profileId @param {import('./serviceTypes.js').ProfileData} profile @param {import('./serviceTypes.js').I18n | null | undefined} i18n @returns {Promise<import('./serviceTypes.js').ProfileData>} */

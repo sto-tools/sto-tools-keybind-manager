@@ -45,7 +45,7 @@ export interface CanonicalAliasDefinition extends AliasDefinition {
 }
 
 export interface EnvironmentBindingData {
-  keys?: Record<string, StoredCommand[]>;
+  keys?: Record<string, StoredCommand[] | StoredCommand>;
   aliases?: Record<string, AliasDefinition>;
   [field: string]: unknown;
 }
@@ -81,7 +81,7 @@ export interface LegacyProfileData {
   id?: string;
   name?: string;
   description?: string;
-  mode?: string | number | boolean;
+  mode?: string | number | boolean | null;
   currentEnvironment?: string;
   environment?: string;
   keys?: Record<string, StoredCommand[] | StoredCommand>;
@@ -169,10 +169,35 @@ export interface StoredApplicationData {
   lastBackup?: string;
   currentProfile: string | null;
   profiles: Record<string, ProfileData>;
-  globalAliases?: Record<string, AliasDefinition>;
+  globalAliases?: Record<string, AliasDefinition | StoredCommand[] | string>;
   settings: SettingsData;
   [field: string]: unknown;
 }
+
+/** Automatic localStorage backup. `data` is the exact previous root string. */
+export interface LocalStorageBackupEnvelope {
+  data: string;
+  timestamp: string;
+  version: string;
+}
+
+export type StoredApplicationDecodeResult =
+  | {
+      success: true;
+      value: StoredApplicationData;
+      changed: boolean;
+      migrated: boolean;
+    }
+  | {
+      success: false;
+      error: "invalid_json";
+      cause: unknown;
+    }
+  | {
+      success: false;
+      error: "invalid_data";
+      path: string;
+    };
 
 export interface CanonicalProjectData {
   profiles?: Record<string, CanonicalProfileData>;

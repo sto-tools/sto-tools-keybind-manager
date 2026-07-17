@@ -4,11 +4,29 @@ import {
   cloneJsonData,
   invalidProjectData,
   isDataRecord,
+  MAX_PROJECT_JSON_BYTES,
+  setOwnDataField,
 } from "./jsonDataBoundary.js";
 
 /** @typedef {import('../../types/data-contracts.js').KnownPreferenceKey} KnownPreferenceKey */
 /** @typedef {import('../../types/data-contracts.js').KnownPreferencesSettings} KnownPreferencesSettings */
 /** @typedef {import('../../types/data-contracts.js').SettingsData} SettingsData */
+
+/**
+ * @typedef {object} StoredSettingsPatchResult
+ * @property {SettingsData} value
+ * @property {boolean} repaired
+ */
+
+/**
+ * A failed decode still carries detached defaults so storage callers can keep
+ * their established lazy-repair behavior: reads recover in memory and the
+ * next ordinary settings save repairs the persisted value.
+ * @typedef {object} StoredSettingsJsonDecodeResult
+ * @property {KnownPreferencesSettings & Record<string, unknown>} value
+ * @property {boolean} repaired
+ * @property {"invalid_json" | "invalid_data"} [error]
+ */
 
 /** @type {Record<KnownPreferenceKey, (value: unknown) => boolean>} */
 const knownSettingValidators = {
@@ -56,38 +74,190 @@ export function isSettingsRecord(value) {
   );
 }
 
+/** @param {string} content */
+function storedSettingsByteLength(content) {
+  return new TextEncoder().encode(content).byteLength;
+}
+
+/** @param {unknown} error */
+function isInvalidProjectDataError(error) {
+  return error instanceof TypeError && error.message === "invalid_project_file";
+}
+
+/** @param {string} key @param {string} path */
+function hasSafeStoredDataKey(key, path) {
+  try {
+    assertSafeDataKey(key, path);
+    return true;
+  } catch (error) {
+    if (isInvalidProjectDataError(error)) return false;
+    throw error;
+  }
+}
+
 /**
- * Forgiving storage recovery: keep extensions and replace invalid or missing
- * known values with defaults. This intentionally differs from strict import.
+ * Clone one persisted field without allowing invalid extension data to reject
+ * the other recoverable settings. Starting at depth one accounts for the
+ * settings record itself at depth zero.
+ * @param {unknown} value
+ * @param {string} path
+ * @returns {{ success: true, value: import('../../types/data-contracts.js').JsonValue } | { success: false }}
+ */
+function tryCloneStoredSetting(value, path) {
+  try {
+    return { success: true, value: cloneJsonData(value, path, 1) };
+  } catch (error) {
+    if (isInvalidProjectDataError(error)) return { success: false };
+    throw error;
+  }
+}
+
+/**
+ * Forgiving persistence-boundary sanitizer. Valid present fields are deeply
+ * detached; invalid fields are omitted independently so one extension cannot
+ * prevent recovery of the rest of the record. Missing fields remain missing,
+ * which lets embedded root settings retain their established partial shape.
+ *
+ * `repaired` means at least one supplied value could not safely be retained.
+ * A merely partial settings record does not need repair.
+ *
+ * @param {unknown} value
+ * @param {string} [path]
+ * @returns {StoredSettingsPatchResult}
+ */
+export function sanitizeStoredSettingsPatch(value, path = "settings") {
+  /** @type {Record<string, unknown>} */
+  const settings = {};
+  if (!isDataRecord(value)) {
+    return { value: /** @type {SettingsData} */ (settings), repaired: true };
+  }
+
+  let repaired = false;
+  for (const [key, settingValue] of Object.entries(value)) {
+    if (!hasSafeStoredDataKey(key, `${path}.${key}`)) {
+      repaired = true;
+      continue;
+    }
+
+    if (
+      isKnownSettingKey(key) &&
+      !hasValidKnownSettingValue(key, settingValue)
+    ) {
+      repaired = true;
+      continue;
+    }
+
+    if (Object.hasOwn(compatibilitySettingValidators, key)) {
+      const validator =
+        compatibilitySettingValidators[
+          /** @type {keyof typeof compatibilitySettingValidators} */ (key)
+        ];
+      if (!validator(settingValue)) {
+        repaired = true;
+        continue;
+      }
+      if (key === "currentProfile" && typeof settingValue === "string") {
+        if (!hasSafeStoredDataKey(settingValue, `${path}.${key}`)) {
+          repaired = true;
+          continue;
+        }
+      }
+    }
+
+    const cloned = tryCloneStoredSetting(settingValue, `${path}.${key}`);
+    if (!cloned.success) {
+      repaired = true;
+      continue;
+    }
+    setOwnDataField(settings, key, cloned.value);
+  }
+
+  return { value: /** @type {SettingsData} */ (settings), repaired };
+}
+
+/**
+ * Overlay a sanitized persisted patch onto detached caller defaults.
+ * @param {unknown} value
+ * @param {KnownPreferencesSettings} defaults
+ */
+function recoverStoredSettings(value, defaults) {
+  const defaultPatch = sanitizeStoredSettingsPatch(defaults, "defaults");
+  const storedPatch = sanitizeStoredSettingsPatch(value);
+  /** @type {Record<string, unknown>} */
+  const settings = {};
+
+  for (const [key, settingValue] of Object.entries(defaultPatch.value)) {
+    setOwnDataField(settings, key, settingValue);
+  }
+  for (const [key, settingValue] of Object.entries(storedPatch.value)) {
+    setOwnDataField(settings, key, settingValue);
+  }
+
+  return {
+    value: /** @type {KnownPreferencesSettings & Record<string, unknown>} */ (
+      settings
+    ),
+    repaired: storedPatch.repaired,
+  };
+}
+
+/**
+ * Forgiving storage recovery: deeply detach JSON-safe extensions and replace
+ * invalid or missing known values with defaults. This intentionally differs
+ * from strict project import, which rejects invalid fields.
  * @param {unknown} value
  * @param {KnownPreferencesSettings} defaults
  * @returns {KnownPreferencesSettings & Record<string, unknown>}
  */
 export function sanitizeStoredSettings(value, defaults) {
-  /** @type {Record<string, unknown>} */
-  const settings = { ...defaults };
-  if (!isDataRecord(value)) {
-    return /** @type {KnownPreferencesSettings & Record<string, unknown>} */ (
-      settings
-    );
+  return recoverStoredSettings(value, defaults).value;
+}
+
+/**
+ * Decode the raw standalone localStorage settings value without mutating
+ * storage. Every result includes a usable, deeply detached settings snapshot;
+ * callers can inspect `repaired`/`error` while preserving lazy on-disk repair.
+ *
+ * @param {unknown} content
+ * @param {KnownPreferencesSettings} defaults
+ * @returns {StoredSettingsJsonDecodeResult}
+ */
+export function decodeStoredSettingsJson(content, defaults) {
+  if (typeof content !== "string") {
+    return {
+      ...recoverStoredSettings(undefined, defaults),
+      repaired: true,
+      error: "invalid_data",
+    };
+  }
+  if (
+    content.length > MAX_PROJECT_JSON_BYTES ||
+    storedSettingsByteLength(content) > MAX_PROJECT_JSON_BYTES
+  ) {
+    return {
+      ...recoverStoredSettings(undefined, defaults),
+      repaired: true,
+      error: "invalid_data",
+    };
   }
 
-  for (const [key, settingValue] of Object.entries(value)) {
-    if (
-      !isKnownSettingKey(key) ||
-      hasValidKnownSettingValue(key, settingValue)
-    ) {
-      Object.defineProperty(settings, key, {
-        value: settingValue,
-        configurable: true,
-        enumerable: true,
-        writable: true,
-      });
-    }
+  /** @type {unknown} */
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return {
+      ...recoverStoredSettings(undefined, defaults),
+      repaired: true,
+      error: "invalid_json",
+    };
   }
-  return /** @type {KnownPreferencesSettings & Record<string, unknown>} */ (
-    settings
-  );
+
+  const recovered = recoverStoredSettings(parsed, defaults);
+  if (!isDataRecord(parsed)) {
+    return { ...recovered, repaired: true, error: "invalid_data" };
+  }
+  return recovered;
 }
 
 /**

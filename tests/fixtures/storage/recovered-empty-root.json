@@ -18,6 +18,9 @@
     "syncFolderName": null,
     "syncFolderPath": null,
     "autoSync": false,
-    "autoSyncInterval": "change"
+    "autoSyncInterval": "change",
+    "bindToAliasMode": false,
+    "bindsetsEnabled": false,
+    "translateGeneratedMessages": false
   }
 }

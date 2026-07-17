@@ -156,6 +156,9 @@
     "bindToAliasMode": true,
     "bindsetsEnabled": true,
     "translateGeneratedMessages": true,
-    "syncFolderFallback": false
+    "syncFolderFallback": false,
+    "currentProfile": "complete-profile",
+    "version": "2.0.0",
+    "firstRun": false
   }
 }

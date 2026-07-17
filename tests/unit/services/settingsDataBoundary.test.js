@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  decodeStoredSettingsJson,
   decodeProjectSettings,
   isSettingsRecord,
   sanitizeStoredSettings,
+  sanitizeStoredSettingsPatch,
 } from "../../../src/js/components/services/settingsDataBoundary.js";
 import {
   getInvalidDataPath,
+  MAX_PROJECT_JSON_BYTES,
   MAX_PROJECT_JSON_DEPTH,
 } from "../../../src/js/components/services/jsonDataBoundary.js";
 
@@ -56,7 +59,10 @@ function nestedValue(levels) {
 describe("settingsDataBoundary", () => {
   describe("forgiving stored-settings recovery", () => {
     it("keeps valid known values and extensions while defaulting invalid known values", () => {
-      const extension = { density: "compact" };
+      const extension = {
+        density: "compact",
+        panels: [{ id: "commands", visible: true }],
+      };
       const stored = {
         theme: "light",
         autoSave: "yes",
@@ -76,8 +82,16 @@ describe("settingsDataBoundary", () => {
       });
       expect(recovered).not.toBe(stored);
       expect(recovered).not.toBe(defaults);
-      // Preserve the established PreferencesService shallow recovery semantics.
-      expect(recovered["plugin:layout"]).toBe(extension);
+      // Persisted extension values are state ingress, so shallow aliasing is no
+      // longer an accepted requirement.
+      expect(recovered["plugin:layout"]).not.toBe(extension);
+      expect(recovered["plugin:layout"].panels).not.toBe(extension.panels);
+      expect(recovered["plugin:layout"].panels[0]).not.toBe(
+        extension.panels[0],
+      );
+
+      extension.panels[0].visible = false;
+      expect(recovered["plugin:layout"].panels[0].visible).toBe(true);
     });
 
     it.each([null, undefined, [], "settings", 42, true])(
@@ -107,6 +121,7 @@ describe("settingsDataBoundary", () => {
       expect(Object.hasOwn(recovered, "valueOf")).toBe(true);
       expect(recovered.toString).toBe("literal-to-string");
       expect(recovered.valueOf).toEqual({ mode: "literal-value" });
+      expect(recovered.valueOf).not.toBe(stored.valueOf);
     });
 
     it("retains PreferencesService bulk-validation semantics", () => {
@@ -120,6 +135,247 @@ describe("settingsDataBoundary", () => {
       ).toBe(true);
       expect(isSettingsRecord({ theme: 123 })).toBe(false);
       expect(isSettingsRecord([])).toBe(false);
+    });
+  });
+
+  describe("forgiving persisted-settings patches", () => {
+    it("preserves valid present fields, compatibility data, and detached extensions", () => {
+      const stored = {
+        theme: "light",
+        syncFolderFallback: false,
+        currentProfile: "captain",
+        version: "2.1.1",
+        firstRun: false,
+        "plugin:layout": {
+          panels: [{ id: "commands", visible: true }],
+        },
+      };
+
+      const recovered = sanitizeStoredSettingsPatch(stored);
+
+      expect(recovered).toEqual({ value: stored, repaired: false });
+      expect(recovered.value).not.toBe(stored);
+      expect(recovered.value["plugin:layout"]).not.toBe(
+        stored["plugin:layout"],
+      );
+      expect(recovered.value["plugin:layout"].panels).not.toBe(
+        stored["plugin:layout"].panels,
+      );
+    });
+
+    it("omits invalid known, compatibility, and extension fields independently", () => {
+      const recovered = sanitizeStoredSettingsPatch({
+        theme: 42,
+        autoSave: false,
+        currentProfile: 123,
+        firstRun: "false",
+        "plugin:function": () => true,
+        "plugin:date": new Date("2025-01-02T03:04:05.000Z"),
+        "plugin:safe": { density: "compact" },
+      });
+
+      expect(recovered).toEqual({
+        value: {
+          autoSave: false,
+          "plugin:safe": { density: "compact" },
+        },
+        repaired: true,
+      });
+    });
+
+    it.each(["__proto__", "prototype", "constructor"])(
+      "drops reserved key %s at the patch root",
+      (key) => {
+        const stored = JSON.parse(
+          `{"theme":"light",${JSON.stringify(key)}:true}`,
+        );
+
+        expect(sanitizeStoredSettingsPatch(stored)).toEqual({
+          value: { theme: "light" },
+          repaired: true,
+        });
+      },
+    );
+
+    it.each(["__proto__", "prototype", "constructor"])(
+      "drops an extension containing reserved key %s recursively",
+      (key) => {
+        const stored = JSON.parse(
+          `{"autoSave":false,"plugin:unsafe":{"items":[{${JSON.stringify(
+            key,
+          )}:true}]},"plugin:safe":{"enabled":true}}`,
+        );
+
+        expect(sanitizeStoredSettingsPatch(stored)).toEqual({
+          value: {
+            autoSave: false,
+            "plugin:safe": { enabled: true },
+          },
+          repaired: true,
+        });
+      },
+    );
+
+    it.each(["__proto__", "prototype", "constructor"])(
+      "drops reserved current-profile identifier %s",
+      (currentProfile) => {
+        expect(
+          sanitizeStoredSettingsPatch({ currentProfile, firstRun: false }),
+        ).toEqual({ value: { firstRun: false }, repaired: true });
+      },
+    );
+
+    it("retains the exact depth limit and drops an extension one level deeper", () => {
+      const exact = sanitizeStoredSettingsPatch({
+        "plugin:nested": nestedValue(MAX_PROJECT_JSON_DEPTH - 1),
+      });
+      const tooDeep = sanitizeStoredSettingsPatch({
+        theme: "light",
+        "plugin:nested": nestedValue(MAX_PROJECT_JSON_DEPTH),
+      });
+
+      expect(exact.repaired).toBe(false);
+      expect(exact.value).toHaveProperty("plugin:nested");
+      expect(tooDeep).toEqual({
+        value: { theme: "light" },
+        repaired: true,
+      });
+    });
+
+    it.each([null, undefined, [], "settings", 42, true])(
+      "returns a repaired empty patch for non-record input %#",
+      (stored) => {
+        expect(sanitizeStoredSettingsPatch(stored)).toEqual({
+          value: {},
+          repaired: true,
+        });
+      },
+    );
+  });
+
+  describe("raw persisted-settings JSON decoding", () => {
+    it("returns a full default-backed snapshot without inventing repair for a partial record", () => {
+      const decoded = decodeStoredSettingsJson(
+        JSON.stringify({
+          theme: "light",
+          currentProfile: "captain",
+          "plugin:layout": { density: "compact" },
+        }),
+        defaults,
+      );
+
+      expect(decoded).toEqual({
+        value: {
+          ...defaults,
+          theme: "light",
+          currentProfile: "captain",
+          "plugin:layout": { density: "compact" },
+        },
+        repaired: false,
+      });
+    });
+
+    it("recovers invalid fields from defaults and reports lazy repair without a parse error", () => {
+      const raw = JSON.stringify({
+        theme: 42,
+        autoSave: false,
+        currentProfile: 123,
+        "plugin:safe": ["one", "two"],
+      });
+
+      const decoded = decodeStoredSettingsJson(raw, defaults);
+
+      expect(decoded).toEqual({
+        value: {
+          ...defaults,
+          autoSave: false,
+          "plugin:safe": ["one", "two"],
+        },
+        repaired: true,
+      });
+      expect(decoded).not.toHaveProperty("error");
+    });
+
+    it("distinguishes invalid JSON from parsed non-record data", () => {
+      expect(decodeStoredSettingsJson('{"theme":', defaults)).toEqual({
+        value: defaults,
+        repaired: true,
+        error: "invalid_json",
+      });
+      expect(decodeStoredSettingsJson("[]", defaults)).toEqual({
+        value: defaults,
+        repaired: true,
+        error: "invalid_data",
+      });
+    });
+
+    it.each([null, undefined, {}, [], 42, true])(
+      "rejects non-string raw input %# with detached defaults",
+      (raw) => {
+        const decoded = decodeStoredSettingsJson(raw, defaults);
+
+        expect(decoded).toEqual({
+          value: defaults,
+          repaired: true,
+          error: "invalid_data",
+        });
+        expect(decoded.value).not.toBe(defaults);
+      },
+    );
+
+    it("accepts the exact UTF-8 byte limit and rejects the next byte", () => {
+      const prefix = '{"plugin:value":"';
+      const suffix = '"}';
+      const exact = `${prefix}${"a".repeat(
+        MAX_PROJECT_JSON_BYTES - prefix.length - suffix.length,
+      )}${suffix}`;
+      const oversized = `${exact} `;
+
+      expect(new TextEncoder().encode(exact)).toHaveLength(
+        MAX_PROJECT_JSON_BYTES,
+      );
+      expect(decodeStoredSettingsJson(exact, defaults)).toMatchObject({
+        repaired: false,
+      });
+      expect(decodeStoredSettingsJson(oversized, defaults)).toEqual({
+        value: defaults,
+        repaired: true,
+        error: "invalid_data",
+      });
+    });
+
+    it("enforces the byte limit for multibyte JSON below the string-length limit", () => {
+      const prefix = '{"plugin:value":"';
+      const suffix = '"}';
+      const overheadBytes = new TextEncoder().encode(
+        `${prefix}${suffix}`,
+      ).length;
+      const exactMultibyteCount = Math.floor(
+        (MAX_PROJECT_JSON_BYTES - overheadBytes) / 2,
+      );
+      const remainingByte =
+        MAX_PROJECT_JSON_BYTES - overheadBytes - exactMultibyteCount * 2;
+      const exact = `${prefix}${"é".repeat(exactMultibyteCount)}${"a".repeat(
+        remainingByte,
+      )}${suffix}`;
+      const oversized = `${exact} `;
+
+      expect(exact.length).toBeLessThan(MAX_PROJECT_JSON_BYTES);
+      expect(new TextEncoder().encode(exact)).toHaveLength(
+        MAX_PROJECT_JSON_BYTES,
+      );
+      expect(decodeStoredSettingsJson(exact, defaults)).toMatchObject({
+        repaired: false,
+      });
+      expect(oversized.length).toBeLessThan(MAX_PROJECT_JSON_BYTES);
+      expect(new TextEncoder().encode(oversized)).toHaveLength(
+        MAX_PROJECT_JSON_BYTES + 1,
+      );
+      expect(decodeStoredSettingsJson(oversized, defaults)).toEqual({
+        value: defaults,
+        repaired: true,
+        error: "invalid_data",
+      });
     });
   });
 

@@ -98,6 +98,9 @@ describe("DataCoordinator durable state ownership", () => {
     });
 
     expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
+    expect(fixture.storage.saveAllData.mock.calls[0][1]).toEqual({
+      preserveBackup: true,
+    });
     expect(durableRoot.profiles.legacy.migrationVersion).toBe("2.1.1");
     expect(coordinator.state.metadata).toEqual({
       version: "3.0.0",

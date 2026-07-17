@@ -507,7 +507,10 @@ export default class SyncService extends ComponentBase {
       // - Always show on manual sync (sync now button)
       // - Show on time-based auto sync (e.g., "every 30 seconds")
       // - Don't show on change-based auto sync ("after every change")
-      const prefs = this.storage?.getSettings() || {};
+      const prefs =
+        /** @type {import('../../types/data-contracts.js').SettingsData} */ (
+          this.storage?.getSettings() || {}
+        );
       const isAutoSyncEnabled = prefs.autoSync;
       const autoSyncInterval = prefs.autoSyncInterval || "change";
       const isChangeBasedAutoSync =

@@ -138,23 +138,11 @@ export interface ClipboardOperationResult {
   message: "content_copied_to_clipboard" | "failed_to_copy_to_clipboard";
 }
 
-export interface StorageBackup {
-  data: string;
-  timestamp: string;
-  version: string;
-}
+export type StorageBackup =
+  import("../data-contracts.js").LocalStorageBackupEnvelope;
 
-export interface StoredApplicationData {
-  version: string;
-  created?: string;
-  lastModified: string;
-  lastBackup?: string;
-  currentProfile: string | null;
-  profiles: ProfileMap;
-  globalAliases?: AliasMap;
-  settings: SettingsRecord;
-  [field: string]: unknown;
-}
+export type StoredApplicationData =
+  import("../data-contracts.js").StoredApplicationData;
 
 export interface ProjectBackupData {
   version: string;

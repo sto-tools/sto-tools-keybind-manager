@@ -367,7 +367,12 @@ export function createStorageFixture(options = {}) {
 }
 
 export function createLocalStorageFixture(options = {}) {
-  const { initialData = {}, quotaError = false } = options;
+  const {
+    initialData = {},
+    quotaError = false,
+    setItemErrorKeys = [],
+    removeItemErrorKeys = [],
+  } = options;
 
   const fixtureId = generateFixtureId("localStorage");
   const originalLocalStorage = globalThis.localStorage;
@@ -381,10 +386,15 @@ export function createLocalStorageFixture(options = {}) {
   const mock = {
     getItem: (key) => store.get(key) ?? null,
     setItem: (key, value) => {
-      if (quotaError) throw new Error("quota exceeded");
+      if (quotaError || setItemErrorKeys.includes(key)) {
+        throw new Error("quota exceeded");
+      }
       store.set(key, String(value));
     },
     removeItem: (key) => {
+      if (removeItemErrorKeys.includes(key)) {
+        throw new Error("storage removal failed");
+      }
       store.delete(key);
     },
     clear: () => {

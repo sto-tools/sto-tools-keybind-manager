@@ -441,6 +441,9 @@ describe("DataCoordinator complete state snapshots", () => {
     });
 
     expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
+    expect(fixture.storage.saveAllData.mock.calls[0][1]).toEqual({
+      preserveBackup: true,
+    });
     expect(fixture.storage.saveAllData.mock.calls[0][0]).toMatchObject({
       currentProfile: "legacy",
       profiles: { legacy: { migrationVersion: "2.1.1" } },

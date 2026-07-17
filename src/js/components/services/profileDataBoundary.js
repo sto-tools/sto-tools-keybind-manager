@@ -6,6 +6,10 @@ import {
   isDataRecord,
   setOwnDataField,
 } from "./jsonDataBoundary.js";
+import {
+  repairNullableAliasCommands,
+  repairStoredProfileCommandNulls,
+} from "./storedProfileCompatibility.js";
 
 /** @param {unknown} mode @param {string} path @returns {'space' | 'ground'} */
 function decodeLegacyEnvironment(mode, path) {
@@ -157,7 +161,7 @@ function decodeAlias(value, path) {
  * @param {string} path
  * @returns {Record<string, import('../../types/data-contracts.js').CanonicalAliasDefinition>}
  */
-function decodeAliasMap(value, path) {
+export function decodeAliasMap(value, path) {
   if (!isDataRecord(value)) invalidProjectData(path);
   /** @type {Record<string, import('../../types/data-contracts.js').CanonicalAliasDefinition>} */
   const result = {};
@@ -166,6 +170,28 @@ function decodeAliasMap(value, path) {
     setOwnDataField(result, name, decodeAlias(alias, `${path}.${name}`));
   }
   return result;
+}
+
+/**
+ * Validate and detach a persisted alias map without canonicalizing its accepted
+ * compatibility representation.
+ * @param {unknown} value
+ * @param {string} path
+ */
+export function decodeStoredAliasMap(value, path) {
+  // Validate every known field and nested extension through the canonical
+  // decoder, but retain the independently detached source representation.
+  decodeAliasMap(value, path);
+  const cloned = cloneJsonData(value, path);
+  if (!isDataRecord(cloned)) invalidProjectData(path);
+  const changed = repairNullableAliasCommands(cloned);
+  return {
+    aliases:
+      /** @type {Record<string, import('../../types/data-contracts.js').AliasDefinition | import('../../types/data-contracts.js').StoredCommand[] | string>} */ (
+        cloned
+      ),
+    changed,
+  };
 }
 
 /**
@@ -553,4 +579,67 @@ export function decodeProfileData(
   return /** @type {import('../../types/data-contracts.js').CanonicalProfileData} */ (
     result
   );
+}
+
+/**
+ * Validate one profile read from persistent storage without rewriting a
+ * representation that already has a builds map. The old mode-and-keys shape is
+ * the sole structural migration performed here.
+ *
+ * @param {unknown} value
+ * @param {string} profileId
+ * @param {string} [path]
+ * @returns {{
+ *   profile: import('../../types/data-contracts.js').ProfileData,
+ *   migrated: boolean,
+ *   changed: boolean,
+ * }}
+ */
+export function decodeStoredProfileData(
+  value,
+  profileId,
+  path = `data.profiles.${profileId}`,
+) {
+  assertSafeDataKey(profileId, path);
+  if (!isDataRecord(value)) invalidProjectData(path);
+
+  const cloned = cloneJsonData(value, path);
+  if (!isDataRecord(cloned)) invalidProjectData(path);
+
+  const hasBuilds = hasOwnDataField(value, "builds");
+  const isLegacyModeAndKeys =
+    !hasBuilds &&
+    hasOwnDataField(value, "mode") &&
+    hasOwnDataField(value, "keys");
+  if (!hasBuilds && !isLegacyModeAndKeys) {
+    invalidProjectData(`${path}.builds`);
+  }
+  if (hasBuilds) {
+    if (!isDataRecord(value.builds)) invalidProjectData(`${path}.builds`);
+    if (
+      !hasOwnDataField(value.builds, "space") &&
+      !hasOwnDataField(value.builds, "ground")
+    ) {
+      invalidProjectData(`${path}.builds`);
+    }
+  }
+
+  // This validates every known nested structure, including legacy/hybrid
+  // fields and non-standard build environments. Its canonical output is used
+  // only when the persisted profile is the pre-builds mode-and-keys shape.
+  const canonical = decodeProfileData(value, profileId, path);
+
+  const repaired = isLegacyModeAndKeys
+    ? false
+    : repairStoredProfileCommandNulls(cloned);
+
+  return {
+    profile: isLegacyModeAndKeys
+      ? canonical
+      : /** @type {import('../../types/data-contracts.js').ProfileData} */ (
+          cloned
+        ),
+    migrated: isLegacyModeAndKeys,
+    changed: isLegacyModeAndKeys || repaired,
+  };
 }

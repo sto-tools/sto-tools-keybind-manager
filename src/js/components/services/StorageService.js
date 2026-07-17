@@ -1,5 +1,10 @@
 import ComponentBase from "../ComponentBase.js";
 import eventBus from "../../core/eventBus.js";
+import { decodeStoredApplicationJson } from "./storedApplicationDataBoundary.js";
+import {
+  decodeStoredSettingsJson,
+  sanitizeStoredSettingsPatch,
+} from "./settingsDataBoundary.js";
 
 const appWindow =
   typeof window === "undefined"
@@ -45,11 +50,28 @@ export default class StorageService extends ComponentBase {
   }
 
   onInit() {
-    // Check if we need to migrate old data
-    this.migrateData();
-
-    // Ensure we have basic structure
-    this.ensureStorageStructure();
+    // Decode, migrate, and repair the complete external root before anything
+    // else can observe it. One write keeps the automatic backup pinned to the
+    // exact pre-recovery string instead of overwriting it with an intermediate
+    // migration result.
+    const data = this.getAllData(true);
+    const requiresDurableRepair =
+      this._lastDataLoadRequiresPersistence === true;
+    const migrated = this._lastDataLoadMigrated === true;
+    const persisted = this.saveAllData(data);
+    if (!persisted && requiresDurableRepair) {
+      this._cachedData = null;
+      // ComponentBase installs late-join listeners before onInit. Roll those
+      // back so a failed required repair cannot advertise a ready service with
+      // no durable/cached state, and so a later retry starts cleanly.
+      this.cleanupEventListeners();
+      this.initialized = false;
+      this.destroyed = false;
+      throw new Error("storage_write_failed");
+    }
+    if (migrated && persisted) {
+      console.log("Data migration completed");
+    }
 
     // Set up event listeners
     this.setupEventListeners();
@@ -119,44 +141,70 @@ export default class StorageService extends ComponentBase {
 
       if (!data) {
         // If reset flag exists, return empty structure instead of default data
+        const recovered = resetFlag
+          ? this.getEmptyData()
+          : this.getDefaultData();
         if (resetFlag) {
           localStorage.removeItem("sto_app_reset");
-          return this.getEmptyData();
         }
-        return this.getDefaultData();
+        this._cachedData = recovered;
+        this._lastDataLoadRequiresPersistence = true;
+        this._lastDataLoadMigrated = false;
+        return recovered;
       }
 
-      const parsed = JSON.parse(data);
-
-      // Validate data structure (but allow migration-eligible data to pass through)
-      if (!this.isValidDataStructure(parsed, true)) {
-        return this.getDefaultData();
+      const decoded = decodeStoredApplicationJson(data, {
+        defaults: this.getDefaultData(),
+        version: this.version,
+      });
+      if (!decoded.success) {
+        if (decoded.error === "invalid_json") {
+          console.error("Error loading data from storage:", decoded.cause);
+        }
+        const defaults = this.getDefaultData();
+        this._cachedData = defaults;
+        this._lastDataLoadRequiresPersistence = true;
+        this._lastDataLoadMigrated = false;
+        return defaults;
       }
 
-      // Cache and return parsed data
-      this._cachedData = parsed;
-      return parsed;
+      // Cache only the detached, validated root. `changed` includes legacy
+      // structural migration, recovered fields, selection repair, and version
+      // mismatch, all of which must be persisted before owner adoption.
+      this._cachedData = decoded.value;
+      this._lastDataLoadRequiresPersistence = decoded.changed;
+      this._lastDataLoadMigrated = decoded.migrated;
+      return decoded.value;
     } catch (error) {
       console.error("Error loading data from storage:", error);
       const defaults = this.getDefaultData();
       this._cachedData = defaults;
+      this._lastDataLoadRequiresPersistence = true;
+      this._lastDataLoadMigrated = false;
       return defaults;
     }
   }
 
   // Save all data to storage
-  /** @param {any} data Persisted project data crosses a legacy JSON boundary. */
-  saveAllData(data) {
+  /**
+   * @param {any} data Persisted project data crosses a legacy JSON boundary.
+   * @param {{ preserveBackup?: boolean }} [options]
+   */
+  saveAllData(data, { preserveBackup = false } = {}) {
     try {
+      const savedAt = new Date().toISOString();
       // Create backup of current data
-      this.createBackup();
+      if (!preserveBackup) this.createBackup(savedAt);
 
       // Add metadata
       const dataWithMeta = {
         ...data,
         version: this.version,
-        lastModified: new Date().toISOString(),
-        lastBackup: new Date().toISOString(),
+        lastModified: savedAt,
+        lastBackup:
+          preserveBackup && typeof data.lastBackup === "string"
+            ? data.lastBackup
+            : savedAt,
       };
 
       localStorage.setItem(this.storageKey, JSON.stringify(dataWithMeta));
@@ -214,12 +262,19 @@ export default class StorageService extends ComponentBase {
   }
 
   // Get application settings
+  /** @returns {import('../../types/data-contracts.js').KnownPreferencesSettings & import('../../types/data-contracts.js').SettingsData} */
   getSettings() {
     try {
       const raw = localStorage.getItem(this.settingsKey);
       if (!raw) return this.getDefaultSettings();
-      const parsed = JSON.parse(raw);
-      return { ...this.getDefaultSettings(), ...parsed };
+      const decoded = decodeStoredSettingsJson(raw, this.getDefaultSettings());
+      if (decoded.error === "invalid_json") {
+        console.error(
+          "Error loading settings:",
+          new SyntaxError("Invalid stored settings JSON"),
+        );
+      }
+      return decoded.value;
     } catch (error) {
       console.error("Error loading settings:", error);
       return this.getDefaultSettings();
@@ -236,9 +291,11 @@ export default class StorageService extends ComponentBase {
    */
   saveSettings(settings, { replace = false } = {}) {
     try {
+      const decoded = sanitizeStoredSettingsPatch(settings);
+      if (decoded.repaired) return false;
       const persistedSettings = replace
-        ? { ...settings }
-        : { ...this.getSettings(), ...settings };
+        ? decoded.value
+        : { ...this.getSettings(), ...decoded.value };
       localStorage.setItem(this.settingsKey, JSON.stringify(persistedSettings));
 
       return true;
@@ -249,13 +306,14 @@ export default class StorageService extends ComponentBase {
   }
 
   // Create backup of current data
-  createBackup() {
+  /** @param {string} [timestamp] */
+  createBackup(timestamp = new Date().toISOString()) {
     try {
       const currentData = localStorage.getItem(this.storageKey);
       if (currentData) {
         const backup = {
           data: currentData,
-          timestamp: new Date().toISOString(),
+          timestamp,
           version: this.version,
         };
         localStorage.setItem(this.backupKey, JSON.stringify(backup));
@@ -317,6 +375,7 @@ export default class StorageService extends ComponentBase {
     };
   }
 
+  /** @returns {import('../../types/data-contracts.js').KnownPreferencesSettings & Record<string, unknown>} */
   getDefaultSettings() {
     return {
       theme: "default",
@@ -331,6 +390,9 @@ export default class StorageService extends ComponentBase {
       syncFolderPath: null,
       autoSync: false,
       autoSyncInterval: "change",
+      bindToAliasMode: false,
+      bindsetsEnabled: false,
+      translateGeneratedMessages: false,
     };
   }
 
@@ -346,180 +408,6 @@ export default class StorageService extends ComponentBase {
       console.error("Error detecting browser language:", error);
       return "en";
     }
-  }
-
-  /** @param {any} data @param {boolean} [allowMigration] */
-  isValidDataStructure(data, allowMigration = false) {
-    if (!data || typeof data !== "object") return false;
-
-    // Check required properties
-    const required = ["profiles", "currentProfile"];
-    for (const prop of required) {
-      if (!(prop in data)) return false;
-    }
-
-    // Check profiles structure
-    if (typeof data.profiles !== "object") return false;
-
-    // Validate each profile
-    for (const profile of Object.values(data.profiles)) {
-      const isValid = this.isValidProfile(profile);
-      const canMigrate = allowMigration && this.needsProfileMigration(profile);
-
-      if (!isValid && !canMigrate) {
-        // Invalid profile structure is an expected validation result, not something to log
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  /** @param {any} profile */
-  isValidProfile(profile) {
-    if (!profile || typeof profile !== "object") return false;
-    if (!profile.name) return false;
-
-    // Check for new format with builds structure
-    if (profile.builds && typeof profile.builds === "object") {
-      // Validate new format
-      const builds = profile.builds;
-      if (!builds.space && !builds.ground) return false;
-
-      // Validate build structure
-      for (const [env, build] of Object.entries(builds)) {
-        if (env === "space" || env === "ground") {
-          if (!build || typeof build !== "object") return false;
-          if (!build.keys || typeof build.keys !== "object") return false;
-        }
-      }
-      return true;
-    }
-
-    // Check for old format with mode and keys at top level
-    if (profile.mode && profile.keys && typeof profile.keys === "object") {
-      return true;
-    }
-
-    return false;
-  }
-
-  ensureStorageStructure() {
-    const data = this.getAllData();
-
-    // Ensure all required properties exist
-    if (!data.globalAliases) data.globalAliases = {};
-    if (!data.settings) data.settings = this.getDefaultSettings();
-
-    // DO NOT create default profiles here - DataCoordinator handles that
-    // Just ensure basic structure exists
-
-    // Ensure current profile exists (if we have profiles)
-    if (
-      Object.keys(data.profiles).length > 0 &&
-      !data.profiles[data.currentProfile]
-    ) {
-      data.currentProfile = Object.keys(data.profiles)[0];
-    }
-
-    this.saveAllData(data);
-  }
-
-  migrateData() {
-    // Handle data migration for future versions
-    const data = this.getAllData();
-    let migrationPerformed = false;
-
-    if (data.version !== this.version) {
-      console.log(`Migrating data from ${data.version} to ${this.version}`);
-      migrationPerformed = true;
-    }
-
-    // Migrate profiles from old format to new format
-    for (const [profileId, profile] of Object.entries(data.profiles)) {
-      if (this.needsProfileMigration(profile)) {
-        console.log(
-          `Migrating profile "${profile.name}" from old format to new format`,
-        );
-        data.profiles[profileId] = this.migrateProfile(profile);
-        migrationPerformed = true;
-      }
-    }
-
-    if (migrationPerformed) {
-      data.version = this.version;
-      this.saveAllData(data);
-      console.log("Data migration completed");
-    }
-  }
-
-  /** @param {any} profile */
-  needsProfileMigration(profile) {
-    // Profile needs migration if it has old format (mode + keys) but not new format (builds)
-    if (profile && profile.mode && profile.keys && !profile.builds) {
-      return true;
-    }
-    return false;
-  }
-
-  /** @param {any} oldProfile */
-  migrateProfile(oldProfile) {
-    console.log(`Migrating profile: ${oldProfile.name}`);
-
-    // Create new profile structure
-    const newProfile = {
-      name: oldProfile.name,
-      description: oldProfile.description || "",
-      currentEnvironment: this.mapOldModeToEnvironment(oldProfile.mode),
-      builds: {
-        space: { keys: {} },
-        ground: { keys: {} },
-      },
-      aliases: oldProfile.aliases || {},
-      keybindMetadata: oldProfile.keybindMetadata || {},
-      created: oldProfile.created || new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-    };
-
-    // Map old keys to the appropriate environment
-    const targetEnvironment = this.mapOldModeToEnvironment(oldProfile.mode);
-    newProfile.builds[targetEnvironment].keys = oldProfile.keys || {};
-
-    // If the profile had keybind metadata, migrate it to be environment-scoped
-    if (
-      oldProfile.keybindMetadata &&
-      typeof oldProfile.keybindMetadata === "object"
-    ) {
-      // Check if metadata is already environment-scoped
-      const hasEnvironmentScope =
-        oldProfile.keybindMetadata.space || oldProfile.keybindMetadata.ground;
-
-      if (!hasEnvironmentScope) {
-        // Migrate flat metadata structure to environment-scoped
-        newProfile.keybindMetadata = {
-          [targetEnvironment]: oldProfile.keybindMetadata,
-        };
-      } else {
-        // Already environment-scoped, keep as is
-        newProfile.keybindMetadata = oldProfile.keybindMetadata;
-      }
-    }
-
-    return newProfile;
-  }
-
-  /** @param {unknown} mode @returns {'space' | 'ground'} */
-  mapOldModeToEnvironment(mode) {
-    if (!mode) return "space";
-
-    // Ensure mode is a string before calling toLowerCase()
-    const modeStr = typeof mode === "string" ? mode : String(mode);
-    const lowerMode = modeStr.toLowerCase();
-
-    if (lowerMode === "ground" || lowerMode === "ground mode") {
-      return "ground";
-    }
-    return "space"; // Default to space for 'space', 'Space', or any other value
   }
 
   /**
