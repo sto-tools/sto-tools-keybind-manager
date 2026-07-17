@@ -37,6 +37,12 @@ type KnownTopic = Expect<
 type PreferenceInitResult = Expect<
   Equal<RpcResult<"preferences:init">, undefined>
 >;
+type PreferenceMutationResult = Expect<
+  Equal<RpcResult<"preferences:set-setting">, boolean>
+>;
+type PreferencesMutationResult = Expect<
+  Equal<RpcResult<"preferences:set-settings">, boolean>
+>;
 type UtilityClipboardRequest = Expect<
   Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
 >;

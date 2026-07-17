@@ -106,11 +106,11 @@ describe("Bind-to-Alias Mode Integration", () => {
       expect(preferencesService.getSetting("bindToAliasMode")).toBe(false);
 
       // Should be able to set to true
-      preferencesService.setSetting("bindToAliasMode", true);
+      await preferencesService.setSetting("bindToAliasMode", true);
       expect(preferencesService.getSetting("bindToAliasMode")).toBe(true);
 
       // Should persist across save/load
-      preferencesService.saveSettings();
+      await preferencesService.saveSettings();
       preferencesService.loadSettings();
       expect(preferencesService.getSetting("bindToAliasMode")).toBe(true);
     });
@@ -174,7 +174,7 @@ describe("Bind-to-Alias Mode Integration", () => {
       const { preferencesService, exportService } = fixture;
 
       // Ensure bind-to-alias mode is disabled
-      preferencesService.setSetting("bindToAliasMode", false);
+      await preferencesService.setSetting("bindToAliasMode", false);
 
       // Create test profile with keybinds
       const profile = {
@@ -217,7 +217,7 @@ describe("Bind-to-Alias Mode Integration", () => {
       );
 
       // Enable bind-to-alias mode
-      preferencesService.setSetting("bindToAliasMode", true);
+      await preferencesService.setSetting("bindToAliasMode", true);
 
       console.log(
         "[Test Debug] ExportService cache after setting:",
@@ -273,7 +273,7 @@ describe("Bind-to-Alias Mode Integration", () => {
     it("should handle different environments correctly in bind-to-alias mode", async () => {
       const { preferencesService, exportService } = fixture;
 
-      preferencesService.setSetting("bindToAliasMode", true);
+      await preferencesService.setSetting("bindToAliasMode", true);
 
       const profile = {
         name: "Test Profile",
@@ -310,7 +310,7 @@ describe("Bind-to-Alias Mode Integration", () => {
     it("should handle empty keybind chains in bind-to-alias mode", async () => {
       const { preferencesService, exportService } = fixture;
 
-      preferencesService.setSetting("bindToAliasMode", true);
+      await preferencesService.setSetting("bindToAliasMode", true);
 
       const profile = {
         name: "Test Profile",
@@ -345,7 +345,7 @@ describe("Bind-to-Alias Mode Integration", () => {
     it("should handle stabilization in bind-to-alias mode", async () => {
       const { preferencesService, exportService } = fixture;
 
-      preferencesService.setSetting("bindToAliasMode", true);
+      await preferencesService.setSetting("bindToAliasMode", true);
 
       const profile = {
         name: "Test Profile",
@@ -555,7 +555,7 @@ describe("Bind-to-Alias Mode Integration", () => {
       };
 
       // Test with mode disabled
-      preferencesService.setSetting("bindToAliasMode", false);
+      await preferencesService.setSetting("bindToAliasMode", false);
       const normalResult = await exportService.generateKeybindSection(
         profile.builds.space.keys,
         {
@@ -567,7 +567,7 @@ describe("Bind-to-Alias Mode Integration", () => {
       expect(normalResult).not.toContain("alias sto_kb_space_q");
 
       // Test with mode enabled
-      preferencesService.setSetting("bindToAliasMode", true);
+      await preferencesService.setSetting("bindToAliasMode", true);
       const aliasKeybindResult = await exportService.generateKeybindSection(
         profile.builds.space.keys,
         {
@@ -584,7 +584,7 @@ describe("Bind-to-Alias Mode Integration", () => {
       expect(aliasFileResult).toContain("alias sto_kb_space_q <& FireAll &>");
 
       // Test switching back to disabled
-      preferencesService.setSetting("bindToAliasMode", false);
+      await preferencesService.setSetting("bindToAliasMode", false);
       const backToNormalResult = await exportService.generateKeybindSection(
         profile.builds.space.keys,
         {

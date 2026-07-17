@@ -2,7 +2,137 @@ import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
 
+async function readPreferencesState(bus) {
+  const replyTopic = `component:registered:reply:browser-preferences:${Date.now()}`;
+  let preferencesState;
+  const detach = bus.on(replyTopic, ({ sender, state }) => {
+    if (sender === "PreferencesService")
+      preferencesState = structuredClone(state);
+  });
+  try {
+    bus.emit("component:register", {
+      name: "BrowserPreferencesProbe",
+      replyTopic,
+    });
+    await vi.waitFor(() => {
+      expect(preferencesState).toBeTruthy();
+    });
+    return preferencesState;
+  } finally {
+    detach();
+  }
+}
+
 describe("Persisted storage browser boundary", () => {
+  it("keeps the preference owner unchanged when the checked bundle cannot persist", async () => {
+    const storage = window.storageService;
+    const bus = window.eventBus;
+    expect(storage).toBeTruthy();
+    expect(bus?.hasListeners("rpc:preferences:set-setting")).toBe(true);
+    if (!storage || !bus) return;
+
+    const beforeRaw = localStorage.getItem(storage.settingsKey);
+    const beforeState = await readPreferencesState(bus);
+    const saved = [];
+    const changed = [];
+    const detachSaved = bus.on("preferences:saved", (payload) =>
+      saved.push(payload),
+    );
+    const detachChanged = bus.on("preferences:changed", (payload) =>
+      changed.push(payload),
+    );
+    const originalSetItem = Storage.prototype.setItem;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(function (key, value) {
+        if (key === storage.settingsKey) {
+          throw new DOMException(
+            "Storage quota exceeded",
+            "QuotaExceededError",
+          );
+        }
+        return originalSetItem.call(this, key, value);
+      });
+
+    try {
+      const nextTheme =
+        beforeState.settings.theme === "dark" ? "default" : "dark";
+      await expect(
+        request(bus, "preferences:set-setting", {
+          key: "theme",
+          value: nextTheme,
+        }),
+      ).resolves.toBe(false);
+
+      expect(await readPreferencesState(bus)).toEqual(beforeState);
+      expect(localStorage.getItem(storage.settingsKey)).toBe(beforeRaw);
+      expect(saved).toHaveLength(0);
+      expect(changed).toHaveLength(0);
+    } finally {
+      setItem.mockRestore();
+      error.mockRestore();
+      detachSaved();
+      detachChanged();
+    }
+  });
+
+  it("waits for saved consumers before resolving a checked-bundle mutation", async () => {
+    const bus = window.eventBus;
+    expect(bus?.hasListeners("rpc:preferences:set-setting")).toBe(true);
+    if (!bus) return;
+
+    const beforeState = await readPreferencesState(bus);
+    const beforeTheme = beforeState.settings.theme;
+    const nextTheme = beforeTheme === "dark" ? "default" : "dark";
+    /** @type {() => void} */
+    let releaseSavedConsumer = () => {};
+    const savedConsumerReleased = new Promise((resolve) => {
+      releaseSavedConsumer = resolve;
+    });
+    let savedConsumerStarted = false;
+    const detachSaved = bus.on("preferences:saved", async () => {
+      savedConsumerStarted = true;
+      await savedConsumerReleased;
+    });
+    const mutation = request(bus, "preferences:set-setting", {
+      key: "theme",
+      value: nextTheme,
+    });
+    let settled = false;
+    void mutation.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(savedConsumerStarted).toBe(true);
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(settled).toBe(false);
+      expect((await readPreferencesState(bus)).settings.theme).toBe(nextTheme);
+
+      releaseSavedConsumer();
+      await expect(mutation).resolves.toBe(true);
+    } finally {
+      detachSaved();
+      releaseSavedConsumer();
+      await mutation.catch(() => undefined);
+      const currentTheme = (await readPreferencesState(bus)).settings.theme;
+      if (currentTheme !== beforeTheme) {
+        await request(bus, "preferences:set-setting", {
+          key: "theme",
+          value: beforeTheme,
+        });
+      }
+    }
+  });
+
   it("validates and durably adopts roots and settings through the checked-in owner chain", async () => {
     const storage = window.storageService;
     const coordinator = window.dataCoordinator;

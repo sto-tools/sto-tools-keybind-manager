@@ -269,13 +269,18 @@ export default class ComponentBase {
       } else if (data.changes) {
         // Narrow runtime compatibility for older patch-only producers.
         // Update cached preferences with the changes
-        Object.assign(this.cache.preferences, data.changes);
+        Object.assign(this.cache.preferences, structuredClone(data.changes));
       } else if (
         data.key &&
         Object.prototype.hasOwnProperty.call(data, "value")
       ) {
         // Handle legacy single preference change format
-        this.cache.preferences[data.key] = data.value;
+        Object.defineProperty(this.cache.preferences, data.key, {
+          value: structuredClone(data.value),
+          configurable: true,
+          enumerable: true,
+          writable: true,
+        });
       }
     });
 
@@ -784,7 +789,7 @@ export default class ComponentBase {
    * @param {import('../types/events/base.js').PreferencesSettings} settings
    */
   _replacePreferences(settings) {
-    this.cache.preferences = { ...settings };
+    this.cache.preferences = structuredClone(settings);
   }
 
   /**

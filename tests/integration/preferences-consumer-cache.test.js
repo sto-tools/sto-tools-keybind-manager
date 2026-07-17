@@ -18,7 +18,7 @@ describe("preferences consumer cache lifecycle", () => {
     fixture?.destroy();
   });
 
-  it("hydrates consumers initialized on either side of the settings owner", () => {
+  it("hydrates consumers initialized on either side of the settings owner", async () => {
     fixture = createServiceFixture();
     fixture.storage.getSettings.mockReturnValue({
       bindsetsEnabled: false,
@@ -48,6 +48,19 @@ describe("preferences consumer cache lifecycle", () => {
     importUI.init();
     expect(importUI.cache.preferences.bindsetsEnabled).toBe(false);
     expect(importUI.isBindsetsEnabled()).toBe(false);
+
+    await expect(
+      preferencesService.setExtensionSetting("plugin:layout", {
+        panels: [{ id: "commands", visible: true }],
+      }),
+    ).resolves.toBe(true);
+    importService.cache.preferences["plugin:layout"].panels[0].visible = false;
+    expect(importUI.cache.preferences["plugin:layout"]).toEqual({
+      panels: [{ id: "commands", visible: true }],
+    });
+    expect(preferencesService.getSetting("plugin:layout")).toEqual({
+      panels: [{ id: "commands", visible: true }],
+    });
 
     expect(fixture.eventBus.hasListeners("rpc:preferences:get-settings")).toBe(
       false,

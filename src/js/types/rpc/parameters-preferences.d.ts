@@ -123,6 +123,6 @@ export interface ParameterPreferenceRpcProtocol {
   "preferences:init": NoPayloadRpc<undefined>;
   "preferences:load-settings": NoPayloadRpc<undefined>;
   "preferences:save-settings": NoPayloadRpc<boolean>;
-  "preferences:set-setting": RequiredRpc<PreferenceMutation, undefined>;
-  "preferences:set-settings": RequiredRpc<SettingsRecord, undefined>;
+  "preferences:set-setting": RequiredRpc<PreferenceMutation, boolean>;
+  "preferences:set-settings": RequiredRpc<SettingsRecord, boolean>;
 }

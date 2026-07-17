@@ -6,6 +6,7 @@ import {
   isKnownSettingKey,
   isSettingsRecord,
   sanitizeStoredSettings,
+  sanitizeStoredSettingsPatch,
 } from "./settingsDataBoundary.js";
 
 /** @typedef {import('../../types/events/base.js').KnownPreferenceKey} KnownPreferenceKey */
@@ -77,58 +78,67 @@ export default class PreferencesService extends ComponentBase {
     // Runtime copy
     /** @type {PreferencesSettings} */
     this.settings = { ...this.defaultSettings };
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
+  }
 
-    // Register Request/Response endpoints for UI components
-    if (this.eventBus) {
+  attachResponders() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+    this._responseDetachFunctions = [
       this.respond("preferences:init", () => {
         this.loadSettings();
         this.applySettings();
         return undefined;
-      });
+      }),
       this.respond("preferences:load-settings", () => {
         this.loadSettings();
         return undefined;
-      });
-      this.respond("preferences:save-settings", () => this.saveSettings());
+      }),
+      this.respond("preferences:save-settings", () => this.saveSettings()),
       this.respond("preferences:set-setting", (mutation) => {
         if (!isPreferenceMutation(mutation)) {
           throw invalidMutationError(mutation);
         }
-        if (mutation.extension === true) {
-          this.setExtensionSetting(mutation.key, mutation.value);
-          return undefined;
-        }
-        this.setSetting(mutation.key, mutation.value);
-        return undefined;
-      });
-      this.respond("preferences:set-settings", (newSettings) => {
-        this.setSettings(newSettings);
-        return undefined;
-      });
-
-      // Set up event listeners for theme and language changes
-      this.setupEventListeners();
-    }
+        return mutation.extension === true
+          ? this.setExtensionSetting(mutation.key, mutation.value)
+          : this.setSetting(mutation.key, mutation.value);
+      }),
+      this.respond("preferences:set-settings", (newSettings) =>
+        this.setSettings(newSettings),
+      ),
+    ];
   }
 
-  // Event Listeners
   setupEventListeners() {
     if (!this.eventBus) return;
 
     // Listen for theme toggle events from HeaderMenuUI
-    this.eventBus.on("theme:toggle", () => {
-      this.toggleTheme();
+    this.addEventListener("theme:toggle", () => {
+      try {
+        void this.toggleTheme().catch((error) => {
+          console.error("[PreferencesService] Failed to toggle theme", error);
+        });
+      } catch (error) {
+        console.error("[PreferencesService] Failed to toggle theme", error);
+      }
     });
 
     // Listen for language change events from HeaderMenuUI
-    this.eventBus.on("language:change", ({ language }) => {
+    this.addEventListener("language:change", ({ language }) => {
       if (language) {
-        this.changeLanguage(language);
+        void this.changeLanguage(language).catch((error) => {
+          console.error(
+            "[PreferencesService] Failed to change language",
+            error,
+          );
+        });
       }
     });
   }
 
   onInit() {
+    this.attachResponders();
+    this.setupEventListeners();
     this.loadSettings();
     this.applySettings();
   }
@@ -156,85 +166,94 @@ export default class PreferencesService extends ComponentBase {
 
   async saveSettings() {
     if (!this.storage) return false;
-    const ok = this.storage.saveSettings(this.settings, { replace: true });
+    const settings = this.getSettings();
+    const ok = this.persistSettings(settings);
     console.log("[PreferencesService] saveSettings", {
       ok,
-      settings: { ...this.settings },
+      settings,
     });
-    if (ok)
-      await this.emit(
-        "preferences:saved",
-        { settings: this.getSettings() },
-        { synchronous: true },
-      );
-    return ok;
+    if (ok) await this.publishSavedSettings(settings);
+    return Boolean(ok);
   }
 
   // Accessors
   getSettings() {
-    return { ...this.settings };
+    return structuredClone(this.settings);
   }
 
   /** @param {string} key */
   getSetting(key) {
-    return this.settings[key];
+    return structuredClone(this.settings[key]);
   }
 
   /**
    * @template {KnownPreferenceKey} Key
    * @param {Key} key
    * @param {KnownPreferencesSettings[Key]} value
+   * @returns {Promise<boolean>}
    */
   setSetting(key, value) {
     if (!isKnownSettingKey(key) || !hasValidKnownSettingValue(key, value)) {
       throw invalidMutationError({ key, value });
     }
-    this.commitSetting(key, value);
+    return this.commitSetting(key, value);
   }
 
   /**
    * Explicit mutation path for application-defined extension preferences.
    * @param {string} key
    * @param {unknown} value
+   * @returns {Promise<boolean>}
    */
   setExtensionSetting(key, value) {
     const extensionKey = extensionPreferenceKey(key);
-    this.commitSetting(extensionKey, value);
+    return this.commitSetting(extensionKey, value);
   }
 
-  /** @param {string} key @param {unknown} value */
+  /** @param {string} key @param {unknown} value @returns {Promise<boolean>} */
   commitSetting(key, value) {
-    Object.defineProperty(this.settings, key, {
+    const candidate = this.getSettings();
+    Object.defineProperty(candidate, key, {
       value,
       configurable: true,
       enumerable: true,
       writable: true,
     });
+    const decoded = sanitizeStoredSettingsPatch(candidate);
+    if (decoded.repaired) throw invalidMutationError({ key, value });
+    const nextSettings = /** @type {PreferencesSettings} */ (decoded.value);
     console.log("[PreferencesService] setSetting", { key, value });
-    this.saveSettings();
+    if (!this.persistSettings(nextSettings)) return Promise.resolve(false);
+
+    this.settings = nextSettings;
+    const savedPublication = this.publishSavedSettings(nextSettings);
     this.applySettings();
     this.emit("preferences:changed", {
       key,
-      value,
+      value: structuredClone(nextSettings[key]),
       settings: this.getSettings(),
     });
+    return savedPublication.then(() => true);
   }
 
-  /** @param {SettingsRecord} [newSettings] */
+  /** @param {SettingsRecord} [newSettings] @returns {Promise<boolean>} */
   setSettings(newSettings = {}) {
-    if (!isSettingsRecord(newSettings)) {
+    const decoded = sanitizeStoredSettingsPatch(newSettings);
+    if (!isSettingsRecord(newSettings) || decoded.repaired) {
       throw new TypeError("Invalid preferences settings payload");
     }
     const oldSettings = this.getSettings();
     const nextSettings = sanitizeStoredSettings(
-      newSettings,
+      decoded.value,
       this.defaultSettings,
     );
-    this.settings = nextSettings;
     console.log("[PreferencesService] setSettings", {
       changed: Object.keys(newSettings),
     });
-    this.saveSettings();
+    if (!this.persistSettings(nextSettings)) return Promise.resolve(false);
+
+    this.settings = nextSettings;
+    const savedPublication = this.publishSavedSettings(nextSettings);
     this.applySettings();
 
     // Emit a single event with all the changes
@@ -259,10 +278,33 @@ export default class PreferencesService extends ComponentBase {
 
     if (Object.keys(changes).length > 0) {
       this.emit("preferences:changed", {
-        changes,
+        changes: structuredClone(changes),
         settings: this.getSettings(),
       });
     }
+    return savedPublication.then(() => true);
+  }
+
+  /** @param {PreferencesSettings} settings @returns {boolean} */
+  persistSettings(settings) {
+    if (!this.storage) return false;
+    return Boolean(
+      this.storage.saveSettings(structuredClone(settings), { replace: true }),
+    );
+  }
+
+  /**
+   * @param {PreferencesSettings} settings
+   * @returns {import('../../types/events/protocol.js').EventEmitResult}
+   */
+  publishSavedSettings(settings) {
+    return Promise.resolve(
+      this.emit(
+        "preferences:saved",
+        { settings: structuredClone(settings) },
+        { synchronous: true },
+      ),
+    );
   }
 
   // Late-join state sharing
@@ -271,7 +313,7 @@ export default class PreferencesService extends ComponentBase {
   /** @returns {import('../../types/events/component-state.js').ComponentState<'PreferencesService'>} */
   getCurrentState() {
     return {
-      settings: { ...this.settings },
+      settings: this.getSettings(),
     };
   }
 
@@ -330,11 +372,12 @@ export default class PreferencesService extends ComponentBase {
   }
 
   // Theme Management
+  /** @returns {Promise<boolean>} */
   toggleTheme() {
     const currentTheme = this.settings.theme || "default";
     const newTheme = currentTheme === "dark" ? "default" : "dark";
 
-    this.setSetting("theme", newTheme);
+    return this.setSetting("theme", newTheme);
   }
 
   /** @param {string} theme */
@@ -363,7 +406,8 @@ export default class PreferencesService extends ComponentBase {
   /** @param {string} lang */
   async changeLanguage(lang) {
     // Update settings
-    this.setSetting("language", lang);
+    const persisted = await this.setSetting("language", lang);
+    if (!persisted) return false;
 
     // Re-localize command data with new language
     if (appWindow?.localizeCommandData) {
@@ -372,6 +416,7 @@ export default class PreferencesService extends ComponentBase {
 
     // Emit event for other components to re-render with new language
     this.emit("language:changed", { language: lang });
+    return true;
   }
 
   /** @param {string} lang */
@@ -390,5 +435,10 @@ export default class PreferencesService extends ComponentBase {
     if (flag) {
       flag.className = flagClasses[lang] || "fi fi-gb";
     }
+  }
+
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) detach();
+    this._responseDetachFunctions = [];
   }
 }

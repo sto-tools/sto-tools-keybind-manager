@@ -31,14 +31,18 @@ describe("preferences authoritative snapshot persistence", () => {
     localStorage.clear();
   });
 
-  it("does not resurrect an omitted extension setting after reload", () => {
-    preferencesService.setExtensionSetting("plugin:layout", "compact");
+  it("does not resurrect an omitted extension setting after reload", async () => {
+    expect(
+      await preferencesService.setExtensionSetting("plugin:layout", "compact"),
+    ).toBe(true);
     expect(storageService.getSettings()).toHaveProperty(
       "plugin:layout",
       "compact",
     );
 
-    preferencesService.setSettings({ autoSave: false });
+    expect(await preferencesService.setSettings({ autoSave: false })).toBe(
+      true,
+    );
 
     const persisted = JSON.parse(localStorage.getItem("sto_keybind_settings"));
     expect(persisted).toEqual(preferencesService.getSettings());

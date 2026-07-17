@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import PreferencesService from "../../../src/js/components/services/PreferencesService.js";
 import { extensionPreferenceKey } from "../../../src/js/components/services/preferenceKeys.js";
 import { createServiceFixture } from "../../fixtures";
+
+class PreferencesContractConsumer extends ComponentBase {
+  constructor(eventBus) {
+    super(eventBus);
+    this.componentName = "PreferencesContractConsumer";
+  }
+}
 
 /**
  * Unit tests – PreferencesService
@@ -37,9 +45,9 @@ describe("PreferencesService", () => {
     expect(state.settings).not.toBe(service.settings);
   });
 
-  it("setSetting persists to storage and emits preferences:changed", () => {
+  it("setSetting persists to storage and emits preferences:changed", async () => {
     const spySave = fixture.storage.saveSettings;
-    service.setSetting("theme", "dark");
+    await expect(service.setSetting("theme", "dark")).resolves.toBe(true);
 
     expect(service.getSetting("theme")).toBe("dark");
     expect(spySave).toHaveBeenCalledWith(service.getSettings(), {
@@ -195,10 +203,12 @@ describe("PreferencesService", () => {
     }
   });
 
-  it("resets and publishes complete defaults when stored settings cannot be read", () => {
+  it("resets and publishes complete defaults when stored settings cannot be read", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      service.setExtensionSetting("plugin:layout", { density: "compact" });
+      await expect(
+        service.setExtensionSetting("plugin:layout", { density: "compact" }),
+      ).resolves.toBe(true);
       fixture.storage.getSettings.mockImplementationOnce(() => {
         throw new Error("settings unavailable");
       });
@@ -232,15 +242,17 @@ describe("PreferencesService", () => {
     expect(service.getSetting("language")).toBe("en");
   });
 
-  it("reports canonical resets and extension deletions from bulk replacement", () => {
-    service.setSettings({
-      theme: "dark",
-      autoSave: false,
-      "plugin:layout": { density: "compact" },
-    });
+  it("reports canonical resets and extension deletions from bulk replacement", async () => {
+    await expect(
+      service.setSettings({
+        theme: "dark",
+        autoSave: false,
+        "plugin:layout": { density: "compact" },
+      }),
+    ).resolves.toBe(true);
     fixture.eventBusFixture.clearEventHistory();
 
-    service.setSettings({ autoSave: false });
+    await expect(service.setSettings({ autoSave: false })).resolves.toBe(true);
 
     const [changed] = fixture.eventBusFixture.getEventsOfType(
       "preferences:changed",
@@ -254,12 +266,12 @@ describe("PreferencesService", () => {
     expect(changed.data.settings).not.toHaveProperty("plugin:layout");
   });
 
-  it("does not announce a change when the canonical bulk state is unchanged", () => {
+  it("does not announce a change when the canonical bulk state is unchanged", async () => {
     const current = service.getSettings();
     fixture.storage.saveSettings.mockClear();
     fixture.eventBusFixture.clearEventHistory();
 
-    service.setSettings(current);
+    await expect(service.setSettings(current)).resolves.toBe(true);
 
     expect(fixture.storage.saveSettings).toHaveBeenCalledTimes(1);
     expect(
@@ -324,11 +336,11 @@ describe("PreferencesService", () => {
     expect(textSpan.textContent).toBe("Dark Mode");
   });
 
-  it("toggleTheme updates theme without emitting toast events", () => {
+  it("toggleTheme updates theme without emitting toast events", async () => {
     fixture.eventBusFixture.clearEventHistory();
 
     const originalTheme = service.getSetting("theme") || "default";
-    service.toggleTheme();
+    await expect(service.toggleTheme()).resolves.toBe(true);
 
     const expectedTheme = originalTheme === "dark" ? "default" : "dark";
     expect(service.getSetting("theme")).toBe(expectedTheme);
@@ -338,16 +350,237 @@ describe("PreferencesService", () => {
   });
 
   it("changeLanguage emits language:changed without showing toast", async () => {
+    const previousLocalizeCommandData = window.localizeCommandData;
+    const localizeCommandData = vi.fn();
+    window.localizeCommandData = localizeCommandData;
     fixture.eventBusFixture.clearEventHistory();
 
-    await service.changeLanguage("de");
+    try {
+      await expect(service.changeLanguage("de")).resolves.toBe(true);
 
-    const languageEvents =
-      fixture.eventBusFixture.getEventsOfType("language:changed");
-    expect(languageEvents).toHaveLength(1);
-    expect(languageEvents[0].data).toEqual({ language: "de" });
+      const languageEvents =
+        fixture.eventBusFixture.getEventsOfType("language:changed");
+      expect(languageEvents).toHaveLength(1);
+      expect(languageEvents[0].data).toEqual({ language: "de" });
+      expect(localizeCommandData).toHaveBeenCalledOnce();
 
-    const toastEvents = fixture.eventBusFixture.getEventsOfType("toast:show");
-    expect(toastEvents).toHaveLength(0);
+      const toastEvents = fixture.eventBusFixture.getEventsOfType("toast:show");
+      expect(toastEvents).toHaveLength(0);
+    } finally {
+      window.localizeCommandData = previousLocalizeCommandData;
+    }
   });
+
+  it("does not localize or publish a language change when persistence returns false", async () => {
+    const previousLocalizeCommandData = window.localizeCommandData;
+    const localizeCommandData = vi.fn();
+    window.localizeCommandData = localizeCommandData;
+    const before = service.getCurrentState();
+    fixture.storage.saveSettings.mockReturnValueOnce(false);
+    fixture.eventBusFixture.clearEventHistory();
+
+    try {
+      await expect(service.changeLanguage("de")).resolves.toBe(false);
+
+      expect(service.getCurrentState()).toEqual(before);
+      expect(localizeCommandData).not.toHaveBeenCalled();
+      expect(
+        fixture.eventBusFixture.getEventsOfType("language:changed"),
+      ).toHaveLength(0);
+    } finally {
+      window.localizeCommandData = previousLocalizeCommandData;
+    }
+  });
+
+  it("does not localize or publish a language change when persistence throws", async () => {
+    const previousLocalizeCommandData = window.localizeCommandData;
+    const localizeCommandData = vi.fn();
+    window.localizeCommandData = localizeCommandData;
+    const before = service.getCurrentState();
+    const failure = new Error("settings unavailable");
+    fixture.storage.saveSettings.mockImplementationOnce(() => {
+      throw failure;
+    });
+    fixture.eventBusFixture.clearEventHistory();
+
+    try {
+      await expect(service.changeLanguage("de")).rejects.toBe(failure);
+
+      expect(service.getCurrentState()).toEqual(before);
+      expect(localizeCommandData).not.toHaveBeenCalled();
+      expect(
+        fixture.eventBusFixture.getEventsOfType("language:changed"),
+      ).toHaveLength(0);
+    } finally {
+      window.localizeCommandData = previousLocalizeCommandData;
+    }
+  });
+
+  it.each([
+    ["preferences:set-setting", { key: "autoSave", value: false }],
+    ["preferences:set-settings", { autoSave: false }],
+  ])("returns a boolean success result from %s", async (topic, payload) => {
+    await expect(fixture.eventBus.request(topic, payload)).resolves.toBe(true);
+  });
+
+  it.each([
+    ["preferences:set-setting", { key: "autoSave", value: false }],
+    ["preferences:set-settings", { autoSave: false }],
+  ])(
+    "persists before owner commit and publishes saved before changed for %s",
+    async (topic, payload) => {
+      const before = service.getSetting("autoSave");
+      const order = [];
+      fixture.storage.saveSettings.mockImplementation((settings) => {
+        expect(settings.autoSave).toBe(false);
+        order.push(`write:${service.getSetting("autoSave")}`);
+        return true;
+      });
+      fixture.eventBus.on("preferences:saved", ({ settings }) => {
+        expect(settings.autoSave).toBe(false);
+        order.push(`saved:${service.getSetting("autoSave")}`);
+      });
+      fixture.eventBus.on("preferences:changed", ({ settings }) => {
+        expect(settings.autoSave).toBe(false);
+        order.push(`changed:${service.getSetting("autoSave")}`);
+      });
+      fixture.eventBusFixture.clearEventHistory();
+
+      const result = await fixture.eventBus.request(topic, payload);
+
+      expect(order).toEqual([
+        `write:${before}`,
+        "saved:false",
+        "changed:false",
+      ]);
+      expect(result).toBe(true);
+    },
+  );
+
+  it.each([
+    ["preferences:set-setting", { key: "autoSave", value: false }],
+    ["preferences:set-settings", { autoSave: false }],
+  ])(
+    "leaves owner and late-join state unchanged when %s returns false",
+    async (topic, payload) => {
+      const before = structuredClone(service.getCurrentState());
+      const applySettings = vi.spyOn(service, "applySettings");
+      fixture.storage.saveSettings.mockReturnValueOnce(false);
+      fixture.eventBusFixture.clearEventHistory();
+
+      const result = await fixture.eventBus.request(topic, payload);
+      const consumer = new PreferencesContractConsumer(fixture.eventBus);
+      try {
+        consumer.init();
+
+        expect(service.getCurrentState()).toEqual(before);
+        expect(consumer.cache.preferences).toEqual(before.settings);
+        expect(applySettings).not.toHaveBeenCalled();
+        expect(
+          fixture.eventBusFixture.getEventsOfType("preferences:saved"),
+        ).toHaveLength(0);
+        expect(
+          fixture.eventBusFixture.getEventsOfType("preferences:changed"),
+        ).toHaveLength(0);
+        expect(result).toBe(false);
+      } finally {
+        consumer.destroy();
+      }
+    },
+  );
+
+  it.each([
+    ["preferences:set-setting", { key: "autoSave", value: false }],
+    ["preferences:set-settings", { autoSave: false }],
+  ])(
+    "rejects %s without changing owner or late-join state when persistence throws",
+    async (topic, payload) => {
+      const before = structuredClone(service.getCurrentState());
+      const applySettings = vi.spyOn(service, "applySettings");
+      fixture.storage.saveSettings.mockImplementationOnce(() => {
+        throw new Error("settings unavailable");
+      });
+      fixture.eventBusFixture.clearEventHistory();
+
+      await expect(fixture.eventBus.request(topic, payload)).rejects.toThrow(
+        "settings unavailable",
+      );
+
+      const consumer = new PreferencesContractConsumer(fixture.eventBus);
+      try {
+        consumer.init();
+
+        expect(service.getCurrentState()).toEqual(before);
+        expect(consumer.cache.preferences).toEqual(before.settings);
+        expect(applySettings).not.toHaveBeenCalled();
+        expect(
+          fixture.eventBusFixture.getEventsOfType("preferences:saved"),
+        ).toHaveLength(0);
+        expect(
+          fixture.eventBusFixture.getEventsOfType("preferences:changed"),
+        ).toHaveLength(0);
+      } finally {
+        consumer.destroy();
+      }
+    },
+  );
+
+  it("detaches nested extension input before adopting it", async () => {
+    const key = extensionPreferenceKey("plugin:nested-input");
+    const input = { panels: [{ id: "commands", visible: true }] };
+
+    await fixture.eventBus.request("preferences:set-setting", {
+      key,
+      value: input,
+      extension: true,
+    });
+    input.panels[0].visible = false;
+
+    expect(service.getSetting(key)).toEqual({
+      panels: [{ id: "commands", visible: true }],
+    });
+  });
+
+  it.each([
+    ["getSetting", (candidate, key) => candidate.getSetting(key)],
+    ["getSettings", (candidate, key) => candidate.getSettings()[key]],
+    [
+      "getCurrentState",
+      (candidate, key) => candidate.getCurrentState().settings[key],
+    ],
+  ])(
+    "deeply detaches nested extension values returned by %s",
+    async (_name, read) => {
+      const key = "plugin:nested-accessor";
+      await fixture.eventBus.request("preferences:set-settings", {
+        [key]: { panels: [{ id: "commands", visible: true }] },
+      });
+
+      const returned = read(service, key);
+      returned.panels[0].visible = false;
+
+      expect(service.settings[key]).toEqual({
+        panels: [{ id: "commands", visible: true }],
+      });
+    },
+  );
+
+  it.each(["preferences:saved", "preferences:changed"])(
+    "deeply detaches nested extension values in %s payloads",
+    async (eventName) => {
+      const key = "plugin:nested-event";
+      fixture.eventBusFixture.clearEventHistory();
+
+      await fixture.eventBus.request("preferences:set-settings", {
+        [key]: { panels: [{ id: "commands", visible: true }] },
+      });
+
+      const [publication] = fixture.eventBusFixture.getEventsOfType(eventName);
+      publication.data.settings[key].panels[0].visible = false;
+
+      expect(service.settings[key]).toEqual({
+        panels: [{ id: "commands", visible: true }],
+      });
+    },
+  );
 });

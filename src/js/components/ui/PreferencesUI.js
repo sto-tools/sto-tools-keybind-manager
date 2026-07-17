@@ -73,7 +73,7 @@ function createKnownPreferenceMutation(key, value) {
  * Architecture:
  * - Settings loading: showPreferences() → preferences:load-settings → preferences:loaded → cache → updateUI()
  * - User interactions: handleSettingChange() → updateSetting() → preferences:set-setting
- * - Save action: saveAllSettings() → preferences:save-settings
+ * - Save action: saveAllSettings() → preferences:set-settings or preferences:save-settings
  *
  * Note: Legacy methods updatePreferencesFromStorage() and setupPreferencesEventListeners()
  * were removed during refactoring as they were redundant with the event bus approach.
@@ -92,8 +92,6 @@ export default class PreferencesUI extends UIComponentBase {
 
     this.ui = ui;
     this.document = resolveDocument(document);
-
-    this.eventsSetup = false;
 
     // Adopt settingDefinitions from historical implementation
     /** @type {Record<SettingKey, SettingDefinition>} */
@@ -117,26 +115,38 @@ export default class PreferencesUI extends UIComponentBase {
 
   onInit() {
     // Use request/response instead of direct service call
-    this.request("preferences:init").then(() => {
-      this.populatePreferencesModal();
-    });
+    void this.request("preferences:init")
+      .then(() => {
+        if (!this.destroyed) return this.populatePreferencesModal();
+        return undefined;
+      })
+      .catch((error) => {
+        console.error(
+          "[PreferencesUI] Failed to initialize preferences",
+          error,
+        );
+      });
     this.setupEventListeners();
   }
 
   // UI helpers
   setupEventListeners() {
     // Listen for preferences:show event from HeaderMenuUI
-    this.eventBus?.on("preferences:show", () => {
-      this.showPreferences();
+    this.addEventListener("preferences:show", () => {
+      void this.showPreferences().catch((error) => {
+        console.error("[PreferencesUI] Failed to show preferences", error);
+      });
     });
 
     // Listen for sync folder changes
-    this.eventBus?.on("sync:folder-set", () => {
-      this.updateFolderDisplay();
+    this.addEventListener("sync:folder-set", () => {
+      void this.updateFolderDisplay().catch((error) => {
+        console.error("[PreferencesUI] Failed to update sync folder", error);
+      });
     });
 
     // Listen for settings changes that should update AutoSync
-    this.eventBus?.on("preferences:changed", (data) => {
+    this.addEventListener("preferences:changed", (data) => {
       // Handle both single-setting changes and bulk changes
       const changes =
         data.changes || (data.key ? { [data.key]: data.value } : {});
@@ -163,7 +173,9 @@ export default class PreferencesUI extends UIComponentBase {
 
     // Save button
     this.onDom("savePreferencesBtn", "click", () => {
-      this.saveAllSettings(true);
+      void this.saveAllSettings(true).catch((error) => {
+        console.error("[PreferencesUI] Failed to save preferences", error);
+      });
     });
 
     this.setupSettingControls();
@@ -171,7 +183,7 @@ export default class PreferencesUI extends UIComponentBase {
     // Set Sync Folder button – needs direct user activation
     const syncBtn = document.getElementById("setSyncFolderBtn");
     if (syncBtn) {
-      syncBtn.addEventListener("click", async () => {
+      this.onDom(syncBtn, "click", async () => {
         console.log("[PreferencesUI] setSyncFolderBtn clicked");
         if (runtime.stoSync?.setSyncFolder) {
           try {
@@ -251,13 +263,14 @@ export default class PreferencesUI extends UIComponentBase {
    */
   async updateSetting(key, value) {
     // Use request/response instead of direct service call
-    await this.setSetting(key, value);
+    const updated = await this.setSetting(key, value);
 
-    if (key === "syncFolderName" || key === "syncFolderPath") {
+    if (updated && (key === "syncFolderName" || key === "syncFolderPath")) {
       this.updateFolderDisplay();
     }
 
     // PreferencesService already emits 'preferences:changed' when setting is updated
+    return updated;
   }
 
   /**
@@ -288,22 +301,31 @@ export default class PreferencesUI extends UIComponentBase {
       manual,
       pending: { ...this.pendingSettings },
     });
-    // First, apply any pending settings (e.g., bindToAliasMode) in bulk
+    let ok;
+    // First, apply any pending settings (e.g., bindToAliasMode) in one durable
+    // bulk mutation. That action already persists and publishes the accepted
+    // snapshot, so it replaces the formerly redundant follow-up save.
     if (Object.keys(this.pendingSettings).length > 0) {
       // Merge pending changes with the latest published settings snapshot.
       const currentSettings = { ...this.cache.preferences };
       const newSettings = { ...currentSettings, ...this.pendingSettings };
-      await this.request("preferences:set-settings", newSettings);
+      ok = await this.request("preferences:set-settings", newSettings);
 
-      // Clear pending settings now that they have been applied
+      // Keep pending UI intent when persistence rejects the mutation.
+      if (!ok) return false;
+
+      // Clear pending settings now that they have been durably applied
       this.pendingSettings = {};
       console.log("[PreferencesUI] pending settings applied");
+    } else {
+      // No pending mutation remains, but an explicit Save still verifies the
+      // current owner snapshot and retains the established saved publication.
+      ok = await this.saveSettings();
     }
 
-    // Use request/response instead of direct service call
-    const ok = await this.saveSettings();
-    console.log("[PreferencesUI] preferences:save-settings result", { ok });
-    if (ok && manual && this.ui?.showToast) {
+    console.log("[PreferencesUI] durable preferences result", { ok });
+    if (!ok) return false;
+    if (manual && this.ui?.showToast) {
       this.emit("toast:show", {
         message: i18next.t("preferences_saved"),
         type: "success",
@@ -319,6 +341,7 @@ export default class PreferencesUI extends UIComponentBase {
       { modalId: "preferencesModal" },
       { synchronous: true },
     );
+    return true;
   }
 
   async showPreferences() {
@@ -379,8 +402,19 @@ export default class PreferencesUI extends UIComponentBase {
     const mutation = createKnownPreferenceMutation(key, value);
     if (!mutation) throw new TypeError(`Invalid preference value for "${key}"`);
     // Use request/response instead of direct service call
-    await this.request("preferences:set-setting", mutation);
-    this.updateUI(key, value);
+    let updated;
+    try {
+      updated = await this.request("preferences:set-setting", mutation);
+    } catch (error) {
+      const currentValue = this.cache.preferences[key];
+      if (isPreferenceValue(currentValue)) this.updateUI(key, currentValue);
+      throw error;
+    }
+    const displayedValue = updated ? value : this.cache.preferences[key];
+    if (isPreferenceValue(displayedValue)) {
+      this.updateUI(key, displayedValue);
+    }
+    return updated;
   }
 
   async saveSettings() {
@@ -411,7 +445,9 @@ export default class PreferencesUI extends UIComponentBase {
       }
     } else {
       // Apply other settings immediately as before
-      this.updateSetting(key, value);
+      void this.updateSetting(key, value).catch((error) => {
+        console.error("[PreferencesUI] Failed to update preference", error);
+      });
     }
   }
 

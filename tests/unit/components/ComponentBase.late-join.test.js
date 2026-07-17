@@ -163,18 +163,38 @@ describe("ComponentBase late-join state synchronization", () => {
     components.push(consumer);
     consumer.init();
 
+    const singleValue = {
+      panels: [{ id: "commands", visible: true }],
+    };
+    const changedValue = {
+      panels: [{ id: "aliases", visible: true }],
+    };
+
     eventBus.emit("preferences:changed", {
-      key: "language",
-      value: "fr",
+      key: "plugin:single-patch",
+      value: singleValue,
     });
     eventBus.emit("preferences:changed", {
-      changes: { bindsetsEnabled: true },
+      changes: { "plugin:bulk-patch": changedValue },
     });
 
+    singleValue.panels[0].visible = false;
+    changedValue.panels[0].visible = false;
+
     expect(consumer.cache.preferences).toEqual({
-      language: "fr",
-      bindsetsEnabled: true,
+      "plugin:single-patch": {
+        panels: [{ id: "commands", visible: true }],
+      },
+      "plugin:bulk-patch": {
+        panels: [{ id: "aliases", visible: true }],
+      },
     });
+    expect(consumer.cache.preferences["plugin:single-patch"]).not.toBe(
+      singleValue,
+    );
+    expect(consumer.cache.preferences["plugin:bulk-patch"]).not.toBe(
+      changedValue,
+    );
   });
 
   it("isolates same-class reply topics created in the same millisecond", () => {
