@@ -42,11 +42,6 @@ describe("KeyService Structured Response Tests", () => {
       });
     });
 
-    // Mock other required requests
-    eventBus.on("rpc:data:get-key-name-pattern", ({ replyTopic }) => {
-      eventBus.emit(replyTopic, { data: { pattern: /^[A-Z]\d+$/ } });
-    });
-
     eventBus.on("rpc:data:update-profile", ({ replyTopic, payload }) => {
       profileUpdatePayloads.push(payload);
       // Mock the data update - return success
@@ -159,11 +154,11 @@ describe("KeyService Structured Response Tests", () => {
 
   describe("addKey", () => {
     it("should return structured success response for valid key", async () => {
-      const result = await service.addKey("K1");
+      const result = await service.addKey("F3");
 
       expect(result).toEqual({
         success: true,
-        key: "K1",
+        key: "F3",
         environment: "space",
         bindset: "Primary Bindset",
       });
@@ -188,7 +183,7 @@ describe("KeyService Structured Response Tests", () => {
       });
       noProfileService.init();
 
-      const result = await noProfileService.addKey("K1");
+      const result = await noProfileService.addKey("F3");
 
       expect(result).toEqual({
         success: false,
@@ -202,42 +197,42 @@ describe("KeyService Structured Response Tests", () => {
 
     it("should return structured error response for duplicate key", async () => {
       // Add first key
-      await service.addKey("K1");
+      await service.addKey("F3");
 
       // Try to add duplicate
-      const result = await service.addKey("K1");
+      const result = await service.addKey("F3");
 
       expect(result).toEqual({
         success: false,
         error: "key_already_exists",
-        params: { keyName: "K1" },
+        params: { keyName: "F3" },
       });
     });
 
     it("should add key directly into a target bindset when provided", async () => {
-      const result = await service.addKey("B1", "Custom");
+      const result = await service.addKey("F4", "Custom");
 
       expect(result).toEqual({
         success: true,
-        key: "B1",
+        key: "F4",
         environment: "space",
         bindset: "Custom",
       });
-      expect(service.cache.profile.bindsets.Custom.space.keys.B1).toEqual([]);
+      expect(service.cache.profile.bindsets.Custom.space.keys.F4).toEqual([]);
     });
   });
 
   describe("deleteKey", () => {
     it("should return structured success response for existing key", async () => {
       // First add a key
-      await service.addKey("K1");
+      await service.addKey("F3");
 
       // Then delete it
-      const result = await service.deleteKey("K1");
+      const result = await service.deleteKey("F3");
 
       expect(result).toEqual({
         success: true,
-        key: "K1",
+        key: "F3",
         environment: "space",
       });
     });
@@ -251,7 +246,7 @@ describe("KeyService Structured Response Tests", () => {
       });
       noProfileService.init();
 
-      const result = await noProfileService.deleteKey("K1");
+      const result = await noProfileService.deleteKey("F3");
 
       expect(result).toEqual({
         success: false,
@@ -277,15 +272,15 @@ describe("KeyService Structured Response Tests", () => {
   describe("duplicateKey", () => {
     it("should preserve strings and assign fresh ids to rich commands", async () => {
       const richCommand = { id: "cmd_1", command: "rich_command" };
-      service.cache.keys.K1 = ["test_command", richCommand];
+      service.cache.keys.F3 = ["test_command", richCommand];
 
-      const result = await service.duplicateKey("K1");
+      const result = await service.duplicateKey("F3");
       const duplicatedCommands =
         profileUpdatePayloads.at(-1).add.builds.space.keys[result.newKey];
 
       expect(result.success).toBe(true);
-      expect(result.sourceKey).toBe("K1");
-      expect(result.newKey).toMatch(/^K1_copy(_\d+)?$/);
+      expect(result.sourceKey).toBe("F3");
+      expect(result.newKey).toMatch(/^F3_copy(_\d+)?$/);
       expect(duplicatedCommands[0]).toBe("test_command");
       expect(duplicatedCommands[1]).not.toBe(richCommand);
       expect(duplicatedCommands[1]).toEqual({
@@ -304,7 +299,7 @@ describe("KeyService Structured Response Tests", () => {
       });
       noProfileService.init();
 
-      const result = await noProfileService.duplicateKey("K1");
+      const result = await noProfileService.duplicateKey("F3");
 
       expect(result).toEqual({
         success: false,
@@ -329,19 +324,19 @@ describe("KeyService Structured Response Tests", () => {
 
   describe("duplicateKeyWithName", () => {
     it("should return structured success response for valid duplication", async () => {
-      await service.addKey("K1");
-      service.cache.keys.K1 = [{ id: "cmd_1", command: "TestCommand" }];
+      await service.addKey("F3");
+      service.cache.keys.F3 = [{ id: "cmd_1", command: "TestCommand" }];
 
-      const result = await service.duplicateKeyWithName("K1", "K2");
+      const result = await service.duplicateKeyWithName("F3", "F4");
 
       expect(result).toEqual({
         success: true,
-        sourceKey: "K1",
-        newKey: "K2",
+        sourceKey: "F3",
+        newKey: "F4",
         environment: "space",
       });
-      expect(service.cache.keys).toHaveProperty("K2");
-      expect(service.cache.keys.K2).toEqual([
+      expect(service.cache.keys).toHaveProperty("F4");
+      expect(service.cache.keys.F4).toEqual([
         { id: "cmd_1", command: "TestCommand" },
       ]);
     });
@@ -354,7 +349,7 @@ describe("KeyService Structured Response Tests", () => {
       });
       noProfileService.init();
 
-      const result = await noProfileService.duplicateKeyWithName("K1", "K2");
+      const result = await noProfileService.duplicateKeyWithName("F3", "F4");
 
       expect(result).toEqual({ success: false, error: "no_profile_selected" });
 
@@ -364,20 +359,20 @@ describe("KeyService Structured Response Tests", () => {
     });
 
     it("should return structured error for missing source key", async () => {
-      const result = await service.duplicateKeyWithName("M1", "M2");
+      const result = await service.duplicateKeyWithName("F5", "F6");
 
       expect(result).toEqual({
         success: false,
         error: "key_not_found",
-        params: { keyName: "M1" },
+        params: { keyName: "F5" },
       });
     });
 
     it("should return structured error for invalid new key name", async () => {
-      await service.addKey("K1");
-      service.cache.keys.K1 = [{ id: "cmd_1", command: "TestCommand" }];
+      await service.addKey("F3");
+      service.cache.keys.F3 = [{ id: "cmd_1", command: "TestCommand" }];
 
-      const result = await service.duplicateKeyWithName("K1", "invalid");
+      const result = await service.duplicateKeyWithName("F3", "invalid");
 
       expect(result).toEqual({
         success: false,
@@ -387,24 +382,24 @@ describe("KeyService Structured Response Tests", () => {
     });
 
     it("should return structured error when target key already exists", async () => {
-      await service.addKey("K1");
-      service.cache.keys.K1 = [{ id: "cmd_1", command: "TestCommand" }];
-      service.cache.keys.K2 = [{ id: "cmd_existing", command: "Existing" }];
+      await service.addKey("F3");
+      service.cache.keys.F3 = [{ id: "cmd_1", command: "TestCommand" }];
+      service.cache.keys.F4 = [{ id: "cmd_existing", command: "Existing" }];
 
-      const result = await service.duplicateKeyWithName("K1", "K2");
+      const result = await service.duplicateKeyWithName("F3", "F4");
 
       expect(result).toEqual({
         success: false,
         error: "key_already_exists",
-        params: { keyName: "K2" },
+        params: { keyName: "F4" },
       });
     });
 
     it("should return structured error when source key has no commands", async () => {
-      await service.addKey("K3");
-      service.cache.keys.K3 = [];
+      await service.addKey("F5");
+      service.cache.keys.F5 = [];
 
-      const result = await service.duplicateKeyWithName("K3", "K4");
+      const result = await service.duplicateKeyWithName("F5", "F6");
 
       expect(result).toEqual({
         success: false,
@@ -415,32 +410,32 @@ describe("KeyService Structured Response Tests", () => {
 
   describe("Request/Response Endpoints", () => {
     it("should handle key:add request via event bus", async () => {
-      const result = await service.request("key:add", { key: "X1" });
+      const result = await service.request("key:add", { key: "F7" });
 
       expect(result.success).toBe(true);
-      expect(result.key).toBe("X1");
+      expect(result.key).toBe("F7");
     });
 
     it("should handle key:delete request via event bus", async () => {
       // First add a key
-      await service.addKey("X1");
+      await service.addKey("F7");
 
       // Then delete via request
-      const result = await service.request("key:delete", { key: "X1" });
+      const result = await service.request("key:delete", { key: "F7" });
 
       expect(result.success).toBe(true);
-      expect(result.key).toBe("X1");
+      expect(result.key).toBe("F7");
     });
 
     it("should handle key:duplicate request via event bus", async () => {
       // First add a key
-      service.cache.keys["X1"] = ["test_command"];
+      service.cache.keys.F7 = ["test_command"];
 
       // Then duplicate via request
-      const result = await service.request("key:duplicate", { key: "X1" });
+      const result = await service.request("key:duplicate", { key: "F7" });
 
       expect(result.success).toBe(true);
-      expect(result.sourceKey).toBe("X1");
+      expect(result.sourceKey).toBe("F7");
     });
 
     it("should handle invalid requests gracefully", async () => {
@@ -458,12 +453,12 @@ describe("KeyService Structured Response Tests", () => {
 
     it("should maintain cache consistency after operations", async () => {
       // Add a key
-      await service.addKey("K1");
-      expect(service.cache.keys["K1"]).toBeDefined();
+      await service.addKey("F3");
+      expect(service.cache.keys.F3).toBeDefined();
 
       // Delete the key
-      await service.deleteKey("K1");
-      expect(service.cache.keys["K1"]).toBeUndefined();
+      await service.deleteKey("F3");
+      expect(service.cache.keys.F3).toBeUndefined();
     });
   });
 });

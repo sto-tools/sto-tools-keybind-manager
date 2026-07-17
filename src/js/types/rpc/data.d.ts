@@ -86,7 +86,6 @@ export interface DataRpcProtocol {
   >;
   "data:get-commands": NoPayloadRpc<Record<string, CommandCategory>>;
   "data:get-default-profiles": NoPayloadRpc<Record<string, Profile>>;
-  "data:get-key-name-pattern": NoPayloadRpc<string>;
   "data:has-commands": NoPayloadRpc<boolean>;
   "data:load-default-data": ResponderOnlyNoPayloadRpc<
     | {

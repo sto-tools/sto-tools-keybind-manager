@@ -1,26 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
-
-/**
- * Normalize the current string response and the legacy `{ pattern }` test seam.
- * @param {unknown} response
- * @returns {string | RegExp}
- */
-function resolveKeyNamePattern(response) {
-  if (typeof response === "string" || response instanceof RegExp) {
-    return response;
-  }
-  if (
-    typeof response === "object" &&
-    response !== null &&
-    "pattern" in response
-  ) {
-    const pattern = response.pattern;
-    if (typeof pattern === "string" || pattern instanceof RegExp) {
-      return pattern;
-    }
-  }
-  return /^[A-Za-z0-9_+]+$/;
-}
+import { STO_KEY_NAMES } from "../../data/stoKeyNames.js";
 
 /**
  * KeyService – the authoritative service for creating, deleting and duplicating
@@ -431,36 +410,17 @@ export default class KeyService extends ComponentBase {
   /** @param {string | undefined} keyName */
   async isValidKeyName(keyName) {
     if (!keyName || typeof keyName !== "string") return false;
-    try {
-      const pattern = resolveKeyNamePattern(
-        await this.request("data:get-key-name-pattern"),
-      );
 
-      // Special case: if pattern is 'USE_STO_KEY_NAMES', use the STO key names list
-      if (pattern === "USE_STO_KEY_NAMES") {
-        const { STO_KEY_NAMES } = await import("../../data/stoKeyNames.js");
-
-        // Check for chord combinations (e.g., "ALT+`", "CTRL+Space")
-        if (keyName.includes("+")) {
-          return this.isValidChordCombination(keyName, STO_KEY_NAMES);
-        }
-
-        // Single key validation
-        return STO_KEY_NAMES.includes(keyName) && keyName.length <= 20;
-      }
-
-      if (pattern instanceof RegExp) {
-        return pattern.test(keyName) && keyName.length <= 20;
-      }
-
-      return /^[A-Za-z0-9_+]+$/.test(keyName) && keyName.length <= 20;
-    } catch {
-      // Fallback to default pattern if DataService not available
-      return /^[A-Za-z0-9_+]+$/.test(keyName) && keyName.length <= 20;
+    // Check for chord combinations (e.g., "ALT+`", "Control+Space")
+    if (keyName.includes("+")) {
+      return this.isValidChordCombination(keyName, STO_KEY_NAMES);
     }
+
+    // Preserve the canonical list's exact single-key spelling.
+    return STO_KEY_NAMES.includes(keyName) && keyName.length <= 20;
   }
 
-  // Validate chord combinations like "ALT+`", "CTRL+Space", etc.
+  // Validate chord combinations like "ALT+`", "Control+Space", etc.
   /** @param {string} keyName @param {string[]} stoKeyNames */
   isValidChordCombination(keyName, stoKeyNames) {
     const parts = keyName.split("+");

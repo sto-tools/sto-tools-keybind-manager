@@ -62,9 +62,6 @@ describe("Integration: KeyService ↔ KeyBrowserService", () => {
       },
     );
 
-    // KeyService needs get-key-name-pattern respond stub
-    respond(eventBus, "data:get-key-name-pattern", () => /^[A-Za-z0-9_]+$/);
-
     // Instantiate services
     keyService = new KeyService({ eventBus, ui: { showToast: vi.fn() } });
     await keyService.init();

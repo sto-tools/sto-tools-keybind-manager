@@ -62,12 +62,6 @@ function setupWindowMocks() {
     t: (key, opts) => key // ignore opts for now
   }
 
-  window.STO_DATA = {
-    validation: {
-      keyNamePattern: /^[A-Za-z0-9_]+$/
-    }
-  }
-
   window.stoKeybinds = {
     validateKeybind: vi.fn(() => ({ valid: true, errors: [] }))
   }
@@ -113,7 +107,6 @@ function restoreWindowMocks() {
   delete window.storageService
   delete window.stoUI
   delete window.i18next
-  delete window.STO_DATA
   delete window.stoKeybinds
   delete window.eventBus
   if (getElementByIdSpy) {
@@ -215,4 +208,4 @@ describe('Key Management Services Integration (formerly keyHandling)', () => {
     
     window.confirm.mockRestore()
   })
-}) 
+})

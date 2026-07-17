@@ -40,10 +40,6 @@ const defaultProfiles = {
   },
 };
 
-const validation = {
-  keyNamePattern: "USE_STO_KEY_NAMES",
-};
-
 const retiredStaticTopics = [
   "data:get-alias-name-pattern",
   "data:get-combat-category",
@@ -51,6 +47,7 @@ const retiredStaticTopics = [
   "data:get-command-definition",
   "data:get-communication-category",
   "data:get-default-profile",
+  "data:get-key-name-pattern",
   "data:get-tray-category",
   "data:get-validation-patterns",
 ];
@@ -70,7 +67,7 @@ describe("Integration: DataService static-data RPC contracts", () => {
 
     dataService = new DataService({
       eventBus: eventBusFixture.eventBus,
-      data: { commands, defaultProfiles, validation },
+      data: { commands, defaultProfiles },
     });
     await dataService.init();
   });
@@ -137,13 +134,7 @@ describe("Integration: DataService static-data RPC contracts", () => {
     });
   });
 
-  it("keeps the paired key-pattern contract", async () => {
-    await expect(
-      request(eventBusFixture.eventBus, "data:get-key-name-pattern", {}),
-    ).resolves.toBe("USE_STO_KEY_NAMES");
-  });
-
-  it("does not register retired responder-only static routes", () => {
+  it("does not register retired static routes", () => {
     for (const topic of retiredStaticTopics) {
       expect(eventBusFixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(
         false,
@@ -151,10 +142,34 @@ describe("Integration: DataService static-data RPC contracts", () => {
     }
   });
 
-  it("feeds the primitive key-pattern response into a real KeyService", async () => {
+  it("never restores retired static routes across same-instance reinitialization", async () => {
+    dataService.destroy();
+
+    for (const topic of retiredStaticTopics) {
+      expect(eventBusFixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(
+        false,
+      );
+    }
+
+    await dataService.init();
+
+    for (const topic of retiredStaticTopics) {
+      expect(eventBusFixture.eventBus.hasListeners(`rpc:${topic}`), topic).toBe(
+        false,
+      );
+    }
+    await expect(
+      request(eventBusFixture.eventBus, "data:get-commands", {}),
+    ).resolves.toEqual(commands);
+  });
+
+  it("lets a real KeyService validate the canonical list without a data query", async () => {
     keyService = new KeyService({ eventBus: eventBusFixture.eventBus });
 
     await expect(keyService.isValidKeyName("F1")).resolves.toBe(true);
+    await expect(keyService.isValidKeyName("control+space")).resolves.toBe(
+      true,
+    );
     await expect(keyService.isValidKeyName("Not A Real STO Key")).resolves.toBe(
       false,
     );

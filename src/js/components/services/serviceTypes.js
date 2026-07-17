@@ -216,7 +216,7 @@
  *
  * @typedef {Object} STOData
  * @property {Record<string, CommandCategory>} [commands]
- * @property {{ keyNamePattern?: string }} [validation]
+ * @property {{ maxCommandsPerKey?: number, maxKeysPerProfile?: number }} [validation]
  * @property {Record<string, unknown>} [defaultProfiles]
  *
  * @typedef {Window & typeof globalThis & {

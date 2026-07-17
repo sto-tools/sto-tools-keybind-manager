@@ -121,6 +121,8 @@ type RemovedCommandDefinitionQuery = RpcRequest<"data:get-command-definition">;
 type RemovedCommunicationQuery = RpcRequest<"data:get-communication-category">;
 // @ts-expect-error Callers use the validated default-profile map.
 type RemovedDefaultProfileQuery = RpcRequest<"data:get-default-profile">;
+// @ts-expect-error Key validation imports the canonical STO key list directly.
+type RemovedKeyNamePatternQuery = RpcRequest<"data:get-key-name-pattern">;
 // @ts-expect-error Specialized categories are read from the complete catalog.
 type RemovedTrayCategoryQuery = RpcRequest<"data:get-tray-category">;
 // @ts-expect-error Validation behavior is owned by direct validation libraries.
@@ -349,6 +351,10 @@ async function exerciseCoreApi() {
   request(eventBus, "data:get-default-profile", { profileId: "default" });
   // @ts-expect-error Retired singular-default queries cannot regain responders.
   respond(eventBus, "data:get-default-profile", () => null);
+  // @ts-expect-error Retired key-pattern queries cannot be requested.
+  request(eventBus, "data:get-key-name-pattern");
+  // @ts-expect-error Retired key-pattern queries cannot regain responders.
+  respond(eventBus, "data:get-key-name-pattern", () => "USE_STO_KEY_NAMES");
   // @ts-expect-error Retired specialized-category queries cannot be requested.
   request(eventBus, "data:get-tray-category");
   // @ts-expect-error Retired specialized-category queries cannot regain responders.

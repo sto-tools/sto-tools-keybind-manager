@@ -66,6 +66,7 @@ describe("Application browser smoke", () => {
       "data:get-command-definition",
       "data:get-communication-category",
       "data:get-default-profile",
+      "data:get-key-name-pattern",
       "data:get-keys",
       "data:get-key-commands",
       "data:get-tray-category",

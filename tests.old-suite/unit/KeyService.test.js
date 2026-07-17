@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 
 import { KeyService, StorageService } from '../../src/js/components/services/index.js'
-import DataService from '../../src/js/components/services/DataService.js'
 import eventBus from '../../src/js/core/eventBus.js'
 import { respond } from '../../src/js/core/requestResponse.js'
 
@@ -23,25 +22,8 @@ Object.defineProperty(global, 'localStorage', {
   configurable: true,
 })
 
-// Mock STO_DATA for DataService
-const mockStoData = {
-  validation: {
-    keyNamePattern: /^[A-Za-z0-9_]+$/
-  },
-  commands: {
-    tray: { commands: {} },
-    communication: { commands: {} },
-    combat: { commands: {} }
-  }
-}
-
-// Minimal global STO_DATA validation pattern required by KeyService.isValidKeyName
-if (typeof global.STO_DATA === 'undefined') {
-  global.STO_DATA = mockStoData
-}
-
 describe('KeyService – core key operations with DataCoordinator', () => {
-  let service, dataService, uiMock, mockProfile
+  let service, uiMock, mockProfile
 
   beforeEach(async () => {
     global.localStorage.clear()
@@ -49,10 +31,6 @@ describe('KeyService – core key operations with DataCoordinator', () => {
     // Clear event bus - note: eventBus doesn't have removeAllListeners, so we'll skip this
     // eventBus.removeAllListeners() // Not available
     
-    // Set up DataService with mock data
-    dataService = new DataService({ eventBus, data: mockStoData })
-    await dataService.init()
-
     // Mock UI for toast messages
     uiMock = { showToast: vi.fn() }
 
@@ -112,7 +90,6 @@ describe('KeyService – core key operations with DataCoordinator', () => {
 
   afterEach(async () => {
     global.localStorage.clear()
-    if (dataService) await dataService.destroy()
     if (service) {
       // Clean up mock responders
       if (service._testCleanup) {
@@ -121,19 +98,6 @@ describe('KeyService – core key operations with DataCoordinator', () => {
       await service.destroy()
     }
     // eventBus.removeAllListeners() // Not available
-  })
-
-  describe('isValidKeyName()', () => {
-    it('accepts alphanumeric key names up to 20 chars', async () => {
-      expect(await service.isValidKeyName('F1')).toBe(true)
-      expect(await service.isValidKeyName('CtrlA')).toBe(true)
-      expect(await service.isValidKeyName('Key_123')).toBe(true)
-    })
-
-    it('rejects names with special characters or too long', async () => {
-      expect(await service.isValidKeyName('Invalid-Key!')).toBe(false)
-      expect(await service.isValidKeyName('ThisKeyNameIsWayTooLongToBeValid')).toBe(false)
-    })
   })
 
   describe('generateKeyId()', () => {
@@ -293,16 +257,12 @@ describe('KeyService – core key operations with DataCoordinator', () => {
 })
 
 describe('KeyService – legacy file handler compatibility', () => {
-  let service, dataService, uiMock
+  let service, uiMock
 
   beforeEach(async () => {
     global.localStorage.clear()
     // eventBus.removeAllListeners() // Not available
     
-    // Set up DataService with mock data
-    dataService = new DataService({ eventBus, data: mockStoData })
-    await dataService.init()
-
     uiMock = { showToast: vi.fn() }
 
     // Set up mock DataCoordinator responses for this test suite
@@ -316,7 +276,6 @@ describe('KeyService – legacy file handler compatibility', () => {
   })
 
   afterEach(async () => {
-    if (dataService) await dataService.destroy()
     if (service) {
       if (service._testCleanup) {
         service._testCleanup.forEach(cleanup => cleanup())
