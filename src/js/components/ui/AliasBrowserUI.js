@@ -368,9 +368,6 @@ export default class AliasBrowserUI extends UIComponentBase {
           await this.request("alias:select", {
             aliasName,
           });
-          this.emit("alias-browser/alias-clicked", {
-            name: aliasName,
-          });
         });
       });
     }

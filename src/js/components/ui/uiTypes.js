@@ -32,7 +32,7 @@
  *   show: (modalId: string) => unknown,
  *   hide: (modalId: string) => unknown,
  *   registerRegenerateCallback?: (modalId: string, callback: () => void) => void,
- *   unregisterRegenerateCallback?: (modalId: string) => void
+ *   unregisterRegenerateCallback?: (modalId: string, expectedCallback?: () => void) => void
  * }} ModalManagerLike
  *
  * @typedef {{

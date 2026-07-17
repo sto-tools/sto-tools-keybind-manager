@@ -237,4 +237,32 @@ describe("AliasBrowserUI Duplicate Flow", () => {
       fixture.document.getElementById("aliasGrid").innerHTML,
     ).not.toContain("testAlias");
   });
+
+  it("selects an alias without publishing the retired click transport", async () => {
+    const item = document.createElement("button");
+    item.dataset.alias = "testAlias";
+    const grid = fixture.document.getElementById("aliasGrid");
+    grid.querySelectorAll.mockReturnValue([item]);
+    component.request = vi.fn().mockResolvedValue("testAlias");
+    const retiredHandler = vi.fn();
+    const detachRetired = fixture.on(
+      "alias-browser/alias-clicked",
+      retiredHandler,
+    );
+    fixture.eventBus.onDom.mockClear();
+
+    await component.render();
+    const clickRegistration = fixture.eventBus.onDom.mock.calls.find(
+      ([target, event]) => target === item && event === "click",
+    );
+    expect(clickRegistration).toBeTruthy();
+
+    await clickRegistration[2](new MouseEvent("click"));
+
+    expect(component.request).toHaveBeenCalledWith("alias:select", {
+      aliasName: "testAlias",
+    });
+    expect(retiredHandler).not.toHaveBeenCalled();
+    detachRetired();
+  });
 });

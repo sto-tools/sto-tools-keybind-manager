@@ -173,7 +173,7 @@ export default class KeyBrowserUI extends UIComponentBase {
         const input = e.target;
         input.value = "";
         input.classList.remove("expanded");
-        this.emit("key:filter", { filter: "" });
+        this.filterKeys("");
       } else if (e.key === "Enter") {
         const input = e.target;
         input.classList.remove("expanded");

@@ -220,6 +220,14 @@ bus.on("bindset:modified", (payload) => {
 });
 // @ts-expect-error Retired listener topics cannot acquire a producer.
 bus.emit("bindset:modified", { bindsetName: "Primary Bindset" });
+// @ts-expect-error Alias selection is owned by the paired alias action and canonical selection state.
+bus.emit("alias-browser/alias-clicked", { name: "Engage" });
+// @ts-expect-error Bindset membership consumes canonical key selection directly.
+bus.emit("bindset-selector:set-selected-key", { key: "F1" });
+// @ts-expect-error Key filtering is a direct UI projection.
+bus.emit("key:filter", { filter: "" });
+// @ts-expect-error VFX regeneration is a UI-owned modal callback, not a bus topic.
+bus.emit("vfx:modal-regenerate-requested");
 
 // DOM registration remains a typed local-handler surface.
 bus.onDom(document, "click", (event) => event.type);

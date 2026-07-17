@@ -45,5 +45,4 @@ export interface UiEventProtocol {
     containerId: string | undefined;
     options: DragDropOptions;
   };
-  "vfx:modal-regenerate-requested": null;
 }

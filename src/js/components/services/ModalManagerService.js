@@ -19,29 +19,45 @@ export default class ModalManagerService extends ComponentBase {
     this.overlayId = "modalOverlay";
     /** @type {Record<string, () => void>} */
     this.regenerateCallbacks = {}; // modalId -> callback
+    /** @type {(() => void) | null} */
+    this.languageChangedHandler = null;
+    /** @type {Array<() => void>} */
+    this.fallbackDocumentListeners = [];
 
     this.registerAllModalCallbacks();
-    this.setupEventListeners();
-
-    // Re-translate currently open modal whenever language changes
-    if (this.i18n) {
-      this.i18n.on("languageChanged", () => {
-        const open = document.querySelector(".modal.active");
-        if (!open) return;
-        const modalId = open.id;
-        if (this.regenerateCallbacks[modalId]) {
-          this.regenerateCallbacks[modalId]();
-          // Emit event for components that want to handle their own regeneration
-          this.emit("modal:regenerated", { modalId });
-        } else if (typeof appWindow?.applyTranslations === "function") {
-          appWindow.applyTranslations(open);
-        }
-      });
-    }
   }
 
   onInit() {
+    this.setupEventListeners();
+    this.setupLanguageListener();
     console.log(`[${this.componentName}] Initialized`);
+  }
+
+  onDestroy() {
+    if (this.languageChangedHandler) {
+      this.i18n?.off?.("languageChanged", this.languageChangedHandler);
+      this.languageChangedHandler = null;
+    }
+    for (const detach of this.fallbackDocumentListeners.splice(0)) detach();
+  }
+
+  setupLanguageListener() {
+    if (!this.i18n || this.languageChangedHandler) return;
+
+    // Re-translate currently open modal whenever language changes.
+    this.languageChangedHandler = () => {
+      const open = document.querySelector(".modal.active");
+      if (!open) return;
+      const modalId = open.id;
+      if (this.regenerateCallbacks[modalId]) {
+        this.regenerateCallbacks[modalId]();
+        // Emit event for components that want to handle their own regeneration
+        this.emit("modal:regenerated", { modalId });
+      } else if (typeof appWindow?.applyTranslations === "function") {
+        appWindow.applyTranslations(open);
+      }
+    };
+    this.i18n.on("languageChanged", this.languageChangedHandler);
   }
 
   setupEventListeners() {
@@ -55,7 +71,7 @@ export default class ModalManagerService extends ComponentBase {
 
   setupGlobalModalEventListeners() {
     // Global event delegation for modal close buttons
-    document.addEventListener("click", (e) => {
+    this.onDocument("click", (e) => {
       if (!(e.target instanceof Element)) return;
       // Handle data-modal attribute clicks (close buttons)
       const modalTarget = e.target.closest("[data-modal]");
@@ -70,8 +86,8 @@ export default class ModalManagerService extends ComponentBase {
     });
 
     // Escape key to close modals
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+    this.onDocument("keydown", (e) => {
+      if (e instanceof KeyboardEvent && e.key === "Escape") {
         const activeModal = document.querySelector(".modal.active");
         if (activeModal) {
           this.hide(activeModal.id);
@@ -80,7 +96,7 @@ export default class ModalManagerService extends ComponentBase {
     });
 
     // Click outside modal to close (modal overlay)
-    document.addEventListener("click", (e) => {
+    this.onDocument("click", (e) => {
       if (!(e.target instanceof Element)) return;
       if (
         e.target.id === this.overlayId ||
@@ -92,6 +108,24 @@ export default class ModalManagerService extends ComponentBase {
         }
       }
     });
+  }
+
+  /**
+   * Preserve the direct modal API's no-bus compatibility while using the
+   * tracked event-bus DOM surface during normal application operation.
+   *
+   * @param {string} event
+   * @param {(event: Event) => unknown} handler
+   */
+  onDocument(event, handler) {
+    if (this.eventBus) {
+      return this.onDom(document, event, handler);
+    }
+
+    document.addEventListener(event, handler);
+    const detach = () => document.removeEventListener(event, handler);
+    this.fallbackDocumentListeners.push(detach);
+    return detach;
   }
 
   /** @param {{ modalId: string }} message */
@@ -161,8 +195,14 @@ export default class ModalManagerService extends ComponentBase {
     this.regenerateCallbacks[modalId] = cb;
   }
 
-  /** @param {string} modalId */
-  unregisterRegenerateCallback(modalId) {
+  /** @param {string} modalId @param {(() => void) | undefined} [expectedCallback] */
+  unregisterRegenerateCallback(modalId, expectedCallback) {
+    if (
+      expectedCallback &&
+      this.regenerateCallbacks[modalId] !== expectedCallback
+    ) {
+      return;
+    }
     delete this.regenerateCallbacks[modalId];
   }
 
@@ -189,17 +229,6 @@ export default class ModalManagerService extends ComponentBase {
       if (active) {
         const tab = active.id.replace("Tab", "");
         appWindow?.app?.populateKeyTab?.(tab);
-      }
-    });
-
-    // VFX/Vertigo modal - updated to use new VFX system
-    this.registerRegenerateCallback("vertigoModal", () => {
-      // Emit event for VFX UI to handle regeneration
-      if (this.eventBus) {
-        this.emit("vfx:modal-regenerate-requested");
-      } else {
-        // Fallback to legacy method
-        appWindow?.app?.populateVertigoModal?.();
       }
     });
 

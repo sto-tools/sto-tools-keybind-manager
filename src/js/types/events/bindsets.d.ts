@@ -29,5 +29,4 @@ export interface BindsetEventProtocol {
   "bindsets:changed": { names: string[] };
   "bindset-operation:completed": BindsetOperationPayload;
   "bindset-operation:started": BindsetOperationPayload;
-  "bindset-selector:set-selected-key": { key: string | null };
 }

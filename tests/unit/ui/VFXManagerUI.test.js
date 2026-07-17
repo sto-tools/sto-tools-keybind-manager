@@ -93,7 +93,7 @@ function createMockVFXManager() {
 }
 
 describe("VFXManagerUI", () => {
-  let fixture, eventBusFixture, vfxManagerUI, dom, mockVFXManager;
+  let fixture, eventBusFixture, vfxManagerUI, dom, mockVFXManager, modalManager;
 
   beforeEach(() => {
     // DOM & eventBus
@@ -135,12 +135,15 @@ describe("VFXManagerUI", () => {
       };
     });
 
+    modalManager = {
+      show: vi.fn(),
+      hide: vi.fn(),
+      registerRegenerateCallback: vi.fn(),
+      unregisterRegenerateCallback: vi.fn(),
+    };
     vfxManagerUI = new VFXManagerUI({
       eventBus: eventBusFixture.eventBus,
-      modalManager: {
-        show: vi.fn(),
-        hide: vi.fn(),
-      },
+      modalManager,
       i18n: { t: vi.fn((key) => key) },
     });
   });
@@ -157,6 +160,10 @@ describe("VFXManagerUI", () => {
     expect(vfxManagerUI.domListenersSetup).toBe(true);
     // Verify DOM event listeners are tracked for automatic cleanup
     expect(vfxManagerUI.domEventListeners).toHaveLength(7); // 2 checkboxes + 4 buttons + 1 save button
+    expect(modalManager.registerRegenerateCallback).toHaveBeenCalledWith(
+      "vertigoModal",
+      vfxManagerUI.regenerateModal,
+    );
   });
 
   it("should set up eventBus.onDom listeners for checkboxes exactly once", () => {
@@ -329,24 +336,52 @@ describe("VFXManagerUI", () => {
     expect(() => spaceSelectAllBtn.click()).not.toThrow();
   });
 
-  it("should preserve existing VFX button functionality after cleanup", () => {
+  it("lifecycle-owns modal population and regeneration across re-init", () => {
     vfxManagerUI.init();
+    expect(
+      eventBusFixture.eventBus.getListenerCount("vfx:modal-populate"),
+    ).toBe(1);
 
-    // Mock the vfxManager
-    vfxManagerUI.vfxManager = mockVFXManager;
-
-    // Verify EventBus listeners are set up
-    expect(eventBusFixture.eventBus.on).toHaveBeenCalledWith(
-      "vfx:modal-populate",
-      expect.any(Function),
+    vfxManagerUI.destroy();
+    expect(
+      eventBusFixture.eventBus.getListenerCount("vfx:modal-populate"),
+    ).toBe(0);
+    expect(modalManager.unregisterRegenerateCallback).toHaveBeenCalledWith(
+      "vertigoModal",
+      vfxManagerUI.regenerateModal,
     );
-
-    // Cleanup DOM listeners
-    vfxManagerUI.onDestroy();
-
-    // EventBus listeners should still be available until full destroy
-    // (This tests that cleanup is targeted to DOM listeners only)
     expect(vfxManagerUI.vfxManager).toBeNull();
     expect(vfxManagerUI.domListenersSetup).toBe(false);
+
+    vfxManagerUI.init();
+    expect(
+      eventBusFixture.eventBus.getListenerCount("vfx:modal-populate"),
+    ).toBe(1);
+    expect(modalManager.registerRegenerateCallback).toHaveBeenCalledTimes(2);
+    expect(vfxManagerUI.domEventListeners).toHaveLength(7);
+  });
+
+  it("regenerates from unsaved in-memory selections", () => {
+    vfxManagerUI.init();
+    vfxManagerUI.handleModalPopulate({ vfxManager: mockVFXManager });
+
+    const unsavedCheckbox = document.querySelector(
+      '.effect-checkbox[data-environment="space"][data-effect="engine_glow"]',
+    );
+    unsavedCheckbox.checked = true;
+    unsavedCheckbox.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(mockVFXManager.selectedEffects.space.has("engine_glow")).toBe(true);
+
+    const regenerate = modalManager.registerRegenerateCallback.mock.calls
+      .filter(([modalId]) => modalId === "vertigoModal")
+      .at(-1)[1];
+    regenerate();
+
+    const regeneratedCheckbox = document.querySelector(
+      '.effect-checkbox[data-environment="space"][data-effect="engine_glow"]',
+    );
+    expect(regeneratedCheckbox).not.toBe(unsavedCheckbox);
+    expect(regeneratedCheckbox.checked).toBe(true);
+    expect(mockVFXManager.selectedEffects.space.has("engine_glow")).toBe(true);
   });
 });

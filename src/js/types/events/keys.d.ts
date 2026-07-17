@@ -49,5 +49,4 @@ export interface KeyEventProtocol {
   update: { chord: string; codes: string[]; context: string };
   "key-added": { key: string };
   "key-duplicated": { from: string; to: string };
-  "key:filter": { filter: "" };
 }

@@ -16,7 +16,7 @@ describe("CommandChainUI selection state cache", () => {
     for (const fixture of fixtures.splice(0)) fixture.destroy();
   });
 
-  it("hydrates from SelectionService without querying selected state", () => {
+  it("hydrates from SelectionService without querying selected state", async () => {
     const fixture = createEventBusFixture();
     fixtures.push(fixture);
 
@@ -45,6 +45,9 @@ describe("CommandChainUI selection state cache", () => {
     components.push(ui);
     ui.request = vi.fn().mockResolvedValue(null);
     ui.render = vi.fn().mockResolvedValue(undefined);
+    ui.updateChainActions = vi.fn();
+    ui.refreshActiveBindset = vi.fn().mockResolvedValue(undefined);
+    ui.reconcileAcceptedState = vi.fn();
 
     ui.init();
 
@@ -52,5 +55,28 @@ describe("CommandChainUI selection state cache", () => {
     expect(ui.cache.cachedSelections.space).toBe("F8");
     expect(ui.request).not.toHaveBeenCalledWith("key:get-selected");
     expect(fixture.eventBus.hasListeners("rpc:key:get-selected")).toBe(false);
+    ui.updateChainActions.mockClear();
+    ui.refreshActiveBindset.mockClear();
+    ui.reconcileAcceptedState.mockClear();
+
+    const retiredHandler = vi.fn();
+    const detachRetired = fixture.eventBus.on(
+      "bindset-selector:set-selected-key",
+      retiredHandler,
+    );
+    fixture.eventBus.emit("key-selected", {
+      key: "F9",
+      environment: "space",
+      source: "SelectionService",
+    });
+
+    await vi.waitFor(() => {
+      expect(ui.updateChainActions).toHaveBeenCalledOnce();
+      expect(ui.refreshActiveBindset).toHaveBeenCalledOnce();
+      expect(ui.reconcileAcceptedState).toHaveBeenCalledOnce();
+    });
+    expect(ui.cache.selectedKey).toBe("F9");
+    expect(retiredHandler).not.toHaveBeenCalled();
+    detachRetired();
   });
 });

@@ -21,16 +21,21 @@ export default class VFXManagerUI extends UIComponentBase {
     this.domListenersSetup = false;
     /** @type {import('./uiTypes.js').VFXManagerLike | null} */
     this.vfxManager = null;
+    this.regenerateModal = () => this.populateModal();
   }
 
   // Component lifecycle hook - called by ComponentBase.init()
   onInit() {
     this.setupEventListeners();
+    this.modalManager?.registerRegenerateCallback?.(
+      "vertigoModal",
+      this.regenerateModal,
+    );
   }
 
   setupEventListeners() {
     // Listen for modal population event from service
-    this.eventBus?.on(
+    this.addEventListener(
       "vfx:modal-populate",
       this.handleModalPopulate.bind(this),
     );
@@ -260,6 +265,10 @@ export default class VFXManagerUI extends UIComponentBase {
 
   // Component lifecycle hook - called by ComponentBase
   onDestroy() {
+    this.modalManager?.unregisterRegenerateCallback?.(
+      "vertigoModal",
+      this.regenerateModal,
+    );
     // Reset flags
     this.domListenersSetup = false;
     this.vfxManager = null;

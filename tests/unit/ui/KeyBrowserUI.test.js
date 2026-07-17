@@ -196,6 +196,52 @@ describe("KeyBrowserUI", () => {
     ).toBe("false");
   });
 
+  it("clears the rendered filter directly when Escape is pressed", () => {
+    const grid = document.getElementById("keyGrid");
+    const filterInput = document.getElementById("keyFilter");
+    grid.innerHTML = `
+      <section class="category" data-category="function">
+        <button class="key-item" data-key="F1"></button>
+        <div class="command-item" data-key="F1"></div>
+      </section>
+      <section class="category" data-category="letter">
+        <button class="key-item" data-key="A"></button>
+        <div class="command-item" data-key="A"></div>
+      </section>
+    `;
+    filterInput.value = "F1";
+    filterInput.classList.add("expanded");
+    ui.filterKeys("F1");
+    const retiredHandler = vi.fn();
+    const detachRetired = eventBus.on("key:filter", retiredHandler);
+
+    const keydownRegistration = eventBus.onDom.mock.calls.find(
+      ([target, event]) => target === "keyFilter" && event === "keydown",
+    );
+    expect(keydownRegistration).toBeTruthy();
+    keydownRegistration[2]({
+      target: filterInput,
+      key: "Escape",
+      preventDefault: vi.fn(),
+    });
+
+    expect(filterInput.value).toBe("");
+    expect(filterInput.classList).not.toContain("expanded");
+    for (const item of grid.querySelectorAll(
+      ".key-item, .command-item[data-key]",
+    )) {
+      expect(item.style.display).toBe("flex");
+    }
+    for (const category of grid.querySelectorAll(".category")) {
+      expect(category.style.display).toBe("block");
+    }
+    expect(document.getElementById("keySearchBtn").classList).not.toContain(
+      "active",
+    );
+    expect(retiredHandler).not.toHaveBeenCalled();
+    detachRetired();
+  });
+
   it("renders bindset command categories from category objects", async () => {
     const content = document.createElement("div");
     const categoryData = {

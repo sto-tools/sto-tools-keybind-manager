@@ -328,6 +328,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
     expect(fixture.eventBus.getListenerCount("selection:state-changed")).toBe(
       2,
     );
+    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(2);
 
     ui.destroy();
 
@@ -336,6 +337,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
     expect(fixture.eventBus.getListenerCount("selection:state-changed")).toBe(
       0,
     );
+    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(0);
 
     ui.init();
 
@@ -344,6 +346,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
     expect(fixture.eventBus.getListenerCount("selection:state-changed")).toBe(
       2,
     );
+    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(2);
     expect(ui.pendingInitialRender).toBe(true);
 
     const profile = createProfile();

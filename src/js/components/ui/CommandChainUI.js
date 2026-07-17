@@ -191,9 +191,6 @@ export default class CommandChainUI extends UIComponentBase {
 
       this.updateChainActions();
 
-      // Update bindset selector with selected key first (can be null)
-      this.emit("bindset-selector:set-selected-key", { key: selectedKey });
-
       await this.refreshActiveBindset();
 
       this.reconcileAcceptedState();
