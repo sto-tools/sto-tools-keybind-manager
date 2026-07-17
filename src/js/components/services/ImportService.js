@@ -10,12 +10,20 @@ import { KBFParser } from "../../lib/KBFParser.js";
 import { parseProfileJson, parseProjectJson } from "./importJsonBoundary.js";
 import { commitImportedProfile } from "./importProfileCommit.js";
 
+/** @typedef {import('./serviceTypes.js').AppWindow} AppWindow */
+
 const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
 
+/**
+ * @param {string | undefined} strategy
+ * @param {string} [fallback]
+ */
+const resolveImportStrategy = (strategy, fallback = "merge_keep") =>
+  VALID_STRATEGIES.find((candidate) => candidate === strategy) || fallback;
+
+/** @type {AppWindow | null} */
 const appWindow =
-  typeof window === "undefined"
-    ? null
-    : /** @type {import('./serviceTypes.js').AppWindow} */ (window);
+  typeof window === "undefined" ? null : /** @type {AppWindow} */ (window);
 
 /** @param {unknown} error */
 const getErrorMessage = (error) =>
@@ -30,6 +38,8 @@ export default class ImportService extends ComponentBase {
     this.i18n = i18n;
     this.ui = ui;
     this.kbfParser = new KBFParser({ eventBus });
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
   }
 
   markAppModified() {
@@ -42,70 +52,57 @@ export default class ImportService extends ComponentBase {
   }
 
   setupRequestHandlers() {
-    if (!this.eventBus) return;
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
 
     // Import operations
-    this.respond(
-      "import:keybind-file",
-      ({ content, profileId, environment, options = {}, strategy }) => {
-        // Validate strategy input with fallback to default
-        const validatedStrategy = VALID_STRATEGIES.includes(strategy || "")
-          ? strategy
-          : "merge_keep";
-        return this.importKeybindFile(content, profileId, environment, {
-          ...options,
-          strategy: validatedStrategy,
-        });
-      },
-    );
-
-    this.respond(
-      "import:alias-file",
-      ({ content, profileId, options = {}, strategy }) => {
-        // Validate strategy input with fallback to default
-        const validatedStrategy = VALID_STRATEGIES.includes(strategy || "")
-          ? strategy
-          : "merge_keep";
-        return this.importAliasFile(content, profileId, {
-          ...options,
-          strategy: validatedStrategy,
-        });
-      },
-    );
-
-    this.respond(
-      "import:kbf-file",
-      ({
-        content,
-        profileId,
-        environment,
-        options = {},
-        strategy,
-        configuration,
-      }) => {
-        // Validate strategy input with fallback to default
-        const validatedStrategy = VALID_STRATEGIES.includes(strategy || "")
-          ? strategy
-          : /** @type {{ strategy?: string }} */ (options).strategy ||
-            "merge_keep";
-        return this.importKBFFile(
+    this._responseDetachFunctions.push(
+      this.respond(
+        "import:keybind-file",
+        ({ content, profileId, environment, options = {}, strategy }) =>
+          this.importKeybindFile(content, profileId, environment, {
+            ...options,
+            strategy: resolveImportStrategy(strategy),
+          }),
+      ),
+      this.respond(
+        "import:alias-file",
+        ({ content, profileId, options = {}, strategy }) =>
+          this.importAliasFile(content, profileId, {
+            ...options,
+            strategy: resolveImportStrategy(strategy),
+          }),
+      ),
+      this.respond(
+        "import:kbf-file",
+        ({
           content,
           profileId,
           environment,
-          { ...options, strategy: validatedStrategy },
+          options = {},
+          strategy,
           configuration,
-        );
-      },
-    );
-
-    this.respond("import:project-file", ({ content, options = {} }) =>
-      this.importProjectFile(content, options),
-    );
-
-    this.respond("import:from-file", ({ file }) => this.importFromFile(file));
-
-    this.respond("parse-kbf-file", ({ content, environment }) =>
-      this.parseKBFFile(content, environment),
+        }) =>
+          this.importKBFFile(
+            content,
+            profileId,
+            environment,
+            {
+              ...options,
+              strategy: VALID_STRATEGIES.includes(strategy || "")
+                ? strategy
+                : /** @type {{ strategy?: string }} */ (options).strategy ||
+                  "merge_keep",
+            },
+            configuration,
+          ),
+      ),
+      this.respond("import:project-file", ({ content, options = {} }) =>
+        this.importProjectFile(content, options),
+      ),
+      this.respond("import:from-file", ({ file }) => this.importFromFile(file)),
+      this.respond("parse-kbf-file", ({ content, environment }) =>
+        this.parseKBFFile(content, environment),
+      ),
     );
   }
 
@@ -1545,5 +1542,9 @@ export default class ImportService extends ComponentBase {
   onInit() {
     this.setupRequestHandlers();
     this.emit("import-service-ready");
+  }
+
+  onDestroy() {
+    this._responseDetachFunctions.splice(0).forEach((detach) => detach());
   }
 }

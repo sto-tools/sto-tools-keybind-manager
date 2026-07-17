@@ -21,6 +21,8 @@ export default class ExportService extends ComponentBase {
     this.componentName = "ExportService";
     this.storage = storage;
     this.i18n = i18n;
+    /** @type {Array<() => void>} */
+    this._responseDetachFunctions = [];
   }
 
   /** @returns {import('./serviceTypes.js').ExportCache} */
@@ -47,41 +49,45 @@ export default class ExportService extends ComponentBase {
   }
 
   setupRequestHandlers() {
+    if (!this.eventBus || this._responseDetachFunctions.length > 0) return;
+
     // Export generation requests
 
-    this.respond(
-      "export:generate-filename",
-      async ({ profile, extension, environment }) =>
-        await this.generateFileName(profile, extension, environment),
-    );
-    this.respond("export:generate-alias-filename", ({ profile, extension }) =>
-      this.generateAliasFileName(profile, extension),
-    );
-    this.respond("export:import-from-file", ({ file }) =>
-      this.request("import:from-file", { file }),
-    );
-    this.respond(
-      "export:generate-keybind-file",
-      async ({ profileId, environment = "space", syncMode = false }) => {
+    this._responseDetachFunctions.push(
+      this.respond(
+        "export:generate-filename",
+        async ({ profile, extension, environment }) =>
+          await this.generateFileName(profile, extension, environment),
+      ),
+      this.respond("export:generate-alias-filename", ({ profile, extension }) =>
+        this.generateAliasFileName(profile, extension),
+      ),
+      this.respond("export:import-from-file", ({ file }) =>
+        this.request("import:from-file", { file }),
+      ),
+      this.respond(
+        "export:generate-keybind-file",
+        async ({ profileId, environment = "space", syncMode = false }) => {
+          const prof = this.getProfileFromCache(profileId);
+          if (!prof)
+            throw new Error(
+              `Profile ${profileId} not found in ExportService cache`,
+            );
+          return await this.generateSTOKeybindFile(prof, {
+            environment,
+            syncMode,
+          });
+        },
+      ),
+      this.respond("export:generate-alias-file", async ({ profileId }) => {
         const prof = this.getProfileFromCache(profileId);
-        if (!prof)
-          throw new Error(
-            `Profile ${profileId} not found in ExportService cache`,
-          );
-        return await this.generateSTOKeybindFile(prof, {
-          environment,
-          syncMode,
-        });
-      },
+        if (!prof) throw new Error(`Profile ${profileId} not found`);
+        return await this.generateAliasFile(prof);
+      }),
+      this.respond("export:sync-to-folder", async ({ dirHandle }) => {
+        return this.syncToFolder(dirHandle).then(() => undefined);
+      }),
     );
-    this.respond("export:generate-alias-file", async ({ profileId }) => {
-      const prof = this.getProfileFromCache(profileId);
-      if (!prof) throw new Error(`Profile ${profileId} not found`);
-      return await this.generateAliasFile(prof);
-    });
-    this.respond("export:sync-to-folder", async ({ dirHandle }) => {
-      return this.syncToFolder(dirHandle).then(() => undefined);
-    });
   }
 
   setupEventListeners() {
@@ -100,28 +106,12 @@ export default class ExportService extends ComponentBase {
 
   // Check if bind-to-alias mode is enabled from cached preferences (internal method)
   _getBindToAliasMode() {
-    console.log("[ExportService] _getBindToAliasMode called");
-    console.log("[ExportService] cache:", this.cache);
-    console.log("[ExportService] preferences:", this.cache?.preferences);
-    console.log(
-      "[ExportService] bindToAliasMode:",
-      this.cache?.preferences?.bindToAliasMode,
-    );
-
     // Use cached preferences from ComponentBase instead of making requests
     return this.cache?.preferences?.bindToAliasMode || false;
   }
 
   // Check if bindsets feature is enabled from cached preferences (internal method)
   _getBindsetsEnabled() {
-    console.log("[ExportService] _getBindsetsEnabled called");
-    console.log("[ExportService] cache:", this.cache);
-    console.log("[ExportService] preferences:", this.cache?.preferences);
-    console.log(
-      "[ExportService] bindsetsEnabled:",
-      this.cache?.preferences?.bindsetsEnabled,
-    );
-
     // Use cached preferences from ComponentBase instead of making requests
     return this.cache?.preferences?.bindsetsEnabled || false;
   }
@@ -237,7 +227,6 @@ export default class ExportService extends ComponentBase {
 
     // Check if bind-to-alias mode is enabled
     const bindToAliasMode = this._getBindToAliasMode();
-    console.log("[ExportService] this: ", this);
 
     let content = `; ==============================================================================\n`;
     content += `; ${environment.toUpperCase()} KEYBINDS\n`;
@@ -842,5 +831,12 @@ export default class ExportService extends ComponentBase {
       return this.storage.getProfile(profileId);
     }
     return null;
+  }
+
+  onDestroy() {
+    for (const detach of this._responseDetachFunctions) {
+      detach();
+    }
+    this._responseDetachFunctions = [];
   }
 }
