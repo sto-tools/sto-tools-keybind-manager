@@ -17,10 +17,12 @@ describe("Key view mode checked-bundle boundary", () => {
     expect(toggle).toBeInstanceOf(HTMLButtonElement);
     if (!ui || !service || !bus || !(toggle instanceof HTMLButtonElement))
       return;
+    expect(Object.hasOwn(ui, "app")).toBe(false);
     expect(bus.hasListeners("key-view:mode-changed")).toBe(false);
     expect(bus.hasListeners("rpc:key:cycle-view-mode")).toBe(true);
 
     const start = service.getCurrentState();
+    const startingEnvironment = ui.cache.currentEnvironment;
     const nextMode = {
       grid: "categorized",
       categorized: "key-types",
@@ -42,6 +44,22 @@ describe("Key view mode checked-bundle boundary", () => {
     };
 
     try {
+      await bus.emit("environment:changed", { environment: "alias" });
+      await vi.waitFor(() => {
+        expect(ui.cache.currentEnvironment).toBe("alias");
+      });
+      toggle.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(service.getCurrentState()).toEqual(start);
+      expect(localStorage.getItem(storageKey)).toBe(beforeStored);
+
+      await bus.emit("environment:changed", {
+        environment: startingEnvironment,
+      });
+      await vi.waitFor(() => {
+        expect(ui.cache.currentEnvironment).toBe(startingEnvironment);
+      });
+
       let expectedMode = start.mode;
       for (let offset = 1; offset <= 3; offset += 1) {
         expectedMode = nextMode[expectedMode];
@@ -64,6 +82,11 @@ describe("Key view mode checked-bundle boundary", () => {
       }
       expect(service.getCurrentState().mode).toBe(start.mode);
     } finally {
+      if (ui.cache.currentEnvironment !== startingEnvironment) {
+        await bus.emit("environment:changed", {
+          environment: startingEnvironment,
+        });
+      }
       for (let attempts = 0; attempts < 2; attempts += 1) {
         if (service.getCurrentState().mode === start.mode) break;
         await request(bus, "key:cycle-view-mode");

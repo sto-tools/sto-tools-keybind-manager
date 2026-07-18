@@ -101,6 +101,56 @@ describe("Integration: KeyBrowser view-state ownership", () => {
     },
   );
 
+  it("uses the accepted environment cache to guard owner mode transitions", async () => {
+    mountKeyGrid();
+    eventBusFixture = await createRealEventBusFixture();
+    localStorage.setItem(viewModeStorageKey, "grid");
+    service = new KeyBrowserService({
+      eventBus: eventBusFixture.eventBus,
+      localStorage,
+    });
+    ui = new KeyBrowserUI({
+      eventBus: eventBusFixture.eventBus,
+      document,
+      i18n: { t: (key) => key },
+    });
+    ui._cacheDataState(coordinatorState());
+    vi.spyOn(ui, "render").mockResolvedValue(undefined);
+    service.init();
+    ui.init();
+
+    await vi.waitFor(() => {
+      expect(ui.cache.keyBrowserViewState).toEqual(service.getCurrentState());
+    });
+    const before = service.getCurrentState();
+
+    await eventBusFixture.eventBus.emit("environment:changed", {
+      environment: "alias",
+    });
+    expect(ui.cache.currentEnvironment).toBe("alias");
+    await ui.toggleKeyView();
+
+    expect(service.getCurrentState()).toEqual(before);
+    expect(ui.cache.keyBrowserViewState).toEqual(before);
+    expect(localStorage.getItem(viewModeStorageKey)).toBe("grid");
+
+    await eventBusFixture.eventBus.emit("environment:changed", {
+      environment: "space",
+    });
+    expect(ui.cache.currentEnvironment).toBe("space");
+    await ui.toggleKeyView();
+
+    await vi.waitFor(() => {
+      expect(service.getCurrentState()).toMatchObject({
+        authorityEpoch: before.authorityEpoch,
+        revision: before.revision + 1,
+        mode: "categorized",
+      });
+      expect(ui.cache.keyBrowserViewState).toEqual(service.getCurrentState());
+    });
+    expect(localStorage.getItem(viewModeStorageKey)).toBe("categorized");
+  });
+
   it.each(["owner-first", "ui-first"])(
     "delivers persisted state and toggle broadcasts in %s startup order",
     async (startupOrder) => {

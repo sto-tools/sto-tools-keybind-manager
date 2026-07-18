@@ -152,17 +152,23 @@ describe("KeyBrowserUI", () => {
     expect(render).not.toHaveBeenCalled();
   });
 
-  it("preserves the legacy application environment guard", async () => {
+  it("guards mode cycling with the accepted environment cache", async () => {
     const request = vi.spyOn(ui, "request").mockResolvedValue("categorized");
 
-    ui.app = { currentEnvironment: "alias" };
+    expect(ui).not.toHaveProperty("app");
+    ui.cache.currentEnvironment = "alias";
     await ui.toggleKeyView();
     expect(request).not.toHaveBeenCalled();
 
-    ui.app.currentEnvironment = "space";
+    ui.cache.currentEnvironment = "space";
     await ui.toggleKeyView();
     expect(request).toHaveBeenCalledOnce();
     expect(request).toHaveBeenCalledWith("key:cycle-view-mode");
+
+    ui.cache.currentEnvironment = "ground";
+    await ui.toggleKeyView();
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenLastCalledWith("key:cycle-view-mode");
   });
 
   it("handles a rejected mode-cycle request from the DOM click path", async () => {

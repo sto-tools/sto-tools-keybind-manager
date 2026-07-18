@@ -57,7 +57,6 @@ export default class KeyBrowserUI extends UIComponentBase {
   /**
    * @param {{
    *   eventBus?: import('./uiTypes.js').EventBus,
-   *   app?: import('./uiTypes.js').AppLike | null,
    *   modalManager?: import('./uiTypes.js').ModalManagerLike | null,
    *   confirmDialog?: import('./uiTypes.js').ConfirmDialogLike | null,
    *   inputDialog?: import('./uiTypes.js').InputDialogLike | null,
@@ -67,7 +66,6 @@ export default class KeyBrowserUI extends UIComponentBase {
    */
   constructor({
     eventBus,
-    app = null,
     modalManager = null,
     confirmDialog = null,
     inputDialog = null,
@@ -76,7 +74,6 @@ export default class KeyBrowserUI extends UIComponentBase {
   } = {}) {
     super(eventBus);
     this.componentName = "KeyBrowserUI";
-    this.app = app || runtime.app || null;
     this.modalManager = modalManager;
     this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
     this.inputDialog = inputDialog || runtime.inputDialog || null;
@@ -1242,9 +1239,8 @@ export default class KeyBrowserUI extends UIComponentBase {
   }
 
   async toggleKeyView() {
-    // Preserve the legacy application-owned environment guard in this storage
-    // ownership tranche; its global replacement is a separate guarded change.
-    if (this.app && this.app.currentEnvironment === "alias") return;
+    // The accepted cache is the only environment authority used by this UI.
+    if (this.cache.currentEnvironment === "alias") return;
 
     // Persistence and mode sequencing belong to KeyBrowserService. The
     // resulting complete snapshot drives both the button and the full render.
