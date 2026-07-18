@@ -74,11 +74,7 @@ describe("ImportUI KBF preview security", () => {
       bindsetRenames: { [originalName]: finalName },
     });
 
-    ui.setupPreviewUpdates(modal, {
-      valid: true,
-      bindsetNames: [originalName],
-      bindsetKeyCounts: { [originalName]: 1 },
-    });
+    ui.setupPreviewUpdates(modal);
 
     const preview = modal.querySelector("#preview_content");
     expect(preview.querySelector("#kbf-original-payload")).toBeNull();
@@ -91,5 +87,42 @@ describe("ImportUI KBF preview security", () => {
     expect(preview.querySelector(".mapping-indicator.custom").textContent).toBe(
       `maps_to: ${finalName}`,
     );
+  });
+
+  it("materializes hostile bindset identifiers without constructing selectors", () => {
+    const bindsetName = 'alpha"]:not(*)[data-probe="owned';
+    const modal = document.createElement("div");
+    const table = document.createElement("table");
+    const row = document.createElement("tr");
+    const typeCell = document.createElement("td");
+    const destinationCell = document.createElement("td");
+    const select = document.createElement("select");
+    const option = document.createElement("option");
+    const input = document.createElement("input");
+
+    select.className = "bindset-mapping-select";
+    select.dataset.bindset = bindsetName;
+    option.value = "mapped";
+    option.selected = true;
+    select.appendChild(option);
+    typeCell.appendChild(select);
+    destinationCell.className = "bindset-custom-cell";
+    input.className = "bindset-custom-input";
+    input.value = "  Safe destination  ";
+    destinationCell.appendChild(input);
+    row.append(typeCell, destinationCell);
+    table.appendChild(row);
+    modal.appendChild(table);
+
+    ui = new ImportUI({
+      document,
+      i18n: { t: (key) => key },
+    });
+
+    const configuration = ui.validateBindsetConfiguration(modal);
+
+    expect(configuration?.selectedBindsets).toEqual([bindsetName]);
+    expect(configuration?.bindsetMappings[bindsetName]).toBe("custom");
+    expect(configuration?.bindsetRenames[bindsetName]).toBe("Safe destination");
   });
 });

@@ -70,4 +70,23 @@ describe("ImportUI preferences cache", () => {
     ui.currentEnhancedBindsetSelectionModal.resolve(null);
     await expect(resultPromise).resolves.toBeNull();
   });
+
+  it("uses the import's accepted bindset mode after the live cache changes", async () => {
+    fixture.eventBus.emit(
+      "preferences:loaded",
+      createPreferencesState({ bindsetsEnabled: true }),
+    );
+    const singleModal = document.createElement("div");
+    const createSingle = vi
+      .spyOn(ui, "createSingleBindsetSelectionModal")
+      .mockReturnValue(singleModal);
+    const createEnhanced = vi.spyOn(ui, "createEnhancedBindsetSelectionModal");
+
+    const resultPromise = ui.promptEnhancedBindsetSelection(parseResult, false);
+
+    expect(createSingle).toHaveBeenCalledWith(parseResult);
+    expect(createEnhanced).not.toHaveBeenCalled();
+    ui.currentEnhancedBindsetSelectionModal.resolve(null);
+    await expect(resultPromise).resolves.toBeNull();
+  });
 });

@@ -1,6 +1,15 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { getSnapshotProfile } from "../services/dataState.js";
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../services/textImportBoundary.js";
+import { projectImportResultToast } from "./importResultMessages.js";
+import {
+  normalizeImportStrategy,
+  runImportWorkflow,
+} from "./importWorkflow.js";
+import {
+  materializeKBFImportConfiguration,
+  materializeSingleKBFImportConfiguration,
+} from "./kbfImportConfiguration.js";
 import { buildKBFPreviewHtml } from "./kbfPreviewDom.js";
 import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 
@@ -9,63 +18,16 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 /** @typedef {'merge_keep' | 'merge_overwrite' | 'overwrite_all'} ImportStrategy */
 /** @typedef {{ bindsetsEnabled?: boolean }} ImportContext */
 /** @typedef {{ environment: ImportEnvironment, strategy: ImportStrategy }} EnvironmentImportConfig */
-/**
- * @typedef {{
- *   valid: true,
- *   bindsetNames: string[],
- *   bindsetKeyCounts: Record<string, number>,
- *   existingBindsets?: string[],
- *   hasMasterBindset?: boolean,
- *   masterDisplayName?: string
- * }} ValidKBFParseResult
- */
-/** @typedef {Extract<import('../../types/rpc/import-export.js').KBFParseForUiResult, { valid: false }>} InvalidKBFParseResult */
-/** @typedef {ValidKBFParseResult | InvalidKBFParseResult} KBFParseResult */
-/**
- * @typedef {{
- *   success?: boolean,
- *   message?: string,
- *   error?: string,
- *   params?: Record<string, unknown> & { totalErrors?: number, totalWarnings?: number },
- *   imported?: { keys?: number, aliases?: number, bindsets?: number },
- *   skipped?: number,
- *   overwritten?: number,
- *   cleared?: number,
- *   stats?: { skippedActivities?: number, totalErrors?: number, totalWarnings?: number, processingTimeMs?: number },
- *   errors?: unknown[],
- *   warnings?: unknown[],
- *   processedBindsets?: unknown[],
- *   failedBindsets?: unknown[]
- * }} ImportResult
- */
-/**
- * @typedef {{
- *   selectedBindsets: string[],
- *   bindsetMappings: Record<string, 'primary' | 'custom'>,
- *   bindsetRenames: Record<string, string>,
- *   singleBindsetMode?: boolean
- * }} BindsetConfiguration
- */
-/** @typedef {{ type: 'master-to-primary' | 'new-primary' | 'skip-primary', primaryBindsetName?: string }} PrimaryMapping */
+/** @typedef {Extract<import('../../types/rpc/import-export.js').KBFParseForUiResult, { valid: true }>} ValidKBFParseResult */
+/** @typedef {import('../../types/kbf-boundary.js').KBFImportConfiguration} BindsetConfiguration */
 /** @typedef {(value: EnvironmentImportConfig | null) => void} EnvironmentResolver */
 /** @typedef {(value: ImportStrategy | null) => void} StrategyResolver */
 /** @typedef {(value: boolean) => void} ConfirmationResolver */
-/** @typedef {(value: string[] | null) => void} BindsetSelectionResolver */
 /** @typedef {(value: BindsetConfiguration | null) => void} ConfigurationResolver */
 /** @typedef {{ defaultEnv: string, importType: ImportType, additionalContext: ImportContext, resolve: EnvironmentResolver, modalElement: HTMLDivElement }} ImportModalState */
 /** @typedef {{ resolve: StrategyResolver, modalElement: HTMLDivElement }} AliasStrategyModalState */
 /** @typedef {{ resolve: ConfirmationResolver, modalElement: HTMLDivElement, customMessage: string | null }} OverwriteModalState */
-/** @typedef {{ bindsetNames: string[], hasMasterBindset: boolean, masterDisplayName: string | null, resolve: BindsetSelectionResolver, modalElement: HTMLDivElement }} BindsetSelectionModalState */
 /** @typedef {{ parseResult: ValidKBFParseResult, resolve: ConfigurationResolver, modalElement: HTMLDivElement }} EnhancedBindsetModalState */
-
-/**
- * @param {string | null | undefined} value
- * @returns {ImportStrategy}
- */
-function normalizeImportStrategy(value) {
-  if (value === "merge_overwrite" || value === "overwrite_all") return value;
-  return "merge_keep";
-}
 
 /**
  * ImportUI – Presents file-open dialogs for the "Import Keybinds / Import Aliases"
@@ -94,8 +56,6 @@ export default class ImportUI extends UIComponentBase {
     this.currentAliasStrategyModal = null;
     /** @type {OverwriteModalState | null} */
     this.currentOverwriteConfirmModal = null;
-    /** @type {BindsetSelectionModalState | null} */
-    this.currentBindsetSelectionModal = null;
     /** @type {EnhancedBindsetModalState | null} */
     this.currentEnhancedBindsetSelectionModal = null;
   }
@@ -131,13 +91,27 @@ export default class ImportUI extends UIComponentBase {
     input.type = "file";
     input.accept = type === "kbf" ? ".kbf,.txt" : ".txt";
     input.style.display = "none";
-
-    // Append to body to ensure click works in all browsers
     this.document.body.appendChild(input);
+    let inputAttached = true;
 
-    input.addEventListener("change", async () => {
-      if (!input.files || input.files.length === 0) return;
-      const file = input.files[0];
+    const removeInput = () => {
+      if (!inputAttached) return;
+      inputAttached = false;
+      if (input.parentNode) {
+        input.parentNode.removeChild(input);
+      } else {
+        this.document.body.removeChild(input);
+      }
+    };
+
+    input.addEventListener("cancel", removeInput, { once: true });
+
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (!file) {
+        removeInput();
+        return;
+      }
       if (type !== "kbf" && file.size > MAX_STO_TEXT_IMPORT_BYTES) {
         const errorKey =
           type === "keybinds"
@@ -150,197 +124,78 @@ export default class ImportUI extends UIComponentBase {
           }),
           "error",
         );
-        this.document.body.removeChild(input);
+        removeInput();
         return;
       }
-      const reader = new FileReader();
+
+      let reader;
+      try {
+        reader = new FileReader();
+      } catch (error) {
+        removeInput();
+        console.error("[ImportUI] Failed to import file:", errorMessage(error));
+        return;
+      }
       reader.onload = async () => {
         try {
           const content =
             typeof reader.result === "string" ? reader.result : "";
-          // Capture one accepted authority snapshot for the complete import
-          // decision. Profile, environment, and overwrite counts must not come
-          // from independently timed reads.
           const dataState = this.cache.dataState;
           const profileId = dataState?.ready ? dataState.currentProfile : null;
           const currentEnvironment = dataState?.ready
             ? dataState.currentEnvironment
             : "space";
           const profile = getSnapshotProfile(dataState, profileId);
-          /** @type {ImportResult | undefined} */
-          let result;
-          if (type === "keybinds") {
-            // Ask user which environment to import into and what strategy to use
-            const importConfig = await this.promptEnvironment(
-              currentEnvironment,
-              "keybinds",
+          const bindsetsEnabled = this.isBindsetsEnabled();
+          const outcome = await runImportWorkflow({
+            type,
+            content,
+            profileId,
+            currentEnvironment,
+            profile,
+            bindsetsEnabled,
+            promptEnvironment: (...args) => this.promptEnvironment(...args),
+            promptAliasStrategy: () => this.promptAliasStrategy(),
+            showOverwriteConfirmation: (...args) =>
+              this.showOverwriteConfirmation(...args),
+            promptEnhancedBindsetSelection: (parseResult) =>
+              this.promptEnhancedBindsetSelection(parseResult, bindsetsEnabled),
+            request: this.request.bind(this),
+          });
+
+          if (outcome.status === "invalid-kbf") {
+            this.showToast(
+              this.i18n.t(
+                outcome.parseResult.error ?? "invalid_kbf_file_format",
+                outcome.parseResult.params,
+              ),
+              "error",
             );
-            if (!importConfig) return; // user cancelled
-
-            // Check for overwrite confirmation if strategy is overwrite_all
-            if (importConfig.strategy === "overwrite_all") {
-              // Get current key count for the environment
-              const currentKeys = Object.keys(
-                profile?.builds?.[importConfig.environment]?.keys || {},
-              ).length;
-
-              if (currentKeys > 0) {
-                const confirmed = await this.showOverwriteConfirmation(
-                  "keys",
-                  currentKeys,
-                  0,
-                  importConfig.environment,
-                );
-                if (!confirmed) return; // user cancelled overwrite
-              }
-            }
-
-            result = await this.request("import:keybind-file", {
-              content,
-              profileId,
-              environment: importConfig.environment,
-              strategy: importConfig.strategy,
-            });
-          } else if (type === "kbf") {
-            // Use the published preference snapshot for context-aware descriptions
-            const bindsetsEnabled = this.isBindsetsEnabled();
-
-            // Ask user which environment to import into and what strategy to use
-            const importConfig = await this.promptEnvironment(
-              currentEnvironment,
-              "kbf",
-              { bindsetsEnabled }, // Pass context for better descriptions
+          } else if (outcome.status === "completed") {
+            const toast = projectImportResultToast(outcome, (key, params) =>
+              this.i18n.t(key, params),
             );
-            if (!importConfig) return; // user cancelled
-
-            // Parse KBF file first to extract bindset information without importing
-            /** @type {KBFParseResult} */
-            const parseResult = await this.request("parse-kbf-file", {
-              content,
-              environment: importConfig.environment,
-            });
-
-            if (!parseResult.valid) {
-              const message = this.i18n.t(
-                parseResult.error ?? "invalid_kbf_file_format",
-                parseResult.params,
-              );
-              this.showToast(message, "error");
-              this.document.body.removeChild(input);
-              return;
-            }
-
-            // Always show configuration modal for KBF files to allow bindset mapping options
-            const configuration =
-              await this.promptEnhancedBindsetSelection(parseResult);
-
-            if (!configuration) {
-              this.document.body.removeChild(input);
-              return; // user cancelled
-            }
-
-            // Import with user configuration and strategy
-            result = await this.request("import:kbf-file", {
-              content,
-              profileId,
-              environment: importConfig.environment,
-              strategy: importConfig.strategy,
-              configuration,
-            });
-          } else {
-            // For alias imports, we need to prompt for strategy too but not environment
-            const strategy = await this.promptAliasStrategy();
-            if (!strategy) return; // user cancelled
-
-            // Check for overwrite confirmation if strategy is overwrite_all
-            if (strategy === "overwrite_all") {
-              // Get current alias count
-              const currentAliases = Object.keys(profile?.aliases || {}).length;
-
-              if (currentAliases > 0) {
-                const confirmed = await this.showOverwriteConfirmation(
-                  "aliases",
-                  currentAliases,
-                  0,
-                );
-                if (!confirmed) return; // user cancelled overwrite
-              }
-            }
-
-            result = await this.request("import:alias-file", {
-              content,
-              profileId,
-              strategy,
-            });
-          }
-
-          // Show appropriate toast based on result
-          if (result?.success) {
-            let message;
-            if (type === "kbf") {
-              // Enhanced KBF success messaging with comprehensive statistics
-              message = this.getKBFSuccessMessage(result);
-            } else {
-              // Use strategy-based messages for keybind and alias imports
-              let messageKey;
-              const imported =
-                result.imported?.keys || result.imported?.aliases || 0;
-              const skipped = result.skipped || 0;
-              const overwritten = result.overwritten || 0;
-              const cleared = result.cleared || 0;
-
-              if (cleared > 0) {
-                messageKey = "import_result_overwrite_all";
-                message = this.i18n.t(messageKey, {
-                  imported,
-                  cleared,
-                });
-              } else if (overwritten > 0) {
-                messageKey = "import_result_overwrote";
-                message = this.i18n.t(messageKey, {
-                  imported,
-                  overwritten,
-                });
-              } else if (skipped > 0) {
-                messageKey = "import_result_skipped";
-                message = this.i18n.t(messageKey, {
-                  imported,
-                  skipped,
-                });
-              } else {
-                // Fallback to original message for no conflicts
-                message = this.i18n.t(result.message ?? "import_completed", {
-                  count: imported,
-                });
-              }
-            }
-            this.showToast(message, "success");
-          } else {
-            let message;
-            if (type === "kbf") {
-              // Enhanced KBF error messaging with detailed summary
-              message = this.getKBFErrorMessage(result ?? {});
-            } else {
-              message = this.i18n.t(
-                result?.error ?? "import_failed",
-                result?.params,
-              );
-            }
-            this.showToast(message, "error");
+            this.showToast(toast.message, toast.type);
           }
         } catch (error) {
           console.error(
             "[ImportUI] Failed to import file:",
             errorMessage(error),
           );
+        } finally {
+          removeInput();
         }
-        // Clean up
-        this.document.body.removeChild(input);
       };
-      reader.readAsText(file);
+      reader.onerror = removeInput;
+      reader.onabort = removeInput;
+      try {
+        reader.readAsText(file);
+      } catch (error) {
+        removeInput();
+        console.error("[ImportUI] Failed to import file:", errorMessage(error));
+      }
     });
 
-    // Trigger dialog
     input.click();
   }
 
@@ -884,290 +739,17 @@ export default class ImportUI extends UIComponentBase {
     );
   }
 
-  // Show a modal asking user which bindsets to import from a multi-bindset KBF file
-  /**
-   * @param {string[]} bindsetNames
-   * @param {boolean} hasMasterBindset
-   * @param {string | null} masterDisplayName
-   * @returns {Promise<string[] | null>}
-   */
-  promptBindsetSelection(bindsetNames, hasMasterBindset, masterDisplayName) {
-    return new Promise((resolve) => {
-      const modal = this.createBindsetSelectionModal(
-        bindsetNames,
-        hasMasterBindset,
-        masterDisplayName,
-      );
-      const modalId = "bindsetSelectionModal";
-      modal.id = modalId;
-      this.document.body.appendChild(modal);
-
-      // Store modal data for regeneration
-      this.currentBindsetSelectionModal = {
-        bindsetNames,
-        hasMasterBindset,
-        masterDisplayName,
-        resolve,
-        modalElement: modal,
-      };
-
-      // Register regeneration callback for language changes
-      this.modalManager?.registerRegenerateCallback?.(modalId, () => {
-        this.regenerateBindsetSelectionModal();
-      });
-
-      /** @param {string[] | null} selectedBindsets */
-      const handleSelection = (selectedBindsets) => {
-        // Unregister regeneration callback
-        this.modalManager?.unregisterRegenerateCallback?.(modalId);
-        this.currentBindsetSelectionModal = null;
-
-        this.modalManager?.hide(modalId);
-        if (modal && modal.parentNode) {
-          modal.parentNode.removeChild(modal);
-        }
-        resolve(selectedBindsets);
-      };
-
-      // Use EventBus for automatic cleanup
-      this.onDom(".bindset-confirm", "click", () => {
-        /** @type {string[]} */
-        const selectedBindsets = [];
-        const checkboxes = modal.querySelectorAll(
-          'input[type="checkbox"]:checked',
-        );
-        checkboxes.forEach((checkbox) => {
-          const input = /** @type {HTMLInputElement} */ (checkbox);
-          selectedBindsets.push(input.value);
-        });
-        handleSelection(selectedBindsets);
-      });
-
-      this.onDom(".bindset-cancel", "click", () => handleSelection(null));
-
-      // Show modal
-      requestAnimationFrame(() => {
-        this.modalManager?.show(modalId);
-      });
-    });
-  }
-
-  // Create a modal for bindset selection
-  /**
-   * @param {string[]} bindsetNames
-   * @param {boolean} hasMasterBindset
-   * @param {string | null} masterDisplayName
-   */
-  createBindsetSelectionModal(
-    bindsetNames,
-    hasMasterBindset,
-    masterDisplayName,
-  ) {
-    const modal = this.document.createElement("div");
-    modal.className = "modal import-modal";
-
-    const title = this.i18n.t("select_bindsets_to_import");
-    const message = this.i18n.t("select_bindsets_to_import_question");
-    const confirmText = this.i18n.t("import_selected");
-    const cancelText = this.i18n.t("cancel");
-
-    // Generate bindset options
-    let bindsetOptions = "";
-    bindsetNames.forEach((name) => {
-      const displayName =
-        name.toLowerCase() === "master" ? masterDisplayName || name : name;
-      const isChecked = name.toLowerCase() === "master" ? "checked" : "";
-      bindsetOptions += `
-        <div class="bindset-option">
-          <input type="checkbox" id="bindset_${name}" name="bindsets" value="${name}" ${isChecked}>
-          <label for="bindset_${name}">${displayName}</label>
-        </div>
-      `;
-    });
-
-    modal.innerHTML = `
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>
-            <i class="fas fa-layer-group"></i>
-            ${title}
-          </h3>
-        </div>
-        <div class="modal-body">
-          <p>${message}</p>
-          <div class="bindset-list">
-            ${bindsetOptions}
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary bindset-confirm">${confirmText}</button>
-          <button class="btn btn-secondary bindset-cancel">${cancelText}</button>
-        </div>
-      </div>
-    `;
-
-    return modal;
-  }
-
-  // Regeneration method for bindset selection modal
-  regenerateBindsetSelectionModal() {
-    if (!this.currentBindsetSelectionModal) return;
-
-    const {
-      bindsetNames,
-      hasMasterBindset,
-      masterDisplayName,
-      modalElement,
-      resolve,
-    } = this.currentBindsetSelectionModal;
-
-    const newModal = this.createBindsetSelectionModal(
-      bindsetNames,
-      hasMasterBindset,
-      masterDisplayName,
-    );
-    newModal.id = "bindsetSelectionModal";
-
-    // Replace the old modal with the new one
-    modalElement.replaceWith(newModal);
-    this.currentBindsetSelectionModal.modalElement = newModal;
-
-    // Re-attach event listeners
-    /** @param {string[] | null} selectedBindsets */
-    const handleSelection = (selectedBindsets) => {
-      this.modalManager?.unregisterRegenerateCallback?.(
-        "bindsetSelectionModal",
-      );
-      this.currentBindsetSelectionModal = null;
-      this.modalManager?.hide("bindsetSelectionModal");
-      if (newModal && newModal.parentNode) {
-        newModal.parentNode.removeChild(newModal);
-      }
-      resolve(selectedBindsets);
-    };
-
-    // Use EventBus for automatic cleanup
-    this.onDom(".bindset-confirm", "click", () => {
-      /** @type {string[]} */
-      const selectedBindsets = [];
-      const checkboxes = newModal.querySelectorAll(
-        'input[type="checkbox"]:checked',
-      );
-      checkboxes.forEach((checkbox) => {
-        const input = /** @type {HTMLInputElement} */ (checkbox);
-        selectedBindsets.push(input.value);
-      });
-      handleSelection(selectedBindsets);
-    });
-
-    this.onDom(".bindset-cancel", "click", () => handleSelection(null));
-  }
-
-  // Get comprehensive KBF success message with detailed statistics
-  /** @param {ImportResult} result */
-  getKBFSuccessMessage(result) {
-    const {
-      imported,
-      skipped = 0,
-      overwritten = 0,
-      cleared = 0,
-      stats,
-      errors,
-      warnings,
-    } = result;
-
-    // Build base success message with import counts
-    let message = this.i18n.t("kbf_import_completed", {
-      bindsets: imported?.bindsets || 0,
-      keys: imported?.keys || 0,
-      aliases: imported?.aliases || 0,
-    });
-
-    // Add additional context for comprehensive feedback (requirement 6.8)
-    /** @type {string[]} */
-    const additionalInfo = [];
-
-    // Add strategy result information for KBF imports
-    if (cleared > 0) {
-      additionalInfo.push(
-        this.i18n.t("import_result_overwrite_all", {
-          imported: imported?.keys || 0,
-          cleared,
-        }),
-      );
-    } else if (overwritten > 0) {
-      additionalInfo.push(
-        this.i18n.t("import_result_overwrote", {
-          imported: imported?.keys || 0,
-          overwritten,
-        }),
-      );
-    } else if (skipped > 0) {
-      additionalInfo.push(
-        this.i18n.t("import_result_skipped", {
-          imported: imported?.keys || 0,
-          skipped,
-        }),
-      );
-    }
-
-    // Add skipped activities count if available
-    const skippedActivities = stats?.skippedActivities ?? 0;
-    if (skippedActivities > 0) {
-      additionalInfo.push(
-        this.i18n.t("kbf_import_skipped_activities", {
-          count: skippedActivities,
-        }),
-      );
-    }
-
-    // Add error and warning summaries if present
-    const totalErrors = stats?.totalErrors || errors?.length || 0;
-    const totalWarnings = stats?.totalWarnings || warnings?.length || 0;
-
-    if (totalErrors > 0 || totalWarnings > 0) {
-      if (totalErrors > 0) {
-        additionalInfo.push(
-          this.i18n.t("kbf_import_errors_encountered", {
-            count: totalErrors,
-          }),
-        );
-      }
-      if (totalWarnings > 0) {
-        additionalInfo.push(
-          this.i18n.t("kbf_import_warnings_generated", {
-            count: totalWarnings,
-          }),
-        );
-      }
-    }
-
-    // Add processing time if available
-    if (stats?.processingTimeMs) {
-      const processingSeconds = Math.round(stats.processingTimeMs / 1000);
-      additionalInfo.push(
-        this.i18n.t("kbf_import_processing_time", {
-          seconds: processingSeconds,
-        }),
-      );
-    }
-
-    // Combine base message with additional info
-    if (additionalInfo.length > 0) {
-      message += "\n" + additionalInfo.join(" • ");
-    }
-
-    return message;
-  }
-
   // Enhanced bindset selection with renaming and mapping options
   /**
    * @param {ValidKBFParseResult} parseResult
+   * @param {boolean} [bindsetsEnabled]
    * @returns {Promise<BindsetConfiguration | null>}
    */
-  async promptEnhancedBindsetSelection(parseResult) {
-    // Check if bindsets are disabled - if so, use single-keyset selection
-    const modal = this.isBindsetsEnabled()
+  async promptEnhancedBindsetSelection(
+    parseResult,
+    bindsetsEnabled = this.isBindsetsEnabled(),
+  ) {
+    const modal = bindsetsEnabled
       ? this.createEnhancedBindsetSelectionModal(parseResult)
       : this.createSingleBindsetSelectionModal(parseResult);
     const modalId = "enhancedBindsetSelectionModal";
@@ -1203,10 +785,7 @@ export default class ImportUI extends UIComponentBase {
 
       // Use EventBus for automatic cleanup
       this.onDom(".enhanced-bindset-confirm", "click", () => {
-        const configuration = this.validateBindsetConfiguration(
-          modal,
-          parseResult,
-        );
+        const configuration = this.validateBindsetConfiguration(modal);
         if (configuration) {
           handleConfiguration(configuration);
         }
@@ -1322,7 +901,7 @@ export default class ImportUI extends UIComponentBase {
 
     // Add event listeners for real-time preview updates
     setTimeout(() => {
-      this.setupPreviewUpdates(modal, parseResult);
+      this.setupPreviewUpdates(modal);
     }, 0);
 
     return modal;
@@ -1485,17 +1064,13 @@ export default class ImportUI extends UIComponentBase {
   // Setup real-time preview updates
   /**
    * @param {HTMLDivElement} modal
-   * @param {ValidKBFParseResult} parseResult
    */
-  setupPreviewUpdates(modal, parseResult) {
+  setupPreviewUpdates(modal) {
     // Initialize table structure based on current dropdown values
     this.initializeTableStructure(modal);
 
     const updatePreview = () => {
-      const configuration = this.validateBindsetConfiguration(
-        modal,
-        parseResult,
-      );
+      const configuration = this.validateBindsetConfiguration(modal);
       const previewContent = /** @type {HTMLElement | null} */ (
         modal.querySelector("#preview_content")
       );
@@ -1704,92 +1279,30 @@ export default class ImportUI extends UIComponentBase {
     customInput.style.display = "none";
   }
 
-  // Get primary mapping preview text
-  /** @param {PrimaryMapping} primaryMapping */
-  getPrimaryMappingPreview(primaryMapping) {
-    switch (primaryMapping.type) {
-      case "master-to-primary":
-        return `<span class="mapping-indicator primary">${this.i18n.t("mapped_to_primary")}</span>`;
-      case "new-primary":
-        return `<span class="mapping-indicator new-primary">${this.i18n.t("mapped_to_new_primary", { name: primaryMapping.primaryBindsetName || "Custom Primary" })}</span>`;
-      case "skip-primary":
-        return `<span class="mapping-indicator skip-primary">${this.i18n.t("mapped_to_named")}</span>`;
-      default:
-        return "";
-    }
-  }
-
-  // Resolve bindset name conflicts with incremental numbering
-  /**
-   * @param {string} proposedName
-   * @param {string[] | undefined} existingBindsets
-   */
-  resolveBindsetName(proposedName, existingBindsets) {
-    if (!existingBindsets || !existingBindsets.includes(proposedName)) {
-      return proposedName;
-    }
-
-    let counter = 1;
-    let resolvedName = `${proposedName} (${counter})`;
-
-    while (existingBindsets.includes(resolvedName)) {
-      counter++;
-      resolvedName = `${proposedName} (${counter})`;
-    }
-
-    return resolvedName;
-  }
-
   // Validate and extract configuration from modal
   /**
    * @param {HTMLDivElement} modal
-   * @param {ValidKBFParseResult} parseResult
    * @returns {BindsetConfiguration | null}
    */
-  validateBindsetConfiguration(modal, parseResult) {
-    /** @type {BindsetConfiguration} */
-    const configuration = {
-      selectedBindsets: [],
-      bindsetMappings: {}, // New: mapping destination per bindset
-      bindsetRenames: {},
-    };
-
+  validateBindsetConfiguration(modal) {
     const dropdowns = /** @type {NodeListOf<HTMLSelectElement>} */ (
       modal.querySelectorAll(".bindset-mapping-select")
     );
-    dropdowns.forEach((dropdown) => {
-      const bindsetName = dropdown.dataset.bindset;
-      const mappingType = dropdown.value;
-      if (!bindsetName) return;
-
-      if (mappingType !== "none") {
-        configuration.selectedBindsets.push(bindsetName);
-
-        if (mappingType === "mapped") {
-          // Look for custom input in either the third column cell or original container
-          const customInput = /** @type {HTMLInputElement | null} */ (
-            modal.querySelector(
-              `.bindset-custom-cell[data-bindset="${bindsetName}"] .bindset-custom-input`,
-            ) ||
-              modal.querySelector(
-                `.bindset-custom-input[data-bindset="${bindsetName}"]`,
-              )
-          );
-          const customName = customInput?.value?.trim();
-          const finalName = this.resolveBindsetName(
-            customName || bindsetName,
-            parseResult.existingBindsets,
-          );
-
-          configuration.bindsetMappings[bindsetName] = "custom";
-          configuration.bindsetRenames[bindsetName] = finalName;
-        } else {
-          configuration.bindsetMappings[bindsetName] = "primary";
-        }
-      }
+    const mappings = Array.from(dropdowns, (dropdown) => {
+      const row = dropdown.closest?.("tr");
+      const customInput = /** @type {HTMLInputElement | null} */ (
+        row?.querySelector(".bindset-custom-cell .bindset-custom-input") ??
+          row?.querySelector(".bindset-custom-input") ??
+          null
+      );
+      return {
+        bindsetName: dropdown.dataset.bindset,
+        mappingType: dropdown.value,
+        customName: customInput?.value,
+      };
     });
 
-    return configuration.selectedBindsets.length > 0 ? configuration : null;
+    return materializeKBFImportConfiguration(mappings);
   }
 
   // Validate single bindset configuration for bindsetsEnabled=false mode
@@ -1801,25 +1314,7 @@ export default class ImportUI extends UIComponentBase {
     const selectedRadio = /** @type {HTMLInputElement | null} */ (
       modal.querySelector(".single-bindset-radio:checked")
     );
-
-    if (!selectedRadio) {
-      return null;
-    }
-
-    const selectedBindsetName = selectedRadio.value;
-
-    // Configuration for single bindset import to primary bindset only
-    /** @type {BindsetConfiguration} */
-    const configuration = {
-      selectedBindsets: [selectedBindsetName],
-      bindsetMappings: {
-        [selectedBindsetName]: "primary", // Always map to primary when bindsets disabled
-      },
-      bindsetRenames: {},
-      singleBindsetMode: true, // Flag to indicate this is single-bindset mode
-    };
-
-    return configuration;
+    return materializeSingleKBFImportConfiguration(selectedRadio?.value);
   }
 
   // Regeneration method for enhanced bindset selection modal
@@ -1862,10 +1357,7 @@ export default class ImportUI extends UIComponentBase {
 
     // Use EventBus for automatic cleanup
     this.onDom(".enhanced-bindset-confirm", "click", () => {
-      const configuration = this.validateBindsetConfiguration(
-        newModal,
-        parseResult,
-      );
+      const configuration = this.validateBindsetConfiguration(newModal);
       if (configuration) {
         handleConfiguration(configuration);
       }
@@ -1891,74 +1383,8 @@ export default class ImportUI extends UIComponentBase {
       if (isSingleBindset) {
         this.setupSingleBindsetSelection(newModal);
       } else {
-        this.setupPreviewUpdates(newModal, parseResult);
+        this.setupPreviewUpdates(newModal);
       }
     }, 0);
-  }
-
-  // Get comprehensive KBF error message with detailed summary
-  /** @param {ImportResult} result */
-  getKBFErrorMessage(result) {
-    const { params, errors, warnings, processedBindsets, failedBindsets } =
-      result;
-
-    // Build base error message
-    let message = this.i18n.t(result?.error || "import_failed", params || {});
-
-    // Add detailed error summary for KBF imports (requirement 6.5)
-    /** @type {string[]} */
-    const errorSummary = [];
-
-    // Add bindset processing summary
-    const processedCount = processedBindsets?.length || 0;
-    const failedCount = failedBindsets?.length || 0;
-
-    if (processedCount > 0 || failedCount > 0) {
-      if (processedCount > 0) {
-        errorSummary.push(
-          this.i18n.t("kbf_import_bindsets_processed", {
-            count: processedCount,
-          }),
-        );
-      }
-      if (failedCount > 0) {
-        errorSummary.push(
-          this.i18n.t("kbf_import_bindsets_failed", {
-            count: failedCount,
-          }),
-        );
-      }
-    }
-
-    // Add error and warning counts
-    const totalErrors = params?.totalErrors || errors?.length || 0;
-    const totalWarnings = params?.totalWarnings || warnings?.length || 0;
-
-    if (totalErrors > 0) {
-      errorSummary.push(
-        this.i18n.t("kbf_import_total_errors", {
-          count: totalErrors,
-        }),
-      );
-    }
-
-    if (totalWarnings > 0) {
-      errorSummary.push(
-        this.i18n.t("kbf_import_total_warnings", {
-          count: totalWarnings,
-        }),
-      );
-    }
-
-    // Combine base message with error summary
-    if (errorSummary.length > 0) {
-      message +=
-        "\n" +
-        this.i18n.t("kbf_import_error_summary") +
-        ": " +
-        errorSummary.join(" • ");
-    }
-
-    return message;
   }
 }

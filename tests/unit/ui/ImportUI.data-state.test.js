@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ImportUI from "../../../src/js/components/ui/ImportUI.js";
+import { buildKBFErrorMessage } from "../../../src/js/components/ui/importResultMessages.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../../../src/js/components/services/textImportBoundary.js";
@@ -15,6 +16,7 @@ const kbfParseErrorKeys = [
   "kbf_parse_critical_error",
 ];
 
+/** @type {import('../../../src/js/types/rpc/import-export.js').KBFImportError[]} */
 const kbfImportErrorKeys = [
   "invalid_kbf_file_content",
   "storage_not_available",
@@ -62,7 +64,191 @@ describe("ImportUI accepted data state", () => {
     if (ui && !ui.destroyed) ui.destroy();
     fixture?.destroy();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
+
+  it.each(["change", "cancel"])(
+    "removes the hidden input when an empty picker ends with %s",
+    async (eventName) => {
+      fixture = createEventBusFixture();
+      /** @type {Partial<Record<'change' | 'cancel', EventListener>>} */
+      const handlers = {};
+      const input = {
+        type: "",
+        accept: "",
+        style: {},
+        files: [],
+        addEventListener: vi.fn((event, handler) => {
+          if (event === "change" || event === "cancel") {
+            handlers[event] = handler;
+          }
+        }),
+        click: vi.fn(),
+      };
+      const removeChild = vi.fn();
+      ui = new ImportUI({
+        eventBus: fixture.eventBus,
+        document: {
+          createElement: vi.fn(() => input),
+          body: { appendChild: vi.fn(), removeChild },
+          getElementById: vi.fn(),
+        },
+        i18n: { t: (key) => key },
+      });
+
+      await ui.openFileDialog("keybinds");
+      handlers[eventName]?.(new Event(eventName));
+
+      expect(removeChild).toHaveBeenCalledTimes(1);
+      expect(removeChild).toHaveBeenCalledWith(input);
+    },
+  );
+
+  it("removes the hidden input after the user cancels an import prompt", async () => {
+    fixture = createEventBusFixture();
+    let changeHandler;
+    const input = {
+      type: "",
+      accept: "",
+      style: {},
+      files: [new File(['F1 "FireAll"'], "binds.txt")],
+      addEventListener: vi.fn((event, handler) => {
+        if (event === "change") changeHandler = handler;
+      }),
+      click: vi.fn(),
+    };
+    const removeChild = vi.fn();
+    ui = new ImportUI({
+      eventBus: fixture.eventBus,
+      document: {
+        createElement: vi.fn(() => input),
+        body: { appendChild: vi.fn(), removeChild },
+        getElementById: vi.fn(),
+      },
+      i18n: { t: (key) => key },
+    });
+    ui.promptEnvironment = vi.fn(async () => null);
+    ui.request = vi.fn();
+
+    await ui.openFileDialog("keybinds");
+    await changeHandler();
+
+    await vi.waitFor(() => expect(removeChild).toHaveBeenCalledTimes(1));
+    expect(ui.request).not.toHaveBeenCalled();
+  });
+
+  it.each(["error", "abort"])(
+    "removes the hidden input when file reading ends with %s",
+    async (eventName) => {
+      fixture = createEventBusFixture();
+      let changeHandler;
+      /** @type {Array<{ onerror: ((event: Event) => unknown) | null, onabort: ((event: Event) => unknown) | null }>} */
+      const readers = [];
+      class ControlledFileReader {
+        constructor() {
+          this.result = null;
+          /** @type {((event: Event) => unknown) | null} */
+          this.onload = null;
+          /** @type {((event: Event) => unknown) | null} */
+          this.onerror = null;
+          /** @type {((event: Event) => unknown) | null} */
+          this.onabort = null;
+          readers.push(this);
+        }
+
+        readAsText() {}
+      }
+      vi.stubGlobal("FileReader", ControlledFileReader);
+      const input = {
+        type: "",
+        accept: "",
+        style: {},
+        files: [new File(["content"], "binds.txt")],
+        addEventListener: vi.fn((event, handler) => {
+          if (event === "change") changeHandler = handler;
+        }),
+        click: vi.fn(),
+      };
+      const removeChild = vi.fn();
+      ui = new ImportUI({
+        eventBus: fixture.eventBus,
+        document: {
+          createElement: vi.fn(() => input),
+          body: { appendChild: vi.fn(), removeChild },
+          getElementById: vi.fn(),
+        },
+        i18n: { t: (key) => key },
+      });
+
+      await ui.openFileDialog("keybinds");
+      await changeHandler();
+      const reader = readers[0];
+      if (eventName === "error") {
+        reader.onerror?.(new Event("error"));
+      } else {
+        reader.onabort?.(new Event("abort"));
+      }
+
+      expect(removeChild).toHaveBeenCalledTimes(1);
+      expect(removeChild).toHaveBeenCalledWith(input);
+    },
+  );
+
+  it.each(["construction", "read"])(
+    "removes the hidden input after a synchronous FileReader %s failure",
+    async (phase) => {
+      fixture = createEventBusFixture();
+      let changeHandler;
+      const failure = new Error(`${phase} failed`);
+      class ThrowingFileReader {
+        constructor() {
+          if (phase === "construction") throw failure;
+          this.result = null;
+          this.onload = null;
+          this.onerror = null;
+          this.onabort = null;
+        }
+
+        readAsText() {
+          throw failure;
+        }
+      }
+      vi.stubGlobal("FileReader", ThrowingFileReader);
+      const input = {
+        type: "",
+        accept: "",
+        style: {},
+        files: [new File(["content"], "binds.txt")],
+        addEventListener: vi.fn((event, handler) => {
+          if (event === "change") changeHandler = handler;
+        }),
+        click: vi.fn(),
+      };
+      const removeChild = vi.fn();
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      ui = new ImportUI({
+        eventBus: fixture.eventBus,
+        document: {
+          createElement: vi.fn(() => input),
+          body: { appendChild: vi.fn(), removeChild },
+          getElementById: vi.fn(),
+        },
+        i18n: { t: (key) => key },
+      });
+
+      await ui.openFileDialog("keybinds");
+      await changeHandler();
+
+      expect(removeChild).toHaveBeenCalledTimes(1);
+      expect(removeChild).toHaveBeenCalledWith(input);
+      expect(consoleError).toHaveBeenCalledWith(
+        "[ImportUI] Failed to import file:",
+        failure.message,
+      );
+    },
+  );
 
   it("uses one accepted snapshot for profile, environment, and overwrite counts", async () => {
     fixture = createEventBusFixture();
@@ -95,13 +281,13 @@ describe("ImportUI accepted data state", () => {
       state: createDataCoordinatorState({
         authorityEpoch: 10,
         currentProfile: "alpha",
-        currentEnvironment: "ground",
+        currentEnvironment: "alias",
         currentProfileData: originalProfile,
         profiles: { alpha: originalProfile },
       }),
     });
 
-    ui.promptEnvironment = vi.fn(async (environment) => {
+    ui.promptEnvironment = vi.fn(async () => {
       const replacementProfile = profile("Beta", 5, 4);
       fixture.eventBus.emit("data:state-changed", {
         reason: "initial-load",
@@ -113,7 +299,7 @@ describe("ImportUI accepted data state", () => {
           profiles: { beta: replacementProfile },
         }),
       });
-      return { environment, strategy: "overwrite_all" };
+      return { environment: "ground", strategy: "overwrite_all" };
     });
     ui.showOverwriteConfirmation = vi.fn(async () => true);
     ui.request = vi.fn(async (topic) => {
@@ -134,7 +320,7 @@ describe("ImportUI accepted data state", () => {
         strategy: "overwrite_all",
       });
     });
-    expect(ui.promptEnvironment).toHaveBeenCalledWith("ground", "keybinds");
+    expect(ui.promptEnvironment).toHaveBeenCalledWith("alias", "keybinds");
     expect(ui.showOverwriteConfirmation).toHaveBeenCalledWith(
       "keys",
       2,
@@ -253,20 +439,17 @@ describe("ImportUI accepted data state", () => {
   it.each(kbfImportErrorKeys)(
     "renders the English translation for KBF import failure %s",
     (errorKey) => {
-      fixture = createEventBusFixture();
       const translate = vi.fn((key) => en[key] ?? key);
-      ui = new ImportUI({
-        eventBus: fixture.eventBus,
-        i18n: { t: translate },
-      });
-
-      const message = ui.getKBFErrorMessage({
-        success: false,
-        error: errorKey,
-        params: {},
-        errors: [],
-        warnings: [],
-      });
+      const message = buildKBFErrorMessage(
+        {
+          success: false,
+          error: errorKey,
+          params: {},
+          errors: [],
+          warnings: [],
+        },
+        translate,
+      );
 
       expect(message).toBe(en[errorKey]);
       expect(en[errorKey]).toEqual(expect.any(String));
