@@ -29,7 +29,7 @@
     "test:browser": "cross-env VITEST_PROJECT=browser vitest run --config=vitest.workspace.js",
     "test:browser:ui": "cross-env VITEST_PROJECT=browser vitest --ui --config=vitest.workspace.js",
     "test:all": "vitest run --config=vitest.workspace.js",
-    "test:ci": "npm run typecheck && npm run lint && npm run format:check && npm run lint:deadcode && npm run lint:duplicates && npm run test:coverage && npm run build && npm run test:browser",
+    "test:ci": "npm run typecheck && npm run lint && npm run format:check && npm run lint:deadcode && npm run lint:duplicates && npm run test:coverage && npm run build_prod && npm run test:browser",
     "test:run": "npm run test:unit && npm run test:integration",
     "test:playwright": "npm run test:browser",
     "test:playwright:ui": "npm run test:browser:ui",
