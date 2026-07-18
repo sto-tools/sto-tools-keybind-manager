@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getSnapshotProfile } from "../../../src/js/components/services/dataState.js";
 import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
@@ -90,20 +89,18 @@ describe("KeyBrowserUI accepted data state", () => {
     ui.cache.keys = { STALE: ["CompatibilityCache"] };
     ui.cache.dataState = null;
     ui.cache.currentEnvironment = "space";
-    const renderGrid = vi
-      .spyOn(ui, "renderSimpleGridView")
-      .mockResolvedValue(undefined);
     ui.request = vi.fn(async (topic) => {
       throw new Error(`Unexpected request: ${topic}`);
     });
 
     await ui.render();
 
-    expect(ui._currentKeyMap).toEqual({});
-    expect(renderGrid).not.toHaveBeenCalled();
-    expect(document.getElementById("keyGrid")?.textContent).toContain(
+    const grid = document.getElementById("keyGrid");
+    expect(grid?.querySelector(".empty-state h4")?.textContent).toBe(
       "no_profile_selected",
     );
+    expect(grid?.querySelector('[data-key="STALE"]')).toBeNull();
+    expect(grid?.classList).not.toContain("categorized");
     expect(ui.request).not.toHaveBeenCalled();
   });
 
@@ -119,15 +116,15 @@ describe("KeyBrowserUI accepted data state", () => {
     ui._cacheDataState(coordinatorState(profile));
     const grid = document.getElementById("keyGrid");
     grid.textContent = "predecessor";
-    const renderGrid = vi
-      .spyOn(ui, "renderSimpleGridView")
-      .mockResolvedValue(undefined);
+    ui.request = vi.fn(async (topic) => {
+      throw new Error(`Unexpected request: ${topic}`);
+    });
 
     await expect(ui.render()).resolves.toBeUndefined();
 
     expect(ui.getCurrentViewMode()).toBeNull();
     expect(grid.textContent).toBe("predecessor");
-    expect(renderGrid).not.toHaveBeenCalled();
+    expect(ui.request).not.toHaveBeenCalled();
   });
 
   it("clears a predecessor at replacement revision zero and adopts the ready revision", async () => {
@@ -138,11 +135,16 @@ describe("KeyBrowserUI accepted data state", () => {
       document,
       i18n: { t: (key) => key },
     });
-    vi.spyOn(ui, "renderSimpleGridView").mockResolvedValue(undefined);
-    ui.request = vi.fn(async (topic) => {
+    ui.request = vi.fn(async (topic, payload) => {
+      if (topic === "key:sort") return [...payload.keys].sort();
       throw new Error(`Unexpected request: ${topic}`);
     });
     ui.init();
+
+    fixture.eventBus.emit(
+      "key-browser:state-changed",
+      keyBrowserState({ authorityEpoch: 20, revision: 0 }),
+    );
 
     const original = createProfile({
       spaceKeys: {
@@ -162,17 +164,17 @@ describe("KeyBrowserUI accepted data state", () => {
         revision: 8,
       }),
     });
-
-    await ui.render();
-
-    expect(ui._currentKeyMap).toEqual(original.builds.space.keys);
-    expect(ui._currentKeyMap).not.toBe(
-      ui.cache.dataState?.profiles.captain.builds.space.keys,
-    );
-    expect(ui._currentKeyMap.F1[1]).not.toBe(
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-key="F1"]')).not.toBeNull();
+    });
+    expect(ui.cache.dataState?.profiles.captain).not.toBe(original);
+    expect(
       ui.cache.dataState?.profiles.captain.builds.space.keys.F1[1],
-    );
-    ui._currentKeyMap.F1[1].placement = "local-change";
+    ).toEqual({
+      command: "Target_Enemy_Near",
+      placement: "before-pre-pivot",
+    });
+    original.builds.space.keys.F1[1].placement = "source-change";
     expect(
       ui.cache.dataState?.profiles.captain.builds.space.keys.F1[1].placement,
     ).toBe("before-pre-pivot");
@@ -192,7 +194,10 @@ describe("KeyBrowserUI accepted data state", () => {
       ready: false,
       revision: 0,
     });
-    expect(ui._currentKeyMap).toEqual({});
+    expect(document.querySelector('[data-key="F1"]')).toBeNull();
+    expect(document.querySelector(".empty-state")?.textContent).toContain(
+      "no_profile_selected",
+    );
 
     const replacement = createProfile({
       spaceKeys: {
@@ -214,8 +219,11 @@ describe("KeyBrowserUI accepted data state", () => {
     });
     await ui.render();
 
-    expect(ui._currentKeyMap).toEqual(replacement.builds.space.keys);
-    expect(ui._currentKeyMap.F9[0]).toEqual({
+    expect(document.querySelector('[data-key="F9"]')).not.toBeNull();
+    expect(document.querySelector('[data-key="F1"]')).toBeNull();
+    expect(
+      ui.cache.dataState?.profiles.captain.builds.space.keys.F9[0],
+    ).toEqual({
       command: "FirePhasers",
       placement: "in-pivot-group",
       palindromicGeneration: true,
@@ -231,8 +239,11 @@ describe("KeyBrowserUI accepted data state", () => {
     await ui.render();
 
     expect(ui.cache.dataState?.authorityEpoch).toBe(41);
-    expect(ui._currentKeyMap).toEqual(replacement.builds.space.keys);
-    expect(ui.request).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-key="F9"]')).not.toBeNull();
+    expect(document.querySelector('[data-key="F1"]')).toBeNull();
+    expect(ui.request.mock.calls.every(([topic]) => topic === "key:sort")).toBe(
+      true,
+    );
   });
 
   it("captures the environment once for a render", async () => {
@@ -249,21 +260,32 @@ describe("KeyBrowserUI accepted data state", () => {
     });
     ui._cacheDataState(coordinatorState(profile));
     expect(ui.cacheKeyBrowserViewState(keyBrowserState())).toBe(true);
-    vi.spyOn(ui, "getCurrentViewMode").mockImplementation(() => {
-      ui.cache.currentEnvironment = "ground";
-      return "grid";
+    /** @type {(keys: string[]) => void} */
+    let resolveSort = () => {};
+    const pendingSort = new Promise((resolve) => {
+      resolveSort = resolve;
     });
-    vi.spyOn(ui, "renderSimpleGridView").mockResolvedValue(undefined);
-    ui.request = vi.fn(async (topic) => {
+    ui.request = vi.fn((topic) => {
+      if (topic === "key:sort") return pendingSort;
       throw new Error(`Unexpected request: ${topic}`);
     });
 
-    await ui.render();
+    const rendering = ui.render();
+    await vi.waitFor(() => {
+      expect(ui.request).toHaveBeenCalledWith("key:sort", { keys: ["F1"] });
+    });
+    ui._cacheDataState(
+      coordinatorState(profile, { revision: 2, environment: "ground" }),
+    );
+    ui.cache.currentEnvironment = "ground";
+    resolveSort(["F1"]);
+    await rendering;
 
+    expect(ui.cache.dataState?.currentEnvironment).toBe("ground");
     expect(ui.cache.currentEnvironment).toBe("ground");
-    expect(ui._currentKeyMap).toEqual({ F1: ["SpaceCommand"] });
-    expect(ui._currentKeyMap).not.toHaveProperty("G1");
-    expect(ui.request).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-key="F1"]')).not.toBeNull();
+    expect(document.querySelector('[data-key="G1"]')).toBeNull();
+    expect(ui.request).toHaveBeenCalledOnce();
   });
 
   it("projects primary and named sections without sectional or category queries", async () => {
@@ -300,20 +322,11 @@ describe("KeyBrowserUI accepted data state", () => {
     ui.request = vi.fn(async (topic) => {
       throw new Error(`Unexpected request: ${topic}`);
     });
-    const createSection = vi.spyOn(ui, "createBindsetSectionElement");
 
     await ui.render();
 
-    const primaryCall = createSection.mock.calls.find(
-      ([bindsetName]) => bindsetName === "Primary Bindset",
-    );
-    expect(primaryCall).toBeDefined();
-    const projectedPrimaryMap = primaryCall?.[4];
-    expect(projectedPrimaryMap).toEqual({
-      F10: ["TenthCommand"],
-      F2: ["SecondCommand"],
-      F1: [{ command: "FireAll", placement: "before-pre-pivot" }],
-    });
+    const grid = document.getElementById("keyGrid");
+    expect(grid?.classList).toContain("categorized");
     const primarySection = document.querySelector(
       '.bindset-section[data-bindset="Primary Bindset"]',
     );
@@ -362,10 +375,11 @@ describe("KeyBrowserUI accepted data state", () => {
         environment: "ground",
       }),
     );
-    const capturedSnapshotProfile = getSnapshotProfile(ui.cache.dataState);
-    if (!capturedSnapshotProfile) {
-      throw new Error("Expected a detached accepted profile");
-    }
+    ui.cache.preferences = {
+      bindsetsEnabled: true,
+      bindToAliasMode: true,
+    };
+    expect(ui.cacheKeyBrowserViewState(keyBrowserState())).toBe(true);
     ui.cache.profile = createProfile({
       bindsets: {
         Tactical: {
@@ -375,32 +389,21 @@ describe("KeyBrowserUI accepted data state", () => {
       },
     });
     ui.cache.currentEnvironment = "space";
-    const sectionData = {
-      name: "Tactical",
-      keys: ["G1"],
-      isCollapsed: false,
-      keyCount: 1,
-    };
+    ui.request = vi.fn(async (topic) => {
+      throw new Error(`Unexpected request: ${topic}`);
+    });
 
-    const section = await ui.createBindsetSectionElement(
-      "Tactical",
-      sectionData,
-      "grid",
-      capturedSnapshotProfile,
-      { F9: ["ConflictingPrimary"] },
-      {},
-      "ground",
+    await ui.render();
+
+    const section = document.querySelector(
+      '.bindset-section[data-bindset="Tactical"]',
     );
 
     expect(ui.cache.currentEnvironment).toBe("space");
-    expect(ui._currentKeyMap).toBe(
-      capturedSnapshotProfile.bindsets.Tactical.ground.keys,
-    );
-    expect(ui._currentKeyMap).toEqual({
-      G1: [{ command: "NamedGround", placement: "in-pivot-group" }],
-    });
-    expect(section.querySelector(".bindset-count")?.textContent).toBe("(1)");
-    expect(section.querySelector('[data-key="G1"]')).not.toBeNull();
-    expect(section.querySelector('[data-key="STALE_NAMED"]')).toBeNull();
+    expect(section?.querySelector(".bindset-count")?.textContent).toBe("(1)");
+    expect(section?.querySelector('[data-key="G1"]')).not.toBeNull();
+    expect(section?.querySelector('[data-key="F2"]')).toBeNull();
+    expect(section?.querySelector('[data-key="STALE_NAMED"]')).toBeNull();
+    expect(ui.request).not.toHaveBeenCalled();
   });
 });

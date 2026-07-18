@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { decodeProjectJson } from "../../../src/js/components/services/importJsonBoundary.js";
 import AliasBrowserUI from "../../../src/js/components/ui/AliasBrowserUI.js";
+import BindsetDeleteConfirmUI from "../../../src/js/components/ui/BindsetDeleteConfirmUI.js";
 import BindsetSelectorUI from "../../../src/js/components/ui/BindsetSelectorUI.js";
-import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
+import { createKeyBrowserKeyElement } from "../../../src/js/components/ui/keyBrowserGridDom.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 
 const aliasName = 'Alias"><img id="injected-alias" src="x" onerror="alert(1)">';
@@ -85,13 +86,15 @@ describe("project-controlled names rendered as HTML", () => {
 
   it("keeps imported key labels inert while preserving plus-line breaks", () => {
     const profile = decodeImportedProfile();
-    const ui = new KeyBrowserUI({
+    const keyItem = createKeyBrowserKeyElement(
       document,
-      i18n: { t: (key) => key },
-    });
-    ui._currentKeyMap = profile.builds.space.keys;
-
-    const keyItem = ui.createKeyElement(keyName);
+      {
+        t: (key) => (key === "command_singular" ? "command" : key),
+      },
+      keyName,
+      profile.builds.space.keys[keyName],
+      false,
+    );
     const label = keyItem.querySelector(".key-label");
 
     expect(keyItem.querySelector("#injected-key")).toBeNull();
@@ -128,5 +131,26 @@ describe("project-controlled names rendered as HTML", () => {
     expect(option.querySelector(".remove-key-btn").dataset.bindset).toBe(
       bindsetName,
     );
+  });
+
+  it("keeps imported bindset names inert in destructive confirmation text", () => {
+    const profile = decodeImportedProfile();
+    const importedName = Object.keys(profile.bindsets)[0];
+    const ui = new BindsetDeleteConfirmUI({
+      document,
+      i18n: {
+        t: (key, params) =>
+          key === "bindset_delete_warning"
+            ? `Delete ${params?.name} with ${params?.count} key`
+            : key,
+      },
+    });
+
+    const modal = ui.createModal(importedName, 1);
+
+    expect(modal.querySelector("#injected-bindset")).toBeNull();
+    expect(
+      modal.querySelector(".bindset-delete-warning").textContent,
+    ).toContain(importedName);
   });
 });

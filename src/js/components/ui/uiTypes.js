@@ -143,7 +143,7 @@ export function resolveDocument(candidate) {
  * @param {unknown} value
  * @returns {value is Element}
  */
-function isElement(value) {
+export function isElement(value) {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -152,6 +152,32 @@ function isElement(value) {
     "closest" in value &&
     typeof value.closest === "function"
   );
+}
+
+/**
+ * Recognize HTML elements structurally so callers do not couple injected
+ * documents to the ambient Window realm.
+ * @param {unknown} value
+ * @returns {HTMLElement | null}
+ */
+export function asHTMLElement(value) {
+  if (!isElement(value) || !("dataset" in value) || !("style" in value)) {
+    return null;
+  }
+  return /** @type {HTMLElement} */ (value);
+}
+
+/**
+ * Recognize input elements structurally across Window realms.
+ * @param {unknown} value
+ * @returns {HTMLInputElement | null}
+ */
+export function asHTMLInputElement(value) {
+  const element = asHTMLElement(value);
+  if (!element || element.localName !== "input" || !("value" in element)) {
+    return null;
+  }
+  return /** @type {HTMLInputElement} */ (element);
 }
 
 /**

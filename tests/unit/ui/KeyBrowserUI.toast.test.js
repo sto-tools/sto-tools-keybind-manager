@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createUIComponentFixture } from "../../fixtures/ui/component.js";
 
 describe("KeyBrowserUI Toast Tests", () => {
@@ -18,6 +19,7 @@ describe("KeyBrowserUI Toast Tests", () => {
       },
       document: {
         getElementById: vi.fn(() => null),
+        createDocumentFragment: vi.fn(() => document.createDocumentFragment()),
         createElement: vi.fn(() => ({
           value: "",
           textContent: "",
@@ -66,6 +68,7 @@ describe("KeyBrowserUI Toast Tests", () => {
     });
 
     component = fixture.component;
+    component._cacheDataState(createDataCoordinatorState());
 
     // Set up spies BEFORE initializing
     showToastSpy = vi.spyOn(component, "showToast");
@@ -114,6 +117,7 @@ describe("KeyBrowserUI Toast Tests", () => {
     it("should show error toast when key deletion fails", async () => {
       // Create a new component with failure mock
       const failureFixture = createUIComponentFixture(KeyBrowserUI, {
+        document,
         i18n: {
           t: vi.fn((key, params) => {
             if (key === "failed_to_delete_key") return "Failed to delete key";
@@ -132,6 +136,7 @@ describe("KeyBrowserUI Toast Tests", () => {
       });
 
       const failureComponent = failureFixture.component;
+      failureComponent._cacheDataState(createDataCoordinatorState());
       failureComponent.confirmDialog = {
         confirm: vi.fn(() => Promise.resolve(true)),
       };
@@ -174,6 +179,7 @@ describe("KeyBrowserUI Toast Tests", () => {
     it("should show error toast when key duplication fails", async () => {
       // Create a new component with failure mock
       const failureFixture = createUIComponentFixture(KeyBrowserUI, {
+        document,
         i18n: {
           t: vi.fn((key, params) => {
             if (key === "failed_to_duplicate_key")

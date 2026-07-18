@@ -2,8 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ComponentBase from "../../../src/js/components/ComponentBase.js";
 import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
+import {
+  createKeyBrowserBindsetSection,
+  createKeyBrowserCategoryElement,
+} from "../../../src/js/components/ui/keyBrowserGridDom.js";
+import { respond } from "../../../src/js/core/requestResponse.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
-import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
+import {
+  createEventBusFixture,
+  createRealEventBusFixture,
+} from "../../fixtures/core/eventBus.js";
 
 const createProfile = ({ spaceKeys = {}, groundKeys = {} } = {}) => ({
   id: "captain",
@@ -55,6 +63,28 @@ const coordinatorState = (
     profiles: { [profile.id]: profile },
   });
 
+const inertGridInput = ({
+  viewState,
+  mode = viewState.mode,
+  profile = createProfile(),
+  primaryKeyMap = {},
+  categorizeByType = vi.fn(async () => ({})),
+} = {}) => ({
+  document,
+  i18n: { t: (key) => key },
+  mode,
+  profile,
+  environment: "space",
+  primaryKeyMap,
+  viewState,
+  showBindsetSections: false,
+  selectedKey: null,
+  activeBindset: "Primary Bindset",
+  sortKeys: vi.fn(async (keys) => keys),
+  categorizeByCommand: vi.fn(async () => ({})),
+  categorizeByType,
+});
+
 describe("KeyBrowserUI view-state lifecycle", () => {
   let fixture;
   let ui;
@@ -73,38 +103,40 @@ describe("KeyBrowserUI view-state lifecycle", () => {
   it("renders persisted command and key-type category collapse without a query", async () => {
     mountKeyGrid();
     fixture = createEventBusFixture();
-    ui = new KeyBrowserUI({
-      eventBus: fixture.eventBus,
-      document,
-      i18n: { t: (key) => key },
-    });
-    ui.cache.keyBrowserViewState = keyBrowserState({
+    const viewState = keyBrowserState({
       command: ["system"],
       keyType: ["function"],
     });
-    ui.request = vi.fn(async (topic) => {
-      throw new Error(`Unexpected request: ${topic}`);
-    });
+    const input = inertGridInput({ viewState });
     const category = {
       name: "System",
       icon: "fas fa-cogs",
       keys: ["F1"],
     };
 
-    const commandElement = await ui.createKeyCategoryElement(
+    const commandElement = createKeyBrowserCategoryElement(
+      input,
       "system",
       category,
       "command",
+      { F1: ["FireAll"] },
+      null,
     );
-    const keyTypeElement = await ui.createKeyCategoryElement(
+    const keyTypeElement = createKeyBrowserCategoryElement(
+      input,
       "function",
       category,
       "key-type",
+      { F1: ["FireAll"] },
+      null,
     );
-    const expandedElement = await ui.createKeyCategoryElement(
+    const expandedElement = createKeyBrowserCategoryElement(
+      input,
       "navigation",
       category,
       "command",
+      { F1: ["FireAll"] },
+      null,
     );
 
     expect(commandElement.querySelector("h4")?.classList).toContain(
@@ -116,45 +148,47 @@ describe("KeyBrowserUI view-state lifecycle", () => {
     expect(expandedElement.querySelector("h4")?.classList).not.toContain(
       "collapsed",
     );
-    expect(ui.request).not.toHaveBeenCalled();
+    expect(input.sortKeys).not.toHaveBeenCalled();
+    expect(input.categorizeByCommand).not.toHaveBeenCalled();
+    expect(input.categorizeByType).not.toHaveBeenCalled();
   });
 
   it("preserves the legacy command namespace for named bindset type mode", async () => {
     mountKeyGrid();
     fixture = createEventBusFixture();
-    ui = new KeyBrowserUI({
-      eventBus: fixture.eventBus,
-      document,
-      i18n: { t: (key) => key },
-    });
-    ui.cache.keyBrowserViewState = keyBrowserState({
+    const viewState = keyBrowserState({
+      mode: "key-types",
       command: ["function"],
       keyType: ["navigation"],
     });
-    vi.spyOn(ui, "categorizeKeysByType").mockResolvedValue({
+    const categorizeByType = vi.fn(async () => ({
       function: {
         name: "Function Keys",
         icon: "fas fa-keyboard",
         keys: ["F1"],
         priority: 1,
       },
+    }));
+    const input = inertGridInput({
+      viewState,
+      mode: "key-types",
+      primaryKeyMap: { F1: ["FireAll"] },
+      categorizeByType,
     });
-    ui.request = vi.fn(async (topic) => {
-      throw new Error(`Unexpected request: ${topic}`);
-    });
-    const content = document.createElement("div");
 
-    await ui.renderKeyTypeViewForBindset(
-      content,
-      ["F1"],
-      { F1: ["FireAll"] },
+    const section = await createKeyBrowserBindsetSection(
+      input,
       "Tactical",
+      { keys: ["F1"], keyCount: 1, isCollapsed: false },
       { F1: ["FireAll"] },
     );
+    const content = section.querySelector(".bindset-content");
 
     expect(content.querySelector("h4")?.dataset.mode).toBe("type");
     expect(content.querySelector("h4")?.classList).toContain("collapsed");
-    expect(ui.request).not.toHaveBeenCalled();
+    expect(categorizeByType).toHaveBeenCalledOnce();
+    expect(input.sortKeys).not.toHaveBeenCalled();
+    expect(input.categorizeByCommand).not.toHaveBeenCalled();
   });
 
   it("reattaches one state listener per owner after same-instance destroy and re-init", async () => {
@@ -358,4 +392,103 @@ describe("KeyBrowserUI view-state lifecycle", () => {
       expect(ui.request).not.toHaveBeenCalled();
     },
   );
+
+  it("owns one delegated grid listener and one outside-click listener across renders and reinitialization", async () => {
+    mountKeyGrid();
+    const mountedGrid = document.getElementById("keyGrid");
+    fixture = await createRealEventBusFixture();
+    const onDom = vi.spyOn(fixture.eventBus, "onDom");
+    const selectKey = vi.fn(() => ({ success: true }));
+    respond(fixture.eventBus, "key:sort", ({ keys }) => keys);
+    respond(fixture.eventBus, "key:select", selectKey);
+    const profile = createProfile({
+      spaceKeys: { F1: ["FireAll"] },
+    });
+    ui = new KeyBrowserUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n: { t: (key) => key },
+      bindsetDeleteConfirm: {
+        confirm: vi.fn(async () => false),
+        cancelActiveConfirmation: vi.fn(),
+      },
+    });
+
+    const gridRegistrations = () =>
+      onDom.mock.calls.filter(
+        ([target, eventName]) =>
+          target === mountedGrid && eventName === "click",
+      );
+    const outsideRegistrations = () =>
+      onDom.mock.calls.filter(
+        ([target, eventName]) => target === document && eventName === "click",
+      );
+
+    ui.init();
+    await fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: coordinatorState(profile),
+    });
+    await fixture.eventBus.emit("key-browser:state-changed", keyBrowserState());
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.key-item[data-key="F1"]')).toBeInstanceOf(
+        HTMLElement,
+      );
+    });
+    expect(gridRegistrations()).toHaveLength(1);
+    expect(outsideRegistrations()).toHaveLength(1);
+
+    await ui.render();
+    await ui.render();
+    await ui.render();
+
+    expect(gridRegistrations()).toHaveLength(1);
+    expect(outsideRegistrations()).toHaveLength(1);
+
+    const key = document.querySelector('.key-item[data-key="F1"]');
+    expect(key).toBeInstanceOf(HTMLElement);
+    key.click();
+    await vi.waitFor(() => expect(selectKey).toHaveBeenCalledOnce());
+    expect(selectKey).toHaveBeenCalledWith({
+      keyName: "F1",
+      environment: "space",
+      bindset: null,
+    });
+
+    const menu = document.createElement("div");
+    menu.className = "bindset-menu-dropdown open";
+    document.body.appendChild(menu);
+    document.body.click();
+    expect(menu.classList).not.toContain("open");
+
+    ui.destroy();
+    selectKey.mockClear();
+    menu.classList.add("open");
+    key.click();
+    document.body.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(selectKey).not.toHaveBeenCalled();
+    expect(menu.classList).toContain("open");
+
+    ui.init();
+    expect(gridRegistrations()).toHaveLength(2);
+    expect(outsideRegistrations()).toHaveLength(2);
+
+    await fixture.eventBus.emit(
+      "key-browser:state-changed",
+      keyBrowserState({ authorityEpoch: 2 }),
+    );
+    await vi.waitFor(() => {
+      const renderedKey = document.querySelector('.key-item[data-key="F1"]');
+      expect(renderedKey).toBeInstanceOf(HTMLElement);
+      expect(renderedKey).not.toBe(key);
+    });
+    const reinitializedKey = document.querySelector('.key-item[data-key="F1"]');
+    reinitializedKey.click();
+    await vi.waitFor(() => expect(selectKey).toHaveBeenCalledOnce());
+    menu.classList.add("open");
+    document.body.click();
+    expect(menu.classList).not.toContain("open");
+  });
 });

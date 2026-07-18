@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import KeyBrowserUI from "../../../src/js/components/ui/KeyBrowserUI.js";
+import {
+  createKeyBrowserBindsetSection,
+  createKeyBrowserCategoryElement,
+} from "../../../src/js/components/ui/keyBrowserGridDom.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 
@@ -17,6 +21,60 @@ const keyBrowserState = ({
   mode,
   collapsedCategories: { command, keyType },
   collapsedBindsets: bindsets,
+});
+
+const mountKeyGrid = () => {
+  document.body.innerHTML = `
+    <div class="key-selector-container">
+      <button id="toggleKeyViewBtn"><i></i></button>
+      <div id="keyGrid"></div>
+    </div>
+  `;
+};
+
+const createProfile = ({ spaceKeys = {}, bindsets = {} } = {}) => ({
+  id: "captain",
+  name: "Captain",
+  currentEnvironment: "space",
+  builds: { space: { keys: spaceKeys }, ground: { keys: {} } },
+  bindsets,
+  aliases: {},
+});
+
+const coordinatorState = (profile) =>
+  createDataCoordinatorState({
+    authorityEpoch: 30,
+    ready: true,
+    revision: 1,
+    currentProfile: profile.id,
+    currentEnvironment: "space",
+    currentProfileData: profile,
+    profiles: { [profile.id]: profile },
+  });
+
+const inertGridInput = (viewState) => ({
+  document,
+  i18n: { t: (key) => key },
+  mode: viewState.mode,
+  profile: createProfile(),
+  environment: "space",
+  primaryKeyMap: {},
+  viewState,
+  showBindsetSections: false,
+  selectedKey: null,
+  activeBindset: "Primary Bindset",
+  sortKeys: vi.fn(async (keys) => keys),
+  categorizeByCommand: vi.fn(async () => ({})),
+  categorizeByType: vi.fn(async () => ({})),
+});
+
+const commandCategories = (allKeys) => ({
+  system: {
+    name: "System",
+    icon: "fas fa-folder",
+    keys: allKeys,
+    priority: 1,
+  },
 });
 
 const expectCategoryCollapsed = (element, isCollapsed) => {
@@ -54,28 +112,31 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
   });
 
   it("fully renders accepted mode changes once and reconciles same-mode revisions", async () => {
-    document.body.innerHTML = `
-      <div class="key-selector-container">
-        <button id="toggleKeyViewBtn"><i></i></button>
-        <div id="keyGrid"></div>
-      </div>
-    `;
+    mountKeyGrid();
     fixture = createEventBusFixture();
     const translate = vi.fn((key) => key);
+    const profile = createProfile();
     ui = new KeyBrowserUI({
       eventBus: fixture.eventBus,
       document,
       i18n: { t: translate },
     });
-    ui.cache.currentProfile = "captain";
-    ui.cache.currentEnvironment = "space";
-    ui.cache.keys = {};
+    ui.request = vi.fn(async (topic, payload) => {
+      if (topic === "key:sort") return payload.keys;
+      if (topic === "key:categorize-by-command") return {};
+      throw new Error(`Unexpected request: ${topic}`);
+    });
     const renderedStates = [];
-    const render = vi.spyOn(ui, "render").mockImplementation(async () => {
+    const render = vi.spyOn(ui, "render").mockImplementation(async function () {
       renderedStates.push(structuredClone(ui.cache.keyBrowserViewState));
+      return await Reflect.apply(Object.getPrototypeOf(ui).render, this, []);
     });
     const reconcile = vi.spyOn(ui, "reconcileKeyBrowserViewState");
     ui.init();
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: coordinatorState(profile),
+    });
 
     const initial = keyBrowserState({
       authorityEpoch: 50,
@@ -144,13 +205,9 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
   });
 
   it("reconciles every rendered collapse class only for accepted snapshots", async () => {
-    document.body.innerHTML = `
-      <div class="key-selector-container">
-        <button id="toggleKeyViewBtn"><i></i></button>
-        <div id="keyGrid"></div>
-      </div>
-    `;
+    mountKeyGrid();
     fixture = createEventBusFixture();
+    const profile = createProfile();
     ui = new KeyBrowserUI({
       eventBus: fixture.eventBus,
       document,
@@ -159,11 +216,12 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
     ui.request = vi.fn(async (topic) => {
       throw new Error(`Unexpected request: ${topic}`);
     });
-    ui.cache.currentProfile = "captain";
-    ui.cache.currentEnvironment = "space";
-    ui.cache.keys = {};
     const render = vi.spyOn(ui, "render").mockResolvedValue(undefined);
     ui.init();
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: coordinatorState(profile),
+    });
 
     const initial = keyBrowserState({
       authorityEpoch: 20,
@@ -180,28 +238,43 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
       icon: "fas fa-folder",
       keys: [],
     };
-    const system = await ui.createKeyCategoryElement(
+    const input = inertGridInput(initial);
+    const system = createKeyBrowserCategoryElement(
+      input,
       "system",
       categoryData,
       "command",
+      {},
+      null,
     );
-    const keyType = await ui.createKeyCategoryElement(
+    const keyType = createKeyBrowserCategoryElement(
+      input,
       "function",
       categoryData,
       "key-type",
+      {},
+      null,
     );
-    const tactical = await ui.createBindsetSectionElement("Tactical", {
-      name: "Tactical",
-      keys: [],
-      keyCount: 0,
-      isCollapsed: true,
-    });
-    const primary = await ui.createBindsetSectionElement("Primary Bindset", {
-      name: "Primary Bindset",
-      keys: [],
-      keyCount: 0,
-      isCollapsed: false,
-    });
+    const tactical = await createKeyBrowserBindsetSection(
+      input,
+      "Tactical",
+      {
+        keys: [],
+        keyCount: 0,
+        isCollapsed: true,
+      },
+      {},
+    );
+    const primary = await createKeyBrowserBindsetSection(
+      input,
+      "Primary Bindset",
+      {
+        keys: [],
+        keyCount: 0,
+        isCollapsed: false,
+      },
+      {},
+    );
     document
       .getElementById("keyGrid")
       ?.append(system, keyType, tactical, primary);
@@ -291,12 +364,7 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
   });
 
   it("reconciles the latest snapshot after a delayed fragment is installed", async () => {
-    document.body.innerHTML = `
-      <div class="key-selector-container">
-        <button id="toggleKeyViewBtn"><i></i></button>
-        <div id="keyGrid"></div>
-      </div>
-    `;
+    mountKeyGrid();
     fixture = createEventBusFixture();
     ui = new KeyBrowserUI({
       eventBus: fixture.eventBus,
@@ -305,24 +373,13 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
     });
     ui.init();
 
-    const profile = {
-      id: "captain",
-      name: "Captain",
-      builds: { space: { keys: {} }, ground: { keys: {} } },
-      bindsets: {},
-      aliases: {},
-    };
-    ui._cacheDataState(
-      createDataCoordinatorState({
-        authorityEpoch: 30,
-        ready: true,
-        revision: 1,
-        currentProfile: profile.id,
-        currentEnvironment: "space",
-        currentProfileData: profile,
-        profiles: { [profile.id]: profile },
-      }),
-    );
+    const profile = createProfile({
+      spaceKeys: { F1: ["FireAll"] },
+      bindsets: {
+        Tactical: { space: { keys: { F2: ["FireAll"] } } },
+      },
+    });
+    ui._cacheDataState(coordinatorState(profile));
     ui.cache.keyBrowserViewState = keyBrowserState({
       authorityEpoch: 40,
       revision: 0,
@@ -334,35 +391,28 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
     };
     ui.pendingInitialRender = false;
 
-    let releaseFragment;
-    const fragmentReleased = new Promise((resolve) => {
-      releaseFragment = resolve;
+    let releaseCategorization;
+    const categorizationReleased = new Promise((resolve) => {
+      releaseCategorization = resolve;
     });
-    let markFragmentReady;
-    const fragmentReady = new Promise((resolve) => {
-      markFragmentReady = resolve;
+    let markCategorizationReady;
+    const categorizationReady = new Promise((resolve) => {
+      markCategorizationReady = resolve;
     });
-    vi.spyOn(ui, "renderBindsetSectionsView").mockImplementation(
-      async (fragment) => {
-        const category = await ui.createKeyCategoryElement(
-          "system",
-          { name: "System", icon: "fas fa-folder", keys: [] },
-          "command",
-        );
-        const bindset = await ui.createBindsetSectionElement("Tactical", {
-          name: "Tactical",
-          keys: [],
-          keyCount: 0,
-          isCollapsed: false,
-        });
-        fragment.append(category, bindset);
-        markFragmentReady();
-        await fragmentReleased;
-      },
-    );
+    let categorizationCalls = 0;
+    ui.request = vi.fn(async (topic, payload) => {
+      if (topic !== "key:categorize-by-command")
+        throw new Error(`Unexpected request: ${topic}`);
+      categorizationCalls += 1;
+      if (categorizationCalls === 1) {
+        markCategorizationReady();
+        await categorizationReleased;
+      }
+      return commandCategories(payload.allKeys);
+    });
 
     const render = ui.render();
-    await fragmentReady;
+    await categorizationReady;
 
     const latest = keyBrowserState({
       authorityEpoch: 40,
@@ -374,28 +424,23 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
     fixture.eventBus.emit("key-browser:state-changed", latest);
     expect(ui.cache.keyBrowserViewState).toEqual(latest);
 
-    releaseFragment();
+    releaseCategorization();
     await render;
 
-    const category = document.querySelector(
+    const categories = document.querySelectorAll(
       '.category[data-category="system"]',
     );
     const bindset = document.querySelector(
       '.bindset-section[data-bindset="Tactical"]',
     );
-    expect(category).toBeInstanceOf(HTMLElement);
+    expect(categories).toHaveLength(2);
     expect(bindset).toBeInstanceOf(HTMLElement);
-    expectCategoryCollapsed(category, true);
+    for (const category of categories) expectCategoryCollapsed(category, true);
     expectBindsetCollapsed(bindset, true);
   });
 
   it("prevents an older mode render from replacing a newer accepted mode", async () => {
-    document.body.innerHTML = `
-      <div class="key-selector-container">
-        <button id="toggleKeyViewBtn"><i></i></button>
-        <div id="keyGrid"></div>
-      </div>
-    `;
+    mountKeyGrid();
     fixture = createEventBusFixture();
     ui = new KeyBrowserUI({
       eventBus: fixture.eventBus,
@@ -404,24 +449,10 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
     });
     ui.init();
 
-    const profile = {
-      id: "captain",
-      name: "Captain",
-      builds: { space: { keys: {} }, ground: { keys: {} } },
-      bindsets: {},
-      aliases: {},
-    };
-    ui._cacheDataState(
-      createDataCoordinatorState({
-        authorityEpoch: 30,
-        ready: true,
-        revision: 1,
-        currentProfile: profile.id,
-        currentEnvironment: "space",
-        currentProfileData: profile,
-        profiles: { [profile.id]: profile },
-      }),
-    );
+    const profile = createProfile({
+      spaceKeys: { F1: ["FireAll"] },
+    });
+    ui._cacheDataState(coordinatorState(profile));
     ui.cache.keyBrowserViewState = keyBrowserState({
       authorityEpoch: 40,
       revision: 0,
@@ -437,22 +468,20 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
     const gridReady = new Promise((resolve) => {
       markGridReady = resolve;
     });
-    vi.spyOn(ui, "renderSimpleGridView").mockImplementation(
-      async (fragment) => {
-        const marker = document.createElement("div");
-        marker.dataset.renderedMode = "grid";
-        fragment.append(marker);
-        markGridReady();
-        await gridReleased;
-      },
-    );
-    vi.spyOn(ui, "renderCommandCategoryView").mockImplementation(
-      async (fragment) => {
-        const marker = document.createElement("div");
-        marker.dataset.renderedMode = "categorized";
-        fragment.append(marker);
-      },
-    );
+    let sortCalls = 0;
+    ui.request = vi.fn(async (topic, payload) => {
+      if (topic === "key:sort") {
+        sortCalls += 1;
+        if (sortCalls === 1) {
+          markGridReady();
+          await gridReleased;
+        }
+        return payload.keys;
+      }
+      if (topic === "key:categorize-by-command")
+        return commandCategories(payload.allKeys);
+      throw new Error(`Unexpected request: ${topic}`);
+    });
 
     const delayedGridRender = ui.render();
     await gridReady;
@@ -466,8 +495,8 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
 
     await vi.waitFor(() => {
       expect(
-        document.querySelector("[data-rendered-mode]")?.dataset.renderedMode,
-      ).toBe("categorized");
+        document.querySelector('.category[data-category="system"]'),
+      ).toBeInstanceOf(HTMLElement);
     });
     expect(document.getElementById("keyGrid")?.classList).toContain(
       "categorized",
@@ -478,8 +507,9 @@ describe("KeyBrowserUI ordered view-state adoption", () => {
 
     expect(ui.cache.keyBrowserViewState).toEqual(categorized);
     expect(
-      document.querySelector("[data-rendered-mode]")?.dataset.renderedMode,
-    ).toBe("categorized");
+      document.querySelector('.category[data-category="system"]'),
+    ).toBeInstanceOf(HTMLElement);
+    expect(document.querySelector("#keyGrid > .key-item")).toBeNull();
     expect(document.getElementById("keyGrid")?.classList).toContain(
       "categorized",
     );

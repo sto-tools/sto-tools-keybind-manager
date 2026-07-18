@@ -22,7 +22,6 @@ function createDomFixture() {
 
 describe("KeyBrowserUI", () => {
   let fixture, eventBus, ui, dom, storageFixture;
-  let categorizeByType;
 
   beforeEach(() => {
     dom = createDomFixture();
@@ -48,29 +47,26 @@ describe("KeyBrowserUI", () => {
       };
     });
 
-    categorizeByType = vi.fn(({ allKeys }) => {
-      return {
-        function: {
-          name: "Function Keys",
-          icon: "fas fa-keyboard",
-          keys: [],
-          priority: 1,
-        },
-        alphanumeric: {
-          name: "Letters & Numbers",
-          icon: "fas fa-font",
-          keys: [],
-          priority: 2,
-        },
-        other: {
-          name: "Other Keys",
-          icon: "fas fa-question-circle",
-          keys: allKeys || [],
-          priority: 9,
-        },
-      };
-    });
-    respond(eventBus, "key:categorize-by-type", categorizeByType);
+    respond(eventBus, "key:categorize-by-type", ({ allKeys }) => ({
+      function: {
+        name: "Function Keys",
+        icon: "fas fa-keyboard",
+        keys: [],
+        priority: 1,
+      },
+      alphanumeric: {
+        name: "Letters & Numbers",
+        icon: "fas fa-font",
+        keys: [],
+        priority: 2,
+      },
+      other: {
+        name: "Other Keys",
+        icon: "fas fa-question-circle",
+        keys: allKeys || [],
+        priority: 9,
+      },
+    }));
 
     respond(eventBus, "key:toggle-category", () => {
       return true;
@@ -177,7 +173,9 @@ describe("KeyBrowserUI", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const clickHandler = eventBus.onDom.mock.calls.find(
-      ([target, event]) => target === "toggleKeyViewBtn" && event === "click",
+      ([target, event]) =>
+        target === document.getElementById("toggleKeyViewBtn") &&
+        event === "click",
     )?.[2];
     expect(clickHandler).toBeTypeOf("function");
     clickHandler();
@@ -323,7 +321,7 @@ describe("KeyBrowserUI", () => {
     const detachRetired = eventBus.on("key:filter", retiredHandler);
 
     const keydownRegistration = eventBus.onDom.mock.calls.find(
-      ([target, event]) => target === "keyFilter" && event === "keydown",
+      ([target, event]) => target === filterInput && event === "keydown",
     );
     expect(keydownRegistration).toBeTruthy();
     keydownRegistration[2]({
@@ -349,51 +347,74 @@ describe("KeyBrowserUI", () => {
     detachRetired();
   });
 
-  it("renders bindset command categories from category objects", async () => {
-    const content = document.createElement("div");
-    const categoryData = {
-      name: "Combat",
-      icon: "fas fa-fire",
-      keys: ["F1"],
-      priority: 1,
+  it("delegates a regenerated grid click to the typed key-selection protocol", async () => {
+    const grid = document.getElementById("keyGrid");
+    grid.innerHTML = `
+      <section class="bindset-section" data-bindset="Tactical">
+        <button data-action="select-key" data-key="F4">
+          <span class="key-label">F4</span>
+        </button>
+      </section>
+    `;
+    ui.cache.currentEnvironment = "ground";
+    ui._committedGridContext = {
+      dataState: ui.cache.dataState,
+      environment: "ground",
     };
+    const request = vi
+      .spyOn(ui, "request")
+      .mockResolvedValue({ success: true });
+    const clickHandler = eventBus.onDom.mock.calls.find(
+      ([target, event]) => target === grid && event === "click",
+    )?.[2];
 
-    vi.spyOn(ui, "categorizeKeys").mockResolvedValue({ combat: categoryData });
-    vi.spyOn(ui, "createKeyElement").mockImplementation((key) => {
-      const element = document.createElement("button");
-      element.dataset.key = key;
-      return element;
+    expect(clickHandler).toBeTypeOf("function");
+    clickHandler({ target: grid.querySelector(".key-label") });
+
+    await vi.waitFor(() => {
+      expect(request).toHaveBeenCalledWith("key:select", {
+        keyName: "F4",
+        environment: "ground",
+        bindset: "Tactical",
+      });
     });
-
-    await ui.renderCommandCategoryViewForKeys(
-      content,
-      { F1: ["FireAll"] },
-      ["F1"],
-      { F1: ["FireAll"] },
-    );
-
-    expect(ui.createKeyElement).toHaveBeenCalledWith("F1", ["FireAll"]);
-    expect(content.querySelector(".category-header")?.textContent).toBe(
-      "combat",
-    );
-    expect(content.querySelector('[data-key="F1"]')).not.toBeNull();
   });
 
-  it("renders bindset key types through the batch categorization contract", async () => {
-    const content = document.createElement("div");
-    vi.spyOn(ui, "createKeyElement").mockImplementation((key) => {
-      const element = document.createElement("button");
-      element.dataset.key = key;
-      return element;
-    });
+  it("delegates rendered bindset management actions to their workflows", async () => {
+    const grid = document.getElementById("keyGrid");
+    grid.innerHTML = `
+      <button data-action="create" data-bindset="Primary Bindset"><span></span></button>
+      <button data-action="clone" data-bindset="Tactical"><span></span></button>
+      <button data-action="rename" data-bindset="Tactical"><span></span></button>
+      <button data-action="delete" data-bindset="Tactical"><span></span></button>
+    `;
+    ui._committedGridContext = {
+      dataState: ui.cache.dataState,
+      environment: "space",
+    };
+    const create = vi.spyOn(ui, "handleCreateBindset").mockResolvedValue(true);
+    const clone = vi.spyOn(ui, "handleCloneBindset").mockResolvedValue(true);
+    const rename = vi.spyOn(ui, "handleRenameBindset").mockResolvedValue(true);
+    const remove = vi.spyOn(ui, "confirmDeleteBindset").mockResolvedValue(true);
+    const clickHandler = eventBus.onDom.mock.calls.find(
+      ([target, event]) => target === grid && event === "click",
+    )?.[2];
 
-    await ui.renderKeyTypeViewForKeys(content, {}, ["F1"], { F1: ["FireAll"] });
+    expect(clickHandler).toBeTypeOf("function");
+    for (const action of ["create", "clone", "rename", "delete"]) {
+      clickHandler({
+        target: grid.querySelector(`[data-action="${action}"] span`),
+      });
+    }
 
-    expect(categorizeByType).toHaveBeenCalledWith({
-      keysWithCommands: { F1: ["FireAll"] },
-      allKeys: ["F1"],
+    await vi.waitFor(() => {
+      expect(create).toHaveBeenCalledOnce();
+      expect(clone).toHaveBeenCalledOnce();
+      expect(clone).toHaveBeenCalledWith("Tactical");
+      expect(rename).toHaveBeenCalledOnce();
+      expect(rename).toHaveBeenCalledWith("Tactical");
+      expect(remove).toHaveBeenCalledOnce();
+      expect(remove).toHaveBeenCalledWith("Tactical");
     });
-    expect(ui.createKeyElement).toHaveBeenCalledWith("F1", ["FireAll"]);
-    expect(content.querySelector('[data-key="F1"]')).not.toBeNull();
   });
 });

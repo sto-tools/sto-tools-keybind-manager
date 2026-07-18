@@ -366,6 +366,7 @@ export default class BindsetService extends ComponentBase {
     const updates = {
       delete: {
         bindsets: [name],
+        bindsetMetadata: [name],
       },
     };
     const res = await this.request("data:update-profile", {

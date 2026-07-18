@@ -1,166 +1,296 @@
 import UIComponentBase from "../UIComponentBase.js";
-import { resolveI18n } from "./uiTypes.js";
+import { escapeHtml } from "../../lib/htmlEscape.js";
+import { resolveDocument, resolveI18n } from "./uiTypes.js";
 
 /**
- * BindsetDeleteConfirmUI – Multi-step confirmation modal for deleting bindsets containing keys.
- * Provides checkbox acknowledgment and text input validation for dangerous operations.
+ * @typedef {{
+ *   bindsetName: string,
+ *   keyCount: number,
+ *   modalId: string,
+ *   modalElement: HTMLElement,
+ *   resolve: (confirmed: boolean) => void,
+ *   regenerateCallback: () => void,
+ *   draft: { acknowledged: boolean, text: string },
+ *   controlDetachers: Array<() => void>,
+ *   documentDetach: (() => void) | null,
+ *   modalHiddenDetach: (() => void) | null,
+ *   settled: boolean
+ * }} BindsetDeleteSession
+ */
+
+/**
+ * BindsetDeleteConfirmUI owns one multi-step confirmation session at a time.
+ * Every settlement path releases the session's DOM listeners, document
+ * listener, regeneration callback, and modal before resolving its promise.
  */
 export default class BindsetDeleteConfirmUI extends UIComponentBase {
   /**
    * @param {{
    *   eventBus?: import('./uiTypes.js').EventBus,
    *   modalManager?: import('./uiTypes.js').ModalManagerLike,
-   *   i18n?: import('./uiTypes.js').I18nLike
+   *   i18n?: import('./uiTypes.js').I18nLike,
+   *   document?: Document
    * }} [options]
    */
-  constructor({ eventBus, modalManager, i18n } = {}) {
+  constructor({ eventBus, modalManager, i18n, document } = {}) {
     super(eventBus);
     this.componentName = "BindsetDeleteConfirmUI";
     this.modalManager = modalManager;
     this.i18n = resolveI18n(i18n);
-
-    // Store current modal data for regeneration
+    this.document = resolveDocument(document);
+    /** @type {BindsetDeleteSession | null} */
     this.currentModal = null;
   }
 
+  onDestroy() {
+    this.cancelActiveConfirmation();
+  }
+
   /**
-   * Show a multi-step confirmation dialog for bindset deletion.
-   * @param {string} bindsetName - Name of the bindset to delete
-   * @param {number} keyCount - Number of keys in the bindset
-   * @param {string} prefix - Optional prefix for modal ID
-   * @returns {Promise<boolean>} - Resolves to true if confirmed, false otherwise
+   * Show a multi-step confirmation dialog. Starting another confirmation
+   * cancels and completely releases the active session first.
+   *
+   * @param {string} bindsetName
+   * @param {number} keyCount
+   * @param {string} [prefix]
+   * @returns {Promise<boolean>}
    */
   async confirm(bindsetName, keyCount, prefix = "") {
+    this.cancelActiveConfirmation();
+
     return new Promise((resolve) => {
-      const modal = this.createModal(bindsetName, keyCount);
       const modalId = prefix
         ? `${prefix}BindsetDeleteConfirmModal`
         : "bindsetDeleteConfirmModal";
-      modal.id = modalId;
-      document.body.appendChild(modal);
+      const modalElement = this.createModal(bindsetName, keyCount);
+      modalElement.id = modalId;
 
-      // Get form elements
-      const checkbox = /** @type {HTMLInputElement} */ (
-        modal.querySelector("#bindset-delete-confirm-checkbox")
-      );
-      const textInput = /** @type {HTMLInputElement} */ (
-        modal.querySelector("#bindset-delete-confirm-input")
-      );
-      const deleteBtn = /** @type {HTMLButtonElement} */ (
-        modal.querySelector(".bindset-delete-confirm-btn")
-      );
-      const cancelBtn = /** @type {HTMLButtonElement} */ (
-        modal.querySelector(".bindset-delete-cancel-btn")
-      );
-
-      // Store modal data for regeneration
-      this.currentModal = {
+      /** @type {BindsetDeleteSession} */
+      const session = {
         bindsetName,
         keyCount,
-        resolve,
-        modalElement: modal,
         modalId,
+        modalElement,
+        resolve,
+        regenerateCallback: () => {},
+        draft: { acknowledged: false, text: "" },
+        controlDetachers: [],
+        documentDetach: null,
+        modalHiddenDetach: null,
+        settled: false,
+      };
+      session.regenerateCallback = () => this.regenerateModal(session);
+      this.currentModal = session;
+      this.document.body.appendChild(modalElement);
+
+      if (!this.bindModalControls(session, modalElement)) {
+        this.settleSession(session, false);
+        return;
+      }
+
+      /** @param {KeyboardEvent} event */
+      const handleEscape = (event) => {
+        if (event.key === "Escape") this.settleSession(session, false);
+      };
+      this.document.addEventListener("keydown", handleEscape);
+      session.documentDetach = () => {
+        this.document.removeEventListener("keydown", handleEscape);
       };
 
-      // Register regeneration callback for language changes
-      this.modalManager?.registerRegenerateCallback?.(modalId, () => {
-        this.regenerateModal();
-      });
-
-      // Form validation logic
-      const validateForm = () => {
-        const checkboxChecked = checkbox.checked;
-        const textValue = textInput.value.trim().toUpperCase();
-        const deleteConfirmed = checkboxChecked && textValue === "DELETE";
-
-        deleteBtn.disabled = !deleteConfirmed;
-
-        // Enable/disable text input based on checkbox
-        textInput.disabled = !checkboxChecked;
-
-        return deleteConfirmed;
-      };
-
-      // Event listeners
-      checkbox.addEventListener("change", validateForm);
-      textInput.addEventListener("input", validateForm);
-
-      const handleConfirm = () => {
-        // Unregister regeneration callback
-        this.modalManager?.unregisterRegenerateCallback?.(modalId);
-        this.currentModal = null;
-
-        this.modalManager?.hide(modalId);
-        // Safe DOM removal - check if modal is still attached before removing
-        if (modal && modal.parentNode) {
-          modal.parentNode.removeChild(modal);
-        }
-
-        resolve(true);
-      };
-
-      const handleCancel = () => {
-        // Unregister regeneration callback
-        this.modalManager?.unregisterRegenerateCallback?.(modalId);
-        this.currentModal = null;
-
-        this.modalManager?.hide(modalId);
-        // Safe DOM removal - check if modal is still attached before removing
-        if (modal && modal.parentNode) {
-          modal.parentNode.removeChild(modal);
-        }
-
-        resolve(false);
-      };
-
-      deleteBtn.addEventListener("click", handleConfirm);
-      cancelBtn.addEventListener("click", handleCancel);
-
-      // Close on escape key
-      /** @param {KeyboardEvent} e */
-      const handleEscape = (e) => {
-        if (e.key === "Escape") {
-          document.removeEventListener("keydown", handleEscape);
-          handleCancel();
+      /** @param {{ modalId: string }} message */
+      const handleModalHidden = ({ modalId: hiddenModalId }) => {
+        if (hiddenModalId === session.modalId) {
+          this.settleSession(session, false, false);
         }
       };
-      document.addEventListener("keydown", handleEscape);
+      this.addEventListener("modal:hidden", handleModalHidden);
+      session.modalHiddenDetach = () => {
+        this.removeEventListener("modal:hidden", handleModalHidden);
+      };
 
-      // Show the modal
+      this.modalManager?.registerRegenerateCallback?.(
+        modalId,
+        session.regenerateCallback,
+      );
       this.modalManager?.show(modalId);
-
-      // Initialize form state
-      validateForm();
     });
   }
 
   /**
-   * Creates the modal DOM element.
-   * @param {string} bindsetName - Name of the bindset
-   * @param {number} keyCount - Number of keys in the bindset
-   * @returns {HTMLElement} - Modal DOM element
+   * Cancel and release the active confirmation without destroying this helper.
+   * KeyBrowserUI can call this from onDestroy and reuse the same helper after
+   * its own reinitialization.
+   *
+   * @returns {boolean} Whether an active session was cancelled.
+   */
+  cancelActiveConfirmation() {
+    const session = this.currentModal;
+    if (!session) return false;
+    this.settleSession(session, false);
+    return true;
+  }
+
+  /**
+   * @param {BindsetDeleteSession} session
+   * @param {boolean} result
+   * @param {boolean} [hideModal]
+   */
+  settleSession(session, result, hideModal = true) {
+    if (session.settled) return;
+    session.settled = true;
+    if (this.currentModal === session) this.currentModal = null;
+    const documentDetach = session.documentDetach;
+    const modalHiddenDetach = session.modalHiddenDetach;
+    const releases = [
+      () => this.detachModalControls(session),
+      () => documentDetach?.(),
+      () => modalHiddenDetach?.(),
+      () =>
+        this.modalManager?.unregisterRegenerateCallback?.(
+          session.modalId,
+          session.regenerateCallback,
+        ),
+      () => {
+        if (hideModal) this.modalManager?.hide(session.modalId);
+      },
+      () => session.modalElement.remove(),
+    ];
+    session.documentDetach = null;
+    session.modalHiddenDetach = null;
+    for (const release of releases) {
+      try {
+        release();
+      } catch (error) {
+        console.error(
+          "[BindsetDeleteConfirmUI] Session cleanup failed:",
+          error,
+        );
+      }
+    }
+    session.resolve(result);
+  }
+
+  /** @param {BindsetDeleteSession} session */
+  detachModalControls(session) {
+    for (const detach of session.controlDetachers.splice(0)) detach();
+  }
+
+  /**
+   * @param {BindsetDeleteSession} session
+   * @param {EventTarget} target
+   * @param {string} eventName
+   * @param {EventListener} handler
+   */
+  listenToControl(session, target, eventName, handler) {
+    target.addEventListener(eventName, handler);
+    session.controlDetachers.push(() => {
+      target.removeEventListener(eventName, handler);
+    });
+  }
+
+  /**
+   * Bind one generated modal to the existing session. Regeneration detaches the
+   * old controls before binding the replacement and never duplicates the
+   * document listener or regeneration callback.
+   *
+   * @param {BindsetDeleteSession} session
+   * @param {HTMLElement} modal
+   * @returns {boolean}
+   */
+  bindModalControls(session, modal) {
+    this.detachModalControls(session);
+    const checkbox = /** @type {HTMLInputElement | null} */ (
+      modal.querySelector("#bindset-delete-confirm-checkbox")
+    );
+    const textInput = /** @type {HTMLInputElement | null} */ (
+      modal.querySelector("#bindset-delete-confirm-input")
+    );
+    const deleteButton = /** @type {HTMLButtonElement | null} */ (
+      modal.querySelector(".bindset-delete-confirm-btn")
+    );
+    const cancelButton = /** @type {HTMLButtonElement | null} */ (
+      modal.querySelector(".bindset-delete-cancel-btn")
+    );
+    if (!checkbox || !textInput || !deleteButton || !cancelButton) return false;
+
+    checkbox.checked = session.draft.acknowledged;
+    textInput.value = session.draft.text;
+
+    const validate = () => {
+      session.draft.acknowledged = checkbox.checked;
+      session.draft.text = textInput.value;
+      const confirmed =
+        session.draft.acknowledged &&
+        session.draft.text.trim().toUpperCase() === "DELETE";
+      deleteButton.disabled = !confirmed;
+      textInput.disabled = !session.draft.acknowledged;
+      return confirmed;
+    };
+    /** @type {EventListener} */
+    const handleConfirm = () => {
+      if (validate()) this.settleSession(session, true);
+    };
+    /** @type {EventListener} */
+    const handleCancel = () => this.settleSession(session, false);
+
+    this.listenToControl(session, checkbox, "change", validate);
+    this.listenToControl(session, textInput, "input", validate);
+    this.listenToControl(session, deleteButton, "click", handleConfirm);
+    this.listenToControl(session, cancelButton, "click", handleCancel);
+    validate();
+    return true;
+  }
+
+  /**
+   * Replace the active modal after a language change while preserving its
+   * checkbox and text draft.
+   *
+   * @param {BindsetDeleteSession | null} [expectedSession]
+   * @returns {boolean} Whether an active modal was regenerated.
+   */
+  regenerateModal(expectedSession = this.currentModal) {
+    const session = expectedSession;
+    if (!session || session !== this.currentModal || session.settled)
+      return false;
+
+    const currentCheckbox = /** @type {HTMLInputElement | null} */ (
+      session.modalElement.querySelector("#bindset-delete-confirm-checkbox")
+    );
+    const currentInput = /** @type {HTMLInputElement | null} */ (
+      session.modalElement.querySelector("#bindset-delete-confirm-input")
+    );
+    if (currentCheckbox) session.draft.acknowledged = currentCheckbox.checked;
+    if (currentInput) session.draft.text = currentInput.value;
+
+    const replacement = this.createModal(session.bindsetName, session.keyCount);
+    replacement.id = session.modalId;
+    this.detachModalControls(session);
+    session.modalElement.replaceWith(replacement);
+    session.modalElement = replacement;
+    if (!this.bindModalControls(session, replacement)) {
+      this.settleSession(session, false);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * @param {string} bindsetName
+   * @param {number} keyCount
+   * @returns {HTMLElement}
    */
   createModal(bindsetName, keyCount) {
-    const modal = document.createElement("div");
+    const modal = this.document.createElement("div");
     modal.className = "modal bindset-delete-confirm-modal";
-
-    const warningTitle = this.i18n
-      ? this.i18n.t("confirm_delete_bindset_with_keys")
-      : "Delete Bindset with Keys";
-    const warningMessage = this.i18n
-      ? this.i18n.t("bindset_delete_warning", {
-          name: bindsetName,
-          count: keyCount,
-        })
-      : `This bindset "${bindsetName}" contains ${keyCount} keys and will be permanently deleted.`;
-    const confirmationText = this.i18n
-      ? this.i18n.t("bindset_delete_confirmation_text")
-      : "I understand this will permanently delete all keys in this bindset";
-    const instructionText = this.i18n
-      ? this.i18n.t("bindset_delete_type_confirm")
-      : "Type DELETE to confirm";
-    const deleteBtnText = this.i18n ? this.i18n.t("delete") : "Delete";
-    const cancelBtnText = this.i18n ? this.i18n.t("cancel") : "Cancel";
+    /** @param {string} key @param {Record<string, unknown>} [params] */
+    const translated = (key, params) => escapeHtml(this.i18n.t(key, params));
+    const warningTitle = translated("confirm_delete_bindset_with_keys");
+    const warningMessage = translated("bindset_delete_warning", {
+      name: bindsetName,
+      count: keyCount,
+    });
+    const confirmationText = translated("bindset_delete_confirmation_text");
+    const instructionText = translated("bindset_delete_type_confirm");
 
     modal.innerHTML = `
       <div class="modal-content bindset-delete-confirm-content">
@@ -173,7 +303,7 @@ export default class BindsetDeleteConfirmUI extends UIComponentBase {
         <div class="modal-body">
           <div class="bindset-delete-warning">
             <p><strong>${warningMessage}</strong></p>
-            <p>${this.i18n ? this.i18n.t("bindset_delete_consequences") : "All keybinds in this bindset will be permanently lost and cannot be recovered."}</p>
+            <p>${translated("bindset_delete_consequences")}</p>
           </div>
 
           <div class="bindset-delete-steps">
@@ -203,100 +333,15 @@ export default class BindsetDeleteConfirmUI extends UIComponentBase {
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary bindset-delete-cancel-btn">
-            ${cancelBtnText}
+            ${translated("cancel")}
           </button>
           <button class="btn btn-danger bindset-delete-confirm-btn" disabled>
-            ${deleteBtnText}
+            ${translated("delete")}
           </button>
         </div>
       </div>
     `;
 
     return modal;
-  }
-
-  /**
-   * Regenerate the modal content for language changes.
-   */
-  regenerateModal() {
-    if (!this.currentModal) return;
-
-    const { bindsetName, keyCount, modalElement, modalId, resolve } =
-      this.currentModal;
-
-    // Store current form state
-    const checkbox = /** @type {HTMLInputElement} */ (
-      modalElement.querySelector("#bindset-delete-confirm-checkbox")
-    );
-    const textInput = /** @type {HTMLInputElement} */ (
-      modalElement.querySelector("#bindset-delete-confirm-input")
-    );
-    const checkboxChecked = checkbox.checked;
-    const textValue = textInput.value;
-
-    const newModal = this.createModal(bindsetName, keyCount);
-    newModal.id = modalId;
-
-    // Replace the old modal with the new one
-    modalElement.replaceWith(newModal);
-    this.currentModal.modalElement = newModal;
-
-    // Restore form state
-    const newCheckbox = /** @type {HTMLInputElement} */ (
-      newModal.querySelector("#bindset-delete-confirm-checkbox")
-    );
-    const newTextInput = /** @type {HTMLInputElement} */ (
-      newModal.querySelector("#bindset-delete-confirm-input")
-    );
-    const newDeleteBtn = /** @type {HTMLButtonElement} */ (
-      newModal.querySelector(".bindset-delete-confirm-btn")
-    );
-    const newCancelBtn = /** @type {HTMLButtonElement} */ (
-      newModal.querySelector(".bindset-delete-cancel-btn")
-    );
-
-    newCheckbox.checked = checkboxChecked;
-    newTextInput.value = textValue;
-
-    // Re-attach event listeners
-    const validateForm = () => {
-      const checkboxChecked = newCheckbox.checked;
-      const textValue = newTextInput.value.trim().toUpperCase();
-      const deleteConfirmed = checkboxChecked && textValue === "DELETE";
-
-      newDeleteBtn.disabled = !deleteConfirmed;
-      newTextInput.disabled = !checkboxChecked;
-
-      return deleteConfirmed;
-    };
-
-    newCheckbox.addEventListener("change", validateForm);
-    newTextInput.addEventListener("input", validateForm);
-
-    const handleConfirm = () => {
-      this.modalManager?.unregisterRegenerateCallback?.(modalId);
-      this.currentModal = null;
-      this.modalManager?.hide(modalId);
-      if (newModal.parentNode) {
-        newModal.parentNode.removeChild(newModal);
-      }
-      resolve(true);
-    };
-
-    const handleCancel = () => {
-      this.modalManager?.unregisterRegenerateCallback?.(modalId);
-      this.currentModal = null;
-      this.modalManager?.hide(modalId);
-      if (newModal.parentNode) {
-        newModal.parentNode.removeChild(newModal);
-      }
-      resolve(false);
-    };
-
-    newDeleteBtn.addEventListener("click", handleConfirm);
-    newCancelBtn.addEventListener("click", handleCancel);
-
-    // Initialize form state
-    validateForm();
   }
 }

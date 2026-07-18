@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import KeyBrowserService from "../../src/js/components/services/KeyBrowserService.js";
+import {
+  createKeyBrowserBindsetSection,
+  createKeyBrowserCategoryElement,
+} from "../../src/js/components/ui/keyBrowserGridDom.js";
 import KeyBrowserUI from "../../src/js/components/ui/KeyBrowserUI.js";
 import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
@@ -54,6 +58,22 @@ const mountKeyGrid = () => {
     </div>
   `;
 };
+
+const rendererInput = (targetUi) => ({
+  document,
+  i18n: { t: (key) => key },
+  mode: targetUi.cache.keyBrowserViewState?.mode || "grid",
+  profile: createProfile(),
+  environment: "space",
+  primaryKeyMap: { F1: ["FireAll"] },
+  viewState: targetUi.cache.keyBrowserViewState,
+  showBindsetSections: false,
+  selectedKey: null,
+  activeBindset: "Primary Bindset",
+  sortKeys: (keys) => keys,
+  categorizeByCommand: () => ({}),
+  categorizeByType: () => ({}),
+});
 
 describe("Integration: KeyBrowser view-state ownership", () => {
   let eventBusFixture;
@@ -213,7 +233,8 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       expect(ui.pendingInitialRender).toBe(false);
       expect(request).not.toHaveBeenCalled();
 
-      const category = await ui.createKeyCategoryElement(
+      const category = createKeyBrowserCategoryElement(
+        rendererInput(ui),
         toggleCategory,
         {
           name: "Integration probe",
@@ -221,6 +242,8 @@ describe("Integration: KeyBrowser view-state ownership", () => {
           keys: ["F1"],
         },
         "command",
+        { F1: ["FireAll"] },
+        null,
       );
       document.getElementById("keyGrid")?.appendChild(category);
       const header = category.querySelector("h4");
@@ -229,7 +252,7 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       expect(header?.classList).not.toContain("collapsed");
       expect(commands?.classList).not.toContain("collapsed");
 
-      await ui.toggleKeyCategory(toggleCategory, category, "command");
+      await ui.toggleKeyCategory(toggleCategory, "command");
 
       expect(localStorage.getItem(toggleStorageKey)).toBe("true");
       expect(service.getCurrentState().collapsedCategories.command).toContain(
@@ -245,7 +268,7 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       expect(header?.classList).toContain("collapsed");
       expect(commands?.classList).toContain("collapsed");
 
-      await ui.toggleKeyCategory(toggleCategory, category, "command");
+      await ui.toggleKeyCategory(toggleCategory, "command");
 
       expect(localStorage.getItem(toggleStorageKey)).toBe("false");
       expect(
@@ -339,15 +362,21 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       icon: "fas fa-folder",
       keys: [],
     };
-    const firstCategory = await ui.createKeyCategoryElement(
+    const firstCategory = createKeyBrowserCategoryElement(
+      rendererInput(ui),
       sharedCategory,
       categoryData,
       "command",
+      {},
+      null,
     );
-    const secondCategory = await secondUi.createKeyCategoryElement(
+    const secondCategory = createKeyBrowserCategoryElement(
+      rendererInput(secondUi),
       sharedCategory,
       categoryData,
       "command",
+      {},
+      null,
     );
     const sectionData = {
       name: sharedBindset,
@@ -355,20 +384,24 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       keyCount: 0,
       isCollapsed: false,
     };
-    const firstBindset = await ui.createBindsetSectionElement(
+    const firstBindset = await createKeyBrowserBindsetSection(
+      rendererInput(ui),
       sharedBindset,
       sectionData,
+      {},
     );
-    const secondBindset = await secondUi.createBindsetSectionElement(
+    const secondBindset = await createKeyBrowserBindsetSection(
+      rendererInput(secondUi),
       sharedBindset,
       sectionData,
+      {},
     );
     document.getElementById("first-grid")?.append(firstCategory, firstBindset);
     document
       .getElementById("second-grid")
       ?.append(secondCategory, secondBindset);
 
-    await ui.toggleKeyCategory(sharedCategory, firstCategory, "command");
+    await ui.toggleKeyCategory(sharedCategory, "command");
 
     expect(localStorage.getItem(sharedCategoryStorageKey)).toBe("true");
     expect(firstCategory.querySelector("h4")?.classList).toContain("collapsed");
@@ -383,7 +416,7 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       ui.cache.keyBrowserViewState,
     );
 
-    await secondUi.toggleKeyCategory(sharedCategory, secondCategory, "command");
+    await secondUi.toggleKeyCategory(sharedCategory, "command");
 
     expect(localStorage.getItem(sharedCategoryStorageKey)).toBe("false");
     expect(firstCategory.querySelector("h4")?.classList).not.toContain(
@@ -394,7 +427,7 @@ describe("Integration: KeyBrowser view-state ownership", () => {
     );
     expect(ui.cache.keyBrowserViewState?.revision).toBe(2);
 
-    await ui.toggleBindsetSection(sharedBindset, firstBindset);
+    await ui.toggleBindsetSection(sharedBindset);
 
     expect(localStorage.getItem(sharedBindsetStorageKey)).toBe("true");
     for (const bindset of [firstBindset, secondBindset]) {
@@ -413,7 +446,7 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       ui.cache.keyBrowserViewState,
     );
 
-    await secondUi.toggleBindsetSection(sharedBindset, secondBindset);
+    await secondUi.toggleBindsetSection(sharedBindset);
 
     expect(localStorage.getItem(sharedBindsetStorageKey)).toBe("false");
     for (const bindset of [firstBindset, secondBindset]) {
