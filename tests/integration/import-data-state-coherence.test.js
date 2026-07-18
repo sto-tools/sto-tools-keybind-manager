@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import ImportService from "../../src/js/components/services/ImportService.js";
@@ -23,6 +25,21 @@ const initialProfile = {
   keybindMetadata: {},
   aliasMetadata: {},
   bindsetMetadata: {},
+};
+
+const encodeKBF = (value) => Buffer.from(value, "utf8").toString("base64");
+const keysetKBF = readFileSync(
+  join(process.cwd(), "tests/fixtures/kbf/keyset.KBF"),
+  "utf8",
+);
+
+const createUnsafeKeyKBF = () => {
+  const activity = encodeKBF("Activity:1;");
+  const key = encodeKBF(
+    `Key:__proto__;Control:0;Alt:0;Shift:0;Combo:;ACT:${activity};`,
+  );
+  const keyset = encodeKBF(`Name:Master;KEY:${key};`);
+  return encodeKBF(`GROUPSET:1;KEYSET:${keyset};`);
 };
 
 describe("ImportService DataCoordinator coherence", () => {
@@ -198,30 +215,75 @@ describe("ImportService DataCoordinator coherence", () => {
   });
 
   it("commits a KBF import as one authoritative revision", async () => {
-    vi.spyOn(service.kbfParser.decoder, "validateFormat").mockReturnValue({
-      isValid: true,
-      isKBF: true,
-      warnings: [],
-    });
-    vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue({
-      bindsets: {
-        Master: { keys: { F2: ["Jump"] }, metadata: {} },
-      },
-      aliases: {},
-      stats: {
-        totalBindsets: 1,
-        processedLayers: [],
-        skippedActivities: 0,
-        totalActivities: 0,
-      },
-      errors: [],
-      warnings: [],
-    });
-
     await expectCoherentCommit(
-      () => service.importKBFFile("valid KBF", profileId, "space"),
-      (profile) => expect(profile.builds.space.keys.F2).toEqual(["Jump"]),
+      () =>
+        service.importKBFFile(
+          keysetKBF,
+          profileId,
+          "space",
+          { strategy: "merge_keep" },
+          {
+            selectedBindsets: ["master"],
+            bindsetMappings: { master: "primary" },
+            bindsetRenames: {},
+          },
+        ),
+      (profile) => {
+        expect(profile.builds.space.keys.Space).toContain(
+          "+TrayExecByTray 0 0",
+        );
+        expect(profile.aliases.sto_kb_emotecycle_master_space_1).toMatchObject({
+          commands: ["sto_kb_emotecycle_master_space_1_step0"],
+          steps: ["sto_kb_emotecycle_master_space_1_step0"],
+          currentIndex: 0,
+        });
+      },
       "space",
     );
   });
+
+  it.each([
+    ["unsafe nested key data", () => createUnsafeKeyKBF(), null],
+    [
+      "unsafe mapping destination",
+      () => keysetKBF,
+      {
+        selectedBindsets: ["master"],
+        bindsetMappings: { master: "custom" },
+        bindsetRenames: { master: "__proto__" },
+      },
+    ],
+  ])(
+    "rejects %s without changing owner, cache, or durable state",
+    async (_, getContent, configuration) => {
+      const beforeState = structuredClone(coordinator.getCurrentState());
+      const beforeCache = structuredClone(service.cache.dataState);
+      const beforeDurable = localStorage.getItem("sto_keybind_manager");
+      eventBusFixture.clearEventHistory();
+
+      const result = await service.importKBFFile(
+        getContent(),
+        profileId,
+        "space",
+        { strategy: "merge_keep" },
+        configuration,
+      );
+
+      expect(result).toMatchObject({ success: false });
+      expect([
+        "invalid_kbf_parse_result",
+        "invalid_kbf_configuration",
+      ]).toContain(result.error);
+      expect(coordinator.getCurrentState()).toEqual(beforeState);
+      expect(service.cache.dataState).toEqual(beforeCache);
+      expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeDurable);
+      expect(
+        eventBusFixture
+          .getEventHistory()
+          .filter(({ event }) =>
+            ["data:state-changed", "profile:updated"].includes(event),
+          ),
+      ).toEqual([]);
+    },
+  );
 });

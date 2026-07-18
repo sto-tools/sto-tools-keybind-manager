@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
+import { completeKBFParseResult } from "../../fixtures/kbfParseResult.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { vi } from "vitest";
 
@@ -148,7 +149,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       const kbfContent = "VmFsaWQgS0JGIEZvcm1hdA=="; // Base64 encoded "Valid KBF Format"
@@ -197,8 +198,7 @@ describe("ImportService", () => {
               F2: ["cmd3"],
             },
             metadata: {
-              priorityOrder: 1,
-              testMeta: "testValue",
+              displayName: "Master",
             },
           },
         },
@@ -216,7 +216,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       // Mock storage service
@@ -313,7 +313,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       const mockProfile = {
@@ -450,7 +450,7 @@ describe("ImportService", () => {
               F2: ["power_exec TacticalTeam 1"],
             },
             aliases: {},
-            metadata: { priorityOrder: 1 },
+            metadata: { displayName: "Master" },
           },
           PvP: {
             keys: {
@@ -470,7 +470,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       // Mock storage service
@@ -614,7 +614,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       // Mock storage to return null (profile not found)
@@ -654,7 +654,7 @@ describe("ImportService", () => {
         mockValidationResult,
       );
 
-      // Mock parser result with metadata
+      // Mock parser result with canonical display metadata
       const mockParseResult = {
         bindsets: {
           Master: {
@@ -664,9 +664,7 @@ describe("ImportService", () => {
             },
             aliases: {},
             metadata: {
-              priorityOrder: 1,
-              stabilizeExecutionOrder: true,
-              customData: "test_metadata",
+              displayName: "Master",
             },
           },
         },
@@ -679,7 +677,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       // Mock storage service and capture saved profile
@@ -762,7 +760,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       // Mock storage service
@@ -839,7 +837,7 @@ describe("ImportService", () => {
         ],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       // Mock storage service
@@ -956,7 +954,7 @@ describe("ImportService", () => {
         warnings: [],
       };
       vi.spyOn(service.kbfParser, "parseFile").mockResolvedValue(
-        mockParseResult,
+        completeKBFParseResult(mockParseResult),
       );
 
       // Mock storage service

@@ -71,6 +71,13 @@ type SyncFolderExportRequest = Expect<
 type UtilityClipboardRequest = Expect<
   Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
 >;
+const nullableKBFImportRequest: RpcRequest<"import:kbf-file"> = {
+  content: "encoded-kbf",
+  profileId: "captain",
+  options: null,
+  configuration: null,
+};
+void nullableKBFImportRequest;
 type SyncProjectResultIsExact = Expect<
   Equal<RpcResult<"sync:sync-project">, SyncProjectResult>
 >;

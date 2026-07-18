@@ -1,6 +1,7 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { getSnapshotProfile } from "../services/dataState.js";
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../services/textImportBoundary.js";
+import { buildKBFPreviewHtml } from "./kbfPreviewDom.js";
 import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 
 /** @typedef {'keybinds' | 'aliases' | 'kbf'} ImportType */
@@ -18,7 +19,7 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
  *   masterDisplayName?: string
  * }} ValidKBFParseResult
  */
-/** @typedef {{ valid: false, error?: string }} InvalidKBFParseResult */
+/** @typedef {Extract<import('../../types/rpc/import-export.js').KBFParseForUiResult, { valid: false }>} InvalidKBFParseResult */
 /** @typedef {ValidKBFParseResult | InvalidKBFParseResult} KBFParseResult */
 /**
  * @typedef {{
@@ -220,7 +221,10 @@ export default class ImportUI extends UIComponentBase {
             });
 
             if (!parseResult.valid) {
-              const message = this.i18n.t("invalid_kbf_file_format");
+              const message = this.i18n.t(
+                parseResult.error ?? "invalid_kbf_file_format",
+                parseResult.params,
+              );
               this.showToast(message, "error");
               this.document.body.removeChild(input);
               return;
@@ -1496,39 +1500,9 @@ export default class ImportUI extends UIComponentBase {
         modal.querySelector("#preview_content")
       );
       if (!previewContent) return;
-
-      if (configuration && configuration.selectedBindsets.length > 0) {
-        let previewHTML = '<div class="preview-table">';
-
-        configuration.selectedBindsets.forEach((bindsetName) => {
-          const displayName = bindsetName; // Fix: Show original name in preview as well
-          const mapping = configuration.bindsetMappings[bindsetName];
-          const finalName = configuration.bindsetRenames[bindsetName];
-
-          let mappingDisplay = "";
-          if (mapping === "primary") {
-            mappingDisplay = `<span class="mapping-indicator primary">${this.i18n.t("maps_to_primary_bindset")}</span>`;
-          } else if (mapping === "custom") {
-            const hasConflict =
-              finalName !==
-              (configuration.bindsetRenames[bindsetName] || bindsetName);
-            mappingDisplay = `<span class="mapping-indicator custom ${hasConflict ? "conflict" : ""}">${this.i18n.t("maps_to")}: ${finalName}</span>`;
-          }
-
-          previewHTML += `
-            <div class="preview-row">
-              <span class="preview-original">${displayName}</span>
-              <span class="preview-arrow">→</span>
-              ${mappingDisplay}
-            </div>
-          `;
-        });
-
-        previewHTML += "</div>";
-        previewContent.innerHTML = previewHTML;
-      } else {
-        previewContent.innerHTML = `<p class="preview-placeholder">${this.i18n.t("select_bindsets_for_preview")}</p>`;
-      }
+      previewContent.innerHTML = buildKBFPreviewHtml(configuration, (key) =>
+        this.i18n.t(key),
+      );
     };
 
     // Add listeners to dropdown controls and custom inputs

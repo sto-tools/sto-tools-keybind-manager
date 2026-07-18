@@ -92,7 +92,10 @@ describe("ImportService responder lifecycle", () => {
     expect(parseKBFFile).toHaveBeenCalledTimes(2);
   });
 
-  it("does not inspect null KBF options when the top-level strategy is valid", async () => {
+  it.each([
+    ["a valid top-level strategy is present", "merge_keep"],
+    ["the strategy is omitted", undefined],
+  ])("canonicalizes null KBF options when %s", async (_, strategy) => {
     const result = {
       success: false,
       error: "invalid_kbf_file_content",
@@ -108,7 +111,8 @@ describe("ImportService responder lifecycle", () => {
         profileId: "profile-1",
         environment: "space",
         options: null,
-        strategy: "merge_keep",
+        strategy,
+        configuration: null,
       }),
     ).resolves.toEqual(result);
     expect(importKBFFile).toHaveBeenCalledWith(
@@ -116,7 +120,7 @@ describe("ImportService responder lifecycle", () => {
       "profile-1",
       "space",
       { strategy: "merge_keep" },
-      undefined,
+      null,
     );
   });
 });

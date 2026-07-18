@@ -47,6 +47,8 @@ function createParseResult() {
     aliases: {},
     stats: {
       totalBindsets: 1,
+      totalKeys: 2,
+      totalAliases: 0,
       totalActivities: 2,
       processedLayers: [1, 2, 3, 4, 5, 6],
       skippedActivities: 0,
@@ -162,6 +164,11 @@ describe("ImportService KBF merge strategies", () => {
           keys: { F4: ["ImportedSecondary"] },
           metadata: {},
         },
+      },
+      stats: {
+        ...createParseResult().stats,
+        totalBindsets: 2,
+        totalKeys: 3,
       },
     });
 

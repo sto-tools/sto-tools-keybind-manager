@@ -10,6 +10,11 @@
 // - Key token normalization to match application's internal representation
 
 import { STO_KEY_NAMES } from "../../../data/stoKeyNames.js";
+import {
+  decodeKBFComboField,
+  decodeKBFTextField,
+  parseKBFIntegerField,
+} from "../fieldValueBoundary.js";
 
 /** @typedef {{ fieldName: string, value: string, hasColon: boolean, [field: string]: any }} KbfRecord */
 
@@ -479,55 +484,15 @@ export class FieldParser {
     minValue = null,
     maxValue = null,
   ) {
-    if (!record.hasColon || !record.value) {
-      this.addError(`Invalid ${fieldName} field: missing colon or value`, {
-        fieldName: record.fieldName,
-        value: record.value,
-        fieldIndex,
-      });
-      return null;
-    }
-
-    const value = record.value.trim();
-
-    if (value.length === 0) {
-      this.addError(`Empty ${fieldName} field`, {
-        fieldIndex,
-      });
-      return null;
-    }
-
-    // Validate that value is numeric (allow negative numbers)
-    if (!/^-?\d+$/.test(value)) {
-      this.addError(`Invalid ${fieldName} field: must be numeric`, {
-        fieldIndex,
-        value,
-      });
-      return null;
-    }
-
-    const numericValue = parseInt(value, 10);
-
-    // Range validation if provided
-    if (minValue !== null && numericValue < minValue) {
-      this.addWarning(`${fieldName} value below minimum, using minimum`, {
-        fieldIndex,
-        value: numericValue,
-        minValue,
-      });
-      return minValue;
-    }
-
-    if (maxValue !== null && numericValue > maxValue) {
-      this.addWarning(`${fieldName} value above maximum, using maximum`, {
-        fieldIndex,
-        value: numericValue,
-        maxValue,
-      });
-      return maxValue;
-    }
-
-    return numericValue;
+    return parseKBFIntegerField({
+      record,
+      fieldIndex,
+      fieldName,
+      minValue,
+      maxValue,
+      addError: (message, context) => this.addError(message, context),
+      addWarning: (message, context) => this.addWarning(message, context),
+    });
   }
 
   /**
@@ -578,80 +543,19 @@ export class FieldParser {
    * Parse Combo field with *-delimited base64 tokens
    * @param {KbfRecord} record - Combo field record
    * @param {number} fieldIndex - Field index for error reporting
-   * @returns {string[]} Array of decoded combo tokens
+   * @returns {string[] | null} Array of decoded combo tokens
    * @private
    */
   parseComboField(record, fieldIndex) {
-    if (!record.hasColon) {
-      this.addError("Invalid Combo field: missing colon", {
-        fieldName: record.fieldName,
-        value: record.value,
-        fieldIndex,
-      });
-      return [];
-    }
-
-    const comboValue = record.value.trim();
-
-    if (comboValue.length === 0) {
-      // Empty combo field is valid (no combo)
-      return [];
-    }
-
-    // Split by * delimiter and trim trailing empty entries (including trailing * delimiters)
-    // Remove empty strings from the result
-    const tokens = comboValue.split("*").filter((token) => token.length > 0);
-
-    if (tokens.length === 0) {
-      // All tokens were empty after filtering (e.g., just "*" or empty)
-      return [];
-    }
-
-    /** @type {string[]} */
-    const decodedTokens = [];
-
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i].trim();
-
-      if (token.length === 0) {
-        // Skip empty tokens (shouldn't happen due to filtering, but be safe)
-        continue;
-      }
-
-      // Basic validation that token looks like Base64
-      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(token)) {
-        this.addWarning(`Combo token may not be valid Base64 data`, {
-          fieldIndex,
-          tokenIndex: i,
-          token,
-        });
-        // Skip invalid tokens completely
-        continue;
-      }
-
-      // Base64-decode each token
-      try {
-        const decodedToken = atob(token);
-        if (decodedToken.length > 0) {
-          decodedTokens.push(decodedToken);
-        }
-      } catch (error) {
-        const errorObject =
-          error instanceof Error ? error : new Error(String(error));
-        this.addWarning(
-          `Failed to decode combo token: ${errorObject.message}`,
-          {
-            fieldIndex,
-            tokenIndex: i,
-            token,
-            errorType: errorObject.name,
-          },
-        );
-        // Skip this token and continue with others
-      }
-    }
-
-    return decodedTokens;
+    return decodeKBFComboField({
+      record,
+      fieldIndex,
+      canonicalizeToken: (token) => {
+        const canonical = this.normalizeKeyToken(token);
+        return STO_KEY_NAMES.includes(canonical) ? canonical : null;
+      },
+      addError: (message, context) => this.addError(message, context),
+    });
   }
 
   /**
@@ -706,100 +610,13 @@ export class FieldParser {
    * @private
    */
   parseBase64TextField(record, fieldIndex) {
-    if (!record.hasColon) {
-      this.addError(`Invalid ${record.fieldName} field: missing colon`, {
-        fieldName: record.fieldName,
-        value: record.value,
-        fieldIndex,
-      });
-      return null;
-    }
-
-    // Handle the case where field has colon but no value (empty text field)
-    if (record.value === null || record.value === undefined) {
-      // Empty text fields are valid in KBF format
-      return "";
-    }
-
-    const base64Text = record.value.trim();
-
-    if (base64Text.length === 0) {
-      // Empty text fields are valid in KBF format
-      return "";
-    }
-
-    // Basic validation that text looks like Base64
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Text)) {
-      this.addWarning(
-        `${record.fieldName} field may not be valid Base64 data`,
-        {
-          fieldIndex,
-          textLength: base64Text.length,
-          textPreview: base64Text.slice(0, 50),
-        },
-      );
-      // Still try to decode it - let Base64 decoding handle the error
-    }
-
-    // Base64 decode the text content
-    try {
-      // Convert base64 to binary string, then to Uint8Array for proper UTF-8 decoding
-      const binaryString = atob(base64Text);
-      const utf8Bytes = new Uint8Array(binaryString.length);
-
-      for (let i = 0; i < binaryString.length; i++) {
-        utf8Bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      // Decode UTF-8 bytes properly
-      try {
-        const decoder = new TextDecoder("utf-8", { fatal: true });
-        const validUtf8Text = decoder.decode(utf8Bytes);
-        return validUtf8Text;
-      } catch (utf8Error) {
-        const utf8ErrorObject =
-          utf8Error instanceof Error ? utf8Error : new Error(String(utf8Error));
-        // If UTF-8 validation fails, fall back to non-fatal decoding
-        this.addWarning(
-          `${record.fieldName} field contains invalid UTF-8 data, using fallback decoding`,
-          {
-            fieldIndex,
-            errorType: utf8ErrorObject.name,
-            errorMessage: utf8ErrorObject.message,
-          },
-        );
-
-        try {
-          const decoder = new TextDecoder("utf-8", { fatal: false });
-          const fallbackText = decoder.decode(utf8Bytes);
-          return fallbackText;
-        } catch (fallbackError) {
-          const fallbackErrorObject =
-            fallbackError instanceof Error
-              ? fallbackError
-              : new Error(String(fallbackError));
-          this.addError(
-            `Complete ${record.fieldName} field UTF-8 decoding failure`,
-            {
-              fieldIndex,
-              errorType: fallbackErrorObject.name,
-              errorMessage: fallbackErrorObject.message,
-            },
-          );
-          return ""; // Return empty string as last resort
-        }
-      }
-    } catch (error) {
-      const errorObject =
-        error instanceof Error ? error : new Error(String(error));
-      this.addError(`Failed to Base64 decode ${record.fieldName} field`, {
-        fieldIndex,
-        errorType: errorObject.name,
-        errorMessage: errorObject.message,
-        textLength: base64Text.length,
-      });
-      return ""; // Return empty string as last resort
-    }
+    return decodeKBFTextField({
+      record,
+      fieldIndex,
+      validateUtf8: this.options.validateUtf8,
+      addError: (message, context) => this.addError(message, context),
+      addWarning: (message, context) => this.addWarning(message, context),
+    });
   }
 
   // ---------------------------------------------------------------------------

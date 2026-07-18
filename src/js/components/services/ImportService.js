@@ -9,6 +9,11 @@ import { KBFParser } from "../../lib/KBFParser.js";
 import { commitImportedProfile } from "./importProfileCommit.js";
 import { importProjectToStorage } from "./projectImportOrchestrator.js";
 import {
+  decodeKBFImportConfiguration,
+  decodeKBFParseResult,
+} from "./kbfDataBoundary.js";
+import { planKBFImport } from "./kbfImportPlanner.js";
+import {
   aliasTextFailureResult,
   keybindTextFailureResult,
   materializeAliasText,
@@ -21,10 +26,13 @@ const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
 
 /**
  * @param {string | undefined} strategy
- * @param {string} [fallback]
+ * @param {'merge_keep' | 'merge_overwrite' | 'overwrite_all'} [fallback]
+ * @returns {'merge_keep' | 'merge_overwrite' | 'overwrite_all'}
  */
 const resolveImportStrategy = (strategy, fallback = "merge_keep") =>
-  VALID_STRATEGIES.find((candidate) => candidate === strategy) || fallback;
+  /** @type {'merge_keep' | 'merge_overwrite' | 'overwrite_all'} */ (
+    VALID_STRATEGIES.find((candidate) => candidate === strategy) || fallback
+  );
 
 /** @type {AppWindow | null} */
 const appWindow =
@@ -92,11 +100,11 @@ export default class ImportService extends ComponentBase {
             profileId,
             environment,
             {
-              ...options,
+              ...(options ?? {}),
               strategy: VALID_STRATEGIES.includes(strategy || "")
                 ? strategy
-                : /** @type {{ strategy?: string }} */ (options).strategy ||
-                  "merge_keep",
+                : /** @type {{ strategy?: string }} */ (options ?? {})
+                    .strategy || "merge_keep",
             },
             configuration,
           ),
@@ -503,6 +511,9 @@ export default class ImportService extends ComponentBase {
         params: { environment, validEnvironments },
       };
     }
+    const targetEnvironment = /** @type {'space' | 'ground'} */ (environment);
+
+    const canonicalStrategy = resolveImportStrategy(strategy);
 
     try {
       // Basic format validation
@@ -523,13 +534,19 @@ export default class ImportService extends ComponentBase {
       }
 
       // Parse KBF file synchronously like other imports
-      const parseResult =
-        /** @type {import('./serviceTypes.js').KBFParseResult} */ (
-          await this.kbfParser.parseFile(content, {
-            targetEnvironment: environment,
-            includeMetadata: true,
-          })
-        );
+      const rawParseResult = await this.kbfParser.parseFile(content, {
+        targetEnvironment,
+        includeMetadata: true,
+      });
+      const decodedParseResult = decodeKBFParseResult(rawParseResult);
+      if (!decodedParseResult.success) {
+        return {
+          success: false,
+          error: decodedParseResult.error,
+          params: decodedParseResult.params,
+        };
+      }
+      const parseResult = decodedParseResult.value;
 
       // Check for parsing errors and collect warnings
       if (parseResult.errors) {
@@ -547,11 +564,20 @@ export default class ImportService extends ComponentBase {
         );
       }
 
-      // Drop per-bindset alias structures from parsed data (app does not support bindset-scoped aliases)
-      Object.values(parseResult.bindsets || {}).forEach((bindset) => {
-        if (bindset.space?.aliases) delete bindset.space.aliases;
-        if (bindset.ground?.aliases) delete bindset.ground.aliases;
-      });
+      const decodedConfiguration = decodeKBFImportConfiguration(
+        configuration,
+        Object.keys(parseResult.bindsets),
+      );
+      if (!decodedConfiguration.success) {
+        return {
+          success: false,
+          error: decodedConfiguration.error,
+          params: decodedConfiguration.params,
+          errors,
+          warnings,
+        };
+      }
+      const canonicalConfiguration = decodedConfiguration.value;
 
       // Fail fast on fundamental structural corruption
       if (parseResult.stats.totalBindsets === 0) {
@@ -575,38 +601,6 @@ export default class ImportService extends ComponentBase {
           warnings,
         };
       }
-      profile = structuredClone(profile);
-
-      // Ensure minimal structures for migration import without verbose scaffolding
-      if (!profile.builds) profile.builds = {};
-      if (!profile.builds[environment]) {
-        profile.builds[environment] = { keys: {}, aliases: {} };
-      } else {
-        if (!profile.builds[environment].keys)
-          profile.builds[environment].keys = {};
-        if (!profile.builds[environment].aliases)
-          profile.builds[environment].aliases = {};
-      }
-      if (!profile.bindsets) profile.bindsets = {};
-      if (!profile.aliases) profile.aliases = {};
-      if (!profile.keybindMetadata) profile.keybindMetadata = {};
-      if (!profile.aliasMetadata) profile.aliasMetadata = {};
-      if (!profile.bindsetMetadata) profile.bindsetMetadata = {};
-
-      // Initialize tracking variables (previously from processKBFBindsets)
-      let totalKeysImported = 0;
-      let totalAliasesImported = 0;
-      let totalKeysSkipped = 0;
-      let totalKeysOverwritten = 0;
-      let totalKeysCleared = 0;
-      let hasPrimaryBindset = false;
-
-      // Check if there's only one bindset and if it's a Master bindset
-      const bindsetNames = Object.keys(parseResult.bindsets);
-      const isSingleBindsetFile = bindsetNames.length === 1;
-      const onlyBindsetIsMaster =
-        isSingleBindsetFile && bindsetNames[0].toLowerCase() === "master";
-
       // PreferencesService publishes a complete settings snapshot during
       // startup and through the late-join handshake. Keep imports safe if this
       // service is ever invoked before either path has hydrated its cache.
@@ -621,350 +615,35 @@ export default class ImportService extends ComponentBase {
         );
       }
 
-      // Handle bindset selection - configuration takes priority over legacy options
-      let bindsetsToProcess = bindsetNames;
-      /** @type {Record<string, string>} */
-      let bindsetRenames = {};
-      /** @type {Record<string, string>} */
-      let bindsetMappings = {};
+      const plan = planKBFImport({
+        profile,
+        parseResult,
+        environment: targetEnvironment,
+        strategy: canonicalStrategy,
+        configuration: canonicalConfiguration,
+        bindsetsEnabled,
+      });
+      if (!plan.success) return { ...plan, warnings };
 
-      if (configuration) {
-        // Enhanced configuration provided
-        bindsetsToProcess = configuration.selectedBindsets || bindsetNames;
-        bindsetRenames = configuration.bindsetRenames || {};
-        bindsetMappings = configuration.bindsetMappings || {};
-
-        // Validate against bindsetsEnabled preference
-        if (!bindsetsEnabled && bindsetsToProcess.length > 1) {
-          return {
-            success: false,
-            error: "multiple_bindsets_not_allowed",
-            message:
-              "Multiple bindset import is not allowed when bindsets are disabled",
-            errors: [
-              `Configuration specifies ${bindsetsToProcess.length} bindsets but bindsetsEnabled = false`,
-            ],
-            warnings,
-          };
-        }
-      } else if (onlyBindsetIsMaster) {
-        // Default behavior: map single Master bindset to primary
-        bindsetMappings[bindsetNames[0]] = "primary";
-      } // Note: Legacy options support removed since strategy parameter changed - use configuration instead
-
-      // Additional validation: ensure all selected bindsets map to primary when bindsets disabled
-      if (!bindsetsEnabled && bindsetsToProcess.length > 0) {
-        for (const bindsetName of bindsetsToProcess) {
-          const mappingType = bindsetMappings[bindsetName] || "primary";
-          if (mappingType !== "primary") {
-            return {
-              success: false,
-              error: "non_primary_mapping_not_allowed",
-              message:
-                "Bindsets can only be mapped to primary bindset when bindsets are disabled",
-              errors: [
-                `Bindset "${bindsetName}" is mapped to "${mappingType}" but only "primary" is allowed when bindsetsEnabled = false`,
-              ],
-              warnings,
-            };
-          }
-        }
-      }
-
-      // Apply KBF strategy logic - determine which targets need clearing
-      if (strategy === "overwrite_all") {
-        // For each selected bindset, clear the target destination based on mapping type
-        for (const bindsetName of Object.keys(parseResult.bindsets)) {
-          if (!bindsetsToProcess.includes(bindsetName)) continue;
-
-          const mappingType = bindsetMappings[bindsetName] || "custom";
-          const finalName = bindsetRenames[bindsetName] || bindsetName;
-
-          if (mappingType === "primary") {
-            // Clear primary environment keys
-            const existingKeys = Object.keys(
-              profile.builds[environment].keys || {},
-            );
-            totalKeysCleared += existingKeys.length;
-            Object.keys(profile.builds[environment].keys || {}).forEach(
-              (key) => delete profile.builds[environment].keys[key],
-            );
-
-            // Clear corresponding primary keybind metadata for consistent state
-            if (
-              profile.keybindMetadata &&
-              profile.keybindMetadata[environment]
-            ) {
-              existingKeys.forEach((key) => {
-                delete profile.keybindMetadata[environment][key];
-              });
-            }
-          } else {
-            // Clear named bindset keys
-            const finalBindsetName = finalName;
-            if (!profile.bindsets) profile.bindsets = {};
-            if (!profile.bindsets[finalBindsetName])
-              profile.bindsets[finalBindsetName] = {
-                space: { keys: {} },
-                ground: { keys: {} },
-              };
-
-            const existingKeys = Object.keys(
-              profile.bindsets[finalBindsetName][environment].keys || {},
-            );
-            totalKeysCleared += existingKeys.length;
-            Object.keys(
-              profile.bindsets[finalBindsetName][environment].keys || {},
-            ).forEach(
-              (key) =>
-                delete profile.bindsets[finalBindsetName][environment].keys[
-                  key
-                ],
-            );
-
-            // Clear corresponding bindset metadata for consistent state
-            if (
-              profile.bindsetMetadata &&
-              profile.bindsetMetadata[finalBindsetName] &&
-              profile.bindsetMetadata[finalBindsetName][environment]
-            ) {
-              existingKeys.forEach((key) => {
-                delete profile.bindsetMetadata[finalBindsetName][environment][
-                  key
-                ];
-              });
-            }
-          }
-        }
-      }
-
-      // Process bindsets using unified mapping-based logic
-      for (const [bindsetName, bindsetData] of Object.entries(
-        parseResult.bindsets,
-      )) {
-        // Skip if this bindset is not in the selection list
-        if (!bindsetsToProcess.includes(bindsetName)) {
-          continue;
-        }
-
-        try {
-          // Get mapping type and final name from configuration
-          const mappingType = bindsetMappings[bindsetName] || "custom";
-          const finalName = bindsetRenames[bindsetName] || bindsetName;
-
-          if (mappingType === "primary") {
-            // Import into primary build
-            hasPrimaryBindset = true;
-            // Import keys into primary environment build
-            for (const [key, keyData] of Object.entries(
-              bindsetData.keys || {},
-            )) {
-              try {
-                let commands = keyData;
-                /** @type {import('./serviceTypes.js').BindsetKeyMetadata} */
-                let keyMetadata = {};
-
-                if (!Array.isArray(keyData) && keyData.commands) {
-                  commands = keyData.commands;
-                  keyMetadata = keyData.metadata || {};
-                }
-
-                // Check for conflicts based on strategy
-                if (
-                  strategy === "merge_keep" &&
-                  Object.prototype.hasOwnProperty.call(
-                    profile.builds[environment].keys,
-                    key,
-                  )
-                ) {
-                  totalKeysSkipped++;
-                  continue; // Skip existing key
-                }
-
-                // Track overwritten for merge_overwrite strategy
-                if (
-                  strategy === "merge_overwrite" &&
-                  Object.prototype.hasOwnProperty.call(
-                    profile.builds[environment].keys,
-                    key,
-                  )
-                ) {
-                  totalKeysOverwritten++;
-                }
-
-                // Convert rich objects to canonical string array
-                const commandArray = normalizeToStringArray(commands);
-                profile.builds[environment].keys[key] = commandArray;
-                totalKeysImported++;
-
-                // Handle PriorityOrder metadata for primary bindset
-                if (keyMetadata.stabilizeExecutionOrder) {
-                  if (!profile.keybindMetadata) profile.keybindMetadata = {};
-                  if (!profile.keybindMetadata[environment])
-                    profile.keybindMetadata[environment] = {};
-                  if (!profile.keybindMetadata[environment][key])
-                    profile.keybindMetadata[environment][key] = {};
-                  profile.keybindMetadata[environment][
-                    key
-                  ].stabilizeExecutionOrder = true;
-                }
-              } catch (keyError) {
-                console.warn(
-                  `Failed to process key "${key}" in primary bindset "${bindsetName}": ${getErrorMessage(keyError)}`,
-                );
-              }
-            }
-          } else {
-            // Import into named bindset
-            const finalBindsetName = finalName;
-
-            // Create bindset structure if it doesn't exist
-            if (!profile.bindsets) profile.bindsets = {};
-            if (!profile.bindsets[finalBindsetName]) {
-              profile.bindsets[finalBindsetName] = {
-                space: { keys: {} },
-                ground: { keys: {} },
-              };
-            }
-
-            // Import keys into named bindset
-            for (const [key, keyData] of Object.entries(
-              bindsetData.keys || {},
-            )) {
-              try {
-                let commands = keyData;
-                /** @type {import('./serviceTypes.js').BindsetKeyMetadata} */
-                let keyMetadata = {};
-
-                if (!Array.isArray(keyData) && keyData.commands) {
-                  commands = keyData.commands;
-                  keyMetadata = keyData.metadata || {};
-                }
-
-                // Check for conflicts based on strategy
-                const targetKeys =
-                  profile.bindsets[finalBindsetName][environment].keys || {};
-                if (
-                  strategy === "merge_keep" &&
-                  Object.prototype.hasOwnProperty.call(targetKeys, key)
-                ) {
-                  totalKeysSkipped++;
-                  continue; // Skip existing key
-                }
-
-                // Track overwritten for merge_overwrite strategy
-                if (
-                  strategy === "merge_overwrite" &&
-                  Object.prototype.hasOwnProperty.call(targetKeys, key)
-                ) {
-                  totalKeysOverwritten++;
-                }
-
-                const commandArray = normalizeToStringArray(commands);
-                profile.bindsets[finalBindsetName][environment].keys[key] =
-                  commandArray;
-                totalKeysImported++;
-
-                // Handle PriorityOrder metadata for user-defined bindsets
-                if (keyMetadata.stabilizeExecutionOrder) {
-                  if (!profile.bindsetMetadata) profile.bindsetMetadata = {};
-                  if (!profile.bindsetMetadata[finalBindsetName])
-                    profile.bindsetMetadata[finalBindsetName] = {};
-                  if (!profile.bindsetMetadata[finalBindsetName][environment])
-                    profile.bindsetMetadata[finalBindsetName][environment] = {};
-                  if (
-                    !profile.bindsetMetadata[finalBindsetName][environment][key]
-                  )
-                    profile.bindsetMetadata[finalBindsetName][environment][
-                      key
-                    ] = {};
-                  profile.bindsetMetadata[finalBindsetName][environment][
-                    key
-                  ].stabilizeExecutionOrder = true;
-                }
-              } catch (keyError) {
-                console.warn(
-                  `Failed to process key "${key}" in bindset "${finalBindsetName}": ${getErrorMessage(keyError)}`,
-                );
-              }
-            }
-          }
-        } catch (bindsetError) {
-          errors.push(
-            `Critical error processing bindset "${bindsetName}": ${getErrorMessage(bindsetError)}`,
-          );
-        }
-      }
-
-      // Process global aliases inline
-      if (parseResult.aliases && Object.keys(parseResult.aliases).length > 0) {
-        for (const [aliasName, aliasData] of Object.entries(
-          parseResult.aliases,
-        )) {
-          try {
-            const optimizedCommands = normalizeToStringArray(
-              aliasData.commands || [],
-            );
-
-            profile.aliases[aliasName] = {
-              commands: optimizedCommands,
-              description: aliasData.description || "",
-              metadata: aliasData.metadata || {},
-            };
-            totalAliasesImported++;
-          } catch (aliasError) {
-            console.warn(
-              `Failed to process global alias "${aliasName}": ${getErrorMessage(aliasError)}`,
-            );
-          }
-        }
-      }
-
-      await commitImportedProfile(this, profileId, profile, environment);
-
-      // Set app modified state if available
+      await commitImportedProfile(
+        this,
+        profileId,
+        plan.nextProfile,
+        targetEnvironment,
+      );
       this.markAppModified();
 
-      // Return success result
+      const { nextProfile: _committedProfile, ...result } = plan;
+      void _committedProfile;
       return {
-        success: true,
+        ...result,
         message: "kbf_import_completed",
-        imported: {
-          bindsets: bindsetsToProcess.length,
-          keys: totalKeysImported,
-          aliases: totalAliasesImported,
-        },
-        skipped: totalKeysSkipped,
-        overwritten: totalKeysOverwritten,
-        cleared: totalKeysCleared,
-        stats: {
-          processedLayers: parseResult.stats.processedLayers,
-          skippedActivities: parseResult.stats.skippedActivities,
-          totalActivities: parseResult.stats.totalActivities || 0,
-          totalErrors: errors.length,
-          totalWarnings: warnings.length,
-        },
         errors,
         warnings,
-        bindsetNames: Object.keys(parseResult.bindsets),
-        masterBindset: {
-          hasMasterBindset: Object.keys(parseResult.bindsets).some(
-            (name) => name.toLowerCase() === "master",
-          ),
-          masterBindsetName: Object.keys(parseResult.bindsets).find(
-            (name) => name.toLowerCase() === "master",
-          ),
-          mappedToPrimary: hasPrimaryBindset,
-          displayName: hasPrimaryBindset ? "Primary Bindset" : null,
-        },
-        singleBindsetFile: {
-          isSingleBindset: isSingleBindsetFile,
-          onlyBindsetIsMaster,
-          requiresBindsetSelection: isSingleBindsetFile
-            ? false
-            : parseResult.stats.totalBindsets > 1,
-          totalBindsetsAvailable: parseResult.stats.totalBindsets,
-          selectedBindsetsCount: bindsetsToProcess.length,
+        stats: {
+          ...result.stats,
+          totalErrors: errors.length,
+          totalWarnings: warnings.length,
         },
       };
     } catch (error) {
@@ -1043,13 +722,20 @@ export default class ImportService extends ComponentBase {
       }
 
       // Parse KBF file to extract bindset information without importing
-      const parseResult =
-        /** @type {import('./serviceTypes.js').KBFParseResult} */ (
-          await this.kbfParser.parseFile(content, {
-            targetEnvironment: environment,
-            includeMetadata: true,
-          })
-        );
+      const rawParseResult = await this.kbfParser.parseFile(content, {
+        targetEnvironment: environment,
+        includeMetadata: true,
+      });
+      const decodedParseResult = decodeKBFParseResult(rawParseResult);
+      if (!decodedParseResult.success) {
+        return {
+          valid: false,
+          error: decodedParseResult.error,
+          message: decodedParseResult.error,
+          params: decodedParseResult.params,
+        };
+      }
+      const parseResult = decodedParseResult.value;
 
       // Check for parsing errors and collect warnings
       if (parseResult.errors) {
@@ -1066,12 +752,6 @@ export default class ImportService extends ComponentBase {
           ),
         );
       }
-
-      // Drop per-bindset alias structures from parsed data (app does not support bindset-scoped aliases)
-      Object.values(parseResult.bindsets || {}).forEach((bindset) => {
-        if (bindset.space?.aliases) delete bindset.space.aliases;
-        if (bindset.ground?.aliases) delete bindset.ground.aliases;
-      });
 
       // Fail fast on fundamental structural corruption
       if (parseResult.stats.totalBindsets === 0) {
@@ -1117,7 +797,7 @@ export default class ImportService extends ComponentBase {
         const masterBindset = masterBindsetName
           ? parseResult.bindsets[masterBindsetName]
           : undefined;
-        if (masterBindset?.metadata?.displayName) {
+        if (typeof masterBindset?.metadata?.displayName === "string") {
           masterDisplayName = masterBindset.metadata.displayName;
         }
       }

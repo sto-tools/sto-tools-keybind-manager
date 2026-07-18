@@ -4,6 +4,14 @@ import {
   decodeUtf8,
 } from "./decoderUtils.js";
 import { parseStructuredRecords } from "./recordParser.js";
+import { validateKBFActivitySemantics } from "../activityDataBoundary.js";
+import {
+  extractKBFParserPayload,
+  normalizeKBFTranslation,
+  reserveKBFBindset,
+  reserveKBFKey,
+  storeKBFAlias,
+} from "../parserDataBoundary.js";
 
 /**
  * @typedef {(...args: any[]) => any} StructuredCallback
@@ -32,11 +40,13 @@ export class KBFDecodePipeline {
 
     this.addError = this.decoder.addError.bind(this.decoder);
     this.addWarning = this.decoder.addWarning.bind(this.decoder);
+    this.processedLayers = /** @type {Set<number>} */ (new Set());
   }
 
   /** @param {any} content @param {Record<string, any>} [options] */
   run(content, options = {}) {
     const { targetEnvironment = "space", includeMetadata = true } = options;
+    this.processedLayers = /** @type {Set<number>} */ (new Set());
 
     const parseResult = this.createEmptyResult();
 
@@ -44,8 +54,10 @@ export class KBFDecodePipeline {
     if (!layer1) {
       return this.finalizeResult(parseResult);
     }
+    this.processedLayers.add(1);
 
     const layer2 = this.parseLayer2(layer1);
+    if (layer2.success) this.processedLayers.add(2);
 
     if (!layer2.success || layer2.keysets.length === 0) {
       return this.finalizeResult(parseResult);
@@ -56,32 +68,27 @@ export class KBFDecodePipeline {
       if (!layer3.success) {
         continue;
       }
+      this.processedLayers.add(3);
 
       const bindsetName = layer3.name;
-      parseResult.bindsets[bindsetName] = {
-        keys: {},
-        aliases: {},
-        metadata: {},
-      };
-
-      console.log(
-        `DEBUG: Processing bindset "${bindsetName}" with ${layer3.keys.length} keys`,
+      const bindsetBoundary = reserveKBFBindset(
+        parseResult.bindsets,
+        bindsetName,
+        layer3.displayName,
       );
+      if (!bindsetBoundary.success) {
+        this.addError(bindsetBoundary.message, bindsetBoundary.context);
+        continue;
+      }
+      const bindset = bindsetBoundary.value;
 
       for (const keyData of layer3.keys) {
         const layer4 = this.parseLayer4(keyData);
-        console.log(`DEBUG: Layer4 for key:`, {
-          success: layer4.success,
-          hasKey: !!layer4.key,
-          key: layer4.key,
-          hasActivities: layer4.activities?.length || 0,
-          errors: layer4.errors?.length || 0,
-        });
 
         if (!layer4.success) {
-          console.log(`DEBUG: Skipping key due to layer4 failure`);
           continue;
         }
+        this.processedLayers.add(4);
 
         const canonicalKey = this.activityTranslator.mapKeyToken(
           layer4.key,
@@ -101,49 +108,71 @@ export class KBFDecodePipeline {
           continue;
         }
 
-        parseResult.bindsets[bindsetName].keys[canonicalKey] = {
-          commands: [],
-          metadata: {},
-        };
+        const keyBoundary = reserveKBFKey(
+          bindset.keys,
+          bindsetName,
+          canonicalKey,
+        );
+        if (!keyBoundary.success) {
+          this.addError(keyBoundary.message, keyBoundary.context);
+          continue;
+        }
+        const key = keyBoundary.value;
 
         // Track if stabilization-requiring activities were processed
         let requiresStabilization = false;
         const processedActivities = [];
-        for (const activityData of layer4.activities) {
+        for (const [
+          activityIndex,
+          activityData,
+        ] of layer4.activities.entries()) {
           const layer5 = this.parseLayer5(activityData);
           if (!layer5.success) {
             continue;
           }
+          this.processedLayers.add(5);
+
+          const activityPath = `$.bindsets.${bindsetName}.keys.${canonicalKey}.activities[${activityIndex}]`;
+          const semanticActivity = validateKBFActivitySemantics(
+            layer5,
+            activityPath,
+          );
+          if (!semanticActivity.success) {
+            this.addError("Invalid KBF activity semantics", {
+              fatal: true,
+              path: semanticActivity.params.path,
+            });
+            continue;
+          }
+          const decodedActivity = /** @type {{
+           *   activity: number,
+           *   text?: string | null,
+           *   text2?: string | null,
+           *   n1?: number | null,
+           *   n2?: number | null,
+           *   n3?: number | null,
+           *   order: number
+           * }} */ (semanticActivity.value);
 
           // Track if stabilization-requiring activities were processed
           if (
-            layer5.activity === 13 ||
-            layer5.activity === 26 ||
-            layer5.activity === 95
+            decodedActivity.activity === 13 ||
+            decodedActivity.activity === 26 ||
+            decodedActivity.activity === 95
           ) {
             requiresStabilization = true;
           }
 
-          // Only decode text fields as Base64 for specific activities that require it
-          // Activities 99 and 105 use plain text, not Base64
-          /** @type {number[]} */
-          const requiresBase64Decoding = [
-            // Add activity IDs that actually need Base64 decoding here
-            // Currently none identified as needing Base64 decoding
-          ];
-
-          let decodedText = layer5.text || "";
-          let decodedText2 = layer5.text2 || "";
-
-          if (requiresBase64Decoding.includes(layer5.activity)) {
-            decodedText = layer5.text ? this.decodeLayer6(layer5.text) : "";
-            decodedText2 = layer5.text2 ? this.decodeLayer6(layer5.text2) : "";
-          }
+          const decodedText = decodedActivity.text || "";
+          const decodedText2 = decodedActivity.text2 || "";
 
           const context = {
             environment: targetEnvironment,
             bindsetName,
             keyToken: canonicalKey,
+            baseKeyName: canonicalKey,
+            index: activityIndex,
+            path: activityPath,
             modifiers: layer4.modifiers || {},
             combo: layer4.combo || [],
             sanitize: (/** @type {string} */ name) =>
@@ -151,16 +180,16 @@ export class KBFDecodePipeline {
           };
 
           const translation = this.activityTranslator.translateActivity(
-            layer5.activity,
+            decodedActivity.activity,
             {
               ...context,
-              activity: layer5.activity,
+              activity: decodedActivity.activity,
               text: decodedText,
               text2: decodedText2,
-              n1: layer5.n1,
-              n2: layer5.n2,
-              n3: layer5.n3,
-              order: layer5.order,
+              n1: decodedActivity.n1,
+              n2: decodedActivity.n2,
+              n3: decodedActivity.n3,
+              order: decodedActivity.order,
             },
           );
 
@@ -169,13 +198,16 @@ export class KBFDecodePipeline {
 
           if (commands.length > 0) {
             processedActivities.push({
-              activity: layer5.activity,
+              activity: decodedActivity.activity,
               commands,
-              order: layer5.order || 0,
+              order: decodedActivity.order || 0,
             });
 
             aliases.forEach((alias) => {
-              parseResult.aliases[alias.name] = alias;
+              const aliasBoundary = storeKBFAlias(parseResult.aliases, alias);
+              if (!aliasBoundary.success) {
+                this.addError(aliasBoundary.message, aliasBoundary.context);
+              }
             });
           } else {
             parseResult.stats.skippedActivities++;
@@ -184,16 +216,12 @@ export class KBFDecodePipeline {
 
         processedActivities.sort((a, b) => a.order - b.order);
         for (const activity of processedActivities) {
-          parseResult.bindsets[bindsetName].keys[canonicalKey].commands.push(
-            ...activity.commands,
-          );
+          key.commands.push(...activity.commands);
         }
 
         // Set stabilization metadata based on activity tracking (replacing PriorityOrder logic)
         if (requiresStabilization && includeMetadata) {
-          parseResult.bindsets[bindsetName].keys[
-            canonicalKey
-          ].metadata.stabilizeExecutionOrder = true;
+          key.metadata.stabilizeExecutionOrder = true;
         }
 
         parseResult.stats.totalKeys++;
@@ -227,7 +255,9 @@ export class KBFDecodePipeline {
     result.errors = [...this.parseState.errors];
     result.warnings = [...this.parseState.warnings];
     result.stats.totalAliases = Object.keys(result.aliases).length;
-    result.stats.processedLayers = [1, 2, 3, 4, 5, 6];
+    result.stats.processedLayers = [...this.processedLayers].sort(
+      (left, right) => left - right,
+    );
     return result;
   }
 
@@ -696,6 +726,8 @@ export class KBFDecodePipeline {
       },
     );
 
+    if (values.combo === null) return buildDefaultResult();
+
     if (!values.key) {
       this.addError("Missing required Key field in KEY payload", {
         keysetRecordIndex: context.keysetRecordIndex,
@@ -722,7 +754,7 @@ export class KBFDecodePipeline {
 
   /** @param {any} activityData @returns {any} */
   parseLayer5(activityData) {
-    const { payload, context } = this.extractPayload(activityData);
+    const { payload, context } = extractKBFParserPayload(activityData);
 
     const buildDefaultResult = () => ({
       activity: null,
@@ -899,7 +931,7 @@ export class KBFDecodePipeline {
         O: {
           key: "order",
           parser: (record, meta) =>
-            this.fieldParser.parseNumericField(record, meta.index, "O", 0),
+            this.fieldParser.parseNumericField(record, meta.index, "O"),
           onDuplicate: (meta) =>
             this.addWarning("Multiple O fields found in ACT, using first one", {
               keysetRecordIndex: context.keysetRecordIndex,
@@ -928,6 +960,9 @@ export class KBFDecodePipeline {
       recordIndex: context.recordIndex,
       fieldIndex: context.fieldIndex,
     });
+
+    if (values.text === null || values.text2 === null)
+      return buildDefaultResult();
 
     if (values.activity === undefined || values.activity === null) {
       this.addError("Missing required Activity field in ACT payload", {
@@ -965,6 +1000,7 @@ export class KBFDecodePipeline {
 
   /** @param {any} text */
   decodeLayer6(text) {
+    this.processedLayers.add(6);
     if (text === null || text === undefined) {
       return "";
     }
@@ -1006,75 +1042,9 @@ export class KBFDecodePipeline {
     });
   }
 
-  /** @param {any} input @param {Record<string, any>} [options] */
-  extractPayload(input, options = {}) {
-    const context = {
-      recordIndex: input?.recordIndex || options.recordIndex || 0,
-      keysetRecordIndex:
-        input?.keysetRecordIndex || options.keysetRecordIndex || 0,
-      fieldIndex: input?.fieldIndex || options.fieldIndex || 0,
-    };
-
-    if (typeof input === "string") {
-      return { payload: input, context };
-    }
-
-    if (input && typeof input === "object" && input.payload) {
-      return {
-        payload: input.payload,
-        context: { ...context, ...input },
-      };
-    }
-
-    return { payload: null, context };
-  }
-
   /** @param {any} translation */
   normalizeTranslationResult(translation) {
-    if (!translation) {
-      return { commands: [], aliases: [] };
-    }
-
-    /** @type {any[]} */
-    let commands = [];
-    /** @type {Record<string, any>[]} */
-    const aliases = [];
-
-    /** @param {any} aliasCollection */
-    const pushAliases = (aliasCollection) => {
-      if (Array.isArray(aliasCollection)) {
-        aliases.push(...aliasCollection);
-        return;
-      }
-
-      if (aliasCollection && typeof aliasCollection === "object") {
-        Object.entries(aliasCollection).forEach(([name, alias]) => {
-          if (alias && typeof alias === "object" && !Array.isArray(alias)) {
-            aliases.push({ ...alias, name });
-          }
-        });
-      }
-    };
-
-    pushAliases(translation?.aliases);
-
-    /** @param {any} group */
-    const pushAliasesFromGroup = (group) => {
-      pushAliases(group?.aliases);
-    };
-
-    if (translation.commands && Array.isArray(translation.commands)) {
-      commands = translation.commands;
-    } else if (Array.isArray(translation)) {
-      translation.forEach((group) => {
-        if (Array.isArray(group?.forward)) {
-          commands.push(...group.forward);
-        }
-        pushAliasesFromGroup(group);
-      });
-    }
-
-    return { commands, aliases };
+    return normalizeKBFTranslation(translation);
   }
 
   helpers() {

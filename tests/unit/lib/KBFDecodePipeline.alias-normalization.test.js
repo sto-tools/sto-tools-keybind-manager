@@ -22,12 +22,12 @@ describe("KBFDecodePipeline - Alias Normalization", () => {
   it.each([
     {
       activity: 97,
-      aliasName: "sto_kb_emotecycle_F1_2",
+      aliasName: "sto_kb_emotecycle_test_f1_2",
       command: "emote_notext wave",
     },
     {
       activity: 101,
-      aliasName: "sto_kb_emotecyclevisible_F1_2",
+      aliasName: "sto_kb_emotecyclevisible_test_f1_2",
       command: "emote wave",
     },
   ])(
@@ -36,6 +36,7 @@ describe("KBFDecodePipeline - Alias Normalization", () => {
       const translator = new ActivityTranslator();
       const translation = translator.translateActivity(activity, {
         text: "wave",
+        bindsetName: "Test",
         baseKeyName: "F1",
         index: 2,
       });

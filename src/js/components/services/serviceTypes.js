@@ -104,32 +104,17 @@
  * @property {string[]} errors
  * @property {import('../../types/text-import-boundary.js').AliasTextFailure} [failure]
  *
- * @typedef {string | { message?: string }} KBFIssue
- * @typedef {StoredCommand[] | { commands?: StoredCommand[], metadata?: BindsetKeyMetadata }} KBFKeyData
- *
- * @typedef {Object} KBFBindset
- * @property {Record<string, KBFKeyData>} [keys]
- * @property {EnvironmentBindingData} [space]
- * @property {EnvironmentBindingData} [ground]
- * @property {{ displayName?: string }} [metadata]
- *
- * @typedef {Object} KBFParseStats
- * @property {number} totalBindsets
- * @property {number} [processedLayers]
- * @property {number} [skippedActivities]
- * @property {number} [totalActivities]
- *
- * @typedef {Object} KBFParseResult
- * @property {Record<string, KBFBindset>} bindsets
- * @property {Record<string, AliasDefinition>} [aliases]
- * @property {KBFIssue[]} [errors]
- * @property {KBFIssue[]} [warnings]
- * @property {KBFParseStats} stats
+ * @typedef {import('../../types/kbf-boundary.js').KBFDiagnostic} KBFIssue
+ * @typedef {import('../../types/kbf-boundary.js').KBFKeyData} KBFKeyData
+ * @typedef {import('../../types/kbf-boundary.js').KBFBindset} KBFBindset
+ * @typedef {import('../../types/kbf-boundary.js').KBFParseStats} KBFParseStats
+ * @typedef {import('../../types/kbf-boundary.js').KBFParseResult} KBFParseResult
  *
  * @typedef {Object} KBFImportConfiguration
  * @property {string[]} [selectedBindsets]
  * @property {Record<string, string>} [bindsetRenames]
- * @property {Record<string, string>} [bindsetMappings]
+ * @property {Record<string, 'primary' | 'custom'>} [bindsetMappings]
+ * @property {boolean} [singleBindsetMode]
  *
  * @typedef {Record<string, EnvironmentBindingData>} BindsetData
  *

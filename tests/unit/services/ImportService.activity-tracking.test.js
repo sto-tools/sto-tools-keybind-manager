@@ -64,6 +64,8 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
           totalBindsets: 1,
           totalKeys: 1,
           totalAliases: 0,
+          processedLayers: [1],
+          skippedActivities: 0,
         },
       };
 
@@ -144,6 +146,8 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
           totalBindsets: 1,
           totalKeys: 1,
           totalAliases: 0,
+          processedLayers: [1],
+          skippedActivities: 0,
         },
       };
 
@@ -216,6 +220,8 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
           totalBindsets: 1,
           totalKeys: 1,
           totalAliases: 0,
+          processedLayers: [1],
+          skippedActivities: 0,
         },
       };
 
@@ -279,6 +285,8 @@ describe("ImportService - Activity Tracking Metadata Handling", () => {
           totalBindsets: 1,
           totalKeys: 1,
           totalAliases: 0,
+          processedLayers: [1],
+          skippedActivities: 0,
         },
       };
 

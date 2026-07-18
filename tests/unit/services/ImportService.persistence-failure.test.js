@@ -116,7 +116,13 @@ describe("ImportService persistence failures", () => {
         },
       },
       aliases: {},
-      stats: { totalBindsets: 1, processedLayers: [] },
+      stats: {
+        totalBindsets: 1,
+        totalKeys: 1,
+        totalAliases: 0,
+        processedLayers: [],
+        skippedActivities: 0,
+      },
       errors: [],
       warnings: [],
     });

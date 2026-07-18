@@ -9,6 +9,16 @@
 // - Combo chord processing and validation
 
 import { STO_KEY_NAMES } from "../../../data/stoKeyNames.js";
+import {
+  createEmoteCycleAlias,
+  createVisibleEmoteCycleAlias,
+  describeComboProcessingFailure,
+  provideTokenFallback as provideTokenFallbackValue,
+  rejectUnsafeText,
+  sanitizeKBFBindsetName,
+  translateActivity95,
+  translateDecodedCombo,
+} from "./activityTranslationBoundaries.js";
 
 /**
  * KBF Activity Translator for converting KBF activities to STO commands
@@ -81,17 +91,7 @@ export class ActivityTranslator {
    * @private
    */
   sanitizeBindsetName(name) {
-    if (typeof name !== "string") return "unknown_bindset";
-    if (name.length === 0) return "unnamed_bindset";
-
-    let sanitized = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "");
-
-    if (/^[0-9]/.test(sanitized)) sanitized = `bs_${sanitized}`;
-    return sanitized || "unnamed_bindset";
+    return sanitizeKBFBindsetName(name);
   }
 
   /**
@@ -166,7 +166,7 @@ export class ActivityTranslator {
     // Initialize translation context with validation
     const translationContext = {
       environment: context?.environment || "space",
-      bindsetName: context?.bindsetName || "unknown_bindset",
+      bindsetName: context?.bindsetName,
       keyToken: context?.keyToken || "unknown_key",
       modifiers: {
         control: context?.modifiers?.control || false,
@@ -223,11 +223,11 @@ export class ActivityTranslator {
       // Return the result directly with success flag
       return {
         ...result,
-        success: true,
+        success: result.success !== false,
         metadata: {
           type: result.type || "unknown",
           environment: translationContext.environment,
-          bindsetName: translationContext.bindsetName,
+          bindsetName: translationContext.bindsetName || "unknown_bindset",
           keyToken: translationContext.keyToken,
         },
         warnings: [...this.parseState.warnings], // Include parseState warnings
@@ -272,6 +272,11 @@ export class ActivityTranslator {
       ...(context || {}),
       ...(translationContext || {}),
     };
+    const invalidText = rejectUnsafeText(activity, commandContext);
+    if (invalidText) {
+      this.addValidationError(...invalidText.validation);
+      return invalidText.failure;
+    }
 
     switch (activity) {
       // === TEXT-BASED COMMANDS ===
@@ -1021,21 +1026,9 @@ export class ActivityTranslator {
       }
 
       case 95: {
-        const trayNum = typeof n1 === "number" ? n1.toString() : "0";
-        const fromSlot = typeof n2 === "number" ? n2 : 0;
-        const toSlot = typeof n3 === "number" ? n3 : 0;
-        const commands = [];
-
-        // Generate commands for each slot in the range
-        for (let slot = fromSlot; slot <= toSlot; slot++) {
-          commands.push(`+TrayExecByTray ${trayNum} ${slot.toString()}`);
-        }
-
-        return {
-          type: "parameterized_command",
-          commands: commands,
-          aliases: {},
-        };
+        const result = translateActivity95(n1, n2, n3, commandContext.path);
+        if (result.validation) this.addValidationError(...result.validation);
+        return result.translation;
       }
 
       case 96: {
@@ -1049,7 +1042,7 @@ export class ActivityTranslator {
 
       case 97: {
         const emoteCycleName = text || "";
-        const emoteCycleAlias = `sto_kb_emotecycle_${commandContext.baseKeyName || "key"}_${commandContext.index || 0}`;
+        const emoteCycleAlias = createEmoteCycleAlias(commandContext);
 
         return {
           type: "cycle_command",
@@ -1090,7 +1083,8 @@ export class ActivityTranslator {
 
       case 101: {
         const emoteCycleVisibleName = text || "";
-        const emoteCycleVisibleAlias = `sto_kb_emotecyclevisible_${commandContext.baseKeyName || "key"}_${commandContext.index || 0}`;
+        const emoteCycleVisibleAlias =
+          createVisibleEmoteCycleAlias(commandContext);
 
         return {
           type: "cycle_command",
@@ -1468,7 +1462,7 @@ export class ActivityTranslator {
    * Map KBF key tokens and modifiers to canonical application format
    * @param {any} token - Key token from KBF
    * @param {Record<string, any>} modifiers - Modifier flags (control, alt, shift)
-   * @param {string | null} combo - Combo chord base64 data
+   * @param {string | string[] | null} combo - Raw or decoded combo chord data
    * @returns {any} Canonical key string
    * @private
    */
@@ -1630,22 +1624,23 @@ export class ActivityTranslator {
     }
 
     // Handle combo chords if present with enhanced validation
+    const decodedCombo = translateDecodedCombo(canonicalKey, combo);
+    if (decodedCombo.handled) {
+      if (decodedCombo.validation)
+        this.addValidationError(...decodedCombo.validation);
+      return decodedCombo.key;
+    }
+
     if (combo && typeof combo === "string" && combo.trim().length > 0) {
       try {
         return this.processComboChord(canonicalKey, combo);
       } catch (error) {
-        const errorObject =
-          error instanceof Error ? error : new Error(String(error));
-        this.addError(`Combo chord processing failed: ${errorObject.message}`, {
-          category: "handler_error",
-          severity: "warning",
+        const failure = describeComboProcessingFailure(
+          error,
           canonicalKey,
           combo,
-          error: errorObject.name,
-          recoverable: true,
-          suggestion:
-            "Combo chord processing failed, using base key without chord",
-        });
+        );
+        this.addError(failure.message, failure.context);
         return canonicalKey; // Fallback to base key without combo
       }
     }
@@ -1719,31 +1714,7 @@ export class ActivityTranslator {
    * @private
    */
   provideTokenFallback(token) {
-    // Common patterns for unknown tokens
-    const tokenLower = token.toLowerCase();
-
-    // If it looks like a function key
-    if (tokenLower.startsWith("f") && /^\d+$/.test(tokenLower.slice(1))) {
-      return token.toUpperCase(); // Return F1, F2, etc.
-    }
-
-    // If it looks like a number pad key
-    if (tokenLower.startsWith("numpad")) {
-      return token.charAt(0).toUpperCase() + token.slice(1); // Numpad1, etc.
-    }
-
-    // If it contains mouse button indicators
-    if (tokenLower.includes("mouse") || tokenLower.includes("button")) {
-      return "MouseButton"; // Generic fallback
-    }
-
-    // For very short tokens, try to make them more readable
-    if (token.length <= 3) {
-      return token.toUpperCase();
-    }
-
-    // For longer tokens, use as-is but maybe capitalize first letter
-    return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+    return provideTokenFallbackValue(token);
   }
 
   /**

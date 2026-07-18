@@ -16,8 +16,7 @@ export type CommandImportSource =
   import("../../components/services/serviceTypes.js").CommandImportSource;
 export type KBFImportConfiguration =
   import("../../components/services/serviceTypes.js").KBFImportConfiguration;
-export type KBFParseResult =
-  import("../../components/services/serviceTypes.js").KBFParseResult;
+export type KBFParseResult = import("../kbf-boundary.js").KBFParseResult;
 
 export type Settings = Record<string, unknown>;
 export type UnknownRecord = Record<string, unknown>;

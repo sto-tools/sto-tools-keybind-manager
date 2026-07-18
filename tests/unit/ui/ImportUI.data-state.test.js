@@ -4,6 +4,31 @@ import ImportUI from "../../../src/js/components/ui/ImportUI.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../../../src/js/components/services/textImportBoundary.js";
+import en from "../../../src/i18n/en.json";
+
+const kbfParseErrorKeys = [
+  "invalid_kbf_file_content",
+  "invalid_environment",
+  "invalid_kbf_file_format",
+  "invalid_kbf_parse_result",
+  "no_valid_bindsets_found",
+  "kbf_parse_critical_error",
+];
+
+const kbfImportErrorKeys = [
+  "invalid_kbf_file_content",
+  "storage_not_available",
+  "no_active_profile",
+  "invalid_environment",
+  "invalid_kbf_file_format",
+  "invalid_kbf_parse_result",
+  "invalid_kbf_configuration",
+  "no_valid_bindsets_found",
+  "profile_not_found",
+  "multiple_bindsets_not_allowed",
+  "non_primary_mapping_not_allowed",
+  "kbf_import_critical_error",
+];
 
 const profile = (name, keyCount, aliasCount) => ({
   id: name.toLowerCase(),
@@ -167,6 +192,88 @@ describe("ImportUI accepted data state", () => {
     });
     expect(ui.showOverwriteConfirmation).not.toHaveBeenCalled();
   });
+
+  it.each(kbfParseErrorKeys)(
+    "renders the English translation for KBF parse failure %s",
+    async (errorKey) => {
+      fixture = createEventBusFixture();
+      let changeHandler;
+      const input = {
+        type: "",
+        accept: "",
+        style: {},
+        files: [new File(["invalid-kbf"], "invalid.kbf")],
+        addEventListener: vi.fn((event, handler) => {
+          if (event === "change") changeHandler = handler;
+        }),
+        click: vi.fn(),
+      };
+      const translate = vi.fn((key) => en[key] ?? key);
+      ui = new ImportUI({
+        eventBus: fixture.eventBus,
+        document: {
+          createElement: vi.fn(() => input),
+          body: { appendChild: vi.fn(), removeChild: vi.fn() },
+          getElementById: vi.fn(),
+        },
+        i18n: { t: translate },
+      });
+      ui.init();
+      ui.promptEnvironment = vi.fn(async (environment) => ({
+        environment,
+        strategy: "merge_keep",
+      }));
+      ui.request = vi.fn(async (topic) => {
+        if (topic === "parse-kbf-file") {
+          return {
+            valid: false,
+            error: errorKey,
+            message: errorKey,
+            params: { path: "$.bindsets" },
+          };
+        }
+        throw new Error(`Unexpected request: ${topic}`);
+      });
+      const showToast = vi.spyOn(ui, "showToast");
+
+      await ui.openFileDialog("kbf");
+      await changeHandler();
+
+      await vi.waitFor(() => {
+        expect(showToast).toHaveBeenCalledWith(en[errorKey], "error");
+      });
+      expect(en[errorKey]).toEqual(expect.any(String));
+      expect(en[errorKey]).not.toBe(errorKey);
+      expect(translate).toHaveBeenCalledWith(errorKey, {
+        path: "$.bindsets",
+      });
+    },
+  );
+
+  it.each(kbfImportErrorKeys)(
+    "renders the English translation for KBF import failure %s",
+    (errorKey) => {
+      fixture = createEventBusFixture();
+      const translate = vi.fn((key) => en[key] ?? key);
+      ui = new ImportUI({
+        eventBus: fixture.eventBus,
+        i18n: { t: translate },
+      });
+
+      const message = ui.getKBFErrorMessage({
+        success: false,
+        error: errorKey,
+        params: {},
+        errors: [],
+        warnings: [],
+      });
+
+      expect(message).toBe(en[errorKey]);
+      expect(en[errorKey]).toEqual(expect.any(String));
+      expect(en[errorKey]).not.toBe(errorKey);
+      expect(translate).toHaveBeenCalledWith(errorKey, {});
+    },
+  );
 
   it.each([
     ["keybinds", "keybind_file_too_large"],

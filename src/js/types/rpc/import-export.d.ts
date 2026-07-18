@@ -77,6 +77,8 @@ export type KBFImportError =
   | "no_active_profile"
   | "invalid_environment"
   | "invalid_kbf_file_format"
+  | "invalid_kbf_parse_result"
+  | "invalid_kbf_configuration"
   | "no_valid_bindsets_found"
   | "profile_not_found"
   | "multiple_bindsets_not_allowed"
@@ -92,7 +94,7 @@ export type KBFImportResult =
       overwritten: number;
       cleared: number;
       stats: {
-        processedLayers?: number;
+        processedLayers?: number[];
         skippedActivities?: number;
         totalActivities: number;
         totalErrors: number;
@@ -151,6 +153,7 @@ export type KBFParseForUiResult =
         | "invalid_kbf_file_content"
         | "invalid_environment"
         | "invalid_kbf_file_format"
+        | "invalid_kbf_parse_result"
         | "no_valid_bindsets_found"
         | "kbf_parse_critical_error";
       message: string;
@@ -196,9 +199,9 @@ export interface ImportExportRpcProtocol {
       content: string;
       profileId: string | null;
       environment?: "space" | "ground";
-      options?: UnknownRecord;
+      options?: UnknownRecord | null;
       strategy?: string;
-      configuration?: KBFImportConfiguration;
+      configuration?: KBFImportConfiguration | null;
     },
     KBFImportResult
   >;
