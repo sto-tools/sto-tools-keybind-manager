@@ -1,7 +1,6 @@
 import "./core/constants.js";
 import eventBus from "./core/eventBus.js";
 import "./data.js";
-import "./core/errors.js";
 import i18next from "i18next";
 import en from "../i18n/en.json";
 import de from "../i18n/de.json";
@@ -25,8 +24,9 @@ import { DISPLAY_VERSION } from "./core/constants.js";
 import { CommandChainValidatorService } from "./components/services/index.js";
 import devMonitor from "./dev/DevMonitor.js";
 
-// Retain the retirement-bound DataService compatibility snapshot/global.
-// Runtime static-data consumers import their catalogs directly.
+// Retain the retirement-bound DataService late-join snapshot owner.
+// Runtime static-data consumers import their catalogs directly, and consumers
+// discover this compatibility state through component registration.
 const dataService = new DataService({
   eventBus,
   data: typeof window !== "undefined" ? window.STO_DATA : null,
@@ -208,7 +208,6 @@ const dataService = new DataService({
   // Minimal global assignments - only what's absolutely necessary for legacy compatibility
   Object.assign(window, {
     storageService, // Required by some legacy components and tests
-    dataService, // Required by app initialization
     dataCoordinator, // Required by other services
     stoKeybinds, // Required by app initialization callback
     // stoExport removed - now managed by app.js
@@ -224,7 +223,6 @@ const dataService = new DataService({
     i18n: i18next,
     storageService,
     ui: stoUI,
-    dataService,
     syncService: stoSync,
   });
 

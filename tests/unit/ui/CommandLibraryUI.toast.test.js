@@ -90,9 +90,8 @@ describe("CommandLibraryUI Toast Tests", () => {
       expect(typeof component.showToast).toBe("function");
     });
 
-    it("should use i18next directly for translations", () => {
-      // CommandLibraryUI uses i18next directly instead of dependency injection
-      expect(typeof i18next.t).toBe("function");
+    it("uses its injected localization capability", () => {
+      expect(typeof component.i18n.t).toBe("function");
     });
   });
 });

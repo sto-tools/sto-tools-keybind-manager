@@ -63,6 +63,55 @@ describe("Application browser smoke", () => {
     }
   });
 
+  it("keeps DataService module-scoped while serving late-join state", async () => {
+    const bus = window.eventBus;
+    const replyTopic = `component:registered:reply:browser-data-service:${Date.now()}-${Math.random()}`;
+    let dataServiceReply;
+
+    for (const name of [
+      "dataService",
+      "COMMAND_CATEGORIES",
+      "KEY_LAYOUTS",
+      "DEFAULT_SETTINGS",
+      "SAMPLE_PROFILES",
+      "SAMPLE_ALIASES",
+      "TRAY_CONFIG",
+      "stoCommandParser",
+      "stoAliases",
+      "STOError",
+      "VertigoError",
+      "InvalidEnvironmentError",
+      "InvalidEffectError",
+    ]) {
+      expect(window[name]).toBeUndefined();
+    }
+    expect(bus).toBeTruthy();
+    if (!bus) return;
+
+    const detach = bus.on(replyTopic, (reply) => {
+      if (reply.sender === "DataService") dataServiceReply = reply;
+    });
+
+    try {
+      bus.emit("component:register", {
+        name: "BrowserDataServiceProbe",
+        replyTopic,
+      });
+
+      await vi.waitFor(() => {
+        expect(dataServiceReply).toMatchObject({
+          sender: "DataService",
+          state: {
+            dataAvailable: true,
+            hasCommands: true,
+          },
+        });
+      });
+    } finally {
+      detach();
+    }
+  });
+
   it("uses local projections without retired state or static-data RPCs", async () => {
     const commandChainUI = window.commandChainUI;
     const bus = commandChainUI?.eventBus;

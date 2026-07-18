@@ -2,6 +2,8 @@ import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import globals from "globals";
 
+import applicationGlobalsPlugin from "./scripts/eslint/applicationGlobals.mjs";
+
 // Existing oversized files cannot grow. Lower a limit whenever the file shrinks
 // until every entry reaches the repository-wide 500-line policy.
 const legacyMaxLineLimits = {
@@ -16,7 +18,7 @@ const legacyMaxLineLimits = {
   "src/js/components/ui/CommandUI.js": 538,
   "src/js/components/ui/ImportUI.js": 1409,
   "src/js/components/ui/ParameterCommandUI.js": 511,
-  "src/js/data.js": 1902,
+  "src/js/data.js": 1759,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 915,
   "src/js/lib/kbf/translation/ActivityTranslator.js": 1767,
   "tests/unit/lib/ActivityTranslator.test.js": 3250,
@@ -51,7 +53,6 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        i18next: "readonly",
       },
       sourceType: "module",
     },
@@ -64,6 +65,15 @@ export default [
           skipComments: true,
         },
       ],
+    },
+  },
+  {
+    files: ["src/js/**/*.{js,mjs,cjs}"],
+    plugins: {
+      "sto-architecture": applicationGlobalsPlugin,
+    },
+    rules: {
+      "sto-architecture/no-unallowlisted-writes": "error",
     },
   },
   {

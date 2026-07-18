@@ -26,7 +26,6 @@ describe("command library data", () => {
       description: "Refine dilithium ore from your inventory",
     });
     expect(window.STO_DATA.commands).toBe(commandCategories);
-    expect(window.COMMAND_CATEGORIES).toBe(commandCategories);
     expect(Object.keys(commandCategories.system.commands).slice(8, 12)).toEqual(
       ["missions", "inventory", "refine_dilithium", "map"],
     );

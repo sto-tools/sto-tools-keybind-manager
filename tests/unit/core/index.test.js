@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   APP_VERSION,
   DISPLAY_VERSION,
+  InvalidEffectError,
+  InvalidEnvironmentError,
+  STOError,
   UNSAFE_KEYBINDS,
+  VertigoError,
   createEventBusSetup,
   isBrowser,
   isNode,
@@ -21,6 +25,27 @@ describe("core public API", () => {
     expect(setup.eventBus).toBeDefined();
     expect(setup.respond).toBeTypeOf("function");
     expect(setup.request).toBeTypeOf("function");
+  });
+
+  it("keeps the public error hierarchy as module exports only", () => {
+    expect(new STOError("failure")).toMatchObject({
+      name: "STOError",
+      code: "STO_ERROR",
+    });
+    expect(new VertigoError("failure")).toBeInstanceOf(STOError);
+    expect(new InvalidEnvironmentError("invalid")).toBeInstanceOf(VertigoError);
+    expect(new InvalidEffectError("effect", "invalid")).toBeInstanceOf(
+      VertigoError,
+    );
+
+    for (const name of [
+      "STOError",
+      "VertigoError",
+      "InvalidEnvironmentError",
+      "InvalidEffectError",
+    ]) {
+      expect(window[name]).toBeUndefined();
+    }
   });
 
   it("reports the active jsdom and Node environments", () => {

@@ -43,12 +43,3 @@ class InvalidEffectError extends VertigoError {
 }
 
 export { STOError, VertigoError, InvalidEnvironmentError, InvalidEffectError };
-
-if (typeof window !== "undefined") {
-  Object.assign(window, {
-    STOError,
-    VertigoError,
-    InvalidEnvironmentError,
-    InvalidEffectError,
-  });
-}

@@ -3,9 +3,9 @@ import { getDefaultProfiles } from "../../data/defaultProfiles.js";
 
 /**
  * DataService - retirement-bound compatibility view over STO_DATA.
- * Runtime static-data consumers use direct module imports; this shell retains
- * the existing app dependency, global exposure, and late-join snapshot until
- * the storage/global compatibility phases explicitly retire it.
+ * Runtime static-data consumers use direct module imports; this shell remains
+ * a late-join snapshot owner until its protocol requirement is explicitly
+ * retired.
  */
 export default class DataService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, data?: import('./serviceTypes.js').STOData | null }} [options] */

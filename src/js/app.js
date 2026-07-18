@@ -60,15 +60,13 @@ export default class STOToolsKeybindManager {
    *   i18n?: any,
    *   storageService?: any,
    *   ui?: any,
-   *   dataService?: any,
    *   syncService?: any
    * }} [dependencies]
    */
-  constructor({ i18n, storageService, ui, dataService, syncService } = {}) {
+  constructor({ i18n, storageService, ui, syncService } = {}) {
     this.i18n = i18n;
     this.storageService = storageService;
     this.ui = ui;
-    this.dataService = dataService;
     this.syncService = syncService;
     this.store = store;
     this.eventListeners = new Map();
@@ -152,13 +150,7 @@ export default class STOToolsKeybindManager {
     const stoUI = this.ui;
 
     try {
-      if (
-        !this.i18n ||
-        !storageService ||
-        !stoUI ||
-        !this.dataService ||
-        !this.syncService
-      ) {
+      if (!this.i18n || !storageService || !stoUI || !this.syncService) {
         throw new Error("Required dependencies not loaded");
       }
 
@@ -171,7 +163,6 @@ export default class STOToolsKeybindManager {
       const modalManager = this.modalManagerService;
 
       this.stoCommandParser = new STOCommandParser(eventBus);
-      window.stoCommandParser = this.stoCommandParser;
 
       this.selectionService = new SelectionService({ eventBus });
       this.selectionService.init();
@@ -393,8 +384,6 @@ export default class STOToolsKeybindManager {
       this.preferencesManager = this.preferencesUI;
       this.preferencesService.init();
       this.preferencesUI.init();
-
-      window.stoAliases = this.aliasBrowserUI;
 
       this.aliasBrowserService.init();
       this.aliasBrowserUI.init();
