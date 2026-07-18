@@ -31,6 +31,7 @@ const createStorage = (initial = {}) => {
 const emptyState = ({ authorityEpoch = 1, revision = 0 } = {}) => ({
   authorityEpoch,
   revision,
+  mode: "grid",
   collapsedCategories: { command: [], keyType: [] },
   collapsedBindsets: [],
 });
@@ -57,6 +58,7 @@ const persistNextBindset = (storage, bindsetName) => {
 describe("keyBrowserViewState", () => {
   it("scans the three persisted collapse namespaces into a detached snapshot", () => {
     const storage = createStorage({
+      keyViewMode: "categorized",
       keyCategory_system_collapsed: "true",
       keyCategory_social_collapsed: "false",
       keyTypeCategory_function_collapsed: "true",
@@ -69,6 +71,7 @@ describe("keyBrowserViewState", () => {
     expect(state).toEqual({
       authorityEpoch: 7,
       revision: 0,
+      mode: "categorized",
       collapsedCategories: {
         command: ["system"],
         keyType: ["function"],
@@ -148,6 +151,7 @@ describe("keyBrowserViewState", () => {
     expect(state).toEqual({
       authorityEpoch: 7,
       revision: 0,
+      mode: "grid",
       collapsedCategories: {
         command: ["constructor"],
         keyType: ["__proto__"],
@@ -216,6 +220,7 @@ describe("keyBrowserViewState", () => {
     expect(commandCollapsed).toEqual({
       authorityEpoch: 44,
       revision: 8,
+      mode: "grid",
       collapsedCategories: { command: ["system"], keyType: [] },
       collapsedBindsets: [],
     });
@@ -224,8 +229,13 @@ describe("keyBrowserViewState", () => {
       initial.collapsedCategories.command,
     );
 
+    const categorized = {
+      ...commandCollapsed,
+      mode: "categorized",
+    };
+
     const legacyTypeCollapsed = applyKeyCategoryCollapse(
-      commandCollapsed,
+      categorized,
       "function",
       "type",
       true,
@@ -233,6 +243,7 @@ describe("keyBrowserViewState", () => {
     expect(legacyTypeCollapsed).toMatchObject({
       authorityEpoch: 44,
       revision: 9,
+      mode: "categorized",
       collapsedCategories: {
         command: ["function", "system"],
         keyType: [],
@@ -248,6 +259,7 @@ describe("keyBrowserViewState", () => {
     expect(keyTypeCollapsed).toMatchObject({
       authorityEpoch: 44,
       revision: 10,
+      mode: "categorized",
       collapsedCategories: {
         command: ["function", "system"],
         keyType: ["function"],
@@ -262,6 +274,7 @@ describe("keyBrowserViewState", () => {
     expect(bindsetCollapsed).toMatchObject({
       authorityEpoch: 44,
       revision: 11,
+      mode: "categorized",
       collapsedBindsets: ["Tactical"],
     });
     expect(bindsetCollapsed.collapsedCategories.command).not.toBe(
@@ -276,6 +289,7 @@ describe("keyBrowserViewState", () => {
     expect(bindsetExpanded).toMatchObject({
       authorityEpoch: 44,
       revision: 12,
+      mode: "categorized",
       collapsedBindsets: [],
     });
     expect(bindsetCollapsed.collapsedBindsets).toEqual(["Tactical"]);
@@ -322,6 +336,9 @@ describe("keyBrowserViewState", () => {
       emptyState({ authorityEpoch: 1.5, revision: 0 }),
       emptyState({ authorityEpoch: 1, revision: -1 }),
       emptyState({ authorityEpoch: 1, revision: 1.5 }),
+      { ...emptyState(), mode: "bindset-sections" },
+      { ...emptyState(), mode: "unknown" },
+      { ...emptyState(), mode: 42 },
     ]) {
       expect(adoptKeyBrowserViewState(invalid, null)).toBeNull();
     }

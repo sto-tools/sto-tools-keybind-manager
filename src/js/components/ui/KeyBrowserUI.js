@@ -13,6 +13,7 @@ import {
   acceptViewState,
   cacheViewState,
   completeInitialRender,
+  projectViewModeButton,
   reconcileViewStateDom,
 } from "./keyBrowserViewDom.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
@@ -49,8 +50,8 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
 
 /**
  * KeyBrowserUI – responsible for rendering the key grid (#keyGrid).
- * For the initial migration it simply delegates to the legacy
- * renderKeyGrid implementation hanging off the global `app` instance.
+ * It projects complete owner snapshots and delegates key-grid domain
+ * operations through the event/RPC protocols.
  */
 export default class KeyBrowserUI extends UIComponentBase {
   /**
@@ -100,8 +101,8 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     /** @type {KeyMap} */
     this._currentKeyMap = {};
-    this._currentViewMode = "grid";
     this.eventListenersSetup = false;
+    this._renderGeneration = 0;
 
     // Initialize bindset delete confirmation modal
     this.bindsetDeleteConfirm = new BindsetDeleteConfirmUI({
@@ -113,14 +114,11 @@ export default class KeyBrowserUI extends UIComponentBase {
 
   // Lifecycle
   onInit() {
-    // Initial paint and toggle-button state (will be handled by handleInitialState)
-    const initialMode = localStorage.getItem("keyViewMode") || "grid";
-    this.updateViewToggleButton(initialMode);
-
     this.setupEventListeners();
   }
 
   onDestroy() {
+    this._renderGeneration += 1;
     this.eventListenersSetup = false;
     this.pendingInitialRender = false;
     this.cache.keyBrowserViewState = null;
@@ -188,7 +186,9 @@ export default class KeyBrowserUI extends UIComponentBase {
     });
 
     this.onDom("toggleKeyViewBtn", "click", () => {
-      this.toggleKeyView();
+      this.toggleKeyView().catch((error) => {
+        console.error("[KeyBrowserUI] Failed to cycle key view mode:", error);
+      });
     });
 
     // Key search button
@@ -207,9 +207,6 @@ export default class KeyBrowserUI extends UIComponentBase {
     this.addEventListener("data:state-changed", () => {
       completeInitialRender(this);
     });
-
-    // Initialize view mode based on current bindset settings
-    this.ensureCorrectViewMode();
 
     // Add environment change handler for UI visibility
     this.addEventListener(
@@ -235,11 +232,10 @@ export default class KeyBrowserUI extends UIComponentBase {
       this.render();
     });
 
-    // Re-render after an explicit key-view mode change.
-    this.addEventListener("key-view:mode-changed", () => this.render());
-
     // Listen for language changes and re-render with new translations
     this.addEventListener("language:changed", () => {
+      const viewState = this.cache.keyBrowserViewState;
+      if (viewState) projectViewModeButton(this, viewState.mode);
       this.render();
     });
 
@@ -255,8 +251,6 @@ export default class KeyBrowserUI extends UIComponentBase {
           if (key === "theme") {
             this.render();
           } else if (key === "bindsetsEnabled" || key === "bindToAliasMode") {
-            // When bindsets are enabled/disabled, re-evaluate view mode
-            this.ensureCorrectViewMode();
             this.render();
           }
         }
@@ -284,6 +278,9 @@ export default class KeyBrowserUI extends UIComponentBase {
   }
 
   async render() {
+    const generation = ++this._renderGeneration;
+    const isCurrent = () =>
+      generation === this._renderGeneration && !this.destroyed;
     const grid = this.document.getElementById("keyGrid");
     if (!grid) return;
 
@@ -296,6 +293,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     // Cache for child helpers, including clearing predecessor data on pre-ready state.
     this._currentKeyMap = keyMap;
     if (!profile) {
+      if (!isCurrent()) return;
       grid.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><h4>${this.i18n.t("no_profile_selected")}</h4></div>`;
       return;
     }
@@ -303,6 +301,7 @@ export default class KeyBrowserUI extends UIComponentBase {
     // Build DOM atomically using DocumentFragment
     const fragment = this.document.createDocumentFragment();
     const viewMode = this.getCurrentViewMode();
+    if (!viewMode) return;
 
     const keys = Object.keys(keyMap);
     /** @type {KeyMap} */
@@ -312,6 +311,8 @@ export default class KeyBrowserUI extends UIComponentBase {
       if (cmds && cmds.length > 0) keysWithCommands[k] = cmds;
     });
     const allKeys = [...new Set([...keys, ...Object.keys(keysWithCommands)])];
+
+    let categorized = false;
 
     // If bindsets are enabled, render bindset sections for ALL view types
     if (this.shouldShowBindsetSections()) {
@@ -323,15 +324,14 @@ export default class KeyBrowserUI extends UIComponentBase {
         keysWithCommands,
         environment,
       );
-      grid.classList.add("categorized");
+      categorized = true;
     } else {
       // Original rendering for when bindsets are disabled
       if (viewMode === "key-types") {
         await this.renderKeyTypeView(fragment, profile, allKeys);
-        grid.classList.add("categorized");
+        categorized = true;
       } else if (viewMode === "grid") {
         await this.renderSimpleGridView(fragment, allKeys);
-        grid.classList.remove("categorized");
       } else {
         // command-category
         await this.renderCommandCategoryView(
@@ -339,11 +339,14 @@ export default class KeyBrowserUI extends UIComponentBase {
           keysWithCommands,
           allKeys,
         );
-        grid.classList.add("categorized");
+        categorized = true;
       }
     }
 
+    if (!isCurrent()) return;
+
     // Atomic DOM update - replace all content at once
+    grid.classList.toggle("categorized", categorized);
     grid.replaceChildren(fragment);
     this.reconcileKeyBrowserViewState();
   }
@@ -352,11 +355,10 @@ export default class KeyBrowserUI extends UIComponentBase {
 
   /**
    * Determines the current view mode based on user preference
-   * @returns {string} The view mode to use ('bindset-sections', 'grid', 'categorized', etc.)
+   * @returns {KeyBrowserViewStateSnapshot['mode'] | null}
    */
   getCurrentViewMode() {
-    // Use the user's saved preference or default to grid
-    return localStorage.getItem("keyViewMode") || "grid";
+    return this.cache.keyBrowserViewState?.mode ?? null;
   }
 
   /**
@@ -370,15 +372,6 @@ export default class KeyBrowserUI extends UIComponentBase {
 
     // Show bindset functionality when bindsets are enabled and conditions are met
     return bindsetsEnabled && bindToAliasMode && currentEnvironment !== "alias";
-  }
-
-  /**
-   * Ensures the bindset display is updated when preferences change
-   */
-  ensureCorrectViewMode() {
-    // Just emit a view mode changed event to trigger re-render with current bindset settings
-    const currentMode = this.getCurrentViewMode();
-    this.emit("key-view:mode-changed", { mode: currentMode });
   }
 
   // Rendering helpers
@@ -454,9 +447,6 @@ export default class KeyBrowserUI extends UIComponentBase {
       environment,
       this.cache.keyBrowserViewState,
     );
-
-    // Store the current view mode for use in createBindsetSectionElement
-    this._currentViewMode = viewMode;
 
     // Render each bindset as a section using the working implementation
     for (const [bindsetName, bindsetData] of Object.entries(sectionalKeys)) {
@@ -1251,52 +1241,14 @@ export default class KeyBrowserUI extends UIComponentBase {
     }
   }
 
-  // View-management helpers
-  /** @param {string} viewMode */
-  updateViewToggleButton(viewMode) {
-    const toggleBtn = this.document.getElementById("toggleKeyViewBtn");
-    if (!toggleBtn) return;
-
-    const icon = toggleBtn.querySelector("i") || toggleBtn;
-
-    // Only cycle between the 3 main view types: grid, categorized, key-types
-    // Bindset sections is an overlay, not a separate view mode
-    if (viewMode === "categorized") {
-      icon.className = "fas fa-sitemap";
-      toggleBtn.title = this.i18n.t("switch_to_key_type_view");
-    } else if (viewMode === "key-types") {
-      icon.className = "fas fa-th";
-      toggleBtn.title = this.i18n.t("switch_to_grid_view");
-    } else {
-      // grid
-      icon.className = "fas fa-list";
-      toggleBtn.title = this.i18n.t("switch_to_categorized_view");
-    }
-  }
-
-  toggleKeyView() {
-    // Prevent switching in alias environment to maintain UX parity with legacy logic
+  async toggleKeyView() {
+    // Preserve the legacy application-owned environment guard in this storage
+    // ownership tranche; its global replacement is a separate guarded change.
     if (this.app && this.app.currentEnvironment === "alias") return;
 
-    const currentMode = localStorage.getItem("keyViewMode") || "grid";
-    let newMode;
-
-    // Only cycle between the 3 main view types: grid → categorized → key-types → grid
-    if (currentMode === "grid") {
-      newMode = "categorized";
-    } else if (currentMode === "categorized") {
-      newMode = "key-types";
-    } else {
-      // key-types or any other
-      newMode = "grid";
-    }
-
-    localStorage.setItem("keyViewMode", newMode);
-    this.render();
-    this.updateViewToggleButton(newMode);
-
-    // Notify other interested parties (e.g., tests, services)
-    this.emit("key-view:mode-changed", { mode: newMode });
+    // Persistence and mode sequencing belong to KeyBrowserService. The
+    // resulting complete snapshot drives both the button and the full render.
+    await this.request("key:cycle-view-mode");
   }
 
   /** @param {string} [filter] */

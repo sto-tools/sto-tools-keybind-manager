@@ -1,6 +1,7 @@
 import type {
   AliasMap,
   CommandList,
+  KeyViewMode,
   PreferencesSettings,
   ProfileData,
   ProfileMap,
@@ -56,6 +57,7 @@ export interface BindsetStateSnapshot {
 export interface KeyBrowserViewStateSnapshot {
   authorityEpoch: number;
   revision: number;
+  mode: KeyViewMode;
   collapsedCategories: {
     command: readonly string[];
     keyType: readonly string[];

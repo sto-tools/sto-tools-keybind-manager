@@ -10,8 +10,10 @@ import {
  *   cache: { keyBrowserViewState: KeyBrowserViewStateSnapshot | null },
  *   pendingInitialRender: boolean,
  *   document: Document,
+ *   i18n: { t: (key: string) => string },
  *   hasRequiredData: () => boolean,
  *   performInitialRender: () => void,
+ *   render: () => Promise<void>,
  *   cacheKeyBrowserViewState: (state: KeyBrowserViewStateSnapshot) => boolean,
  *   reconcileKeyBrowserViewState: () => void
  * }} KeyBrowserViewConsumer
@@ -39,6 +41,30 @@ export function completeInitialRender(consumer) {
 }
 
 /**
+ * Project the accepted owner mode without reading persistence or maintaining a
+ * second UI-owned mode value.
+ *
+ * @param {KeyBrowserViewConsumer} consumer
+ * @param {KeyBrowserViewStateSnapshot['mode']} mode
+ */
+export function projectViewModeButton(consumer, mode) {
+  const toggleButton = consumer.document.getElementById("toggleKeyViewBtn");
+  if (!toggleButton) return;
+
+  const icon = toggleButton.querySelector("i") || toggleButton;
+  if (mode === "categorized") {
+    icon.className = "fas fa-sitemap";
+    toggleButton.title = consumer.i18n.t("switch_to_key_type_view");
+  } else if (mode === "key-types") {
+    icon.className = "fas fa-th";
+    toggleButton.title = consumer.i18n.t("switch_to_grid_view");
+  } else {
+    icon.className = "fas fa-list";
+    toggleButton.title = consumer.i18n.t("switch_to_categorized_view");
+  }
+}
+
+/**
  * One adoption path for live broadcasts and late-join replies. Existing DOM is
  * reconciled only after a predecessor snapshot has already enabled a paint.
  *
@@ -46,10 +72,21 @@ export function completeInitialRender(consumer) {
  * @param {KeyBrowserViewStateSnapshot} candidate
  */
 export function acceptViewState(consumer, candidate) {
-  const hadState = consumer.cache.keyBrowserViewState !== null;
+  const predecessor = consumer.cache.keyBrowserViewState;
+  const hadState = predecessor !== null;
   if (!consumer.cacheKeyBrowserViewState(candidate)) return false;
+  const accepted = consumer.cache.keyBrowserViewState;
+  if (!accepted) return false;
+
+  const modeChanged = predecessor?.mode !== accepted.mode;
+  if (modeChanged) projectViewModeButton(consumer, accepted.mode);
+
   if (hadState && !consumer.pendingInitialRender) {
-    consumer.reconcileKeyBrowserViewState();
+    if (modeChanged) {
+      void consumer.render();
+    } else {
+      consumer.reconcileKeyBrowserViewState();
+    }
   } else {
     completeInitialRender(consumer);
   }

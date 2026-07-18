@@ -1,6 +1,7 @@
 import { sortKeyNames } from "./keySorting.js";
 
 /** @typedef {import('../../types/events/component-state.js').KeyBrowserViewStateSnapshot} KeyBrowserViewStateSnapshot */
+/** @typedef {import('../../types/events/base.js').KeyViewMode} KeyViewMode */
 /** @typedef {import('./serviceTypes.js').ProfileData} ProfileData */
 /** @typedef {import('./serviceTypes.js').StoredCommand} StoredCommand */
 /**
@@ -17,6 +18,7 @@ const collapsedSuffix = "_collapsed";
 const commandCategoryPrefix = "keyCategory_";
 const keyTypeCategoryPrefix = "keyTypeCategory_";
 const bindsetPrefix = "bindsetSection_";
+const keyViewModeStorageKey = "keyViewMode";
 
 let latestAuthorityEpoch = 0;
 
@@ -24,6 +26,24 @@ let latestAuthorityEpoch = 0;
 export function nextKeyBrowserAuthorityEpoch() {
   latestAuthorityEpoch += 1;
   return latestAuthorityEpoch;
+}
+
+/**
+ * Decode the only three supported view modes. The shipped
+ * `bindset-sections` value represented an overlay rather than a distinct view,
+ * so it and every absent or unknown persisted value use the grid default.
+ *
+ * @param {unknown} value
+ * @returns {KeyViewMode}
+ */
+export function decodeKeyViewMode(value) {
+  if (value === "categorized" || value === "key-types") return value;
+  return "grid";
+}
+
+/** @param {unknown} value @returns {value is KeyViewMode} */
+function isKeyViewMode(value) {
+  return value === "grid" || value === "categorized" || value === "key-types";
 }
 
 /**
@@ -75,6 +95,7 @@ export function readKeyBrowserViewState(storage, { authorityEpoch, revision }) {
   return {
     authorityEpoch,
     revision,
+    mode: decodeKeyViewMode(storage.getItem(keyViewModeStorageKey)),
     collapsedCategories: {
       command: command.sort(),
       keyType: keyType.sort(),
@@ -91,6 +112,7 @@ export function cloneKeyBrowserViewState(state) {
   return {
     authorityEpoch: state.authorityEpoch,
     revision: state.revision,
+    mode: state.mode,
     collapsedCategories: {
       command: [...state.collapsedCategories.command],
       keyType: [...state.collapsedCategories.keyType],
@@ -113,7 +135,8 @@ export function adoptKeyBrowserViewState(candidate, current) {
     !Number.isSafeInteger(authorityEpoch) ||
     authorityEpoch < 1 ||
     !Number.isSafeInteger(revision) ||
-    revision < 0
+    revision < 0 ||
+    !isKeyViewMode(candidate.mode)
   ) {
     return null;
   }
@@ -154,6 +177,7 @@ export function applyKeyCategoryCollapse(state, categoryId, mode, isCollapsed) {
   return {
     authorityEpoch: state.authorityEpoch,
     revision: state.revision + 1,
+    mode: state.mode,
     collapsedCategories: {
       command: keyType
         ? [...state.collapsedCategories.command]
@@ -186,6 +210,7 @@ export function applyBindsetCollapse(state, bindsetName, isCollapsed) {
   return {
     authorityEpoch: state.authorityEpoch,
     revision: state.revision + 1,
+    mode: state.mode,
     collapsedCategories: {
       command: [...state.collapsedCategories.command],
       keyType: [...state.collapsedCategories.keyType],
@@ -196,6 +221,40 @@ export function applyBindsetCollapse(state, bindsetName, isCollapsed) {
       isCollapsed,
     ),
   };
+}
+
+/**
+ * Compute a detached next owner snapshot without touching persistence.
+ *
+ * @param {KeyBrowserViewStateSnapshot} state
+ * @returns {KeyBrowserViewStateSnapshot}
+ */
+export function applyNextKeyViewMode(state) {
+  /** @type {KeyViewMode} */
+  let mode = "grid";
+  if (state.mode === "grid") mode = "categorized";
+  else if (state.mode === "categorized") mode = "key-types";
+
+  return {
+    authorityEpoch: state.authorityEpoch,
+    revision: state.revision + 1,
+    mode,
+    collapsedCategories: {
+      command: [...state.collapsedCategories.command],
+      keyType: [...state.collapsedCategories.keyType],
+    },
+    collapsedBindsets: [...state.collapsedBindsets],
+  };
+}
+
+/**
+ * @param {KeyBrowserStorage} storage
+ * @param {KeyViewMode} mode
+ * @returns {KeyViewMode}
+ */
+export function writeKeyViewMode(storage, mode) {
+  storage.setItem(keyViewModeStorageKey, mode);
+  return mode;
 }
 
 /**

@@ -61,6 +61,7 @@ type RetiredListenerTopics =
   | "bindset:deleted"
   | "bindset:modified"
   | "current-profile:updated"
+  | "key-view:mode-changed"
   | "key-view:toggle"
   | "key-view:update-toggle"
   | "key:selected"
@@ -155,12 +156,14 @@ const preferencesSettings = createPreferencesState().settings;
 const keyBrowserViewState: KeyBrowserViewStateSnapshot = {
   authorityEpoch: 1,
   revision: 0,
+  mode: "categorized",
   collapsedCategories: { command: ["system"], keyType: ["function"] },
   collapsedBindsets: ["Primary Bindset"],
 };
 dataCoordinatorState.authorityEpoch.toFixed();
 keyBrowserViewState.authorityEpoch.toFixed();
 keyBrowserViewState.revision.toFixed();
+keyBrowserViewState.mode.toUpperCase();
 
 bus.hasListeners("toast:show");
 // @ts-expect-error Listener callbacks are private implementation details.
@@ -223,10 +226,26 @@ bus.emit("key-browser:state-changed", keyBrowserViewState);
 bus.emit("key-browser:state-changed", {
   authorityEpoch: 1,
   revision: 1,
+  mode: "grid",
   collapsedCategories: { command: ["system"] },
 });
 // @ts-expect-error KeyBrowser snapshots require owner ordering metadata.
 bus.emit("key-browser:state-changed", {
+  collapsedCategories: { command: [], keyType: [] },
+  collapsedBindsets: [],
+});
+// @ts-expect-error Complete KeyBrowser snapshots require the owned view mode.
+bus.emit("key-browser:state-changed", {
+  authorityEpoch: 1,
+  revision: 1,
+  collapsedCategories: { command: [], keyType: [] },
+  collapsedBindsets: [],
+});
+// @ts-expect-error KeyBrowser view mode is a closed application contract.
+bus.emit("key-browser:state-changed", {
+  authorityEpoch: 1,
+  revision: 1,
+  mode: "bindset-sections",
   collapsedCategories: { command: [], keyType: [] },
   collapsedBindsets: [],
 });
@@ -248,6 +267,9 @@ bus.emit("selection:state-changed", {
 
 // Null-bearing topics may omit their payload at the runtime bus boundary.
 bus.emit("about:show");
+
+// @ts-expect-error View-mode changes use the owner action and complete snapshot.
+bus.emit("key-view:mode-changed", { mode: "grid" });
 
 // @ts-expect-error Orphan compatibility listeners are retired from the registry.
 bus.on("bindset:modified", (payload) => {
@@ -417,6 +439,7 @@ bus.on(componentReplyTopic, (reply) => {
   } else if (reply.sender === "KeyBrowserService") {
     reply.state.authorityEpoch.toFixed();
     reply.state.revision.toFixed();
+    reply.state.mode.toUpperCase();
     reply.state.collapsedCategories.command.map((id) => id.toUpperCase());
     reply.state.collapsedCategories.keyType.map((id) => id.toUpperCase());
     reply.state.collapsedBindsets.map((name) => name.toUpperCase());

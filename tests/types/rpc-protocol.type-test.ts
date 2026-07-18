@@ -4,12 +4,16 @@ import type {
   DynamicRpcTopic,
   ParameterBuildResult,
   ParsedCommand,
+  RpcEmptyPayload,
   RpcHandler,
   RpcKnownTopic,
   RpcRequest,
   RpcResult,
 } from "../../src/js/types/rpc/index.js";
-import type { ExtensionPreferenceKey } from "../../src/js/types/events/base.js";
+import type {
+  ExtensionPreferenceKey,
+  KeyViewMode,
+} from "../../src/js/types/events/base.js";
 import type { SyncProjectResult } from "../../src/js/types/rpc/application.js";
 import type {
   KeybindImportResult,
@@ -44,6 +48,12 @@ type KnownTopic = Expect<
 >;
 type PreferenceInitResult = Expect<
   Equal<RpcResult<"preferences:init">, undefined>
+>;
+type KeyViewModeRequest = Expect<
+  Equal<RpcRequest<"key:cycle-view-mode">, RpcEmptyPayload>
+>;
+type KeyViewModeResult = Expect<
+  Equal<RpcResult<"key:cycle-view-mode">, KeyViewMode>
 >;
 type PreferenceMutationResult = Expect<
   Equal<RpcResult<"preferences:set-setting">, boolean>
@@ -379,6 +389,13 @@ async function exerciseCoreApi() {
   // @ts-expect-error No-payload topics reject non-empty payload objects.
   request(eventBus, "parser:clear-cache", { unexpected: true });
 
+  const nextViewMode = await request(eventBus, "key:cycle-view-mode");
+  const closedViewMode: KeyViewMode = nextViewMode;
+  void closedViewMode;
+  await request(eventBus, "key:cycle-view-mode", {});
+  // @ts-expect-error View-mode cycling rejects non-empty payload objects.
+  request(eventBus, "key:cycle-view-mode", { mode: "categorized" });
+
   const restoreResult = await request(eventBus, "project:restore-from-content");
   if (restoreResult.success) {
     const importedProfiles: number = restoreResult.imported.profiles;
@@ -542,6 +559,9 @@ async function exerciseCoreApi() {
     return parseResponse;
   });
   respond(eventBus, "parser:clear-cache", () => ({ success: true }));
+  respond(eventBus, "key:cycle-view-mode", () => "key-types");
+  // @ts-expect-error View-mode actions return only a closed mode.
+  respond(eventBus, "key:cycle-view-mode", () => "bindset-sections");
   respond(eventBus, "export:sync-to-folder", async ({ dirHandle }) => {
     void dirHandle;
     return undefined;
@@ -835,6 +855,8 @@ void syncCompensationFailure;
 void unknownSyncFailure;
 void (0 as unknown as ParameterCommandBuildResult);
 void (0 as unknown as PreferenceInitResult);
+void (0 as unknown as KeyViewModeRequest);
+void (0 as unknown as KeyViewModeResult);
 void (0 as unknown as SyncFolderSettingsRequest);
 void (0 as unknown as SyncFolderSettingsResult);
 void (0 as unknown as SyncProjectResultIsExact);

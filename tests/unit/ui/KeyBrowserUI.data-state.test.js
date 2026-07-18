@@ -34,12 +34,14 @@ const mountKeyGrid = () => {
 const keyBrowserState = ({
   authorityEpoch = 1,
   revision = 0,
+  mode = "grid",
   command = [],
   keyType = [],
   bindsets = [],
 } = {}) => ({
   authorityEpoch,
   revision,
+  mode,
   collapsedCategories: { command, keyType },
   collapsedBindsets: bindsets,
 });
@@ -103,6 +105,29 @@ describe("KeyBrowserUI accepted data state", () => {
       "no_profile_selected",
     );
     expect(ui.request).not.toHaveBeenCalled();
+  });
+
+  it("skips a ready-profile render until an owner view snapshot is accepted", async () => {
+    mountKeyGrid();
+    fixture = createEventBusFixture();
+    ui = new KeyBrowserUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n: { t: (key) => key },
+    });
+    const profile = createProfile({ spaceKeys: { F1: ["FireAll"] } });
+    ui._cacheDataState(coordinatorState(profile));
+    const grid = document.getElementById("keyGrid");
+    grid.textContent = "predecessor";
+    const renderGrid = vi
+      .spyOn(ui, "renderSimpleGridView")
+      .mockResolvedValue(undefined);
+
+    await expect(ui.render()).resolves.toBeUndefined();
+
+    expect(ui.getCurrentViewMode()).toBeNull();
+    expect(grid.textContent).toBe("predecessor");
+    expect(renderGrid).not.toHaveBeenCalled();
   });
 
   it("clears a predecessor at replacement revision zero and adopts the ready revision", async () => {
@@ -223,6 +248,7 @@ describe("KeyBrowserUI accepted data state", () => {
       groundKeys: { G1: ["GroundCommand"] },
     });
     ui._cacheDataState(coordinatorState(profile));
+    expect(ui.cacheKeyBrowserViewState(keyBrowserState())).toBe(true);
     vi.spyOn(ui, "getCurrentViewMode").mockImplementation(() => {
       ui.cache.currentEnvironment = "ground";
       return "grid";
@@ -266,9 +292,11 @@ describe("KeyBrowserUI accepted data state", () => {
       bindsetsEnabled: true,
       bindToAliasMode: true,
     };
-    ui.cache.keyBrowserViewState = keyBrowserState({
-      bindsets: ["Primary Bindset"],
-    });
+    expect(
+      ui.cacheKeyBrowserViewState(
+        keyBrowserState({ bindsets: ["Primary Bindset"] }),
+      ),
+    ).toBe(true);
     ui.request = vi.fn(async (topic) => {
       throw new Error(`Unexpected request: ${topic}`);
     });

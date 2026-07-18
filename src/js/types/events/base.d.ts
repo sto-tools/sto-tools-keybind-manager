@@ -19,11 +19,7 @@ export type Environment =
   | (string & { readonly __environmentCompatibility?: never });
 
 export type SelectionSource = "SelectionService";
-export type KeyViewMode =
-  | "grid"
-  | "categorized"
-  | "key-types"
-  | (string & { readonly __keyViewModeCompatibility?: never });
+export type KeyViewMode = "grid" | "categorized" | "key-types";
 export type ToastKind =
   | "info"
   | "success"

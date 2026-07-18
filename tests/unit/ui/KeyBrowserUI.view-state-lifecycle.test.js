@@ -29,12 +29,14 @@ const mountKeyGrid = () => {
 const keyBrowserState = ({
   authorityEpoch = 1,
   revision = 0,
+  mode = "grid",
   command = [],
   keyType = [],
   bindsets = [],
 } = {}) => ({
   authorityEpoch,
   revision,
+  mode,
   collapsedCategories: { command, keyType },
   collapsedBindsets: bindsets,
 });

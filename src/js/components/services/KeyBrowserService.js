@@ -4,6 +4,7 @@ import { compareKeyNames, sortKeyNames } from "./keySorting.js";
 import {
   applyBindsetCollapse,
   applyKeyCategoryCollapse,
+  applyNextKeyViewMode,
   cloneKeyBrowserViewState,
   nextKeyBrowserAuthorityEpoch,
   readNextBindsetCollapse,
@@ -11,6 +12,7 @@ import {
   readKeyBrowserViewState,
   writeBindsetCollapse,
   writeKeyCategoryCollapse,
+  writeKeyViewMode,
 } from "./keyBrowserViewState.js";
 
 /** @typedef {{ name: string, icon: string, keys: Set<string>, priority: number }} KeyCategory */
@@ -41,7 +43,7 @@ export default class KeyBrowserService extends ComponentBase {
         t: (key) => key,
       });
     this.localStorage = localStorage;
-    // Collapse persistence is required for availability; bootstrap scan
+    // View persistence is required for availability; bootstrap scan
     // failures intentionally abort construction and lifecycle initialization.
     this.viewState = readKeyBrowserViewState(this.localStorage, {
       authorityEpoch: nextKeyBrowserAuthorityEpoch(),
@@ -69,6 +71,7 @@ export default class KeyBrowserService extends ComponentBase {
       this.respond("key:categorize-by-type", ({ keysWithCommands, allKeys }) =>
         this.categorizeKeysByType(keysWithCommands, allKeys),
       ),
+      this.respond("key:cycle-view-mode", () => this.cycleKeyViewMode()),
       this.respond("key:sort", ({ keys }) => this.sortKeys(keys)),
       this.respond("key:toggle-category", ({ categoryId, mode }) =>
         this.toggleKeyCategory(categoryId, mode),
@@ -411,5 +414,15 @@ export default class KeyBrowserService extends ComponentBase {
     this.publishViewState(publishedState);
 
     return isCollapsed;
+  }
+
+  /** @returns {import('../../types/events/base.js').KeyViewMode} */
+  cycleKeyViewMode() {
+    const nextState = applyNextKeyViewMode(this.viewState);
+    const publishedState = cloneKeyBrowserViewState(nextState);
+    writeKeyViewMode(this.localStorage, nextState.mode);
+    this.viewState = nextState;
+    this.publishViewState(publishedState);
+    return nextState.mode;
   }
 }

@@ -20,6 +20,7 @@ const createEmptyKeyBrowserStorage = () => ({
 const emptyKeyBrowserViewState = () => ({
   authorityEpoch: expect.any(Number),
   revision: 0,
+  mode: "grid",
   collapsedCategories: {
     command: [],
     keyType: [],

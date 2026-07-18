@@ -1,9 +1,4 @@
-import type {
-  Environment,
-  KeyCommandMap,
-  KeyViewMode,
-  SelectionSource,
-} from "./base.js";
+import type { Environment, KeyCommandMap, SelectionSource } from "./base.js";
 import type { KeyBrowserViewStateSnapshot } from "./component-state.js";
 
 export type KeySelectionPayload =
@@ -37,7 +32,6 @@ export interface KeyEventProtocol {
   "key-browser:state-changed": KeyBrowserViewStateSnapshot;
   "key-deleted": { keyName: string };
   "key-selected": KeySelectionPayload;
-  "key-view:mode-changed": { mode: KeyViewMode };
   "key:list-changed": { keys: KeyCommandMap } | null;
   "key:duplicate": { key: string };
   "keycapture:set-location-specific": { value: boolean };

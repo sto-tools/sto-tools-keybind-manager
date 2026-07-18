@@ -13,6 +13,13 @@ const persistedStorageKey = `keyCategory_${persistedCategory}_collapsed`;
 const toggleStorageKey = `keyCategory_${toggleCategory}_collapsed`;
 const sharedCategoryStorageKey = `keyCategory_${sharedCategory}_collapsed`;
 const sharedBindsetStorageKey = `bindsetSection_${sharedBindset}_collapsed`;
+const viewModeStorageKey = "keyViewMode";
+
+const nextViewMode = {
+  grid: "categorized",
+  categorized: "key-types",
+  "key-types": "grid",
+};
 
 const createProfile = () => ({
   id: "captain",
@@ -63,9 +70,36 @@ describe("Integration: KeyBrowser view-state ownership", () => {
     localStorage.removeItem(toggleStorageKey);
     localStorage.removeItem(sharedCategoryStorageKey);
     localStorage.removeItem(sharedBindsetStorageKey);
+    localStorage.removeItem(viewModeStorageKey);
     document.body.replaceChildren();
     vi.restoreAllMocks();
   });
+
+  it.each([
+    ["missing", null],
+    ["empty", ""],
+    ["legacy bindset sections", "bindset-sections"],
+    ["unknown", "future-mode"],
+  ])(
+    "normalizes %s persisted mode without eagerly rewriting it",
+    async (_, stored) => {
+      eventBusFixture = await createRealEventBusFixture();
+      if (stored === null) localStorage.removeItem(viewModeStorageKey);
+      else localStorage.setItem(viewModeStorageKey, stored);
+
+      service = new KeyBrowserService({
+        eventBus: eventBusFixture.eventBus,
+        localStorage,
+      });
+      service.init();
+
+      expect(service.getCurrentState()).toMatchObject({
+        revision: 0,
+        mode: "grid",
+      });
+      expect(localStorage.getItem(viewModeStorageKey)).toBe(stored);
+    },
+  );
 
   it.each(["owner-first", "ui-first"])(
     "delivers persisted state and toggle broadcasts in %s startup order",
@@ -73,6 +107,14 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       mountKeyGrid();
       eventBusFixture = await createRealEventBusFixture();
       localStorage.setItem(persistedStorageKey, "true");
+      localStorage.setItem(viewModeStorageKey, "categorized");
+      const publications = [];
+      eventBusFixture.eventBus.on("key-browser:state-changed", (state) => {
+        publications.push({
+          state,
+          persistedMode: localStorage.getItem(viewModeStorageKey),
+        });
+      });
 
       service = new KeyBrowserService({
         eventBus: eventBusFixture.eventBus,
@@ -106,11 +148,15 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       expect(service.getCurrentState()).toMatchObject({
         authorityEpoch,
         revision: 0,
+        mode: "categorized",
       });
       expect(ui.cache.keyBrowserViewState).toMatchObject({
         authorityEpoch,
         revision: 0,
+        mode: "categorized",
       });
+      expect(ui.getCurrentViewMode()).toBe("categorized");
+      expect(localStorage.getItem(viewModeStorageKey)).toBe("categorized");
       expect(service.getCurrentState().collapsedCategories.command).toContain(
         persistedCategory,
       );
@@ -172,6 +218,28 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       expect(request).not.toHaveBeenCalledWith("key:get-all-sectional");
       expect(request).not.toHaveBeenCalledWith("key:get-category-state");
 
+      render.mockClear();
+      await ui.toggleKeyView();
+      await vi.waitFor(() => {
+        expect(service.getCurrentState()).toMatchObject({
+          authorityEpoch,
+          revision: 3,
+          mode: "key-types",
+        });
+        expect(ui.cache.keyBrowserViewState).toMatchObject({
+          authorityEpoch,
+          revision: 3,
+          mode: "key-types",
+        });
+      });
+      expect(localStorage.getItem(viewModeStorageKey)).toBe("key-types");
+      expect(publications.at(-1)).toMatchObject({
+        state: { revision: 3, mode: "key-types" },
+        persistedMode: "key-types",
+      });
+      expect(render).toHaveBeenCalledOnce();
+      expect(request).toHaveBeenLastCalledWith("key:cycle-view-mode");
+
       localStorage.removeItem(toggleStorageKey);
       expect(localStorage.getItem(toggleStorageKey)).toBeNull();
     },
@@ -185,6 +253,7 @@ describe("Integration: KeyBrowser view-state ownership", () => {
       </div>
     `;
     eventBusFixture = await createRealEventBusFixture();
+    localStorage.setItem(viewModeStorageKey, "grid");
     service = new KeyBrowserService({
       eventBus: eventBusFixture.eventBus,
       localStorage,
@@ -201,8 +270,10 @@ describe("Integration: KeyBrowser view-state ownership", () => {
     });
     ui._cacheDataState(coordinatorState());
     secondUi._cacheDataState(coordinatorState());
-    vi.spyOn(ui, "render").mockResolvedValue(undefined);
-    vi.spyOn(secondUi, "render").mockResolvedValue(undefined);
+    const firstRender = vi.spyOn(ui, "render").mockResolvedValue(undefined);
+    const secondRender = vi
+      .spyOn(secondUi, "render")
+      .mockResolvedValue(undefined);
 
     service.init();
     ui.init();
@@ -310,5 +381,29 @@ describe("Integration: KeyBrowser view-state ownership", () => {
     expect(secondUi.cache.keyBrowserViewState).toEqual(
       ui.cache.keyBrowserViewState,
     );
+
+    firstRender.mockClear();
+    secondRender.mockClear();
+    for (const [index, actor] of [ui, secondUi, ui].entries()) {
+      const expectedMode = nextViewMode[service.getCurrentState().mode];
+      await actor.toggleKeyView();
+      await vi.waitFor(() => {
+        expect(service.getCurrentState()).toMatchObject({
+          revision: 5 + index,
+          mode: expectedMode,
+        });
+        expect(ui.cache.keyBrowserViewState).toEqual(service.getCurrentState());
+        expect(secondUi.cache.keyBrowserViewState).toEqual(
+          service.getCurrentState(),
+        );
+      });
+      expect(localStorage.getItem(viewModeStorageKey)).toBe(expectedMode);
+    }
+    expect(service.getCurrentState()).toMatchObject({
+      revision: 7,
+      mode: "grid",
+    });
+    expect(firstRender).toHaveBeenCalledTimes(3);
+    expect(secondRender).toHaveBeenCalledTimes(3);
   });
 });

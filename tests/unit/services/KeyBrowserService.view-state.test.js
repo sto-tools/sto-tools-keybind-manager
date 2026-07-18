@@ -30,6 +30,7 @@ describe("KeyBrowserService owned view state", () => {
   it("publishes persisted category and bindset collapse as complete initial state", async () => {
     fixture = createEventBusFixture();
     const localStorage = createStorage({
+      keyViewMode: "categorized",
       keyCategory_system_collapsed: "true",
       keyTypeCategory_function_collapsed: "true",
       bindsetSection_Tactical_collapsed: "true",
@@ -50,6 +51,7 @@ describe("KeyBrowserService owned view state", () => {
     const expected = {
       authorityEpoch: expect.any(Number),
       revision: 0,
+      mode: "categorized",
       collapsedCategories: {
         command: ["system"],
         keyType: ["function"],
@@ -105,6 +107,7 @@ describe("KeyBrowserService owned view state", () => {
       {
         authorityEpoch,
         revision: 1,
+        mode: "grid",
         collapsedCategories: { command: ["system"], keyType: [] },
         collapsedBindsets: [],
       },
@@ -126,6 +129,7 @@ describe("KeyBrowserService owned view state", () => {
       {
         authorityEpoch,
         revision: 2,
+        mode: "grid",
         collapsedCategories: { command: [], keyType: [] },
         collapsedBindsets: [],
       },
@@ -167,6 +171,7 @@ describe("KeyBrowserService owned view state", () => {
     expect(service.getCurrentState()).toEqual({
       authorityEpoch,
       revision: 1,
+      mode: "grid",
       collapsedCategories: { command: [], keyType: [] },
       collapsedBindsets: ["Tactical"],
     });
@@ -205,7 +210,6 @@ describe("KeyBrowserService owned view state", () => {
         bindsetName: "Tactical",
       }),
     ).rejects.toThrow("quota exceeded");
-
     expect(service.getCurrentState()).toEqual(before);
     expect(states).toEqual([]);
   });
@@ -284,6 +288,7 @@ describe("KeyBrowserService owned view state", () => {
       expect(service.getCurrentState()).toEqual({
         authorityEpoch: initial.authorityEpoch,
         revision: 1,
+        mode: "grid",
         collapsedCategories: expectedCategories,
         collapsedBindsets: expectedBindsets,
       });
@@ -336,6 +341,7 @@ describe("KeyBrowserService owned view state", () => {
       const guardedState = {
         authorityEpoch: initial.authorityEpoch,
         revision: initial.revision,
+        mode: initial.mode,
         collapsedCategories: {
           command: guardedArray(initial.collapsedCategories.command),
           keyType: guardedArray(initial.collapsedCategories.keyType),
@@ -360,6 +366,7 @@ describe("KeyBrowserService owned view state", () => {
       expect(service.getCurrentState()).toEqual({
         authorityEpoch: initial.authorityEpoch,
         revision: 1,
+        mode: "grid",
         collapsedCategories: expectedCategories,
         collapsedBindsets: expectedBindsets,
       });
@@ -394,6 +401,7 @@ describe("KeyBrowserService owned view state", () => {
     expect(service.getCurrentState()).toEqual({
       authorityEpoch: expect.any(Number),
       revision: 0,
+      mode: "grid",
       collapsedCategories: { command: ["system"], keyType: [] },
       collapsedBindsets: [],
     });

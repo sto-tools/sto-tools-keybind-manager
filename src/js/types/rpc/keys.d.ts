@@ -1,9 +1,11 @@
 import type {
   CodedFailure,
+  NoPayloadRpc,
   OptionalRpc,
   RequiredRpc,
   StoredCommand,
 } from "./base.js";
+import type { KeyViewMode } from "../events/base.js";
 
 export type KeyCategory = {
   keys: string[];
@@ -66,6 +68,7 @@ export interface KeyRpcProtocol {
     },
     KeyCategories
   >;
+  "key:cycle-view-mode": NoPayloadRpc<KeyViewMode>;
   "key:delete": OptionalRpc<{ key?: string }, KeyDeleteResult>;
   "key:duplicate-with-name": OptionalRpc<
     { sourceKey?: string | null; newKey?: string },

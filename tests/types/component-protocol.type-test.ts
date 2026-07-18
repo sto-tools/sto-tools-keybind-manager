@@ -17,6 +17,7 @@ component.emit("ui:copy-to-clipboard", { text: "Copy me" });
 component.addEventListener("key-browser:state-changed", (state) => {
   state.authorityEpoch.toFixed();
   state.revision.toFixed();
+  state.mode.toUpperCase();
   state.collapsedCategories.command.map((id) => id.toUpperCase());
   state.collapsedCategories.keyType.map((id) => id.toUpperCase());
   state.collapsedBindsets.map((name) => name.toUpperCase());
@@ -24,6 +25,7 @@ component.addEventListener("key-browser:state-changed", (state) => {
 component.emit("key-browser:state-changed", {
   authorityEpoch: 1,
   revision: 0,
+  mode: "key-types",
   collapsedCategories: { command: [], keyType: ["function"] },
   collapsedBindsets: ["Primary Bindset"],
 });
@@ -31,6 +33,7 @@ component.emit("key-browser:state-changed", {
 component.emit("key-browser:state-changed", {
   authorityEpoch: 1,
   revision: 0,
+  mode: "grid",
   collapsedCategories: { command: [] },
   collapsedBindsets: [],
 });
@@ -60,6 +63,10 @@ async function exerciseComponentRpc() {
   parsed.commands;
 
   await component.request("parser:clear-cache");
+  const nextViewMode = await component.request("key:cycle-view-mode");
+  nextViewMode.toUpperCase();
+  // @ts-expect-error View-mode cycling is a no-payload action.
+  component.request("key:cycle-view-mode", { mode: "categorized" });
   // @ts-expect-error Required RPC payloads cannot be omitted.
   component.request("parser:parse-command-string");
   // @ts-expect-error RPC payloads are selected by their topic.
@@ -127,6 +134,9 @@ async function exerciseComponentRpc() {
   component.request("command:get-empty-state-info");
 
   component.respond("parser:clear-cache", () => ({ success: true }));
+  component.respond("key:cycle-view-mode", () => "categorized");
+  // @ts-expect-error View-mode action results use the closed mode contract.
+  component.respond("key:cycle-view-mode", () => "bindset-sections");
   // @ts-expect-error Responder results are selected by their topic.
   component.respond("parser:clear-cache", () => ({ success: false }));
   // @ts-expect-error Retired settings state queries cannot regain responders.

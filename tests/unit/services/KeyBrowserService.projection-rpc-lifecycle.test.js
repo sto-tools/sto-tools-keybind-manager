@@ -7,6 +7,7 @@ const responderTopics = [
   "bindset:toggle-collapse",
   "key:categorize-by-command",
   "key:categorize-by-type",
+  "key:cycle-view-mode",
   "key:sort",
   "key:toggle-category",
 ];

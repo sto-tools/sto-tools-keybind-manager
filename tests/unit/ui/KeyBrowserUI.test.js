@@ -91,20 +91,121 @@ describe("KeyBrowserUI", () => {
     vi.restoreAllMocks();
   });
 
-  it("toggleKeyView should cycle view modes and store in localStorage", () => {
+  it("requests a mode cycle and waits for accepted owner snapshots to update the button", async () => {
+    const btn = document.getElementById("toggleKeyViewBtn");
+    const icon = btn.querySelector("i");
+    const request = vi.spyOn(ui, "request").mockResolvedValue("categorized");
+    const render = vi.spyOn(ui, "render").mockResolvedValue(undefined);
+    localStorage.setItem("keyViewMode", "key-types");
+
+    eventBus.emit("key-browser:state-changed", {
+      authorityEpoch: 10,
+      revision: 0,
+      mode: "grid",
+      collapsedCategories: { command: [], keyType: [] },
+      collapsedBindsets: [],
+    });
+
+    expect(ui.getCurrentViewMode()).toBe("grid");
+    expect(icon.className).toBe("fas fa-list");
+    expect(btn.title).toBe("switch_to_categorized_view");
+
+    await ui.toggleKeyView();
+    expect(request).toHaveBeenCalledWith("key:cycle-view-mode");
+
+    expect(ui.getCurrentViewMode()).toBe("grid");
+    expect(icon.className).toBe("fas fa-list");
+    expect(render).not.toHaveBeenCalled();
+
+    eventBus.emit("key-browser:state-changed", {
+      authorityEpoch: 10,
+      revision: 1,
+      mode: "categorized",
+      collapsedCategories: { command: [], keyType: [] },
+      collapsedBindsets: [],
+    });
+    expect(ui.getCurrentViewMode()).toBe("categorized");
+    expect(icon.className).toBe("fas fa-sitemap");
+    expect(btn.title).toBe("switch_to_key_type_view");
+
+    eventBus.emit("key-browser:state-changed", {
+      authorityEpoch: 10,
+      revision: 2,
+      mode: "key-types",
+      collapsedCategories: { command: [], keyType: [] },
+      collapsedBindsets: [],
+    });
+    expect(ui.getCurrentViewMode()).toBe("key-types");
+    expect(icon.className).toBe("fas fa-th");
+    expect(btn.title).toBe("switch_to_grid_view");
+
+    eventBus.emit("key-browser:state-changed", {
+      authorityEpoch: 10,
+      revision: 3,
+      mode: "grid",
+      collapsedCategories: { command: [], keyType: [] },
+      collapsedBindsets: [],
+    });
+    expect(icon.className).toBe("fas fa-list");
+    expect(btn.title).toBe("switch_to_categorized_view");
+    expect(localStorage.getItem("keyViewMode")).toBe("key-types");
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("preserves the legacy application environment guard", async () => {
+    const request = vi.spyOn(ui, "request").mockResolvedValue("categorized");
+
+    ui.app = { currentEnvironment: "alias" };
+    await ui.toggleKeyView();
+    expect(request).not.toHaveBeenCalled();
+
+    ui.app.currentEnvironment = "space";
+    await ui.toggleKeyView();
+    expect(request).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalledWith("key:cycle-view-mode");
+  });
+
+  it("handles a rejected mode-cycle request from the DOM click path", async () => {
+    const failure = new Error("view mode persistence unavailable");
+    vi.spyOn(ui, "request").mockRejectedValue(failure);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const clickHandler = eventBus.onDom.mock.calls.find(
+      ([target, event]) => target === "toggleKeyViewBtn" && event === "click",
+    )?.[2];
+    expect(clickHandler).toBeTypeOf("function");
+    clickHandler();
+
+    await vi.waitFor(() => {
+      expect(error).toHaveBeenCalledWith(
+        "[KeyBrowserUI] Failed to cycle key view mode:",
+        failure,
+      );
+    });
+  });
+
+  it("reprojects the accepted mode title when the language changes", () => {
+    let language = "en";
+    ui.i18n = { t: (key) => `${language}:${key}` };
+    const render = vi.spyOn(ui, "render").mockResolvedValue(undefined);
     const btn = document.getElementById("toggleKeyViewBtn");
 
-    expect(localStorage.getItem("keyViewMode") || "grid").toBe("grid");
+    eventBus.emit("key-browser:state-changed", {
+      authorityEpoch: 11,
+      revision: 0,
+      mode: "categorized",
+      collapsedCategories: { command: [], keyType: [] },
+      collapsedBindsets: [],
+    });
+    expect(btn.title).toBe("en:switch_to_key_type_view");
 
-    ui.toggleKeyView(); // grid -> categorized
-    expect(localStorage.getItem("keyViewMode")).toBe("categorized");
-    expect(btn.querySelector("i").className).toContain("fa-sitemap");
+    language = "fr";
+    eventBus.emit("language:changed", { language: "fr" });
 
-    ui.toggleKeyView(); // categorized -> key-types
-    expect(localStorage.getItem("keyViewMode")).toBe("key-types");
-
-    ui.toggleKeyView(); // key-types -> grid
-    expect(localStorage.getItem("keyViewMode")).toBe("grid");
+    expect(btn.title).toBe("fr:switch_to_key_type_view");
+    expect(btn.querySelector("i").className).toBe("fas fa-sitemap");
+    expect(ui.getCurrentViewMode()).toBe("categorized");
+    expect(render).toHaveBeenCalledOnce();
   });
 
   it("toggleVisibility should hide and show container based on environment", async () => {
