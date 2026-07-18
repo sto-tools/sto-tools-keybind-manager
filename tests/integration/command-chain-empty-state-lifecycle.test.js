@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ComponentBase from "../../src/js/components/ComponentBase.js";
+import CommandPresentationService from "../../src/js/components/services/CommandPresentationService.js";
 import CommandChainUI from "../../src/js/components/ui/CommandChainUI.js";
 import { createSelectionState } from "../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../fixtures/core/eventBus.js";
@@ -22,6 +23,36 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
   let ui;
   let owners;
 
+  function presentationState() {
+    return {
+      authorityEpoch: 1,
+      revision: 0,
+      collapsedCategories: [],
+      collapsedGroups: [],
+    };
+  }
+
+  function createPresentationStorage() {
+    const values = new Map();
+    return {
+      get length() {
+        return values.size;
+      },
+      key(index) {
+        return [...values.keys()][index] ?? null;
+      },
+      getItem(key) {
+        return values.get(key) ?? null;
+      },
+      setItem(key, value) {
+        values.set(key, String(value));
+      },
+      removeItem(key) {
+        values.delete(key);
+      },
+    };
+  }
+
   function createUI() {
     fixture = fixture || createEventBusFixture();
     ui = new CommandChainUI({
@@ -31,6 +62,21 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
       ui: { initDragAndDrop: vi.fn() },
     });
     return ui;
+  }
+
+  function createDirectRenderUI() {
+    createUI();
+    ui.cache.commandPresentationState = presentationState();
+    return ui;
+  }
+
+  function createPresentationOwner() {
+    const owner = new CommandPresentationService({
+      eventBus: fixture.eventBus,
+      localStorage: createPresentationStorage(),
+    });
+    owners = [...(owners || []), owner];
+    return owner;
   }
 
   function rejectUnexpectedRequests() {
@@ -71,7 +117,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
     "renders accepted $environment state with no selection without a state query",
     async ({ environment, title, preview, emptyTitle, description, icon }) => {
       mountCommandChain();
-      createUI();
+      createDirectRenderUI();
       const request = rejectUnexpectedRequests();
       const profile = createProfile();
       ui._cacheDataState(coordinatorState(profile, { environment }));
@@ -104,7 +150,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
 
   it("renders a valid selected empty chain entirely from accepted state", async () => {
     mountCommandChain();
-    createUI();
+    createDirectRenderUI();
     const request = rejectUnexpectedRequests();
     const profile = createProfile({ spaceKeys: { F1: [] } });
     ui._cacheDataState(coordinatorState(profile));
@@ -134,7 +180,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
     "renders a profile-owned HTML-shaped %s selection as text",
     async (environment) => {
       mountCommandChain();
-      createUI();
+      createDirectRenderUI();
       const request = rejectUnexpectedRequests();
       const maliciousName = '<img src=x onerror="globalThis.pwned=true">';
       const profile = createProfile(
@@ -168,7 +214,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
 
   it("reprojects a named-only selection as stale when bindsets are disabled", async () => {
     mountCommandChain();
-    createUI();
+    createDirectRenderUI();
     const request = rejectUnexpectedRequests();
     const profile = createProfile({
       bindsets: {
@@ -210,7 +256,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
 
   it("renders a selection absent from accepted state as no selection", async () => {
     mountCommandChain();
-    createUI();
+    createDirectRenderUI();
     const request = rejectUnexpectedRequests();
     const profile = createProfile({ spaceKeys: { Existing: [] } });
     ui._cacheDataState(coordinatorState(profile));
@@ -238,6 +284,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
   it("follows live environment and selection broadcasts without leaking the previous chain", async () => {
     mountCommandChain();
     createUI();
+    createPresentationOwner().init();
     const profile = createProfile({
       spaceKeys: { F1: ["SpaceCommand"] },
       groundKeys: { G1: ["GroundCommand"] },
@@ -319,34 +366,46 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
   it("reattaches one command-chain signal listener after same-instance re-init", async () => {
     mountCommandChain();
     createUI();
+    createPresentationOwner().init();
     const request = rejectUnexpectedRequests();
 
     ui.init();
 
     expect(fixture.eventBus.getListenerCount("chain-data-changed")).toBe(1);
-    expect(fixture.eventBus.getListenerCount("data:state-changed")).toBe(2);
+    expect(fixture.eventBus.getListenerCount("data:state-changed")).toBe(3);
     expect(fixture.eventBus.getListenerCount("selection:state-changed")).toBe(
-      2,
+      3,
     );
-    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(2);
+    expect(
+      fixture.eventBus.getListenerCount("command-presentation:state-changed"),
+    ).toBe(1);
+    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(3);
 
     ui.destroy();
 
     expect(fixture.eventBus.getListenerCount("chain-data-changed")).toBe(0);
-    expect(fixture.eventBus.getListenerCount("data:state-changed")).toBe(0);
+    expect(fixture.eventBus.getListenerCount("data:state-changed")).toBe(1);
     expect(fixture.eventBus.getListenerCount("selection:state-changed")).toBe(
-      0,
+      1,
     );
-    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(0);
+    expect(
+      fixture.eventBus.getListenerCount("command-presentation:state-changed"),
+    ).toBe(0);
+    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(1);
+    expect(ui.cache.commandPresentationState).toBeNull();
 
     ui.init();
 
     expect(fixture.eventBus.getListenerCount("chain-data-changed")).toBe(1);
-    expect(fixture.eventBus.getListenerCount("data:state-changed")).toBe(2);
+    expect(fixture.eventBus.getListenerCount("data:state-changed")).toBe(3);
     expect(fixture.eventBus.getListenerCount("selection:state-changed")).toBe(
-      2,
+      3,
     );
-    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(2);
+    expect(
+      fixture.eventBus.getListenerCount("command-presentation:state-changed"),
+    ).toBe(1);
+    expect(fixture.eventBus.getListenerCount("key-selected")).toBe(3);
+    expect(ui.cache.commandPresentationState).not.toBeNull();
     expect(ui.pendingInitialRender).toBe(true);
 
     const profile = createProfile();
@@ -396,6 +455,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
       new DataCoordinator(fixture.eventBus),
       new SelectionService(fixture.eventBus),
     ];
+    createPresentationOwner();
     for (const owner of owners) owner.init();
     createUI();
     const request = rejectUnexpectedRequests();
@@ -466,6 +526,7 @@ describe("CommandChainUI accepted-state empty-state lifecycle", () => {
         order === "data-first"
           ? [dataOwner, selectionOwner]
           : [selectionOwner, dataOwner];
+      createPresentationOwner();
       for (const owner of owners) owner.init();
 
       await vi.waitFor(() => expect(render).toHaveBeenCalledOnce());

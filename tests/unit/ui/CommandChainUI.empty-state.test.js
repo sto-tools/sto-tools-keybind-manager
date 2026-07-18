@@ -27,6 +27,12 @@ describe("CommandChainUI accepted-state empty projection", () => {
       bindToAliasMode: false,
     };
     ui.cache.activeBindset = "Primary Bindset";
+    ui.cache.commandPresentationState = {
+      authorityEpoch: 1,
+      revision: 1,
+      collapsedCategories: [],
+      collapsedGroups: [],
+    };
     ui.request = vi.fn(async (topic) => {
       throw new Error(`Unexpected request: ${topic}`);
     });

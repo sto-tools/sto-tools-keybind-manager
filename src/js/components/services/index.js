@@ -4,6 +4,7 @@ export { default as ProjectManagementService } from "./ProjectManagementService.
 export { default as AutoSync } from "./AutoSync.js";
 export { default as StorageService } from "./StorageService.js";
 export { default as CommandLibraryService } from "./CommandLibraryService.js";
+export { default as CommandPresentationService } from "./CommandPresentationService.js";
 export { default as CommandService } from "./CommandService.js";
 export { default as InterfaceModeService } from "./InterfaceModeService.js";
 export { default as SyncService } from "./SyncService.js";

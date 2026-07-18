@@ -11,6 +11,7 @@ import type {
   RpcResult,
 } from "../../src/js/types/rpc/index.js";
 import type {
+  CommandGroupType,
   ExtensionPreferenceKey,
   KeyViewMode,
 } from "../../src/js/types/events/base.js";
@@ -54,6 +55,24 @@ type KeyViewModeRequest = Expect<
 >;
 type KeyViewModeResult = Expect<
   Equal<RpcResult<"key:cycle-view-mode">, KeyViewMode>
+>;
+type CommandCategoryToggleRequest = Expect<
+  Equal<
+    RpcRequest<"command-presentation:toggle-category">,
+    { categoryId: string }
+  >
+>;
+type CommandGroupToggleRequest = Expect<
+  Equal<
+    RpcRequest<"command-presentation:toggle-group">,
+    { groupType: CommandGroupType }
+  >
+>;
+type CommandCategoryToggleResult = Expect<
+  Equal<RpcResult<"command-presentation:toggle-category">, boolean>
+>;
+type CommandGroupToggleResult = Expect<
+  Equal<RpcResult<"command-presentation:toggle-group">, boolean>
 >;
 type PreferenceMutationResult = Expect<
   Equal<RpcResult<"preferences:set-setting">, boolean>
@@ -396,6 +415,27 @@ async function exerciseCoreApi() {
   // @ts-expect-error View-mode cycling rejects non-empty payload objects.
   request(eventBus, "key:cycle-view-mode", { mode: "categorized" });
 
+  const categoryCollapsed = await request(
+    eventBus,
+    "command-presentation:toggle-category",
+    { categoryId: "system" },
+  );
+  const categoryResult: boolean = categoryCollapsed;
+  void categoryResult;
+  const groupCollapsed = await request(
+    eventBus,
+    "command-presentation:toggle-group",
+    { groupType: "non-trayexec" },
+  );
+  const groupResult: boolean = groupCollapsed;
+  void groupResult;
+  // @ts-expect-error Category toggle requires its payload.
+  request(eventBus, "command-presentation:toggle-category");
+  // @ts-expect-error Group toggle names are closed.
+  request(eventBus, "command-presentation:toggle-group", {
+    groupType: "other",
+  });
+
   const restoreResult = await request(eventBus, "project:restore-from-content");
   if (restoreResult.success) {
     const importedProfiles: number = restoreResult.imported.profiles;
@@ -560,6 +600,10 @@ async function exerciseCoreApi() {
   });
   respond(eventBus, "parser:clear-cache", () => ({ success: true }));
   respond(eventBus, "key:cycle-view-mode", () => "key-types");
+  respond(eventBus, "command-presentation:toggle-category", () => true);
+  respond(eventBus, "command-presentation:toggle-group", () => false);
+  // @ts-expect-error Command-presentation actions return booleans.
+  respond(eventBus, "command-presentation:toggle-category", () => "true");
   // @ts-expect-error View-mode actions return only a closed mode.
   respond(eventBus, "key:cycle-view-mode", () => "bindset-sections");
   respond(eventBus, "export:sync-to-folder", async ({ dirHandle }) => {

@@ -6,9 +6,12 @@ import {
 } from "../services/dataState.js";
 import { projectCombinedAliases } from "../services/vfxAliasProjection.js";
 import {
+  acceptCommandLibraryPresentation,
   createCommandLibraryAliasCategory,
+  projectCommandLibraryCategoryCollapse,
   projectCommandLibraryBindsetAliases,
 } from "./commandLibraryAliasDom.js";
+import { isCommandCategoryCollapsed } from "../services/commandPresentationState.js";
 import { getCommandCategories } from "../../data/commandCatalog.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
@@ -57,9 +60,7 @@ export default class CommandLibraryUI extends UIComponentBase {
 
   // Initialize the CommandLibraryUI component
   onInit() {
-    this._libraryLifecycleGeneration += 1;
     this.setupEventListeners();
-    this.setupCommandLibrary();
   }
 
   // Set up all event listeners for command library UI
@@ -80,6 +81,10 @@ export default class CommandLibraryUI extends UIComponentBase {
 
     this.addEventListener("data:state-changed", () => {
       this.updateCommandLibrary();
+    });
+
+    this.addEventListener("command-presentation:state-changed", (state) => {
+      acceptCommandLibraryPresentation(this, state);
     });
 
     // Environment and selection changes
@@ -122,6 +127,7 @@ export default class CommandLibraryUI extends UIComponentBase {
 
   // Setup the command library UI
   async setupCommandLibrary() {
+    if (!this.cache.commandPresentationState) return;
     // Avoid concurrent rebuilds; queue the latest request.
     if (this._rebuilding) {
       this._rebuildQueued = true;
@@ -184,9 +190,10 @@ export default class CommandLibraryUI extends UIComponentBase {
     element.className = "category";
     element.dataset.category = categoryId;
 
-    // Check if category should be collapsed (similar to Keys UI)
-    const storageKey = `commandCategory_${categoryId}_collapsed`;
-    const isCollapsed = localStorage.getItem(storageKey) === "true";
+    const isCollapsed = isCommandCategoryCollapsed(
+      this.cache.commandPresentationState,
+      categoryId,
+    );
 
     element.innerHTML = `
       <h4 class="${isCollapsed ? "collapsed" : ""}" data-category="${categoryId}">
@@ -215,12 +222,13 @@ export default class CommandLibraryUI extends UIComponentBase {
           .join("")}
       </div>
     `;
+    projectCommandLibraryCategoryCollapse(element, isCollapsed);
 
     // Add click handler for category header using EventBus
     const header = element.querySelector("h4");
     if (header) {
       this.onDom(header, "click", () => {
-        this.toggleCommandCategory(categoryId, element);
+        this.toggleCommandCategory(categoryId);
       });
     }
 
@@ -268,32 +276,15 @@ export default class CommandLibraryUI extends UIComponentBase {
   // Toggle command category collapse state
   /**
    * @param {string} categoryId
-   * @param {HTMLElement} element
    */
-  toggleCommandCategory(categoryId, element) {
-    const header = element.querySelector("h4");
-    const commands = element.querySelector(".category-commands");
-    const chevron = header?.querySelector(".category-chevron");
-    if (
-      !(header instanceof HTMLElement) ||
-      !(commands instanceof HTMLElement) ||
-      !(chevron instanceof HTMLElement)
-    )
-      return;
-
-    const isCollapsed = commands.classList.contains("collapsed");
-    const storageKey = `commandCategory_${categoryId}_collapsed`;
-
-    if (isCollapsed) {
-      commands.classList.remove("collapsed");
-      header.classList.remove("collapsed");
-      chevron.style.transform = "rotate(90deg)";
-      localStorage.setItem(storageKey, "false");
-    } else {
-      commands.classList.add("collapsed");
-      header.classList.add("collapsed");
-      chevron.style.transform = "rotate(0deg)";
-      localStorage.setItem(storageKey, "true");
+  toggleCommandCategory(categoryId) {
+    try {
+      this.request("command-presentation:toggle-category", {
+        categoryId,
+      }).catch(() => {});
+    } catch {
+      // The owner publication is the only state source. An absent or failing
+      // owner therefore leaves the existing projection unchanged.
     }
   }
 
@@ -317,6 +308,10 @@ export default class CommandLibraryUI extends UIComponentBase {
       categoryType,
       titleKey,
       iconClass,
+      collapsed: isCommandCategoryCollapsed(
+        this.cache.commandPresentationState,
+        categoryType,
+      ),
     });
     const header = /** @type {HTMLElement | null} */ (
       element.querySelector("h4")
@@ -324,7 +319,7 @@ export default class CommandLibraryUI extends UIComponentBase {
     if (!header) return element;
 
     this.onDom(header, "click", () => {
-      this.toggleAliasCategory(categoryType, element);
+      this.toggleAliasCategory(categoryType);
     });
 
     this.onDom(element, "click", (e) => {
@@ -370,37 +365,14 @@ export default class CommandLibraryUI extends UIComponentBase {
   // Toggle alias category collapse state
   /**
    * @param {string} categoryType
-   * @param {HTMLElement} element
    */
-  toggleAliasCategory(categoryType, element) {
-    const header = element.querySelector("h4");
-    const commands = element.querySelector(".category-commands");
-    const chevron = header?.querySelector(".category-chevron");
-    if (
-      !(header instanceof HTMLElement) ||
-      !(commands instanceof HTMLElement) ||
-      !(chevron instanceof HTMLElement)
-    )
-      return;
-
-    const isCollapsed = commands.classList.contains("collapsed");
-    const storageKey = `commandCategory_${categoryType}_collapsed`;
-
-    if (isCollapsed) {
-      commands.classList.remove("collapsed");
-      header.classList.remove("collapsed");
-      chevron.style.transform = "rotate(90deg)";
-      localStorage.setItem(storageKey, "false");
-    } else {
-      commands.classList.add("collapsed");
-      header.classList.add("collapsed");
-      chevron.style.transform = "rotate(0deg)";
-      localStorage.setItem(storageKey, "true");
-    }
+  toggleAliasCategory(categoryType) {
+    this.toggleCommandCategory(categoryType);
   }
 
   // Update the command library using cached profile data
   async updateCommandLibrary() {
+    if (!this.cache.commandPresentationState) return;
     const generation = ++this._aliasRenderGeneration;
     const isCurrent = () =>
       generation === this._aliasRenderGeneration && !this.destroyed;
@@ -582,8 +554,14 @@ export default class CommandLibraryUI extends UIComponentBase {
   /**
    * @param {import('../../types/events/component-state.js').ComponentStateReply} reply
    */
-  handleInitialState({ sender }) {
-    if (sender === "DataCoordinator") {
+  handleInitialState(reply) {
+    const { sender, state } = reply;
+    if (sender === "CommandPresentationService") {
+      acceptCommandLibraryPresentation(this, state);
+    }
+    super.handleInitialState(reply);
+    if (sender === "CommandPresentationService") return;
+    if (sender === "DataCoordinator" && this.eventListenersSetup) {
       this.updateCommandLibrary();
     }
   }
@@ -594,6 +572,16 @@ export default class CommandLibraryUI extends UIComponentBase {
     this.eventListenersSetup = false;
     this._rebuilding = false;
     this._rebuildQueued = false;
+    this.pendingInitialRender = false;
+    this.cache.commandPresentationState = null;
+  }
+
+  hasRequiredData() {
+    return this.cache.commandPresentationState !== null;
+  }
+
+  performInitialRender() {
+    this.setupCommandLibrary().catch(() => {});
   }
 
   // Apply text search filter to command library items

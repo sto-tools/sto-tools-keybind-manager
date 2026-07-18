@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  acceptCommandLibraryPresentation,
   createCommandLibraryAliasCategory,
+  projectCommandLibraryCategoryCollapse,
   projectCommandLibraryBindsetAliases,
+  reconcileCommandLibraryPresentation,
   sanitizeCommandLibraryBindsetName,
 } from "../../../src/js/components/ui/commandLibraryAliasDom.js";
 
@@ -109,6 +112,7 @@ describe("commandLibraryAliasDom", () => {
         categoryType,
         titleKey: "unsafe-title",
         iconClass: "fas fa-mask unsafe-icon",
+        collapsed: false,
       });
 
       const header = element.querySelector("h4");
@@ -131,9 +135,8 @@ describe("commandLibraryAliasDom", () => {
     },
   );
 
-  it("applies persisted collapsed state to the category header and commands", () => {
-    localStorage.setItem("commandCategory_vertigo-aliases_collapsed", "true");
-
+  it("applies the explicit accepted collapse value without reading persistence", () => {
+    localStorage.setItem("commandCategory_vertigo-aliases_collapsed", "false");
     const element = createCommandLibraryAliasCategory({
       document,
       translate: (key) => key,
@@ -149,6 +152,7 @@ describe("commandLibraryAliasDom", () => {
       categoryType: "vertigo-aliases",
       titleKey: "vfx_aliases",
       iconClass: "fas fa-eye-slash",
+      collapsed: true,
     });
 
     expect(element.querySelector("h4")?.classList).toContain("collapsed");
@@ -157,6 +161,85 @@ describe("commandLibraryAliasDom", () => {
     );
     expect(
       localStorage.getItem("commandCategory_vertigo-aliases_collapsed"),
-    ).toBe("true");
+    ).toBe("false");
+  });
+
+  it("projects and reconciles every existing static and alias category", () => {
+    document.body.innerHTML = `
+      <div id="commandCategoriesList">
+        <div class="category" data-category="movement">
+          <h4><i class="category-chevron"></i></h4>
+          <div class="category-commands"></div>
+        </div>
+      </div>
+      <div id="aliasCategoriesList">
+        <div class="category" data-category="aliases">
+          <h4><i class="category-chevron"></i></h4>
+          <div class="category-commands"></div>
+        </div>
+      </div>
+    `;
+    const movement = document.querySelector('[data-category="movement"]');
+    const aliases = document.querySelector('[data-category="aliases"]');
+
+    projectCommandLibraryCategoryCollapse(movement, true);
+    expect(movement.querySelector("h4")?.classList).toContain("collapsed");
+
+    const consumer = {
+      cache: {
+        commandPresentationState: {
+          authorityEpoch: 1,
+          revision: 1,
+          collapsedCategories: ["aliases"],
+          collapsedGroups: [],
+        },
+      },
+      document,
+      eventListenersSetup: true,
+      pendingInitialRender: false,
+      hasRequiredData: () => true,
+      performInitialRender: vi.fn(),
+    };
+    reconcileCommandLibraryPresentation(consumer);
+
+    expect(movement.querySelector("h4")?.classList).not.toContain("collapsed");
+    expect(aliases.querySelector("h4")?.classList).toContain("collapsed");
+    expect(aliases.querySelector(".category-chevron")?.style.transform).toBe(
+      "rotate(0deg)",
+    );
+  });
+
+  it("accepts only newer complete owner snapshots", () => {
+    const consumer = {
+      cache: { commandPresentationState: null },
+      document,
+      eventListenersSetup: true,
+      pendingInitialRender: true,
+      hasRequiredData: () => true,
+      performInitialRender: vi.fn(),
+    };
+    const initial = {
+      authorityEpoch: 5,
+      revision: 2,
+      collapsedCategories: ["aliases"],
+      collapsedGroups: [],
+    };
+
+    expect(acceptCommandLibraryPresentation(consumer, initial)).toBe(true);
+    expect(consumer.performInitialRender).toHaveBeenCalledOnce();
+    expect(acceptCommandLibraryPresentation(consumer, initial)).toBe(false);
+    expect(
+      acceptCommandLibraryPresentation(consumer, {
+        ...initial,
+        authorityEpoch: 6,
+        revision: 0,
+        collapsedCategories: [],
+      }),
+    ).toBe(true);
+    expect(consumer.cache.commandPresentationState).toMatchObject({
+      authorityEpoch: 6,
+      revision: 0,
+      collapsedCategories: [],
+    });
   });
 });

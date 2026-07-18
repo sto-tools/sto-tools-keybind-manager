@@ -12,6 +12,7 @@ import { InterfaceModeUI } from "./components/ui/index.js";
 import {
   CommandService,
   CommandLibraryService,
+  CommandPresentationService,
 } from "./components/services/index.js";
 import { CommandLibraryUI, CommandUI } from "./components/ui/index.js";
 import {
@@ -78,6 +79,7 @@ export default class STOToolsKeybindManager {
     this.aliasUI = null;
     this.commandService = null;
     this.commandLibraryService = null;
+    this.commandPresentationService = null;
     this.keyBrowserService = null;
     this.keyBrowserUI = null;
     this.commandUI = null;
@@ -293,6 +295,11 @@ export default class STOToolsKeybindManager {
         modalManager,
       });
 
+      this.commandPresentationService = new CommandPresentationService({
+        eventBus,
+        localStorage: window.localStorage,
+      });
+
       this.commandLibraryUI = new CommandLibraryUI({
         service: this.commandLibraryService,
         eventBus,
@@ -391,6 +398,7 @@ export default class STOToolsKeybindManager {
 
       this.aliasBrowserService.init();
       this.aliasBrowserUI.init();
+      this.commandPresentationService.init();
       this.commandLibraryService.init();
       this.commandLibraryUI.init();
       this.commandChainService.init();

@@ -56,6 +56,12 @@ describe("CommandChainUI Stabilized Ordering", () => {
       i18n: { t: vi.fn((key) => key) },
     });
     ui.request = vi.fn().mockResolvedValue({});
+    ui.cache.commandPresentationState = {
+      authorityEpoch: 1,
+      revision: 1,
+      collapsedCategories: [],
+      collapsedGroups: [],
+    };
 
     await ui.init();
   });
@@ -381,7 +387,10 @@ describe("CommandChainUI Stabilized Ordering", () => {
         await ui.render();
 
         expect(ui.currentGroups).toBeDefined();
-        expect(ui.groupCommands).toHaveBeenCalledWith(commands);
+        expect(ui.groupCommands).toHaveBeenCalledWith(
+          commands,
+          ui.cache.commandPresentationState,
+        );
       });
 
       it("should clear currentGroups when rendering unstabilized chains", async () => {

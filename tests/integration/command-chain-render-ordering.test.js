@@ -13,6 +13,13 @@ import {
   retiredEmptyStateTopic,
 } from "../fixtures/ui/commandChain.js";
 
+const commandPresentationState = {
+  authorityEpoch: 1,
+  revision: 0,
+  collapsedCategories: [],
+  collapsedGroups: [],
+};
+
 describe("CommandChainUI accepted-state render ordering", () => {
   let fixture;
   let ui;
@@ -24,6 +31,10 @@ describe("CommandChainUI accepted-state render ordering", () => {
       document,
       i18n: commandChainI18n,
       ui: { initDragAndDrop: vi.fn() },
+    });
+    ui.handleInitialState({
+      sender: "CommandPresentationService",
+      state: commandPresentationState,
     });
   }
 

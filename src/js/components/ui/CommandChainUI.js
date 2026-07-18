@@ -13,6 +13,10 @@ import {
   projectCommandChainViewState,
 } from "../services/commandChainViewState.js";
 import {
+  adoptCommandPresentationState,
+  isCommandGroupCollapsed,
+} from "../services/commandPresentationState.js";
+import {
   createCommandChainEmptyState,
   materializeCommandChainViewCopy,
 } from "./commandChainViewDom.js";
@@ -164,6 +168,9 @@ export default class CommandChainUI extends UIComponentBase {
     this.addEventListener("selection:state-changed", () => {
       this._hasSelectionState = true;
       this.reconcileAcceptedState();
+    });
+    this.addEventListener("command-presentation:state-changed", (state) => {
+      this.acceptCommandPresentationState(state);
     });
 
     // Listen for environment or key/alias changes for button state and caching
@@ -492,10 +499,14 @@ export default class CommandChainUI extends UIComponentBase {
       if (isDatasetTarget(groupHeader)) {
         const groupType = this.normalizeGroupType(groupHeader.dataset.group);
         if (groupType) {
-          const isCollapsed = this.getGroupCollapsedState(groupType);
-          this.setGroupCollapsedState(groupType, !isCollapsed);
-          // Re-render to show updated state
-          this.render();
+          try {
+            this.request("command-presentation:toggle-group", {
+              groupType,
+            }).catch(() => {});
+          } catch {
+            // The owner publication is the only state source. An absent or
+            // failing owner leaves the existing projection unchanged.
+          }
         }
       }
     });
@@ -565,6 +576,18 @@ export default class CommandChainUI extends UIComponentBase {
     this.render().catch(() => {});
   }
 
+  /** @param {unknown} candidate */
+  acceptCommandPresentationState(candidate) {
+    const accepted = adoptCommandPresentationState(
+      candidate,
+      this.cache.commandPresentationState,
+    );
+    if (!accepted) return false;
+    this.cache.commandPresentationState = accepted;
+    if (this.eventListenersSetup) this.reconcileAcceptedState();
+    return true;
+  }
+
   // Render the command chain from one captured accepted-state projection.
   async render() {
     const generation = ++this._renderGeneration;
@@ -577,6 +600,8 @@ export default class CommandChainUI extends UIComponentBase {
 
     if (!container || !titleEl || !previewEl) return;
 
+    const presentationState = this.cache.commandPresentationState;
+    if (!presentationState) return;
     const snapshot = this.cache.dataState;
     const environment = this.cache.currentEnvironment || "space";
     const selectedName =
@@ -656,7 +681,7 @@ export default class CommandChainUI extends UIComponentBase {
     let nextGroups = null;
 
     if (view.stabilized) {
-      nextGroups = this.groupCommands(view.commands);
+      nextGroups = this.groupCommands(view.commands, presentationState);
       /** @type {CommandGroupType[]} */
       const groupOrder = ["non-trayexec", "palindromic", "pivot"];
       for (const groupType of groupOrder) {
@@ -764,25 +789,29 @@ export default class CommandChainUI extends UIComponentBase {
   // Group commands into sections for stabilized chains
   /**
    * @param {ChainCommand[]} commands
+   * @param {import('../../types/events/component-state.js').CommandPresentationStateSnapshot | null} [presentationState]
    * @returns {CommandGroups}
    */
-  groupCommands(commands) {
+  groupCommands(
+    commands,
+    presentationState = this.cache.commandPresentationState,
+  ) {
     /** @type {CommandGroups} */
     const groups = {
       "non-trayexec": {
         title: this.i18n.t("command_group_non_trayexec"),
         commands: [],
-        isCollapsed: this.getGroupCollapsedState("non-trayexec"),
+        isCollapsed: isCommandGroupCollapsed(presentationState, "non-trayexec"),
       },
       palindromic: {
         title: this.i18n.t("command_group_palindromic"),
         commands: [],
-        isCollapsed: this.getGroupCollapsedState("palindromic"),
+        isCollapsed: isCommandGroupCollapsed(presentationState, "palindromic"),
       },
       pivot: {
         title: this.i18n.t("command_group_pivot"),
         commands: [],
-        isCollapsed: this.getGroupCollapsedState("pivot"),
+        isCollapsed: isCommandGroupCollapsed(presentationState, "pivot"),
       },
     };
 
@@ -819,29 +848,6 @@ export default class CommandChainUI extends UIComponentBase {
     });
 
     return groups;
-  }
-
-  // Get collapsed state for a group from localStorage
-  /** @param {CommandGroupType} groupType */
-  getGroupCollapsedState(groupType) {
-    if (typeof window === "undefined" || !window.localStorage) return false;
-    const storageKey = `commandGroup_${groupType}_collapsed`;
-    return localStorage.getItem(storageKey) === "true";
-  }
-
-  // Set collapsed state for a group in localStorage
-  /**
-   * @param {CommandGroupType} groupType
-   * @param {boolean} collapsed
-   */
-  setGroupCollapsedState(groupType, collapsed) {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    const storageKey = `commandGroup_${groupType}_collapsed`;
-    if (collapsed) {
-      localStorage.setItem(storageKey, "true");
-    } else {
-      localStorage.removeItem(storageKey);
-    }
   }
 
   // Render group separator with collapsible header
@@ -1784,6 +1790,7 @@ export default class CommandChainUI extends UIComponentBase {
     this._bindsetDropdownReady = false;
     this._hasSelectionState = false;
     this.pendingInitialRender = false;
+    this.cache.commandPresentationState = null;
   }
 
   // Late-join: sync environment if InterfaceModeService broadcasts its snapshot before we registered our listeners.
@@ -1792,10 +1799,15 @@ export default class CommandChainUI extends UIComponentBase {
    */
   handleInitialState(reply) {
     const { sender, state } = reply;
+    if (sender === "CommandPresentationService") {
+      this.acceptCommandPresentationState(state);
+    }
     if (sender === "SelectionService") {
       this._hasSelectionState = true;
     }
     super.handleInitialState(reply);
+
+    if (sender === "CommandPresentationService") return;
 
     if (sender === "BindsetSelectorService") {
       console.log(
@@ -2035,6 +2047,7 @@ export default class CommandChainUI extends UIComponentBase {
   hasRequiredData() {
     return Boolean(
       this.cache.dataState &&
+        this.cache.commandPresentationState &&
         this._hasSelectionState &&
         this.cache.currentEnvironment,
     );

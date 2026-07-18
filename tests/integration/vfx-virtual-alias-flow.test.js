@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandLibraryService from "../../src/js/components/services/CommandLibraryService.js";
+import CommandPresentationService from "../../src/js/components/services/CommandPresentationService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import VFXManagerService from "../../src/js/components/services/VFXManagerService.js";
 import CommandLibraryUI from "../../src/js/components/ui/CommandLibraryUI.js";
@@ -35,6 +36,7 @@ function profile(id, aliasName, effect) {
 describe("VFX virtual alias projection flow", () => {
   let fixture;
   let commandLibraryService;
+  let commandPresentationService;
   let vfxManagerService;
   let commandLibraryUI;
   let dataCoordinator;
@@ -42,6 +44,7 @@ describe("VFX virtual alias projection flow", () => {
 
   beforeEach(() => {
     dataCoordinator = null;
+    commandPresentationService = null;
     document.body.innerHTML = `
       <input id="commandSearch" value="">
       <div id="commandCategoriesList"></div>
@@ -66,6 +69,13 @@ describe("VFX virtual alias projection flow", () => {
     commandLibraryService?.destroy();
     vfxManagerService?.destroy();
     dataCoordinator?.destroy();
+    commandPresentationService?.destroy();
+    expect(
+      fixture.eventBus.hasListeners("rpc:command-presentation:toggle-category"),
+    ).toBe(false);
+    expect(
+      fixture.eventBus.hasListeners("rpc:command-presentation:toggle-group"),
+    ).toBe(false);
     detachResponders.splice(0).forEach((detach) => detach());
     fixture.destroy();
     document.body.replaceChildren();
@@ -73,6 +83,10 @@ describe("VFX virtual alias projection flow", () => {
   });
 
   function initApplicationOwners() {
+    commandPresentationService = new CommandPresentationService({
+      eventBus: fixture.eventBus,
+      localStorage,
+    });
     vfxManagerService = new VFXManagerService(fixture.eventBus, i18n);
     commandLibraryService = new CommandLibraryService({
       eventBus: fixture.eventBus,
@@ -84,9 +98,14 @@ describe("VFX virtual alias projection flow", () => {
       i18n,
     });
 
+    commandPresentationService.init();
     vfxManagerService.init();
     commandLibraryService.init();
     commandLibraryUI.init();
+
+    expect(commandLibraryUI.cache.commandPresentationState).toEqual(
+      commandPresentationService.getCurrentState(),
+    );
   }
 
   it("hydrates saved VFX aliases on first paint and reprojects them after a real coordinator save", async () => {
@@ -119,6 +138,10 @@ describe("VFX virtual alias projection flow", () => {
       });
     });
 
+    commandPresentationService = new CommandPresentationService({
+      eventBus: fixture.eventBus,
+      localStorage,
+    });
     vfxManagerService = new VFXManagerService(fixture.eventBus, i18n);
     commandLibraryService = new CommandLibraryService({
       eventBus: fixture.eventBus,
@@ -134,9 +157,14 @@ describe("VFX virtual alias projection flow", () => {
       "createAliasCategoryElement",
     );
 
+    commandPresentationService.init();
     vfxManagerService.init();
     commandLibraryService.init();
     commandLibraryUI.init();
+
+    expect(commandLibraryUI.cache.commandPresentationState).toEqual(
+      commandPresentationService.getCurrentState(),
+    );
 
     const projectedAlias = (name) => {
       const category = categorySpy.mock.calls

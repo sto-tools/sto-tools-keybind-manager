@@ -1,6 +1,7 @@
 import type {
   AliasMap,
   CommandList,
+  CommandGroupType,
   KeyViewMode,
   PreferencesSettings,
   ProfileData,
@@ -63,6 +64,13 @@ export interface KeyBrowserViewStateSnapshot {
     keyType: readonly string[];
   };
   collapsedBindsets: readonly string[];
+}
+
+export interface CommandPresentationStateSnapshot {
+  authorityEpoch: number;
+  revision: number;
+  collapsedCategories: readonly string[];
+  collapsedGroups: readonly CommandGroupType[];
 }
 
 export interface CommandChainStateSnapshot {
@@ -129,6 +137,7 @@ export interface ComponentStateProtocol {
   BindsetSelectorService: BindsetSelectorStateSnapshot;
   BindsetService: BindsetStateSnapshot;
   CommandChainService: CommandChainStateSnapshot;
+  CommandPresentationService: CommandPresentationStateSnapshot;
   DataCoordinator: DataCoordinatorStateSnapshot;
   DataService: DataServiceStateSnapshot;
   ExportService: ExportStateSnapshot;

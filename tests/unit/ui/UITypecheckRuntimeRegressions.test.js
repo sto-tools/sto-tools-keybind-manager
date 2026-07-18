@@ -122,15 +122,19 @@ describe("UI typecheck runtime regressions", () => {
     ui.destroy();
   });
 
-  it("refreshes the command library after a DataCoordinator late join", () => {
+  it("caches a DataCoordinator late join but waits for presentation ownership before first paint", () => {
     const ui = new CommandLibraryUI({
       document,
       eventBus: createEventBus(),
       i18n,
     });
+    const setupCommandLibrary = vi
+      .spyOn(ui, "setupCommandLibrary")
+      .mockResolvedValue(undefined);
     const updateCommandLibrary = vi
       .spyOn(ui, "updateCommandLibrary")
       .mockResolvedValue(undefined);
+    ui.init();
 
     const profile = {
       id: "profile-1",
@@ -152,6 +156,23 @@ describe("UI typecheck runtime regressions", () => {
 
     expect(ui.cache.currentProfile).toBe("profile-1");
     expect(updateCommandLibrary).toHaveBeenCalledOnce();
+    expect(setupCommandLibrary).not.toHaveBeenCalled();
+
+    ui._onInitialState({
+      sender: "CommandPresentationService",
+      state: {
+        authorityEpoch: 2,
+        revision: 0,
+        collapsedCategories: ["system"],
+        collapsedGroups: [],
+      },
+    });
+
+    expect(ui.cache.commandPresentationState).toMatchObject({
+      authorityEpoch: 2,
+      collapsedCategories: ["system"],
+    });
+    expect(setupCommandLibrary).toHaveBeenCalledOnce();
     ui.destroy();
   });
 });

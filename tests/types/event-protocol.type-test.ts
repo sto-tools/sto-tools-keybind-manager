@@ -17,6 +17,7 @@ import type {
   ComponentReplyTopic,
   ComponentState,
   ComponentStateReply,
+  CommandPresentationStateSnapshot,
   DataCoordinatorStateSnapshot,
   DataStateChangedPayload,
   DataStateChangeReason,
@@ -131,6 +132,18 @@ type KeyBrowserStateEventIsRegisteredExactly = Expect<
 type KeyBrowserLateJoinStateIsRegisteredExactly = Expect<
   Equal<ComponentState<"KeyBrowserService">, KeyBrowserViewStateSnapshot>
 >;
+type CommandPresentationStateEventIsRegisteredExactly = Expect<
+  Equal<
+    EventPayload<"command-presentation:state-changed">,
+    CommandPresentationStateSnapshot
+  >
+>;
+type CommandPresentationLateJoinStateIsRegisteredExactly = Expect<
+  Equal<
+    ComponentState<"CommandPresentationService">,
+    CommandPresentationStateSnapshot
+  >
+>;
 type DataStateReasonsAreClosed = Expect<
   Equal<
     DataStateChangeReason,
@@ -160,10 +173,18 @@ const keyBrowserViewState: KeyBrowserViewStateSnapshot = {
   collapsedCategories: { command: ["system"], keyType: ["function"] },
   collapsedBindsets: ["Primary Bindset"],
 };
+const commandPresentationState: CommandPresentationStateSnapshot = {
+  authorityEpoch: 2,
+  revision: 3,
+  collapsedCategories: ["aliases", "system"],
+  collapsedGroups: ["non-trayexec", "pivot"],
+};
 dataCoordinatorState.authorityEpoch.toFixed();
 keyBrowserViewState.authorityEpoch.toFixed();
 keyBrowserViewState.revision.toFixed();
 keyBrowserViewState.mode.toUpperCase();
+commandPresentationState.collapsedCategories.map((id) => id.toUpperCase());
+commandPresentationState.collapsedGroups.map((group) => group.toUpperCase());
 
 bus.hasListeners("toast:show");
 // @ts-expect-error Listener callbacks are private implementation details.
@@ -178,6 +199,18 @@ bus.on("ui:copy-to-clipboard", ({ text }) => text.toUpperCase());
 bus.emit("ui:copy-to-clipboard", { text: "Copy me" });
 bus.emit("preferences:loaded", { settings: preferencesSettings });
 bus.emit("preferences:saved", { settings: preferencesSettings });
+bus.on("command-presentation:state-changed", (state) => {
+  state.authorityEpoch.toFixed();
+  state.revision.toFixed();
+  state.collapsedCategories.map((id) => id.toUpperCase());
+  state.collapsedGroups.map((group) => group.toUpperCase());
+});
+bus.emit("command-presentation:state-changed", commandPresentationState);
+// @ts-expect-error Command-presentation groups use the closed group contract.
+bus.emit("command-presentation:state-changed", {
+  ...commandPresentationState,
+  collapsedGroups: ["unknown"],
+});
 bus.emit("preferences:changed", {
   key: "language",
   value: "de",
@@ -445,6 +478,13 @@ bus.on(componentReplyTopic, (reply) => {
     reply.state.collapsedBindsets.map((name) => name.toUpperCase());
     // @ts-expect-error Sender narrowing excludes SelectionService state.
     reply.state.selectedKey;
+  } else if (reply.sender === "CommandPresentationService") {
+    reply.state.authorityEpoch.toFixed();
+    reply.state.revision.toFixed();
+    reply.state.collapsedCategories.map((id) => id.toUpperCase());
+    reply.state.collapsedGroups.map((group) => group.toUpperCase());
+    // @ts-expect-error Sender narrowing excludes KeyBrowserService state.
+    reply.state.mode;
   }
 });
 bus.emit(componentReplyTopic, {
@@ -468,6 +508,10 @@ bus.emit(componentReplyTopic, {
 bus.emit(componentReplyTopic, {
   sender: "KeyBrowserService",
   state: keyBrowserViewState,
+});
+bus.emit(componentReplyTopic, {
+  sender: "CommandPresentationService",
+  state: commandPresentationState,
 });
 
 const mismatchedComponentReply: ComponentStateReply = {

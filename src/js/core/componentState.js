@@ -4,6 +4,7 @@ const componentStateOwners = Object.freeze(
     BindsetService: true,
     CommandChainService: true,
     CommandLibraryUI: true,
+    CommandPresentationService: true,
     DataCoordinator: true,
     DataService: true,
     ExportService: true,

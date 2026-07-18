@@ -5,6 +5,7 @@ import type {
   StoredCommand,
   ValidationIssue,
 } from "./base.js";
+import type { CommandPresentationStateSnapshot } from "./component-state.js";
 
 export type CommandLibraryAddPayload =
   | {
@@ -28,6 +29,7 @@ export interface ParameterCommandEditPayload {
 
 export interface CommandEventProtocol {
   "chain-data-changed": { commands: CommandList };
+  "command-presentation:state-changed": CommandPresentationStateSnapshot;
   "command-added": { key: string; command: StoredCommand | CommandList };
   "command-deleted": { key: string; index: number; commands: CommandList };
   "command-edited": {

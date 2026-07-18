@@ -20,6 +20,7 @@ export type Environment =
 
 export type SelectionSource = "SelectionService";
 export type KeyViewMode = "grid" | "categorized" | "key-types";
+export type CommandGroupType = "non-trayexec" | "palindromic" | "pivot";
 export type ToastKind =
   | "info"
   | "success"

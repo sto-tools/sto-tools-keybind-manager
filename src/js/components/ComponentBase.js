@@ -57,7 +57,8 @@ import { adoptDataStateSnapshot } from "./services/dataState.js";
  *   activeCommandChainBindset?: string,
  *   profiles?: Record<string, import('./services/serviceTypes.js').ProfileData>,
  *   dataState: import('../types/events/component-state.js').DataCoordinatorStateSnapshot | null,
- *   keyBrowserViewState: import('../types/events/component-state.js').KeyBrowserViewStateSnapshot | null
+ *   keyBrowserViewState: import('../types/events/component-state.js').KeyBrowserViewStateSnapshot | null,
+ *   commandPresentationState: import('../types/events/component-state.js').CommandPresentationStateSnapshot | null
  * }} ComponentCache
  */
 
@@ -92,6 +93,7 @@ export default class ComponentBase {
       bindsetNames: ["Primary Bindset"],
       dataState: null,
       keyBrowserViewState: null,
+      commandPresentationState: null,
       cachedSelections: {
         space: null,
         ground: null,
@@ -178,6 +180,7 @@ export default class ComponentBase {
         bindsetNames: ["Primary Bindset"],
         dataState: null,
         keyBrowserViewState: null,
+        commandPresentationState: null,
         cachedSelections: {
           space: null,
           ground: null,

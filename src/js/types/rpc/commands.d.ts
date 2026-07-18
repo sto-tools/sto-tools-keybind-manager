@@ -1,3 +1,4 @@
+import type { CommandGroupType } from "../events/base.js";
 import type { NoPayloadRpc, RequiredRpc, StoredCommand } from "./base.js";
 
 export type CommandImportResult = {
@@ -13,6 +14,14 @@ export type StabilizeResult =
   | { success: false; error?: string };
 
 export interface CommandRpcProtocol {
+  "command-presentation:toggle-category": RequiredRpc<
+    { categoryId: string },
+    boolean
+  >;
+  "command-presentation:toggle-group": RequiredRpc<
+    { groupType: CommandGroupType },
+    boolean
+  >;
   "command-chain:generate-alias-name": RequiredRpc<
     { environment: string; keyName: string; bindsetName?: string | null },
     string | null

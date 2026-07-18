@@ -37,6 +37,25 @@ component.emit("key-browser:state-changed", {
   collapsedCategories: { command: [] },
   collapsedBindsets: [],
 });
+component.addEventListener("command-presentation:state-changed", (state) => {
+  state.authorityEpoch.toFixed();
+  state.revision.toFixed();
+  state.collapsedCategories.map((id) => id.toUpperCase());
+  state.collapsedGroups.map((group) => group.toUpperCase());
+});
+component.emit("command-presentation:state-changed", {
+  authorityEpoch: 2,
+  revision: 0,
+  collapsedCategories: ["system"],
+  collapsedGroups: ["palindromic"],
+});
+// @ts-expect-error Command-presentation groups are a closed union.
+component.emit("command-presentation:state-changed", {
+  authorityEpoch: 2,
+  revision: 0,
+  collapsedCategories: [],
+  collapsedGroups: ["other"],
+});
 // @ts-expect-error KeyBrowser state requires owner ordering metadata.
 component.emit("key-browser:state-changed", {
   collapsedCategories: { command: [], keyType: [] },
@@ -65,6 +84,22 @@ async function exerciseComponentRpc() {
   await component.request("parser:clear-cache");
   const nextViewMode = await component.request("key:cycle-view-mode");
   nextViewMode.toUpperCase();
+  const categoryCollapsed = await component.request(
+    "command-presentation:toggle-category",
+    { categoryId: "system" },
+  );
+  categoryCollapsed.valueOf();
+  const groupCollapsed = await component.request(
+    "command-presentation:toggle-group",
+    { groupType: "pivot" },
+  );
+  groupCollapsed.valueOf();
+  // @ts-expect-error Category actions require a non-optional category ID.
+  component.request("command-presentation:toggle-category", {});
+  // @ts-expect-error Group actions use the closed group contract.
+  component.request("command-presentation:toggle-group", {
+    groupType: "other",
+  });
   // @ts-expect-error View-mode cycling is a no-payload action.
   component.request("key:cycle-view-mode", { mode: "categorized" });
   // @ts-expect-error Required RPC payloads cannot be omitted.
@@ -135,6 +170,10 @@ async function exerciseComponentRpc() {
 
   component.respond("parser:clear-cache", () => ({ success: true }));
   component.respond("key:cycle-view-mode", () => "categorized");
+  component.respond("command-presentation:toggle-category", () => true);
+  component.respond("command-presentation:toggle-group", () => false);
+  // @ts-expect-error Command-presentation actions return booleans.
+  component.respond("command-presentation:toggle-group", () => "collapsed");
   // @ts-expect-error View-mode action results use the closed mode contract.
   component.respond("key:cycle-view-mode", () => "bindset-sections");
   // @ts-expect-error Responder results are selected by their topic.

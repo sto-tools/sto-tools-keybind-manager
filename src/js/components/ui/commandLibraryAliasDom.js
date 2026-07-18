@@ -1,3 +1,9 @@
+import {
+  adoptCommandPresentationState,
+  isCommandCategoryCollapsed,
+} from "../services/commandPresentationState.js";
+
+/** @typedef {import('../../types/events/component-state.js').CommandPresentationStateSnapshot} CommandPresentationStateSnapshot */
 /**
  * @typedef {import('../services/serviceTypes.js').AliasDefinition & {
  *   displayName?: string,
@@ -68,7 +74,8 @@ export function projectCommandLibraryBindsetAliases(
  *   aliases: LibraryAliasEntry[],
  *   categoryType: string,
  *   titleKey: string,
- *   iconClass: string
+ *   iconClass: string,
+ *   collapsed: boolean
  * }} options
  * @returns {HTMLElement}
  */
@@ -79,14 +86,11 @@ export function createCommandLibraryAliasCategory({
   categoryType,
   titleKey,
   iconClass,
+  collapsed,
 }) {
   const element = document.createElement("div");
   element.className = "category";
   element.dataset.category = categoryType;
-
-  const storageKey = `commandCategory_${categoryType}_collapsed`;
-  const storage = document.defaultView?.localStorage;
-  const isCollapsed = storage?.getItem(storageKey) === "true";
 
   const isVertigo = categoryType === "vertigo-aliases";
   const isBindset = categoryType === "bindset-aliases";
@@ -98,7 +102,7 @@ export function createCommandLibraryAliasCategory({
       : "command-item alias-item";
 
   const header = document.createElement("h4");
-  header.className = isCollapsed ? "collapsed" : "";
+  header.className = collapsed ? "collapsed" : "";
   header.dataset.category = categoryType;
 
   const chevron = document.createElement("i");
@@ -116,7 +120,7 @@ export function createCommandLibraryAliasCategory({
   header.appendChild(count);
 
   const commands = document.createElement("div");
-  commands.className = `category-commands${isCollapsed ? " collapsed" : ""}`;
+  commands.className = `category-commands${collapsed ? " collapsed" : ""}`;
   for (const [name, alias] of aliases) {
     const item = document.createElement("div");
     item.className = itemClass;
@@ -128,5 +132,83 @@ export function createCommandLibraryAliasCategory({
 
   element.appendChild(header);
   element.appendChild(commands);
+  projectCommandLibraryCategoryCollapse(element, collapsed);
   return element;
+}
+
+/**
+ * Project an accepted owner value into one static or alias category.
+ *
+ * @param {Element} element
+ * @param {boolean} collapsed
+ */
+export function projectCommandLibraryCategoryCollapse(element, collapsed) {
+  const header = element.querySelector("h4");
+  const commands = element.querySelector(".category-commands");
+  const chevron = header?.querySelector(".category-chevron");
+  header?.classList.toggle("collapsed", collapsed);
+  commands?.classList.toggle("collapsed", collapsed);
+  if (chevron && "style" in chevron) {
+    /** @type {HTMLElement} */ (chevron).style.transform = collapsed
+      ? "rotate(0deg)"
+      : "rotate(90deg)";
+  }
+}
+
+/**
+ * @param {{
+ *   cache: { commandPresentationState: CommandPresentationStateSnapshot | null },
+ *   document: Document,
+ *   eventListenersSetup: boolean,
+ *   pendingInitialRender: boolean,
+ *   hasRequiredData: () => boolean,
+ *   performInitialRender: () => void
+ * }} consumer
+ */
+export function reconcileCommandLibraryPresentation(consumer) {
+  const state = consumer.cache.commandPresentationState;
+  if (!state) return;
+
+  /** @type {Set<Element>} */
+  const categories = new Set();
+  for (const id of [
+    "commandCategoriesList",
+    "aliasCategoriesList",
+    "commandCategories",
+  ]) {
+    const container = consumer.document.getElementById(id);
+    container
+      ?.querySelectorAll(".category[data-category]")
+      .forEach((category) => categories.add(category));
+  }
+  for (const category of categories) {
+    const categoryId = category.getAttribute("data-category");
+    if (!categoryId) continue;
+    projectCommandLibraryCategoryCollapse(
+      category,
+      isCommandCategoryCollapsed(state, categoryId),
+    );
+  }
+}
+
+/**
+ * Accept one complete owner snapshot for both live and late-join delivery.
+ *
+ * @param {Parameters<typeof reconcileCommandLibraryPresentation>[0]} consumer
+ * @param {unknown} candidate
+ */
+export function acceptCommandLibraryPresentation(consumer, candidate) {
+  const predecessor = consumer.cache.commandPresentationState;
+  const accepted = adoptCommandPresentationState(candidate, predecessor);
+  if (!accepted) return false;
+  consumer.cache.commandPresentationState = accepted;
+
+  if (!consumer.eventListenersSetup) return true;
+  if (consumer.pendingInitialRender && consumer.hasRequiredData()) {
+    consumer.pendingInitialRender = false;
+    consumer.performInitialRender();
+  } else if (predecessor) {
+    reconcileCommandLibraryPresentation(consumer);
+  }
+  return true;
 }
