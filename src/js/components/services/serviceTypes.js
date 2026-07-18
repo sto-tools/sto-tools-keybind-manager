@@ -225,7 +225,7 @@
  *   confirmDialog?: ConfirmDialog,
  *   i18next?: I18n,
  *   localizeCommandData?: () => void,
- *   showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>,
+ *   showDirectoryPicker?: () => Promise<unknown>,
  *   stoFileExplorer?: { refreshFileList?: () => void },
  *   stoUI?: ToastUI,
  *   COMMANDS?: Record<string, CommandDefinition>,

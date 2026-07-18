@@ -5,19 +5,25 @@ import StorageService from "../../src/js/components/services/StorageService.js";
 import SyncService from "../../src/js/components/services/SyncService.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { createLocalStorageFixture } from "../fixtures/core/index.js";
+import { addSyncTransitionMethods } from "../fixtures/services/syncFileSystem.js";
 
-function createHandle(projectContent = null) {
+function createHandle(projectContent = null, name = "Fleet Builds") {
   return {
-    name: "Fleet Builds",
+    kind: "directory",
+    name,
     queryPermission: vi.fn().mockResolvedValue("granted"),
     requestPermission: vi.fn().mockResolvedValue("granted"),
+    getDirectoryHandle: vi.fn(),
     getFileHandle:
       projectContent === null
         ? vi
             .fn()
             .mockRejectedValue(new DOMException("not found", "NotFoundError"))
         : vi.fn().mockResolvedValue({
+            kind: "file",
+            name: "project.json",
             getFile: vi.fn().mockResolvedValue({
+              size: new TextEncoder().encode(projectContent).byteLength,
               text: vi.fn().mockResolvedValue(projectContent),
             }),
           }),
@@ -32,7 +38,7 @@ describe("sync folder settings owner integration", () => {
   let ui;
   let fs;
 
-  function setup({ rejectSettingsWrite = false, handle }) {
+  function setup({ rejectSettingsWrite = false, handle, priorHandle = null }) {
     localStorageFixture = createLocalStorageFixture({
       initialData: {
         sto_keybind_settings: {
@@ -45,10 +51,17 @@ describe("sync folder settings owner integration", () => {
       setItemErrorKeys: rejectSettingsWrite ? ["sto_keybind_settings"] : [],
     });
     ui = { showToast: vi.fn() };
+    let storedHandle = priorHandle;
     fs = {
-      saveDirectoryHandle: vi.fn().mockResolvedValue(undefined),
-      getDirectoryHandle: vi.fn().mockResolvedValue(handle),
+      saveDirectoryHandle: vi.fn().mockImplementation(async (_key, value) => {
+        storedHandle = value;
+      }),
+      getDirectoryHandle: vi.fn().mockImplementation(async () => storedHandle),
+      deleteDirectoryHandle: vi.fn().mockImplementation(async () => {
+        storedHandle = null;
+      }),
     };
+    addSyncTransitionMethods(fs);
     storage = new StorageService({ eventBus });
     sync = new SyncService({
       eventBus,
@@ -155,7 +168,8 @@ describe("sync folder settings owner integration", () => {
 
   it("keeps the preferences owner silent when real storage rejects the folder mutation", async () => {
     const handle = createHandle();
-    setup({ rejectSettingsWrite: true, handle });
+    const priorHandle = createHandle(null, "Prior Folder");
+    setup({ rejectSettingsWrite: true, handle, priorHandle });
     const beforeOwner = preferences.getCurrentState();
     const beforeDisk = localStorage.getItem("sto_keybind_settings");
     const folderSet = vi.fn();
@@ -183,14 +197,34 @@ describe("sync folder settings owner integration", () => {
       "failed_to_set_sync_folder:storage_write_failed",
       "error",
     );
-    // The capability write is intentionally not claimed atomic with settings;
-    // rollback belongs to the later IndexedDB/File System Access tranche.
+    expect(fs.saveDirectoryHandle.mock.calls).toEqual([
+      ["sync-folder", handle],
+      ["sync-folder", priorHandle],
+    ]);
+    await expect(fs.getDirectoryHandle("sync-folder")).resolves.toBe(
+      priorHandle,
+    );
+    expect(fs.deleteDirectoryHandle).not.toHaveBeenCalled();
+  });
+
+  it("removes a newly selected capability when the owner rejects its first settings write", async () => {
+    const handle = createHandle();
+    setup({ rejectSettingsWrite: true, handle });
+    const beforeOwner = preferences.getCurrentState();
+
+    await expect(sync.setSyncFolder(true)).resolves.toBeNull();
+
+    expect(preferences.getCurrentState()).toEqual(beforeOwner);
+    expect(fs.saveDirectoryHandle).toHaveBeenCalledOnce();
     expect(fs.saveDirectoryHandle).toHaveBeenCalledWith("sync-folder", handle);
+    expect(fs.deleteDirectoryHandle).toHaveBeenCalledOnce();
+    expect(fs.deleteDirectoryHandle).toHaveBeenCalledWith("sync-folder");
+    await expect(fs.getDirectoryHandle("sync-folder")).resolves.toBeNull();
   });
 
   it("consumes one staged decision once across overlapping saved publications", async () => {
     const handle = createHandle();
-    setup({ handle });
+    setup({ handle, priorHandle: handle });
     /** @type {(value: ReturnType<typeof createHandle>) => void} */
     let releaseHandle = () => {};
     fs.getDirectoryHandle.mockImplementationOnce(

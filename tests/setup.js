@@ -106,7 +106,11 @@ function createMockDirectoryHandle(name = "root") {
             };
           },
           async getFile() {
-            return { text: async () => files.get(fileName) || "" };
+            const content = files.get(fileName) || "";
+            return {
+              size: new TextEncoder().encode(String(content)).byteLength,
+              text: async () => content,
+            };
           },
         };
         files.set(fileName, "");
@@ -116,6 +120,12 @@ function createMockDirectoryHandle(name = "root") {
     },
     _files: files,
     _directories: directories,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
   };
 }
 
@@ -177,6 +187,9 @@ global.indexedDB = {
                   if (req.onsuccess) req.onsuccess({ target: req });
                 }, 0);
                 return req;
+              },
+              delete(key) {
+                store.delete(key);
               },
             };
           },

@@ -2,9 +2,14 @@ import ComponentBase from "../ComponentBase.js";
 
 import FileSystemService, {
   writeFile as fsWriteFile,
-  KEY_SYNC_FOLDER,
 } from "./FileSystemService.js";
 import { applyPendingSyncDecision as applyClaimedSyncDecision } from "./syncDecisionOrchestrator.js";
+import {
+  decodeSyncDirectoryCapability,
+  decodeSyncDirectoryPermissionEffects,
+  ensureSyncDirectoryPermission,
+} from "./syncFolderBoundary.js";
+import { selectSyncFolder } from "./syncFolderSelectionOrchestrator.js";
 
 // Re-export the helper so existing imports (especially tests) continue to work
 export const writeFile = fsWriteFile;
@@ -40,7 +45,7 @@ export default class SyncService extends ComponentBase {
     this._modalCloseTimeout = null;
     this._folderSelectionGeneration = 0;
     /** @type {Promise<void>} */
-    this._folderHandleWriteTail = Promise.resolve();
+    this._folderSelectionCommitTail = Promise.resolve();
     console.log("[SyncService] constructed");
 
     // Indirection for request calls (simplifies testing)
@@ -195,252 +200,83 @@ export default class SyncService extends ComponentBase {
     );
   }
 
+  // Set sync folder and optionally enable auto-sync
+  async setSyncFolder(autoSync = false) {
+    return selectSyncFolder(this, autoSync);
+  }
+
   /**
-   * Serialize capability writes in selection order. A newer selection can
-   * start while an older IndexedDB transaction is already in flight; the
-   * newer handle must be the last durable write even though the older browser
-   * transaction cannot be cancelled.
-   * @param {FileSystemDirectoryHandle} handle
-   * @param {() => boolean} isCurrentSelection
+   * Serialize capability reads with cross-store folder transitions. A reader
+   * reserves its queue position before touching IndexedDB, so a selection that
+   * starts later cannot expose an uncommitted handle to that reader.
+   *
+   * @template TResult
+   * @param {() => Promise<TResult>} operation
+   * @returns {Promise<TResult>}
    */
-  async persistSelectedFolderHandle(handle, isCurrentSelection) {
-    const previousWrite = this._folderHandleWriteTail;
+  async runFolderCapabilityOperation(operation) {
+    const previousOperation = this._folderSelectionCommitTail;
     /** @type {() => void} */
-    let releaseWrite = () => {};
-    this._folderHandleWriteTail = new Promise((resolve) => {
-      releaseWrite = resolve;
+    let releaseOperation = () => {};
+    this._folderSelectionCommitTail = new Promise((resolve) => {
+      releaseOperation = resolve;
     });
 
-    await previousWrite;
+    await previousOperation;
     try {
-      if (!isCurrentSelection()) return false;
-      await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle);
-      return isCurrentSelection();
+      return await operation();
     } finally {
-      releaseWrite();
+      releaseOperation();
     }
   }
 
-  // Set sync folder and optionally enable auto-sync
-  async setSyncFolder(autoSync = false) {
-    const selectionGeneration = ++this._folderSelectionGeneration;
-    const isCurrentSelection = () =>
-      !this.destroyed &&
-      this._folderSelectionGeneration === selectionGeneration;
-    try {
-      console.log("[SyncService] setSyncFolder called", { autoSync });
-      let handle, folderName;
-      /** @type {'import' | 'overwrite' | null} */
-      let nextPendingSyncAction = null;
-      /** @type {{ content: string, fileName: string } | null} */
-      let nextDeferredImportContent = null;
-      const appWindow = /** @type {import('./serviceTypes.js').AppWindow} */ (
-        window
-      );
-
-      // Implement proper decision tree for browser capability and security context
-      if (this.isFirefox()) {
-        // Firefox: File System Access API not supported regardless of protocol
-        this.ui?.showToast(this.i18n.t("sync_not_supported_firefox"), "error");
-
-        // Show a more detailed explanation using inform dialog (OK button only)
-        if (appWindow.confirmDialog) {
-          await appWindow.confirmDialog.inform(
-            this.i18n.t("sync_not_supported_detailed"),
-            this.i18n.t("sync_not_supported_title"),
-            "info",
-            "syncNotSupported",
-          );
-        }
-
-        return null;
-      }
-
-      // Non-Firefox browsers: Check security context
-      if (!this.isSecureContext()) {
-        // Insecure context (HTTP) - show specific secure context error
-        this.ui?.showToast(
-          this.i18n.t("sync_not_supported_secure_context"),
-          "error",
-        );
-
-        // Show detailed explanation about secure context requirement
-        if (appWindow.confirmDialog) {
-          await appWindow.confirmDialog.inform(
-            this.i18n.t("sync_not_supported_secure_context_detailed"),
-            this.i18n.t("sync_not_supported_secure_context_title"),
-            "info",
-            "syncSecureContext",
-          );
-        }
-
-        return null;
-      }
-
-      // Secure context: Check API availability and proceed
-      if (appWindow.showDirectoryPicker) {
-        handle = await appWindow.showDirectoryPicker();
-        if (!isCurrentSelection()) return null;
-        const handlePersisted = await this.persistSelectedFolderHandle(
-          handle,
-          isCurrentSelection,
-        );
-        if (!handlePersisted) return null;
-        // Any older decision referred to the previously persisted handle. Once
-        // this capability is replaced it must never be replayed against the new
-        // directory, even if the later settings write fails.
-        this.clearPendingSyncDecision();
-        folderName = handle.name;
-        console.log("[SyncService] setSyncFolder: directory selected", {
-          folderName,
-        });
-      } else {
-        // Unexpected case: Non-Firefox browser without API support in secure context
-        this.ui?.showToast(this.i18n.t("sync_not_supported_browser"), "error");
-
-        if (appWindow.confirmDialog) {
-          await appWindow.confirmDialog.inform(
-            this.i18n.t("sync_not_supported_browser_detailed"),
-            this.i18n.t("sync_not_supported_browser_title"),
-            "info",
-            "syncNotSupportedBrowser",
-          );
-        }
-
-        return null;
-      }
-
-      // Check for existing project.json immediately on folder selection. Keep
-      // the decision local until the folder settings are durably accepted so a
-      // failed write cannot arm a later preferences:saved action.
+  /**
+   * Load and decode the IndexedDB-owned capability without overlapping a
+   * folder transition that could still compensate.
+   * @returns {Promise<import('../../types/sync-boundary.js').SyncDirectoryLoadResult>}
+   */
+  async loadSyncFolderCapability() {
+    return this.runFolderCapabilityOperation(async () => {
+      /** @type {{ handle: unknown | null, transitionPending: boolean }} */
+      let storedState;
       try {
-        const existingHandle = await handle.getFileHandle("project.json", {
-          create: false,
-        });
-        if (!isCurrentSelection()) return null;
-        if (existingHandle && appWindow.confirmDialog) {
-          const file = await existingHandle.getFile();
-          if (!isCurrentSelection()) return null;
-          const content = await file.text();
-          if (!isCurrentSelection()) return null;
-          const title = this.i18n.t("sync_folder_contains_project_title");
-          const message = this.i18n.t("sync_folder_contains_project_prompt");
-          const doImport = await appWindow.confirmDialog.confirm(
-            message,
-            title,
-            "warning",
-            "syncImportProject",
-          );
-          if (!isCurrentSelection()) return null;
-          if (doImport) {
-            nextPendingSyncAction = "import";
-            console.log("[SyncService] setSyncFolder: user chose IMPORT");
-            // Stash content to avoid re-reading on save.
-            nextDeferredImportContent = {
-              content,
-              fileName: "project.json",
-            };
-          } else {
-            const overwriteTitle = this.i18n.t("sync_overwrite_existing_title");
-            const overwriteMsg = this.i18n.t("sync_overwrite_existing_prompt");
-            const confirmOverwrite = await appWindow.confirmDialog.confirm(
-              overwriteMsg,
-              overwriteTitle,
-              "warning",
-              "syncOverwriteProject",
-            );
-            if (!isCurrentSelection()) return null;
-            if (confirmOverwrite) {
-              nextPendingSyncAction = "overwrite";
-              console.log("[SyncService] setSyncFolder: user chose OVERWRITE");
-            } else {
-              this.ui?.showToast(
-                this.i18n.t("sync_operation_cancelled"),
-                "info",
-              );
-              console.log("[SyncService] setSyncFolder: user CANCELLED");
-            }
-          }
-        }
-      } catch {
-        if (!isCurrentSelection()) return null;
-        // No existing project.json – nothing to do
-        console.log(
-          "[SyncService] setSyncFolder: no existing project.json found",
-        );
+        storedState = await this.fs.getSyncDirectoryState();
+      } catch (cause) {
+        console.error("[SyncService] getSyncFolderHandle failed", cause);
+        return { success: false, error: "sync_folder_load_failed", cause };
       }
+      if (storedState.transitionPending) {
+        return { success: false, error: "sync_folder_transition_incomplete" };
+      }
+      const rawHandle = storedState.handle;
+      if (rawHandle === null) return { success: true, state: "missing" };
 
-      if (!isCurrentSelection()) return null;
-      const settingsPersisted = await this.request(
-        "preferences:persist-sync-folder-settings",
-        {
-          syncFolderName: folderName,
-          syncFolderPath: `Selected folder: ${folderName}`,
-          syncFolderFallback: false,
-          autoSync,
-        },
-      );
-      if (!isCurrentSelection()) return null;
-      if (!settingsPersisted) {
-        throw new Error(this.i18n.t("storage_write_failed"));
+      const decoded = decodeSyncDirectoryCapability(rawHandle);
+      if (!decoded.success) {
+        return { success: false, error: "sync_folder_capability_invalid" };
       }
-      console.log("[SyncService] setSyncFolder: settings saved");
-
-      this.stagePendingSyncDecision(
-        nextPendingSyncAction,
-        nextDeferredImportContent,
-      );
-      if (nextPendingSyncAction) {
-        console.log("[SyncService] setSyncFolder: pending action recorded", {
-          pending: nextPendingSyncAction,
-        });
-      } else {
-        this.ui?.showToast(this.i18n.t("sync_folder_set"), "success");
-      }
-      await this.emit("sync:folder-set", { handle }, { synchronous: true });
-      return handle;
-    } catch (err) {
-      if (!isCurrentSelection()) return null;
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
-        this.ui?.showToast(
-          this.i18n.t("failed_to_set_sync_folder", {
-            error: getErrorMessage(err),
-          }),
-          "error",
-        );
-      }
-      return null;
-    }
+      return { success: true, state: "available", value: decoded.value };
+    });
   }
 
   async getSyncFolderHandle() {
-    try {
-      return await this.fs.getDirectoryHandle(KEY_SYNC_FOLDER);
-    } catch (err) {
-      console.error("[SyncService] getSyncFolderHandle failed", err);
-      return null;
-    }
+    const loaded = await this.loadSyncFolderCapability();
+    if (!loaded.success || loaded.state === "missing") return null;
+    return loaded.value.raw;
   }
 
-  /** @param {FileSystemDirectoryHandle | null | undefined} handle */
+  /** @param {unknown} handle */
+  async checkSyncFolderPermission(handle) {
+    const decoded = decodeSyncDirectoryPermissionEffects(handle);
+    if (!decoded.success) return decoded;
+    return ensureSyncDirectoryPermission(decoded.value, "readwrite");
+  }
+
+  /** @param {unknown} handle */
   async ensurePermission(handle) {
     if (!handle) return false;
-    try {
-      const opts = { mode: "readwrite" };
-      // Permission methods are implemented by File System Access API handles,
-      // but are not yet included in every TypeScript DOM library release.
-      const queryPermission = Reflect.get(handle, "queryPermission");
-      if (typeof queryPermission !== "function") return false;
-      const perm = await queryPermission.call(handle, opts);
-      if (perm === "granted") return true;
-      const requestPermission = Reflect.get(handle, "requestPermission");
-      if (typeof requestPermission !== "function") return false;
-      const req = await requestPermission.call(handle, opts);
-      return req === "granted";
-    } catch (err) {
-      console.error("[SyncService] ensurePermission failed", err);
-      return false;
-    }
+    const result = await this.checkSyncFolderPermission(handle);
+    return result.success;
   }
 
   /**
@@ -466,17 +302,35 @@ export default class SyncService extends ComponentBase {
       return { success: false, error: "sync_not_supported_secure_context" };
     }
 
-    // Secure context: Check if sync folder exists
-    const handle = await this.getSyncFolderHandle();
-    if (!handle) {
+    // Secure context: distinguish genuine absence from a failed or corrupt
+    // capability load before any permission or export effect occurs.
+    const loaded = await this.loadSyncFolderCapability();
+    if (!loaded.success) {
+      this.ui?.showToast(this.i18n.t(loaded.error), "error");
+      return { success: false, error: loaded.error };
+    }
+    if (loaded.state === "missing") {
       this.ui?.showToast(this.i18n.t("no_sync_folder_selected"), "warning");
       return { success: false, error: "no_sync_folder_selected" };
     }
-    const allowed = await this.ensurePermission(handle);
-    if (!allowed) {
+
+    const permission = await this.checkSyncFolderPermission(loaded.value.raw);
+    if (!permission.success && permission.error === "permission_denied") {
       this.ui?.showToast(this.i18n.t("permission_denied_to_folder"), "error");
       return { success: false, error: "permission_denied_to_folder" };
     }
+    if (!permission.success) {
+      console.error("[SyncService] folder permission check failed", permission);
+      this.ui?.showToast(
+        this.i18n.t("sync_folder_permission_check_failed"),
+        "error",
+      );
+      return {
+        success: false,
+        error: "sync_folder_permission_check_failed",
+      };
+    }
+    const handle = loaded.value.raw;
     try {
       // Proceed with sync without interactive prompts
       // Use request/response system instead of global window.stoExport

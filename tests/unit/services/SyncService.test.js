@@ -10,12 +10,15 @@ vi.mock("i18next", () => ({
 import SyncService from "../../../src/js/components/services/SyncService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { addSyncTransitionMethods } from "../../fixtures/services/syncFileSystem.js";
 
 function createHandle(name) {
   return {
+    kind: "directory",
     name,
     queryPermission: vi.fn().mockResolvedValue("granted"),
     requestPermission: vi.fn().mockResolvedValue("granted"),
+    getDirectoryHandle: vi.fn(),
     getFileHandle: vi
       .fn()
       .mockRejectedValue(new DOMException("not found", "NotFoundError")),
@@ -40,7 +43,9 @@ describe("SyncService", () => {
     fsMock = {
       saveDirectoryHandle: vi.fn().mockResolvedValue(undefined),
       getDirectoryHandle: vi.fn().mockResolvedValue(createHandle("syncDir")),
+      deleteDirectoryHandle: vi.fn().mockResolvedValue(undefined),
     };
+    addSyncTransitionMethods(fsMock);
 
     i18nMock = { t: vi.fn((key) => key) };
     persistFolderSettings = vi.fn().mockResolvedValue(true);
@@ -274,16 +279,14 @@ describe("SyncService", () => {
       expect(handle.requestPermission).not.toHaveBeenCalled();
     });
 
-    it("accepts an already-granted handle without requestPermission", async () => {
+    it("rejects a partial permission API even when its query reports granted", async () => {
       const handle = {
         name: "alreadyGranted",
         queryPermission: vi.fn().mockResolvedValue("granted"),
       };
 
-      await expect(service.ensurePermission(handle)).resolves.toBe(true);
-      expect(handle.queryPermission).toHaveBeenCalledWith({
-        mode: "readwrite",
-      });
+      await expect(service.ensurePermission(handle)).resolves.toBe(false);
+      expect(handle.queryPermission).not.toHaveBeenCalled();
     });
 
     describe("syncProject - Browser and Context Detection", () => {
@@ -380,11 +383,9 @@ describe("SyncService", () => {
           hostname: "example.com",
         };
         global.window.isSecureContext = true;
-        const handle = {
-          name: "syncDir",
-          queryPermission: vi.fn().mockResolvedValue("denied"),
-          requestPermission: vi.fn().mockResolvedValue("denied"),
-        };
+        const handle = createHandle("syncDir");
+        handle.queryPermission.mockResolvedValue("denied");
+        handle.requestPermission.mockResolvedValue("denied");
         service.fs.getDirectoryHandle = vi.fn().mockResolvedValue(handle);
         service.invokeRequest = vi.fn();
 
@@ -441,13 +442,18 @@ describe("SyncService", () => {
 
       function createDirHandleWithProject(jsonContent) {
         return {
+          kind: "directory",
           name: "syncDir",
           queryPermission: vi.fn().mockResolvedValue("granted"),
           requestPermission: vi.fn().mockResolvedValue("granted"),
+          getDirectoryHandle: vi.fn(),
           getFileHandle: vi.fn().mockImplementation(async (name) => {
             if (name !== "project.json") throw new Error("Not found");
             return {
+              kind: "file",
+              name: "project.json",
               getFile: vi.fn().mockResolvedValue({
+                size: new TextEncoder().encode(jsonContent).byteLength,
                 text: vi.fn().mockResolvedValue(jsonContent),
               }),
             };
@@ -476,7 +482,7 @@ describe("SyncService", () => {
         });
         service.invokeRequest = req;
 
-        await service.setSyncFolder(false);
+        await expect(service.setSyncFolder(false)).resolves.toBe(handle);
         // Apply pending action on preferences save
         await fixture.eventBus.emit(
           "preferences:saved",
@@ -552,7 +558,7 @@ describe("SyncService", () => {
         });
         service.invokeRequest = req;
 
-        await service.setSyncFolder(false);
+        await expect(service.setSyncFolder(false)).resolves.toBeNull();
         // Simulate preferences open/close without save
         await fixture.eventBus.emit(
           "modal:hidden",
@@ -572,6 +578,8 @@ describe("SyncService", () => {
           "sync_operation_cancelled",
           "info",
         );
+        expect(fsMock.saveDirectoryHandle).not.toHaveBeenCalled();
+        expect(persistFolderSettings).not.toHaveBeenCalled();
       });
     });
   });

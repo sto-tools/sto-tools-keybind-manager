@@ -1,6 +1,49 @@
+import { probeSyncProjectFile } from "./syncFolderBoundary.js";
+
 /** @param {unknown} error */
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * @param {import('./SyncService.js').default} service
+ * @param {'import' | 'overwrite'} action
+ * @param {string} errorKey
+ * @param {Record<string, unknown>} [params]
+ */
+function showDecisionFailure(service, action, errorKey, params) {
+  const detail = service.i18n.t(errorKey, params);
+  service.ui?.showToast(
+    service.i18n.t(
+      action === "import"
+        ? "failed_to_import_project"
+        : "failed_to_sync_project",
+      { error: detail },
+    ),
+    "error",
+  );
+}
+
+/**
+ * @param {import('./SyncService.js').default} service
+ * @param {Exclude<import('../../types/sync-boundary.js').SyncProjectProbeResult, { success: true }>} probe
+ */
+function getProbeFailureDetail(service, probe) {
+  if (probe.error === "project_file_access_denied") {
+    return service.i18n.t("permission_denied_to_folder");
+  }
+  if (probe.error === "invalid_project_file_capability") {
+    return service.i18n.t("sync_folder_capability_invalid");
+  }
+  if (probe.error === "invalid_project") {
+    return probe.decode.error === "invalid_project_file"
+      ? service.i18n.t(probe.decode.error, probe.decode.params)
+      : service.i18n.t(probe.decode.error);
+  }
+  if (probe.error === "project_file_too_large") {
+    return service.i18n.t("invalid_project_file", { path: "$" });
+  }
+  return service.i18n.t("sync_folder_project_read_failed");
 }
 
 /**
@@ -35,8 +78,31 @@ export async function applyPendingSyncDecision(service) {
     service._syncDecisionGeneration === decisionGeneration;
 
   try {
-    const handle = await service.getSyncFolderHandle();
-    if (!isCurrentDecision() || !handle) return;
+    const loaded = await service.loadSyncFolderCapability();
+    if (!isCurrentDecision()) return;
+    if (!loaded.success) {
+      showDecisionFailure(service, action, loaded.error);
+      return;
+    }
+    if (loaded.state === "missing") {
+      showDecisionFailure(service, action, "no_sync_folder_selected");
+      return;
+    }
+    const permission = await service.checkSyncFolderPermission(
+      loaded.value.raw,
+    );
+    if (!isCurrentDecision()) return;
+    if (!permission.success) {
+      showDecisionFailure(
+        service,
+        action,
+        permission.error === "permission_denied"
+          ? "permission_denied_to_folder"
+          : "sync_folder_permission_check_failed",
+      );
+      return;
+    }
+    const handle = loaded.value.raw;
     console.log("[SyncService] applying pending action", { action });
 
     if (action === "import") {
@@ -51,15 +117,23 @@ export async function applyPendingSyncDecision(service) {
           content = deferredContent.content;
           fileName = deferredContent.fileName || "project.json";
         } else {
-          const fileHandle = await handle.getFileHandle("project.json", {
-            create: false,
-          });
+          const probe = await probeSyncProjectFile(loaded.value);
           if (!isCurrentDecision()) return;
-          const file = await fileHandle.getFile();
-          if (!isCurrentDecision()) return;
-          content = await file.text();
-          if (!isCurrentDecision()) return;
-          fileName = "project.json";
+          if (!probe.success) {
+            service.ui?.showToast(
+              service.i18n.t("failed_to_import_project", {
+                error: getProbeFailureDetail(service, probe),
+              }),
+              "error",
+            );
+            return;
+          }
+          if (probe.state === "absent") {
+            showDecisionFailure(service, action, "sync_project_file_missing");
+            return;
+          }
+          content = probe.content;
+          fileName = probe.fileName;
         }
 
         try {

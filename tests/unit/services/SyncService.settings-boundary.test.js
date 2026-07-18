@@ -3,21 +3,32 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SyncService from "../../../src/js/components/services/SyncService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
+import { addSyncTransitionMethods } from "../../fixtures/services/syncFileSystem.js";
 
-function createSelectedHandle(projectContent = null) {
+function createSelectedHandle(projectContent = null, name = "Fleet Builds") {
+  const projectFile =
+    projectContent === null
+      ? null
+      : {
+          size: new TextEncoder().encode(projectContent).byteLength,
+          text: vi.fn().mockResolvedValue(projectContent),
+        };
+
   return {
-    name: "Fleet Builds",
+    kind: "directory",
+    name,
     queryPermission: vi.fn().mockResolvedValue("granted"),
     requestPermission: vi.fn().mockResolvedValue("granted"),
+    getDirectoryHandle: vi.fn(),
     getFileHandle:
       projectContent === null
         ? vi
             .fn()
             .mockRejectedValue(new DOMException("not found", "NotFoundError"))
         : vi.fn().mockResolvedValue({
-            getFile: vi.fn().mockResolvedValue({
-              text: vi.fn().mockResolvedValue(projectContent),
-            }),
+            kind: "file",
+            name: "project.json",
+            getFile: vi.fn().mockResolvedValue(projectFile),
           }),
   };
 }
@@ -30,14 +41,22 @@ describe("SyncService settings boundary", () => {
   let i18n;
   let persistFolderSettings;
   let detachFolderSettings;
+  let durableHandle;
 
   beforeEach(() => {
     fixture = createServiceFixture({ enableFS: false });
     ui = { showToast: vi.fn() };
+    durableHandle = null;
     fs = {
-      saveDirectoryHandle: vi.fn().mockResolvedValue(undefined),
-      getDirectoryHandle: vi.fn(),
+      saveDirectoryHandle: vi.fn(async (_key, handle) => {
+        durableHandle = handle;
+      }),
+      getDirectoryHandle: vi.fn(async () => durableHandle),
+      deleteDirectoryHandle: vi.fn(async () => {
+        durableHandle = null;
+      }),
     };
+    addSyncTransitionMethods(fs);
     i18n = {
       t: vi.fn((key, params) =>
         params?.error ? `${key}:${params.error}` : key,
@@ -80,6 +99,10 @@ describe("SyncService settings boundary", () => {
 
     await expect(service.setSyncFolder(true)).resolves.toBe(handle);
 
+    expect(durableHandle).toBe(handle);
+    expect(fs.getDirectoryHandle).toHaveBeenCalledWith("sync-folder");
+    expect(fs.saveDirectoryHandle).toHaveBeenCalledWith("sync-folder", handle);
+    expect(fs.deleteDirectoryHandle).not.toHaveBeenCalled();
     expect(persistFolderSettings).toHaveBeenCalledOnce();
     expect(persistFolderSettings).toHaveBeenCalledWith({
       syncFolderName: "Fleet Builds",
@@ -102,9 +125,11 @@ describe("SyncService settings boundary", () => {
       "quota exhausted",
     ],
   ])(
-    "does not adopt a pending decision or publish success when persistence %s",
+    "restores the prior handle and decision when settings persistence %s",
     async (_label, persistSettings, expectedError) => {
-      const handle = createSelectedHandle('{"type":"project"}');
+      const priorHandle = createSelectedHandle(null, "Prior Fleet Builds");
+      durableHandle = priorHandle;
+      const handle = createSelectedHandle('{"type":"project","data":{}}');
       selectHandle(handle);
       vi.stubGlobal("confirmDialog", {
         confirm: vi.fn().mockResolvedValue(true),
@@ -121,9 +146,18 @@ describe("SyncService settings boundary", () => {
 
       await expect(service.setSyncFolder(true)).resolves.toBeNull();
 
-      expect(service.pendingSyncAction).toBeNull();
-      expect(service.awaitingSyncDecisionApply).toBe(false);
-      expect(service.deferredImportContent).toBeNull();
+      expect(durableHandle).toBe(priorHandle);
+      expect(fs.saveDirectoryHandle.mock.calls).toEqual([
+        ["sync-folder", handle],
+        ["sync-folder", priorHandle],
+      ]);
+      expect(fs.deleteDirectoryHandle).not.toHaveBeenCalled();
+      expect(service.pendingSyncAction).toBe("overwrite");
+      expect(service.awaitingSyncDecisionApply).toBe(true);
+      expect(service.deferredImportContent).toEqual({
+        content: "old project",
+        fileName: "project.json",
+      });
       expect(folderSet).not.toHaveBeenCalled();
       expect(ui.showToast).not.toHaveBeenCalledWith(
         "sync_folder_set",
@@ -136,7 +170,27 @@ describe("SyncService settings boundary", () => {
     },
   );
 
+  it("deletes the newly written handle when settings fail without a prior selection", async () => {
+    const handle = createSelectedHandle();
+    selectHandle(handle);
+    persistFolderSettings.mockResolvedValue(false);
+
+    await expect(service.setSyncFolder(false)).resolves.toBeNull();
+
+    expect(fs.saveDirectoryHandle).toHaveBeenCalledOnce();
+    expect(fs.saveDirectoryHandle).toHaveBeenCalledWith("sync-folder", handle);
+    expect(fs.deleteDirectoryHandle).toHaveBeenCalledOnce();
+    expect(fs.deleteDirectoryHandle).toHaveBeenCalledWith("sync-folder");
+    expect(durableHandle).toBeNull();
+    expect(ui.showToast).toHaveBeenCalledWith(
+      "failed_to_set_sync_folder:storage_write_failed",
+      "error",
+    );
+  });
+
   it("does not report success when the preferences owner is unavailable", async () => {
+    const priorHandle = createSelectedHandle(null, "Prior Fleet Builds");
+    durableHandle = priorHandle;
     const handle = createSelectedHandle();
     selectHandle(handle);
     detachFolderSettings();
@@ -146,6 +200,11 @@ describe("SyncService settings boundary", () => {
 
     await expect(service.setSyncFolder(false)).resolves.toBeNull();
 
+    expect(durableHandle).toBe(priorHandle);
+    expect(fs.saveDirectoryHandle.mock.calls).toEqual([
+      ["sync-folder", handle],
+      ["sync-folder", priorHandle],
+    ]);
     expect(folderSet).not.toHaveBeenCalled();
     expect(ui.showToast).not.toHaveBeenCalledWith("sync_folder_set", "success");
     expect(ui.showToast).toHaveBeenCalledWith(
@@ -157,6 +216,8 @@ describe("SyncService settings boundary", () => {
   });
 
   it("preserves the prior decision and skips preferences when the handle write fails", async () => {
+    const priorHandle = createSelectedHandle(null, "Prior Fleet Builds");
+    durableHandle = priorHandle;
     const handle = createSelectedHandle();
     selectHandle(handle);
     const writeError = new Error("IndexedDB transaction aborted");
@@ -172,6 +233,8 @@ describe("SyncService settings boundary", () => {
 
     await expect(service.setSyncFolder(false)).resolves.toBeNull();
 
+    expect(durableHandle).toBe(priorHandle);
+    expect(fs.deleteDirectoryHandle).not.toHaveBeenCalled();
     expect(persistFolderSettings).not.toHaveBeenCalled();
     expect(service.pendingSyncAction).toBe("overwrite");
     expect(service.awaitingSyncDecisionApply).toBe(true);
@@ -291,95 +354,6 @@ describe("SyncService settings boundary", () => {
     expect(folderSet).not.toHaveBeenCalled();
   });
 
-  it("does not persist a picker result superseded before its write", async () => {
-    const firstHandle = createSelectedHandle();
-    firstHandle.name = "First";
-    const secondHandle = createSelectedHandle();
-    secondHandle.name = "Second";
-    let releaseFirst;
-    let releaseSecond;
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi
-        .fn()
-        .mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              releaseFirst = () => resolve(firstHandle);
-            }),
-        )
-        .mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              releaseSecond = () => resolve(secondHandle);
-            }),
-        ),
-    );
-
-    const first = service.setSyncFolder(false);
-    const second = service.setSyncFolder(false);
-    releaseFirst();
-    releaseSecond();
-
-    await expect(first).resolves.toBeNull();
-    await expect(second).resolves.toBe(secondHandle);
-    expect(fs.saveDirectoryHandle).toHaveBeenCalledOnce();
-    expect(fs.saveDirectoryHandle).toHaveBeenCalledWith(
-      "sync-folder",
-      secondHandle,
-    );
-    expect(persistFolderSettings).toHaveBeenCalledOnce();
-    expect(persistFolderSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ syncFolderName: "Second" }),
-    );
-  });
-
-  it("orders overlapping handle writes so the latest selection is durable last", async () => {
-    const firstHandle = createSelectedHandle();
-    firstHandle.name = "First";
-    const secondHandle = createSelectedHandle();
-    secondHandle.name = "Second";
-    vi.stubGlobal(
-      "showDirectoryPicker",
-      vi
-        .fn()
-        .mockResolvedValueOnce(firstHandle)
-        .mockResolvedValueOnce(secondHandle),
-    );
-    /** @type {() => void} */
-    let releaseFirstWrite = () => {};
-    fs.saveDirectoryHandle
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            releaseFirstWrite = resolve;
-          }),
-      )
-      .mockResolvedValueOnce(undefined);
-
-    const first = service.setSyncFolder(false);
-    await vi.waitFor(() => {
-      expect(fs.saveDirectoryHandle).toHaveBeenCalledOnce();
-    });
-    const second = service.setSyncFolder(false);
-    await Promise.resolve();
-    expect(fs.saveDirectoryHandle).toHaveBeenCalledOnce();
-
-    releaseFirstWrite();
-    await expect(first).resolves.toBeNull();
-    await expect(second).resolves.toBe(secondHandle);
-
-    expect(fs.saveDirectoryHandle).toHaveBeenCalledTimes(2);
-    expect(fs.saveDirectoryHandle.mock.calls).toEqual([
-      ["sync-folder", firstHandle],
-      ["sync-folder", secondHandle],
-    ]);
-    expect(persistFolderSettings).toHaveBeenCalledOnce();
-    expect(persistFolderSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ syncFolderName: "Second" }),
-    );
-  });
-
   it("cannot arm a stale decision after a newer selection completes", async () => {
     const firstHandle = createSelectedHandle('{"type":"project"}');
     firstHandle.name = "First";
@@ -496,6 +470,37 @@ describe("SyncService settings boundary", () => {
     expect(service.invokeRequest).toHaveBeenCalledWith(
       "project:restore-from-content",
       { content: "new project", fileName: "project.json" },
+    );
+    expect(service.pendingSyncAction).toBeNull();
+  });
+
+  it("revalidates a fallback project file before restoring it", async () => {
+    const content = '{"type":"project","data":{}}';
+    durableHandle = createSelectedHandle(content);
+    service.stagePendingSyncDecision("import", null);
+    service.invokeRequest = vi.fn().mockResolvedValue({ success: true });
+
+    await service.applyPendingSyncDecision();
+
+    expect(service.invokeRequest).toHaveBeenCalledOnce();
+    expect(service.invokeRequest).toHaveBeenCalledWith(
+      "project:restore-from-content",
+      { content, fileName: "project.json" },
+    );
+    expect(service.pendingSyncAction).toBeNull();
+  });
+
+  it("does not restore invalid fallback content", async () => {
+    durableHandle = createSelectedHandle('{"type":"project"');
+    service.stagePendingSyncDecision("import", null);
+    service.invokeRequest = vi.fn();
+
+    await service.applyPendingSyncDecision();
+
+    expect(service.invokeRequest).not.toHaveBeenCalled();
+    expect(ui.showToast).toHaveBeenCalledWith(
+      "failed_to_import_project:import_failed_invalid_json",
+      "error",
     );
     expect(service.pendingSyncAction).toBeNull();
   });

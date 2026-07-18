@@ -23,6 +23,19 @@ async function readPreferencesState(bus) {
   }
 }
 
+function createSyncDirectoryHandle(name) {
+  return {
+    kind: "directory",
+    name,
+    getDirectoryHandle: vi.fn(),
+    getFileHandle: vi
+      .fn()
+      .mockRejectedValue(new DOMException("not found", "NotFoundError")),
+    queryPermission: vi.fn().mockResolvedValue("granted"),
+    requestPermission: vi.fn().mockResolvedValue("granted"),
+  };
+}
+
 describe("Persisted storage browser boundary", () => {
   it("keeps the preference owner unchanged when the checked bundle cannot persist", async () => {
     const storage = window.storageService;
@@ -96,12 +109,10 @@ describe("Persisted storage browser boundary", () => {
       folderSet.push(payload),
     );
     const detachToast = bus.on("toast:show", (payload) => toasts.push(payload));
-    const handle = {
-      name: "Quota Folder",
-      getFileHandle: vi
-        .fn()
-        .mockRejectedValue(new DOMException("not found", "NotFoundError")),
-    };
+    const priorHandle = createSyncDirectoryHandle("Prior Folder");
+    const handle = createSyncDirectoryHandle("Quota Folder");
+    let durableHandle = priorHandle;
+    let transitionPending = false;
     const pickerDescriptor = Object.getOwnPropertyDescriptor(
       window,
       "showDirectoryPicker",
@@ -110,9 +121,29 @@ describe("Persisted storage browser boundary", () => {
       configurable: true,
       value: vi.fn().mockResolvedValue(handle),
     });
-    const saveHandle = vi
-      .spyOn(sync.fs, "saveDirectoryHandle")
-      .mockResolvedValue(undefined);
+    const getState = vi
+      .spyOn(sync.fs, "getSyncDirectoryState")
+      .mockImplementation(async () => ({
+        handle: durableHandle,
+        transitionPending,
+      }));
+    const beginTransition = vi
+      .spyOn(sync.fs, "beginSyncDirectoryTransition")
+      .mockImplementation(async (value) => {
+        durableHandle = value;
+        transitionPending = true;
+      });
+    const completeTransition = vi
+      .spyOn(sync.fs, "completeSyncDirectoryTransition")
+      .mockImplementation(async () => {
+        transitionPending = false;
+      });
+    const restoreState = vi
+      .spyOn(sync.fs, "restoreSyncDirectoryState")
+      .mockImplementation(async (previousState) => {
+        durableHandle = previousState.handle;
+        transitionPending = previousState.transitionPending;
+      });
     const originalSetItem = Storage.prototype.setItem;
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const setItem = vi
@@ -134,9 +165,22 @@ describe("Persisted storage browser boundary", () => {
       expect(localStorage.getItem(storage.settingsKey)).toBe(beforeRaw);
       expect(folderSet).toHaveLength(0);
       expect(toasts.filter(({ type }) => type === "success")).toHaveLength(0);
+      expect(beginTransition).toHaveBeenCalledOnce();
+      expect(beginTransition).toHaveBeenCalledWith(handle);
+      expect(restoreState).toHaveBeenCalledOnce();
+      expect(restoreState).toHaveBeenCalledWith({
+        handle: priorHandle,
+        transitionPending: false,
+      });
+      expect(completeTransition).not.toHaveBeenCalled();
+      expect(durableHandle).toBe(priorHandle);
+      expect(transitionPending).toBe(false);
     } finally {
       setItem.mockRestore();
-      saveHandle.mockRestore();
+      restoreState.mockRestore();
+      completeTransition.mockRestore();
+      beginTransition.mockRestore();
+      getState.mockRestore();
       error.mockRestore();
       detachFolderSet();
       detachToast();

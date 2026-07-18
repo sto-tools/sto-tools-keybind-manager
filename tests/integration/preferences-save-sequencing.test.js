@@ -34,18 +34,30 @@ describe("preferences save sequencing", () => {
   });
 
   it("finishes a delayed saved consumer before replying and closing the modal", async () => {
-    const directoryHandle = /** @type {FileSystemDirectoryHandle} */ (
-      /** @type {unknown} */ ({ name: "Keybinds" })
-    );
-    /** @type {(handle: FileSystemDirectoryHandle) => void} */
+    const directoryHandle =
+      /** @type {import("../../src/js/types/sync-boundary.js").SyncDirectoryHandle} */ (
+        /** @type {unknown} */ ({
+          kind: "directory",
+          name: "Keybinds",
+          getFileHandle: vi.fn(),
+          getDirectoryHandle: vi.fn(),
+          queryPermission: vi.fn().mockResolvedValue("granted"),
+          requestPermission: vi.fn().mockResolvedValue("granted"),
+        })
+      );
+    /** @type {(handle: import("../../src/js/types/sync-boundary.js").SyncDirectoryHandle) => void} */
     let releaseDirectoryHandle = () => {};
     const directoryHandleReady = new Promise((resolve) => {
       releaseDirectoryHandle = resolve;
     });
     const getDirectoryHandle = vi.fn(() => directoryHandleReady);
+    const getSyncDirectoryState = vi.fn(async () => ({
+      handle: await getDirectoryHandle(),
+      transitionPending: false,
+    }));
     const fs =
       /** @type {import("../../src/js/components/services/FileSystemService.js").default} */ (
-        /** @type {unknown} */ ({ getDirectoryHandle })
+        /** @type {unknown} */ ({ getDirectoryHandle, getSyncDirectoryState })
       );
 
     modalManager = new ModalManagerService({ eventBus: fixture.eventBus });

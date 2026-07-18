@@ -1,6 +1,7 @@
 import eventBus from "../../src/js/core/eventBus.js";
 import type StorageService from "../../src/js/components/services/StorageService.js";
 import type { CurrentProjectArtifactEnvelope } from "../../src/js/types/data-contracts.js";
+import type { SyncDirectoryHandle } from "../../src/js/types/sync-boundary.js";
 import {
   createDataCoordinatorState,
   createPreferencesState,
@@ -48,6 +49,9 @@ type RegistryContainsNoAnyPayload = Expect<
 >;
 type ProjectBackupCompatibilityNameIsCanonical = Expect<
   Equal<ProjectBackupData, CurrentProjectArtifactEnvelope>
+>;
+type SyncFolderSetPayloadIsNarrowCapability = Expect<
+  Equal<EventPayload<"sync:folder-set">, { handle: SyncDirectoryHandle }>
 >;
 type RetiredListenerTopics =
   | "bindset-manager:open"

@@ -12,6 +12,10 @@ import type {
 import type { ExtensionPreferenceKey } from "../../src/js/types/events/base.js";
 import type { SyncProjectResult } from "../../src/js/types/rpc/application.js";
 import type { ProjectImportResult } from "../../src/js/types/rpc/import-export.js";
+import type {
+  SyncDirectoryHandle,
+  SyncDirectoryLoadResult,
+} from "../../src/js/types/sync-boundary.js";
 import { extensionPreferenceKey } from "../../src/js/components/services/preferenceKeys.js";
 import eventBus from "../../src/js/core/eventBus.js";
 import { request, respond } from "../../src/js/core/requestResponse.js";
@@ -57,11 +61,21 @@ type SyncFolderSettingsRequest = Expect<
 type SyncFolderSettingsResult = Expect<
   Equal<RpcResult<"preferences:persist-sync-folder-settings">, boolean>
 >;
+type SyncFolderExportRequest = Expect<
+  Equal<RpcRequest<"export:sync-to-folder">, { dirHandle: SyncDirectoryHandle }>
+>;
 type UtilityClipboardRequest = Expect<
   Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
 >;
 type SyncProjectResultIsExact = Expect<
   Equal<RpcResult<"sync:sync-project">, SyncProjectResult>
+>;
+type SyncLoadFailure = Extract<SyncDirectoryLoadResult, { success: false }>;
+type SyncLoadExcludesSelectionCompensationFailure = Expect<
+  Equal<
+    Extract<SyncLoadFailure["error"], "sync_folder_compensation_failed">,
+    never
+  >
 >;
 
 // @ts-expect-error Export failures always retain their diagnostic message.
@@ -74,6 +88,15 @@ const syncPreflightWithDiagnostic: SyncProjectResult = {
   error: "no_sync_folder_selected",
   // @ts-expect-error Preflight failures never carry export diagnostics.
   params: { error: "not exported" },
+};
+const syncCapabilityFailure: SyncProjectResult = {
+  success: false,
+  error: "sync_folder_capability_invalid",
+};
+const syncCompensationFailure: SyncProjectResult = {
+  success: false,
+  // @ts-expect-error Compensation failure belongs to folder selection, not sync.
+  error: "sync_folder_compensation_failed",
 };
 const unknownSyncFailure: SyncProjectResult = {
   success: false,
@@ -783,6 +806,7 @@ void parameterBuildHandler;
 void exerciseCoreApi;
 void syncFailureWithoutDiagnostic;
 void syncPreflightWithDiagnostic;
+void syncCompensationFailure;
 void unknownSyncFailure;
 void (0 as unknown as ParameterCommandBuildResult);
 void (0 as unknown as PreferenceInitResult);

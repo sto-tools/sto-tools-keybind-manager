@@ -8,6 +8,7 @@ import type {
   UnknownRecord,
 } from "./base.js";
 import type { AliasImportResult } from "./aliases.js";
+import type { SyncDirectoryHandle } from "../sync-boundary.js";
 
 export type ImportStrategy =
   | "merge_keep"
@@ -176,7 +177,7 @@ export interface ImportExportRpcProtocol {
     string
   >;
   "export:sync-to-folder": RequiredRpc<
-    { dirHandle: FileSystemDirectoryHandle },
+    { dirHandle: SyncDirectoryHandle },
     undefined
   >;
   "import:alias-file": RequiredRpc<

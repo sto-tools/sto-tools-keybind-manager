@@ -14,7 +14,11 @@ export type SyncProjectResult =
         | "sync_not_supported_firefox"
         | "sync_not_supported_secure_context"
         | "no_sync_folder_selected"
-        | "permission_denied_to_folder";
+        | "permission_denied_to_folder"
+        | "sync_folder_capability_invalid"
+        | "sync_folder_load_failed"
+        | "sync_folder_transition_incomplete"
+        | "sync_folder_permission_check_failed";
       params?: never;
     }
   | {

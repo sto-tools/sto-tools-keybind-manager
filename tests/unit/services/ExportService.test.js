@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ExportService from "../../../src/js/components/services/ExportService.js";
 import * as SyncService from "../../../src/js/components/services/SyncService.js";
@@ -19,6 +19,15 @@ respond(undefined, "parser:parse-command-string", ({ commandString }) => {
     commands: [{ command: commandString }],
   };
 });
+
+function createDirectoryCapability() {
+  return {
+    kind: "directory",
+    name: "sync",
+    getFileHandle: async () => ({}),
+    getDirectoryHandle: async () => ({}),
+  };
+}
 
 describe("ExportService", () => {
   let fixture, service, profile;
@@ -244,6 +253,19 @@ describe("ExportService", () => {
       );
     });
 
+    it("rejects a malformed directory capability at the RPC ingress before reading storage", async () => {
+      const getAllData = vi.spyOn(service.storage, "getAllData");
+
+      await expect(
+        service.request("export:sync-to-folder", {
+          dirHandle: { name: "partial" },
+        }),
+      ).rejects.toThrow("Invalid sync directory capability");
+
+      expect(getAllData).not.toHaveBeenCalled();
+      getAllData.mockRestore();
+    });
+
     it("rethrows write failures without emitting toast events", async () => {
       const writeError = new Error("sync write failed");
       const writeSpy = vi
@@ -268,9 +290,9 @@ describe("ExportService", () => {
 
       fixture.eventBusFixture.clearEventHistory();
 
-      await expect(service.syncToFolder({})).rejects.toThrow(
-        "sync write failed",
-      );
+      await expect(
+        service.syncToFolder(createDirectoryCapability()),
+      ).rejects.toThrow("sync write failed");
 
       const toastEvents = fixture.eventBusFixture.getEventsOfType("toast:show");
       expect(toastEvents).toHaveLength(0);

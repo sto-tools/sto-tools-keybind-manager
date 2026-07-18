@@ -1,4 +1,5 @@
 import type { StoredApplicationData } from "./base.js";
+import type { SyncDirectoryHandle } from "../sync-boundary.js";
 
 export interface SavedStorageData extends Record<string, unknown> {
   version: string;
@@ -9,7 +10,7 @@ export interface SavedStorageData extends Record<string, unknown> {
 export interface StorageEventProtocol {
   "storage:data-changed": { data: SavedStorageData };
   "storage:data-reset": { data: StoredApplicationData };
-  "sync:folder-set": { handle: FileSystemDirectoryHandle };
+  "sync:folder-set": { handle: SyncDirectoryHandle };
   "app:reset-confirmed": null;
   "data:load-default": null;
   "keybinds:import": null;

@@ -1,10 +1,9 @@
 import ComponentBase from "../ComponentBase.js";
-import { writeFile } from "./SyncService.js";
 import { formatAliasLine, formatKeybindLine } from "../../lib/STOFormatter.js";
 import { normalizeToOptimizedString } from "../../lib/commandDisplayAdapter.js";
 import { projectVirtualVFXAliases } from "./vfxAliasProjection.js";
 import { getSnapshotProfile } from "./dataState.js";
-import { serializeProjectArtifact } from "./projectArtifact.js";
+import { materializeSyncProject } from "./syncProjectMaterializer.js";
 
 /** @type {{ settings?: { version?: string } }} */
 const STO_DATA =
@@ -614,51 +613,9 @@ export default class ExportService extends ComponentBase {
   /* ---------------------------------------------------------- */
   /* Sync to folder                                            */
   /* ---------------------------------------------------------- */
-  /** @param {FileSystemDirectoryHandle} dirHandle */
+  /** @param {unknown} dirHandle */
   async syncToFolder(dirHandle) {
-    if (!this.storage) throw new Error("Storage is required to sync exports");
-    const data = this.storage.getAllData();
-    const exported = new Date().toISOString();
-    const projectArtifact = serializeProjectArtifact(
-      data,
-      this.storage.getSettings(),
-      { version: STO_DATA?.settings?.version, exported },
-    );
-    const profiles = data.profiles || {};
-
-    // Generate files for each profile
-    for (const profile of Object.values(profiles)) {
-      if (!profile || !profile.name) continue;
-
-      const sanitizedName = profile.name.replace(/[^a-zA-Z0-9_-]/g, "_");
-
-      // Create profile directory
-      const profileDir = `${sanitizedName}`;
-
-      // Generate keybind files for each environment
-      for (const environment of ["space", "ground"]) {
-        if (
-          profile.builds?.[environment]?.keys &&
-          Object.keys(profile.builds[environment].keys).length > 0
-        ) {
-          const keybindContent = await this.generateSTOKeybindFile(profile, {
-            environment,
-            syncMode: true,
-          });
-          const filename = `${profileDir}/${sanitizedName}_${environment}.txt`;
-          await writeFile(dirHandle, filename, keybindContent);
-        }
-      }
-
-      // Generate alias file (includes user aliases, VFX aliases, bind-to-alias, and bindset aliases)
-      const aliasContent = await this.generateAliasFile(profile);
-      const filename = `${profileDir}/${sanitizedName}_aliases.txt`;
-      await writeFile(dirHandle, filename, aliasContent);
-    }
-
-    await writeFile(dirHandle, "project.json", projectArtifact);
-
-    // Toast is handled by SyncService to respect autosync settings
+    return materializeSyncProject(this, dirHandle, STO_DATA?.settings?.version);
   }
 
   /**
