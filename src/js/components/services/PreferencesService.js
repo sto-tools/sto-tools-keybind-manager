@@ -14,6 +14,7 @@ import {
 /** @typedef {import('../../types/events/base.js').PreferenceMutation} PreferenceMutation */
 /** @typedef {import('../../types/events/base.js').PreferencesSettings} PreferencesSettings */
 /** @typedef {import('../../types/events/base.js').SettingsRecord} SettingsRecord */
+/** @typedef {import('../../types/rpc/parameters-preferences.js').SyncFolderSettingsMutation} SyncFolderSettingsMutation */
 
 /** @param {unknown} value @returns {value is PreferenceMutation} */
 function isPreferenceMutation(value) {
@@ -25,6 +26,26 @@ function isPreferenceMutation(value) {
     );
   }
   return value.extension === true;
+}
+
+/** @param {unknown} value @returns {value is SyncFolderSettingsMutation} */
+function isSyncFolderSettingsMutation(value) {
+  if (!isDataRecord(value)) return false;
+  const keys = Object.keys(value);
+  return (
+    keys.length === 4 &&
+    keys.every(
+      (key) =>
+        key === "syncFolderName" ||
+        key === "syncFolderPath" ||
+        key === "syncFolderFallback" ||
+        key === "autoSync",
+    ) &&
+    typeof value.syncFolderName === "string" &&
+    typeof value.syncFolderPath === "string" &&
+    value.syncFolderFallback === false &&
+    typeof value.autoSync === "boolean"
+  );
 }
 
 /** @param {unknown} value */
@@ -94,6 +115,9 @@ export default class PreferencesService extends ComponentBase {
         this.loadSettings();
         return undefined;
       }),
+      this.respond("preferences:persist-sync-folder-settings", (mutation) =>
+        this.persistSyncFolderSettings(mutation),
+      ),
       this.respond("preferences:save-settings", () => this.saveSettings()),
       this.respond("preferences:set-setting", (mutation) => {
         if (!isPreferenceMutation(mutation)) {
@@ -283,6 +307,37 @@ export default class PreferencesService extends ComponentBase {
       });
     }
     return savedPublication.then(() => true);
+  }
+
+  /**
+   * Persist and publish the selected sync folder without applying settings or
+   * emitting preferences:saved. The next saved publication, normally produced
+   * by the Preferences modal Save action, remains SyncService's established
+   * import/overwrite trigger.
+   * @param {SyncFolderSettingsMutation} mutation
+   * @returns {boolean}
+   */
+  persistSyncFolderSettings(mutation) {
+    if (!isSyncFolderSettingsMutation(mutation)) {
+      throw new TypeError("Invalid sync folder settings mutation");
+    }
+    const candidate = { ...this.getSettings(), ...structuredClone(mutation) };
+    const decoded = sanitizeStoredSettingsPatch(candidate);
+    if (decoded.repaired) {
+      throw new TypeError("Invalid sync folder settings mutation");
+    }
+    const nextSettings = sanitizeStoredSettings(
+      decoded.value,
+      this.defaultSettings,
+    );
+    if (!this.persistSettings(nextSettings)) return false;
+
+    this.settings = nextSettings;
+    // This is the same complete cache-replacement publication produced by the
+    // historical UI reload after SyncService wrote the settings record. It
+    // deliberately does not trigger application/change/save side effects.
+    this.emit("preferences:loaded", { settings: this.getSettings() });
+    return true;
   }
 
   /** @param {PreferencesSettings} settings @returns {boolean} */

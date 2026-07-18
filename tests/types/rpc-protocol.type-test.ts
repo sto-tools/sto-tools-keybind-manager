@@ -43,6 +43,20 @@ type PreferenceMutationResult = Expect<
 type PreferencesMutationResult = Expect<
   Equal<RpcResult<"preferences:set-settings">, boolean>
 >;
+type SyncFolderSettingsRequest = Expect<
+  Equal<
+    RpcRequest<"preferences:persist-sync-folder-settings">,
+    {
+      syncFolderName: string;
+      syncFolderPath: string;
+      syncFolderFallback: false;
+      autoSync: boolean;
+    }
+  >
+>;
+type SyncFolderSettingsResult = Expect<
+  Equal<RpcResult<"preferences:persist-sync-folder-settings">, boolean>
+>;
 type UtilityClipboardRequest = Expect<
   Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
 >;
@@ -375,6 +389,20 @@ async function exerciseCoreApi() {
       syncResult.params.error;
     }
   }
+
+  await request(eventBus, "preferences:persist-sync-folder-settings", {
+    syncFolderName: "Fleet Builds",
+    syncFolderPath: "Selected folder: Fleet Builds",
+    syncFolderFallback: false,
+    autoSync: true,
+  });
+  // @ts-expect-error The compatibility flag is normalized to false.
+  await request(eventBus, "preferences:persist-sync-folder-settings", {
+    syncFolderName: "Fleet Builds",
+    syncFolderPath: "Selected folder: Fleet Builds",
+    syncFolderFallback: true,
+    autoSync: true,
+  });
 
   await request(eventBus, "preferences:set-setting", {
     key: "autoSave",
@@ -758,4 +786,6 @@ void syncPreflightWithDiagnostic;
 void unknownSyncFailure;
 void (0 as unknown as ParameterCommandBuildResult);
 void (0 as unknown as PreferenceInitResult);
+void (0 as unknown as SyncFolderSettingsRequest);
+void (0 as unknown as SyncFolderSettingsResult);
 void (0 as unknown as SyncProjectResultIsExact);

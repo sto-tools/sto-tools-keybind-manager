@@ -77,6 +77,77 @@ describe("Persisted storage browser boundary", () => {
     }
   });
 
+  it("does not publish sync-folder success when the checked bundle cannot persist its settings", async () => {
+    const storage = window.storageService;
+    const sync = window.stoSync;
+    const bus = window.eventBus;
+    expect(storage).toBeTruthy();
+    expect(sync).toBeTruthy();
+    expect(
+      bus?.hasListeners("rpc:preferences:persist-sync-folder-settings"),
+    ).toBe(true);
+    if (!storage || !sync || !bus) return;
+
+    const beforeRaw = localStorage.getItem(storage.settingsKey);
+    const beforeState = await readPreferencesState(bus);
+    const folderSet = [];
+    const toasts = [];
+    const detachFolderSet = bus.on("sync:folder-set", (payload) =>
+      folderSet.push(payload),
+    );
+    const detachToast = bus.on("toast:show", (payload) => toasts.push(payload));
+    const handle = {
+      name: "Quota Folder",
+      getFileHandle: vi
+        .fn()
+        .mockRejectedValue(new DOMException("not found", "NotFoundError")),
+    };
+    const pickerDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "showDirectoryPicker",
+    );
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(handle),
+    });
+    const saveHandle = vi
+      .spyOn(sync.fs, "saveDirectoryHandle")
+      .mockResolvedValue(undefined);
+    const originalSetItem = Storage.prototype.setItem;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(function (key, value) {
+        if (key === storage.settingsKey) {
+          throw new DOMException(
+            "Storage quota exceeded",
+            "QuotaExceededError",
+          );
+        }
+        return originalSetItem.call(this, key, value);
+      });
+
+    try {
+      await expect(sync.setSyncFolder(true)).resolves.toBeNull();
+
+      expect(await readPreferencesState(bus)).toEqual(beforeState);
+      expect(localStorage.getItem(storage.settingsKey)).toBe(beforeRaw);
+      expect(folderSet).toHaveLength(0);
+      expect(toasts.filter(({ type }) => type === "success")).toHaveLength(0);
+    } finally {
+      setItem.mockRestore();
+      saveHandle.mockRestore();
+      error.mockRestore();
+      detachFolderSet();
+      detachToast();
+      if (pickerDescriptor) {
+        Object.defineProperty(window, "showDirectoryPicker", pickerDescriptor);
+      } else {
+        delete window.showDirectoryPicker;
+      }
+    }
+  });
+
   it("waits for saved consumers before resolving a checked-bundle mutation", async () => {
     const bus = window.eventBus;
     expect(bus?.hasListeners("rpc:preferences:set-setting")).toBe(true);

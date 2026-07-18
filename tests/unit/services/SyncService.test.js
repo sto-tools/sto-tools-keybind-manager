@@ -8,6 +8,7 @@ vi.mock("i18next", () => ({
 }));
 
 import SyncService from "../../../src/js/components/services/SyncService.js";
+import { respond } from "../../../src/js/core/requestResponse.js";
 import { createServiceFixture } from "../../fixtures/index.js";
 
 function createHandle(name) {
@@ -15,11 +16,21 @@ function createHandle(name) {
     name,
     queryPermission: vi.fn().mockResolvedValue("granted"),
     requestPermission: vi.fn().mockResolvedValue("granted"),
+    getFileHandle: vi
+      .fn()
+      .mockRejectedValue(new DOMException("not found", "NotFoundError")),
   };
 }
 
 describe("SyncService", () => {
-  let fixture, service, uiMock, fsMock, i18nMock, services;
+  let fixture,
+    service,
+    uiMock,
+    fsMock,
+    i18nMock,
+    services,
+    persistFolderSettings,
+    detachSettings;
 
   beforeEach(() => {
     fixture = createServiceFixture({ enableFS: false });
@@ -32,10 +43,15 @@ describe("SyncService", () => {
     };
 
     i18nMock = { t: vi.fn((key) => key) };
+    persistFolderSettings = vi.fn().mockResolvedValue(true);
+    detachSettings = respond(
+      fixture.eventBus,
+      "preferences:persist-sync-folder-settings",
+      (settings) => persistFolderSettings(settings),
+    );
 
     service = new SyncService({
       eventBus: fixture.eventBus,
-      storage: fixture.storageService,
       ui: uiMock,
       fs: fsMock,
       i18n: i18nMock,
@@ -45,6 +61,7 @@ describe("SyncService", () => {
   });
 
   afterEach(() => {
+    detachSettings?.();
     services.forEach((candidate) => {
       if (!candidate.destroyed) candidate.destroy();
     });
@@ -188,7 +205,12 @@ describe("SyncService", () => {
         "sync_folder_set",
         "success",
       );
-      expect(fixture.storageService.saveSettings).toHaveBeenCalled();
+      expect(persistFolderSettings).toHaveBeenCalledWith({
+        syncFolderName: "syncDir",
+        syncFolderPath: "Selected folder: syncDir",
+        syncFolderFallback: false,
+        autoSync: false,
+      });
     });
 
     it("allows Chrome on file:// to proceed normally", async () => {
@@ -235,12 +257,9 @@ describe("SyncService", () => {
 
       await service.setSyncFolder(false);
 
-      expect(fixture.storageService.saveSettings).toHaveBeenCalled();
-      const saved = JSON.parse(
-        fixture.storageFixture.localStorage.getItem("sto_keybind_settings") ||
-          "{}",
+      expect(persistFolderSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ syncFolderName: "syncDir" }),
       );
-      expect(saved.syncFolderName).toBe("syncDir");
       expect(uiMock.showToast).toHaveBeenCalledWith(
         "sync_folder_set",
         "success",

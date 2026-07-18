@@ -13,7 +13,6 @@ describe("SyncService lifecycle ownership", () => {
     services = [];
     dependencies = {
       eventBus: fixture.eventBus,
-      storage: fixture.storageService,
       ui: { showToast: vi.fn() },
       fs: {
         saveDirectoryHandle: vi.fn(),

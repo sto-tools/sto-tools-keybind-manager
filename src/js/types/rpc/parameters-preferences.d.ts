@@ -87,6 +87,13 @@ export type ParameterBuildResult =
   | ParameterBuildRangeCommand[]
   | null;
 
+export type SyncFolderSettingsMutation = {
+  syncFolderName: string;
+  syncFolderPath: string;
+  syncFolderFallback: false;
+  autoSync: boolean;
+};
+
 export type CommandParseResult = {
   originalString: string;
   commands: ParsedCommand[];
@@ -122,6 +129,10 @@ export interface ParameterPreferenceRpcProtocol {
   >;
   "preferences:init": NoPayloadRpc<undefined>;
   "preferences:load-settings": NoPayloadRpc<undefined>;
+  "preferences:persist-sync-folder-settings": RequiredRpc<
+    SyncFolderSettingsMutation,
+    boolean
+  >;
   "preferences:save-settings": NoPayloadRpc<boolean>;
   "preferences:set-setting": RequiredRpc<PreferenceMutation, boolean>;
   "preferences:set-settings": RequiredRpc<SettingsRecord, boolean>;

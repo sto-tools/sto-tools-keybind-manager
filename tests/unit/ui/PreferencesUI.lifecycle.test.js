@@ -79,13 +79,10 @@ async function flushAsyncHandlers() {
 
 function expectOneOwnedDispatch(owner) {
   expect(owner.spies.show).toHaveBeenCalledOnce();
-  // One refresh comes from sync:folder-set and one from the successful
-  // set-folder button action.
-  expect(owner.spies.updateFolder).toHaveBeenCalledTimes(2);
+  expect(owner.spies.updateFolder).toHaveBeenCalledOnce();
   expect(owner.spies.notifyAutoSync).toHaveBeenCalledOnce();
   expect(owner.spies.save).toHaveBeenCalledOnce();
-  expect(owner.spies.request).toHaveBeenCalledOnce();
-  expect(owner.spies.request).toHaveBeenCalledWith("preferences:load-settings");
+  expect(owner.spies.request).not.toHaveBeenCalled();
 }
 
 describe("PreferencesUI lifecycle ownership", () => {

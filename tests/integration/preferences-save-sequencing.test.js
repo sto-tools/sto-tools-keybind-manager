@@ -51,7 +51,6 @@ describe("preferences save sequencing", () => {
     modalManager = new ModalManagerService({ eventBus: fixture.eventBus });
     syncService = new SyncService({
       eventBus: fixture.eventBus,
-      storage: fixture.storage,
       fs,
       i18n: { t: (key) => key },
     });

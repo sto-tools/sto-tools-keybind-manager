@@ -4,6 +4,7 @@ import FileSystemService, {
   writeFile as fsWriteFile,
   KEY_SYNC_FOLDER,
 } from "./FileSystemService.js";
+import { applyPendingSyncDecision as applyClaimedSyncDecision } from "./syncDecisionOrchestrator.js";
 
 // Re-export the helper so existing imports (especially tests) continue to work
 export const writeFile = fsWriteFile;
@@ -14,12 +15,11 @@ function getErrorMessage(error) {
 }
 
 export default class SyncService extends ComponentBase {
-  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, storage?: import('./serviceTypes.js').Storage, ui?: import('./serviceTypes.js').ToastUI, fs?: import('./serviceTypes.js').FileSystem, i18n?: import('./serviceTypes.js').I18n }} [options] */
-  constructor({ eventBus, storage, ui, fs, i18n } = {}) {
+  /** @param {{ eventBus?: import('./serviceTypes.js').EventBus, ui?: import('./serviceTypes.js').ToastUI, fs?: import('./serviceTypes.js').FileSystem, i18n?: import('./serviceTypes.js').I18n }} [options] */
+  constructor({ eventBus, ui, fs, i18n } = {}) {
     super(eventBus);
     this.componentName = "SyncService";
 
-    this.storage = storage;
     this.ui = ui;
     this.i18n =
       i18n ??
@@ -32,10 +32,15 @@ export default class SyncService extends ComponentBase {
     this.pendingSyncAction = null;
     /** @type {{ content: string, fileName: string } | null} */
     this.deferredImportContent = null;
+    this._syncDecisionGeneration = 0;
+    this._syncDecisionApplyInFlight = false;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
     /** @type {ReturnType<typeof setTimeout> | null} */
     this._modalCloseTimeout = null;
+    this._folderSelectionGeneration = 0;
+    /** @type {Promise<void>} */
+    this._folderHandleWriteTail = Promise.resolve();
     console.log("[SyncService] constructed");
 
     // Indirection for request calls (simplifies testing)
@@ -69,107 +74,9 @@ export default class SyncService extends ComponentBase {
     if (!this.eventBus) return;
 
     // Handle deferred import/overwrite on preferences save/cancel
-    this.addEventListener("preferences:saved", async () => {
-      console.log("[SyncService] preferences:saved received", {
-        awaiting: this.awaitingSyncDecisionApply,
-        pending: this.pendingSyncAction,
-      });
-      if (!this.awaitingSyncDecisionApply) return;
-      try {
-        const handle = await this.getSyncFolderHandle();
-        if (!handle) return;
-        const action = this.pendingSyncAction;
-        console.log("[SyncService] applying pending action", { action });
-        if (action === "import") {
-          try {
-            // Prefer deferred content from selection-time prompt
-            /** @type {string} */
-            let content;
-            /** @type {string} */
-            let fileName;
-            if (
-              this.deferredImportContent &&
-              this.deferredImportContent.content
-            ) {
-              content = this.deferredImportContent.content;
-              fileName = this.deferredImportContent.fileName || "project.json";
-            } else {
-              const fileHandle = await handle.getFileHandle("project.json", {
-                create: false,
-              });
-              const file = await fileHandle.getFile();
-              content = await file.text();
-              fileName = "project.json";
-            }
-            // Try immediate restore; if handler not ready, defer to app-ready
-            try {
-              console.log(
-                "[SyncService] invoking project:restore-from-content",
-                { size: content?.length },
-              );
-              const result = await this.invokeRequest(
-                "project:restore-from-content",
-                { content, fileName },
-              );
-              console.log(
-                "[SyncService] project:restore-from-content result",
-                result,
-              );
-              if (!result?.success) {
-                const errMsg = result?.error || "Unknown error";
-                this.ui?.showToast(
-                  this.i18n.t("failed_to_import_project", { error: errMsg }),
-                  "error",
-                );
-              } else {
-                // Clear any stashed content now that import succeeded
-                this.deferredImportContent = null;
-                this.ui?.showToast(
-                  this.i18n.t("project_imported_from_sync_folder"),
-                  "success",
-                );
-              }
-            } catch {
-              // Handler may not be ready yet – defer until app is ready
-              this.deferredImportContent = { content, fileName };
-              console.log("[SyncService] deferring import until sto-app-ready");
-            }
-          } catch (e) {
-            this.ui?.showToast(
-              this.i18n.t("failed_to_import_project", {
-                error: getErrorMessage(e),
-              }),
-              "error",
-            );
-          }
-        } else if (action === "overwrite") {
-          try {
-            await this.invokeRequest("export:sync-to-folder", {
-              dirHandle: handle,
-            });
-            console.log(
-              "[SyncService] overwrite: export:sync-to-folder completed",
-            );
-            this.ui?.showToast(
-              this.i18n.t("project_synced_successfully"),
-              "success",
-            );
-          } catch (e) {
-            this.ui?.showToast(
-              this.i18n.t("failed_to_sync_project", {
-                error: getErrorMessage(e),
-              }),
-              "error",
-            );
-          }
-        }
-      } finally {
-        // Clear pending action and awaiting flag
-        this.pendingSyncAction = null;
-        this.awaitingSyncDecisionApply = false;
-        console.log("[SyncService] cleared pending action and awaiting flag");
-      }
-    });
+    this.addEventListener("preferences:saved", () =>
+      this.applyPendingSyncDecision(),
+    );
 
     this.addEventListener("modal:hidden", ({ modalId }) => {
       console.log("[SyncService] modal:hidden received", {
@@ -185,9 +92,9 @@ export default class SyncService extends ComponentBase {
       this._modalCloseTimeout = setTimeout(() => {
         this._modalCloseTimeout = null;
         if (this.awaitingSyncDecisionApply) {
-          // Preferences were closed without save – clear pending action
-          this.pendingSyncAction = null;
-          this.awaitingSyncDecisionApply = false;
+          // Preferences were closed without save – invalidate the complete
+          // decision, including content that must not reach sto-app-ready.
+          this.clearPendingSyncDecision();
           console.log(
             "[SyncService] preferences modal closed without save; pending cleared (deferred)",
           );
@@ -231,6 +138,30 @@ export default class SyncService extends ComponentBase {
     });
   }
 
+  clearPendingSyncDecision() {
+    this._syncDecisionGeneration += 1;
+    this._syncDecisionApplyInFlight = false;
+    this.pendingSyncAction = null;
+    this.awaitingSyncDecisionApply = false;
+    this.deferredImportContent = null;
+  }
+
+  /**
+   * @param {'import' | 'overwrite' | null} action
+   * @param {{ content: string, fileName: string } | null} deferredContent
+   */
+  stagePendingSyncDecision(action, deferredContent) {
+    this._syncDecisionGeneration += 1;
+    this._syncDecisionApplyInFlight = false;
+    this.pendingSyncAction = action;
+    this.awaitingSyncDecisionApply = action !== null;
+    this.deferredImportContent = deferredContent;
+  }
+
+  async applyPendingSyncDecision() {
+    return applyClaimedSyncDecision(this);
+  }
+
   // Browser detection utilities
   isFirefox() {
     // Check if the browser is Firefox
@@ -264,11 +195,45 @@ export default class SyncService extends ComponentBase {
     );
   }
 
+  /**
+   * Serialize capability writes in selection order. A newer selection can
+   * start while an older IndexedDB transaction is already in flight; the
+   * newer handle must be the last durable write even though the older browser
+   * transaction cannot be cancelled.
+   * @param {FileSystemDirectoryHandle} handle
+   * @param {() => boolean} isCurrentSelection
+   */
+  async persistSelectedFolderHandle(handle, isCurrentSelection) {
+    const previousWrite = this._folderHandleWriteTail;
+    /** @type {() => void} */
+    let releaseWrite = () => {};
+    this._folderHandleWriteTail = new Promise((resolve) => {
+      releaseWrite = resolve;
+    });
+
+    await previousWrite;
+    try {
+      if (!isCurrentSelection()) return false;
+      await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle);
+      return isCurrentSelection();
+    } finally {
+      releaseWrite();
+    }
+  }
+
   // Set sync folder and optionally enable auto-sync
   async setSyncFolder(autoSync = false) {
+    const selectionGeneration = ++this._folderSelectionGeneration;
+    const isCurrentSelection = () =>
+      !this.destroyed &&
+      this._folderSelectionGeneration === selectionGeneration;
     try {
       console.log("[SyncService] setSyncFolder called", { autoSync });
       let handle, folderName;
+      /** @type {'import' | 'overwrite' | null} */
+      let nextPendingSyncAction = null;
+      /** @type {{ content: string, fileName: string } | null} */
+      let nextDeferredImportContent = null;
       const appWindow = /** @type {import('./serviceTypes.js').AppWindow} */ (
         window
       );
@@ -315,7 +280,16 @@ export default class SyncService extends ComponentBase {
       // Secure context: Check API availability and proceed
       if (appWindow.showDirectoryPicker) {
         handle = await appWindow.showDirectoryPicker();
-        await this.fs.saveDirectoryHandle(KEY_SYNC_FOLDER, handle);
+        if (!isCurrentSelection()) return null;
+        const handlePersisted = await this.persistSelectedFolderHandle(
+          handle,
+          isCurrentSelection,
+        );
+        if (!handlePersisted) return null;
+        // Any older decision referred to the previously persisted handle. Once
+        // this capability is replaced it must never be replayed against the new
+        // directory, even if the later settings write fails.
+        this.clearPendingSyncDecision();
         folderName = handle.name;
         console.log("[SyncService] setSyncFolder: directory selected", {
           folderName,
@@ -336,91 +310,97 @@ export default class SyncService extends ComponentBase {
         return null;
       }
 
-      if (this.storage) {
-        const settings = this.storage.getSettings();
-        settings.syncFolderName = folderName;
-        settings.syncFolderPath = `Selected folder: ${folderName}`;
-        settings.syncFolderFallback = false;
-        settings.autoSync = autoSync;
-
-        // Check for existing project.json immediately on folder selection
-        try {
-          const existingHandle = await handle.getFileHandle("project.json", {
-            create: false,
-          });
-          if (existingHandle && appWindow.confirmDialog) {
-            const file = await existingHandle.getFile();
-            const content = await file.text();
-            const title = this.i18n.t("sync_folder_contains_project_title");
-            const message = this.i18n.t("sync_folder_contains_project_prompt");
-            const doImport = await appWindow.confirmDialog.confirm(
-              message,
-              title,
+      // Check for existing project.json immediately on folder selection. Keep
+      // the decision local until the folder settings are durably accepted so a
+      // failed write cannot arm a later preferences:saved action.
+      try {
+        const existingHandle = await handle.getFileHandle("project.json", {
+          create: false,
+        });
+        if (!isCurrentSelection()) return null;
+        if (existingHandle && appWindow.confirmDialog) {
+          const file = await existingHandle.getFile();
+          if (!isCurrentSelection()) return null;
+          const content = await file.text();
+          if (!isCurrentSelection()) return null;
+          const title = this.i18n.t("sync_folder_contains_project_title");
+          const message = this.i18n.t("sync_folder_contains_project_prompt");
+          const doImport = await appWindow.confirmDialog.confirm(
+            message,
+            title,
+            "warning",
+            "syncImportProject",
+          );
+          if (!isCurrentSelection()) return null;
+          if (doImport) {
+            nextPendingSyncAction = "import";
+            console.log("[SyncService] setSyncFolder: user chose IMPORT");
+            // Stash content to avoid re-reading on save.
+            nextDeferredImportContent = {
+              content,
+              fileName: "project.json",
+            };
+          } else {
+            const overwriteTitle = this.i18n.t("sync_overwrite_existing_title");
+            const overwriteMsg = this.i18n.t("sync_overwrite_existing_prompt");
+            const confirmOverwrite = await appWindow.confirmDialog.confirm(
+              overwriteMsg,
+              overwriteTitle,
               "warning",
-              "syncImportProject",
+              "syncOverwriteProject",
             );
-            /** @type {'import' | 'overwrite' | null} */
-            let pending = null;
-            if (doImport) {
-              pending = "import";
-              console.log("[SyncService] setSyncFolder: user chose IMPORT");
-              // Stash content to avoid re-reading on save
-              this.deferredImportContent = {
-                content,
-                fileName: "project.json",
-              };
+            if (!isCurrentSelection()) return null;
+            if (confirmOverwrite) {
+              nextPendingSyncAction = "overwrite";
+              console.log("[SyncService] setSyncFolder: user chose OVERWRITE");
             } else {
-              const overwriteTitle = this.i18n.t(
-                "sync_overwrite_existing_title",
+              this.ui?.showToast(
+                this.i18n.t("sync_operation_cancelled"),
+                "info",
               );
-              const overwriteMsg = this.i18n.t(
-                "sync_overwrite_existing_prompt",
-              );
-              const confirmOverwrite = await appWindow.confirmDialog.confirm(
-                overwriteMsg,
-                overwriteTitle,
-                "warning",
-                "syncOverwriteProject",
-              );
-              if (confirmOverwrite) {
-                pending = "overwrite";
-                console.log(
-                  "[SyncService] setSyncFolder: user chose OVERWRITE",
-                );
-              } else {
-                this.ui?.showToast(
-                  this.i18n.t("sync_operation_cancelled"),
-                  "info",
-                );
-                console.log("[SyncService] setSyncFolder: user CANCELLED");
-              }
-            }
-            if (pending) {
-              this.pendingSyncAction = pending;
-              this.awaitingSyncDecisionApply = true;
-              console.log(
-                "[SyncService] setSyncFolder: pending action recorded",
-                { pending },
-              );
+              console.log("[SyncService] setSyncFolder: user CANCELLED");
             }
           }
-        } catch {
-          // No existing project.json – nothing to do
-          console.log(
-            "[SyncService] setSyncFolder: no existing project.json found",
-          );
         }
-
-        // Persist updated settings
-        this.storage.saveSettings(settings);
-        console.log("[SyncService] setSyncFolder: settings saved");
+      } catch {
+        if (!isCurrentSelection()) return null;
+        // No existing project.json – nothing to do
+        console.log(
+          "[SyncService] setSyncFolder: no existing project.json found",
+        );
       }
-      if (!this.pendingSyncAction) {
+
+      if (!isCurrentSelection()) return null;
+      const settingsPersisted = await this.request(
+        "preferences:persist-sync-folder-settings",
+        {
+          syncFolderName: folderName,
+          syncFolderPath: `Selected folder: ${folderName}`,
+          syncFolderFallback: false,
+          autoSync,
+        },
+      );
+      if (!isCurrentSelection()) return null;
+      if (!settingsPersisted) {
+        throw new Error(this.i18n.t("storage_write_failed"));
+      }
+      console.log("[SyncService] setSyncFolder: settings saved");
+
+      this.stagePendingSyncDecision(
+        nextPendingSyncAction,
+        nextDeferredImportContent,
+      );
+      if (nextPendingSyncAction) {
+        console.log("[SyncService] setSyncFolder: pending action recorded", {
+          pending: nextPendingSyncAction,
+        });
+      } else {
         this.ui?.showToast(this.i18n.t("sync_folder_set"), "success");
       }
       await this.emit("sync:folder-set", { handle }, { synchronous: true });
       return handle;
     } catch (err) {
+      if (!isCurrentSelection()) return null;
       if (!(err instanceof DOMException && err.name === "AbortError")) {
         this.ui?.showToast(
           this.i18n.t("failed_to_set_sync_folder", {
@@ -507,10 +487,7 @@ export default class SyncService extends ComponentBase {
       // - Always show on manual sync (sync now button)
       // - Show on time-based auto sync (e.g., "every 30 seconds")
       // - Don't show on change-based auto sync ("after every change")
-      const prefs =
-        /** @type {import('../../types/data-contracts.js').SettingsData} */ (
-          this.storage?.getSettings() || {}
-        );
+      const prefs = this.cache.preferences;
       const isAutoSyncEnabled = prefs.autoSync;
       const autoSyncInterval = prefs.autoSyncInterval || "change";
       const isChangeBasedAutoSync =
@@ -541,13 +518,12 @@ export default class SyncService extends ComponentBase {
   }
 
   onDestroy() {
+    this._folderSelectionGeneration += 1;
     this._responseDetachFunctions.splice(0).forEach((detach) => detach());
     if (this._modalCloseTimeout !== null) {
       clearTimeout(this._modalCloseTimeout);
       this._modalCloseTimeout = null;
     }
-    this.pendingSyncAction = null;
-    this.awaitingSyncDecisionApply = false;
-    this.deferredImportContent = null;
+    this.clearPendingSyncDecision();
   }
 }

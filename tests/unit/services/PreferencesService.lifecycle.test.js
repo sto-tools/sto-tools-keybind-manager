@@ -6,6 +6,7 @@ import { createServiceFixture } from "../../fixtures/index.js";
 const ownedTopics = [
   "rpc:preferences:init",
   "rpc:preferences:load-settings",
+  "rpc:preferences:persist-sync-folder-settings",
   "rpc:preferences:save-settings",
   "rpc:preferences:set-setting",
   "rpc:preferences:set-settings",

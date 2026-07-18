@@ -200,7 +200,6 @@ const dataService = new DataService({
   stoFileExplorer.init();
   const stoSync = new SyncService({
     eventBus,
-    storage: storageService,
     ui: stoUI,
     i18n: i18next,
   });

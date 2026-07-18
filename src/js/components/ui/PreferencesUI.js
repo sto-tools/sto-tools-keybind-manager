@@ -193,11 +193,8 @@ export default class PreferencesUI extends UIComponentBase {
               name: handle?.name,
             });
             if (handle) {
-              // Reload settings (folder name/path updated by stoSync)
-              await this.request("preferences:load-settings");
-              this.updateFolderDisplay();
               console.log(
-                "[PreferencesUI] settings reloaded after setSyncFolder",
+                "[PreferencesUI] folder display updated from sync:folder-set",
               );
             }
           } catch (err) {
