@@ -11,7 +11,11 @@ import type {
 } from "../../src/js/types/rpc/index.js";
 import type { ExtensionPreferenceKey } from "../../src/js/types/events/base.js";
 import type { SyncProjectResult } from "../../src/js/types/rpc/application.js";
-import type { ProjectImportResult } from "../../src/js/types/rpc/import-export.js";
+import type {
+  KeybindImportResult,
+  ProjectImportResult,
+} from "../../src/js/types/rpc/import-export.js";
+import type { AliasImportResult } from "../../src/js/types/rpc/aliases.js";
 import type {
   SyncDirectoryHandle,
   SyncDirectoryLoadResult,
@@ -108,6 +112,20 @@ const invalidProjectFailure: ProjectImportResult = {
   success: false,
   error: "invalid_project_file",
   params: { path: "$.data.profiles.captain.name" },
+};
+const oversizedKeybindFailure: KeybindImportResult = {
+  success: false,
+  error: "keybind_file_too_large",
+  params: { size: 1048577, limit: 1048576 },
+};
+const invalidAliasContentFailure: AliasImportResult = {
+  success: false,
+  error: "invalid_alias_file_content",
+};
+const unsupportedTextImportFailure: KeybindImportResult = {
+  success: false,
+  // @ts-expect-error Text-import failures use the closed protocol vocabulary.
+  error: "unsafe_text_import",
 };
 // @ts-expect-error Schema failures always identify the rejected path.
 const invalidProjectWithoutPath: ProjectImportResult = {

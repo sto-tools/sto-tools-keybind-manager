@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ImportUI from "../../../src/js/components/ui/ImportUI.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
+import { MAX_STO_TEXT_IMPORT_BYTES } from "../../../src/js/components/services/textImportBoundary.js";
 
 const profile = (name, keyCount, aliasCount) => ({
   id: name.toLowerCase(),
@@ -166,4 +167,58 @@ describe("ImportUI accepted data state", () => {
     });
     expect(ui.showOverwriteConfirmation).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["keybinds", "keybind_file_too_large"],
+    ["aliases", "alias_file_too_large"],
+  ])(
+    "rejects an oversized %s file before reading or prompting",
+    async (type, errorKey) => {
+      fixture = createEventBusFixture();
+      let changeHandler;
+      const file = new File(
+        ["x".repeat(MAX_STO_TEXT_IMPORT_BYTES + 1)],
+        "oversized.txt",
+      );
+      const input = {
+        type: "",
+        accept: "",
+        style: {},
+        files: [file],
+        addEventListener: vi.fn((event, handler) => {
+          if (event === "change") changeHandler = handler;
+        }),
+        click: vi.fn(),
+      };
+      const removeChild = vi.fn();
+      ui = new ImportUI({
+        eventBus: fixture.eventBus,
+        document: {
+          createElement: vi.fn(() => input),
+          body: { appendChild: vi.fn(), removeChild },
+          getElementById: vi.fn(),
+        },
+        i18n: {
+          t: (key, params) => `${key}:${params?.size}:${params?.limit}`,
+        },
+      });
+      ui.init();
+      ui.request = vi.fn();
+      ui.promptEnvironment = vi.fn();
+      ui.promptAliasStrategy = vi.fn();
+      const showToast = vi.spyOn(ui, "showToast");
+
+      await ui.openFileDialog(type);
+      await changeHandler();
+
+      expect(showToast).toHaveBeenCalledWith(
+        `${errorKey}:${file.size}:${MAX_STO_TEXT_IMPORT_BYTES}`,
+        "error",
+      );
+      expect(ui.promptEnvironment).not.toHaveBeenCalled();
+      expect(ui.promptAliasStrategy).not.toHaveBeenCalled();
+      expect(ui.request).not.toHaveBeenCalled();
+      expect(removeChild).toHaveBeenCalledWith(input);
+    },
+  );
 });

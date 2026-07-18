@@ -1,5 +1,6 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { getSnapshotProfile } from "../services/dataState.js";
+import { MAX_STO_TEXT_IMPORT_BYTES } from "../services/textImportBoundary.js";
 import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 
 /** @typedef {'keybinds' | 'aliases' | 'kbf'} ImportType */
@@ -136,6 +137,21 @@ export default class ImportUI extends UIComponentBase {
     input.addEventListener("change", async () => {
       if (!input.files || input.files.length === 0) return;
       const file = input.files[0];
+      if (type !== "kbf" && file.size > MAX_STO_TEXT_IMPORT_BYTES) {
+        const errorKey =
+          type === "keybinds"
+            ? "keybind_file_too_large"
+            : "alias_file_too_large";
+        this.showToast(
+          this.i18n.t(errorKey, {
+            size: file.size,
+            limit: MAX_STO_TEXT_IMPORT_BYTES,
+          }),
+          "error",
+        );
+        this.document.body.removeChild(input);
+        return;
+      }
       const reader = new FileReader();
       reader.onload = async () => {
         try {

@@ -53,7 +53,11 @@ export type AliasImportResult =
       message: string;
     })
   | CodedFailure<
-      "no_aliases_found_in_file" | "no_active_profile" | "import_failed"
+      | "no_aliases_found_in_file"
+      | "invalid_alias_file_content"
+      | "alias_file_too_large"
+      | "no_active_profile"
+      | "import_failed"
     >;
 
 export interface AliasRpcProtocol {

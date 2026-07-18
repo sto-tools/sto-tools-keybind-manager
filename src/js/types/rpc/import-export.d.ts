@@ -30,6 +30,8 @@ export type KeybindImportResult =
     }
   | CodedFailure<
       | "no_keybinds_found_in_file"
+      | "invalid_keybind_file_content"
+      | "keybind_file_too_large"
       | "storage_not_available"
       | "no_active_profile"
       | "invalid_environment"

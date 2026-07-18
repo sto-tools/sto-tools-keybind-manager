@@ -97,10 +97,12 @@
  * @property {Record<string, ParsedKeybind>} keybinds
  * @property {Record<string, AliasDefinition>} aliases
  * @property {string[]} errors
+ * @property {import('../../types/text-import-boundary.js').KeybindTextFailure} [failure]
  *
  * @typedef {Object} ParsedAliasFile
  * @property {Record<string, { commands: string, description?: string }>} aliases
  * @property {string[]} errors
+ * @property {import('../../types/text-import-boundary.js').AliasTextFailure} [failure]
  *
  * @typedef {string | { message?: string }} KBFIssue
  * @typedef {StoredCommand[] | { commands?: StoredCommand[], metadata?: BindsetKeyMetadata }} KBFKeyData

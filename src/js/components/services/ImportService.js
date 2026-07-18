@@ -5,10 +5,15 @@ import {
   normalizeToStringArray,
   normalizeToOptimizedString,
 } from "../../lib/commandDisplayAdapter.js";
-import { decodeKeyFromImport } from "../../lib/keyEncoding.js";
 import { KBFParser } from "../../lib/KBFParser.js";
 import { commitImportedProfile } from "./importProfileCommit.js";
 import { importProjectToStorage } from "./projectImportOrchestrator.js";
+import {
+  aliasTextFailureResult,
+  keybindTextFailureResult,
+  materializeAliasText,
+  materializeKeybindText,
+} from "./textImportMaterializer.js";
 
 /** @typedef {import('./serviceTypes.js').AppWindow} AppWindow */
 
@@ -46,9 +51,9 @@ export default class ImportService extends ComponentBase {
     appWindow?.app?.setModified?.(true);
   }
 
-  /** @param {string} key */
-  translate(key) {
-    return this.i18n?.t(key) ?? key;
+  /** @param {string} key @param {Record<string, unknown>} [options] */
+  translate(key, options) {
+    return this.i18n?.t(key, options) ?? key;
   }
 
   setupRequestHandlers() {
@@ -107,131 +112,31 @@ export default class ImportService extends ComponentBase {
 
   // Parse keybind file content using STOFileHandler and STOCommandParser
   /**
-   * @param {string} content
+   * @param {unknown} content
    * @returns {Promise<import('./serviceTypes.js').ParsedKeybindFile>}
    */
   async parseKeybindFile(content) {
-    /** @type {Record<string, import('./serviceTypes.js').ParsedKeybind>} */
-    const keybinds = {};
-    /** @type {Record<string, { commands: string, description?: string }>} */
-    const aliases = {};
-    /** @type {string[]} */
-    const errors = [];
-
-    if (!content || typeof content !== "string") {
-      return { keybinds, aliases, errors: ["Invalid file content"] };
-    }
-
-    const lines = content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      // Skip empty lines and comments
-      if (!line || line.startsWith(";") || line.startsWith("#")) continue;
-
-      try {
-        // Match keybind pattern: Key "command1 $$ command2"
-        const keybindMatch = line.match(/^(\S+)\s+"([^"]+)"/);
-        if (keybindMatch) {
-          const [, rawKey, commandString] = keybindMatch;
-          // Decode the key from import format (e.g., 0x29 becomes `)
-          const key = decodeKeyFromImport(rawKey);
-          const parseResult = await this.request(
-            "parser:parse-command-string",
-            {
-              commandString,
-            },
-          );
-
-          keybinds[key] = {
-            raw: commandString,
-            commands: parseResult.commands,
-          };
-          continue;
-        }
-
-        // Skip alias lines - they should be imported via Import Aliases, not Import Keybinds
-        if (line.startsWith("alias ")) {
-          continue;
-        }
-
-        // If line doesn't match any pattern, it might be an error
-        if (line.length > 0) {
-          errors.push(`Line ${i + 1}: Unrecognized format: ${line}`);
-        }
-      } catch (error) {
-        errors.push(`Line ${i + 1}: Parse error: ${getErrorMessage(error)}`);
-      }
-    }
-
-    return { keybinds, aliases, errors };
+    return materializeKeybindText(content, {
+      parseCommand: (commandString) =>
+        this.request("parser:parse-command-string", { commandString }),
+      translate: (key, options) => this.translate(key, options),
+    });
   }
 
   // Parse alias file content
   /**
-   * @param {string} content
+   * @param {unknown} content
    * @returns {Promise<import('./serviceTypes.js').ParsedAliasFile>}
    */
   async parseAliasFile(content) {
-    /** @type {Record<string, { commands: string, description?: string }>} */
-    const aliases = {};
-    /** @type {string[]} */
-    const errors = [];
-
-    if (!content || typeof content !== "string") {
-      return { aliases, errors: ["Invalid file content"] };
-    }
-
-    const lines = content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      // Skip empty lines and comments
-      if (!line || line.startsWith(";") || line.startsWith("#")) continue;
-
-      try {
-        // Match alias pattern: alias aliasName "command sequence"
-        const aliasMatch = line.match(/^alias\s+(\w+)\s+"([^"]+)"/);
-        if (aliasMatch) {
-          const [, aliasName, commandString] = aliasMatch;
-          aliases[aliasName] = {
-            commands: commandString,
-          };
-          continue;
-        }
-
-        // Match alias pattern with bracket syntax: alias aliasName <& command sequence &>
-        const bracketAliasMatch = line.match(
-          /^alias\s+(\w+)\s+<&\s*(.+?)\s*&>/,
-        );
-        if (bracketAliasMatch) {
-          const [, aliasName, commandString] = bracketAliasMatch;
-          aliases[aliasName] = {
-            commands: commandString,
-          };
-          continue;
-        }
-
-        // Skip keybind lines - they should be imported via Import Keybinds, not Import Aliases
-        if (line.match(/^[A-Z]\d+\s+"[^"]+"/)) {
-          continue;
-        }
-
-        // If line doesn't match any pattern, it might be an error
-        if (line.length > 0) {
-          errors.push(`Line ${i + 1}: Unrecognized alias format: ${line}`);
-        }
-      } catch (error) {
-        errors.push(`Line ${i + 1}: Parse error: ${getErrorMessage(error)}`);
-      }
-    }
-
-    return { aliases, errors };
+    return materializeAliasText(content, (key, options) =>
+      this.translate(key, options),
+    );
   }
 
   // Import keybind file content
   /**
-   * @param {string} content
+   * @param {unknown} content
    * @param {string | null | undefined} profileId
    * @param {string | undefined} environment
    * @param {{ strategy?: string }} [options]
@@ -245,6 +150,7 @@ export default class ImportService extends ComponentBase {
   ) {
     try {
       const parsed = await this.parseKeybindFile(content);
+      if (parsed.failure) return keybindTextFailureResult(parsed.failure);
       const keyCount = Object.keys(parsed.keybinds).length;
 
       if (keyCount === 0) {
@@ -415,7 +321,7 @@ export default class ImportService extends ComponentBase {
 
   // Import alias file content
   /**
-   * @param {string} content
+   * @param {unknown} content
    * @param {string | null | undefined} profileId
    * @param {{ strategy?: string }} [options]
    * @returns {Promise<import('../../types/rpc/aliases.js').AliasImportResult>}
@@ -423,6 +329,7 @@ export default class ImportService extends ComponentBase {
   async importAliasFile(content, profileId, { strategy = "merge_keep" } = {}) {
     try {
       const parsed = await this.parseAliasFile(content);
+      if (parsed.failure) return aliasTextFailureResult(parsed.failure);
       // Count only non-generated aliases (exclude sto_kb_ prefix)
       const importableAliases = Object.keys(parsed.aliases).filter(
         (name) => !name.startsWith("sto_kb_"),
