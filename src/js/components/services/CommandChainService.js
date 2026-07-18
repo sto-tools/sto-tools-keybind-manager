@@ -7,6 +7,7 @@ import {
   isSnapshotCommandStabilized,
 } from "./dataState.js";
 import { findCommandDefinition } from "../../data/commandCatalog.js";
+import { planCommandChainClear } from "./commandChainOperations.js";
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -535,7 +536,14 @@ export default class CommandChainService extends ComponentBase {
         return false;
       }
 
-      const profile = this.getCurrentProfile();
+      const profileId = this.cache.dataState?.currentProfile;
+      if (!profileId) {
+        console.error(
+          "CommandChainService: Cannot clear command chain - no current profile ID available",
+        );
+        return false;
+      }
+      const profile = getSnapshotProfile(this.cache.dataState, profileId);
       if (!profile) {
         console.warn(
           "CommandChainService: Cannot clear chain - no active profile",
@@ -544,88 +552,24 @@ export default class CommandChainService extends ComponentBase {
       }
 
       const currentEnv = this.cache.currentEnvironment || "space";
-      const useBindset =
-        bindset && bindset !== "Primary Bindset" && currentEnv !== "alias";
-
-      if (currentEnv === "alias") {
-        // Clear alias command chain - use canonical array format
-        if (profile.aliases && profile.aliases[key]) {
-          profile.aliases[key].commands = [];
-        }
-      } else {
-        if (useBindset && bindset) {
-          // Clear commands within the active bindset
-          if (!profile.bindsets?.[bindset]) {
-            profile.bindsets = {
-              ...(profile.bindsets || {}),
-              [bindset]: { space: { keys: {} }, ground: { keys: {} } },
-            };
-          }
-          if (!profile.bindsets[bindset][currentEnv]) {
-            profile.bindsets[bindset][currentEnv] = { keys: {} };
-          }
-          const targetEnvironment = profile.bindsets[bindset][currentEnv];
-          targetEnvironment.keys ||= {};
-          targetEnvironment.keys[key] = [];
-        } else {
-          // Clear keybind command chain in primary build
-          const targetBuild = profile.builds?.[currentEnv];
-          if (targetBuild?.keys?.[key]) {
-            targetBuild.keys[key] = [];
-          }
-        }
-      }
-
-      // Ensure we have a valid profile ID before making the request
-      const profileId = this.cache.currentProfile || this._currentProfileId;
-      if (!profileId) {
-        console.error(
-          "CommandChainService: Cannot clear command chain - no current profile ID available",
+      const plan = planCommandChainClear({
+        profile,
+        profileId,
+        key,
+        environment: currentEnv,
+        bindset,
+      });
+      if (!plan.valid) {
+        console.warn(
+          `CommandChainService: Cannot clear command chain - ${plan.reason}`,
         );
         return false;
       }
 
-      let updatePayload;
-      if (currentEnv === "alias") {
-        updatePayload = {
-          modify: {
-            aliases: {
-              [key]: profile.aliases[key],
-            },
-          },
-        };
-      } else if (useBindset) {
-        updatePayload = {
-          modify: {
-            bindsets: {
-              [bindset]: {
-                [currentEnv]: {
-                  keys: {
-                    [key]: [],
-                  },
-                },
-              },
-            },
-          },
-        };
-      } else {
-        updatePayload = {
-          modify: {
-            builds: {
-              [currentEnv]: {
-                keys: {
-                  [key]: [],
-                },
-              },
-            },
-          },
-        };
-      }
-
-      const result = await this.request("data:update-profile", {
-        profileId: profileId,
-        ...updatePayload,
-      });
+      const result = await this.request(
+        "data:update-profile",
+        plan.updateProfileRequest,
+      );
 
       if (result?.success) {
         // Emit chain-data-changed with empty commands to update UI immediately
@@ -673,40 +617,6 @@ export default class CommandChainService extends ComponentBase {
       keysCount: Object.keys(this.cache.keys || {}).length,
       aliasesCount: Object.keys(this.cache.aliases || {}).length,
     });
-  }
-
-  // Get the current profile with build-specific data from cache
-  getCurrentProfile() {
-    if (!this.cache.profile) return null;
-
-    return this.getCurrentBuild(this.cache.profile);
-  }
-
-  // Get the current build for a profile using cached data
-  /** @param {import('./serviceTypes.js').ProfileData | null | undefined} profile */
-  getCurrentBuild(profile) {
-    if (!profile) return null;
-
-    if (!profile.builds) {
-      profile.builds = {
-        space: { keys: {} },
-        ground: { keys: {} },
-      };
-    }
-
-    if (!profile.builds[this.cache.currentEnvironment]) {
-      profile.builds[this.cache.currentEnvironment] = { keys: {} };
-    }
-
-    if (!profile.builds[this.cache.currentEnvironment].keys) {
-      profile.builds[this.cache.currentEnvironment].keys = {};
-    }
-
-    return {
-      ...profile,
-      keys: profile.builds[this.cache.currentEnvironment].keys,
-      aliases: profile.aliases || {},
-    };
   }
 
   // Refresh commands for the currently selected key

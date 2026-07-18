@@ -158,6 +158,133 @@ describe("CommandChainService", () => {
       expect.anything(),
     );
   });
+
+  it.each([
+    [
+      "returns an unsuccessful result",
+      () => Promise.resolve({ success: false }),
+    ],
+    ["rejects", () => Promise.reject(new Error("write failed"))],
+  ])(
+    "does not mutate accepted compatibility state or publish when persistence %s",
+    async (_label, persist) => {
+      const compatibilityBefore = structuredClone({
+        profile: service.cache.profile,
+        builds: service.cache.builds,
+        keys: service.cache.keys,
+        aliases: service.cache.aliases,
+        dataState: service.cache.dataState,
+      });
+      const requestSpy = vi
+        .spyOn(service, "request")
+        .mockImplementation(() => persist());
+      const changed = vi.fn();
+      eventBus.on("chain-data-changed", changed);
+
+      await expect(service.clearCommandChain("F1")).resolves.toBe(false);
+
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      expect(requestSpy).toHaveBeenCalledWith("data:update-profile", {
+        profileId: "profile1",
+        modify: {
+          builds: { space: { keys: { F1: [] } } },
+        },
+      });
+      expect({
+        profile: service.cache.profile,
+        builds: service.cache.builds,
+        keys: service.cache.keys,
+        aliases: service.cache.aliases,
+        dataState: service.cache.dataState,
+      }).toEqual(compatibilityBefore);
+      expect(changed).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [
+      "an alias",
+      "alias",
+      "engage",
+      null,
+      {
+        profileId: "profile1",
+        modify: {
+          aliases: { engage: { commands: [] } },
+        },
+      },
+    ],
+    [
+      "an existing named bindset",
+      "space",
+      "F1",
+      "Weapons",
+      {
+        profileId: "profile1",
+        modify: {
+          bindsets: { Weapons: { space: { keys: { F1: [] } } } },
+        },
+      },
+    ],
+    [
+      "a missing named bindset",
+      "ground",
+      "F2",
+      "Engineering",
+      {
+        profileId: "profile1",
+        modify: {
+          bindsets: { Engineering: { ground: { keys: { F2: [] } } } },
+        },
+      },
+    ],
+  ])(
+    "persists the exact detached clear plan for %s before publishing",
+    async (_label, environment, key, bindset, expectedRequest) => {
+      service.cache.currentEnvironment = environment;
+      const compatibilityBefore = structuredClone({
+        profile: service.cache.profile,
+        builds: service.cache.builds,
+        keys: service.cache.keys,
+        aliases: service.cache.aliases,
+        dataState: service.cache.dataState,
+      });
+      const requestSpy = vi
+        .spyOn(service, "request")
+        .mockResolvedValue({ success: true });
+      const changed = vi.fn();
+      eventBus.on("chain-data-changed", changed);
+
+      await expect(service.clearCommandChain(key, bindset)).resolves.toBe(true);
+
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      expect(requestSpy).toHaveBeenCalledWith(
+        "data:update-profile",
+        expectedRequest,
+      );
+      expect({
+        profile: service.cache.profile,
+        builds: service.cache.builds,
+        keys: service.cache.keys,
+        aliases: service.cache.aliases,
+        dataState: service.cache.dataState,
+      }).toEqual(compatibilityBefore);
+      expect(changed).toHaveBeenCalledTimes(1);
+      expect(changed).toHaveBeenCalledWith({ commands: [] });
+    },
+  );
+
+  it("does not request or publish when the accepted alias is absent", async () => {
+    service.cache.currentEnvironment = "alias";
+    const requestSpy = vi.spyOn(service, "request");
+    const changed = vi.fn();
+    eventBus.on("chain-data-changed", changed);
+
+    await expect(service.clearCommandChain("missing")).resolves.toBe(false);
+
+    expect(requestSpy).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+  });
 });
 
 describe("CommandChainService – bind-to-alias endpoints", () => {
