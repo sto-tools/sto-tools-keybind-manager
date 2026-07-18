@@ -1,5 +1,6 @@
 import type { Environment, KeyCommandMap, SelectionSource } from "./base.js";
 import type { KeyBrowserViewStateSnapshot } from "./component-state.js";
+import type { KeyCaptureStateSnapshot } from "./component-state.js";
 
 export type KeySelectionPayload =
   | {
@@ -30,6 +31,7 @@ export type KeySelectionPayload =
 
 export interface KeyEventProtocol {
   "key-browser:state-changed": KeyBrowserViewStateSnapshot;
+  "key-capture:state-changed": KeyCaptureStateSnapshot;
   "key-deleted": { keyName: string };
   "key-selected": KeySelectionPayload;
   "key:list-changed": { keys: KeyCommandMap } | null;
@@ -37,8 +39,5 @@ export interface KeyEventProtocol {
   "keycapture:set-location-specific": { value: boolean };
   "keycapture:start": { context: "keySelectionModal" };
   "keycapture:stop": null;
-  "capture-start": { context: string };
-  "capture-stop": { context: string };
   "chord-captured": { chord: string; context: string };
-  update: { chord: string; codes: string[]; context: string };
 }

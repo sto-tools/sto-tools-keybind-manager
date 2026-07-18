@@ -1,5 +1,11 @@
 import ComponentBase from "../ComponentBase.js";
 import { UNSAFE_KEYBINDS } from "../../core/constants.js";
+import {
+  advanceKeyCaptureState,
+  cloneKeyCaptureState,
+  createKeyCaptureState,
+  nextKeyCaptureAuthorityEpoch,
+} from "./keyCaptureState.js";
 
 /**
  * @typedef {Object} MouseCaptureState
@@ -16,13 +22,9 @@ import { UNSAFE_KEYBINDS } from "../../core/constants.js";
 /**
  * KeyCaptureService – centralised key-capture logic (keyboard listeners,
  * chord calculation, etc). It contains **no DOM operations** – responsibility
- * for updating UI is delegated to KeyCaptureUI. The service emits a small set
- * of events that UI layers can subscribe to:
- *
- *  • capture-start  – when capturing begins          ({ context })
- *  • capture-stop   – when capturing ends            ({ context })
- *  • update         – whenever pressed key set mutates ({ chord, codes, context })
- *  • chord-captured – when a full chord is captured  ({ chord, context })
+ * for updating UI is delegated to KeyCaptureUI. It owns and publishes one
+ * complete key-capture snapshot; chord-captured remains the immediate action
+ * notification used by the active modal workflow.
  */
 export default class KeyCaptureService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus | null, document?: Document, i18n?: import('./serviceTypes.js').I18n }} [options] */
@@ -43,6 +45,10 @@ export default class KeyCaptureService extends ComponentBase {
     this.currentContext = "keySelectionModal";
     this.hasCapturedValidKey = false;
     this.locationSpecific = false;
+    this.captureState = createKeyCaptureState({
+      authorityEpoch: nextKeyCaptureAuthorityEpoch(),
+      revision: 0,
+    });
 
     // Bindings
     this.boundHandleKeyDown = this.handleKeyDown.bind(this);
@@ -68,7 +74,36 @@ export default class KeyCaptureService extends ComponentBase {
   }
 
   onInit() {
+    this.resetState();
+    this.isCapturing = false;
+    this.currentContext = "keySelectionModal";
+    this.locationSpecific = false;
+    this.captureState = createKeyCaptureState({
+      authorityEpoch: nextKeyCaptureAuthorityEpoch(),
+      revision: 0,
+    });
     this.setupEventListeners();
+    this.publishCaptureState();
+  }
+
+  onDestroy() {
+    if (this.isCapturing) this.stopCapture();
+    else this.resetState();
+  }
+
+  /** @returns {import('../../types/events/component-state.js').ComponentState<'KeyCaptureService'>} */
+  getCurrentState() {
+    return cloneKeyCaptureState(this.captureState);
+  }
+
+  /** @param {Parameters<typeof advanceKeyCaptureState>[1]} patch */
+  advanceCaptureState(patch) {
+    this.captureState = advanceKeyCaptureState(this.captureState, patch);
+    this.publishCaptureState();
+  }
+
+  publishCaptureState() {
+    this.emit("key-capture:state-changed", this.getCurrentState());
   }
 
   setupEventListeners() {
@@ -104,28 +139,32 @@ export default class KeyCaptureService extends ComponentBase {
       passive: false,
     });
     document.addEventListener("dblclick", this.boundHandleDblClick);
-
-    this.emit("capture-start", { context });
+    this.advanceCaptureState({
+      isCapturing: true,
+      context,
+      pressedCodes: [],
+      currentChord: "",
+      capturedChord: null,
+    });
   }
 
   // Stop listening and clean internal state.
   stopCapture() {
     if (!this.isCapturing) return;
     const document = this.document;
-    if (!document) return;
-
+    const context = this.currentContext;
     this.isCapturing = false;
 
     // Remove keyboard listeners
-    document.removeEventListener("keydown", this.boundHandleKeyDown);
-    document.removeEventListener("keyup", this.boundHandleKeyUp);
+    document?.removeEventListener("keydown", this.boundHandleKeyDown);
+    document?.removeEventListener("keyup", this.boundHandleKeyUp);
 
     // Remove mouse listeners
-    document.removeEventListener("mousedown", this.boundHandleMouseDown);
-    document.removeEventListener("mouseup", this.boundHandleMouseUp);
-    document.removeEventListener("mousemove", this.boundHandleMouseMove);
-    document.removeEventListener("wheel", this.boundHandleWheel);
-    document.removeEventListener("dblclick", this.boundHandleDblClick);
+    document?.removeEventListener("mousedown", this.boundHandleMouseDown);
+    document?.removeEventListener("mouseup", this.boundHandleMouseUp);
+    document?.removeEventListener("mousemove", this.boundHandleMouseMove);
+    document?.removeEventListener("wheel", this.boundHandleWheel);
+    document?.removeEventListener("dblclick", this.boundHandleDblClick);
 
     this.pressedCodes.clear();
     this.hasCapturedValidKey = false;
@@ -133,14 +172,25 @@ export default class KeyCaptureService extends ComponentBase {
     // Clear mouse state
     this.resetMouseState();
 
-    this.emit("capture-stop", { context: this.currentContext });
     this.currentContext = "keySelectionModal";
+    this.advanceCaptureState({
+      isCapturing: false,
+      context,
+      pressedCodes: [],
+      currentChord: "",
+    });
   }
 
   // Enable / disable left- vs right-modifier distinction.
   /** @param {unknown} value */
   setLocationSpecific(value) {
-    this.locationSpecific = !!value;
+    const locationSpecific = !!value;
+    if (locationSpecific === this.locationSpecific) return;
+    this.locationSpecific = locationSpecific;
+    this.advanceCaptureState({
+      locationSpecific,
+      currentChord: this.chordToString(this.pressedCodes),
+    });
   }
 
   // Internal helpers
@@ -174,10 +224,9 @@ export default class KeyCaptureService extends ComponentBase {
     // Handle modifier keys (all modifiers can be standalone or part of chords)
     if (this.isModifier(event.code)) {
       this.pressedCodes.add(event.code);
-      this.emit("update", {
-        chord: this.chordToString(this.pressedCodes),
-        codes: [...this.pressedCodes],
-        context: this.currentContext,
+      this.advanceCaptureState({
+        pressedCodes: [...this.pressedCodes],
+        currentChord: this.chordToString(this.pressedCodes),
       });
       return; // Wait for either another key (chord) or release (standalone modifier)
     }
@@ -190,6 +239,11 @@ export default class KeyCaptureService extends ComponentBase {
     if (this.isRejectedChord(chord)) {
       // Reset state so the rejected chord is not considered captured.
       this.resetState();
+      this.advanceCaptureState({
+        pressedCodes: [],
+        currentChord: "",
+        capturedChord: null,
+      });
       event.preventDefault();
       return; // Do not propagate chord-captured event
     }
@@ -201,6 +255,11 @@ export default class KeyCaptureService extends ComponentBase {
     });
 
     this.hasCapturedValidKey = true;
+    this.advanceCaptureState({
+      pressedCodes: [...this.pressedCodes],
+      currentChord: chord,
+      capturedChord: chord,
+    });
     event.preventDefault();
   }
 
@@ -223,16 +282,20 @@ export default class KeyCaptureService extends ComponentBase {
           context: this.currentContext,
         });
         this.hasCapturedValidKey = true;
+        this.advanceCaptureState({
+          pressedCodes: [...this.pressedCodes],
+          currentChord: chord,
+          capturedChord: chord,
+        });
         event.preventDefault();
         return;
       }
 
       // Normal modifier release when other keys are still pressed
       this.pressedCodes.delete(event.code);
-      this.emit("update", {
-        chord: this.chordToString(this.pressedCodes),
-        codes: [...this.pressedCodes],
-        context: this.currentContext,
+      this.advanceCaptureState({
+        pressedCodes: [...this.pressedCodes],
+        currentChord: this.chordToString(this.pressedCodes),
       });
     }
   }
@@ -401,6 +464,11 @@ export default class KeyCaptureService extends ComponentBase {
     });
 
     this.hasCapturedValidKey = true;
+    this.advanceCaptureState({
+      pressedCodes: [...this.pressedCodes],
+      currentChord: chord,
+      capturedChord: chord,
+    });
   }
 
   /* ----------------------------- utils ---------------------------------- */

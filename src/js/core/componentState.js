@@ -10,6 +10,7 @@ const componentStateOwners = Object.freeze(
     ExportService: true,
     InterfaceModeService: true,
     KeyBrowserService: true,
+    KeyCaptureService: true,
     PreferencesService: true,
     ProfileUI: true,
     SelectionService: true,

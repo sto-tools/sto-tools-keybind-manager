@@ -25,6 +25,7 @@ import type {
   EventPayload,
   EventTopic,
   KeyBrowserViewStateSnapshot,
+  KeyCaptureStateSnapshot,
   SelectionStateSnapshot,
   StoreEventTopic,
   TypedEventBus,
@@ -61,6 +62,8 @@ type RetiredListenerTopics =
   | "bindset:created"
   | "bindset:deleted"
   | "bindset:modified"
+  | "capture-start"
+  | "capture-stop"
   | "current-profile:updated"
   | "key-view:mode-changed"
   | "key-view:toggle"
@@ -71,13 +74,16 @@ type RetiredListenerTopics =
   | "mode-changed"
   | "parameter-edit:end"
   | "parameter-edit:start"
-  | "profile-modified";
+  | "profile-modified"
+  | "update";
 type RetiredListenersAreAbsent = Expect<
   Equal<Extract<EventTopic, RetiredListenerTopics>, never>
 >;
 type RetiredProducerTopics =
   | "app:reset-complete"
   | "app:reset-failed"
+  | "capture-start"
+  | "capture-stop"
   | "environment:switched"
   | "keybinds:export"
   | "profile:created"
@@ -92,6 +98,7 @@ type RetiredProducerTopics =
   | "storage:backup-created"
   | "storage:data-cleared"
   | "storage:settings-changed"
+  | "update"
   | "vfx:settings-changed";
 type RetiredProducersAreAbsent = Expect<
   Equal<Extract<EventTopic, RetiredProducerTopics>, never>
@@ -131,6 +138,12 @@ type KeyBrowserStateEventIsRegisteredExactly = Expect<
 >;
 type KeyBrowserLateJoinStateIsRegisteredExactly = Expect<
   Equal<ComponentState<"KeyBrowserService">, KeyBrowserViewStateSnapshot>
+>;
+type KeyCaptureStateEventIsRegisteredExactly = Expect<
+  Equal<EventPayload<"key-capture:state-changed">, KeyCaptureStateSnapshot>
+>;
+type KeyCaptureLateJoinStateIsRegisteredExactly = Expect<
+  Equal<ComponentState<"KeyCaptureService">, KeyCaptureStateSnapshot>
 >;
 type CommandPresentationStateEventIsRegisteredExactly = Expect<
   Equal<
@@ -179,12 +192,24 @@ const commandPresentationState: CommandPresentationStateSnapshot = {
   collapsedCategories: ["aliases", "system"],
   collapsedGroups: ["non-trayexec", "pivot"],
 };
+const keyCaptureState: KeyCaptureStateSnapshot = {
+  authorityEpoch: 3,
+  revision: 4,
+  isCapturing: true,
+  context: "keySelectionModal",
+  locationSpecific: false,
+  pressedCodes: ["ControlLeft", "KeyA"],
+  currentChord: "Control+A",
+  capturedChord: "Control+A",
+};
 dataCoordinatorState.authorityEpoch.toFixed();
 keyBrowserViewState.authorityEpoch.toFixed();
 keyBrowserViewState.revision.toFixed();
 keyBrowserViewState.mode.toUpperCase();
 commandPresentationState.collapsedCategories.map((id) => id.toUpperCase());
 commandPresentationState.collapsedGroups.map((group) => group.toUpperCase());
+keyCaptureState.pressedCodes.map((code) => code.toUpperCase());
+keyCaptureState.capturedChord?.toUpperCase();
 
 bus.hasListeners("toast:show");
 // @ts-expect-error Listener callbacks are private implementation details.
@@ -206,6 +231,24 @@ bus.on("command-presentation:state-changed", (state) => {
   state.collapsedGroups.map((group) => group.toUpperCase());
 });
 bus.emit("command-presentation:state-changed", commandPresentationState);
+bus.on("key-capture:state-changed", (state) => {
+  state.authorityEpoch.toFixed();
+  state.revision.toFixed();
+  state.isCapturing.valueOf();
+  state.context.toUpperCase();
+  state.locationSpecific.valueOf();
+  state.pressedCodes.map((code) => code.toUpperCase());
+  state.currentChord.toUpperCase();
+  state.capturedChord?.toUpperCase();
+});
+bus.emit("key-capture:state-changed", keyCaptureState);
+// @ts-expect-error Key-capture state requires the complete owner snapshot.
+bus.emit("key-capture:state-changed", {
+  isCapturing: true,
+  context: "keySelectionModal",
+  pressedCodes: [],
+  currentChord: "",
+});
 // @ts-expect-error Command-presentation groups use the closed group contract.
 bus.emit("command-presentation:state-changed", {
   ...commandPresentationState,
@@ -303,6 +346,16 @@ bus.emit("about:show");
 
 // @ts-expect-error View-mode changes use the owner action and complete snapshot.
 bus.emit("key-view:mode-changed", { mode: "grid" });
+// @ts-expect-error Capture lifecycle is represented by the complete owner snapshot.
+bus.emit("capture-start", { context: "keySelectionModal" });
+// @ts-expect-error Capture lifecycle is represented by the complete owner snapshot.
+bus.emit("capture-stop", { context: "keySelectionModal" });
+// @ts-expect-error Pressed-key projection is represented by the complete owner snapshot.
+bus.emit("update", {
+  chord: "Control",
+  codes: ["ControlLeft"],
+  context: "keySelectionModal",
+});
 
 // @ts-expect-error Orphan compatibility listeners are retired from the registry.
 bus.on("bindset:modified", (payload) => {
@@ -485,6 +538,14 @@ bus.on(componentReplyTopic, (reply) => {
     reply.state.collapsedGroups.map((group) => group.toUpperCase());
     // @ts-expect-error Sender narrowing excludes KeyBrowserService state.
     reply.state.mode;
+  } else if (reply.sender === "KeyCaptureService") {
+    reply.state.authorityEpoch.toFixed();
+    reply.state.revision.toFixed();
+    reply.state.isCapturing.valueOf();
+    reply.state.pressedCodes.map((code) => code.toUpperCase());
+    reply.state.capturedChord?.toUpperCase();
+    // @ts-expect-error Sender narrowing excludes SelectionService state.
+    reply.state.selectedKey;
   }
 });
 bus.emit(componentReplyTopic, {
@@ -512,6 +573,10 @@ bus.emit(componentReplyTopic, {
 bus.emit(componentReplyTopic, {
   sender: "CommandPresentationService",
   state: commandPresentationState,
+});
+bus.emit(componentReplyTopic, {
+  sender: "KeyCaptureService",
+  state: keyCaptureState,
 });
 
 const mismatchedComponentReply: ComponentStateReply = {
@@ -553,6 +618,8 @@ void ({} as DataSnapshotIsRegisteredExactly);
 void ({} as DataStateEventIsRegisteredExactly);
 void ({} as KeyBrowserStateEventIsRegisteredExactly);
 void ({} as KeyBrowserLateJoinStateIsRegisteredExactly);
+void ({} as KeyCaptureStateEventIsRegisteredExactly);
+void ({} as KeyCaptureLateJoinStateIsRegisteredExactly);
 void ({} as DataStateReasonsAreClosed);
 void mismatchedComponentReply;
 void incompleteSelectionReply;

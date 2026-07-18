@@ -1,51 +1,46 @@
-import { describe, it, beforeEach, afterEach, expect } from "vitest";
-import { createServiceFixture } from "../../fixtures/index.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import KeyCaptureUI from "../../../src/js/components/ui/KeyCaptureUI.js";
+import { createServiceFixture } from "../../fixtures/index.js";
 
-function createDomFixture() {
-  // Minimal DOM structure required for KeyCaptureUI interactions used in this test
-  document.body.innerHTML = `
-    <div id="keySelectionModal">
-      <div id="keyPreviewDisplay"></div>
-      <div data-key-code="ShiftLeft" class="vkey"></div>
-      <div data-key-code="ShiftRight" class="vkey"></div>
-    </div>
-    <input id="distinguishModifierSide" type="checkbox" />
-  `;
-  return {
-    cleanup: () => (document.body.innerHTML = ""),
-  };
-}
-
-describe("KeyCaptureUI – modifier toggle behaviour", () => {
-  let fixture, eventBusFixture, ui, dom;
+describe("KeyCaptureUI modifier toggle behavior", () => {
+  let fixture;
+  let ui;
 
   beforeEach(() => {
-    dom = createDomFixture();
+    document.body.innerHTML = `
+      <div id="keyPreviewDisplay"></div>
+      <button data-key-code="ShiftLeft" class="vkey"></button>
+      <button data-key-code="ShiftRight" class="vkey"></button>
+      <input id="distinguishModifierSide" type="checkbox" />
+      <button id="confirm-key-selection" disabled></button>
+    `;
     fixture = createServiceFixture();
-    eventBusFixture = fixture.eventBusFixture;
-    // Instantiate UI with fixture event bus and jsdom document
-    ui = new KeyCaptureUI({ eventBus: eventBusFixture.eventBus, document });
+    ui = new KeyCaptureUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n: { t: (key) => key, language: "en" },
+    });
     ui.init();
+    ui.session.begin();
   });
 
   afterEach(() => {
-    dom.cleanup();
-    fixture.destroy();
+    if (ui && !ui.destroyed) ui.destroy();
+    fixture?.destroy();
+    document.body.replaceChildren();
   });
 
-  it("should keep previously selected key in preview when a modifier is toggled off", () => {
-    // Simulate selecting a main key via capture
-    ui.selectKey("G");
+  it("keeps the session chord visible when a modifier is toggled on and off", () => {
+    expect(ui.selectKey("G")).toBe(true);
     const preview = document.getElementById("keyPreviewDisplay");
-    expect(preview.textContent).toContain("G");
+    expect(preview?.textContent).toContain("G");
 
-    // Toggle modifier on then off
-    ui.toggleVirtualModifier("ShiftLeft"); // activate
-    ui.toggleVirtualModifier("ShiftLeft"); // deactivate
+    ui.toggleVirtualModifier("ShiftLeft");
+    ui.toggleVirtualModifier("ShiftLeft");
 
-    // The preview should still display the originally selected key
-    expect(preview.textContent).toContain("G");
-    expect(preview.textContent).not.toContain("No key selected");
+    expect(ui.session.selectedChord).toBe("G");
+    expect(preview?.textContent).toContain("G");
+    expect(preview?.textContent).not.toContain("no_key_selected");
   });
 });

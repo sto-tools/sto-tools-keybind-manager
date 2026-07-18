@@ -73,6 +73,18 @@ export interface CommandPresentationStateSnapshot {
   collapsedGroups: readonly CommandGroupType[];
 }
 
+/** Complete late-join snapshot owned by KeyCaptureService. */
+export interface KeyCaptureStateSnapshot {
+  authorityEpoch: number;
+  revision: number;
+  isCapturing: boolean;
+  context: string;
+  locationSpecific: boolean;
+  pressedCodes: readonly string[];
+  currentChord: string;
+  capturedChord: string | null;
+}
+
 export interface CommandChainStateSnapshot {
   commands: CommandList;
 }
@@ -143,6 +155,7 @@ export interface ComponentStateProtocol {
   ExportService: ExportStateSnapshot;
   InterfaceModeService: InterfaceModeStateSnapshot;
   KeyBrowserService: KeyBrowserViewStateSnapshot;
+  KeyCaptureService: KeyCaptureStateSnapshot;
   PreferencesService: PreferencesStateSnapshot;
   SelectionService: SelectionStateSnapshot;
   StorageService: StorageStateSnapshot;

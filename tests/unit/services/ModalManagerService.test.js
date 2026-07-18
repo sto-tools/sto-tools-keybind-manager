@@ -16,6 +16,7 @@ function createDomFixture() {
 
   return {
     cleanup: () => {
+      document.body.classList.remove("modal-open");
       overlay.remove();
       modal.remove();
     },
@@ -48,6 +49,19 @@ function createI18nFixture() {
 
 describe("ModalManagerService", () => {
   let fixture, eventBusFixture, service, dom, i18nFixture;
+
+  function expectSingleLifecycleEvent(topic, payload) {
+    expect(
+      eventBusFixture
+        .getEventsOfType(topic)
+        .map(({ data: eventPayload }) => eventPayload),
+    ).toEqual([payload]);
+  }
+
+  function showAndClearLifecycleHistory() {
+    expect(service.show("testModal")).toBe(true);
+    eventBusFixture.clearEventHistory();
+  }
 
   beforeEach(() => {
     dom = createDomFixture();
@@ -84,6 +98,94 @@ describe("ModalManagerService", () => {
     expect(overlay.classList.contains("active")).toBe(false);
   });
 
+  it("publishes each successful action-route lifecycle exactly once", () => {
+    eventBusFixture.clearEventHistory();
+
+    eventBusFixture.eventBus.emit("modal:show", { modalId: "testModal" });
+
+    expectSingleLifecycleEvent("modal:shown", {
+      modalId: "testModal",
+      success: true,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:hidden")).toEqual([]);
+
+    eventBusFixture.clearEventHistory();
+    eventBusFixture.eventBus.emit("modal:hide", { modalId: "testModal" });
+
+    expectSingleLifecycleEvent("modal:hidden", {
+      modalId: "testModal",
+      success: true,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:shown")).toEqual([]);
+  });
+
+  it("publishes each failed action-route lifecycle exactly once", () => {
+    eventBusFixture.clearEventHistory();
+
+    eventBusFixture.eventBus.emit("modal:show", {
+      modalId: "missingModal",
+    });
+
+    expectSingleLifecycleEvent("modal:shown", {
+      modalId: "missingModal",
+      success: false,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:hidden")).toEqual([]);
+
+    eventBusFixture.clearEventHistory();
+    eventBusFixture.eventBus.emit("modal:hide", {
+      modalId: "missingModal",
+    });
+
+    expectSingleLifecycleEvent("modal:hidden", {
+      modalId: "missingModal",
+      success: false,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:shown")).toEqual([]);
+  });
+
+  it("publishes each successful direct-API lifecycle exactly once", () => {
+    eventBusFixture.clearEventHistory();
+
+    expect(service.show("testModal")).toBe(true);
+
+    expectSingleLifecycleEvent("modal:shown", {
+      modalId: "testModal",
+      success: true,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:hidden")).toEqual([]);
+
+    eventBusFixture.clearEventHistory();
+    expect(service.hide("testModal")).toBe(true);
+
+    expectSingleLifecycleEvent("modal:hidden", {
+      modalId: "testModal",
+      success: true,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:shown")).toEqual([]);
+  });
+
+  it("publishes each failed direct-API lifecycle exactly once", () => {
+    eventBusFixture.clearEventHistory();
+
+    expect(service.show("missingModal")).toBe(false);
+
+    expectSingleLifecycleEvent("modal:shown", {
+      modalId: "missingModal",
+      success: false,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:hidden")).toEqual([]);
+
+    eventBusFixture.clearEventHistory();
+    expect(service.hide("missingModal")).toBe(false);
+
+    expectSingleLifecycleEvent("modal:hidden", {
+      modalId: "missingModal",
+      success: false,
+    });
+    expect(eventBusFixture.getEventsOfType("modal:shown")).toEqual([]);
+  });
+
   it("should preserve the inherited component lifecycle API", () => {
     expect(service.isInitialized).toBeTypeOf("function");
     expect(service.isInitialized()).toBe(true);
@@ -104,6 +206,47 @@ describe("ModalManagerService", () => {
     // Click close button (has data-modal attr)
     modal.querySelector('[data-modal="testModal"]').click();
     expect(modal.classList.contains("active")).toBe(false);
+  });
+
+  it("publishes modal:hidden success exactly once for a close-button path", () => {
+    showAndClearLifecycleHistory();
+    const modal = document.getElementById("testModal");
+
+    modal.querySelector('[data-modal="testModal"]').click();
+
+    expect(modal.classList.contains("active")).toBe(false);
+    expectSingleLifecycleEvent("modal:hidden", {
+      modalId: "testModal",
+      success: true,
+    });
+  });
+
+  it("publishes modal:hidden success exactly once for an Escape path", () => {
+    showAndClearLifecycleHistory();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+
+    expect(
+      document.getElementById("testModal").classList.contains("active"),
+    ).toBe(false);
+    expectSingleLifecycleEvent("modal:hidden", {
+      modalId: "testModal",
+      success: true,
+    });
+  });
+
+  it("publishes modal:hidden success exactly once for an overlay path", () => {
+    showAndClearLifecycleHistory();
+
+    document.getElementById("modalOverlay").click();
+
+    expect(
+      document.getElementById("testModal").classList.contains("active"),
+    ).toBe(false);
+    expectSingleLifecycleEvent("modal:hidden", {
+      modalId: "testModal",
+      success: true,
+    });
   });
 
   it("lifecycle-owns language, modal, and document listeners across re-init", () => {

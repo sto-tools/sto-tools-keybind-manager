@@ -130,16 +130,12 @@ export default class ModalManagerService extends ComponentBase {
 
   /** @param {{ modalId: string }} message */
   async handleShowModal({ modalId }) {
-    const result = this.show(modalId);
-    this.emit("modal:shown", { modalId, success: result });
-    return result;
+    return this.show(modalId);
   }
 
   /** @param {{ modalId: string }} message */
   async handleHideModal({ modalId }) {
-    const result = this.hide(modalId);
-    this.emit("modal:hidden", { modalId, success: result });
-    return result;
+    return this.hide(modalId);
   }
 
   // Utilities
@@ -151,7 +147,11 @@ export default class ModalManagerService extends ComponentBase {
   show(id) {
     const modal = typeof id === "string" ? document.getElementById(id) : id;
     const overlay = this.getOverlay();
-    if (!overlay || !modal) return false;
+    const modalId = typeof id === "string" ? id : id.id;
+    if (!overlay || !modal) {
+      this.emit("modal:shown", { modalId, success: false });
+      return false;
+    }
 
     overlay.classList.add("active");
     modal.classList.add("active");
@@ -167,7 +167,6 @@ export default class ModalManagerService extends ComponentBase {
     }
 
     // Emit modal:shown event for components that need to respond to modal opening
-    const modalId = typeof id === "string" ? id : modal.id;
     this.emit("modal:shown", { modalId, success: true });
 
     return true;
@@ -177,7 +176,11 @@ export default class ModalManagerService extends ComponentBase {
   hide(id) {
     const modal = typeof id === "string" ? document.getElementById(id) : id;
     const overlay = this.getOverlay();
-    if (!overlay || !modal) return false;
+    const modalId = typeof id === "string" ? id : id.id;
+    if (!overlay || !modal) {
+      this.emit("modal:hidden", { modalId, success: false });
+      return false;
+    }
 
     modal.classList.remove("active");
 
@@ -186,6 +189,7 @@ export default class ModalManagerService extends ComponentBase {
       overlay.classList.remove("active");
       document.body.classList.remove("modal-open");
     }
+    this.emit("modal:hidden", { modalId, success: true });
     return true;
   }
 

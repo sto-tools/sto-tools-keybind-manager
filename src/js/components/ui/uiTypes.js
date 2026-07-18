@@ -53,8 +53,6 @@
  *   prompt: (message: string, options?: InputDialogOptions) => Promise<string | null>
  * }} InputDialogLike
  *
- * @typedef {{ currentEnvironment?: string }} AppLike
- *
  * @typedef {'space' | 'ground' | 'alias'} Environment
  *
  * @typedef {{ environment?: Environment, newMode?: Environment, mode?: Environment }} EnvironmentPayload
@@ -97,7 +95,6 @@
  *   stoUI?: UIServiceLike,
  *   confirmDialog?: ConfirmDialogLike,
  *   inputDialog?: InputDialogLike,
- *   app?: AppLike,
  *   applyTranslations?: (element?: Document | Element | null) => void,
  *   commandChainUI?: { updateChainActions: () => unknown },
  *   stoSync?: { setSyncFolder: (autoSync?: boolean) => Promise<FileSystemDirectoryHandle | null> },
