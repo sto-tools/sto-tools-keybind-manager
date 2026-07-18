@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import { serializeProjectArtifact } from "./projectArtifact.js";
 
 /** @type {{ settings?: { version?: string } }} */
 const STO_DATA =
@@ -84,25 +85,16 @@ export default class ProjectManagementService extends ComponentBase {
         throw new Error("Project management dependencies are unavailable");
       }
       const data = this.storage.getAllData();
-
-      // Use the same project.json format as sync folder
-      /** @type {import('../../types/events/base.js').ProjectBackupData} */
-      const projectData = {
-        version: STO_DATA?.settings?.version || "1.0.0",
-        exported: new Date().toISOString(),
-        type: "project",
-        data: {
-          profiles: data.profiles || {},
-          settings: this.storage.getSettings() || data.settings || {},
-          currentProfile: data.currentProfile,
-        },
-      };
-
-      const jsonContent = JSON.stringify(projectData, null, 2);
+      const exported = new Date().toISOString();
+      const jsonContent = serializeProjectArtifact(
+        data,
+        this.storage.getSettings(),
+        { version: STO_DATA?.settings?.version, exported },
+      );
       const blob = new Blob([jsonContent], { type: "application/json" });
       const url = URL.createObjectURL(blob);
 
-      const timestamp = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const timestamp = exported.split("T")[0]; // YYYY-MM-DD
       const filename = `STO_Tools_Backup_${timestamp}.json`;
 
       const a = document.createElement("a");

@@ -102,6 +102,27 @@ describe("ExportService sync project fidelity", () => {
     expect(fixture.storage.getSettings).toHaveBeenCalled();
   });
 
+  it("captures one project artifact before asynchronous projection work", async () => {
+    const { fixture, exporter } = createSource();
+    const generateAliasFile = exporter.generateAliasFile.bind(exporter);
+    vi.spyOn(exporter, "generateAliasFile").mockImplementation(
+      async (profile) => {
+        fixture.storage.saveSettings(
+          { ...goldenProject.data.settings, theme: "changed-during-sync" },
+          { replace: true },
+        );
+        return await generateAliasFile(profile);
+      },
+    );
+
+    await exporter.syncToFolder(fixture.rootDir);
+
+    expect(
+      JSON.parse(await fixture.fsReadText("project.json")).data.settings,
+    ).toEqual(goldenProject.data.settings);
+    expect(fixture.storage.getSettings().theme).toBe("changed-during-sync");
+  });
+
   it("projects each synced profile's VFX aliases without cross-contamination or a VFX responder", async () => {
     const profiles = {
       alpha: {

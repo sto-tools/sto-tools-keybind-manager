@@ -233,6 +233,17 @@ describe("ExportService", () => {
   });
 
   describe("syncToFolder", () => {
+    it("rejects when the storage owner is unavailable", async () => {
+      const serviceWithoutStorage = new ExportService({
+        eventBus: fixture.eventBus,
+        i18n: { t: (key) => key },
+      });
+
+      await expect(serviceWithoutStorage.syncToFolder({})).rejects.toThrow(
+        "Storage is required to sync exports",
+      );
+    });
+
     it("rethrows write failures without emitting toast events", async () => {
       const writeError = new Error("sync write failed");
       const writeSpy = vi

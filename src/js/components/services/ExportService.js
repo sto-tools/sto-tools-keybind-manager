@@ -4,6 +4,7 @@ import { formatAliasLine, formatKeybindLine } from "../../lib/STOFormatter.js";
 import { normalizeToOptimizedString } from "../../lib/commandDisplayAdapter.js";
 import { projectVirtualVFXAliases } from "./vfxAliasProjection.js";
 import { getSnapshotProfile } from "./dataState.js";
+import { serializeProjectArtifact } from "./projectArtifact.js";
 
 /** @type {{ settings?: { version?: string } }} */
 const STO_DATA =
@@ -617,6 +618,12 @@ export default class ExportService extends ComponentBase {
   async syncToFolder(dirHandle) {
     if (!this.storage) throw new Error("Storage is required to sync exports");
     const data = this.storage.getAllData();
+    const exported = new Date().toISOString();
+    const projectArtifact = serializeProjectArtifact(
+      data,
+      this.storage.getSettings(),
+      { version: STO_DATA?.settings?.version, exported },
+    );
     const profiles = data.profiles || {};
 
     // Generate files for each profile
@@ -649,22 +656,7 @@ export default class ExportService extends ComponentBase {
       await writeFile(dirHandle, filename, aliasContent);
     }
 
-    // Generate project.json with complete data
-    const projectData = {
-      version: STO_DATA?.settings?.version || "1.0.0",
-      exported: new Date().toISOString(),
-      type: "project",
-      data: {
-        profiles,
-        settings: this.storage.getSettings() || data.settings || {},
-        currentProfile: data.currentProfile,
-      },
-    };
-    await writeFile(
-      dirHandle,
-      "project.json",
-      JSON.stringify(projectData, null, 2),
-    );
+    await writeFile(dirHandle, "project.json", projectArtifact);
 
     // Toast is handled by SyncService to respect autosync settings
   }

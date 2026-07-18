@@ -1,5 +1,6 @@
 import eventBus from "../../src/js/core/eventBus.js";
 import type StorageService from "../../src/js/components/services/StorageService.js";
+import type { CurrentProjectArtifactEnvelope } from "../../src/js/types/data-contracts.js";
 import {
   createDataCoordinatorState,
   createPreferencesState,
@@ -44,6 +45,9 @@ type EventTopicsWithAnyPayload = {
 
 type RegistryContainsNoAnyPayload = Expect<
   Equal<EventTopicsWithAnyPayload, never>
+>;
+type ProjectBackupCompatibilityNameIsCanonical = Expect<
+  Equal<ProjectBackupData, CurrentProjectArtifactEnvelope>
 >;
 type RetiredListenerTopics =
   | "bindset-manager:open"
@@ -469,6 +473,7 @@ declare const stringValue: string;
 bus.emit(`store:${stringValue}`, "space");
 
 void ({} as RegistryContainsNoAnyPayload);
+void ({} as ProjectBackupCompatibilityNameIsCanonical);
 void ({} as RetiredListenersAreAbsent);
 void ({} as RetiredProducersAreAbsent);
 void ({} as ToastPayloadIsRegistered);

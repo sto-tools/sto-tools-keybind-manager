@@ -8,7 +8,7 @@ const legacyMaxLineLimits = {
   "src/js/components/services/CommandChainService.js": 719,
   "src/js/components/services/CommandService.js": 804,
   "src/js/components/services/DataCoordinator.js": 1032,
-  "src/js/components/services/ExportService.js": 581,
+  "src/js/components/services/ExportService.js": 574,
   "src/js/components/services/ImportService.js": 976,
   "src/js/components/services/ParameterCommandService.js": 550,
   "src/js/components/services/SelectionService.js": 704,

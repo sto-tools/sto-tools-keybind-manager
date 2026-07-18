@@ -144,16 +144,8 @@ export type StorageBackup =
 export type StoredApplicationData =
   import("../data-contracts.js").StoredApplicationData;
 
-export interface ProjectBackupData {
-  version: string;
-  exported: string;
-  type: "project";
-  data: {
-    profiles: ProfileMap;
-    settings: SettingsRecord;
-    currentProfile: string | null;
-  };
-}
+export type ProjectBackupData =
+  import("../data-contracts.js").CurrentProjectArtifactEnvelope;
 
 export interface ProjectImportCounts {
   profiles: number;

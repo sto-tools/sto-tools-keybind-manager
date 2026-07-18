@@ -205,7 +205,10 @@ export interface CanonicalProjectData {
   currentProfile?: string | null;
 }
 
-/** Accepted project envelope. Older supported exports omit metadata fields. */
+/**
+ * Project envelope after import validation and normalization. Older supported
+ * exports may omit metadata fields.
+ */
 export interface ProjectEnvelope {
   version?: string;
   exported?: string;
@@ -213,12 +216,16 @@ export interface ProjectEnvelope {
   data: CanonicalProjectData;
 }
 
-/** Shape emitted by current backup and sync producers. */
-export interface CurrentProjectBackupEnvelope extends ProjectEnvelope {
+/** Stored-representation shape emitted by current backup and sync producers. */
+export interface CurrentProjectArtifactEnvelope {
   version: string;
   exported: string;
-  data: Required<CanonicalProjectData>;
+  type: "project";
+  data: Pick<StoredApplicationData, "profiles" | "settings" | "currentProfile">;
 }
+
+/** Compatibility name retained for callers that describe downloads only. */
+export type CurrentProjectBackupEnvelope = CurrentProjectArtifactEnvelope;
 
 export type ProjectDecodeResult =
   | { success: true; value: ProjectEnvelope }
