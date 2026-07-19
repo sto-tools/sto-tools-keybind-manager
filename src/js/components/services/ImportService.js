@@ -13,12 +13,17 @@ import {
   decodeKBFParseResult,
 } from "./kbfDataBoundary.js";
 import { planKBFImport } from "./kbfImportPlanner.js";
+import { projectKBFPreview } from "./kbfPreviewProjection.js";
 import {
   aliasTextFailureResult,
   keybindTextFailureResult,
   materializeAliasText,
   materializeKeybindText,
 } from "./textImportMaterializer.js";
+import {
+  planAliasTextImport,
+  planKeybindTextImport,
+} from "./textProfileImportPlanner.js";
 
 /** @typedef {import('./serviceTypes.js').AppWindow} AppWindow */
 
@@ -192,132 +197,31 @@ export default class ImportService extends ComponentBase {
         };
       }
 
-      // Get or create profile
-      const profile = structuredClone(
-        this.storage.getProfile(profileId) || {
-          builds: { space: { keys: {} }, ground: { keys: {} } },
-        },
-      );
-
-      // Ensure profile structure
-      if (!profile.builds)
-        profile.builds = { space: { keys: {} }, ground: { keys: {} } };
       const env = environment; // Environment is already validated above
-      if (!profile.builds[env]) profile.builds[env] = { keys: {} };
-
-      const dest = profile.builds[env].keys;
-
-      // Initialize tracking variables for strategy results
-      let imported = 0;
-      let skipped = 0;
-      let overwritten = 0;
-      let cleared = 0;
-
-      // Apply strategy logic
-      if (strategy === "overwrite_all") {
-        // Clear all existing keys for this environment
-        const existingKeys = Object.keys(dest);
-        cleared = existingKeys.length;
-        Object.keys(dest).forEach((key) => delete dest[key]);
-
-        // Clear corresponding metadata for consistent state
-        if (profile.keybindMetadata && profile.keybindMetadata[env]) {
-          existingKeys.forEach((key) => {
-            delete profile.keybindMetadata[env][key];
-          });
-        }
-      }
-
-      // Apply keybinds with mirroring detection using STOCommandParser
-      for (const [key, data] of Object.entries(parsed.keybinds)) {
-        const commandString = data.raw;
-
-        // Check for conflicts based on strategy
-        if (
-          strategy === "merge_keep" &&
-          Object.prototype.hasOwnProperty.call(dest, key)
-        ) {
-          skipped++;
-          continue; // Skip existing key
-        }
-
-        // Track overwritten for merge_overwrite strategy
-        if (
-          strategy === "merge_overwrite" &&
-          Object.prototype.hasOwnProperty.call(dest, key)
-        ) {
-          overwritten++;
-        }
-
-        // Check for mirroring pattern using STOCommandParser
-        const parseResult = await this.request("parser:parse-command-string", {
-          commandString,
-        });
-
-        let processedCommands = [];
-        if (parseResult.isMirrored) {
-          // Extract original commands from mirrored sequence
-          const originalCommands =
-            this.extractOriginalFromMirrored(commandString);
-          const unmirroredParseResult = await this.request(
-            "parser:parse-command-string",
-            {
-              commandString: originalCommands.join(" $$ "),
-            },
-          );
-
-          // Convert rich objects to canonical string array and optimise each command
-          const rawArray = normalizeToStringArray(
-            unmirroredParseResult.commands,
-          );
-          const optimised = [];
-          for (const cmd of rawArray) {
-            const opt = await normalizeToOptimizedString(cmd, {
+      const plan = await planKeybindTextImport({
+        profile: this.storage.getProfile(profileId),
+        parsed,
+        environment: env,
+        strategy,
+        capabilities: {
+          parseCommand: (commandString) =>
+            this.request("parser:parse-command-string", { commandString }),
+          normalizeCommands: normalizeToStringArray,
+          optimizeCommand: (command) =>
+            normalizeToOptimizedString(command, {
               eventBus: this.eventBus || undefined,
-            });
-            optimised.push(opt);
-          }
-          processedCommands = optimised;
+            }),
+        },
+      });
 
-          // Set stabilization metadata for primary bindset
-          if (!profile.keybindMetadata) profile.keybindMetadata = {};
-          if (!profile.keybindMetadata[environment])
-            profile.keybindMetadata[environment] = {};
-          if (!profile.keybindMetadata[environment][key])
-            profile.keybindMetadata[environment][key] = {};
-          profile.keybindMetadata[environment][key].stabilizeExecutionOrder =
-            true;
-        } else {
-          // Convert rich objects to canonical string array and optimise each command
-          const rawArray = normalizeToStringArray(data.commands);
-          const optimised = [];
-          for (const cmd of rawArray) {
-            const opt = await normalizeToOptimizedString(cmd, {
-              eventBus: this.eventBus || undefined,
-            });
-            optimised.push(opt);
-          }
-          processedCommands = optimised;
-        }
-
-        dest[key] = processedCommands;
-        imported++;
-      }
-
-      await commitImportedProfile(this, profileId, profile, env);
+      await commitImportedProfile(this, profileId, plan.nextProfile, env);
 
       // Set app modified state if available
       this.markAppModified();
 
-      return {
-        success: true,
-        imported: { keys: imported },
-        skipped,
-        overwritten,
-        cleared,
-        errors: parsed.errors,
-        message: "import_completed_keybinds",
-      };
+      const { nextProfile: _committedProfile, ...result } = plan;
+      void _committedProfile;
+      return result;
     } catch (error) {
       return {
         success: false,
@@ -352,98 +256,24 @@ export default class ImportService extends ComponentBase {
         return { success: false, error: "no_active_profile" };
       }
 
-      // Get or create profile
-      const profile = structuredClone(
-        this.storage.getProfile(profileId) || { aliases: {} },
-      );
-      if (!profile.aliases) profile.aliases = {};
-
-      // Initialize tracking variables for strategy results
-      let imported = 0;
-      let skipped = 0;
-      let overwritten = 0;
-      let cleared = 0;
-
-      // Apply strategy logic
-      if (strategy === "overwrite_all") {
-        // Clear all existing aliases
-        const existingAliases = Object.keys(profile.aliases);
-        cleared = existingAliases.length;
-        Object.keys(profile.aliases).forEach(
-          (alias) => delete profile.aliases[alias],
-        );
-
-        // Clear corresponding metadata for consistent state
-        if (profile.aliasMetadata) {
-          existingAliases.forEach((alias) => {
-            delete profile.aliasMetadata[alias];
-          });
-        }
-      }
-
-      // Apply aliases using parsed data - convert to canonical string array format
-      // Skip generated keybind/bindset aliases (those with sto_kb_ prefix)
-      for (const [name, data] of Object.entries(parsed.aliases)) {
-        if (name.startsWith("sto_kb_")) {
-          continue;
-        }
-
-        // Check for conflicts based on strategy
-        if (
-          strategy === "merge_keep" &&
-          Object.prototype.hasOwnProperty.call(profile.aliases, name)
-        ) {
-          skipped++;
-          continue; // Skip existing alias
-        }
-
-        // Track overwritten for merge_overwrite strategy
-        if (
-          strategy === "merge_overwrite" &&
-          Object.prototype.hasOwnProperty.call(profile.aliases, name)
-        ) {
-          overwritten++;
-        }
-
-        // Split command string by $$ and convert to canonical string array
-        const commandString = data.commands || "";
-        const commandArray = commandString.trim()
-          ? commandString
-              .trim()
-              .split(/\s*\$\$\s*/)
-              .filter((cmd) => cmd.trim())
-          : [];
-
-        // Optimise each command string
-        const optimisedArray = [];
-        for (const cmd of commandArray) {
-          const opt = await normalizeToOptimizedString(cmd, {
+      const plan = await planAliasTextImport({
+        profile: this.storage.getProfile(profileId),
+        parsed,
+        strategy,
+        optimizeCommand: (command) =>
+          normalizeToOptimizedString(command, {
             eventBus: this.eventBus || undefined,
-          });
-          optimisedArray.push(opt);
-        }
+          }),
+      });
 
-        profile.aliases[name] = {
-          commands: optimisedArray, // Store as canonical string array (optimised)
-          description: data.description || "",
-        };
-        imported++;
-      }
-
-      await commitImportedProfile(this, profileId, profile);
+      await commitImportedProfile(this, profileId, plan.nextProfile);
 
       // Set app modified state if available
       this.markAppModified();
 
-      return {
-        success: true,
-        imported: { aliases: imported },
-        skipped,
-        overwritten,
-        cleared,
-        errors: parsed.errors,
-        message: "import_completed_aliases",
-      };
+      const { nextProfile: _committedProfile, ...result } = plan;
+      void _committedProfile;
+      return result;
     } catch (error) {
       return {
         success: false,
@@ -764,69 +594,12 @@ export default class ImportService extends ComponentBase {
         };
       }
 
-      // Extract bindset information for selection modal
-      const bindsetNames = Object.keys(parseResult.bindsets);
-      const hasMasterBindset = bindsetNames.some(
-        (name) => name.toLowerCase() === "master",
+      return projectKBFPreview(
+        parseResult,
+        validationResult.estimatedSize,
+        errors,
+        warnings,
       );
-      const isSingleBindsetFile = bindsetNames.length === 1;
-      const onlyBindsetIsMaster =
-        isSingleBindsetFile && bindsetNames[0].toLowerCase() === "master";
-
-      // Calculate key counts for each bindset
-      /** @type {Record<string, number>} */
-      const bindsetKeyCounts = {};
-      bindsetNames.forEach((name) => {
-        const bindset = parseResult.bindsets[name];
-        let keyCount = 0;
-
-        // Keys are stored in bindset.keys (this is the correct structure based on import logic)
-        if (bindset.keys && typeof bindset.keys === "object") {
-          keyCount = Object.keys(bindset.keys).length;
-        }
-
-        bindsetKeyCounts[name] = keyCount;
-      });
-
-      // Determine master bindset display name
-      let masterDisplayName = "Primary Bindset";
-      if (hasMasterBindset) {
-        const masterBindsetName = bindsetNames.find(
-          (name) => name.toLowerCase() === "master",
-        );
-        const masterBindset = masterBindsetName
-          ? parseResult.bindsets[masterBindsetName]
-          : undefined;
-        if (typeof masterBindset?.metadata?.displayName === "string") {
-          masterDisplayName = masterBindset.metadata.displayName;
-        }
-      }
-
-      return {
-        valid: true,
-        bindsets: parseResult.bindsets,
-        bindsetNames,
-        bindsetKeyCounts,
-        hasMasterBindset,
-        masterDisplayName,
-        metadata: {
-          totalBindsets: parseResult.stats.totalBindsets,
-          estimatedSize: validationResult.estimatedSize,
-          hasAliases:
-            parseResult.aliases && Object.keys(parseResult.aliases).length > 0,
-        },
-        validation: {
-          valid: true,
-          errors,
-          warnings,
-        },
-        singleBindsetFile: {
-          isSingleBindset: isSingleBindsetFile,
-          onlyBindsetIsMaster,
-          requiresBindsetSelection: parseResult.stats.totalBindsets > 1,
-        },
-        requiresBindsetSelection: parseResult.stats.totalBindsets > 1,
-      };
     } catch (error) {
       return {
         valid: false,
@@ -836,15 +609,6 @@ export default class ImportService extends ComponentBase {
         warnings,
       };
     }
-  }
-
-  /** @param {string} commandString */
-  extractOriginalFromMirrored(commandString) {
-    const commands = commandString.split(/\s*\$\$\s*/);
-    if (commands.length < 3 || commands.length % 2 === 0) return commands;
-
-    const mid = Math.floor(commands.length / 2);
-    return commands.slice(0, mid + 1);
   }
 
   onInit() {

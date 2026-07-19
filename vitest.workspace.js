@@ -60,6 +60,11 @@ const projects = [
       environment: "jsdom", // Fallback; browser mode overrides this with Chromium
       globals: true,
       testTimeout: 30000,
+      // Concurrent Chromium workers intermittently fail while fetching Vitest,
+      // setup, or test modules before collection. Browser coverage is small and
+      // exercises a persistent checked-bundle session, so serialize its files
+      // for deterministic full-suite runs.
+      fileParallelism: false,
       include: [
         "tests/browser/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
       ],
