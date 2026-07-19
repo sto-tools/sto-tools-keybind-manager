@@ -268,13 +268,29 @@ describe("Persisted storage browser boundary", () => {
           "legacy-browser": {
             name: "Legacy browser profile",
             mode: "Ground Mode",
-            keys: { G: "Sprint" },
-            aliases: {},
+            keys: { G: ["TrayExecByTray 1 1 2"] },
+            aliases: {
+              LegacyTray: { commands: ["TrayExecByTray 1 1 2"] },
+            },
             bindsets: {
-              Alternate: { ground: { keys: { H: ["Aim"] } } },
+              Alternate: {
+                ground: { keys: { H: ["TrayExecByTray 1 1 2"] } },
+              },
             },
             selections: { ground: "G" },
             extension: { retained: true },
+          },
+          "current-browser": {
+            name: "Already current browser profile",
+            currentEnvironment: "space",
+            builds: {
+              space: { keys: { F1: ["TrayExecByTray 1 3 4"] } },
+              ground: { keys: {} },
+            },
+            aliases: {},
+            bindsets: {},
+            migrationVersion: "2.1.1",
+            lastModified: "2001-02-03T04:05:06.000Z",
           },
         },
         globalAliases: {},
@@ -287,12 +303,26 @@ describe("Persisted storage browser boundary", () => {
         currentProfile: "legacy-browser",
         profiles: {
           "legacy-browser": {
-            builds: { ground: { keys: { G: ["Sprint"] } } },
+            builds: {
+              ground: { keys: { G: ["TrayExecByTray 1 1 2"] } },
+            },
+            aliases: {
+              LegacyTray: { commands: ["TrayExecByTray 1 1 2"] },
+            },
             bindsets: {
-              Alternate: { ground: { keys: { H: ["Aim"] } } },
+              Alternate: {
+                ground: { keys: { H: ["TrayExecByTray 1 1 2"] } },
+              },
             },
             selections: { ground: "G" },
             extension: { retained: true },
+          },
+          "current-browser": {
+            migrationVersion: "2.1.1",
+            lastModified: "2001-02-03T04:05:06.000Z",
+            builds: {
+              space: { keys: { F1: ["TrayExecByTray 1 3 4"] } },
+            },
           },
         },
       });
@@ -312,9 +342,16 @@ describe("Persisted storage browser boundary", () => {
           currentProfileData: {
             id: "legacy-browser",
             migrationVersion: "2.1.1",
-            builds: { ground: { keys: { G: ["Sprint"] } } },
+            builds: {
+              ground: { keys: { G: ["+TrayExecByTray 1 2"] } },
+            },
+            aliases: {
+              LegacyTray: { commands: ["+TrayExecByTray 1 2"] },
+            },
             bindsets: {
-              Alternate: { ground: { keys: { H: ["Aim"] } } },
+              Alternate: {
+                ground: { keys: { H: ["TrayExecByTray 1 1 2"] } },
+              },
             },
             selections: { ground: "G" },
             extension: { retained: true },
@@ -326,6 +363,19 @@ describe("Persisted storage browser boundary", () => {
       expect(durable.lastBackup).toBe(backup.timestamp);
       expect(durable.profiles["legacy-browser"]).toEqual(
         coordinator.getCurrentState().profiles["legacy-browser"],
+      );
+      expect(coordinator.getCurrentState().profiles["current-browser"]).toEqual(
+        expect.objectContaining({
+          migrationVersion: "2.1.1",
+          lastModified: "2001-02-03T04:05:06.000Z",
+          builds: {
+            space: { keys: { F1: ["TrayExecByTray 1 3 4"] } },
+            ground: { keys: {} },
+          },
+        }),
+      );
+      expect(durable.profiles["current-browser"]).toEqual(
+        coordinator.getCurrentState().profiles["current-browser"],
       );
 
       const unsafeRoot = JSON.parse(

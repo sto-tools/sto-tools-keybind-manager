@@ -238,6 +238,39 @@ describe("DataCoordinator lifecycle generation", () => {
     expect(emittedMutations()).toEqual([]);
   });
 
+  it("does not adopt an in-flight normalization after teardown", async () => {
+    const staleProfiles = {
+      legacy: profile("Legacy"),
+    };
+    delete staleProfiles.legacy.migrationVersion;
+    const profilesBefore = structuredClone(staleProfiles);
+    const stateBefore = structuredClone(coordinator.state);
+    const snapshotBefore = coordinator.getCurrentState();
+    const pendingWrite = holdWrite("saveAllData");
+
+    const result = coordinator.normalizeAllProfiles(staleProfiles, {
+      rootData: {
+        ...structuredClone(durableRoot),
+        currentProfile: "legacy",
+        profiles: structuredClone(staleProfiles),
+      },
+    });
+    await vi.waitFor(() => {
+      expect(fixture.storage.saveAllData).toHaveBeenCalledTimes(1);
+    });
+    expect(fixture.storage.saveAllData.mock.calls[0][1]).toEqual({
+      preserveBackup: true,
+    });
+    coordinator.destroy();
+    pendingWrite.resolve(true);
+
+    await expect(result).rejects.toThrow("operation_cancelled");
+    expect(staleProfiles).toEqual(profilesBefore);
+    expect(coordinator.state).toEqual(stateBefore);
+    expect(coordinator.getCurrentState()).toBe(snapshotBefore);
+    expect(emittedMutations()).toEqual([]);
+  });
+
   it("adopts and returns the exact detached profile persisted by storage", async () => {
     const durableTimestamp = "2099-01-01T00:00:00.000Z";
     fixture.storage.saveProfile.mockImplementation((profileId, draft) => {

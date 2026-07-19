@@ -1,8 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
-import {
-  normalizeProfile,
-  needsNormalization,
-} from "../../lib/profileNormalizer.js";
+import { normalizeProfile } from "../../lib/profileNormalizer.js";
 import persist from "./storageWrites.js";
 import {
   createDataStateSnapshot,
@@ -23,6 +20,7 @@ import {
   generateProfileId,
   planProfileBatch,
 } from "./profileConstruction.js";
+import { planProfileNormalizations } from "./profileNormalizationPlan.js";
 import { applyProfileOperations } from "./profileOperations.js";
 
 /** @param {unknown} error */
@@ -1191,24 +1189,17 @@ export default class DataCoordinator extends ComponentBase {
     { rootData } = {},
   ) {
     const operation = this._captureOperationGeneration();
-    /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
-    const normalizedProfiles = {};
-
-    for (const [profileId, profile] of Object.entries(profiles)) {
-      if (!needsNormalization(profile)) continue;
-
-      console.log(`[${this.componentName}] Migrating profile: ${profileId}`);
-      const originalVersion = profile.migrationVersion || "2.0.0";
-      const normalizedProfile = structuredClone(profile);
-      normalizeProfile(normalizedProfile);
-      normalizedProfiles[profileId] = normalizedProfile;
-
-      console.log(
-        `[${this.componentName}] Profile ${profileId} migrated from ${originalVersion} to ${normalizedProfile.migrationVersion}`,
-      );
-    }
-
-    const profilesNormalized = Object.keys(normalizedProfiles).length;
+    const label = `[${this.componentName}]`;
+    const { profilesNormalized, normalizedProfiles } =
+      planProfileNormalizations(profiles, {
+        normalizeProfile,
+        onProfileStart: (profileId) =>
+          console.log(`${label} Migrating profile: ${profileId}`),
+        onProfileComplete: (report) =>
+          console.log(
+            `${label} Profile ${report.profileId} migrated from ${report.originalVersion} to ${report.normalizedVersion}`,
+          ),
+      });
     if (profilesNormalized === 0) return 0;
 
     // Persist every normalization as one root replacement. Only adopt the
