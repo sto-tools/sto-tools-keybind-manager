@@ -193,7 +193,7 @@ describe("DataCoordinator Service", () => {
         "space",
       );
 
-      expect(result).toHaveProperty("profileId");
+      expect(result.profileId).toBe("new_profile");
       expect(result.success).toBe(true);
       expect(dataCoordinator.state.profiles[result.profileId]).toBeDefined();
       expect(dataCoordinator.state.profiles[result.profileId].name).toBe(
@@ -245,7 +245,7 @@ describe("DataCoordinator Service", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result).toHaveProperty("profileId");
+      expect(result.profileId).toBe("cloned_profile");
 
       const clonedProfile = dataCoordinator.state.profiles[result.profileId];
       expect(clonedProfile.name).toBe("Cloned Profile");

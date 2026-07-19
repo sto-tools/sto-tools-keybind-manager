@@ -15,6 +15,11 @@ import builtInDefaultProfiles, {
 import { registerDataCoordinatorResponders } from "./dataCoordinatorResponders.js";
 import { handleLoadDefaultDataUi } from "./dataCoordinatorDefaultUi.js";
 import { loadInitialCoordinatorState } from "./dataCoordinatorInitialState.js";
+import {
+  createClonedProfileDraft,
+  createEmptyProfileDraft,
+  generateProfileId,
+} from "./profileConstruction.js";
 import { applyProfileOperations } from "./profileOperations.js";
 
 /** @param {unknown} error */
@@ -403,7 +408,7 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
 
-    const profileId = this.generateProfileId(name);
+    const profileId = generateProfileId(name);
 
     // Check if profile already exists
     if (hasOwn(this.state.profiles, profileId)) {
@@ -411,24 +416,10 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
 
-    /** @type {import('./serviceTypes.js').ProfileData} */
-    const profile = {
-      name: name.trim(),
-      description: description.trim(),
-      currentEnvironment: mode,
-      builds: {
-        space: { keys: {} },
-        ground: { keys: {} },
-      },
-      // Seed metadata scaffolding so later updates don't drop stabilization flags
-      keybindMetadata: { space: {}, ground: {} },
-      aliasMetadata: {},
-      bindsetMetadata: {},
-      bindsets: {}, // Add bindsets property for KBF import support
-      aliases: {},
+    const profile = createEmptyProfileDraft(name, description, mode, {
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
-    };
+    });
     const operation = this._captureOperationGeneration();
 
     try {
@@ -483,7 +474,7 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
 
-    const profileId = this.generateProfileId(newName);
+    const profileId = generateProfileId(newName);
 
     // Check if profile already exists
     if (hasOwn(this.state.profiles, profileId)) {
@@ -491,13 +482,10 @@ export default class DataCoordinator extends ComponentBase {
       throw new Error(message);
     }
 
-    const clonedProfile = {
-      ...JSON.parse(JSON.stringify(sourceProfile)),
-      name: newName.trim(),
-      description: `Copy of ${sourceProfile.name}`,
+    const clonedProfile = createClonedProfileDraft(sourceProfile, newName, {
       created: new Date().toISOString(),
       lastModified: new Date().toISOString(),
-    };
+    });
     const operation = this._captureOperationGeneration();
 
     try {
@@ -1247,16 +1235,6 @@ export default class DataCoordinator extends ComponentBase {
         { synchronous: true },
       );
     }
-  }
-
-  // Generate profile ID from name
-  /** @param {string} name */
-  generateProfileId(name) {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, "")
-      .replace(/\s+/g, "_")
-      .substring(0, 50);
   }
 
   // Normalize all profiles to use canonical string commands
