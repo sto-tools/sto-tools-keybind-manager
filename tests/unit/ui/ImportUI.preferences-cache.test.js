@@ -15,6 +15,7 @@ describe("ImportUI preferences cache", () => {
   let ui;
 
   beforeEach(() => {
+    document.body.replaceChildren();
     fixture = createServiceFixture();
     ui = new ImportUI({ eventBus: fixture.eventBus, document });
     ui.init();
@@ -24,6 +25,7 @@ describe("ImportUI preferences cache", () => {
   afterEach(() => {
     ui?.destroy();
     fixture?.destroy();
+    document.body.replaceChildren();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -49,25 +51,18 @@ describe("ImportUI preferences cache", () => {
       "preferences:loaded",
       createPreferencesState({ bindsetsEnabled: false }),
     );
-    const singleModal = document.createElement("div");
-    const createSingle = vi
-      .spyOn(ui, "createSingleBindsetSelectionModal")
-      .mockReturnValue(singleModal);
-    const createEnhanced = vi.spyOn(ui, "createEnhancedBindsetSelectionModal");
-
     const resultPromise = ui.promptEnhancedBindsetSelection(parseResult);
 
-    expect(createSingle).toHaveBeenCalledWith(parseResult);
-    expect(createEnhanced).not.toHaveBeenCalled();
+    const modal = document.getElementById("enhancedBindsetSelectionModal");
+    expect(modal?.classList).toContain("single-bindset-selection");
+    expect(modal?.classList).not.toContain("enhanced-bindset-selection");
     expect(
       fixture
         .getEventHistory()
         .filter(({ event }) => event === "rpc:preferences:get-settings"),
     ).toHaveLength(0);
 
-    // Resolve the focused modal promise without coupling this state-choice test
-    // to the separate DOM-control behavior of the modal.
-    ui.currentEnhancedBindsetSelectionModal.resolve(null);
+    modal?.querySelector(".single-bindset-cancel")?.click();
     await expect(resultPromise).resolves.toBeNull();
   });
 
@@ -76,17 +71,12 @@ describe("ImportUI preferences cache", () => {
       "preferences:loaded",
       createPreferencesState({ bindsetsEnabled: true }),
     );
-    const singleModal = document.createElement("div");
-    const createSingle = vi
-      .spyOn(ui, "createSingleBindsetSelectionModal")
-      .mockReturnValue(singleModal);
-    const createEnhanced = vi.spyOn(ui, "createEnhancedBindsetSelectionModal");
-
     const resultPromise = ui.promptEnhancedBindsetSelection(parseResult, false);
 
-    expect(createSingle).toHaveBeenCalledWith(parseResult);
-    expect(createEnhanced).not.toHaveBeenCalled();
-    ui.currentEnhancedBindsetSelectionModal.resolve(null);
+    const modal = document.getElementById("enhancedBindsetSelectionModal");
+    expect(modal?.classList).toContain("single-bindset-selection");
+    expect(modal?.classList).not.toContain("enhanced-bindset-selection");
+    modal?.querySelector(".single-bindset-cancel")?.click();
     await expect(resultPromise).resolves.toBeNull();
   });
 });

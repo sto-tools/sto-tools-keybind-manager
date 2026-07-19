@@ -84,18 +84,7 @@ describe("ImportUI strategy modal factories", () => {
     },
   );
 
-  it("retains the large enhanced KBF configuration view", () => {
-    const modal = ui.createEnhancedBindsetSelectionModal({
-      valid: true,
-      bindsetNames: ["Master", "Ground"],
-      bindsetKeyCounts: { Master: 5, Ground: 3 },
-    });
-
-    expect(modal.classList.contains("enhanced-bindset-selection")).toBe(true);
-    expect(modal.classList.contains("large-modal")).toBe(true);
-  });
-
-  it("keeps retired progress and basic bindset modal APIs absent", () => {
+  it("keeps retired progress and bindset modal implementation APIs absent", () => {
     for (const method of [
       "showProgressModal",
       "hideProgressModal",
@@ -104,6 +93,17 @@ describe("ImportUI strategy modal factories", () => {
       "promptBindsetSelection",
       "createBindsetSelectionModal",
       "regenerateBindsetSelectionModal",
+      "createEnhancedBindsetSelectionModal",
+      "createSingleBindsetSelectionModal",
+      "setupSingleBindsetSelection",
+      "updateSingleBindsetSelection",
+      "setupPreviewUpdates",
+      "initializeTableStructure",
+      "addThirdColumnCell",
+      "removeThirdColumnCell",
+      "validateBindsetConfiguration",
+      "validateSingleBindsetConfiguration",
+      "regenerateEnhancedBindsetSelectionModal",
     ]) {
       expect(
         /** @type {Record<string, unknown>} */ (ui)[method],

@@ -17,6 +17,19 @@ const createKBF = ({
   return encode(`GROUPSET:1;KEYSET:${keyset};`);
 };
 
+const createMultiBindsetKBF = () => {
+  const createKeyset = (name, keyName) => {
+    const activity = encode("Activity:1;");
+    const key = encode(
+      `Key:${keyName};Control:0;Alt:0;Shift:0;Combo:;ACT:${activity};`,
+    );
+    return encode(`Name:${name};KEY:${key};`);
+  };
+  return encode(
+    `GROUPSET:1;KEYSET:${createKeyset("Master", "F23")};KEYSET:${createKeyset("Alternate", "F24")};`,
+  );
+};
+
 describe("KBF import browser boundary", () => {
   it("commits canonical nested data through the checked-bundle owner chain", async () => {
     const bus = window.eventBus;
@@ -92,6 +105,179 @@ describe("KBF import browser boundary", () => {
           beforeProfile,
         );
       });
+    }
+  });
+
+  it("imports one visibly selected bindset through the checked-bundle menu workflow", async () => {
+    const bus = window.eventBus;
+    const storage = window.storageService;
+    const coordinator = window.dataCoordinator;
+    const consumer = window.commandChainUI;
+    const beforeState = coordinator?.getCurrentState?.();
+    expect(bus).toBeTruthy();
+    expect(storage).toBeTruthy();
+    expect(beforeState?.ready).toBe(true);
+    expect(consumer?.cache.dataState).toBe(beforeState);
+    if (!bus || !storage || !coordinator || !consumer || !beforeState?.ready)
+      return;
+
+    const profileId = beforeState.currentProfile;
+    const environment = ["space", "ground"].includes(
+      beforeState.currentEnvironment,
+    )
+      ? beforeState.currentEnvironment
+      : "space";
+    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeSettings = localStorage.getItem(storage.settingsKey);
+    const beforeProfile = structuredClone(beforeState.profiles[profileId]);
+    const originalBindsetsEnabled = consumer.cache.preferences.bindsetsEnabled;
+    let input = null;
+
+    try {
+      await expect(
+        request(bus, "preferences:set-setting", {
+          key: "bindsetsEnabled",
+          value: false,
+        }),
+      ).resolves.toBe(true);
+      await vi.waitFor(() => {
+        expect(consumer.cache.preferences.bindsetsEnabled).toBe(false);
+      });
+      expect(
+        JSON.parse(localStorage.getItem(storage.settingsKey)).bindsetsEnabled,
+      ).toBe(false);
+
+      const importMenuButton = document.getElementById("importMenuBtn");
+      const importKbfButton = document.getElementById("importKbfBtn");
+      expect(importMenuButton).toBeInstanceOf(HTMLButtonElement);
+      expect(importKbfButton).toBeInstanceOf(HTMLButtonElement);
+      importMenuButton.click();
+      expect(importMenuButton.closest(".dropdown").classList).toContain(
+        "active",
+      );
+      importKbfButton.click();
+
+      input = document.querySelector('input[type="file"][accept=".kbf,.txt"]');
+      expect(input).toBeInstanceOf(HTMLInputElement);
+      Object.defineProperty(input, "files", {
+        configurable: true,
+        value: [
+          new File([createMultiBindsetKBF()], "browser-single-bindset.kbf", {
+            type: "text/plain",
+          }),
+        ],
+      });
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+
+      await vi.waitFor(() => {
+        expect(document.querySelector("#importModal.active")).toBeInstanceOf(
+          HTMLDivElement,
+        );
+      });
+      const overwrite = document.querySelector(
+        '#importModal input[name="import-strategy"][value="merge_overwrite"]',
+      );
+      expect(overwrite).toBeInstanceOf(HTMLInputElement);
+      overwrite.checked = true;
+      document.querySelector(`.import-${environment}`).click();
+
+      await vi.waitFor(() => {
+        expect(
+          document.querySelector(
+            "#enhancedBindsetSelectionModal.single-bindset-selection.active",
+          ),
+        ).toBeInstanceOf(HTMLDivElement);
+      });
+      const modal = document.getElementById("enhancedBindsetSelectionModal");
+      const options = Array.from(
+        modal.querySelectorAll(".single-bindset-option"),
+      );
+      expect(options).toHaveLength(2);
+      expect(
+        options.filter((option) => option.classList.contains("selected")),
+      ).toHaveLength(1);
+
+      const alternate = options.find(
+        (option) => option.dataset.bindset?.toLowerCase() === "alternate",
+      );
+      const master = options.find(
+        (option) => option.dataset.bindset?.toLowerCase() === "master",
+      );
+      expect(alternate).toBeInstanceOf(HTMLElement);
+      expect(master).toBeInstanceOf(HTMLElement);
+      alternate.click();
+      expect(alternate.classList).toContain("selected");
+      expect(master.classList).not.toContain("selected");
+      expect(alternate.querySelector(".single-bindset-radio").checked).toBe(
+        true,
+      );
+      expect(document.getElementById("modalOverlay").classList).toContain(
+        "active",
+      );
+      expect(document.body.classList).toContain("modal-open");
+
+      modal.querySelector(".single-bindset-confirm").click();
+
+      await vi.waitFor(() => {
+        const committedState = coordinator.getCurrentState();
+        expect(committedState.revision).toBe(beforeState.revision + 1);
+        expect(
+          committedState.profiles[profileId].builds[environment].keys.F24,
+        ).toEqual(["target_clear"]);
+        expect(consumer.cache.dataState).toBe(committedState);
+        expect(input.isConnected).toBe(false);
+      });
+
+      const committedState = coordinator.getCurrentState();
+      expect(
+        committedState.profiles[profileId].builds[environment].keys.F23,
+      ).toEqual(beforeProfile.builds[environment].keys.F23);
+      expect(storage.getProfile(profileId)).toEqual(
+        committedState.profiles[profileId],
+      );
+      expect(
+        JSON.parse(localStorage.getItem(storage.storageKey)).profiles[
+          profileId
+        ],
+      ).toEqual(committedState.profiles[profileId]);
+      expect(document.querySelector("#importModal")).toBeNull();
+      expect(
+        document.querySelector("#enhancedBindsetSelectionModal"),
+      ).toBeNull();
+      expect(document.getElementById("modalOverlay").classList).not.toContain(
+        "active",
+      );
+      expect(document.body.classList).not.toContain("modal-open");
+    } finally {
+      if (typeof originalBindsetsEnabled === "boolean") {
+        await request(bus, "preferences:set-setting", {
+          key: "bindsetsEnabled",
+          value: originalBindsetsEnabled,
+        });
+      }
+      if (localStorage.getItem(storage.settingsKey) !== beforeSettings) {
+        if (beforeSettings === null) {
+          localStorage.removeItem(storage.settingsKey);
+        } else {
+          localStorage.setItem(storage.settingsKey, beforeSettings);
+        }
+        await request(bus, "preferences:load-settings");
+      }
+      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
+      else localStorage.setItem(storage.storageKey, beforeRoot);
+      storage.getAllData(true);
+      await request(bus, "data:reload-state");
+      await vi.waitFor(() => {
+        expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
+          beforeProfile,
+        );
+        expect(consumer.cache.preferences.bindsetsEnabled).toBe(
+          originalBindsetsEnabled,
+        );
+      });
+      input?.remove();
+      document.getElementById("importModal")?.remove();
+      document.getElementById("enhancedBindsetSelectionModal")?.remove();
     }
   });
 

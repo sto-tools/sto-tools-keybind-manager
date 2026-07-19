@@ -950,6 +950,7 @@
   "add_key_to_bindset_confirm": "Add key \"{{key}}\" to bindset \"{{bindset}}\"?",
   "manage_bindsets": "Manage Bindsets",
   "primary_bindset": "Primary Bindset",
+  "primary_label": "Primary",
   "remove_key_from_bindset": "Remove key from bindset",
   "remove_key_from_bindset_confirm": "Remove key \"{{key}}\" from bindset \"{{bindset}}\"?",
   "select_bindset": "Select Bindset",

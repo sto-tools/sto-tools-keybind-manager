@@ -16,7 +16,7 @@ const legacyMaxLineLimits = {
   "src/js/components/services/SelectionService.js": 704,
   "src/js/components/ui/CommandChainUI.js": 1578,
   "src/js/components/ui/CommandUI.js": 538,
-  "src/js/components/ui/ImportUI.js": 1025,
+  "src/js/components/ui/ImportUI.js": 573,
   "src/js/components/ui/ParameterCommandUI.js": 511,
   "src/js/data.js": 1759,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 915,
