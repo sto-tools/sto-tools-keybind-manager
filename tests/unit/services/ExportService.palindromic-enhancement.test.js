@@ -1,81 +1,23 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import { planMirroredCommandSequence } from "../../../src/js/components/services/commandTransformationPlanner.js";
 
-describe("ExportService Palindromic Enhancement", () => {
-  // Mock ExportService instance for testing
-  class MockExportService {
-    mirrorCommands(commands, stabilize = false) {
-      if (!Array.isArray(commands) || commands.length <= 1) {
-        // For single commands or non-stabilized mode, just extract command strings
-        return commands.map((cmd) =>
-          typeof cmd === "string" ? cmd : cmd.command,
-        );
-      }
-
-      if (!stabilize) {
-        // No stabilization - just extract command strings
-        return commands.map((cmd) =>
-          typeof cmd === "string" ? cmd : cmd.command,
-        );
-      }
-
-      const beforePrePivot = []; // Non-TrayExec + excluded TrayExec (before)
-      const palindromic = []; // TrayExec for mirroring (pre-pivot candidates)
-      const pivotGroup = []; // Excluded TrayExec (in pivot)
-
-      commands.forEach((cmd) => {
-        const cmdStr = typeof cmd === "string" ? cmd : cmd.command;
-        const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/);
-        const isExcluded =
-          typeof cmd === "object" && cmd.palindromicGeneration === false;
-
-        if (!isTrayExec) {
-          beforePrePivot.push(cmdStr); // Non-TrayExec first
-        } else if (isExcluded) {
-          if (cmd.placement === "in-pivot-group") {
-            pivotGroup.push(cmdStr);
-          } else {
-            beforePrePivot.push(cmdStr); // before-pre-pivot
-          }
-        } else {
-          palindromic.push(cmdStr); // Normal TrayExec palindrome
-        }
-      });
-
-      // Determine pivot/pivot group + pre-pivot
-      let pivot = [];
-      let prePivot = palindromic;
-
-      if (pivotGroup.length > 0) {
-        pivot = pivotGroup; // Use specified pivot group
-      } else if (palindromic.length > 0) {
-        pivot = [palindromic[palindromic.length - 1]]; // Last item becomes pivot
-        prePivot = palindromic.slice(0, -1); // All others are pre-pivot
-      }
-
-      const postPivot = [...prePivot].reverse(); // Mirror pre-pivot to create post-pivot
-
-      // Build final sequence: [non-TrayExec + before-pre-pivot] + [pre-pivot] + [pivot] + [post-pivot]
-      return [...beforePrePivot, ...prePivot, ...pivot, ...postPivot];
-    }
-  }
-
-  const service = new MockExportService();
+describe("command transformation mirroring", () => {
+  const projectCommands = (commands, stabilize = false) =>
+    planMirroredCommandSequence(commands, { stabilize });
 
   describe("Basic functionality", () => {
     it("should return empty array for empty input", () => {
-      expect(service.mirrorCommands([], true)).toEqual([]);
+      expect(projectCommands([], true)).toEqual([]);
     });
 
     it("should return single command unchanged", () => {
       const commands = ["Target_Enemy_Near"];
-      expect(service.mirrorCommands(commands, true)).toEqual([
-        "Target_Enemy_Near",
-      ]);
+      expect(projectCommands(commands, true)).toEqual(["Target_Enemy_Near"]);
     });
 
     it("should return commands unchanged when stabilize is false", () => {
       const commands = ["Target_Enemy_Near", "+TrayExecByTray 1 0"];
-      expect(service.mirrorCommands(commands, false)).toEqual([
+      expect(projectCommands(commands, false)).toEqual([
         "Target_Enemy_Near",
         "+TrayExecByTray 1 0",
       ]);
@@ -86,7 +28,7 @@ describe("ExportService Palindromic Enhancement", () => {
         { command: "Target_Enemy_Near" },
         { command: "+TrayExecByTray 1 0", palindromicGeneration: false },
       ];
-      expect(service.mirrorCommands(commands, false)).toEqual([
+      expect(projectCommands(commands, false)).toEqual([
         "Target_Enemy_Near",
         "+TrayExecByTray 1 0",
       ]);
@@ -96,7 +38,7 @@ describe("ExportService Palindromic Enhancement", () => {
   describe("TrayExec-only palindromic generation", () => {
     it("should create simple palindrome with only TrayExec commands", () => {
       const commands = ["+TrayExecByTray 1 0", "+TrayExecByTray 1 1"];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "+TrayExecByTray 1 0",
         "+TrayExecByTray 1 1",
@@ -110,7 +52,7 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 0",
         "+TrayExecByTray 1 1",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near", // Non-TrayExec first
         "+TrayExecByTray 1 0", // Pre-pivot
@@ -126,7 +68,7 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 0",
         "+TrayExecByTray 1 1",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near", // Non-TrayExec first
         "FirePhasers", // Non-TrayExec first
@@ -142,7 +84,7 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 0",
         "+TrayExecByTray 1 1",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near",
         "+TrayExecByTray 1 0",
@@ -163,7 +105,7 @@ describe("ExportService Palindromic Enhancement", () => {
         },
         "+TrayExecByTray 1 2",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "+TrayExecByTray 1 1", // Excluded, placed before pre-pivot
         "+TrayExecByTray 1 0", // Pre-pivot
@@ -182,7 +124,7 @@ describe("ExportService Palindromic Enhancement", () => {
         },
         "+TrayExecByTray 1 2",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "+TrayExecByTray 1 0", // Pre-pivot
         "+TrayExecByTray 1 2", // Pre-pivot
@@ -206,7 +148,7 @@ describe("ExportService Palindromic Enhancement", () => {
           placement: "in-pivot-group",
         },
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "+TrayExecByTray 1 0", // Before-pre-pivot
         "+TrayExecByTray 1 1", // Pre-pivot
@@ -224,7 +166,7 @@ describe("ExportService Palindromic Enhancement", () => {
           placement: "in-pivot-group",
         },
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "+TrayExecByTray 1 0", // Pre-pivot
         "+TrayExecByTray 1 1", // Pivot group
@@ -246,7 +188,7 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 2",
         "FirePhasers",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near", // Non-TrayExec first (preserves input order)
         "+TrayExecByTray 1 0", // Before-pre-pivot
@@ -271,7 +213,7 @@ describe("ExportService Palindromic Enhancement", () => {
           placement: "before-pre-pivot",
         },
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near", // Non-TrayExec first
         "+TrayExecByTray 1 0", // Before-pre-pivot
@@ -285,7 +227,7 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 0",
         "FirePhasers",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near", // Non-TrayExec first
         "FirePhasers", // Non-TrayExec first
@@ -300,7 +242,7 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 2",
         "+TrayExecByTray 1 3",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "+TrayExecByTray 1 0", // Pre-pivot
         "+TrayExecByTray 1 1", // Pre-pivot
@@ -316,7 +258,7 @@ describe("ExportService Palindromic Enhancement", () => {
   describe("Edge cases", () => {
     it("should handle commands with only non-TrayExec types", () => {
       const commands = ["Target_Enemy_Near", "FirePhasers", "ActivateShield"];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near",
         "FirePhasers",
@@ -324,10 +266,10 @@ describe("ExportService Palindromic Enhancement", () => {
       ]);
     });
 
-    it("should handle empty string commands", () => {
+    it("drops empty command strings", () => {
       const commands = ["", "+TrayExecByTray 1 0"];
-      const result = service.mirrorCommands(commands, true);
-      expect(result).toEqual(["", "+TrayExecByTray 1 0"]);
+      const result = projectCommands(commands, true);
+      expect(result).toEqual(["+TrayExecByTray 1 0"]);
     });
 
     it("should handle rich objects without command property", () => {
@@ -335,7 +277,7 @@ describe("ExportService Palindromic Enhancement", () => {
         { command: "+TrayExecByTray 1 0" },
         { command: "+TrayExecByTray 1 1", palindromicGeneration: false },
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "+TrayExecByTray 1 1", // Before-pre-pivot
         "+TrayExecByTray 1 0", // Single TrayExec becomes pivot
@@ -350,7 +292,7 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 0",
         "+TrayExecByTray 1 1",
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near",
         "+TrayExecByTray 1 0",
@@ -365,12 +307,32 @@ describe("ExportService Palindromic Enhancement", () => {
         "+TrayExecByTray 1 0",
         { command: "+TrayExecByTray 1 1", palindromicGeneration: false },
       ];
-      const result = service.mirrorCommands(commands, true);
+      const result = projectCommands(commands, true);
       expect(result).toEqual([
         "Target_Enemy_Near",
         "+TrayExecByTray 1 1", // Before-pre-pivot
         "+TrayExecByTray 1 0", // Single TrayExec becomes pivot
       ]);
+    });
+  });
+
+  describe("projection options and compatibility quirks", () => {
+    it("can omit the generated post-pivot sequence", () => {
+      expect(
+        planMirroredCommandSequence(
+          ["+TrayExecByTray 1 0", "+TrayExecByTray 1 1"],
+          { stabilize: true, includePostPivot: false },
+        ),
+      ).toEqual(["+TrayExecByTray 1 0", "+TrayExecByTray 1 1"]);
+    });
+
+    it("does not classify the historical STO-prefixed form as TrayExec", () => {
+      expect(
+        planMirroredCommandSequence(
+          ["+TrayExecByTray 1 0", "+STOTrayExecByTray 1 1"],
+          { stabilize: true },
+        ),
+      ).toEqual(["+STOTrayExecByTray 1 1", "+TrayExecByTray 1 0"]);
     });
   });
 });

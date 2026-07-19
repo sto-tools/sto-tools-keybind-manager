@@ -252,8 +252,15 @@ describe("CommandService importFromSource clear destination", () => {
   it("projects primary and named-bindset commands without retired queries", async () => {
     const requestSpy = vi.spyOn(service, "request");
 
-    const primary = await service.fetchCommandsForKey("F1");
-    const named = await service.fetchCommandsForKey("F1", "Weapons");
+    const primary = await service.getCommandsForSelectedKey({
+      environment: "space",
+      key: "F1",
+    });
+    const named = await service.getCommandsForSelectedKey({
+      environment: "space",
+      key: "F1",
+      bindset: "Weapons",
+    });
 
     expect(primary).toEqual(["SourceOne", "SourceTwo"]);
     expect(named).toEqual(["NamedSource"]);

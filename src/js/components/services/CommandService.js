@@ -5,11 +5,14 @@ import {
 } from "../../lib/commandDisplayAdapter.js";
 import { clearImportTarget } from "./commandImportPayload.js";
 import {
+  getSnapshotProfile,
   getSnapshotCommandImportSources,
   getSnapshotCommands,
   getSnapshotUserAliases,
 } from "./dataState.js";
 import { findCommandByName } from "../../data/commandCatalog.js";
+import { planCommandMutation } from "./commandMutationPlanner.js";
+import { planMirroredCommandSequence } from "./commandTransformationPlanner.js";
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -38,6 +41,9 @@ export default class CommandService extends ComponentBase {
     // Store detach functions for cleanup
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
+    /** @type {Promise<void>} */
+    this._mutationQueue = Promise.resolve();
+    this._mutationGeneration = 0;
   }
 
   setupRequestHandlers() {
@@ -75,303 +81,184 @@ export default class CommandService extends ComponentBase {
   }
 
   onInit() {
+    this._mutationGeneration += 1;
     this.setupRequestHandlers();
     this.setupEventListeners();
   }
 
-  // Profile helpers now use cached data
-  getCurrentProfile() {
-    if (!this.cache.currentProfile) return null;
-    return this.getCurrentBuild(this.cache.profile);
+  // Core command operations are serialized through one accepted-state planner.
+  /** @param {number} generation */
+  _isCurrentMutationGeneration(generation) {
+    return (
+      this.initialized &&
+      !this.destroyed &&
+      generation === this._mutationGeneration
+    );
   }
 
-  /** @param {import('./serviceTypes.js').ProfileData | null} profile */
-  getCurrentBuild(profile) {
-    if (!profile) return null;
-
-    // Use cached builds data
-    const builds = this.cache.builds || {
-      space: { keys: {} },
-      ground: { keys: {} },
-    };
-
-    if (!builds[this.cache.currentEnvironment]) {
-      builds[this.cache.currentEnvironment] = { keys: {} };
-    }
-
-    if (!builds[this.cache.currentEnvironment].keys) {
-      builds[this.cache.currentEnvironment].keys = {};
-    }
-
+  _captureCommandMutationContext() {
+    const snapshot = this.cache.dataState;
     return {
-      ...profile,
-      keys: builds[this.cache.currentEnvironment].keys,
-      aliases: this.cache.aliases || {},
+      authorityEpoch: snapshot?.ready ? snapshot.authorityEpoch : null,
+      profileId: snapshot?.ready ? snapshot.currentProfile : null,
+      environment: snapshot?.ready ? snapshot.currentEnvironment : "",
     };
   }
 
-  // Core command operations now use DataCoordinator
+  /** @param {{ authorityEpoch: number | null, profileId: string | null, environment: string }} context */
+  _isCurrentMutationContext(context) {
+    const snapshot = this.cache.dataState;
+    return Boolean(
+      snapshot?.ready &&
+        snapshot.authorityEpoch === context.authorityEpoch &&
+        snapshot.currentProfile === context.profileId &&
+        snapshot.currentEnvironment === context.environment,
+    );
+  }
+
+  /**
+   * Keep mutation planning inside the queue so every operation observes the
+   * accepted owner snapshot published by the preceding write.
+   *
+   * @param {(generation: number, context: { authorityEpoch: number | null, profileId: string | null, environment: string }) => Promise<boolean>} operation
+   * @returns {Promise<boolean>}
+   */
+  _enqueueCommandMutation(operation) {
+    const generation = this._mutationGeneration;
+    const context = this._captureCommandMutationContext();
+    const run = () =>
+      this._isCurrentMutationGeneration(generation)
+        ? operation(generation, context)
+        : false;
+    const result = this._mutationQueue.then(run, run);
+    this._mutationQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  /**
+   * @param {
+   *   | { type: 'add', key: string, command: import('./serviceTypes.js').StoredCommand | import('./serviceTypes.js').StoredCommand[], bindset?: string | null }
+   *   | { type: 'delete', key: string, index: number, bindset?: string | null }
+   *   | { type: 'move', key: string, fromIndex: number, toIndex: number, bindset?: string | null }
+   *   | { type: 'edit', key: string, index: number, updatedCommand: import('./serviceTypes.js').StoredCommand, bindset?: string | null }
+   * } mutation
+   * @param {{ authorityEpoch: number | null, profileId: string | null, environment: string }} context
+   */
+  _planCommandMutation(mutation, context) {
+    const snapshot = this.cache.dataState;
+    const ready =
+      snapshot?.ready === true &&
+      snapshot.authorityEpoch === context.authorityEpoch;
+    return planCommandMutation({
+      profile: ready ? getSnapshotProfile(snapshot, context.profileId) : null,
+      profileId: ready ? context.profileId : null,
+      environment: ready ? context.environment : "",
+      mutation,
+      normalizeCommand: normalizeToString,
+      normalizeCommands: normalizeToStringArray,
+    });
+  }
+
+  /** @param {import('./commandMutationPlanner.js').CommandMutationEvent} event */
+  _publishCommandMutationEvent(event) {
+    switch (event.topic) {
+      case "command-added":
+        this.emit("command-added", event.payload);
+        break;
+      case "command-deleted":
+        this.emit("command-deleted", event.payload);
+        break;
+      case "command-moved":
+        this.emit("command-moved", event.payload);
+        break;
+      case "command-edited":
+        this.emit("command-edited", event.payload);
+        break;
+    }
+  }
+
+  /**
+   * @param {
+   *   | { type: 'add', key: string, command: import('./serviceTypes.js').StoredCommand | import('./serviceTypes.js').StoredCommand[], bindset?: string | null }
+   *   | { type: 'delete', key: string, index: number, bindset?: string | null }
+   *   | { type: 'move', key: string, fromIndex: number, toIndex: number, bindset?: string | null }
+   *   | { type: 'edit', key: string, index: number, updatedCommand: import('./serviceTypes.js').StoredCommand, bindset?: string | null }
+   * } mutation
+   * @param {{ operation: 'add' | 'delete' | 'move' | 'edit', notifyMissingProfile?: boolean, notifyStorageFailure?: boolean }} diagnostics
+   */
+  _runCommandMutation(mutation, diagnostics) {
+    return this._enqueueCommandMutation(async (generation, context) => {
+      const plan = this._planCommandMutation(mutation, context);
+      if (!plan.valid) {
+        if (plan.reason === "no_valid_commands") {
+          console.warn("CommandService: No valid commands to add");
+        }
+        if (
+          plan.reason === "invalid_profile" &&
+          diagnostics.notifyMissingProfile
+        ) {
+          this.ui?.showToast?.(this.i18n.t("no_valid_profile"), "error");
+        }
+        return false;
+      }
+
+      try {
+        const result = await this.request(
+          "data:update-profile",
+          plan.updateProfileRequest,
+        );
+        if (!result?.success) {
+          throw new Error(this.i18n.t("storage_write_failed"));
+        }
+        if (!this._isCurrentMutationGeneration(generation)) return false;
+
+        if (this._isCurrentMutationContext(context)) {
+          this._publishCommandMutationEvent(plan.event);
+        }
+        return true;
+      } catch (error) {
+        if (!this._isCurrentMutationGeneration(generation)) return false;
+        console.error(`Failed to ${diagnostics.operation} command:`, error);
+        if (diagnostics.notifyStorageFailure) {
+          this.ui?.showToast?.(this.i18n.t("storage_write_failed"), "error");
+        }
+        return false;
+      }
+    });
+  }
+
   /**
    * @param {string} key
    * @param {import('./serviceTypes.js').StoredCommand | import('./serviceTypes.js').StoredCommand[]} command
    * @param {string | null} bindset
    */
   async addCommand(key, command, bindset = null) {
-    const profile = this.getCurrentProfile();
-    if (!profile) {
-      this.ui?.showToast?.(this.i18n.t("no_valid_profile"), "error");
-      return false;
-    }
-    const profileId = this.cache.currentProfile;
-    if (!profileId) return false;
-
-    // Determine if we should use a bindset (when bindset is specified and not in alias mode)
-    const useBindset =
-      bindset &&
-      bindset !== "Primary Bindset" &&
-      this.cache.currentEnvironment !== "alias";
-
-    // Get current alias commands (handle both legacy string and new array format)
-    const currentAlias = this.cache.aliases && this.cache.aliases[key];
-    /** @type {import('./serviceTypes.js').StoredCommand[]} */
-    let currentCommands = [];
-    if (currentAlias && Array.isArray(currentAlias.commands)) {
-      currentCommands = [...currentAlias.commands];
-    }
-
-    // Normalize commands to canonical strings
-    const commandsToAdd = Array.isArray(command)
-      ? normalizeToStringArray(command)
-      : [normalizeToString(command)];
-
-    // Filter out empty commands
-    const validCommands = commandsToAdd.filter((cmd) => cmd.length > 0);
-    if (validCommands.length === 0) {
-      console.warn("CommandService: No valid commands to add");
-      return false;
-    }
-
-    // Add normalized commands to current list
-    currentCommands.push(...validCommands);
-
-    // ----- Key-bind -----
-    let currentKeys = [];
-    if (useBindset) {
-      currentKeys =
-        profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[
-          key
-        ] || [];
-    } else {
-      currentKeys = this.cache.keys[key] || [];
-    }
-
-    // Use the same normalized commands for keybinds
-    const newKeys = [...currentKeys, ...validCommands];
-
-    try {
-      // Build explicit operations object
-      /** @type {import('./serviceTypes.js').ProfileOperations} */
-      const ops = {};
-      if (this.cache.currentEnvironment === "alias") {
-        const aliasExists = !!profile.aliases?.[key];
-        if (aliasExists) {
-          ops.modify = {
-            aliases: {
-              [key]: {
-                ...(profile.aliases[key] || {}),
-                commands: currentCommands, // Use array format
-              },
-            },
-          };
-        } else {
-          ops.add = {
-            aliases: {
-              [key]: {
-                commands: currentCommands,
-                description: "",
-                type: "alias",
-              },
-            },
-          };
-        }
-      } else if (!useBindset) {
-        const keyExists =
-          !!profile.builds?.[this.cache.currentEnvironment]?.keys?.[key];
-        if (keyExists) {
-          ops.modify = {
-            builds: {
-              [this.cache.currentEnvironment]: {
-                keys: { [key]: newKeys },
-              },
-            },
-          };
-        } else {
-          ops.add = {
-            builds: {
-              [this.cache.currentEnvironment]: {
-                keys: { [key]: newKeys },
-              },
-            },
-          };
-        }
-      } else {
-        // Bindset path
-        const bindsetExists = !!profile.bindsets?.[bindset];
-        const envExists =
-          !!profile.bindsets?.[bindset]?.[this.cache.currentEnvironment];
-        // If bindset or environment does not exist, use add; otherwise always use modify
-        if (!bindsetExists || !envExists) {
-          ops.add = {
-            bindsets: {
-              [bindset]: {
-                [this.cache.currentEnvironment]: {
-                  keys: { [key]: newKeys },
-                },
-              },
-            },
-          };
-        } else {
-          ops.modify = {
-            bindsets: {
-              [bindset]: {
-                [this.cache.currentEnvironment]: {
-                  keys: { [key]: newKeys },
-                },
-              },
-            },
-          };
-        }
-      }
-
-      await this.request("data:update-profile", {
-        profileId,
-        ...ops,
-      });
-
-      this.emit("command-added", { key, command });
-      return true;
-    } catch (error) {
-      console.error("Failed to add command:", error);
-      this.ui?.showToast?.("Failed to add command", "error");
-      return false;
-    }
+    return this._runCommandMutation(
+      { type: "add", key, command, bindset },
+      {
+        operation: "add",
+        notifyMissingProfile: true,
+        notifyStorageFailure: true,
+      },
+    );
   }
 
-  // Delete command
   /**
    * @param {string} key
    * @param {number} index
    * @param {string | null} bindset
    */
   async deleteCommand(key, index, bindset = null) {
-    // Determine if we should use a bindset (when bindset is specified and not in alias mode)
-    const useBindset =
-      bindset &&
-      bindset !== "Primary Bindset" &&
-      this.cache.currentEnvironment !== "alias";
-
-    const profile = this.getCurrentProfile();
-    if (!profile) return false;
-    const profileId = this.cache.currentProfile;
-    if (!profileId) return false;
-
     if (!key || index === undefined) return false;
-
-    const isAliasContext =
-      this.cache.currentEnvironment === "alias" ||
-      (this.cache.aliases &&
-        Object.prototype.hasOwnProperty.call(this.cache.aliases, key));
-
-    let payload = null;
-    /** @type {import('./serviceTypes.js').StoredCommand[]} */
-    let updatedCommands = []; // capture latest commands for event emission
-
-    if (isAliasContext) {
-      const aliasObj = this.cache.aliases[key];
-      if (!aliasObj || !Array.isArray(aliasObj.commands)) return false;
-
-      const commandsArr = [...aliasObj.commands];
-
-      if (index < 0 || index >= commandsArr.length) return false;
-
-      commandsArr.splice(index, 1);
-
-      // Store for later emission
-      updatedCommands = [...commandsArr];
-
-      // Always use modify to preserve empty aliases - don't auto-delete when commands become empty
-      payload = {
-        modify: {
-          aliases: {
-            [key]: {
-              ...aliasObj,
-              commands: commandsArr, // Preserve empty array instead of deleting alias
-            },
-          },
-        },
-      };
-    } else {
-      // Fetch commands from appropriate location depending on active bindset
-      const keyCommands = useBindset
-        ? profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[
-            key
-          ] || []
-        : this.cache.keys[key] || [];
-
-      if (!keyCommands[index]) return false;
-
-      const newKeyCommands = [...keyCommands];
-      newKeyCommands.splice(index, 1);
-
-      // Store for later emission
-      updatedCommands = [...newKeyCommands];
-
-      // Build explicit operations
-      if (useBindset) {
-        payload = {
-          modify: {
-            bindsets: {
-              [bindset]: {
-                [this.cache.currentEnvironment]: {
-                  keys: { [key]: newKeyCommands },
-                },
-              },
-            },
-          },
-        };
-      } else {
-        // Always use modify to preserve empty keys - don't auto-delete when commands become empty
-        payload = {
-          modify: {
-            builds: {
-              [this.cache.currentEnvironment]: {
-                keys: { [key]: newKeyCommands }, // Preserve empty array instead of deleting key
-              },
-            },
-          },
-        };
-      }
-    }
-
-    if (!payload) return false;
-
-    try {
-      await this.request("data:update-profile", {
-        profileId,
-        ...payload,
-      });
-
-      // Emit event with the commands we just computed
-      this.emit("command-deleted", { key, index, commands: updatedCommands });
-      return true;
-    } catch (error) {
-      console.error("Failed to delete command:", error);
-      this.ui?.showToast?.("Failed to delete command", "error");
-      return false;
-    }
+    return this._runCommandMutation(
+      { type: "delete", key, index, bindset },
+      { operation: "delete", notifyStorageFailure: true },
+    );
   }
 
-  // Move command
   /**
    * @param {string} key
    * @param {number} fromIndex
@@ -379,110 +266,12 @@ export default class CommandService extends ComponentBase {
    * @param {string | null} bindset
    */
   async moveCommand(key, fromIndex, toIndex, bindset = null) {
-    const useBindset =
-      bindset &&
-      bindset !== "Primary Bindset" &&
-      this.cache.currentEnvironment !== "alias";
-
-    const profile = this.getCurrentProfile();
-    if (!profile) return false;
-    const profileId = this.cache.currentProfile;
-    if (!profileId) return false;
-
-    let payload = null;
-
-    if (this.cache.currentEnvironment === "alias") {
-      const aliasObj = this.cache.aliases && this.cache.aliases[key];
-      if (!aliasObj || !Array.isArray(aliasObj.commands)) return false;
-
-      const commandsArr = [...aliasObj.commands];
-
-      if (
-        fromIndex < 0 ||
-        fromIndex >= commandsArr.length ||
-        toIndex < 0 ||
-        toIndex >= commandsArr.length
-      )
-        return false;
-
-      const [moved] = commandsArr.splice(fromIndex, 1);
-      commandsArr.splice(toIndex, 0, moved);
-
-      payload = {
-        modify: {
-          aliases: {
-            [key]: {
-              ...aliasObj,
-              commands: commandsArr, // Keep as array in new format
-            },
-          },
-        },
-      };
-    } else {
-      const keyCmds = useBindset
-        ? profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[
-            key
-          ] || []
-        : this.cache.keys[key] || [];
-
-      if (
-        fromIndex < 0 ||
-        fromIndex >= keyCmds.length ||
-        toIndex < 0 ||
-        toIndex >= keyCmds.length
-      )
-        return false;
-
-      const newCmds = [...keyCmds];
-      const [moved] = newCmds.splice(fromIndex, 1);
-      newCmds.splice(toIndex, 0, moved);
-
-      if (useBindset) {
-        payload = {
-          modify: {
-            bindsets: {
-              [bindset]: {
-                [this.cache.currentEnvironment]: {
-                  keys: { [key]: newCmds },
-                },
-              },
-            },
-          },
-        };
-      } else {
-        payload = {
-          modify: {
-            builds: {
-              [this.cache.currentEnvironment]: {
-                keys: { [key]: newCmds },
-              },
-            },
-          },
-        };
-      }
-    }
-
-    try {
-      await this.request("data:update-profile", {
-        profileId,
-        ...payload,
-      });
-
-      const updatedCmds = await this.fetchCommandsForKey(key, bindset);
-      this.emit("command-moved", {
-        key,
-        fromIndex,
-        toIndex,
-        commands: updatedCmds,
-      });
-      return true;
-    } catch (error) {
-      console.error("Failed to move command:", error);
-      return false;
-    }
+    return this._runCommandMutation(
+      { type: "move", key, fromIndex, toIndex, bindset },
+      { operation: "move" },
+    );
   }
 
-  // Edit/Update a command at a specific index
   /**
    * @param {string} key
    * @param {number} index
@@ -496,101 +285,14 @@ export default class CommandService extends ComponentBase {
       );
       return false;
     }
-
-    const useBindset =
-      bindset &&
-      bindset !== "Primary Bindset" &&
-      this.cache.currentEnvironment !== "alias";
-
-    const profile = this.getCurrentProfile();
-    if (!profile) {
-      this.ui?.showToast?.("No valid profile", "error");
-      return false;
-    }
-    const profileId = this.cache.currentProfile;
-    if (!profileId) return false;
-
-    let payload = null;
-
-    if (this.cache.currentEnvironment === "alias") {
-      const aliasObj = this.cache.aliases[key];
-      if (!aliasObj || !Array.isArray(aliasObj.commands)) return false;
-
-      const commandsArr = [...aliasObj.commands];
-
-      if (index < 0 || index >= commandsArr.length) return false;
-
-      // Normalize updated command to string
-      const commandString = normalizeToString(updatedCommand);
-      commandsArr[index] = commandString;
-
-      payload = {
-        modify: {
-          aliases: {
-            [key]: {
-              ...aliasObj,
-              commands: commandsArr, // Keep as array in new format
-            },
-          },
-        },
-      };
-    } else {
-      const keyCmds = useBindset
-        ? profile.bindsets?.[bindset]?.[this.cache.currentEnvironment]?.keys?.[
-            key
-          ] || []
-        : this.cache.keys[key] || [];
-
-      if (index < 0 || index >= keyCmds.length) return false;
-
-      const newCmds = [...keyCmds];
-      // Normalize updated command to string for keybinds too
-      newCmds[index] = normalizeToString(updatedCommand);
-
-      if (useBindset) {
-        payload = {
-          modify: {
-            bindsets: {
-              [bindset]: {
-                [this.cache.currentEnvironment]: {
-                  keys: { [key]: newCmds },
-                },
-              },
-            },
-          },
-        };
-      } else {
-        payload = {
-          modify: {
-            builds: {
-              [this.cache.currentEnvironment]: {
-                keys: { [key]: newCmds },
-              },
-            },
-          },
-        };
-      }
-    }
-
-    try {
-      await this.request("data:update-profile", {
-        profileId,
-        ...payload,
-      });
-
-      const updatedCmds = await this.fetchCommandsForKey(key, bindset);
-      this.emit("command-edited", {
-        key,
-        index,
-        updatedCommand,
-        commands: updatedCmds,
-      });
-      return true;
-    } catch (error) {
-      console.error("Failed to edit command:", error);
-      this.ui?.showToast?.("Failed to update command", "error");
-      return false;
-    }
+    return this._runCommandMutation(
+      { type: "edit", key, index, updatedCommand, bindset },
+      {
+        operation: "edit",
+        notifyMissingProfile: true,
+        notifyStorageFailure: true,
+      },
+    );
   }
 
   // Set up event listeners for DataCoordinator integration
@@ -611,6 +313,7 @@ export default class CommandService extends ComponentBase {
 
   // Cleanup method to detach all request/response handlers
   onDestroy() {
+    this._mutationGeneration += 1;
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach((detach) => {
         if (typeof detach === "function") {
@@ -618,24 +321,6 @@ export default class CommandService extends ComponentBase {
         }
       });
       this._responseDetachFunctions = [];
-    }
-  }
-
-  // Helper: fetch latest commands for a key taking bindset into account
-  /**
-   * @param {string} key
-   * @param {string | null} bindset
-   */
-  async fetchCommandsForKey(key, bindset = null) {
-    try {
-      return getSnapshotCommands(
-        this.cache.dataState,
-        this.cache.currentEnvironment,
-        key,
-        bindset,
-      );
-    } catch {
-      return [];
     }
   }
 
@@ -774,83 +459,11 @@ export default class CommandService extends ComponentBase {
     return normalizedCommands;
   }
 
-  // Generate mirrored command string for stabilization
-  /** @param {import('./serviceTypes.js').StoredCommand[]} commands */
-  async generateMirroredCommandString(commands) {
-    return await this.generateMirroredCommands(commands);
-  }
-
   // Generate mirrored command string for execution order stabilization with TrayExec-aware palindromic generation
   /** @param {import('./serviceTypes.js').StoredCommand[]} [commands] */
   async generateMirroredCommands(commands = []) {
-    // Accept either an array of command objects or plain strings.
     if (!Array.isArray(commands) || commands.length === 0) return "";
-
-    // Normalise to command objects first
-    /** @type {Array<import('./serviceTypes.js').RichCommand & { command: string }>} */
-    const cmdObjects = [];
-    for (const command of commands) {
-      if (typeof command === "string") {
-        cmdObjects.push({ command });
-      } else if (command && typeof command.command === "string") {
-        cmdObjects.push({ ...command, command: command.command });
-      }
-    }
-
-    if (cmdObjects.length <= 1) {
-      const normalized = await this.normalizeCommandsForDisplay(cmdObjects);
-      return normalized.join(" $$ ");
-    }
-
-    // Apply TrayExec-aware palindromic generation
-    /** @type {string[]} */
-    const beforePrePivot = []; // Non-TrayExec + excluded TrayExec (before)
-    /** @type {string[]} */
-    const palindromic = []; // TrayExec for mirroring (pre-pivot candidates)
-    /** @type {string[]} */
-    const pivotGroup = []; // Excluded TrayExec (in pivot)
-
-    cmdObjects.forEach((cmd) => {
-      const cmdStr = cmd.command;
-      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/);
-      const isExcluded = cmd.palindromicGeneration === false;
-
-      if (!isTrayExec) {
-        beforePrePivot.push(cmdStr); // Non-TrayExec first
-      } else if (isExcluded) {
-        if (cmd.placement === "in-pivot-group") {
-          pivotGroup.push(cmdStr);
-        } else {
-          beforePrePivot.push(cmdStr); // before-pre-pivot
-        }
-      } else {
-        palindromic.push(cmdStr); // Normal TrayExec palindrome
-      }
-    });
-
-    // Determine pivot/pivot group + pre-pivot
-    /** @type {string[]} */
-    let pivot = [];
-    let prePivot = palindromic;
-
-    if (pivotGroup.length > 0) {
-      pivot = pivotGroup; // Use specified pivot group
-    } else if (palindromic.length > 0) {
-      pivot = [palindromic[palindromic.length - 1]]; // Last item becomes pivot
-      prePivot = palindromic.slice(0, -1); // All others are pre-pivot
-    }
-
-    const postPivot = [...prePivot].reverse(); // Mirror pre-pivot to create post-pivot
-
-    // Build final sequence: [non-TrayExec + before-pre-pivot] + [pre-pivot] + [pivot] + [post-pivot]
-    const finalCommands = [
-      ...beforePrePivot,
-      ...prePivot,
-      ...pivot,
-      ...postPivot,
-    ];
-
-    // Apply normalization before returning
+    const finalCommands = planMirroredCommandSequence(commands);
     const normalizedStrings = await this.normalizeCommandsForDisplay(
       finalCommands.map((cmd) => ({ command: cmd })),
     );

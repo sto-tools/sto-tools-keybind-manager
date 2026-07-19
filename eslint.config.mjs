@@ -8,9 +8,7 @@ import applicationGlobalsPlugin from "./scripts/eslint/applicationGlobals.mjs";
 // until every entry reaches the repository-wide 500-line policy.
 const legacyMaxLineLimits = {
   "src/js/components/services/CommandChainService.js": 607,
-  "src/js/components/services/CommandService.js": 804,
   "src/js/components/services/DataCoordinator.js": 928,
-  "src/js/components/services/ExportService.js": 547,
   "src/js/components/services/ParameterCommandService.js": 550,
   "src/js/components/services/SelectionService.js": 704,
   "src/js/components/ui/CommandChainUI.js": 1578,

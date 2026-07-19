@@ -1,91 +1,34 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import CommandService from "../../../src/js/components/services/CommandService.js";
+import { respond } from "../../../src/js/core/requestResponse.js";
+import { createServiceFixture } from "../../fixtures/index.js";
 
 describe("CommandService Palindromic Enhancement", () => {
-  // Mock CommandService instance for testing
-  class MockCommandService {
-    constructor() {
-      this.commandDisplayAdapter = {
-        normalizeCommandsForDisplay: async (commands) => {
-          return commands.map((cmd) => cmd.command);
-        },
-      };
-    }
+  let fixture;
+  let service;
+  let detachParser;
 
-    async generateMirroredCommands(commands = []) {
-      // Accept either an array of command objects or plain strings.
-      if (!Array.isArray(commands) || commands.length === 0) return "";
+  beforeEach(() => {
+    fixture = createServiceFixture();
+    service = new CommandService({
+      eventBus: fixture.eventBus,
+      i18n: { t: (key) => key },
+    });
+    service.init();
+    detachParser = respond(
+      fixture.eventBus,
+      "parser:parse-command-string",
+      ({ commandString }) => ({ commands: [{ command: commandString }] }),
+    );
+  });
 
-      // Normalise to command objects first
-      const cmdObjects = commands
-        .map((c) => {
-          if (typeof c === "string") return { command: c };
-          if (c && typeof c.command === "string") return c;
-          return null;
-        })
-        .filter(Boolean);
-
-      if (cmdObjects.length <= 1) {
-        const normalized =
-          await this.commandDisplayAdapter.normalizeCommandsForDisplay(
-            cmdObjects,
-          );
-        return normalized.join(" $$ ");
-      }
-
-      // Apply TrayExec-aware palindromic generation
-      const beforePrePivot = []; // Non-TrayExec + excluded TrayExec (before)
-      const palindromic = []; // TrayExec for mirroring (pre-pivot candidates)
-      const pivotGroup = []; // Excluded TrayExec (in pivot)
-
-      cmdObjects.forEach((cmd) => {
-        const cmdStr = cmd.command;
-        const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/);
-        const isExcluded = cmd.palindromicGeneration === false;
-
-        if (!isTrayExec) {
-          beforePrePivot.push(cmdStr); // Non-TrayExec first
-        } else if (isExcluded) {
-          if (cmd.placement === "in-pivot-group") {
-            pivotGroup.push(cmdStr);
-          } else {
-            beforePrePivot.push(cmdStr); // before-pre-pivot
-          }
-        } else {
-          palindromic.push(cmdStr); // Normal TrayExec palindrome
-        }
-      });
-
-      // Determine pivot/pivot group + pre-pivot
-      let pivot = [];
-      let prePivot = palindromic;
-
-      if (pivotGroup.length > 0) {
-        pivot = pivotGroup; // Use specified pivot group
-      } else if (palindromic.length > 0) {
-        pivot = [palindromic[palindromic.length - 1]]; // Last item becomes pivot
-        prePivot = palindromic.slice(0, -1); // All others are pre-pivot
-      }
-
-      const postPivot = [...prePivot].reverse(); // Mirror pre-pivot to create post-pivot
-
-      // Build final sequence: [non-TrayExec + before-pre-pivot] + [pre-pivot] + [pivot] + [post-pivot]
-      const finalCommands = [
-        ...beforePrePivot,
-        ...prePivot,
-        ...pivot,
-        ...postPivot,
-      ];
-
-      // Apply normalization before returning
-      const normalizedStrings =
-        await this.commandDisplayAdapter.normalizeCommandsForDisplay(
-          finalCommands.map((cmd) => ({ command: cmd })),
-        );
-      return normalizedStrings.join(" $$ ");
-    }
-  }
-
-  const service = new MockCommandService();
+  afterEach(() => {
+    detachParser();
+    if (!service.destroyed) service.destroy();
+    fixture.destroy();
+    vi.restoreAllMocks();
+  });
 
   describe("Basic functionality", () => {
     it("should return empty string for empty input", async () => {
@@ -304,10 +247,10 @@ describe("CommandService Palindromic Enhancement", () => {
       );
     });
 
-    it("should handle empty string commands", async () => {
+    it("drops empty command strings", async () => {
       const commands = ["", "+TrayExecByTray 1 0"];
       const result = await service.generateMirroredCommands(commands);
-      expect(result).toEqual(" $$ +TrayExecByTray 1 0");
+      expect(result).toEqual("+TrayExecByTray 1 0");
     });
 
     it("should handle rich objects without command property", async () => {
@@ -362,8 +305,9 @@ describe("CommandService Palindromic Enhancement", () => {
 
   describe("Command normalization integration", () => {
     it("should call normalizeCommandsForDisplay with proper structure", async () => {
-      const mockNormalize = vi.fn().mockResolvedValue(["cmd1", "cmd2"]);
-      service.commandDisplayAdapter.normalizeCommandsForDisplay = mockNormalize;
+      const mockNormalize = vi
+        .spyOn(service, "normalizeCommandsForDisplay")
+        .mockResolvedValue(["cmd1", "cmd2"]);
 
       const commands = ["+TrayExecByTray 1 0", "+TrayExecByTray 1 1"];
       await service.generateMirroredCommands(commands);
@@ -376,8 +320,9 @@ describe("CommandService Palindromic Enhancement", () => {
     });
 
     it("should handle normalizeCommandsForDisplay for single command", async () => {
-      const mockNormalize = vi.fn().mockResolvedValue(["Target_Enemy_Near"]);
-      service.commandDisplayAdapter.normalizeCommandsForDisplay = mockNormalize;
+      const mockNormalize = vi
+        .spyOn(service, "normalizeCommandsForDisplay")
+        .mockResolvedValue(["Target_Enemy_Near"]);
 
       const commands = ["Target_Enemy_Near"];
       await service.generateMirroredCommands(commands);

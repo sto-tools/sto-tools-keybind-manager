@@ -4,6 +4,7 @@ import { normalizeToOptimizedString } from "../../lib/commandDisplayAdapter.js";
 import { projectVirtualVFXAliases } from "./vfxAliasProjection.js";
 import { getSnapshotProfile } from "./dataState.js";
 import { materializeSyncProject } from "./syncProjectMaterializer.js";
+import { planMirroredCommandSequence } from "./commandTransformationPlanner.js";
 
 /** @type {{ settings?: { version?: string } }} */
 const STO_DATA =
@@ -263,7 +264,7 @@ export default class ExportService extends ComponentBase {
           profile.keybindMetadata[environment][key].stabilizeExecutionOrder;
 
         if (shouldStabilize && Array.isArray(cmds) && cmds.length > 1) {
-          cmds = this.mirrorCommands(cmds, shouldStabilize);
+          cmds = planMirroredCommandSequence(cmds);
         }
 
         // Optimise each command string
@@ -333,7 +334,7 @@ export default class ExportService extends ComponentBase {
             Array.isArray(commands) &&
             commands.length > 1
           ) {
-            cmds = this.mirrorCommands(commands, shouldStabilize);
+            cmds = planMirroredCommandSequence(commands);
           }
 
           // Store as generated alias
@@ -393,7 +394,7 @@ export default class ExportService extends ComponentBase {
                 .stabilizeExecutionOrder;
 
             if (shouldStabilize && cmds.length > 1) {
-              cmds = this.mirrorCommands(cmds, shouldStabilize);
+              cmds = planMirroredCommandSequence(cmds);
             }
 
             const aliasName = await this.generateBindsetAliasName(
@@ -667,78 +668,6 @@ export default class ExportService extends ComponentBase {
     }
 
     return {};
-  }
-
-  /* helper to mirror command strings array with TrayExec-aware palindromic generation */
-  /**
-   * @param {import('./serviceTypes.js').StoredCommand[]} commands
-   * @param {boolean} stabilize
-   * @param {boolean} includePostPivot
-   */
-  mirrorCommands(commands, stabilize = false, includePostPivot = true) {
-    if (!Array.isArray(commands) || commands.length <= 1) {
-      // For single commands or non-stabilized mode, just extract command strings
-      return commands
-        .map((cmd) => (typeof cmd === "string" ? cmd : cmd.command || ""))
-        .filter(Boolean);
-    }
-
-    if (!stabilize) {
-      // No stabilization - just extract command strings
-      return commands
-        .map((cmd) => (typeof cmd === "string" ? cmd : cmd.command || ""))
-        .filter(Boolean);
-    }
-
-    /** @type {string[]} */
-    const beforePrePivot = []; // Non-TrayExec + excluded TrayExec (before)
-    /** @type {string[]} */
-    const palindromic = []; // TrayExec for mirroring (pre-pivot candidates)
-    /** @type {string[]} */
-    const pivotGroup = []; // Excluded TrayExec (in pivot)
-
-    commands.forEach((cmd) => {
-      const cmdStr = typeof cmd === "string" ? cmd : cmd.command;
-      if (!cmdStr) return;
-      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/);
-      const isExcluded =
-        typeof cmd === "object" && cmd.palindromicGeneration === false;
-
-      if (!isTrayExec) {
-        beforePrePivot.push(cmdStr); // Non-TrayExec first
-      } else if (isExcluded) {
-        if (cmd.placement === "in-pivot-group") {
-          pivotGroup.push(cmdStr);
-        } else {
-          beforePrePivot.push(cmdStr); // before-pre-pivot
-        }
-      } else {
-        palindromic.push(cmdStr); // Normal TrayExec palindrome
-      }
-    });
-
-    // Determine pivot/pivot group + pre-pivot
-    /** @type {string[]} */
-    let pivot = [];
-    let prePivot = palindromic;
-
-    if (pivotGroup.length > 0) {
-      pivot = pivotGroup; // Use specified pivot group
-    } else if (palindromic.length > 0) {
-      pivot = [palindromic[palindromic.length - 1]]; // Last item becomes pivot
-      prePivot = palindromic.slice(0, -1); // All others are pre-pivot
-    }
-
-    // Build sequence: [non-TrayExec + before-pre-pivot] + [pre-pivot] + [pivot]
-    let result = [...beforePrePivot, ...prePivot, ...pivot];
-
-    // Optionally add post-pivot mirror
-    if (includePostPivot) {
-      const postPivot = [...prePivot].reverse(); // Mirror pre-pivot to create post-pivot
-      result = [...result, ...postPivot];
-    }
-
-    return result;
   }
 
   // Late-join state sync
