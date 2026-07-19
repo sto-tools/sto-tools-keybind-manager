@@ -131,6 +131,7 @@ describe("KBF import browser boundary", () => {
     const beforeSettings = localStorage.getItem(storage.settingsKey);
     const beforeProfile = structuredClone(beforeState.profiles[profileId]);
     const originalBindsetsEnabled = consumer.cache.preferences.bindsetsEnabled;
+    const originalLanguage = window.i18next.language;
     let input = null;
 
     try {
@@ -170,16 +171,37 @@ describe("KBF import browser boundary", () => {
       input.dispatchEvent(new Event("change", { bubbles: true }));
 
       await vi.waitFor(() => {
-        expect(document.querySelector("#importModal.active")).toBeInstanceOf(
-          HTMLDivElement,
-        );
+        const decision = document.getElementById("importModal");
+        expect(decision).toBeInstanceOf(HTMLDivElement);
+        expect(decision?.classList).toContain("active");
       });
-      const overwrite = document.querySelector(
-        '#importModal input[name="import-strategy"][value="merge_overwrite"]',
+      const decisionPredecessor = document.getElementById("importModal");
+      const staleEnvironmentButton = decisionPredecessor.querySelector(
+        `.import-${environment}`,
+      );
+      const overwrite = decisionPredecessor.querySelector(
+        'input[name="import-strategy"][value="merge_overwrite"]',
       );
       expect(overwrite).toBeInstanceOf(HTMLInputElement);
       overwrite.checked = true;
-      document.querySelector(`.import-${environment}`).click();
+      await window.i18next.changeLanguage(
+        originalLanguage === "de" ? "en" : "de",
+      );
+      const decisionReplacement = document.getElementById("importModal");
+      expect(decisionReplacement).not.toBe(decisionPredecessor);
+      expect(decisionPredecessor.isConnected).toBe(false);
+      expect(decisionReplacement.classList).toContain("active");
+      expect(
+        decisionReplacement.querySelector(
+          'input[name="import-strategy"][value="merge_overwrite"]',
+        ).checked,
+      ).toBe(true);
+      staleEnvironmentButton.click();
+      expect(document.getElementById("importModal")).toBe(decisionReplacement);
+      expect(
+        document.getElementById("enhancedBindsetSelectionModal"),
+      ).toBeNull();
+      decisionReplacement.querySelector(`.import-${environment}`).click();
 
       await vi.waitFor(() => {
         expect(
@@ -249,6 +271,7 @@ describe("KBF import browser boundary", () => {
       );
       expect(document.body.classList).not.toContain("modal-open");
     } finally {
+      await window.i18next.changeLanguage(originalLanguage);
       if (typeof originalBindsetsEnabled === "boolean") {
         await request(bus, "preferences:set-setting", {
           key: "bindsetsEnabled",
@@ -278,6 +301,81 @@ describe("KBF import browser boundary", () => {
       input?.remove();
       document.getElementById("importModal")?.remove();
       document.getElementById("enhancedBindsetSelectionModal")?.remove();
+    }
+  });
+
+  it("settles Escape and overlay import cancellation without durable effects", async () => {
+    const bus = window.eventBus;
+    const storage = window.storageService;
+    const coordinator = window.dataCoordinator;
+    const beforeState = coordinator?.getCurrentState?.();
+    expect(bus).toBeTruthy();
+    expect(storage).toBeTruthy();
+    expect(beforeState?.ready).toBe(true);
+    if (!bus || !storage || !coordinator || !beforeState?.ready) return;
+
+    const profileId = beforeState.currentProfile;
+    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeProfile = structuredClone(beforeState.profiles[profileId]);
+    const requests = [];
+    const detach = bus.on("rpc:import:keybind-file", ({ payload }) => {
+      requests.push(payload);
+    });
+
+    try {
+      for (const cancellation of ["Escape", "overlay"]) {
+        document.getElementById("importMenuBtn").click();
+        document.getElementById("importKeybindsBtn").click();
+        const input = document.querySelector(
+          'input[type="file"][accept=".txt"]',
+        );
+        expect(input).toBeInstanceOf(HTMLInputElement);
+        Object.defineProperty(input, "files", {
+          configurable: true,
+          value: [new File(['F12 "FireAll"'], `${cancellation}.txt`)],
+        });
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+
+        await vi.waitFor(() => {
+          const modal = document.getElementById("importModal");
+          expect(modal).toBeInstanceOf(HTMLDivElement);
+          expect(modal?.classList).toContain("active");
+        });
+        if (cancellation === "Escape") {
+          document.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+          );
+        } else {
+          document.getElementById("modalOverlay").click();
+        }
+
+        await vi.waitFor(() => {
+          expect(input.isConnected).toBe(false);
+          expect(document.getElementById("importModal")).toBeNull();
+        });
+        expect(document.getElementById("modalOverlay").classList).not.toContain(
+          "active",
+        );
+        expect(document.body.classList).not.toContain("modal-open");
+      }
+
+      expect(requests).toEqual([]);
+      expect(coordinator.getCurrentState().revision).toBe(beforeState.revision);
+      expect(storage.getProfile(profileId)).toEqual(beforeProfile);
+      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    } finally {
+      detach();
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      for (const input of document.querySelectorAll('input[type="file"]')) {
+        input.remove();
+      }
+      document.getElementById("importModal")?.remove();
+      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
+      else localStorage.setItem(storage.storageKey, beforeRoot);
+      storage.getAllData(true);
+      await request(bus, "data:reload-state");
     }
   });
 

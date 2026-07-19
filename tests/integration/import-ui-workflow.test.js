@@ -156,6 +156,35 @@ describe("ImportUI workflow integration", () => {
   const selectKeybindFile = (content) =>
     selectImportFile("keybinds", content, "keybinds.txt");
 
+  async function recreateImportUIWithModalManager() {
+    importUI.destroy();
+    modalManager = new ModalManagerService({
+      eventBus: eventBusFixture.eventBus,
+      i18n: i18nFixture.i18n,
+    });
+    modalManager.init();
+    importUI = new ImportUI({
+      eventBus: eventBusFixture.eventBus,
+      document,
+      i18n: i18nFixture.i18n,
+      modalManager,
+    });
+    importUI.init();
+    await vi.waitFor(() => {
+      expect(importUI.cache.dataState?.ready).toBe(true);
+      expect(importUI.cache.preferences.bindsetsEnabled).toBe(true);
+    });
+  }
+
+  async function waitForModal(modalId, active = false) {
+    await vi.waitFor(() => {
+      const modal = document.getElementById(modalId);
+      expect(modal).toBeInstanceOf(HTMLDivElement);
+      if (active) expect(modal?.classList).toContain("active");
+    });
+    return /** @type {HTMLDivElement} */ (document.getElementById(modalId));
+  }
+
   it("imports a selected file through ImportUI and the real RPC owner chain", async () => {
     const requests = [];
     const toasts = [];
@@ -165,11 +194,7 @@ describe("ImportUI workflow integration", () => {
     eventBusFixture.eventBus.on("toast:show", (toast) => toasts.push(toast));
 
     const input = await selectKeybindFile('F1 "FireAll"');
-    await vi.waitFor(() => {
-      expect(document.querySelector("#importModal")).toBeInstanceOf(
-        HTMLDivElement,
-      );
-    });
+    await waitForModal("importModal");
     document.querySelector(".import-ground").click();
 
     await vi.waitFor(() => {
@@ -198,7 +223,8 @@ describe("ImportUI workflow integration", () => {
     ]);
   });
 
-  it("cancels at the decision modal and removes every transient UI node", async () => {
+  it("settles a real overlay cancellation and removes every transient UI node", async () => {
+    await recreateImportUIWithModalManager();
     const requests = [];
     const toasts = [];
     eventBusFixture.eventBus.on("rpc:import:keybind-file", ({ payload }) => {
@@ -207,46 +233,166 @@ describe("ImportUI workflow integration", () => {
     eventBusFixture.eventBus.on("toast:show", (toast) => toasts.push(toast));
 
     const beforeProfile = structuredClone(storage.getProfile(profileId));
+    const beforeRevision = coordinator.getCurrentState().revision;
     const input = await selectKeybindFile('F2 "Target_Enemy_Near"');
-    await vi.waitFor(() => {
-      expect(document.querySelector("#importModal")).toBeInstanceOf(
-        HTMLDivElement,
-      );
-    });
-    document.querySelector(".import-cancel").click();
+    await waitForModal("importModal", true);
+    document.getElementById("modalOverlay").click();
 
     await vi.waitFor(() => {
       expect(input.isConnected).toBe(false);
       expect(document.querySelector("#importModal")).toBeNull();
     });
 
-    expect(importUI.currentImportModal).toBeNull();
+    expect(modalManager.regenerateCallbacks.importModal).toBeUndefined();
+    expect(document.getElementById("modalOverlay").classList).not.toContain(
+      "active",
+    );
+    expect(document.body.classList).not.toContain("modal-open");
     expect(requests).toEqual([]);
     expect(toasts).toEqual([]);
+    expect(coordinator.getCurrentState().revision).toBe(beforeRevision);
     expect(storage.getProfile(profileId)).toEqual(beforeProfile);
     expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
       beforeProfile,
     );
   });
 
-  it("preserves an enhanced KBF draft through regeneration and commits its canonical configuration", async () => {
-    importUI.destroy();
-    modalManager = new ModalManagerService({
-      eventBus: eventBusFixture.eventBus,
-      i18n: i18nFixture.i18n,
-    });
-    modalManager.init();
-    importUI = new ImportUI({
-      eventBus: eventBusFixture.eventBus,
-      document,
-      i18n: i18nFixture.i18n,
-      modalManager,
-    });
-    importUI.init();
-    await vi.waitFor(() => {
-      expect(importUI.cache.dataState?.ready).toBe(true);
-      expect(importUI.cache.preferences.bindsetsEnabled).toBe(true);
-    });
+  it("makes a superseded decision modal and its regeneration callback inert", async () => {
+    await recreateImportUIWithModalManager();
+    const requests = [];
+    const detachRequest = eventBusFixture.eventBus.on(
+      "rpc:import:keybind-file",
+      ({ payload }) => requests.push(payload),
+    );
+    const beforeRevision = coordinator.getCurrentState().revision;
+    const beforeProfile = structuredClone(storage.getProfile(profileId));
+    const predecessorInput = await selectKeybindFile('F3 "FireAll"');
+
+    const predecessor = await waitForModal("importModal", true);
+    const staleButton = predecessor.querySelector(".import-space");
+    const staleRegenerate = modalManager.regenerateCallbacks.importModal;
+
+    await importUI.openFileDialog("aliases");
+
+    const replacementInput = document.querySelector(
+      'input[type="file"][accept=".txt"]',
+    );
+    expect(replacementInput).toBeInstanceOf(HTMLInputElement);
+    expect(replacementInput).not.toBe(predecessorInput);
+    expect(predecessorInput.isConnected).toBe(false);
+    expect(predecessor.isConnected).toBe(false);
+    expect(document.getElementById("importModal")).toBeNull();
+    expect(modalManager.regenerateCallbacks.importModal).toBeUndefined();
+
+    staleButton.click();
+    staleRegenerate();
+    expect(document.getElementById("importModal")).toBeNull();
+    expect(requests).toEqual([]);
+    replacementInput.dispatchEvent(new Event("cancel"));
+    expect(replacementInput.isConnected).toBe(false);
+    expect(coordinator.getCurrentState().revision).toBe(beforeRevision);
+    expect(storage.getProfile(profileId)).toEqual(beforeProfile);
+    detachRequest();
+  });
+
+  it("supersedes an active KBF modal with a cancellable replacement picker", async () => {
+    await recreateImportUIWithModalManager();
+    const importRequests = [];
+    const toasts = [];
+    const detachRequest = eventBusFixture.eventBus.on(
+      "rpc:import:kbf-file",
+      ({ payload }) => importRequests.push(payload),
+    );
+    const detachToast = eventBusFixture.eventBus.on("toast:show", (toast) =>
+      toasts.push(toast),
+    );
+    const beforeRevision = coordinator.getCurrentState().revision;
+    const beforeProfile = structuredClone(storage.getProfile(profileId));
+    const beforeDurable = localStorage.getItem("sto_keybind_manager");
+
+    const predecessorInput = await selectImportFile(
+      "kbf",
+      keysetKBF,
+      "keyset.KBF",
+    );
+    await waitForModal("importModal");
+    document
+      .getElementById("importModal")
+      ?.querySelector(".import-space")
+      ?.click();
+    const predecessor = await waitForModal(
+      "enhancedBindsetSelectionModal",
+      true,
+    );
+    const staleConfirm = /** @type {HTMLButtonElement} */ (
+      predecessor.querySelector(".enhanced-bindset-confirm")
+    );
+    const staleRow = /** @type {HTMLTableRowElement} */ (
+      predecessor.querySelector(".bindset-row")
+    );
+    const staleMapping = /** @type {HTMLSelectElement} */ (
+      staleRow.querySelector(".bindset-mapping-select")
+    );
+    const staleRegenerate =
+      modalManager.regenerateCallbacks.enhancedBindsetSelectionModal;
+    expect(staleConfirm).toBeInstanceOf(HTMLButtonElement);
+    expect(staleMapping).toBeInstanceOf(HTMLSelectElement);
+    expect(staleRegenerate).toBeTypeOf("function");
+    expect(staleRow.querySelector(".bindset-custom-cell")).toBeNull();
+
+    await importUI.openFileDialog("aliases");
+
+    const replacementInput = importUI.importFileSession.inputElement;
+    expect(replacementInput).toBeInstanceOf(HTMLInputElement);
+    expect(replacementInput?.accept).toBe(".txt");
+    expect(replacementInput).not.toBe(predecessorInput);
+    expect(predecessorInput.isConnected).toBe(false);
+    expect(predecessor.isConnected).toBe(false);
+    expect(importUI.kbfImportSession.currentSession).toBeNull();
+    expect(
+      modalManager.regenerateCallbacks.enhancedBindsetSelectionModal,
+    ).toBeUndefined();
+    expect(document.getElementById("modalOverlay").classList).not.toContain(
+      "active",
+    );
+    expect(document.body.classList).not.toContain("modal-open");
+
+    staleMapping.value = "mapped";
+    staleMapping.dispatchEvent(new Event("change", { bubbles: true }));
+    staleConfirm.click();
+    expect(staleRegenerate()).toBe(false);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(staleRow.querySelector(".bindset-custom-cell")).toBeNull();
+    expect(document.getElementById("enhancedBindsetSelectionModal")).toBeNull();
+    expect(importRequests).toEqual([]);
+    expect(toasts).toEqual([]);
+    expect(importUI.importFileSession.inputElement).toBe(replacementInput);
+    expect(importUI.importFileSession.isActive).toBe(true);
+    expect(replacementInput?.isConnected).toBe(true);
+    expect(document.querySelectorAll('input[type="file"]')).toHaveLength(1);
+
+    replacementInput?.dispatchEvent(new Event("cancel"));
+
+    expect(importUI.importFileSession.isActive).toBe(false);
+    expect(importUI.importFileSession.inputElement).toBeNull();
+    expect(replacementInput?.isConnected).toBe(false);
+    expect(document.querySelectorAll('input[type="file"]')).toHaveLength(0);
+    expect(coordinator.getCurrentState().revision).toBe(beforeRevision);
+    expect(storage.getProfile(profileId)).toEqual(beforeProfile);
+    expect(coordinator.getCurrentState().profiles[profileId]).toEqual(
+      beforeProfile,
+    );
+    expect(importUI.cache.dataState.profiles[profileId]).toEqual(beforeProfile);
+    expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeDurable);
+
+    detachRequest();
+    detachToast();
+  });
+
+  it("preserves decision and KBF drafts through regeneration and commits their canonical configuration", async () => {
+    await recreateImportUIWithModalManager();
 
     const importRequests = [];
     const toasts = [];
@@ -261,18 +407,33 @@ describe("ImportUI workflow integration", () => {
     const destination = "Regenerated Master";
 
     const input = await selectImportFile("kbf", keysetKBF, "keyset.KBF");
-    await vi.waitFor(() => {
-      const modal = document.getElementById("importModal");
-      expect(modal).toBeInstanceOf(HTMLDivElement);
-      expect(modal?.classList).toContain("active");
-    });
-    document.querySelector(".import-space").click();
+    const decisionPredecessor = await waitForModal("importModal", true);
+    const decisionPredecessorButton =
+      decisionPredecessor.querySelector(".import-space");
+    const overwrite = decisionPredecessor.querySelector(
+      'input[name="import-strategy"][value="merge_overwrite"]',
+    );
+    overwrite.checked = true;
+    const decisionRegenerate = modalManager.regenerateCallbacks.importModal;
+    expect(decisionRegenerate).toBeTypeOf("function");
 
-    await vi.waitFor(() => {
-      const modal = document.getElementById("enhancedBindsetSelectionModal");
-      expect(modal).toBeInstanceOf(HTMLDivElement);
-      expect(modal?.classList).toContain("active");
-    });
+    await i18nFixture.i18n.changeLanguage("de");
+
+    const decisionReplacement = document.getElementById("importModal");
+    expect(decisionReplacement).not.toBe(decisionPredecessor);
+    expect(decisionPredecessor.isConnected).toBe(false);
+    expect(decisionReplacement.classList).toContain("active");
+    expect(
+      decisionReplacement.querySelector(
+        'input[name="import-strategy"][value="merge_overwrite"]',
+      ).checked,
+    ).toBe(true);
+    decisionPredecessorButton.click();
+    expect(document.getElementById("importModal")).toBe(decisionReplacement);
+    expect(document.getElementById("enhancedBindsetSelectionModal")).toBeNull();
+    decisionReplacement.querySelector(".import-space").click();
+
+    await waitForModal("enhancedBindsetSelectionModal", true);
     expect(
       document.querySelectorAll("#enhancedBindsetSelectionModal"),
     ).toHaveLength(1);
@@ -307,7 +468,7 @@ describe("ImportUI workflow integration", () => {
         modal.classList.contains("active"),
       ),
     ).toEqual([predecessor]);
-    await i18nFixture.i18n.changeLanguage("de");
+    await i18nFixture.i18n.changeLanguage("fr");
 
     const regenerated = document.querySelector(
       "#enhancedBindsetSelectionModal",
@@ -343,7 +504,7 @@ describe("ImportUI workflow integration", () => {
       content: keysetKBF,
       profileId,
       environment: "space",
-      strategy: "merge_keep",
+      strategy: "merge_overwrite",
     });
     expect(importRequests[0].configuration).toEqual({
       selectedBindsets: [sourceName],
@@ -371,6 +532,7 @@ describe("ImportUI workflow integration", () => {
     expect(
       modalManager.regenerateCallbacks.enhancedBindsetSelectionModal,
     ).toBeUndefined();
+    expect(modalManager.regenerateCallbacks.importModal).toBeUndefined();
     expect(document.querySelector("#importModal")).toBeNull();
     expect(document.querySelector("#enhancedBindsetSelectionModal")).toBeNull();
     expect(document.getElementById("modalOverlay").classList).not.toContain(

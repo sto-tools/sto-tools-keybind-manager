@@ -1,11 +1,10 @@
 import UIComponentBase from "../UIComponentBase.js";
 import { getSnapshotProfile } from "../services/dataState.js";
 import { MAX_STO_TEXT_IMPORT_BYTES } from "../services/textImportBoundary.js";
+import ImportDecisionModalSession from "./importDecisionModalSession.js";
+import ImportFileSession from "./importFileSession.js";
 import { projectImportResultToast } from "./importResultMessages.js";
-import {
-  normalizeImportStrategy,
-  runImportWorkflow,
-} from "./importWorkflow.js";
+import { runImportWorkflow } from "./importWorkflow.js";
 import {
   createEnhancedKBFImportModal,
   createSingleKBFImportModal,
@@ -20,12 +19,8 @@ import { errorMessage, resolveDocument, resolveI18n } from "./uiTypes.js";
 /** @typedef {{ environment: ImportEnvironment, strategy: ImportStrategy }} EnvironmentImportConfig */
 /** @typedef {Extract<import('../../types/rpc/import-export.js').KBFParseForUiResult, { valid: true }>} ValidKBFParseResult */
 /** @typedef {import('../../types/kbf-boundary.js').KBFImportConfiguration} BindsetConfiguration */
-/** @typedef {(value: EnvironmentImportConfig | null) => void} EnvironmentResolver */
-/** @typedef {(value: ImportStrategy | null) => void} StrategyResolver */
-/** @typedef {(value: boolean) => void} ConfirmationResolver */
-/** @typedef {{ defaultEnv: string, importType: ImportType, additionalContext: ImportContext, resolve: EnvironmentResolver, modalElement: HTMLDivElement }} ImportModalState */
-/** @typedef {{ resolve: StrategyResolver, modalElement: HTMLDivElement }} AliasStrategyModalState */
-/** @typedef {{ resolve: ConfirmationResolver, modalElement: HTMLDivElement, customMessage: string | null }} OverwriteModalState */
+/** @typedef {{ profileId: string | null, currentEnvironment: string, profile: import('../services/serviceTypes.js').ProfileData | null, bindsetsEnabled: boolean }} AcceptedImportContext */
+/** @typedef {Awaited<ReturnType<typeof runImportWorkflow>>} ImportWorkflowOutcome */
 
 /**
  * ImportUI – Presents file-open dialogs for the "Import Keybinds / Import Aliases"
@@ -47,13 +42,17 @@ export default class ImportUI extends UIComponentBase {
     this.i18n = resolveI18n(i18n);
     this.modalManager = modalManager;
 
-    // Store current modal data for regeneration
-    /** @type {ImportModalState | null} */
-    this.currentImportModal = null;
-    /** @type {AliasStrategyModalState | null} */
-    this.currentAliasStrategyModal = null;
-    /** @type {OverwriteModalState | null} */
-    this.currentOverwriteConfirmModal = null;
+    /** @param {(message: { modalId: string, success: boolean }) => void} handler */
+    const subscribeModalHidden = (handler) => {
+      this.addEventListener("modal:hidden", handler);
+      return () => this.removeEventListener("modal:hidden", handler);
+    };
+    this.decisionModalSession = new ImportDecisionModalSession({
+      document: this.document,
+      modalManager: this.modalManager,
+      translate: (key, params) => this.i18n.t(key, params),
+      subscribeModalHidden,
+    });
     this.kbfImportSession = new KBFImportModalSession({
       document: this.document,
       modalManager: this.modalManager,
@@ -72,11 +71,9 @@ export default class ImportUI extends UIComponentBase {
           parseResult,
           draft,
         }),
-      subscribeModalHidden: (handler) => {
-        this.addEventListener("modal:hidden", handler);
-        return () => this.removeEventListener("modal:hidden", handler);
-      },
+      subscribeModalHidden,
     });
+    this.importFileSession = new ImportFileSession({ document: this.document });
   }
 
   onInit() {
@@ -93,6 +90,8 @@ export default class ImportUI extends UIComponentBase {
   }
 
   onDestroy() {
+    this.importFileSession.destroy();
+    this.decisionModalSession.destroy();
     this.kbfImportSession.destroy();
   }
 
@@ -110,116 +109,109 @@ export default class ImportUI extends UIComponentBase {
   // Opens a hidden file input, waits for selection and forwards content to ImportService.
   /** @param {ImportType} type */
   async openFileDialog(type) {
-    const input = this.document.createElement("input");
-    input.type = "file";
-    input.accept = type === "kbf" ? ".kbf,.txt" : ".txt";
-    input.style.display = "none";
-    this.document.body.appendChild(input);
-    let inputAttached = true;
-
-    const removeInput = () => {
-      if (!inputAttached) return;
-      inputAttached = false;
-      if (input.parentNode) {
-        input.parentNode.removeChild(input);
-      } else {
-        this.document.body.removeChild(input);
-      }
-    };
-
-    input.addEventListener("cancel", removeInput, { once: true });
-
-    input.addEventListener("change", () => {
-      const file = input.files?.[0];
-      if (!file) {
-        removeInput();
-        return;
-      }
-      if (type !== "kbf" && file.size > MAX_STO_TEXT_IMPORT_BYTES) {
-        const errorKey =
-          type === "keybinds"
-            ? "keybind_file_too_large"
-            : "alias_file_too_large";
-        this.showToast(
-          this.i18n.t(errorKey, {
-            size: file.size,
-            limit: MAX_STO_TEXT_IMPORT_BYTES,
-          }),
-          "error",
-        );
-        removeInput();
-        return;
-      }
-
-      let reader;
-      try {
-        reader = new FileReader();
-      } catch (error) {
-        removeInput();
+    this.decisionModalSession.cancelActiveSession();
+    this.kbfImportSession.cancelActiveSession();
+    const tooLargeErrorKey =
+      type === "keybinds" ? "keybind_file_too_large" : "alias_file_too_large";
+    this.importFileSession.open({
+      type,
+      maxBytes: MAX_STO_TEXT_IMPORT_BYTES,
+      tooLargeErrorKey,
+      captureContext: () => this.captureImportContext(),
+      runWorkflow: ({ content, context, signal, isCurrent }) =>
+        this.runAcceptedImport(type, content, context, signal, isCurrent),
+      projectOutcome: ({ outcome }) => this.projectImportOutcome(outcome),
+      onTooLarge: ({ errorKey, size, limit }) => {
+        this.showToast(this.i18n.t(errorKey, { size, limit }), "error");
+      },
+      onError: ({ error }) => {
         console.error("[ImportUI] Failed to import file:", errorMessage(error));
-        return;
-      }
-      reader.onload = async () => {
-        try {
-          const content =
-            typeof reader.result === "string" ? reader.result : "";
-          const dataState = this.cache.dataState;
-          const profileId = dataState?.ready ? dataState.currentProfile : null;
-          const currentEnvironment = dataState?.ready
-            ? dataState.currentEnvironment
-            : "space";
-          const profile = getSnapshotProfile(dataState, profileId);
-          const bindsetsEnabled = this.isBindsetsEnabled();
-          const outcome = await runImportWorkflow({
-            type,
-            content,
-            profileId,
-            currentEnvironment,
-            profile,
-            bindsetsEnabled,
-            promptEnvironment: (...args) => this.promptEnvironment(...args),
-            promptAliasStrategy: () => this.promptAliasStrategy(),
-            showOverwriteConfirmation: (...args) =>
-              this.showOverwriteConfirmation(...args),
-            promptEnhancedBindsetSelection: (parseResult) =>
-              this.promptEnhancedBindsetSelection(parseResult, bindsetsEnabled),
-            request: this.request.bind(this),
-          });
-
-          if (outcome.status === "invalid-kbf") {
-            this.showToast(
-              this.i18n.t(
-                outcome.parseResult.error ?? "invalid_kbf_file_format",
-                outcome.parseResult.params,
-              ),
-              "error",
-            );
-          } else if (outcome.status === "completed") {
-            const toast = projectImportResultToast(outcome, (key, params) =>
-              this.i18n.t(key, params),
-            );
-            this.showToast(toast.message, toast.type);
-          }
-        } catch (error) {
-          console.error(
-            "[ImportUI] Failed to import file:",
-            errorMessage(error),
-          );
-        } finally {
-          removeInput();
-        }
-      };
-      reader.onerror = removeInput;
-      reader.onabort = removeInput;
-      try {
-        reader.readAsText(file);
-      } catch (error) {
-        removeInput();
-        console.error("[ImportUI] Failed to import file:", errorMessage(error));
-      }
+      },
     });
+  }
 
-    input.click();
+  /** @returns {AcceptedImportContext} */
+  captureImportContext() {
+    const dataState = this.cache.dataState;
+    const profileId = dataState?.ready ? dataState.currentProfile : null;
+    return {
+      profileId,
+      currentEnvironment: dataState?.ready
+        ? dataState.currentEnvironment
+        : "space",
+      profile: getSnapshotProfile(dataState, profileId),
+      bindsetsEnabled: this.isBindsetsEnabled(),
+    };
+  }
+
+  /**
+   * @param {ImportType} type
+   * @param {string} content
+   * @param {AcceptedImportContext} context
+   * @param {AbortSignal} signal
+   * @param {() => boolean} isCurrent
+   * @returns {Promise<ImportWorkflowOutcome>}
+   */
+  runAcceptedImport(type, content, context, signal, isCurrent) {
+    const canContinue = () => isCurrent() && !signal.aborted;
+    const rawRequest =
+      /** @type {(topic: string, payload?: unknown) => Promise<unknown>} */ (
+        /** @type {unknown} */ (this.request.bind(this))
+      );
+    /** @param {string} topic @param {unknown} [payload] */
+    const guardedRequest = async (topic, payload) => {
+      if (!canContinue()) {
+        const error = new Error("Import file session was superseded");
+        error.name = "AbortError";
+        throw error;
+      }
+      return rawRequest(topic, payload);
+    };
+    const request =
+      /** @type {import('../../types/rpc/transport.js').RpcRequester} */ (
+        /** @type {unknown} */ (guardedRequest)
+      );
+    return runImportWorkflow({
+      type,
+      content,
+      ...context,
+      promptEnvironment: (...args) =>
+        canContinue() ? this.promptEnvironment(...args) : Promise.resolve(null),
+      promptAliasStrategy: () =>
+        canContinue() ? this.promptAliasStrategy() : Promise.resolve(null),
+      showOverwriteConfirmation: (...args) =>
+        canContinue()
+          ? this.showOverwriteConfirmation(...args)
+          : Promise.resolve(false),
+      promptEnhancedBindsetSelection: (parseResult) =>
+        canContinue()
+          ? this.promptEnhancedBindsetSelection(
+              parseResult,
+              context.bindsetsEnabled,
+            )
+          : Promise.resolve(null),
+      request,
+    });
+  }
+
+  /** @param {ImportWorkflowOutcome} outcome */
+  projectImportOutcome(outcome) {
+    if (outcome.status === "invalid-kbf") {
+      this.showToast(
+        this.i18n.t(
+          outcome.parseResult.error ?? "invalid_kbf_file_format",
+          outcome.parseResult.params,
+        ),
+        "error",
+      );
+      return;
+    }
+    if (outcome.status === "completed") {
+      const toast = projectImportResultToast(outcome, (key, params) =>
+        this.i18n.t(key, params),
+      );
+      this.showToast(toast.message, toast.type);
+    }
   }
 
   // Show a simple modal asking user whether the import is for Space or Ground.
@@ -235,345 +227,18 @@ export default class ImportUI extends UIComponentBase {
     importType = "keybinds",
     additionalContext = {},
   ) {
-    return new Promise((resolve) => {
-      const modal = this.createImportModal(
-        defaultEnv,
-        importType,
-        additionalContext,
-      );
-      const modalId = "importModal";
-      modal.id = modalId;
-      this.document.body.appendChild(modal);
-
-      // Store modal data for regeneration
-      this.currentImportModal = {
-        defaultEnv,
-        importType,
-        additionalContext,
-        resolve,
-        modalElement: modal,
-      };
-
-      // Register regeneration callback for language changes
-      this.modalManager?.registerRegenerateCallback?.(modalId, () => {
-        this.regenerateImportModal();
-      });
-
-      /** @param {ImportEnvironment | null} choice */
-      const handleChoice = (choice) => {
-        // Get selected strategy from radio buttons
-        const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
-          modal.querySelector('input[name="import-strategy"]:checked')
-        );
-        const strategy = normalizeImportStrategy(selectedStrategyRadio?.value);
-
-        // Unregister regeneration callback
-        this.modalManager?.unregisterRegenerateCallback?.(modalId);
-        this.currentImportModal = null;
-
-        this.modalManager?.hide(modalId);
-        if (modal && modal.parentNode) {
-          modal.parentNode.removeChild(modal);
-        }
-
-        if (choice) {
-          resolve({ environment: choice, strategy });
-        } else {
-          resolve(null);
-        }
-      };
-
-      // Use EventBus for automatic cleanup
-      this.onDom(".import-space", "click", () => handleChoice("space"));
-      this.onDom(".import-ground", "click", () => handleChoice("ground"));
-      this.onDom(".import-cancel", "click", () => handleChoice(null));
-
-      // Show modal
-      requestAnimationFrame(() => {
-        this.modalManager?.show(modalId);
-      });
-    });
-  }
-
-  // Create a standard modal for environment selection
-  /**
-   * @param {string} defaultEnv
-   * @param {ImportType} [importType]
-   * @param {ImportContext} [additionalContext]
-   */
-  createImportModal(
-    defaultEnv,
-    importType = "keybinds",
-    additionalContext = {},
-  ) {
-    const modal = this.document.createElement("div");
-    modal.className = "modal import-modal";
-
-    const title = this.i18n.t("import_environment");
-    const message = this.i18n.t("import_environment_question");
-    const strategyLabel = this.i18n.t("import_strategy");
-    const mergeKeepText = this.i18n.t("merge_keep_existing");
-    const mergeOverwriteText = this.i18n.t("merge_overwrite_existing");
-    const overwriteAllText = this.i18n.t("overwrite_all");
-    const spaceText = this.i18n.t("space");
-    const groundText = this.i18n.t("ground");
-    const cancelText = this.i18n.t("cancel");
-
-    // Enhanced overwrite_all descriptions based on import type
-    let overwriteAllDescription = "";
-    if (importType === "keybinds") {
-      overwriteAllDescription = this.i18n.t(
-        "overwrite_all_description_keybinds",
-      );
-    } else if (importType === "kbf") {
-      // For KBF imports, use context-aware descriptions based on bindsets preference
-      const { bindsetsEnabled } = additionalContext;
-
-      if (bindsetsEnabled === false) {
-        // Bindsets are disabled - only primary bindset will be affected
-        overwriteAllDescription = this.i18n.t(
-          "overwrite_all_description_kbf_primary",
-        );
-      } else {
-        // Bindsets are enabled - user will choose specific bindsets in next step
-        overwriteAllDescription = this.i18n.t(
-          "overwrite_all_description_kbf_bindsets",
-        );
-      }
-    } else if (importType === "aliases") {
-      overwriteAllDescription = this.i18n.t(
-        "overwrite_all_description_aliases",
-      );
-    }
-
-    modal.innerHTML = `
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>
-            <i class="fas fa-file-import"></i>
-            ${title}
-          </h3>
-        </div>
-        <div class="modal-body">
-          <p>${message}</p>
-
-          <div class="import-strategy-section">
-            <label class="import-strategy-label">${strategyLabel}</label>
-            <div class="import-strategy-options">
-              <label class="import-strategy-option">
-                <input type="radio" name="import-strategy" value="merge_keep" checked>
-                <span>${mergeKeepText}</span>
-              </label>
-              <label class="import-strategy-option">
-                <input type="radio" name="import-strategy" value="merge_overwrite">
-                <span>${mergeOverwriteText}</span>
-              </label>
-              <label class="import-strategy-option">
-                <input type="radio" name="import-strategy" value="overwrite_all">
-                <span>${overwriteAllText}</span>
-                ${overwriteAllDescription ? `<div class="strategy-description">${overwriteAllDescription}</div>` : ""}
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary import-space ${defaultEnv === "space" ? "btn-primary" : "btn-secondary"}">${spaceText}</button>
-          <button class="btn btn-primary import-ground ${defaultEnv === "ground" ? "btn-primary" : "btn-secondary"}">${groundText}</button>
-          <button class="btn btn-secondary import-cancel">${cancelText}</button>
-        </div>
-      </div>
-    `;
-
-    return modal;
-  }
-
-  // Regeneration method for language changes
-  regenerateImportModal() {
-    if (!this.currentImportModal) return;
-
-    const { defaultEnv, importType, additionalContext, modalElement, resolve } =
-      this.currentImportModal;
-
-    const newModal = this.createImportModal(
+    return this.decisionModalSession.promptEnvironment(
       defaultEnv,
       importType,
       additionalContext,
     );
-    newModal.id = "importModal";
-
-    // Replace the old modal with the new one
-    modalElement.replaceWith(newModal);
-    this.currentImportModal.modalElement = newModal;
-
-    // Re-attach event listeners
-    /** @param {ImportEnvironment | null} choice */
-    const handleChoice = (choice) => {
-      // Get selected strategy from radio buttons
-      const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
-        newModal.querySelector('input[name="import-strategy"]:checked')
-      );
-      const strategy = normalizeImportStrategy(selectedStrategyRadio?.value);
-
-      this.modalManager?.unregisterRegenerateCallback?.("importModal");
-      this.currentImportModal = null;
-      this.modalManager?.hide("importModal");
-      if (newModal && newModal.parentNode) {
-        newModal.parentNode.removeChild(newModal);
-      }
-
-      if (choice) {
-        resolve({ environment: choice, strategy });
-      } else {
-        resolve(null);
-      }
-    };
-
-    // Use EventBus for automatic cleanup
-    this.onDom(".import-space", "click", () => handleChoice("space"));
-    this.onDom(".import-ground", "click", () => handleChoice("ground"));
-    this.onDom(".import-cancel", "click", () => handleChoice(null));
   }
 
   // Show a simple modal asking user to choose import strategy for aliases
   // Returns chosen strategy string or null if cancelled
   /** @returns {Promise<ImportStrategy | null>} */
   promptAliasStrategy() {
-    return new Promise((resolve) => {
-      const modal = this.createAliasStrategyModal();
-      const modalId = "aliasStrategyModal";
-      modal.id = modalId;
-      this.document.body.appendChild(modal);
-
-      // Store modal data for regeneration
-      this.currentAliasStrategyModal = { resolve, modalElement: modal };
-
-      // Register regeneration callback for language changes
-      this.modalManager?.registerRegenerateCallback?.(modalId, () => {
-        this.regenerateAliasStrategyModal();
-      });
-
-      /** @param {ImportStrategy | null} strategy */
-      const handleStrategyChoice = (strategy) => {
-        // Unregister regeneration callback
-        this.modalManager?.unregisterRegenerateCallback?.(modalId);
-        this.currentAliasStrategyModal = null;
-
-        this.modalManager?.hide(modalId);
-        if (modal && modal.parentNode) {
-          modal.parentNode.removeChild(modal);
-        }
-        resolve(strategy);
-      };
-
-      // Use EventBus for automatic cleanup
-      this.onDom(".alias-strategy-confirm", "click", () => {
-        const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
-          modal.querySelector('input[name="alias-import-strategy"]:checked')
-        );
-        const strategy = normalizeImportStrategy(selectedStrategyRadio?.value);
-        handleStrategyChoice(strategy);
-      });
-
-      this.onDom(".alias-strategy-cancel", "click", () =>
-        handleStrategyChoice(null),
-      );
-
-      // Show modal
-      requestAnimationFrame(() => {
-        this.modalManager?.show(modalId);
-      });
-    });
-  }
-
-  // Create a modal for alias strategy selection
-  createAliasStrategyModal() {
-    const modal = this.document.createElement("div");
-    modal.className = "modal import-modal";
-
-    const title = this.i18n.t("import_strategy");
-    const strategyLabel = this.i18n.t("import_strategy");
-    const mergeKeepText = this.i18n.t("merge_keep_existing");
-    const mergeOverwriteText = this.i18n.t("merge_overwrite_existing");
-    const overwriteAllText = this.i18n.t("overwrite_all");
-    const overwriteAllDescription = this.i18n.t(
-      "overwrite_all_description_aliases",
-    );
-    const confirmText = this.i18n.t("import");
-    const cancelText = this.i18n.t("cancel");
-
-    modal.innerHTML = `
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>
-            <i class="fas fa-file-import"></i>
-            ${title}
-          </h3>
-        </div>
-        <div class="modal-body">
-          <label class="import-strategy-label">${strategyLabel}</label>
-          <div class="import-strategy-options">
-            <label class="import-strategy-option">
-              <input type="radio" name="alias-import-strategy" value="merge_keep" checked>
-              <span>${mergeKeepText}</span>
-            </label>
-            <label class="import-strategy-option">
-              <input type="radio" name="alias-import-strategy" value="merge_overwrite">
-              <span>${mergeOverwriteText}</span>
-            </label>
-            <label class="import-strategy-option">
-              <input type="radio" name="alias-import-strategy" value="overwrite_all">
-              <span>${overwriteAllText}</span>
-              <div class="strategy-description">${overwriteAllDescription}</div>
-            </label>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary alias-strategy-confirm">${confirmText}</button>
-          <button class="btn btn-secondary alias-strategy-cancel">${cancelText}</button>
-        </div>
-      </div>
-    `;
-
-    return modal;
-  }
-
-  // Regeneration method for alias strategy modal
-  regenerateAliasStrategyModal() {
-    if (!this.currentAliasStrategyModal) return;
-
-    const { modalElement, resolve } = this.currentAliasStrategyModal;
-
-    const newModal = this.createAliasStrategyModal();
-    newModal.id = "aliasStrategyModal";
-
-    // Replace the old modal with the new one
-    modalElement.replaceWith(newModal);
-    this.currentAliasStrategyModal.modalElement = newModal;
-
-    // Re-attach event listeners
-    /** @param {ImportStrategy | null} strategy */
-    const handleStrategyChoice = (strategy) => {
-      this.modalManager?.unregisterRegenerateCallback?.("aliasStrategyModal");
-      this.currentAliasStrategyModal = null;
-      this.modalManager?.hide("aliasStrategyModal");
-      if (newModal && newModal.parentNode) {
-        newModal.parentNode.removeChild(newModal);
-      }
-      resolve(strategy);
-    };
-
-    // Use EventBus for automatic cleanup
-    this.onDom(".alias-strategy-confirm", "click", () => {
-      const selectedStrategyRadio = /** @type {HTMLInputElement | null} */ (
-        newModal.querySelector('input[name="alias-import-strategy"]:checked')
-      );
-      const strategy = normalizeImportStrategy(selectedStrategyRadio?.value);
-      handleStrategyChoice(strategy);
-    });
-
-    this.onDom(".alias-strategy-cancel", "click", () =>
-      handleStrategyChoice(null),
-    );
+    return this.decisionModalSession.promptAliasStrategy();
   }
 
   // Show overwrite confirmation dialog when strategy is overwrite_all
@@ -592,173 +257,12 @@ export default class ImportUI extends UIComponentBase {
     environment = null,
     customMessage = null,
   ) {
-    return new Promise((resolve) => {
-      const modal = this.createOverwriteConfirmationModal(
-        type,
-        current,
-        incoming,
-        environment,
-        customMessage,
-      );
-      const modalId = "overwriteConfirmModal";
-      modal.id = modalId;
-      this.document.body.appendChild(modal);
-
-      // Store modal data for regeneration
-      this.currentOverwriteConfirmModal = {
-        resolve,
-        modalElement: modal,
-        customMessage,
-      };
-
-      // Register regeneration callback for language changes
-      this.modalManager?.registerRegenerateCallback?.(modalId, () => {
-        this.regenerateOverwriteConfirmationModal(
-          type,
-          current,
-          incoming,
-          environment,
-        );
-      });
-
-      /** @param {boolean} confirmed */
-      const handleConfirmChoice = (confirmed) => {
-        // Unregister regeneration callback
-        this.modalManager?.unregisterRegenerateCallback?.(modalId);
-        this.currentOverwriteConfirmModal = null;
-
-        this.modalManager?.hide(modalId);
-        if (modal && modal.parentNode) {
-          modal.parentNode.removeChild(modal);
-        }
-        resolve(confirmed);
-      };
-
-      // Use EventBus for automatic cleanup
-      this.onDom(".overwrite-confirm-yes", "click", () =>
-        handleConfirmChoice(true),
-      );
-
-      this.onDom(".overwrite-confirm-no", "click", () =>
-        handleConfirmChoice(false),
-      );
-
-      // Show modal
-      requestAnimationFrame(() => {
-        this.modalManager?.show(modalId);
-      });
-    });
-  }
-
-  // Create overwrite confirmation modal
-  /**
-   * @param {'keys' | 'aliases'} type
-   * @param {number} current
-   * @param {number} incoming
-   * @param {ImportEnvironment | null} environment
-   * @param {string | null} [customMessage]
-   */
-  createOverwriteConfirmationModal(
-    type,
-    current,
-    incoming,
-    environment,
-    customMessage = null,
-  ) {
-    const modal = this.document.createElement("div");
-    modal.className = "modal import-modal";
-
-    const title = this.i18n.t("overwrite_confirm_title");
-    let bodyText;
-
-    // Use custom message if provided, otherwise fall back to default logic
-    if (customMessage) {
-      bodyText = customMessage;
-    } else if (type === "keys" && environment) {
-      bodyText = this.i18n.t("overwrite_confirm_body_keys", { environment });
-    } else {
-      bodyText = this.i18n.t("overwrite_confirm_body_aliases");
-    }
-
-    // Only show counts if we're using the default logic (for non-custom messages)
-    const countsText = customMessage
-      ? ""
-      : this.i18n.t("overwrite_counts", { current, incoming });
-    const yesText = this.i18n.t("overwrite_all_action");
-    const noText = this.i18n.t("cancel");
-
-    modal.innerHTML = `
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>
-            <i class="fas fa-exclamation-triangle"></i>
-            ${title}
-          </h3>
-        </div>
-        <div class="modal-body">
-          <p>${bodyText}</p>
-          ${countsText ? `<p><strong>${countsText}</strong></p>` : ""}
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-danger overwrite-confirm-yes">${yesText}</button>
-          <button class="btn btn-secondary overwrite-confirm-no">${noText}</button>
-        </div>
-      </div>
-    `;
-
-    return modal;
-  }
-
-  // Regeneration method for overwrite confirmation modal
-  /**
-   * @param {'keys' | 'aliases'} type
-   * @param {number} current
-   * @param {number} incoming
-   * @param {ImportEnvironment | null} environment
-   */
-  regenerateOverwriteConfirmationModal(type, current, incoming, environment) {
-    if (!this.currentOverwriteConfirmModal) return;
-
-    const {
-      modalElement,
-      customMessage: storedCustomMessage,
-      resolve,
-    } = this.currentOverwriteConfirmModal;
-
-    const newModal = this.createOverwriteConfirmationModal(
+    return this.decisionModalSession.showOverwriteConfirmation(
       type,
       current,
       incoming,
       environment,
-      storedCustomMessage,
-    );
-    newModal.id = "overwriteConfirmModal";
-
-    // Replace the old modal with the new one
-    modalElement.replaceWith(newModal);
-    this.currentOverwriteConfirmModal.modalElement = newModal;
-
-    // Re-attach event listeners
-    /** @param {boolean} confirmed */
-    const handleConfirmChoice = (confirmed) => {
-      this.modalManager?.unregisterRegenerateCallback?.(
-        "overwriteConfirmModal",
-      );
-      this.currentOverwriteConfirmModal = null;
-      this.modalManager?.hide("overwriteConfirmModal");
-      if (newModal && newModal.parentNode) {
-        newModal.parentNode.removeChild(newModal);
-      }
-      resolve(confirmed);
-    };
-
-    // Use EventBus for automatic cleanup
-    this.onDom(".overwrite-confirm-yes", "click", () =>
-      handleConfirmChoice(true),
-    );
-
-    this.onDom(".overwrite-confirm-no", "click", () =>
-      handleConfirmChoice(false),
+      customMessage,
     );
   }
 

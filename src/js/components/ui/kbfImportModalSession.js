@@ -9,7 +9,12 @@ import {
   projectEnhancedKBFImportModalRow,
   projectSingleKBFImportModalSelection,
 } from "./kbfImportModalDom.js";
-import { asHTMLElement, asHTMLInputElement, eventElement } from "./uiTypes.js";
+import {
+  captureModalViewDraft,
+  releaseModalSessionResources,
+  restoreModalViewDraft,
+} from "./modalSessionLifecycle.js";
+import { eventElement } from "./uiTypes.js";
 
 /** @typedef {Extract<import('../../types/rpc/import-export.js').KBFParseForUiResult, { valid: true }>} ValidKBFParseResult */
 /** @typedef {import('../../types/kbf-boundary.js').KBFImportConfiguration} KBFImportConfiguration */
@@ -37,23 +42,6 @@ import { asHTMLElement, asHTMLInputElement, eventElement } from "./uiTypes.js";
  *   settled: boolean
  * }} KBFModalSession
  */
-/**
- * @typedef {{
- *   selector: string,
- *   index: number,
- *   selectionStart: number | null,
- *   selectionEnd: number | null,
- *   selectionDirection: 'forward' | 'backward' | 'none' | null
- * }} KBFModalFocusDraft
- */
-/**
- * @typedef {{
- *   bodyScrollTop: number,
- *   bodyScrollLeft: number,
- *   focus: KBFModalFocusDraft | null
- * }} KBFModalViewDraft
- */
-
 const FOCUSABLE_CONTROL_SELECTORS = Object.freeze([
   ".bindset-mapping-select",
   ".bindset-custom-input",
@@ -226,83 +214,6 @@ export default class KBFImportModalSession {
       : captureSingleKBFImportModalDraft(session.modalElement);
   }
 
-  /**
-   * Preserve view-local state across language regeneration without using an
-   * imported bindset name in a selector.
-   *
-   * @param {HTMLDivElement} modal
-   * @returns {KBFModalViewDraft}
-   */
-  captureViewDraft(modal) {
-    const body = /** @type {HTMLElement | null} */ (
-      modal.querySelector(".modal-body")
-    );
-    const activeElement = asHTMLElement(this.document.activeElement);
-    /** @type {KBFModalFocusDraft | null} */
-    let focus = null;
-
-    if (activeElement && modal.contains(activeElement)) {
-      for (const selector of FOCUSABLE_CONTROL_SELECTORS) {
-        const controls = Array.from(modal.querySelectorAll(selector));
-        const index = controls.indexOf(activeElement);
-        if (index === -1) continue;
-        const input = asHTMLInputElement(activeElement);
-        focus = {
-          selector,
-          index,
-          selectionStart: input?.selectionStart ?? null,
-          selectionEnd: input?.selectionEnd ?? null,
-          selectionDirection: input?.selectionDirection ?? null,
-        };
-        break;
-      }
-    }
-
-    return {
-      bodyScrollTop: body?.scrollTop ?? 0,
-      bodyScrollLeft: body?.scrollLeft ?? 0,
-      focus,
-    };
-  }
-
-  /**
-   * @param {HTMLDivElement} modal
-   * @param {KBFModalViewDraft} draft
-   */
-  restoreViewDraft(modal, draft) {
-    const body = /** @type {HTMLElement | null} */ (
-      modal.querySelector(".modal-body")
-    );
-    if (body) {
-      body.scrollTop = draft.bodyScrollTop;
-      body.scrollLeft = draft.bodyScrollLeft;
-    }
-    if (!draft.focus) return;
-
-    const control = modal.querySelectorAll(draft.focus.selector)[
-      draft.focus.index
-    ];
-    const htmlControl = asHTMLElement(control);
-    if (!htmlControl) return;
-    htmlControl.focus();
-    const input = asHTMLInputElement(htmlControl);
-    if (
-      input &&
-      draft.focus.selectionStart !== null &&
-      draft.focus.selectionEnd !== null
-    ) {
-      try {
-        input.setSelectionRange(
-          draft.focus.selectionStart,
-          draft.focus.selectionEnd,
-          draft.focus.selectionDirection ?? undefined,
-        );
-      } catch {
-        // Only text-like controls expose a writable selection range.
-      }
-    }
-  }
-
   /** @param {KBFModalSession} session */
   materializeConfiguration(session) {
     if (session.mode === "enhanced") {
@@ -465,7 +376,11 @@ export default class KBFImportModalSession {
       return false;
     }
     session.draft = this.captureDraft(session);
-    const viewDraft = this.captureViewDraft(session.modalElement);
+    const viewDraft = captureModalViewDraft(
+      this.document,
+      session.modalElement,
+      FOCUSABLE_CONTROL_SELECTORS,
+    );
     const replacement = this.createModal(
       session.mode,
       session.parseResult,
@@ -483,7 +398,7 @@ export default class KBFImportModalSession {
       this.settle(session, null);
       return false;
     }
-    this.restoreViewDraft(replacement, viewDraft);
+    restoreModalViewDraft(replacement, viewDraft);
     return true;
   }
 
@@ -496,34 +411,15 @@ export default class KBFImportModalSession {
     if (session.settled) return;
     session.settled = true;
     if (this.currentSession === session) this.currentSession = null;
-    const scheduledShowDetach = session.scheduledShowDetach;
-    const documentDetach = session.documentDetach;
-    const modalHiddenDetach = session.modalHiddenDetach;
-    session.scheduledShowDetach = null;
-    session.documentDetach = null;
-    session.modalHiddenDetach = null;
-    const releases = [
-      () => scheduledShowDetach?.(),
-      () => this.detachControls(session),
-      () => documentDetach?.(),
-      () => modalHiddenDetach?.(),
-      () =>
-        this.modalManager?.unregisterRegenerateCallback?.(
-          session.modalId,
-          session.regenerateCallback,
-        ),
-      () => {
-        if (hideModal) this.modalManager?.hide(session.modalId);
-      },
-      () => session.modalElement.remove(),
-    ];
-    for (const release of releases) {
-      try {
-        release();
-      } catch (error) {
+    releaseModalSessionResources({
+      session,
+      modalManager: this.modalManager,
+      detachControls: () => this.detachControls(session),
+      hideModal,
+      onCleanupError: (error) => {
         console.error("[KBFImportModalSession] Cleanup failed:", error);
-      }
-    }
+      },
+    });
     session.resolve(result);
   }
 }

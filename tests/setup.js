@@ -40,8 +40,9 @@ global.File = class File {
   }
 };
 
-global.FileReader = class FileReader {
+global.FileReader = class FileReader extends EventTarget {
   constructor() {
+    super();
     this.readyState = 0;
     this.result = null;
     this.error = null;
@@ -54,12 +55,14 @@ global.FileReader = class FileReader {
     setTimeout(() => {
       this.readyState = 2;
       this.result = file.chunks.join("");
+      this.dispatchEvent(new Event("load"));
       if (this.onload) this.onload({ target: this });
     }, 0);
   }
 
   abort() {
     this.readyState = 2;
+    this.dispatchEvent(new Event("abort"));
     if (this.onabort) this.onabort({ target: this });
   }
 };

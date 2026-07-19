@@ -1,90 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ImportUI from "../../../src/js/components/ui/ImportUI.js";
 
-const translations = {
-  overwrite_confirm_title: "Confirm overwrite",
-  overwrite_confirm_body_keys: "Replace the space keybinds",
-  overwrite_confirm_body_aliases: "Replace all aliases",
-  overwrite_all_action: "Overwrite all",
-  cancel: "Cancel",
-};
-
-describe("ImportUI strategy modal factories", () => {
+describe("ImportUI extracted lifecycle facade", () => {
   let ui;
 
-  beforeEach(() => {
-    vi.useFakeTimers();
-    ui = new ImportUI({
-      document,
-      i18n: {
-        t: (key, params) => {
-          if (key === "overwrite_counts") {
-            return `Current: ${params.current} · Incoming: ${params.incoming}`;
-          }
-          return translations[key] ?? key;
-        },
-      },
-    });
-  });
-
   afterEach(() => {
-    ui?.destroy();
-    vi.useRealTimers();
+    if (ui && !ui.destroyed) ui.destroy();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    document.body.replaceChildren();
   });
 
-  it("creates the environment prompt with all strategies and merge-safe default", () => {
-    const modal = ui.createImportModal("space", "keybinds");
-    const strategies = Array.from(
-      modal.querySelectorAll('input[name="import-strategy"]'),
-    );
+  it("keeps retired modal implementation and state APIs absent", () => {
+    ui = new ImportUI({ document, i18n: { t: (key) => key } });
 
-    expect(strategies.map((input) => input.value)).toEqual([
-      "merge_keep",
-      "merge_overwrite",
-      "overwrite_all",
-    ]);
-    expect(strategies.filter((input) => input.checked)).toHaveLength(1);
-    expect(strategies.find((input) => input.checked)?.value).toBe("merge_keep");
-  });
-
-  it("creates the alias prompt with all strategies and merge-safe default", () => {
-    const modal = ui.createAliasStrategyModal();
-    const strategies = Array.from(
-      modal.querySelectorAll('input[name="alias-import-strategy"]'),
-    );
-
-    expect(strategies.map((input) => input.value)).toEqual([
-      "merge_keep",
-      "merge_overwrite",
-      "overwrite_all",
-    ]);
-    expect(strategies.filter((input) => input.checked)).toHaveLength(1);
-    expect(strategies.find((input) => input.checked)?.value).toBe("merge_keep");
-  });
-
-  it.each([
-    ["keys", "space", "Replace the space keybinds"],
-    ["aliases", null, "Replace all aliases"],
-  ])(
-    "projects the %s overwrite warning and counts",
-    (type, environment, body) => {
-      const modal = ui.createOverwriteConfirmationModal(
-        type,
-        5,
-        3,
-        environment,
-      );
-
-      expect(modal.textContent).toContain("Confirm overwrite");
-      expect(modal.textContent).toContain(body);
-      expect(modal.textContent).toContain("Current: 5 · Incoming: 3");
-      expect(modal.textContent).toContain("Overwrite all");
-    },
-  );
-
-  it("keeps retired progress and bindset modal implementation APIs absent", () => {
     for (const method of [
       "showProgressModal",
       "hideProgressModal",
@@ -104,10 +34,79 @@ describe("ImportUI strategy modal factories", () => {
       "validateBindsetConfiguration",
       "validateSingleBindsetConfiguration",
       "regenerateEnhancedBindsetSelectionModal",
+      "createImportModal",
+      "regenerateImportModal",
+      "createAliasStrategyModal",
+      "regenerateAliasStrategyModal",
+      "createOverwriteConfirmationModal",
+      "regenerateOverwriteConfirmationModal",
     ]) {
       expect(
         /** @type {Record<string, unknown>} */ (ui)[method],
       ).toBeUndefined();
     }
+
+    for (const field of [
+      "currentImportModal",
+      "currentAliasStrategyModal",
+      "currentOverwriteConfirmModal",
+    ]) {
+      expect(ui).not.toHaveProperty(field);
+    }
+
+    expect(ui.decisionModalSession).toBeTruthy();
+    expect(ui.importFileSession).toBeTruthy();
+    expect(ui.kbfImportSession).toBeTruthy();
+  });
+
+  it("releases an active picker and decision prompt on facade destruction", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    ui = new ImportUI({ document, i18n: { t: (key) => key } });
+    await ui.openFileDialog("keybinds");
+    const input = document.querySelector('input[type="file"]');
+    const decision = ui.promptEnvironment();
+    expect(input).toBeInstanceOf(HTMLInputElement);
+    expect(document.getElementById("importModal")).toBeInstanceOf(
+      HTMLDivElement,
+    );
+
+    ui.destroy();
+
+    await expect(decision).resolves.toBeNull();
+    expect(input?.isConnected).toBe(false);
+    expect(document.getElementById("importModal")).toBeNull();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it("routes file-session reader failures through the facade diagnostic sink", async () => {
+    const failure = new Error("reader construction failed");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    ui = new ImportUI({ document, i18n: { t: (key) => key } });
+    ui.importFileSession.createFileReader = vi.fn(() => {
+      throw failure;
+    });
+
+    await ui.openFileDialog("keybinds");
+    const input = /** @type {HTMLInputElement} */ (
+      document.querySelector('input[type="file"]')
+    );
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [new File(["content"], "binds.txt")],
+    });
+    input.dispatchEvent(new Event("change"));
+
+    expect(consoleError).toHaveBeenCalledWith(
+      "[ImportUI] Failed to import file:",
+      failure.message,
+    );
+    expect(input.isConnected).toBe(false);
+    expect(ui.importFileSession.isActive).toBe(false);
   });
 });
