@@ -7,7 +7,10 @@ import {
   isSnapshotCommandStabilized,
 } from "./dataState.js";
 import { findCommandDefinition } from "../../data/commandCatalog.js";
-import { planCommandChainClear } from "./commandChainOperations.js";
+import {
+  planCommandChainClear,
+  planCommandStabilization,
+} from "./commandChainOperations.js";
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -31,6 +34,7 @@ export default class CommandChainService extends ComponentBase {
     // Store detach functions for cleanup
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
+    this._lifecycleGeneration = 0;
   }
 
   setupRequestHandlers() {
@@ -54,6 +58,7 @@ export default class CommandChainService extends ComponentBase {
   }
 
   onInit() {
+    this._lifecycleGeneration += 1;
     this.setupRequestHandlers();
     this.setupEventListeners();
   }
@@ -643,6 +648,7 @@ export default class CommandChainService extends ComponentBase {
 
   // Cleanup
   onDestroy() {
+    this._lifecycleGeneration += 1;
     // Clean up request/response handlers
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach((detach) => detach());
@@ -672,6 +678,7 @@ export default class CommandChainService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/commands.js').StabilizeResult>}
    */
   async setStabilize(name, stabilize = true, bindset = null) {
+    const lifecycleGeneration = this._lifecycleGeneration;
     try {
       if (!name) return { success: false };
 
@@ -680,93 +687,24 @@ export default class CommandChainService extends ComponentBase {
       const profileId = snapshot?.ready ? snapshot.currentProfile : null;
       if (!profile || !profileId) return { success: false };
 
-      // Check if this is an alias by looking in the profile's aliases
-      const isAlias =
-        this.cache.currentEnvironment === "alias" ||
-        !!(profile.aliases && profile.aliases[name]);
-      /** @type {{ aliasMetadata?: Record<string, import('./serviceTypes.js').BindsetKeyMetadata>, keybindMetadata?: Record<string, Record<string, import('./serviceTypes.js').BindsetKeyMetadata>>, bindsetMetadata?: Record<string, Record<string, Record<string, import('./serviceTypes.js').BindsetKeyMetadata>>> }} */
-      let modifyPayload;
-
-      if (isAlias) {
-        // Only send metadata for the specific alias being modified
-        /** @type {Record<string, import('./serviceTypes.js').BindsetKeyMetadata>} */
-        const aliasMetadata = {};
-        const currentAliasMetadata =
-          (profile.aliasMetadata && profile.aliasMetadata[name]) || {};
-
-        // Create a copy of the current alias metadata
-        aliasMetadata[name] = { ...currentAliasMetadata };
-
-        if (stabilize) {
-          aliasMetadata[name].stabilizeExecutionOrder = true;
-        } else {
-          aliasMetadata[name].stabilizeExecutionOrder = false;
-        }
-
-        modifyPayload = { aliasMetadata };
-      } else if (!bindset || bindset === "Primary Bindset") {
-        // Primary bindset - use keybindMetadata
-        /** @type {Record<string, Record<string, import('./serviceTypes.js').BindsetKeyMetadata>>} */
-        const keybindMetadata = {};
-        if (!keybindMetadata[this.cache.currentEnvironment]) {
-          keybindMetadata[this.cache.currentEnvironment] = {};
-        }
-
-        const currentKeyMetadata =
-          (profile.keybindMetadata &&
-            profile.keybindMetadata[this.cache.currentEnvironment] &&
-            profile.keybindMetadata[this.cache.currentEnvironment][name]) ||
-          {};
-
-        // Create a copy of the current key metadata
-        keybindMetadata[this.cache.currentEnvironment][name] = {
-          ...currentKeyMetadata,
-        };
-
-        if (stabilize) {
-          keybindMetadata[this.cache.currentEnvironment][
-            name
-          ].stabilizeExecutionOrder = true;
-        } else {
-          keybindMetadata[this.cache.currentEnvironment][
-            name
-          ].stabilizeExecutionOrder = false;
-        }
-
-        modifyPayload = { keybindMetadata };
-      } else {
-        // Bindset-specific metadata
-        /** @type {Record<string, Record<string, Record<string, import('./serviceTypes.js').BindsetKeyMetadata>>>} */
-        const bsMeta = {};
-        bsMeta[bindset] = {};
-        bsMeta[bindset][this.cache.currentEnvironment] = {};
-
-        const currentKeyMeta =
-          (profile.bindsetMetadata &&
-            profile.bindsetMetadata[bindset] &&
-            profile.bindsetMetadata[bindset][this.cache.currentEnvironment] &&
-            profile.bindsetMetadata[bindset][this.cache.currentEnvironment][
-              name
-            ]) ||
-          {};
-
-        const newMeta = { ...currentKeyMeta };
-        if (stabilize) {
-          newMeta.stabilizeExecutionOrder = true;
-        } else {
-          newMeta.stabilizeExecutionOrder = false;
-        }
-
-        bsMeta[bindset][this.cache.currentEnvironment][name] = newMeta;
-
-        modifyPayload = { bindsetMetadata: bsMeta };
-      }
+      const plan = planCommandStabilization({
+        profile,
+        profileId,
+        name,
+        environment: this.cache.currentEnvironment,
+        stabilize,
+        bindset,
+      });
+      if (!plan.valid) return { success: false };
 
       // Persist via DataCoordinator
-      const result = await this.request("data:update-profile", {
-        profileId,
-        modify: modifyPayload,
-      });
+      const result = await this.request(
+        "data:update-profile",
+        plan.updateProfileRequest,
+      );
+      if (this.destroyed || lifecycleGeneration !== this._lifecycleGeneration) {
+        return { success: false };
+      }
       if (result?.success) {
         // CRITICAL: Update local cache immediately to prevent race conditions
         // The profile:updated event will also trigger cache update, but that's async
@@ -780,6 +718,9 @@ export default class CommandChainService extends ComponentBase {
       }
       return { success: false };
     } catch (err) {
+      if (this.destroyed || lifecycleGeneration !== this._lifecycleGeneration) {
+        return { success: false };
+      }
       console.error("[CommandChainService] setStabilize failed", err);
       return {
         success: false,

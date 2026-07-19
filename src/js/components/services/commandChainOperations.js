@@ -270,3 +270,237 @@ export function planCommandChainClear(options) {
     updateProfileRequest: detachedRequest,
   };
 }
+
+/** @typedef {import('./serviceTypes.js').BindsetKeyMetadata & Record<string, unknown>} StabilizationMetadata */
+
+/**
+ * @typedef {Object} CommandStabilizationPlanOptions
+ * @property {ProfileData} profile
+ * @property {string} profileId
+ * @property {string} name
+ * @property {string} environment
+ * @property {boolean} stabilize
+ * @property {string | null | undefined} [bindset]
+ */
+
+/**
+ * @typedef {Object} CommandStabilizationPlanFailure
+ * @property {false} valid
+ * @property {'invalid_options' | 'invalid_profile' | 'missing_profile_id' | 'missing_name' | 'invalid_environment' | 'invalid_stabilize' | 'invalid_bindset' | 'unsafe_identifier' | 'invalid_payload'} reason
+ * @property {null} updateProfileRequest
+ */
+
+/**
+ * @typedef {Object} CommandStabilizationTarget
+ * @property {'primary' | 'alias' | 'bindset'} kind
+ * @property {string} environment
+ * @property {string} name
+ * @property {string | null} bindset
+ */
+
+/**
+ * @typedef {Object} CommandStabilizationPlanSuccess
+ * @property {true} valid
+ * @property {boolean} noOp Describes the projected metadata change only. Valid no-op plans must still be persisted.
+ * @property {CommandStabilizationTarget} target
+ * @property {ProfileUpdateRequest} updateProfileRequest
+ */
+
+/** @typedef {CommandStabilizationPlanFailure | CommandStabilizationPlanSuccess} CommandStabilizationPlan */
+
+/** @param {CommandStabilizationPlanFailure['reason']} reason */
+function invalidStabilizationPlan(reason) {
+  return /** @type {CommandStabilizationPlanFailure} */ ({
+    valid: false,
+    reason,
+    updateProfileRequest: null,
+  });
+}
+
+/**
+ * Read one optional nested data record without treating Object.prototype
+ * members as profile data.
+ *
+ * @param {unknown} record
+ * @param {string} key
+ * @returns {{ valid: true, value: Record<string, unknown> | null } | { valid: false, value: null }}
+ */
+function readOptionalOwnRecord(record, key) {
+  if (record === undefined || record === null) {
+    return { valid: true, value: null };
+  }
+  if (!isDataRecord(record)) return { valid: false, value: null };
+
+  const value = ownValue(record, key);
+  if (value === undefined || value === null) {
+    return { valid: true, value: null };
+  }
+  return isDataRecord(value)
+    ? { valid: true, value }
+    : { valid: false, value: null };
+}
+
+/** @param {StabilizationMetadata} metadata @param {boolean} stabilize */
+function metadataAlreadyStabilized(metadata, stabilize) {
+  return (
+    hasOwnDataField(metadata, "stabilizeExecutionOrder") &&
+    metadata.stabilizeExecutionOrder === stabilize
+  );
+}
+
+/**
+ * Plan one stabilization metadata write without touching storage, an event
+ * bus, DOM state, globals, or the accepted profile snapshot. Alias targeting
+ * takes precedence over bindsets, matching the historical facade behavior.
+ *
+ * @param {CommandStabilizationPlanOptions | unknown} options
+ * @returns {CommandStabilizationPlan}
+ */
+export function planCommandStabilization(options) {
+  if (!isDataRecord(options)) {
+    return invalidStabilizationPlan("invalid_options");
+  }
+
+  const { profile, profileId, name, environment, stabilize, bindset } = options;
+  if (!isDataRecord(profile)) {
+    return invalidStabilizationPlan("invalid_profile");
+  }
+  if (!isNonEmptyString(profileId)) {
+    return invalidStabilizationPlan("missing_profile_id");
+  }
+  if (!isNonEmptyString(name)) {
+    return invalidStabilizationPlan("missing_name");
+  }
+  if (!isNonEmptyString(environment)) {
+    return invalidStabilizationPlan("invalid_environment");
+  }
+  if (typeof stabilize !== "boolean") {
+    return invalidStabilizationPlan("invalid_stabilize");
+  }
+  if (
+    bindset !== undefined &&
+    bindset !== null &&
+    typeof bindset !== "string"
+  ) {
+    return invalidStabilizationPlan("invalid_bindset");
+  }
+
+  const normalizedBindset = bindset || null;
+  if (
+    !identifiersAreSafe([
+      profileId,
+      name,
+      environment,
+      ...(normalizedBindset ? [normalizedBindset] : []),
+    ])
+  ) {
+    return invalidStabilizationPlan("unsafe_identifier");
+  }
+
+  let isAlias = environment === "alias";
+  if (!isAlias && profile.aliases !== undefined && profile.aliases !== null) {
+    if (!isDataRecord(profile.aliases)) {
+      return invalidStabilizationPlan("invalid_profile");
+    }
+    isAlias = Boolean(ownValue(profile.aliases, name));
+  }
+
+  /** @type {CommandStabilizationTarget} */
+  let target;
+  /** @type {StabilizationMetadata} */
+  let currentMetadata;
+  /** @type {ProfileUpdateRequest} */
+  let updateProfileRequest;
+
+  if (isAlias) {
+    const metadata = readOptionalOwnRecord(profile.aliasMetadata, name);
+    if (!metadata.valid) return invalidStabilizationPlan("invalid_profile");
+    currentMetadata = /** @type {StabilizationMetadata} */ (
+      metadata.value || {}
+    );
+    target = { kind: "alias", environment, name, bindset: null };
+    updateProfileRequest = {
+      profileId,
+      modify: {
+        aliasMetadata: {
+          [name]: { ...currentMetadata, stabilizeExecutionOrder: stabilize },
+        },
+      },
+    };
+  } else if (!normalizedBindset || normalizedBindset === "Primary Bindset") {
+    const environmentMetadata = readOptionalOwnRecord(
+      profile.keybindMetadata,
+      environment,
+    );
+    if (!environmentMetadata.valid) {
+      return invalidStabilizationPlan("invalid_profile");
+    }
+    const metadata = readOptionalOwnRecord(environmentMetadata.value, name);
+    if (!metadata.valid) return invalidStabilizationPlan("invalid_profile");
+    currentMetadata = /** @type {StabilizationMetadata} */ (
+      metadata.value || {}
+    );
+    target = { kind: "primary", environment, name, bindset: null };
+    updateProfileRequest = {
+      profileId,
+      modify: {
+        keybindMetadata: {
+          [environment]: {
+            [name]: { ...currentMetadata, stabilizeExecutionOrder: stabilize },
+          },
+        },
+      },
+    };
+  } else {
+    const bindsetMetadata = readOptionalOwnRecord(
+      profile.bindsetMetadata,
+      normalizedBindset,
+    );
+    if (!bindsetMetadata.valid) {
+      return invalidStabilizationPlan("invalid_profile");
+    }
+    const environmentMetadata = readOptionalOwnRecord(
+      bindsetMetadata.value,
+      environment,
+    );
+    if (!environmentMetadata.valid) {
+      return invalidStabilizationPlan("invalid_profile");
+    }
+    const metadata = readOptionalOwnRecord(environmentMetadata.value, name);
+    if (!metadata.valid) return invalidStabilizationPlan("invalid_profile");
+    currentMetadata = /** @type {StabilizationMetadata} */ (
+      metadata.value || {}
+    );
+    target = {
+      kind: "bindset",
+      environment,
+      name,
+      bindset: normalizedBindset,
+    };
+    updateProfileRequest = {
+      profileId,
+      modify: {
+        bindsetMetadata: {
+          [normalizedBindset]: {
+            [environment]: {
+              [name]: {
+                ...currentMetadata,
+                stabilizeExecutionOrder: stabilize,
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  const detachedRequest = detachRequest(updateProfileRequest);
+  if (!detachedRequest) return invalidStabilizationPlan("invalid_payload");
+
+  return {
+    valid: true,
+    noOp: metadataAlreadyStabilized(currentMetadata, stabilize),
+    target,
+    updateProfileRequest: detachedRequest,
+  };
+}
