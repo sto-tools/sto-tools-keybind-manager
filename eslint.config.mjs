@@ -9,7 +9,7 @@ import applicationGlobalsPlugin from "./scripts/eslint/applicationGlobals.mjs";
 const legacyMaxLineLimits = {
   "src/js/components/services/CommandChainService.js": 607,
   "src/js/components/services/CommandService.js": 804,
-  "src/js/components/services/DataCoordinator.js": 974,
+  "src/js/components/services/DataCoordinator.js": 932,
   "src/js/components/services/ExportService.js": 547,
   "src/js/components/services/ImportService.js": 658,
   "src/js/components/services/ParameterCommandService.js": 550,

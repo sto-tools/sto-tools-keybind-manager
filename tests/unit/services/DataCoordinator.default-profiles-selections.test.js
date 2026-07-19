@@ -84,4 +84,80 @@ describe("DataCoordinator default profiles - selections propagation", () => {
       defaultProfilesData.default.selections,
     );
   });
+
+  it("normalizes the detached allowlisted draft without preserving source-only fields", async () => {
+    const source = {
+      name: "Allowlisted Default",
+      description: "Facade projection",
+      currentEnvironment: "ground",
+      builds: {
+        space: { keys: {} },
+        ground: { keys: { G: "Aim" } },
+      },
+      aliases: { engage: { commands: "FireAll $$ Aim" } },
+      bindsets: {},
+      selections: { ground: "G", alias: "engage" },
+      keybindMetadata: {},
+      aliasMetadata: {},
+      bindsetMetadata: {},
+      id: "source-id",
+      migrationVersion: "2.1.1",
+      created: "source-created",
+      lastModified: "source-modified",
+      vertigoSettings: { showPlayerSay: true },
+      extension: { nested: ["source only"] },
+    };
+    const sourceBefore = structuredClone(source);
+
+    await dataCoordinator.createDefaultProfilesFromData({
+      allowlisted: source,
+    });
+
+    const created = dataCoordinator.state.profiles.allowlisted;
+    expect(created).toMatchObject({
+      name: "Allowlisted Default",
+      description: "Facade projection",
+      currentEnvironment: "ground",
+      builds: {
+        space: { keys: {} },
+        ground: { keys: { G: ["Aim"] } },
+      },
+      aliases: { engage: { commands: ["FireAll", "Aim"] } },
+      selections: { ground: "G", alias: "engage" },
+      migrationVersion: "2.1.1",
+      created: expect.any(String),
+      lastModified: expect.any(String),
+    });
+    for (const omitted of ["id", "vertigoSettings", "extension"]) {
+      expect(created).not.toHaveProperty(omitted);
+    }
+    expect(created.created).not.toBe("source-created");
+    expect(created.lastModified).not.toBe("source-modified");
+    expect(storage.getAllData().profiles.allowlisted).toEqual(created);
+    expect(source).toEqual(sourceBefore);
+  });
+
+  it("routes an empty direct batch through the exact normalized fallback", async () => {
+    await dataCoordinator.createDefaultProfilesFromData({});
+
+    const fallback = dataCoordinator.state.profiles.default;
+    expect(fallback).toEqual({
+      name: "Default",
+      description: "Basic space build profile",
+      currentEnvironment: "space",
+      builds: {
+        space: { keys: {} },
+        ground: { keys: {} },
+      },
+      bindsets: {},
+      aliases: {},
+      created: expect.any(String),
+      lastModified: expect.any(String),
+      migrationVersion: "2.1.1",
+    });
+    expect(dataCoordinator.state.currentProfile).toBe("default");
+    expect(dataCoordinator.state.currentEnvironment).toBe("space");
+    expect(storage.getAllData().profiles.default).toEqual(fallback);
+    expect(storage.saveAllData).toHaveBeenCalledTimes(1);
+  });
 });

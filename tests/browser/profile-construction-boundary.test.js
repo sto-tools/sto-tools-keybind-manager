@@ -98,4 +98,137 @@ describe("Profile construction checked-bundle boundary", () => {
       clonedProfileId,
     );
   });
+
+  it("constructs exact normalized static defaults and fallback profiles", async () => {
+    const bus = window.eventBus;
+    const coordinator = window.dataCoordinator;
+    const storage = window.storageService;
+
+    expect(bus).toBeTruthy();
+    expect(coordinator?.getCurrentState?.().ready).toBe(true);
+    expect(storage).toBeTruthy();
+    if (!bus || !coordinator || !storage) return;
+
+    const beforeRoot = localStorage.getItem(storage.storageKey);
+    const beforeBackup = localStorage.getItem(storage.backupKey);
+    const staticSource = {
+      id: "source-id-must-not-survive",
+      name: "Browser Static Default",
+      description: "Checked bundle static profile",
+      currentEnvironment: "ground",
+      builds: {
+        space: { keys: { F1: ["space command"] } },
+        ground: { keys: { G: ["ground command"] } },
+      },
+      bindsets: { Tactical: { ground: { keys: { H: ["bindset"] } } } },
+      aliases: { engage: { commands: ["alias command"] } },
+      selections: { ground: "G" },
+      keybindMetadata: {
+        ground: { G: { stabilizeExecutionOrder: false } },
+      },
+      aliasMetadata: { engage: { stabilizeExecutionOrder: true } },
+      bindsetMetadata: {
+        Tactical: { ground: { H: { stabilizeExecutionOrder: false } } },
+      },
+      migrationVersion: "source-version-must-not-survive",
+      created: "2000-01-01T00:00:00.000Z",
+      lastModified: "2000-01-02T00:00:00.000Z",
+      vertigoSettings: { space: { enabled: true } },
+      extension: { dropped: true },
+    };
+    const sourceBefore = structuredClone(staticSource);
+
+    /** Reset the owner to a valid empty root before each activation probe. */
+    const resetToEmptyRoot = async () => {
+      const emptyRoot = structuredClone(storage.getAllData());
+      emptyRoot.profiles = {};
+      emptyRoot.currentProfile = null;
+      expect(storage.saveAllData(emptyRoot)).toBe(true);
+      await request(bus, "data:reload-state");
+      expect(coordinator.getCurrentState()).toMatchObject({
+        currentProfile: null,
+        currentEnvironment: "space",
+        profiles: {},
+      });
+    };
+
+    try {
+      await resetToEmptyRoot();
+      await coordinator.createDefaultProfilesFromData({
+        browser_static_default: staticSource,
+      });
+
+      await vi.waitFor(() => {
+        expect(storage.getAllData().profiles.browser_static_default).toEqual(
+          coordinator.getCurrentState().profiles.browser_static_default,
+        );
+      });
+      const normalizedDefault =
+        coordinator.getCurrentState().profiles.browser_static_default;
+      expect(normalizedDefault).toEqual({
+        name: "Browser Static Default",
+        description: "Checked bundle static profile",
+        currentEnvironment: "ground",
+        builds: {
+          space: { keys: { F1: ["space command"] } },
+          ground: { keys: { G: ["ground command"] } },
+        },
+        bindsets: {
+          Tactical: { ground: { keys: { H: ["bindset"] } } },
+        },
+        aliases: { engage: { commands: ["alias command"] } },
+        selections: { ground: "G" },
+        keybindMetadata: {
+          ground: { G: { stabilizeExecutionOrder: false } },
+        },
+        aliasMetadata: { engage: { stabilizeExecutionOrder: true } },
+        bindsetMetadata: {
+          Tactical: { ground: { H: { stabilizeExecutionOrder: false } } },
+        },
+        created: expect.any(String),
+        lastModified: expect.any(String),
+        migrationVersion: "2.1.1",
+      });
+      expect(staticSource).toEqual(sourceBefore);
+      expect(coordinator.getCurrentState()).toMatchObject({
+        currentProfile: "browser_static_default",
+        currentEnvironment: "ground",
+      });
+
+      await resetToEmptyRoot();
+      await coordinator.createDefaultProfilesFromData({});
+
+      await vi.waitFor(() => {
+        expect(storage.getAllData().profiles.default).toEqual(
+          coordinator.getCurrentState().profiles.default,
+        );
+      });
+      const fallback = coordinator.getCurrentState().profiles.default;
+      expect(fallback).toEqual({
+        name: "Default",
+        description: "Basic space build profile",
+        currentEnvironment: "space",
+        builds: {
+          space: { keys: {} },
+          ground: { keys: {} },
+        },
+        bindsets: {},
+        aliases: {},
+        created: expect.any(String),
+        lastModified: expect.any(String),
+        migrationVersion: "2.1.1",
+      });
+      expect(coordinator.getCurrentState()).toMatchObject({
+        currentProfile: "default",
+        currentEnvironment: "space",
+      });
+    } finally {
+      if (beforeRoot === null) localStorage.removeItem(storage.storageKey);
+      else localStorage.setItem(storage.storageKey, beforeRoot);
+      if (beforeBackup === null) localStorage.removeItem(storage.backupKey);
+      else localStorage.setItem(storage.backupKey, beforeBackup);
+      storage.getAllData(true);
+      await request(bus, "data:reload-state");
+    }
+  });
 });

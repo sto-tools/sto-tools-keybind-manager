@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   createClonedProfileDraft,
+  createDefaultProfileDraft,
   createEmptyProfileDraft,
+  createFallbackProfileDraft,
   generateProfileId,
+  planProfileBatch,
 } from "../../../src/js/components/services/profileConstruction.js";
 
 describe("profile construction", () => {
@@ -130,5 +133,221 @@ describe("profile construction", () => {
       undefined,
       Number.POSITIVE_INFINITY,
     ]);
+  });
+
+  it("projects and detaches only the established static default fields", () => {
+    const source = {
+      id: "source-id-is-not-persisted",
+      name: "Validated Default",
+      description: "Source description",
+      currentEnvironment: "ground",
+      builds: {
+        space: { keys: {} },
+        ground: { keys: { G: ["Aim"] } },
+      },
+      bindsets: {
+        Tactical: { ground: { keys: { F1: ["FireAll"] } } },
+      },
+      aliases: { engage: { commands: ["FireAll"] } },
+      selections: { ground: "G", alias: "engage" },
+      keybindMetadata: {
+        ground: { G: { stabilizeExecutionOrder: true } },
+      },
+      aliasMetadata: { engage: { stabilizeExecutionOrder: true } },
+      bindsetMetadata: {
+        Tactical: {
+          ground: { F1: { stabilizeExecutionOrder: true } },
+        },
+      },
+      created: "source-created",
+      lastModified: "source-modified",
+      migrationVersion: "2.1.1",
+      vertigoSettings: { showPlayerSay: true },
+      extension: { nested: ["not persisted"] },
+    };
+    const sourceBefore = structuredClone(source);
+
+    const draft = createDefaultProfileDraft(source);
+
+    expect(draft).toEqual({
+      name: "Validated Default",
+      description: "Source description",
+      currentEnvironment: "ground",
+      builds: sourceBefore.builds,
+      bindsets: sourceBefore.bindsets,
+      aliases: sourceBefore.aliases,
+      selections: sourceBefore.selections,
+      keybindMetadata: sourceBefore.keybindMetadata,
+      aliasMetadata: sourceBefore.aliasMetadata,
+      bindsetMetadata: sourceBefore.bindsetMetadata,
+    });
+    expect(Object.keys(draft)).toEqual([
+      "name",
+      "description",
+      "currentEnvironment",
+      "builds",
+      "bindsets",
+      "aliases",
+      "selections",
+      "keybindMetadata",
+      "aliasMetadata",
+      "bindsetMetadata",
+    ]);
+    expect(draft).not.toHaveProperty("id");
+    expect(draft).not.toHaveProperty("created");
+    expect(draft).not.toHaveProperty("lastModified");
+    expect(draft).not.toHaveProperty("migrationVersion");
+    expect(draft).not.toHaveProperty("vertigoSettings");
+    expect(draft).not.toHaveProperty("extension");
+
+    draft.builds.ground.keys.G.push("local command");
+    draft.aliases.engage.commands.push("local alias command");
+    draft.bindsets.Tactical.ground.keys.F1.push("local bindset command");
+    expect(source).toEqual(sourceBefore);
+  });
+
+  it("preserves the historical static-default fallback semantics", () => {
+    expect(
+      createDefaultProfileDraft({
+        name: "Name only",
+        description: "",
+        currentEnvironment: "",
+      }),
+    ).toEqual({
+      name: "Name only",
+      description: "",
+      currentEnvironment: "space",
+      builds: {
+        space: { keys: {} },
+        ground: { keys: {} },
+      },
+      bindsets: {},
+      aliases: {},
+      selections: {},
+      keybindMetadata: {},
+      aliasMetadata: {},
+      bindsetMetadata: {},
+    });
+  });
+
+  it("passes through a truthy incomplete builds object without synthesizing environments", () => {
+    const builds = { ground: { keys: { G: ["Aim"] } } };
+
+    const draft = createDefaultProfileDraft({
+      name: "Ground only",
+      builds,
+    });
+
+    expect(draft.builds).toEqual(builds);
+    expect(draft.builds).not.toBe(builds);
+    expect(draft.builds).not.toHaveProperty("space");
+    draft.builds.ground.keys.G.push("local command");
+    expect(builds.ground.keys.G).toEqual(["Aim"]);
+  });
+
+  it("constructs the exact timestamp-free fallback representation", () => {
+    const draft = createFallbackProfileDraft();
+
+    expect(draft).toEqual({
+      name: "Default",
+      description: "Basic space build profile",
+      currentEnvironment: "space",
+      builds: {
+        space: { keys: {} },
+        ground: { keys: {} },
+      },
+      bindsets: {},
+      aliases: {},
+    });
+    expect(Object.keys(draft)).toEqual([
+      "name",
+      "description",
+      "currentEnvironment",
+      "builds",
+      "bindsets",
+      "aliases",
+    ]);
+  });
+
+  it("plans first-incoming activation without mutating either input", () => {
+    const state = {
+      currentProfile: null,
+      currentEnvironment: "space",
+      profiles: { existing: { name: "Existing" } },
+    };
+    const incomingProfiles = {
+      first: { name: "First", currentEnvironment: "ground" },
+      second: { name: "Second", currentEnvironment: "space" },
+    };
+
+    const plan = planProfileBatch(state, incomingProfiles);
+
+    expect(plan).toEqual({
+      nextProfiles: {
+        existing: state.profiles.existing,
+        first: incomingProfiles.first,
+        second: incomingProfiles.second,
+      },
+      nextCurrentProfile: "first",
+      nextCurrentEnvironment: "ground",
+      profileActivated: true,
+    });
+    expect(plan.nextProfiles.existing).toBe(state.profiles.existing);
+    expect(plan.nextProfiles.first).toBe(incomingProfiles.first);
+    expect(state.currentProfile).toBeNull();
+    expect(Object.keys(state.profiles)).toEqual(["existing"]);
+    expect(Object.keys(incomingProfiles)).toEqual(["first", "second"]);
+  });
+
+  it("retains an existing owner selection while incoming collisions replace profiles", () => {
+    const selectedProfile = {
+      name: "Existing Selection",
+      currentEnvironment: "space",
+    };
+    const state = {
+      currentProfile: "selected",
+      currentEnvironment: "alias",
+      profiles: {
+        selected: selectedProfile,
+        retained: { name: "Retained" },
+      },
+    };
+    const replacement = {
+      name: "Replacement",
+      currentEnvironment: "ground",
+    };
+
+    const plan = planProfileBatch(state, { selected: replacement });
+
+    expect(plan).toEqual({
+      nextProfiles: {
+        selected: replacement,
+        retained: state.profiles.retained,
+      },
+      nextCurrentProfile: "selected",
+      nextCurrentEnvironment: "alias",
+      profileActivated: false,
+    });
+    expect(state.profiles.selected).toBe(selectedProfile);
+  });
+
+  it("leaves owner selection and environment unchanged for an empty incoming batch", () => {
+    const existing = { name: "Existing" };
+    const state = {
+      currentProfile: null,
+      currentEnvironment: "alias",
+      profiles: { existing },
+    };
+
+    const plan = planProfileBatch(state, {});
+
+    expect(plan).toEqual({
+      nextProfiles: { existing },
+      nextCurrentProfile: null,
+      nextCurrentEnvironment: "alias",
+      profileActivated: false,
+    });
+    expect(plan.nextProfiles).not.toBe(state.profiles);
+    expect(plan.nextProfiles.existing).toBe(existing);
   });
 });

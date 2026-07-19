@@ -17,8 +17,11 @@ import { handleLoadDefaultDataUi } from "./dataCoordinatorDefaultUi.js";
 import { loadInitialCoordinatorState } from "./dataCoordinatorInitialState.js";
 import {
   createClonedProfileDraft,
+  createDefaultProfileDraft,
   createEmptyProfileDraft,
+  createFallbackProfileDraft,
   generateProfileId,
+  planProfileBatch,
 } from "./profileConstruction.js";
 import { applyProfileOperations } from "./profileOperations.js";
 
@@ -1013,49 +1016,20 @@ export default class DataCoordinator extends ComponentBase {
     for (const [profileId, sourceProfile] of Object.entries(
       defaultProfilesData,
     )) {
-      const detachedSource = structuredClone(sourceProfile);
-      const rawProfile = {
-        name: detachedSource.name,
-        description: detachedSource.description || "",
-        currentEnvironment: detachedSource.currentEnvironment || "space",
-        builds: detachedSource.builds || {
-          space: { keys: {} },
-          ground: { keys: {} },
-        },
-        bindsets: detachedSource.bindsets || {}, // Add bindsets property for KBF import support
-        aliases: detachedSource.aliases || {},
-        selections: detachedSource.selections || {},
-        // Preserve metadata fields for stabilizeExecutionOrder and other settings
-        keybindMetadata: detachedSource.keybindMetadata || {},
-        aliasMetadata: detachedSource.aliasMetadata || {},
-        bindsetMetadata: detachedSource.bindsetMetadata || {},
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-      };
+      const rawProfile = createDefaultProfileDraft(sourceProfile);
+      rawProfile.created = new Date().toISOString();
+      rawProfile.lastModified = new Date().toISOString();
       // Normalize to canonical command arrays (keys and aliases)
       normalizeProfile(rawProfile);
       profiles[profileId] = rawProfile;
     }
 
-    const nextProfiles = {
-      ...this.state.profiles,
-      ...profiles,
-    };
-
-    // Set current profile to first one if none set
-    let profileActivated = false;
-    let nextCurrentProfile = this.state.currentProfile;
-    let nextCurrentEnvironment = this.state.currentEnvironment;
-    if (!this.state.currentProfile && Object.keys(profiles).length > 0) {
-      const firstProfileId = Object.keys(profiles)[0];
-
-      nextCurrentProfile = firstProfileId;
-      profileActivated = true;
-
-      // Set current environment from the activated profile
-      const activatedProfile = nextProfiles[firstProfileId];
-      nextCurrentEnvironment = activatedProfile.currentEnvironment || "space";
-    }
+    const {
+      nextProfiles,
+      nextCurrentProfile,
+      nextCurrentEnvironment,
+      profileActivated,
+    } = planProfileBatch(this.state, profiles);
 
     // Persist the complete profile batch and any initial activation as one root
     // write before exposing either through owner state.
@@ -1132,48 +1106,17 @@ export default class DataCoordinator extends ComponentBase {
   // Create minimal fallback profiles when built-in definitions are unavailable.
   async createFallbackProfiles() {
     const operation = this._captureOperationGeneration();
-    const fallbackProfiles = {
-      default: {
-        name: "Default",
-        description: "Basic space build profile",
-        currentEnvironment: "space",
-        builds: {
-          space: { keys: {} },
-          ground: { keys: {} },
-        },
-        bindsets: {}, // Add bindsets property for KBF import support
-        aliases: {},
-        created: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-      },
-    };
-
-    /** @type {Record<string, import('./serviceTypes.js').ProfileData>} */
-    const normalizedFallbackProfiles = {};
-
-    // Normalize the fallback draft before persisting or owning it.
-    for (const [profileId, profile] of Object.entries(fallbackProfiles)) {
-      normalizeProfile(profile);
-      normalizedFallbackProfiles[profileId] = profile;
-    }
-
-    // Set current profile
-    let profileActivated = false;
-    let nextCurrentProfile = this.state.currentProfile;
-    let nextCurrentEnvironment = this.state.currentEnvironment;
-    if (!this.state.currentProfile) {
-      nextCurrentProfile = "default";
-      profileActivated = true;
-
-      // Set current environment from the activated profile
-      const activatedProfile = normalizedFallbackProfiles.default;
-      nextCurrentEnvironment = activatedProfile.currentEnvironment || "space";
-    }
-
-    const nextProfiles = {
-      ...this.state.profiles,
-      ...normalizedFallbackProfiles,
-    };
+    const fallbackProfile = createFallbackProfileDraft();
+    fallbackProfile.created = new Date().toISOString();
+    fallbackProfile.lastModified = new Date().toISOString();
+    normalizeProfile(fallbackProfile);
+    const fallbackProfiles = { default: fallbackProfile };
+    const {
+      nextProfiles,
+      nextCurrentProfile,
+      nextCurrentEnvironment,
+      profileActivated,
+    } = planProfileBatch(this.state, fallbackProfiles);
 
     // The fallback profile and its initial activation form one durable root
     // commit, so neither can survive independently after a failed write.

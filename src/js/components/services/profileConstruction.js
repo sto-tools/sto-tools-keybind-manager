@@ -82,3 +82,86 @@ export function createClonedProfileDraft(
     lastModified,
   };
 }
+
+/**
+ * Detach and project one validated static profile into the exact raw draft
+ * accepted by the normalization facade. Timestamps deliberately remain absent
+ * so the caller retains the established clone-before-clock ordering.
+ *
+ * @param {ProfileData} sourceProfile
+ * @returns {ProfileData}
+ */
+export function createDefaultProfileDraft(sourceProfile) {
+  const source = structuredClone(sourceProfile);
+  return {
+    name: source.name,
+    description: source.description || "",
+    currentEnvironment: source.currentEnvironment || "space",
+    builds: source.builds || {
+      space: { keys: {} },
+      ground: { keys: {} },
+    },
+    bindsets: source.bindsets || {},
+    aliases: source.aliases || {},
+    selections: source.selections || {},
+    keybindMetadata: source.keybindMetadata || {},
+    aliasMetadata: source.aliasMetadata || {},
+    bindsetMetadata: source.bindsetMetadata || {},
+  };
+}
+
+/**
+ * Construct the exact timestamp-free minimal fallback draft. The persisted
+ * compatibility literals and intentionally absent metadata fields are part of
+ * the established profile representation.
+ *
+ * @returns {ProfileData}
+ */
+export function createFallbackProfileDraft() {
+  return {
+    name: "Default",
+    description: "Basic space build profile",
+    currentEnvironment: "space",
+    builds: {
+      space: { keys: {} },
+      ground: { keys: {} },
+    },
+    bindsets: {},
+    aliases: {},
+  };
+}
+
+/**
+ * Plan one shallow profile-batch adoption without mutating either owner state
+ * or the normalized incoming profiles. The first incoming key is observable
+ * because it becomes the initial profile when no current profile exists.
+ *
+ * @param {Pick<import('./serviceTypes.js').CoordinatorState, 'profiles' | 'currentProfile' | 'currentEnvironment'>} state
+ * @param {Record<string, ProfileData>} incomingProfiles
+ * @returns {{
+ *   nextProfiles: Record<string, ProfileData>,
+ *   nextCurrentProfile: string | null,
+ *   nextCurrentEnvironment: string,
+ *   profileActivated: boolean
+ * }}
+ */
+export function planProfileBatch(state, incomingProfiles) {
+  const nextProfiles = {
+    ...state.profiles,
+    ...incomingProfiles,
+  };
+  const firstProfileId = Object.keys(incomingProfiles)[0];
+  const profileActivated =
+    !state.currentProfile && firstProfileId !== undefined;
+
+  return {
+    nextProfiles,
+    nextCurrentProfile: profileActivated
+      ? firstProfileId
+      : state.currentProfile,
+    nextCurrentEnvironment: profileActivated
+      ? nextProfiles[firstProfileId].currentEnvironment || "space"
+      : state.currentEnvironment,
+    profileActivated,
+  };
+}
