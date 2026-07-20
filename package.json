@@ -26,7 +26,7 @@
     "test:html:serve": "npm run test:html && http-server html -p 4173 -c-1",
     "test:unit": "cross-env VITEST_PROJECT=unit vitest run --config=vitest.workspace.js",
     "test:integration": "cross-env VITEST_PROJECT=integration vitest run --config=vitest.workspace.js",
-    "test:browser": "cross-env VITEST_PROJECT=browser vitest run --config=vitest.workspace.js",
+    "test:browser": "node ./scripts/browser-test-runner.mjs",
     "test:browser:ui": "cross-env VITEST_PROJECT=browser vitest --ui --config=vitest.workspace.js",
     "test:all": "vitest run --config=vitest.workspace.js",
     "test:ci": "npm run typecheck && npm run lint && npm run format:check && npm run lint:deadcode && npm run lint:duplicates && npm run test:coverage && npm run build_prod && npm run test:browser",
