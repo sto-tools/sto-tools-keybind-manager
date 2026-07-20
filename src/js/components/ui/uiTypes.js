@@ -94,7 +94,6 @@
  *   storageService?: import('../services/StorageService.js').default,
  *   stoUI?: UIServiceLike,
  *   confirmDialog?: ConfirmDialogLike,
- *   inputDialog?: InputDialogLike,
  *   applyTranslations?: (element?: Document | Element | null) => void,
  *   stoSync?: { setSyncFolder: (autoSync?: boolean) => Promise<FileSystemDirectoryHandle | null> },
  *   VFX_EFFECTS?: VFXEffects

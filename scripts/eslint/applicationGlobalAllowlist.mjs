@@ -177,15 +177,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     removalGate: "Every confirmation consumer receives the dialog capability.",
     writers: [writer("src/js/app.js", "confirmDialog")],
   },
-  inputDialog: {
-    classification: "UI compatibility",
-    purpose: "Shared text-input capability for bindset management fallbacks.",
-    consumers: ["src/js/components/ui/BindsetManagerUI.js"],
-    compatibilityOwner: "app.js",
-    removalGate:
-      "Bindset management always receives the input dialog capability.",
-    writers: [writer("src/js/app.js", "inputDialog")],
-  },
   commandChainUI: {
     classification: "UI compatibility",
     purpose: "Checked-bundle command-chain inspection surface.",

@@ -180,9 +180,8 @@ export default class STOToolsKeybindManager {
         i18n: this.i18n,
       });
 
-      // Make modal dialogs globally available
+      // Retain the confirmation compatibility surface for remaining consumers.
       window.confirmDialog = this.confirmDialogUI;
-      window.inputDialog = this.inputDialogUI;
 
       this.profileUI = new ProfileUI({
         eventBus,

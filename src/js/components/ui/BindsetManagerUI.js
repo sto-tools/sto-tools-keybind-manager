@@ -31,14 +31,15 @@ export default class BindsetManagerUI extends UIComponentBase {
     this.i18n = resolveI18n(i18n);
     this.document = resolveDocument(document);
     this.confirmDialog = confirmDialog || runtime.confirmDialog || null;
-    this.inputDialog = inputDialog || runtime.inputDialog || null;
+    this.inputDialog = inputDialog;
     this.selectedBindset = null;
+    this.listenersSetup = false;
   }
 
   async onInit() {
     this.setupEventListeners();
     this.render();
-    this.eventBus?.on("bindsets:changed", () => {
+    this.addEventListener("bindsets:changed", () => {
       // ComponentBase automatically updates this.cache.bindsetNames
       this.render();
     });
@@ -176,6 +177,10 @@ export default class BindsetManagerUI extends UIComponentBase {
       this.selectedBindset && this.selectedBindset !== "Primary Bindset";
     if (renameBtn) renameBtn.disabled = !valid;
     if (deleteBtn) deleteBtn.disabled = !valid;
+  }
+
+  onDestroy() {
+    this.listenersSetup = false;
   }
 
   // Late-join support

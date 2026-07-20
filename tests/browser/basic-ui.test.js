@@ -63,6 +63,40 @@ describe("Application browser smoke", () => {
     }
   });
 
+  it("opens the injected bindset input dialog without a browser global", async () => {
+    expect("inputDialog" in window).toBe(false);
+    await vi.waitFor(() => {
+      expect(window.eventBus?.hasListeners("rpc:bindset:create")).toBe(true);
+    });
+
+    const managerButton = document.getElementById("bindsetManagerBtn");
+    const createButton = document.getElementById("createBindsetBtn");
+    expect(managerButton).toBeTruthy();
+    expect(createButton).toBeTruthy();
+    if (!managerButton || !createButton) return;
+
+    managerButton.click();
+    expect(document.getElementById("bindsetManagerModal")?.classList).toContain(
+      "active",
+    );
+    createButton.click();
+
+    await vi.waitFor(() => {
+      expect(document.getElementById("inputModal")).toBeTruthy();
+    });
+    const inputModal = document.getElementById("inputModal");
+    const input = inputModal?.querySelector(".input-field");
+    const cancel = inputModal?.querySelector(".input-cancel");
+    expect(input).toBeInstanceOf(HTMLInputElement);
+    expect(cancel).toBeInstanceOf(HTMLButtonElement);
+    if (!(cancel instanceof HTMLButtonElement)) return;
+
+    cancel.click();
+    await vi.waitFor(() => {
+      expect(document.getElementById("inputModal")).toBeNull();
+    });
+  });
+
   it("keeps DataService module-scoped while serving late-join state", async () => {
     const bus = window.eventBus;
     const replyTopic = `component:registered:reply:browser-data-service:${Date.now()}-${Math.random()}`;

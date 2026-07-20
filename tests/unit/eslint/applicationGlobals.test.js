@@ -13,7 +13,7 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 18-name post-cleanup allowlist", () => {
+  it("freezes the exact 17-name post-cleanup allowlist", () => {
     const expectedNames = [
       "COMMANDS",
       "STO_DATA",
@@ -25,7 +25,6 @@ describe("application-global compatibility metadata", () => {
       "devMonitor",
       "eventBus",
       "i18next",
-      "inputDialog",
       "keyBrowserService",
       "keyBrowserUI",
       "localizeCommandData",
@@ -104,6 +103,7 @@ describe("application-global compatibility metadata", () => {
     "VertigoError",
     "InvalidEnvironmentError",
     "InvalidEffectError",
+    "inputDialog",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
@@ -146,7 +146,6 @@ describe("application-global write guard", () => {
     const appMessages = verify(
       `
         window.confirmDialog = {};
-        window.inputDialog = {};
         window.commandChainUI = {};
         window.keyBrowserUI = {};
         window.keyBrowserService = {};
@@ -190,6 +189,7 @@ describe("application-global write guard", () => {
         `
           window.newService = {};
           window.dataService = {};
+          window.inputDialog = {};
           window.STO_DATA = {};
           window.STO_DATA.commands = {};
           globalThis.window.stoAliases = {};
@@ -197,6 +197,7 @@ describe("application-global write guard", () => {
         "src/js/main.js",
       ),
     ).toEqual([
+      "unallowlisted",
       "unallowlisted",
       "unallowlisted",
       "wrongWriter",

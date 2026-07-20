@@ -110,6 +110,7 @@ describe("application-global read guard", () => {
 
   it("records only live production consumers for retired bridges", () => {
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoFileExplorer");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("inputDialog");
     expect(applicationGlobalAllowlist.STO_DATA.consumers).not.toContain(
       "src/js/components/services/DataService.js",
     );
@@ -122,6 +123,12 @@ describe("application-global read guard", () => {
     expect(
       applicationGlobalAllowlist.applyTranslations.consumers,
     ).not.toContain("src/js/components/ui/CommandChainUI.js");
+    expect(
+      readMessageIds(
+        "void globalThis.inputDialog;",
+        "src/js/components/ui/BindsetManagerUI.js",
+      ),
+    ).toEqual(["unallowlisted"]);
   });
 });
 
