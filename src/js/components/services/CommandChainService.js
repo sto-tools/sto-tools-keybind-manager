@@ -11,6 +11,11 @@ import {
   planCommandChainClear,
   planCommandStabilization,
 } from "./commandChainOperations.js";
+import {
+  captureCommandEditTarget,
+  isCommandEditTargetCurrent,
+  planCommandEdit,
+} from "./commandChainEditPlanning.js";
 
 /**
  * CommandChainService - Manages command chain display and editing operations
@@ -35,6 +40,7 @@ export default class CommandChainService extends ComponentBase {
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
     this._lifecycleGeneration = 0;
+    this._editGeneration = 0;
   }
 
   setupRequestHandlers() {
@@ -59,6 +65,7 @@ export default class CommandChainService extends ComponentBase {
 
   onInit() {
     this._lifecycleGeneration += 1;
+    this._editGeneration += 1;
     this.setupRequestHandlers();
     this.setupEventListeners();
   }
@@ -73,6 +80,13 @@ export default class CommandChainService extends ComponentBase {
         console.log(`[CommandChainService] ${label}:`, payload);
       }
     };
+
+    this.addEventListener("selection:state-changed", () => {
+      this._editGeneration += 1;
+    });
+    this.addEventListener("preferences:loaded", () => {
+      this._editGeneration += 1;
+    });
 
     // DataCoordinator integration - listen for profile updates
     this.addEventListener("profile:updated", (data) => {
@@ -97,6 +111,7 @@ export default class CommandChainService extends ComponentBase {
 
     // Listen for environment changes
     this.addEventListener("environment:changed", (data) => {
+      this._editGeneration += 1;
       const env = typeof data === "string" ? data : data?.environment;
       if (env) {
         // ComponentBase handles currentEnvironment caching
@@ -116,6 +131,7 @@ export default class CommandChainService extends ComponentBase {
       "[CommandChainService] Setting up bindset-selector:active-changed listener",
     );
     this.addEventListener("bindset-selector:active-changed", (data) => {
+      this._editGeneration += 1;
       const newName = eventPayloads.activeBindsetFromPayload(data);
       console.log(
         `[CommandChainService] *** bindset-selector:active-changed received: ${this.cache.activeBindset} -> ${newName} ***`,
@@ -190,6 +206,7 @@ export default class CommandChainService extends ComponentBase {
     // Directly emit chain data changes whenever key/alias selection changes so
     // the command-chain UI always knows what it should be displaying.
     this.addEventListener("key-selected", async (payload) => {
+      this._editGeneration += 1;
       const selectedKey = eventPayloads.selectedKeyFromPayload(payload);
       console.log(
         `[CommandChainService] key-selected event received: key=${selectedKey}`,
@@ -223,6 +240,7 @@ export default class CommandChainService extends ComponentBase {
 
     // Handle alias selections explicitly so environment switches to alias
     this.addEventListener("alias-selected", async ({ name }) => {
+      this._editGeneration += 1;
       if (!name) return;
 
       // Let ComponentBase handle the selection state update
@@ -280,103 +298,9 @@ export default class CommandChainService extends ComponentBase {
     // Note: command:add events are now handled by CommandUI
     // CommandChainService only handles the resulting command-added events
     // Edit command
-    this.addEventListener("commandchain:edit", async ({ index }) => {
-      if (index === undefined) return;
-
-      const cmds = await this.getCommandsForSelectedKey();
-      const originalEntry = cmds[index];
-      if (!originalEntry) return;
-
-      // Ensure we have a rich object representation for editing.
-      let cmd;
-      if (typeof originalEntry === "string") {
-        // Wrap canonical string into minimal rich object for downstream logic
-        cmd = { command: originalEntry };
-      } else {
-        cmd = originalEntry.parameters
-          ? { ...originalEntry, parameters: { ...originalEntry.parameters } }
-          : { ...originalEntry };
-      }
-
-      // Derive editable parameters when absent
-      if (!cmd.parameters && typeof cmd.command === "string") {
-        try {
-          const parseResult = await this.request(
-            "parser:parse-command-string",
-            {
-              commandString: cmd.command,
-              options: { generateDisplayText: false },
-            },
-          );
-          if (parseResult.commands && parseResult.commands[0]?.parameters) {
-            cmd.parameters = parseResult.commands[0].parameters;
-          }
-        } catch (error) {
-          console.warn(
-            "[CommandChainService] Failed to derive parameters from command:",
-            error,
-          );
-        }
-      }
-
-      const def = await this.findCommandDefinition(cmd);
-      const isCustomizable = !!(def && def.customizable);
-
-      // Check if this is a custom command that should be editable
-      const isCustomCommand =
-        cmd.type === "custom" ||
-        cmd.category === "custom" ||
-        (cmd.command && (await this.isCustomCommand(cmd.command)));
-
-      if (isCustomizable) {
-        this.emit("parameter-command:edit", {
-          index,
-          command: cmd,
-          commandDef: def,
-          categoryId: def.categoryId || cmd.type,
-          commandId: def.commandId,
-        });
-        return;
-      } else if (isCustomCommand) {
-        // Handle custom commands using the custom command editor
-        const customDef = {
-          name: "Edit Custom Command",
-          customizable: true,
-          categoryId: "custom",
-          commandId: "add_custom_command",
-          parameters: {
-            rawCommand: {
-              type: "text",
-              default: cmd.command || "",
-              placeholder: "Enter any STO command",
-              label: "Command:",
-            },
-          },
-        };
-
-        this.emit("parameter-command:edit", {
-          index,
-          command: cmd,
-          commandDef: customDef,
-          categoryId: "custom",
-          commandId: "add_custom_command",
-        });
-        return;
-      }
-
-      // Non-customizable – inform UI
-      const ui =
-        typeof window === "undefined"
-          ? undefined
-          : /** @type {import('./serviceTypes.js').AppWindow} */ (window).stoUI;
-      if (ui?.showToast) {
-        const message =
-          cmd.command ||
-          cmd.text ||
-          (typeof originalEntry === "string" ? originalEntry : "");
-        ui.showToast(message, "info");
-      }
-    });
+    this.addEventListener("commandchain:edit", ({ index }) =>
+      this.editCommandAtIndex(index),
+    );
 
     // Delete command
     this.addEventListener("commandchain:delete", async ({ index }) => {
@@ -448,6 +372,7 @@ export default class CommandChainService extends ComponentBase {
 
     // Handle preferences changes for bind-to-alias mode
     this.addEventListener("preferences:changed", (data) => {
+      this._editGeneration += 1;
       // Handle both { key, value } and { changes } event formats
       const changes = data.changes || { [data.key]: data.value };
 
@@ -500,30 +425,78 @@ export default class CommandChainService extends ComponentBase {
     );
   }
 
-  /** @param {import('./serviceTypes.js').StoredCommand} command */
-  async findCommandDefinition(command) {
-    return findCommandDefinition(command, this.i18n || null);
-  }
-
-  /** @param {string} command */
-  async isCustomCommand(command) {
-    try {
-      // Try to parse the command to determine its category
-      const parseResult = await this.request("parser:parse-command-string", {
-        commandString: command,
-        options: { generateDisplayText: false },
+  /**
+   * Capture and plan one edit from accepted state. Delayed parser work is
+   * discarded when a later edit, lifecycle replacement, owner replacement, or
+   * exact command-location change supersedes it.
+   *
+   * @param {number} index
+   * @returns {Promise<boolean>}
+   */
+  async editCommandAtIndex(index) {
+    const lifecycleGeneration = this._lifecycleGeneration;
+    const editGeneration = ++this._editGeneration;
+    const target = captureCommandEditTarget({
+      snapshot: this.cache.dataState,
+      currentEnvironment: this.cache.currentEnvironment,
+      selectedKey: this.cache.selectedKey,
+      selectedAlias: this.cache.selectedAlias,
+      activeBindset: this.cache.activeBindset,
+      bindsetsEnabled: this.cache.preferences?.bindsetsEnabled,
+      index,
+    });
+    if (!target) return false;
+    const isCurrent = () =>
+      !this.destroyed &&
+      lifecycleGeneration === this._lifecycleGeneration &&
+      editGeneration === this._editGeneration &&
+      isCommandEditTargetCurrent(target, {
+        snapshot: this.cache.dataState,
+        currentEnvironment: this.cache.currentEnvironment,
+        selectedKey: this.cache.selectedKey,
+        selectedAlias: this.cache.selectedAlias,
+        activeBindset: this.cache.activeBindset,
+        bindsetsEnabled: this.cache.preferences?.bindsetsEnabled,
       });
 
-      if (parseResult.commands && parseResult.commands[0]) {
-        const category = parseResult.commands[0].category;
-        return category === "custom";
+    try {
+      const plan = await planCommandEdit({
+        target,
+        parseCommandString: (commandString) =>
+          isCurrent()
+            ? this.request("parser:parse-command-string", {
+                commandString,
+                options: { generateDisplayText: false },
+              })
+            : Promise.reject(new Error("Command edit superseded")),
+        resolveDefinition: (command) =>
+          findCommandDefinition(command, this.i18n || null),
+        translate: (key, defaultValue) =>
+          this.i18n?.t(key, { defaultValue }) || defaultValue,
+      });
+
+      if (!isCurrent()) return false;
+      if (plan.parameterDerivationError) {
+        console.warn(
+          "[CommandChainService] Failed to derive parameters from command:",
+          plan.parameterDerivationError,
+        );
       }
 
-      // If parsing fails, consider it a custom command
+      if (plan.kind === "edit") {
+        this.emit("parameter-command:edit", plan.payload);
+      } else {
+        this.emit("toast:show", { message: plan.message, type: "info" });
+      }
       return true;
-    } catch {
-      // If parsing fails, treat as custom command
-      return true;
+    } catch (error) {
+      if (isCurrent()) {
+        console.error(
+          "[CommandChainService] Failed to plan command edit:",
+          error,
+        );
+      }
+      return false;
     }
   }
 
@@ -649,6 +622,7 @@ export default class CommandChainService extends ComponentBase {
   // Cleanup
   onDestroy() {
     this._lifecycleGeneration += 1;
+    this._editGeneration += 1;
     // Clean up request/response handlers
     if (this._responseDetachFunctions) {
       this._responseDetachFunctions.forEach((detach) => detach());

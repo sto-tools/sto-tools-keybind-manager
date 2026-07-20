@@ -854,6 +854,9 @@
   "parameter_configuration": "Parameter Configuration",
   "configure_colon": "Configure:",
   "edit_colon": "Edit:",
+  "edit_custom_command": "Edit Custom Command",
+  "enter_any_sto_command": "Enter any STO command",
+  "command_label_colon": "Command:",
 
   "vfx_manager": "VFX Manager",
   "select_all": "Select All",

@@ -128,7 +128,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     purpose:
       "Legacy toast and UI utility facade for remaining fallback consumers.",
     consumers: [
-      "src/js/components/services/CommandChainService.js",
       "src/js/components/services/StorageService.js",
       "src/js/components/services/dataCoordinatorDefaultUi.js",
       "src/js/components/ui/CommandChainUI.js",

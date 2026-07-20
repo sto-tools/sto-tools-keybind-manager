@@ -79,6 +79,14 @@ describe("application-global compatibility metadata", () => {
       "tests/browser-setup.js",
       "tests/browser/basic-ui.test.js",
     ]);
+    expect(applicationGlobalAllowlist.stoUI.consumers).toEqual([
+      "src/js/components/services/StorageService.js",
+      "src/js/components/services/dataCoordinatorDefaultUi.js",
+      "src/js/components/ui/CommandChainUI.js",
+      "src/js/components/ui/CommandUI.js",
+      "src/js/components/ui/FileExplorerUI.js",
+      "src/js/components/ui/InterfaceModeUI.js",
+    ]);
   });
 
   it.each([
