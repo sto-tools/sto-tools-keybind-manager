@@ -50,7 +50,7 @@ export interface ApplicationRpcProtocol {
     {
       keyName: string | null;
       environment?: string;
-      bindset?: string;
+      bindset?: string | null;
       skipPersistence?: boolean;
       isAuto?: boolean;
       forceEmit?: boolean;

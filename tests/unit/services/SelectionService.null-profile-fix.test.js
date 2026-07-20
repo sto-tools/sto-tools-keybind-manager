@@ -27,66 +27,57 @@ describe("SelectionService - Null Profile Handling Fix", () => {
   });
 
   describe("profile:switched handler with null profile", () => {
-    it("should handle null profile gracefully without throwing errors", () => {
-      // Arrange - set up initial state with some cached selections
+    it("clears real owner state and publishes canonical state before compatibility events", async () => {
       selectionService.cachedSelections = {
         space: "F1",
         ground: "G1",
         alias: "TestAlias",
       };
+      selectionService.cache.cachedSelections = {
+        space: "F1",
+        ground: "G1",
+        alias: "TestAlias",
+      };
+      selectionService.cache.selectedKey = "F1";
+      selectionService.cache.selectedAlias = "TestAlias";
       selectionService.cache.currentProfile = "old-profile";
       selectionService.cache.profile = {
         id: "old-profile",
         name: "Old Profile",
       };
+      capturedEvents.length = 0;
 
-      // Act - this should not throw an error
-      expect(() => {
-        // Manually call the handler logic with null profile (similar to profile:switched handler)
-        const handler = ({ profileId, profile, environment }) => {
-          console.log(
-            `[SelectionService] profile:switched: profileId="${profileId}", env="${environment}"`,
-          );
+      await harness.eventBus.emit("profile:switched", {
+        profileId: null,
+        profile: null,
+        environment: "space",
+        updateSource: "DataCoordinator-Reset",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-          // ComponentBase handles currentProfile, profile, and currentEnvironment caching
-          selectionService.updateCacheFromProfile(profile);
-
-          // Handle null profile gracefully
-          if (!profile) {
-            selectionService.cachedSelections = {
-              space: null,
-              ground: null,
-              alias: null,
-            };
-            return;
-          }
-
-          // Restore cached selections from the new profile
-          if (profile.selections) {
-            if (profile.selections.space) {
-              selectionService.cachedSelections.space =
-                profile.selections.space;
-            }
-            if (profile.selections.ground) {
-              selectionService.cachedSelections.ground =
-                profile.selections.ground;
-            }
-            if (profile.selections.alias) {
-              selectionService.cachedSelections.alias =
-                profile.selections.alias;
-            }
-          }
-        };
-
-        handler({ profileId: null, profile: null, environment: "space" });
-      }).not.toThrow();
-
-      // Assert - cached selections should be reset
       expect(selectionService.cachedSelections).toEqual({
         space: null,
         ground: null,
         alias: null,
       });
+      expect(selectionService.cache).toMatchObject({
+        currentProfile: null,
+        profile: null,
+        selectedKey: null,
+        selectedAlias: null,
+        cachedSelections: { space: null, ground: null, alias: null },
+      });
+      expect(
+        capturedEvents
+          .filter(({ event }) =>
+            [
+              "selection:state-changed",
+              "key-selected",
+              "alias-selected",
+            ].includes(event),
+          )
+          .map(({ event }) => event),
+      ).toEqual(["selection:state-changed", "key-selected", "alias-selected"]);
     });
   });
 

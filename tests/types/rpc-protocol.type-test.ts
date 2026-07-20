@@ -113,6 +113,19 @@ type SyncFolderExportRequest = Expect<
 type UtilityClipboardRequest = Expect<
   Equal<RpcRequest<"utility:copy-to-clipboard">, { text?: string }>
 >;
+type SelectionKeyRequest = Expect<
+  Equal<
+    RpcRequest<"selection:select-key">,
+    {
+      keyName: string | null;
+      environment?: string;
+      bindset?: string | null;
+      skipPersistence?: boolean;
+      isAuto?: boolean;
+      forceEmit?: boolean;
+    }
+  >
+>;
 const nullableKBFImportRequest: RpcRequest<"import:kbf-file"> = {
   content: "encoded-kbf",
   profileId: "captain",
