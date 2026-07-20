@@ -5,7 +5,17 @@ import ExportService from "../../src/js/components/services/ExportService.js";
 import { respond } from "../../src/js/core/requestResponse.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
+import { isSnapshotCommandStabilized } from "../../src/js/components/services/dataState.js";
 import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
+
+function isCachedCommandStabilized(service, name, bindset) {
+  return isSnapshotCommandStabilized(
+    service.cache.dataState,
+    service.cache.currentEnvironment,
+    name,
+    bindset,
+  );
+}
 
 describe("Bind-to-Alias Mode Integration", () => {
   let fixture;
@@ -479,9 +489,9 @@ describe("Bind-to-Alias Mode Integration", () => {
       });
 
       // Verify initial state - should be stabilized
-      expect(commandChainService.isStabilized("F1", "Custom Bindset")).toBe(
-        true,
-      );
+      expect(
+        isCachedCommandStabilized(commandChainService, "F1", "Custom Bindset"),
+      ).toBe(true);
 
       // Disable stabilization
       const result = await commandChainService.setStabilize(
@@ -507,9 +517,9 @@ describe("Bind-to-Alias Mode Integration", () => {
       });
 
       // Verify stabilization is now disabled
-      expect(commandChainService.isStabilized("F1", "Custom Bindset")).toBe(
-        false,
-      );
+      expect(
+        isCachedCommandStabilized(commandChainService, "F1", "Custom Bindset"),
+      ).toBe(false);
 
       // Re-enable stabilization to ensure it still works
       const enableResult = await commandChainService.setStabilize(
@@ -533,9 +543,9 @@ describe("Bind-to-Alias Mode Integration", () => {
         },
       });
 
-      expect(commandChainService.isStabilized("F1", "Custom Bindset")).toBe(
-        true,
-      );
+      expect(
+        isCachedCommandStabilized(commandChainService, "F1", "Custom Bindset"),
+      ).toBe(true);
     });
   });
 

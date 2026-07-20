@@ -3,7 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
 import CommandChainUI from "../../src/js/components/ui/CommandChainUI.js";
+import { isSnapshotCommandStabilized } from "../../src/js/components/services/dataState.js";
 import { createServiceFixture } from "../fixtures/index.js";
+
+function isCachedCommandStabilized(service, name, bindset) {
+  return isSnapshotCommandStabilized(
+    service.cache.dataState,
+    service.cache.currentEnvironment,
+    name,
+    bindset,
+  );
+}
 
 const profile = {
   name: "Captain",
@@ -297,9 +307,9 @@ describe("CommandChainService stabilization owner atomicity", () => {
       });
       configureTarget(lateJoiner, target);
 
-      expect(lateJoiner.isStabilized(target.name, target.bindset)).toBe(
-        target.kind === "bindset" ? false : true,
-      );
+      expect(
+        isCachedCommandStabilized(lateJoiner, target.name, target.bindset),
+      ).toBe(target.kind === "bindset" ? false : true);
     },
   );
 
@@ -379,9 +389,9 @@ describe("CommandChainService stabilization owner atomicity", () => {
       });
       configureTarget(lateJoiner, target);
 
-      expect(lateJoiner.isStabilized(target.name, target.bindset)).toBe(
-        target.stabilize,
-      );
+      expect(
+        isCachedCommandStabilized(lateJoiner, target.name, target.bindset),
+      ).toBe(target.stabilize);
     },
   );
 });

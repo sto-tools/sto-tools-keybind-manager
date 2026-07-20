@@ -1,14 +1,19 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CommandChainService from "../../../src/js/components/services/CommandChainService.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
-import { eventBus } from "../../fixtures/core/eventBus.js";
+import { createServiceFixture } from "../../fixtures/index.js";
 
-describe("CommandChainService - Bindset Stabilization", () => {
+describe("CommandChainService bindset stabilization action", () => {
+  let fixture;
   let service;
   let mockProfile;
 
   beforeEach(async () => {
-    service = new CommandChainService({ eventBus, i18n: { t: (key) => key } });
+    fixture = createServiceFixture();
+    service = new CommandChainService({
+      eventBus: fixture.eventBus,
+      i18n: { t: (key) => key },
+    });
 
     mockProfile = {
       id: "test_profile",
@@ -74,36 +79,9 @@ describe("CommandChainService - Bindset Stabilization", () => {
     );
   });
 
-  describe("isStabilized with bindset parameter", () => {
-    it("should check primary bindset stabilization when no bindset specified", () => {
-      expect(service.isStabilized("F1")).toBe(true);
-      expect(service.isStabilized("F3")).toBe(false);
-    });
-
-    it("should check primary bindset stabilization when Primary Bindset specified", () => {
-      expect(service.isStabilized("F1", "Primary Bindset")).toBe(true);
-      expect(service.isStabilized("F3", "Primary Bindset")).toBe(false);
-    });
-
-    it("should check bindset-specific stabilization when bindset specified", () => {
-      expect(service.isStabilized("F2", "Custom Bindset")).toBe(true);
-      expect(service.isStabilized("F4", "Custom Bindset")).toBe(false);
-    });
-
-    it("should check alias stabilization regardless of bindset parameter", () => {
-      expect(service.isStabilized("TestAlias")).toBe(true);
-      expect(service.isStabilized("TestAlias", "Custom Bindset")).toBe(true);
-      expect(service.isStabilized("TestAlias", "Primary Bindset")).toBe(true);
-    });
-
-    it("should return false for non-existent keys", () => {
-      expect(service.isStabilized("NonExistent")).toBe(false);
-      expect(service.isStabilized("NonExistent", "Custom Bindset")).toBe(false);
-    });
-
-    it("should return false for non-existent bindsets", () => {
-      expect(service.isStabilized("F1", "NonExistent Bindset")).toBe(false);
-    });
+  afterEach(() => {
+    if (!service.destroyed) service.destroy();
+    fixture.destroy();
   });
 
   describe("setStabilize with bindset parameter", () => {
@@ -231,51 +209,6 @@ describe("CommandChainService - Bindset Stabilization", () => {
           },
         },
       });
-    });
-  });
-
-  describe("projection and action handlers with bindset parameter", () => {
-    beforeEach(() => {
-      service.onInit();
-    });
-
-    it("projects bindset stabilization from accepted state", () => {
-      const result = service.isStabilized("F2", "Custom Bindset");
-      expect(result).toBe(true);
-    });
-
-    it("should handle command:set-stabilize with bindset parameter", async () => {
-      service.request = vi
-        .fn()
-        .mockResolvedValue({ success: true, profile: mockProfile });
-
-      const result = await service.setStabilize("F4", true, "Custom Bindset");
-      expect(result.success).toBe(true);
-    });
-  });
-
-  describe("environment handling", () => {
-    it("should check correct environment metadata for bindsets", () => {
-      // Switch to ground environment in cache
-      service.cache.currentEnvironment = "ground";
-
-      // Add ground metadata for testing
-      mockProfile.bindsetMetadata["Custom Bindset"].ground = {
-        G1: { stabilizeExecutionOrder: true },
-      };
-      service._cacheDataState(
-        createDataCoordinatorState({
-          authorityEpoch: 2,
-          revision: 1,
-          currentProfile: "test_profile",
-          currentEnvironment: "ground",
-          currentProfileData: mockProfile,
-          profiles: { test_profile: mockProfile },
-        }),
-      );
-
-      expect(service.isStabilized("G1", "Custom Bindset")).toBe(true);
-      expect(service.isStabilized("F2", "Custom Bindset")).toBe(false); // F2 is in space
     });
   });
 });

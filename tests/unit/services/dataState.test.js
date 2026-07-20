@@ -55,10 +55,14 @@ function createProfile() {
       empty: { commands: [] },
       legacyVfx: { commands: ["FXCommand"], type: "vfx-alias" },
     },
-    keybindMetadata: { space: { F1: { stabilizeExecutionOrder: true } } },
+    keybindMetadata: {
+      space: { F1: { stabilizeExecutionOrder: true } },
+      ground: { G: { stabilizeExecutionOrder: true } },
+    },
     bindsetMetadata: {
       Weapons: {
         space: { F2: { stabilizeExecutionOrder: true } },
+        ground: { G: { stabilizeExecutionOrder: true } },
       },
     },
     aliasMetadata: {
@@ -472,6 +476,9 @@ describe("data-state projections", () => {
 
     expect(isSnapshotCommandStabilized(snapshot, "space", "F1")).toBe(true);
     expect(
+      isSnapshotCommandStabilized(snapshot, "space", "F1", "Primary Bindset"),
+    ).toBe(true);
+    expect(
       isSnapshotCommandStabilized(snapshot, "space", "F2", "Weapons"),
     ).toBe(true);
     expect(
@@ -481,6 +488,16 @@ describe("data-state projections", () => {
       isSnapshotCommandStabilized(snapshot, "space", "F2", "Missing"),
     ).toBe(true);
     expect(isSnapshotCommandStabilized(snapshot, "alias", "engage")).toBe(true);
+    expect(
+      isSnapshotCommandStabilized(snapshot, "alias", "engage", "Weapons"),
+    ).toBe(true);
+    expect(isSnapshotCommandStabilized(snapshot, "ground", "G")).toBe(true);
+    expect(
+      isSnapshotCommandStabilized(snapshot, "ground", "G", "Weapons"),
+    ).toBe(true);
+    expect(isSnapshotCommandStabilized(snapshot, "space", "G", "Weapons")).toBe(
+      false,
+    );
     expect(isSnapshotCommandStabilized(snapshot, "alias", "missing")).toBe(
       false,
     );

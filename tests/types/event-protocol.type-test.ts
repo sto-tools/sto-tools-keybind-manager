@@ -22,6 +22,7 @@ import type {
   ComponentReplyTopic,
   ComponentState,
   ComponentStateReply,
+  ComponentStateSender,
   CommandPresentationStateSnapshot,
   DataCoordinatorStateSnapshot,
   DataStateChangedPayload,
@@ -63,6 +64,8 @@ type SyncFolderSetPayloadIsNarrowCapability = Expect<
 >;
 type RetiredListenerTopics =
   | "bindset-manager:open"
+  | "bindset-operation:completed"
+  | "bindset-operation:started"
   | "bindset-section:refresh-needed"
   | "bindset:active-changed"
   | "bindset:created"
@@ -88,6 +91,8 @@ type RetiredListenersAreAbsent = Expect<
 type RetiredProducerTopics =
   | "app:reset-complete"
   | "app:reset-failed"
+  | "bindset-operation:completed"
+  | "bindset-operation:started"
   | "capture-start"
   | "capture-stop"
   | "environment:switched"
@@ -108,6 +113,9 @@ type RetiredProducerTopics =
   | "vfx:settings-changed";
 type RetiredProducersAreAbsent = Expect<
   Equal<Extract<EventTopic, RetiredProducerTopics>, never>
+>;
+type CommandChainServiceIsNotAStateOwner = Expect<
+  Equal<Extract<ComponentStateSender, "CommandChainService">, never>
 >;
 type ToastPayloadIsRegistered = Expect<
   Equal<

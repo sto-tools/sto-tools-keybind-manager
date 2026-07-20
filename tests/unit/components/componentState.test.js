@@ -116,6 +116,9 @@ describe("component late-join state registry", () => {
     expect(
       createComponentStateReply("UnregisteredStateOwner", { ready: true }),
     ).toBeNull();
+    expect(
+      createComponentStateReply("CommandChainService", { commands: [] }),
+    ).toBeNull();
     expect(createComponentStateReply("DataService", null)).toBeNull();
   });
 });

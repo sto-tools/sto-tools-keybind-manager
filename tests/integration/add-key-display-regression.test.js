@@ -5,8 +5,8 @@
  * CommandChainService unnecessarily re-renders the OLD key's commands, which then
  * overwrites the NEW key's correct empty state.
  *
- * Root Cause: CommandChainService.profile:updated handler (line 59-75) calls
- * refreshCommands() for the currently selected key. When adding F7:
+ * Historical root cause: CommandChainService refreshed the selected key from a
+ * profile:updated handler. When adding F7:
  * 1. key:add updates profile → profile:updated emitted
  * 2. CommandChainService receives profile:updated → refreshCommands() for Space
  * 3. Space's commands fetched & chain-data-changed emitted (10 commands)
@@ -17,8 +17,9 @@
  * 8. Space's slow async work (parsing, mirroring) completes
  * 9. Space's render completes, overwriting F7's UI (BUG!)
  *
- * Expected: Only F7 should render when F7 is added (Space's commands haven't changed)
- * Actual: Both Space and F7 render, with Space's render potentially winning the race
+ * The shared ComponentBase listener now adopts the compatibility cache while
+ * CommandChainService publishes only for explicit selection/command events.
+ * This regression protects that ownership split.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -66,7 +67,7 @@ describe("Integration: Add Key/Alias Display Regression", () => {
     await chainService.init();
 
     // Switch to the initial profile so ComponentBase owns and populates the
-    // shared profile cache before incremental updates arrive.
+    // compatibility cache before incremental updates arrive.
     eventBus.emit("profile:switched", {
       profileId: "default",
       environment: "space",
@@ -135,15 +136,15 @@ describe("Integration: Add Key/Alias Display Regression", () => {
       [],
     );
 
-    // The profile cache is updated, but UI refresh will happen when:
+    // ComponentBase updates the profile cache, but UI refresh will happen when:
     // - key-selected event fires (when F7 is auto-selected after adding)
     // - User manually selects F7
   });
 
   it("profile:updated only updates cache, does not trigger UI refresh", async () => {
-    // This verifies the fix: profile:updated should ONLY update the cache,
-    // not trigger refreshCommands(). UI refreshes are triggered by specific
-    // events like key-selected, command-added, etc.
+    // ComponentBase should update the cache without a service-specific refresh.
+    // UI refreshes are triggered by specific events such as key-selected and
+    // command-added.
 
     const chainDataEmissions = [];
     eventBus.on("chain-data-changed", ({ commands }) => {

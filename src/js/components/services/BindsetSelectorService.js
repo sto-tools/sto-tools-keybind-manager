@@ -302,12 +302,6 @@ export default class BindsetSelectorService extends ComponentBase {
     }
 
     try {
-      // Set flag to indicate we're performing a bindset operation
-      this.emit("bindset-operation:started", {
-        type: "add-key",
-        bindset: bindsetName,
-        key: this.cache.selectedKey,
-      });
       // Add empty command chain to the bindset using cached profile data
       const profile = this.cache.profile;
       if (!profile || !profile.id) {
@@ -352,17 +346,6 @@ export default class BindsetSelectorService extends ComponentBase {
         });
         console.log(
           `[BindsetSelectorService] *** bindset-selector:key-added event emitted successfully ***`,
-        );
-
-        // Clear the operation flag synchronously
-        this.emit(
-          "bindset-operation:completed",
-          {
-            type: "add-key",
-            bindset: bindsetName,
-            key: this.cache.selectedKey,
-          },
-          { synchronous: true },
         );
       }
 

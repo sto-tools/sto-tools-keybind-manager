@@ -1,6 +1,5 @@
 import type {
   AliasMap,
-  CommandList,
   CommandGroupType,
   KeyViewMode,
   PreferencesSettings,
@@ -85,10 +84,6 @@ export interface KeyCaptureStateSnapshot {
   capturedChord: string | null;
 }
 
-export interface CommandChainStateSnapshot {
-  commands: CommandList;
-}
-
 export interface ExportStateSnapshot {
   currentProfile: string | null;
   currentEnvironment: string;
@@ -148,7 +143,6 @@ export interface ProfileUiStateSnapshot {
 export interface ComponentStateProtocol {
   BindsetSelectorService: BindsetSelectorStateSnapshot;
   BindsetService: BindsetStateSnapshot;
-  CommandChainService: CommandChainStateSnapshot;
   CommandPresentationService: CommandPresentationStateSnapshot;
   DataCoordinator: DataCoordinatorStateSnapshot;
   DataService: DataServiceStateSnapshot;

@@ -129,4 +129,47 @@ describe("BindsetSelectorService key lookup", () => {
       },
     ]);
   });
+
+  it("adds the selected key before publishing the retained bindset events", async () => {
+    service.init();
+    service.cache.selectedKey = "F1";
+    service.cache.currentEnvironment = "space";
+    service.cache.profile = { id: "profile-1" };
+    fixture.eventBus.mockResponse("data:update-profile", () => ({
+      success: true,
+    }));
+    fixture.eventBusFixture.clearEventHistory();
+
+    await expect(service.addKeyToBindset("Weapons")).resolves.toEqual({
+      success: true,
+    });
+
+    expect(service.keyBindsetMembership.get("Weapons")).toBe(true);
+    expect(
+      fixture.eventBusFixture
+        .getEventHistory()
+        .filter(({ event }) =>
+          [
+            "bindset-selector:active-changed",
+            "bindset-selector:key-added",
+          ].includes(event),
+        )
+        .map(({ event, data }) => ({ event, data })),
+    ).toEqual([
+      {
+        event: "bindset-selector:active-changed",
+        data: { bindset: "Weapons" },
+      },
+      {
+        event: "bindset-selector:key-added",
+        data: { key: "F1", bindset: "Weapons", environment: "space" },
+      },
+    ]);
+    expect(
+      fixture.eventBusFixture.getEventsOfType("bindset-operation:started"),
+    ).toEqual([]);
+    expect(
+      fixture.eventBusFixture.getEventsOfType("bindset-operation:completed"),
+    ).toEqual([]);
+  });
 });

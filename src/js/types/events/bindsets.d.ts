@@ -6,12 +6,6 @@ export interface BindsetSelectionPayload {
   environment: Environment;
 }
 
-export interface BindsetOperationPayload {
-  type: "add-key";
-  bindset: string;
-  key: string;
-}
-
 export type ActiveBindsetChangedPayload =
   | { bindset: string | undefined; name?: undefined }
   | { bindset?: undefined; name: string | undefined };
@@ -27,6 +21,4 @@ export interface BindsetEventProtocol {
   };
   "bindset-selector:visibility-changed": { visible: boolean };
   "bindsets:changed": { names: string[] };
-  "bindset-operation:completed": BindsetOperationPayload;
-  "bindset-operation:started": BindsetOperationPayload;
 }

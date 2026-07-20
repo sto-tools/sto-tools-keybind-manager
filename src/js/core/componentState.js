@@ -2,7 +2,6 @@ const componentStateOwners = Object.freeze(
   /** @satisfies {Record<import('../types/events/component-state.js').ComponentStateSender, true>} */ ({
     BindsetSelectorService: true,
     BindsetService: true,
-    CommandChainService: true,
     CommandLibraryUI: true,
     CommandPresentationService: true,
     DataCoordinator: true,

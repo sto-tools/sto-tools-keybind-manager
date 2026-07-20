@@ -65,14 +65,13 @@ describe("CommandChainService stabilization facade", () => {
 
   it("delegates persistence without adopting reply data or publishing compatibility", async () => {
     const order = [];
+    const acceptedBefore = service.cache.dataState;
+    const profileBefore = structuredClone(service.cache.profile);
     const persisted = structuredClone(profile);
     persisted.keybindMetadata.space.F1.stabilizeExecutionOrder = false;
     service.request = vi.fn(async () => {
       order.push("request");
       return { success: true, profile: persisted };
-    });
-    vi.spyOn(service, "updateCacheFromProfile").mockImplementation(() => {
-      order.push("cache");
     });
     service.emit = vi.fn((topic) => {
       order.push(`emit:${topic}`);
@@ -95,7 +94,8 @@ describe("CommandChainService stabilization facade", () => {
         },
       },
     });
-    expect(service.updateCacheFromProfile).not.toHaveBeenCalled();
+    expect(service.cache.dataState).toBe(acceptedBefore);
+    expect(service.cache.profile).toEqual(profileBefore);
     expect(service.emit).not.toHaveBeenCalled();
     expect(order).toEqual(["request"]);
   });
@@ -193,7 +193,6 @@ describe("CommandChainService stabilization facade", () => {
       });
       service.request = vi.fn().mockImplementation(persist);
       service.emit = vi.fn();
-      vi.spyOn(service, "updateCacheFromProfile");
       vi.spyOn(console, "error").mockImplementation(() => {});
 
       await expect(service.setStabilize("F1", false)).resolves.toEqual(
@@ -201,7 +200,6 @@ describe("CommandChainService stabilization facade", () => {
       );
 
       expect(service.request).toHaveBeenCalledOnce();
-      expect(service.updateCacheFromProfile).not.toHaveBeenCalled();
       expect(service.emit).not.toHaveBeenCalled();
       expect({
         dataState: service.cache.dataState,
@@ -237,7 +235,6 @@ describe("CommandChainService stabilization facade", () => {
           }),
       );
       service.emit = vi.fn();
-      vi.spyOn(service, "updateCacheFromProfile");
 
       const pending = service.setStabilize("F1", false);
       service.destroy();
@@ -245,7 +242,6 @@ describe("CommandChainService stabilization facade", () => {
       resolveWrite({ success: true, profile });
 
       await expect(pending).resolves.toEqual({ success: false });
-      expect(service.updateCacheFromProfile).not.toHaveBeenCalled();
       expect(
         service.emit.mock.calls.filter(
           ([topic]) => topic === "profile:updated",

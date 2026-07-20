@@ -208,6 +208,8 @@ describe("Application browser smoke", () => {
 
     for (const topic of [
       "bindset-manager:open",
+      "bindset-operation:completed",
+      "bindset-operation:started",
       "bindset-section:refresh-needed",
       "bindset:active-changed",
       "bindset:created",
