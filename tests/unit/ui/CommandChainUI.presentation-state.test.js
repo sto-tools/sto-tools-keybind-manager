@@ -123,8 +123,11 @@ describe("CommandChainUI command-presentation state", () => {
     const request = vi
       .spyOn(ui, "request")
       .mockRejectedValue(new Error("persistence unavailable"));
+    const listTarget = fixture.eventBus.onDom.mock.calls.find(
+      ([, event]) => event === "dblclick",
+    )?.[0];
     const handler = fixture.eventBus.onDom.mock.calls.find(
-      ([target, event]) => target === "#commandList" && event === "click",
+      ([target, event]) => target === listTarget && event === "click",
     )?.[2];
     const header = createAuthorizedHeader();
 
@@ -156,8 +159,11 @@ describe("CommandChainUI command-presentation state", () => {
     const request = vi.spyOn(ui, "request").mockImplementation(() => {
       throw new Error("owner unavailable");
     });
+    const listTarget = fixture.eventBus.onDom.mock.calls.find(
+      ([, event]) => event === "dblclick",
+    )?.[0];
     const handler = fixture.eventBus.onDom.mock.calls.find(
-      ([target, event]) => target === "#commandList" && event === "click",
+      ([target, event]) => target === listTarget && event === "click",
     )?.[2];
     const header = createAuthorizedHeader();
 

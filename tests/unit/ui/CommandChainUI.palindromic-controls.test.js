@@ -8,6 +8,15 @@ import i18next from "i18next";
 describe("CommandChainUI Palindromic Controls", () => {
   let ui, mockDocument, mockEventBus, mockUI, dom;
 
+  function findCommandListHandler(eventName) {
+    const listTarget = mockEventBus.onDom.mock.calls.find(
+      ([, event]) => event === "dblclick",
+    )?.[0];
+    return mockEventBus.onDom.mock.calls.find(
+      ([target, event]) => target === listTarget && event === eventName,
+    )?.[2];
+  }
+
   beforeEach(async () => {
     // Set up DOM environment
     dom = new JSDOM(
@@ -319,9 +328,7 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       await ui.setupEventListeners();
 
-      const handler = mockEventBus.onDom.mock.calls.find(
-        ([target, event]) => target === "#commandList" && event === "click",
-      )[2];
+      const handler = findCommandListHandler("click");
       const { button } = createAuthorizedButton(
         "btn-palindromic-toggle",
         commands.length,
@@ -374,9 +381,7 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       await ui.setupEventListeners();
 
-      const handler = mockEventBus.onDom.mock.calls.find(
-        ([target, event]) => target === "#commandList" && event === "click",
-      )[2];
+      const handler = findCommandListHandler("click");
       const { button } = createAuthorizedButton(
         "btn-placement-toggle",
         commands.length,

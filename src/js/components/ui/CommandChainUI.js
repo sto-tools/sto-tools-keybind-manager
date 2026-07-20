@@ -48,6 +48,7 @@ import {
   captureCommandChainPreviewElements,
   commitCommandChainPreview,
 } from "./commandChainPreviewDom.js";
+import { captureCommandChainListenerTargets } from "./commandChainListenerTargets.js";
 import {
   captureCommandCustomizationTarget,
   isCommandCustomizationTargetCurrent,
@@ -105,6 +106,8 @@ export default class CommandChainUI extends UIComponentBase {
   setupEventListeners() {
     if (this.eventListenersSetup) return;
     this.eventListenersSetup = true;
+    const domTargets = captureCommandChainListenerTargets(this.document);
+    const { copyAlias, copyPreview: preview } = domTargets;
 
     // The accepted DataCoordinator snapshot is the command authority. This
     // compatibility event is now only a render signal; its uncorrelated command
@@ -180,23 +183,19 @@ export default class CommandChainUI extends UIComponentBase {
     }
 
     // Listen for stabilization button click
-    this.onDom("stabilizeExecutionOrderBtn", "click", async () => {
+    this.onDom(domTargets.stabilizeExecutionOrder, "click", async () => {
       await this.toggleStabilize();
     });
 
     // Listen for copy alias button click
-    this.onDom("copyAliasBtn", "click", async () => {
-      await this.copyAliasToClipboard();
-    });
+    this.onDom(copyAlias, "click", () => this.copyAliasToClipboard());
 
     // Listen for copy command preview button click
-    this.onDom("copyPreviewBtn", "click", async () => {
-      await this.copyCommandPreviewToClipboard();
-    });
+    this.onDom(preview, "click", () => this.copyCommandPreviewToClipboard());
 
     // DOM delegates decode inert data into one typed interaction. Only rows
     // from the currently committed render can reach a side-effect boundary.
-    this.onDom("#commandList", "click", (event) => {
+    this.onDom(domTargets.commandList, "click", (event) => {
       const interaction = decodeCommandChainClick(
         event.target,
         this._committedInteractionState,
@@ -205,7 +204,7 @@ export default class CommandChainUI extends UIComponentBase {
       this.handleCommandChainInteraction(interaction, event).catch(() => {});
     });
 
-    this.onDom("#commandList", "dblclick", (event) => {
+    this.onDom(domTargets.commandList, "dblclick", (event) => {
       const interaction = decodeCommandChainDoubleClick(
         event.target,
         this._committedInteractionState,

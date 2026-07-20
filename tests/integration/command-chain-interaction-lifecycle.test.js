@@ -95,8 +95,11 @@ describe("CommandChainUI interaction lifecycle", () => {
   }
 
   function findDomHandler(eventName) {
+    const listTarget = fixture.eventBus.onDom.mock.calls.find(
+      ([, event]) => event === "dblclick",
+    )?.[0];
     return fixture.eventBus.onDom.mock.calls.find(
-      ([target, event]) => target === "#commandList" && event === eventName,
+      ([target, event]) => target === listTarget && event === eventName,
     )?.[2];
   }
 
