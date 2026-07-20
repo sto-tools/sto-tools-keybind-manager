@@ -2,7 +2,9 @@ import type {
   AliasAddResult,
   CommandParseResult,
   DynamicRpcTopic,
+  ParameterBuildParameters,
   ParameterBuildResult,
+  ParameterCommandDefinition,
   ParsedCommand,
   RpcEmptyPayload,
   RpcHandler,
@@ -43,6 +45,17 @@ type AliasRequest = Expect<
 type AliasResult = Expect<Equal<RpcResult<"alias:add">, AliasAddResult>>;
 type ParameterCommandBuildResult = Expect<
   Equal<RpcResult<"parameter-command:build">, ParameterBuildResult>
+>;
+type ParameterCommandBuildRequest = Expect<
+  Equal<
+    RpcRequest<"parameter-command:build">,
+    {
+      categoryId: string;
+      commandId: string;
+      commandDef: ParameterCommandDefinition;
+      params?: ParameterBuildParameters;
+    }
+  >
 >;
 type KnownTopic = Expect<
   "parser:clear-cache" extends RpcKnownTopic ? true : false
@@ -380,9 +393,18 @@ declare const parseResponse: CommandParseResult;
 declare const parsedCommand: ParsedCommand;
 declare const forwardedTopic: string;
 
-const parameterBuildHandler: RpcHandler<"parameter-command:build"> = () => [
-  parsedCommand,
-];
+const parameterBuildHandler: RpcHandler<"parameter-command:build"> = ({
+  categoryId,
+  commandId,
+  commandDef,
+  params,
+}) => {
+  categoryId.toUpperCase();
+  commandId.toUpperCase();
+  commandDef.name?.toUpperCase();
+  params?.rawCommand?.toUpperCase();
+  return [parsedCommand];
+};
 const utilityClipboardHandler: RpcHandler<
   "utility:copy-to-clipboard"
 > = () => ({
@@ -396,6 +418,32 @@ type DynamicTopicRemainsBranded = Expect<
 >;
 
 async function exerciseCoreApi() {
+  const parameterBuildResult = await request(
+    eventBus,
+    "parameter-command:build",
+    {
+      categoryId: "targeting",
+      commandId: "target",
+      commandDef: { name: "Target", baseCommand: "Target" },
+      params: { entityName: "Alpha" },
+    },
+  );
+  type InferredParameterBuildResult = Expect<
+    Equal<typeof parameterBuildResult, ParameterBuildResult>
+  >;
+  // @ts-expect-error Parameter builds require the selected command definition.
+  request(eventBus, "parameter-command:build", {
+    categoryId: "targeting",
+    commandId: "target",
+  });
+  // @ts-expect-error Known parameter fields retain their declared value types.
+  request(eventBus, "parameter-command:build", {
+    categoryId: "custom",
+    commandId: "add_custom_command",
+    commandDef: { name: "Custom" },
+    params: { rawCommand: 42 },
+  });
+
   const parseResult = await request(eventBus, "parser:parse-command-string", {
     commandString: "FirePhasers",
     options: { generateDisplayText: true },
@@ -604,6 +652,9 @@ async function exerciseCoreApi() {
     void commandString;
     return parseResponse;
   });
+  respond(eventBus, "parameter-command:build", () => null);
+  // @ts-expect-error Parameter builders cannot return unrelated action results.
+  respond(eventBus, "parameter-command:build", () => true);
   respond(eventBus, "parser:clear-cache", () => ({ success: true }));
   respond(eventBus, "key:cycle-view-mode", () => "key-types");
   respond(eventBus, "command-presentation:toggle-category", () => true);
@@ -911,6 +962,7 @@ async function exerciseCoreApi() {
   request(eventBus, forwardedTopic, {});
 
   void (0 as unknown as ParsedResult);
+  void (0 as unknown as InferredParameterBuildResult);
   void (0 as unknown as ClearResult);
   void (0 as unknown as DynamicResult);
 }
@@ -925,6 +977,7 @@ void syncPreflightWithDiagnostic;
 void syncCompensationFailure;
 void unknownSyncFailure;
 void (0 as unknown as ParameterCommandBuildResult);
+void (0 as unknown as ParameterCommandBuildRequest);
 void (0 as unknown as PreferenceInitResult);
 void (0 as unknown as KeyViewModeRequest);
 void (0 as unknown as KeyViewModeResult);

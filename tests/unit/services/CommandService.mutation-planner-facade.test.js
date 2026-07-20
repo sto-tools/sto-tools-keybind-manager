@@ -105,19 +105,30 @@ describe("CommandService mutation planner facade", () => {
     expect(added.mock.calls[0][0].command).not.toBe(input);
   });
 
-  it("persists normalized edit data and publishes the captured planned chain", async () => {
+  it("persists a fresh targeted edit and publishes the captured planned chain", async () => {
     const updatedCommand = {
       command: "Changed",
       displayName: "Rich edit input",
       metadata: { source: "test" },
     };
+    const snapshot = service.cache.dataState;
+    const target = Object.freeze({
+      authorityEpoch: snapshot.authorityEpoch,
+      revision: snapshot.revision,
+      profileId: "captain",
+      environment: "space",
+      name: "F1",
+      bindset: null,
+      index: 0,
+      originalEntry: "One",
+    });
     service.request = vi.fn().mockResolvedValue({ success: true });
     const edited = vi.fn();
     fixture.eventBus.on("command-edited", edited);
 
-    await expect(service.editCommand("F1", 0, updatedCommand)).resolves.toBe(
-      true,
-    );
+    await expect(
+      service.editCommand("F1", 0, updatedCommand, null, target),
+    ).resolves.toBe(true);
 
     expect(service.request).toHaveBeenCalledWith("data:update-profile", {
       profileId: "captain",

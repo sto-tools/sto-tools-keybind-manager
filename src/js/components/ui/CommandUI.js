@@ -5,7 +5,7 @@ import {
   getSnapshotCommandImportSources,
   isSnapshotCommandStabilized,
 } from "../services/dataState.js";
-import { isParameterDef } from "./ParameterCommandUI.js";
+import { isParameterDef } from "./parameterCommandModel.js";
 import {
   errorMessage,
   eventElement,

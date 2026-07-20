@@ -138,6 +138,21 @@ describe("command-chain edit target", () => {
     ).toMatchObject({ bindset: "Weapons", originalEntry: "NamedTarget" });
   });
 
+  it("canonicalizes an enabled Primary Bindset target to the primary path", () => {
+    const context = createContext({ bindsetsEnabled: true });
+    const target = requireTarget(context);
+
+    expect(target).toMatchObject({
+      environment: "space",
+      name: "F1",
+      bindset: null,
+      originalEntry: 'Target "Alpha"',
+    });
+    const current = { ...context };
+    delete current.index;
+    expect(isCommandEditTargetCurrent(target, current)).toBe(true);
+  });
+
   it("requires the exact accepted revision and rejects stale targets", () => {
     const target = requireTarget();
     const unchangedSuccessor = createSnapshot({ revision: 2 });
@@ -198,6 +213,7 @@ describe("command-chain edit planning", () => {
     expect(plan).toMatchObject({
       kind: "edit",
       payload: {
+        target,
         index: 0,
         command: {
           command: 'Target "Alpha"',
@@ -210,6 +226,7 @@ describe("command-chain edit planning", () => {
       parameterDerivationError: null,
     });
     if (plan.kind !== "edit") throw new Error("Expected edit plan");
+    expect(plan.payload.target).toBe(target);
     expect(plan.payload.commandDef).not.toBe(definition);
     expect(plan.payload.commandDef.parameters).not.toBe(definition.parameters);
   });
@@ -277,6 +294,7 @@ describe("command-chain edit planning", () => {
     expect(plan).toMatchObject({
       kind: "edit",
       payload: {
+        target,
         commandDef: {
           name: "Translated custom edit",
           categoryId: "custom",
@@ -293,6 +311,8 @@ describe("command-chain edit planning", () => {
         commandId: "add_custom_command",
       },
     });
+    if (plan.kind !== "edit") throw new Error("Expected edit plan");
+    expect(plan.payload.target).toBe(target);
   });
 
   it("falls back to raw editing when parsing fails", async () => {

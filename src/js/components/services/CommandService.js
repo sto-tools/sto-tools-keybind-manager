@@ -139,19 +139,29 @@ export default class CommandService extends ComponentBase {
    *   | { type: 'add', key: string, command: import('./serviceTypes.js').StoredCommand | import('./serviceTypes.js').StoredCommand[], bindset?: string | null }
    *   | { type: 'delete', key: string, index: number, bindset?: string | null }
    *   | { type: 'move', key: string, fromIndex: number, toIndex: number, bindset?: string | null }
-   *   | { type: 'edit', key: string, index: number, updatedCommand: import('./serviceTypes.js').StoredCommand, bindset?: string | null }
+   *   | { type: 'edit', key: string, index: number, updatedCommand: import('./serviceTypes.js').StoredCommand, bindset?: string | null, target?: import('../../types/events/commands.js').CommandEditTarget }
    * } mutation
    * @param {{ authorityEpoch: number | null, profileId: string | null, environment: string }} context
    */
   _planCommandMutation(mutation, context) {
     const snapshot = this.cache.dataState;
+    const hasEditTarget =
+      mutation.type === "edit" && mutation.target !== undefined;
     const ready =
       snapshot?.ready === true &&
-      snapshot.authorityEpoch === context.authorityEpoch;
+      (hasEditTarget || snapshot.authorityEpoch === context.authorityEpoch);
+    const profileId = hasEditTarget
+      ? snapshot?.currentProfile || null
+      : context.profileId;
+    const environment = hasEditTarget
+      ? snapshot?.currentEnvironment || ""
+      : context.environment;
     return planCommandMutation({
-      profile: ready ? getSnapshotProfile(snapshot, context.profileId) : null,
-      profileId: ready ? context.profileId : null,
-      environment: ready ? context.environment : "",
+      profile: ready ? getSnapshotProfile(snapshot, profileId) : null,
+      profileId: ready ? profileId : null,
+      environment: ready ? environment : "",
+      authorityEpoch: ready ? snapshot.authorityEpoch : null,
+      revision: ready ? snapshot.revision : null,
       mutation,
       normalizeCommand: normalizeToString,
       normalizeCommands: normalizeToStringArray,
@@ -181,7 +191,7 @@ export default class CommandService extends ComponentBase {
    *   | { type: 'add', key: string, command: import('./serviceTypes.js').StoredCommand | import('./serviceTypes.js').StoredCommand[], bindset?: string | null }
    *   | { type: 'delete', key: string, index: number, bindset?: string | null }
    *   | { type: 'move', key: string, fromIndex: number, toIndex: number, bindset?: string | null }
-   *   | { type: 'edit', key: string, index: number, updatedCommand: import('./serviceTypes.js').StoredCommand, bindset?: string | null }
+   *   | { type: 'edit', key: string, index: number, updatedCommand: import('./serviceTypes.js').StoredCommand, bindset?: string | null, target?: import('../../types/events/commands.js').CommandEditTarget }
    * } mutation
    * @param {{ operation: 'add' | 'delete' | 'move' | 'edit', notifyMissingProfile?: boolean, notifyStorageFailure?: boolean }} diagnostics
    */
@@ -191,6 +201,12 @@ export default class CommandService extends ComponentBase {
       if (!plan.valid) {
         if (plan.reason === "no_valid_commands") {
           console.warn("CommandService: No valid commands to add");
+        }
+        if (plan.reason === "stale_edit_target") {
+          this.ui?.showToast?.(
+            this.i18n.t("command_edit_target_changed"),
+            "warning",
+          );
         }
         if (
           plan.reason === "invalid_profile" &&
@@ -273,8 +289,9 @@ export default class CommandService extends ComponentBase {
    * @param {number} index
    * @param {import('./serviceTypes.js').StoredCommand} updatedCommand
    * @param {string | null} bindset
+   * @param {import('../../types/events/commands.js').CommandEditTarget} [target]
    */
-  async editCommand(key, index, updatedCommand, bindset = null) {
+  async editCommand(key, index, updatedCommand, bindset = null, target) {
     if (!key || index === undefined || !updatedCommand) {
       console.warn(
         "CommandService: Cannot edit command - missing key, index, or updated command",
@@ -282,7 +299,7 @@ export default class CommandService extends ComponentBase {
       return false;
     }
     return this._runCommandMutation(
-      { type: "edit", key, index, updatedCommand, bindset },
+      { type: "edit", key, index, updatedCommand, bindset, target },
       {
         operation: "edit",
         notifyMissingProfile: true,
@@ -301,8 +318,8 @@ export default class CommandService extends ComponentBase {
     // Listen for command edit events from UI components (broadcast pattern)
     this.addEventListener(
       "command:edit",
-      async ({ key, index, updatedCommand, bindset = null }) => {
-        await this.editCommand(key, index, updatedCommand, bindset);
+      async ({ key, index, updatedCommand, bindset = null, target }) => {
+        await this.editCommand(key, index, updatedCommand, bindset, target);
       },
     );
   }

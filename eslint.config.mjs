@@ -13,7 +13,6 @@ const legacyMaxLineLimits = {
   "src/js/components/services/SelectionService.js": 704,
   "src/js/components/ui/CommandChainUI.js": 1502,
   "src/js/components/ui/CommandUI.js": 538,
-  "src/js/components/ui/ParameterCommandUI.js": 511,
   "src/js/data.js": 1759,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 915,
   "src/js/lib/kbf/translation/ActivityTranslator.js": 1767,
@@ -22,7 +21,6 @@ const legacyMaxLineLimits = {
   "tests/unit/services/SelectionService.test.js": 580,
   "tests/unit/ui/CommandChainUI.test.js": 442,
   "tests/unit/ui/CommandChainUI.title-fix.test.js": 528,
-  "tests/unit/ui/ParameterCommandUI.test.js": 534,
 };
 
 export default [

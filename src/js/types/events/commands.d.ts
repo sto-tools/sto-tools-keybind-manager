@@ -2,6 +2,7 @@ import type {
   CommandList,
   CommandRecord,
   EditingContext,
+  Environment,
   StoredCommand,
   ValidationIssue,
 } from "./base.js";
@@ -19,7 +20,19 @@ export type CommandLibraryAddPayload =
       commandDef: CommandRecord;
     };
 
+export type CommandEditTarget = Readonly<{
+  authorityEpoch: number;
+  revision: number;
+  profileId: string;
+  environment: Environment;
+  name: string;
+  bindset: string | null;
+  index: number;
+  originalEntry: StoredCommand;
+}>;
+
 export interface ParameterCommandEditPayload {
+  target: CommandEditTarget;
   index: number;
   command: CommandRecord;
   commandDef: CommandRecord;
@@ -61,6 +74,7 @@ export interface CommandEventProtocol {
     index: number;
     updatedCommand: StoredCommand;
     bindset?: string | null;
+    target?: CommandEditTarget;
   };
   "command:filter": { filter: string };
   "commandchain:delete": { index: number };

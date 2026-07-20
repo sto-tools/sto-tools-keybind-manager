@@ -218,6 +218,17 @@ describe("CommandChainService edit planning lifecycle", () => {
     await expect(pending).resolves.toBe(true);
     expect(parser.calls()).toBe(2);
     expect(editEvents()).toHaveLength(1);
+    expect(editEvents()[0].data.target).toEqual({
+      authorityEpoch: acceptedSnapshot.authorityEpoch,
+      revision: acceptedSnapshot.revision,
+      profileId: "captain",
+      environment: "space",
+      name: "F1",
+      bindset: null,
+      index: 0,
+      originalEntry: 'Target "Alpha"',
+    });
+    expect(Object.isFrozen(editEvents()[0].data.target)).toBe(true);
   });
 
   it("suppresses delayed work after selection or effective-bindset changes", async () => {
@@ -309,6 +320,16 @@ describe("CommandChainService edit planning lifecycle", () => {
     await expect(edit.mock.results[1].value).resolves.toBe(true);
     expect(editEvents()).toHaveLength(1);
     expect(editEvents()[0].data.index).toBe(1);
+    const acceptedEntry =
+      service.cache.dataState.profiles.captain.builds.space.keys.F1[1];
+    expect(editEvents()[0].data.target).toMatchObject({
+      profileId: "captain",
+      environment: "space",
+      name: "F1",
+      bindset: null,
+      index: 1,
+      originalEntry: acceptedEntry,
+    });
 
     parser.first.resolve({ commands: [{ category: "targeting" }] });
     await expect(edit.mock.results[0].value).resolves.toBe(false);

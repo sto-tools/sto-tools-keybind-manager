@@ -116,6 +116,16 @@ describe("CommandChainService production edit listener", () => {
       ],
     ]);
     expect(editEvents()[0].data).toMatchObject({
+      target: {
+        authorityEpoch: 30,
+        revision: 1,
+        profileId: "captain",
+        environment: "space",
+        name: "F1",
+        bindset: null,
+        index: 0,
+        originalEntry: 'Target "Alpha"',
+      },
       index: 0,
       command: {
         command: 'Target "Alpha"',
@@ -125,6 +135,7 @@ describe("CommandChainService production edit listener", () => {
       categoryId: "targeting",
       commandId: "target",
     });
+    expect(Object.isFrozen(editEvents()[0].data.target)).toBe(true);
     expect(toastEvents()).toEqual([]);
   });
 

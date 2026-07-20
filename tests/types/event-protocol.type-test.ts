@@ -7,13 +7,18 @@ import {
   createPreferencesState,
 } from "../fixtures/core/componentState.js";
 import type {
+  CommandList,
+  CommandRecord,
+  Environment,
   ProfileData,
   ProjectBackupData,
   ProjectImportCounts,
+  StoredCommand,
   StorageBackup,
   VfxSettingsSnapshot,
 } from "../../src/js/types/events/base.js";
 import type {
+  CommandEditTarget,
   ComponentReplyTopic,
   ComponentState,
   ComponentStateReply,
@@ -26,6 +31,7 @@ import type {
   EventTopic,
   KeyBrowserViewStateSnapshot,
   KeyCaptureStateSnapshot,
+  ParameterCommandEditPayload,
   SelectionStateSnapshot,
   StoreEventTopic,
   TypedEventBus,
@@ -121,6 +127,46 @@ type ToastPayloadIsRegistered = Expect<
 type ClipboardEventIsRegistered = Expect<
   Equal<EventPayload<"ui:copy-to-clipboard">, { text: string }>
 >;
+type CommandEditTargetIsExact = Expect<
+  Equal<
+    CommandEditTarget,
+    Readonly<{
+      authorityEpoch: number;
+      revision: number;
+      profileId: string;
+      environment: Environment;
+      name: string;
+      bindset: string | null;
+      index: number;
+      originalEntry: StoredCommand;
+    }>
+  >
+>;
+type ParameterCommandEditEventIsExact = Expect<
+  Equal<EventPayload<"parameter-command:edit">, ParameterCommandEditPayload>
+>;
+type CommandAddEventIsExact = Expect<
+  Equal<
+    EventPayload<"command:add">,
+    {
+      command: StoredCommand | CommandList;
+      key: string;
+      bindset?: string | null;
+    }
+  >
+>;
+type CommandEditEventIsExact = Expect<
+  Equal<
+    EventPayload<"command:edit">,
+    {
+      key: string;
+      index: number;
+      updatedCommand: StoredCommand;
+      bindset?: string | null;
+      target?: CommandEditTarget;
+    }
+  >
+>;
 type SelectionSnapshotIsRegisteredExactly = Expect<
   Equal<EventPayload<"selection:state-changed">, SelectionStateSnapshot>
 >;
@@ -202,6 +248,20 @@ const keyCaptureState: KeyCaptureStateSnapshot = {
   currentChord: "Control+A",
   capturedChord: "Control+A",
 };
+const commandEditTarget: CommandEditTarget = {
+  authorityEpoch: 7,
+  revision: 11,
+  profileId: "captain",
+  environment: "space",
+  name: "F1",
+  bindset: null,
+  index: 0,
+  originalEntry: 'Target "Alpha"',
+};
+const commandForEditing: CommandRecord = {
+  command: 'Target "Alpha"',
+  parameters: { entityName: "Alpha" },
+};
 dataCoordinatorState.authorityEpoch.toFixed();
 keyBrowserViewState.authorityEpoch.toFixed();
 keyBrowserViewState.revision.toFixed();
@@ -222,6 +282,78 @@ bus.on("toast:show", (payload) => {
 bus.emit("toast:show", { message: "Saved", type: "success" });
 bus.on("ui:copy-to-clipboard", ({ text }) => text.toUpperCase());
 bus.emit("ui:copy-to-clipboard", { text: "Copy me" });
+bus.on("parameter-command:edit", ({ target, command, index }) => {
+  target.authorityEpoch.toFixed();
+  target.originalEntry;
+  command.parameters;
+  index.toFixed();
+  // @ts-expect-error Edit targets remain immutable after publication.
+  target.revision = 12;
+});
+bus.emit("parameter-command:edit", {
+  target: commandEditTarget,
+  index: 0,
+  command: commandForEditing,
+  commandDef: { name: "Target", customizable: true },
+  categoryId: "targeting",
+  commandId: "target",
+});
+// @ts-expect-error Parameter editing requires the immutable canonical target.
+bus.emit("parameter-command:edit", {
+  index: 0,
+  command: commandForEditing,
+  commandDef: { name: "Target", customizable: true },
+  categoryId: "targeting",
+  commandId: "target",
+});
+bus.on("command:add", ({ command, key, bindset }) => {
+  command;
+  key.toUpperCase();
+  bindset?.toUpperCase();
+});
+bus.emit("command:add", {
+  command: ["FireAll", { command: "TrayExecByTray 0 0" }],
+  key: "F1",
+  bindset: null,
+});
+// @ts-expect-error Command additions require a string key.
+bus.emit("command:add", { command: "FireAll", key: 1 });
+bus.on("command:edit", ({ key, index, updatedCommand, bindset, target }) => {
+  key.toUpperCase();
+  index.toFixed();
+  updatedCommand;
+  bindset?.toUpperCase();
+  target?.revision.toFixed();
+});
+bus.emit("command:edit", {
+  key: "F1",
+  index: 0,
+  updatedCommand: commandForEditing,
+  bindset: "Weapons",
+  target: commandEditTarget,
+});
+bus.emit("command:edit", {
+  key: "F1",
+  index: 0,
+  updatedCommand: "LegacyDirectEdit",
+});
+// @ts-expect-error Command edits require the replacement command.
+bus.emit("command:edit", { key: "F1", index: 0 });
+// @ts-expect-error A supplied edit target requires the complete CAS identity.
+bus.emit("command:edit", {
+  key: "F1",
+  index: 0,
+  updatedCommand: "Changed",
+  target: {
+    authorityEpoch: 7,
+    revision: 11,
+    profileId: "captain",
+    environment: "space",
+    name: "F1",
+    bindset: null,
+    index: 0,
+  },
+});
 bus.emit("preferences:loaded", { settings: preferencesSettings });
 bus.emit("preferences:saved", { settings: preferencesSettings });
 bus.on("command-presentation:state-changed", (state) => {
@@ -613,6 +745,10 @@ void ({} as ProjectBackupCompatibilityNameIsCanonical);
 void ({} as RetiredListenersAreAbsent);
 void ({} as RetiredProducersAreAbsent);
 void ({} as ToastPayloadIsRegistered);
+void ({} as CommandEditTargetIsExact);
+void ({} as ParameterCommandEditEventIsExact);
+void ({} as CommandAddEventIsExact);
+void ({} as CommandEditEventIsExact);
 void ({} as SelectionLateJoinStateIsRegisteredExactly);
 void ({} as DataSnapshotIsRegisteredExactly);
 void ({} as DataStateEventIsRegisteredExactly);

@@ -1,4 +1,5 @@
 import { hasOwnDataField, isDataRecord } from "./jsonDataBoundary.js";
+import { commandEditTargetMatches } from "./commandEditTargetCas.js";
 import {
   assertSafeProfileIdentifier,
   cloneValidatedProfileOperationValue,
@@ -8,14 +9,16 @@ import {
 /** @typedef {import('./serviceTypes.js').ProfileData} ProfileData */
 /** @typedef {import('./serviceTypes.js').ProfileOperations} ProfileOperations */
 /** @typedef {import('./serviceTypes.js').StoredCommand} StoredCommand */
+/** @typedef {import('../../types/events/commands.js').CommandEditTarget} CommandEditTarget */
 /** @typedef {import('../../types/rpc/index.js').RpcRequest<'data:update-profile'>} ProfileUpdateRequest */
+/** @typedef {{ authorityEpoch: unknown, revision: unknown, profileId: string, environment: string }} CommandMutationOwner */
 
 /**
  * @typedef {
  *   | { type: 'add', key: string, command: StoredCommand | StoredCommand[], bindset?: string | null }
  *   | { type: 'delete', key: string, index: number, bindset?: string | null }
  *   | { type: 'move', key: string, fromIndex: number, toIndex: number, bindset?: string | null }
- *   | { type: 'edit', key: string, index: number, updatedCommand: StoredCommand, bindset?: string | null }
+ *   | { type: 'edit', key: string, index: number, updatedCommand: StoredCommand, bindset?: string | null, target?: CommandEditTarget }
  * } CommandMutation
  */
 
@@ -39,7 +42,7 @@ import {
 /**
  * @typedef {Object} CommandMutationPlanFailure
  * @property {false} valid
- * @property {'invalid_options' | 'invalid_profile' | 'missing_profile_id' | 'invalid_environment' | 'missing_key' | 'missing_command' | 'invalid_bindset' | 'invalid_mutation' | 'no_valid_commands' | 'invalid_alias' | 'invalid_index' | 'missing_command_at_index' | 'unsafe_identifier' | 'invalid_payload'} reason
+ * @property {'invalid_options' | 'invalid_profile' | 'missing_profile_id' | 'invalid_environment' | 'missing_key' | 'missing_command' | 'invalid_bindset' | 'invalid_mutation' | 'no_valid_commands' | 'invalid_alias' | 'invalid_index' | 'missing_command_at_index' | 'stale_edit_target' | 'unsafe_identifier' | 'invalid_payload'} reason
  * @property {null} updateProfileRequest
  */
 
@@ -561,25 +564,35 @@ function planMove(profile, profileId, environment, mutation) {
 
 /**
  * @param {ProfileData} profile
- * @param {string} profileId
- * @param {string} environment
  * @param {Extract<CommandMutation, { type: 'edit' }>} mutation
  * @param {(command: StoredCommand) => string} normalizeCommand
+ * @param {CommandMutationOwner} owner
  * @returns {CommandMutationPlan}
  */
-function planEdit(profile, profileId, environment, mutation, normalizeCommand) {
+function planEdit(profile, mutation, normalizeCommand, owner) {
   if (!mutation.key) return invalidPlan("missing_key");
   if (mutation.index === undefined) return invalidPlan("invalid_index");
   if (!mutation.updatedCommand) return invalidPlan("missing_command");
   const resolution = resolveSequenceMutationTarget(
     profile,
-    profileId,
-    environment,
+    owner.profileId,
+    owner.environment,
     mutation.key,
     mutation.bindset || null,
   );
   if (!resolution.valid) return resolution;
   const { target, aliasDefinition, currentCommands } = resolution;
+  if (
+    mutation.target !== undefined &&
+    !commandEditTargetMatches(mutation.target, {
+      ...owner,
+      name: target.key,
+      bindset: target.bindset,
+      index: mutation.index,
+      originalEntry: currentCommands[mutation.index],
+    })
+  )
+    return invalidPlan("stale_edit_target");
   if (mutation.index < 0 || mutation.index >= currentCommands.length) {
     return invalidPlan("invalid_index");
   }
@@ -596,7 +609,7 @@ function planEdit(profile, profileId, environment, mutation, normalizeCommand) {
     nextCommands,
   );
 
-  return completePlan(profileId, target, operations, nextCommands, noOp, {
+  return completePlan(owner.profileId, target, operations, nextCommands, noOp, {
     topic: "command-edited",
     payload: {
       key: mutation.key,
@@ -616,6 +629,8 @@ function planEdit(profile, profileId, environment, mutation, normalizeCommand) {
  *   profile: ProfileData | null,
  *   profileId: string | null,
  *   environment: string,
+ *   authorityEpoch?: number | null,
+ *   revision?: number | null,
  *   mutation: CommandMutation,
  *   normalizeCommand: (command: StoredCommand) => string,
  *   normalizeCommands: (commands: StoredCommand[]) => string[],
@@ -628,6 +643,8 @@ export function planCommandMutation(options) {
     profile,
     profileId,
     environment,
+    authorityEpoch,
+    revision,
     mutation,
     normalizeCommand,
     normalizeCommands,
@@ -682,7 +699,12 @@ export function planCommandMutation(options) {
     return planMove(profile, profileId, environment, mutation);
   }
   if (mutation.type === "edit") {
-    return planEdit(profile, profileId, environment, mutation, normalizeOne);
+    return planEdit(profile, mutation, normalizeOne, {
+      profileId,
+      environment,
+      authorityEpoch,
+      revision,
+    });
   }
   return invalidPlan("invalid_mutation");
 }

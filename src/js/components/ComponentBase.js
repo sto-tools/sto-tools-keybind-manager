@@ -702,6 +702,17 @@ export default class ComponentBase {
         );
       }
     }
+
+    // Handle the active bindset through the same late-join/cache path as the
+    // live bindset-selector:active-changed broadcast. Components that are
+    // destroyed while the selection changes must not resume with stale write
+    // routing.
+    if (
+      sender === "BindsetSelectorService" &&
+      typeof state.activeBindset === "string"
+    ) {
+      this.cache.activeBindset = state.activeBindset;
+    }
   }
 
   /** @param {import('../types/events/base.js').SelectionStateSnapshot} selectionState */

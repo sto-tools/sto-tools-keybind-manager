@@ -56,6 +56,19 @@ class PreferencesService extends ComponentBase {
   }
 }
 
+class BindsetSelectorService extends ComponentBase {
+  getCurrentState() {
+    return {
+      selectedKey: "F8",
+      activeBindset: "Tactical",
+      bindsetNames: ["Primary Bindset", "Tactical"],
+      keyBindsetMembership: new Map([["Tactical", true]]),
+      shouldDisplay: true,
+      preferences: { bindsetsEnabled: true },
+    };
+  }
+}
+
 class StatelessComponent extends ComponentBase {}
 
 class RogueStateOwner extends ComponentBase {
@@ -116,6 +129,21 @@ describe("ComponentBase late-join state synchronization", () => {
     expect(consumer.receivedStates).toContainEqual({
       sender: "PreferencesService",
       state: preferencesService.getCurrentState(),
+    });
+  });
+
+  it("hydrates the active bindset from its late-join owner", () => {
+    const bindsetSelector = new BindsetSelectorService(eventBus);
+    const consumer = new LateJoinConsumer(eventBus);
+    components.push(bindsetSelector, consumer);
+
+    bindsetSelector.init();
+    consumer.init();
+
+    expect(consumer.cache.activeBindset).toBe("Tactical");
+    expect(consumer.receivedStates).toContainEqual({
+      sender: "BindsetSelectorService",
+      state: bindsetSelector.getCurrentState(),
     });
   });
 

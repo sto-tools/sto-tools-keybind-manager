@@ -320,6 +320,7 @@ export default class STOToolsKeybindManager {
         modalManager,
         i18n: this.i18n,
         ui: stoUI,
+        document,
       });
 
       this.commandUI = new CommandUI({

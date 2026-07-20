@@ -73,6 +73,23 @@ describe("CommandService mutation queue and lifecycle", () => {
     fixture.eventBusFixture.clearEventHistory();
   });
 
+  const captureEditTarget = (overrides = {}) => {
+    const snapshot = service.cache.dataState;
+    return Object.freeze({
+      authorityEpoch: snapshot.authorityEpoch,
+      revision: snapshot.revision,
+      profileId: snapshot.currentProfile,
+      environment: snapshot.currentEnvironment,
+      name: "F1",
+      bindset: null,
+      index: 0,
+      originalEntry: structuredClone(
+        snapshot.profiles.captain.builds.space.keys.F1[0],
+      ),
+      ...overrides,
+    });
+  };
+
   afterEach(() => {
     if (!chainService.destroyed) chainService.destroy();
     if (!service.destroyed) service.destroy();
@@ -119,6 +136,83 @@ describe("CommandService mutation queue and lifecycle", () => {
       "Three",
       "Four",
     ]);
+  });
+
+  it("rejects a targeted edit when an earlier queued write commits first", async () => {
+    const firstWrite = deferred();
+    const requests = [];
+    service.request = vi.fn(async (_topic, payload) => {
+      requests.push(structuredClone(payload));
+      await firstWrite.promise;
+      profile = applyProfileOperations(profile, payload);
+      publish();
+      return { success: true };
+    });
+    const edited = vi.fn();
+    fixture.eventBus.on("command-edited", edited);
+    const target = captureEditTarget();
+
+    const first = service.editCommand("F1", 0, "Intervening");
+    const stale = service.editCommand("F1", 0, "UserEdit", null, target);
+    await vi.waitFor(() => expect(service.request).toHaveBeenCalledOnce());
+    firstWrite.resolve();
+
+    await expect(Promise.all([first, stale])).resolves.toEqual([true, false]);
+    expect(service.request).toHaveBeenCalledOnce();
+    expect(requests[0]).toEqual({
+      profileId: "captain",
+      modify: {
+        builds: { space: { keys: { F1: ["Intervening", "Two"] } } },
+      },
+    });
+    expect(profile.builds.space.keys.F1).toEqual(["Intervening", "Two"]);
+    expect(edited).toHaveBeenCalledOnce();
+    expect(edited.mock.calls[0][0].updatedCommand).toBe("Intervening");
+    expect(service.ui.showToast).toHaveBeenCalledOnce();
+    expect(service.ui.showToast).toHaveBeenCalledWith(
+      "command_edit_target_changed",
+      "warning",
+    );
+  });
+
+  it("preserves targetless edits queued behind an accepted write", async () => {
+    const firstWrite = deferred();
+    const requests = [];
+    service.request = vi.fn(async (_topic, payload) => {
+      requests.push(structuredClone(payload));
+      if (requests.length === 1) await firstWrite.promise;
+      profile = applyProfileOperations(profile, payload);
+      publish();
+      return { success: true };
+    });
+
+    const first = service.addCommand("F1", "Three");
+    const legacyEdit = service.editCommand("F1", 0, "Changed");
+    await vi.waitFor(() => expect(service.request).toHaveBeenCalledOnce());
+    firstWrite.resolve();
+
+    await expect(Promise.all([first, legacyEdit])).resolves.toEqual([
+      true,
+      true,
+    ]);
+    expect(requests).toEqual([
+      {
+        profileId: "captain",
+        modify: {
+          builds: { space: { keys: { F1: ["One", "Two", "Three"] } } },
+        },
+      },
+      {
+        profileId: "captain",
+        modify: {
+          builds: {
+            space: { keys: { F1: ["Changed", "Two", "Three"] } },
+          },
+        },
+      },
+    ]);
+    expect(profile.builds.space.keys.F1).toEqual(["Changed", "Two", "Three"]);
+    expect(service.ui.showToast).not.toHaveBeenCalled();
   });
 
   it("keeps queued work attached to its invocation profile and environment", async () => {

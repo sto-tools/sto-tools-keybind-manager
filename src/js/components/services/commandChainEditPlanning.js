@@ -2,6 +2,7 @@ import {
   getEffectiveCommandBindset,
   getSnapshotCommands,
 } from "./dataState.js";
+import { commandDataEqual } from "./commandEditTargetCas.js";
 
 /** @typedef {import('./serviceTypes.js').StoredCommand} StoredCommand */
 /** @typedef {import('./serviceTypes.js').RichCommand} RichCommand */
@@ -35,6 +36,7 @@ import {
 
 /**
  * @typedef {{
+ *   target: CommandEditTarget,
  *   index: number,
  *   command: RichCommand,
  *   commandDef: ResolvedCommandDefinition,
@@ -55,11 +57,6 @@ import {
  * }} CommandEditPlan
  */
 
-/** @param {unknown} value @returns {value is Record<string, unknown>} */
-function isRecord(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 /** @template Value @param {Value} value @returns {Value} */
 function clone(value) {
   return structuredClone(value);
@@ -78,34 +75,26 @@ function deepFreeze(value, seen = new WeakSet()) {
 }
 
 /**
- * Compare canonical JSON-like command data without depending on object identity
- * or property insertion order.
+ * Command mutations represent the primary storage path with a null bindset.
+ * Keep the immutable edit identity on that same canonical vocabulary even
+ * while the bindset selector presents the primary path by name.
  *
- * @param {unknown} left
- * @param {unknown} right
- * @returns {boolean}
+ * @param {string | null | undefined} environment
+ * @param {string | null | undefined} activeBindset
+ * @param {boolean | null | undefined} bindsetsEnabled
+ * @returns {string | null}
  */
-function commandDataEqual(left, right) {
-  if (Object.is(left, right)) return true;
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => commandDataEqual(value, right[index]))
-    );
-  }
-  if (!isRecord(left) || !isRecord(right)) return false;
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  return (
-    leftKeys.length === rightKeys.length &&
-    leftKeys.every(
-      (key) =>
-        Object.prototype.hasOwnProperty.call(right, key) &&
-        commandDataEqual(left[key], right[key]),
-    )
+function canonicalCommandEditBindset(
+  environment,
+  activeBindset,
+  bindsetsEnabled,
+) {
+  const effective = getEffectiveCommandBindset(
+    environment,
+    activeBindset,
+    bindsetsEnabled,
   );
+  return effective === "Primary Bindset" ? null : effective;
 }
 
 /**
@@ -139,7 +128,7 @@ export function captureCommandEditTarget(context) {
   const name = currentEnvironment === "alias" ? selectedAlias : selectedKey;
   if (!name) return null;
 
-  const bindset = getEffectiveCommandBindset(
+  const bindset = canonicalCommandEditBindset(
     currentEnvironment,
     activeBindset,
     bindsetsEnabled,
@@ -195,7 +184,7 @@ export function isCommandEditTargetCurrent(target, context) {
   const name = target.environment === "alias" ? selectedAlias : selectedKey;
   if (name !== target.name) return false;
   if (
-    getEffectiveCommandBindset(
+    canonicalCommandEditBindset(
       currentEnvironment,
       activeBindset,
       bindsetsEnabled,
@@ -282,6 +271,7 @@ export async function planCommandEdit({
     return {
       kind: "edit",
       payload: {
+        target,
         index: target.index,
         command,
         commandDef: definition,
@@ -320,6 +310,7 @@ export async function planCommandEdit({
     return {
       kind: "edit",
       payload: {
+        target,
         index: target.index,
         command,
         commandDef,

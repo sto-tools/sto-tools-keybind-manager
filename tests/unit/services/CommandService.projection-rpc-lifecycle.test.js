@@ -67,14 +67,31 @@ describe("CommandService projection responder lifecycle", () => {
     expectResponderState(fixture.eventBus, retiredTopics, 0);
     expect(fixture.eventBus.getListenerCount("command:add")).toBe(1);
     expect(fixture.eventBus.getListenerCount("command:edit")).toBe(1);
+    const target = Object.freeze({
+      authorityEpoch: 12,
+      revision: 4,
+      profileId: "captain",
+      environment: "space",
+      name: "F1",
+      bindset: null,
+      index: 0,
+      originalEntry: "FireAll",
+    });
     fixture.eventBus.emit("command:add", { command: "FireAll", key: "F1" });
     fixture.eventBus.emit("command:edit", {
       key: "F1",
       index: 0,
       updatedCommand: "FirePhasers",
+      target,
     });
     expect(addCommand).toHaveBeenCalledOnce();
-    expect(editCommand).toHaveBeenCalledOnce();
+    expect(editCommand).toHaveBeenCalledWith(
+      "F1",
+      0,
+      "FirePhasers",
+      null,
+      target,
+    );
     await service.request("command:delete", { key: "F1", index: 0 });
     expect(deleteCommand).toHaveBeenCalledOnce();
     await service.request("command:move", {
@@ -97,6 +114,19 @@ describe("CommandService projection responder lifecycle", () => {
     expectResponderState(fixture.eventBus, retiredTopics, 0);
     expect(fixture.eventBus.getListenerCount("command:add")).toBe(1);
     expect(fixture.eventBus.getListenerCount("command:edit")).toBe(1);
+    fixture.eventBus.emit("command:edit", {
+      key: "F1",
+      index: 0,
+      updatedCommand: "LegacyEdit",
+    });
+    expect(editCommand).toHaveBeenLastCalledWith(
+      "F1",
+      0,
+      "LegacyEdit",
+      null,
+      undefined,
+    );
+    expect(editCommand).toHaveBeenCalledTimes(2);
     await service.request("command:delete", { key: "F1", index: 0 });
     expect(deleteCommand).toHaveBeenCalledTimes(2);
     await service.request("command:move", {
