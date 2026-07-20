@@ -1,3 +1,7 @@
+import { getCommandMoveTarget } from "../services/commandChainListProjection.js";
+
+export { getCommandMoveTarget };
+
 /** @typedef {'non-trayexec' | 'palindromic' | 'pivot'} CommandGroupType */
 /** @typedef {'up' | 'down'} CommandMoveDirection */
 /**
@@ -201,30 +205,6 @@ export function isCommandChainInteractionCurrent(
       state.renderToken === String(currentRenderToken) &&
       candidateRenderToken === state.renderToken,
   );
-}
-
-/**
- * @param {CommandChainInteractionState} state
- * @param {number} index
- * @param {CommandGroupType | null} groupType
- * @param {CommandMoveDirection} direction
- * @returns {number | null}
- */
-export function getCommandMoveTarget(state, index, groupType, direction) {
-  if (!state.commandIndices.includes(index)) return null;
-
-  let orderedIndices = state.commandIndices;
-  if (state.groupIndices) {
-    if (!groupType) return null;
-    orderedIndices = state.groupIndices[groupType];
-  } else if (groupType) {
-    return null;
-  }
-
-  const position = orderedIndices.indexOf(index);
-  if (position < 0) return null;
-  const targetPosition = direction === "up" ? position - 1 : position + 1;
-  return orderedIndices[targetPosition] ?? null;
 }
 
 /**

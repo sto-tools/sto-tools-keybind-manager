@@ -175,30 +175,6 @@ describe("CommandChainUI command-presentation state", () => {
     );
   });
 
-  it("groups exclusively from the accepted snapshot instead of persistence", () => {
-    localStorage.setItem("commandGroup_non-trayexec_collapsed", "true");
-    localStorage.setItem("commandGroup_palindromic_collapsed", "true");
-    const getItem = vi.spyOn(Storage.prototype, "getItem");
-
-    const groups = ui.groupCommands(
-      [
-        "FireAll",
-        "TrayExecByTray 1",
-        {
-          command: "TrayExecByTray 2",
-          palindromicGeneration: false,
-          placement: "in-pivot-group",
-        },
-      ],
-      presentationState({ collapsedGroups: ["pivot"] }),
-    );
-
-    expect(groups["non-trayexec"].isCollapsed).toBe(false);
-    expect(groups.palindromic.isCollapsed).toBe(false);
-    expect(groups.pivot.isCollapsed).toBe(true);
-    expect(getItem).not.toHaveBeenCalled();
-  });
-
   it("prevents delayed predecessor rendering after a newer collapse snapshot", async () => {
     const profile = createCommandChainProfile({
       spaceKeys: { F1: ["FireAll"] },

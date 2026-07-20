@@ -12,20 +12,25 @@ import {
   normalizeCommandList,
   projectCommandChainViewState,
 } from "../services/commandChainViewState.js";
+import { adoptCommandPresentationState } from "../services/commandPresentationState.js";
 import {
-  adoptCommandPresentationState,
-  isCommandGroupCollapsed,
-} from "../services/commandPresentationState.js";
+  COMMAND_CHAIN_GROUP_ORDER,
+  projectCommandChainGroups,
+  projectCommandChainRow,
+} from "../services/commandChainListProjection.js";
 import {
   createCommandChainEmptyState,
   materializeCommandChainViewCopy,
 } from "./commandChainViewDom.js";
 import {
+  createCommandChainRow,
+  createCommandGroupSeparator,
+} from "./commandChainListDom.js";
+import {
   createCommandChainInteractionState,
   decodeCommandChainClick,
   decodeCommandChainDoubleClick,
   decodeCommandChainDrop,
-  getCommandMoveTarget,
   isCommandChainInteractionCurrent,
 } from "./commandChainInteractionPolicy.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
@@ -58,17 +63,6 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
  * }} RichChainCommand
  * @typedef {string | RichChainCommand} ChainCommand
  * @typedef {'non-trayexec' | 'palindromic' | 'pivot'} CommandGroupType
- * @typedef {{ command: ChainCommand, index: number }} GroupedCommand
- * @typedef {{ title: string, commands: GroupedCommand[], isCollapsed: boolean }} CommandGroup
- * @typedef {Record<CommandGroupType, CommandGroup>} CommandGroups
- * @typedef {{
- *   key?: string,
- *   params?: import('i18next').TOptions,
- *   fallback?: string,
- *   text?: string,
- *   name?: string,
- *   displayText?: string
- * }} DisplayTextRecord
  * @typedef {import('./commandChainInteractionPolicy.js').CommandChainInteractionState} CommandChainInteractionState
  * @typedef {import('./commandChainInteractionPolicy.js').CommandChainInteraction} CommandChainInteraction
  */
@@ -476,11 +470,14 @@ export default class CommandChainUI extends UIComponentBase {
 
     /** @type {Element[]} */
     const newCommandElements = [];
-    /** @type {CommandGroups | null} */
+    /** @type {ReturnType<typeof projectCommandChainGroups> | null} */
     let nextGroups = null;
 
     if (view.stabilized) {
-      nextGroups = this.groupCommands(view.commands, presentationState);
+      nextGroups = projectCommandChainGroups({
+        commands: view.commands,
+        presentationState,
+      });
     }
     const interactionState = createCommandChainInteractionState({
       renderToken,
@@ -489,21 +486,19 @@ export default class CommandChainUI extends UIComponentBase {
     });
 
     if (view.stabilized && nextGroups) {
-      /** @type {CommandGroupType[]} */
-      const groupOrder = ["non-trayexec", "palindromic", "pivot"];
-      for (const groupType of groupOrder) {
+      for (const groupType of COMMAND_CHAIN_GROUP_ORDER) {
         const groupData = nextGroups[groupType];
         if (!groupData || groupData.commands.length === 0) continue;
-        const separator = this.renderGroupSeparator(
-          groupType,
-          groupData,
-          renderToken,
+        newCommandElements.push(
+          createCommandGroupSeparator(this.document, {
+            groupType,
+            title: this.i18n.t(groupData.titleKey),
+            hint: this.i18n.t(groupData.hintKey),
+            count: groupData.commands.length,
+            collapsed: groupData.isCollapsed,
+            renderToken,
+          }),
         );
-        if (separator) {
-          const separatorEl = this.document.createElement("div");
-          separatorEl.innerHTML = separator;
-          newCommandElements.push(...separatorEl.children);
-        }
         if (groupData.isCollapsed) continue;
         for (
           let groupIndex = 0;
@@ -587,134 +582,6 @@ export default class CommandChainUI extends UIComponentBase {
     this.updateBindsetBanner();
   }
 
-  // Group commands into sections for stabilized chains
-  /**
-   * @param {ChainCommand[]} commands
-   * @param {import('../../types/events/component-state.js').CommandPresentationStateSnapshot | null} [presentationState]
-   * @returns {CommandGroups}
-   */
-  groupCommands(
-    commands,
-    presentationState = this.cache.commandPresentationState,
-  ) {
-    /** @type {CommandGroups} */
-    const groups = {
-      "non-trayexec": {
-        title: this.i18n.t("command_group_non_trayexec"),
-        commands: [],
-        isCollapsed: isCommandGroupCollapsed(presentationState, "non-trayexec"),
-      },
-      palindromic: {
-        title: this.i18n.t("command_group_palindromic"),
-        commands: [],
-        isCollapsed: isCommandGroupCollapsed(presentationState, "palindromic"),
-      },
-      pivot: {
-        title: this.i18n.t("command_group_pivot"),
-        commands: [],
-        isCollapsed: isCommandGroupCollapsed(presentationState, "pivot"),
-      },
-    };
-
-    // Check if there are any commands explicitly in pivot group
-    const hasExplicitPivotGroup = commands.some(
-      (cmd) => typeof cmd === "object" && cmd.placement === "in-pivot-group",
-    );
-
-    commands.forEach((cmd, index) => {
-      const cmdStr = typeof cmd === "string" ? cmd : cmd.command;
-      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/);
-      const isExcluded =
-        typeof cmd === "object" && cmd.palindromicGeneration === false;
-      const isInPivotGroup =
-        typeof cmd === "object" && cmd.placement === "in-pivot-group";
-
-      // Determine which group this command belongs to
-      /** @type {CommandGroupType} */
-      let targetGroup;
-      if (!isTrayExec) {
-        targetGroup = "non-trayexec";
-      } else if (isExcluded && isInPivotGroup && hasExplicitPivotGroup) {
-        // Only add to pivot group if there's an explicit pivot group
-        targetGroup = "pivot";
-      } else if (isExcluded) {
-        // Excluded but not in pivot group (or no explicit pivot group) - goes with non-TrayExec
-        targetGroup = "non-trayexec";
-      } else {
-        // Included in palindrome
-        targetGroup = "palindromic";
-      }
-
-      groups[targetGroup].commands.push({ command: cmd, index });
-    });
-
-    return groups;
-  }
-
-  // Render group separator with collapsible header
-  /**
-   * @param {CommandGroupType} groupType
-   * @param {CommandGroup} groupData
-   * @param {string} renderToken
-   */
-  renderGroupSeparator(groupType, groupData, renderToken) {
-    const reorderHint = this.getReorderHint(groupType);
-
-    return `
-      <div class="command-group-separator" data-group="${groupType}">
-        <div class="group-header" data-group="${groupType}" data-render-token="${renderToken}" data-action="commandchain-group-header">
-          <div class="group-info">
-            <i class="fas fa-chevron-right twisty ${groupData.isCollapsed ? "collapsed" : ""}"></i>
-            <span class="group-title">${groupData.title}</span>
-            <span class="group-count">(${groupData.commands.length})</span>
-          </div>
-          ${
-            reorderHint
-              ? `
-            <div class="group-hint">
-              ${reorderHint}
-            </div>
-          `
-              : ""
-          }
-        </div>
-      </div>
-    `;
-  }
-
-  // Get reorder hint for a group type
-  /** @param {CommandGroupType} groupType */
-  getReorderHint(groupType) {
-    switch (groupType) {
-      case "non-trayexec":
-        return this.i18n.t("command_group_hint_fixed_order");
-      case "palindromic":
-        return this.i18n.t("command_group_hint_palindromic");
-      case "pivot":
-        return this.i18n.t("command_group_hint_pivot");
-      default:
-        return "";
-    }
-  }
-
-  // Create a command element
-  /**
-   * @param {'up' | 'down'} direction
-   * @param {number} index
-   * @param {CommandGroupType | null | undefined} groupType
-   * @param {CommandChainInteractionState} interactionState
-   */
-  getButtonState(direction, index, groupType, interactionState) {
-    const disabled =
-      getCommandMoveTarget(
-        interactionState,
-        index,
-        groupType ?? null,
-        direction,
-      ) === null;
-    return `<button class="command-action-btn btn-${direction}" title="${direction === "up" ? "Move Up" : "Move Down"}" ${disabled ? "disabled" : ""}><i class="fas fa-chevron-${direction}"></i></button>`;
-  }
-
   /**
    * @param {ChainCommand} command
    * @param {number} index
@@ -749,196 +616,30 @@ export default class CommandChainUI extends UIComponentBase {
         renderToken: this._renderGeneration,
         commandCount: total,
       });
-    const element = this.document.createElement("div");
-    element.className = "command-item-row";
-    element.dataset.index = String(index);
-    element.dataset.renderToken = rowInteractionState.renderToken;
-    element.draggable = true;
-    if (groupType) {
-      element.dataset.group = groupType;
-    }
 
     // Convert canonical string command to rich object for display
     const commandString =
       typeof command === "string" ? command : normalizeToString(command);
 
-    // Get i18n object for translations
-    const i18n = this.i18n;
-
-    // Enrich command for display
-    const richCommand = await enrichForDisplay(commandString, i18n, {
+    // Parser enrichment remains the facade's only asynchronous row capability.
+    const richCommand = await enrichForDisplay(commandString, this.i18n, {
       eventBus: this.eventBus ?? undefined,
     });
-    console.log("[CommandChainUI] enriched command:", richCommand);
-
-    // Look up definition for display helpers
     const commandDef = findCommandDefinition(commandString, this.i18n);
-    // Determine if this command should expose parameter editing
-    const isCustomCmd =
-      richCommand.type === "custom" || richCommand.category === "custom";
-    const isParameterized =
-      (commandDef && commandDef.customizable) || isCustomCmd;
-
-    // Determine if this is a TrayExec command for palindromic controls
-    const isTrayExec = commandString.match(/^(?:\+)?TrayExecByTray/);
-
-    // Extract palindromic settings from command object (if rich object)
-    // Default is included (palindromicGeneration !== false), so active = included
-    // If it's a string, it's included. If it's an object, it's included unless palindromicGeneration is explicitly false
-    const isIncludedInPalindromic =
-      typeof command !== "object" || command.palindromicGeneration !== false;
-    const isExcluded = !isIncludedInPalindromic;
-    const placement =
-      typeof command === "object" && command.placement
-        ? command.placement
-        : "before-pre-pivot";
-    const isInPivotGroup = placement === "in-pivot-group";
-
-    // Generate palindromic toggle button (only show for TrayExec commands when stabilized)
-    // Active = included in palindrome, Inactive = excluded
-    let palindromicButton = "";
-    if (isStabilized && isTrayExec) {
-      const palindromicTooltip = isIncludedInPalindromic
-        ? this.i18n.t("palindromic_included_tooltip")
-        : this.i18n.t("palindromic_excluded_tooltip");
-      palindromicButton = `
-        <button class="command-action-btn toolbar-toggle btn-palindromic-toggle ${isIncludedInPalindromic ? "active" : ""}"
-                title="${palindromicTooltip}" 
-                data-command-index="${index}"
-                data-action="commandchain-palindromic-toggle">
-          <i class="fas fa-balance-scale"></i>
-        </button>
-      `;
-    }
-
-    // Generate placement toggle button (only show for excluded TrayExec commands when stabilized)
-    // Active = in pivot group, Inactive = before pre-pivot
-    let placementButton = "";
-    if (isStabilized && isTrayExec && isExcluded) {
-      const placementTooltip = isInPivotGroup
-        ? this.i18n.t("placement_in_pivot_group_tooltip")
-        : this.i18n.t("placement_before_palindromes_tooltip");
-      placementButton = `
-        <button class="command-action-btn toolbar-toggle btn-placement-toggle ${isInPivotGroup ? "active" : ""}"
-                title="${placementTooltip}" 
-                data-command-index="${index}"
-                data-action="commandchain-placement-toggle">
-          <i class="fas fa-arrows-left-right-to-line"></i>
-        </button>
-      `;
-    }
-
-    // Helper function to format display text from i18n objects
-    /**
-     * @param {string | DisplayTextRecord | null | undefined} displayText
-     * @returns {string}
-     */
-    const formatDisplayText = (displayText) => {
-      if (typeof displayText === "string") {
-        return displayText;
-      }
-      if (typeof displayText === "object" && displayText) {
-        // Handle i18n structure with key/params/fallback
-        if (displayText.key && displayText.fallback) {
-          // Try to get i18n translation if available
-          if (this.i18n && this.i18n.t) {
-            const translated = this.i18n.t(
-              displayText.key,
-              displayText.params || {},
-            );
-            if (translated && translated !== displayText.key) {
-              return translated;
-            }
-          }
-          // Fall back to the fallback text
-          return displayText.fallback;
-        }
-        // Handle simple fallback structure
-        if (displayText.fallback) {
-          return displayText.fallback;
-        }
-        // Handle direct object with text properties
-        if (displayText.text) {
-          return displayText.text;
-        }
-        // Handle object that might be a direct string value
-        const baseName = displayText.name || displayText.displayText;
-        if (baseName) {
-          return baseName;
-        }
-      }
-      return commandString; // Fallback to command string
-    };
-
-    let displayName =
-      formatDisplayText(richCommand.displayText) ||
-      richCommand.text ||
-      commandString;
-    let displayIcon = richCommand.icon;
-
-    if (isParameterized) {
-      element.dataset.parameters = "true";
-      element.classList.add("customizable");
-      // Double-click is now handled by EventBus delegation in setupEventListeners()
-    }
-
-    // Pass the command string (not object) to get-warning
-    const warningInfo = getCommandWarning(commandString);
-
-    // Resolve tooltip text using the central i18n service so that dynamic language switching works
-    let warningText = null;
-    if (warningInfo) {
-      const translated = this.i18n.t(warningInfo);
-      // Use translated value if available; otherwise fall back to original (may already be natural language)
-      warningText =
-        translated && translated !== warningInfo ? translated : warningInfo;
-    }
-
-    const warningIcon = warningText
-      ? `<span class="command-warning-icon" title="${warningText}" data-i18n-title="${warningInfo}"><i class="fas fa-exclamation-triangle"></i></span>`
-      : "";
-    const parameterInd = isParameterized
-      ? ' <span class="param-indicator" title="Editable parameters">⚙️</span>'
-      : "";
-
-    console.log("[CommandChainUI] command", command);
-    console.log("[CommandChainUI] commandDef", commandDef);
-    // Determine the actual command type from the definition, not from the parsed command
-    let commandType = richCommand.type || richCommand.category;
-    // Preserve VFX alias type, don't override it with command definition categoryId
-    // Also preserve other specific alias types like 'alias' or 'vfx-alias'
-    if (
-      commandDef &&
-      commandDef.categoryId &&
-      !["vfx-alias", "alias"].includes(richCommand.type) &&
-      !["vfx-alias", "alias"].includes(richCommand.category)
-    ) {
-      commandType = commandDef.categoryId;
-    }
-
-    // Use displayIndex if provided (group-relative for stabilized), otherwise use global index
-    const numberToDisplay = displayIndex !== null ? displayIndex : index + 1;
-    element.innerHTML = `
-      <div class="command-number">${numberToDisplay}</div>
-      <div class="command-content">
-        <span class="command-icon">${displayIcon}</span>
-        <span class="command-text">${displayName}${parameterInd}</span>
-        ${warningIcon}
-      </div>
-      <span class="command-type ${commandType}">${commandType}</span>
-      <div class="command-actions">
-        ${isParameterized ? `<button class="command-action-btn btn-edit" title="Edit Command"><i class="fas fa-edit"></i></button>` : `<button class="command-action-btn btn-edit btn-placeholder" disabled aria-hidden="true" style="visibility:hidden"><i class="fas fa-edit"></i></button>`}
-        <button class="command-action-btn command-action-btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
-        ${palindromicButton}
-        ${placementButton}
-        ${this.getButtonState("up", index, groupType, rowInteractionState)}
-        ${this.getButtonState("down", index, groupType, rowInteractionState)}
-      </div>`;
-
-    // Command action buttons are now handled by EventBus delegation in setupEventListeners()
-    // No need for individual event listeners here
-
-    return element;
+    const row = projectCommandChainRow({
+      command,
+      commandString,
+      index,
+      displayIndex,
+      stabilized: isStabilized,
+      groupType,
+      interactionState: rowInteractionState,
+      enrichedCommand: richCommand,
+      commandDefinition: commandDef,
+      warningKey: getCommandWarning(commandString),
+      i18n: this.i18n,
+    });
+    return createCommandChainRow(this.document, row);
   }
 
   /**

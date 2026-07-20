@@ -13,6 +13,19 @@ import { createCommandChainInteractionState } from "../../../src/js/components/u
 describe("CommandChainUI Command Actions Styling", () => {
   let document;
   let commandChainUI;
+  const i18n = {
+    t(key) {
+      return (
+        {
+          edit_command: "Edit Command",
+          delete_command: "Delete Command",
+          move_command_up: "Move Up",
+          move_command_down: "Move Down",
+          editable_parameters: "Editable parameters",
+        }[key] || key
+      );
+    },
+  };
 
   function authorizeManualRows(commandCount) {
     commandChainUI._committedInteractionState =
@@ -85,6 +98,7 @@ describe("CommandChainUI Command Actions Styling", () => {
     commandChainUI = new CommandChainUI({
       eventBus,
       document,
+      i18n,
       ui: { initDragAndDrop: () => {} },
     });
 
@@ -125,7 +139,7 @@ describe("CommandChainUI Command Actions Styling", () => {
       // Verify edit placeholder is hidden
       const editBtn = element.querySelector(".btn-edit");
       expect(editBtn).toBeTruthy();
-      expect(editBtn.getAttribute("style")).toContain("visibility:hidden");
+      expect(editBtn.style.visibility).toBe("hidden");
     });
 
     it("should have buttons with command-action-btn styling", async () => {

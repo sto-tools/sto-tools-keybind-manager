@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import CommandPresentationService from "../../src/js/components/services/CommandPresentationService.js";
 import CommandChainUI from "../../src/js/components/ui/CommandChainUI.js";
 import CommandLibraryUI from "../../src/js/components/ui/CommandLibraryUI.js";
+import { createCommandGroupSeparator } from "../../src/js/components/ui/commandChainListDom.js";
 import { createCommandChainInteractionState } from "../../src/js/components/ui/commandChainInteractionPolicy.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
@@ -73,18 +74,17 @@ function appendGroupHeader(ui, collapsed = false) {
     },
   });
   ui._committedInteractionState = interactionState;
-  const holder = document.createElement("div");
-  holder.innerHTML = ui.renderGroupSeparator(
-    groupType,
-    {
-      title: "Palindromic",
-      commands: [{ command: "+TrayExecByTray 0 0", index: 0 }],
-      isCollapsed: collapsed,
-    },
-    interactionState.renderToken,
-  );
   const commandList = document.getElementById("commandList");
-  commandList?.replaceChildren(...holder.children);
+  commandList?.replaceChildren(
+    createCommandGroupSeparator(document, {
+      groupType,
+      title: "Palindromic",
+      hint: "Palindrome structure",
+      count: 1,
+      collapsed,
+      renderToken: interactionState.renderToken,
+    }),
+  );
   return commandList?.querySelector(`.group-header[data-group="${groupType}"]`);
 }
 

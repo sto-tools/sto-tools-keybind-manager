@@ -95,8 +95,11 @@ describe("Command presentation checked-bundle boundary", () => {
     );
     const originalSelection = chainUi.cache.selectedKey;
     const originalBindset = chainUi.cache.activeBindset || "Primary Bindset";
+    const markupCommand =
+      'CustomCommand <img id="command-chain-markup-probe" src="x">';
     const probeCommands = [
       "FireAll",
+      markupCommand,
       "+TrayExecByTray 0 0",
       {
         command: "+TrayExecByTray 1 0",
@@ -165,10 +168,24 @@ describe("Command presentation checked-bundle boundary", () => {
         expect(document.querySelectorAll(".command-item-row")).toHaveLength(
           probeCommands.length,
         );
+        expect(
+          [...document.querySelectorAll(".command-text")].some(
+            ({ textContent }) => textContent?.includes(markupCommand),
+          ),
+        ).toBe(true);
+        expect(
+          document.getElementById("command-chain-markup-probe"),
+        ).toBeNull();
         for (const candidate of groupTypes) {
-          expect(
-            document.querySelector(`.group-header[data-group="${candidate}"]`),
-          ).toBeInstanceOf(HTMLElement);
+          const header = document.querySelector(
+            `.group-header[data-group="${candidate}"]`,
+          );
+          expect(header).toBeInstanceOf(HTMLButtonElement);
+          expect(header?.getAttribute("aria-expanded")).toBe(
+            String(
+              !startingPresentationState.collapsedGroups.includes(candidate),
+            ),
+          );
         }
       });
       let currentGroupHeader = document.querySelector(
@@ -241,6 +258,11 @@ describe("Command presentation checked-bundle boundary", () => {
               ?.querySelector(".twisty")
               ?.classList.contains("collapsed"),
           ).toBe(expectedCollapsed);
+          expect(
+            document
+              .querySelector(`.group-header[data-group="${groupType}"]`)
+              ?.getAttribute("aria-expanded"),
+          ).toBe(String(!expectedCollapsed));
         });
         currentGroupHeader = document.querySelector(
           `.group-header[data-group="${groupType}"]`,
