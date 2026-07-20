@@ -141,4 +141,37 @@ describe("CommandChainUI accepted-state empty projection", () => {
     );
     expect(ui.request).not.toHaveBeenCalled();
   });
+
+  it.each(["generatedAlias", "aliasPreview"])(
+    "retains the no-selection command preview without the optional %s node",
+    async (missingId) => {
+      acceptProfile(createCommandChainProfile());
+      ui.cache.selectedKey = null;
+      document.getElementById("aliasPreview").textContent = "Stale alias";
+      document.getElementById("generatedAlias").style.display = "";
+      if (missingId === "generatedAlias") {
+        const generatedAlias = document.getElementById("generatedAlias");
+        generatedAlias.before(document.getElementById("aliasPreview"));
+      }
+      document.getElementById(missingId).remove();
+
+      await ui.render();
+
+      expect(document.getElementById("commandPreview").textContent).toBe(
+        "Select a key to see the generated command",
+      );
+      expect(document.getElementById("chainTitle").textContent).toBe(
+        "Select a key to edit",
+      );
+      if (missingId !== "aliasPreview") {
+        expect(document.getElementById("aliasPreview").textContent).toBe("");
+      }
+      if (missingId !== "generatedAlias") {
+        expect(document.getElementById("generatedAlias").style.display).toBe(
+          "none",
+        );
+      }
+      expect(ui.request).not.toHaveBeenCalled();
+    },
+  );
 });

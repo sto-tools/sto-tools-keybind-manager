@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { request } from "../../src/js/core/requestResponse.js";
+import { generateBindToAliasName } from "../../src/js/lib/aliasNameValidator.js";
 
 let replySequence = 0;
 const probeKey = "__command_presentation_probe__";
@@ -45,7 +46,7 @@ function categoryNodes(categoryId) {
 }
 
 describe("Command presentation checked-bundle boundary", () => {
-  it("converges static-category and chain-group clicks through the hidden owner", async () => {
+  it("projects and copies an inert preview before presentation clicks converge through the hidden owner", async () => {
     const bus = window.eventBus;
     const chainUi = window.commandChainUI;
     const coordinator = window.dataCoordinator;
@@ -121,6 +122,20 @@ describe("Command presentation checked-bundle boundary", () => {
     const startingGroupCollapsed =
       startingPresentationState.collapsedGroups.includes(groupType);
     let expectedRevision = startingPresentationState.revision;
+    const copiedPayloads = [];
+    const toastEvents = [];
+    const originalChainRequest = chainUi.request.bind(chainUi);
+    const chainRequest = vi
+      .spyOn(chainUi, "request")
+      .mockImplementation(async (topic, payload) => {
+        if (topic === "utility:copy-to-clipboard") {
+          copiedPayloads.push(payload);
+        }
+        return originalChainRequest(topic, payload);
+      });
+    const detachToast = bus.on("toast:show", (payload) => {
+      toastEvents.push(payload);
+    });
 
     try {
       const commandOperation = hadOriginalKey
@@ -188,6 +203,52 @@ describe("Command presentation checked-bundle boundary", () => {
           );
         }
       });
+
+      const aliasName = generateBindToAliasName(
+        environment,
+        probeKey,
+        "Primary Bindset",
+      );
+      const commandText = probeCommands
+        .map((command) =>
+          typeof command === "string" ? command : command.command,
+        )
+        .join(" $$ ");
+      await expect(
+        chainUi.updateBindToAliasMode(true, probeKey, probeCommands, false, {
+          snapshot: coordinator.getCurrentState(),
+          environment,
+          bindset: "Primary Bindset",
+          bindToAliasMode: true,
+          isCurrent: () => true,
+        }),
+      ).resolves.toBe(true);
+
+      expect(
+        document.querySelector(".generated-command label")?.dataset.i18n,
+      ).toBe("generated_command");
+      expect(
+        document.querySelector(".generated-command label")?.textContent,
+      ).toBe(chainUi.i18n.t("generated_command"));
+      expect(document.getElementById("generatedAlias")?.style.display).toBe("");
+      expect(document.getElementById("aliasPreview")?.textContent).toBe(
+        `alias ${aliasName} <& ${commandText} &>`,
+      );
+      expect(document.getElementById("commandPreview")?.textContent).toBe(
+        `${probeKey} "${aliasName}"`,
+      );
+
+      document.getElementById("copyAliasBtn")?.click();
+      await vi.waitFor(() => {
+        expect(copiedPayloads).toContainEqual({
+          text: `alias ${aliasName} <& ${commandText} &>`,
+        });
+        expect(toastEvents).toContainEqual({
+          message: chainUi.i18n.t("content_copied_to_clipboard"),
+          type: "success",
+        });
+      });
+
       let currentGroupHeader = document.querySelector(
         `.group-header[data-group="${groupType}"]`,
       );
@@ -280,6 +341,8 @@ describe("Command presentation checked-bundle boundary", () => {
         revision: startingPresentationState.revision + 4,
       });
     } finally {
+      chainRequest.mockRestore();
+      detachToast();
       let currentState = await requestOwnerSnapshot(bus);
       if (
         currentState.collapsedCategories.includes(categoryId) !==

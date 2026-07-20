@@ -90,6 +90,11 @@ export function generateBindToAliasName(
   // Convert special characters to meaningful names before general sanitization
   let cleanKey = (keyName || "").toLowerCase();
 
+  // Keep the underscore character outside the property map. Production builds
+  // mangle properties beginning with `_`, which would otherwise change this
+  // runtime lookup key and make bundled alias names differ from source mode.
+  cleanKey = cleanKey.replace(/_/g, "underscore");
+
   // Handle specific special characters with meaningful names
   const specialCharMap = {
     "[": "leftbracket",
@@ -102,7 +107,6 @@ export function generateBindToAliasName(
     ">": "greater",
     "=": "equals",
     "-": "minus",
-    _: "underscore",
     "\\": "backslash",
     "/": "slash",
     "|": "pipe",

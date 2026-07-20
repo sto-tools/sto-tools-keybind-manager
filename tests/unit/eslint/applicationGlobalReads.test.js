@@ -119,6 +119,9 @@ describe("application-global read guard", () => {
     expect(applicationGlobalAllowlist.stoUI.consumers).not.toContain(
       "src/js/components/ui/CommandChainUI.js",
     );
+    expect(
+      applicationGlobalAllowlist.applyTranslations.consumers,
+    ).not.toContain("src/js/components/ui/CommandChainUI.js");
   });
 });
 

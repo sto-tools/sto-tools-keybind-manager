@@ -168,7 +168,7 @@ describe("Bind-to-Alias Mode", () => {
       const mockGeneratedAlias = { style: {} };
       const mockAliasPreview = { textContent: "" };
       const mockCommandPreview = { textContent: "" };
-      const mockLabel = { setAttribute: vi.fn(), parentElement: {} };
+      const mockLabel = { dataset: {}, textContent: "" };
 
       // Set initial state
       mockGeneratedAlias.style.display = "";
@@ -192,10 +192,8 @@ describe("Bind-to-Alias Mode", () => {
 
       expect(mockGeneratedAlias.style.display).toBe("none");
       expect(mockCommandPreview.textContent).toBe('Q "FireAll"');
-      expect(mockLabel.setAttribute).toHaveBeenCalledWith(
-        "data-i18n",
-        "generated_command",
-      );
+      expect(mockLabel.dataset.i18n).toBe("generated_command");
+      expect(mockLabel.textContent).toBe("generated_command");
     });
 
     it("should handle empty commands in bind-to-alias mode", async () => {
@@ -251,7 +249,7 @@ describe("Bind-to-Alias Mode", () => {
       const mockGeneratedAlias = { style: {} };
       const mockAliasPreview = { textContent: "" };
       const mockCommandPreview = { textContent: "" };
-      const mockLabel = { setAttribute: vi.fn(), parentElement: {} };
+      const mockLabel = { dataset: {}, textContent: "" };
 
       // Set initial state
       mockGeneratedAlias.style.display = "";
@@ -279,17 +277,15 @@ describe("Bind-to-Alias Mode", () => {
       expect(mockCommandPreview.textContent).toBe(
         "alias MyAlias <& FireAll &>",
       );
-      expect(mockLabel.setAttribute).toHaveBeenCalledWith(
-        "data-i18n",
-        "generated_alias",
-      );
+      expect(mockLabel.dataset.i18n).toBe("generated_alias");
+      expect(mockLabel.textContent).toBe("generated_alias");
     });
 
     it("should show empty quoted string when no commands and bind-to-alias mode is disabled", async () => {
       const mockGeneratedAlias = { style: {} };
       const mockAliasPreview = { textContent: "" };
       const mockCommandPreview = { textContent: "" };
-      const mockLabel = { setAttribute: vi.fn(), parentElement: {} };
+      const mockLabel = { dataset: {}, textContent: "" };
 
       // Ensure generatedAlias starts hidden (any value is fine as it should stay hidden)
       mockGeneratedAlias.style.display = "none";
@@ -315,32 +311,8 @@ describe("Bind-to-Alias Mode", () => {
       expect(mockGeneratedAlias.style.display).toBe("none");
       // Command preview should show key with empty quoted string
       expect(mockCommandPreview.textContent).toBe('F4 ""');
-      expect(mockLabel.setAttribute).toHaveBeenCalledWith(
-        "data-i18n",
-        "generated_command",
-      );
-    });
-
-    it("should update label when updatePreviewLabel is called in alias environment", () => {
-      const mockLabel = { setAttribute: vi.fn(), parentElement: {} };
-
-      mockDocument.querySelector.mockImplementation((selector) => {
-        if (selector === ".generated-command label[data-i18n]")
-          return mockLabel;
-        return null;
-      });
-
-      // Set environment to alias
-      ui.cache.currentEnvironment = "alias";
-
-      // Call updatePreviewLabel directly (this is what gets called on environment change)
-      ui.updatePreviewLabel();
-
-      // Should update the label to alias format
-      expect(mockLabel.setAttribute).toHaveBeenCalledWith(
-        "data-i18n",
-        "generated_alias",
-      );
+      expect(mockLabel.dataset.i18n).toBe("generated_command");
+      expect(mockLabel.textContent).toBe("generated_command");
     });
   });
 
@@ -382,6 +354,22 @@ describe("Bind-to-Alias Mode", () => {
         success: false,
         message: "failed_to_copy_to_clipboard",
       });
+      const toastSpy = vi.spyOn(ui, "showToast");
+
+      await ui.copyAliasToClipboard();
+
+      expect(toastSpy).toHaveBeenCalledWith(
+        "failed_to_copy_to_clipboard",
+        "error",
+      );
+    });
+
+    it("shows the fallback error when the alias clipboard request rejects", async () => {
+      const aliasEl = { textContent: 'space_q "FireAll"' };
+      mockDocument.getElementById.mockImplementation((id) =>
+        id === "aliasPreview" ? aliasEl : null,
+      );
+      vi.spyOn(ui, "request").mockRejectedValue(new Error("clipboard offline"));
       const toastSpy = vi.spyOn(ui, "showToast");
 
       await ui.copyAliasToClipboard();
@@ -435,16 +423,12 @@ describe("Bind-to-Alias Mode", () => {
       );
     });
 
-    it("shows error toast when copy request fails", async () => {
+    it("shows the fallback error when the command clipboard request rejects", async () => {
       const previewEl = { textContent: 'F1 "FireAll"' };
       mockDocument.getElementById.mockImplementation((id) =>
         id === "commandPreview" ? previewEl : null,
       );
-
-      vi.spyOn(ui, "request").mockResolvedValue({
-        success: false,
-        message: "failed_to_copy_to_clipboard",
-      });
+      vi.spyOn(ui, "request").mockRejectedValue(new Error("clipboard offline"));
       const toastSpy = vi.spyOn(ui, "showToast");
 
       await ui.copyCommandPreviewToClipboard();

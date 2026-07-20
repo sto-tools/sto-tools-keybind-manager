@@ -80,7 +80,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     consumers: [
       "src/js/components/services/ModalManagerService.js",
       "src/js/components/services/PreferencesService.js",
-      "src/js/components/ui/CommandChainUI.js",
       "src/js/dev/DevMonitor.js",
     ],
     compatibilityOwner: "main.js",

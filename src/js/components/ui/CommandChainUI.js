@@ -38,20 +38,21 @@ import {
   findCommandDefinition,
   getCommandWarning,
 } from "../../data/commandCatalog.js";
-import { generateBindToAliasName } from "../../lib/aliasNameValidator.js";
 import {
-  formatCommandChainAliasPreview,
-  projectMirroringCommands,
+  createCommandChainPreviewPlan,
+  planPreviewClipboardCopy,
+  projectPreviewClipboardResult,
+  settleCommandChainPreview,
 } from "../services/commandChainPreviewProjection.js";
+import {
+  captureCommandChainPreviewElements,
+  commitCommandChainPreview,
+} from "./commandChainPreviewDom.js";
 import {
   captureCommandCustomizationTarget,
   isCommandCustomizationTargetCurrent,
   planCommandCustomization,
 } from "../services/commandCustomizationPlanner.js";
-
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
 
 /** @typedef {'before-pre-pivot' | 'in-pivot-group'} CommandPlacement */
 /**
@@ -93,9 +94,11 @@ export default class CommandChainUI extends UIComponentBase {
     this.eventListenersSetup = false;
     this._hasSelectionState = false;
     this._renderGeneration = 0;
+    this._commandChainLifecycleGeneration = 0;
   }
 
   onInit() {
+    this._commandChainLifecycleGeneration += 1;
     this.setupEventListeners();
   }
 
@@ -130,7 +133,6 @@ export default class CommandChainUI extends UIComponentBase {
 
       if (env) {
         this.updateChainActions();
-        this.updatePreviewLabel();
         this.reconcileAcceptedState();
       }
     });
@@ -413,12 +415,19 @@ export default class CommandChainUI extends UIComponentBase {
       view.status === "stale-selection"
     ) {
       if (!isCurrent() || !copy.empty) return;
-      const generatedAlias = this.document.getElementById("generatedAlias");
-      const aliasPreview = this.document.getElementById("aliasPreview");
-      if (generatedAlias) generatedAlias.style.display = "none";
-      if (aliasPreview) aliasPreview.textContent = "";
+      const emptyPreview = createCommandChainPreviewPlan({
+        environment: view.environment,
+        selectedName: null,
+        commands: [],
+      });
+      commitCommandChainPreview(
+        captureCommandChainPreviewElements(this.document, {
+          allowPartialAlias: true,
+        }),
+        this.i18n,
+        { ...emptyPreview, commandPreview: copy.preview },
+      );
       titleEl.textContent = copy.title;
-      previewEl.textContent = copy.preview;
       if (countSpanEl) countSpanEl.textContent = copy.count;
       this._committedInteractionState = createCommandChainInteractionState({
         renderToken,
@@ -427,7 +436,6 @@ export default class CommandChainUI extends UIComponentBase {
       container.replaceChildren(
         createCommandChainEmptyState(this.document, copy.empty),
       );
-      this.updatePreviewLabel();
       this.updateBindsetBanner();
       return;
     }
@@ -667,26 +675,6 @@ export default class CommandChainUI extends UIComponentBase {
     if (typeof detach === "function") this.domEventListeners.push(detach);
   }
 
-  // Update previews for bind-to-alias mode
-  /** @param {string | null | undefined} [environment] */
-  updatePreviewLabel(environment = this.cache.currentEnvironment) {
-    const labelEl = this.document.querySelector(
-      ".generated-command label[data-i18n]",
-    );
-    if (labelEl) {
-      const newKey =
-        environment === "alias" ? "generated_alias" : "generated_command";
-      labelEl.setAttribute("data-i18n", newKey);
-
-      // Apply translation immediately using multiple fallback methods
-      if (runtime.applyTranslations) {
-        runtime.applyTranslations(labelEl.parentElement);
-      } else {
-        labelEl.textContent = this.i18n.t(newKey);
-      }
-    }
-  }
-
   /**
    * @param {boolean} bindToAliasMode
    * @param {string | null | undefined} selectedKeyName
@@ -718,9 +706,7 @@ export default class CommandChainUI extends UIComponentBase {
     const isStabilized =
       stabilized ??
       isSnapshotCommandStabilized(snapshot, environment, name, bindset);
-    const generatedAlias = this.document.getElementById("generatedAlias");
-    const aliasPreviewEl = this.document.getElementById("aliasPreview");
-    const previewEl = this.document.getElementById("commandPreview");
+    const elements = captureCommandChainPreviewElements(this.document);
 
     // Double-check current bindToAliasMode preference to handle race conditions
     const currentBindToAliasMode =
@@ -734,131 +720,44 @@ export default class CommandChainUI extends UIComponentBase {
       `[CommandChainUI] updateBindToAliasMode: bindToAliasMode=${bindToAliasMode}, current=${currentBindToAliasMode}, effective=${effectiveBindToAliasMode}, selectedKeyName=${selectedKeyName}, environment=${environment}, activeBindset=${bindset}`,
     );
 
-    if (!generatedAlias || !aliasPreviewEl || !previewEl) {
-      console.log(
-        `[CommandChainUI] Missing UI elements: generatedAlias=${!!generatedAlias}, aliasPreviewEl=${!!aliasPreviewEl}, previewEl=${!!previewEl}`,
-      );
+    if (!elements) {
+      console.log("[CommandChainUI] Missing command preview elements");
       return false;
     }
+    if (!isCurrent()) return false;
 
-    if (
-      effectiveBindToAliasMode &&
-      selectedKeyName &&
-      environment !== "alias"
-    ) {
+    const plan = createCommandChainPreviewPlan({
+      environment,
+      selectedName: selectedKeyName,
+      bindset,
+      bindToAliasMode: effectiveBindToAliasMode,
+      stabilized: isStabilized,
+      commands,
+    });
+    let projection = plan;
+
+    if (plan.mirroring) {
       try {
+        const requestCommands = plan.mirroring.request.commands.map(
+          (command) => ({ ...command }),
+        );
+        const mirroredText = await this.request(
+          "command:generate-mirrored-commands",
+          { commands: requestCommands },
+        );
         if (!isCurrent()) return false;
-        let aliasName = null;
-        try {
-          aliasName = generateBindToAliasName(
-            environment,
-            selectedKeyName,
-            bindset,
-          );
-        } catch (error) {
-          console.error(
-            "[CommandChainUI] Failed to generate alias name:",
-            error,
-          );
-        }
-        if (!isCurrent()) return false;
-
-        if (aliasName) {
-          let aliasPreview = formatCommandChainAliasPreview(
-            aliasName,
-            commands,
-          );
-          if (!isCurrent()) return false;
-
-          // Apply mirroring when stabilized
-          try {
-            if (isStabilized && commands.length > 1) {
-              const commandObjects = projectMirroringCommands(commands);
-              const mirroredStr = await this.request(
-                "command:generate-mirrored-commands",
-                { commands: commandObjects },
-              );
-              if (!isCurrent()) return false;
-              if (mirroredStr) {
-                aliasPreview = `alias ${aliasName} <& ${mirroredStr} &>`;
-              }
-            }
-          } catch (error) {
-            if (!isCurrent()) return false;
-            console.warn("[CommandChainUI] Failed to apply mirroring:", error);
-          }
-
-          if (!isCurrent()) return false;
-          generatedAlias.style.display = "";
-          aliasPreviewEl.textContent = aliasPreview;
-          previewEl.textContent = `${selectedKeyName} "${aliasName}"`;
-
-          // ADDITIONAL SAFEGUARD: Ensure bind-to-alias mode takes precedence over any subsequent mirroring logic
-          if (effectiveBindToAliasMode) {
-            console.log(
-              "[CommandChainUI] Set main preview to alias name - bind-to-alias mode takes precedence",
-            );
-          }
-        } else {
-          if (!isCurrent()) return false;
-          generatedAlias.style.display = "";
-          aliasPreviewEl.textContent = this.i18n.t(
-            "invalid_key_name_for_alias_generation",
-            { defaultValue: "Invalid key name for alias generation" },
-          );
-          previewEl.textContent = `${selectedKeyName} "..."`;
-        }
+        projection = settleCommandChainPreview(plan, mirroredText);
       } catch (error) {
         if (!isCurrent()) return false;
-        console.error(
-          "[CommandChainUI] Failed to generate alias preview:",
-          error,
-        );
-        generatedAlias.style.display = "";
-        aliasPreviewEl.textContent = this.i18n.t(
-          "error_generating_alias_preview",
-          { defaultValue: "Error generating alias preview" },
-        );
-        previewEl.textContent = `${selectedKeyName} "..."`;
-      }
-    } else {
-      const commandStrings = commands
-        .map((cmd) => (typeof cmd === "string" ? cmd : cmd.command))
-        .filter(Boolean);
-      let previewString = commandStrings.join(" $$ ");
-
-      // Apply mirroring when stabilized
-      try {
-        if (isStabilized && commands.length > 1) {
-          const commandObjects = projectMirroringCommands(commands);
-          const mirroredStr = await this.request(
-            "command:generate-mirrored-commands",
-            { commands: commandObjects },
-          );
-          if (!isCurrent()) return false;
-          if (mirroredStr) previewString = mirroredStr;
+        if (plan.mirroring.destination === "generatedAlias") {
+          console.warn("[CommandChainUI] Failed to apply mirroring:", error);
         }
-      } catch {
-        if (!isCurrent()) return false;
-        // Keep the locally generated preview when the service is not ready.
-      }
-
-      if (!isCurrent()) return false;
-      generatedAlias.style.display = "none";
-      this.updatePreviewLabel(environment);
-      if (selectedKeyName) {
-        if (environment === "alias") {
-          // In alias mode, show alias format: alias aliasName <& commands &>
-          previewEl.textContent = `alias ${selectedKeyName} <& ${previewString} &>`;
-        } else {
-          // In key mode, show keybind format: keyName "commands"
-          previewEl.textContent = `${selectedKeyName} "${previewString}"`;
-        }
-      } else {
-        previewEl.textContent = "";
+        projection = settleCommandChainPreview(plan, null);
       }
     }
-    return true;
+
+    if (!isCurrent()) return false;
+    return commitCommandChainPreview(elements, this.i18n, projection);
   }
 
   // Enable/disable chain-related buttons depending on environment & selection.
@@ -979,6 +878,7 @@ export default class CommandChainUI extends UIComponentBase {
 
   // Clean up event listeners when component is destroyed
   onDestroy() {
+    this._commandChainLifecycleGeneration += 1;
     this._renderGeneration += 1;
     this._committedInteractionState = null;
     this.eventListenersSetup = false;
@@ -1108,61 +1008,44 @@ export default class CommandChainUI extends UIComponentBase {
   }
 
   /**
-   * Copy alias content to clipboard
+   * @param {'aliasPreview' | 'commandPreview'} elementId
+   * @param {'alias' | 'command preview'} logContext
    */
-  async copyAliasToClipboard() {
-    const aliasPreviewEl = this.document.getElementById("aliasPreview");
-    const text = aliasPreviewEl?.textContent?.trim();
-    if (!text) {
-      this.showToast(this.i18n.t("nothing_to_copy"), "warning");
+  async copyPreviewToClipboard(elementId, logContext) {
+    const lifecycleGeneration = this._commandChainLifecycleGeneration;
+    const isCurrent = () =>
+      lifecycleGeneration === this._commandChainLifecycleGeneration &&
+      !this.destroyed;
+    if (!isCurrent()) return;
+
+    const element = this.document.getElementById(elementId);
+    const copyPlan = planPreviewClipboardCopy(element?.textContent);
+    if (copyPlan.type === "empty") {
+      this.showToast(this.i18n.t(copyPlan.messageKey), copyPlan.toastType);
       return;
     }
 
     try {
-      const result = await this.request("utility:copy-to-clipboard", { text });
-      if (result?.success) {
-        const successMessage = this.i18n.t(
-          result?.message || "content_copied_to_clipboard",
-        );
-        this.showToast(successMessage, "success");
-      } else {
-        const errorMessage = this.i18n.t(
-          result?.message || "failed_to_copy_to_clipboard",
-        );
-        this.showToast(errorMessage, "error");
-      }
+      const result = await this.request("utility:copy-to-clipboard", {
+        text: copyPlan.text,
+      });
+      if (!isCurrent()) return;
+      const toast = projectPreviewClipboardResult(result);
+      this.showToast(this.i18n.t(toast.messageKey), toast.toastType);
     } catch (error) {
-      console.error("Failed to copy alias to clipboard:", error);
-      this.showToast(this.i18n.t("failed_to_copy_to_clipboard"), "error");
+      if (!isCurrent()) return;
+      console.error(`Failed to copy ${logContext} to clipboard:`, error);
+      const toast = projectPreviewClipboardResult(null);
+      this.showToast(this.i18n.t(toast.messageKey), toast.toastType);
     }
   }
 
-  async copyCommandPreviewToClipboard() {
-    const commandPreviewEl = this.document.getElementById("commandPreview");
-    const text = commandPreviewEl?.textContent?.trim();
-    if (!text) {
-      this.showToast(this.i18n.t("nothing_to_copy"), "warning");
-      return;
-    }
+  copyAliasToClipboard() {
+    return this.copyPreviewToClipboard("aliasPreview", "alias");
+  }
 
-    try {
-      const result = await this.request("utility:copy-to-clipboard", { text });
-      if (result?.success) {
-        const successMessage = this.i18n.t(
-          result?.message || "content_copied_to_clipboard",
-        );
-        this.showToast(successMessage, "success");
-      } else {
-        const errorMessage = this.i18n.t(
-          result?.message || "failed_to_copy_to_clipboard",
-        );
-        this.showToast(errorMessage, "error");
-      }
-    } catch (error) {
-      console.error("Failed to copy command preview to clipboard:", error);
-      const fallback = this.i18n.t("failed_to_copy_to_clipboard");
-      this.showToast(fallback, "error");
-    }
+  copyCommandPreviewToClipboard() {
+    return this.copyPreviewToClipboard("commandPreview", "command preview");
   }
 
   /**

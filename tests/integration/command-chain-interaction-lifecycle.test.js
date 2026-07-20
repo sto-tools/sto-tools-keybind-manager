@@ -201,6 +201,32 @@ describe("CommandChainUI interaction lifecycle", () => {
     },
   );
 
+  it.each(["destroy", "reinitialize"])(
+    "suppresses a pending clipboard toast after lifecycle %s",
+    async (settlement) => {
+      const aliasPreview = document.getElementById("aliasPreview");
+      aliasPreview.textContent = "alias copied <& FireAll &>";
+      const copyResult = deferred();
+      ui.request = vi.fn().mockReturnValue(copyResult.promise);
+      const toast = vi.spyOn(ui, "showToast");
+
+      const pending = ui.copyAliasToClipboard();
+      expect(ui.request).toHaveBeenCalledWith("utility:copy-to-clipboard", {
+        text: "alias copied <& FireAll &>",
+      });
+
+      ui.destroy();
+      if (settlement === "reinitialize") ui.init();
+      copyResult.resolve({
+        success: true,
+        message: "content_copied_to_clipboard",
+      });
+      await pending;
+
+      expect(toast).not.toHaveBeenCalled();
+    },
+  );
+
   it("releases the native drag/drop delegate on destroy", () => {
     ui.destroy();
 
