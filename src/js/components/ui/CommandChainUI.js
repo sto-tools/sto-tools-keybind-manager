@@ -38,6 +38,11 @@ import {
   formatCommandChainAliasPreview,
   projectMirroringCommands,
 } from "../services/commandChainPreviewProjection.js";
+import {
+  captureCommandCustomizationTarget,
+  isCommandCustomizationTargetCurrent,
+  planCommandCustomization,
+} from "../services/commandCustomizationPlanner.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
   globalThis
@@ -293,45 +298,59 @@ export default class CommandChainUI extends UIComponentBase {
    * }} interaction
    */
   async applyCommandToggle(interaction) {
-    const commands = await this.getCommandsForCurrentSelection();
     if (
       !isCommandChainInteractionCurrent(
         this._committedInteractionState,
         this._renderGeneration,
         interaction.renderToken,
-      ) ||
-      !commands ||
-      interaction.index < 0 ||
-      interaction.index >= commands.length
+      )
     ) {
       return;
     }
 
-    const command = commands[interaction.index];
-    if (interaction.type === "toggle-palindromic") {
-      const isCurrentlyIncluded =
-        typeof command !== "object" || command.palindromicGeneration !== false;
-      await this.updateCommandPalindromicSetting(
-        interaction.index,
-        "palindromicGeneration",
-        !isCurrentlyIncluded,
+    const target = captureCommandCustomizationTarget({
+      snapshot: this.cache.dataState,
+      currentEnvironment: this.cache.currentEnvironment,
+      selectedKey: this.cache.selectedKey,
+      selectedAlias: this.cache.selectedAlias,
+      activeBindset: this.cache.activeBindset,
+      bindsetsEnabled: this.cache.preferences?.bindsetsEnabled,
+      index: interaction.index,
+    });
+    if (!target) return;
+    const plan = planCommandCustomization({
+      target,
+      action: { type: interaction.type },
+    });
+    if (
+      !plan.valid ||
+      !isCommandChainInteractionCurrent(
+        this._committedInteractionState,
+        this._renderGeneration,
         interaction.renderToken,
-      );
+      ) ||
+      !isCommandCustomizationTargetCurrent(target, {
+        snapshot: this.cache.dataState,
+        currentEnvironment: this.cache.currentEnvironment,
+        selectedKey: this.cache.selectedKey,
+        selectedAlias: this.cache.selectedAlias,
+        activeBindset: this.cache.activeBindset,
+        bindsetsEnabled: this.cache.preferences?.bindsetsEnabled,
+      })
+    ) {
       return;
     }
 
-    const currentPlacement =
-      typeof command === "object" && command.placement
-        ? command.placement
-        : "before-pre-pivot";
-    await this.updateCommandPalindromicSetting(
-      interaction.index,
-      "placement",
-      currentPlacement === "in-pivot-group"
-        ? "before-pre-pivot"
-        : "in-pivot-group",
-      interaction.renderToken,
-    );
+    try {
+      // DataCoordinator's accepted state broadcast is the only repaint source.
+      // The RPC reply is acknowledgement, never state to adopt or render.
+      await this.request("data:update-profile", plan.updateProfileRequest);
+    } catch (err) {
+      console.error(
+        "[CommandChainUI] Failed to update command palindromic setting:",
+        err,
+      );
+    }
   }
 
   /**
@@ -1254,155 +1273,6 @@ export default class CommandChainUI extends UIComponentBase {
       });
     } catch (err) {
       console.error("[CommandChainUI] Failed to toggle stabilization", err);
-    }
-  }
-
-  // Update palindromic settings for a specific command using lazy rich object conversion
-  /**
-   * @param {number} commandIndex
-   * @param {'palindromicGeneration' | 'placement'} setting
-   * @param {boolean | CommandPlacement} value
-   * @param {string} [renderToken]
-   */
-  async updateCommandPalindromicSetting(
-    commandIndex,
-    setting,
-    value,
-    renderToken,
-  ) {
-    try {
-      // Get current commands for the selected key/alias
-      const commands = await this.getCommandsForCurrentSelection();
-      if (
-        renderToken !== undefined &&
-        !isCommandChainInteractionCurrent(
-          this._committedInteractionState,
-          this._renderGeneration,
-          renderToken,
-        )
-      ) {
-        return;
-      }
-      if (!commands || commandIndex < 0 || commandIndex >= commands.length) {
-        console.warn("[CommandChainUI] Invalid command index:", commandIndex);
-        return;
-      }
-
-      const command = commands[commandIndex];
-      const commandString =
-        typeof command === "string" ? command : normalizeToString(command);
-
-      console.log("[CommandChainUI] updateCommandPalindromicSetting:", {
-        commandIndex,
-        setting,
-        value,
-        currentCommand: command,
-        commandString,
-      });
-
-      // Apply lazy rich object conversion: only convert to rich object when user customizes
-      if (typeof command === "string") {
-        // Convert string to a rich object only when the user customizes it.
-        commands[commandIndex] =
-          setting === "palindromicGeneration"
-            ? { command: commandString, palindromicGeneration: value === true }
-            : {
-                command: commandString,
-                placement:
-                  value === "in-pivot-group"
-                    ? "in-pivot-group"
-                    : "before-pre-pivot",
-              };
-      } else {
-        // Update existing rich object while keeping each setting's value type precise.
-        const updatedCommand = { ...command };
-        if (setting === "palindromicGeneration") {
-          updatedCommand.palindromicGeneration = value === true;
-        } else {
-          updatedCommand.placement =
-            value === "in-pivot-group" ? "in-pivot-group" : "before-pre-pivot";
-        }
-        commands[commandIndex] = updatedCommand;
-      }
-
-      console.log("[CommandChainUI] Updated command:", commands[commandIndex]);
-
-      // Update the command chain with the modified commands using data:update-profile
-      const selectedKeyName =
-        this.cache.currentEnvironment === "alias"
-          ? this.cache.selectedAlias
-          : this.cache.selectedKey;
-      if (selectedKeyName) {
-        const profileId = this.cache.currentProfile;
-        if (!profileId) return;
-        const bindset = this.getEffectiveCommandBindset();
-        const environment = this.cache.currentEnvironment;
-
-        // Build the update payload - preserve rich objects
-        let payload;
-        if (this.cache.currentEnvironment === "alias") {
-          // For aliases, update the commands property
-          payload = {
-            modify: {
-              aliases: {
-                [selectedKeyName]: { commands },
-              },
-            },
-          };
-        } else if (bindset && bindset !== "Primary Bindset") {
-          // For bindsets, update in bindsets structure
-          payload = {
-            modify: {
-              bindsets: {
-                [bindset]: {
-                  [environment]: {
-                    keys: { [selectedKeyName]: commands },
-                  },
-                },
-              },
-            },
-          };
-        } else {
-          // For primary bindset, update in builds structure
-          payload = {
-            modify: {
-              builds: {
-                [environment]: {
-                  keys: { [selectedKeyName]: commands },
-                },
-              },
-            },
-          };
-        }
-
-        await this.request("data:update-profile", {
-          profileId,
-          ...payload,
-        });
-
-        if (
-          renderToken !== undefined &&
-          !isCommandChainInteractionCurrent(
-            this._committedInteractionState,
-            this._renderGeneration,
-            renderToken,
-          )
-        ) {
-          return;
-        }
-
-        // CRITICAL: Use the updated commands array directly instead of re-fetching to avoid timing issues
-        // This ensures the mirroring logic has the most up-to-date placement data
-        console.log("[CommandChainUI] Commands after update:", commands);
-
-        // Trigger re-render to show updated button state with the current placement data
-        await this.render();
-      }
-    } catch (err) {
-      console.error(
-        "[CommandChainUI] Failed to update command palindromic setting:",
-        err,
-      );
     }
   }
 

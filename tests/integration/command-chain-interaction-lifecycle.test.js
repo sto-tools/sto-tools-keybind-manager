@@ -170,22 +170,15 @@ describe("CommandChainUI interaction lifecycle", () => {
   });
 
   it.each(["replacement", "destroy"])(
-    "does not continue a suspended toggle after %s",
+    "does not dispatch a stale toggle after %s",
     async (settlement) => {
       acceptCommands(["OldOne"], 1);
       await ui.render();
       const click = findDomHandler("click");
-      const commandRead = deferred();
-      ui.getCommandsForCurrentSelection = vi.fn(() => commandRead.promise);
-      ui.updateCommandPalindromicSetting = vi.fn().mockResolvedValue(undefined);
-      click({
-        target: document.querySelector(".btn-palindromic-toggle"),
-        preventDefault: vi.fn(),
-        stopPropagation: vi.fn(),
-      });
-      await vi.waitFor(() => {
-        expect(ui.getCommandsForCurrentSelection).toHaveBeenCalledOnce();
-      });
+      const predecessorToggle = document.querySelector(
+        ".btn-palindromic-toggle",
+      );
+      ui.request = vi.fn().mockResolvedValue({ success: true });
 
       if (settlement === "replacement") {
         acceptCommands(["NewOne"], 2);
@@ -193,11 +186,18 @@ describe("CommandChainUI interaction lifecycle", () => {
       } else {
         ui.destroy();
       }
-      commandRead.resolve(["OldOne"]);
+      const staleEvent = {
+        target: predecessorToggle,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      };
+      click(staleEvent);
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(ui.updateCommandPalindromicSetting).not.toHaveBeenCalled();
+      expect(ui.request).not.toHaveBeenCalled();
+      expect(staleEvent.preventDefault).not.toHaveBeenCalled();
+      expect(staleEvent.stopPropagation).not.toHaveBeenCalled();
     },
   );
 

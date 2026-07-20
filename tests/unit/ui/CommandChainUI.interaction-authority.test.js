@@ -5,6 +5,8 @@ import { createCommandChainInteractionState } from "../../../src/js/components/u
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import {
   commandChainI18n,
+  createCommandChainCoordinatorState,
+  createCommandChainProfile,
   deferred,
   mountCommandChain,
 } from "../../fixtures/ui/commandChain.js";
@@ -26,6 +28,17 @@ describe("CommandChainUI interaction authority", () => {
     ui.cache.selectedKey = "F1";
     ui.cache.activeBindset = "Primary Bindset";
     ui.cache.preferences = { bindsetsEnabled: false };
+    const profile = createCommandChainProfile({
+      groundKeys: { F1: ["+TrayExecByTray 1 0"] },
+    });
+    ui._cacheDataState(
+      createCommandChainCoordinatorState(profile, {
+        authorityEpoch: 7,
+        revision: 3,
+        environment: "ground",
+      }),
+    );
+    ui.cache.selectedKey = "F1";
     ui.render = vi.fn().mockResolvedValue(undefined);
   });
 
@@ -36,41 +49,54 @@ describe("CommandChainUI interaction authority", () => {
     vi.restoreAllMocks();
   });
 
-  it.each(["replacement", "destroy"])(
-    "does not repaint after owner settlement once authority ends by %s",
-    async (settlement) => {
-      const commands = ["+TrayExecByTray 1 0"];
-      const state = createCommandChainInteractionState({
-        renderToken: 11,
-        commandCount: commands.length,
-      });
-      ui._renderGeneration = 11;
-      ui._committedInteractionState = state;
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-      const requestSettlement = deferred();
-      ui.request = vi.fn(() => requestSettlement.promise);
+  it("does not render from a successful owner acknowledgement", async () => {
+    const state = createCommandChainInteractionState({
+      renderToken: 11,
+      commandCount: 1,
+    });
+    ui._renderGeneration = 11;
+    ui._committedInteractionState = state;
+    const requestSettlement = deferred();
+    ui.request = vi.fn(() => requestSettlement.promise);
 
-      const update = ui.updateCommandPalindromicSetting(
-        0,
-        "palindromicGeneration",
-        false,
-        state.renderToken,
-      );
-      await vi.waitFor(() => expect(ui.request).toHaveBeenCalledOnce());
+    const update = ui.applyCommandToggle({
+      type: "toggle-palindromic",
+      index: 0,
+      renderToken: state.renderToken,
+      consumeEvent: true,
+    });
+    await vi.waitFor(() => expect(ui.request).toHaveBeenCalledOnce());
+    requestSettlement.resolve({ success: true });
+    await update;
 
-      if (settlement === "replacement") {
-        ui._renderGeneration = 12;
-        ui._committedInteractionState = createCommandChainInteractionState({
-          renderToken: 12,
-          commandCount: commands.length,
-        });
-      } else {
-        ui.destroy();
-      }
-      requestSettlement.resolve({ success: true });
-      await update;
+    expect(ui.render).not.toHaveBeenCalled();
+  });
 
-      expect(ui.render).not.toHaveBeenCalled();
-    },
-  );
+  it("keeps accepted state unchanged when the owner rejects the update", async () => {
+    const state = createCommandChainInteractionState({
+      renderToken: 11,
+      commandCount: 1,
+    });
+    ui._renderGeneration = 11;
+    ui._committedInteractionState = state;
+    const acceptedBefore = structuredClone(ui.cache.dataState);
+    const rejection = new Error("durable write failed");
+    ui.request = vi.fn().mockRejectedValue(rejection);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await ui.applyCommandToggle({
+      type: "toggle-palindromic",
+      index: 0,
+      renderToken: state.renderToken,
+      consumeEvent: true,
+    });
+
+    expect(ui.request).toHaveBeenCalledOnce();
+    expect(ui.cache.dataState).toEqual(acceptedBefore);
+    expect(ui.render).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[CommandChainUI] Failed to update command palindromic setting:",
+      rejection,
+    );
+  });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
 import { createCommandChainInteractionState } from "../../../src/js/components/ui/commandChainInteractionPolicy.js";
+import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import i18next from "i18next";
 
 describe("CommandChainUI Palindromic Controls", () => {
@@ -266,6 +267,35 @@ describe("CommandChainUI Palindromic Controls", () => {
   });
 
   describe("Palindromic Control Event Handlers", () => {
+    function acceptCommands(commands) {
+      const profile = {
+        id: "profile-1",
+        name: "Profile",
+        currentEnvironment: "ground",
+        builds: {
+          space: { keys: {} },
+          ground: { keys: { F1: commands } },
+        },
+        aliases: {},
+        bindsets: {},
+      };
+      ui._cacheDataState(
+        createDataCoordinatorState({
+          authorityEpoch: 7,
+          revision: 3,
+          currentProfile: profile.id,
+          currentEnvironment: "ground",
+          currentProfileData: profile,
+          profiles: { [profile.id]: profile },
+        }),
+      );
+      ui.cache.currentEnvironment = "ground";
+      ui.cache.selectedKey = "F1";
+      ui.cache.selectedAlias = null;
+      ui.cache.activeBindset = "Primary Bindset";
+      ui.cache.preferences.bindsetsEnabled = false;
+    }
+
     function createAuthorizedButton(className, commandCount) {
       const state = createCommandChainInteractionState({
         renderToken: ui._renderGeneration,
@@ -285,15 +315,14 @@ describe("CommandChainUI Palindromic Controls", () => {
 
     it("should exclude an included command when its palindromic toggle is clicked", async () => {
       const commands = ["+TrayExecByTray 1 0", "Target_Enemy_Near"];
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-      ui.updateCommandPalindromicSetting = vi.fn().mockResolvedValue(undefined);
+      acceptCommands(commands);
 
       await ui.setupEventListeners();
 
       const handler = mockEventBus.onDom.mock.calls.find(
         ([target, event]) => target === "#commandList" && event === "click",
       )[2];
-      const { button, state } = createAuthorizedButton(
+      const { button } = createAuthorizedButton(
         "btn-palindromic-toggle",
         commands.length,
       );
@@ -305,16 +334,32 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       handler(event);
       await vi.waitFor(() => {
-        expect(ui.updateCommandPalindromicSetting).toHaveBeenCalledWith(
-          0,
-          "palindromicGeneration",
-          false,
-          state.renderToken,
+        expect(mockEventBus.request).toHaveBeenCalledWith(
+          "data:update-profile",
+          {
+            profileId: "profile-1",
+            modify: {
+              builds: {
+                ground: {
+                  keys: {
+                    F1: [
+                      {
+                        command: "+TrayExecByTray 1 0",
+                        palindromicGeneration: false,
+                      },
+                      "Target_Enemy_Near",
+                    ],
+                  },
+                },
+              },
+            },
+          },
         );
       });
 
       expect(event.preventDefault).toHaveBeenCalled();
       expect(event.stopPropagation).toHaveBeenCalled();
+      expect(ui.render).not.toHaveBeenCalled();
     });
 
     it("should move an excluded command into the pivot group when its placement toggle is clicked", async () => {
@@ -325,15 +370,14 @@ describe("CommandChainUI Palindromic Controls", () => {
           placement: "before-pre-pivot",
         },
       ];
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-      ui.updateCommandPalindromicSetting = vi.fn().mockResolvedValue(undefined);
+      acceptCommands(commands);
 
       await ui.setupEventListeners();
 
       const handler = mockEventBus.onDom.mock.calls.find(
         ([target, event]) => target === "#commandList" && event === "click",
       )[2];
-      const { button, state } = createAuthorizedButton(
+      const { button } = createAuthorizedButton(
         "btn-placement-toggle",
         commands.length,
       );
@@ -345,229 +389,32 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       handler(event);
       await vi.waitFor(() => {
-        expect(ui.updateCommandPalindromicSetting).toHaveBeenCalledWith(
-          0,
-          "placement",
-          "in-pivot-group",
-          state.renderToken,
+        expect(mockEventBus.request).toHaveBeenCalledWith(
+          "data:update-profile",
+          {
+            profileId: "profile-1",
+            modify: {
+              builds: {
+                ground: {
+                  keys: {
+                    F1: [
+                      {
+                        command: "+TrayExecByTray 1 0",
+                        palindromicGeneration: false,
+                        placement: "in-pivot-group",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
         );
       });
 
       expect(event.preventDefault).toHaveBeenCalled();
       expect(event.stopPropagation).toHaveBeenCalled();
-    });
-  });
-
-  describe("updateCommandPalindromicSetting", () => {
-    it("should convert string commands to rich objects when updating palindromic settings", async () => {
-      // Mock commands
-      const commands = ["+TrayExecByTray 1 0", "Target_Enemy_Near"];
-
-      // Mock getCommandsForCurrentSelection method
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-
-      mockEventBus.request.mockResolvedValue({ success: true });
-
-      await ui.updateCommandPalindromicSetting(
-        0,
-        "palindromicGeneration",
-        false,
-      );
-
-      expect(mockEventBus.request).toHaveBeenCalledWith("data:update-profile", {
-        profileId: "profile-1",
-        modify: {
-          builds: {
-            ground: {
-              keys: {
-                F1: [
-                  {
-                    command: "+TrayExecByTray 1 0",
-                    palindromicGeneration: false,
-                  },
-                  "Target_Enemy_Near",
-                ],
-              },
-            },
-          },
-        },
-      });
-    });
-
-    it("should store placement when converting a string command to a rich object", async () => {
-      const commands = ["+TrayExecByTray 1 0", "Target_Enemy_Near"];
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-      mockEventBus.request.mockResolvedValue({ success: true });
-
-      await ui.updateCommandPalindromicSetting(
-        0,
-        "placement",
-        "in-pivot-group",
-      );
-
-      expect(mockEventBus.request).toHaveBeenCalledWith("data:update-profile", {
-        profileId: "profile-1",
-        modify: {
-          builds: {
-            ground: {
-              keys: {
-                F1: [
-                  {
-                    command: "+TrayExecByTray 1 0",
-                    placement: "in-pivot-group",
-                  },
-                  "Target_Enemy_Near",
-                ],
-              },
-            },
-          },
-        },
-      });
-    });
-
-    it("should update existing rich command objects", async () => {
-      const commands = [
-        {
-          command: "+TrayExecByTray 1 0",
-          palindromicGeneration: false,
-          placement: "before-pre-pivot",
-        },
-        "Target_Enemy_Near",
-      ];
-
-      // Mock getCommandsForCurrentSelection method
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-
-      mockEventBus.request.mockResolvedValue({ success: true });
-
-      await ui.updateCommandPalindromicSetting(
-        0,
-        "placement",
-        "in-pivot-group",
-      );
-
-      expect(mockEventBus.request).toHaveBeenCalledWith("data:update-profile", {
-        profileId: "profile-1",
-        modify: {
-          builds: {
-            ground: {
-              keys: {
-                F1: [
-                  {
-                    command: "+TrayExecByTray 1 0",
-                    palindromicGeneration: false,
-                    placement: "in-pivot-group",
-                  },
-                  "Target_Enemy_Near",
-                ],
-              },
-            },
-          },
-        },
-      });
-    });
-
-    it("should handle invalid command indices gracefully", async () => {
-      const commands = ["+TrayExecByTray 1 0"];
-
-      // Mock getCommandsForCurrentSelection method
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-
-      await ui.updateCommandPalindromicSetting(
-        5,
-        "palindromicGeneration",
-        false,
-      );
-
-      expect(mockEventBus.request).not.toHaveBeenCalledWith(
-        "data:update-profile",
-        expect.any(Object),
-      );
-    });
-
-    it("should explicitly include a command when palindromicGeneration is set to true", async () => {
-      const commands = [
-        {
-          command: "+TrayExecByTray 1 0",
-          palindromicGeneration: false,
-          placement: "before-pre-pivot",
-        },
-      ];
-
-      // Mock getCommandsForCurrentSelection method
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-
-      mockEventBus.request.mockResolvedValue({ success: true });
-
-      await ui.updateCommandPalindromicSetting(
-        0,
-        "palindromicGeneration",
-        true,
-      );
-
-      expect(mockEventBus.request).toHaveBeenCalledWith("data:update-profile", {
-        profileId: "profile-1",
-        modify: {
-          builds: {
-            ground: {
-              keys: {
-                F1: [
-                  {
-                    command: "+TrayExecByTray 1 0",
-                    palindromicGeneration: true,
-                    placement: "before-pre-pivot",
-                  },
-                ],
-              },
-            },
-          },
-        },
-      });
-    });
-  });
-
-  describe("Lazy Rich Object Conversion", () => {
-    it("should only convert commands to rich objects when user customizes them", async () => {
-      // Start with simple string commands
-      const commands = ["+TrayExecByTray 1 0", "+TrayExecByTray 1 1"];
-
-      // Mock getCommandsForCurrentSelection method
-      ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
-
-      mockEventBus.request.mockResolvedValue({ success: true });
-
-      // Before customization, commands should remain strings
-      expect(commands[0]).toBe("+TrayExecByTray 1 0");
-      expect(typeof commands[0]).toBe("string");
-
-      // After user customizes (excludes from palindrome), convert to rich object
-      await ui.updateCommandPalindromicSetting(
-        0,
-        "palindromicGeneration",
-        false,
-      );
-
-      expect(mockEventBus.request).toHaveBeenCalledWith("data:update-profile", {
-        profileId: "profile-1",
-        modify: {
-          builds: {
-            ground: {
-              keys: {
-                F1: [
-                  {
-                    command: "+TrayExecByTray 1 0",
-                    palindromicGeneration: false,
-                  },
-                  "+TrayExecByTray 1 1",
-                ],
-              },
-            },
-          },
-        },
-      });
-
-      // Second command should remain as string until user customizes it
-      expect(typeof commands[1]).toBe("string");
+      expect(ui.render).not.toHaveBeenCalled();
     });
   });
 });
