@@ -201,11 +201,189 @@ function patternContainsGlobalAliasTarget(pattern, pathSegments = []) {
   });
 }
 
+function createGlobalPathResolver(sourceCode) {
+  const aliases = new Set();
+  const resolvingAliases = new Set();
+
+  const isGlobalRootIdentifier = (node) =>
+    node?.type === "Identifier" &&
+    GLOBAL_ROOT_NAMES.has(node.name) &&
+    isUnshadowed(sourceCode, node, node.name);
+
+  let expressionCanOnlyResolveToGlobalOrPrimitive;
+
+  const variableIsGlobalAlias = (variable) => {
+    if (aliases.has(variable)) return true;
+    if (resolvingAliases.has(variable)) return false;
+
+    const definition = variable.defs.find(
+      (candidate) => candidate.type === "Variable",
+    );
+    const declarator = definition?.node;
+    if (
+      declarator?.type !== "VariableDeclarator" ||
+      declarator.parent.kind !== "const" ||
+      !declarator.init
+    ) {
+      return false;
+    }
+
+    resolvingAliases.add(variable);
+    const bindingPath = destructuredBindingPath(declarator.id, variable.name);
+    const resolution = expressionCanOnlyResolveToGlobalOrPrimitive(
+      declarator.init,
+    );
+    const defaultResolution = bindingDefaultResolution(
+      declarator.id,
+      variable.name,
+      expressionCanOnlyResolveToGlobalOrPrimitive,
+    );
+    resolvingAliases.delete(variable);
+    const initializerAliasesGlobal =
+      bindingPath !== null &&
+      bindingPath.every((segment) => GLOBAL_ROOT_NAMES.has(segment)) &&
+      resolution.safe &&
+      resolution.containsGlobal;
+    const defaultAliasesGlobal =
+      defaultResolution.safe && defaultResolution.containsGlobal;
+    if (!initializerAliasesGlobal && !defaultAliasesGlobal) return false;
+
+    aliases.add(variable);
+    return true;
+  };
+
+  const isAliasIdentifier = (node) => {
+    if (node?.type !== "Identifier") return false;
+    const variable = findVariable(sourceCode, node);
+    return Boolean(variable && variableIsGlobalAlias(variable));
+  };
+
+  const isGlobalRootPath = (rawNode) => {
+    let node = unwrap(rawNode);
+    if (!node) return false;
+    if (isGlobalRootIdentifier(node) || isAliasIdentifier(node)) return true;
+
+    const segments = [];
+    while (node?.type === "MemberExpression") {
+      segments.unshift(staticPropertyName(node));
+      node = unwrap(node.object);
+    }
+    return (
+      (isGlobalRootIdentifier(node) || isAliasIdentifier(node)) &&
+      segments.length > 0 &&
+      segments.every((segment) => GLOBAL_ROOT_NAMES.has(segment))
+    );
+  };
+
+  expressionCanOnlyResolveToGlobalOrPrimitive = (rawNode) => {
+    const node = unwrap(rawNode);
+    if (!node) return { containsGlobal: false, safe: false };
+    if (isGlobalRootPath(node)) return { containsGlobal: true, safe: true };
+    if (
+      node.type === "Literal" &&
+      (node.value === null || typeof node.value !== "object")
+    ) {
+      return { containsGlobal: false, safe: true };
+    }
+    if (
+      node.type === "Identifier" &&
+      node.name === "undefined" &&
+      isUnshadowed(sourceCode, node, "undefined")
+    ) {
+      return { containsGlobal: false, safe: true };
+    }
+    if (node.type === "UnaryExpression" && node.operator === "void") {
+      return { containsGlobal: false, safe: true };
+    }
+    if (node.type === "SequenceExpression") {
+      return expressionCanOnlyResolveToGlobalOrPrimitive(
+        node.expressions[node.expressions.length - 1],
+      );
+    }
+    if (node.type === "ConditionalExpression") {
+      const consequent = expressionCanOnlyResolveToGlobalOrPrimitive(
+        node.consequent,
+      );
+      const alternate = expressionCanOnlyResolveToGlobalOrPrimitive(
+        node.alternate,
+      );
+      return {
+        containsGlobal: consequent.containsGlobal || alternate.containsGlobal,
+        safe: consequent.safe && alternate.safe,
+      };
+    }
+    if (node.type === "LogicalExpression") {
+      const left = expressionCanOnlyResolveToGlobalOrPrimitive(node.left);
+      const right = expressionCanOnlyResolveToGlobalOrPrimitive(node.right);
+      return {
+        containsGlobal: left.containsGlobal || right.containsGlobal,
+        safe: left.safe && right.safe,
+      };
+    }
+    return { containsGlobal: false, safe: false };
+  };
+
+  const globalPath = (rawNode) => {
+    let node = unwrap(rawNode);
+    if (!node) return null;
+    if (isGlobalRootIdentifier(node) || isAliasIdentifier(node)) {
+      return { node: rawNode, segments: [] };
+    }
+
+    const segments = [];
+    while (node?.type === "MemberExpression") {
+      segments.unshift(staticPropertyName(node));
+      node = unwrap(node.object);
+    }
+    if (!isGlobalRootIdentifier(node) && !isAliasIdentifier(node)) return null;
+    while (GLOBAL_ROOT_NAMES.has(segments[0])) segments.shift();
+    return { node: rawNode, segments };
+  };
+
+  const analyzeDeclarator = (node) => {
+    const resolution = expressionCanOnlyResolveToGlobalOrPrimitive(node.init);
+    const declaredVariables = sourceCode.getDeclaredVariables(node);
+    const aliasVariables = declaredVariables.filter((variable) => {
+      const defaultResolution = bindingDefaultResolution(
+        node.id,
+        variable.name,
+        expressionCanOnlyResolveToGlobalOrPrimitive,
+      );
+      if (defaultResolution.containsGlobal) return true;
+      if (!resolution.containsGlobal) return false;
+      const bindingPath = destructuredBindingPath(node.id, variable.name);
+      return (
+        bindingPath !== null &&
+        bindingPath.every((segment) => GLOBAL_ROOT_NAMES.has(segment))
+      );
+    });
+    const defaultsAreSafe = aliasVariables.every(
+      (variable) =>
+        bindingDefaultResolution(
+          node.id,
+          variable.name,
+          expressionCanOnlyResolveToGlobalOrPrimitive,
+        ).safe,
+    );
+    return { aliasVariables, defaultsAreSafe, resolution };
+  };
+
+  return {
+    analyzeDeclarator,
+    expressionCanOnlyResolveToGlobalOrPrimitive,
+    globalPath,
+    registerAliases(variables) {
+      for (const variable of variables) aliases.add(variable);
+    },
+  };
+}
+
 export {
   GLOBAL_ROOT_NAMES,
   NATIVE_GLOBAL_NAMES,
   REPOSITORY_ROOT,
   bindingDefaultResolution,
+  createGlobalPathResolver,
   destructuredBindingDefaults,
   destructuredBindingPath,
   findVariable,

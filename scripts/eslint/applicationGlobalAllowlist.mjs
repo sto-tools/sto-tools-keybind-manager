@@ -14,7 +14,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     purpose: "Legacy aggregate data root used by version and export adapters.",
     consumers: [
       "src/js/main.js",
-      "src/js/components/services/DataService.js",
       "src/js/components/services/ExportService.js",
       "src/js/components/services/ProjectManagementService.js",
     ],
@@ -138,15 +137,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     compatibilityOwner: "main.js",
     removalGate: "Every remaining toast and UI utility consumer is injected.",
     writers: [writer("src/js/main.js", "stoUI")],
-  },
-  stoFileExplorer: {
-    classification: "bootstrap compatibility",
-    purpose: "File-explorer refresh bridge used after modal workflows.",
-    consumers: ["src/js/components/services/ModalManagerService.js"],
-    compatibilityOwner: "main.js",
-    removalGate:
-      "Modal workflows request refresh through an injected capability.",
-    writers: [writer("src/js/main.js", "stoFileExplorer")],
   },
   stoSync: {
     classification: "bootstrap compatibility",

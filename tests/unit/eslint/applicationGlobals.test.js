@@ -13,7 +13,7 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 19-name post-cleanup allowlist", () => {
+  it("freezes the exact 18-name post-cleanup allowlist", () => {
     const expectedNames = [
       "COMMANDS",
       "STO_DATA",
@@ -29,7 +29,6 @@ describe("application-global compatibility metadata", () => {
       "keyBrowserService",
       "keyBrowserUI",
       "localizeCommandData",
-      "stoFileExplorer",
       "stoKeybinds",
       "stoSync",
       "stoUI",
@@ -131,7 +130,7 @@ describe("application-global write guard", () => {
         window.applyTranslations = () => {};
         Object.assign(window, {
           storageService: {}, dataCoordinator: {}, stoKeybinds: {}, stoUI: {},
-          stoFileExplorer: {}, stoSync: {}, eventBus: {}
+          stoSync: {}, eventBus: {}
         });
       `,
       "src/js/main.js",

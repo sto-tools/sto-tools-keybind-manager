@@ -417,13 +417,6 @@ export default class PreferencesService extends ComponentBase {
         document.body.classList.remove("compact-view");
       }
     }
-
-    // Propagate to global app instance if present
-    if (appWindow?.app) {
-      const app = appWindow.app;
-      if ("autoSave" in app) app.autoSave = this.settings.autoSave;
-      if ("maxUndoSteps" in app) app.maxUndoSteps = this.settings.maxUndoSteps;
-    }
   }
 
   // Theme Management

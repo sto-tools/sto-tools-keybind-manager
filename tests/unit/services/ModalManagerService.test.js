@@ -294,6 +294,16 @@ describe("ModalManagerService", () => {
     expect(service.regenerateCallbacks.testModal).toBe(replacementCallback);
   });
 
+  it("leaves view-owned modal regeneration to the active view lifecycle", () => {
+    expect(service.regenerateCallbacks).not.toHaveProperty("parameterModal");
+    expect(service.regenerateCallbacks).not.toHaveProperty("keySelectionModal");
+    expect(service.regenerateCallbacks).not.toHaveProperty("fileExplorerModal");
+    expect(Object.keys(service.regenerateCallbacks).sort()).toEqual([
+      "aboutModal",
+      "profileModal",
+    ]);
+  });
+
   it("preserves direct modal close behavior without an event bus", () => {
     service.destroy();
     service = new ModalManagerService({ i18n: i18nFixture.i18n });

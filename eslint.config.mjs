@@ -64,6 +64,7 @@ export default [
       "sto-architecture": applicationGlobalsPlugin,
     },
     rules: {
+      "sto-architecture/no-unallowlisted-reads": "error",
       "sto-architecture/no-unallowlisted-writes": "error",
     },
   },

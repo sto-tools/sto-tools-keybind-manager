@@ -173,14 +173,6 @@
  * @property {(message: string, title?: string, kind?: string, id?: string) => Promise<boolean>} confirm
  * @property {(message: string, title?: string, kind?: string, id?: string) => Promise<void>} inform
  *
- * @typedef {Object} AppFacade
- * @property {(modified: boolean) => void} [setModified]
- * @property {(definition: unknown) => void} [populateParameterModal]
- * @property {(tab: string) => void} [populateKeyTab]
- * @property {() => void} [populateVertigoModal]
- * @property {boolean} [autoSave]
- * @property {number} [maxUndoSteps]
- *
  * @typedef {Object} CommandDefinition
  * @property {string} [command]
  * @property {string} [environment]
@@ -207,13 +199,11 @@
  *
  * @typedef {Window & typeof globalThis & {
  *   STO_DATA?: { settings?: { version?: string } },
- *   app?: AppFacade,
  *   applyTranslations?: (root?: Document | Element | null) => void,
  *   confirmDialog?: ConfirmDialog,
  *   i18next?: I18n,
  *   localizeCommandData?: () => void,
  *   showDirectoryPicker?: () => Promise<unknown>,
- *   stoFileExplorer?: { refreshFileList?: () => void },
  *   stoUI?: ToastUI,
  *   COMMANDS?: Record<string, CommandDefinition>,
  *   VFX_EFFECTS?: Record<string, Array<{ effect: string }>>

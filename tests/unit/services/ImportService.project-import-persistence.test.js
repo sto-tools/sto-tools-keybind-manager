@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { createImportServiceFixture } from "../../fixtures/index.js";
@@ -62,8 +62,6 @@ describe("ImportService project import persistence progress", () => {
         }
         return saveProfile(profileId, profile);
       });
-      const markAppModified = vi.spyOn(service, "markAppModified");
-
       const result = await service.importProjectFile(
         JSON.stringify({
           type: "project",
@@ -93,7 +91,6 @@ describe("ImportService project import persistence progress", () => {
       });
       expect(fixture.storage.getProfile("second")).toBeNull();
       expect(fixture.storage.getProfile("third")).toBeNull();
-      expect(markAppModified).not.toHaveBeenCalled();
     },
   );
 
@@ -125,8 +122,6 @@ describe("ImportService project import persistence progress", () => {
       } else {
         fixture.storage.saveSettings.mockReturnValueOnce(false);
       }
-      const markAppModified = vi.spyOn(service, "markAppModified");
-
       const result = await service.importProjectFile(
         JSON.stringify({
           type: "project",
@@ -151,7 +146,6 @@ describe("ImportService project import persistence progress", () => {
       expect(fixture.storage.getProfile("first")).toMatchObject({
         name: "First",
       });
-      expect(markAppModified).not.toHaveBeenCalled();
     },
   );
 
@@ -188,8 +182,6 @@ describe("ImportService project import persistence progress", () => {
         }
         return saveAllData(data);
       });
-      const markAppModified = vi.spyOn(service, "markAppModified");
-
       const result = await service.importProjectFile(
         JSON.stringify({
           type: "project",
@@ -215,13 +207,10 @@ describe("ImportService project import persistence progress", () => {
         name: "First",
       });
       expect(fixture.storage.getSettings()).toMatchObject({ theme: "light" });
-      expect(markAppModified).not.toHaveBeenCalled();
     },
   );
 
-  it("marks the application modified only after the complete import succeeds", async () => {
-    const markAppModified = vi.spyOn(service, "markAppModified");
-
+  it("reports success only after the complete import is durable", async () => {
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
@@ -233,7 +222,15 @@ describe("ImportService project import persistence progress", () => {
       }),
     );
 
-    expect(result.success).toBe(true);
-    expect(markAppModified).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      success: true,
+      imported: { profiles: 1, settings: true },
+      currentProfile: "complete",
+    });
+    expect(fixture.storage.getProfile("complete")).toMatchObject({
+      name: "Complete",
+    });
+    expect(fixture.storage.getSettings()).toMatchObject({ theme: "light" });
+    expect(fixture.storage.getAllData().currentProfile).toBe("complete");
   });
 });

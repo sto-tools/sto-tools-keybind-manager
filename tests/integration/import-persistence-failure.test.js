@@ -87,7 +87,6 @@ describe("ImportService quota failure integration", () => {
     const stateChanged = vi.fn();
     eventBusFixture.eventBus.on("profile:updated", profileUpdated);
     eventBusFixture.eventBus.on("data:state-changed", stateChanged);
-    const markAppModified = vi.spyOn(service, "markAppModified");
     const beforeMemory = structuredClone(storage.getProfile("captain"));
     const beforeState = structuredClone(coordinator.getCurrentState());
     const beforeDisk = localStorage.getItem("sto_keybind_manager");
@@ -108,6 +107,5 @@ describe("ImportService quota failure integration", () => {
     expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeDisk);
     expect(profileUpdated).not.toHaveBeenCalled();
     expect(stateChanged).not.toHaveBeenCalled();
-    expect(markAppModified).not.toHaveBeenCalled();
   });
 });

@@ -3,17 +3,22 @@ import path from "node:path";
 import { Linter } from "eslint";
 import globals from "globals";
 
-import { noUnallowlistedApplicationGlobalWritesRule } from "../../../scripts/eslint/applicationGlobals.mjs";
+import {
+  noUnallowlistedApplicationGlobalReadsRule,
+  noUnallowlistedApplicationGlobalWritesRule,
+} from "../../../scripts/eslint/applicationGlobals.mjs";
 
 const REPOSITORY_ROOT = process.cwd();
+const READ_RULE_NAME = "sto-architecture/no-unallowlisted-reads";
 const RULE_NAME = "sto-architecture/no-unallowlisted-writes";
 const plugin = {
   rules: {
+    "no-unallowlisted-reads": noUnallowlistedApplicationGlobalReadsRule,
     "no-unallowlisted-writes": noUnallowlistedApplicationGlobalWritesRule,
   },
 };
 
-function verify(source, filename, { enforceDeclaredWriters = false } = {}) {
+function verifyRule(source, filename, ruleName, options) {
   const linter = new Linter({ configType: "flat" });
   return linter.verify(
     source,
@@ -26,7 +31,7 @@ function verify(source, filename, { enforceDeclaredWriters = false } = {}) {
         },
         plugins: { "sto-architecture": plugin },
         rules: {
-          [RULE_NAME]: ["error", { enforceDeclaredWriters }],
+          [ruleName]: ["error", options],
         },
       },
     ],
@@ -34,8 +39,36 @@ function verify(source, filename, { enforceDeclaredWriters = false } = {}) {
   );
 }
 
+function verify(source, filename, { enforceDeclaredWriters = false } = {}) {
+  return verifyRule(source, filename, RULE_NAME, { enforceDeclaredWriters });
+}
+
+function verifyReads(
+  source,
+  filename,
+  { enforceDeclaredReaders = false } = {},
+) {
+  return verifyRule(source, filename, READ_RULE_NAME, {
+    enforceDeclaredReaders,
+  });
+}
+
 function messageIds(source, filename, options) {
   return verify(source, filename, options).map((message) => message.messageId);
 }
 
-export { REPOSITORY_ROOT, RULE_NAME, messageIds, verify };
+function readMessageIds(source, filename, options) {
+  return verifyReads(source, filename, options).map(
+    (message) => message.messageId,
+  );
+}
+
+export {
+  READ_RULE_NAME,
+  REPOSITORY_ROOT,
+  RULE_NAME,
+  messageIds,
+  readMessageIds,
+  verify,
+  verifyReads,
+};

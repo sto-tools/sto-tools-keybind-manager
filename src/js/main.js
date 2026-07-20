@@ -212,7 +212,6 @@ const dataService = new DataService({
     stoKeybinds, // Required by app initialization callback
     // stoExport removed - now managed by app.js
     stoUI, // Required by many components for toast notifications
-    stoFileExplorer, // Required by header file explorer button
     stoSync, // Required by sync UI components
     eventBus, // Required for component communication debugging
     // VFX_EFFECTS now available globally from data.js

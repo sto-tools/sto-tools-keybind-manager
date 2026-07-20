@@ -70,8 +70,6 @@ describe("project import boundary", () => {
     const saveProfile = vi.spyOn(storage, "saveProfile");
     const saveSettings = vi.spyOn(storage, "saveSettings");
     const saveAllData = vi.spyOn(storage, "saveAllData");
-    const markAppModified = vi.spyOn(service, "markAppModified");
-
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
@@ -99,7 +97,6 @@ describe("project import boundary", () => {
     expect(saveProfile).not.toHaveBeenCalled();
     expect(saveSettings).not.toHaveBeenCalled();
     expect(saveAllData).not.toHaveBeenCalled();
-    expect(markAppModified).not.toHaveBeenCalled();
     expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeRoot);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
   });
@@ -129,8 +126,6 @@ describe("project import boundary", () => {
       const saveProfile = vi.spyOn(storage, "saveProfile");
       const saveSettings = vi.spyOn(storage, "saveSettings");
       const saveAllData = vi.spyOn(storage, "saveAllData");
-      const markAppModified = vi.spyOn(service, "markAppModified");
-
       const result = await service.importProjectFile(
         JSON.stringify({ type: "project", data }),
       );
@@ -143,7 +138,6 @@ describe("project import boundary", () => {
       expect(saveProfile).not.toHaveBeenCalled();
       expect(saveSettings).not.toHaveBeenCalled();
       expect(saveAllData).not.toHaveBeenCalled();
-      expect(markAppModified).not.toHaveBeenCalled();
       expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeRoot);
       expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
     },
@@ -155,8 +149,6 @@ describe("project import boundary", () => {
     const saveProfile = vi.spyOn(storage, "saveProfile");
     const saveSettings = vi.spyOn(storage, "saveSettings");
     const saveAllData = vi.spyOn(storage, "saveAllData");
-    const markAppModified = vi.spyOn(service, "markAppModified");
-
     const result = await service.importProjectFile(
       JSON.stringify({
         type: "project",
@@ -176,7 +168,6 @@ describe("project import boundary", () => {
     expect(saveProfile).not.toHaveBeenCalled();
     expect(saveSettings).not.toHaveBeenCalled();
     expect(saveAllData).not.toHaveBeenCalled();
-    expect(markAppModified).not.toHaveBeenCalled();
     expect(localStorage.getItem("sto_keybind_manager")).toBe(beforeRoot);
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
   });

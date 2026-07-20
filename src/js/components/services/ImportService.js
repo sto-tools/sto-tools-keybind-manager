@@ -25,8 +25,6 @@ import {
   planKeybindTextImport,
 } from "./textProfileImportPlanner.js";
 
-/** @typedef {import('./serviceTypes.js').AppWindow} AppWindow */
-
 const VALID_STRATEGIES = ["merge_keep", "merge_overwrite", "overwrite_all"];
 
 /**
@@ -38,10 +36,6 @@ const resolveImportStrategy = (strategy, fallback = "merge_keep") =>
   /** @type {'merge_keep' | 'merge_overwrite' | 'overwrite_all'} */ (
     VALID_STRATEGIES.find((candidate) => candidate === strategy) || fallback
   );
-
-/** @type {AppWindow | null} */
-const appWindow =
-  typeof window === "undefined" ? null : /** @type {AppWindow} */ (window);
 
 /** @param {unknown} error */
 const getErrorMessage = (error) =>
@@ -58,10 +52,6 @@ export default class ImportService extends ComponentBase {
     this.kbfParser = new KBFParser({ eventBus });
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];
-  }
-
-  markAppModified() {
-    appWindow?.app?.setModified?.(true);
   }
 
   /** @param {string} key @param {Record<string, unknown>} [options] */
@@ -216,9 +206,6 @@ export default class ImportService extends ComponentBase {
 
       await commitImportedProfile(this, profileId, plan.nextProfile, env);
 
-      // Set app modified state if available
-      this.markAppModified();
-
       const { nextProfile: _committedProfile, ...result } = plan;
       void _committedProfile;
       return result;
@@ -267,9 +254,6 @@ export default class ImportService extends ComponentBase {
       });
 
       await commitImportedProfile(this, profileId, plan.nextProfile);
-
-      // Set app modified state if available
-      this.markAppModified();
 
       const { nextProfile: _committedProfile, ...result } = plan;
       void _committedProfile;
@@ -461,8 +445,6 @@ export default class ImportService extends ComponentBase {
         plan.nextProfile,
         targetEnvironment,
       );
-      this.markAppModified();
-
       const { nextProfile: _committedProfile, ...result } = plan;
       void _committedProfile;
       return {
@@ -494,9 +476,7 @@ export default class ImportService extends ComponentBase {
    * @returns {Promise<import('../../types/rpc/import-export.js').ProjectImportResult>}
    */
   async importProjectFile(content, options = {}) {
-    const result = await importProjectToStorage(this.storage, content, options);
-    if (result.success) this.markAppModified();
-    return result;
+    return importProjectToStorage(this.storage, content, options);
   }
 
   /**

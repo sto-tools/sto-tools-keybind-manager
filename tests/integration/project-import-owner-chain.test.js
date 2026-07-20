@@ -185,7 +185,6 @@ describe("project import authoritative owner chain", () => {
   it("reports the acknowledged partial commit when quota blocks the final root write", async () => {
     const beforeState = coordinator.getCurrentState();
     const stateChanged = vi.fn();
-    const markAppModified = vi.spyOn(importer, "markAppModified");
     eventBusFixture.eventBus.on("data:state-changed", stateChanged);
 
     const setItem = localStorage.setItem.bind(localStorage);
@@ -229,6 +228,5 @@ describe("project import authoritative owner chain", () => {
     expect(storage.getAllData()).toMatchObject(durableRoot);
     expect(coordinator.getCurrentState()).toBe(beforeState);
     expect(stateChanged).not.toHaveBeenCalled();
-    expect(markAppModified).not.toHaveBeenCalled();
   });
 });

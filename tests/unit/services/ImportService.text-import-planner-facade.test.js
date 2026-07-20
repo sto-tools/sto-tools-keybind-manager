@@ -88,9 +88,6 @@ describe("ImportService text-profile planner facade", () => {
     });
     service.init();
     fixture.eventBus.on("profile:updated", () => trace.push("legacy"));
-    vi.spyOn(service, "markAppModified").mockImplementation(() => {
-      trace.push("modified");
-    });
   });
 
   afterEach(() => {
@@ -128,7 +125,6 @@ describe("ImportService text-profile planner facade", () => {
       "parse:Second:optimize",
       "commit",
       "legacy",
-      "modified",
       "resolved",
     ]);
     expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
@@ -202,7 +198,7 @@ describe("ImportService text-profile planner facade", () => {
     expect(fixture.storage.getProfile(profileId).aliases).not.toHaveProperty(
       "sto_kb_generated",
     );
-    expect(trace.slice(-3)).toEqual(["commit", "legacy", "modified"]);
+    expect(trace.slice(-2)).toEqual(["commit", "legacy"]);
   });
 
   it.each([

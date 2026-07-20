@@ -89,6 +89,35 @@ describe("PreferencesService lifecycle ownership", () => {
     expect(replacementSetSetting).toHaveBeenCalledOnce();
   });
 
+  it("applies compact view without consulting an ambient app facade", () => {
+    const service = createService();
+    service.init();
+    const previousDescriptor = Object.getOwnPropertyDescriptor(window, "app");
+    Object.defineProperty(window, "app", {
+      configurable: true,
+      get() {
+        throw new Error("ambient app facade must not be read");
+      },
+    });
+
+    try {
+      service.settings.compactView = true;
+      expect(() => service.applyOtherSettings()).not.toThrow();
+      expect(document.body.classList).toContain("compact-view");
+
+      service.settings.compactView = false;
+      service.applyOtherSettings();
+      expect(document.body.classList).not.toContain("compact-view");
+    } finally {
+      if (previousDescriptor) {
+        Object.defineProperty(window, "app", previousDescriptor);
+      } else {
+        delete window.app;
+      }
+      document.body.classList.remove("compact-view");
+    }
+  });
+
   it("contains a theme-toggle persistence exception without changing owner state", async () => {
     const service = createService();
     service.init();

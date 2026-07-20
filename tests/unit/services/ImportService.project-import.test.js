@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import en from "../../../src/i18n/en.json";
 import ImportService from "../../../src/js/components/services/ImportService.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
@@ -110,7 +110,6 @@ describe("ImportService project import", () => {
         "$.options.importSettings",
       ],
     ])("rejects %s before any persistence", async (_label, options, path) => {
-      const markAppModified = vi.spyOn(service, "markAppModified");
       const result = await service.importProjectFile(
         JSON.stringify({
           type: "project",
@@ -130,7 +129,6 @@ describe("ImportService project import", () => {
       expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
       expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
       expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-      expect(markAppModified).not.toHaveBeenCalled();
     });
 
     it("publishes the project-options failure translation key in English", () => {
@@ -329,7 +327,6 @@ describe("ImportService project import", () => {
     ])(
       "rejects a dangling %s current profile before any persistence",
       async (_label, data, path) => {
-        const markAppModified = vi.spyOn(service, "markAppModified");
         const result = await service.importProjectFile(
           JSON.stringify({ type: "project", data }),
         );
@@ -342,7 +339,6 @@ describe("ImportService project import", () => {
         expect(fixture.storage.saveProfile).not.toHaveBeenCalled();
         expect(fixture.storage.saveSettings).not.toHaveBeenCalled();
         expect(fixture.storage.saveAllData).not.toHaveBeenCalled();
-        expect(markAppModified).not.toHaveBeenCalled();
       },
     );
 

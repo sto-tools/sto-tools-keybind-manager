@@ -211,43 +211,11 @@ export default class ModalManagerService extends ComponentBase {
   }
 
   registerAllModalCallbacks() {
-    // Parameter modal
-    this.registerRegenerateCallback("parameterModal", () => {
-      if (appWindow?.app?.populateParameterModal) {
-        const modal = document.getElementById("parameterModal");
-        const def = modal?.getAttribute("data-command-def");
-        if (def) {
-          try {
-            appWindow.app.populateParameterModal(JSON.parse(def));
-          } catch {
-            return;
-          }
-        }
-      }
-    });
-
-    // Key selection modal
-    this.registerRegenerateCallback("keySelectionModal", () => {
-      const modal = document.getElementById("keySelectionModal");
-      const active = modal?.querySelector(".tab-content .tab-pane.active");
-      if (active) {
-        const tab = active.id.replace("Tab", "");
-        appWindow?.app?.populateKeyTab?.(tab);
-      }
-    });
-
     // Profile modal
     this.registerRegenerateCallback("profileModal", () => {
       const modal = document.getElementById("profileModal");
       appWindow?.applyTranslations?.(modal);
     });
-
-    // File explorer modal
-    this.registerRegenerateCallback("fileExplorerModal", () => {
-      appWindow?.stoFileExplorer?.refreshFileList?.();
-    });
-
-    // Export modal removed
 
     // About modal
     this.registerRegenerateCallback("aboutModal", () => {

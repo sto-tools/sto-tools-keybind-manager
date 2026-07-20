@@ -26,7 +26,6 @@ const profile = {
 describe("ImportService persistence failures", () => {
   let fixture;
   let service;
-  let markAppModified;
   let profileUpdated;
   let beforeProfile;
 
@@ -55,7 +54,6 @@ describe("ImportService persistence failures", () => {
         isMirrored: false,
       }),
     );
-    markAppModified = vi.spyOn(service, "markAppModified");
     profileUpdated = vi.fn();
     fixture.eventBus.on("profile:updated", profileUpdated);
     fixture.storage.saveProfile.mockReturnValue(false);
@@ -82,7 +80,6 @@ describe("ImportService persistence failures", () => {
     expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
     expect(fixture.storage.getProfile(profileId)).toEqual(beforeProfile);
     expect(profileUpdated).not.toHaveBeenCalled();
-    expect(markAppModified).not.toHaveBeenCalled();
   });
 
   it("fails an alias import without publishing transient state", async () => {
@@ -99,7 +96,6 @@ describe("ImportService persistence failures", () => {
     expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
     expect(fixture.storage.getProfile(profileId)).toEqual(beforeProfile);
     expect(profileUpdated).not.toHaveBeenCalled();
-    expect(markAppModified).not.toHaveBeenCalled();
   });
 
   it("fails a KBF import without publishing transient state", async () => {
@@ -139,6 +135,5 @@ describe("ImportService persistence failures", () => {
     expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
     expect(fixture.storage.getProfile(profileId)).toEqual(beforeProfile);
     expect(profileUpdated).not.toHaveBeenCalled();
-    expect(markAppModified).not.toHaveBeenCalled();
   });
 });
