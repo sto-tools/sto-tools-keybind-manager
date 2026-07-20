@@ -65,6 +65,8 @@
   "select_a_key_from_the_left_panel_to_view_and_edit_its_command_chain": "Select a key from the left panel to view and edit its command chain.",
   "generated_command": "Generated Command:",
   "generated_alias": "Generated Alias:",
+  "invalid_key_name_for_alias_generation": "Invalid key name for alias generation",
+  "error_generating_alias_preview": "Error generating alias preview",
   "select_a_key_to_see_the_generated_command": "Select a key to see the generated command",
   "select_an_alias_to_see_the_generated_command": "Select an alias to see the generated command",
   "add_command": "Add Command",

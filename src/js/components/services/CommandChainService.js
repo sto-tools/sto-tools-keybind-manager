@@ -50,16 +50,6 @@ export default class CommandChainService extends ComponentBase {
       this.respond("command:set-stabilize", ({ name, stabilize, bindset }) =>
         this.setStabilize(name, stabilize, bindset),
       ),
-      this.respond(
-        "command-chain:generate-alias-name",
-        ({ environment, keyName, bindsetName }) =>
-          this.generateBindToAliasName(environment, keyName, bindsetName),
-      ),
-      this.respond(
-        "command-chain:generate-alias-preview",
-        ({ aliasName, commands }) =>
-          this.generateAliasPreview(aliasName, commands),
-      ),
     );
   }
 
@@ -693,73 +683,6 @@ export default class CommandChainService extends ComponentBase {
         success: false,
         error: err instanceof Error ? err.message : String(err),
       };
-    }
-  }
-
-  // Generate alias name for bind-to-alias mode
-  // Uses the same logic as CommandChainUI but as a service operation
-  /**
-   * @param {string} environment
-   * @param {string} keyName
-   * @param {string | null} bindsetName
-   */
-  async generateBindToAliasName(environment, keyName, bindsetName = null) {
-    try {
-      const { generateBindToAliasName } = await import(
-        "../../lib/aliasNameValidator.js"
-      );
-      const generateName =
-        /** @type {(environment: string, keyName: string, bindsetName?: string | null) => string} */ (
-          generateBindToAliasName
-        );
-      return generateName(environment, keyName, bindsetName);
-    } catch (error) {
-      console.error(
-        "[CommandChainService] Failed to generate alias name:",
-        error,
-      );
-      return null;
-    }
-  }
-
-  // Generate alias preview for bind-to-alias mode
-  // Formats the alias command string for display
-  /**
-   * @param {string} aliasName
-   * @param {import('./serviceTypes.js').StoredCommand[] | null | undefined} commands
-   */
-  generateAliasPreview(aliasName, commands) {
-    if (!aliasName) {
-      return "";
-    }
-
-    try {
-      // Handle null or non-array commands
-      if (!Array.isArray(commands)) {
-        return `alias ${aliasName} <&  &>`;
-      }
-
-      // Convert commands to strings for alias generation, filtering out null/empty values
-      const commandStrings = commands
-        .map((cmd) => {
-          if (cmd === null || cmd === undefined) return "";
-          return typeof cmd === "string" ? cmd : cmd.command || "";
-        })
-        .filter(Boolean);
-
-      if (commandStrings.length === 0) {
-        return `alias ${aliasName} <&  &>`;
-      }
-
-      // Join commands with $$ separator for STO alias format
-      const commandChain = commandStrings.join(" $$ ");
-      return `alias ${aliasName} <& ${commandChain} &>`;
-    } catch (error) {
-      console.error(
-        "[CommandChainService] Failed to generate alias preview:",
-        error,
-      );
-      return `alias ${aliasName} <&  &>`;
     }
   }
 

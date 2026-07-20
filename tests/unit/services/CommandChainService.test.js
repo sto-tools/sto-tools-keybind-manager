@@ -1,7 +1,6 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import { createServiceFixture } from "../../fixtures/index.js";
-import { respond } from "../../../src/js/core/requestResponse.js";
 import CommandChainService from "../../../src/js/components/services/CommandChainService.js";
 
 const mockI18n = { t: (k) => k };
@@ -284,93 +283,5 @@ describe("CommandChainService", () => {
 
     expect(requestSpy).not.toHaveBeenCalled();
     expect(changed).not.toHaveBeenCalled();
-  });
-});
-
-describe("CommandChainService – bind-to-alias endpoints", () => {
-  let fixture, eventBus, service;
-
-  beforeEach(() => {
-    fixture = createServiceFixture();
-    eventBus = fixture.eventBus;
-
-    // Mock preferences service endpoint
-    respond(eventBus, "preferences:get", ({ key }) => {
-      if (key === "bindToAliasMode") return false;
-      return null;
-    });
-
-    service = new CommandChainService({ i18n: mockI18n, eventBus });
-    service.init();
-  });
-
-  afterEach(() => {
-    fixture.destroy();
-  });
-
-  describe("command-chain:generate-alias-name", () => {
-    it("should generate alias name for key in environment", async () => {
-      const result = await service.generateBindToAliasName("space", "F1", null);
-      expect(result).toBe("sto_kb_space_f1");
-    });
-
-    it("should generate alias name for key with bindset", async () => {
-      const result = await service.generateBindToAliasName(
-        "space",
-        "F1",
-        "MyBindset",
-      );
-      // The actual implementation generates: environment_bindsetname_keyname
-      expect(result).toBe("sto_kb_space_mybindset_f1");
-    });
-
-    it("should handle ground environment", async () => {
-      const result = await service.generateBindToAliasName(
-        "ground",
-        "F2",
-        null,
-      );
-      expect(result).toBe("sto_kb_ground_f2");
-    });
-
-    it("should return null for invalid input", async () => {
-      const result = await service.generateBindToAliasName("space", "", null);
-      expect(result).toBe(null);
-    });
-  });
-
-  describe("command-chain:generate-alias-preview", () => {
-    it("should generate alias preview for commands", () => {
-      const commands = ["FireAll", "FirePhasers"];
-      const result = service.generateAliasPreview("MyAlias", commands);
-      expect(result).toBe("alias MyAlias <& FireAll $$ FirePhasers &>");
-    });
-
-    it("should handle empty commands", () => {
-      const result = service.generateAliasPreview("MyAlias", []);
-      expect(result).toBe("alias MyAlias <&  &>");
-    });
-
-    it("should handle single command", () => {
-      const result = service.generateAliasPreview("MyAlias", ["FireAll"]);
-      expect(result).toBe("alias MyAlias <& FireAll &>");
-    });
-
-    it("should handle rich command objects", () => {
-      const commands = [{ command: "FireAll" }, { command: "FirePhasers" }];
-      const result = service.generateAliasPreview("MyAlias", commands);
-      expect(result).toBe("alias MyAlias <& FireAll $$ FirePhasers &>");
-    });
-
-    it("should filter empty commands", () => {
-      const commands = ["FireAll", "", "FirePhasers", null];
-      const result = service.generateAliasPreview("MyAlias", commands);
-      expect(result).toBe("alias MyAlias <& FireAll $$ FirePhasers &>");
-    });
-
-    it("should return empty alias for null input", () => {
-      const result = service.generateAliasPreview("MyAlias", null);
-      expect(result).toBe("alias MyAlias <&  &>");
-    });
   });
 });

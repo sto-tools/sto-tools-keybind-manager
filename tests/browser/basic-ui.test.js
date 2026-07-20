@@ -112,7 +112,7 @@ describe("Application browser smoke", () => {
     }
   });
 
-  it("uses local projections without retired state or static-data RPCs", async () => {
+  it("uses local projections without retired state, static-data, or computation RPCs", async () => {
     const commandChainUI = window.commandChainUI;
     const bus = commandChainUI?.eventBus;
 
@@ -161,6 +161,8 @@ describe("Application browser smoke", () => {
       "command:add",
       "command:edit",
       "command-chain:clear",
+      "command-chain:generate-alias-name",
+      "command-chain:generate-alias-preview",
       "command-chain:is-stabilized",
       "bindset-selector:find-key-in-bindset",
       "bindset-selector:set-key",

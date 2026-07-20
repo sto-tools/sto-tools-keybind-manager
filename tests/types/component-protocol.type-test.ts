@@ -130,6 +130,16 @@ async function exerciseComponentRpc() {
   component.request("ui:show-toast", { message: "Saved" });
   // @ts-expect-error Chain clearing uses the command-chain:clear event.
   component.request("command-chain:clear", { key: "F1" });
+  // @ts-expect-error Alias names are generated through the canonical direct helper.
+  component.request("command-chain:generate-alias-name", {
+    environment: "space",
+    keyName: "F1",
+  });
+  // @ts-expect-error Alias previews are formatted by a direct pure projection.
+  component.request("command-chain:generate-alias-preview", {
+    aliasName: "sto_kb_space_f1",
+    commands: ["FireAll"],
+  });
   // @ts-expect-error Command addition uses the command:add event.
   component.request("command:add", { key: "F1", command: "FireAll" });
   // @ts-expect-error Command editing uses the command:edit event.
@@ -210,6 +220,10 @@ async function exerciseComponentRpc() {
   component.respond("ui:show-toast", () => undefined);
   // @ts-expect-error Chain clearing cannot regain an RPC responder.
   component.respond("command-chain:clear", () => true);
+  // @ts-expect-error Direct alias-name projection cannot regain a responder.
+  component.respond("command-chain:generate-alias-name", () => null);
+  // @ts-expect-error Direct alias-preview projection cannot regain a responder.
+  component.respond("command-chain:generate-alias-preview", () => "");
   // @ts-expect-error Command addition cannot regain an RPC responder.
   component.respond("command:add", () => true);
   // @ts-expect-error Command editing cannot regain an RPC responder.

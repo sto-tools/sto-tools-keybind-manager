@@ -82,6 +82,12 @@ describe("aliasNameValidator", () => {
       expect(generateBindToAliasName("ground", "Alt+F4")).toBe(
         "sto_kb_ground_alt_f4",
       );
+      expect(generateBindToAliasName("ground", "Alt+Tab")).toBe(
+        "sto_kb_ground_alt_tab",
+      );
+      expect(generateBindToAliasName("space", "Page Up")).toBe(
+        "sto_kb_space_page_up",
+      );
       expect(generateBindToAliasName("space", "Mouse4")).toBe(
         "sto_kb_space_mouse4",
       );
@@ -93,6 +99,18 @@ describe("aliasNameValidator", () => {
       );
       expect(generateBindToAliasName("space_test", "B")).toBe(
         "sto_kb_spacetest_b",
+      );
+    });
+
+    it("includes only sanitized non-primary bindset names", () => {
+      expect(generateBindToAliasName("space", "F1", "My Bindset")).toBe(
+        "sto_kb_space_my_bindset_f1",
+      );
+      expect(generateBindToAliasName("space", "F1", "Primary Bindset")).toBe(
+        "sto_kb_space_f1",
+      );
+      expect(generateBindToAliasName("space", "F1", "---")).toBe(
+        "sto_kb_space_f1",
       );
     });
 

@@ -22,14 +22,6 @@ export interface CommandRpcProtocol {
     { groupType: CommandGroupType },
     boolean
   >;
-  "command-chain:generate-alias-name": RequiredRpc<
-    { environment: string; keyName: string; bindsetName?: string | null },
-    string | null
-  >;
-  "command-chain:generate-alias-preview": RequiredRpc<
-    { aliasName: string; commands?: StoredCommand[] },
-    string
-  >;
   "command:delete": RequiredRpc<
     { key: string; index: number; bindset?: string | null },
     boolean

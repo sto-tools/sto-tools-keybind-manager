@@ -25,6 +25,11 @@ import {
   findCommandDefinition,
   getCommandWarning,
 } from "../../data/commandCatalog.js";
+import { generateBindToAliasName } from "../../lib/aliasNameValidator.js";
+import {
+  formatCommandChainAliasPreview,
+  projectMirroringCommands,
+} from "../services/commandChainPreviewProjection.js";
 
 const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
   globalThis
@@ -1312,46 +1317,33 @@ export default class CommandChainUI extends UIComponentBase {
       environment !== "alias"
     ) {
       try {
-        // Generate alias name using CommandChainService
-        const aliasName = await this.request(
-          "command-chain:generate-alias-name",
-          {
+        if (!isCurrent()) return false;
+        let aliasName = null;
+        try {
+          aliasName = generateBindToAliasName(
             environment,
-            keyName: selectedKeyName,
-            bindsetName: bindset,
-          },
-        );
+            selectedKeyName,
+            bindset,
+          );
+        } catch (error) {
+          console.error(
+            "[CommandChainUI] Failed to generate alias name:",
+            error,
+          );
+        }
         if (!isCurrent()) return false;
 
         if (aliasName) {
-          // Generate alias preview using CommandChainService (with mirroring support)
-          let aliasPreview = await this.request(
-            "command-chain:generate-alias-preview",
-            {
-              aliasName,
-              commands,
-            },
+          let aliasPreview = formatCommandChainAliasPreview(
+            aliasName,
+            commands,
           );
           if (!isCurrent()) return false;
 
           // Apply mirroring when stabilized
           try {
             if (isStabilized && commands.length > 1) {
-              // CRITICAL: Ensure placement data is preserved when passing commands to mirroring service
-              const commandObjects = commands
-                .map((cmd) => {
-                  if (typeof cmd === "string") {
-                    return { command: cmd };
-                  } else {
-                    // Preserve rich object properties including placement
-                    return {
-                      command: cmd.command,
-                      placement: cmd.placement,
-                      palindromicGeneration: cmd.palindromicGeneration,
-                    };
-                  }
-                })
-                .filter(Boolean);
+              const commandObjects = projectMirroringCommands(commands);
               const mirroredStr = await this.request(
                 "command:generate-mirrored-commands",
                 { commands: commandObjects },
@@ -1380,7 +1372,10 @@ export default class CommandChainUI extends UIComponentBase {
         } else {
           if (!isCurrent()) return false;
           generatedAlias.style.display = "";
-          aliasPreviewEl.textContent = "Invalid key name for alias generation";
+          aliasPreviewEl.textContent = this.i18n.t(
+            "invalid_key_name_for_alias_generation",
+            { defaultValue: "Invalid key name for alias generation" },
+          );
           previewEl.textContent = `${selectedKeyName} "..."`;
         }
       } catch (error) {
@@ -1390,7 +1385,10 @@ export default class CommandChainUI extends UIComponentBase {
           error,
         );
         generatedAlias.style.display = "";
-        aliasPreviewEl.textContent = "Error generating alias preview";
+        aliasPreviewEl.textContent = this.i18n.t(
+          "error_generating_alias_preview",
+          { defaultValue: "Error generating alias preview" },
+        );
         previewEl.textContent = `${selectedKeyName} "..."`;
       }
     } else {
@@ -1402,21 +1400,7 @@ export default class CommandChainUI extends UIComponentBase {
       // Apply mirroring when stabilized
       try {
         if (isStabilized && commands.length > 1) {
-          // CRITICAL: Ensure placement data is preserved when passing commands to mirroring service
-          const commandObjects = commands
-            .map((cmd) => {
-              if (typeof cmd === "string") {
-                return { command: cmd };
-              } else {
-                // Preserve rich object properties including placement
-                return {
-                  command: cmd.command,
-                  placement: cmd.placement,
-                  palindromicGeneration: cmd.palindromicGeneration,
-                };
-              }
-            })
-            .filter(Boolean);
+          const commandObjects = projectMirroringCommands(commands);
           const mirroredStr = await this.request(
             "command:generate-mirrored-commands",
             { commands: commandObjects },

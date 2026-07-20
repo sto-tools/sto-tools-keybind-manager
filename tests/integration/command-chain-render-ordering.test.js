@@ -122,6 +122,102 @@ describe("CommandChainUI accepted-state render ordering", () => {
     expect(ui.request).not.toHaveBeenCalledWith(retiredEmptyStateTopic);
   });
 
+  it("prevents delayed alias mirroring from overwriting a newer local alias projection", async () => {
+    mountCommandChain();
+    createUI();
+    const oldPreview = deferred();
+    const oldProfile = createProfile({
+      spaceKeys: { OldKey: ["OldOne", "OldTwo"] },
+      keybindMetadata: {
+        space: { OldKey: { stabilizeExecutionOrder: true } },
+      },
+    });
+    ui.cache.preferences = {
+      bindsetsEnabled: false,
+      bindToAliasMode: true,
+    };
+    ui._cacheDataState(coordinatorState(oldProfile, { revision: 1 }));
+    ui._cacheSelectionState(
+      createSelectionState({
+        selectedKey: "OldKey",
+        currentEnvironment: "space",
+      }),
+    );
+    ui.createCommandElement = vi.fn(async (command) => commandElement(command));
+    ui.request = vi.fn(async (topic, payload) => {
+      if (
+        topic === "command:generate-mirrored-commands" &&
+        payload.commands[0]?.command === "OldOne"
+      ) {
+        return oldPreview.promise;
+      }
+      throw new Error(`Unexpected request: ${topic}`);
+    });
+
+    const oldRender = ui.render();
+    await vi.waitFor(() => {
+      expect(ui.request).toHaveBeenCalledWith(
+        "command:generate-mirrored-commands",
+        expect.objectContaining({
+          commands: expect.arrayContaining([
+            expect.objectContaining({ command: "OldOne" }),
+          ]),
+        }),
+      );
+    });
+
+    const newProfile = createProfile({
+      spaceKeys: { NewKey: ["NewCommand"] },
+    });
+    ui._cacheDataState(coordinatorState(newProfile, { revision: 2 }));
+    ui._cacheSelectionState(
+      createSelectionState({
+        selectedKey: "NewKey",
+        currentEnvironment: "space",
+      }),
+    );
+    await ui.render();
+
+    expect(document.getElementById("chainTitle")?.textContent).toBe(
+      "Command chain: NewKey",
+    );
+    expect(document.getElementById("generatedAlias")?.style.display).toBe("");
+    expect(document.getElementById("aliasPreview")?.textContent).toBe(
+      "alias sto_kb_space_newkey <& NewCommand &>",
+    );
+    expect(document.getElementById("commandPreview")?.textContent).toBe(
+      'NewKey "sto_kb_space_newkey"',
+    );
+    expect(document.getElementById("commandList")?.textContent).toBe(
+      "NewCommand",
+    );
+
+    oldPreview.resolve("OldOne $$ OldTwo $$ OldOne");
+    await oldRender;
+
+    expect(document.getElementById("chainTitle")?.textContent).toBe(
+      "Command chain: NewKey",
+    );
+    expect(document.getElementById("generatedAlias")?.style.display).toBe("");
+    expect(document.getElementById("aliasPreview")?.textContent).toBe(
+      "alias sto_kb_space_newkey <& NewCommand &>",
+    );
+    expect(document.getElementById("commandPreview")?.textContent).toBe(
+      'NewKey "sto_kb_space_newkey"',
+    );
+    expect(document.getElementById("commandList")?.textContent).toBe(
+      "NewCommand",
+    );
+    expect(ui.request).not.toHaveBeenCalledWith(
+      "command-chain:generate-alias-name",
+      expect.anything(),
+    );
+    expect(ui.request).not.toHaveBeenCalledWith(
+      "command-chain:generate-alias-preview",
+      expect.anything(),
+    );
+  });
+
   it("prevents a delayed command element from replacing a newer accepted list", async () => {
     mountCommandChain();
     createUI();
@@ -222,5 +318,54 @@ describe("CommandChainUI accepted-state render ordering", () => {
       "PendingCommand",
     );
     expect(ui.request).not.toHaveBeenCalledWith(retiredEmptyStateTopic);
+  });
+
+  it("invalidates pending alias mirroring when the UI is destroyed", async () => {
+    mountCommandChain();
+    createUI();
+    const oldPreview = deferred();
+    const profile = createProfile({
+      spaceKeys: { PendingKey: ["PendingOne", "PendingTwo"] },
+      keybindMetadata: {
+        space: { PendingKey: { stabilizeExecutionOrder: true } },
+      },
+    });
+    ui.cache.preferences = {
+      bindsetsEnabled: false,
+      bindToAliasMode: true,
+    };
+    ui._cacheDataState(coordinatorState(profile));
+    ui._cacheSelectionState(
+      createSelectionState({
+        selectedKey: "PendingKey",
+        currentEnvironment: "space",
+      }),
+    );
+    ui.request = vi.fn(async (topic) => {
+      if (topic === "command:generate-mirrored-commands") {
+        return oldPreview.promise;
+      }
+      throw new Error(`Unexpected request: ${topic}`);
+    });
+
+    const render = ui.render();
+    await vi.waitFor(() => expect(ui.request).toHaveBeenCalledOnce());
+    ui.destroy();
+    oldPreview.resolve("PendingOne $$ PendingTwo $$ PendingOne");
+    await render;
+
+    expect(document.getElementById("chainTitle")?.textContent).toBe(
+      "Initial title",
+    );
+    expect(document.getElementById("generatedAlias")?.style.display).toBe(
+      "none",
+    );
+    expect(document.getElementById("aliasPreview")?.textContent).toBe("");
+    expect(document.getElementById("commandPreview")?.textContent).toBe(
+      "Initial preview",
+    );
+    expect(document.getElementById("initial-command-list")?.textContent).toBe(
+      "Initial list",
+    );
   });
 });

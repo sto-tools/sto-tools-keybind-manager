@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { generateBindToAliasName } from "../../../src/js/lib/aliasNameValidator.js";
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import i18next from "i18next";
@@ -59,7 +58,7 @@ describe("Bind-to-Alias Mode", () => {
         // Handle RPC pattern: when code emits rpc:topic, respond appropriately
         if (topic.startsWith("rpc:")) {
           const actualTopic = topic.substring(4); // Remove 'rpc:' prefix
-          const { requestId, replyTopic, payload } = data;
+          const { requestId, replyTopic } = data;
 
           // Simulate async response
           setTimeout(() => {
@@ -67,16 +66,6 @@ describe("Bind-to-Alias Mode", () => {
 
             if (actualTopic === "command:generate-mirrored-commands") {
               result = null;
-            } else if (actualTopic === "command-chain:generate-alias-name") {
-              result = "sto_kb_space_q";
-            } else if (actualTopic === "command-chain:generate-alias-preview") {
-              const { commands } = payload;
-              if (!commands || commands.length === 0) {
-                result = "alias sto_kb_space_q <&  &>";
-              } else {
-                result =
-                  "alias sto_kb_space_q <& FireAll $$ +power_exec Distribute_Shields &>";
-              }
             } else {
               result = {};
             }
@@ -122,25 +111,6 @@ describe("Bind-to-Alias Mode", () => {
       }),
     };
 
-    // Mock handlers for command-chain endpoints
-    mockEventBus.respond(
-      "command-chain:generate-alias-name",
-      async ({ environment, keyName }) => {
-        return `sto_kb_${environment}_${keyName.toLowerCase()}`;
-      },
-    );
-
-    mockEventBus.respond(
-      "command-chain:generate-alias-preview",
-      async ({ commands }) => {
-        if (!commands || commands.length === 0) {
-          return "alias sto_kb_space_q <&  &>";
-        } else {
-          return "alias sto_kb_space_q <& FireAll $$ +power_exec Distribute_Shields &>";
-        }
-      },
-    );
-
     // Mock i18n
     const mockI18n = { t: vi.fn((key) => key) };
     vi.spyOn(i18next, "t").mockImplementation((key) => key);
@@ -157,51 +127,7 @@ describe("Bind-to-Alias Mode", () => {
     await ui.init();
   });
 
-  describe("Alias Name Generation", () => {
-    it("should generate correct alias names for different environments and keys", () => {
-      // Test normal cases
-      expect(generateBindToAliasName("space", "Q")).toBe("sto_kb_space_q");
-      expect(generateBindToAliasName("ground", "F1")).toBe("sto_kb_ground_f1");
-      expect(generateBindToAliasName("space", "Ctrl+A")).toBe(
-        "sto_kb_space_ctrl_a",
-      );
-
-      // Test special characters
-      expect(generateBindToAliasName("space", "Shift+Space")).toBe(
-        "sto_kb_space_shift_space",
-      );
-      expect(generateBindToAliasName("ground", "Alt+Tab")).toBe(
-        "sto_kb_ground_alt_tab",
-      );
-
-      // Test edge cases
-      expect(generateBindToAliasName("space", "1")).toBe("sto_kb_space_k1"); // Number key gets 'k' prefix
-      expect(generateBindToAliasName("space", "")).toBe(null); // Empty key name
-    });
-
-    it("should handle special key names correctly", () => {
-      expect(generateBindToAliasName("space", "NumPad1")).toBe(
-        "sto_kb_space_numpad1",
-      );
-      expect(generateBindToAliasName("space", "Mouse4")).toBe(
-        "sto_kb_space_mouse4",
-      );
-      expect(generateBindToAliasName("ground", "Alt+F4")).toBe(
-        "sto_kb_ground_alt_f4",
-      );
-      expect(generateBindToAliasName("space", "Page Up")).toBe(
-        "sto_kb_space_page_up",
-      );
-    });
-
-    it("should handle invalid key names gracefully", () => {
-      expect(generateBindToAliasName("space", "")).toBe(null);
-      expect(generateBindToAliasName("space", "   ")).toBe(null);
-      expect(generateBindToAliasName("space", "!!!")).toBe(
-        "sto_kb_space_exclamationexclamationexclamation",
-      ); // Special chars get converted
-    });
-
+  describe("Alias projection", () => {
     it("should show generated alias section when bind-to-alias mode is active", async () => {
       const mockGeneratedAlias = { style: { display: "none" } };
       const mockAliasPreview = { textContent: "" };
@@ -228,6 +154,14 @@ describe("Bind-to-Alias Mode", () => {
         "alias sto_kb_space_q <& FireAll $$ +power_exec Distribute_Shields &>",
       );
       expect(mockCommandPreview.textContent).toBe('Q "sto_kb_space_q"');
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith(
+        "rpc:command-chain:generate-alias-name",
+        expect.anything(),
+      );
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith(
+        "rpc:command-chain:generate-alias-preview",
+        expect.anything(),
+      );
     });
 
     it("should hide generated alias section when bind-to-alias mode is disabled", async () => {
@@ -283,6 +217,34 @@ describe("Bind-to-Alias Mode", () => {
       expect(mockGeneratedAlias.style.display).toBe("");
       expect(mockAliasPreview.textContent).toBe("alias sto_kb_space_q <&  &>");
       expect(mockCommandPreview.textContent).toBe('Q "sto_kb_space_q"');
+    });
+
+    it("uses translated fallback copy when a key cannot form an alias name", async () => {
+      const mockGeneratedAlias = { style: { display: "none" } };
+      const mockAliasPreview = { textContent: "" };
+      const mockCommandPreview = { textContent: "" };
+
+      mockDocument.getElementById.mockImplementation((id) => {
+        if (id === "generatedAlias") return mockGeneratedAlias;
+        if (id === "aliasPreview") return mockAliasPreview;
+        if (id === "commandPreview") return mockCommandPreview;
+        return null;
+      });
+      ui.i18n = {
+        t: vi.fn((key, options) => options?.defaultValue || key),
+      };
+
+      await ui.updateBindToAliasMode(true, "   ", []);
+
+      expect(ui.i18n.t).toHaveBeenCalledWith(
+        "invalid_key_name_for_alias_generation",
+        { defaultValue: "Invalid key name for alias generation" },
+      );
+      expect(mockGeneratedAlias.style.display).toBe("");
+      expect(mockAliasPreview.textContent).toBe(
+        "Invalid key name for alias generation",
+      );
+      expect(mockCommandPreview.textContent).toBe('    "..."');
     });
 
     it("should not show generated alias section in alias environment", async () => {
