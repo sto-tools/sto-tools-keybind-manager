@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import CommandPresentationService from "../../src/js/components/services/CommandPresentationService.js";
 import CommandChainUI from "../../src/js/components/ui/CommandChainUI.js";
 import CommandLibraryUI from "../../src/js/components/ui/CommandLibraryUI.js";
+import { createCommandChainInteractionState } from "../../src/js/components/ui/commandChainInteractionPolicy.js";
 import { request } from "../../src/js/core/requestResponse.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
 
@@ -64,12 +65,24 @@ function createChainUi(eventBus) {
 }
 
 function appendGroupHeader(ui, collapsed = false) {
-  const holder = document.createElement("div");
-  holder.innerHTML = ui.renderGroupSeparator(groupType, {
-    title: "Palindromic",
-    commands: [{ command: "+TrayExecByTray 0 0", index: 0 }],
-    isCollapsed: collapsed,
+  const interactionState = createCommandChainInteractionState({
+    renderToken: ui._renderGeneration,
+    commandCount: 1,
+    groups: {
+      [groupType]: { commands: [{ index: 0 }] },
+    },
   });
+  ui._committedInteractionState = interactionState;
+  const holder = document.createElement("div");
+  holder.innerHTML = ui.renderGroupSeparator(
+    groupType,
+    {
+      title: "Palindromic",
+      commands: [{ command: "+TrayExecByTray 0 0", index: 0 }],
+      isCollapsed: collapsed,
+    },
+    interactionState.renderToken,
+  );
   const commandList = document.getElementById("commandList");
   commandList?.replaceChildren(...holder.children);
   return commandList?.querySelector(`.group-header[data-group="${groupType}"]`);

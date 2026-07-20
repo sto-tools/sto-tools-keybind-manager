@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
+import { createCommandChainInteractionState } from "../../../src/js/components/ui/commandChainInteractionPolicy.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import { createDataCoordinatorState } from "../../fixtures/core/componentState.js";
 import {
@@ -49,6 +50,22 @@ describe("CommandChainUI command-presentation state", () => {
     ui._cacheDataState(createDataCoordinatorState({ authorityEpoch: 10 }));
     ui._hasSelectionState = true;
     ui.cache.currentEnvironment = "space";
+  }
+
+  function createAuthorizedHeader(groupType = "pivot") {
+    const state = createCommandChainInteractionState({
+      renderToken: ui._renderGeneration,
+      commandCount: 1,
+      groups: {
+        [groupType]: { commands: [{ index: 0 }] },
+      },
+    });
+    ui._committedInteractionState = state;
+    const header = document.createElement("div");
+    header.className = "group-header";
+    header.dataset.group = groupType;
+    header.dataset.renderToken = state.renderToken;
+    return header;
   }
 
   it("requires a complete presentation snapshot before rendering", () => {
@@ -107,21 +124,22 @@ describe("CommandChainUI command-presentation state", () => {
       .spyOn(ui, "request")
       .mockRejectedValue(new Error("persistence unavailable"));
     const handler = fixture.eventBus.onDom.mock.calls.find(
-      ([target, event, candidate]) =>
-        target === "#commandList" &&
-        event === "click" &&
-        String(candidate).includes("command-presentation:toggle-group"),
+      ([target, event]) => target === "#commandList" && event === "click",
     )?.[2];
-    const header = document.createElement("div");
-    header.className = "group-header";
-    header.dataset.group = "pivot";
+    const header = createAuthorizedHeader();
 
-    handler({ target: header });
-    await Promise.resolve();
-
-    expect(request).toHaveBeenCalledWith("command-presentation:toggle-group", {
-      groupType: "pivot",
+    handler({
+      target: header,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
     });
+    await vi.waitFor(() => {
+      expect(request).toHaveBeenCalledWith(
+        "command-presentation:toggle-group",
+        { groupType: "pivot" },
+      );
+    });
+
     expect(render).not.toHaveBeenCalled();
 
     fixture.eventBus.emit(
@@ -139,16 +157,18 @@ describe("CommandChainUI command-presentation state", () => {
       throw new Error("owner unavailable");
     });
     const handler = fixture.eventBus.onDom.mock.calls.find(
-      ([target, event, candidate]) =>
-        target === "#commandList" &&
-        event === "click" &&
-        String(candidate).includes("command-presentation:toggle-group"),
+      ([target, event]) => target === "#commandList" && event === "click",
     )?.[2];
-    const header = document.createElement("div");
-    header.className = "group-header";
-    header.dataset.group = "pivot";
+    const header = createAuthorizedHeader();
 
-    expect(() => handler({ target: header })).not.toThrow();
+    expect(() =>
+      handler({
+        target: header,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      }),
+    ).not.toThrow();
+    await Promise.resolve();
     expect(request).toHaveBeenCalledExactlyOnceWith(
       "command-presentation:toggle-group",
       { groupType: "pivot" },

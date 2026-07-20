@@ -25,7 +25,7 @@
  *
  * @typedef {{
  *   showToast?: (message: string, type?: string, duration?: number) => unknown,
- *   initDragAndDrop?: (container: HTMLElement, options: DragAndDropOptions) => void
+ *   initDragAndDrop?: (container: HTMLElement, options: DragAndDropOptions) => void | (() => void)
  * }} UIServiceLike
  *
  * @typedef {{

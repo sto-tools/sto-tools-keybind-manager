@@ -8,10 +8,19 @@ import { JSDOM } from "jsdom";
 import eventBus from "../../../src/js/core/eventBus.js";
 import { respond } from "../../../src/js/core/requestResponse.js";
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
+import { createCommandChainInteractionState } from "../../../src/js/components/ui/commandChainInteractionPolicy.js";
 
 describe("CommandChainUI Command Actions Styling", () => {
   let document;
   let commandChainUI;
+
+  function authorizeManualRows(commandCount) {
+    commandChainUI._committedInteractionState =
+      createCommandChainInteractionState({
+        renderToken: commandChainUI._renderGeneration,
+        commandCount,
+      });
+  }
 
   beforeAll(async () => {
     // Stub parser response to avoid request timeouts in enrichForDisplay
@@ -211,6 +220,7 @@ describe("CommandChainUI Command Actions Styling", () => {
         doc.body.appendChild(container);
       }
       container.replaceChildren(...elements);
+      authorizeManualRows(mockCommands.length);
 
       const editButton = doc.querySelector(".btn-edit");
       expect(editButton).toBeTruthy();
@@ -255,6 +265,7 @@ describe("CommandChainUI Command Actions Styling", () => {
         doc.body.appendChild(container);
       }
       container.replaceChildren(...elements);
+      authorizeManualRows(mockCommands.length);
 
       const deleteButton = doc.querySelector(".btn-delete");
       expect(deleteButton).toBeTruthy();
@@ -302,6 +313,7 @@ describe("CommandChainUI Command Actions Styling", () => {
         doc.body.appendChild(container);
       }
       container.replaceChildren(...elements);
+      authorizeManualRows(mockCommands.length);
 
       const emitSpy = vi.spyOn(commandChainUI, "emit");
 

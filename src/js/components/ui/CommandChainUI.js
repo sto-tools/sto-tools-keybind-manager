@@ -20,6 +20,14 @@ import {
   createCommandChainEmptyState,
   materializeCommandChainViewCopy,
 } from "./commandChainViewDom.js";
+import {
+  createCommandChainInteractionState,
+  decodeCommandChainClick,
+  decodeCommandChainDoubleClick,
+  decodeCommandChainDrop,
+  getCommandMoveTarget,
+  isCommandChainInteractionCurrent,
+} from "./commandChainInteractionPolicy.js";
 import { resolveDocument, resolveI18n } from "./uiTypes.js";
 import {
   findCommandDefinition,
@@ -56,68 +64,9 @@ const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
  *   name?: string,
  *   displayText?: string
  * }} DisplayTextRecord
- * @typedef {{ closest: (selector: string) => unknown, className?: unknown }} ClosestTarget
- * @typedef {{ dataset: Record<string, string | undefined> | DOMStringMap }} DatasetTarget
- * @typedef {ClosestTarget & {
- *   disabled: boolean,
- *   id: string,
- *   className: string
- * }} ActionButtonTarget
+ * @typedef {import('./commandChainInteractionPolicy.js').CommandChainInteractionState} CommandChainInteractionState
+ * @typedef {import('./commandChainInteractionPolicy.js').CommandChainInteraction} CommandChainInteraction
  */
-
-/**
- * Event targets can come from an injected document in another Window realm.
- * Narrow by the DOM capability used by delegated handlers instead of relying
- * on realm-sensitive instanceof checks.
- * @param {unknown} value
- * @returns {value is ClosestTarget}
- */
-function isClosestTarget(value) {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "closest" in value &&
-    typeof value.closest === "function"
-  );
-}
-
-/**
- * @param {unknown} value
- * @returns {value is DatasetTarget}
- */
-function isDatasetTarget(value) {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "dataset" in value &&
-    typeof value.dataset === "object" &&
-    value.dataset !== null
-  );
-}
-
-/**
- * @param {unknown} value
- * @returns {value is ActionButtonTarget}
- */
-function isActionButtonTarget(value) {
-  return (
-    isClosestTarget(value) &&
-    "disabled" in value &&
-    typeof value.disabled === "boolean" &&
-    "id" in value &&
-    typeof value.id === "string" &&
-    "className" in value &&
-    typeof value.className === "string"
-  );
-}
-
-/**
- * @param {Event} event
- * @returns {ClosestTarget | null}
- */
-function closestEventTarget(event) {
-  return isClosestTarget(event.target) ? event.target : null;
-}
 
 export default class CommandChainUI extends UIComponentBase {
   /**
@@ -140,8 +89,8 @@ export default class CommandChainUI extends UIComponentBase {
     this.document = resolveDocument(document);
     this.i18n = resolveI18n(i18n);
 
-    /** @type {CommandGroups | null} */
-    this.currentGroups = null;
+    /** @type {CommandChainInteractionState | null} */
+    this._committedInteractionState = null;
     this.eventListenersSetup = false;
     this._hasSelectionState = false;
     this._renderGeneration = 0;
@@ -244,198 +193,24 @@ export default class CommandChainUI extends UIComponentBase {
       await this.copyCommandPreviewToClipboard();
     });
 
-    // Listen for command action button clicks (using delegation)
-    this.onDom("#commandList", "click", (e) => {
-      const target = closestEventTarget(e);
-      const editBtn = target?.closest(".btn-edit:not(.btn-placeholder)");
-      const deleteBtn = target?.closest(".btn-delete");
-      const upBtn = target?.closest(".btn-up");
-      const downBtn = target?.closest(".btn-down");
-
-      if (isActionButtonTarget(editBtn) && !editBtn.disabled) {
-        const commandItem = editBtn.closest(".command-item-row");
-        const index = Number.parseInt(
-          isDatasetTarget(commandItem) ? (commandItem.dataset.index ?? "") : "",
-          10,
-        );
-        if (!Number.isNaN(index)) {
-          console.log("[CommandChainUI] EDIT BUTTON CLICKED:", {
-            index,
-            buttonId: editBtn.id,
-            buttonClass: editBtn.className,
-            buttonElement: editBtn,
-          });
-          e.preventDefault();
-          e.stopPropagation();
-          this.emit("commandchain:edit", { index });
-        }
-      } else if (isActionButtonTarget(deleteBtn) && !deleteBtn.disabled) {
-        const commandItem = deleteBtn.closest(".command-item-row");
-        const index = Number.parseInt(
-          isDatasetTarget(commandItem) ? (commandItem.dataset.index ?? "") : "",
-          10,
-        );
-        if (!Number.isNaN(index)) {
-          console.log("[CommandChainUI] DELETE BUTTON CLICKED:", {
-            index,
-            buttonId: deleteBtn.id,
-            buttonClass: deleteBtn.className,
-            buttonElement: deleteBtn,
-          });
-          e.preventDefault();
-          e.stopPropagation();
-          this.emit("commandchain:delete", { index });
-        }
-      } else if (isActionButtonTarget(upBtn) && !upBtn.disabled) {
-        const commandItem = upBtn.closest(".command-item-row");
-        const index = Number.parseInt(
-          isDatasetTarget(commandItem) ? (commandItem.dataset.index ?? "") : "",
-          10,
-        );
-        const groupType = isDatasetTarget(commandItem)
-          ? this.normalizeGroupType(commandItem.dataset.group)
-          : null;
-        if (!Number.isNaN(index)) {
-          const targetIndex = this.getMoveTarget(index, groupType, "up");
-          this.emit("commandchain:move", {
-            fromIndex: index,
-            toIndex: targetIndex,
-          });
-        }
-      } else if (isActionButtonTarget(downBtn) && !downBtn.disabled) {
-        const commandItem = downBtn.closest(".command-item-row");
-        const index = Number.parseInt(
-          isDatasetTarget(commandItem) ? (commandItem.dataset.index ?? "") : "",
-          10,
-        );
-        const groupType = isDatasetTarget(commandItem)
-          ? this.normalizeGroupType(commandItem.dataset.group)
-          : null;
-        if (!Number.isNaN(index)) {
-          const targetIndex = this.getMoveTarget(index, groupType, "down");
-          this.emit("commandchain:move", {
-            fromIndex: index,
-            toIndex: targetIndex,
-          });
-        }
-      }
-    });
-
-    // Listen for double-click on customizable commands
-    this.onDom("#commandList", "dblclick", (e) => {
-      const target = closestEventTarget(e);
-      const commandItem = target?.closest(".command-item-row.customizable");
-      if (isDatasetTarget(commandItem)) {
-        const index = Number.parseInt(commandItem.dataset.index ?? "", 10);
-        if (!Number.isNaN(index)) {
-          console.log("[CommandChainUI] DOUBLE-CLICK on command element:", {
-            index,
-            target,
-            targetClass: target?.className,
-          });
-          this.emit("commandchain:edit", { index });
-        }
-      }
-    });
-
-    // Listen for palindromic toggle button clicks
-    this.onDom("#commandList", "click", async (e) => {
-      const palindromicBtn = closestEventTarget(e)?.closest(
-        ".btn-palindromic-toggle",
+    // DOM delegates decode inert data into one typed interaction. Only rows
+    // from the currently committed render can reach a side-effect boundary.
+    this.onDom("#commandList", "click", (event) => {
+      const interaction = decodeCommandChainClick(
+        event.target,
+        this._committedInteractionState,
+        this._renderGeneration,
       );
-      if (isDatasetTarget(palindromicBtn)) {
-        e.preventDefault();
-        e.stopPropagation();
-        const index = Number.parseInt(
-          palindromicBtn.dataset.commandIndex ?? "",
-          10,
-        );
-        if (!Number.isNaN(index)) {
-          // Get the actual command to determine current state
-          const commands = await this.getCommandsForCurrentSelection();
-          if (commands && index >= 0 && index < commands.length) {
-            const command = commands[index];
-            // Determine current state: included if string or palindromicGeneration !== false
-            const isCurrentlyIncluded =
-              typeof command !== "object" ||
-              command.palindromicGeneration !== false;
-            // Toggle: if currently included, exclude it (set to false)
-            const newValue = !isCurrentlyIncluded;
-            console.log("[CommandChainUI] Toggling palindromic:", {
-              index,
-              command,
-              isCurrentlyIncluded,
-              newValue,
-            });
-            await this.updateCommandPalindromicSetting(
-              index,
-              "palindromicGeneration",
-              newValue,
-            );
-          }
-        }
-      }
+      this.handleCommandChainInteraction(interaction, event).catch(() => {});
     });
 
-    // Listen for placement toggle button clicks
-    this.onDom("#commandList", "click", async (e) => {
-      const placementBtn = closestEventTarget(e)?.closest(
-        ".btn-placement-toggle",
+    this.onDom("#commandList", "dblclick", (event) => {
+      const interaction = decodeCommandChainDoubleClick(
+        event.target,
+        this._committedInteractionState,
+        this._renderGeneration,
       );
-      if (isDatasetTarget(placementBtn)) {
-        e.preventDefault();
-        e.stopPropagation();
-        const index = Number.parseInt(
-          placementBtn.dataset.commandIndex ?? "",
-          10,
-        );
-        if (!Number.isNaN(index)) {
-          // Get the actual command to determine current state
-          const commands = await this.getCommandsForCurrentSelection();
-          if (commands && index >= 0 && index < commands.length) {
-            const command = commands[index];
-            // Determine current placement
-            const currentPlacement =
-              typeof command === "object" && command.placement
-                ? command.placement
-                : "before-pre-pivot";
-            // Toggle: if in pivot group, move to before-pre-pivot, otherwise move to pivot group
-            const newPlacement =
-              currentPlacement === "in-pivot-group"
-                ? "before-pre-pivot"
-                : "in-pivot-group";
-            console.log("[CommandChainUI] Toggling placement:", {
-              index,
-              command,
-              currentPlacement,
-              newPlacement,
-            });
-            await this.updateCommandPalindromicSetting(
-              index,
-              "placement",
-              newPlacement,
-            );
-          }
-        }
-      }
-    });
-
-    // Listen for group header clicks to toggle collapse
-    this.onDom("#commandList", "click", (e) => {
-      const groupHeader = closestEventTarget(e)?.closest(".group-header");
-      if (isDatasetTarget(groupHeader)) {
-        const groupType = this.normalizeGroupType(groupHeader.dataset.group);
-        if (groupType) {
-          try {
-            this.request("command-presentation:toggle-group", {
-              groupType,
-            }).catch(() => {});
-          } catch {
-            // The owner publication is the only state source. An absent or
-            // failing owner leaves the existing projection unchanged.
-          }
-        }
-      }
+      this.handleCommandChainInteraction(interaction, event).catch(() => {});
     });
 
     // Setup drag/drop
@@ -456,6 +231,107 @@ export default class CommandChainUI extends UIComponentBase {
         this.reconcileAcceptedState();
       }
     });
+  }
+
+  /**
+   * Adapt one authorized, side-effect-free DOM projection to the existing
+   * command topics and owner RPCs.
+   * @param {CommandChainInteraction} interaction
+   * @param {Event} event
+   */
+  async handleCommandChainInteraction(interaction, event) {
+    if (interaction.type === "none") return;
+    if (
+      !isCommandChainInteractionCurrent(
+        this._committedInteractionState,
+        this._renderGeneration,
+        interaction.renderToken,
+      )
+    ) {
+      return;
+    }
+    if (interaction.consumeEvent) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    switch (interaction.type) {
+      case "edit":
+        this.emit("commandchain:edit", { index: interaction.index });
+        return;
+      case "delete":
+        this.emit("commandchain:delete", { index: interaction.index });
+        return;
+      case "move":
+        this.emit("commandchain:move", {
+          fromIndex: interaction.fromIndex,
+          toIndex: interaction.toIndex,
+        });
+        return;
+      case "toggle-group":
+        try {
+          await this.request("command-presentation:toggle-group", {
+            groupType: interaction.groupType,
+          });
+        } catch {
+          // The owner publication is the only state source. An absent or
+          // failing owner leaves the existing projection unchanged.
+        }
+        return;
+      case "toggle-palindromic":
+      case "toggle-placement":
+        await this.applyCommandToggle(interaction);
+    }
+  }
+
+  /**
+   * @param {{
+   *   type: 'toggle-palindromic' | 'toggle-placement',
+   *   index: number,
+   *   renderToken: string,
+   *   consumeEvent: boolean
+   * }} interaction
+   */
+  async applyCommandToggle(interaction) {
+    const commands = await this.getCommandsForCurrentSelection();
+    if (
+      !isCommandChainInteractionCurrent(
+        this._committedInteractionState,
+        this._renderGeneration,
+        interaction.renderToken,
+      ) ||
+      !commands ||
+      interaction.index < 0 ||
+      interaction.index >= commands.length
+    ) {
+      return;
+    }
+
+    const command = commands[interaction.index];
+    if (interaction.type === "toggle-palindromic") {
+      const isCurrentlyIncluded =
+        typeof command !== "object" || command.palindromicGeneration !== false;
+      await this.updateCommandPalindromicSetting(
+        interaction.index,
+        "palindromicGeneration",
+        !isCurrentlyIncluded,
+        interaction.renderToken,
+      );
+      return;
+    }
+
+    const currentPlacement =
+      typeof command === "object" && command.placement
+        ? command.placement
+        : "before-pre-pivot";
+    await this.updateCommandPalindromicSetting(
+      interaction.index,
+      "placement",
+      currentPlacement === "in-pivot-group"
+        ? "before-pre-pivot"
+        : "in-pivot-group",
+      interaction.renderToken,
+    );
   }
 
   /**
@@ -488,6 +364,7 @@ export default class CommandChainUI extends UIComponentBase {
   // Render the command chain from one captured accepted-state projection.
   async render() {
     const generation = ++this._renderGeneration;
+    const renderToken = String(generation);
     const isCurrent = () =>
       generation === this._renderGeneration && !this.destroyed;
     const container = this.document.getElementById("commandList");
@@ -530,7 +407,10 @@ export default class CommandChainUI extends UIComponentBase {
       titleEl.textContent = copy.title;
       previewEl.textContent = copy.preview;
       if (countSpanEl) countSpanEl.textContent = copy.count;
-      this.currentGroups = null;
+      this._committedInteractionState = createCommandChainInteractionState({
+        renderToken,
+        commandCount: 0,
+      });
       container.replaceChildren(
         createCommandChainEmptyState(this.document, copy.empty),
       );
@@ -558,7 +438,10 @@ export default class CommandChainUI extends UIComponentBase {
       if (!copy.empty) return;
       titleEl.textContent = copy.title;
       if (countSpanEl) countSpanEl.textContent = copy.count;
-      this.currentGroups = null;
+      this._committedInteractionState = createCommandChainInteractionState({
+        renderToken,
+        commandCount: 0,
+      });
       container.replaceChildren(
         createCommandChainEmptyState(this.document, copy.empty),
       );
@@ -579,12 +462,24 @@ export default class CommandChainUI extends UIComponentBase {
 
     if (view.stabilized) {
       nextGroups = this.groupCommands(view.commands, presentationState);
+    }
+    const interactionState = createCommandChainInteractionState({
+      renderToken,
+      commandCount: view.commandCount,
+      groups: nextGroups,
+    });
+
+    if (view.stabilized && nextGroups) {
       /** @type {CommandGroupType[]} */
       const groupOrder = ["non-trayexec", "palindromic", "pivot"];
       for (const groupType of groupOrder) {
         const groupData = nextGroups[groupType];
         if (!groupData || groupData.commands.length === 0) continue;
-        const separator = this.renderGroupSeparator(groupType, groupData);
+        const separator = this.renderGroupSeparator(
+          groupType,
+          groupData,
+          renderToken,
+        );
         if (separator) {
           const separatorEl = this.document.createElement("div");
           separatorEl.innerHTML = separator;
@@ -604,6 +499,7 @@ export default class CommandChainUI extends UIComponentBase {
             groupType,
             groupIndex + 1,
             view.stabilized,
+            interactionState,
           );
           if (!isCurrent()) return;
           newCommandElements.push(element);
@@ -618,6 +514,7 @@ export default class CommandChainUI extends UIComponentBase {
           null,
           null,
           view.stabilized,
+          interactionState,
         );
         if (!isCurrent()) return;
         newCommandElements.push(element);
@@ -660,7 +557,7 @@ export default class CommandChainUI extends UIComponentBase {
       if (aliasCommandCountDisplay)
         aliasCommandCountDisplay.style.display = "none";
     }
-    this.currentGroups = nextGroups;
+    this._committedInteractionState = interactionState;
     container.replaceChildren(...newCommandElements);
     if (!isCurrent()) return;
     this.emit("command-chain:validate", {
@@ -669,18 +566,6 @@ export default class CommandChainUI extends UIComponentBase {
       isAlias: view.environment === "alias",
     });
     this.updateBindsetBanner();
-  }
-
-  /**
-   * @param {string | undefined} value
-   * @returns {CommandGroupType | null}
-   */
-  normalizeGroupType(value) {
-    return value === "non-trayexec" ||
-      value === "palindromic" ||
-      value === "pivot"
-      ? value
-      : null;
   }
 
   // Group commands into sections for stabilized chains
@@ -751,13 +636,14 @@ export default class CommandChainUI extends UIComponentBase {
   /**
    * @param {CommandGroupType} groupType
    * @param {CommandGroup} groupData
+   * @param {string} renderToken
    */
-  renderGroupSeparator(groupType, groupData) {
+  renderGroupSeparator(groupType, groupData, renderToken) {
     const reorderHint = this.getReorderHint(groupType);
 
     return `
       <div class="command-group-separator" data-group="${groupType}">
-        <div class="group-header" data-group="${groupType}" data-action="commandchain-group-header">
+        <div class="group-header" data-group="${groupType}" data-render-token="${renderToken}" data-action="commandchain-group-header">
           <div class="group-info">
             <i class="fas fa-chevron-right twisty ${groupData.isCollapsed ? "collapsed" : ""}"></i>
             <span class="group-title">${groupData.title}</span>
@@ -796,84 +682,18 @@ export default class CommandChainUI extends UIComponentBase {
   /**
    * @param {'up' | 'down'} direction
    * @param {number} index
-   * @param {number} total
    * @param {CommandGroupType | null | undefined} groupType
+   * @param {CommandChainInteractionState} interactionState
    */
-  getButtonState(direction, index, total, groupType) {
-    // Dual-mode logic: stabilized mode uses group-aware logic, unstabilized uses current behavior
-    if (groupType && this.currentGroups && this.currentGroups[groupType]) {
-      // Stabilized mode: use group-relative logic
-      const groupData = this.currentGroups[groupType];
-      const groupCommands = groupData.commands;
-      const groupSize = groupCommands.length;
-
-      // Find this command's position within its group
-      const groupIndex = groupCommands.findIndex((cmd) => cmd.index === index);
-
-      // For single-item groups, show grayed out buttons (consistent with non-stabilized mode)
-      if (groupSize <= 1) {
-        return direction === "up"
-          ? '<button class="command-action-btn btn-up" title="Move Up" disabled><i class="fas fa-chevron-up"></i></button>'
-          : '<button class="command-action-btn btn-down" title="Move Down" disabled><i class="fas fa-chevron-down"></i></button>';
-      }
-
-      // For multi-item groups, use group-relative boundaries
-      if (direction === "up") {
-        const isFirstInGroup = groupIndex === 0;
-        return `<button class="command-action-btn btn-up" title="Move Up" ${isFirstInGroup ? "disabled" : ""}><i class="fas fa-chevron-up"></i></button>`;
-      } else {
-        const isLastInGroup = groupIndex === groupSize - 1;
-        return `<button class="command-action-btn btn-down" title="Move Down" ${isLastInGroup ? "disabled" : ""}><i class="fas fa-chevron-down"></i></button>`;
-      }
-    } else {
-      // Unstabilized mode: use exact current logic to preserve existing behavior
-      if (direction === "up") {
-        return `<button class="command-action-btn btn-up" title="Move Up" ${index === 0 ? "disabled" : ""}><i class="fas fa-chevron-up"></i></button>`;
-      } else {
-        return `<button class="command-action-btn btn-down" title="Move Down" ${index === total - 1 ? "disabled" : ""}><i class="fas fa-chevron-down"></i></button>`;
-      }
-    }
-  }
-
-  /**
-   * @param {number} index
-   * @param {CommandGroupType | null} groupType
-   * @param {'up' | 'down'} direction
-   */
-  getMoveTarget(index, groupType, direction) {
-    // Dual-mode logic: stabilized mode uses group-aware logic, unstabilized uses current behavior
-    if (groupType && this.currentGroups && this.currentGroups[groupType]) {
-      // Stabilized mode: calculate valid target within the same group
-      const groupData = this.currentGroups[groupType];
-      const groupCommands = groupData.commands;
-      const groupSize = groupCommands.length;
-
-      // Find this command's position within its group
-      const groupIndex = groupCommands.findIndex((cmd) => cmd.index === index);
-
-      if (direction === "up") {
-        // Can't move up if already first in group
-        if (groupIndex <= 0) {
-          return index; // No valid move, return same index
-        }
-        // Return the actual array index of the command above in the group
-        return groupCommands[groupIndex - 1].index;
-      } else {
-        // Can't move down if already last in group
-        if (groupIndex >= groupSize - 1) {
-          return index; // No valid move, return same index
-        }
-        // Return the actual array index of the command below in the group
-        return groupCommands[groupIndex + 1].index;
-      }
-    } else {
-      // Unstabilized mode: use exact current logic to preserve existing behavior
-      if (direction === "up") {
-        return index - 1;
-      } else {
-        return index + 1;
-      }
-    }
+  getButtonState(direction, index, groupType, interactionState) {
+    const disabled =
+      getCommandMoveTarget(
+        interactionState,
+        index,
+        groupType ?? null,
+        direction,
+      ) === null;
+    return `<button class="command-action-btn btn-${direction}" title="${direction === "up" ? "Move Up" : "Move Down"}" ${disabled ? "disabled" : ""}><i class="fas fa-chevron-${direction}"></i></button>`;
   }
 
   /**
@@ -883,6 +703,7 @@ export default class CommandChainUI extends UIComponentBase {
    * @param {CommandGroupType | null} [groupType]
    * @param {number | null} [displayIndex]
    * @param {boolean} [stabilized]
+   * @param {CommandChainInteractionState | null} [interactionState]
    */
   async createCommandElement(
     command,
@@ -891,6 +712,7 @@ export default class CommandChainUI extends UIComponentBase {
     groupType = null,
     displayIndex = null,
     stabilized = undefined,
+    interactionState = null,
   ) {
     const snapshot = this.cache.dataState;
     const environment = this.cache.currentEnvironment || "space";
@@ -902,9 +724,16 @@ export default class CommandChainUI extends UIComponentBase {
     const isStabilized =
       stabilized ??
       isSnapshotCommandStabilized(snapshot, environment, name, bindset);
+    const rowInteractionState =
+      interactionState ??
+      createCommandChainInteractionState({
+        renderToken: this._renderGeneration,
+        commandCount: total,
+      });
     const element = this.document.createElement("div");
     element.className = "command-item-row";
     element.dataset.index = String(index);
+    element.dataset.renderToken = rowInteractionState.renderToken;
     element.draggable = true;
     if (groupType) {
       element.dataset.group = groupType;
@@ -1083,8 +912,8 @@ export default class CommandChainUI extends UIComponentBase {
         <button class="command-action-btn command-action-btn-danger btn-delete" title="Delete Command"><i class="fas fa-times"></i></button>
         ${palindromicButton}
         ${placementButton}
-        ${this.getButtonState("up", index, total, groupType)}
-        ${this.getButtonState("down", index, total, groupType)}
+        ${this.getButtonState("up", index, groupType, rowInteractionState)}
+        ${this.getButtonState("down", index, groupType, rowInteractionState)}
       </div>`;
 
     // Command action buttons are now handled by EventBus delegation in setupEventListeners()
@@ -1102,30 +931,20 @@ export default class CommandChainUI extends UIComponentBase {
     const commandList = this.document.getElementById("commandList");
     if (!commandList) return;
 
-    this.ui.initDragAndDrop(commandList, {
+    const detach = this.ui.initDragAndDrop(commandList, {
       draggableSelector: ".command-item-row",
       dropZoneSelector: ".command-item-row",
       onDrop: (e, dragState, dropZone) => {
-        if (!dragState?.dragElement || !dropZone) return;
-
-        const fromIndex = Number.parseInt(
-          dragState.dragElement.dataset.index ?? "",
-          10,
+        const interaction = decodeCommandChainDrop(
+          dragState?.dragElement,
+          dropZone,
+          this._committedInteractionState,
+          this._renderGeneration,
         );
-        const toIndex = Number.parseInt(dropZone.dataset.index ?? "", 10);
-
-        if (
-          fromIndex !== toIndex &&
-          !Number.isNaN(fromIndex) &&
-          !Number.isNaN(toIndex)
-        ) {
-          this.emit("commandchain:move", {
-            fromIndex,
-            toIndex,
-          });
-        }
+        this.handleCommandChainInteraction(interaction, e).catch(() => {});
       },
     });
+    if (typeof detach === "function") this.domEventListeners.push(detach);
   }
 
   // Update previews for bind-to-alias mode
@@ -1443,11 +1262,27 @@ export default class CommandChainUI extends UIComponentBase {
    * @param {number} commandIndex
    * @param {'palindromicGeneration' | 'placement'} setting
    * @param {boolean | CommandPlacement} value
+   * @param {string} [renderToken]
    */
-  async updateCommandPalindromicSetting(commandIndex, setting, value) {
+  async updateCommandPalindromicSetting(
+    commandIndex,
+    setting,
+    value,
+    renderToken,
+  ) {
     try {
       // Get current commands for the selected key/alias
       const commands = await this.getCommandsForCurrentSelection();
+      if (
+        renderToken !== undefined &&
+        !isCommandChainInteractionCurrent(
+          this._committedInteractionState,
+          this._renderGeneration,
+          renderToken,
+        )
+      ) {
+        return;
+      }
       if (!commands || commandIndex < 0 || commandIndex >= commands.length) {
         console.warn("[CommandChainUI] Invalid command index:", commandIndex);
         return;
@@ -1545,6 +1380,17 @@ export default class CommandChainUI extends UIComponentBase {
           ...payload,
         });
 
+        if (
+          renderToken !== undefined &&
+          !isCommandChainInteractionCurrent(
+            this._committedInteractionState,
+            this._renderGeneration,
+            renderToken,
+          )
+        ) {
+          return;
+        }
+
         // CRITICAL: Use the updated commands array directly instead of re-fetching to avoid timing issues
         // This ensures the mirroring logic has the most up-to-date placement data
         console.log("[CommandChainUI] Commands after update:", commands);
@@ -1563,7 +1409,7 @@ export default class CommandChainUI extends UIComponentBase {
   // Clean up event listeners when component is destroyed
   onDestroy() {
     this._renderGeneration += 1;
-    this.currentGroups = null;
+    this._committedInteractionState = null;
     this.eventListenersSetup = false;
     this._hasSelectionState = false;
     this.pendingInitialRender = false;

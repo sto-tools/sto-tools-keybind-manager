@@ -135,6 +135,44 @@ describe("UIUtilityService", () => {
     container.remove();
   });
 
+  it("replaces and disposes native drag delegates without duplicate drops", () => {
+    const container = document.createElement("div");
+    const draggable = document.createElement("div");
+    draggable.className = "draggable";
+    container.append(draggable);
+    document.body.append(container);
+    const predecessorDrop = vi.fn();
+    const successorDrop = vi.fn();
+
+    const predecessorDetach = service.initDragAndDrop(container, {
+      onDrop: predecessorDrop,
+    });
+    const successorDetach = service.initDragAndDrop(container, {
+      onDrop: successorDrop,
+    });
+
+    draggable.dispatchEvent(new Event("dragstart", { bubbles: true }));
+    draggable.dispatchEvent(
+      new MouseEvent("drop", { bubbles: true, cancelable: true }),
+    );
+    expect(predecessorDrop).not.toHaveBeenCalled();
+    expect(successorDrop).toHaveBeenCalledOnce();
+
+    predecessorDetach?.();
+    service.destroy();
+    successorDetach?.();
+    draggable.dispatchEvent(
+      new MouseEvent("drop", { bubbles: true, cancelable: true }),
+    );
+    expect(successorDrop).toHaveBeenCalledOnce();
+    expect(service.dragState).toEqual({
+      isDragging: false,
+      dragElement: null,
+      dragData: null,
+    });
+    container.remove();
+  });
+
   describe("Event Handlers", () => {
     it("should handle copy to clipboard events", async () => {
       const copyToClipboardSpy = vi

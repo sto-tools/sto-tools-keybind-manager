@@ -27,6 +27,8 @@ export default class UIUtilityService extends ComponentBase {
       dragElement: null,
       dragData: null,
     };
+    /** @type {Map<HTMLElement, DetachFunction>} */
+    this.dragDropDetachers = new Map();
     /** @type {DetachFunction[]} */
     this.requestDetachers = [];
   }
@@ -37,6 +39,9 @@ export default class UIUtilityService extends ComponentBase {
   }
 
   onDestroy() {
+    for (const detach of [...this.dragDropDetachers.values()]) detach();
+    this.dragDropDetachers.clear();
+
     // Clean up request handlers
     if (this.requestDetachers) {
       this.requestDetachers.forEach((detach) => detach());
@@ -114,9 +119,20 @@ export default class UIUtilityService extends ComponentBase {
     }
   }
 
-  /** @param {HTMLElement | null} container @param {DragDropOptions} [options] */
+  /**
+   * Install one owned drag/drop delegate per container. Reinitializing the
+   * same container replaces its prior delegate, and the returned disposer lets
+   * a consuming component release the native listeners before the utility
+   * service itself is destroyed.
+   *
+   * @param {HTMLElement | null} container
+   * @param {DragDropOptions} [options]
+   * @returns {DetachFunction | undefined}
+   */
   initDragAndDrop(container, options = {}) {
     if (!container) return;
+
+    this.dragDropDetachers.get(container)?.();
 
     const {
       draggableSelector = ".draggable",
@@ -126,7 +142,8 @@ export default class UIUtilityService extends ComponentBase {
       onDrop = null,
     } = options;
 
-    container.addEventListener("dragstart", (e) => {
+    /** @param {DragEvent} e */
+    const handleDragStart = (e) => {
       const target = e.target instanceof Element ? e.target : null;
       const dragEl = target?.closest(draggableSelector);
       if (dragEl) {
@@ -143,9 +160,10 @@ export default class UIUtilityService extends ComponentBase {
 
         if (onDragStart) onDragStart(e, this.dragState);
       }
-    });
+    };
 
-    container.addEventListener("dragend", (e) => {
+    /** @param {DragEvent} e */
+    const handleDragEnd = (e) => {
       const target = e.target instanceof Element ? e.target : null;
       const dragEl = target?.closest(draggableSelector);
       if (dragEl) {
@@ -156,12 +174,13 @@ export default class UIUtilityService extends ComponentBase {
 
         if (onDragEnd) onDragEnd(e, this.dragState);
       }
-    });
+    };
 
     // Allow dropping and keep track of the current row we are hovering over
     /** @type {Element | null} */
     let lastHoverDropZone = null;
-    container.addEventListener("dragover", (e) => {
+    /** @param {DragEvent} e */
+    const handleDragOver = (e) => {
       e.preventDefault();
       if (!dropZoneSelector) return;
 
@@ -170,9 +189,10 @@ export default class UIUtilityService extends ComponentBase {
       if (hoverEl && hoverEl !== lastHoverDropZone) {
         lastHoverDropZone = hoverEl;
       }
-    });
+    };
 
-    container.addEventListener("drop", (e) => {
+    /** @param {DragEvent} e */
+    const handleDrop = (e) => {
       e.preventDefault();
 
       // Identify the element that should be treated as the drop target based on selector
@@ -204,6 +224,34 @@ export default class UIUtilityService extends ComponentBase {
         //
         if (dropZone && onDrop) onDrop(e, this.dragState, dropZone);
       }
-    });
+    };
+
+    container.addEventListener("dragstart", handleDragStart);
+    container.addEventListener("dragend", handleDragEnd);
+    container.addEventListener("dragover", handleDragOver);
+    container.addEventListener("drop", handleDrop);
+
+    let detached = false;
+    const detach = () => {
+      if (detached) return;
+      detached = true;
+      container.removeEventListener("dragstart", handleDragStart);
+      container.removeEventListener("dragend", handleDragEnd);
+      container.removeEventListener("dragover", handleDragOver);
+      container.removeEventListener("drop", handleDrop);
+      if (this.dragDropDetachers.get(container) === detach) {
+        this.dragDropDetachers.delete(container);
+      }
+      if (
+        this.dragState.dragElement &&
+        container.contains(this.dragState.dragElement)
+      ) {
+        this.dragState.isDragging = false;
+        this.dragState.dragElement = null;
+        this.dragState.dragData = null;
+      }
+    };
+    this.dragDropDetachers.set(container, detach);
+    return detach;
   }
 }

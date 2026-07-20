@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
 import CommandChainUI from "../../../src/js/components/ui/CommandChainUI.js";
+import { createCommandChainInteractionState } from "../../../src/js/components/ui/commandChainInteractionPolicy.js";
 import i18next from "i18next";
 
 describe("CommandChainUI Palindromic Controls", () => {
@@ -265,6 +266,23 @@ describe("CommandChainUI Palindromic Controls", () => {
   });
 
   describe("Palindromic Control Event Handlers", () => {
+    function createAuthorizedButton(className, commandCount) {
+      const state = createCommandChainInteractionState({
+        renderToken: ui._renderGeneration,
+        commandCount,
+      });
+      ui._committedInteractionState = state;
+      const row = mockDocument.createElement("div");
+      row.className = "command-item-row";
+      row.dataset.index = "0";
+      row.dataset.renderToken = state.renderToken;
+      const button = mockDocument.createElement("button");
+      button.className = className;
+      row.append(button);
+      mockDocument.getElementById("commandList").append(row);
+      return { button, state };
+    }
+
     it("should exclude an included command when its palindromic toggle is clicked", async () => {
       const commands = ["+TrayExecByTray 1 0", "Target_Enemy_Near"];
       ui.getCommandsForCurrentSelection = vi.fn().mockResolvedValue(commands);
@@ -272,32 +290,31 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       await ui.setupEventListeners();
 
-      const handlers = mockEventBus.onDom.mock.calls
-        .filter((call) => call[0] === "#commandList" && call[1] === "click")
-        .map((call) => call[2]);
-      const button = { dataset: { commandIndex: "0" } };
-      const target = {
-        closest: vi.fn((selector) =>
-          selector === ".btn-palindromic-toggle" ? button : null,
-        ),
-      };
+      const handler = mockEventBus.onDom.mock.calls.find(
+        ([target, event]) => target === "#commandList" && event === "click",
+      )[2];
+      const { button, state } = createAuthorizedButton(
+        "btn-palindromic-toggle",
+        commands.length,
+      );
       const event = {
-        target,
+        target: button,
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       };
 
-      expect(handlers.length).toBeGreaterThan(0);
-      for (const handler of handlers) await handler(event);
+      handler(event);
+      await vi.waitFor(() => {
+        expect(ui.updateCommandPalindromicSetting).toHaveBeenCalledWith(
+          0,
+          "palindromicGeneration",
+          false,
+          state.renderToken,
+        );
+      });
 
-      expect(target.closest).toHaveBeenCalledWith(".btn-palindromic-toggle");
       expect(event.preventDefault).toHaveBeenCalled();
       expect(event.stopPropagation).toHaveBeenCalled();
-      expect(ui.updateCommandPalindromicSetting).toHaveBeenCalledWith(
-        0,
-        "palindromicGeneration",
-        false,
-      );
     });
 
     it("should move an excluded command into the pivot group when its placement toggle is clicked", async () => {
@@ -313,32 +330,31 @@ describe("CommandChainUI Palindromic Controls", () => {
 
       await ui.setupEventListeners();
 
-      const handlers = mockEventBus.onDom.mock.calls
-        .filter((call) => call[0] === "#commandList" && call[1] === "click")
-        .map((call) => call[2]);
-      const button = { dataset: { commandIndex: "0" } };
-      const target = {
-        closest: vi.fn((selector) =>
-          selector === ".btn-placement-toggle" ? button : null,
-        ),
-      };
+      const handler = mockEventBus.onDom.mock.calls.find(
+        ([target, event]) => target === "#commandList" && event === "click",
+      )[2];
+      const { button, state } = createAuthorizedButton(
+        "btn-placement-toggle",
+        commands.length,
+      );
       const event = {
-        target,
+        target: button,
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       };
 
-      expect(handlers.length).toBeGreaterThan(0);
-      for (const handler of handlers) await handler(event);
+      handler(event);
+      await vi.waitFor(() => {
+        expect(ui.updateCommandPalindromicSetting).toHaveBeenCalledWith(
+          0,
+          "placement",
+          "in-pivot-group",
+          state.renderToken,
+        );
+      });
 
-      expect(target.closest).toHaveBeenCalledWith(".btn-placement-toggle");
       expect(event.preventDefault).toHaveBeenCalled();
       expect(event.stopPropagation).toHaveBeenCalled();
-      expect(ui.updateCommandPalindromicSetting).toHaveBeenCalledWith(
-        0,
-        "placement",
-        "in-pivot-group",
-      );
     });
   });
 

@@ -249,6 +249,11 @@ describe("CommandChainUI accepted-state render ordering", () => {
         null,
         null,
         false,
+        expect.objectContaining({
+          commandIndices: [0],
+          groupIndices: null,
+          renderToken: "1",
+        }),
       );
     });
 

@@ -148,6 +148,7 @@ const dataService = new DataService({
   /**
    * @param {Element} container
    * @param {any} [options]
+   * @returns {void | (() => void)}
    */
   const initDragAndDropBridge = (container, options = {}) => {
     if (
@@ -155,7 +156,7 @@ const dataService = new DataService({
       uiUtilityService &&
       typeof uiUtilityService.initDragAndDrop === "function"
     ) {
-      uiUtilityService.initDragAndDrop(container, options);
+      return uiUtilityService.initDragAndDrop(container, options);
     } else {
       // Fallback via eventBus so a remote service instance can handle it (test env)
       eventBus.emit("ui:init-drag-drop", { container, options });

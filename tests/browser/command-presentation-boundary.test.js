@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { request } from "../../src/js/core/requestResponse.js";
 
 let replySequence = 0;
+const probeKey = "__command_presentation_probe__";
 
 function restoreRawStorage(key, value) {
   if (value === null) localStorage.removeItem(key);
@@ -43,31 +44,20 @@ function categoryNodes(categoryId) {
   };
 }
 
-function appendProjectedGroupHeader(ui, groupType, isCollapsed) {
-  const commandList = document.getElementById("commandList");
-  const holder = document.createElement("div");
-  holder.innerHTML = ui.renderGroupSeparator(groupType, {
-    title: groupType,
-    commands: [{ command: "+TrayExecByTray 0 0", index: 0 }],
-    isCollapsed,
-  });
-  const projection = holder.firstElementChild;
-  if (projection) commandList?.prepend(projection);
-  return projection?.querySelector(".group-header") ?? null;
-}
-
 describe("Command presentation checked-bundle boundary", () => {
   it("converges static-category and chain-group clicks through the hidden owner", async () => {
     const bus = window.eventBus;
     const chainUi = window.commandChainUI;
+    const coordinator = window.dataCoordinator;
     const categoryId = "system";
     const categoryStorageKey = `commandCategory_${categoryId}_collapsed`;
     const groupStorageKeyPrefix = "commandGroup_";
 
     expect(bus).toBeTruthy();
     expect(chainUi?.isInitialized?.()).toBe(true);
+    expect(coordinator?.getCurrentState?.().ready).toBe(true);
     expect(window.commandPresentationService).toBeUndefined();
-    if (!bus || !chainUi) return;
+    if (!bus || !chainUi || !coordinator) return;
 
     expect(bus.hasListeners("rpc:command-presentation:toggle-category")).toBe(
       true,
@@ -80,26 +70,116 @@ describe("Command presentation checked-bundle boundary", () => {
     expect(chainUi.getGroupCollapsedState).toBeUndefined();
     expect(chainUi.setGroupCollapsedState).toBeUndefined();
 
-    const startingState = await requestOwnerSnapshot(bus);
+    const startingPresentationState = await requestOwnerSnapshot(bus);
+    const startingDataState = coordinator.getCurrentState();
+    const profileId = startingDataState.currentProfile;
+    const environment = startingDataState.currentEnvironment;
+    expect(profileId).toBeTruthy();
+    expect(["space", "ground"]).toContain(environment);
+    if (!profileId || !["space", "ground"].includes(environment)) return;
+
+    const startingProfile = startingDataState.profiles[profileId];
+    const originalCommands = structuredClone(
+      startingProfile.builds?.[environment]?.keys?.[probeKey],
+    );
+    const hadOriginalKey = Object.hasOwn(
+      startingProfile.builds?.[environment]?.keys || {},
+      probeKey,
+    );
+    const originalMetadata = structuredClone(
+      startingProfile.keybindMetadata?.[environment]?.[probeKey],
+    );
+    const hadOriginalMetadata = Object.hasOwn(
+      startingProfile.keybindMetadata?.[environment] || {},
+      probeKey,
+    );
+    const originalSelection = chainUi.cache.selectedKey;
+    const originalBindset = chainUi.cache.activeBindset || "Primary Bindset";
+    const probeCommands = [
+      "FireAll",
+      "+TrayExecByTray 0 0",
+      {
+        command: "+TrayExecByTray 1 0",
+        palindromicGeneration: false,
+        placement: "in-pivot-group",
+      },
+    ];
     const groupTypes = ["non-trayexec", "palindromic", "pivot"];
     const groupType =
       groupTypes.find(
-        (candidate) => !startingState.collapsedGroups.includes(candidate),
+        (candidate) =>
+          !startingPresentationState.collapsedGroups.includes(candidate),
       ) ?? groupTypes[0];
     const groupStorageKey = `${groupStorageKeyPrefix}${groupType}_collapsed`;
     const beforeCategoryRaw = localStorage.getItem(categoryStorageKey);
     const beforeGroupRaw = localStorage.getItem(groupStorageKey);
     const startingCategoryCollapsed =
-      startingState.collapsedCategories.includes(categoryId);
+      startingPresentationState.collapsedCategories.includes(categoryId);
     const startingGroupCollapsed =
-      startingState.collapsedGroups.includes(groupType);
-    let expectedRevision = startingState.revision;
+      startingPresentationState.collapsedGroups.includes(groupType);
+    let expectedRevision = startingPresentationState.revision;
 
     try {
+      const commandOperation = hadOriginalKey
+        ? {
+            modify: {
+              builds: {
+                [environment]: { keys: { [probeKey]: probeCommands } },
+              },
+            },
+          }
+        : {
+            add: {
+              builds: {
+                [environment]: { keys: { [probeKey]: probeCommands } },
+              },
+            },
+          };
+      await request(bus, "data:update-profile", {
+        profileId,
+        ...commandOperation,
+        modify: {
+          ...(commandOperation.modify || {}),
+          keybindMetadata: {
+            [environment]: {
+              [probeKey]: { stabilizeExecutionOrder: true },
+            },
+          },
+        },
+      });
+      await request(bus, "bindset-selector:set-active-bindset", {
+        bindset: "Primary Bindset",
+      });
+      await request(bus, "selection:select-key", {
+        keyName: probeKey,
+        environment,
+        bindset: "Primary Bindset",
+        skipPersistence: true,
+        forceEmit: true,
+      });
+      await vi.waitFor(() => {
+        expect(chainUi.cache.selectedKey).toBe(probeKey);
+        expect(document.getElementById("chainTitle")?.textContent).toContain(
+          probeKey,
+        );
+        expect(document.querySelectorAll(".command-item-row")).toHaveLength(
+          probeCommands.length,
+        );
+        for (const candidate of groupTypes) {
+          expect(
+            document.querySelector(`.group-header[data-group="${candidate}"]`),
+          ).toBeInstanceOf(HTMLElement);
+        }
+      });
+      let currentGroupHeader = document.querySelector(
+        `.group-header[data-group="${groupType}"]`,
+      );
+
       for (const expectedCollapsed of [
         !startingCategoryCollapsed,
         startingCategoryCollapsed,
       ]) {
+        const predecessorGroupHeader = currentGroupHeader;
         const { header } = categoryNodes(categoryId);
         expect(header).toBeInstanceOf(HTMLElement);
         header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -121,7 +201,13 @@ describe("Command presentation checked-bundle boundary", () => {
           expect(current.commands?.classList.contains("collapsed")).toBe(
             expectedCollapsed,
           );
+          expect(
+            document.querySelector(`.group-header[data-group="${groupType}"]`),
+          ).not.toBe(predecessorGroupHeader);
         });
+        currentGroupHeader = document.querySelector(
+          `.group-header[data-group="${groupType}"]`,
+        );
 
         expect(localStorage.getItem(categoryStorageKey)).toBe(
           String(expectedCollapsed),
@@ -135,13 +221,9 @@ describe("Command presentation checked-bundle boundary", () => {
         !startingGroupCollapsed,
         startingGroupCollapsed,
       ]) {
-        const groupHeader = appendProjectedGroupHeader(
-          chainUi,
-          groupType,
-          !expectedCollapsed,
-        );
+        const groupHeader = currentGroupHeader;
         expect(groupHeader).toBeInstanceOf(HTMLElement);
-        groupHeader?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        groupHeader.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         expectedRevision += 1;
 
         await vi.waitFor(() => {
@@ -153,7 +235,16 @@ describe("Command presentation checked-bundle boundary", () => {
               groupType,
             ),
           ).toBe(expectedCollapsed);
+          expect(
+            document
+              .querySelector(`.group-header[data-group="${groupType}"]`)
+              ?.querySelector(".twisty")
+              ?.classList.contains("collapsed"),
+          ).toBe(expectedCollapsed);
         });
+        currentGroupHeader = document.querySelector(
+          `.group-header[data-group="${groupType}"]`,
+        );
         expect(localStorage.getItem(groupStorageKey)).toBe(
           expectedCollapsed ? "true" : null,
         );
@@ -163,14 +254,10 @@ describe("Command presentation checked-bundle boundary", () => {
       }
 
       expect(chainUi.cache.commandPresentationState).toEqual({
-        ...startingState,
-        revision: startingState.revision + 4,
+        ...startingPresentationState,
+        revision: startingPresentationState.revision + 4,
       });
     } finally {
-      document
-        .querySelectorAll(`.command-group-separator[data-group="${groupType}"]`)
-        .forEach((element) => element.remove());
-
       let currentState = await requestOwnerSnapshot(bus);
       if (
         currentState.collapsedCategories.includes(categoryId) !==
@@ -190,6 +277,47 @@ describe("Command presentation checked-bundle boundary", () => {
 
       restoreRawStorage(categoryStorageKey, beforeCategoryRaw);
       restoreRawStorage(groupStorageKey, beforeGroupRaw);
+
+      await request(bus, "bindset-selector:set-active-bindset", {
+        bindset: originalBindset,
+      });
+      await request(bus, "selection:select-key", {
+        keyName: originalSelection,
+        environment,
+        bindset: originalBindset,
+        skipPersistence: true,
+        forceEmit: true,
+      });
+      await request(bus, "data:update-profile", {
+        profileId,
+        ...(hadOriginalKey
+          ? {
+              modify: {
+                builds: {
+                  [environment]: {
+                    keys: { [probeKey]: originalCommands },
+                  },
+                },
+              },
+            }
+          : {
+              delete: {
+                builds: {
+                  [environment]: { keys: [probeKey] },
+                },
+              },
+            }),
+      });
+      await request(bus, "data:update-profile", {
+        profileId,
+        modify: {
+          keybindMetadata: {
+            [environment]: {
+              [probeKey]: hadOriginalMetadata ? originalMetadata : {},
+            },
+          },
+        },
+      });
     }
 
     const restoredState = await requestOwnerSnapshot(bus);
