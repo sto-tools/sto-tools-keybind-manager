@@ -21,17 +21,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     removalGate: "All remaining aggregate readers use typed module imports.",
     writers: [writer("src/js/data.js", "STO_DATA")],
   },
-  VFX_EFFECTS: {
-    classification: "static-data compatibility",
-    purpose: "Legacy VFX catalog consumed by the VFX service and view.",
-    consumers: [
-      "src/js/components/services/VFXManagerService.js",
-      "src/js/components/ui/VFXManagerUI.js",
-    ],
-    compatibilityOwner: "data.js",
-    removalGate: "Both VFX consumers import the catalog directly.",
-    writers: [writer("src/js/data.js", "VFX_EFFECTS")],
-  },
   COMMANDS: {
     classification: "static-data compatibility",
     purpose: "Flattened command lookup retained for legacy validators.",

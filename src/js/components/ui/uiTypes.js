@@ -76,10 +76,6 @@
  *
  * @typedef {Record<string, UIDataRecord>} UIDataRecordMap
  *
- * @typedef {{ effect: string, label: string }} VFXEffect
- *
- * @typedef {{ space: VFXEffect[], ground: VFXEffect[] }} VFXEffects
- *
  * @typedef {{
  *   selectedEffects: { space: Set<string>, ground: Set<string> },
  *   showPlayerSay: boolean,
@@ -95,8 +91,7 @@
  *   stoUI?: UIServiceLike,
  *   confirmDialog?: ConfirmDialogLike,
  *   applyTranslations?: (element?: Document | Element | null) => void,
- *   stoSync?: { setSyncFolder: (autoSync?: boolean) => Promise<FileSystemDirectoryHandle | null> },
- *   VFX_EFFECTS?: VFXEffects
+ *   stoSync?: { setSyncFolder: (autoSync?: boolean) => Promise<FileSystemDirectoryHandle | null> }
  * }} RuntimeGlobals
  */
 

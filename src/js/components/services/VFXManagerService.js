@@ -1,4 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
+import defaultVFXEffects from "../../data/vfxEffects.js";
 import { formatAliasLine } from "../../lib/STOFormatter.js";
 import { getSnapshotProfile } from "./dataState.js";
 import {
@@ -15,11 +16,13 @@ export default class VFXManagerService extends ComponentBase {
   /**
    * @param {import('./serviceTypes.js').EventBus} eventBus
    * @param {import('./serviceTypes.js').I18n} i18n
+   * @param {import('../../data/vfxEffects.js').VFXEffects} [vfxEffects]
    */
-  constructor(eventBus, i18n) {
+  constructor(eventBus, i18n, vfxEffects = defaultVFXEffects) {
     super(eventBus);
     this.componentName = "VFXManagerService";
     this.i18n = i18n;
+    this.vfxEffects = vfxEffects;
 
     /** @type {SelectedEffects} */
     this.selectedEffects = {
@@ -160,11 +163,8 @@ export default class VFXManagerService extends ComponentBase {
   // Set all effects for an environment
   /** @param {VFXEnvironment} environment */
   selectAllEffects(environment) {
-    // Explicitly access VFX_EFFECTS from window object for clarity
-    const effectsByEnvironment =
-      /** @type {import('./serviceTypes.js').AppWindow} */ (window)
-        .VFX_EFFECTS || {};
-    if (!effectsByEnvironment[environment]) {
+    const effects = this.vfxEffects[environment];
+    if (!effects) {
       throw new Error(`Invalid environment: ${environment}`);
     }
 
@@ -172,7 +172,7 @@ export default class VFXManagerService extends ComponentBase {
       throw new Error(`Invalid environment: ${environment}`);
     }
 
-    effectsByEnvironment[environment].forEach((effect) => {
+    effects.forEach((effect) => {
       this.selectedEffects[environment].add(effect.effect);
     });
   }

@@ -16,7 +16,6 @@ import DataService from "./components/services/DataService.js";
 import { UIUtilityService } from "./components/services/index.js";
 import FileExplorerUI from "./components/ui/FileExplorerUI.js";
 import { SyncService } from "./components/services/index.js";
-// VFX_EFFECTS now available globally from data.js
 import STOToolsKeybindManager from "./app.js";
 // Version display functionality - moved inline to reduce file count
 import { DISPLAY_VERSION } from "./core/constants.js";
@@ -211,7 +210,6 @@ const dataService = new DataService({
     stoUI, // Required by many components for toast notifications
     stoSync, // Required by sync UI components
     eventBus, // Required for component communication debugging
-    // VFX_EFFECTS now available globally from data.js
   });
 
   // Initialize app after dependencies are available

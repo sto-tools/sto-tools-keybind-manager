@@ -53,7 +53,13 @@ describe("application-global alias write guard", () => {
         `,
         "src/js/data.js",
       ),
-    ).toEqual(["unsafeAlias", "unsafeAlias", "unsafeAlias", "mutableAlias"]);
+    ).toEqual([
+      "unsafeAlias",
+      "unsafeAlias",
+      "unsafeAlias",
+      "mutableAlias",
+      "unallowlisted",
+    ]);
   });
 
   it("resolves sequence aliases from the final expression", () => {

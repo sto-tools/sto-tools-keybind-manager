@@ -205,8 +205,7 @@
  *   localizeCommandData?: () => void,
  *   showDirectoryPicker?: () => Promise<unknown>,
  *   stoUI?: ToastUI,
- *   COMMANDS?: Record<string, CommandDefinition>,
- *   VFX_EFFECTS?: Record<string, Array<{ effect: string }>>
+ *   COMMANDS?: Record<string, CommandDefinition>
  * }} AppWindow
  */
 

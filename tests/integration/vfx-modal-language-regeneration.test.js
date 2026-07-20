@@ -6,7 +6,7 @@ import VFXManagerUI from "../../src/js/components/ui/VFXManagerUI.js";
 import { createDataCoordinatorState } from "../fixtures/core/componentState.js";
 import { createRealServiceFixture } from "../fixtures/index.js";
 
-const VFX_EFFECTS = {
+const vfxEffectsFixture = {
   space: [
     { effect: "Bloom", label: "Bloom" },
     { effect: "EngineGlow", label: "Engine Glow" },
@@ -32,7 +32,6 @@ function mountVFXModal() {
       <button id="saveVertigoBtn">Save</button>
     </div>
   `;
-  window.VFX_EFFECTS = VFX_EFFECTS;
 }
 
 function createI18nFixture() {
@@ -88,7 +87,6 @@ describe("VFX modal language regeneration", () => {
     if (modalManager && !modalManager.destroyed) modalManager.destroy();
     fixture?.destroy();
     document.body.replaceChildren();
-    delete window.VFX_EFFECTS;
     vi.restoreAllMocks();
   });
 
@@ -98,11 +96,16 @@ describe("VFX modal language regeneration", () => {
       eventBus: fixture.eventBus,
       i18n: i18nFixture.i18n,
     });
-    vfxManager = new VFXManagerService(fixture.eventBus, i18nFixture.i18n);
+    vfxManager = new VFXManagerService(
+      fixture.eventBus,
+      i18nFixture.i18n,
+      vfxEffectsFixture,
+    );
     vfxUI = new VFXManagerUI({
       eventBus: fixture.eventBus,
       modalManager,
       i18n: i18nFixture.i18n,
+      vfxEffects: vfxEffectsFixture,
     });
     const showModal = vi.fn();
     const regenerated = vi.fn();

@@ -66,7 +66,6 @@ declare global {
       LegacyCommandDefinition & { category: string; key: string }
     >;
     STO_DATA?: LegacySTOData;
-    VFX_EFFECTS?: Record<string, LegacyVFXEffect[]>;
     applyTranslations?: (root?: Document | Element | null) => void;
     commandChainUI?: CommandChainUI;
     confirmDialog?: ConfirmDialogUI;

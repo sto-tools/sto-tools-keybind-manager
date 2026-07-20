@@ -13,11 +13,10 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 16-name post-cleanup allowlist", () => {
+  it("freezes the exact 15-name post-cleanup allowlist", () => {
     const expectedNames = [
       "COMMANDS",
       "STO_DATA",
-      "VFX_EFFECTS",
       "applyTranslations",
       "commandChainUI",
       "confirmDialog",
@@ -100,6 +99,7 @@ describe("application-global compatibility metadata", () => {
     "InvalidEffectError",
     "inputDialog",
     "stoKeybinds",
+    "VFX_EFFECTS",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
@@ -110,7 +110,6 @@ describe("application-global write guard", () => {
     const messages = verify(
       `
         window.STO_DATA = {};
-        window.VFX_EFFECTS = {};
         window["COMMANDS"] = {};
         window[\`localizeCommandData\`] = () => {};
       `,
@@ -187,6 +186,7 @@ describe("application-global write guard", () => {
           window.dataService = {};
           window.inputDialog = {};
           window.stoKeybinds = {};
+          window.VFX_EFFECTS = {};
           window.STO_DATA = {};
           window.STO_DATA.commands = {};
           globalThis.window.stoAliases = {};
@@ -194,6 +194,7 @@ describe("application-global write guard", () => {
         "src/js/main.js",
       ),
     ).toEqual([
+      "unallowlisted",
       "unallowlisted",
       "unallowlisted",
       "unallowlisted",
@@ -317,7 +318,6 @@ describe("application-global write guard", () => {
       verify(
         `
           Object.defineProperty(window, "STO_DATA", { value: {} });
-          globalThis.Reflect.set(window, \`VFX_EFFECTS\`, {});
           const { defineProperties } = Object;
           defineProperties(window, { ["COMMANDS"]: { value: {} } });
           window.localizeCommandData = () => {};
@@ -346,7 +346,7 @@ describe("application-global write guard", () => {
       messageIds("export {};", "src/js/data.js", {
         enforceDeclaredWriters: true,
       }),
-    ).toEqual(["stale", "stale", "stale", "stale"]);
+    ).toEqual(["stale", "stale", "stale"]);
   });
 
   it("does not accept mutation or removal as proof of a producer", () => {
@@ -354,14 +354,13 @@ describe("application-global write guard", () => {
       messageIds(
         `
           delete window.STO_DATA;
-          window.VFX_EFFECTS++;
           ({ value: window.COMMANDS } = source);
           for (window.localizeCommandData of values) {}
         `,
         "src/js/data.js",
         { enforceDeclaredWriters: true },
       ),
-    ).toEqual(["stale", "stale", "stale", "stale"]);
+    ).toEqual(["stale", "stale", "stale"]);
   });
 });
 

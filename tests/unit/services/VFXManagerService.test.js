@@ -4,13 +4,16 @@ import { createDataCoordinatorState } from "../../fixtures/core/componentState.j
 import DataCoordinator from "../../../src/js/components/services/DataCoordinator.js";
 import VFXManagerService from "../../../src/js/components/services/VFXManagerService.js";
 
-// Mock VFX_EFFECTS data for testing
-const VFX_EFFECTS = {
-  space: [{ effect: "Bloom" }, { effect: "FX_A" }, { effect: "engine_glow" }],
+const vfxEffectsFixture = {
+  space: [
+    { effect: "Bloom", label: "Bloom" },
+    { effect: "FX_A", label: "Fixture A" },
+    { effect: "engine_glow", label: "Engine Glow" },
+  ],
   ground: [
-    { effect: "FX_GreenSmoke" },
-    { effect: "FX_B" },
-    { effect: "ground_sparkles" },
+    { effect: "FX_GreenSmoke", label: "Green Smoke" },
+    { effect: "FX_B", label: "Fixture B" },
+    { effect: "ground_sparkles", label: "Ground Sparkles" },
   ],
 };
 
@@ -42,14 +45,13 @@ describe("VFXManagerService", () => {
     );
 
   beforeEach(() => {
-    // Set up VFX_EFFECTS on window object for testing
-    window.VFX_EFFECTS = VFX_EFFECTS;
-
     fixture = createServiceFixture();
     eventBusFixture = fixture.eventBusFixture;
-    service = new VFXManagerService(eventBusFixture.eventBus, {
-      t: (key) => key,
-    });
+    service = new VFXManagerService(
+      eventBusFixture.eventBus,
+      { t: (key) => key },
+      vfxEffectsFixture,
+    );
     service.init();
   });
 
@@ -57,8 +59,6 @@ describe("VFXManagerService", () => {
     coordinator?.destroy();
     if (service && !service.destroyed) service.destroy();
     fixture.destroy();
-    // Clean up window.VFX_EFFECTS to avoid test interference
-    delete window.VFX_EFFECTS;
   });
 
   it("should toggle effect selection", () => {
@@ -394,21 +394,16 @@ describe("VFXManagerService", () => {
     eventBusFixture.expectEvent("vfx:modal-populate");
   });
 
-  it("should select all effects for an environment using window.VFX_EFFECTS", () => {
-    // Test that selectAllEffects works with explicit window.VFX_EFFECTS access
-    // Regression test for: VFX_MANAGER_UNDEFINED_REFERENCE bug
+  it("selects every injected catalog effect in source order", () => {
     service.selectAllEffects("space");
-    const selectedSpaceEffects = Array.from(service.selectedEffects.space);
-    expect(selectedSpaceEffects.length).toBeGreaterThan(0);
-    expect(selectedSpaceEffects).toContain("Bloom");
-    expect(selectedSpaceEffects).toContain("FX_A");
+    expect(Array.from(service.selectedEffects.space)).toEqual(
+      vfxEffectsFixture.space.map(({ effect }) => effect),
+    );
 
-    // Test ground environment
     service.selectAllEffects("ground");
-    const selectedGroundEffects = Array.from(service.selectedEffects.ground);
-    expect(selectedGroundEffects.length).toBeGreaterThan(0);
-    expect(selectedGroundEffects).toContain("FX_GreenSmoke");
-    expect(selectedGroundEffects).toContain("FX_B");
+    expect(Array.from(service.selectedEffects.ground)).toEqual(
+      vfxEffectsFixture.ground.map(({ effect }) => effect),
+    );
   });
 
   it("should handle invalid environment errors in selectAllEffects", () => {

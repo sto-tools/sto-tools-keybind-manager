@@ -3,8 +3,7 @@ import { createServiceFixture } from "../../fixtures/index.js";
 import { createEventBusFixture } from "../../fixtures/core/eventBus.js";
 import VFXManagerUI from "../../../src/js/components/ui/VFXManagerUI.js";
 
-// Mock VFX_EFFECTS constant
-const VFX_EFFECTS = {
+const vfxEffectsFixture = {
   space: [
     { effect: "shield_bubble", label: "Shield Bubble" },
     { effect: "engine_glow", label: "Engine Glow" },
@@ -42,14 +41,10 @@ function createDomFixture() {
   `;
   document.body.appendChild(container);
 
-  // Make VFX_EFFECTS available globally for the component
-  window.VFX_EFFECTS = VFX_EFFECTS;
-
   return {
     container,
     cleanup: () => {
       container.remove();
-      delete window.VFX_EFFECTS;
     },
   };
 }
@@ -75,7 +70,7 @@ function createMockVFXManager() {
     },
 
     selectAllEffects(environment) {
-      VFX_EFFECTS[environment].forEach((effect) => {
+      vfxEffectsFixture[environment].forEach((effect) => {
         this.selectedEffects[environment].add(effect.effect);
       });
     },
@@ -145,6 +140,7 @@ describe("VFXManagerUI", () => {
       eventBus: eventBusFixture.eventBus,
       modalManager,
       i18n: { t: vi.fn((key) => key) },
+      vfxEffects: vfxEffectsFixture,
     });
   });
 
@@ -258,10 +254,21 @@ describe("VFXManagerUI", () => {
     spaceClearAllBtn.click();
 
     expect(mockVFXManager.selectedEffects.space.size).toBe(0);
+
+    const groundSelectAllBtn = document.getElementById("groundSelectAll");
+    groundSelectAllBtn.click();
+
+    expect(mockVFXManager.selectedEffects.ground.size).toBe(2);
+
+    const groundClearAllBtn = document.getElementById("groundClearAll");
+    groundClearAllBtn.click();
+
+    expect(mockVFXManager.selectedEffects.ground.size).toBe(0);
   });
 
   it("should populate modal with effects correctly", () => {
     vfxManagerUI.vfxManager = mockVFXManager;
+    const catalogSnapshot = structuredClone(vfxEffectsFixture);
 
     // Populate modal
     vfxManagerUI.handleModalPopulate({ vfxManager: mockVFXManager });
@@ -276,6 +283,19 @@ describe("VFXManagerUI", () => {
 
     expect(spaceCheckboxes.length).toBe(2);
     expect(groundCheckboxes.length).toBe(2);
+    expect(
+      Array.from(
+        document.querySelectorAll("#spaceEffectsList .effect-name"),
+        (element) => element.textContent,
+      ),
+    ).toEqual(["Engine Glow", "Shield Bubble"]);
+    expect(
+      Array.from(
+        document.querySelectorAll("#groundEffectsList .effect-name"),
+        (element) => element.textContent,
+      ),
+    ).toEqual(["Footprint Glow", "Ground Sparkles"]);
+    expect(vfxEffectsFixture).toEqual(catalogSnapshot);
 
     // Check specific effects
     const shieldBubbleCheckbox = document.querySelector(

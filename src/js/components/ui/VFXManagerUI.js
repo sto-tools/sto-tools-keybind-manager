@@ -1,23 +1,27 @@
 import UIComponentBase from "../UIComponentBase.js";
+import defaultVFXEffects from "../../data/vfxEffects.js";
 import { eventElement, resolveI18n } from "./uiTypes.js";
-
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
 
 export default class VFXManagerUI extends UIComponentBase {
   /**
    * @param {{
    *   eventBus?: import('./uiTypes.js').EventBus,
    *   modalManager?: import('./uiTypes.js').ModalManagerLike,
-   *   i18n?: import('./uiTypes.js').I18nLike
+   *   i18n?: import('./uiTypes.js').I18nLike,
+   *   vfxEffects?: import('../../data/vfxEffects.js').VFXEffects
    * }} [options]
    */
-  constructor({ eventBus, modalManager, i18n } = {}) {
+  constructor({
+    eventBus,
+    modalManager,
+    i18n,
+    vfxEffects = defaultVFXEffects,
+  } = {}) {
     super(eventBus);
     this.componentName = "VFXManagerUI";
     this.modalManager = modalManager;
     this.i18n = resolveI18n(i18n);
+    this.vfxEffects = vfxEffects;
     this.domListenersSetup = false;
     /** @type {import('./uiTypes.js').VFXManagerLike | null} */
     this.vfxManager = null;
@@ -61,9 +65,8 @@ export default class VFXManagerUI extends UIComponentBase {
     const spaceList = document.getElementById("spaceEffectsList");
     if (spaceList) {
       spaceList.innerHTML = "";
-      // Explicitly access VFX_EFFECTS from window object for clarity
-      const sortedSpaceEffects = [...(runtime.VFX_EFFECTS?.space || [])].sort(
-        (a, b) => a.label.localeCompare(b.label),
+      const sortedSpaceEffects = [...this.vfxEffects.space].sort((a, b) =>
+        a.label.localeCompare(b.label),
       );
       sortedSpaceEffects.forEach((effect) => {
         const effectItem = this.createEffectItem("space", effect);
@@ -75,9 +78,8 @@ export default class VFXManagerUI extends UIComponentBase {
     const groundList = document.getElementById("groundEffectsList");
     if (groundList) {
       groundList.innerHTML = "";
-      // Explicitly access VFX_EFFECTS from window object for clarity
-      const sortedGroundEffects = [...(runtime.VFX_EFFECTS?.ground || [])].sort(
-        (a, b) => a.label.localeCompare(b.label),
+      const sortedGroundEffects = [...this.vfxEffects.ground].sort((a, b) =>
+        a.label.localeCompare(b.label),
       );
       sortedGroundEffects.forEach((effect) => {
         const effectItem = this.createEffectItem("ground", effect);
@@ -104,7 +106,7 @@ export default class VFXManagerUI extends UIComponentBase {
 
   /**
    * @param {'space' | 'ground'} environment
-   * @param {import('./uiTypes.js').VFXEffect} effect
+   * @param {import('../../data/vfxEffects.js').VFXEffect} effect
    */
   createEffectItem(environment, effect) {
     const manager = this.vfxManager;

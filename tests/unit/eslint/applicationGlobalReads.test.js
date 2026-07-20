@@ -112,6 +112,7 @@ describe("application-global read guard", () => {
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoFileExplorer");
     expect(applicationGlobalAllowlist).not.toHaveProperty("inputDialog");
     expect(applicationGlobalAllowlist).not.toHaveProperty("stoKeybinds");
+    expect(applicationGlobalAllowlist).not.toHaveProperty("VFX_EFFECTS");
     expect(applicationGlobalAllowlist.STO_DATA.consumers).not.toContain(
       "src/js/components/services/DataService.js",
     );
@@ -132,6 +133,18 @@ describe("application-global read guard", () => {
     ).toEqual(["unallowlisted"]);
     expect(
       readMessageIds("void globalThis.stoKeybinds;", "src/js/main.js"),
+    ).toEqual(["unallowlisted"]);
+    expect(
+      readMessageIds(
+        "void globalThis.VFX_EFFECTS;",
+        "src/js/components/services/VFXManagerService.js",
+      ),
+    ).toEqual(["unallowlisted"]);
+    expect(
+      readMessageIds(
+        "void globalThis.VFX_EFFECTS;",
+        "src/js/components/ui/VFXManagerUI.js",
+      ),
     ).toEqual(["unallowlisted"]);
   });
 });
