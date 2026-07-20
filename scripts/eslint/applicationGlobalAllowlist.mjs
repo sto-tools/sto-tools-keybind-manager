@@ -129,7 +129,6 @@ export const applicationGlobalAllowlist = deepFreeze({
     consumers: [
       "src/js/components/services/StorageService.js",
       "src/js/components/services/dataCoordinatorDefaultUi.js",
-      "src/js/components/ui/CommandChainUI.js",
       "src/js/components/ui/CommandUI.js",
       "src/js/components/ui/FileExplorerUI.js",
       "src/js/components/ui/InterfaceModeUI.js",
@@ -190,13 +189,10 @@ export const applicationGlobalAllowlist = deepFreeze({
   },
   commandChainUI: {
     classification: "UI compatibility",
-    purpose: "Legacy command-library refresh bridge.",
-    consumers: [
-      "src/js/components/ui/CommandLibraryUI.js",
-      "browser diagnostics",
-    ],
+    purpose: "Checked-bundle command-chain inspection surface.",
+    consumers: ["browser diagnostics"],
     compatibilityOwner: "app.js",
-    removalGate: "Command-library refresh is expressed as a typed event.",
+    removalGate: "Browser probes use typed state and action protocols.",
     writers: [writer("src/js/app.js", "commandChainUI")],
   },
   keyBrowserUI: {

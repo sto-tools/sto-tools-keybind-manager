@@ -474,7 +474,6 @@ describe("Bind-to-Alias Mode", () => {
     beforeEach(() => {
       // Setup bindsets feature
       ui.cache.preferences.bindsetsEnabled = true;
-      ui._bindsetNames = ["Primary Bindset", "Custom Bindset"];
       ui.cache.activeBindset = "Primary Bindset";
       ui.cache.selectedKey = "F1";
       ui.cache.currentEnvironment = "space";
@@ -523,35 +522,6 @@ describe("Bind-to-Alias Mode", () => {
       ui.cache.activeBindset = "Custom Bindset";
       await ui.updateChainActions();
       expect(mockButton.classList.toggle).toHaveBeenCalledWith("active", true);
-    });
-
-    it("should call updateChainActions when activeBindset changes", async () => {
-      // Mock the updateChainActions method to verify it gets called
-      const originalUpdateChainActions = ui.updateChainActions;
-      ui.updateChainActions = vi.fn();
-      ui.updateBindsetBanner = vi.fn();
-      ui.render = vi.fn();
-
-      // Simulate what happens in the dropdown click handler
-      ui.activeBindset = "Primary Bindset";
-
-      // Simulate the dropdown option click logic (the part we actually care about)
-      const oldBindset = ui.activeBindset;
-      const newBindset = "Custom Bindset";
-
-      if (newBindset !== oldBindset) {
-        ui.activeBindset = newBindset;
-        ui.updateBindsetBanner();
-        ui.updateChainActions(); // This is the line we added in our fix
-        ui.render();
-      }
-
-      // Verify the fix works
-      expect(ui.updateChainActions).toHaveBeenCalled();
-      expect(ui.activeBindset).toBe("Custom Bindset");
-
-      // Restore original method
-      ui.updateChainActions = originalUpdateChainActions;
     });
   });
 });

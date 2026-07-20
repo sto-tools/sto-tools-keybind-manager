@@ -113,6 +113,12 @@ describe("application-global read guard", () => {
     expect(applicationGlobalAllowlist.STO_DATA.consumers).not.toContain(
       "src/js/components/services/DataService.js",
     );
+    expect(applicationGlobalAllowlist.commandChainUI.consumers).not.toContain(
+      "src/js/components/ui/CommandLibraryUI.js",
+    );
+    expect(applicationGlobalAllowlist.stoUI.consumers).not.toContain(
+      "src/js/components/ui/CommandChainUI.js",
+    );
   });
 });
 

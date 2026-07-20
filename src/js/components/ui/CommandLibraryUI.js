@@ -14,10 +14,6 @@ import {
 import { isCommandCategoryCollapsed } from "../services/commandPresentationState.js";
 import { getCommandCategories } from "../../data/commandCatalog.js";
 
-const runtime = /** @type {import('./uiTypes.js').RuntimeGlobals} */ (
-  globalThis
-);
-
 /**
  * @typedef {import('../services/serviceTypes.js').AliasDefinition & {
  *   displayName?: string,
@@ -96,13 +92,6 @@ export default class CommandLibraryUI extends UIComponentBase {
       this.applySearchFilter(term);
     });
 
-    this.addEventListener("key-selected", () => {
-      this.updateChainActions();
-    });
-
-    this.addEventListener("alias-selected", () => {
-      this.updateChainActions();
-    });
     // Listen for language changes to refresh command library with new translations
     this.addEventListener("language:changed", () => {
       this.setupCommandLibrary();
@@ -475,67 +464,6 @@ export default class CommandLibraryUI extends UIComponentBase {
   filterCommandLibrary() {
     // Delegate actual filtering logic to CommandLibraryService via request-response
     this.request("command:filter-library").catch(() => {});
-  }
-
-  // Update chain action buttons state
-  updateChainActions() {
-    if (runtime.commandChainUI) {
-      runtime.commandChainUI.updateChainActions();
-      return;
-    }
-
-    // Don't run if document is not available or DOM not ready
-    if (!this.document || !this.document.getElementById) {
-      return;
-    }
-
-    // Use cached state from event listeners
-    const selectedKey =
-      this.cache.currentEnvironment === "alias"
-        ? this.cache.selectedAlias
-        : this.cache.selectedKey;
-    const hasSelectedKey = !!selectedKey;
-    const doc = this.document;
-
-    if (this.cache.currentEnvironment === "alias") {
-      const aliasButtons = ["deleteAliasChainBtn", "duplicateAliasChainBtn"];
-      aliasButtons.forEach((id) => {
-        const btn = /** @type {HTMLButtonElement | null} */ (
-          doc.getElementById(id)
-        );
-        if (btn) btn.disabled = !hasSelectedKey;
-      });
-      const importBtn = /** @type {HTMLButtonElement | null} */ (
-        doc.getElementById("importFromKeyOrAliasBtn")
-      );
-      if (importBtn) importBtn.disabled = !hasSelectedKey;
-      const keyButtons = ["deleteKeyBtn", "duplicateKeyBtn"];
-      keyButtons.forEach((id) => {
-        const btn = /** @type {HTMLButtonElement | null} */ (
-          doc.getElementById(id)
-        );
-        if (btn) btn.disabled = true;
-      });
-    } else {
-      const mainButtons = [
-        "importFromKeyOrAliasBtn",
-        "deleteKeyBtn",
-        "duplicateKeyBtn",
-      ];
-      mainButtons.forEach((id) => {
-        const btn = /** @type {HTMLButtonElement | null} */ (
-          doc.getElementById(id)
-        );
-        if (btn) btn.disabled = !hasSelectedKey;
-      });
-      const aliasButtons = ["deleteAliasChainBtn", "duplicateAliasChainBtn"];
-      aliasButtons.forEach((id) => {
-        const btn = /** @type {HTMLButtonElement | null} */ (
-          doc.getElementById(id)
-        );
-        if (btn) btn.disabled = true;
-      });
-    }
   }
 
   // Update local cache from profile data received from DataCoordinator

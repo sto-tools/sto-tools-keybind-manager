@@ -136,25 +136,22 @@ export default class CommandChainUI extends UIComponentBase {
   }) {
     super(eventBus);
     this.componentName = "CommandChainUI";
-    this.ui = ui || runtime.stoUI || null;
+    this.ui = ui;
     this.document = resolveDocument(document);
     this.i18n = resolveI18n(i18n);
 
     /** @type {CommandGroups | null} */
     this.currentGroups = null;
-    /** @type {string[]} */
-    this._bindsetNames = [];
-    this._bindsetDropdownReady = false;
     this.eventListenersSetup = false;
     this._hasSelectionState = false;
     this._renderGeneration = 0;
   }
 
-  async onInit() {
-    await this.setupEventListeners();
+  onInit() {
+    this.setupEventListeners();
   }
 
-  async setupEventListeners() {
+  setupEventListeners() {
     if (this.eventListenersSetup) return;
     this.eventListenersSetup = true;
 
@@ -186,13 +183,12 @@ export default class CommandChainUI extends UIComponentBase {
       if (env) {
         this.updateChainActions();
         this.updatePreviewLabel();
-        this.setupBindsetDropdown().catch(() => {});
         this.reconcileAcceptedState();
       }
     });
 
     // Listen for key selection
-    this.addEventListener("key-selected", async (data) => {
+    this.addEventListener("key-selected", (data) => {
       const selectedKey = data.key !== undefined ? data.key : data.name;
       if (selectedKey !== undefined) {
         this.cache.selectedKey = selectedKey;
@@ -203,9 +199,6 @@ export default class CommandChainUI extends UIComponentBase {
       this._hasSelectionState = true;
 
       this.updateChainActions();
-
-      await this.refreshActiveBindset();
-
       this.reconcileAcceptedState();
     });
 
@@ -216,14 +209,8 @@ export default class CommandChainUI extends UIComponentBase {
     });
 
     // Listen for profile switching to clear cached state and show empty state
-    this.addEventListener("profile:switched", async () => {
+    this.addEventListener("profile:switched", () => {
       console.log("[CommandChainUI] Profile switched, clearing cached state");
-      // Reset to Primary Bindset when switching profiles
-      await this.request("bindset-selector:set-active-bindset", {
-        bindset: "Primary Bindset",
-      });
-      // updateBindsetBanner and updateChainActions will be called by the bindset-selector:active-changed listener
-
       this.reconcileAcceptedState();
     });
 
@@ -241,72 +228,6 @@ export default class CommandChainUI extends UIComponentBase {
     if (!this.cache.currentEnvironment) {
       this.cache.currentEnvironment = "space";
     }
-
-    // Listen for key added to bindset - should switch to that bindset and show empty chain
-    console.log(
-      "[CommandChainUI] Setting up bindset-selector:key-added event listener",
-    );
-    this.addEventListener("bindset-selector:key-added", ({ key, bindset }) => {
-      console.log(
-        `[CommandChainUI] *** bindset-selector:key-added received: key=${key}, bindset=${bindset}, selectedKey=${this.cache.selectedKey} ***`,
-      );
-      if (key === this.cache.selectedKey) {
-        console.log(
-          `[CommandChainUI] *** Key added to bindset: ${bindset} (bindset switching already handled) ***`,
-        );
-        // NOTE: The BindsetSelectorService now switches to the bindset immediately when adding the key
-        // So we don't need to call setActiveBindset again here - it's already done
-        // The bindset-selector:active-changed event will have already fired
-      } else {
-        console.log(
-          `[CommandChainUI] *** Event key ${key} does not match selectedKey ${this.cache.selectedKey}, ignoring ***`,
-        );
-      }
-    });
-    console.log(
-      "[CommandChainUI] bindset-selector:key-added event listener registered",
-    );
-
-    // Listen for key removed from bindset - switch to Primary if it was the active bindset
-    this.addEventListener(
-      "bindset-selector:key-removed",
-      async ({ key, bindset }) => {
-        if (
-          key === this.cache.selectedKey &&
-          this.cache.activeBindset === bindset
-        ) {
-          // Switch to Primary Bindset since the key was removed from the active bindset
-          await this.request("bindset-selector:set-active-bindset", {
-            bindset: "Primary Bindset",
-          });
-          // updateBindsetBanner, updateChainActions, and render will be called by the bindset-selector:active-changed listener
-        }
-      },
-    );
-
-    // Listen for preferences loaded event so we can initialize bindset UI based on saved settings
-    this.addEventListener("preferences:loaded", async ({ settings }) => {
-      if (settings && typeof settings.bindsetsEnabled !== "undefined") {
-        // Use centralized cache instead of local variable
-        if (
-          !!this.cache.preferences.bindsetsEnabled &&
-          !this._bindsetDropdownReady
-        ) {
-          await this.setupBindsetDropdown();
-        }
-      }
-    });
-
-    // Listen for bindset changes
-    this.addEventListener("bindsets:changed", async (data) => {
-      console.log(
-        "[CommandChainUI] bindsets:changed received with",
-        data.names.length,
-        "bindsets",
-      );
-      this._bindsetNames = data.names;
-      await this.setupBindsetDropdown();
-    });
 
     // Listen for stabilization button click
     this.onDom("stabilizeExecutionOrderBtn", "click", async () => {
@@ -524,47 +445,17 @@ export default class CommandChainUI extends UIComponentBase {
 
     // UIComponentBase will handle initial render when data dependencies are ready
 
-    // Listen for preference changes that toggle bindsets at runtime
-    this.addEventListener("preferences:changed", async (data) => {
+    // Bindset preferences alter chain projection. BindsetSelectorUI exclusively
+    // owns the selector container and its visibility.
+    this.addEventListener("preferences:changed", (data) => {
       const changes = data.changes || { [data.key]: data.value };
-      let needsDropdownUpdate = false;
-      let needsRender = false;
-
-      for (const [key, value] of Object.entries(changes)) {
-        if (key === "bindsetsEnabled") {
-          // Use centralized cache instead of local variable
-          needsDropdownUpdate = true;
-          needsRender = true;
-          if (!value && this._bindsetDropdownReady) {
-            const sel = this.document.getElementById("bindsetSelect");
-            if (sel) sel.style.display = "none";
-          }
-        } else if (key === "bindToAliasMode") {
-          console.log(
-            `[CommandChainUI] Preference changed: bindToAliasMode = ${value}`,
-          );
-          // ComponentBase handles this.cache.preferences.bindToAliasMode automatically
-          needsDropdownUpdate = true;
-          needsRender = true;
-        }
-      }
-
-      if (needsDropdownUpdate) {
-        await this.setupBindsetDropdown();
-      }
-
-      if (needsRender) {
+      if (
+        Object.hasOwn(changes, "bindsetsEnabled") ||
+        Object.hasOwn(changes, "bindToAliasMode")
+      ) {
         this.reconcileAcceptedState();
       }
     });
-
-    // Initialize active bindset if not already set (ComponentBase should handle this via state sync)
-    if (!this.cache.activeBindset) {
-      console.log(
-        "[CommandChainUI] No active bindset in cache, waiting for ComponentBase state sync",
-      );
-      // REMOVED: await this.request('bindset-selector:set-active-bindset', { bindset: 'Primary Bindset' })
-    }
   }
 
   /**
@@ -1674,7 +1565,6 @@ export default class CommandChainUI extends UIComponentBase {
     this._renderGeneration += 1;
     this.currentGroups = null;
     this.eventListenersSetup = false;
-    this._bindsetDropdownReady = false;
     this._hasSelectionState = false;
     this.pendingInitialRender = false;
     this.cache.commandPresentationState = null;
@@ -1726,75 +1616,6 @@ export default class CommandChainUI extends UIComponentBase {
     if (environment) {
       this.cache.currentEnvironment = environment;
       this.updateChainActions();
-    }
-
-    // Pick up bindset info from late-join broadcasts
-    if (sender === "BindsetService") {
-      this._bindsetNames = state.bindsets;
-    }
-
-    // ComponentBase now handles PreferencesService late-join automatically
-    if (sender === "PreferencesService" && this.cache.preferences) {
-      console.log(
-        `[CommandChainUI] Late-join preferences received, checking bindset setup`,
-      );
-      if (
-        !!this.cache.preferences.bindsetsEnabled &&
-        !this._bindsetDropdownReady
-      ) {
-        // preferences arrive before onInit resolved
-        this.setupBindsetDropdown().catch(() => {});
-      }
-    }
-  }
-
-  // Bindset helpers
-  async setupBindsetDropdown() {
-    const bindToAliasMode = this.cache.preferences.bindToAliasMode;
-    const container = this.document.getElementById("bindsetSelectorContainer");
-
-    // Hide bindset selector in alias mode since bindsets don't apply to aliases
-    if (
-      this.cache.currentEnvironment === "alias" ||
-      !this.cache.preferences.bindsetsEnabled ||
-      !bindToAliasMode
-    ) {
-      if (container) container.style.display = "none";
-      return;
-    }
-
-    // Show the bindset selector container
-    if (container) {
-      container.style.display = "block";
-    }
-
-    await this.refreshActiveBindset();
-    this._bindsetDropdownReady = true;
-  }
-
-  /** @param {string | undefined} [preferredBindset] */
-  async refreshActiveBindset(preferredBindset = undefined) {
-    try {
-      if (preferredBindset !== undefined) {
-        const resolved = preferredBindset || "Primary Bindset";
-        this.cache.activeBindset = resolved;
-        this.updateBindsetBanner();
-        return;
-      }
-
-      // FIXED: State should be available via ComponentBase synchronization
-      if (this.cache.activeBindset) {
-        this.updateBindsetBanner();
-      } else {
-        console.warn(
-          "[CommandChainUI] No active bindset in cache - ComponentBase state sync may be incomplete",
-        );
-      }
-    } catch (error) {
-      console.error(
-        "[CommandChainUI] Failed to refresh active bindset state",
-        error,
-      );
     }
   }
 

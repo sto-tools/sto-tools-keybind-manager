@@ -96,7 +96,6 @@
  *   confirmDialog?: ConfirmDialogLike,
  *   inputDialog?: InputDialogLike,
  *   applyTranslations?: (element?: Document | Element | null) => void,
- *   commandChainUI?: { updateChainActions: () => unknown },
  *   stoSync?: { setSyncFolder: (autoSync?: boolean) => Promise<FileSystemDirectoryHandle | null> },
  *   VFX_EFFECTS?: VFXEffects
  * }} RuntimeGlobals

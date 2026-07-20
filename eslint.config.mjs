@@ -9,7 +9,7 @@ import applicationGlobalsPlugin from "./scripts/eslint/applicationGlobals.mjs";
 const legacyMaxLineLimits = {
   "src/js/components/services/DataCoordinator.js": 928,
   "src/js/components/services/ParameterCommandService.js": 550,
-  "src/js/components/ui/CommandChainUI.js": 1502,
+  "src/js/components/ui/CommandChainUI.js": 1366,
   "src/js/components/ui/CommandUI.js": 538,
   "src/js/data.js": 1759,
   "src/js/lib/kbf/parsers/KBFDecodePipeline.js": 915,
@@ -17,8 +17,7 @@ const legacyMaxLineLimits = {
   "tests/unit/lib/ActivityTranslator.test.js": 3250,
   "tests/unit/services/ImportService.test.js": 826,
   "tests/unit/services/SelectionService.test.js": 580,
-  "tests/unit/ui/CommandChainUI.test.js": 442,
-  "tests/unit/ui/CommandChainUI.title-fix.test.js": 528,
+  "tests/unit/ui/CommandChainUI.test.js": 423,
 };
 
 export default [

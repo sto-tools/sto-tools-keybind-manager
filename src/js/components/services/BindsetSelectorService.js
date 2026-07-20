@@ -104,8 +104,9 @@ export default class BindsetSelectorService extends ComponentBase {
 
     this.addEventListener("profile:switched", () => {
       console.log(
-        "[BindsetSelectorService] profile:switched - updating key membership",
+        "[BindsetSelectorService] profile:switched - resetting bindset and updating key membership",
       );
+      this.setActiveBindset("Primary Bindset");
       this.updateKeyMembership();
     });
 
@@ -406,6 +407,9 @@ export default class BindsetSelectorService extends ComponentBase {
           bindset: bindsetName,
           environment: this.cache.currentEnvironment,
         });
+        if (this.cache.activeBindset === bindsetName) {
+          this.setActiveBindset("Primary Bindset");
+        }
       }
 
       return result;

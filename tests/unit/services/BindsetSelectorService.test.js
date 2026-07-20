@@ -172,4 +172,93 @@ describe("BindsetSelectorService key lookup", () => {
       fixture.eventBusFixture.getEventsOfType("bindset-operation:completed"),
     ).toEqual([]);
   });
+
+  it("owns the active-bindset reset after removing the selected key", async () => {
+    service.init();
+    service.cache.selectedKey = "F1";
+    service.cache.currentEnvironment = "space";
+    service.cache.activeBindset = "Weapons";
+    service.cache.profile = { id: "profile-1" };
+    fixture.eventBus.mockResponse("data:update-profile", () => ({
+      success: true,
+    }));
+    fixture.eventBusFixture.clearEventHistory();
+
+    await expect(service.removeKeyFromBindset("Weapons")).resolves.toEqual({
+      success: true,
+    });
+
+    expect(service.cache.activeBindset).toBe("Primary Bindset");
+    expect(service.keyBindsetMembership.get("Weapons")).toBe(false);
+    expect(
+      fixture.eventBusFixture
+        .getEventHistory()
+        .filter(({ event }) =>
+          [
+            "bindset-selector:key-removed",
+            "bindset-selector:active-changed",
+          ].includes(event),
+        )
+        .map(({ event, data }) => ({ event, data })),
+    ).toEqual([
+      {
+        event: "bindset-selector:key-removed",
+        data: { key: "F1", bindset: "Weapons", environment: "space" },
+      },
+      {
+        event: "bindset-selector:active-changed",
+        data: { bindset: "Primary Bindset" },
+      },
+    ]);
+  });
+
+  it("does not reset the active bindset when key removal is rejected", async () => {
+    service.init();
+    service.cache.selectedKey = "F1";
+    service.cache.currentEnvironment = "space";
+    service.cache.activeBindset = "Weapons";
+    service.cache.profile = { id: "profile-1" };
+    fixture.eventBus.mockResponse("data:update-profile", () => ({
+      success: false,
+      error: "persistence_failed",
+    }));
+    fixture.eventBusFixture.clearEventHistory();
+
+    await expect(service.removeKeyFromBindset("Weapons")).resolves.toEqual({
+      success: false,
+      error: "persistence_failed",
+    });
+
+    expect(service.cache.activeBindset).toBe("Weapons");
+    expect(
+      fixture.eventBusFixture
+        .getEventHistory()
+        .filter(({ event }) => event.startsWith("bindset-selector:")),
+    ).toEqual([]);
+  });
+
+  it("resets active bindset state directly when the profile changes", () => {
+    service.init();
+    service.cache.activeBindset = "Weapons";
+    service.updateKeyMembership = vi.fn();
+    fixture.eventBusFixture.clearEventHistory();
+
+    fixture.eventBus.emit("profile:switched", {
+      profileId: "profile-2",
+      profile: {
+        id: "profile-2",
+        builds: { space: { keys: {} }, ground: { keys: {} } },
+        aliases: {},
+      },
+      environment: "space",
+    });
+
+    expect(service.cache.activeBindset).toBe("Primary Bindset");
+    expect(service.updateKeyMembership).toHaveBeenCalledOnce();
+    expect(
+      fixture.eventBusFixture.getEventsOfType(
+        "bindset-selector:active-changed",
+      ),
+    ).toHaveLength(1);
+  });
 });
