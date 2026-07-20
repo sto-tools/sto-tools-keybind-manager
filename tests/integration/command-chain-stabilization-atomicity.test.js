@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CommandChainService from "../../src/js/components/services/CommandChainService.js";
 import DataCoordinator from "../../src/js/components/services/DataCoordinator.js";
+import CommandChainUI from "../../src/js/components/ui/CommandChainUI.js";
 import { createServiceFixture } from "../fixtures/index.js";
 
 const profile = {
@@ -9,7 +10,11 @@ const profile = {
   description: "Failure-atomic stabilization fixture",
   currentEnvironment: "space",
   builds: {
-    space: { keys: { F1: ["FireAll"] } },
+    space: {
+      keys: {
+        F1: ["TrayExecByTray 0 0", "FireAll", "TrayExecByTray 1 0"],
+      },
+    },
     ground: { keys: {} },
   },
   aliases: {
@@ -108,6 +113,32 @@ function configureTarget(service, target) {
   service.cache.activeBindset = target.bindset || "Primary Bindset";
 }
 
+function createStabilizationDocument() {
+  const classes = new Set();
+  const stabilizeButton = {
+    disabled: false,
+    classList: {
+      contains: (name) => classes.has(name),
+      remove: (...names) => names.forEach((name) => classes.delete(name)),
+      toggle: (name, force) => {
+        const active = force === undefined ? !classes.has(name) : force;
+        if (active) classes.add(name);
+        else classes.delete(name);
+        return active;
+      },
+    },
+  };
+  return {
+    document: {
+      getElementById: vi.fn((id) =>
+        id === "stabilizeExecutionOrderBtn" ? stabilizeButton : null,
+      ),
+      querySelector: vi.fn(() => null),
+    },
+    stabilizeButton,
+  };
+}
+
 const mutationEvents = [
   "data:state-changed",
   "profile:updated",
@@ -120,6 +151,7 @@ describe("CommandChainService stabilization owner atomicity", () => {
   let fixture;
   let coordinator;
   let service;
+  let ui;
   const lateJoiners = [];
 
   beforeEach(async () => {
@@ -154,10 +186,63 @@ describe("CommandChainService stabilization owner atomicity", () => {
     for (const lateJoiner of lateJoiners) {
       if (!lateJoiner.destroyed) lateJoiner.destroy();
     }
+    if (ui && !ui.destroyed) ui.destroy();
     if (!service.destroyed) service.destroy();
     if (!coordinator.destroyed) coordinator.destroy();
     fixture.destroy();
     vi.restoreAllMocks();
+  });
+
+  it("routes the UI toggle through one metadata-only owner update", async () => {
+    const mixedCommands = [
+      "TrayExecByTray 0 0",
+      "FireAll",
+      "TrayExecByTray 1 0",
+    ];
+    const { document, stabilizeButton } = createStabilizationDocument();
+    ui = new CommandChainUI({
+      eventBus: fixture.eventBus,
+      document,
+      i18n: { t: (key) => key },
+      ui: { showToast: vi.fn() },
+    });
+    ui.init();
+    ui.cache.selectedKey = "F1";
+    ui.cache.selectedAlias = null;
+    ui.cache.currentEnvironment = "space";
+    ui.cache.activeBindset = "Primary Bindset";
+    ui.cache.preferences.bindsetsEnabled = true;
+    const request = vi.spyOn(ui, "request");
+
+    await ui.updateChainActions();
+    expect(stabilizeButton.classList.contains("active")).toBe(true);
+    const revisionBefore = coordinator.getCurrentState().revision;
+
+    await ui.toggleStabilize();
+
+    const ownerAfter = coordinator.getCurrentState();
+    expect(request).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalledWith("command:set-stabilize", {
+      name: "F1",
+      stabilize: false,
+      bindset: "Primary Bindset",
+    });
+    expect(fixture.storage.saveProfile).toHaveBeenCalledOnce();
+    expect(ownerAfter.revision).toBe(revisionBefore + 1);
+    expect(ownerAfter.profiles.captain.builds.space.keys.F1).toEqual(
+      mixedCommands,
+    );
+    expect(fixture.storage.getProfile("captain").builds.space.keys.F1).toEqual(
+      mixedCommands,
+    );
+    expect(ui.cache.dataState?.profiles.captain.builds.space.keys.F1).toEqual(
+      mixedCommands,
+    );
+    expect(
+      ownerAfter.profiles.captain.keybindMetadata.space.F1
+        .stabilizeExecutionOrder,
+    ).toBe(false);
+    expect(stabilizeButton.classList.contains("active")).toBe(false);
   });
 
   it.each(targets)(
@@ -267,13 +352,12 @@ describe("CommandChainService stabilization owner atomicity", () => {
         "storage:save",
         "data:state-changed",
         "profile:updated",
-        "profile:updated",
       ]);
 
       const emitted = fixture.getEventHistory();
       expect(
         emitted.filter(({ event }) => event === "profile:updated"),
-      ).toHaveLength(2);
+      ).toHaveLength(1);
       expect(
         emitted.filter(({ event }) =>
           [

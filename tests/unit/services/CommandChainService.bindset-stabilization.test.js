@@ -129,10 +129,7 @@ describe("CommandChainService - Bindset Stabilization", () => {
           },
         },
       });
-      expect(service.emit).toHaveBeenCalledWith("profile:updated", {
-        profileId: "test_profile",
-        profile: mockProfile,
-      });
+      expect(service.emit).not.toHaveBeenCalled();
     });
 
     it("should set primary bindset stabilization when Primary Bindset specified", async () => {

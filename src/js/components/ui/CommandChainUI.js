@@ -163,6 +163,7 @@ export default class CommandChainUI extends UIComponentBase {
     // ComponentBase adopts these broadcasts before component-specific
     // listeners run. Reconcile only from the resulting accepted caches.
     this.addEventListener("data:state-changed", () => {
+      this.updateChainActions();
       this.reconcileAcceptedState();
     });
     this.addEventListener("selection:state-changed", () => {
@@ -1524,140 +1525,42 @@ export default class CommandChainUI extends UIComponentBase {
 
   // Toggle stabilization flag for the current selection
   async toggleStabilize() {
-    const name =
-      this.cache.currentEnvironment === "alias"
+    const snapshot = this.cache.dataState;
+    const environment = this.cache.currentEnvironment;
+    if (
+      !snapshot?.ready ||
+      !environment ||
+      environment !== snapshot.currentEnvironment
+    ) {
+      return;
+    }
+    const selectedName =
+      environment === "alias"
         ? this.cache.selectedAlias
         : this.cache.selectedKey;
+    const view = projectCommandChainViewState({
+      snapshot,
+      environment,
+      selectedName,
+      activeBindset: this.cache.activeBindset,
+      bindsetsEnabled: this.cache.preferences?.bindsetsEnabled === true,
+    });
+    if (view.status !== "empty" && view.status !== "populated") return;
+    const name = view.selectedName;
     if (!name) return;
-    const profileId = this.cache.currentProfile;
-    if (!profileId) return;
-
-    const stabBtn = this.document.getElementById("stabilizeExecutionOrderBtn");
-    const currentlyActive = stabBtn?.classList.contains("active");
 
     try {
-      // Pass the current bindset when not in alias mode
-      const bindset = this.getEffectiveCommandBindset();
-
-      // If disabling stabilization, extract original commands (before-pre-pivot + pre-pivot + pivot)
-      if (currentlyActive) {
-        const commands = await this.getCommandsForCurrentSelection();
-        if (commands && commands.length > 0) {
-          const originalCommands = this.extractOriginalFromMirrored(commands);
-
-          // Save the extracted original commands
-          const environment = this.cache.currentEnvironment;
-          let payload;
-          if (this.cache.currentEnvironment === "alias") {
-            payload = {
-              modify: {
-                aliases: {
-                  [name]: { commands: originalCommands },
-                },
-              },
-            };
-          } else if (bindset && bindset !== "Primary Bindset") {
-            payload = {
-              modify: {
-                bindsets: {
-                  [bindset]: {
-                    [environment]: {
-                      keys: { [name]: originalCommands },
-                    },
-                  },
-                },
-              },
-            };
-          } else {
-            payload = {
-              modify: {
-                builds: {
-                  [environment]: {
-                    keys: { [name]: originalCommands },
-                  },
-                },
-              },
-            };
-          }
-
-          await this.request("data:update-profile", {
-            profileId,
-            ...payload,
-          });
-        }
-      }
-
-      // Toggle stabilization state
-      const result = await this.request("command:set-stabilize", {
+      // Canonical commands are always stored unmirrored. Stabilization is a
+      // metadata-only concern, so the owner is the sole writer and its accepted
+      // state broadcast is the sole repaint trigger.
+      await this.request("command:set-stabilize", {
         name,
-        stabilize: !currentlyActive,
-        bindset,
+        stabilize: !view.stabilized,
+        bindset: view.bindset,
       });
-      if (result && result.success) {
-        // Stabilization toggled successfully
-        // Don't manually toggle the button - let updateChainActions set the correct state
-        // from the actual backend data to avoid race conditions
-        await this.updateChainActions();
-        // Re-render preview after change
-        this.render();
-      } else {
-        // Stabilization toggle failed
-      }
     } catch (err) {
       console.error("[CommandChainUI] Failed to toggle stabilization", err);
     }
-  }
-
-  // Extract original commands from a mirrored sequence using the same logic as mirrorCommands
-  // but without the post-pivot mirror. This ensures consistency with the mirroring algorithm.
-  /**
-   * @param {ChainCommand[]} commands
-   * @returns {ChainCommand[]}
-   */
-  extractOriginalFromMirrored(commands) {
-    if (!Array.isArray(commands) || commands.length === 0) return commands;
-
-    // Use the same grouping logic as mirrorCommands, but work with command objects
-    /** @type {ChainCommand[]} */
-    const beforePrePivot = []; // Non-TrayExec + excluded TrayExec (before)
-    /** @type {ChainCommand[]} */
-    const palindromic = []; // TrayExec for mirroring (pre-pivot candidates)
-    /** @type {ChainCommand[]} */
-    const pivotGroup = []; // Excluded TrayExec (in pivot)
-
-    commands.forEach((cmd) => {
-      const cmdStr = typeof cmd === "string" ? cmd : cmd.command;
-      const isTrayExec = cmdStr.match(/^(?:\+)?TrayExecByTray/);
-      const isExcluded =
-        typeof cmd === "object" && cmd.palindromicGeneration === false;
-
-      if (!isTrayExec) {
-        beforePrePivot.push(cmd); // Non-TrayExec first
-      } else if (isExcluded) {
-        if (typeof cmd === "object" && cmd.placement === "in-pivot-group") {
-          pivotGroup.push(cmd);
-        } else {
-          beforePrePivot.push(cmd); // before-pre-pivot
-        }
-      } else {
-        palindromic.push(cmd); // Normal TrayExec palindrome
-      }
-    });
-
-    // Determine pivot/pivot group + pre-pivot (same logic as mirrorCommands)
-    /** @type {ChainCommand[]} */
-    let pivot = [];
-    let prePivot = palindromic;
-
-    if (pivotGroup.length > 0) {
-      pivot = pivotGroup; // Use specified pivot group
-    } else if (palindromic.length > 0) {
-      pivot = [palindromic[palindromic.length - 1]]; // Last item becomes pivot
-      prePivot = palindromic.slice(0, -1); // All others are pre-pivot
-    }
-
-    // Return original sequence: before-pre-pivot + pre-pivot + pivot (no post-pivot)
-    return [...beforePrePivot, ...prePivot, ...pivot];
   }
 
   // Update palindromic settings for a specific command using lazy rich object conversion

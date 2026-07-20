@@ -685,13 +685,14 @@ export default class CommandChainService extends ComponentBase {
       const snapshot = this.cache.dataState;
       const profile = getSnapshotProfile(snapshot);
       const profileId = snapshot?.ready ? snapshot.currentProfile : null;
-      if (!profile || !profileId) return { success: false };
+      const environment = snapshot?.currentEnvironment;
+      if (!profile || !profileId || !environment) return { success: false };
 
       const plan = planCommandStabilization({
         profile,
         profileId,
         name,
-        environment: this.cache.currentEnvironment,
+        environment,
         stabilize,
         bindset,
       });
@@ -706,14 +707,6 @@ export default class CommandChainService extends ComponentBase {
         return { success: false };
       }
       if (result?.success) {
-        // CRITICAL: Update local cache immediately to prevent race conditions
-        // The profile:updated event will also trigger cache update, but that's async
-        if (result.profile) {
-          this.updateCacheFromProfile({ ...result.profile, id: profileId });
-        }
-
-        // Broadcast profile update for listeners that rely on metadata
-        this.emit("profile:updated", { profileId, profile: result.profile });
         return { success: true };
       }
       return { success: false };

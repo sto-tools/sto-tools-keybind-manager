@@ -177,12 +177,12 @@ describe("CommandChainUI accepted data state", () => {
     expect(ui.request).not.toHaveBeenCalled();
   });
 
-  it("uses the primary command and metadata location for disabled-bindset actions", async () => {
+  it("toggles accepted primary metadata without rewriting disabled-bindset commands", async () => {
     fixture = createEventBusFixture();
     const stabilizeButton = {
       disabled: false,
       classList: {
-        contains: vi.fn(() => true),
+        contains: vi.fn(() => false),
         toggle: vi.fn(),
         remove: vi.fn(),
       },
@@ -203,7 +203,14 @@ describe("CommandChainUI accepted data state", () => {
     const profile = {
       name: "Captain",
       currentEnvironment: "space",
-      builds: { space: { keys: { F1: ["primary"] } }, ground: { keys: {} } },
+      builds: {
+        space: {
+          keys: {
+            F1: ["TrayExecByTray 0 0", "FireAll", "TrayExecByTray 1 0"],
+          },
+        },
+        ground: { keys: {} },
+      },
       bindsets: {
         Tactical: {
           space: { keys: { F1: ["named"] } },
@@ -232,6 +239,7 @@ describe("CommandChainUI accepted data state", () => {
     ui.cache.preferences.bindsetsEnabled = false;
     ui.request = vi.fn().mockResolvedValue({ success: true });
     ui.render = vi.fn();
+    ui.updateChainActions = vi.fn(ui.updateChainActions.bind(ui));
 
     await ui.updateChainActions();
     expect(stabilizeButton.classList.toggle).toHaveBeenLastCalledWith(
@@ -243,12 +251,65 @@ describe("CommandChainUI accepted data state", () => {
 
     await ui.toggleStabilize();
 
-    expect(ui.request).toHaveBeenCalledWith("data:update-profile", {
-      profileId: "captain",
-      modify: {
-        builds: { space: { keys: { F1: ["primary"] } } },
-      },
+    expect(ui.request).toHaveBeenCalledOnce();
+    expect(ui.request).toHaveBeenCalledWith("command:set-stabilize", {
+      name: "F1",
+      stabilize: false,
+      bindset: null,
     });
+    expect(stabilizeButton.classList.contains).not.toHaveBeenCalled();
+    expect(ui.updateChainActions).toHaveBeenCalledOnce();
+    expect(ui.render).not.toHaveBeenCalled();
+    await expect(ui.getCommandsForCurrentSelection()).resolves.toEqual([
+      "TrayExecByTray 0 0",
+      "FireAll",
+      "TrayExecByTray 1 0",
+    ]);
+  });
+
+  it("waits for selection and owner environments to converge before toggling", async () => {
+    fixture = createEventBusFixture();
+    ui = new CommandChainUI({
+      eventBus: fixture.eventBus,
+      document: documentStub(),
+      i18n: { t: (key) => key },
+      ui: { showToast: vi.fn() },
+    });
+    const profile = {
+      name: "Captain",
+      currentEnvironment: "space",
+      builds: {
+        space: { keys: { F1: ["SpaceCommand"] } },
+        ground: { keys: { F1: ["GroundCommand"] } },
+      },
+      aliases: {},
+      keybindMetadata: {
+        space: { F1: { stabilizeExecutionOrder: true } },
+        ground: { F1: { stabilizeExecutionOrder: false } },
+      },
+    };
+    ui._cacheDataState(
+      createDataCoordinatorState({
+        authorityEpoch: 43,
+        revision: 1,
+        currentProfile: "captain",
+        currentEnvironment: "space",
+        currentProfileData: profile,
+        profiles: { captain: profile },
+      }),
+    );
+    ui.cache.selectedKey = "F1";
+    ui.cache.activeBindset = "Primary Bindset";
+    ui.cache.preferences.bindsetsEnabled = false;
+    ui.cache.currentEnvironment = "ground";
+    ui.request = vi.fn().mockResolvedValue({ success: true });
+
+    await ui.toggleStabilize();
+    expect(ui.request).not.toHaveBeenCalled();
+
+    ui.cache.currentEnvironment = "space";
+    await ui.toggleStabilize();
+    expect(ui.request).toHaveBeenCalledOnce();
     expect(ui.request).toHaveBeenCalledWith("command:set-stabilize", {
       name: "F1",
       stabilize: false,

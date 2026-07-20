@@ -45,7 +45,7 @@ describe("CommandChainService stabilization facade", () => {
     service.init();
     profile = createProfile();
     fixture.eventBus.emit("data:state-changed", {
-      reason: "test-profile",
+      reason: "initial-load",
       state: createDataCoordinatorState({
         authorityEpoch: 20,
         revision: 1,
@@ -63,7 +63,7 @@ describe("CommandChainService stabilization facade", () => {
     vi.restoreAllMocks();
   });
 
-  it("persists before adopting the returned profile and publishing compatibility", async () => {
+  it("delegates persistence without adopting reply data or publishing compatibility", async () => {
     const order = [];
     const persisted = structuredClone(profile);
     persisted.keybindMetadata.space.F1.stabilizeExecutionOrder = false;
@@ -95,18 +95,12 @@ describe("CommandChainService stabilization facade", () => {
         },
       },
     });
-    expect(service.updateCacheFromProfile).toHaveBeenCalledWith({
-      ...persisted,
-      id: "captain",
-    });
-    expect(service.emit).toHaveBeenCalledWith("profile:updated", {
-      profileId: "captain",
-      profile: persisted,
-    });
-    expect(order).toEqual(["request", "cache", "emit:profile:updated"]);
+    expect(service.updateCacheFromProfile).not.toHaveBeenCalled();
+    expect(service.emit).not.toHaveBeenCalled();
+    expect(order).toEqual(["request"]);
   });
 
-  it("still persists and publishes a valid historical no-op", async () => {
+  it("still persists a valid historical no-op without publishing reply data", async () => {
     service.request = vi.fn().mockResolvedValue({
       success: true,
       profile,
@@ -131,11 +125,49 @@ describe("CommandChainService stabilization facade", () => {
         },
       },
     });
-    expect(service.emit).toHaveBeenCalledOnce();
-    expect(service.emit).toHaveBeenCalledWith("profile:updated", {
-      profileId: "captain",
-      profile,
+    expect(service.emit).not.toHaveBeenCalled();
+  });
+
+  it("keeps successor authority compatibility intact when an older write resolves", async () => {
+    let resolveWrite;
+    service.request = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+    service.emit = vi.fn();
+
+    const pending = service.setStabilize("F1", false);
+    const successor = structuredClone(profile);
+    successor.description = "successor-authority";
+    successor.builds.space.keys.F1 = ["SuccessorCommand"];
+    fixture.eventBus.emit("data:state-changed", {
+      reason: "initial-load",
+      state: createDataCoordinatorState({
+        authorityEpoch: 21,
+        revision: 0,
+        currentProfile: "captain",
+        currentEnvironment: "space",
+        currentProfileData: successor,
+        profiles: { captain: successor },
+      }),
     });
+
+    expect(service.cache.dataState?.authorityEpoch).toBe(21);
+    expect(service.cache.profile?.description).toBe("successor-authority");
+    expect(service.cache.keys.F1).toEqual(["SuccessorCommand"]);
+
+    const staleResultProfile = structuredClone(profile);
+    staleResultProfile.keybindMetadata.space.F1.stabilizeExecutionOrder = false;
+    if (!resolveWrite) throw new Error("Expected deferred persistence request");
+    resolveWrite({ success: true, profile: staleResultProfile });
+
+    await expect(pending).resolves.toEqual({ success: true });
+    expect(service.cache.dataState?.authorityEpoch).toBe(21);
+    expect(service.cache.profile?.description).toBe("successor-authority");
+    expect(service.cache.keys.F1).toEqual(["SuccessorCommand"]);
+    expect(service.emit).not.toHaveBeenCalled();
   });
 
   it.each([
