@@ -3,6 +3,7 @@ import {
   getEffectiveCommandBindset,
   getSnapshotCommands,
 } from "./dataState.js";
+import { formatCommandValidationPreview } from "./commandDisplayProjection.js";
 import RULES from "./validators/index.js";
 
 /**
@@ -74,14 +75,10 @@ export default class CommandChainValidatorService extends ComponentBase {
       }
       const safeCommands = Array.isArray(commands) ? commands : [];
 
-      // Generate the exact preview line used in the command-chain editor
-      const previewUnstabilized = await this.request(
-        "command:generate-command-preview",
-        {
-          key,
-          commands: safeCommands,
-          stabilize: false,
-        },
+      // Preserve the legacy validation preview. Its stabilized palindrome is
+      // intentionally distinct from the TrayExec-aware editor projection.
+      const previewUnstabilized = await Promise.resolve().then(() =>
+        formatCommandValidationPreview(key, safeCommands, false),
       );
 
       // Determine if stabilization (mirroring) is enabled for this key
@@ -94,13 +91,8 @@ export default class CommandChainValidatorService extends ComponentBase {
       /** @type {string} */
       let generatedCommand;
       if (stabilized && safeCommands.length > 1) {
-        const previewStabilized = await this.request(
-          "command:generate-command-preview",
-          {
-            key,
-            commands: safeCommands,
-            stabilize: true,
-          },
+        const previewStabilized = await Promise.resolve().then(() =>
+          formatCommandValidationPreview(key, safeCommands, true),
         );
 
         length = previewStabilized.length;

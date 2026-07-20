@@ -13,6 +13,7 @@ import {
 import { findCommandByName } from "../../data/commandCatalog.js";
 import { planCommandMutation } from "./commandMutationPlanner.js";
 import { planMirroredCommandSequence } from "./commandTransformationPlanner.js";
+import { normalizeParsedCommandForDisplay } from "./commandDisplayProjection.js";
 
 /**
  * CommandService – the authoritative service for creating, deleting and
@@ -67,11 +68,6 @@ export default class CommandService extends ComponentBase {
             clearDestination,
             currentEnvironment,
           ),
-      ),
-      this.respond(
-        "command:generate-command-preview",
-        ({ key, commands, stabilize = false }) =>
-          this.generateCommandPreview(key, commands, stabilize),
       ),
       this.respond(
         "command:generate-mirrored-commands",
@@ -396,56 +392,9 @@ export default class CommandService extends ComponentBase {
           options: { generateDisplayText: false },
         });
 
-        if (parseResult.commands && parseResult.commands[0]) {
-          const parsedCmd = parseResult.commands[0];
-          // Check if it's a tray execution command that needs normalization
-          if (
-            parsedCmd.signature &&
-            (parsedCmd.signature.includes("TrayExecByTray") ||
-              parsedCmd.signature.includes("TrayExecByTrayWithBackup")) &&
-            parsedCmd.parameters
-          ) {
-            const params = parsedCmd.parameters;
-            const active = params.active !== undefined ? params.active : 1;
-            if (parsedCmd.signature.includes("TrayExecByTrayWithBackup")) {
-              // Handle TrayExecByTrayWithBackup normalization
-              const baseCommand =
-                typeof params.baseCommand === "string"
-                  ? params.baseCommand
-                  : "TrayExecByTrayWithBackup";
-              const commandType = baseCommand.replace(/^\+/, "");
-              if (active === 1) {
-                normalizedCommands.push(
-                  `+${commandType} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`,
-                );
-              } else {
-                normalizedCommands.push(
-                  `${commandType} ${active} ${params.tray} ${params.slot} ${params.backup_tray} ${params.backup_slot}`,
-                );
-              }
-            } else {
-              // Regular TrayExecByTray normalization
-              const baseCommand =
-                typeof params.baseCommand === "string"
-                  ? params.baseCommand
-                  : "TrayExecByTray";
-              const commandType = baseCommand.replace(/^\+/, "");
-              if (active === 1) {
-                normalizedCommands.push(
-                  `+${commandType} ${params.tray} ${params.slot}`,
-                );
-              } else {
-                normalizedCommands.push(
-                  `${commandType} ${active} ${params.tray} ${params.slot}`,
-                );
-              }
-            }
-          } else {
-            normalizedCommands.push(cmdStr);
-          }
-        } else {
-          normalizedCommands.push(cmdStr);
-        }
+        normalizedCommands.push(
+          normalizeParsedCommandForDisplay(cmdStr, parseResult),
+        );
       } catch (error) {
         console.warn(
           "[CommandLibraryService] Failed to normalize command for display:",
@@ -468,30 +417,6 @@ export default class CommandService extends ComponentBase {
       finalCommands.map((cmd) => ({ command: cmd })),
     );
     return normalizedStrings.join(" $$ ");
-  }
-
-  // Command preview generation
-  /**
-   * @param {string} key
-   * @param {import('./serviceTypes.js').StoredCommand[]} commands
-   * @param {boolean} stabilize
-   */
-  generateCommandPreview(key, commands, stabilize = false) {
-    if (!Array.isArray(commands) || commands.length === 0) {
-      return `${key} ""`;
-    }
-
-    let commandString;
-    if (stabilize && commands.length > 1) {
-      const strs = commands.map((c) => (typeof c === "string" ? c : c.command));
-      commandString = [...strs, ...strs.slice(0, -1).reverse()].join(" $$ ");
-    } else {
-      commandString = commands
-        .map((c) => (typeof c === "string" ? c : c.command || String(c)))
-        .join(" $$ ");
-    }
-
-    return `${key} "${commandString}"`;
   }
 
   // Check if a command is compatible with the target environment

@@ -27,10 +27,6 @@ export interface CommandRpcProtocol {
     boolean
   >;
   "command:filter-library": NoPayloadRpc<boolean>;
-  "command:generate-command-preview": RequiredRpc<
-    { key: string; commands: StoredCommand[]; stabilize?: boolean },
-    string
-  >;
   "command:generate-mirrored-commands": RequiredRpc<
     { commands?: StoredCommand[] },
     string

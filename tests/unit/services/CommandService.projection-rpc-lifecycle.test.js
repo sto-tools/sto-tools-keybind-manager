@@ -7,7 +7,6 @@ const responderTopics = [
   "command:delete",
   "command:move",
   "command:import-from-source",
-  "command:generate-command-preview",
   "command:generate-mirrored-commands",
 ];
 const retiredTopics = [
@@ -16,6 +15,7 @@ const retiredTopics = [
   "command:get-empty-state-info",
   "command:validate",
   "command:check-environment-compatibility",
+  "command:generate-command-preview",
   "command:add",
   "command:edit",
 ];

@@ -152,6 +152,7 @@ describe("Application browser smoke", () => {
       "command:get-import-sources",
       "command:get-combined-aliases",
       "command:find-definition",
+      "command:generate-command-preview",
       "command:get-categories",
       "command:get-warning",
       "command:is-stabilized",

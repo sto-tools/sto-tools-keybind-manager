@@ -357,6 +357,8 @@ type RemovedCommandChainClearRequest = RpcRequest<"command-chain:clear">;
 type RemovedAliasNameRpc = RpcRequest<"command-chain:generate-alias-name">;
 // @ts-expect-error Bind-to-alias previews are formatted by a direct pure projection.
 type GoneAliasPreview = RpcRequest<"command-chain:generate-alias-preview">;
+// @ts-expect-error Validation previews are formatted by a direct pure projection.
+type RemovedCommandPreviewRpc = RpcRequest<"command:generate-command-preview">;
 // @ts-expect-error Command addition is driven by the command event.
 type RemovedCommandAddRequest = RpcRequest<"command:add">;
 // @ts-expect-error Command editing is driven by the command event.
@@ -656,6 +658,11 @@ async function exerciseCoreApi() {
     aliasName: "sto_kb_space_f1",
     commands: ["FireAll"],
   });
+  // @ts-expect-error Validation previews are formatted directly without request/response.
+  request(eventBus, "command:generate-command-preview", {
+    key: "F1",
+    commands: ["FireAll"],
+  });
   // @ts-expect-error Command addition uses the command:add event.
   request(eventBus, "command:add", { key: "F1", command: "FireAll" });
   // @ts-expect-error Command editing uses the command:edit event.
@@ -714,6 +721,8 @@ async function exerciseCoreApi() {
   respond(eventBus, "command-chain:generate-alias-name", () => null);
   // @ts-expect-error Direct alias-preview projection cannot regain a responder.
   respond(eventBus, "command-chain:generate-alias-preview", () => "");
+  // @ts-expect-error Direct validation-preview projection cannot regain a responder.
+  respond(eventBus, "command:generate-command-preview", () => "");
   // @ts-expect-error Command addition cannot regain an RPC responder.
   respond(eventBus, "command:add", () => true);
   // @ts-expect-error Command editing cannot regain an RPC responder.

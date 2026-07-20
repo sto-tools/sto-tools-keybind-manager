@@ -140,6 +140,11 @@ async function exerciseComponentRpc() {
     aliasName: "sto_kb_space_f1",
     commands: ["FireAll"],
   });
+  // @ts-expect-error Validation previews use the direct pure formatter.
+  component.request("command:generate-command-preview", {
+    key: "F1",
+    commands: ["FireAll"],
+  });
   // @ts-expect-error Command addition uses the command:add event.
   component.request("command:add", { key: "F1", command: "FireAll" });
   // @ts-expect-error Command editing uses the command:edit event.
@@ -224,6 +229,8 @@ async function exerciseComponentRpc() {
   component.respond("command-chain:generate-alias-name", () => null);
   // @ts-expect-error Direct alias-preview projection cannot regain a responder.
   component.respond("command-chain:generate-alias-preview", () => "");
+  // @ts-expect-error Direct validation-preview projection cannot regain a responder.
+  component.respond("command:generate-command-preview", () => "");
   // @ts-expect-error Command addition cannot regain an RPC responder.
   component.respond("command:add", () => true);
   // @ts-expect-error Command editing cannot regain an RPC responder.
