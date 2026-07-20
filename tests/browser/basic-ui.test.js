@@ -23,7 +23,8 @@ describe("Application browser smoke", () => {
     expect(translatedHeading?.textContent.trim()).toBe(document.title.trim());
     expect(version?.textContent.trim()).not.toBe("");
     expect(settingsButton?.title.trim()).not.toBe("");
-    expect(window.stoKeybinds?.isInitialized?.()).toBe(true);
+    expect(window.eventBus?.hasListeners("rpc:key:add")).toBe(true);
+    expect("stoKeybinds" in window).toBe(false);
     expect(refineDilithium?.closest(".category")?.dataset.category).toBe(
       "system",
     );

@@ -11,7 +11,6 @@ import {
   DataCoordinator,
   ToastService,
 } from "./components/services/index.js";
-import { KeyService } from "./components/services/index.js";
 import DataService from "./components/services/DataService.js";
 // ExportService is now created and managed by app.js
 import { UIUtilityService } from "./components/services/index.js";
@@ -137,9 +136,7 @@ const dataService = new DataService({
     initializeUI();
   }
 
-  // Create dependencies first
-  const stoKeybinds = new KeyService();
-  // ExportService is now created and managed by app.js - remove duplicate instance
+  // Create dependencies first. ExportService and KeyService are app-owned.
   // Create UI utility service
   const uiUtilityService = new UIUtilityService(eventBus);
   uiUtilityService.init();
@@ -210,7 +207,6 @@ const dataService = new DataService({
   Object.assign(window, {
     storageService, // Required by some legacy components and tests
     dataCoordinator, // Required by other services
-    stoKeybinds, // Required by app initialization callback
     // stoExport removed - now managed by app.js
     stoUI, // Required by many components for toast notifications
     stoSync, // Required by sync UI components
@@ -224,17 +220,6 @@ const dataService = new DataService({
     storageService,
     ui: stoUI,
     syncService: stoSync,
-  });
-
-  // Subscribe before initialization so the synchronous readiness broadcast
-  // cannot outrun this callback.
-  eventBus.once("sto-app-ready", () => {
-    // Profile initialization is now handled by the app instance
-    stoKeybinds.init();
-
-    if (!stoFileExplorer.isInitialized()) {
-      stoFileExplorer.init();
-    }
   });
 
   // App instance is not exposed globally; components communicate via eventBus.

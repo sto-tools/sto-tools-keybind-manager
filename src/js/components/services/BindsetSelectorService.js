@@ -1,6 +1,5 @@
 import ComponentBase from "../ComponentBase.js";
 import { selectedKeyFromPayload } from "../../core/eventPayloads.js";
-import KeyService from "./KeyService.js";
 
 export default class BindsetSelectorService extends ComponentBase {
   /** @param {{ eventBus?: import('./serviceTypes.js').EventBus }} [options] */
@@ -11,8 +10,6 @@ export default class BindsetSelectorService extends ComponentBase {
     /** @type {Map<string, boolean>} */
     this.keyBindsetMembership = new Map(); // bindset -> has key boolean
 
-    // Initialize KeyService for key normalization
-    this.keyService = new KeyService({ eventBus });
     this._lateJoinWarningTimer = null;
     /** @type {Array<() => void>} */
     this._responseDetachFunctions = [];

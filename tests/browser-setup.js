@@ -78,7 +78,7 @@ function getApplicationReadiness() {
     eventBus: Boolean(window.eventBus),
     storageService: Boolean(window.storageService),
     applicationServices: Boolean(window.keyBrowserService),
-    legacyKeyService: Boolean(window.stoKeybinds?.isInitialized?.()),
+    keyService: Boolean(window.eventBus?.hasListeners("rpc:key:add")),
     title: Boolean(document.title.trim()),
     version: Boolean(document.getElementById("appVersion")?.textContent.trim()),
     profile: hasUsableProfile,

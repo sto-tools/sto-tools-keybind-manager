@@ -112,15 +112,6 @@ export const applicationGlobalAllowlist = deepFreeze({
       "Browser boundary probes use typed event and RPC contracts exclusively.",
     writers: [writer("src/js/main.js", "dataCoordinator")],
   },
-  stoKeybinds: {
-    classification: "bootstrap compatibility",
-    purpose: "Legacy key-service readiness and diagnostic bridge.",
-    consumers: ["tests/browser-setup.js", "tests/browser/basic-ui.test.js"],
-    compatibilityOwner: "main.js",
-    removalGate:
-      "Key-service readiness is published through the lifecycle protocol.",
-    writers: [writer("src/js/main.js", "stoKeybinds")],
-  },
   stoUI: {
     classification: "bootstrap compatibility",
     purpose:

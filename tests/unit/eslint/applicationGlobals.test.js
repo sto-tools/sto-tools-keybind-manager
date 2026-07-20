@@ -13,7 +13,7 @@ import {
 } from "./applicationGlobals.harness.js";
 
 describe("application-global compatibility metadata", () => {
-  it("freezes the exact 17-name post-cleanup allowlist", () => {
+  it("freezes the exact 16-name post-cleanup allowlist", () => {
     const expectedNames = [
       "COMMANDS",
       "STO_DATA",
@@ -28,7 +28,6 @@ describe("application-global compatibility metadata", () => {
       "keyBrowserService",
       "keyBrowserUI",
       "localizeCommandData",
-      "stoKeybinds",
       "stoSync",
       "stoUI",
       "storageService",
@@ -73,10 +72,6 @@ describe("application-global compatibility metadata", () => {
     expect(applicationGlobalAllowlist.stoSync.consumers).toContain(
       "tests/browser/storage-boundary.test.js",
     );
-    expect(applicationGlobalAllowlist.stoKeybinds.consumers).toEqual([
-      "tests/browser-setup.js",
-      "tests/browser/basic-ui.test.js",
-    ]);
     expect(applicationGlobalAllowlist.stoUI.consumers).toEqual([
       "src/js/components/services/StorageService.js",
       "src/js/components/services/dataCoordinatorDefaultUi.js",
@@ -104,6 +99,7 @@ describe("application-global compatibility metadata", () => {
     "InvalidEnvironmentError",
     "InvalidEffectError",
     "inputDialog",
+    "stoKeybinds",
   ])("does not retain the retired %s exposure", (name) => {
     expect(applicationGlobalAllowlist).not.toHaveProperty(name);
   });
@@ -131,7 +127,7 @@ describe("application-global write guard", () => {
         window.i18next = {};
         window.applyTranslations = () => {};
         Object.assign(window, {
-          storageService: {}, dataCoordinator: {}, stoKeybinds: {}, stoUI: {},
+          storageService: {}, dataCoordinator: {}, stoUI: {},
           stoSync: {}, eventBus: {}
         });
       `,
@@ -190,6 +186,7 @@ describe("application-global write guard", () => {
           window.newService = {};
           window.dataService = {};
           window.inputDialog = {};
+          window.stoKeybinds = {};
           window.STO_DATA = {};
           window.STO_DATA.commands = {};
           globalThis.window.stoAliases = {};
@@ -197,6 +194,7 @@ describe("application-global write guard", () => {
         "src/js/main.js",
       ),
     ).toEqual([
+      "unallowlisted",
       "unallowlisted",
       "unallowlisted",
       "unallowlisted",

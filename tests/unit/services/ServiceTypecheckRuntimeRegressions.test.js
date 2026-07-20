@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import BindsetSelectorService from "../../../src/js/components/services/BindsetSelectorService.js";
 import CommandService from "../../../src/js/components/services/CommandService.js";
 import VFXManagerService from "../../../src/js/components/services/VFXManagerService.js";
 import { createServiceFixture } from "../../fixtures/index.js";
@@ -25,12 +24,6 @@ describe("service typecheck runtime regressions", () => {
     });
 
     expect(service.ui).toBe(ui);
-  });
-
-  it("passes BindsetSelectorService event bus through the KeyService options object", () => {
-    const service = new BindsetSelectorService({ eventBus: fixture.eventBus });
-
-    expect(service.keyService.eventBus).toBe(fixture.eventBus);
   });
 
   it("does not shadow ComponentBase isInitialized in VFXManagerService", () => {
