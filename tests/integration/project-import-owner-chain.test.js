@@ -12,6 +12,10 @@ import {
   createLocalStorageFixture,
 } from "../fixtures/core/index.js";
 import { createRealEventBusFixture } from "../fixtures/core/eventBus.js";
+import {
+  assertMundaneSettingsFinalRootFailure,
+  rejectFinalProjectRootWrite,
+} from "../fixtures/services/projectRestore.js";
 
 const destinationRoot = {
   version: "1.0.0",
@@ -301,16 +305,7 @@ describe("project import authoritative owner chain", () => {
     const stateChanged = vi.fn();
     eventBusFixture.eventBus.on("data:state-changed", stateChanged);
 
-    const setItem = localStorage.setItem.bind(localStorage);
-    localStorage.setItem = (key, value) => {
-      if (key === "sto_keybind_manager") {
-        const candidate = JSON.parse(value);
-        if (candidate.currentProfile === "imported") {
-          throw new DOMException("quota exceeded", "QuotaExceededError");
-        }
-      }
-      setItem(key, value);
-    };
+    rejectFinalProjectRootWrite(storage);
 
     const result = await projectManager.restoreFromProjectContent(
       JSON.stringify({
@@ -345,6 +340,16 @@ describe("project import authoritative owner chain", () => {
     expect(coordinator.getCurrentState()).toBe(beforeState);
     expect(stateChanged).not.toHaveBeenCalled();
     expect(projectManager.ui.showToast).not.toHaveBeenCalled();
+  });
+
+  it("keeps acknowledged mundane settings when quota blocks the final root write", async () => {
+    await assertMundaneSettingsFinalRootFailure({
+      storage,
+      coordinator,
+      eventBus: eventBusFixture.eventBus,
+      projectManager,
+      importedProject,
+    });
   });
 
   it("reports durable import evidence when owner reload fails and converges on retry", async () => {

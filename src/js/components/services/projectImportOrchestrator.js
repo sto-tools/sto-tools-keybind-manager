@@ -133,12 +133,17 @@ export async function importProjectToStorage(storage, content, options = {}) {
   if (importedData.settings && options.importSettings !== false) {
     try {
       const currentSettings = storage.getSettings() || {};
+      const resolvedVersion =
+        currentSettings.version || importedData.settings.version;
+      const resolvedFirstRun = currentSettings.firstRun;
       const mergedSettings = {
         ...currentSettings,
         ...importedData.settings,
-        version: currentSettings.version || importedData.settings.version,
-        firstRun: currentSettings.firstRun,
+        version: resolvedVersion,
+        firstRun: resolvedFirstRun,
       };
+      if (mergedSettings.version === undefined) delete mergedSettings.version;
+      if (mergedSettings.firstRun === undefined) delete mergedSettings.firstRun;
       if ((await storage.saveSettings(mergedSettings)) === false) {
         return storageFailure({ operation: "settings" });
       }

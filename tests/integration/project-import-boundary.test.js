@@ -251,4 +251,83 @@ describe("project import boundary", () => {
     expect(localStorage.getItem("sto_keybind_settings")).toBe(beforeSettings);
     expect(storage.getAllData().currentProfile).toBe("existing");
   });
+
+  it.each([
+    ["are absent", null, undefined],
+    [
+      "contain ordinary preferences only",
+      { theme: "dark", language: "en" },
+      undefined,
+    ],
+    [
+      "contain no compatibility fields and the project supplies a version",
+      { theme: "dark", language: "en" },
+      "project-version",
+    ],
+  ])(
+    "imports a settings patch when standalone settings %s",
+    async (_condition, standaloneSettings, projectVersion) => {
+      if (standaloneSettings === null) {
+        localStorage.removeItem(storage.settingsKey);
+      } else {
+        localStorage.setItem(
+          storage.settingsKey,
+          JSON.stringify(standaloneSettings),
+        );
+      }
+      const beforeRoot = localStorage.getItem(storage.storageKey);
+      const saveSettings = vi.spyOn(storage, "saveSettings");
+
+      const result = await service.importProjectFile(
+        JSON.stringify({
+          type: "project",
+          data: {
+            settings: {
+              theme: "light",
+              firstRun: true,
+              ...(projectVersion === undefined
+                ? {}
+                : { version: projectVersion }),
+              "plugin:layout": { density: "compact" },
+            },
+          },
+        }),
+      );
+
+      expect(result).toEqual({
+        success: true,
+        message: "project_imported_successfully",
+        imported: { profiles: 0, settings: true },
+        currentProfile: null,
+      });
+      expect(saveSettings).toHaveBeenCalledOnce();
+      const [settingsPayload] = saveSettings.mock.calls[0];
+      expect(settingsPayload).toMatchObject({
+        theme: "light",
+        language: "en",
+        "plugin:layout": { density: "compact" },
+      });
+      if (projectVersion === undefined) {
+        expect(Object.hasOwn(settingsPayload, "version")).toBe(false);
+      } else {
+        expect(settingsPayload.version).toBe(projectVersion);
+      }
+      expect(Object.hasOwn(settingsPayload, "firstRun")).toBe(false);
+      const persistedSettings = JSON.parse(
+        localStorage.getItem(storage.settingsKey),
+      );
+      expect(persistedSettings).toMatchObject({
+        theme: "light",
+        language: "en",
+        "plugin:layout": { density: "compact" },
+      });
+      if (projectVersion === undefined) {
+        expect(persistedSettings).not.toHaveProperty("version");
+      } else {
+        expect(persistedSettings.version).toBe(projectVersion);
+      }
+      expect(persistedSettings).not.toHaveProperty("firstRun");
+      expect(localStorage.getItem(storage.storageKey)).toBe(beforeRoot);
+    },
+  );
 });
